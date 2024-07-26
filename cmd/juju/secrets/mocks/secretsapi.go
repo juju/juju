@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	secrets "github.com/juju/juju/api/client/secrets"
@@ -79,18 +80,18 @@ func (c *MockListSecretsAPICloseCall) DoAndReturn(f func() error) *MockListSecre
 }
 
 // ListSecrets mocks base method.
-func (m *MockListSecretsAPI) ListSecrets(arg0 bool, arg1 secrets0.Filter) ([]secrets.SecretDetails, error) {
+func (m *MockListSecretsAPI) ListSecrets(arg0 context.Context, arg1 bool, arg2 secrets0.Filter) ([]secrets.SecretDetails, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListSecrets", arg0, arg1)
+	ret := m.ctrl.Call(m, "ListSecrets", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]secrets.SecretDetails)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListSecrets indicates an expected call of ListSecrets.
-func (mr *MockListSecretsAPIMockRecorder) ListSecrets(arg0, arg1 any) *MockListSecretsAPIListSecretsCall {
+func (mr *MockListSecretsAPIMockRecorder) ListSecrets(arg0, arg1, arg2 any) *MockListSecretsAPIListSecretsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecrets", reflect.TypeOf((*MockListSecretsAPI)(nil).ListSecrets), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecrets", reflect.TypeOf((*MockListSecretsAPI)(nil).ListSecrets), arg0, arg1, arg2)
 	return &MockListSecretsAPIListSecretsCall{Call: call}
 }
 
@@ -106,13 +107,13 @@ func (c *MockListSecretsAPIListSecretsCall) Return(arg0 []secrets.SecretDetails,
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockListSecretsAPIListSecretsCall) Do(f func(bool, secrets0.Filter) ([]secrets.SecretDetails, error)) *MockListSecretsAPIListSecretsCall {
+func (c *MockListSecretsAPIListSecretsCall) Do(f func(context.Context, bool, secrets0.Filter) ([]secrets.SecretDetails, error)) *MockListSecretsAPIListSecretsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockListSecretsAPIListSecretsCall) DoAndReturn(f func(bool, secrets0.Filter) ([]secrets.SecretDetails, error)) *MockListSecretsAPIListSecretsCall {
+func (c *MockListSecretsAPIListSecretsCall) DoAndReturn(f func(context.Context, bool, secrets0.Filter) ([]secrets.SecretDetails, error)) *MockListSecretsAPIListSecretsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -179,18 +180,18 @@ func (c *MockAddSecretsAPICloseCall) DoAndReturn(f func() error) *MockAddSecrets
 }
 
 // CreateSecret mocks base method.
-func (m *MockAddSecretsAPI) CreateSecret(arg0, arg1 string, arg2 map[string]string) (string, error) {
+func (m *MockAddSecretsAPI) CreateSecret(arg0 context.Context, arg1, arg2 string, arg3 map[string]string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateSecret", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CreateSecret", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateSecret indicates an expected call of CreateSecret.
-func (mr *MockAddSecretsAPIMockRecorder) CreateSecret(arg0, arg1, arg2 any) *MockAddSecretsAPICreateSecretCall {
+func (mr *MockAddSecretsAPIMockRecorder) CreateSecret(arg0, arg1, arg2, arg3 any) *MockAddSecretsAPICreateSecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecret", reflect.TypeOf((*MockAddSecretsAPI)(nil).CreateSecret), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecret", reflect.TypeOf((*MockAddSecretsAPI)(nil).CreateSecret), arg0, arg1, arg2, arg3)
 	return &MockAddSecretsAPICreateSecretCall{Call: call}
 }
 
@@ -206,13 +207,13 @@ func (c *MockAddSecretsAPICreateSecretCall) Return(arg0 string, arg1 error) *Moc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAddSecretsAPICreateSecretCall) Do(f func(string, string, map[string]string) (string, error)) *MockAddSecretsAPICreateSecretCall {
+func (c *MockAddSecretsAPICreateSecretCall) Do(f func(context.Context, string, string, map[string]string) (string, error)) *MockAddSecretsAPICreateSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAddSecretsAPICreateSecretCall) DoAndReturn(f func(string, string, map[string]string) (string, error)) *MockAddSecretsAPICreateSecretCall {
+func (c *MockAddSecretsAPICreateSecretCall) DoAndReturn(f func(context.Context, string, string, map[string]string) (string, error)) *MockAddSecretsAPICreateSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -279,18 +280,18 @@ func (c *MockGrantRevokeSecretsAPICloseCall) DoAndReturn(f func() error) *MockGr
 }
 
 // GrantSecret mocks base method.
-func (m *MockGrantRevokeSecretsAPI) GrantSecret(arg0 *secrets0.URI, arg1 string, arg2 []string) ([]error, error) {
+func (m *MockGrantRevokeSecretsAPI) GrantSecret(arg0 context.Context, arg1 *secrets0.URI, arg2 string, arg3 []string) ([]error, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GrantSecret", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GrantSecret", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].([]error)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GrantSecret indicates an expected call of GrantSecret.
-func (mr *MockGrantRevokeSecretsAPIMockRecorder) GrantSecret(arg0, arg1, arg2 any) *MockGrantRevokeSecretsAPIGrantSecretCall {
+func (mr *MockGrantRevokeSecretsAPIMockRecorder) GrantSecret(arg0, arg1, arg2, arg3 any) *MockGrantRevokeSecretsAPIGrantSecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantSecret", reflect.TypeOf((*MockGrantRevokeSecretsAPI)(nil).GrantSecret), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantSecret", reflect.TypeOf((*MockGrantRevokeSecretsAPI)(nil).GrantSecret), arg0, arg1, arg2, arg3)
 	return &MockGrantRevokeSecretsAPIGrantSecretCall{Call: call}
 }
 
@@ -306,30 +307,30 @@ func (c *MockGrantRevokeSecretsAPIGrantSecretCall) Return(arg0 []error, arg1 err
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockGrantRevokeSecretsAPIGrantSecretCall) Do(f func(*secrets0.URI, string, []string) ([]error, error)) *MockGrantRevokeSecretsAPIGrantSecretCall {
+func (c *MockGrantRevokeSecretsAPIGrantSecretCall) Do(f func(context.Context, *secrets0.URI, string, []string) ([]error, error)) *MockGrantRevokeSecretsAPIGrantSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockGrantRevokeSecretsAPIGrantSecretCall) DoAndReturn(f func(*secrets0.URI, string, []string) ([]error, error)) *MockGrantRevokeSecretsAPIGrantSecretCall {
+func (c *MockGrantRevokeSecretsAPIGrantSecretCall) DoAndReturn(f func(context.Context, *secrets0.URI, string, []string) ([]error, error)) *MockGrantRevokeSecretsAPIGrantSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // RevokeSecret mocks base method.
-func (m *MockGrantRevokeSecretsAPI) RevokeSecret(arg0 *secrets0.URI, arg1 string, arg2 []string) ([]error, error) {
+func (m *MockGrantRevokeSecretsAPI) RevokeSecret(arg0 context.Context, arg1 *secrets0.URI, arg2 string, arg3 []string) ([]error, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RevokeSecret", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "RevokeSecret", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].([]error)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RevokeSecret indicates an expected call of RevokeSecret.
-func (mr *MockGrantRevokeSecretsAPIMockRecorder) RevokeSecret(arg0, arg1, arg2 any) *MockGrantRevokeSecretsAPIRevokeSecretCall {
+func (mr *MockGrantRevokeSecretsAPIMockRecorder) RevokeSecret(arg0, arg1, arg2, arg3 any) *MockGrantRevokeSecretsAPIRevokeSecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecret", reflect.TypeOf((*MockGrantRevokeSecretsAPI)(nil).RevokeSecret), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecret", reflect.TypeOf((*MockGrantRevokeSecretsAPI)(nil).RevokeSecret), arg0, arg1, arg2, arg3)
 	return &MockGrantRevokeSecretsAPIRevokeSecretCall{Call: call}
 }
 
@@ -345,13 +346,13 @@ func (c *MockGrantRevokeSecretsAPIRevokeSecretCall) Return(arg0 []error, arg1 er
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockGrantRevokeSecretsAPIRevokeSecretCall) Do(f func(*secrets0.URI, string, []string) ([]error, error)) *MockGrantRevokeSecretsAPIRevokeSecretCall {
+func (c *MockGrantRevokeSecretsAPIRevokeSecretCall) Do(f func(context.Context, *secrets0.URI, string, []string) ([]error, error)) *MockGrantRevokeSecretsAPIRevokeSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockGrantRevokeSecretsAPIRevokeSecretCall) DoAndReturn(f func(*secrets0.URI, string, []string) ([]error, error)) *MockGrantRevokeSecretsAPIRevokeSecretCall {
+func (c *MockGrantRevokeSecretsAPIRevokeSecretCall) DoAndReturn(f func(context.Context, *secrets0.URI, string, []string) ([]error, error)) *MockGrantRevokeSecretsAPIRevokeSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -418,17 +419,17 @@ func (c *MockUpdateSecretsAPICloseCall) DoAndReturn(f func() error) *MockUpdateS
 }
 
 // UpdateSecret mocks base method.
-func (m *MockUpdateSecretsAPI) UpdateSecret(arg0 *secrets0.URI, arg1 string, arg2 *bool, arg3, arg4 string, arg5 map[string]string) error {
+func (m *MockUpdateSecretsAPI) UpdateSecret(arg0 context.Context, arg1 *secrets0.URI, arg2 string, arg3 *bool, arg4, arg5 string, arg6 map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateSecret indicates an expected call of UpdateSecret.
-func (mr *MockUpdateSecretsAPIMockRecorder) UpdateSecret(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockUpdateSecretsAPIUpdateSecretCall {
+func (mr *MockUpdateSecretsAPIMockRecorder) UpdateSecret(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *MockUpdateSecretsAPIUpdateSecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockUpdateSecretsAPI)(nil).UpdateSecret), arg0, arg1, arg2, arg3, arg4, arg5)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockUpdateSecretsAPI)(nil).UpdateSecret), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	return &MockUpdateSecretsAPIUpdateSecretCall{Call: call}
 }
 
@@ -444,13 +445,13 @@ func (c *MockUpdateSecretsAPIUpdateSecretCall) Return(arg0 error) *MockUpdateSec
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUpdateSecretsAPIUpdateSecretCall) Do(f func(*secrets0.URI, string, *bool, string, string, map[string]string) error) *MockUpdateSecretsAPIUpdateSecretCall {
+func (c *MockUpdateSecretsAPIUpdateSecretCall) Do(f func(context.Context, *secrets0.URI, string, *bool, string, string, map[string]string) error) *MockUpdateSecretsAPIUpdateSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUpdateSecretsAPIUpdateSecretCall) DoAndReturn(f func(*secrets0.URI, string, *bool, string, string, map[string]string) error) *MockUpdateSecretsAPIUpdateSecretCall {
+func (c *MockUpdateSecretsAPIUpdateSecretCall) DoAndReturn(f func(context.Context, *secrets0.URI, string, *bool, string, string, map[string]string) error) *MockUpdateSecretsAPIUpdateSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -517,17 +518,17 @@ func (c *MockRemoveSecretsAPICloseCall) DoAndReturn(f func() error) *MockRemoveS
 }
 
 // RemoveSecret mocks base method.
-func (m *MockRemoveSecretsAPI) RemoveSecret(arg0 *secrets0.URI, arg1 string, arg2 *int) error {
+func (m *MockRemoveSecretsAPI) RemoveSecret(arg0 context.Context, arg1 *secrets0.URI, arg2 string, arg3 *int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveSecret", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "RemoveSecret", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveSecret indicates an expected call of RemoveSecret.
-func (mr *MockRemoveSecretsAPIMockRecorder) RemoveSecret(arg0, arg1, arg2 any) *MockRemoveSecretsAPIRemoveSecretCall {
+func (mr *MockRemoveSecretsAPIMockRecorder) RemoveSecret(arg0, arg1, arg2, arg3 any) *MockRemoveSecretsAPIRemoveSecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecret", reflect.TypeOf((*MockRemoveSecretsAPI)(nil).RemoveSecret), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecret", reflect.TypeOf((*MockRemoveSecretsAPI)(nil).RemoveSecret), arg0, arg1, arg2, arg3)
 	return &MockRemoveSecretsAPIRemoveSecretCall{Call: call}
 }
 
@@ -543,13 +544,13 @@ func (c *MockRemoveSecretsAPIRemoveSecretCall) Return(arg0 error) *MockRemoveSec
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoveSecretsAPIRemoveSecretCall) Do(f func(*secrets0.URI, string, *int) error) *MockRemoveSecretsAPIRemoveSecretCall {
+func (c *MockRemoveSecretsAPIRemoveSecretCall) Do(f func(context.Context, *secrets0.URI, string, *int) error) *MockRemoveSecretsAPIRemoveSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoveSecretsAPIRemoveSecretCall) DoAndReturn(f func(*secrets0.URI, string, *int) error) *MockRemoveSecretsAPIRemoveSecretCall {
+func (c *MockRemoveSecretsAPIRemoveSecretCall) DoAndReturn(f func(context.Context, *secrets0.URI, string, *int) error) *MockRemoveSecretsAPIRemoveSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

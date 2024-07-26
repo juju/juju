@@ -5,6 +5,7 @@ package bundlechanges
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -31,7 +32,7 @@ type ConstraintGetter func(string) ArchConstraint
 
 // CharmResolver resolves the channel and revision of a charm from the list of
 // parameters.
-type CharmResolver func(charm string, base corebase.Base, channel, arch string, revision int) (string, int, error)
+type CharmResolver func(ctx context.Context, charm string, base corebase.Base, channel, arch string, revision int) (string, int, error)
 
 // ChangesConfig is used to provide the required data for determining changes.
 type ChangesConfig struct {
@@ -59,7 +60,7 @@ func (c *ChangesConfig) Validate() error {
 // FromData generates and returns the list of changes required to deploy the
 // given bundle data. The changes are sorted by requirements, so that they can
 // be applied in order. The bundle data is assumed to be already verified.
-func FromData(config ChangesConfig) ([]Change, error) {
+func FromData(ctx context.Context, config ChangesConfig) ([]Change, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -84,7 +85,7 @@ func FromData(config ChangesConfig) ([]Change, error) {
 		changes:          changes,
 		force:            config.Force,
 	}
-	addedApplications, err := resolver.handleApplications()
+	addedApplications, err := resolver.handleApplications(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

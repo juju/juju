@@ -4,6 +4,7 @@
 package space_test
 
 import (
+	"context"
 	"strings"
 	stdtesting "testing"
 
@@ -244,7 +245,7 @@ func (sa *StubAPI) Close() error {
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) ListSpaces() ([]params.Space, error) {
+func (sa *StubAPI) ListSpaces(ctx context.Context) ([]params.Space, error) {
 	sa.MethodCall(sa, "ListSpaces")
 	if err := sa.NextErr(); err != nil {
 		return nil, err
@@ -252,27 +253,27 @@ func (sa *StubAPI) ListSpaces() ([]params.Space, error) {
 	return sa.Spaces, nil
 }
 
-func (sa *StubAPI) AddSpace(name string, subnetIds []string, public bool) error {
+func (sa *StubAPI) AddSpace(ctx context.Context, name string, subnetIds []string, public bool) error {
 	sa.MethodCall(sa, "AddSpace", name, subnetIds, public)
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) RemoveSpace(name string, force bool, dryRun bool) (params.RemoveSpaceResult, error) {
+func (sa *StubAPI) RemoveSpace(ctx context.Context, name string, force bool, dryRun bool) (params.RemoveSpaceResult, error) {
 	sa.MethodCall(sa, "RemoveSpace", name)
 	return params.RemoveSpaceResult{}, sa.NextErr()
 }
 
-func (sa *StubAPI) RenameSpace(name, newName string) error {
+func (sa *StubAPI) RenameSpace(ctx context.Context, name, newName string) error {
 	sa.MethodCall(sa, "RenameSpace", name, newName)
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) ReloadSpaces() error {
+func (sa *StubAPI) ReloadSpaces(ctx context.Context) error {
 	sa.MethodCall(sa, "ReloadSpaces")
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) ShowSpace(name string) (params.ShowSpaceResult, error) {
+func (sa *StubAPI) ShowSpace(ctx context.Context, name string) (params.ShowSpaceResult, error) {
 	sa.MethodCall(sa, "ShowSpace", name)
 	if err := sa.NextErr(); err != nil {
 		return params.ShowSpaceResult{}, err
@@ -280,12 +281,12 @@ func (sa *StubAPI) ShowSpace(name string) (params.ShowSpaceResult, error) {
 	return sa.ShowSpaceResp, nil
 }
 
-func (sa *StubAPI) MoveSubnets(name names.SpaceTag, tags []names.SubnetTag, force bool) (params.MoveSubnetsResult, error) {
+func (sa *StubAPI) MoveSubnets(ctx context.Context, name names.SpaceTag, tags []names.SubnetTag, force bool) (params.MoveSubnetsResult, error) {
 	sa.MethodCall(sa, "MoveSubnets", name, tags, force)
 	return sa.MoveSubnetsResp, sa.NextErr()
 }
 
-func (sa *StubAPI) SubnetsByCIDR(cidrs []string) ([]params.SubnetsResult, error) {
+func (sa *StubAPI) SubnetsByCIDR(ctx context.Context, cidrs []string) ([]params.SubnetsResult, error) {
 	sa.MethodCall(sa, "SubnetsByCIDR", cidrs)
 	return sa.SubnetsByCIDRResp, sa.NextErr()
 }

@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/v4"
@@ -72,11 +73,11 @@ func (c *trustCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // getAPI either uses the fake API set at test time or that is nil, gets a real
 // API and sets that as the API.
-func (c *trustCommand) getAPI() (ApplicationAPI, error) {
+func (c *trustCommand) getAPI(ctx context.Context) (ApplicationAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -94,7 +95,7 @@ func (c *trustCommand) Init(args []string) error {
 }
 
 func (c *trustCommand) Run(ctx *cmd.Context) error {
-	modelType, err := c.ModelType()
+	modelType, err := c.ModelType(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -108,13 +109,13 @@ func (c *trustCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Set trust config value
-	client, err := c.getAPI()
+	client, err := c.getAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer func() { _ = client.Close() }()
 
-	err = client.SetConfig(c.applicationName, "",
+	err = client.SetConfig(ctx, c.applicationName, "",
 		map[string]string{coreapplication.TrustConfigOptionName: fmt.Sprint(!c.removeTrust)},
 	)
 	return errors.Trace(block.ProcessBlockedError(err, block.BlockChange))

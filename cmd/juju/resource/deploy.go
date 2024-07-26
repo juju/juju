@@ -18,7 +18,7 @@ import (
 // for deploy.
 type DeployClient interface {
 	// AddPendingResources adds pending metadata for store-based resources.
-	AddPendingResources(applicationID string, chID apiresources.CharmID, resources []charmresource.Resource) (ids []string, err error)
+	AddPendingResources(ctx context.Context, applicationID string, chID apiresources.CharmID, resources []charmresource.Resource) (ids []string, err error)
 
 	// UploadPendingResource uploads data and metadata for a pending resource for the given application.
 	UploadPendingResource(ctx context.Context, applicationID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error)
@@ -95,7 +95,7 @@ func (d deployUploader) upload(ctx context.Context, resourceValues map[string]st
 	pending := map[string]string{}
 	if len(storeResources) > 0 {
 
-		ids, err := d.client.AddPendingResources(d.applicationID, d.chID, storeResources)
+		ids, err := d.client.AddPendingResources(ctx, d.applicationID, d.chID, storeResources)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

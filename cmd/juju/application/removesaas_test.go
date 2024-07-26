@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/cmd/v4"
@@ -92,7 +93,7 @@ func (s mockRemoveSaasAPI) Close() error {
 	return s.NextErr()
 }
 
-func (s mockRemoveSaasAPI) DestroyConsumedApplication(destroyParams application.DestroyConsumedApplicationParams) ([]params.ErrorResult, error) {
+func (s mockRemoveSaasAPI) DestroyConsumedApplication(ctx context.Context, destroyParams application.DestroyConsumedApplicationParams) ([]params.ErrorResult, error) {
 	s.MethodCall(s, "DestroyConsumedApplication", destroyParams)
 
 	saasNames := destroyParams.SaasNames

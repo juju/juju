@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sort"
@@ -91,7 +92,7 @@ type listCredentialsCommand struct {
 	personalCloudsFunc func() (map[string]jujucloud.Cloud, error)
 	cloudByNameFunc    func(string) (*jujucloud.Cloud, error)
 
-	listCredentialsAPIFunc func() (ListCredentialsAPI, error)
+	listCredentialsAPIFunc func(ctx context.Context) (ListCredentialsAPI, error)
 }
 
 // CloudCredential contains attributes used to define credentials for a cloud.
@@ -137,7 +138,7 @@ type credentialsMap struct {
 }
 
 type ListCredentialsAPI interface {
-	CredentialContents(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error)
+	CredentialContents(ctx context.Context, cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error)
 	Close() error
 }
 
@@ -155,8 +156,8 @@ func NewListCredentialsCommand() cmd.Command {
 	return modelcmd.WrapBase(c)
 }
 
-func (c *listCredentialsCommand) cloudAPI() (ListCredentialsAPI, error) {
-	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
+func (c *listCredentialsCommand) cloudAPI(ctx context.Context) (ListCredentialsAPI, error) {
+	root, err := c.NewAPIRoot(ctx, c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -276,12 +277,12 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *listCredentialsCommand) remoteCredentials(ctxt *cmd.Context) (map[string]CloudCredential, error) {
-	client, err := c.listCredentialsAPIFunc()
+	client, err := c.listCredentialsAPIFunc(ctxt)
 	if err != nil {
 		return nil, err
 	}
 	defer client.Close()
-	remotes, err := client.CredentialContents("", "", c.showSecrets)
+	remotes, err := client.CredentialContents(ctxt, "", "", c.showSecrets)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

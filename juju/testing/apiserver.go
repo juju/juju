@@ -455,7 +455,7 @@ func (s *ApiServerSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce strin
 	if modelUUID != "" {
 		apiInfo.ModelTag = names.NewModelTag(modelUUID)
 	}
-	conn, err := api.Open(&apiInfo, api.DialOpts{})
+	conn, err := api.Open(context.Background(), &apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.NotNil)
 	s.apiConns = append(s.apiConns, conn)

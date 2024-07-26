@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -132,15 +133,15 @@ func (c *exposeCommand) Init(args []string) error {
 // ApplicationExposeAPI is used to expose and unexpose applicatios.
 type ApplicationExposeAPI interface {
 	Close() error
-	Expose(applicationName string, exposedEndpoints map[string]params.ExposedEndpoint) error
-	Unexpose(applicationName string, exposedEndpoints []string) error
+	Expose(ctx context.Context, applicationName string, exposedEndpoints map[string]params.ExposedEndpoint) error
+	Unexpose(ctx context.Context, applicationName string, exposedEndpoints []string) error
 }
 
-func (c *exposeCommand) getAPI() (ApplicationExposeAPI, error) {
+func (c *exposeCommand) getAPI(ctx context.Context) (ApplicationExposeAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -149,15 +150,15 @@ func (c *exposeCommand) getAPI() (ApplicationExposeAPI, error) {
 
 // Run changes the juju-managed firewall to expose any
 // ports that were also explicitly marked by units as open.
-func (c *exposeCommand) Run(_ *cmd.Context) error {
-	client, err := c.getAPI()
+func (c *exposeCommand) Run(ctx *cmd.Context) error {
+	client, err := c.getAPI(ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
 	exposedEndpoints := c.buildExposedEndpoints()
-	return block.ProcessBlockedError(client.Expose(c.ApplicationName, exposedEndpoints), block.BlockChange)
+	return block.ProcessBlockedError(client.Expose(ctx, c.ApplicationName, exposedEndpoints), block.BlockChange)
 }
 
 func (c *exposeCommand) buildExposedEndpoints() map[string]params.ExposedEndpoint {

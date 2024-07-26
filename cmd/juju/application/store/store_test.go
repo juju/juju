@@ -4,6 +4,8 @@
 package store_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -35,6 +37,7 @@ func (s *storeSuite) TestAddCharmFromURLAddCharmSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedCurl, _, err := store.AddCharmFromURL(
+		context.Background(),
 		s.charmAdder,
 		curl,
 		origin,
@@ -53,6 +56,7 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFail(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedCurl, _, err := store.AddCharmFromURL(
+		context.Background(),
 		s.charmAdder,
 		curl,
 		origin,
@@ -74,6 +78,7 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFailUnauthorized(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedCurl, _, err := store.AddCharmFromURL(
+		context.Background(),
 		s.charmAdder,
 		curl,
 		origin,
@@ -91,11 +96,12 @@ func (s *storeSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *storeSuite) expectAddCharm(err error) {
 	s.charmAdder.EXPECT().AddCharm(
+		gomock.Any(),
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		true,
 	).DoAndReturn(
-		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
+		func(ctx context.Context, _ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
 			return origin, err
 		})
 }

@@ -49,7 +49,7 @@ type fakeAPI struct {
 
 func (f *fakeAPI) Close() error { return nil }
 
-func (f *fakeAPI) DestroyModel(tag names.ModelTag, destroyStorage *bool, force *bool, maxWait *time.Duration, timeout *time.Duration) error {
+func (f *fakeAPI) DestroyModel(ctx context.Context, tag names.ModelTag, destroyStorage *bool, force *bool, maxWait *time.Duration, timeout *time.Duration) error {
 	f.MethodCall(f, "DestroyModel", tag, destroyStorage, force, maxWait, timeout)
 	return f.NextErr()
 }
@@ -145,7 +145,7 @@ func (s *DestroySuite) TestDestroyMaxWaitWithoutForce(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyUnknownModelCallsRefresh(c *gc.C) {
 	called := false
-	refresh := func(jujuclient.ClientStore, string) error {
+	refresh := func(context.Context, jujuclient.ClientStore, string) error {
 		called = true
 		return nil
 	}

@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -49,8 +50,8 @@ To show only the relation data for a specific related unit:
 // NewShowUnitCommand returns a command that displays unit info.
 func NewShowUnitCommand() cmd.Command {
 	s := &showUnitCommand{}
-	s.newAPIFunc = func() (UnitsInfoAPI, error) {
-		return s.newUnitAPI()
+	s.newAPIFunc = func(ctx context.Context) (UnitsInfoAPI, error) {
+		return s.newUnitAPI(ctx)
 	}
 	return modelcmd.Wrap(s)
 }
@@ -64,7 +65,7 @@ type showUnitCommand struct {
 	relatedUnit string
 	appOnly     bool
 
-	newAPIFunc func() (UnitsInfoAPI, error)
+	newAPIFunc func(ctx context.Context) (UnitsInfoAPI, error)
 }
 
 // Info implements Command.Info.
@@ -120,11 +121,11 @@ func (c *showUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 // UnitsInfoAPI defines the API methods that show-unit command uses.
 type UnitsInfoAPI interface {
 	Close() error
-	UnitsInfo([]names.UnitTag) ([]application.UnitInfo, error)
+	UnitsInfo(context.Context, []names.UnitTag) ([]application.UnitInfo, error)
 }
 
-func (c *showUnitCommand) newUnitAPI() (UnitsInfoAPI, error) {
-	root, err := c.NewAPIRoot()
+func (c *showUnitCommand) newUnitAPI(ctx context.Context) (UnitsInfoAPI, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -133,7 +134,7 @@ func (c *showUnitCommand) newUnitAPI() (UnitsInfoAPI, error) {
 
 // Info implements Command.Run.
 func (c *showUnitCommand) Run(ctx *cmd.Context) error {
-	client, err := c.newAPIFunc()
+	client, err := c.newAPIFunc(ctx)
 	if err != nil {
 		return err
 	}
@@ -144,7 +145,7 @@ func (c *showUnitCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	results, err := client.UnitsInfo(tags)
+	results, err := client.UnitsInfo(ctx, tags)
 	if err != nil {
 		return errors.Trace(err)
 	}

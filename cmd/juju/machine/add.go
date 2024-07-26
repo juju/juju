@@ -4,6 +4,7 @@
 package machine
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -225,15 +226,15 @@ func (c *addCommand) Init(args []string) error {
 }
 
 type ModelConfigAPI interface {
-	ModelGet() (map[string]interface{}, error)
+	ModelGet(ctx context.Context) (map[string]interface{}, error)
 	Close() error
 }
 
 type MachineManagerAPI interface {
-	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	DestroyMachinesWithParams(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
+	AddMachines(context.Context, []params.AddMachineParams) ([]params.AddMachinesResult, error)
+	DestroyMachinesWithParams(ctx context.Context, force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
 	ModelUUID() (string, bool)
-	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
+	ProvisioningScript(context.Context, params.ProvisioningScriptParams) (script string, err error)
 	Close() error
 }
 
@@ -246,11 +247,11 @@ func splitUserHost(host string) (string, string) {
 	return "", host
 }
 
-func (c *addCommand) getModelConfigAPI() (ModelConfigAPI, error) {
+func (c *addCommand) getModelConfigAPI(ctx context.Context) (ModelConfigAPI, error) {
 	if c.modelConfigAPI != nil {
 		return c.modelConfigAPI, nil
 	}
-	api, err := c.NewAPIRoot()
+	api, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "opening API connection")
 	}
@@ -258,19 +259,19 @@ func (c *addCommand) getModelConfigAPI() (ModelConfigAPI, error) {
 
 }
 
-func (c *addCommand) newMachineManagerClient() (*machinemanager.Client, error) {
-	root, err := c.NewAPIRoot()
+func (c *addCommand) newMachineManagerClient(ctx context.Context) (*machinemanager.Client, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return machinemanager.NewClient(root), nil
 }
 
-func (c *addCommand) getMachineManagerAPI() (MachineManagerAPI, error) {
+func (c *addCommand) getMachineManagerAPI(ctx context.Context) (MachineManagerAPI, error) {
 	if c.machineManagerAPI != nil {
 		return c.machineManagerAPI, nil
 	}
-	return c.newMachineManagerClient()
+	return c.newMachineManagerClient(ctx)
 }
 
 func (c *addCommand) Run(ctx *cmd.Context) error {
@@ -288,19 +289,19 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	machineManager, err := c.getMachineManagerAPI()
+	machineManager, err := c.getMachineManagerAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer machineManager.Close()
 
 	logger.Infof("load config")
-	modelConfigClient, err := c.getModelConfigAPI()
+	modelConfigClient, err := c.getModelConfigAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer modelConfigClient.Close()
-	configAttrs, err := modelConfigClient.ModelGet()
+	configAttrs, err := modelConfigClient.ModelGet(ctx)
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
 			common.PermissionsMessage(ctx.Stderr, "add a machine to this model")
@@ -313,7 +314,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.Placement != nil {
-		err := c.tryManualProvision(machineManager, cfg, ctx)
+		err := c.tryManualProvision(ctx, machineManager, cfg)
 		if err != errNonManualScope {
 			return err
 		}
@@ -355,7 +356,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		machines[i] = machineParams
 	}
 
-	results, err := machineManager.AddMachines(machines)
+	results, err := machineManager.AddMachines(ctx, machines)
 	if params.IsCodeOperationBlocked(err) {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
@@ -398,7 +399,7 @@ var (
 	sshScope          = "ssh"
 )
 
-func (c *addCommand) tryManualProvision(client manual.ProvisioningClientAPI, config *config.Config, ctx *cmd.Context) error {
+func (c *addCommand) tryManualProvision(ctx *cmd.Context, client manual.ProvisioningClientAPI, config *config.Config) error {
 
 	var provisionMachine manual.ProvisionMachineFunc
 	switch c.Placement.Scope {
@@ -429,7 +430,7 @@ func (c *addCommand) tryManualProvision(client manual.ProvisioningClientAPI, con
 		},
 	}
 
-	machineId, err := provisionMachine(args)
+	machineId, err := provisionMachine(ctx, args)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -5,6 +5,7 @@ package user_test
 
 import (
 	"bytes"
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -43,17 +44,17 @@ func (s *LoginCommandSuite) SetUpTest(c *gc.C) {
 		controllerAccess: "superuser",
 	}
 	s.apiConnectionParams = juju.NewAPIConnectionParams{}
-	s.PatchValue(user.NewAPIConnection, func(p juju.NewAPIConnectionParams) (api.Connection, error) {
+	s.PatchValue(user.NewAPIConnection, func(_ context.Context, p juju.NewAPIConnectionParams) (api.Connection, error) {
 		// The account details are modified in place, so take a copy.
 		accountDetails := *p.AccountDetails
 		p.AccountDetails = &accountDetails
 		s.apiConnectionParams = p
 		return s.apiConnection, nil
 	})
-	s.PatchValue(user.ListModels, func(c api.Connection, userName string) ([]apibase.UserModel, error) {
+	s.PatchValue(user.ListModels, func(_ context.Context, c api.Connection, userName string) ([]apibase.UserModel, error) {
 		return nil, nil
 	})
-	s.PatchValue(user.APIOpen, func(c *modelcmd.CommandBase, info *api.Info, opts api.DialOpts) (api.Connection, error) {
+	s.PatchValue(user.APIOpen, func(c *modelcmd.CommandBase, _ context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return s.apiConnection, nil
 	})
 	s.PatchValue(user.LoginClientStore, s.store)
@@ -117,7 +118,7 @@ func (s *LoginCommandSuite) TestLoginAlreadyLoggedInSameUser(c *gc.C) {
 }
 
 func (s *LoginCommandSuite) TestLoginWithOneAvailableModel(c *gc.C) {
-	s.PatchValue(user.ListModels, func(c api.Connection, userName string) ([]apibase.UserModel, error) {
+	s.PatchValue(user.ListModels, func(_ context.Context, c api.Connection, userName string) ([]apibase.UserModel, error) {
 		return []apibase.UserModel{{
 			Name:  "foo",
 			UUID:  "some-uuid",
@@ -137,7 +138,7 @@ Current model set to "bob/foo".
 }
 
 func (s *LoginCommandSuite) TestLoginWithSeveralAvailableModels(c *gc.C) {
-	s.PatchValue(user.ListModels, func(c api.Connection, userName string) ([]apibase.UserModel, error) {
+	s.PatchValue(user.ListModels, func(_ context.Context, c api.Connection, userName string) ([]apibase.UserModel, error) {
 		return []apibase.UserModel{{
 			Name:  "foo",
 			UUID:  "some-uuid",
@@ -192,7 +193,7 @@ Run "juju logout" first before attempting to log in as a different user.
 
 func (s *LoginCommandSuite) TestLoginWithExistingInvalidPassword(c *gc.C) {
 	call := 0
-	*user.NewAPIConnection = func(p juju.NewAPIConnectionParams) (api.Connection, error) {
+	*user.NewAPIConnection = func(ctx context.Context, p juju.NewAPIConnectionParams) (api.Connection, error) {
 		call++
 		switch call {
 		case 1:
@@ -242,7 +243,7 @@ There are no models available(.|\n)*`[1:])
 func (s *LoginCommandSuite) TestLoginWithMacaroonsNotSupported(c *gc.C) {
 	err := s.store.RemoveAccount("testing")
 	c.Assert(err, jc.ErrorIsNil)
-	*user.NewAPIConnection = func(p juju.NewAPIConnectionParams) (api.Connection, error) {
+	*user.NewAPIConnection = func(ctx context.Context, p juju.NewAPIConnectionParams) (api.Connection, error) {
 		if !c.Check(p.AccountDetails, gc.NotNil) {
 			return nil, errors.New("no account details")
 		}
@@ -370,7 +371,7 @@ ERROR cannot log into "127.0.0.1:443": controller CA not trusted
 		_ = s.store.RemoveAccount("foo")
 		_ = s.store.RemoveController("foo")
 
-		*user.APIOpen = func(c *modelcmd.CommandBase, info *api.Info, opts api.DialOpts) (api.Connection, error) {
+		*user.APIOpen = func(c *modelcmd.CommandBase, ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 			if err := opts.VerifyCA(spec.host, spec.endpoint, caCert); err != nil {
 				return nil, err
 			}

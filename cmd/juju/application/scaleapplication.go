@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/juju/cmd/v4"
@@ -20,8 +21,8 @@ import (
 // NewScaleApplicationCommand returns a command which scales an application's units.
 func NewScaleApplicationCommand() modelcmd.ModelCommand {
 	cmd := &scaleApplicationCommand{}
-	cmd.newAPIFunc = func() (scaleApplicationAPI, error) {
-		root, err := cmd.NewAPIRoot()
+	cmd.newAPIFunc = func(ctx context.Context) (scaleApplicationAPI, error) {
+		root, err := cmd.NewAPIRoot(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -35,7 +36,7 @@ type scaleApplicationCommand struct {
 	modelcmd.ModelCommandBase
 	modelcmd.CAASOnlyCommand
 
-	newAPIFunc      func() (scaleApplicationAPI, error)
+	newAPIFunc      func(ctx context.Context) (scaleApplicationAPI, error)
 	applicationName string
 	scale           int
 }
@@ -90,18 +91,18 @@ func (c *scaleApplicationCommand) Init(args []string) error {
 
 type scaleApplicationAPI interface {
 	Close() error
-	ScaleApplication(application.ScaleApplicationParams) (params.ScaleApplicationResult, error)
+	ScaleApplication(context.Context, application.ScaleApplicationParams) (params.ScaleApplicationResult, error)
 }
 
 // Run implements cmd.Command.
 func (c *scaleApplicationCommand) Run(ctx *cmd.Context) error {
-	client, err := c.newAPIFunc()
+	client, err := c.newAPIFunc(ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	result, err := client.ScaleApplication(application.ScaleApplicationParams{
+	result, err := client.ScaleApplication(ctx, application.ScaleApplicationParams{
 		ApplicationName: c.applicationName,
 		Scale:           c.scale,
 	})

@@ -51,16 +51,16 @@ func (c *enableDestroyController) Info() *cmd.Info {
 	})
 }
 
-func (c *enableDestroyController) getAPI() (removeBlocksAPI, error) {
+func (c *enableDestroyController) getAPI(ctx context.Context) (removeBlocksAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewControllerAPIClient()
+	return c.NewControllerAPIClient(ctx)
 }
 
 // Run implements Command.Run
 func (c *enableDestroyController) Run(ctx *cmd.Context) error {
-	client, err := c.getAPI()
+	client, err := c.getAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

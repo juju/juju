@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	params "github.com/juju/juju/rpc/params"
@@ -78,17 +79,17 @@ func (c *MockApplicationExposeAPICloseCall) DoAndReturn(f func() error) *MockApp
 }
 
 // Expose mocks base method.
-func (m *MockApplicationExposeAPI) Expose(arg0 string, arg1 map[string]params.ExposedEndpoint) error {
+func (m *MockApplicationExposeAPI) Expose(arg0 context.Context, arg1 string, arg2 map[string]params.ExposedEndpoint) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Expose", arg0, arg1)
+	ret := m.ctrl.Call(m, "Expose", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Expose indicates an expected call of Expose.
-func (mr *MockApplicationExposeAPIMockRecorder) Expose(arg0, arg1 any) *MockApplicationExposeAPIExposeCall {
+func (mr *MockApplicationExposeAPIMockRecorder) Expose(arg0, arg1, arg2 any) *MockApplicationExposeAPIExposeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Expose", reflect.TypeOf((*MockApplicationExposeAPI)(nil).Expose), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Expose", reflect.TypeOf((*MockApplicationExposeAPI)(nil).Expose), arg0, arg1, arg2)
 	return &MockApplicationExposeAPIExposeCall{Call: call}
 }
 
@@ -104,29 +105,29 @@ func (c *MockApplicationExposeAPIExposeCall) Return(arg0 error) *MockApplication
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationExposeAPIExposeCall) Do(f func(string, map[string]params.ExposedEndpoint) error) *MockApplicationExposeAPIExposeCall {
+func (c *MockApplicationExposeAPIExposeCall) Do(f func(context.Context, string, map[string]params.ExposedEndpoint) error) *MockApplicationExposeAPIExposeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationExposeAPIExposeCall) DoAndReturn(f func(string, map[string]params.ExposedEndpoint) error) *MockApplicationExposeAPIExposeCall {
+func (c *MockApplicationExposeAPIExposeCall) DoAndReturn(f func(context.Context, string, map[string]params.ExposedEndpoint) error) *MockApplicationExposeAPIExposeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Unexpose mocks base method.
-func (m *MockApplicationExposeAPI) Unexpose(arg0 string, arg1 []string) error {
+func (m *MockApplicationExposeAPI) Unexpose(arg0 context.Context, arg1 string, arg2 []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unexpose", arg0, arg1)
+	ret := m.ctrl.Call(m, "Unexpose", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Unexpose indicates an expected call of Unexpose.
-func (mr *MockApplicationExposeAPIMockRecorder) Unexpose(arg0, arg1 any) *MockApplicationExposeAPIUnexposeCall {
+func (mr *MockApplicationExposeAPIMockRecorder) Unexpose(arg0, arg1, arg2 any) *MockApplicationExposeAPIUnexposeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unexpose", reflect.TypeOf((*MockApplicationExposeAPI)(nil).Unexpose), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unexpose", reflect.TypeOf((*MockApplicationExposeAPI)(nil).Unexpose), arg0, arg1, arg2)
 	return &MockApplicationExposeAPIUnexposeCall{Call: call}
 }
 
@@ -142,13 +143,13 @@ func (c *MockApplicationExposeAPIUnexposeCall) Return(arg0 error) *MockApplicati
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationExposeAPIUnexposeCall) Do(f func(string, []string) error) *MockApplicationExposeAPIUnexposeCall {
+func (c *MockApplicationExposeAPIUnexposeCall) Do(f func(context.Context, string, []string) error) *MockApplicationExposeAPIUnexposeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationExposeAPIUnexposeCall) DoAndReturn(f func(string, []string) error) *MockApplicationExposeAPIUnexposeCall {
+func (c *MockApplicationExposeAPIUnexposeCall) DoAndReturn(f func(context.Context, string, []string) error) *MockApplicationExposeAPIUnexposeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

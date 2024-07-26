@@ -43,7 +43,7 @@ func (*ScaryConnectSuite) TestEntityDying(c *gc.C) {
 func testEntityFine(c *gc.C, life apiagent.Life) {
 	stub := &testing.Stub{}
 	expectConn := &mockConn{stub: stub}
-	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+	apiOpen := func(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		// no apiOpen stub calls necessary in this suite; covered
 		// by RetrySuite, just an extra complication here.
 		return expectConn, nil
@@ -76,7 +76,7 @@ func (*ScaryConnectSuite) TestEntityDead(c *gc.C) {
 	// permanent failure case
 	stub := &testing.Stub{}
 	expectConn := &mockConn{stub: stub}
-	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+	apiOpen := func(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return expectConn, nil
 	}
 
@@ -105,7 +105,7 @@ func (*ScaryConnectSuite) TestEntityDenied(c *gc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(apiagent.ErrDenied)
 	expectConn := &mockConn{stub: stub}
-	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+	apiOpen := func(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return expectConn, nil
 	}
 
@@ -133,7 +133,7 @@ func (*ScaryConnectSuite) TestEntityUnknownLife(c *gc.C) {
 	// "random" failure case
 	stub := &testing.Stub{}
 	expectConn := &mockConn{stub: stub}
-	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+	apiOpen := func(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return expectConn, nil
 	}
 
@@ -241,7 +241,7 @@ func checkChangePassword(c *gc.C, stub *testing.Stub) error {
 	//stub := &testing.Stub{}
 	//stub.SetErrors(allErrs...)
 	expectConn := &mockConn{stub: stub}
-	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+	apiOpen := func(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		// ...but we *don't* record the calls themselves; they
 		// are tested plenty elsewhere, and hiding them makes
 		// client code simpler.

@@ -38,13 +38,13 @@ func NewClient(apiCaller base.APICallCloser, options ...Option) *Client {
 }
 
 // ListFull calls the List API server method.
-func (c Client) ListFull(patterns ...string) ([]payloads.FullPayloadInfo, error) {
+func (c Client) ListFull(ctx context.Context, patterns ...string) ([]payloads.FullPayloadInfo, error) {
 	var result params.PayloadListResults
 
 	args := params.PayloadListArgs{
 		Patterns: patterns,
 	}
-	if err := c.facade.FacadeCall(context.TODO(), "List", &args, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "List", &args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 

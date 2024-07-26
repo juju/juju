@@ -101,7 +101,7 @@ func (c *debugCodeCommand) SetFlags(f *gnuflag.FlagSet) {
 // and connects to it via SSH to execute the debug-hooks
 // script.
 func (c *debugCodeCommand) Run(ctx *cmd.Context) error {
-	if err := c.initAPIs(); err != nil {
+	if err := c.initAPIs(ctx); err != nil {
 		return err
 	}
 	defer c.closeAPIs()

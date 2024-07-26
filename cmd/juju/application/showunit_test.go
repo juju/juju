@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -401,6 +402,6 @@ func (s mockShowUnitAPI) Close() error {
 	return nil
 }
 
-func (s mockShowUnitAPI) UnitsInfo(tags []names.UnitTag) ([]apiapplication.UnitInfo, error) {
+func (s mockShowUnitAPI) UnitsInfo(ctx context.Context, tags []names.UnitTag) ([]apiapplication.UnitInfo, error) {
 	return s.unitsInfoFunc(tags)
 }

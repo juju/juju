@@ -738,16 +738,6 @@ func (s *modelUpgradeSuite) TestCannotUpgradePastControllerVersion(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade to a version "3.12.0" greater than that of the controller "3.9.99"`)
 }
 
-func (s *modelUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	api := s.newFacade(c)
-
-	err := api.AbortModelUpgrade(stdcontext.Background(), params.ModelParam{ModelTag: coretesting.ModelTag.String()})
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
-}
-
 func (s *modelUpgradeSuite) TestFindToolsIAAS(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

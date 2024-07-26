@@ -37,18 +37,18 @@ func NewClient(st base.APICallCloser, options ...Option) *Client {
 
 // Actions takes a list of action IDs, and returns the full
 // Action for each ID.
-func (c *Client) Actions(actionIDs []string) ([]ActionResult, error) {
+func (c *Client) Actions(ctx context.Context, actionIDs []string) ([]ActionResult, error) {
 	arg := params.Entities{Entities: make([]params.Entity, len(actionIDs))}
 	for i, ID := range actionIDs {
 		arg.Entities[i].Tag = names.NewActionTag(ID).String()
 	}
 	results := params.ActionResults{}
-	err := c.facade.FacadeCall(context.TODO(), "Actions", arg, &results)
+	err := c.facade.FacadeCall(ctx, "Actions", arg, &results)
 	return unmarshallActionResults(results.Results), err
 }
 
 // ListOperations fetches the operation summaries for specified apps/units.
-func (c *Client) ListOperations(arg OperationQueryArgs) (Operations, error) {
+func (c *Client) ListOperations(ctx context.Context, arg OperationQueryArgs) (Operations, error) {
 	args := params.OperationQueryArgs{
 		Applications: arg.Applications,
 		Units:        arg.Units,
@@ -59,7 +59,7 @@ func (c *Client) ListOperations(arg OperationQueryArgs) (Operations, error) {
 		Limit:        arg.Limit,
 	}
 	results := params.OperationResults{}
-	err := c.facade.FacadeCall(context.TODO(), "ListOperations", args, &results)
+	err := c.facade.FacadeCall(ctx, "ListOperations", args, &results)
 	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
 	}
@@ -67,12 +67,12 @@ func (c *Client) ListOperations(arg OperationQueryArgs) (Operations, error) {
 }
 
 // Operation fetches the operation with the specified ID.
-func (c *Client) Operation(id string) (Operation, error) {
+func (c *Client) Operation(ctx context.Context, id string) (Operation, error) {
 	arg := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewOperationTag(id).String()}},
 	}
 	var results params.OperationResults
-	err := c.facade.FacadeCall(context.TODO(), "Operations", arg, &results)
+	err := c.facade.FacadeCall(ctx, "Operations", arg, &results)
 	if err != nil {
 		return Operation{}, err
 	}
@@ -98,7 +98,7 @@ func maybeNotFound(err *params.Error) error {
 // EnqueueOperation takes a list of Actions and queues them up to be executed as
 // an operation, each action running as a task on the the designated ActionReceiver.
 // We return the ID of the overall operation and each individual task.
-func (c *Client) EnqueueOperation(actions []Action) (EnqueuedActions, error) {
+func (c *Client) EnqueueOperation(ctx context.Context, actions []Action) (EnqueuedActions, error) {
 	arg := params.Actions{Actions: make([]params.Action, len(actions))}
 	for i, a := range actions {
 		arg.Actions[i] = params.Action{
@@ -108,7 +108,7 @@ func (c *Client) EnqueueOperation(actions []Action) (EnqueuedActions, error) {
 		}
 	}
 	results := params.EnqueuedActions{}
-	err := c.facade.FacadeCall(context.TODO(), "EnqueueOperation", arg, &results)
+	err := c.facade.FacadeCall(ctx, "EnqueueOperation", arg, &results)
 	if err != nil {
 		return EnqueuedActions{}, errors.Trace(err)
 	}
@@ -116,30 +116,30 @@ func (c *Client) EnqueueOperation(actions []Action) (EnqueuedActions, error) {
 }
 
 // Cancel attempts to cancel a queued up Action from running.
-func (c *Client) Cancel(actionIDs []string) ([]ActionResult, error) {
+func (c *Client) Cancel(ctx context.Context, actionIDs []string) ([]ActionResult, error) {
 	arg := params.Entities{Entities: make([]params.Entity, len(actionIDs))}
 	for i, ID := range actionIDs {
 		arg.Entities[i].Tag = names.NewActionTag(ID).String()
 	}
 	results := params.ActionResults{}
-	err := c.facade.FacadeCall(context.TODO(), "Cancel", arg, &results)
+	err := c.facade.FacadeCall(ctx, "Cancel", arg, &results)
 	return unmarshallActionResults(results.Results), err
 }
 
 // applicationsCharmActions is a batched query for the charm.Actions for a slice
 // of applications by Entity.
-func (c *Client) applicationsCharmActions(arg params.Entities) (params.ApplicationsCharmActionsResults, error) {
+func (c *Client) applicationsCharmActions(ctx context.Context, arg params.Entities) (params.ApplicationsCharmActionsResults, error) {
 	results := params.ApplicationsCharmActionsResults{}
-	err := c.facade.FacadeCall(context.TODO(), "ApplicationsCharmsActions", arg, &results)
+	err := c.facade.FacadeCall(ctx, "ApplicationsCharmsActions", arg, &results)
 	return results, err
 }
 
 // ApplicationCharmActions is a single query which uses ApplicationsCharmsActions to
 // get the charm.Actions for a single Application by tag.
-func (c *Client) ApplicationCharmActions(appName string) (map[string]ActionSpec, error) {
+func (c *Client) ApplicationCharmActions(ctx context.Context, appName string) (map[string]ActionSpec, error) {
 	tag := names.NewApplicationTag(appName)
 	tags := params.Entities{Entities: []params.Entity{{Tag: tag.String()}}}
-	results, err := c.applicationsCharmActions(tags)
+	results, err := c.applicationsCharmActions(ctx, tags)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -158,14 +158,14 @@ func (c *Client) ApplicationCharmActions(appName string) (map[string]ActionSpec,
 
 // WatchActionProgress returns a watcher that reports on action log messages.
 // The result strings are json formatted core.actions.ActionMessage objects.
-func (c *Client) WatchActionProgress(actionId string) (watcher.StringsWatcher, error) {
+func (c *Client) WatchActionProgress(ctx context.Context, actionId string) (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: names.NewActionTag(actionId).String()},
 		},
 	}
-	err := c.facade.FacadeCall(context.TODO(), "WatchActionsProgress", args, &results)
+	err := c.facade.FacadeCall(ctx, "WatchActionsProgress", args, &results)
 	if err != nil {
 		return nil, err
 	}

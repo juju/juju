@@ -4,6 +4,8 @@
 package application_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -86,7 +88,7 @@ func (s mockResolveAPI) Close() error {
 	return s.NextErr()
 }
 
-func (s mockResolveAPI) ResolveUnitErrors(units []string, all, retry bool) error {
+func (s mockResolveAPI) ResolveUnitErrors(ctx context.Context, units []string, all, retry bool) error {
 	s.MethodCall(s, "ResolveUnitErrors", units, all, retry)
 	return nil
 }

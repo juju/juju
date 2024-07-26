@@ -45,7 +45,7 @@ func (s *ShowSuite) setup(c *gc.C) *gomock.Controller {
 func (s *ShowSuite) TestShowYAML(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.secretBackendsAPI.EXPECT().ListSecretBackends([]string{"myvault"}, true).Return(
+	s.secretBackendsAPI.EXPECT().ListSecretBackends(gomock.Any(), []string{"myvault"}, true).Return(
 		[]apisecretbackends.SecretBackend{{
 			ID:                  "vault-id",
 			Name:                "myvault",

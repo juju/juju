@@ -4,6 +4,8 @@
 package user
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 
@@ -115,15 +117,15 @@ func (c *disenableUserBase) Username() string {
 // disenableUserAPI defines the API methods that the disable and enable
 // commands use.
 type disenableUserAPI interface {
-	EnableUser(username string) error
-	DisableUser(username string) error
+	EnableUser(ctx context.Context, username string) error
+	DisableUser(ctx context.Context, username string) error
 	Close() error
 }
 
 // Run implements Command.Run.
 func (c *disableCommand) Run(ctx *cmd.Context) error {
 	if c.api == nil {
-		api, err := c.NewUserManagerAPIClient()
+		api, err := c.NewUserManagerAPIClient(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -131,7 +133,7 @@ func (c *disableCommand) Run(ctx *cmd.Context) error {
 		defer c.api.Close()
 	}
 
-	if err := c.api.DisableUser(c.User); err != nil {
+	if err := c.api.DisableUser(ctx, c.User); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	ctx.Infof("User %q disabled", c.User)
@@ -141,7 +143,7 @@ func (c *disableCommand) Run(ctx *cmd.Context) error {
 // Run implements Command.Run.
 func (c *enableCommand) Run(ctx *cmd.Context) error {
 	if c.api == nil {
-		api, err := c.NewUserManagerAPIClient()
+		api, err := c.NewUserManagerAPIClient(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -149,7 +151,7 @@ func (c *enableCommand) Run(ctx *cmd.Context) error {
 		defer c.api.Close()
 	}
 
-	if err := c.api.EnableUser(c.User); err != nil {
+	if err := c.api.EnableUser(ctx, c.User); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	ctx.Infof("User %q enabled", c.User)

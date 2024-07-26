@@ -63,7 +63,7 @@ func (s *charmSuite) TestSimpleCharmDeploy(c *gc.C) {
 	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem).AnyTimes()
 	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
 	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
-	s.deployerAPI.EXPECT().Deploy(gomock.Any()).Return(nil)
+	s.deployerAPI.EXPECT().Deploy(gomock.Any(), gomock.Any()).Return(nil)
 
 	err := s.newDeployCharm().deploy(s.ctx, s.deployerAPI)
 	c.Assert(err, jc.ErrorIsNil)
@@ -115,7 +115,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 		return nil
 	}
 
-	s.deployerAPI.EXPECT().DeployFromRepository(gomock.Any()).Return(dInfo, nil, nil)
+	s.deployerAPI.EXPECT().DeployFromRepository(gomock.Any(), gomock.Any()).Return(dInfo, nil, nil)
 
 	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
@@ -164,7 +164,7 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 		return nil
 	}
 
-	s.deployerAPI.EXPECT().DeployFromRepository(gomock.Any()).Return(dInfo, nil, nil)
+	s.deployerAPI.EXPECT().DeployFromRepository(gomock.Any(), gomock.Any()).Return(dInfo, nil, nil)
 
 	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -201,7 +201,7 @@ func (s *charmSuite) TestDeployFromRepositoryErrorNoUploadResources(c *gc.C) {
 		return nil
 	}
 	expectedErrors := []error{errors.NotFoundf("test errors")}
-	s.deployerAPI.EXPECT().DeployFromRepository(gomock.Any()).Return(application.DeployInfo{}, nil, expectedErrors)
+	s.deployerAPI.EXPECT().DeployFromRepository(gomock.Any(), gomock.Any()).Return(application.DeployInfo{}, nil, expectedErrors)
 
 	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, nil)
 	c.Assert(err, gc.ErrorMatches, "failed to deploy charm \"testme\"")
@@ -214,7 +214,7 @@ func (s *charmSuite) TestDeployFromPredeployed(c *gc.C) {
 	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem).AnyTimes()
 	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
 	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
-	s.deployerAPI.EXPECT().Deploy(gomock.Any()).Return(nil)
+	s.deployerAPI.EXPECT().Deploy(gomock.Any(), gomock.Any()).Return(nil)
 
 	dCharm := s.newDeployCharm()
 
@@ -266,19 +266,20 @@ func (s *charmSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.deployerAPI.EXPECT().ModelUUID().Return("dead-beef", true).AnyTimes()
 
 	s.modelCommand = mocks.NewMockModelCommand(ctrl)
-	s.modelCommand.EXPECT().ModelType().Return(model.IAAS, nil).AnyTimes()
+	s.modelCommand.EXPECT().ModelType(gomock.Any()).Return(model.IAAS, nil).AnyTimes()
 	s.configFlag = mocks.NewMockDeployConfigFlag(ctrl)
 	return ctrl
 }
 
 func (s *charmSuite) expectResolveChannel() {
 	s.resolver.EXPECT().ResolveCharm(
+		gomock.Any(),
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		false,
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, requestedOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
+		func(ctx context.Context, curl *charm.URL, requestedOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
 			return curl, requestedOrigin, []corebase.Base{
 				corebase.MustParseBaseFromString("ubuntu@18.04"),
 				corebase.MustParseBaseFromString("ubuntu@20.04"),

@@ -4,6 +4,8 @@
 package block_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
@@ -106,7 +108,7 @@ func (c *mockBlockClient) Close() error {
 	return nil
 }
 
-func (c *mockBlockClient) SwitchBlockOn(blockType, message string) error {
+func (c *mockBlockClient) SwitchBlockOn(ctx context.Context, blockType, message string) error {
 	c.blockType = blockType
 	c.message = message
 	return c.err

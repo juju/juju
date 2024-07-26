@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -36,7 +37,7 @@ func (s mockScaleApplicationAPI) Close() error {
 	return s.NextErr()
 }
 
-func (s mockScaleApplicationAPI) ScaleApplication(args application.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
+func (s mockScaleApplicationAPI) ScaleApplication(ctx context.Context, args application.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
 	s.MethodCall(s, "ScaleApplication", args)
 	return params.ScaleApplicationResult{Info: &params.ScaleApplicationInfo{Scale: args.Scale}}, s.NextErr()
 }

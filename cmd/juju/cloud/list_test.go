@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"strings"
@@ -77,7 +78,7 @@ func (s *listSuite) TestListPublicLocalDefault(c *gc.C) {
 func (s *listSuite) TestListController(c *gc.C) {
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
-		func() (cloud.ListCloudsAPI, error) {
+		func(ctx context.Context) (cloud.ListCloudsAPI, error) {
 			return s.api, nil
 		})
 	s.api.controllerClouds = make(map[names.CloudTag]jujucloud.Cloud)
@@ -118,7 +119,7 @@ beehive:
 func (s *listSuite) TestListControllerError(c *gc.C) {
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
-		func() (cloud.ListCloudsAPI, error) {
+		func(ctx context.Context) (cloud.ListCloudsAPI, error) {
 			return nil, errors.New("bad problem")
 		},
 	)
@@ -135,7 +136,7 @@ func (s *listSuite) TestListControllerError(c *gc.C) {
 func (s *listSuite) TestListClientAndController(c *gc.C) {
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
-		func() (cloud.ListCloudsAPI, error) {
+		func(ctx context.Context) (cloud.ListCloudsAPI, error) {
 			return s.api, nil
 		})
 	s.api.controllerClouds = make(map[names.CloudTag]jujucloud.Cloud)
@@ -176,7 +177,7 @@ beehive:
 func (s *listSuite) TestListEmbedded(c *gc.C) {
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
-		func() (cloud.ListCloudsAPI, error) {
+		func(ctx context.Context) (cloud.ListCloudsAPI, error) {
 			return s.api, nil
 		})
 	cmd.SetEmbedded(true)
@@ -210,7 +211,7 @@ beehive  1        regionone  openstack
 func (s *listSuite) TestListKubernetes(c *gc.C) {
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
-		func() (cloud.ListCloudsAPI, error) {
+		func(ctx context.Context) (cloud.ListCloudsAPI, error) {
 			return s.api, nil
 		})
 	s.api.controllerClouds = make(map[names.CloudTag]jujucloud.Cloud)
@@ -275,7 +276,7 @@ func (s *listSuite) assertListTabular(c *gc.C, expectedOutput string) {
 	}
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
-		func() (cloud.ListCloudsAPI, error) {
+		func(ctx context.Context) (cloud.ListCloudsAPI, error) {
 			return s.api, nil
 		})
 
@@ -325,7 +326,7 @@ clouds:
 
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
-		func() (cloud.ListCloudsAPI, error) {
+		func(ctx context.Context) (cloud.ListCloudsAPI, error) {
 			c.Fail()
 			return s.api, nil
 		})
@@ -405,12 +406,12 @@ func (api *fakeListCloudsAPI) Close() error {
 	return nil
 }
 
-func (api *fakeListCloudsAPI) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
+func (api *fakeListCloudsAPI) Clouds(ctx context.Context) (map[names.CloudTag]jujucloud.Cloud, error) {
 	api.AddCall("Clouds")
 	return api.controllerClouds, nil
 }
 
-func (api *fakeListCloudsAPI) CloudInfo(tags []names.CloudTag) ([]cloudapi.CloudInfo, error) {
+func (api *fakeListCloudsAPI) CloudInfo(ctx context.Context, tags []names.CloudTag) ([]cloudapi.CloudInfo, error) {
 	api.AddCall("CloudInfo", tags)
 	var result []cloudapi.CloudInfo
 	for _, cloud := range api.controllerClouds {

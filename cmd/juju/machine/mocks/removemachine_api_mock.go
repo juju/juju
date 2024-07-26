@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 	time "time"
 
@@ -117,10 +118,10 @@ func (c *MockRemoveMachineAPICloseCall) DoAndReturn(f func() error) *MockRemoveM
 }
 
 // DestroyMachinesWithParams mocks base method.
-func (m *MockRemoveMachineAPI) DestroyMachinesWithParams(arg0, arg1, arg2 bool, arg3 *time.Duration, arg4 ...string) ([]params.DestroyMachineResult, error) {
+func (m *MockRemoveMachineAPI) DestroyMachinesWithParams(arg0 context.Context, arg1, arg2, arg3 bool, arg4 *time.Duration, arg5 ...string) ([]params.DestroyMachineResult, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2, arg3}
-	for _, a := range arg4 {
+	varargs := []any{arg0, arg1, arg2, arg3, arg4}
+	for _, a := range arg5 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "DestroyMachinesWithParams", varargs...)
@@ -130,9 +131,9 @@ func (m *MockRemoveMachineAPI) DestroyMachinesWithParams(arg0, arg1, arg2 bool, 
 }
 
 // DestroyMachinesWithParams indicates an expected call of DestroyMachinesWithParams.
-func (mr *MockRemoveMachineAPIMockRecorder) DestroyMachinesWithParams(arg0, arg1, arg2, arg3 any, arg4 ...any) *MockRemoveMachineAPIDestroyMachinesWithParamsCall {
+func (mr *MockRemoveMachineAPIMockRecorder) DestroyMachinesWithParams(arg0, arg1, arg2, arg3, arg4 any, arg5 ...any) *MockRemoveMachineAPIDestroyMachinesWithParamsCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2, arg3}, arg4...)
+	varargs := append([]any{arg0, arg1, arg2, arg3, arg4}, arg5...)
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyMachinesWithParams", reflect.TypeOf((*MockRemoveMachineAPI)(nil).DestroyMachinesWithParams), varargs...)
 	return &MockRemoveMachineAPIDestroyMachinesWithParamsCall{Call: call}
 }
@@ -149,13 +150,13 @@ func (c *MockRemoveMachineAPIDestroyMachinesWithParamsCall) Return(arg0 []params
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoveMachineAPIDestroyMachinesWithParamsCall) Do(f func(bool, bool, bool, *time.Duration, ...string) ([]params.DestroyMachineResult, error)) *MockRemoveMachineAPIDestroyMachinesWithParamsCall {
+func (c *MockRemoveMachineAPIDestroyMachinesWithParamsCall) Do(f func(context.Context, bool, bool, bool, *time.Duration, ...string) ([]params.DestroyMachineResult, error)) *MockRemoveMachineAPIDestroyMachinesWithParamsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoveMachineAPIDestroyMachinesWithParamsCall) DoAndReturn(f func(bool, bool, bool, *time.Duration, ...string) ([]params.DestroyMachineResult, error)) *MockRemoveMachineAPIDestroyMachinesWithParamsCall {
+func (c *MockRemoveMachineAPIDestroyMachinesWithParamsCall) DoAndReturn(f func(context.Context, bool, bool, bool, *time.Duration, ...string) ([]params.DestroyMachineResult, error)) *MockRemoveMachineAPIDestroyMachinesWithParamsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

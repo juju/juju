@@ -73,7 +73,7 @@ type VolumeAttachment struct {
 // generateListVolumeOutput returns a map of volume info
 func generateListVolumeOutput(ctx *cmd.Context, api StorageListAPI, ids []string) (map[string]VolumeInfo, error) {
 
-	results, err := api.ListVolumes(ids)
+	results, err := api.ListVolumes(ctx, ids)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

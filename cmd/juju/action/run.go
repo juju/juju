@@ -162,7 +162,7 @@ func (c *runCommand) Init(args []string) (err error) {
 }
 
 func (c *runCommand) Run(ctx *cmd.Context) error {
-	if err := c.ensureAPI(); err != nil {
+	if err := c.ensureAPI(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	defer c.api.Close()
@@ -233,7 +233,7 @@ func (c *runCommand) enqueueActions(ctx *cmd.Context) (*actionapi.EnqueuedAction
 		actions[i].Name = c.actionName
 		actions[i].Parameters = actionParams
 	}
-	results, err := c.api.EnqueueOperation(actions)
+	results, err := c.api.EnqueueOperation(ctx, actions)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

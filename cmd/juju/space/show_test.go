@@ -11,6 +11,7 @@ import (
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
@@ -59,7 +60,7 @@ applications:
 - ubuntu,mysql
 machine-count: 4
 `
-	api.EXPECT().ShowSpace(spaceName).Return(s.getDefaultSpace(), nil)
+	api.EXPECT().ShowSpace(gomock.Any(), spaceName).Return(s.getDefaultSpace(), nil)
 
 	ctx, err := s.runCommand(c, api, spaceName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,7 +82,7 @@ func (s *ShowSuite) TestRunWhenShowSpacesNotSupported(c *gc.C) {
 	spaceName := "default"
 
 	expectedErr := errors.NewNotSupported(nil, "spaces not supported")
-	api.EXPECT().ShowSpace(spaceName).Return(params.ShowSpaceResult{}, expectedErr)
+	api.EXPECT().ShowSpace(gomock.Any(), spaceName).Return(params.ShowSpaceResult{}, expectedErr)
 
 	_, err := s.runCommand(c, api, spaceName)
 
@@ -94,7 +95,7 @@ func (s *ShowSuite) TestRunWhenShowSpacesAPIFails(c *gc.C) {
 	spaceName := "default"
 
 	apiErr := errors.New("API error")
-	api.EXPECT().ShowSpace(spaceName).Return(params.ShowSpaceResult{}, apiErr)
+	api.EXPECT().ShowSpace(gomock.Any(), spaceName).Return(params.ShowSpaceResult{}, apiErr)
 
 	_, err := s.runCommand(c, api, spaceName)
 	expectedMsg := fmt.Sprintf("cannot retrieve space %q: API error", spaceName)
@@ -110,7 +111,7 @@ func (s *ShowSuite) TestRunUnauthorizedMentionsJujuGrant(c *gc.C) {
 	ctrl, api := setUpMocks(c)
 	defer ctrl.Finish()
 	spaceName := "default"
-	api.EXPECT().ShowSpace(spaceName).Return(params.ShowSpaceResult{}, apiErr)
+	api.EXPECT().ShowSpace(gomock.Any(), spaceName).Return(params.ShowSpaceResult{}, apiErr)
 
 	_, err := s.runCommand(c, api, spaceName)
 	expectedErrMsg := fmt.Sprintf("cannot retrieve space %q: permission denied", spaceName)
@@ -124,7 +125,7 @@ func (s *ShowSuite) TestRunWhenSpacesBlocked(c *gc.C) {
 	defer ctrl.Finish()
 
 	spaceName := "default"
-	api.EXPECT().ShowSpace(spaceName).Return(params.ShowSpaceResult{}, apiErr)
+	api.EXPECT().ShowSpace(gomock.Any(), spaceName).Return(params.ShowSpaceResult{}, apiErr)
 	ctx, err := s.runCommand(c, api, spaceName)
 
 	c.Assert(err, gc.ErrorMatches, `

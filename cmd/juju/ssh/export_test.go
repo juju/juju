@@ -50,7 +50,7 @@ func (c *sshContainer) Copy(ctx Context) error {
 }
 
 func (c *sshContainer) GetExecClient() (k8sexec.Executor, error) {
-	return c.getExecClient()
+	return c.getExecClient(context.TODO())
 }
 
 func (c *sshContainer) ModelName() string {

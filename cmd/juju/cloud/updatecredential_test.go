@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -625,14 +626,14 @@ func (f *fakeUpdateCredentialAPI) Close() error {
 	return nil
 }
 
-func (f *fakeUpdateCredentialAPI) UpdateCloudsCredentials(c map[string]jujucloud.Credential, force bool) ([]params.UpdateCredentialResult, error) {
+func (f *fakeUpdateCredentialAPI) UpdateCloudsCredentials(ctx context.Context, c map[string]jujucloud.Credential, force bool) ([]params.UpdateCredentialResult, error) {
 	return f.updateCloudsCredentials(c, force)
 }
 
-func (f *fakeUpdateCredentialAPI) AddCloudsCredentials(c map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
+func (f *fakeUpdateCredentialAPI) AddCloudsCredentials(ctx context.Context, c map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
 	return f.addCloudsCredentials(c)
 }
 
-func (f *fakeUpdateCredentialAPI) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
+func (f *fakeUpdateCredentialAPI) Clouds(ctx context.Context) (map[names.CloudTag]jujucloud.Cloud, error) {
 	return f.clouds()
 }

@@ -35,18 +35,18 @@ var (
 )
 
 type listBlocksAPI interface {
-	List() ([]params.Block, error)
+	List(stdcontext.Context) ([]params.Block, error)
 	Close() error
 }
 
 // getBlockAPI returns a block api for listing blocks.
-func getBlockAPI(c *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
+func getBlockAPI(ctx stdcontext.Context, c *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
 	// Set a short dial timeout so WaitForAgentInitialisation can check
 	// ctx.Done() in its retry loop.
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.Timeout = 6 * time.Second
 
-	root, err := c.NewAPIRootWithDialOpts(&dialOpts)
+	root, err := c.NewAPIRootWithDialOpts(ctx, &dialOpts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -55,10 +55,10 @@ func getBlockAPI(c *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
 
 // tryAPI attempts to open the API and makes a trivial call
 // to check if the API is available yet.
-func tryAPI(c *modelcmd.ModelCommandBase) error {
-	client, err := blockAPI(c)
+func tryAPI(ctx stdcontext.Context, c *modelcmd.ModelCommandBase) error {
+	client, err := blockAPI(ctx, c)
 	if err == nil {
-		_, err = client.List()
+		_, err = client.List(ctx)
 		closeErr := client.Close()
 		if closeErr != nil {
 			logger.Debugf("Error closing client: %v", closeErr)
@@ -107,7 +107,7 @@ func WaitForAgentInitialisation(
 				errors.Is(err, stdcontext.Canceled)
 		},
 		Func: func() error {
-			retryErr := tryAPI(c)
+			retryErr := tryAPI(ctx, c)
 			if retryErr == nil {
 				msg := fmt.Sprintf("\nBootstrap complete, controller %q is now available", controllerName)
 				if isCAASController {
@@ -205,11 +205,11 @@ func BootstrapEndpointAddresses(
 
 // ValidateIaasController returns an error if the controller
 // is not an IAAS controller.
-func ValidateIaasController(c modelcmd.CommandBase, cmdName, controllerName string, store jujuclient.ClientStore) error {
+func ValidateIaasController(ctx stdcontext.Context, c modelcmd.CommandBase, cmdName, controllerName string, store jujuclient.ClientStore) error {
 	// Ensure controller model is cached.
 	controllerModel := jujuclient.JoinOwnerModelName(
 		names.NewUserTag(environs.AdminUser), bootstrap.ControllerModelName)
-	_, err := c.ModelUUIDs(store, controllerName, []string{controllerModel})
+	_, err := c.ModelUUIDs(ctx, store, controllerName, []string{controllerModel})
 	if err != nil {
 		return errors.Annotatef(err, "cannot get controller model uuid")
 	}

@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/v4"
@@ -271,6 +272,6 @@ func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockShowAPI) ApplicationsInfo(tags []names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
+func (s mockShowAPI) ApplicationsInfo(ctx context.Context, tags []names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
 	return s.applicationsInfoFunc(tags)
 }

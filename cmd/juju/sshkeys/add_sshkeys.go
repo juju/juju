@@ -84,8 +84,8 @@ func (c *addKeysCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *addKeysCommand) Run(context *cmd.Context) error {
-	client, err := c.NewKeyManagerClient()
+func (c *addKeysCommand) Run(ctx *cmd.Context) error {
+	client, err := c.NewKeyManagerClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -93,13 +93,13 @@ func (c *addKeysCommand) Run(context *cmd.Context) error {
 	// TODO(alexisb) - currently keys are global which is not ideal.
 	// keymanager needs to be updated to allow keys per user
 	c.user = "admin"
-	results, err := client.AddKeys(c.user, c.sshKeys...)
+	results, err := client.AddKeys(ctx, c.user, c.sshKeys...)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	for i, result := range results {
 		if result.Error != nil {
-			fmt.Fprintf(context.Stderr, "cannot add key %q: %v\n", c.sshKeys[i], result.Error)
+			fmt.Fprintf(ctx.Stderr, "cannot add key %q: %v\n", c.sshKeys[i], result.Error)
 		}
 	}
 	return nil

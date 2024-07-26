@@ -5,6 +5,7 @@ package crossmodel
 
 import (
 	"bytes"
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -18,7 +19,7 @@ import (
 )
 
 func newRemoveCommandForTest(store jujuclient.ClientStore, api RemoveAPI) cmd.Command {
-	aCmd := &removeCommand{newAPIFunc: func(controllerName string) (RemoveAPI, error) {
+	aCmd := &removeCommand{newAPIFunc: func(ctx context.Context, controllerName string) (RemoveAPI, error) {
 		return api, nil
 	}}
 	aCmd.SetClientStore(store)
@@ -122,7 +123,7 @@ func (s mockRemoveAPI) Close() error {
 	return nil
 }
 
-func (s mockRemoveAPI) DestroyOffers(force bool, offerURLs ...string) error {
+func (s mockRemoveAPI) DestroyOffers(ctx context.Context, force bool, offerURLs ...string) error {
 	if s.msg != "" {
 		return errors.New(s.msg)
 	}

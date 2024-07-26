@@ -4,6 +4,7 @@
 package model
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/v4"
@@ -37,7 +38,7 @@ type retryProvisioningCommand struct {
 // that the retry-provisioning command calls.
 type RetryProvisioningAPI interface {
 	Close() error
-	RetryProvisioning(all bool, machines ...names.MachineTag) ([]params.ErrorResult, error)
+	RetryProvisioning(ctx context.Context, all bool, machines ...names.MachineTag) ([]params.ErrorResult, error)
 }
 
 const retryProvisioningCommandExamples = `
@@ -82,11 +83,11 @@ func (c *retryProvisioningCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *retryProvisioningCommand) getAPI() (RetryProvisioningAPI, error) {
+func (c *retryProvisioningCommand) getAPI(ctx context.Context) (RetryProvisioningAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -94,20 +95,20 @@ func (c *retryProvisioningCommand) getAPI() (RetryProvisioningAPI, error) {
 	return client, nil
 }
 
-func (c *retryProvisioningCommand) Run(context *cmd.Context) error {
-	client, err := c.getAPI()
+func (c *retryProvisioningCommand) Run(ctx *cmd.Context) error {
+	client, err := c.getAPI(ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	results, err := client.RetryProvisioning(c.all, c.Machines...)
+	results, err := client.RetryProvisioning(ctx, c.all, c.Machines...)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	for _, result := range results {
 		if result.Error != nil {
-			fmt.Fprintf(context.Stderr, "%v\n", result.Error)
+			fmt.Fprintf(ctx.Stderr, "%v\n", result.Error)
 		}
 	}
 	return nil

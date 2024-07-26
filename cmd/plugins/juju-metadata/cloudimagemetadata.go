@@ -4,6 +4,8 @@
 package main
 
 import (
+	"context"
+
 	"github.com/juju/juju/api/client/imagemetadatamanager"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -15,8 +17,8 @@ type cloudImageMetadataCommandBase struct {
 
 // NewImageMetadataAPI returns a image metadata api for the root api endpoint
 // that the environment command returns.
-func (c *cloudImageMetadataCommandBase) NewImageMetadataAPI() (*imagemetadatamanager.Client, error) {
-	root, err := c.NewAPIRoot()
+func (c *cloudImageMetadataCommandBase) NewImageMetadataAPI(ctx context.Context) (*imagemetadatamanager.Client, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, err
 	}

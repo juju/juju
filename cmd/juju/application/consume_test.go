@@ -4,6 +4,8 @@
 package application_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
@@ -145,12 +147,12 @@ func (a *mockConsumeAPI) Close() error {
 	return a.NextErr()
 }
 
-func (a *mockConsumeAPI) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) {
+func (a *mockConsumeAPI) Consume(ctx context.Context, arg crossmodel.ConsumeApplicationArgs) (string, error) {
 	a.MethodCall(a, "Consume", arg)
 	return a.localName, a.NextErr()
 }
 
-func (a *mockConsumeAPI) GetConsumeDetails(url string) (params.ConsumeOfferDetails, error) {
+func (a *mockConsumeAPI) GetConsumeDetails(ctx context.Context, url string) (params.ConsumeOfferDetails, error) {
 	a.MethodCall(a, "GetConsumeDetails", url)
 	mac, err := jujutesting.NewMacaroon("id")
 	if err != nil {

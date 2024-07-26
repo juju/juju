@@ -5,6 +5,7 @@ package application
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -156,9 +157,9 @@ type configCommand struct {
 // ApplicationAPI is an interface to allow passing in a fake implementation under test.
 type ApplicationAPI interface {
 	Close() error
-	Get(application string) (*params.ApplicationGetResults, error)
-	SetConfig(application, configYAML string, config map[string]string) error
-	UnsetApplicationConfig(application string, options []string) error
+	Get(ctx context.Context, application string) (*params.ApplicationGetResults, error)
+	SetConfig(ctx context.Context, application, configYAML string, config map[string]string) error
+	UnsetApplicationConfig(ctx context.Context, application string, options []string) error
 }
 
 // Info is part of the cmd.Command interface.
@@ -194,11 +195,11 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // getAPI either uses the fake API set at test time or that is nil, gets a real
 // API and sets that as the API.
-func (c *configCommand) getAPI() (ApplicationAPI, error) {
+func (c *configCommand) getAPI(ctx context.Context) (ApplicationAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -218,7 +219,7 @@ func (c *configCommand) Init(args []string) error {
 
 // Run implements the cmd.Command interface.
 func (c *configCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getAPI()
+	client, err := c.getAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -234,7 +235,7 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 		case config.SetFile:
 			err = c.setConfigFile(client, ctx)
 		case config.Reset:
-			err = c.resetConfig(client)
+			err = c.resetConfig(ctx, client)
 		default:
 			err = c.getAllConfig(client, ctx)
 		}
@@ -246,8 +247,8 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 }
 
 // resetConfig is the run action when we are resetting attributes.
-func (c *configCommand) resetConfig(client ApplicationAPI) error {
-	err := client.UnsetApplicationConfig(c.applicationName, c.configBase.KeysToReset)
+func (c *configCommand) resetConfig(ctx context.Context, client ApplicationAPI) error {
+	err := client.UnsetApplicationConfig(ctx, c.applicationName, c.configBase.KeysToReset)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
@@ -259,7 +260,7 @@ func (c *configCommand) setConfig(client ApplicationAPI, ctx *cmd.Context) error
 		return errors.Trace(err)
 	}
 
-	err = client.SetConfig(c.applicationName, "", settings)
+	err = client.SetConfig(ctx, c.applicationName, "", settings)
 	return errors.Trace(block.ProcessBlockedError(err, block.BlockChange))
 }
 
@@ -283,13 +284,13 @@ func (c *configCommand) setConfigFile(client ApplicationAPI, ctx *cmd.Context) e
 		}
 	}
 
-	err = client.SetConfig(c.applicationName, string(b), map[string]string{})
+	err = client.SetConfig(ctx, c.applicationName, string(b), map[string]string{})
 	return errors.Trace(block.ProcessBlockedError(err, block.BlockChange))
 }
 
 // getConfig is the run action to return a single configuration value.
 func (c *configCommand) getConfig(client ApplicationAPI, ctx *cmd.Context) error {
-	results, err := client.Get(c.applicationName)
+	results, err := client.Get(ctx, c.applicationName)
 	if err != nil {
 		return err
 	}
@@ -316,7 +317,7 @@ func (c *configCommand) getConfig(client ApplicationAPI, ctx *cmd.Context) error
 
 // getAllConfig is the run action to return all configuration values.
 func (c *configCommand) getAllConfig(client ApplicationAPI, ctx *cmd.Context) error {
-	results, err := client.Get(c.applicationName)
+	results, err := client.Get(ctx, c.applicationName)
 	if err != nil {
 		return err
 	}

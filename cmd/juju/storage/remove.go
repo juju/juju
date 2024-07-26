@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/cmd/v4"
@@ -21,8 +22,8 @@ import (
 // used to remove storage from the model.
 func NewRemoveStorageCommandWithAPI() cmd.Command {
 	command := &removeStorageCommand{}
-	command.newStorageRemoverCloser = func() (StorageRemoverCloser, error) {
-		return command.NewStorageAPI()
+	command.newStorageRemoverCloser = func(ctx context.Context) (StorageRemoverCloser, error) {
+		return command.NewStorageAPI(ctx)
 	}
 	return modelcmd.Wrap(command)
 }
@@ -100,7 +101,7 @@ func (c *removeStorageCommand) Init(args []string) error {
 		return errors.New("remove-storage requires at least one storage ID")
 	}
 	var err error
-	if c.modelType, err = c.ModelType(); err != nil {
+	if c.modelType, err = c.ModelType(context.TODO()); err != nil {
 		return errors.Trace(err)
 	}
 	if c.modelType == model.CAAS && c.force {
@@ -133,7 +134,7 @@ func (c *removeStorageCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	remover, err := c.newStorageRemoverCloser()
+	remover, err := c.newStorageRemoverCloser(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -141,7 +142,7 @@ func (c *removeStorageCommand) Run(ctx *cmd.Context) error {
 
 	destroyAttachments := c.force
 	destroyStorage := !c.noDestroy
-	results, err := remover.Remove(c.storageIds, destroyAttachments, destroyStorage, &c.force, maxWait)
+	results, err := remover.Remove(ctx, c.storageIds, destroyAttachments, destroyStorage, &c.force, maxWait)
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
 			common.PermissionsMessage(ctx.Stderr, "remove storage")
@@ -178,7 +179,7 @@ before removing.`)
 
 // NewStorageRemoverCloserFunc is the type of a function that returns an
 // StorageRemoverCloser.
-type NewStorageRemoverCloserFunc func() (StorageRemoverCloser, error)
+type NewStorageRemoverCloserFunc func(ctx context.Context) (StorageRemoverCloser, error)
 
 // StorageRemoverCloser extends StorageRemover with a Closer method.
 type StorageRemoverCloser interface {
@@ -190,6 +191,7 @@ type StorageRemoverCloser interface {
 // with the specified IDs.
 type StorageRemover interface {
 	Remove(
+		ctx context.Context,
 		storageIds []string,
 		destroyAttachments, destroyStorage bool,
 		force *bool, maxWait *time.Duration,

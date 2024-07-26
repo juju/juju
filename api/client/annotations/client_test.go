@@ -62,7 +62,7 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 		})
 
 	annotationsClient := annotations.NewClientFromCaller(mockFacadeCaller)
-	callErrs, err := annotationsClient.Set(setParams)
+	callErrs, err := annotationsClient.Set(context.Background(), setParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(callErrs, gc.HasLen, 0)
 }
@@ -72,7 +72,7 @@ func (s *annotationsMockSuite) TestGetEntitiesAnnotations(c *gc.C) {
 	defer ctrl.Finish()
 
 	args := params.Entities{
-		Entities: []params.Entity{{"charm"}},
+		Entities: []params.Entity{{Tag: "charm"}},
 	}
 	facadeAnnts := map[string]string{
 		"annotations": "test",
@@ -90,7 +90,7 @@ func (s *annotationsMockSuite) TestGetEntitiesAnnotations(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Get", args, result).SetArg(3, results).Return(nil)
 
 	annotationsClient := annotations.NewClientFromCaller(mockFacadeCaller)
-	found, err := annotationsClient.Get([]string{"charm"})
+	found, err := annotationsClient.Get(context.Background(), []string{"charm"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, 1)
 }

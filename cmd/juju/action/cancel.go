@@ -72,7 +72,7 @@ func (c *cancelCommand) Init(args []string) error {
 }
 
 func (c *cancelCommand) Run(ctx *cmd.Context) error {
-	api, err := c.NewActionAPIClient()
+	api, err := c.NewActionAPIClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("no task IDs specified")
 	}
 
-	actions, err := api.Cancel(c.requestedIDs)
+	actions, err := api.Cancel(ctx, c.requestedIDs)
 	if err != nil {
 		return err
 	}

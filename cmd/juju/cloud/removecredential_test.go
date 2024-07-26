@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"context"
 	"errors"
 	"strings"
 
@@ -24,7 +25,7 @@ type removeCredentialSuite struct {
 	testing.BaseSuite
 
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error)
-	clientF         func() (cloud.RemoveCredentialAPI, error)
+	clientF         func(ctx context.Context) (cloud.RemoveCredentialAPI, error)
 	fakeClient      *fakeRemoveCredentialAPI
 }
 
@@ -36,7 +37,7 @@ func (s *removeCredentialSuite) SetUpTest(c *gc.C) {
 	s.fakeClient = &fakeRemoveCredentialAPI{
 		clouds: func() (map[names.CloudTag]jujucloud.Cloud, error) { return nil, nil },
 	}
-	s.clientF = func() (cloud.RemoveCredentialAPI, error) {
+	s.clientF = func(ctx context.Context) (cloud.RemoveCredentialAPI, error) {
 		return s.fakeClient, nil
 	}
 }
@@ -123,7 +124,9 @@ func (s *removeCredentialSuite) setupStore(c *gc.C) *jujuclient.MemStore {
 
 func (s *removeCredentialSuite) TestGettingApiClientError(c *gc.C) {
 	store := s.setupStore(c)
-	s.clientF = func() (cloud.RemoveCredentialAPI, error) { return s.fakeClient, errors.New("kaboom") }
+	s.clientF = func(ctx context.Context) (cloud.RemoveCredentialAPI, error) {
+		return s.fakeClient, errors.New("kaboom")
+	}
 	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
 	_, err := cmdtesting.RunCommand(c, command, "aws", "foo", "-c", "controller")
 	c.Assert(err, gc.ErrorMatches, "kaboom")
@@ -132,7 +135,9 @@ func (s *removeCredentialSuite) TestGettingApiClientError(c *gc.C) {
 
 func (s *removeCredentialSuite) TestGettingApiClientErrorButLocal(c *gc.C) {
 	store := s.setupStore(c)
-	s.clientF = func() (cloud.RemoveCredentialAPI, error) { return s.fakeClient, errors.New("kaboom") }
+	s.clientF = func(ctx context.Context) (cloud.RemoveCredentialAPI, error) {
+		return s.fakeClient, errors.New("kaboom")
+	}
 	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
 	_, err := cmdtesting.RunCommand(c, command, "aws", "foo", "--client")
 	c.Assert(err, jc.ErrorIsNil)
@@ -222,12 +227,12 @@ func (f *fakeRemoveCredentialAPI) Close() error {
 	return nil
 }
 
-func (f *fakeRemoveCredentialAPI) RevokeCredential(c names.CloudCredentialTag, force bool) error {
+func (f *fakeRemoveCredentialAPI) RevokeCredential(ctx context.Context, c names.CloudCredentialTag, force bool) error {
 	f.AddCall("RevokeCredential", c, force)
 	return f.revokeCredentialF(c)
 }
 
-func (f *fakeRemoveCredentialAPI) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
+func (f *fakeRemoveCredentialAPI) Clouds(ctx context.Context) (map[names.CloudTag]jujucloud.Cloud, error) {
 	f.AddCall("Clouds")
 	return f.clouds()
 }

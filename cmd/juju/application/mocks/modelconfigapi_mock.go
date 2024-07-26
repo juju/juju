@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
@@ -77,18 +78,18 @@ func (c *MockModelConfigClientCloseCall) DoAndReturn(f func() error) *MockModelC
 }
 
 // ModelGet mocks base method.
-func (m *MockModelConfigClient) ModelGet() (map[string]any, error) {
+func (m *MockModelConfigClient) ModelGet(arg0 context.Context) (map[string]any, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelGet")
+	ret := m.ctrl.Call(m, "ModelGet", arg0)
 	ret0, _ := ret[0].(map[string]any)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelGet indicates an expected call of ModelGet.
-func (mr *MockModelConfigClientMockRecorder) ModelGet() *MockModelConfigClientModelGetCall {
+func (mr *MockModelConfigClientMockRecorder) ModelGet(arg0 any) *MockModelConfigClientModelGetCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelGet", reflect.TypeOf((*MockModelConfigClient)(nil).ModelGet))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelGet", reflect.TypeOf((*MockModelConfigClient)(nil).ModelGet), arg0)
 	return &MockModelConfigClientModelGetCall{Call: call}
 }
 
@@ -104,13 +105,13 @@ func (c *MockModelConfigClientModelGetCall) Return(arg0 map[string]any, arg1 err
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelConfigClientModelGetCall) Do(f func() (map[string]any, error)) *MockModelConfigClientModelGetCall {
+func (c *MockModelConfigClientModelGetCall) Do(f func(context.Context) (map[string]any, error)) *MockModelConfigClientModelGetCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelConfigClientModelGetCall) DoAndReturn(f func() (map[string]any, error)) *MockModelConfigClientModelGetCall {
+func (c *MockModelConfigClientModelGetCall) DoAndReturn(f func(context.Context) (map[string]any, error)) *MockModelConfigClientModelGetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

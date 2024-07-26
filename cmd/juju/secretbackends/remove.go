@@ -4,6 +4,8 @@
 package secretbackends
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -17,7 +19,7 @@ import (
 type removeSecretBackendCommand struct {
 	modelcmd.ControllerCommandBase
 
-	RemoveSecretBackendsAPIFunc func() (RemoveSecretBackendsAPI, error)
+	RemoveSecretBackendsAPIFunc func(ctx context.Context) (RemoveSecretBackendsAPI, error)
 
 	Name  string
 	Force bool
@@ -37,7 +39,7 @@ const removeSecretBackendExamples = `
 
 // RemoveSecretBackendsAPI is the secrets client API.
 type RemoveSecretBackendsAPI interface {
-	RemoveSecretBackend(string, bool) error
+	RemoveSecretBackend(context.Context, string, bool) error
 	Close() error
 }
 
@@ -49,8 +51,8 @@ func NewRemoveSecretBackendCommand() cmd.Command {
 	return modelcmd.WrapController(c)
 }
 
-func (c *removeSecretBackendCommand) secretBackendsAPI() (RemoveSecretBackendsAPI, error) {
-	root, err := c.NewAPIRoot()
+func (c *removeSecretBackendCommand) secretBackendsAPI(ctx context.Context) (RemoveSecretBackendsAPI, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -90,13 +92,13 @@ func (c *removeSecretBackendCommand) Init(args []string) error {
 
 // Run implements cmd.Run.
 func (c *removeSecretBackendCommand) Run(ctxt *cmd.Context) error {
-	api, err := c.RemoveSecretBackendsAPIFunc()
+	api, err := c.RemoveSecretBackendsAPIFunc(ctxt)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer api.Close()
 
-	err = api.RemoveSecretBackend(c.Name, c.Force)
+	err = api.RemoveSecretBackend(ctxt, c.Name, c.Force)
 	if errors.Is(err, errors.NotSupported) {
 		cmd.WriteError(ctxt.Stderr, errors.Errorf("backend %q still contains secret content", c.Name))
 		return cmd.ErrSilent

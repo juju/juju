@@ -4,6 +4,7 @@
 package model_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -198,7 +199,7 @@ type fakeExportBundleClient struct {
 
 func (f *fakeExportBundleClient) Close() error { return nil }
 
-func (f *fakeExportBundleClient) ExportBundle(includeDefaults bool) (string, error) {
+func (f *fakeExportBundleClient) ExportBundle(ctx context.Context, includeDefaults bool) (string, error) {
 	f.MethodCall(f, "ExportBundle", includeDefaults)
 	if err := f.NextErr(); err != nil {
 		return "", err

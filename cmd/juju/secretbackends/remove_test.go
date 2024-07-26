@@ -59,7 +59,7 @@ func (s *RemoveSuite) TestRemoveInitError(c *gc.C) {
 func (s *RemoveSuite) TestRemove(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.removeSecretBackendsAPI.EXPECT().RemoveSecretBackend("myvault", true).Return(nil)
+	s.removeSecretBackendsAPI.EXPECT().RemoveSecretBackend(gomock.Any(), "myvault", true).Return(nil)
 	s.removeSecretBackendsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secretbackends.NewRemoveCommandForTest(s.store, s.removeSecretBackendsAPI),
@@ -71,7 +71,7 @@ func (s *RemoveSuite) TestRemove(c *gc.C) {
 func (s *RemoveSuite) TestRemoveNotSupported(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.removeSecretBackendsAPI.EXPECT().RemoveSecretBackend("myvault", false).Return(
+	s.removeSecretBackendsAPI.EXPECT().RemoveSecretBackend(gomock.Any(), "myvault", false).Return(
 		jujuerrors.NotSupportedf(""))
 	s.removeSecretBackendsAPI.EXPECT().Close().Return(nil)
 

@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"regexp"
@@ -230,28 +231,28 @@ func (c *addRelationCommand) SetFlags(f *gnuflag.FlagSet) {
 // applicationAddRelationAPI defines the API methods that application add relation command uses.
 type applicationAddRelationAPI interface {
 	Close() error
-	AddRelation(endpoints, viaCIDRs []string) (*params.AddRelationResults, error)
-	Consume(crossmodel.ConsumeApplicationArgs) (string, error)
+	AddRelation(ctx context.Context, endpoints, viaCIDRs []string) (*params.AddRelationResults, error)
+	Consume(context.Context, crossmodel.ConsumeApplicationArgs) (string, error)
 }
 
-func (c *addRelationCommand) getAddRelationAPI() (applicationAddRelationAPI, error) {
+func (c *addRelationCommand) getAddRelationAPI(ctx context.Context) (applicationAddRelationAPI, error) {
 	if c.addRelationAPI != nil {
 		return c.addRelationAPI, nil
 	}
 
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return application.NewClient(root), nil
 }
 
-func (c *addRelationCommand) getOffersAPI(url *crossmodel.OfferURL) (applicationConsumeDetailsAPI, error) {
+func (c *addRelationCommand) getOffersAPI(ctx context.Context, url *crossmodel.OfferURL) (applicationConsumeDetailsAPI, error) {
 	if c.consumeDetailsAPI != nil {
 		return c.consumeDetailsAPI, nil
 	}
 
-	root, err := c.CommandBase.NewAPIRoot(c.ClientStore(), url.Source, "")
+	root, err := c.CommandBase.NewAPIRoot(ctx, c.ClientStore(), url.Source, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -263,7 +264,7 @@ func (c *addRelationCommand) getOffersAPI(url *crossmodel.OfferURL) (application
 var offerTerminatedRegexp = regexp.MustCompile(".*offer (?P<offer>\\S+) .*terminated.*")
 
 func (c *addRelationCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getAddRelationAPI()
+	client, err := c.getAddRelationAPI(ctx)
 	if err != nil {
 		return err
 	}
@@ -278,12 +279,12 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 			}
 			c.remoteEndpoint.Source = controllerName
 		}
-		if err := c.maybeConsumeOffer(client); err != nil {
+		if err := c.maybeConsumeOffer(ctx, client); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
-	_, err = client.AddRelation(c.endpoints, c.viaCIDRs)
+	_, err = client.AddRelation(ctx, c.endpoints, c.viaCIDRs)
 	if params.IsCodeUnauthorized(err) {
 		// XXX: Double check the error message looks sane
 		common.PermissionsMessage(ctx.Stderr, "integrate")
@@ -314,8 +315,8 @@ To integrate with a new offer with the same name, first run
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
-func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelationAPI) error {
-	sourceClient, err := c.getOffersAPI(c.remoteEndpoint)
+func (c *addRelationCommand) maybeConsumeOffer(ctx context.Context, targetClient applicationAddRelationAPI) error {
+	sourceClient, err := c.getOffersAPI(ctx, c.remoteEndpoint)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -323,7 +324,7 @@ func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelati
 
 	// Get the details of the remote offer - this will fail with a permission
 	// error if the user isn't authorised to consume the offer.
-	consumeDetails, err := sourceClient.GetConsumeDetails(c.remoteEndpoint.AsLocal().String())
+	consumeDetails, err := sourceClient.GetConsumeDetails(ctx, c.remoteEndpoint.AsLocal().String())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -355,7 +356,7 @@ func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelati
 			CACert:        consumeDetails.ControllerInfo.CACert,
 		}
 	}
-	_, err = targetClient.Consume(arg)
+	_, err = targetClient.Consume(ctx, arg)
 	return errors.Trace(err)
 }
 

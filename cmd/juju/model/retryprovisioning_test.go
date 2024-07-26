@@ -4,6 +4,7 @@
 package model_test
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4/cmdtesting"
@@ -42,7 +43,7 @@ func (f *fakeRetryProvisioningClient) Close() error {
 	return nil
 }
 
-func (f *fakeRetryProvisioningClient) RetryProvisioning(all bool, machines ...names.MachineTag) (
+func (f *fakeRetryProvisioningClient) RetryProvisioning(ctx context.Context, all bool, machines ...names.MachineTag) (
 	[]params.ErrorResult, error) {
 
 	if f.err != nil {

@@ -10,6 +10,7 @@
 package refresher
 
 import (
+	context "context"
 	reflect "reflect"
 
 	charm "github.com/juju/juju/api/common/charm"
@@ -41,18 +42,18 @@ func (m *MockCharmAdder) EXPECT() *MockCharmAdderMockRecorder {
 }
 
 // AddCharm mocks base method.
-func (m *MockCharmAdder) AddCharm(arg0 *charm0.URL, arg1 charm.Origin, arg2 bool) (charm.Origin, error) {
+func (m *MockCharmAdder) AddCharm(arg0 context.Context, arg1 *charm0.URL, arg2 charm.Origin, arg3 bool) (charm.Origin, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddCharm", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AddCharm", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(charm.Origin)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddCharm indicates an expected call of AddCharm.
-func (mr *MockCharmAdderMockRecorder) AddCharm(arg0, arg1, arg2 any) *MockCharmAdderAddCharmCall {
+func (mr *MockCharmAdderMockRecorder) AddCharm(arg0, arg1, arg2, arg3 any) *MockCharmAdderAddCharmCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharm", reflect.TypeOf((*MockCharmAdder)(nil).AddCharm), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharm", reflect.TypeOf((*MockCharmAdder)(nil).AddCharm), arg0, arg1, arg2, arg3)
 	return &MockCharmAdderAddCharmCall{Call: call}
 }
 
@@ -68,30 +69,30 @@ func (c *MockCharmAdderAddCharmCall) Return(arg0 charm.Origin, arg1 error) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmAdderAddCharmCall) Do(f func(*charm0.URL, charm.Origin, bool) (charm.Origin, error)) *MockCharmAdderAddCharmCall {
+func (c *MockCharmAdderAddCharmCall) Do(f func(context.Context, *charm0.URL, charm.Origin, bool) (charm.Origin, error)) *MockCharmAdderAddCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmAdderAddCharmCall) DoAndReturn(f func(*charm0.URL, charm.Origin, bool) (charm.Origin, error)) *MockCharmAdderAddCharmCall {
+func (c *MockCharmAdderAddCharmCall) DoAndReturn(f func(context.Context, *charm0.URL, charm.Origin, bool) (charm.Origin, error)) *MockCharmAdderAddCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddLocalCharm mocks base method.
-func (m *MockCharmAdder) AddLocalCharm(arg0 *charm0.URL, arg1 charm0.Charm, arg2 bool) (*charm0.URL, error) {
+func (m *MockCharmAdder) AddLocalCharm(arg0 context.Context, arg1 *charm0.URL, arg2 charm0.Charm, arg3 bool) (*charm0.URL, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddLocalCharm", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AddLocalCharm", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*charm0.URL)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddLocalCharm indicates an expected call of AddLocalCharm.
-func (mr *MockCharmAdderMockRecorder) AddLocalCharm(arg0, arg1, arg2 any) *MockCharmAdderAddLocalCharmCall {
+func (mr *MockCharmAdderMockRecorder) AddLocalCharm(arg0, arg1, arg2, arg3 any) *MockCharmAdderAddLocalCharmCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddLocalCharm", reflect.TypeOf((*MockCharmAdder)(nil).AddLocalCharm), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddLocalCharm", reflect.TypeOf((*MockCharmAdder)(nil).AddLocalCharm), arg0, arg1, arg2, arg3)
 	return &MockCharmAdderAddLocalCharmCall{Call: call}
 }
 
@@ -107,29 +108,29 @@ func (c *MockCharmAdderAddLocalCharmCall) Return(arg0 *charm0.URL, arg1 error) *
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmAdderAddLocalCharmCall) Do(f func(*charm0.URL, charm0.Charm, bool) (*charm0.URL, error)) *MockCharmAdderAddLocalCharmCall {
+func (c *MockCharmAdderAddLocalCharmCall) Do(f func(context.Context, *charm0.URL, charm0.Charm, bool) (*charm0.URL, error)) *MockCharmAdderAddLocalCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmAdderAddLocalCharmCall) DoAndReturn(f func(*charm0.URL, charm0.Charm, bool) (*charm0.URL, error)) *MockCharmAdderAddLocalCharmCall {
+func (c *MockCharmAdderAddLocalCharmCall) DoAndReturn(f func(context.Context, *charm0.URL, charm0.Charm, bool) (*charm0.URL, error)) *MockCharmAdderAddLocalCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CheckCharmPlacement mocks base method.
-func (m *MockCharmAdder) CheckCharmPlacement(arg0 string, arg1 *charm0.URL) error {
+func (m *MockCharmAdder) CheckCharmPlacement(arg0 context.Context, arg1 string, arg2 *charm0.URL) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckCharmPlacement", arg0, arg1)
+	ret := m.ctrl.Call(m, "CheckCharmPlacement", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CheckCharmPlacement indicates an expected call of CheckCharmPlacement.
-func (mr *MockCharmAdderMockRecorder) CheckCharmPlacement(arg0, arg1 any) *MockCharmAdderCheckCharmPlacementCall {
+func (mr *MockCharmAdderMockRecorder) CheckCharmPlacement(arg0, arg1, arg2 any) *MockCharmAdderCheckCharmPlacementCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCharmPlacement", reflect.TypeOf((*MockCharmAdder)(nil).CheckCharmPlacement), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCharmPlacement", reflect.TypeOf((*MockCharmAdder)(nil).CheckCharmPlacement), arg0, arg1, arg2)
 	return &MockCharmAdderCheckCharmPlacementCall{Call: call}
 }
 
@@ -145,13 +146,13 @@ func (c *MockCharmAdderCheckCharmPlacementCall) Return(arg0 error) *MockCharmAdd
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmAdderCheckCharmPlacementCall) Do(f func(string, *charm0.URL) error) *MockCharmAdderCheckCharmPlacementCall {
+func (c *MockCharmAdderCheckCharmPlacementCall) Do(f func(context.Context, string, *charm0.URL) error) *MockCharmAdderCheckCharmPlacementCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmAdderCheckCharmPlacementCall) DoAndReturn(f func(string, *charm0.URL) error) *MockCharmAdderCheckCharmPlacementCall {
+func (c *MockCharmAdderCheckCharmPlacementCall) DoAndReturn(f func(context.Context, string, *charm0.URL) error) *MockCharmAdderCheckCharmPlacementCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

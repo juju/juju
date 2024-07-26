@@ -5,6 +5,7 @@
 package manual
 
 import (
+	"context"
 	"errors"
 	"io"
 	"time"
@@ -19,7 +20,7 @@ var (
 )
 
 // ProvisionMachineFunc that every provisioner should have
-type ProvisionMachineFunc func(ProvisionMachineArgs) (machineId string, err error)
+type ProvisionMachineFunc func(context.Context, ProvisionMachineArgs) (machineId string, err error)
 
 // ProvisionMachineArgs used for arguments for the Provisioner methods
 type ProvisionMachineArgs struct {
@@ -60,7 +61,7 @@ type ProvisionMachineArgs struct {
 // provisioning of machines.  An interface is used here to decouple the API
 // consumer from the actual API implementation type.
 type ProvisioningClientAPI interface {
-	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	DestroyMachinesWithParams(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
-	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
+	AddMachines(context.Context, []params.AddMachineParams) ([]params.AddMachinesResult, error)
+	DestroyMachinesWithParams(ctx context.Context, force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
+	ProvisioningScript(context.Context, params.ProvisioningScriptParams) (script string, err error)
 }

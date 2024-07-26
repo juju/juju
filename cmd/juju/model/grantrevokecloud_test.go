@@ -4,6 +4,7 @@
 package model_test
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -156,11 +157,11 @@ type fakeCloudGrantRevokeAPI struct {
 
 func (f *fakeCloudGrantRevokeAPI) Close() error { return nil }
 
-func (f *fakeCloudGrantRevokeAPI) GrantCloud(user, access string, clouds ...string) error {
+func (f *fakeCloudGrantRevokeAPI) GrantCloud(ctx context.Context, user, access string, clouds ...string) error {
 	return f.fake(user, access, clouds...)
 }
 
-func (f *fakeCloudGrantRevokeAPI) RevokeCloud(user, access string, clouds ...string) error {
+func (f *fakeCloudGrantRevokeAPI) RevokeCloud(ctx context.Context, user, access string, clouds ...string) error {
 	return f.fake(user, access, clouds...)
 }
 

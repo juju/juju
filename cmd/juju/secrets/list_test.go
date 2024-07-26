@@ -50,7 +50,7 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 	uri3 := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{}).Return(
+	s.secretsAPI.EXPECT().ListSecrets(gomock.Any(), false, coresecrets.Filter{}).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				URI: uri, RotatePolicy: coresecrets.RotateHourly,
@@ -84,7 +84,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 	uri3 := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{}).Return(
+	s.secretsAPI.EXPECT().ListSecrets(gomock.Any(), false, coresecrets.Filter{}).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				URI: uri, RotatePolicy: coresecrets.RotateHourly,
@@ -138,7 +138,7 @@ func (s *ListSuite) TestListJSON(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{}).Return(
+	s.secretsAPI.EXPECT().ListSecrets(gomock.Any(), false, coresecrets.Filter{}).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				URI:     uri,

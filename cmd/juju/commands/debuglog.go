@@ -299,26 +299,26 @@ func (c *debugLogCommand) parseEntity(entity string) string {
 
 // DebugLogAPI provides access to the client facade.
 type DebugLogAPI interface {
-	WatchDebugLog(params common.DebugLogParams) (<-chan common.LogMessage, error)
+	WatchDebugLog(ctx context.Context, params common.DebugLogParams) (<-chan common.LogMessage, error)
 	Close() error
 }
 
 // ControllerDetailsAPI provides access to the high availability facade.
 type ControllerDetailsAPI interface {
-	ControllerDetails() (map[string]highavailability.ControllerDetails, error)
+	ControllerDetails(ctx context.Context) (map[string]highavailability.ControllerDetails, error)
 	BestAPIVersion() int
 }
 
-var getDebugLogAPI = func(c *debugLogCommand, addr []string) (DebugLogAPI, error) {
-	root, err := c.NewAPIRootWithAddressOverride(addr)
+var getDebugLogAPI = func(ctx context.Context, c *debugLogCommand, addr []string) (DebugLogAPI, error) {
+	root, err := c.NewAPIRootWithAddressOverride(ctx, addr)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return apiclient.NewClient(root, logger), nil
 }
 
-var getControllerDetailsClient = func(c *debugLogCommand) (ControllerDetailsAPI, error) {
-	root, err := c.NewAPIRoot()
+var getControllerDetailsClient = func(ctx context.Context, c *debugLogCommand) (ControllerDetailsAPI, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -339,19 +339,19 @@ func (f logFunc) Log(r []corelogger.LogRecord) error {
 	return f(r)
 }
 
-func (c *debugLogCommand) getControllerAddresses() ([][]string, error) {
+func (c *debugLogCommand) getControllerAddresses(ctx context.Context) ([][]string, error) {
 	if c.controllerIdOrAll == "" {
 		return nil, nil
 	}
 
-	api, err := getControllerDetailsClient(c)
+	api, err := getControllerDetailsClient(ctx, c)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller HA client")
 	}
 	if api.BestAPIVersion() < 3 {
 		return nil, fmt.Errorf("debug log controller selection not supported with this version of Juju")
 	}
-	controllerDetails, err := api.ControllerDetails()
+	controllerDetails, err := api.ControllerDetails(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller details")
 	}
@@ -385,7 +385,7 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Get the controller addresses to connect to.
-	controllerAddr, err := c.getControllerAddresses()
+	controllerAddr, err := c.getControllerAddresses(ctx)
 	if err != nil {
 		return err
 	}
@@ -466,13 +466,13 @@ loop:
 func (c *debugLogCommand) streamLogs(ctx context.Context, controllerAddr []string, buf *corelogger.BufferedLogWriter, errs chan error) {
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			client, err := getDebugLogAPI(c, controllerAddr)
+			client, err := getDebugLogAPI(ctx, c, controllerAddr)
 			if err != nil {
 				return err
 			}
 			defer client.Close()
 
-			messages, err := client.WatchDebugLog(c.params)
+			messages, err := client.WatchDebugLog(ctx, c.params)
 			if err != nil {
 				return err
 			}

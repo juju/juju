@@ -5,6 +5,7 @@ package cloud
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"sort"
@@ -42,7 +43,7 @@ type detectCredentialsCommand struct {
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error)
 
 	// These attributes are used when adding credentials to a controller.
-	credentialAPIFunc func() (CredentialAPI, error)
+	credentialAPIFunc func(ctx context.Context) (CredentialAPI, error)
 	remoteClouds      map[string]jujucloud.Cloud
 }
 
@@ -153,9 +154,9 @@ type discoveredCredential struct {
 	isDefault        bool
 }
 
-func (c *detectCredentialsCommand) credentialsAPI() (CredentialAPI, error) {
+func (c *detectCredentialsCommand) credentialsAPI(ctx context.Context) (CredentialAPI, error) {
 	var err error
-	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
+	root, err := c.NewAPIRoot(ctx, c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -187,13 +188,13 @@ func (c *detectCredentialsCommand) allClouds(ctxt *cmd.Context) (map[string]juju
 		// If there is a cloud definition for the same cloud both
 		// on the controller and on the client and they conflict,
 		// we want definition from the controller to take precedence.
-		client, err := c.credentialAPIFunc()
+		client, err := c.credentialAPIFunc(ctxt)
 		if err != nil {
 			return nil, err
 		}
 		defer client.Close()
 
-		remoteUserClouds, err := client.Clouds()
+		remoteUserClouds, err := client.Clouds(ctxt)
 		if err != nil {
 			return nil, err
 		}
@@ -483,7 +484,7 @@ func (c *detectCredentialsCommand) addRemoteCredentials(ctxt *cmd.Context, cloud
 		return err
 	}
 
-	client, err := c.credentialAPIFunc()
+	client, err := c.credentialAPIFunc(ctxt)
 	if err != nil {
 		return err
 	}
@@ -503,7 +504,7 @@ func (c *detectCredentialsCommand) addRemoteCredentials(ctxt *cmd.Context, cloud
 			if len(verified) == 0 {
 				return erred
 			}
-			result, err := client.AddCloudsCredentials(verified)
+			result, err := client.AddCloudsCredentials(ctxt, verified)
 			if err != nil {
 				logger.Errorf("%v", err)
 				ctxt.Warningf("Could not upload credentials to controller %q", c.ControllerName)

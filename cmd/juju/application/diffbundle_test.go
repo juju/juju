@@ -55,14 +55,14 @@ func (s *diffSuite) SetUpTest(c *gc.C) {
 func (s *diffSuite) runDiffBundle(c *gc.C, args ...string) (*cmd.Context, error) {
 	return s.runDiffBundleWithCharmAdaptor(c, func(base.APICallCloser, *charm.URL) (application.BundleResolver, error) {
 		return s.charmHub, nil
-	}, func() (application.ModelConstraintsClient, error) {
+	}, func(ctx context.Context) (application.ModelConstraintsClient, error) {
 		return s.modelClient, nil
 	}, args...)
 }
 
 func (s *diffSuite) runDiffBundleWithCharmAdaptor(c *gc.C,
 	charmAdataperFn func(base.APICallCloser, *charm.URL) (application.BundleResolver, error),
-	modelConsFn func() (application.ModelConstraintsClient, error),
+	modelConsFn func(ctx context.Context) (application.ModelConstraintsClient, error),
 	args ...string,
 ) (*cmd.Context, error) {
 	store := jujuclienttesting.MinimalStore()
@@ -580,7 +580,7 @@ type mockModelClient struct {
 	constraints constraints.Value
 }
 
-func (s *mockModelClient) GetModelConstraints() (constraints.Value, error) {
+func (s *mockModelClient) GetModelConstraints(ctx context.Context) (constraints.Value, error) {
 	s.stub.AddCall("GetModelConstraints")
 	return s.constraints, nil
 }
@@ -597,7 +597,7 @@ type mockCharmHub struct {
 	bundle *mockBundle
 }
 
-func (s *mockCharmHub) ResolveBundleURL(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, error) {
+func (s *mockCharmHub) ResolveBundleURL(ctx context.Context, url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, error) {
 	s.stub.AddCall("ResolveBundleURL", url, preferredOrigin)
 	return s.url, s.origin, s.stub.NextErr()
 }

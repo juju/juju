@@ -4,6 +4,8 @@
 package application
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -86,18 +88,18 @@ func (c *consumeCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *consumeCommand) getTargetAPI() (applicationConsumeAPI, error) {
+func (c *consumeCommand) getTargetAPI(ctx context.Context) (applicationConsumeAPI, error) {
 	if c.targetAPI != nil {
 		return c.targetAPI, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return application.NewClient(root), nil
 }
 
-func (c *consumeCommand) getSourceAPI(url *crossmodel.OfferURL) (applicationConsumeDetailsAPI, error) {
+func (c *consumeCommand) getSourceAPI(ctx context.Context, url *crossmodel.OfferURL) (applicationConsumeDetailsAPI, error) {
 	if c.sourceAPI != nil {
 		return c.sourceAPI, nil
 	}
@@ -110,7 +112,7 @@ func (c *consumeCommand) getSourceAPI(url *crossmodel.OfferURL) (applicationCons
 		}
 		url.Source = controllerName
 	}
-	root, err := c.CommandBase.NewAPIRoot(c.ClientStore(), url.Source, "")
+	root, err := c.CommandBase.NewAPIRoot(ctx, c.ClientStore(), url.Source, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -135,13 +137,13 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 		url.User = accountDetails.User
 		c.remoteApplication = url.Path()
 	}
-	sourceClient, err := c.getSourceAPI(url)
+	sourceClient, err := c.getSourceAPI(ctx, url)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer sourceClient.Close()
 
-	consumeDetails, err := sourceClient.GetConsumeDetails(url.AsLocal().String())
+	consumeDetails, err := sourceClient.GetConsumeDetails(ctx, url.AsLocal().String())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -154,7 +156,7 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 	offerURL.Source = url.Source
 	consumeDetails.Offer.OfferURL = offerURL.String()
 
-	targetClient, err := c.getTargetAPI()
+	targetClient, err := c.getTargetAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -177,7 +179,7 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 			CACert:        consumeDetails.ControllerInfo.CACert,
 		}
 	}
-	localName, err := targetClient.Consume(arg)
+	localName, err := targetClient.Consume(ctx, arg)
 	if err != nil {
 		return block.ProcessBlockedError(errors.Annotatef(err, "could not consume %v", url.AsLocal().String()), block.BlockChange)
 	}
@@ -187,10 +189,10 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 
 type applicationConsumeAPI interface {
 	Close() error
-	Consume(crossmodel.ConsumeApplicationArgs) (string, error)
+	Consume(context.Context, crossmodel.ConsumeApplicationArgs) (string, error)
 }
 
 type applicationConsumeDetailsAPI interface {
 	Close() error
-	GetConsumeDetails(string) (params.ConsumeOfferDetails, error)
+	GetConsumeDetails(context.Context, string) (params.ConsumeOfferDetails, error)
 }

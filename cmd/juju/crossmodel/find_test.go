@@ -4,6 +4,7 @@
 package crossmodel
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/v4"
@@ -19,7 +20,7 @@ import (
 )
 
 func newFindEndpointsCommandForTest(store jujuclient.ClientStore, api FindAPI) cmd.Command {
-	aCmd := &findCommand{newAPIFunc: func(controllerName string) (FindAPI, error) {
+	aCmd := &findCommand{newAPIFunc: func(ctx context.Context, controllerName string) (FindAPI, error) {
 		return api, nil
 	}}
 	aCmd.SetClientStore(store)
@@ -203,7 +204,7 @@ func (s mockFindAPI) Close() error {
 	return nil
 }
 
-func (s mockFindAPI) FindApplicationOffers(filters ...jujucrossmodel.ApplicationOfferFilter) ([]*jujucrossmodel.ApplicationOfferDetails, error) {
+func (s mockFindAPI) FindApplicationOffers(ctx context.Context, filters ...jujucrossmodel.ApplicationOfferFilter) ([]*jujucrossmodel.ApplicationOfferDetails, error) {
 	if s.msg != "" {
 		return nil, errors.New(s.msg)
 	}

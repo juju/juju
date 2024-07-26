@@ -78,7 +78,7 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 
 		// Add the new space.
 		// TODO(dimitern): Accept --public|--private and pass it here.
-		err := api.AddSpace(c.Name, subnetIds, true)
+		err := api.AddSpace(ctx, c.Name, subnetIds, true)
 		if err != nil {
 			if errors.Is(err, errors.NotSupported) {
 				ctx.Infof("cannot add space %q: %v", c.Name, err)

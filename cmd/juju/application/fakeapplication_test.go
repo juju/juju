@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/collections/set"
@@ -27,7 +28,7 @@ func (f *fakeApplicationAPI) Close() error {
 	return nil
 }
 
-func (f *fakeApplicationAPI) Get(application string) (*params.ApplicationGetResults, error) {
+func (f *fakeApplicationAPI) Get(ctx context.Context, application string) (*params.ApplicationGetResults, error) {
 	if application != f.name {
 		return nil, errors.NotFoundf("application %q", application)
 	}
@@ -57,7 +58,7 @@ func (f *fakeApplicationAPI) Get(application string) (*params.ApplicationGetResu
 	}, nil
 }
 
-func (f *fakeApplicationAPI) SetConfig(application, configYAML string, config map[string]string) error {
+func (f *fakeApplicationAPI) SetConfig(ctx context.Context, application, configYAML string, config map[string]string) error {
 	if f.err != nil {
 		return f.err
 	}
@@ -90,7 +91,7 @@ func (f *fakeApplicationAPI) SetConfig(application, configYAML string, config ma
 	return nil
 }
 
-func (f *fakeApplicationAPI) UnsetApplicationConfig(application string, options []string) error {
+func (f *fakeApplicationAPI) UnsetApplicationConfig(ctx context.Context, application string, options []string) error {
 	if f.err != nil {
 		return f.err
 	}

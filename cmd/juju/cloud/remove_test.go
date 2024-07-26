@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"context"
 	"os"
 
 	"github.com/juju/cmd/v4/cmdtesting"
@@ -116,7 +117,7 @@ func (s *removeSuite) TestRemoveCloudLocal(c *gc.C) {
 
 	command := cloud.NewRemoveCloudCommandForTest(
 		s.store,
-		func() (cloud.RemoveCloudAPI, error) {
+		func(ctx context.Context) (cloud.RemoveCloudAPI, error) {
 			c.Fail()
 			return s.api, nil
 		})
@@ -134,7 +135,7 @@ func (s *removeSuite) TestRemoveCloudNoControllers(c *gc.C) {
 	s.store.Controllers = nil
 	command := cloud.NewRemoveCloudCommandForTest(
 		s.store,
-		func() (cloud.RemoveCloudAPI, error) {
+		func(ctx context.Context) (cloud.RemoveCloudAPI, error) {
 			c.Fail()
 			return s.api, nil
 		})
@@ -152,12 +153,12 @@ func (s *removeSuite) TestRemoveCloudControllerControllerOnly(c *gc.C) {
 
 	command := cloud.NewRemoveCloudCommandForTest(
 		s.store,
-		func() (cloud.RemoveCloudAPI, error) {
+		func(ctx context.Context) (cloud.RemoveCloudAPI, error) {
 			return s.api, nil
 		})
 	s.createTestCloudData(c)
 
-	s.api.EXPECT().RemoveCloud("homestack").Return(nil)
+	s.api.EXPECT().RemoveCloud(gomock.Any(), "homestack").Return(nil)
 	s.api.EXPECT().Close().Return(nil)
 	ctx, err := cmdtesting.RunCommand(c, command, "homestack", "-c", "mycontroller")
 
@@ -172,12 +173,12 @@ func (s *removeSuite) TestRemoveCloudBoth(c *gc.C) {
 
 	command := cloud.NewRemoveCloudCommandForTest(
 		s.store,
-		func() (cloud.RemoveCloudAPI, error) {
+		func(ctx context.Context) (cloud.RemoveCloudAPI, error) {
 			return s.api, nil
 		})
 	s.createTestCloudData(c)
 
-	s.api.EXPECT().RemoveCloud("homestack").Return(nil)
+	s.api.EXPECT().RemoveCloud(gomock.Any(), "homestack").Return(nil)
 	s.api.EXPECT().Close().Return(nil)
 	ctx, err := cmdtesting.RunCommand(c, command, "homestack", "-c", "mycontroller", "--client")
 

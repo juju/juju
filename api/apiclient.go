@@ -98,14 +98,14 @@ func (e *RedirectError) Error() string {
 // holding the details of another server to connect to.
 //
 // See Connect for details of the connection mechanics.
-func Open(info *Info, opts DialOpts) (Connection, error) {
+func Open(ctx context.Context, info *Info, opts DialOpts) (Connection, error) {
 	if err := info.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating info for opening an API connection")
 	}
 	if opts.Clock == nil {
 		opts.Clock = clock.WallClock
 	}
-	ctx := context.Background()
+
 	dialCtx := ctx
 	if opts.Timeout > 0 {
 		ctx1, cancel := utils.ContextWithTimeout(dialCtx, opts.Clock, opts.Timeout)

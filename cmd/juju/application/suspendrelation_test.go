@@ -4,6 +4,8 @@
 package application_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -81,7 +83,7 @@ func (s mockSuspendAPI) Close() error {
 	return s.NextErr()
 }
 
-func (s mockSuspendAPI) SetRelationSuspended(relationIds []int, suspended bool, message string) error {
+func (s mockSuspendAPI) SetRelationSuspended(ctx context.Context, relationIds []int, suspended bool, message string) error {
 	s.MethodCall(s, "SetRelationSuspended", relationIds, suspended, message)
 	return s.setRelationSuspendedFunc(relationIds, suspended, message)
 }

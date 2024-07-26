@@ -4,6 +4,7 @@
 package block
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -51,12 +52,12 @@ func operationFromType(blockType string) string {
 }
 
 type newAPIRoot interface {
-	NewAPIRoot() (api.Connection, error)
+	NewAPIRoot(ctx context.Context) (api.Connection, error)
 }
 
 // getBlockAPI returns a block api for block manipulation.
-func getBlockAPI(c newAPIRoot) (*apiblock.Client, error) {
-	root, err := c.NewAPIRoot()
+func getBlockAPI(ctx context.Context, c newAPIRoot) (*apiblock.Client, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, err
 	}

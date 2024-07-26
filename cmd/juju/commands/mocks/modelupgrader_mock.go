@@ -81,18 +81,18 @@ func (c *MockModelUpgraderAPICloseCall) DoAndReturn(f func() error) *MockModelUp
 }
 
 // UpgradeModel mocks base method.
-func (m *MockModelUpgraderAPI) UpgradeModel(arg0 string, arg1 version.Number, arg2 string, arg3, arg4 bool) (version.Number, error) {
+func (m *MockModelUpgraderAPI) UpgradeModel(arg0 context.Context, arg1 string, arg2 version.Number, arg3 string, arg4, arg5 bool) (version.Number, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpgradeModel", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "UpgradeModel", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(version.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpgradeModel indicates an expected call of UpgradeModel.
-func (mr *MockModelUpgraderAPIMockRecorder) UpgradeModel(arg0, arg1, arg2, arg3, arg4 any) *MockModelUpgraderAPIUpgradeModelCall {
+func (mr *MockModelUpgraderAPIMockRecorder) UpgradeModel(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockModelUpgraderAPIUpgradeModelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeModel", reflect.TypeOf((*MockModelUpgraderAPI)(nil).UpgradeModel), arg0, arg1, arg2, arg3, arg4)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeModel", reflect.TypeOf((*MockModelUpgraderAPI)(nil).UpgradeModel), arg0, arg1, arg2, arg3, arg4, arg5)
 	return &MockModelUpgraderAPIUpgradeModelCall{Call: call}
 }
 
@@ -108,13 +108,13 @@ func (c *MockModelUpgraderAPIUpgradeModelCall) Return(arg0 version.Number, arg1 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelUpgraderAPIUpgradeModelCall) Do(f func(string, version.Number, string, bool, bool) (version.Number, error)) *MockModelUpgraderAPIUpgradeModelCall {
+func (c *MockModelUpgraderAPIUpgradeModelCall) Do(f func(context.Context, string, version.Number, string, bool, bool) (version.Number, error)) *MockModelUpgraderAPIUpgradeModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelUpgraderAPIUpgradeModelCall) DoAndReturn(f func(string, version.Number, string, bool, bool) (version.Number, error)) *MockModelUpgraderAPIUpgradeModelCall {
+func (c *MockModelUpgraderAPIUpgradeModelCall) DoAndReturn(f func(context.Context, string, version.Number, string, bool, bool) (version.Number, error)) *MockModelUpgraderAPIUpgradeModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

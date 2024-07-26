@@ -42,7 +42,7 @@ func (s *grantSuite) TestGrant(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().GrantSecret(uri, "", []string{"gitlab", "mysql"}).Return([]error{nil, nil}, nil)
+	s.secretsAPI.EXPECT().GrantSecret(gomock.Any(), uri, "", []string{"gitlab", "mysql"}).Return([]error{nil, nil}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewGrantCommandForTest(s.store, s.secretsAPI), uri.String(), "gitlab,mysql")
@@ -52,7 +52,7 @@ func (s *grantSuite) TestGrant(c *gc.C) {
 func (s *grantSuite) TestGrantByName(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.secretsAPI.EXPECT().GrantSecret(nil, "my-secret", []string{"gitlab", "mysql"}).Return([]error{nil, nil}, nil)
+	s.secretsAPI.EXPECT().GrantSecret(gomock.Any(), nil, "my-secret", []string{"gitlab", "mysql"}).Return([]error{nil, nil}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewGrantCommandForTest(s.store, s.secretsAPI), "my-secret", "gitlab,mysql")
@@ -92,7 +92,7 @@ func (s *revokeSuite) TestRevoke(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().RevokeSecret(uri, "", []string{"gitlab", "mysql"}).Return([]error{nil, nil}, nil)
+	s.secretsAPI.EXPECT().RevokeSecret(gomock.Any(), uri, "", []string{"gitlab", "mysql"}).Return([]error{nil, nil}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewRevokeCommandForTest(s.store, s.secretsAPI), uri.String(), "gitlab,mysql")
@@ -102,7 +102,7 @@ func (s *revokeSuite) TestRevoke(c *gc.C) {
 func (s *revokeSuite) TestRevokeByName(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.secretsAPI.EXPECT().RevokeSecret(nil, "my-secret", []string{"gitlab", "mysql"}).Return([]error{nil, nil}, nil)
+	s.secretsAPI.EXPECT().RevokeSecret(gomock.Any(), nil, "my-secret", []string{"gitlab", "mysql"}).Return([]error{nil, nil}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewRevokeCommandForTest(s.store, s.secretsAPI), "my-secret", "gitlab,mysql")

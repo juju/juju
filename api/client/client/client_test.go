@@ -15,12 +15,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	basemocks "github.com/juju/juju/api/base/mocks"
-	"github.com/juju/juju/api/client/client"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -32,19 +29,6 @@ var _ = gc.Suite(&clientSuite{})
 // TODO(jam) 2013-08-27 http://pad.lv/1217282
 // Right now most of the direct tests for client.Client behavior are in
 // apiserver/client/*_test.go
-
-func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	someErr := errors.New("random")
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AbortCurrentUpgrade", nil, nil).Return(someErr)
-	cl := client.NewClientFromFacadeCaller(mockFacadeCaller)
-
-	err := cl.AbortCurrentUpgrade()
-	c.Assert(err, gc.Equals, someErr) // Confirms that the correct facade was called
-}
 
 func (s *clientSuite) TestWebsocketDialWithErrorsJSON(c *gc.C) {
 	errorResult := params.ErrorResult{

@@ -90,7 +90,7 @@ func (c *ListCommand) Init(args []string) error {
 // Run implements Command.Run.
 func (c *ListCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithSpaceAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
-		spaces, err := api.ListSpaces()
+		spaces, err := api.ListSpaces(ctx)
 		if err != nil {
 			if errors.Is(err, errors.NotSupported) {
 				ctx.Infof("cannot list spaces: %v", err)

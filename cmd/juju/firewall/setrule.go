@@ -4,6 +4,7 @@
 package firewall
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -41,8 +42,8 @@ const setRuleHelpExamples = `
 // NewSetFirewallRuleCommand returns a command to set firewall rules.
 func NewSetFirewallRuleCommand() cmd.Command {
 	cmd := &setFirewallRuleCommand{}
-	cmd.newAPIFunc = func() (SetFirewallRuleAPI, error) {
-		root, err := cmd.NewAPIRoot()
+	cmd.newAPIFunc = func(ctx context.Context) (SetFirewallRuleAPI, error) {
+		root, err := cmd.NewAPIRoot(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -59,7 +60,7 @@ type setFirewallRuleCommand struct {
 	allowlist string
 	whitelist string
 
-	newAPIFunc func() (SetFirewallRuleAPI, error)
+	newAPIFunc func(ctx context.Context) (SetFirewallRuleAPI, error)
 }
 
 // Info implements cmd.Command.
@@ -119,7 +120,7 @@ func (c *setFirewallRuleCommand) validateCIDRS(value string) error {
 // SetFirewallRuleAPI defines the API methods that the set firewall rules command uses.
 type SetFirewallRuleAPI interface {
 	Close() error
-	ModelSet(config map[string]interface{}) error
+	ModelSet(ctx context.Context, config map[string]interface{}) error
 }
 
 var deprecationWarning = `
@@ -135,7 +136,7 @@ func (c *setFirewallRuleCommand) Run(ctx *cmd.Context) error {
 	}
 	ctx.Warningf(deprecationWarning)
 
-	client, err := c.newAPIFunc()
+	client, err := c.newAPIFunc(ctx)
 	if err != nil {
 		return err
 	}
@@ -143,9 +144,9 @@ func (c *setFirewallRuleCommand) Run(ctx *cmd.Context) error {
 
 	switch c.service {
 	case firewall.SSHRule:
-		err = client.ModelSet(map[string]interface{}{config.SSHAllowKey: c.allowlist})
+		err = client.ModelSet(ctx, map[string]interface{}{config.SSHAllowKey: c.allowlist})
 	case firewall.JujuApplicationOfferRule:
-		err = client.ModelSet(map[string]interface{}{config.SAASIngressAllowKey: c.allowlist})
+		err = client.ModelSet(ctx, map[string]interface{}{config.SAASIngressAllowKey: c.allowlist})
 	default:
 		return errors.NotSupportedf("service %v", c.service)
 	}

@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -37,8 +38,8 @@ where "myapplication" is the application name alias; see "juju help deploy" for 
 // NewShowApplicationCommand returns a command that displays applications info.
 func NewShowApplicationCommand() cmd.Command {
 	s := &showApplicationCommand{}
-	s.newAPIFunc = func() (ApplicationsInfoAPI, error) {
-		return s.newApplicationAPI()
+	s.newAPIFunc = func(ctx context.Context) (ApplicationsInfoAPI, error) {
+		return s.newApplicationAPI(ctx)
 	}
 	return modelcmd.Wrap(s)
 }
@@ -49,7 +50,7 @@ type showApplicationCommand struct {
 
 	out        cmd.Output
 	apps       []string
-	newAPIFunc func() (ApplicationsInfoAPI, error)
+	newAPIFunc func(ctx context.Context) (ApplicationsInfoAPI, error)
 }
 
 // Info implements Command.Info.
@@ -95,11 +96,11 @@ func (c *showApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
 // ApplicationsInfoAPI defines the API methods that show-application command uses.
 type ApplicationsInfoAPI interface {
 	Close() error
-	ApplicationsInfo([]names.ApplicationTag) ([]params.ApplicationInfoResult, error)
+	ApplicationsInfo(context.Context, []names.ApplicationTag) ([]params.ApplicationInfoResult, error)
 }
 
-func (c *showApplicationCommand) newApplicationAPI() (ApplicationsInfoAPI, error) {
-	root, err := c.NewAPIRoot()
+func (c *showApplicationCommand) newApplicationAPI(ctx context.Context) (ApplicationsInfoAPI, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -107,7 +108,7 @@ func (c *showApplicationCommand) newApplicationAPI() (ApplicationsInfoAPI, error
 }
 
 func (c *showApplicationCommand) Run(ctx *cmd.Context) error {
-	client, err := c.newAPIFunc()
+	client, err := c.newAPIFunc(ctx)
 	if err != nil {
 		return err
 	}
@@ -118,7 +119,7 @@ func (c *showApplicationCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	results, err := client.ApplicationsInfo(tags)
+	results, err := client.ApplicationsInfo(ctx, tags)
 	if err != nil {
 		return errors.Trace(err)
 	}

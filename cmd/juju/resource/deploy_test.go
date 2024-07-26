@@ -541,7 +541,7 @@ type uploadDeps struct {
 	data []byte
 }
 
-func (s uploadDeps) AddPendingResources(applicationID string, charmID apiresources.CharmID, resources []charmresource.Resource) (ids []string, err error) {
+func (s uploadDeps) AddPendingResources(ctx context.Context, applicationID string, charmID apiresources.CharmID, resources []charmresource.Resource) (ids []string, err error) {
 	charmresource.Sort(resources)
 	s.stub.AddCall("AddPendingResources", applicationID, charmID, resources)
 	if err := s.stub.NextErr(); err != nil {

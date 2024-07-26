@@ -359,26 +359,26 @@ func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
 func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployCAAS(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelCommand.EXPECT().ModelType().Return(model.CAAS, nil).AnyTimes()
+	s.modelCommand.EXPECT().ModelType(gomock.Any()).Return(model.CAAS, nil).AnyTimes()
 
 	f := &factory{
 		model: s.modelCommand,
 	}
 
-	err := f.validateResourcesNeededForLocalDeploy(&charm.Meta{})
+	err := f.validateResourcesNeededForLocalDeploy(context.Background(), &charm.Meta{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployIAAS(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelCommand.EXPECT().ModelType().Return(model.IAAS, nil).AnyTimes()
+	s.modelCommand.EXPECT().ModelType(gomock.Any()).Return(model.IAAS, nil).AnyTimes()
 
 	f := &factory{
 		model: s.modelCommand,
 	}
 
-	err := f.validateResourcesNeededForLocalDeploy(&charm.Meta{})
+	err := f.validateResourcesNeededForLocalDeploy(context.Background(), &charm.Meta{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -406,7 +406,7 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 			return s.deployResourceIDs, nil
 		},
 		Model:                s.modelCommand,
-		NewConsumeDetailsAPI: func(url *charm.OfferURL) (ConsumeDetails, error) { return s.consumeDetails, nil },
+		NewConsumeDetailsAPI: func(ctx context.Context, url *charm.OfferURL) (ConsumeDetails, error) { return s.consumeDetails, nil },
 		FileSystem:           s.filesystem,
 		CharmReader:          fsCharmReader{},
 	}
@@ -458,11 +458,12 @@ func (s *deployerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *deployerSuite) expectResolveBundleURL(err error, times int) {
 	s.resolver.EXPECT().ResolveBundleURL(
+		gomock.Any(),
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, origin commoncharm.Origin) (*charm.URL, commoncharm.Origin, error) {
+		func(ctx context.Context, curl *charm.URL, origin commoncharm.Origin) (*charm.URL, commoncharm.Origin, error) {
 			return curl, origin, err
 		}).Times(times)
 }
@@ -486,11 +487,11 @@ func (s *deployerSuite) expectModelGet(c *gc.C) {
 	}
 	cfg, err := config.New(true, minimal)
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmDeployAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil)
+	s.charmDeployAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg.AllAttrs(), nil)
 }
 
 func (s *deployerSuite) expectModelType() {
-	s.modelCommand.EXPECT().ModelType().Return(model.IAAS, nil).AnyTimes()
+	s.modelCommand.EXPECT().ModelType(gomock.Any()).Return(model.IAAS, nil).AnyTimes()
 }
 
 func (s *deployerSuite) expectGetBundle(err error) {

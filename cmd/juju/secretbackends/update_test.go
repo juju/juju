@@ -69,6 +69,7 @@ func (s *UpdateSuite) TestUpdate(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.updateSecretBackendsAPI.EXPECT().UpdateSecretBackend(
+		gomock.Any(),
 		apisecretbackends.UpdateSecretBackend{
 			Name:                "myvault",
 			TokenRotateInterval: ptr(666 * time.Minute),
@@ -86,6 +87,7 @@ func (s *UpdateSuite) TestUpdateName(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.updateSecretBackendsAPI.EXPECT().UpdateSecretBackend(
+		gomock.Any(),
 		apisecretbackends.UpdateSecretBackend{
 			Name:       "myvault",
 			NameChange: ptr("myvault2"),
@@ -103,6 +105,7 @@ func (s *UpdateSuite) TestUpdateResetTokenRotate(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.updateSecretBackendsAPI.EXPECT().UpdateSecretBackend(
+		gomock.Any(),
 		apisecretbackends.UpdateSecretBackend{
 			Name:                "myvault",
 			TokenRotateInterval: ptr(0 * time.Second),
@@ -123,6 +126,7 @@ func (s *UpdateSuite) TestUpdateFromFile(c *gc.C) {
 	err := os.WriteFile(fname, []byte("endpoint: http://vault"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.updateSecretBackendsAPI.EXPECT().UpdateSecretBackend(
+		gomock.Any(),
 		apisecretbackends.UpdateSecretBackend{
 			Name:                "myvault",
 			TokenRotateInterval: ptr(666 * time.Minute),

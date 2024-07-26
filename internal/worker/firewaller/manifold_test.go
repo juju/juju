@@ -83,7 +83,7 @@ func validConfig(c *gc.C) firewaller.ManifoldConfig {
 		APICallerName:                "api-caller",
 		EnvironName:                  "environ",
 		Logger:                       loggertesting.WrapCheckLog(c),
-		NewControllerConnection:      func(*api.Info) (api.Connection, error) { return nil, nil },
+		NewControllerConnection:      func(context.Context, *api.Info) (api.Connection, error) { return nil, nil },
 		NewFirewallerFacade:          func(base.APICaller) (firewaller.FirewallerAPI, error) { return nil, nil },
 		NewFirewallerWorker:          func(firewaller.Config) (worker.Worker, error) { return nil, nil },
 		NewRemoteRelationsFacade:     func(base.APICaller) *remoterelations.Client { return nil },

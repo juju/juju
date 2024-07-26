@@ -72,7 +72,7 @@ func crossmodelFirewallerFacadeFunc(
 ) newCrossModelFacadeFunc {
 	return func(ctx context.Context, apiInfo *api.Info) (CrossModelFirewallerFacadeCloser, error) {
 		apiInfo.Tag = names.NewUserTag(api.AnonymousUsername)
-		conn, err := connectionFunc(apiInfo)
+		conn, err := connectionFunc(ctx, apiInfo)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

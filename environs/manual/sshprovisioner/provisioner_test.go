@@ -5,6 +5,7 @@
 package sshprovisioner_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -44,11 +45,11 @@ type mockMachineManager struct {
 	manual.ProvisioningClientAPI
 }
 
-func (m *mockMachineManager) ProvisioningScript(params.ProvisioningScriptParams) (script string, err error) {
+func (m *mockMachineManager) ProvisioningScript(context.Context, params.ProvisioningScriptParams) (script string, err error) {
 	return "echo hello", nil
 }
 
-func (m *mockMachineManager) AddMachines(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+func (m *mockMachineManager) AddMachines(ctx context.Context, args []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	if len(args) != 1 {
 		return nil, errors.Errorf("unexpected args: %+v", args)
 	}
@@ -68,7 +69,7 @@ func (m *mockMachineManager) AddMachines(args []params.AddMachineParams) ([]para
 	}}, nil
 }
 
-func (m *mockMachineManager) DestroyMachinesWithParams(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
+func (m *mockMachineManager) DestroyMachinesWithParams(ctx context.Context, force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	if len(machines) == 0 || machines[0] != "2" {
 		return nil, errors.Errorf("unexpected machines: %v", machines)
 	}
@@ -111,7 +112,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 			InitUbuntuUser:         true,
 			ProvisionAgentExitCode: errorCode,
 		}.install(c).Restore()
-		machineId, err := sshprovisioner.ProvisionMachine(args)
+		machineId, err := sshprovisioner.ProvisionMachine(context.Background(), args)
 		if errorCode != 0 {
 			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("subprocess encountered error code %d", errorCode))
 			c.Assert(machineId, gc.Equals, "")
@@ -132,7 +133,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipDetection:      true,
 		SkipProvisionAgent: true,
 	}.install(c).Restore()
-	_, err := sshprovisioner.ProvisionMachine(args)
+	_, err := sshprovisioner.ProvisionMachine(context.Background(), args)
 	c.Assert(err, gc.Equals, manual.ErrProvisioned)
 	defer fakeSSH{
 		Provisioned:              true,
@@ -141,7 +142,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipDetection:            true,
 		SkipProvisionAgent:       true,
 	}.install(c).Restore()
-	_, err = sshprovisioner.ProvisionMachine(args)
+	_, err = sshprovisioner.ProvisionMachine(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: subprocess encountered error code 255")
 }
 

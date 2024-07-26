@@ -111,26 +111,26 @@ type ControllerAccessAPI interface {
 
 // ModelConfigAPI defines a subset of the model config API.
 type ModelConfigAPI interface {
-	ModelGet() (map[string]interface{}, error)
+	ModelGet(ctx context.Context) (map[string]interface{}, error)
 	Close() error
 }
 
-func (c *showControllerCommand) getAPI(controllerName string) (ControllerAccessAPI, error) {
+func (c *showControllerCommand) getAPI(ctx context.Context, controllerName string) (ControllerAccessAPI, error) {
 	if c.api != nil {
 		return c.api(controllerName), nil
 	}
-	api, err := c.NewAPIRoot(c.store, controllerName, "")
+	api, err := c.NewAPIRoot(ctx, c.store, controllerName, "")
 	if err != nil {
 		return nil, errors.Annotate(err, "opening API connection")
 	}
 	return controller.NewClient(api), nil
 }
 
-func (c *showControllerCommand) getModelConfigAPI(controllerName string) (ModelConfigAPI, error) {
+func (c *showControllerCommand) getModelConfigAPI(ctx context.Context, controllerName string) (ModelConfigAPI, error) {
 	if c.api != nil {
 		return c.modelConfigAPI(controllerName), nil
 	}
-	api, err := c.NewAPIRoot(c.store, controllerName, "")
+	api, err := c.NewAPIRoot(ctx, c.store, controllerName, "")
 	if err != nil {
 		return nil, fmt.Errorf("opening API connection for controller %q: %w", controllerName, err)
 	}
@@ -158,13 +158,13 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 		var access string
-		client, err := c.getAPI(controllerName)
+		client, err := c.getAPI(ctx, controllerName)
 		if err != nil {
 			return err
 		}
 		defer client.Close()
 
-		modelConfigClient, err := c.getModelConfigAPI(controllerName)
+		modelConfigClient, err := c.getModelConfigAPI(ctx, controllerName)
 		if err != nil {
 			return err
 		}
@@ -293,7 +293,7 @@ func (c *showControllerCommand) userAccess(client ControllerAccessAPI, ctx *cmd.
 
 func (c *showControllerCommand) controllerModelVersion(client ModelConfigAPI, ctx *cmd.Context) string {
 	var ver string
-	mc, err := client.ModelGet()
+	mc, err := client.ModelGet(ctx)
 	if err != nil {
 		code := params.ErrCode(err)
 		if code != "" {

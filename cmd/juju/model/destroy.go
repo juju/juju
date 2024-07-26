@@ -120,7 +120,7 @@ var destroyModelMsgDetails = `
 // API that the destroy command calls. It is exported for mocking in tests.
 type DestroyModelAPI interface {
 	Close() error
-	DestroyModel(tag names.ModelTag, destroyStorage, force *bool, maxWait *time.Duration, timeout *time.Duration) error
+	DestroyModel(ctx context.Context, tag names.ModelTag, destroyStorage, force *bool, maxWait *time.Duration, timeout *time.Duration) error
 	ModelStatus(ctx context.Context, models ...names.ModelTag) ([]base.ModelStatus, error)
 }
 
@@ -174,11 +174,11 @@ func (c *destroyCommand) Init(args []string) error {
 	}
 }
 
-func (c *destroyCommand) getAPI() (DestroyModelAPI, error) {
+func (c *destroyCommand) getAPI(ctx context.Context) (DestroyModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewControllerAPIRoot()
+	root, err := c.NewControllerAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -244,7 +244,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot read controller details")
 	}
-	modelName, modelDetails, err := c.ModelDetails()
+	modelName, modelDetails, err := c.ModelDetails(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -253,7 +253,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Attempt to connect to the API.  If we can't, fail the destroy.
-	api, err := c.getAPI()
+	api, err := c.getAPI(ctx)
 	if err != nil {
 		return errors.Annotate(err, "cannot connect to API")
 	}
@@ -293,7 +293,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	if c.timeout >= 0 {
 		timeout = &c.timeout
 	}
-	if err := api.DestroyModel(modelTag, destroyStorage, force, maxWait, timeout); err != nil {
+	if err := api.DestroyModel(ctx, modelTag, destroyStorage, force, maxWait, timeout); err != nil {
 		return c.handleError(
 			ctx,
 			modelTag, modelName, api,

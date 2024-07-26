@@ -91,7 +91,7 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 	info.Nonce = "fake_nonce"
 
 	c.Logf("opening state; entity %q; password %q", info.Tag, info.Password)
-	st, err := api.Open(info, api.DialOpts{})
+	st, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
 	return st

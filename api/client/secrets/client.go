@@ -56,7 +56,7 @@ func toGrantInfo(grants []params.AccessInfo) []secrets.AccessInfo {
 }
 
 // ListSecrets lists the available secrets.
-func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDetails, error) {
+func (api *Client) ListSecrets(ctx context.Context, reveal bool, filter secrets.Filter) ([]SecretDetails, error) {
 	var ownerTag names.Tag
 	if filter.Owner != nil {
 		var err error
@@ -82,7 +82,7 @@ func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDeta
 		arg.Filter.URI = &uri
 	}
 	var response params.ListSecretResults
-	err := api.facade.FacadeCall(context.TODO(), "ListSecrets", arg, &response)
+	err := api.facade.FacadeCall(ctx, "ListSecrets", arg, &response)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -139,7 +139,7 @@ func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDeta
 	return result, err
 }
 
-func (c *Client) CreateSecret(name, description string, data map[string]string) (string, error) {
+func (c *Client) CreateSecret(ctx context.Context, name, description string, data map[string]string) (string, error) {
 	if c.BestAPIVersion() < 2 {
 		return "", errors.NotSupportedf("user secrets")
 	}
@@ -156,7 +156,7 @@ func (c *Client) CreateSecret(name, description string, data map[string]string) 
 		arg.Description = &description
 	}
 
-	err := c.facade.FacadeCall(context.TODO(), "CreateSecrets", params.CreateSecretArgs{Args: []params.CreateSecretArg{arg}}, &results)
+	err := c.facade.FacadeCall(ctx, "CreateSecrets", params.CreateSecretArgs{Args: []params.CreateSecretArg{arg}}, &results)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -172,6 +172,7 @@ func (c *Client) CreateSecret(name, description string, data map[string]string) 
 
 // UpdateSecret updates an existing secret.
 func (c *Client) UpdateSecret(
+	ctx context.Context,
 	uri *secrets.URI, name string, autoPrune *bool,
 	newName string, description string, data map[string]string,
 ) error {
@@ -203,7 +204,7 @@ func (c *Client) UpdateSecret(
 	if description != "" {
 		arg.UpsertSecretArg.Description = &description
 	}
-	err := c.facade.FacadeCall(context.TODO(), "UpdateSecrets", params.UpdateUserSecretArgs{Args: []params.UpdateUserSecretArg{arg}}, &results)
+	err := c.facade.FacadeCall(ctx, "UpdateSecrets", params.UpdateUserSecretArgs{Args: []params.UpdateUserSecretArg{arg}}, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -217,7 +218,7 @@ func (c *Client) UpdateSecret(
 	return nil
 }
 
-func (c *Client) RemoveSecret(uri *secrets.URI, name string, revision *int) error {
+func (c *Client) RemoveSecret(ctx context.Context, uri *secrets.URI, name string, revision *int) error {
 	if c.BestAPIVersion() < 2 {
 		return errors.NotSupportedf("user secrets")
 	}
@@ -230,7 +231,7 @@ func (c *Client) RemoveSecret(uri *secrets.URI, name string, revision *int) erro
 	}
 
 	var results params.ErrorResults
-	err := c.facade.FacadeCall(context.TODO(), "RemoveSecrets", params.DeleteSecretArgs{Args: []params.DeleteSecretArg{arg}}, &results)
+	err := c.facade.FacadeCall(ctx, "RemoveSecrets", params.DeleteSecretArgs{Args: []params.DeleteSecretArg{arg}}, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -245,7 +246,7 @@ func (c *Client) RemoveSecret(uri *secrets.URI, name string, revision *int) erro
 }
 
 // GrantSecret grants access to a secret to the specified applications.
-func (c *Client) GrantSecret(uri *secrets.URI, name string, apps []string) ([]error, error) {
+func (c *Client) GrantSecret(ctx context.Context, uri *secrets.URI, name string, apps []string) ([]error, error) {
 	if c.BestAPIVersion() < 2 {
 		return nil, errors.NotSupportedf("user secrets")
 	}
@@ -260,7 +261,7 @@ func (c *Client) GrantSecret(uri *secrets.URI, name string, apps []string) ([]er
 	}
 
 	var results params.ErrorResults
-	err := c.facade.FacadeCall(context.TODO(), "GrantSecret", arg, &results)
+	err := c.facade.FacadeCall(ctx, "GrantSecret", arg, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -283,7 +284,7 @@ func processErrors(results params.ErrorResults) []error {
 }
 
 // RevokeSecret revokes access to a secret from the specified applications.
-func (c *Client) RevokeSecret(uri *secrets.URI, name string, apps []string) ([]error, error) {
+func (c *Client) RevokeSecret(ctx context.Context, uri *secrets.URI, name string, apps []string) ([]error, error) {
 	if c.BestAPIVersion() < 2 {
 		return nil, errors.NotSupportedf("user secrets")
 	}
@@ -299,7 +300,7 @@ func (c *Client) RevokeSecret(uri *secrets.URI, name string, apps []string) ([]e
 	}
 
 	var results params.ErrorResults
-	err := c.facade.FacadeCall(context.TODO(), "RevokeSecret", arg, &results)
+	err := c.facade.FacadeCall(ctx, "RevokeSecret", arg, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

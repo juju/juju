@@ -4,6 +4,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -104,7 +105,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	store := c.ClientStore()
 
 	// Attempt to connect to the API.
-	api, err := c.getControllerAPIWithTimeout(10 * time.Second)
+	api, err := c.getControllerAPIWithTimeout(ctx, 10*time.Second)
 	switch errors.Cause(err) {
 	case nil:
 		defer api.Close()
@@ -114,7 +115,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		ctx.Infof("Unable to open API: %s\n", err)
 	}
 
-	controllerModelConfigAPI, err := c.getControllerModelConfigAPI()
+	controllerModelConfigAPI, err := c.getControllerModelConfigAPI(ctx)
 	if err != nil {
 		return fmt.Errorf("cannot connect to model config API: %w", err)
 	}
@@ -171,7 +172,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	return c.environsDestroy(controllerName, controllerEnviron, callCtx, store)
 }
 
-func (c *killCommand) getControllerAPIWithTimeout(timeout time.Duration) (destroyControllerAPI, error) {
+func (c *killCommand) getControllerAPIWithTimeout(ctx context.Context, timeout time.Duration) (destroyControllerAPI, error) {
 	type result struct {
 		c   destroyControllerAPI
 		err error
@@ -179,7 +180,7 @@ func (c *killCommand) getControllerAPIWithTimeout(timeout time.Duration) (destro
 	resultC := make(chan result)
 	done := make(chan struct{})
 	go func() {
-		api, err := c.getControllerAPI()
+		api, err := c.getControllerAPI(ctx)
 		select {
 		case resultC <- result{api, err}:
 		case <-done:
@@ -191,6 +192,9 @@ func (c *killCommand) getControllerAPIWithTimeout(timeout time.Duration) (destro
 	select {
 	case r := <-resultC:
 		return r.c, r.err
+	case <-ctx.Done():
+		close(done)
+		return nil, ctx.Err()
 	case <-c.clock.After(timeout):
 		close(done)
 		return nil, errConnTimedOut

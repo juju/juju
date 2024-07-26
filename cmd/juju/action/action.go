@@ -4,6 +4,7 @@
 package action
 
 import (
+	"context"
 	"io"
 	"time"
 
@@ -20,36 +21,36 @@ type APIClient interface {
 
 	// RunOnAllMachines runs the command on all the machines with the specified
 	// timeout.
-	RunOnAllMachines(commands string, timeout time.Duration) (action.EnqueuedActions, error)
+	RunOnAllMachines(ctx context.Context, commands string, timeout time.Duration) (action.EnqueuedActions, error)
 
 	// Run the Commands specified on the machines identified through the ids
 	// provided in the machines, applications and units slices.
-	Run(action.RunParams) (action.EnqueuedActions, error)
+	Run(context.Context, action.RunParams) (action.EnqueuedActions, error)
 
 	// EnqueueOperation takes a list of Actions and queues them up to be executed as
 	// an operation, each action running as a task on the the designated ActionReceiver.
 	// We return the ID of the overall operation and each individual task.
-	EnqueueOperation([]action.Action) (action.EnqueuedActions, error)
+	EnqueueOperation(context.Context, []action.Action) (action.EnqueuedActions, error)
 
 	// Cancel attempts to cancel a queued up Action from running.
-	Cancel([]string) ([]action.ActionResult, error)
+	Cancel(context.Context, []string) ([]action.ActionResult, error)
 
 	// ApplicationCharmActions is a single query which uses ApplicationsCharmsActions to
 	// get the charm.Actions for a single application by tag.
-	ApplicationCharmActions(appName string) (map[string]action.ActionSpec, error)
+	ApplicationCharmActions(ctx context.Context, appName string) (map[string]action.ActionSpec, error)
 
 	// Actions fetches actions by tag.  These Actions can be used to get
 	// the ActionReceiver if necessary.
-	Actions([]string) ([]action.ActionResult, error)
+	Actions(context.Context, []string) ([]action.ActionResult, error)
 
 	// ListOperations fetches the operation summaries for specified apps/units.
-	ListOperations(action.OperationQueryArgs) (action.Operations, error)
+	ListOperations(context.Context, action.OperationQueryArgs) (action.Operations, error)
 
 	// Operation fetches the operation with the specified id.
-	Operation(id string) (action.Operation, error)
+	Operation(ctx context.Context, id string) (action.Operation, error)
 
 	// WatchActionProgress reports on logged action progress messages.
-	WatchActionProgress(actionId string) (watcher.StringsWatcher, error)
+	WatchActionProgress(ctx context.Context, actionId string) (watcher.StringsWatcher, error)
 }
 
 // ActionCommandBase is the base type for action sub-commands.
@@ -58,12 +59,12 @@ type ActionCommandBase struct {
 }
 
 // NewActionAPIClient returns a client for the action api endpoint.
-func (c *ActionCommandBase) NewActionAPIClient() (APIClient, error) {
-	return newAPIClient(c)
+func (c *ActionCommandBase) NewActionAPIClient(ctx context.Context) (APIClient, error) {
+	return newAPIClient(ctx, c)
 }
 
-var newAPIClient = func(c *ActionCommandBase) (APIClient, error) {
-	root, err := c.NewAPIRoot()
+var newAPIClient = func(ctx context.Context, c *ActionCommandBase) (APIClient, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

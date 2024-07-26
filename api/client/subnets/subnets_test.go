@@ -4,6 +4,8 @@
 package subnets_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -60,7 +62,7 @@ func (s *SubnetsSuite) TestListSubnetsNoResults(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListSubnets", args, result).SetArg(3, results).Return(nil)
 	client := subnets.NewAPIFromCaller(mockFacadeCaller)
 
-	obtainedResults, err := client.ListSubnets(&space, zone)
+	obtainedResults, err := client.ListSubnets(context.Background(), &space, zone)
 
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -81,7 +83,7 @@ func (s *SubnetsSuite) TestListSubnetsFails(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListSubnets", args, result).SetArg(3, results).Return(errors.New("bang"))
 	client := subnets.NewAPIFromCaller(mockFacadeCaller)
 
-	obtainedResults, err := client.ListSubnets(&space, zone)
+	obtainedResults, err := client.ListSubnets(context.Background(), &space, zone)
 	c.Assert(err, gc.ErrorMatches, "bang")
 
 	var expectedResults []params.Subnet
@@ -105,7 +107,7 @@ func (s *SubnetsSuite) testSubnetsByCIDR(c *gc.C,
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SubnetsByCIDR", args, result).SetArg(3, expectedResults).Return(err)
 	client := subnets.NewAPIFromCaller(mockFacadeCaller)
 
-	gotResult, gotErr := client.SubnetsByCIDR(cidrs)
+	gotResult, gotErr := client.SubnetsByCIDR(context.Background(), cidrs)
 	c.Assert(gotResult, jc.DeepEquals, results)
 
 	if expectErr != "" {

@@ -303,7 +303,7 @@ func (w *remoteApplicationWorker) newRemoteRelationsFacadeWithRedirect(ctx conte
 	}
 	w.logger.Debugf("remote controller API addresses: %v", apiInfo.Addrs)
 
-	w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(apiInfo)
+	w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(ctx, apiInfo)
 	var redirectErr *api.RedirectError
 	if errors.As(errors.Cause(err), &redirectErr) {
 		apiInfo.Addrs = network.CollapseToHostPorts(redirectErr.Servers).Strings()
@@ -311,7 +311,7 @@ func (w *remoteApplicationWorker) newRemoteRelationsFacadeWithRedirect(ctx conte
 
 		w.logger.Debugf("received redirect; new API addresses: %v", apiInfo.Addrs)
 
-		if w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(apiInfo); err == nil {
+		if w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(ctx, apiInfo); err == nil {
 			// We successfully followed the redirect,
 			// so update the controller information for this model.
 			controllerInfo := crossmodel.ControllerInfo{

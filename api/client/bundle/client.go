@@ -37,9 +37,9 @@ func NewClient(st base.APICallCloser, options ...Option) *Client {
 // applied, with the args of a method as a map.
 // NOTE(jack-w-shaw) This client method is currently unused. It's being kept in
 // incase it's used in the future. We may want to re-evaluate in future
-func (c *Client) GetChangesMapArgs(bundleURL, bundleDataYAML string) (params.BundleChangesMapArgsResults, error) {
+func (c *Client) GetChangesMapArgs(ctx context.Context, bundleURL, bundleDataYAML string) (params.BundleChangesMapArgsResults, error) {
 	var result params.BundleChangesMapArgsResults
-	if err := c.facade.FacadeCall(context.TODO(), "GetChangesMapArgs", params.BundleChangesParams{
+	if err := c.facade.FacadeCall(ctx, "GetChangesMapArgs", params.BundleChangesParams{
 		BundleURL:      bundleURL,
 		BundleDataYAML: bundleDataYAML,
 	}, &result); err != nil {
@@ -49,12 +49,12 @@ func (c *Client) GetChangesMapArgs(bundleURL, bundleDataYAML string) (params.Bun
 }
 
 // ExportBundle exports the current model configuration.
-func (c *Client) ExportBundle(includeDefaults bool) (string, error) {
+func (c *Client) ExportBundle(ctx context.Context, includeDefaults bool) (string, error) {
 	var result params.StringResult
 	arg := params.ExportBundleParams{
 		IncludeCharmDefaults: includeDefaults,
 	}
-	if err := c.facade.FacadeCall(context.TODO(), "ExportBundle", arg, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "ExportBundle", arg, &result); err != nil {
 		return "", errors.Trace(err)
 	}
 

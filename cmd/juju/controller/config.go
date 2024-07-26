@@ -164,11 +164,11 @@ type controllerAPI interface {
 	ConfigSet(context.Context, map[string]interface{}) error
 }
 
-func (c *configCommand) getAPI() (controllerAPI, error) {
+func (c *configCommand) getAPI(ctx context.Context) (controllerAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -178,7 +178,7 @@ func (c *configCommand) getAPI() (controllerAPI, error) {
 // Run executes the command as directed by the options and
 // arguments. It's part of cmd.Command.
 func (c *configCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getAPI()
+	client, err := c.getAPI(ctx)
 	if err != nil {
 		return err
 	}

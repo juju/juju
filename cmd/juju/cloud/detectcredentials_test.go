@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -28,7 +29,7 @@ type detectCredentialsSuite struct {
 
 	store             *jujuclient.MemStore
 	aCredential       jujucloud.CloudCredential
-	credentialAPIFunc func() (cloud.CredentialAPI, error)
+	credentialAPIFunc func(ctx context.Context) (cloud.CredentialAPI, error)
 	api               *fakeUpdateCredentialAPI
 }
 
@@ -113,7 +114,7 @@ func (s *detectCredentialsSuite) SetUpTest(c *gc.C) {
 	s.api = &fakeUpdateCredentialAPI{
 		clouds: func() (map[names.CloudTag]jujucloud.Cloud, error) { return nil, nil },
 	}
-	s.credentialAPIFunc = func() (cloud.CredentialAPI, error) { return s.api, nil }
+	s.credentialAPIFunc = func(ctx context.Context) (cloud.CredentialAPI, error) { return s.api, nil }
 }
 
 func (s *detectCredentialsSuite) run(c *gc.C, stdin io.Reader, clouds map[string]jujucloud.Cloud, args ...string) (*cmd.Context, error) {

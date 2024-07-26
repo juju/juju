@@ -38,7 +38,7 @@ func (s *ExposeSuite) TestExpose(c *gc.C) {
 	defer ctrl.Finish()
 
 	api := mocks.NewMockApplicationExposeAPI(ctrl)
-	api.EXPECT().Expose("some-application-name", nil).Return(nil)
+	api.EXPECT().Expose(gomock.Any(), "some-application-name", nil).Return(nil)
 	api.EXPECT().Close().Return(nil)
 
 	err := runExpose(c, api, "some-application-name")
@@ -50,7 +50,7 @@ func (s *ExposeSuite) TestExposeEndpoints(c *gc.C) {
 	defer ctrl.Finish()
 
 	api := mocks.NewMockApplicationExposeAPI(ctrl)
-	api.EXPECT().Expose("some-application-name", map[string]params.ExposedEndpoint{
+	api.EXPECT().Expose(gomock.Any(), "some-application-name", map[string]params.ExposedEndpoint{
 		"ep1": {}, "ep2": {},
 	}).Return(nil)
 	api.EXPECT().Close().Return(nil)
@@ -64,7 +64,7 @@ func (s *ExposeSuite) TestExposeSpaces(c *gc.C) {
 	defer ctrl.Finish()
 
 	api := mocks.NewMockApplicationExposeAPI(ctrl)
-	api.EXPECT().Expose("some-application-name", map[string]params.ExposedEndpoint{
+	api.EXPECT().Expose(gomock.Any(), "some-application-name", map[string]params.ExposedEndpoint{
 		"ep1": {ExposeToSpaces: []string{"sp1", "sp2"}},
 	}).Return(nil)
 	api.EXPECT().Close().Return(nil)
@@ -78,7 +78,7 @@ func (s *ExposeSuite) TestExposeCIDRS(c *gc.C) {
 	defer ctrl.Finish()
 
 	api := mocks.NewMockApplicationExposeAPI(ctrl)
-	api.EXPECT().Expose("some-application-name", map[string]params.ExposedEndpoint{
+	api.EXPECT().Expose(gomock.Any(), "some-application-name", map[string]params.ExposedEndpoint{
 		"ep1": {ExposeToCIDRs: []string{"cidr1", "cidr2"}},
 	}).Return(nil)
 	api.EXPECT().Close().Return(nil)
@@ -92,7 +92,7 @@ func (s *ExposeSuite) TestBlockExpose(c *gc.C) {
 	defer ctrl.Finish()
 
 	api := mocks.NewMockApplicationExposeAPI(ctrl)
-	api.EXPECT().Expose("some-application-name", nil).Return(apiservererrors.OperationBlockedError("expose"))
+	api.EXPECT().Expose(gomock.Any(), "some-application-name", nil).Return(apiservererrors.OperationBlockedError("expose"))
 	api.EXPECT().Close().Return(nil)
 
 	err := runExpose(c, api, "some-application-name")

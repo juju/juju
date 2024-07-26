@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -147,7 +148,7 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 
 func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 	fake := &fakeDebugLogAPI{}
-	s.PatchValue(&getDebugLogAPI, func(_ *debugLogCommand, _ []string) (DebugLogAPI, error) {
+	s.PatchValue(&getDebugLogAPI, func(ctx context.Context, _ *debugLogCommand, _ []string) (DebugLogAPI, error) {
 		return fake, nil
 	})
 	_, err := cmdtesting.RunCommand(c, newDebugLogCommand(jujuclienttesting.MinimalStore()),
@@ -171,7 +172,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 	// test timezone is 6 hours east of UTC
 	tz := time.FixedZone("test", 6*60*60)
-	s.PatchValue(&getDebugLogAPI, func(_ *debugLogCommand, _ []string) (DebugLogAPI, error) {
+	s.PatchValue(&getDebugLogAPI, func(_ context.Context, _ *debugLogCommand, _ []string) (DebugLogAPI, error) {
 		return &fakeDebugLogAPI{log: []common.LogMessage{
 			{
 				ModelUUID: "model-uuid",
@@ -217,7 +218,7 @@ func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 func (s *DebugLogSuite) TestSpecifiedController(c *gc.C) {
 	// test timezone is 6 hours east of UTC
 	tz := time.FixedZone("test", 6*60*60)
-	s.PatchValue(&getDebugLogAPI, func(_ *debugLogCommand, addr []string) (DebugLogAPI, error) {
+	s.PatchValue(&getDebugLogAPI, func(_ context.Context, _ *debugLogCommand, addr []string) (DebugLogAPI, error) {
 		c.Assert(addr, jc.SameContents, []string{"address-666"})
 		return &fakeDebugLogAPI{log: []common.LogMessage{
 			{
@@ -230,7 +231,7 @@ func (s *DebugLogSuite) TestSpecifiedController(c *gc.C) {
 			},
 		}}, nil
 	})
-	s.PatchValue(&getControllerDetailsClient, func(_ *debugLogCommand) (ControllerDetailsAPI, error) {
+	s.PatchValue(&getControllerDetailsClient, func(_ context.Context, _ *debugLogCommand) (ControllerDetailsAPI, error) {
 		return &fakeControllerDetailsAPI{}, nil
 	})
 	checkOutput := func(args ...string) {
@@ -247,7 +248,7 @@ func (s *DebugLogSuite) TestSpecifiedController(c *gc.C) {
 }
 
 func (s *DebugLogSuite) TestSpecifiedControllerNotFound(c *gc.C) {
-	s.PatchValue(&getControllerDetailsClient, func(_ *debugLogCommand) (ControllerDetailsAPI, error) {
+	s.PatchValue(&getControllerDetailsClient, func(_ context.Context, _ *debugLogCommand) (ControllerDetailsAPI, error) {
 		return &fakeControllerDetailsAPI{}, nil
 	})
 	_, err := cmdtesting.RunCommand(c, newDebugLogCommandTZ(jujuclienttesting.MinimalStore(), time.UTC), "--controller", "999")
@@ -279,13 +280,13 @@ func (s *DebugLogSuite) TestAllControllers(c *gc.C) {
 			},
 		}},
 	}
-	s.PatchValue(&getDebugLogAPI, func(_ *debugLogCommand, addr []string) (DebugLogAPI, error) {
+	s.PatchValue(&getDebugLogAPI, func(_ context.Context, _ *debugLogCommand, addr []string) (DebugLogAPI, error) {
 		c.Assert(addr, gc.HasLen, 1)
 		api, ok := debugStreams[addr[0]]
 		c.Assert(ok, jc.IsTrue)
 		return api, nil
 	})
-	s.PatchValue(&getControllerDetailsClient, func(_ *debugLogCommand) (ControllerDetailsAPI, error) {
+	s.PatchValue(&getControllerDetailsClient, func(_ context.Context, _ *debugLogCommand) (ControllerDetailsAPI, error) {
 		return &fakeControllerDetailsAPI{}, nil
 	})
 	checkOutput := func(args ...string) {
@@ -311,7 +312,7 @@ func (s *DebugLogSuite) TestAllControllers(c *gc.C) {
 func (s *DebugLogSuite) TestLogOutputWithLogs(c *gc.C) {
 	// test timezone is 6 hours east of UTC
 	tz := time.FixedZone("test", 6*60*60)
-	s.PatchValue(&getDebugLogAPI, func(_ *debugLogCommand, _ []string) (DebugLogAPI, error) {
+	s.PatchValue(&getDebugLogAPI, func(_ context.Context, _ *debugLogCommand, _ []string) (DebugLogAPI, error) {
 		return &fakeDebugLogAPI{log: []common.LogMessage{
 			{
 				Entity:    "machine-0",
@@ -357,7 +358,7 @@ type fakeDebugLogAPI struct {
 	err    error
 }
 
-func (fake *fakeDebugLogAPI) WatchDebugLog(params common.DebugLogParams) (<-chan common.LogMessage, error) {
+func (fake *fakeDebugLogAPI) WatchDebugLog(ctx context.Context, params common.DebugLogParams) (<-chan common.LogMessage, error) {
 	if fake.err != nil {
 		return nil, fake.err
 	}
@@ -382,7 +383,7 @@ func (*fakeControllerDetailsAPI) BestAPIVersion() int {
 	return 3
 }
 
-func (fake *fakeControllerDetailsAPI) ControllerDetails() (map[string]highavailability.ControllerDetails, error) {
+func (fake *fakeControllerDetailsAPI) ControllerDetails(ctx context.Context) (map[string]highavailability.ControllerDetails, error) {
 	return map[string]highavailability.ControllerDetails{
 		"666": {
 			ControllerID: "666",

@@ -35,7 +35,7 @@ var dialOpts = api.DialOpts{
 // NewMessageWriter will connect to the remote defined by the info,
 // and return a MessageWriter.
 func NewMessageWriter(ctx context.Context, info *api.Info) (MessageWriter, error) {
-	conn, err := api.Open(info, dialOpts)
+	conn, err := api.Open(ctx, info, dialOpts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

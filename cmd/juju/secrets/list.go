@@ -4,6 +4,7 @@
 package secrets
 
 import (
+	"context"
 	"io"
 	"sort"
 	"time"
@@ -25,7 +26,7 @@ type listSecretsCommand struct {
 	modelcmd.ModelCommandBase
 	out cmd.Output
 
-	listSecretsAPIFunc func() (ListSecretsAPI, error)
+	listSecretsAPIFunc func(ctx context.Context) (ListSecretsAPI, error)
 	revealSecrets      bool
 	owner              string
 }
@@ -41,7 +42,7 @@ const listSecretsExamples = `
 
 // ListSecretsAPI is the secrets client API.
 type ListSecretsAPI interface {
-	ListSecrets(bool, secrets.Filter) ([]apisecrets.SecretDetails, error)
+	ListSecrets(context.Context, bool, secrets.Filter) ([]apisecrets.SecretDetails, error)
 	Close() error
 }
 
@@ -53,8 +54,8 @@ func NewListSecretsCommand() cmd.Command {
 	return modelcmd.Wrap(c)
 }
 
-func (c *listSecretsCommand) secretsAPI() (ListSecretsAPI, error) {
-	root, err := c.NewAPIRoot()
+func (c *listSecretsCommand) secretsAPI(ctx context.Context) (ListSecretsAPI, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -151,7 +152,7 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 		c.revealSecrets = false
 	}
 
-	api, err := c.listSecretsAPIFunc()
+	api, err := c.listSecretsAPIFunc(ctxt)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -172,7 +173,7 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 			return errors.Errorf("invalid owner %q", c.owner)
 		}
 	}
-	result, err := api.ListSecrets(c.revealSecrets, filter)
+	result, err := api.ListSecrets(ctxt, c.revealSecrets, filter)
 	if err != nil {
 		return errors.Trace(err)
 	}

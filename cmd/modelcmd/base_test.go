@@ -4,6 +4,7 @@
 package modelcmd_test
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/url"
@@ -65,7 +66,7 @@ func (s *BaseCommandSuite) SetUpTest(c *gc.C) {
 
 func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, baseCmd *modelcmd.ModelCommandBase, current, expectedCurrent string) {
 	s.store.Models["foo"].CurrentModel = current
-	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
+	apiOpen := func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
 		return nil, errors.Trace(&params.Error{Code: params.CodeModelNotFound, Message: "model deaddeaf not found"})
 	}
 	baseCmd.SetClientStore(s.store)
@@ -73,7 +74,7 @@ func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, baseCmd *modelcmd.ModelCo
 	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
 	modelcmd.SetRunStarted(baseCmd)
 	baseCmd.SetModelIdentifier("foo:admin/badmodel", false)
-	conn, err := baseCmd.NewAPIRoot()
+	conn, err := baseCmd.NewAPIRoot(context.Background())
 	c.Assert(conn, gc.IsNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(msg, gc.Equals, `model "admin/badmodel" has been removed from the controller, run 'juju models' and switch to one of them.`)
@@ -113,7 +114,7 @@ func (s *BaseCommandSuite) TestUnknownModelNotCurrentCanRemoveCachedCurrent(c *g
 
 func (s *BaseCommandSuite) TestMigratedModelErrorHandling(c *gc.C) {
 	var callCount int
-	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
+	apiOpen := func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
 		var alias string
 		if callCount > 0 {
 			alias = "brand-new-controller"
@@ -186,7 +187,7 @@ To access it run 'juju switch bar:admin/badmodel'.`,
 			spec.setupFn()
 		}
 
-		_, err := baseCmd.NewAPIRoot()
+		_, err := baseCmd.NewAPIRoot(context.Background())
 		c.Assert(err, gc.Not(gc.IsNil))
 		c.Assert(err.Error(), gc.Equals, spec.expErr)
 	}
@@ -200,7 +201,7 @@ func (s *BaseCommandSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *BaseCommandSuite) TestNewAPIRootExternalUser(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	conn := mocks.NewMockConnection(ctrl)
-	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+	apiOpen := func(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return conn, nil
 	}
 	externalName := "alastair@external"
@@ -224,7 +225,7 @@ func (s *BaseCommandSuite) TestNewAPIRootExternalUser(c *gc.C) {
 
 	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), jc.ErrorIsNil)
 
-	_, err := baseCmd.NewAPIRoot()
+	_, err := baseCmd.NewAPIRoot(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -338,12 +339,12 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFunc(c *gc.C) {
 		}
 		received *api.Info
 	)
-	origin := func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
+	origin := func(ctx context.Context, info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
 		received = info
 		return nil, nil
 	}
 	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
-	_, err := openFunc(expected, api.DialOpts{})
+	_, err := openFunc(context.Background(), expected, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(received, jc.DeepEquals, expected)
 }
@@ -355,12 +356,12 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFuncWithNoPassword(c *gc.C) {
 		}
 		received *api.Info
 	)
-	origin := func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
+	origin := func(ctx context.Context, info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
 		received = info
 		return nil, nil
 	}
 	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
-	_, err := openFunc(expected, api.DialOpts{})
+	_, err := openFunc(context.Background(), expected, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(received, jc.DeepEquals, expected)
 }
@@ -372,12 +373,12 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFuncWithNoMacaroons(c *gc.C) {
 		}
 		received *api.Info
 	)
-	origin := func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
+	origin := func(ctx context.Context, info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
 		received = info
 		return nil, nil
 	}
 	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
-	_, err := openFunc(expected, api.DialOpts{})
+	_, err := openFunc(context.Background(), expected, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(received, jc.DeepEquals, expected)
 }
@@ -398,12 +399,12 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFuncUsesStore(c *gc.C) {
 		}
 		received *api.Info
 	)
-	origin := func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
+	origin := func(ctx context.Context, info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
 		received = info
 		return nil, nil
 	}
 	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
-	_, err = openFunc(&api.Info{
+	_, err = openFunc(context.Background(), &api.Info{
 		ControllerUUID: "foo",
 	}, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -427,12 +428,12 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFuncUsesStoreWithSNIHost(c *gc.C) {
 		}
 		received *api.Info
 	)
-	origin := func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
+	origin := func(ctx context.Context, info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
 		received = info
 		return nil, nil
 	}
 	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
-	_, err = openFunc(&api.Info{
+	_, err = openFunc(context.Background(), &api.Info{
 		SNIHostName:    "foo",
 		ControllerUUID: "bar",
 	}, api.DialOpts{})

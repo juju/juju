@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
@@ -77,17 +78,17 @@ func (c *MockRemoveCloudAPICloseCall) DoAndReturn(f func() error) *MockRemoveClo
 }
 
 // RemoveCloud mocks base method.
-func (m *MockRemoveCloudAPI) RemoveCloud(arg0 string) error {
+func (m *MockRemoveCloudAPI) RemoveCloud(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveCloud", arg0)
+	ret := m.ctrl.Call(m, "RemoveCloud", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveCloud indicates an expected call of RemoveCloud.
-func (mr *MockRemoveCloudAPIMockRecorder) RemoveCloud(arg0 any) *MockRemoveCloudAPIRemoveCloudCall {
+func (mr *MockRemoveCloudAPIMockRecorder) RemoveCloud(arg0, arg1 any) *MockRemoveCloudAPIRemoveCloudCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveCloud", reflect.TypeOf((*MockRemoveCloudAPI)(nil).RemoveCloud), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveCloud", reflect.TypeOf((*MockRemoveCloudAPI)(nil).RemoveCloud), arg0, arg1)
 	return &MockRemoveCloudAPIRemoveCloudCall{Call: call}
 }
 
@@ -103,13 +104,13 @@ func (c *MockRemoveCloudAPIRemoveCloudCall) Return(arg0 error) *MockRemoveCloudA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoveCloudAPIRemoveCloudCall) Do(f func(string) error) *MockRemoveCloudAPIRemoveCloudCall {
+func (c *MockRemoveCloudAPIRemoveCloudCall) Do(f func(context.Context, string) error) *MockRemoveCloudAPIRemoveCloudCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoveCloudAPIRemoveCloudCall) DoAndReturn(f func(string) error) *MockRemoveCloudAPIRemoveCloudCall {
+func (c *MockRemoveCloudAPIRemoveCloudCall) DoAndReturn(f func(context.Context, string) error) *MockRemoveCloudAPIRemoveCloudCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

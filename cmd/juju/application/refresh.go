@@ -72,7 +72,7 @@ func newRefreshCommand() *refreshCommand {
 		},
 		NewCharmResolver: func(apiRoot base.APICallCloser, downloadClient store.DownloadBundleClient) CharmResolver {
 			return store.NewCharmAdaptor(apicharms.NewClient(apiRoot),
-				func() (store.DownloadBundleClient, error) {
+				func(ctx context.Context) (store.DownloadBundleClient, error) {
 					return downloadClient, nil
 				},
 			)
@@ -84,7 +84,7 @@ func newRefreshCommand() *refreshCommand {
 // CharmResolver defines methods required to resolve charms, as required
 // by the refresh command.
 type CharmResolver interface {
-	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCHarm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error)
+	ResolveCharm(ctx context.Context, url *charm.URL, preferredOrigin commoncharm.Origin, switchCHarm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error)
 }
 
 // NewRefreshCommand returns a command which upgrades application's charm.
@@ -95,9 +95,9 @@ func NewRefreshCommand() cmd.Command {
 // CharmRefreshClient defines a subset of the application facade, as required
 // by the refresh command.
 type CharmRefreshClient interface {
-	GetCharmURLOrigin(string) (*charm.URL, commoncharm.Origin, error)
-	Get(string) (*params.ApplicationGetResults, error)
-	SetCharm(application.SetCharmConfig) error
+	GetCharmURLOrigin(context.Context, string) (*charm.URL, commoncharm.Origin, error)
+	Get(context.Context, string) (*params.ApplicationGetResults, error)
+	SetCharm(context.Context, application.SetCharmConfig) error
 }
 
 // NewCharmAdderFunc is the type of a function used to construct
@@ -346,14 +346,14 @@ func (c *refreshCommand) Init(args []string) error {
 // Run connects to the specified environment and starts the charm
 // upgrade process.
 func (c *refreshCommand) Run(ctx *cmd.Context) error {
-	apiRoot, err := c.NewAPIRoot()
+	apiRoot, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer func() { _ = apiRoot.Close() }()
 
 	charmRefreshClient := c.NewCharmRefreshClient(apiRoot)
-	oldURL, oldOrigin, err := charmRefreshClient.GetCharmURLOrigin(c.ApplicationName)
+	oldURL, oldOrigin, err := charmRefreshClient.GetCharmURLOrigin(ctx, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -382,7 +382,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.BindToSpaces != "" {
-		if err := c.parseBindFlag(apiRoot); err != nil && errors.Is(err, errors.NotSupported) {
+		if err := c.parseBindFlag(ctx, apiRoot); err != nil && errors.Is(err, errors.NotSupported) {
 			ctx.Infof("Spaces not supported by this model's cloud, ignoring bindings.")
 		} else if err != nil {
 			return err
@@ -403,7 +403,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		newRef = oldURL.WithRevision(c.Revision).String()
 	}
 
-	applicationInfo, err := charmRefreshClient.Get(c.ApplicationName)
+	applicationInfo, err := charmRefreshClient.Get(ctx, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -433,11 +433,11 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		Switch: c.SwitchURL != "" || c.Revision != -1,
 		Logger: ctx,
 	}
-	factory, err := c.getRefresherFactory(apiRoot)
+	factory, err := c.getRefresherFactory(ctx, apiRoot)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	charmID, runErr := factory.Run(cfg)
+	charmID, runErr := factory.Run(ctx, cfg)
 	if runErr != nil && !errors.Is(runErr, refresher.ErrAlreadyUpToDate) {
 		// Process errors.Is(runErr, refresher.ErrAlreadyUpToDate) after reviewing resources.
 		if termErr, ok := errors.Cause(runErr).(*common.TermsRequiredError); ok {
@@ -519,7 +519,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		EndpointBindings:   c.Bindings,
 	}
 
-	err = charmRefreshClient.SetCharm(charmCfg)
+	err = charmRefreshClient.SetCharm(ctx, charmCfg)
 	err = block.ProcessBlockedError(err, block.BlockChange)
 	if params.IsCodeAppShouldNotHaveUnits(err) {
 		return errors.Errorf(upgradedApplicationHasUnitsMessage[1:], c.ApplicationName)
@@ -548,13 +548,13 @@ func (c *refreshCommand) validateEndpointNames(newCharmEndpoints set.Strings, ol
 	return nil
 }
 
-func (c *refreshCommand) parseBindFlag(apiRoot base.APICallCloser) error {
+func (c *refreshCommand) parseBindFlag(ctx context.Context, apiRoot base.APICallCloser) error {
 	if c.BindToSpaces == "" {
 		return nil
 	}
 
 	// Fetch known spaces from server
-	knownSpaces, err := c.NewSpacesClient(apiRoot).ListSpaces()
+	knownSpaces, err := c.NewSpacesClient(apiRoot).ListSpaces(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -649,8 +649,8 @@ type charmAdderShim struct {
 	api *apiclient.Client
 }
 
-func (c *charmAdderShim) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*charm.URL, error) {
-	agentVersion, err := agentVersion(c.modelConfigClient)
+func (c *charmAdderShim) AddLocalCharm(ctx context.Context, curl *charm.URL, ch charm.Charm, force bool) (*charm.URL, error) {
+	agentVersion, err := agentVersion(ctx, c.modelConfigClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -675,8 +675,8 @@ func allEndpoints(ci *apicommoncharms.CharmInfo) set.Strings {
 	return epSet
 }
 
-func (c *refreshCommand) getRefresherFactory(apiRoot api.Connection) (refresher.RefresherFactory, error) {
-	charmHubURL, err := c.getCharmHubURL(apiRoot)
+func (c *refreshCommand) getRefresherFactory(ctx context.Context, apiRoot api.Connection) (refresher.RefresherFactory, error) {
+	charmHubURL, err := c.getCharmHubURL(ctx, apiRoot)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -697,10 +697,10 @@ func (c *refreshCommand) getRefresherFactory(apiRoot api.Connection) (refresher.
 	return c.NewRefresherFactory(deps), nil
 }
 
-func (c *refreshCommand) getCharmHubURL(apiRoot base.APICallCloser) (string, error) {
+func (c *refreshCommand) getCharmHubURL(ctx context.Context, apiRoot base.APICallCloser) (string, error) {
 	modelConfigClient := c.ModelConfigClient(apiRoot)
 
-	attrs, err := modelConfigClient.ModelGet()
+	attrs, err := modelConfigClient.ModelGet(ctx)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

@@ -17,7 +17,7 @@ import (
 // apiFunc specified to return the args.
 func NewDisableCommandForTest(store jujuclient.ClientStore, api blockClientAPI, err error) cmd.Command {
 	cmd := &disableCommand{
-		apiFunc: func(_ newAPIRoot) (blockClientAPI, error) {
+		apiFunc: func(ctx context.Context, _ newAPIRoot) (blockClientAPI, error) {
 			return api, err
 		},
 	}
@@ -29,7 +29,7 @@ func NewDisableCommandForTest(store jujuclient.ClientStore, api blockClientAPI, 
 // apiFunc specified to return the args.
 func NewEnableCommandForTest(store jujuclient.ClientStore, api unblockClientAPI, err error) cmd.Command {
 	cmd := &enableCommand{
-		apiFunc: func(_ newAPIRoot) (unblockClientAPI, error) {
+		apiFunc: func(ctx context.Context, _ newAPIRoot) (unblockClientAPI, error) {
 			return api, err
 		},
 	}
@@ -47,10 +47,10 @@ type listMockAPI interface {
 // apiFunc specified to return the args.
 func NewListCommandForTest(store jujuclient.ClientStore, api listMockAPI, err error) cmd.Command {
 	cmd := &listCommand{
-		apiFunc: func(_ newAPIRoot) (blockListAPI, error) {
+		apiFunc: func(ctx context.Context, _ newAPIRoot) (blockListAPI, error) {
 			return api, err
 		},
-		controllerAPIFunc: func(_ newControllerAPIRoot) (controllerListAPI, error) {
+		controllerAPIFunc: func(ctx context.Context, _ newControllerAPIRoot) (controllerListAPI, error) {
 			return api, err
 		},
 	}

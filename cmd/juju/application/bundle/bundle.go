@@ -5,6 +5,7 @@ package bundle
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"reflect"
@@ -31,6 +32,7 @@ import (
 // BuildModelRepresentation creates a buildchanges.Model, representing
 // the existing deployment, to be used while deploying or diffing a bundle.
 func BuildModelRepresentation(
+	ctx context.Context,
 	status *params.FullStatus,
 	modelExtractor ModelExtractor,
 	useExistingMachines bool,
@@ -150,7 +152,7 @@ func BuildModelRepresentation(
 		})
 	}
 	// Get all the annotations.
-	annotations, err := modelExtractor.GetAnnotations(annotationTags)
+	annotations, err := modelExtractor.GetAnnotations(ctx, annotationTags)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -172,7 +174,7 @@ func BuildModelRepresentation(
 		}
 	}
 	// Add in the model sequences.
-	sequences, err := modelExtractor.Sequences()
+	sequences, err := modelExtractor.Sequences(ctx)
 	if err == nil {
 		mod.Sequence = sequences
 	} else if !errors.Is(err, errors.NotSupported) {
@@ -180,7 +182,7 @@ func BuildModelRepresentation(
 	}
 
 	sort.Strings(appNames)
-	configValues, err := modelExtractor.GetConfig(appNames...)
+	configValues, err := modelExtractor.GetConfig(ctx, appNames...)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting application options")
 	}
@@ -207,7 +209,7 @@ func BuildModelRepresentation(
 	}
 	// Lastly get all the application constraints.
 	sort.Strings(principalApps)
-	constraintValues, err := modelExtractor.GetConstraints(principalApps...)
+	constraintValues, err := modelExtractor.GetConstraints(ctx, principalApps...)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting application constraints")
 	}

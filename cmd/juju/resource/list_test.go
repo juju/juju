@@ -4,6 +4,7 @@
 package resource_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -635,7 +636,7 @@ type stubShowApplicationDeps struct {
 	client *stubResourceClient
 }
 
-func (s *stubShowApplicationDeps) NewClient() (resourcecmd.ListClient, error) {
+func (s *stubShowApplicationDeps) NewClient(ctx context.Context) (resourcecmd.ListClient, error) {
 	s.stub.AddCall("NewClient")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -649,7 +650,7 @@ type stubResourceClient struct {
 	ReturnResources []resources.ApplicationResources
 }
 
-func (s *stubResourceClient) ListResources(applications []string) ([]resources.ApplicationResources, error) {
+func (s *stubResourceClient) ListResources(ctx context.Context, applications []string) ([]resources.ApplicationResources, error) {
 	s.stub.AddCall("ListResources", applications)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

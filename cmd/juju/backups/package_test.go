@@ -97,7 +97,7 @@ func (s *BaseBackupsSuite) TearDownTest(c *gc.C) {
 
 func (s *BaseBackupsSuite) patchAPIClient(client backups.APIClient) {
 	s.PatchValue(backups.NewAPIClient,
-		func(c *backups.CommandBase) (backups.APIClient, error) {
+		func(ctx context.Context, c *backups.CommandBase) (backups.APIClient, error) {
 			return client, nil
 		},
 	)
@@ -105,7 +105,7 @@ func (s *BaseBackupsSuite) patchAPIClient(client backups.APIClient) {
 
 func (s *BaseBackupsSuite) patchGetAPI(client backups.APIClient) {
 	s.PatchValue(backups.NewGetAPI,
-		func(c *backups.CommandBase) (backups.APIClient, error) {
+		func(ctx context.Context, c *backups.CommandBase) (backups.APIClient, error) {
 			return client, nil
 		},
 	)
@@ -186,7 +186,7 @@ func (f *fakeAPIClient) CheckArgs(c *gc.C, args ...string) {
 	c.Check(f.args, jc.DeepEquals, args)
 }
 
-func (c *fakeAPIClient) Create(notes string, noDownload bool) (*params.BackupsMetadataResult, error) {
+func (c *fakeAPIClient) Create(ctx context.Context, notes string, noDownload bool) (*params.BackupsMetadataResult, error) {
 	c.calls = append(c.calls, "Create")
 	c.args = append(c.args, notes, fmt.Sprintf("%t", noDownload))
 	c.notes = notes

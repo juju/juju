@@ -5,6 +5,7 @@ package action
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -104,11 +105,11 @@ func (c *runCommandBase) Init(_ []string) error {
 	return nil
 }
 
-func (c *runCommandBase) ensureAPI() (err error) {
+func (c *runCommandBase) ensureAPI(ctx context.Context) (err error) {
 	if c.api != nil {
 		return nil
 	}
-	c.api, err = c.NewActionAPIClient()
+	c.api, err = c.NewActionAPIClient(ctx)
 	return errors.Trace(err)
 }
 
@@ -265,7 +266,7 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, runningTasks []enqueuedA
 	haveLogs := false
 	if len(runningTasks) == 1 {
 		var err error
-		logsWatcher, err = c.api.WatchActionProgress(runningTasks[0].task)
+		logsWatcher, err = c.api.WatchActionProgress(ctx, runningTasks[0].task)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -306,7 +307,7 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, runningTasks []enqueuedA
 		// tick every two seconds, to delay the loop timer.
 		// TODO(fwereade): 2016-03-17 lp:1558657
 		tick := c.clock.NewTimer(resultPollTime)
-		actionResult, err := GetActionResult(c.api, result.task, tick, wait)
+		actionResult, err := GetActionResult(ctx, c.api, result.task, tick, wait)
 		if i == 0 {
 			waitForWatcher()
 			if haveLogs {
@@ -434,14 +435,14 @@ func (c *runCommandBase) formatJson(writer io.Writer, value interface{}) error {
 // GetActionResult tries to repeatedly fetch a task until it is
 // in a completed state and then it returns it.
 // It waits for a maximum of "wait" before returning with the latest action status.
-func GetActionResult(api APIClient, requestedId string, tick, wait clock.Timer) (actionapi.ActionResult, error) {
-	return timerLoop(api, requestedId, tick, wait)
+func GetActionResult(ctx context.Context, api APIClient, requestedId string, tick, wait clock.Timer) (actionapi.ActionResult, error) {
+	return timerLoop(ctx, api, requestedId, tick, wait)
 }
 
 // timerLoop loops indefinitely to query the given API, until "wait" times
 // out, using the "tick" timer to delay the API queries.  It writes the
 // result to the given output.
-func timerLoop(api APIClient, requestedId string, tick, wait clock.Timer) (actionapi.ActionResult, error) {
+func timerLoop(ctx context.Context, api APIClient, requestedId string, tick, wait clock.Timer) (actionapi.ActionResult, error) {
 	var (
 		result actionapi.ActionResult
 		err    error
@@ -450,7 +451,7 @@ func timerLoop(api APIClient, requestedId string, tick, wait clock.Timer) (actio
 	// Loop over results until we get "failed" or "completed".  Wait for
 	// timer, and reset it each time.
 	for {
-		result, err = fetchResult(api, requestedId)
+		result, err = fetchResult(ctx, api, requestedId)
 		if err != nil {
 			return result, err
 		}
@@ -480,10 +481,10 @@ func timerLoop(api APIClient, requestedId string, tick, wait clock.Timer) (actio
 
 // fetchResult queries the given API for the given Action ID, and
 // makes sure the results are acceptable, returning an error if they are not.
-func fetchResult(api APIClient, requestedId string) (actionapi.ActionResult, error) {
+func fetchResult(ctx context.Context, api APIClient, requestedId string) (actionapi.ActionResult, error) {
 	none := actionapi.ActionResult{}
 
-	actions, err := api.Actions([]string{requestedId})
+	actions, err := api.Actions(ctx, []string{requestedId})
 	if err != nil {
 		return none, err
 	}

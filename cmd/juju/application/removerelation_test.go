@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/cmd/v4/cmdtesting"
@@ -93,12 +94,12 @@ func (s mockRemoveAPI) Close() error {
 	return s.NextErr()
 }
 
-func (s mockRemoveAPI) DestroyRelation(force *bool, maxWait *time.Duration, endpoints ...string) error {
+func (s mockRemoveAPI) DestroyRelation(ctx context.Context, force *bool, maxWait *time.Duration, endpoints ...string) error {
 	s.MethodCall(s, "DestroyRelation", force, maxWait, endpoints)
 	return s.removeRelationFunc(force, maxWait, endpoints...)
 }
 
-func (s mockRemoveAPI) DestroyRelationId(relationId int, force *bool, maxWait *time.Duration) error {
+func (s mockRemoveAPI) DestroyRelationId(ctx context.Context, relationId int, force *bool, maxWait *time.Duration) error {
 	s.MethodCall(s, "DestroyRelationId", relationId, force, maxWait)
 	return nil
 }

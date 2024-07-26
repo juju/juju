@@ -77,11 +77,11 @@ func (c *listControllersCommand) SetClientStore(store jujuclient.ClientStore) {
 	c.store = store
 }
 
-func (c *listControllersCommand) getAPI(controllerName string) (ControllerAccessAPI, error) {
+func (c *listControllersCommand) getAPI(ctx context.Context, controllerName string) (ControllerAccessAPI, error) {
 	if c.api != nil {
 		return c.api(controllerName), nil
 	}
-	api, err := c.NewAPIRoot(c.store, controllerName, "")
+	api, err := c.NewAPIRoot(ctx, c.store, controllerName, "")
 	if err != nil {
 		return nil, errors.Annotate(err, "opening API connection")
 	}
@@ -104,7 +104,7 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 			name := controllerName
 			go func() {
 				defer wg.Done()
-				client, err := c.getAPI(name)
+				client, err := c.getAPI(ctx, name)
 				if err != nil {
 					fmt.Fprintf(ctx.GetStderr(), "error connecting to api for %q: %v\n", name, err)
 					return

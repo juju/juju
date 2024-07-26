@@ -4,6 +4,7 @@
 package secretbackends
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -26,7 +27,7 @@ import (
 type addSecretBackendCommand struct {
 	modelcmd.ControllerCommandBase
 
-	AddSecretBackendsAPIFunc func() (AddSecretBackendsAPI, error)
+	AddSecretBackendsAPIFunc func(ctx context.Context) (AddSecretBackendsAPI, error)
 
 	Name        string
 	BackendType string
@@ -59,7 +60,7 @@ const addSecretBackendsExamples = `
 
 // AddSecretBackendsAPI is the secrets client API.
 type AddSecretBackendsAPI interface {
-	AddSecretBackend(backend secretbackends.CreateSecretBackend) error
+	AddSecretBackend(ctx context.Context, backend secretbackends.CreateSecretBackend) error
 	Close() error
 }
 
@@ -71,8 +72,8 @@ func NewAddSecretBackendCommand() cmd.Command {
 	return modelcmd.WrapController(c)
 }
 
-func (c *addSecretBackendCommand) secretBackendsAPI() (AddSecretBackendsAPI, error) {
-	root, err := c.NewAPIRoot()
+func (c *addSecretBackendCommand) secretBackendsAPI(ctx context.Context) (AddSecretBackendsAPI, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -225,12 +226,12 @@ func (c *addSecretBackendCommand) Run(ctxt *cmd.Context) error {
 		TokenRotateInterval: tokenRotateInterval,
 		Config:              attrs,
 	}
-	api, err := c.AddSecretBackendsAPIFunc()
+	api, err := c.AddSecretBackendsAPIFunc(ctxt)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer api.Close()
 
-	err = api.AddSecretBackend(backend)
+	err = api.AddSecretBackend(ctxt, backend)
 	return errors.Trace(err)
 }

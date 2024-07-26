@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
@@ -99,7 +101,7 @@ type mockPoolUpdateAPI struct {
 	Updates []mockUpdateData
 }
 
-func (s *mockPoolUpdateAPI) UpdatePool(pname, provider string, pconfig map[string]interface{}) error {
+func (s *mockPoolUpdateAPI) UpdatePool(ctx context.Context, pname, provider string, pconfig map[string]interface{}) error {
 	s.Updates = append(s.Updates, mockUpdateData{Name: pname, Provider: provider, Config: pconfig})
 	return nil
 }

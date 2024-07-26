@@ -4,6 +4,7 @@
 package model_test
 
 import (
+	"context"
 	"regexp"
 
 	"github.com/juju/cmd/v4"
@@ -33,7 +34,7 @@ type ModelCredentialCommandSuite struct {
 
 	modelClient fakeModelClient
 	cloudClient fakeCloudClient
-	rootFunc    func() (base.APICallCloser, error)
+	rootFunc    func(ctx context.Context) (base.APICallCloser, error)
 }
 
 func (s *ModelCredentialCommandSuite) SetUpTest(c *gc.C) {
@@ -52,7 +53,7 @@ func (s *ModelCredentialCommandSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.store.Models["testing"].CurrentModel = "admin/mymodel"
 
-	s.rootFunc = func() (base.APICallCloser, error) { return &fakeRoot{}, nil }
+	s.rootFunc = func(ctx context.Context) (base.APICallCloser, error) { return &fakeRoot{}, nil }
 	s.modelClient = fakeModelClient{}
 	s.cloudClient = fakeCloudClient{}
 }
@@ -104,7 +105,7 @@ func (s *ModelCredentialCommandSuite) TestBadArguments(c *gc.C) {
 }
 
 func (s *ModelCredentialCommandSuite) TestRootAPIError(c *gc.C) {
-	s.rootFunc = func() (base.APICallCloser, error) {
+	s.rootFunc = func(ctx context.Context) (base.APICallCloser, error) {
 		return nil, errors.New("kaboom")
 	}
 	ctx, err := cmdtesting.RunCommand(c, s.newSetCredentialCommand(), "cloud", "credential")
@@ -275,7 +276,7 @@ func (f *fakeModelClient) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeModelClient) ChangeModelCredential(model names.ModelTag, credential names.CloudCredentialTag) error {
+func (f *fakeModelClient) ChangeModelCredential(ctx context.Context, model names.ModelTag, credential names.CloudCredentialTag) error {
 	f.MethodCall(f, "ChangeModelCredential", model, credential)
 	return f.NextErr()
 }
@@ -291,12 +292,12 @@ func (f *fakeCloudClient) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeCloudClient) UserCredentials(u names.UserTag, c names.CloudTag) ([]names.CloudCredentialTag, error) {
+func (f *fakeCloudClient) UserCredentials(ctx context.Context, u names.UserTag, c names.CloudTag) ([]names.CloudCredentialTag, error) {
 	f.MethodCall(f, "UserCredentials", u, c)
 	return f.userCredentials, f.NextErr()
 }
 
-func (f *fakeCloudClient) AddCredential(tag string, credential cloud.Credential) error {
+func (f *fakeCloudClient) AddCredential(ctx context.Context, tag string, credential cloud.Credential) error {
 	f.MethodCall(f, "AddCredential", tag, credential)
 	return f.NextErr()
 }

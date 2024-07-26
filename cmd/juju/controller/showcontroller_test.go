@@ -695,7 +695,7 @@ func (*fakeController) Close() error {
 
 type fakeModelConfig struct{}
 
-func (*fakeModelConfig) ModelGet() (map[string]interface{}, error) {
+func (*fakeModelConfig) ModelGet(ctx context.Context) (map[string]interface{}, error) {
 	return map[string]interface{}{"agent-version": "999.99.99"}, nil
 }
 

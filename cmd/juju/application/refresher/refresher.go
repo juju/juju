@@ -4,6 +4,7 @@
 package refresher
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -76,7 +77,7 @@ func NewRefresherFactory(deps RefresherDependencies) RefresherFactory {
 // a given task) then it will move on to the next refresher.
 // If no refresher matches the config or if each one is exhausted then it will
 // state that it was unable to refresh.
-func (d *factory) Run(cfg RefresherConfig) (*CharmID, error) {
+func (d *factory) Run(ctx context.Context, cfg RefresherConfig) (*CharmID, error) {
 	for _, fn := range d.refreshers {
 		// Failure to correctly setup a refresher will call all of the
 		// refreshers to fail.
@@ -86,13 +87,13 @@ func (d *factory) Run(cfg RefresherConfig) (*CharmID, error) {
 		}
 		// If a refresher doesn't allow the config, then continue to the next
 		// one.
-		if allowed, err := refresh.Allowed(cfg); err != nil {
+		if allowed, err := refresh.Allowed(ctx, cfg); err != nil {
 			return nil, errors.Trace(err)
 		} else if !allowed {
 			continue
 		}
 
-		charmID, err := refresh.Refresh()
+		charmID, err := refresh.Refresh(ctx)
 		// We've exhausted this refresh task, attempt another one.
 		if errors.Cause(err) == ErrExhausted {
 			continue
@@ -157,21 +158,21 @@ type localCharmRefresher struct {
 
 // Allowed will attempt to check if a local charm is allowed to be refreshed.
 // Currently this is always true.
-func (d *localCharmRefresher) Allowed(_ RefresherConfig) (bool, error) {
+func (d *localCharmRefresher) Allowed(ctx context.Context, _ RefresherConfig) (bool, error) {
 	// We should always return true here, because of the current design.
 	return true, nil
 }
 
 // Refresh a given local charm.
 // Bundles are not supported as there is no physical representation in Juju.
-func (d *localCharmRefresher) Refresh() (*CharmID, error) {
+func (d *localCharmRefresher) Refresh(ctx context.Context) (*CharmID, error) {
 	ch, newURL, err := d.charmRepo.NewCharmAtPath(d.charmRef)
 	if err == nil {
 		newName := ch.Meta().Name
 		if newName != d.charmURL.Name {
 			return nil, errors.Errorf("cannot refresh %q to %q", d.charmURL.Name, newName)
 		}
-		addedURL, err := d.charmAdder.AddLocalCharm(newURL, ch, d.force)
+		addedURL, err := d.charmAdder.AddLocalCharm(ctx, newURL, ch, d.force)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -236,7 +237,7 @@ type baseRefresher struct {
 	logger          CommandLogger
 }
 
-func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
+func (r baseRefresher) ResolveCharm(ctx context.Context) (*charm.URL, commoncharm.Origin, error) {
 	if r.charmOrigin.Channel != nil {
 		r.logger.Verbosef("Original channel %q", r.charmOrigin.Channel.String())
 	}
@@ -257,7 +258,7 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 	}
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, origin, supportedBases, err := r.charmResolver.ResolveCharm(refURL, destOrigin, r.switchCharm)
+	newURL, origin, supportedBases, err := r.charmResolver.ResolveCharm(ctx, refURL, destOrigin, r.switchCharm)
 	if err != nil {
 		return nil, commoncharm.Origin{}, errors.Trace(err)
 	}
@@ -339,7 +340,7 @@ type charmHubRefresher struct {
 
 // Allowed will attempt to check if the charm is allowed to refresh.
 // Depending on the charm url, will then determine if that's true or not.
-func (r *charmHubRefresher) Allowed(cfg RefresherConfig) (bool, error) {
+func (r *charmHubRefresher) Allowed(ctx context.Context, cfg RefresherConfig) (bool, error) {
 	path, err := charm.EnsureSchema(cfg.CharmRef, charm.CharmHub)
 	if err != nil {
 		return false, errors.Trace(err)
@@ -358,7 +359,7 @@ func (r *charmHubRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 		return true, nil
 	}
 
-	if err := r.charmAdder.CheckCharmPlacement(cfg.ApplicationName, curl); err != nil && !errors.Is(err, errors.NotSupported) {
+	if err := r.charmAdder.CheckCharmPlacement(ctx, cfg.ApplicationName, curl); err != nil && !errors.Is(err, errors.NotSupported) {
 		// If force is used then ignore the error, the user seems to know
 		// what they're doing.
 		if !cfg.Force {
@@ -372,8 +373,8 @@ func (r *charmHubRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 
 // Refresh a given charm hub charm.
 // Bundles are not supported as there is no physical representation in Juju.
-func (r *charmHubRefresher) Refresh() (*CharmID, error) {
-	newURL, origin, err := r.ResolveCharm()
+func (r *charmHubRefresher) Refresh(ctx context.Context) (*CharmID, error) {
+	newURL, origin, err := r.ResolveCharm(ctx)
 	if errors.Is(err, ErrAlreadyUpToDate) {
 		// The charm itself is up-to-date but we may need the
 		// URL and origin for updating resources.
@@ -385,7 +386,7 @@ func (r *charmHubRefresher) Refresh() (*CharmID, error) {
 		return nil, errors.Trace(err)
 	}
 
-	curl, actualOrigin, err := store.AddCharmFromURL(r.charmAdder, newURL, origin, r.force)
+	curl, actualOrigin, err := store.AddCharmFromURL(ctx, r.charmAdder, newURL, origin, r.force)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

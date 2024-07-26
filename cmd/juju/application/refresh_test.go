@@ -200,7 +200,7 @@ func (s *BaseRefreshSuite) refreshCommand() cmd.Command {
 	memStore.Accounts["foo"] = jujuclient.AccountDetails{
 		User: "admin", Password: "hunter2",
 	}
-	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
+	apiOpen := func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
 		s.AddCall("OpenAPI")
 		return &s.apiConnection, nil
 	}
@@ -1147,17 +1147,17 @@ type mockCharmAdder struct {
 	testing.Stub
 }
 
-func (m *mockCharmAdder) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
+func (m *mockCharmAdder) AddCharm(ctx context.Context, curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
 	m.MethodCall(m, "AddCharm", curl, origin, force)
 	return origin, m.NextErr()
 }
 
-func (m *mockCharmAdder) CheckCharmPlacement(appName string, curl *charm.URL) error {
+func (m *mockCharmAdder) CheckCharmPlacement(ctx context.Context, appName string, curl *charm.URL) error {
 	m.MethodCall(m, "CheckCharmPlacement", appName, curl)
 	return m.NextErr()
 }
 
-func (m *mockCharmAdder) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*charm.URL, error) {
+func (m *mockCharmAdder) AddLocalCharm(ctx context.Context, curl *charm.URL, ch charm.Charm, force bool) (*charm.URL, error) {
 	m.MethodCall(m, "AddLocalCharm", curl, ch, force)
 	return curl, m.NextErr()
 }
@@ -1190,7 +1190,7 @@ type mockCharmResolver struct {
 	resolveFunc func(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error)
 }
 
-func (m *mockCharmResolver) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
+func (m *mockCharmResolver) ResolveCharm(ctx context.Context, url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
 	return m.resolveFunc(url, preferredOrigin, switchCharm)
 }
 
@@ -1203,17 +1203,17 @@ type mockCharmRefreshClient struct {
 	bindings map[string]string
 }
 
-func (m *mockCharmRefreshClient) GetCharmURLOrigin(appName string) (*charm.URL, commoncharm.Origin, error) {
+func (m *mockCharmRefreshClient) GetCharmURLOrigin(ctx context.Context, appName string) (*charm.URL, commoncharm.Origin, error) {
 	m.MethodCall(m, "GetCharmURLOrigin", appName)
 	return m.charmURL, m.charmOrigin, m.NextErr()
 }
 
-func (m *mockCharmRefreshClient) SetCharm(cfg application.SetCharmConfig) error {
+func (m *mockCharmRefreshClient) SetCharm(ctx context.Context, cfg application.SetCharmConfig) error {
 	m.MethodCall(m, "SetCharm", cfg)
 	return m.NextErr()
 }
 
-func (m *mockCharmRefreshClient) Get(applicationName string) (*params.ApplicationGetResults, error) {
+func (m *mockCharmRefreshClient) Get(ctx context.Context, applicationName string) (*params.ApplicationGetResults, error) {
 	m.MethodCall(m, "Get", applicationName)
 	return &params.ApplicationGetResults{
 		EndpointBindings: m.bindings,
@@ -1235,12 +1235,12 @@ type mockModelConfigGetter struct {
 	cfg map[string]interface{}
 }
 
-func (m *mockModelConfigGetter) ModelGet() (map[string]interface{}, error) {
+func (m *mockModelConfigGetter) ModelGet(ctx context.Context) (map[string]interface{}, error) {
 	m.MethodCall(m, "ModelGet")
 	return m.cfg, m.NextErr()
 }
 
-func (m *mockModelConfigGetter) SetDefaultSpace(name string) {
+func (m *mockModelConfigGetter) SetDefaultSpace(ctx context.Context, name string) {
 	m.cfg["default-space"] = name
 }
 
@@ -1253,7 +1253,7 @@ type mockResourceLister struct {
 	testing.Stub
 }
 
-func (m *mockResourceLister) ListResources([]string) ([]coreresouces.ApplicationResources, error) {
+func (m *mockResourceLister) ListResources(context.Context, []string) ([]coreresouces.ApplicationResources, error) {
 	return []coreresouces.ApplicationResources{{
 		Resources: []coreresouces.Resource{{
 			Resource: charmresource.Resource{
@@ -1275,7 +1275,7 @@ type mockSpacesClient struct {
 	spaceList []params.Space
 }
 
-func (m *mockSpacesClient) ListSpaces() ([]params.Space, error) {
+func (m *mockSpacesClient) ListSpaces(ctx context.Context) ([]params.Space, error) {
 	m.MethodCall(m, "ListSpaces")
 	return m.spaceList, m.NextErr()
 }

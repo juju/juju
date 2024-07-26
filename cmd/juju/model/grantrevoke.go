@@ -202,22 +202,22 @@ func (c *grantCommand) Info() *cmd.Info {
 	})
 }
 
-func (c *grantCommand) getModelAPI() (GrantModelAPI, error) {
+func (c *grantCommand) getModelAPI(ctx context.Context) (GrantModelAPI, error) {
 	if c.modelsApi != nil {
 		return c.modelsApi, nil
 	}
-	return c.NewModelManagerAPIClient()
+	return c.NewModelManagerAPIClient(ctx)
 }
 
-func (c *grantCommand) getControllerAPI() (GrantControllerAPI, error) {
-	return c.NewControllerAPIClient()
+func (c *grantCommand) getControllerAPI(ctx context.Context) (GrantControllerAPI, error) {
+	return c.NewControllerAPIClient(ctx)
 }
 
-func (c *grantCommand) getOfferAPI() (GrantOfferAPI, error) {
+func (c *grantCommand) getOfferAPI(ctx context.Context) (GrantOfferAPI, error) {
 	if c.offersApi != nil {
 		return c.offersApi, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -227,7 +227,7 @@ func (c *grantCommand) getOfferAPI() (GrantOfferAPI, error) {
 // GrantModelAPI defines the API functions used by the grant command.
 type GrantModelAPI interface {
 	Close() error
-	GrantModel(user, access string, modelUUIDs ...string) error
+	GrantModel(ctx context.Context, user, access string, modelUUIDs ...string) error
 }
 
 // GrantControllerAPI defines the API functions used by the grant command.
@@ -239,25 +239,25 @@ type GrantControllerAPI interface {
 // GrantOfferAPI defines the API functions used by the grant command.
 type GrantOfferAPI interface {
 	Close() error
-	GrantOffer(user, access string, offerURLs ...string) error
+	GrantOffer(ctx context.Context, user, access string, offerURLs ...string) error
 }
 
 // Run implements cmd.Command.
 func (c *grantCommand) Run(ctx *cmd.Context) error {
 	if len(c.ModelNames) > 0 {
-		return c.runForModel()
+		return c.runForModel(ctx)
 	}
 	if len(c.OfferURLs) > 0 {
 		if err := setUnsetUsers(c, c.OfferURLs); err != nil {
 			return errors.Trace(err)
 		}
-		return c.runForOffers()
+		return c.runForOffers(ctx)
 	}
 	return c.runForController(ctx)
 }
 
 func (c *grantCommand) runForController(ctx context.Context) error {
-	client, err := c.getControllerAPI()
+	client, err := c.getControllerAPI(ctx)
 	if err != nil {
 		return err
 	}
@@ -266,22 +266,22 @@ func (c *grantCommand) runForController(ctx context.Context) error {
 	return block.ProcessBlockedError(client.GrantController(ctx, c.User, c.Access), block.BlockChange)
 }
 
-func (c *grantCommand) runForModel() error {
-	client, err := c.getModelAPI()
+func (c *grantCommand) runForModel(ctx context.Context) error {
+	client, err := c.getModelAPI(ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	models, err := c.ModelUUIDs(c.ModelNames)
+	models, err := c.ModelUUIDs(ctx, c.ModelNames)
 	if err != nil {
 		return err
 	}
-	return block.ProcessBlockedError(client.GrantModel(c.User, c.Access, models...), block.BlockChange)
+	return block.ProcessBlockedError(client.GrantModel(ctx, c.User, c.Access, models...), block.BlockChange)
 }
 
-func (c *grantCommand) runForOffers() error {
-	client, err := c.getOfferAPI()
+func (c *grantCommand) runForOffers(ctx context.Context) error {
+	client, err := c.getOfferAPI(ctx)
 	if err != nil {
 		return err
 	}
@@ -291,7 +291,7 @@ func (c *grantCommand) runForOffers() error {
 	for i, url := range c.OfferURLs {
 		urls[i] = url.String()
 	}
-	err = client.GrantOffer(c.User, c.Access, urls...)
+	err = client.GrantOffer(ctx, c.User, c.Access, urls...)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
@@ -321,22 +321,22 @@ func (c *revokeCommand) Info() *cmd.Info {
 	})
 }
 
-func (c *revokeCommand) getModelAPI() (RevokeModelAPI, error) {
+func (c *revokeCommand) getModelAPI(ctx context.Context) (RevokeModelAPI, error) {
 	if c.modelsApi != nil {
 		return c.modelsApi, nil
 	}
-	return c.NewModelManagerAPIClient()
+	return c.NewModelManagerAPIClient(ctx)
 }
 
-func (c *revokeCommand) getControllerAPI() (RevokeControllerAPI, error) {
-	return c.NewControllerAPIClient()
+func (c *revokeCommand) getControllerAPI(ctx context.Context) (RevokeControllerAPI, error) {
+	return c.NewControllerAPIClient(ctx)
 }
 
-func (c *revokeCommand) getOfferAPI() (RevokeOfferAPI, error) {
+func (c *revokeCommand) getOfferAPI(ctx context.Context) (RevokeOfferAPI, error) {
 	if c.offersApi != nil {
 		return c.offersApi, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -346,7 +346,7 @@ func (c *revokeCommand) getOfferAPI() (RevokeOfferAPI, error) {
 // RevokeModelAPI defines the API functions used by the revoke command.
 type RevokeModelAPI interface {
 	Close() error
-	RevokeModel(user, access string, modelUUIDs ...string) error
+	RevokeModel(ctx context.Context, user, access string, modelUUIDs ...string) error
 }
 
 // RevokeControllerAPI defines the API functions used by the revoke command.
@@ -358,25 +358,25 @@ type RevokeControllerAPI interface {
 // RevokeOfferAPI defines the API functions used by the revoke command.
 type RevokeOfferAPI interface {
 	Close() error
-	RevokeOffer(user, access string, offerURLs ...string) error
+	RevokeOffer(ctx context.Context, user, access string, offerURLs ...string) error
 }
 
 // Run implements cmd.Command.
 func (c *revokeCommand) Run(ctx *cmd.Context) error {
 	if len(c.ModelNames) > 0 {
-		return c.runForModel()
+		return c.runForModel(ctx)
 	}
 	if len(c.OfferURLs) > 0 {
 		if err := setUnsetUsers(c, c.OfferURLs); err != nil {
 			return errors.Trace(err)
 		}
-		return c.runForOffers()
+		return c.runForOffers(ctx)
 	}
 	return c.runForController(ctx)
 }
 
 func (c *revokeCommand) runForController(ctx context.Context) error {
-	client, err := c.getControllerAPI()
+	client, err := c.getControllerAPI(ctx)
 	if err != nil {
 		return err
 	}
@@ -385,18 +385,18 @@ func (c *revokeCommand) runForController(ctx context.Context) error {
 	return block.ProcessBlockedError(client.RevokeController(ctx, c.User, c.Access), block.BlockChange)
 }
 
-func (c *revokeCommand) runForModel() error {
-	client, err := c.getModelAPI()
+func (c *revokeCommand) runForModel(ctx context.Context) error {
+	client, err := c.getModelAPI(ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	models, err := c.ModelUUIDs(c.ModelNames)
+	models, err := c.ModelUUIDs(ctx, c.ModelNames)
 	if err != nil {
 		return err
 	}
-	return block.ProcessBlockedError(client.RevokeModel(c.User, c.Access, models...), block.BlockChange)
+	return block.ProcessBlockedError(client.RevokeModel(ctx, c.User, c.Access, models...), block.BlockChange)
 }
 
 type accountDetailsGetter interface {
@@ -423,8 +423,8 @@ func setUnsetUsers(c accountDetailsGetter, offerURLs []*crossmodel.OfferURL) err
 	return nil
 }
 
-func (c *revokeCommand) runForOffers() error {
-	client, err := c.getOfferAPI()
+func (c *revokeCommand) runForOffers(ctx context.Context) error {
+	client, err := c.getOfferAPI(ctx)
 	if err != nil {
 		return err
 	}
@@ -434,6 +434,6 @@ func (c *revokeCommand) runForOffers() error {
 	for i, url := range c.OfferURLs {
 		urls[i] = url.String()
 	}
-	err = client.RevokeOffer(c.User, c.Access, urls...)
+	err = client.RevokeOffer(ctx, c.User, c.Access, urls...)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }

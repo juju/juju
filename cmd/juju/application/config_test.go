@@ -5,6 +5,7 @@ package application_test
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"strings"
 	"unicode/utf8"
@@ -554,7 +555,7 @@ type parseYamlAPI struct {
 	fakeApplicationAPI
 }
 
-func (f *parseYamlAPI) SetConfig(application, configYAML string, config map[string]string) error {
+func (f *parseYamlAPI) SetConfig(ctx context.Context, application, configYAML string, config map[string]string) error {
 	if f.err != nil {
 		return f.err
 	}

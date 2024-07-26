@@ -119,7 +119,7 @@ func (c *sshMachine) setHostChecker(checker jujussh.ReachableChecker) {
 	c.hostChecker = checker
 }
 
-func (c *sshMachine) setLeaderAPI(leaderAPI LeaderAPI) {
+func (c *sshMachine) setLeaderAPI(ctx context.Context, leaderAPI LeaderAPI) {
 	c.leaderAPI = leaderAPI
 }
 
@@ -141,10 +141,10 @@ func (c *sshMachine) initRun(ctx context.Context, mc ModelCommand) (err error) {
 		return errors.Trace(err)
 	}
 
-	if err = c.ensureAPIClient(mc); err != nil {
+	if err = c.ensureAPIClient(ctx, mc); err != nil {
 		return errors.Trace(err)
 	}
-	c.proxy, err = c.proxySSH()
+	c.proxy, err = c.proxySSH(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -176,14 +176,14 @@ func (c *sshMachine) cleanupRun() {
 
 // getSSHOptions configures SSH options based on command line
 // arguments and the SSH targets specified.
-func (c *sshMachine) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*ssh.Options, error) {
+func (c *sshMachine) getSSHOptions(ctx context.Context, enablePty bool, targets ...*resolvedTarget) (*ssh.Options, error) {
 	var options ssh.Options
 
 	if c.noHostKeyChecks {
 		options.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
 		options.SetKnownHostsFile(os.DevNull)
 	} else {
-		knownHostsPath, err := c.generateKnownHosts(targets)
+		knownHostsPath, err := c.generateKnownHosts(ctx, targets)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -215,7 +215,7 @@ func (c *sshMachine) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (
 }
 
 func (c *sshMachine) ssh(ctx Context, enablePty bool, target *resolvedTarget) error {
-	options, err := c.getSSHOptions(enablePty, target)
+	options, err := c.getSSHOptions(ctx, enablePty, target)
 	if err != nil {
 		return err
 	}
@@ -239,13 +239,13 @@ func (c *sshMachine) copy(ctx Context) error {
 			// we need to route the traffic via the machine that hosts it.
 			// This is required as the controller is unable to route fan
 			// traffic across subnets.
-			if err = c.maybePopulateTargetViaField(target, c.statusClient.Status); err != nil {
+			if err = c.maybePopulateTargetViaField(ctx, target, c.statusClient.Status); err != nil {
 				return errors.Trace(err)
 			}
 		}
 	}
 
-	options, err := c.getSSHOptions(false, targets...)
+	options, err := c.getSSHOptions(ctx, false, targets...)
 	if err != nil {
 		return err
 	}
@@ -285,14 +285,14 @@ func (c *sshMachine) expandSCPArgs(ctx context.Context, args []string) ([]string
 // generateKnownHosts takes the provided targets, retrieves the SSH
 // public host keys for them and generates a temporary known_hosts
 // file for them.
-func (c *sshMachine) generateKnownHosts(targets []*resolvedTarget) (string, error) {
+func (c *sshMachine) generateKnownHosts(ctx context.Context, targets []*resolvedTarget) (string, error) {
 	knownHosts := newKnownHostsBuilder()
 	agentCount := 0
 	nonAgentCount := 0
 	for _, target := range targets {
 		if target.isAgent() {
 			agentCount++
-			keys, err := c.getKeysWithRetry(target.entity)
+			keys, err := c.getKeysWithRetry(ctx, target.entity)
 			if err != nil {
 				return "", errors.Trace(err)
 			}
@@ -325,13 +325,13 @@ func (c *sshMachine) generateKnownHosts(targets []*resolvedTarget) (string, erro
 
 // proxySSH returns false if both c.proxy and the proxy-ssh model
 // configuration are false -- otherwise it returns true.
-func (c *sshMachine) proxySSH() (bool, error) {
+func (c *sshMachine) proxySSH(ctx context.Context) (bool, error) {
 	if c.proxy {
 		// No need to check the API if user explicitly requested
 		// proxying.
 		return true, nil
 	}
-	proxy, err := c.sshClient.Proxy()
+	proxy, err := c.sshClient.Proxy(ctx)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -393,11 +393,11 @@ func (c *sshMachine) setProxyCommand(options *ssh.Options, targets []*resolvedTa
 	return nil
 }
 
-func (c *sshMachine) ensureAPIClient(mc ModelCommand) error {
+func (c *sshMachine) ensureAPIClient(ctx context.Context, mc ModelCommand) error {
 	if c.sshClient != nil && c.leaderAPI != nil && c.statusClient != nil {
 		return nil
 	}
-	conn, err := mc.NewAPIRoot()
+	conn, err := mc.NewAPIRoot(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -418,7 +418,7 @@ func (c *sshMachine) ensureAPIClient(mc ModelCommand) error {
 func (c *sshMachine) resolveTarget(ctx context.Context, target string) (*resolvedTarget, error) {
 	// If the user specified a leader unit, try to resolve it to the
 	// appropriate unit name and override the requested target name.
-	resolvedTargetName, err := c.maybeResolveLeaderUnit(target)
+	resolvedTargetName, err := c.maybeResolveLeaderUnit(ctx, target)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -446,7 +446,7 @@ func (c *sshMachine) resolveTarget(ctx context.Context, target string) (*resolve
 		getAddress = c.legacyAddressGetter
 	}
 
-	return c.resolveWithRetry(*out, getAddress)
+	return c.resolveWithRetry(ctx, *out, getAddress)
 }
 
 func (c *sshMachine) resolveAsAgent(target string) (*resolvedTarget, bool) {
@@ -464,9 +464,9 @@ func (c *sshMachine) resolveAsAgent(target string) (*resolvedTarget, bool) {
 	return out, isAgent
 }
 
-type addressGetterFunc func(target string) (string, error)
+type addressGetterFunc func(ctx context.Context, target string) (string, error)
 
-func (c *sshMachine) resolveWithRetry(target resolvedTarget, getAddress addressGetterFunc) (*resolvedTarget, error) {
+func (c *sshMachine) resolveWithRetry(ctx context.Context, target resolvedTarget, getAddress addressGetterFunc) (*resolvedTarget, error) {
 	// A target may not initially have an address (e.g. the
 	// address updater hasn't yet run), so we must do this in
 	// a loop.
@@ -475,7 +475,7 @@ func (c *sshMachine) resolveWithRetry(target resolvedTarget, getAddress addressG
 	callArgs := c.retryStrategy
 	callArgs.Func = func() error {
 		var err error
-		out.host, err = getAddress(out.entity)
+		out.host, err = getAddress(ctx, out.entity)
 		if errors.Is(err, errors.NotFound) || params.IsCodeNotFound(err) {
 			// Catch issues like passing invalid machine/unit IDs early.
 			return errors.Trace(err)
@@ -501,19 +501,19 @@ func (c *sshMachine) resolveWithRetry(target resolvedTarget, getAddress addressG
 // legacyAddressGetter returns the preferred public or private address of the
 // given entity (private when c.proxy is true), using the sshClient. Only used
 // when the SSHClient API facade v2 is not available or when proxy-ssh is set.
-func (c *sshMachine) legacyAddressGetter(entity string) (string, error) {
+func (c *sshMachine) legacyAddressGetter(ctx context.Context, entity string) (string, error) {
 	if c.proxy {
-		return c.sshClient.PrivateAddress(entity)
+		return c.sshClient.PrivateAddress(ctx, entity)
 	}
 
-	return c.sshClient.PublicAddress(entity)
+	return c.sshClient.PublicAddress(ctx, entity)
 }
 
 // reachableAddressGetter dials all addresses of the given entity, returning the
 // first one that succeeds. Only used with SSHClient API facade v2 or later is
 // available. It does not try to dial if only one address is available.
-func (c *sshMachine) reachableAddressGetter(entity string) (string, error) {
-	addresses, err := c.sshClient.AllAddresses(entity)
+func (c *sshMachine) reachableAddressGetter(ctx context.Context, entity string) (string, error) {
+	addresses, err := c.sshClient.AllAddresses(ctx, entity)
 	if err != nil {
 		return "", errors.Trace(err)
 	} else if len(addresses) == 0 {
@@ -524,7 +524,7 @@ func (c *sshMachine) reachableAddressGetter(entity string) (string, error) {
 	}
 	var publicKeys []string
 	if !c.noHostKeyChecks {
-		publicKeys, err = c.getKeysWithRetry(entity)
+		publicKeys, err = c.getKeysWithRetry(ctx, entity)
 		if err != nil {
 			return "", errors.Trace(err)
 		}
@@ -546,8 +546,8 @@ func (c *sshMachine) AllowInterspersedFlags() bool {
 	return false
 }
 
-func (c *sshMachine) maybePopulateTargetViaField(target *resolvedTarget, statusGetter func(*client.StatusArgs) (*params.FullStatus, error)) error {
-	status, err := statusGetter(nil)
+func (c *sshMachine) maybePopulateTargetViaField(ctx context.Context, target *resolvedTarget, statusGetter func(context.Context, *client.StatusArgs) (*params.FullStatus, error)) error {
+	status, err := statusGetter(ctx, nil)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -583,14 +583,14 @@ func (c *sshMachine) maybePopulateTargetViaField(target *resolvedTarget, statusG
 	return nil
 }
 
-func (c *sshMachine) getKeysWithRetry(entity string) ([]string, error) {
+func (c *sshMachine) getKeysWithRetry(ctx context.Context, entity string) ([]string, error) {
 	var publicKeys []string
 	strategy := c.publicKeyRetryStrategy
 	strategy.IsFatalError = func(err error) bool {
 		return !errors.Is(err, errors.NotFound)
 	}
 	strategy.Func = func() error {
-		keys, err := c.sshClient.PublicKeys(entity)
+		keys, err := c.sshClient.PublicKeys(ctx, entity)
 		if err != nil {
 			return errors.Annotatef(err, "retrieving SSH host keys for %q", entity)
 		}

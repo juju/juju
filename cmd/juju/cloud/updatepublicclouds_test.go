@@ -293,12 +293,12 @@ func (f *fakeUpdatePublicCloudAPI) Close() error {
 	return nil
 }
 
-func (f *fakeUpdatePublicCloudAPI) UpdateCloud(cloud jujucloud.Cloud) error {
+func (f *fakeUpdatePublicCloudAPI) UpdateCloud(ctx context.Context, cloud jujucloud.Cloud) error {
 	f.AddCall("UpdateCloud", cloud)
 	return f.updateCloudF(cloud)
 }
 
-func (f *fakeUpdatePublicCloudAPI) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
+func (f *fakeUpdatePublicCloudAPI) Clouds(ctx context.Context) (map[names.CloudTag]jujucloud.Cloud, error) {
 	f.AddCall("Clouds")
 	return f.cloudsF()
 }

@@ -6,6 +6,7 @@ package controller
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/asn1"
 	"encoding/base64"
@@ -67,7 +68,7 @@ func NewRegisterCommand() cmd.Command {
 type registerCommand struct {
 	modelcmd.CommandBase
 	apiOpen        api.OpenFunc
-	listModelsFunc func(_ jujuclient.ClientStore, controller, user string) ([]base.UserModel, error)
+	listModelsFunc func(_ context.Context, _ jujuclient.ClientStore, controller, user string) ([]base.UserModel, error)
 	store          jujuclient.ClientStore
 
 	arg     string
@@ -198,7 +199,7 @@ func (c *registerCommand) run(ctx *cmd.Context) error {
 	}
 	// Log into the controller to verify the credentials, and
 	// list the models available.
-	models, err := c.listModelsFunc(c.store, controllerName, accountDetails.User)
+	models, err := c.listModelsFunc(ctx, c.store, controllerName, accountDetails.User)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -293,7 +294,7 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 		api.NewLegacyLoginProvider(names.UserTag{}, "", "", nil, bclient, cookieURL),
 	)
 
-	conn, err := c.apiOpen(&api.Info{
+	conn, err := c.apiOpen(ctx, &api.Info{
 		Addrs: []string{apiAddr},
 	}, dialOpts)
 	if err != nil {
@@ -372,7 +373,7 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 			&registrationParams.key,
 		),
 	}
-	resp, err := c.secretKeyLogin(controllerDetails, req, controllerName)
+	resp, err := c.secretKeyLogin(ctx, controllerDetails, req, controllerName)
 	if err != nil {
 		return errRet(errors.Trace(err))
 	}
@@ -458,14 +459,14 @@ func (c *registerCommand) updateController(
 	return nil
 }
 
-func (c *registerCommand) listModels(store jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
-	api, err := c.NewAPIRoot(store, controllerName, "")
+func (c *registerCommand) listModels(ctx context.Context, store jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+	api, err := c.NewAPIRoot(ctx, store, controllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	defer api.Close()
 	mm := modelmanager.NewClient(api)
-	return mm.ListModels(userName)
+	return mm.ListModels(ctx, userName)
 }
 
 func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, store jujuclient.ClientStore, controllerName, userName string, models []base.UserModel) error {
@@ -575,7 +576,9 @@ func (c *registerCommand) getParameters(ctx *cmd.Context) (*registrationParams, 
 }
 
 func (c *registerCommand) secretKeyLogin(
-	controllerDetails jujuclient.ControllerDetails, request params.SecretKeyLoginRequest, controllerName string,
+	ctx context.Context,
+	controllerDetails jujuclient.ControllerDetails, request params.SecretKeyLoginRequest,
+	controllerName string,
 ) (_ *params.SecretKeyLoginResponse, err error) {
 	cookieJar, err := c.CookieJar(c.store, controllerName)
 	if err != nil {
@@ -602,7 +605,7 @@ func (c *registerCommand) secretKeyLogin(
 	if controllerDetails.Proxy != nil {
 		apiInfo.Proxier = controllerDetails.Proxy.Proxier
 	}
-	conn, err := c.apiOpen(apiInfo, opts)
+	conn, err := c.apiOpen(ctx, apiInfo, opts)
 	if err != nil {
 		logger.Infof("opening api connection: %s", err)
 		return nil, controllerUnreachableError(controllerName, controllerDetails.APIEndpoints)

@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -16,7 +18,7 @@ var (
 )
 
 func NewPoolListCommandForTest(api PoolListAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &poolListCommand{newAPIFunc: func() (PoolListAPI, error) {
+	cmd := &poolListCommand{newAPIFunc: func(ctx context.Context) (PoolListAPI, error) {
 		return api, nil
 	}}
 	cmd.SetClientStore(store)
@@ -24,7 +26,7 @@ func NewPoolListCommandForTest(api PoolListAPI, store jujuclient.ClientStore) cm
 }
 
 func NewPoolCreateCommandForTest(api PoolCreateAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &poolCreateCommand{newAPIFunc: func() (PoolCreateAPI, error) {
+	cmd := &poolCreateCommand{newAPIFunc: func(ctx context.Context) (PoolCreateAPI, error) {
 		return api, nil
 	}}
 	cmd.SetClientStore(store)
@@ -32,7 +34,7 @@ func NewPoolCreateCommandForTest(api PoolCreateAPI, store jujuclient.ClientStore
 }
 
 func NewPoolRemoveCommandForTest(api PoolRemoveAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &poolRemoveCommand{newAPIFunc: func() (PoolRemoveAPI, error) {
+	cmd := &poolRemoveCommand{newAPIFunc: func(ctx context.Context) (PoolRemoveAPI, error) {
 		return api, nil
 	}}
 	cmd.SetClientStore(store)
@@ -40,7 +42,7 @@ func NewPoolRemoveCommandForTest(api PoolRemoveAPI, store jujuclient.ClientStore
 }
 
 func NewPoolUpdateCommandForTest(api PoolUpdateAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &poolUpdateCommand{newAPIFunc: func() (PoolUpdateAPI, error) {
+	cmd := &poolUpdateCommand{newAPIFunc: func(ctx context.Context) (PoolUpdateAPI, error) {
 		return api, nil
 	}}
 	cmd.SetClientStore(store)
@@ -48,7 +50,7 @@ func NewPoolUpdateCommandForTest(api PoolUpdateAPI, store jujuclient.ClientStore
 }
 
 func NewShowCommandForTest(api StorageShowAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &showCommand{newAPIFunc: func() (StorageShowAPI, error) {
+	cmd := &showCommand{newAPIFunc: func(ctx context.Context) (StorageShowAPI, error) {
 		return api, nil
 	}}
 	cmd.SetClientStore(store)
@@ -56,7 +58,7 @@ func NewShowCommandForTest(api StorageShowAPI, store jujuclient.ClientStore) cmd
 }
 
 func NewListCommandForTest(api StorageListAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &listCommand{newAPIFunc: func() (StorageListAPI, error) {
+	cmd := &listCommand{newAPIFunc: func(ctx context.Context) (StorageListAPI, error) {
 		return api, nil
 	}}
 	cmd.SetClientStore(store)
@@ -64,7 +66,7 @@ func NewListCommandForTest(api StorageListAPI, store jujuclient.ClientStore) cmd
 }
 
 func NewAddCommandForTest(api StorageAddAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &addCommand{newAPIFunc: func() (StorageAddAPI, error) {
+	cmd := &addCommand{newAPIFunc: func(ctx context.Context) (StorageAddAPI, error) {
 		return api, nil
 	}}
 	cmd.SetClientStore(store)

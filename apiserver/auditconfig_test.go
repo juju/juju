@@ -40,7 +40,7 @@ func (s *auditConfigSuite) openAPIWithoutLogin(c *gc.C) api.Connection {
 	info.Password = ""
 	info.Macaroons = nil
 	info.SkipLogin = true
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	return conn
 }

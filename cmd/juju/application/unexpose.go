@@ -4,6 +4,8 @@
 package application
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -86,11 +88,11 @@ func (c *unexposeCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
-func (c *unexposeCommand) getAPI() (ApplicationExposeAPI, error) {
+func (c *unexposeCommand) getAPI(ctx context.Context) (ApplicationExposeAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -99,13 +101,13 @@ func (c *unexposeCommand) getAPI() (ApplicationExposeAPI, error) {
 
 // Run changes the juju-managed firewall to hide any
 // ports that were also explicitly marked by units as closed.
-func (c *unexposeCommand) Run(_ *cmd.Context) error {
-	client, err := c.getAPI()
+func (c *unexposeCommand) Run(ctx *cmd.Context) error {
+	client, err := c.getAPI(ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
 	endpoints := splitCommaDelimitedList(c.ExposedEndpointsList)
-	return block.ProcessBlockedError(client.Unexpose(c.ApplicationName, endpoints), block.BlockChange)
+	return block.ProcessBlockedError(client.Unexpose(ctx, c.ApplicationName, endpoints), block.BlockChange)
 }

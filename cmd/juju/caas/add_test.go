@@ -151,7 +151,7 @@ func (api *fakeAddCloudAPI) Close() error {
 	return nil
 }
 
-func (api *fakeAddCloudAPI) AddCloud(kloud cloud.Cloud, force bool) error {
+func (api *fakeAddCloudAPI) AddCloud(ctx context.Context, kloud cloud.Cloud, force bool) error {
 	api.MethodCall(api, "AddCloud", kloud, force)
 	if kloud.HostCloudRegion == "" && api.isCloudRegionRequired {
 		return params.Error{Code: params.CodeCloudRegionRequired}
@@ -159,7 +159,7 @@ func (api *fakeAddCloudAPI) AddCloud(kloud cloud.Cloud, force bool) error {
 	return nil
 }
 
-func (api *fakeAddCloudAPI) AddCredential(tag string, credential cloud.Credential) error {
+func (api *fakeAddCloudAPI) AddCredential(ctx context.Context, tag string, credential cloud.Credential) error {
 	return nil
 }
 
@@ -370,7 +370,7 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists, emptyClientConfig, 
 		s.cloudMetadataStore,
 		s.credentialStoreAPI,
 		NewMockClientStore(),
-		func() (caas.AddCloudAPI, error) {
+		func(ctx context.Context) (caas.AddCloudAPI, error) {
 			return s.fakeCloudAPI, nil
 		},
 		func(_ context.Context, _ jujuclock.Clock) clientconfig.K8sCredentialResolver {

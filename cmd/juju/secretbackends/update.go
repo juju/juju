@@ -4,6 +4,7 @@
 package secretbackends
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/v4"
@@ -19,7 +20,7 @@ import (
 type updateSecretBackendCommand struct {
 	modelcmd.ControllerCommandBase
 
-	UpdateSecretBackendsAPIFunc func() (UpdateSecretBackendsAPI, error)
+	UpdateSecretBackendsAPIFunc func(ctx context.Context) (UpdateSecretBackendsAPI, error)
 
 	Name  string
 	Force bool
@@ -58,7 +59,7 @@ const updateSecretBackendsExamples = `
 
 // UpdateSecretBackendsAPI is the secrets client API.
 type UpdateSecretBackendsAPI interface {
-	UpdateSecretBackend(secretbackends.UpdateSecretBackend, bool) error
+	UpdateSecretBackend(context.Context, secretbackends.UpdateSecretBackend, bool) error
 	Close() error
 }
 
@@ -70,8 +71,8 @@ func NewUpdateSecretBackendCommand() cmd.Command {
 	return modelcmd.WrapController(c)
 }
 
-func (c *updateSecretBackendCommand) secretBackendsAPI() (UpdateSecretBackendsAPI, error) {
-	root, err := c.NewAPIRoot()
+func (c *updateSecretBackendCommand) secretBackendsAPI(ctx context.Context) (UpdateSecretBackendsAPI, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -154,12 +155,12 @@ func (c *updateSecretBackendCommand) Run(ctxt *cmd.Context) error {
 		backend.NameChange = &nameChange
 	}
 
-	api, err := c.UpdateSecretBackendsAPIFunc()
+	api, err := c.UpdateSecretBackendsAPIFunc(ctxt)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer api.Close()
 
-	err = api.UpdateSecretBackend(backend, c.Force)
+	err = api.UpdateSecretBackend(ctxt, backend, c.Force)
 	return errors.Trace(err)
 }

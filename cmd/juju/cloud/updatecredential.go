@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -68,7 +69,7 @@ const usageUpdateCredentialExamples = `
 type updateCredentialCommand struct {
 	modelcmd.OptionalControllerCommand
 
-	updateCredentialAPIFunc func() (CredentialAPI, error)
+	updateCredentialAPIFunc func(ctx context.Context) (CredentialAPI, error)
 
 	cloud      string
 	credential string
@@ -145,14 +146,14 @@ func (c *updateCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 type CredentialAPI interface {
-	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
-	AddCloudsCredentials(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error)
-	UpdateCloudsCredentials(cloudCredentials map[string]jujucloud.Credential, force bool) ([]params.UpdateCredentialResult, error)
+	Clouds(ctx context.Context) (map[names.CloudTag]jujucloud.Cloud, error)
+	AddCloudsCredentials(ctx context.Context, cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error)
+	UpdateCloudsCredentials(ctx context.Context, cloudCredentials map[string]jujucloud.Credential, force bool) ([]params.UpdateCredentialResult, error)
 	Close() error
 }
 
-func (c *updateCredentialCommand) getAPI() (CredentialAPI, error) {
-	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
+func (c *updateCredentialCommand) getAPI(ctx context.Context) (CredentialAPI, error) {
+	root, err := c.NewAPIRoot(ctx, c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -347,14 +348,14 @@ func (c *updateCredentialCommand) updateRemoteCredentials(ctx *cmd.Context, upda
 	if err != nil {
 		return err
 	}
-	client, err := c.updateCredentialAPIFunc()
+	client, err := c.updateCredentialAPIFunc(ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
 	// Get user clouds from the controller
-	remoteUserClouds, err := client.Clouds()
+	remoteUserClouds, err := client.Clouds(ctx)
 	if err != nil {
 		return err
 	}
@@ -387,7 +388,7 @@ func (c *updateCredentialCommand) updateRemoteCredentials(ctx *cmd.Context, upda
 	if len(verified) == 0 {
 		return erred
 	}
-	results, err := client.UpdateCloudsCredentials(verified, c.Force)
+	results, err := client.UpdateCloudsCredentials(ctx, verified, c.Force)
 	if err != nil {
 		logger.Errorf("%v", err)
 		ctx.Warningf("Could not update credentials remotely, on controller %q", c.ControllerName)

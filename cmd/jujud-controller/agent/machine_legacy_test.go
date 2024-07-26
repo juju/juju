@@ -168,7 +168,7 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			apiInfo.Tag = user.Tag()
 			apiInfo.Password = password
-			st, err := api.Open(apiInfo, fastDialOpts)
+			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
 			defer st.Close()
 			doRequest(apiclient.NewClient(st, loggertesting.WrapCheckLog(c)))
@@ -178,7 +178,7 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			apiInfo.Tag = user.Tag()
 			apiInfo.Password = password
-			st, err := api.Open(apiInfo, fastDialOpts)
+			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
 			defer st.Close()
 			doRequest(machinemanager.NewClient(st))
@@ -186,11 +186,11 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *gc.C) {
 
 		// Make requests in separate API connections so they're separate conversations.
 		makeAPIRequest(func(client *apiclient.Client) {
-			_, err = client.Status(nil)
+			_, err = client.Status(context.Background(), nil)
 			c.Assert(err, jc.ErrorIsNil)
 		})
 		makeMachineAPIRequest(func(client *machinemanager.Client) {
-			_, err = client.AddMachines([]params.AddMachineParams{{
+			_, err = client.AddMachines(context.Background(), []params.AddMachineParams{{
 				Jobs: []coremodel.MachineJob{"JobHostUnits"},
 			}})
 			c.Assert(err, jc.ErrorIsNil)
@@ -216,7 +216,7 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *gc.C) {
 		// propagated to the apiserver.
 		for a := coretesting.LongAttempt.Start(); a.Next(); {
 			makeAPIRequest(func(client *apiclient.Client) {
-				_, err = client.Status(nil)
+				_, err = client.Status(context.Background(), nil)
 				c.Assert(err, jc.ErrorIsNil)
 			})
 			// Check to see whether there are more logged requests.
@@ -495,7 +495,7 @@ func (s *MachineLegacySuite) TestManageModelServesAPI(c *gc.C) {
 	s.assertJob(c, state.JobManageModel, nil, func(conf agent.Config, a *MachineAgent) {
 		apiInfo, ok := conf.APIInfo()
 		c.Assert(ok, jc.IsTrue)
-		st, err := api.Open(apiInfo, fastDialOpts)
+		st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
 		c.Assert(err, jc.ErrorIsNil)
 		defer st.Close()
 		m, err := apimachiner.NewClient(st).Machine(context.Background(), conf.Tag().(names.MachineTag))
@@ -514,7 +514,7 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFile(c *gc.C) {
 		func(conf agent.Config, a *MachineAgent) {
 			apiInfo, ok := conf.APIInfo()
 			c.Assert(ok, jc.IsTrue)
-			st, err := api.Open(apiInfo, fastDialOpts)
+			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
 			err = a.machineStartup(context.Background(), st, loggertesting.WrapCheckLog(c))
@@ -533,7 +533,7 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileErrored(c *
 		func(conf agent.Config, a *MachineAgent) {
 			apiInfo, ok := conf.APIInfo()
 			c.Assert(ok, jc.IsTrue)
-			st, err := api.Open(apiInfo, fastDialOpts)
+			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
 			err = a.machineStartup(context.Background(), st, loggertesting.WrapCheckLog(c))
@@ -552,7 +552,7 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileNonZeroExit
 		func(conf agent.Config, a *MachineAgent) {
 			apiInfo, ok := conf.APIInfo()
 			c.Assert(ok, jc.IsTrue)
-			st, err := api.Open(apiInfo, fastDialOpts)
+			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
 			err = a.machineStartup(context.Background(), st, loggertesting.WrapCheckLog(c))

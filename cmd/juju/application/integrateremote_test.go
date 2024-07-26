@@ -4,6 +4,8 @@
 package application
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
@@ -209,7 +211,7 @@ type mockAddRelationAPI struct {
 	mac *macaroon.Macaroon
 }
 
-func (m *mockAddRelationAPI) AddRelation(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
+func (m *mockAddRelationAPI) AddRelation(ctx context.Context, endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
 	m.AddCall("AddRelation", endpoints, viaCIDRs)
 	return m.addRelation(endpoints, viaCIDRs)
 }
@@ -219,12 +221,12 @@ func (m *mockAddRelationAPI) Close() error {
 	return nil
 }
 
-func (m *mockAddRelationAPI) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) {
+func (m *mockAddRelationAPI) Consume(ctx context.Context, arg crossmodel.ConsumeApplicationArgs) (string, error) {
 	m.AddCall("Consume", arg)
 	return arg.ApplicationAlias, nil
 }
 
-func (m *mockAddRelationAPI) GetConsumeDetails(url string) (params.ConsumeOfferDetails, error) {
+func (m *mockAddRelationAPI) GetConsumeDetails(ctx context.Context, url string) (params.ConsumeOfferDetails, error) {
 	m.AddCall("GetConsumeDetails", url)
 	return params.ConsumeOfferDetails{
 		Offer: &params.ApplicationOfferDetailsV5{

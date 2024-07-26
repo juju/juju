@@ -4,6 +4,8 @@
 package modelmanager_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -45,7 +47,7 @@ func (s *modelInfoSuite) assertExpectedModelInfo(c *gc.C, expectedInfo params.Mo
 	for i := 0; i < len(expectedInfo.Results); i++ {
 		input = append(input, testing.ModelTag)
 	}
-	info, err := client.ModelInfo(input)
+	info, err := client.ModelInfo(context.Background(), input)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expectedInfo.Results)
 }
@@ -111,6 +113,6 @@ func (s *modelInfoSuite) TestInvalidResultCount(c *gc.C) {
 		},
 	)
 	client := modelmanager.NewClient(apiCaller)
-	_, err := client.ModelInfo([]names.ModelTag{testing.ModelTag, testing.ModelTag})
+	_, err := client.ModelInfo(context.Background(), []names.ModelTag{testing.ModelTag, testing.ModelTag})
 	c.Assert(err, gc.ErrorMatches, "expected 2 result\\(s\\), got 1")
 }

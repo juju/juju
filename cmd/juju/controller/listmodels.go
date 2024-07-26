@@ -4,6 +4,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -35,16 +36,16 @@ func NewListModelsCommand() cmd.Command {
 // the models command calls.
 type ModelManagerAPI interface {
 	Close() error
-	ListModels(user string) ([]base.UserModel, error)
-	ListModelSummaries(user string, all bool) ([]base.UserModelSummary, error)
-	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
+	ListModels(ctx context.Context, user string) ([]base.UserModel, error)
+	ListModelSummaries(ctx context.Context, user string, all bool) ([]base.UserModelSummary, error)
+	ModelInfo(context.Context, []names.ModelTag) ([]params.ModelInfoResult, error)
 }
 
 // ModelsSysAPI defines the methods on the controller manager API that the
 // list models command calls.
 type ModelsSysAPI interface {
 	Close() error
-	AllModels() ([]base.UserModel, error)
+	AllModels(ctx context.Context) ([]base.UserModel, error)
 }
 
 // modelsCommand returns the list of all the models the
@@ -117,7 +118,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now()
 
-	modelmanagerAPI, err := c.getModelManagerAPI()
+	modelmanagerAPI, err := c.getModelManagerAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -153,15 +154,15 @@ func (c *modelsCommand) currentModelName() (qualified, name string) {
 	return
 }
 
-func (c *modelsCommand) getModelManagerAPI() (ModelManagerAPI, error) {
+func (c *modelsCommand) getModelManagerAPI(ctx context.Context) (ModelManagerAPI, error) {
 	if c.modelAPI != nil {
 		return c.modelAPI, nil
 	}
-	return c.NewModelManagerAPIClient()
+	return c.NewModelManagerAPIClient(ctx)
 }
 
 func (c *modelsCommand) getModelSummaries(ctx *cmd.Context, client ModelManagerAPI, now time.Time) (bool, error) {
-	results, err := client.ListModelSummaries(c.user, c.all)
+	results, err := client.ListModelSummaries(ctx, c.user, c.all)
 	if err != nil {
 		return false, errors.Trace(err)
 	}

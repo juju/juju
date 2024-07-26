@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"path/filepath"
 
 	"github.com/juju/cmd/v4"
@@ -71,7 +72,7 @@ func (s *BindSuite) SetUpTest(c *gc.C) {
 	store.Accounts["foo"] = jujuclient.AccountDetails{
 		User: "testuser",
 	}
-	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
+	apiOpen := func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
 		s.AddCall("OpenAPI")
 		return &s.apiConnection, nil
 	}
@@ -158,12 +159,12 @@ type mockApplicationBindClient struct {
 	getResults *params.ApplicationGetResults
 }
 
-func (m *mockApplicationBindClient) Get(app string) (*params.ApplicationGetResults, error) {
+func (m *mockApplicationBindClient) Get(ctx context.Context, app string) (*params.ApplicationGetResults, error) {
 	m.MethodCall(m, "Get", "", app)
 	return m.getResults, m.NextErr()
 }
 
-func (m *mockApplicationBindClient) MergeBindings(p params.ApplicationMergeBindingsArgs) error {
+func (m *mockApplicationBindClient) MergeBindings(ctx context.Context, p params.ApplicationMergeBindingsArgs) error {
 	m.MethodCall(m, "MergeBindings", p)
 	return m.NextErr()
 }

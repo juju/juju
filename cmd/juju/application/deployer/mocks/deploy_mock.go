@@ -93,18 +93,18 @@ func (c *MockDeployerAPIAPICallCall) DoAndReturn(f func(context.Context, string,
 }
 
 // AddCharm mocks base method.
-func (m *MockDeployerAPI) AddCharm(arg0 *charm0.URL, arg1 charm.Origin, arg2 bool) (charm.Origin, error) {
+func (m *MockDeployerAPI) AddCharm(arg0 context.Context, arg1 *charm0.URL, arg2 charm.Origin, arg3 bool) (charm.Origin, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddCharm", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AddCharm", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(charm.Origin)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddCharm indicates an expected call of AddCharm.
-func (mr *MockDeployerAPIMockRecorder) AddCharm(arg0, arg1, arg2 any) *MockDeployerAPIAddCharmCall {
+func (mr *MockDeployerAPIMockRecorder) AddCharm(arg0, arg1, arg2, arg3 any) *MockDeployerAPIAddCharmCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharm", reflect.TypeOf((*MockDeployerAPI)(nil).AddCharm), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharm", reflect.TypeOf((*MockDeployerAPI)(nil).AddCharm), arg0, arg1, arg2, arg3)
 	return &MockDeployerAPIAddCharmCall{Call: call}
 }
 
@@ -120,30 +120,30 @@ func (c *MockDeployerAPIAddCharmCall) Return(arg0 charm.Origin, arg1 error) *Moc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIAddCharmCall) Do(f func(*charm0.URL, charm.Origin, bool) (charm.Origin, error)) *MockDeployerAPIAddCharmCall {
+func (c *MockDeployerAPIAddCharmCall) Do(f func(context.Context, *charm0.URL, charm.Origin, bool) (charm.Origin, error)) *MockDeployerAPIAddCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIAddCharmCall) DoAndReturn(f func(*charm0.URL, charm.Origin, bool) (charm.Origin, error)) *MockDeployerAPIAddCharmCall {
+func (c *MockDeployerAPIAddCharmCall) DoAndReturn(f func(context.Context, *charm0.URL, charm.Origin, bool) (charm.Origin, error)) *MockDeployerAPIAddCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddLocalCharm mocks base method.
-func (m *MockDeployerAPI) AddLocalCharm(arg0 *charm0.URL, arg1 charm0.Charm, arg2 bool) (*charm0.URL, error) {
+func (m *MockDeployerAPI) AddLocalCharm(arg0 context.Context, arg1 *charm0.URL, arg2 charm0.Charm, arg3 bool) (*charm0.URL, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddLocalCharm", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AddLocalCharm", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*charm0.URL)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddLocalCharm indicates an expected call of AddLocalCharm.
-func (mr *MockDeployerAPIMockRecorder) AddLocalCharm(arg0, arg1, arg2 any) *MockDeployerAPIAddLocalCharmCall {
+func (mr *MockDeployerAPIMockRecorder) AddLocalCharm(arg0, arg1, arg2, arg3 any) *MockDeployerAPIAddLocalCharmCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddLocalCharm", reflect.TypeOf((*MockDeployerAPI)(nil).AddLocalCharm), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddLocalCharm", reflect.TypeOf((*MockDeployerAPI)(nil).AddLocalCharm), arg0, arg1, arg2, arg3)
 	return &MockDeployerAPIAddLocalCharmCall{Call: call}
 }
 
@@ -159,30 +159,30 @@ func (c *MockDeployerAPIAddLocalCharmCall) Return(arg0 *charm0.URL, arg1 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIAddLocalCharmCall) Do(f func(*charm0.URL, charm0.Charm, bool) (*charm0.URL, error)) *MockDeployerAPIAddLocalCharmCall {
+func (c *MockDeployerAPIAddLocalCharmCall) Do(f func(context.Context, *charm0.URL, charm0.Charm, bool) (*charm0.URL, error)) *MockDeployerAPIAddLocalCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIAddLocalCharmCall) DoAndReturn(f func(*charm0.URL, charm0.Charm, bool) (*charm0.URL, error)) *MockDeployerAPIAddLocalCharmCall {
+func (c *MockDeployerAPIAddLocalCharmCall) DoAndReturn(f func(context.Context, *charm0.URL, charm0.Charm, bool) (*charm0.URL, error)) *MockDeployerAPIAddLocalCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddMachines mocks base method.
-func (m *MockDeployerAPI) AddMachines(arg0 []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+func (m *MockDeployerAPI) AddMachines(arg0 context.Context, arg1 []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddMachines", arg0)
+	ret := m.ctrl.Call(m, "AddMachines", arg0, arg1)
 	ret0, _ := ret[0].([]params.AddMachinesResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddMachines indicates an expected call of AddMachines.
-func (mr *MockDeployerAPIMockRecorder) AddMachines(arg0 any) *MockDeployerAPIAddMachinesCall {
+func (mr *MockDeployerAPIMockRecorder) AddMachines(arg0, arg1 any) *MockDeployerAPIAddMachinesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddMachines", reflect.TypeOf((*MockDeployerAPI)(nil).AddMachines), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddMachines", reflect.TypeOf((*MockDeployerAPI)(nil).AddMachines), arg0, arg1)
 	return &MockDeployerAPIAddMachinesCall{Call: call}
 }
 
@@ -198,30 +198,30 @@ func (c *MockDeployerAPIAddMachinesCall) Return(arg0 []params.AddMachinesResult,
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIAddMachinesCall) Do(f func([]params.AddMachineParams) ([]params.AddMachinesResult, error)) *MockDeployerAPIAddMachinesCall {
+func (c *MockDeployerAPIAddMachinesCall) Do(f func(context.Context, []params.AddMachineParams) ([]params.AddMachinesResult, error)) *MockDeployerAPIAddMachinesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIAddMachinesCall) DoAndReturn(f func([]params.AddMachineParams) ([]params.AddMachinesResult, error)) *MockDeployerAPIAddMachinesCall {
+func (c *MockDeployerAPIAddMachinesCall) DoAndReturn(f func(context.Context, []params.AddMachineParams) ([]params.AddMachinesResult, error)) *MockDeployerAPIAddMachinesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddRelation mocks base method.
-func (m *MockDeployerAPI) AddRelation(arg0, arg1 []string) (*params.AddRelationResults, error) {
+func (m *MockDeployerAPI) AddRelation(arg0 context.Context, arg1, arg2 []string) (*params.AddRelationResults, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddRelation", arg0, arg1)
+	ret := m.ctrl.Call(m, "AddRelation", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*params.AddRelationResults)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddRelation indicates an expected call of AddRelation.
-func (mr *MockDeployerAPIMockRecorder) AddRelation(arg0, arg1 any) *MockDeployerAPIAddRelationCall {
+func (mr *MockDeployerAPIMockRecorder) AddRelation(arg0, arg1, arg2 any) *MockDeployerAPIAddRelationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelation", reflect.TypeOf((*MockDeployerAPI)(nil).AddRelation), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelation", reflect.TypeOf((*MockDeployerAPI)(nil).AddRelation), arg0, arg1, arg2)
 	return &MockDeployerAPIAddRelationCall{Call: call}
 }
 
@@ -237,30 +237,30 @@ func (c *MockDeployerAPIAddRelationCall) Return(arg0 *params.AddRelationResults,
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIAddRelationCall) Do(f func([]string, []string) (*params.AddRelationResults, error)) *MockDeployerAPIAddRelationCall {
+func (c *MockDeployerAPIAddRelationCall) Do(f func(context.Context, []string, []string) (*params.AddRelationResults, error)) *MockDeployerAPIAddRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIAddRelationCall) DoAndReturn(f func([]string, []string) (*params.AddRelationResults, error)) *MockDeployerAPIAddRelationCall {
+func (c *MockDeployerAPIAddRelationCall) DoAndReturn(f func(context.Context, []string, []string) (*params.AddRelationResults, error)) *MockDeployerAPIAddRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddUnits mocks base method.
-func (m *MockDeployerAPI) AddUnits(arg0 application.AddUnitsParams) ([]string, error) {
+func (m *MockDeployerAPI) AddUnits(arg0 context.Context, arg1 application.AddUnitsParams) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddUnits", arg0)
+	ret := m.ctrl.Call(m, "AddUnits", arg0, arg1)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddUnits indicates an expected call of AddUnits.
-func (mr *MockDeployerAPIMockRecorder) AddUnits(arg0 any) *MockDeployerAPIAddUnitsCall {
+func (mr *MockDeployerAPIMockRecorder) AddUnits(arg0, arg1 any) *MockDeployerAPIAddUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUnits", reflect.TypeOf((*MockDeployerAPI)(nil).AddUnits), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUnits", reflect.TypeOf((*MockDeployerAPI)(nil).AddUnits), arg0, arg1)
 	return &MockDeployerAPIAddUnitsCall{Call: call}
 }
 
@@ -276,30 +276,30 @@ func (c *MockDeployerAPIAddUnitsCall) Return(arg0 []string, arg1 error) *MockDep
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIAddUnitsCall) Do(f func(application.AddUnitsParams) ([]string, error)) *MockDeployerAPIAddUnitsCall {
+func (c *MockDeployerAPIAddUnitsCall) Do(f func(context.Context, application.AddUnitsParams) ([]string, error)) *MockDeployerAPIAddUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIAddUnitsCall) DoAndReturn(f func(application.AddUnitsParams) ([]string, error)) *MockDeployerAPIAddUnitsCall {
+func (c *MockDeployerAPIAddUnitsCall) DoAndReturn(f func(context.Context, application.AddUnitsParams) ([]string, error)) *MockDeployerAPIAddUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ApplicationsInfo mocks base method.
-func (m *MockDeployerAPI) ApplicationsInfo(arg0 []names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
+func (m *MockDeployerAPI) ApplicationsInfo(arg0 context.Context, arg1 []names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationsInfo", arg0)
+	ret := m.ctrl.Call(m, "ApplicationsInfo", arg0, arg1)
 	ret0, _ := ret[0].([]params.ApplicationInfoResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ApplicationsInfo indicates an expected call of ApplicationsInfo.
-func (mr *MockDeployerAPIMockRecorder) ApplicationsInfo(arg0 any) *MockDeployerAPIApplicationsInfoCall {
+func (mr *MockDeployerAPIMockRecorder) ApplicationsInfo(arg0, arg1 any) *MockDeployerAPIApplicationsInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationsInfo", reflect.TypeOf((*MockDeployerAPI)(nil).ApplicationsInfo), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationsInfo", reflect.TypeOf((*MockDeployerAPI)(nil).ApplicationsInfo), arg0, arg1)
 	return &MockDeployerAPIApplicationsInfoCall{Call: call}
 }
 
@@ -315,13 +315,13 @@ func (c *MockDeployerAPIApplicationsInfoCall) Return(arg0 []params.ApplicationIn
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIApplicationsInfoCall) Do(f func([]names.ApplicationTag) ([]params.ApplicationInfoResult, error)) *MockDeployerAPIApplicationsInfoCall {
+func (c *MockDeployerAPIApplicationsInfoCall) Do(f func(context.Context, []names.ApplicationTag) ([]params.ApplicationInfoResult, error)) *MockDeployerAPIApplicationsInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIApplicationsInfoCall) DoAndReturn(f func([]names.ApplicationTag) ([]params.ApplicationInfoResult, error)) *MockDeployerAPIApplicationsInfoCall {
+func (c *MockDeployerAPIApplicationsInfoCall) DoAndReturn(f func(context.Context, []names.ApplicationTag) ([]params.ApplicationInfoResult, error)) *MockDeployerAPIApplicationsInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -442,17 +442,17 @@ func (c *MockDeployerAPICharmInfoCall) DoAndReturn(f func(context.Context, strin
 }
 
 // CheckCharmPlacement mocks base method.
-func (m *MockDeployerAPI) CheckCharmPlacement(arg0 string, arg1 *charm0.URL) error {
+func (m *MockDeployerAPI) CheckCharmPlacement(arg0 context.Context, arg1 string, arg2 *charm0.URL) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckCharmPlacement", arg0, arg1)
+	ret := m.ctrl.Call(m, "CheckCharmPlacement", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CheckCharmPlacement indicates an expected call of CheckCharmPlacement.
-func (mr *MockDeployerAPIMockRecorder) CheckCharmPlacement(arg0, arg1 any) *MockDeployerAPICheckCharmPlacementCall {
+func (mr *MockDeployerAPIMockRecorder) CheckCharmPlacement(arg0, arg1, arg2 any) *MockDeployerAPICheckCharmPlacementCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCharmPlacement", reflect.TypeOf((*MockDeployerAPI)(nil).CheckCharmPlacement), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCharmPlacement", reflect.TypeOf((*MockDeployerAPI)(nil).CheckCharmPlacement), arg0, arg1, arg2)
 	return &MockDeployerAPICheckCharmPlacementCall{Call: call}
 }
 
@@ -468,13 +468,13 @@ func (c *MockDeployerAPICheckCharmPlacementCall) Return(arg0 error) *MockDeploye
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPICheckCharmPlacementCall) Do(f func(string, *charm0.URL) error) *MockDeployerAPICheckCharmPlacementCall {
+func (c *MockDeployerAPICheckCharmPlacementCall) Do(f func(context.Context, string, *charm0.URL) error) *MockDeployerAPICheckCharmPlacementCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPICheckCharmPlacementCall) DoAndReturn(f func(string, *charm0.URL) error) *MockDeployerAPICheckCharmPlacementCall {
+func (c *MockDeployerAPICheckCharmPlacementCall) DoAndReturn(f func(context.Context, string, *charm0.URL) error) *MockDeployerAPICheckCharmPlacementCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -596,18 +596,18 @@ func (c *MockDeployerAPIConnectStreamCall) DoAndReturn(f func(context.Context, s
 }
 
 // Consume mocks base method.
-func (m *MockDeployerAPI) Consume(arg0 crossmodel.ConsumeApplicationArgs) (string, error) {
+func (m *MockDeployerAPI) Consume(arg0 context.Context, arg1 crossmodel.ConsumeApplicationArgs) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Consume", arg0)
+	ret := m.ctrl.Call(m, "Consume", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Consume indicates an expected call of Consume.
-func (mr *MockDeployerAPIMockRecorder) Consume(arg0 any) *MockDeployerAPIConsumeCall {
+func (mr *MockDeployerAPIMockRecorder) Consume(arg0, arg1 any) *MockDeployerAPIConsumeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Consume", reflect.TypeOf((*MockDeployerAPI)(nil).Consume), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Consume", reflect.TypeOf((*MockDeployerAPI)(nil).Consume), arg0, arg1)
 	return &MockDeployerAPIConsumeCall{Call: call}
 }
 
@@ -623,29 +623,29 @@ func (c *MockDeployerAPIConsumeCall) Return(arg0 string, arg1 error) *MockDeploy
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIConsumeCall) Do(f func(crossmodel.ConsumeApplicationArgs) (string, error)) *MockDeployerAPIConsumeCall {
+func (c *MockDeployerAPIConsumeCall) Do(f func(context.Context, crossmodel.ConsumeApplicationArgs) (string, error)) *MockDeployerAPIConsumeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIConsumeCall) DoAndReturn(f func(crossmodel.ConsumeApplicationArgs) (string, error)) *MockDeployerAPIConsumeCall {
+func (c *MockDeployerAPIConsumeCall) DoAndReturn(f func(context.Context, crossmodel.ConsumeApplicationArgs) (string, error)) *MockDeployerAPIConsumeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Deploy mocks base method.
-func (m *MockDeployerAPI) Deploy(arg0 application.DeployArgs) error {
+func (m *MockDeployerAPI) Deploy(arg0 context.Context, arg1 application.DeployArgs) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Deploy", arg0)
+	ret := m.ctrl.Call(m, "Deploy", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Deploy indicates an expected call of Deploy.
-func (mr *MockDeployerAPIMockRecorder) Deploy(arg0 any) *MockDeployerAPIDeployCall {
+func (mr *MockDeployerAPIMockRecorder) Deploy(arg0, arg1 any) *MockDeployerAPIDeployCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Deploy", reflect.TypeOf((*MockDeployerAPI)(nil).Deploy), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Deploy", reflect.TypeOf((*MockDeployerAPI)(nil).Deploy), arg0, arg1)
 	return &MockDeployerAPIDeployCall{Call: call}
 }
 
@@ -661,21 +661,21 @@ func (c *MockDeployerAPIDeployCall) Return(arg0 error) *MockDeployerAPIDeployCal
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIDeployCall) Do(f func(application.DeployArgs) error) *MockDeployerAPIDeployCall {
+func (c *MockDeployerAPIDeployCall) Do(f func(context.Context, application.DeployArgs) error) *MockDeployerAPIDeployCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIDeployCall) DoAndReturn(f func(application.DeployArgs) error) *MockDeployerAPIDeployCall {
+func (c *MockDeployerAPIDeployCall) DoAndReturn(f func(context.Context, application.DeployArgs) error) *MockDeployerAPIDeployCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DeployFromRepository mocks base method.
-func (m *MockDeployerAPI) DeployFromRepository(arg0 application.DeployFromRepositoryArg) (application.DeployInfo, []application.PendingResourceUpload, []error) {
+func (m *MockDeployerAPI) DeployFromRepository(arg0 context.Context, arg1 application.DeployFromRepositoryArg) (application.DeployInfo, []application.PendingResourceUpload, []error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeployFromRepository", arg0)
+	ret := m.ctrl.Call(m, "DeployFromRepository", arg0, arg1)
 	ret0, _ := ret[0].(application.DeployInfo)
 	ret1, _ := ret[1].([]application.PendingResourceUpload)
 	ret2, _ := ret[2].([]error)
@@ -683,9 +683,9 @@ func (m *MockDeployerAPI) DeployFromRepository(arg0 application.DeployFromReposi
 }
 
 // DeployFromRepository indicates an expected call of DeployFromRepository.
-func (mr *MockDeployerAPIMockRecorder) DeployFromRepository(arg0 any) *MockDeployerAPIDeployFromRepositoryCall {
+func (mr *MockDeployerAPIMockRecorder) DeployFromRepository(arg0, arg1 any) *MockDeployerAPIDeployFromRepositoryCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeployFromRepository", reflect.TypeOf((*MockDeployerAPI)(nil).DeployFromRepository), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeployFromRepository", reflect.TypeOf((*MockDeployerAPI)(nil).DeployFromRepository), arg0, arg1)
 	return &MockDeployerAPIDeployFromRepositoryCall{Call: call}
 }
 
@@ -701,29 +701,29 @@ func (c *MockDeployerAPIDeployFromRepositoryCall) Return(arg0 application.Deploy
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIDeployFromRepositoryCall) Do(f func(application.DeployFromRepositoryArg) (application.DeployInfo, []application.PendingResourceUpload, []error)) *MockDeployerAPIDeployFromRepositoryCall {
+func (c *MockDeployerAPIDeployFromRepositoryCall) Do(f func(context.Context, application.DeployFromRepositoryArg) (application.DeployInfo, []application.PendingResourceUpload, []error)) *MockDeployerAPIDeployFromRepositoryCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIDeployFromRepositoryCall) DoAndReturn(f func(application.DeployFromRepositoryArg) (application.DeployInfo, []application.PendingResourceUpload, []error)) *MockDeployerAPIDeployFromRepositoryCall {
+func (c *MockDeployerAPIDeployFromRepositoryCall) DoAndReturn(f func(context.Context, application.DeployFromRepositoryArg) (application.DeployInfo, []application.PendingResourceUpload, []error)) *MockDeployerAPIDeployFromRepositoryCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Expose mocks base method.
-func (m *MockDeployerAPI) Expose(arg0 string, arg1 map[string]params.ExposedEndpoint) error {
+func (m *MockDeployerAPI) Expose(arg0 context.Context, arg1 string, arg2 map[string]params.ExposedEndpoint) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Expose", arg0, arg1)
+	ret := m.ctrl.Call(m, "Expose", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Expose indicates an expected call of Expose.
-func (mr *MockDeployerAPIMockRecorder) Expose(arg0, arg1 any) *MockDeployerAPIExposeCall {
+func (mr *MockDeployerAPIMockRecorder) Expose(arg0, arg1, arg2 any) *MockDeployerAPIExposeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Expose", reflect.TypeOf((*MockDeployerAPI)(nil).Expose), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Expose", reflect.TypeOf((*MockDeployerAPI)(nil).Expose), arg0, arg1, arg2)
 	return &MockDeployerAPIExposeCall{Call: call}
 }
 
@@ -739,30 +739,30 @@ func (c *MockDeployerAPIExposeCall) Return(arg0 error) *MockDeployerAPIExposeCal
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIExposeCall) Do(f func(string, map[string]params.ExposedEndpoint) error) *MockDeployerAPIExposeCall {
+func (c *MockDeployerAPIExposeCall) Do(f func(context.Context, string, map[string]params.ExposedEndpoint) error) *MockDeployerAPIExposeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIExposeCall) DoAndReturn(f func(string, map[string]params.ExposedEndpoint) error) *MockDeployerAPIExposeCall {
+func (c *MockDeployerAPIExposeCall) DoAndReturn(f func(context.Context, string, map[string]params.ExposedEndpoint) error) *MockDeployerAPIExposeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetAnnotations mocks base method.
-func (m *MockDeployerAPI) GetAnnotations(arg0 []string) ([]params.AnnotationsGetResult, error) {
+func (m *MockDeployerAPI) GetAnnotations(arg0 context.Context, arg1 []string) ([]params.AnnotationsGetResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAnnotations", arg0)
+	ret := m.ctrl.Call(m, "GetAnnotations", arg0, arg1)
 	ret0, _ := ret[0].([]params.AnnotationsGetResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetAnnotations indicates an expected call of GetAnnotations.
-func (mr *MockDeployerAPIMockRecorder) GetAnnotations(arg0 any) *MockDeployerAPIGetAnnotationsCall {
+func (mr *MockDeployerAPIMockRecorder) GetAnnotations(arg0, arg1 any) *MockDeployerAPIGetAnnotationsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAnnotations", reflect.TypeOf((*MockDeployerAPI)(nil).GetAnnotations), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAnnotations", reflect.TypeOf((*MockDeployerAPI)(nil).GetAnnotations), arg0, arg1)
 	return &MockDeployerAPIGetAnnotationsCall{Call: call}
 }
 
@@ -778,21 +778,21 @@ func (c *MockDeployerAPIGetAnnotationsCall) Return(arg0 []params.AnnotationsGetR
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIGetAnnotationsCall) Do(f func([]string) ([]params.AnnotationsGetResult, error)) *MockDeployerAPIGetAnnotationsCall {
+func (c *MockDeployerAPIGetAnnotationsCall) Do(f func(context.Context, []string) ([]params.AnnotationsGetResult, error)) *MockDeployerAPIGetAnnotationsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIGetAnnotationsCall) DoAndReturn(f func([]string) ([]params.AnnotationsGetResult, error)) *MockDeployerAPIGetAnnotationsCall {
+func (c *MockDeployerAPIGetAnnotationsCall) DoAndReturn(f func(context.Context, []string) ([]params.AnnotationsGetResult, error)) *MockDeployerAPIGetAnnotationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetCharmURLOrigin mocks base method.
-func (m *MockDeployerAPI) GetCharmURLOrigin(arg0 string) (*charm0.URL, charm.Origin, error) {
+func (m *MockDeployerAPI) GetCharmURLOrigin(arg0 context.Context, arg1 string) (*charm0.URL, charm.Origin, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharmURLOrigin", arg0)
+	ret := m.ctrl.Call(m, "GetCharmURLOrigin", arg0, arg1)
 	ret0, _ := ret[0].(*charm0.URL)
 	ret1, _ := ret[1].(charm.Origin)
 	ret2, _ := ret[2].(error)
@@ -800,9 +800,9 @@ func (m *MockDeployerAPI) GetCharmURLOrigin(arg0 string) (*charm0.URL, charm.Ori
 }
 
 // GetCharmURLOrigin indicates an expected call of GetCharmURLOrigin.
-func (mr *MockDeployerAPIMockRecorder) GetCharmURLOrigin(arg0 any) *MockDeployerAPIGetCharmURLOriginCall {
+func (mr *MockDeployerAPIMockRecorder) GetCharmURLOrigin(arg0, arg1 any) *MockDeployerAPIGetCharmURLOriginCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmURLOrigin", reflect.TypeOf((*MockDeployerAPI)(nil).GetCharmURLOrigin), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmURLOrigin", reflect.TypeOf((*MockDeployerAPI)(nil).GetCharmURLOrigin), arg0, arg1)
 	return &MockDeployerAPIGetCharmURLOriginCall{Call: call}
 }
 
@@ -818,22 +818,22 @@ func (c *MockDeployerAPIGetCharmURLOriginCall) Return(arg0 *charm0.URL, arg1 cha
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIGetCharmURLOriginCall) Do(f func(string) (*charm0.URL, charm.Origin, error)) *MockDeployerAPIGetCharmURLOriginCall {
+func (c *MockDeployerAPIGetCharmURLOriginCall) Do(f func(context.Context, string) (*charm0.URL, charm.Origin, error)) *MockDeployerAPIGetCharmURLOriginCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIGetCharmURLOriginCall) DoAndReturn(f func(string) (*charm0.URL, charm.Origin, error)) *MockDeployerAPIGetCharmURLOriginCall {
+func (c *MockDeployerAPIGetCharmURLOriginCall) DoAndReturn(f func(context.Context, string) (*charm0.URL, charm.Origin, error)) *MockDeployerAPIGetCharmURLOriginCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetConfig mocks base method.
-func (m *MockDeployerAPI) GetConfig(arg0 ...string) ([]map[string]any, error) {
+func (m *MockDeployerAPI) GetConfig(arg0 context.Context, arg1 ...string) ([]map[string]any, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{}
-	for _, a := range arg0 {
+	varargs := []any{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetConfig", varargs...)
@@ -843,9 +843,10 @@ func (m *MockDeployerAPI) GetConfig(arg0 ...string) ([]map[string]any, error) {
 }
 
 // GetConfig indicates an expected call of GetConfig.
-func (mr *MockDeployerAPIMockRecorder) GetConfig(arg0 ...any) *MockDeployerAPIGetConfigCall {
+func (mr *MockDeployerAPIMockRecorder) GetConfig(arg0 any, arg1 ...any) *MockDeployerAPIGetConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConfig", reflect.TypeOf((*MockDeployerAPI)(nil).GetConfig), arg0...)
+	varargs := append([]any{arg0}, arg1...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConfig", reflect.TypeOf((*MockDeployerAPI)(nil).GetConfig), varargs...)
 	return &MockDeployerAPIGetConfigCall{Call: call}
 }
 
@@ -861,22 +862,22 @@ func (c *MockDeployerAPIGetConfigCall) Return(arg0 []map[string]any, arg1 error)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIGetConfigCall) Do(f func(...string) ([]map[string]any, error)) *MockDeployerAPIGetConfigCall {
+func (c *MockDeployerAPIGetConfigCall) Do(f func(context.Context, ...string) ([]map[string]any, error)) *MockDeployerAPIGetConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIGetConfigCall) DoAndReturn(f func(...string) ([]map[string]any, error)) *MockDeployerAPIGetConfigCall {
+func (c *MockDeployerAPIGetConfigCall) DoAndReturn(f func(context.Context, ...string) ([]map[string]any, error)) *MockDeployerAPIGetConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetConstraints mocks base method.
-func (m *MockDeployerAPI) GetConstraints(arg0 ...string) ([]constraints.Value, error) {
+func (m *MockDeployerAPI) GetConstraints(arg0 context.Context, arg1 ...string) ([]constraints.Value, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{}
-	for _, a := range arg0 {
+	varargs := []any{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetConstraints", varargs...)
@@ -886,9 +887,10 @@ func (m *MockDeployerAPI) GetConstraints(arg0 ...string) ([]constraints.Value, e
 }
 
 // GetConstraints indicates an expected call of GetConstraints.
-func (mr *MockDeployerAPIMockRecorder) GetConstraints(arg0 ...any) *MockDeployerAPIGetConstraintsCall {
+func (mr *MockDeployerAPIMockRecorder) GetConstraints(arg0 any, arg1 ...any) *MockDeployerAPIGetConstraintsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConstraints", reflect.TypeOf((*MockDeployerAPI)(nil).GetConstraints), arg0...)
+	varargs := append([]any{arg0}, arg1...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConstraints", reflect.TypeOf((*MockDeployerAPI)(nil).GetConstraints), varargs...)
 	return &MockDeployerAPIGetConstraintsCall{Call: call}
 }
 
@@ -904,30 +906,30 @@ func (c *MockDeployerAPIGetConstraintsCall) Return(arg0 []constraints.Value, arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIGetConstraintsCall) Do(f func(...string) ([]constraints.Value, error)) *MockDeployerAPIGetConstraintsCall {
+func (c *MockDeployerAPIGetConstraintsCall) Do(f func(context.Context, ...string) ([]constraints.Value, error)) *MockDeployerAPIGetConstraintsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIGetConstraintsCall) DoAndReturn(f func(...string) ([]constraints.Value, error)) *MockDeployerAPIGetConstraintsCall {
+func (c *MockDeployerAPIGetConstraintsCall) DoAndReturn(f func(context.Context, ...string) ([]constraints.Value, error)) *MockDeployerAPIGetConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetModelConstraints mocks base method.
-func (m *MockDeployerAPI) GetModelConstraints() (constraints.Value, error) {
+func (m *MockDeployerAPI) GetModelConstraints(arg0 context.Context) (constraints.Value, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModelConstraints")
+	ret := m.ctrl.Call(m, "GetModelConstraints", arg0)
 	ret0, _ := ret[0].(constraints.Value)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetModelConstraints indicates an expected call of GetModelConstraints.
-func (mr *MockDeployerAPIMockRecorder) GetModelConstraints() *MockDeployerAPIGetModelConstraintsCall {
+func (mr *MockDeployerAPIMockRecorder) GetModelConstraints(arg0 any) *MockDeployerAPIGetModelConstraintsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelConstraints", reflect.TypeOf((*MockDeployerAPI)(nil).GetModelConstraints))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelConstraints", reflect.TypeOf((*MockDeployerAPI)(nil).GetModelConstraints), arg0)
 	return &MockDeployerAPIGetModelConstraintsCall{Call: call}
 }
 
@@ -943,22 +945,22 @@ func (c *MockDeployerAPIGetModelConstraintsCall) Return(arg0 constraints.Value, 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIGetModelConstraintsCall) Do(f func() (constraints.Value, error)) *MockDeployerAPIGetModelConstraintsCall {
+func (c *MockDeployerAPIGetModelConstraintsCall) Do(f func(context.Context) (constraints.Value, error)) *MockDeployerAPIGetModelConstraintsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIGetModelConstraintsCall) DoAndReturn(f func() (constraints.Value, error)) *MockDeployerAPIGetModelConstraintsCall {
+func (c *MockDeployerAPIGetModelConstraintsCall) DoAndReturn(f func(context.Context) (constraints.Value, error)) *MockDeployerAPIGetModelConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GrantOffer mocks base method.
-func (m *MockDeployerAPI) GrantOffer(arg0, arg1 string, arg2 ...string) error {
+func (m *MockDeployerAPI) GrantOffer(arg0 context.Context, arg1, arg2 string, arg3 ...string) error {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GrantOffer", varargs...)
@@ -967,9 +969,9 @@ func (m *MockDeployerAPI) GrantOffer(arg0, arg1 string, arg2 ...string) error {
 }
 
 // GrantOffer indicates an expected call of GrantOffer.
-func (mr *MockDeployerAPIMockRecorder) GrantOffer(arg0, arg1 any, arg2 ...any) *MockDeployerAPIGrantOfferCall {
+func (mr *MockDeployerAPIMockRecorder) GrantOffer(arg0, arg1, arg2 any, arg3 ...any) *MockDeployerAPIGrantOfferCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1}, arg2...)
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantOffer", reflect.TypeOf((*MockDeployerAPI)(nil).GrantOffer), varargs...)
 	return &MockDeployerAPIGrantOfferCall{Call: call}
 }
@@ -986,13 +988,13 @@ func (c *MockDeployerAPIGrantOfferCall) Return(arg0 error) *MockDeployerAPIGrant
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIGrantOfferCall) Do(f func(string, string, ...string) error) *MockDeployerAPIGrantOfferCall {
+func (c *MockDeployerAPIGrantOfferCall) Do(f func(context.Context, string, string, ...string) error) *MockDeployerAPIGrantOfferCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIGrantOfferCall) DoAndReturn(f func(string, string, ...string) error) *MockDeployerAPIGrantOfferCall {
+func (c *MockDeployerAPIGrantOfferCall) DoAndReturn(f func(context.Context, string, string, ...string) error) *MockDeployerAPIGrantOfferCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1076,18 +1078,18 @@ func (c *MockDeployerAPIListCharmResourcesCall) DoAndReturn(f func(context.Conte
 }
 
 // ListSpaces mocks base method.
-func (m *MockDeployerAPI) ListSpaces() ([]params.Space, error) {
+func (m *MockDeployerAPI) ListSpaces(arg0 context.Context) ([]params.Space, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListSpaces")
+	ret := m.ctrl.Call(m, "ListSpaces", arg0)
 	ret0, _ := ret[0].([]params.Space)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListSpaces indicates an expected call of ListSpaces.
-func (mr *MockDeployerAPIMockRecorder) ListSpaces() *MockDeployerAPIListSpacesCall {
+func (mr *MockDeployerAPIMockRecorder) ListSpaces(arg0 any) *MockDeployerAPIListSpacesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSpaces", reflect.TypeOf((*MockDeployerAPI)(nil).ListSpaces))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSpaces", reflect.TypeOf((*MockDeployerAPI)(nil).ListSpaces), arg0)
 	return &MockDeployerAPIListSpacesCall{Call: call}
 }
 
@@ -1103,30 +1105,30 @@ func (c *MockDeployerAPIListSpacesCall) Return(arg0 []params.Space, arg1 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIListSpacesCall) Do(f func() ([]params.Space, error)) *MockDeployerAPIListSpacesCall {
+func (c *MockDeployerAPIListSpacesCall) Do(f func(context.Context) ([]params.Space, error)) *MockDeployerAPIListSpacesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIListSpacesCall) DoAndReturn(f func() ([]params.Space, error)) *MockDeployerAPIListSpacesCall {
+func (c *MockDeployerAPIListSpacesCall) DoAndReturn(f func(context.Context) ([]params.Space, error)) *MockDeployerAPIListSpacesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ModelGet mocks base method.
-func (m *MockDeployerAPI) ModelGet() (map[string]any, error) {
+func (m *MockDeployerAPI) ModelGet(arg0 context.Context) (map[string]any, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelGet")
+	ret := m.ctrl.Call(m, "ModelGet", arg0)
 	ret0, _ := ret[0].(map[string]any)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelGet indicates an expected call of ModelGet.
-func (mr *MockDeployerAPIMockRecorder) ModelGet() *MockDeployerAPIModelGetCall {
+func (mr *MockDeployerAPIMockRecorder) ModelGet(arg0 any) *MockDeployerAPIModelGetCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelGet", reflect.TypeOf((*MockDeployerAPI)(nil).ModelGet))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelGet", reflect.TypeOf((*MockDeployerAPI)(nil).ModelGet), arg0)
 	return &MockDeployerAPIModelGetCall{Call: call}
 }
 
@@ -1142,13 +1144,13 @@ func (c *MockDeployerAPIModelGetCall) Return(arg0 map[string]any, arg1 error) *M
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIModelGetCall) Do(f func() (map[string]any, error)) *MockDeployerAPIModelGetCall {
+func (c *MockDeployerAPIModelGetCall) Do(f func(context.Context) (map[string]any, error)) *MockDeployerAPIModelGetCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIModelGetCall) DoAndReturn(f func() (map[string]any, error)) *MockDeployerAPIModelGetCall {
+func (c *MockDeployerAPIModelGetCall) DoAndReturn(f func(context.Context) (map[string]any, error)) *MockDeployerAPIModelGetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1232,18 +1234,18 @@ func (c *MockDeployerAPIModelUUIDCall) DoAndReturn(f func() (string, bool)) *Moc
 }
 
 // Offer mocks base method.
-func (m *MockDeployerAPI) Offer(arg0, arg1 string, arg2 []string, arg3, arg4, arg5 string) ([]params.ErrorResult, error) {
+func (m *MockDeployerAPI) Offer(arg0 context.Context, arg1, arg2 string, arg3 []string, arg4, arg5, arg6 string) ([]params.ErrorResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Offer", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret := m.ctrl.Call(m, "Offer", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].([]params.ErrorResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Offer indicates an expected call of Offer.
-func (mr *MockDeployerAPIMockRecorder) Offer(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockDeployerAPIOfferCall {
+func (mr *MockDeployerAPIMockRecorder) Offer(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *MockDeployerAPIOfferCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Offer", reflect.TypeOf((*MockDeployerAPI)(nil).Offer), arg0, arg1, arg2, arg3, arg4, arg5)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Offer", reflect.TypeOf((*MockDeployerAPI)(nil).Offer), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	return &MockDeployerAPIOfferCall{Call: call}
 }
 
@@ -1259,13 +1261,13 @@ func (c *MockDeployerAPIOfferCall) Return(arg0 []params.ErrorResult, arg1 error)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIOfferCall) Do(f func(string, string, []string, string, string, string) ([]params.ErrorResult, error)) *MockDeployerAPIOfferCall {
+func (c *MockDeployerAPIOfferCall) Do(f func(context.Context, string, string, []string, string, string, string) ([]params.ErrorResult, error)) *MockDeployerAPIOfferCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIOfferCall) DoAndReturn(f func(string, string, []string, string, string, string) ([]params.ErrorResult, error)) *MockDeployerAPIOfferCall {
+func (c *MockDeployerAPIOfferCall) DoAndReturn(f func(context.Context, string, string, []string, string, string, string) ([]params.ErrorResult, error)) *MockDeployerAPIOfferCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1310,18 +1312,18 @@ func (c *MockDeployerAPIRootHTTPClientCall) DoAndReturn(f func() (*httprequest.C
 }
 
 // ScaleApplication mocks base method.
-func (m *MockDeployerAPI) ScaleApplication(arg0 application.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
+func (m *MockDeployerAPI) ScaleApplication(arg0 context.Context, arg1 application.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ScaleApplication", arg0)
+	ret := m.ctrl.Call(m, "ScaleApplication", arg0, arg1)
 	ret0, _ := ret[0].(params.ScaleApplicationResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ScaleApplication indicates an expected call of ScaleApplication.
-func (mr *MockDeployerAPIMockRecorder) ScaleApplication(arg0 any) *MockDeployerAPIScaleApplicationCall {
+func (mr *MockDeployerAPIMockRecorder) ScaleApplication(arg0, arg1 any) *MockDeployerAPIScaleApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ScaleApplication", reflect.TypeOf((*MockDeployerAPI)(nil).ScaleApplication), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ScaleApplication", reflect.TypeOf((*MockDeployerAPI)(nil).ScaleApplication), arg0, arg1)
 	return &MockDeployerAPIScaleApplicationCall{Call: call}
 }
 
@@ -1337,30 +1339,30 @@ func (c *MockDeployerAPIScaleApplicationCall) Return(arg0 params.ScaleApplicatio
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIScaleApplicationCall) Do(f func(application.ScaleApplicationParams) (params.ScaleApplicationResult, error)) *MockDeployerAPIScaleApplicationCall {
+func (c *MockDeployerAPIScaleApplicationCall) Do(f func(context.Context, application.ScaleApplicationParams) (params.ScaleApplicationResult, error)) *MockDeployerAPIScaleApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIScaleApplicationCall) DoAndReturn(f func(application.ScaleApplicationParams) (params.ScaleApplicationResult, error)) *MockDeployerAPIScaleApplicationCall {
+func (c *MockDeployerAPIScaleApplicationCall) DoAndReturn(f func(context.Context, application.ScaleApplicationParams) (params.ScaleApplicationResult, error)) *MockDeployerAPIScaleApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Sequences mocks base method.
-func (m *MockDeployerAPI) Sequences() (map[string]int, error) {
+func (m *MockDeployerAPI) Sequences(arg0 context.Context) (map[string]int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Sequences")
+	ret := m.ctrl.Call(m, "Sequences", arg0)
 	ret0, _ := ret[0].(map[string]int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Sequences indicates an expected call of Sequences.
-func (mr *MockDeployerAPIMockRecorder) Sequences() *MockDeployerAPISequencesCall {
+func (mr *MockDeployerAPIMockRecorder) Sequences(arg0 any) *MockDeployerAPISequencesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sequences", reflect.TypeOf((*MockDeployerAPI)(nil).Sequences))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sequences", reflect.TypeOf((*MockDeployerAPI)(nil).Sequences), arg0)
 	return &MockDeployerAPISequencesCall{Call: call}
 }
 
@@ -1376,30 +1378,30 @@ func (c *MockDeployerAPISequencesCall) Return(arg0 map[string]int, arg1 error) *
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPISequencesCall) Do(f func() (map[string]int, error)) *MockDeployerAPISequencesCall {
+func (c *MockDeployerAPISequencesCall) Do(f func(context.Context) (map[string]int, error)) *MockDeployerAPISequencesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPISequencesCall) DoAndReturn(f func() (map[string]int, error)) *MockDeployerAPISequencesCall {
+func (c *MockDeployerAPISequencesCall) DoAndReturn(f func(context.Context) (map[string]int, error)) *MockDeployerAPISequencesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetAnnotation mocks base method.
-func (m *MockDeployerAPI) SetAnnotation(arg0 map[string]map[string]string) ([]params.ErrorResult, error) {
+func (m *MockDeployerAPI) SetAnnotation(arg0 context.Context, arg1 map[string]map[string]string) ([]params.ErrorResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetAnnotation", arg0)
+	ret := m.ctrl.Call(m, "SetAnnotation", arg0, arg1)
 	ret0, _ := ret[0].([]params.ErrorResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SetAnnotation indicates an expected call of SetAnnotation.
-func (mr *MockDeployerAPIMockRecorder) SetAnnotation(arg0 any) *MockDeployerAPISetAnnotationCall {
+func (mr *MockDeployerAPIMockRecorder) SetAnnotation(arg0, arg1 any) *MockDeployerAPISetAnnotationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAnnotation", reflect.TypeOf((*MockDeployerAPI)(nil).SetAnnotation), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAnnotation", reflect.TypeOf((*MockDeployerAPI)(nil).SetAnnotation), arg0, arg1)
 	return &MockDeployerAPISetAnnotationCall{Call: call}
 }
 
@@ -1415,29 +1417,29 @@ func (c *MockDeployerAPISetAnnotationCall) Return(arg0 []params.ErrorResult, arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPISetAnnotationCall) Do(f func(map[string]map[string]string) ([]params.ErrorResult, error)) *MockDeployerAPISetAnnotationCall {
+func (c *MockDeployerAPISetAnnotationCall) Do(f func(context.Context, map[string]map[string]string) ([]params.ErrorResult, error)) *MockDeployerAPISetAnnotationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPISetAnnotationCall) DoAndReturn(f func(map[string]map[string]string) ([]params.ErrorResult, error)) *MockDeployerAPISetAnnotationCall {
+func (c *MockDeployerAPISetAnnotationCall) DoAndReturn(f func(context.Context, map[string]map[string]string) ([]params.ErrorResult, error)) *MockDeployerAPISetAnnotationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetCharm mocks base method.
-func (m *MockDeployerAPI) SetCharm(arg0 application.SetCharmConfig) error {
+func (m *MockDeployerAPI) SetCharm(arg0 context.Context, arg1 application.SetCharmConfig) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetCharm", arg0)
+	ret := m.ctrl.Call(m, "SetCharm", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetCharm indicates an expected call of SetCharm.
-func (mr *MockDeployerAPIMockRecorder) SetCharm(arg0 any) *MockDeployerAPISetCharmCall {
+func (mr *MockDeployerAPIMockRecorder) SetCharm(arg0, arg1 any) *MockDeployerAPISetCharmCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockDeployerAPI)(nil).SetCharm), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockDeployerAPI)(nil).SetCharm), arg0, arg1)
 	return &MockDeployerAPISetCharmCall{Call: call}
 }
 
@@ -1453,29 +1455,29 @@ func (c *MockDeployerAPISetCharmCall) Return(arg0 error) *MockDeployerAPISetChar
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPISetCharmCall) Do(f func(application.SetCharmConfig) error) *MockDeployerAPISetCharmCall {
+func (c *MockDeployerAPISetCharmCall) Do(f func(context.Context, application.SetCharmConfig) error) *MockDeployerAPISetCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPISetCharmCall) DoAndReturn(f func(application.SetCharmConfig) error) *MockDeployerAPISetCharmCall {
+func (c *MockDeployerAPISetCharmCall) DoAndReturn(f func(context.Context, application.SetCharmConfig) error) *MockDeployerAPISetCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetConfig mocks base method.
-func (m *MockDeployerAPI) SetConfig(arg0, arg1 string, arg2 map[string]string) error {
+func (m *MockDeployerAPI) SetConfig(arg0 context.Context, arg1, arg2 string, arg3 map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetConfig", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetConfig", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetConfig indicates an expected call of SetConfig.
-func (mr *MockDeployerAPIMockRecorder) SetConfig(arg0, arg1, arg2 any) *MockDeployerAPISetConfigCall {
+func (mr *MockDeployerAPIMockRecorder) SetConfig(arg0, arg1, arg2, arg3 any) *MockDeployerAPISetConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConfig", reflect.TypeOf((*MockDeployerAPI)(nil).SetConfig), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConfig", reflect.TypeOf((*MockDeployerAPI)(nil).SetConfig), arg0, arg1, arg2, arg3)
 	return &MockDeployerAPISetConfigCall{Call: call}
 }
 
@@ -1491,29 +1493,29 @@ func (c *MockDeployerAPISetConfigCall) Return(arg0 error) *MockDeployerAPISetCon
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPISetConfigCall) Do(f func(string, string, map[string]string) error) *MockDeployerAPISetConfigCall {
+func (c *MockDeployerAPISetConfigCall) Do(f func(context.Context, string, string, map[string]string) error) *MockDeployerAPISetConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPISetConfigCall) DoAndReturn(f func(string, string, map[string]string) error) *MockDeployerAPISetConfigCall {
+func (c *MockDeployerAPISetConfigCall) DoAndReturn(f func(context.Context, string, string, map[string]string) error) *MockDeployerAPISetConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetConstraints mocks base method.
-func (m *MockDeployerAPI) SetConstraints(arg0 string, arg1 constraints.Value) error {
+func (m *MockDeployerAPI) SetConstraints(arg0 context.Context, arg1 string, arg2 constraints.Value) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetConstraints", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetConstraints", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetConstraints indicates an expected call of SetConstraints.
-func (mr *MockDeployerAPIMockRecorder) SetConstraints(arg0, arg1 any) *MockDeployerAPISetConstraintsCall {
+func (mr *MockDeployerAPIMockRecorder) SetConstraints(arg0, arg1, arg2 any) *MockDeployerAPISetConstraintsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConstraints", reflect.TypeOf((*MockDeployerAPI)(nil).SetConstraints), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConstraints", reflect.TypeOf((*MockDeployerAPI)(nil).SetConstraints), arg0, arg1, arg2)
 	return &MockDeployerAPISetConstraintsCall{Call: call}
 }
 
@@ -1529,30 +1531,30 @@ func (c *MockDeployerAPISetConstraintsCall) Return(arg0 error) *MockDeployerAPIS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPISetConstraintsCall) Do(f func(string, constraints.Value) error) *MockDeployerAPISetConstraintsCall {
+func (c *MockDeployerAPISetConstraintsCall) Do(f func(context.Context, string, constraints.Value) error) *MockDeployerAPISetConstraintsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPISetConstraintsCall) DoAndReturn(f func(string, constraints.Value) error) *MockDeployerAPISetConstraintsCall {
+func (c *MockDeployerAPISetConstraintsCall) DoAndReturn(f func(context.Context, string, constraints.Value) error) *MockDeployerAPISetConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Status mocks base method.
-func (m *MockDeployerAPI) Status(arg0 *client.StatusArgs) (*params.FullStatus, error) {
+func (m *MockDeployerAPI) Status(arg0 context.Context, arg1 *client.StatusArgs) (*params.FullStatus, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Status", arg0)
+	ret := m.ctrl.Call(m, "Status", arg0, arg1)
 	ret0, _ := ret[0].(*params.FullStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Status indicates an expected call of Status.
-func (mr *MockDeployerAPIMockRecorder) Status(arg0 any) *MockDeployerAPIStatusCall {
+func (mr *MockDeployerAPIMockRecorder) Status(arg0, arg1 any) *MockDeployerAPIStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockDeployerAPI)(nil).Status), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockDeployerAPI)(nil).Status), arg0, arg1)
 	return &MockDeployerAPIStatusCall{Call: call}
 }
 
@@ -1568,13 +1570,13 @@ func (c *MockDeployerAPIStatusCall) Return(arg0 *params.FullStatus, arg1 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIStatusCall) Do(f func(*client.StatusArgs) (*params.FullStatus, error)) *MockDeployerAPIStatusCall {
+func (c *MockDeployerAPIStatusCall) Do(f func(context.Context, *client.StatusArgs) (*params.FullStatus, error)) *MockDeployerAPIStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIStatusCall) DoAndReturn(f func(*client.StatusArgs) (*params.FullStatus, error)) *MockDeployerAPIStatusCall {
+func (c *MockDeployerAPIStatusCall) DoAndReturn(f func(context.Context, *client.StatusArgs) (*params.FullStatus, error)) *MockDeployerAPIStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

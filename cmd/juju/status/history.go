@@ -4,6 +4,7 @@
 package status
 
 import (
+	stdcontext "context"
 	"fmt"
 	"io"
 	"os"
@@ -35,7 +36,7 @@ func NewStatusHistoryCommand() cmd.Command {
 
 // HistoryAPI is the API surface for the show-status-log command.
 type HistoryAPI interface {
-	StatusHistory(kind status.HistoryKind, tag names.Tag, filter status.StatusHistoryFilter) (status.History, error)
+	StatusHistory(ctx stdcontext.Context, kind status.HistoryKind, tag names.Tag, filter status.StatusHistoryFilter) (status.History, error)
 	Close() error
 }
 
@@ -199,15 +200,15 @@ type DetailedStatus struct {
 // History holds the status results.
 type History []DetailedStatus
 
-func (c *statusHistoryCommand) getAPI() (HistoryAPI, error) {
+func (c *statusHistoryCommand) getAPI(ctx stdcontext.Context) (HistoryAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewAPIClient()
+	return c.NewAPIClient(ctx)
 }
 
 func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := c.getAPI()
+	apiclient, err := c.getAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -230,7 +231,7 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 	var tag names.Tag
 	switch kind {
 	case status.KindModel:
-		_, details, err := c.ModelDetails()
+		_, details, err := c.ModelDetails(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -251,7 +252,7 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 		}
 		tag = names.NewMachineTag(c.entityName)
 	}
-	statuses, err := apiclient.StatusHistory(kind, tag, filterArgs)
+	statuses, err := apiclient.StatusHistory(ctx, kind, tag, filterArgs)
 	historyLen := len(statuses)
 	if err != nil {
 		if historyLen == 0 {

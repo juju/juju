@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -35,8 +36,8 @@ const suspendHelpExamples = `
 // NewSuspendRelationCommand returns a command to suspend a relation.
 func NewSuspendRelationCommand() cmd.Command {
 	cmd := &suspendRelationCommand{}
-	cmd.newAPIFunc = func() (SetRelationSuspendedAPI, error) {
-		root, err := cmd.NewAPIRoot()
+	cmd.newAPIFunc = func(ctx context.Context) (SetRelationSuspendedAPI, error) {
+		root, err := cmd.NewAPIRoot(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -49,7 +50,7 @@ type suspendRelationCommand struct {
 	modelcmd.ModelCommandBase
 	relationIds []int
 	message     string
-	newAPIFunc  func() (SetRelationSuspendedAPI, error)
+	newAPIFunc  func(ctx context.Context) (SetRelationSuspendedAPI, error)
 }
 
 func (c *suspendRelationCommand) Info() *cmd.Info {
@@ -90,15 +91,15 @@ func (c *suspendRelationCommand) SetFlags(f *gnuflag.FlagSet) {
 // SetRelationSuspendedAPI defines the API methods that the suspend/resume relation commands use.
 type SetRelationSuspendedAPI interface {
 	Close() error
-	SetRelationSuspended(relationIds []int, suspended bool, message string) error
+	SetRelationSuspended(ctx context.Context, relationIds []int, suspended bool, message string) error
 }
 
-func (c *suspendRelationCommand) Run(_ *cmd.Context) error {
-	client, err := c.newAPIFunc()
+func (c *suspendRelationCommand) Run(ctx *cmd.Context) error {
+	client, err := c.newAPIFunc(ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	err = client.SetRelationSuspended(c.relationIds, true, c.message)
+	err = client.SetRelationSuspended(ctx, c.relationIds, true, c.message)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }

@@ -97,7 +97,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 		{URL: curl2, Origin: edgeChannelOrigin},
 		{URL: curl2, Origin: edgeChannelOrigin},
 	}
-	got, err := client.ResolveCharms(args)
+	got, err := client.ResolveCharms(context.Background(), args)
 	c.Assert(err, gc.IsNil)
 
 	want := []charms.ResolvedCharm{
@@ -157,7 +157,7 @@ func (s *charmsMockSuite) TestGetDownloadInfo(c *gc.C) {
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)
 	c.Assert(err, jc.ErrorIsNil)
-	got, err := client.GetDownloadInfo(curl, origin)
+	got, err := client.GetDownloadInfo(context.Background(), curl, origin)
 	c.Assert(err, gc.IsNil)
 
 	want := charms.DownloadInfo{
@@ -196,7 +196,7 @@ func (s *addCharmSuite) TestAddCharm(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddCharm", facadeArgs, result).SetArg(3, actualResult).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
-	got, err := client.AddCharm(curl, origin, false)
+	got, err := client.AddCharm(context.Background(), curl, origin, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.DeepEquals, origin)
 }
@@ -221,7 +221,7 @@ func (s charmsMockSuite) TestCheckCharmPlacement(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CheckCharmPlacement", facadeArgs, &result).SetArg(3, actualResult).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
-	err := client.CheckCharmPlacement("winnie", charm.MustParseURL("poo"))
+	err := client.CheckCharmPlacement(context.Background(), "winnie", charm.MustParseURL("poo"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -241,7 +241,7 @@ func (s charmsMockSuite) TestCheckCharmPlacementError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CheckCharmPlacement", facadeArgs, &result).Return(errors.Errorf("trap"))
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
-	err := client.CheckCharmPlacement("winnie", charm.MustParseURL("poo"))
+	err := client.CheckCharmPlacement(context.Background(), "winnie", charm.MustParseURL("poo"))
 	c.Assert(err, gc.ErrorMatches, "trap")
 }
 

@@ -4,6 +4,7 @@
 package bundle
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,7 +42,7 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationEmptyModel(c *gc.C) {
 	}
 	machines := map[string]string{}
 
-	obtainedModel, err := BuildModelRepresentation(status, s.modelExtractor, false, machines)
+	obtainedModel, err := BuildModelRepresentation(context.Background(), status, s.modelExtractor, false, machines)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedModel.Applications, gc.HasLen, 0)
 	c.Assert(obtainedModel.Machines, gc.HasLen, 0)
@@ -81,7 +82,7 @@ func (s *buildModelRepSuite) testBuildModelRepresentationUseExistingMachines(c *
 		"1": "3",
 	}
 
-	obtainedModel, err := BuildModelRepresentation(status, s.modelExtractor, use, machines)
+	obtainedModel, err := BuildModelRepresentation(context.Background(), status, s.modelExtractor, use, machines)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedModel.Applications, gc.HasLen, 0)
 	c.Assert(obtainedModel.Machines, gc.HasLen, 4)
@@ -129,7 +130,7 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithSubordi
 	}
 	machines := map[string]string{}
 
-	obtainedModel, err := BuildModelRepresentation(status, s.modelExtractor, false, machines)
+	obtainedModel, err := BuildModelRepresentation(context.Background(), status, s.modelExtractor, false, machines)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedModel.Applications, gc.HasLen, 2)
 	obtainedWordpress, ok := obtainedModel.Applications["wordpress"]
@@ -153,7 +154,7 @@ func (s *buildModelRepSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *buildModelRepSuite) expectEmptyGetAnnotations() {
-	s.modelExtractor.EXPECT().GetAnnotations(gomock.Nil()).Return(nil, nil)
+	s.modelExtractor.EXPECT().GetAnnotations(gomock.Any(), gomock.Nil()).Return(nil, nil)
 }
 
 func (s *buildModelRepSuite) expectGetAnnotations(c *gc.C, tags []string) {
@@ -162,19 +163,19 @@ func (s *buildModelRepSuite) expectGetAnnotations(c *gc.C, tags []string) {
 	for i, tag := range tags {
 		result[i] = params.AnnotationsGetResult{EntityTag: tag}
 	}
-	s.modelExtractor.EXPECT().GetAnnotations(matcher).Return(result, nil)
+	s.modelExtractor.EXPECT().GetAnnotations(gomock.Any(), matcher).Return(result, nil)
 }
 
 func (s *buildModelRepSuite) expectEmptyGetConstraints() {
-	s.modelExtractor.EXPECT().GetConstraints([]string{}).Return(nil, nil)
+	s.modelExtractor.EXPECT().GetConstraints(gomock.Any(), []string{}).Return(nil, nil)
 }
 
 func (s *buildModelRepSuite) expectGetConstraintsWordpress() {
-	s.modelExtractor.EXPECT().GetConstraints([]string{"wordpress"}).Return(nil, nil)
+	s.modelExtractor.EXPECT().GetConstraints(gomock.Any(), []string{"wordpress"}).Return(nil, nil)
 }
 
 func (s *buildModelRepSuite) expectEmptyGetConfig() {
-	s.modelExtractor.EXPECT().GetConfig([]string{}).Return(nil, nil)
+	s.modelExtractor.EXPECT().GetConfig(gomock.Any(), []string{}).Return(nil, nil)
 }
 
 func (s *buildModelRepSuite) expectGetConfigSubWordpress() {
@@ -194,11 +195,11 @@ func (s *buildModelRepSuite) expectGetConfigSubWordpress() {
 		{},           // sub
 		wordpressCfg, // wordpress
 	}
-	s.modelExtractor.EXPECT().GetConfig("sub", "wordpress").Return(retval, nil)
+	s.modelExtractor.EXPECT().GetConfig(gomock.Any(), "sub", "wordpress").Return(retval, nil)
 }
 
 func (s *buildModelRepSuite) expectEmptySequences() {
-	s.modelExtractor.EXPECT().Sequences().Return(map[string]int{}, nil)
+	s.modelExtractor.EXPECT().Sequences(gomock.Any()).Return(map[string]int{}, nil)
 }
 
 type composeAndVerifyRepSuite struct {
@@ -360,7 +361,7 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithExposed
 	s.expectGetConstraintsWordpress()
 	s.expectEmptySequences()
 
-	s.modelExtractor.EXPECT().GetConfig("wordpress").Return(nil, nil)
+	s.modelExtractor.EXPECT().GetConfig(gomock.Any(), "wordpress").Return(nil, nil)
 
 	status := &params.FullStatus{
 		Model: params.ModelStatusInfo{
@@ -391,7 +392,7 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithExposed
 	}
 	machines := map[string]string{}
 
-	obtainedModel, err := BuildModelRepresentation(status, s.modelExtractor, false, machines)
+	obtainedModel, err := BuildModelRepresentation(context.Background(), status, s.modelExtractor, false, machines)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedModel.Applications, gc.HasLen, 1)
 	obtainedWordpress, ok := obtainedModel.Applications["wordpress"]
