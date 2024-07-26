@@ -61,8 +61,14 @@ func (*cloudServiceShim) Life() state.Life {
 	return state.Alive
 }
 
+// Status returns an empty status.
+// All that matters is that we do not indicate "pending" status.
+func (*cloudServiceShim) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{}, nil
+}
+
+// SetStatus is a no-op. We don't record the status of a cloud service entity.
 func (*cloudServiceShim) SetStatus(status.StatusInfo) error {
-	// We don't record the status of a cloud service entity.
 	return nil
 }
 
