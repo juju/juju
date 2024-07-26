@@ -335,7 +335,7 @@ func (task *provisionerTask) processMachinesWithTransientErrors(ctx context.Prov
 }
 
 func (task *provisionerTask) processMachines(ctx context.ProviderCallContext, ids []string) error {
-	task.logger.Tracef("processMachines(%v)", ids)
+	task.logger.Debugf("processing machines %v", ids)
 
 	// Populate the tasks maps of current instances and machines.
 	if err := task.populateMachineMaps(ctx, ids); err != nil {
@@ -420,12 +420,14 @@ func (task *provisionerTask) populateMachineMaps(ctx context.ProviderCallContext
 // once they are online will be skipped.
 func (task *provisionerTask) pendingOrDead(
 	ids []string,
-) (pending, dead []apiprovisioner.MachineProvisioner, err error) {
+) ([]apiprovisioner.MachineProvisioner, []apiprovisioner.MachineProvisioner, error) {
 	task.machinesMutex.RLock()
 	defer task.machinesMutex.RUnlock()
+
+	var pending, dead []apiprovisioner.MachineProvisioner
 	for _, id := range ids {
 		// Ignore machines that have been either queued for deferred
-		// stopping or they are currently stopping
+		// stopping or are currently stopping.
 		if _, found := task.machinesStopDeferred[id]; found {
 			task.logger.Tracef("pendingOrDead: ignoring machine %q; machine has deferred stop flag set", id)
 			continue // ignore: will be stopped once started
@@ -439,10 +441,9 @@ func (task *provisionerTask) pendingOrDead(
 			task.logger.Infof("machine %q not found", id)
 			continue
 		}
-		var classification MachineClassification
-		classification, err = classifyMachine(task.logger, machine)
+		classification, err := classifyMachine(task.logger, machine)
 		if err != nil {
-			return // return the error
+			return nil, nil, err
 		}
 		switch classification {
 		case Pending:
@@ -451,9 +452,9 @@ func (task *provisionerTask) pendingOrDead(
 			dead = append(dead, machine)
 		}
 	}
-	task.logger.Tracef("pending machines: %v", pending)
-	task.logger.Tracef("dead machines: %v", dead)
-	return
+
+	task.logger.Debugf("pending: %v, dead: %v", pending, dead)
+	return pending, dead, nil
 }
 
 type ClassifiableMachine interface {
@@ -490,6 +491,7 @@ func classifyMachine(logger Logger, machine ClassifiableMachine) (
 	case life.Dead:
 		return Dead, nil
 	}
+
 	instId, err := machine.InstanceId()
 	if err != nil {
 		if !params.IsCodeNotProvisioned(err) {
@@ -1229,6 +1231,7 @@ func (task *provisionerTask) queueStartMachines(ctx context.ProviderCallContext,
 	if err != nil {
 		return errors.Trace(err)
 	}
+	task.logger.Debugf("obtained provisioning info: %#v", pInfoResults)
 	pInfoMap := make(map[string]params.ProvisioningInfoResult, len(pInfoResults.Results))
 	for i, tag := range machineTags {
 		pInfoMap[tag.Id()] = pInfoResults.Results[i]
