@@ -68,13 +68,13 @@ func (s *rootKeyStateSuite) TestInsertAndGetKey(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 
-	_, err := st.GetKey(ctx, key0.ID)
+	_, err := st.GetKey(ctx, key0.ID, now)
 	c.Assert(err, jc.ErrorIs, errors.KeyNotFound)
 
 	err = st.InsertKey(ctx, key0)
 	c.Assert(err, jc.ErrorIsNil)
 
-	res, err := st.GetKey(context.Background(), key0.ID)
+	res, err := st.GetKey(ctx, key0.ID, now)
 	c.Assert(err, jc.ErrorIsNil)
 	compareRootKeys(c, key0, res)
 }
@@ -83,7 +83,7 @@ func (s *rootKeyStateSuite) TestInsertKeyIDUniqueness(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 
-	_, err := st.GetKey(ctx, key0.ID)
+	_, err := st.GetKey(ctx, key0.ID, now)
 	c.Assert(err, jc.ErrorIs, errors.KeyNotFound)
 
 	err = st.InsertKey(ctx, key0)
@@ -98,7 +98,7 @@ func (s *rootKeyStateSuite) TestFindLatestKeyReturnsMostRecent(c *gc.C) {
 	ctx := context.Background()
 	addAllKeys(c, st)
 
-	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), time.Unix(math.MaxInt64, 0))
+	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), time.Unix(math.MaxInt64, 0), now)
 	c.Assert(err, jc.ErrorIsNil)
 	compareRootKeys(c, key3, res)
 }
@@ -108,7 +108,7 @@ func (s *rootKeyStateSuite) TestFindLatestKeyExpiresAfter(c *gc.C) {
 	ctx := context.Background()
 	addAllKeys(c, st)
 
-	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), now.Add(7*time.Second), time.Unix(math.MaxInt64, 0))
+	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), now.Add(7*time.Second), time.Unix(math.MaxInt64, 0), now)
 	c.Assert(err, jc.ErrorIsNil)
 	compareRootKeys(c, key2, res)
 }
@@ -118,11 +118,11 @@ func (s *rootKeyStateSuite) TestFindLatestKeyCreatedAfter(c *gc.C) {
 	ctx := context.Background()
 	addAllKeys(c, st)
 
-	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), time.Unix(math.MaxInt64, 0))
+	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), time.Unix(math.MaxInt64, 0), now)
 	c.Assert(err, jc.ErrorIsNil)
 	compareRootKeys(c, key3, res)
 
-	_, err = st.FindLatestKey(ctx, time.Unix(math.MaxInt64, 0), time.Unix(0, 0), time.Unix(math.MaxInt64, 0))
+	_, err = st.FindLatestKey(ctx, time.Unix(math.MaxInt64, 0), time.Unix(0, 0), time.Unix(math.MaxInt64, 0), now)
 	c.Assert(err, jc.ErrorIs, errors.KeyNotFound)
 }
 
@@ -131,15 +131,15 @@ func (s *rootKeyStateSuite) TestFindLatestKeyExpiresBefore(c *gc.C) {
 	ctx := context.Background()
 	addAllKeys(c, st)
 
-	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), now.Add(5*time.Second))
+	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), now.Add(5*time.Second), now)
 	c.Assert(err, jc.ErrorIsNil)
 	compareRootKeys(c, key1, res)
 
-	res, err = st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), now.Add(3*time.Second))
+	res, err = st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), now.Add(3*time.Second), now)
 	c.Assert(err, jc.ErrorIsNil)
 	compareRootKeys(c, key0, res)
 
-	_, err = st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), now.Add(-2*time.Second))
+	_, err = st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), now.Add(-2*time.Second), now)
 	c.Assert(err, jc.ErrorIs, errors.KeyNotFound)
 }
 
@@ -148,12 +148,89 @@ func (s *rootKeyStateSuite) TestFindLatestKeyEquality(c *gc.C) {
 	ctx := context.Background()
 	addAllKeys(c, st)
 
-	res, err := st.FindLatestKey(ctx, key3.Created, key3.Expires, key3.Expires)
+	res, err := st.FindLatestKey(ctx, key3.Created, key3.Expires, key3.Expires, now)
 	c.Assert(err, jc.ErrorIsNil)
 	compareRootKeys(c, key3, res)
 
-	_, err = st.FindLatestKey(ctx, key3.Created.Add(1*time.Millisecond), key3.Expires, key3.Expires)
+	_, err = st.FindLatestKey(ctx, key3.Created.Add(1*time.Millisecond), key3.Expires, key3.Expires, now)
 	c.Assert(err, jc.ErrorIs, errors.KeyNotFound)
+}
+
+func (s *rootKeyStateSuite) TestExpiredKeysAreRemoved(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	addAllKeys(c, st)
+
+	_, err := st.GetKey(ctx, key0.ID, now)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key1.ID, now)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key2.ID, now)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key3.ID, now)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key4.ID, now)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+}
+
+func (s *rootKeyStateSuite) TestRemoveKeysExpiredBeforeNowPlus5(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	addAllKeys(c, st)
+
+	now := now.Add(5 * time.Second)
+
+	_, err := st.GetKey(ctx, key0.ID, now)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	_, err = st.GetKey(ctx, key1.ID, now)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	_, err = st.GetKey(ctx, key2.ID, now)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key3.ID, now)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key4.ID, now)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+}
+
+func (s *rootKeyStateSuite) TestRemoveKeysExpiredAll(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	addAllKeys(c, st)
+
+	now := now.Add(10 * time.Second)
+
+	_, err := st.GetKey(ctx, key0.ID, now)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	_, err = st.GetKey(ctx, key1.ID, now)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	_, err = st.GetKey(ctx, key2.ID, now)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	_, err = st.GetKey(ctx, key3.ID, now)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	_, err = st.GetKey(ctx, key4.ID, now)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+
+	_, err = st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), time.Unix(math.MaxInt64, 0), now)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+}
+
+func (s *rootKeyStateSuite) TestRemoveKeysExpiredNone(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	addAllKeys(c, st)
+
+	now := now.Add(-10 * time.Second)
+
+	_, err := st.GetKey(ctx, key0.ID, now)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key1.ID, now)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key2.ID, now)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key3.ID, now)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key4.ID, now)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func addAllKeys(c *gc.C, st *State) {

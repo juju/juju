@@ -3,6 +3,8 @@
 
 package service
 
+import "github.com/juju/juju/domain/macaroon"
+
 // State represents a type for interacting with the underlying
 // storage required for this service
 type State interface {
@@ -19,9 +21,9 @@ type Service struct {
 
 // NewService returns a new Service providing an API to manage
 // macaroon bakery storage
-func NewService(st State) *Service {
+func NewService(st State, clock macaroon.Clock) *Service {
 	return &Service{
 		BakeryConfigService: NewBakeryConfigService(st),
-		RootKeyService:      NewRootKeyService(st),
+		RootKeyService:      NewRootKeyService(st, clock),
 	}
 }
