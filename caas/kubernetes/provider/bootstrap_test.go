@@ -69,7 +69,6 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.NameKey:                  "controller-1",
-		k8sconstants.OperatorStorageKey: "",
 		k8sconstants.WorkloadStorageKey: "",
 	}))
 	c.Assert(err, jc.ErrorIsNil)

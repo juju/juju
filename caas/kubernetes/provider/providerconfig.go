@@ -8,41 +8,17 @@ import (
 	"fmt"
 
 	"github.com/juju/schema"
-	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/charm"
 )
-
-var (
-	// jujuVersionForControllerStorage is the Juju version which first
-	// added the ability to store charm state in the controller.
-	jujuVersionForControllerStorage = version.MustParse("2.8.0")
-)
-
-// RequireOperatorStorage returns true if the specified min-juju-version
-// defined by a charm is such that the charm requires operator storage.
-func RequireOperatorStorage(ch charm.CharmMeta) bool {
-	if charm.MetaFormat(ch) == charm.FormatV2 {
-		return false
-	}
-	minVers := ch.Meta().MinJujuVersion
-	return minVers.Compare(jujuVersionForControllerStorage) < 0
-}
 
 var configSchema = environschema.Fields{
 	k8sconstants.WorkloadStorageKey: {
 		Description: "The preferred storage class used to provision workload storage.",
 		Type:        environschema.Tstring,
 		Group:       environschema.AccountGroup,
-	},
-	k8sconstants.OperatorStorageKey: {
-		Description: "The storage class used to provision operator storage.",
-		Type:        environschema.Tstring,
-		Group:       environschema.AccountGroup,
-		Immutable:   true,
 	},
 }
 
@@ -56,7 +32,6 @@ var providerConfigFields = func() schema.Fields {
 
 var providerConfigDefaults = schema.Defaults{
 	k8sconstants.WorkloadStorageKey: "",
-	k8sconstants.OperatorStorageKey: "",
 }
 
 type brokerConfig struct {

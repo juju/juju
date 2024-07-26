@@ -81,7 +81,6 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		serviceFactory.Storage(registry),
 		registry,
 		common.NewResources(),
-		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ControllerModelUUID()),
 		loggertesting.WrapCheckLog(c),
 	)
@@ -222,7 +221,6 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		serviceFactory.Storage(registry),
 		registry,
 		common.NewResources(),
-		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ControllerModelUUID()),
 		loggertesting.WrapCheckLog(c),
 	)

@@ -51,7 +51,6 @@ type ClusterMetadataChecker interface {
 // ClusterMetadata defines metadata about a cluster.
 type ClusterMetadata struct {
 	WorkloadStorageClass *storagev1.StorageClass
-	OperatorStorageClass *storagev1.StorageClass
 	Cloud                string
 	Regions              set.Strings
 }

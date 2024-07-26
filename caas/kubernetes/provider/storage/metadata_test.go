@@ -96,57 +96,6 @@ func (*metadataSuite) TestPreferredStorageNominated(c *gc.C) {
 	}
 }
 
-func (*metadataSuite) TestPreferredStorageOperatorAnnotation(c *gc.C) {
-	tests := []struct {
-		Name         string
-		StorageClass *storagev1.StorageClass
-		Result       bool
-	}{
-		{
-			Name: "Test operator storage annotation matches",
-			StorageClass: &storagev1.StorageClass{
-				ObjectMeta: meta.ObjectMeta{
-					Name: "test1",
-					Annotations: map[string]string{
-						"juju.is/operator-storage": "true",
-					},
-				},
-			},
-			Result: true,
-		},
-		{
-			Name: "Test operator storage doesn't match bad value",
-			StorageClass: &storagev1.StorageClass{
-				ObjectMeta: meta.ObjectMeta{
-					Name: "test1",
-					Annotations: map[string]string{
-						"juju.is/operator-storage": "false",
-					},
-				},
-			},
-			Result: false,
-		},
-		{
-			Name: "Test operator storage doesn't match workload storage",
-			StorageClass: &storagev1.StorageClass{
-				ObjectMeta: meta.ObjectMeta{
-					Name: "test1",
-					Annotations: map[string]string{
-						"juju.is/workload-storage": "true",
-					},
-				},
-			},
-			Result: false,
-		},
-	}
-
-	for _, test := range tests {
-		c.Logf("running test %s", test.Name)
-		annotation := storage.PreferredStorageOperatorAnnotation{}
-		c.Assert(annotation.Matches(test.StorageClass), gc.Equals, test.Result)
-	}
-}
-
 func (*metadataSuite) TestPreferredStorageWorkloadAnnotation(c *gc.C) {
 	tests := []struct {
 		Name         string
@@ -154,7 +103,7 @@ func (*metadataSuite) TestPreferredStorageWorkloadAnnotation(c *gc.C) {
 		Result       bool
 	}{
 		{
-			Name: "Test operator storage annotation matches",
+			Name: "Test workload storage annotation matches",
 			StorageClass: &storagev1.StorageClass{
 				ObjectMeta: meta.ObjectMeta{
 					Name: "test1",
@@ -166,24 +115,12 @@ func (*metadataSuite) TestPreferredStorageWorkloadAnnotation(c *gc.C) {
 			Result: true,
 		},
 		{
-			Name: "Test operator storage doesn't match bad value",
+			Name: "Test workload storage doesn't match bad value",
 			StorageClass: &storagev1.StorageClass{
 				ObjectMeta: meta.ObjectMeta{
 					Name: "test1",
 					Annotations: map[string]string{
 						"juju.is/workload-storage": "false",
-					},
-				},
-			},
-			Result: false,
-		},
-		{
-			Name: "Test operator storage doesn't match operator storage",
-			StorageClass: &storagev1.StorageClass{
-				ObjectMeta: meta.ObjectMeta{
-					Name: "test1",
-					Annotations: map[string]string{
-						"juju.is/operator-storage": "true",
 					},
 				},
 			},

@@ -33,11 +33,7 @@ type PreferredStorage interface {
 	Matches(*storagev1.StorageClass) bool
 }
 
-// PreferredStorageOperatorAnnotation is an implementation of PreferredStorage
-// that matches based on the operator storage annotation.
-type PreferredStorageOperatorAnnotation struct{}
-
-// PreferredStorageOperatorAnnotation is an implementation of PreferredStorage
+// PreferredStorageWorkloadAnnotation is an implementation of PreferredStorage
 // that matches based on the workload storage annotation.
 type PreferredStorageWorkloadAnnotation struct{}
 
@@ -64,78 +60,8 @@ type PreferredStorageProvisioner struct {
 type PreferredStorageList []PreferredStorage
 
 const (
-	operatorStorageClassAnnotationKey = "juju.is/operator-storage"
 	workloadStorageClassAnnotationKey = "juju.is/workload-storage"
 )
-
-// PreferredStorageForCloud returns a PreferredStorageList for the supplied
-// cloud. If no cloud is found matching then a default list is provided.
-func PreferredOperatorStorageForCloud(cloud string) PreferredStorageList {
-	switch cloud {
-
-	// Microk8s
-	case kubernetes.K8sCloudMicrok8s:
-		return PreferredStorageList{
-			&PreferredStorageOperatorAnnotation{},
-			&PreferredStorageProvisioner{
-				NameVal:     "hostpath",
-				Provisioner: "microk8s.io/hostpath",
-			},
-		}
-
-	// Azure
-	case kubernetes.K8sCloudAzure:
-		return PreferredStorageList{
-			&PreferredStorageOperatorAnnotation{},
-			&PreferredStorageProvisioner{
-				NameVal:     "azure-disk",
-				Provisioner: "kubernetes.io/azure-disk",
-			},
-			&PreferredStorageDefault{},
-		}
-
-	// Google Cloud
-	case kubernetes.K8sCloudGCE:
-		return PreferredStorageList{
-			&PreferredStorageOperatorAnnotation{},
-			&PreferredStorageProvisioner{
-				NameVal:     "gce-pd",
-				Provisioner: "kubernetes.io/gce-pd",
-			},
-			&PreferredStorageDefault{},
-		}
-
-	// AWS
-	case kubernetes.K8sCloudEC2:
-		return PreferredStorageList{
-			&PreferredStorageOperatorAnnotation{},
-			&PreferredStorageProvisioner{
-				NameVal:     "aws-ebs",
-				Provisioner: "kubernetes.io/aws-ebs",
-			},
-			&PreferredStorageDefault{},
-		}
-
-	// Openstack
-	case kubernetes.K8sCloudOpenStack:
-		return PreferredStorageList{
-			&PreferredStorageOperatorAnnotation{},
-			&PreferredStorageProvisioner{
-				NameVal:     "csi-cinder",
-				Provisioner: "csi-cinderplugin",
-			},
-			&PreferredStorageDefault{},
-		}
-
-	// Everything else
-	default:
-		return PreferredStorageList{
-			&PreferredStorageOperatorAnnotation{},
-			&PreferredStorageDefault{},
-			&PreferredStorageAny{},
-		}
-	}
-}
 
 // PreferredWorkloadStorageForCloud returns a PreferredStorageList for the
 // supplied cloud. If no cloud is found matching then a default list is
@@ -244,13 +170,6 @@ func (p *PreferredStorageNominated) Matches(sc *storagev1.StorageClass) bool {
 }
 
 // Matches implements PreferredStorage Matches.
-func (_ *PreferredStorageOperatorAnnotation) Matches(sc *storagev1.StorageClass) bool {
-	return k8sannotations.New(sc.GetAnnotations()).Has(
-		operatorStorageClassAnnotationKey, "true",
-	)
-}
-
-// Matches implements PreferredStorage Matches.
 func (_ *PreferredStorageWorkloadAnnotation) Matches(sc *storagev1.StorageClass) bool {
 	return k8sannotations.New(sc.GetAnnotations()).Has(
 		workloadStorageClassAnnotationKey, "true",
@@ -281,11 +200,6 @@ func (_ *PreferredStorageAny) Name() string {
 // Name implements PreferredStorage Name.
 func (_ *PreferredStorageNominated) Name() string {
 	return "nominated-storage"
-}
-
-// Name implements PreferredStorage Name.
-func (_ *PreferredStorageOperatorAnnotation) Name() string {
-	return "operator-storage-annotation"
 }
 
 // Name implements PreferredStorage Name.

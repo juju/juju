@@ -28,10 +28,6 @@ const (
 	// WorkloadStorageKey is the model config attribute used to specify
 	// the storage class for provisioning workload storage.
 	WorkloadStorageKey = "workload-storage"
-
-	// OperatorStorageKey is the model config attribute used to specify
-	// the storage class for provisioning operator storage.
-	OperatorStorageKey = "operator-storage"
 )
 
 // QualifiedStorageClassName returns a qualified storage class name.

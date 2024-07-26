@@ -24,7 +24,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
-	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -121,15 +120,9 @@ type APIBase struct {
 
 	storagePoolGetter     StoragePoolGetter
 	registry              storage.ProviderRegistry
-	caasBroker            CaasBrokerInterface
 	deployApplicationFunc DeployApplicationFunc
 
 	logger corelogger.Logger
-}
-
-type CaasBrokerInterface interface {
-	ValidateStorageClass(ctx context.Context, config map[string]interface{}) error
-	Version() (*version.Number, error)
 }
 
 func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, error) {
@@ -156,14 +149,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		return nil, errors.Annotate(err, "getting storage provider registry")
 	}
 	storagePoolGetter := serviceFactory.Storage(registry)
-
-	var caasBroker caas.Broker
-	if model.Type() == state.ModelTypeCAAS {
-		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, serviceFactory.Cloud(), serviceFactory.Credential())
-		if err != nil {
-			return nil, errors.Annotate(err, "getting caas client")
-		}
-	}
 	resources := ctx.Resources()
 
 	leadershipReader, err := ctx.LeadershipReader()
@@ -182,7 +167,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	repoLogger := ctx.Logger().Child("deployfromrepo")
 	validatorCfg := validatorConfig{
 		charmhubHTTPClient: charmhubHTTPClient,
-		caasBroker:         caasBroker,
 		model:              m,
 		cloudService:       serviceFactory.Cloud(),
 		credentialService:  serviceFactory.Credential(),
@@ -219,7 +203,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		storagePoolGetter,
 		registry,
 		resources,
-		caasBroker,
 		ctx.ObjectStore(),
 		ctx.Logger().Child("application"),
 	)
@@ -258,7 +241,6 @@ func NewAPIBase(
 	storagepoolGetter StoragePoolGetter,
 	registry storage.ProviderRegistry,
 	resources facade.Resources,
-	caasBroker CaasBrokerInterface,
 	store objectstore.ObjectStore,
 	logger corelogger.Logger,
 ) (*APIBase, error) {
@@ -285,7 +267,6 @@ func NewAPIBase(
 		storagePoolGetter:     storagepoolGetter,
 		registry:              registry,
 		resources:             resources,
-		caasBroker:            caasBroker,
 		store:                 store,
 		logger:                logger,
 	}, nil
@@ -441,7 +422,6 @@ func (c caasDeployParams) precheck(
 	model Model,
 	storagePoolGetter StoragePoolGetter,
 	registry storage.ProviderRegistry,
-	caasBroker CaasBrokerInterface,
 ) error {
 	if len(c.attachStorage) > 0 {
 		return errors.Errorf(
@@ -462,31 +442,6 @@ func (c caasDeployParams) precheck(
 	cfg, err := model.ModelConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	// For older charms, operator-storage model config is mandatory.
-	if k8s.RequireOperatorStorage(c.charm) {
-		storageClassName, _ := cfg.AllAttrs()[k8sconstants.OperatorStorageKey].(string)
-		if storageClassName == "" {
-			return errors.New(
-				"deploying this Kubernetes application requires a suitable storage class.\n" +
-					"None have been configured. Set the operator-storage model config to " +
-					"specify which storage class should be used to allocate operator storage.\n" +
-					"See https://discourse.charmhub.io/t/getting-started/152.",
-			)
-		}
-		sp, err := charmStorageParams(ctx, "", storageClassName, cfg, "", storagePoolGetter, registry)
-		if err != nil {
-			return errors.Annotatef(err, "getting operator storage params for %q", c.applicationName)
-		}
-		if sp.Provider != string(k8sconstants.StorageProviderType) {
-			poolName := cfg.AllAttrs()[k8sconstants.OperatorStorageKey]
-			return errors.Errorf(
-				"the %q storage pool requires a provider type of %q, not %q", poolName, k8sconstants.StorageProviderType, sp.Provider)
-		}
-		if err := caasBroker.ValidateStorageClass(ctx, sp.Attributes); err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	workloadStorageClass, _ := cfg.AllAttrs()[k8sconstants.WorkloadStorageKey].(string)
@@ -544,7 +499,7 @@ func (api *APIBase) deployApplication(
 			placement:       args.Placement,
 			storage:         args.Storage,
 		}
-		if err := caas.precheck(ctx, api.model, api.storagePoolGetter, api.registry, api.caasBroker); err != nil {
+		if err := caas.precheck(ctx, api.model, api.storagePoolGetter, api.registry); err != nil {
 			return errors.Trace(err)
 		}
 	}

@@ -523,7 +523,6 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"storage-default-block-source":      "kubernetes",
 		"storage-default-filesystem-source": "kubernetes",
 		"something":                         "value",
-		"operator-storage":                  "",
 		"workload-storage":                  "",
 	})
 	c.Assert(err, jc.ErrorIsNil)

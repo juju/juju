@@ -170,7 +170,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	// init config for each test for easier changing config inside test.
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.NameKey:                  "test",
-		k8sconstants.OperatorStorageKey: "",
 		k8sconstants.WorkloadStorageKey: "",
 	}))
 	c.Assert(err, jc.ErrorIsNil)
@@ -499,7 +498,6 @@ func (s *fakeClientSuite) SetUpTest(c *gc.C) {
 
 	s.cfg, err = config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.NameKey:                  "test",
-		k8sconstants.OperatorStorageKey: "",
 		k8sconstants.WorkloadStorageKey: "",
 	}))
 	c.Assert(err, jc.ErrorIsNil)

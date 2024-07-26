@@ -121,7 +121,6 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		storageService,
 		registry,
 		common.NewResources(),
-		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ModelUUID()),
 		loggertesting.WrapCheckLog(c),
 	)
