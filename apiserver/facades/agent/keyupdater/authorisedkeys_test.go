@@ -241,7 +241,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeysForNotFoundMachine(c *gc.C) {
 
 	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
 		gomock.Any(), coremachine.Name("0"),
-	).Return(nil, machineerrors.NotFound)
+	).Return(nil, machineerrors.MachineNotFound)
 
 	result, err := endPoint.AuthorisedKeys(context.Background(), args)
 	c.Check(err, jc.ErrorIsNil)

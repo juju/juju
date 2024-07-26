@@ -207,7 +207,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(
 				machineName,
 			)
 			continue
-		case errors.Is(err, machineerrors.NotFound):
+		case errors.Is(err, machineerrors.MachineNotFound):
 			results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeMachineNotFound,
 				"machine %q does not exist",
