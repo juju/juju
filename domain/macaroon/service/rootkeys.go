@@ -20,7 +20,7 @@ import (
 type RootKeyState interface {
 	// GetKey gets the key with a given id from state. If not key is found, a
 	// macaroonerrors.KeyNotFound error is returned.
-	GetKey(ctx context.Context, id []byte) (macaroon.RootKey, error)
+	GetKey(ctx context.Context, id []byte, now time.Time) (macaroon.RootKey, error)
 
 	// FindLatestKey returns the most recently created root key k following all
 	// the conditions:
@@ -30,7 +30,7 @@ type RootKeyState interface {
 	// k.Expires <= expiresBefore
 	//
 	// If no such key was found, return a macaroonerrors.KeyNotFound error
-	FindLatestKey(ctx context.Context, createdAfter, expiresAfter, expiresBefore time.Time) (macaroon.RootKey, error)
+	FindLatestKey(ctx context.Context, createdAfter, expiresAfter, expiresBefore, now time.Time) (macaroon.RootKey, error)
 
 	// InsertKey inserts the given root key into state. If a key with matching
 	// id already exists, return a macaroonerrors.KeyAlreadyExists error.
@@ -40,13 +40,15 @@ type RootKeyState interface {
 // RootKeyService provides the API for macaroon root key storage
 // We can use RootKeyService to construct a bakery.RootKeyStore.
 type RootKeyService struct {
-	st RootKeyState
+	clock macaroon.Clock
+	st    RootKeyState
 }
 
 // NewRootKeyService returns a new service for managing macaroon root keys
-func NewRootKeyService(st RootKeyState) *RootKeyService {
+func NewRootKeyService(st RootKeyState, clock macaroon.Clock) *RootKeyService {
 	return &RootKeyService{
-		st: st,
+		st:    st,
+		clock: clock,
 	}
 }
 
@@ -56,7 +58,7 @@ func NewRootKeyService(st RootKeyState) *RootKeyService {
 // To satisfy dbrootkeystore.ContextBacking specification,
 // if not key is found, a bakery.ErrNotFound error is returned.
 func (s *RootKeyService) GetKeyContext(ctx context.Context, id []byte) (dbrootkeystore.RootKey, error) {
-	key, err := s.st.GetKey(ctx, id)
+	key, err := s.st.GetKey(ctx, id, s.clock.Now())
 	if errors.Is(err, macaroonerrors.KeyNotFound) {
 		return dbrootkeystore.RootKey{}, bakery.ErrNotFound
 	}
@@ -75,7 +77,7 @@ func (s *RootKeyService) GetKeyContext(ctx context.Context, id []byte) (dbrootke
 // if no such key is found, the zero root key is returned with a
 // nil error
 func (s *RootKeyService) FindLatestKeyContext(ctx context.Context, createdAfter, expiresAfter, expiresBefore time.Time) (dbrootkeystore.RootKey, error) {
-	key, err := s.st.FindLatestKey(ctx, createdAfter, expiresAfter, expiresBefore)
+	key, err := s.st.FindLatestKey(ctx, createdAfter, expiresAfter, expiresBefore, s.clock.Now())
 	if errors.Is(err, macaroonerrors.KeyNotFound) {
 		return dbrootkeystore.RootKey{}, nil
 	}

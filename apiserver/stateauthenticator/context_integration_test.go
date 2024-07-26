@@ -64,6 +64,7 @@ func (s *macaroonAuthSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.macaroonService = macaroonservice.NewService(
 		macaroonstate.NewState(s.TxnRunnerFactory()),
+		s.clock,
 	)
 	s.macaroonService.InitialiseBakeryConfig(context.Background())
 }
@@ -154,6 +155,10 @@ func (s *macaroonAuthSuite) TestExpiredKey(c *gc.C) {
 	}
 	mac, err := bsvc.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, cav, bakery.NoOp)
 	c.Assert(err, gc.IsNil)
+
+	// Advance time here because the root key is created during NewMacaroon.
+	// The clock needs to move over here to expire the root key correctly
+	s.clock.Advance(time.Second)
 
 	client := httpbakery.NewClient()
 	ms, err := client.DischargeAll(context.Background(), mac)

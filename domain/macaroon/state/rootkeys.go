@@ -32,7 +32,7 @@ func NewRootKeyState(factory coredatabase.TxnRunnerFactory) *RootKeyState {
 
 // GetKey gets the key with a given id from dqlite. If not key is found, a
 // macaroonerrors.KeyNotFound error is returned.
-func (st *RootKeyState) GetKey(ctx context.Context, id []byte) (macaroon.RootKey, error) {
+func (st *RootKeyState) GetKey(ctx context.Context, id []byte, now time.Time) (macaroon.RootKey, error) {
 	db, err := st.DB()
 	if err != nil {
 		return macaroon.RootKey{}, errors.Trace(err)
@@ -45,7 +45,11 @@ func (st *RootKeyState) GetKey(ctx context.Context, id []byte) (macaroon.RootKey
 
 	var result rootKey
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, getKeyStmt, key).Get(&result)
+		err := st.removeKeysExpiredBefore(ctx, tx, now)
+		if err != nil {
+			return domain.CoerceError(err)
+		}
+		err = tx.Query(ctx, getKeyStmt, key).Get(&result)
 		if database.IsErrNotFound(err) {
 			return errors.Annotatef(macaroonerrors.KeyNotFound, "key with id %s", string(id))
 		}
@@ -67,7 +71,7 @@ func (st *RootKeyState) GetKey(ctx context.Context, id []byte) (macaroon.RootKey
 // k.Expires <= expiresBefore
 //
 // If no such key was found, return a macaroonerrors.KeyNotFound error
-func (st *RootKeyState) FindLatestKey(ctx context.Context, createdAfter, expiresAfter, expiresBefore time.Time) (macaroon.RootKey, error) {
+func (st *RootKeyState) FindLatestKey(ctx context.Context, createdAfter, expiresAfter, expiresBefore, now time.Time) (macaroon.RootKey, error) {
 	db, err := st.DB()
 	if err != nil {
 		return macaroon.RootKey{}, errors.Trace(err)
@@ -94,7 +98,11 @@ ORDER BY created_at DESC
 
 	var result rootKey
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, m).Get(&result)
+		err := st.removeKeysExpiredBefore(ctx, tx, now)
+		if err != nil {
+			return domain.CoerceError(err)
+		}
+		err = tx.Query(ctx, stmt, m).Get(&result)
 		if database.IsErrNotFound(err) {
 			return macaroonerrors.KeyNotFound
 		}
@@ -137,4 +145,18 @@ func (st *RootKeyState) InsertKey(ctx context.Context, key macaroon.RootKey) err
 		return err
 	})
 	return errors.Trace(err)
+}
+
+// removeKeysExpiredBefore removes all root keys from state with an expiry
+// before the provided cutoff time
+func (st *RootKeyState) removeKeysExpiredBefore(ctx context.Context, tx *sqlair.TX, cutoff time.Time) error {
+	m := sqlair.M{
+		"cutoff": cutoff,
+	}
+
+	removeExpiredStmt, err := st.Prepare("DELETE FROM macaroon_root_key WHERE expires_at < $M.cutoff", m)
+	if err != nil {
+		return errors.Annotatef(err, "preparing remove expired root key statement")
+	}
+	return tx.Query(ctx, removeExpiredStmt, m).Run()
 }

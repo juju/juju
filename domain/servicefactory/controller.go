@@ -4,6 +4,8 @@
 package servicefactory
 
 import (
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -191,5 +193,6 @@ func (s *ControllerFactory) SecretBackend() *secretbackendservice.WatchableServi
 func (s *ControllerFactory) Macaroon() *macaroonservice.Service {
 	return macaroonservice.NewService(
 		macaroonstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		clock.WallClock,
 	)
 }

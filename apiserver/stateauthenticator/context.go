@@ -371,7 +371,7 @@ func newExternalMacaroonAuth(ctx context.Context, cfg externalMacaroonAuthentica
 		Clock:            cfg.clock,
 		IdentityLocation: idURL,
 	}
-	store := internalmacaroon.NewExpirableStorage(cfg.macaroonService, cfg.expiryTime, clock.WallClock)
+	store := internalmacaroon.NewExpirableStorage(cfg.macaroonService, cfg.expiryTime, cfg.clock)
 	if cfg.identClient == nil {
 		cfg.identClient = &auth
 	}
