@@ -617,12 +617,12 @@ func (s *stateSuite) TestMarkMachineForRemovalSuccess(c *gc.C) {
 	err = s.state.MarkMachineForRemoval(context.Background(), "666")
 	c.Check(err, jc.ErrorIsNil)
 
-	var mark bool
+	var machineUUID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, "SELECT mark_for_removal FROM machine_removals WHERE machine_uuid=?", "123").Scan(&mark)
+		return tx.QueryRowContext(ctx, "SELECT machine_uuid FROM machine_removals WHERE machine_uuid=?", "123").Scan(&machineUUID)
 	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(mark, gc.Equals, true)
+	c.Assert(machineUUID, gc.Equals, "123")
 }
 
 // TestMarkMachineForRemovalSuccessIdempotent asserts that marking a machine for

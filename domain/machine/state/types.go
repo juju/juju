@@ -97,7 +97,6 @@ type machineName struct {
 // machine_removals table within the sqlair statements in the machine domain.
 type machineMarkForRemoval struct {
 	UUID string `db:"machine_uuid"`
-	Mark bool   `db:"mark_for_removal"`
 }
 
 // machineUUID represents the struct to be used for the machine_uuid column

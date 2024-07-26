@@ -674,26 +674,25 @@ func (st *State) MarkMachineForRemoval(ctx context.Context, mName machine.Name) 
 
 	// Prepare query for getting the machine UUID.
 	machineNameParam := machineName{Name: mName}
-	markForRemovalWithUUID := machineMarkForRemoval{}
+	markForRemovalUUID := machineMarkForRemoval{}
 	machineUUIDQuery := `SELECT uuid AS &machineMarkForRemoval.machine_uuid FROM machine WHERE name = $machineName.name`
-	machineUUIDStmt, err := st.Prepare(machineUUIDQuery, machineNameParam, markForRemovalWithUUID)
+	machineUUIDStmt, err := st.Prepare(machineUUIDQuery, machineNameParam, markForRemovalUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Prepare query for adding the machine to the machine_removals table.
-	markForRemovalWithUUID.Mark = true
 	markForRemovalUpdateQuery := `
-INSERT OR REPLACE INTO machine_removals (machine_uuid, mark_for_removal)
-VALUES ($machineMarkForRemoval.*)`
-	markForRemovalStmt, err := st.Prepare(markForRemovalUpdateQuery, markForRemovalWithUUID)
+INSERT OR IGNORE INTO machine_removals (machine_uuid)
+VALUES ($machineMarkForRemoval.machine_uuid)`
+	markForRemovalStmt, err := st.Prepare(markForRemovalUpdateQuery, markForRemovalUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query for the machine UUID.
-		err := tx.Query(ctx, machineUUIDStmt, machineNameParam).Get(&markForRemovalWithUUID)
+		err := tx.Query(ctx, machineUUIDStmt, machineNameParam).Get(&markForRemovalUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotatef(machineerrors.MachineNotFound, "machine %q", mName)
 		}
@@ -701,8 +700,8 @@ VALUES ($machineMarkForRemoval.*)`
 			return errors.Annotatef(err, "querying UUID for machine %q", mName)
 		}
 
-		// Run query for updating the mark_for_removal column.
-		return tx.Query(ctx, markForRemovalStmt, markForRemovalWithUUID).Run()
+		// Run query for adding the machine to the removals table.
+		return tx.Query(ctx, markForRemovalStmt, markForRemovalUUID).Run()
 	})
 
 	return errors.Annotatef(err, "marking machine %q for removal", mName)
@@ -718,7 +717,7 @@ func (st *State) GetAllMachineRemovals(ctx context.Context) ([]string, error) {
 
 	// Prepare query for uuids of all machines marked for removal.
 	markForRemovalParam := machineMarkForRemoval{}
-	machinesMarkedForRemovalQuery := `SELECT &machineMarkForRemoval.* FROM machine_removals WHERE mark_for_removal = true`
+	machinesMarkedForRemovalQuery := `SELECT &machineMarkForRemoval.machine_uuid FROM machine_removals`
 	machinesMarkedForRemovalStmt, err := st.Prepare(machinesMarkedForRemovalQuery, markForRemovalParam)
 	if err != nil {
 		return nil, errors.Trace(err)
