@@ -47,8 +47,8 @@ func HasPermission(
 		return false, nil
 	}
 
-	userAccess, err := GetPermission(accessGetter, userTag, target)
-	if err != nil {
+	userAccess, err := accessGetter(userTag, target)
+	if err != nil && !(errors.Is(err, accesserrors.PermissionNotFound) || errors.Is(err, accesserrors.UserNotFound)) {
 		return false, errors.Annotatef(err, "while obtaining %s user", target.Kind())
 	}
 	if userAccess == permission.NoAccess {
@@ -63,19 +63,6 @@ func HasPermission(
 		return false, nil
 	}
 	return true, nil
-}
-
-// GetPermission returns the permission a user has on the specified target.
-func GetPermission(accessGetter UserAccessFunc, userTag names.UserTag, target names.Tag) (permission.Access, error) {
-	userAccess, err := accessGetter(userTag, target)
-	if err != nil {
-		if errors.Is(err, accesserrors.PermissionNotFound) || errors.Is(err, accesserrors.UserNotFound) {
-			return permission.NoAccess, nil
-		}
-		return permission.NoAccess, errors.Trace(err)
-	}
-
-	return userAccess, nil
 }
 
 // HasModelAdmin reports whether a user has admin access to the input model.

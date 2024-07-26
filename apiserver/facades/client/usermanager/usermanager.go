@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/rpc/params"
@@ -36,9 +37,9 @@ type AccessService interface {
 	ResetPassword(ctx context.Context, name string) ([]byte, error)
 	RemoveUser(ctx context.Context, name string) error
 
-	// ReadUserAccessForTarget returns the access level that the
-	// input user has been on the input target entity.
-	ReadUserAccessForTarget(ctx context.Context, subject string, target permission.ID) (permission.UserAccess, error)
+	// If the access level of a user cannot be found then
+	// accesserrors.AccessNotFound is returned.
+	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
 
 	// GetModelUsers will retrieve basic information about all users with
 	// permissions on the given model UUID.
@@ -284,47 +285,8 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 		return results, errors.Trace(err)
 	}
 
-	var accessForUser = func(userTag names.UserTag, result *params.UserInfoResult) {
-		userPermission := func(subject names.UserTag, target names.Tag) (permission.Access, error) {
-			access, err := api.accessService.ReadUserAccessForTarget(ctx, subject.Id(), permission.ID{
-				ObjectType: permission.Controller,
-				Key:        api.controllerUUID,
-			})
-			return access.Access, errors.Trace(err)
-		}
-
-		access, err := common.GetPermission(userPermission, userTag, api.state.ControllerTag())
-		if err != nil {
-			result.Result = nil
-			result.Error = apiservererrors.ServerError(err)
-		} else {
-			result.Result.Access = string(access)
-		}
-	}
-
-	var infoForUser = func(tag names.UserTag, user coreuser.User) params.UserInfoResult {
-		result := params.UserInfoResult{
-			Result: &params.UserInfo{
-				Username:       user.Name,
-				DisplayName:    user.DisplayName,
-				CreatedBy:      user.CreatorName,
-				DateCreated:    user.CreatedAt,
-				LastConnection: &user.LastLogin,
-				Disabled:       user.Disabled,
-			},
-		}
-		if user.Disabled {
-			// disabled users have no access to the controller.
-			result.Result.Access = string(permission.NoAccess)
-		} else {
-			accessForUser(tag, &result)
-		}
-		return result
-	}
-
 	argCount := len(request.Entities)
 	if argCount == 0 {
-
 		if isAdmin {
 			// Get all users if isAdmin
 			users, err := api.accessService.GetAllUsers(ctx, request.IncludeDisabled)
@@ -333,7 +295,7 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 			}
 			for _, user := range users {
 				userTag := names.NewUserTag(user.Name)
-				results.Results = append(results.Results, infoForUser(userTag, user))
+				results.Results = append(results.Results, api.infoForUser(ctx, userTag, user))
 			}
 			return results, nil
 		}
@@ -353,7 +315,7 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 		}
 
 		userTag := names.NewUserTag(user.Name)
-		results.Results = append(results.Results, infoForUser(userTag, user))
+		results.Results = append(results.Results, api.infoForUser(ctx, userTag, user))
 
 		return results, nil
 	}
@@ -369,28 +331,49 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 			results.Results = append(results.Results, params.UserInfoResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)})
 			continue
 		}
-		if !userTag.IsLocal() {
-			// TODO(wallyworld) record login information about external users.
-			result := params.UserInfoResult{
-				Result: &params.UserInfo{
-					Username: userTag.Id(),
-				},
-			}
-			accessForUser(userTag, &result)
-			results.Results = append(results.Results, result)
-			continue
-		}
 
 		// Get User
-		user, err := api.getLocalUserByTag(ctx, arg.Tag)
+		user, err := api.accessService.GetUserByName(ctx, userTag.Id())
 		if err != nil {
 			results.Results = append(results.Results, params.UserInfoResult{Error: apiservererrors.ServerError(err)})
 			continue
 		}
-		results.Results = append(results.Results, infoForUser(userTag, user))
+		results.Results = append(results.Results, api.infoForUser(ctx, userTag, user))
 	}
 
 	return results, nil
+}
+
+// infoForUser generates a UserInfoResult from a coreuser.User, it fills in
+// information needed but not contained in the core user from the access
+// service.
+func (api *UserManagerAPI) infoForUser(ctx context.Context, tag names.UserTag, user coreuser.User) params.UserInfoResult {
+	result := params.UserInfoResult{
+		Result: &params.UserInfo{
+			Username:       user.Name,
+			DisplayName:    user.DisplayName,
+			CreatedBy:      user.CreatorName,
+			DateCreated:    user.CreatedAt,
+			LastConnection: &user.LastLogin,
+			Disabled:       user.Disabled,
+		},
+	}
+	if user.Disabled {
+		// disabled users have no access to the controller.
+		result.Result.Access = string(permission.NoAccess)
+	} else {
+		access, err := api.accessService.ReadUserAccessLevelForTarget(ctx, tag.Id(), permission.ID{
+			ObjectType: permission.Controller,
+			Key:        api.controllerUUID,
+		})
+		if err != nil && !errors.Is(err, accesserrors.AccessNotFound) {
+			result.Result = nil
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.Result.Access = string(access)
+		}
+	}
+	return result
 }
 
 func (api *UserManagerAPI) checkCanRead(ctx context.Context, modelTag names.Tag) error {
@@ -528,17 +511,4 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 		}
 	}
 	return result, nil
-}
-
-// getLocalUserByTag returns the local user with the given tag. It returns an
-// error if the tag is not a valid local user tag.
-func (api *UserManagerAPI) getLocalUserByTag(ctx context.Context, tag string) (coreuser.User, error) {
-	userTag, err := names.ParseUserTag(tag)
-	if err != nil {
-		return coreuser.User{}, errors.Trace(err)
-	}
-	if !userTag.IsLocal() {
-		return coreuser.User{}, errors.Errorf("%q is not a local user", userTag)
-	}
-	return api.accessService.GetUserByName(ctx, userTag.Id())
 }
