@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/permission"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -23,20 +22,14 @@ type PermissionDelegator struct {
 // SubjectPermissions ensures that the input entity is a user,
 // then returns that user's access to the input subject.
 func (p *PermissionDelegator) SubjectPermissions(
-	ctx context.Context, entity authentication.Entity, target names.Tag,
+	ctx context.Context, userName string, target permission.ID,
 ) (permission.Access, error) {
-	userTag, ok := entity.Tag().(names.UserTag)
-	if !ok {
-		return permission.NoAccess, errors.Errorf("%s is not a user", names.ReadableString(entity.Tag()))
-	}
-	userID := userTag.Id()
 
-	permissionID, err := permission.ParseTagForID(target)
-	if err != nil {
-		return permission.NoAccess, errors.Trace(err)
+	if !names.IsValidUser(userName) {
+		return permission.NoAccess, errors.Errorf("%s is not a valid user", userName)
 	}
 
-	access, err := p.AccessService.ReadUserAccessLevelForTargetAddingMissingUser(ctx, userID, permissionID)
+	access, err := p.AccessService.ReadUserAccessLevelForTargetAddingMissingUser(ctx, userName, target)
 	if errors.Is(err, accesserrors.AccessNotFound) {
 		return permission.NoAccess, accesserrors.PermissionNotFound
 	} else if err != nil {

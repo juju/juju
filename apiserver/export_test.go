@@ -128,7 +128,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servi
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	offerAuthCtxt, err := newOfferAuthContext(context.Background(), pool, sf.ModelInfo(), sf.ControllerConfig(), sf.Macaroon())
+	offerAuthCtxt, err := newOfferAuthContext(context.Background(), pool, sf.Access(), sf.ModelInfo(), sf.ControllerConfig(), sf.Macaroon())
 	c.Assert(err, jc.ErrorIsNil)
 
 	srv := &Server{

@@ -27,22 +27,22 @@ type PermissionSuite struct {
 var _ = gc.Suite(&PermissionSuite{})
 
 type fakeUserAccess struct {
-	subjects []names.UserTag
-	objects  []names.Tag
-	access   permission.Access
-	err      error
+	userNames []string
+	targets   []permission.ID
+	access    permission.Access
+	err       error
 }
 
-func (f *fakeUserAccess) call(subject names.UserTag, object names.Tag) (permission.Access, error) {
-	f.subjects = append(f.subjects, subject)
-	f.objects = append(f.objects, object)
+func (f *fakeUserAccess) call(ctx context.Context, userName string, target permission.ID) (permission.Access, error) {
+	f.userNames = append(f.userNames, userName)
+	f.targets = append(f.targets, target)
 	return f.access, f.err
 }
 
 func (r *PermissionSuite) TestNoUserTagLacksPermission(c *gc.C) {
 	nonUser := names.NewModelTag("beef1beef1-0000-0000-000011112222")
 	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
-	hasPermission, err := common.HasPermission((&fakeUserAccess{}).call, nonUser, permission.ReadAccess, target)
+	hasPermission, err := common.HasPermission(context.Background(), (&fakeUserAccess{}).call, nonUser, permission.ReadAccess, target)
 	c.Assert(hasPermission, jc.IsFalse)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -158,7 +158,7 @@ func (r *PermissionSuite) TestHasPermission(c *gc.C) {
 			access: t.userGetterAccess,
 		}
 		c.Logf("HasPermission test n %d: %s", i, t.title)
-		hasPermission, err := common.HasPermission(userGetter.call, t.user, t.access, t.target)
+		hasPermission, err := common.HasPermission(context.Background(), userGetter.call, t.user, t.access, t.target)
 		c.Assert(hasPermission, gc.Equals, t.expected)
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -172,13 +172,13 @@ func (r *PermissionSuite) TestUserGetterErrorReturns(c *gc.C) {
 		access: permission.NoAccess,
 		err:    accesserrors.PermissionNotFound,
 	}
-	hasPermission, err := common.HasPermission(userGetter.call, user, permission.ReadAccess, target)
+	hasPermission, err := common.HasPermission(context.Background(), userGetter.call, user, permission.ReadAccess, target)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasPermission, jc.IsFalse)
-	c.Assert(userGetter.subjects, gc.HasLen, 1)
-	c.Assert(userGetter.subjects[0], gc.DeepEquals, user)
-	c.Assert(userGetter.objects, gc.HasLen, 1)
-	c.Assert(userGetter.objects[0], gc.DeepEquals, target)
+	c.Assert(userGetter.userNames, gc.HasLen, 1)
+	c.Assert(userGetter.userNames[0], gc.DeepEquals, user.Name())
+	c.Assert(userGetter.targets, gc.HasLen, 1)
+	c.Assert(userGetter.targets[0], gc.DeepEquals, permission.ID{ObjectType: permission.Model, Key: target.Id()})
 }
 
 func (r *PermissionSuite) TestHasModelAdminSuperUser(c *gc.C) {

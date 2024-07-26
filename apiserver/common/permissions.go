@@ -16,23 +16,32 @@ import (
 )
 
 // UserAccessFunc represents a func that can answer the question about what
-// level of access a user entity has for a given subject tag.
-type UserAccessFunc func(names.UserTag, names.Tag) (permission.Access, error)
+// level of access a user has for a given target.
+type UserAccessFunc func(ctx context.Context, userName string, target permission.ID) (permission.Access, error)
 
 // HasPermission returns true if the specified user has the specified
 // permission on target.
 func HasPermission(
-	accessGetter UserAccessFunc, utag names.Tag, requestedPermission permission.Access, target names.Tag,
+	ctx context.Context,
+	accessGetter UserAccessFunc,
+	utag names.Tag,
+	requestedPermission permission.Access,
+	target names.Tag,
 ) (bool, error) {
+	var objectType permission.ObjectType
 	var validate func(permission.Access) error
 	switch target.Kind() {
 	case names.ControllerTagKind:
+		objectType = permission.Controller
 		validate = permission.ValidateControllerAccess
 	case names.ModelTagKind:
+		objectType = permission.Model
 		validate = permission.ValidateModelAccess
 	case names.ApplicationOfferTagKind:
+		objectType = permission.Offer
 		validate = permission.ValidateOfferAccess
 	case names.CloudTagKind:
+		objectType = permission.Cloud
 		validate = permission.ValidateCloudAccess
 	default:
 		return false, nil
@@ -47,7 +56,10 @@ func HasPermission(
 		return false, nil
 	}
 
-	userAccess, err := accessGetter(userTag, target)
+	userAccess, err := accessGetter(ctx, userTag.Id(), permission.ID{
+		ObjectType: objectType,
+		Key:        target.Id(),
+	})
 	if err != nil && !(errors.Is(err, accesserrors.PermissionNotFound) || errors.Is(err, accesserrors.UserNotFound)) {
 		return false, errors.Annotatef(err, "while obtaining %s user", target.Kind())
 	}

@@ -63,9 +63,10 @@ func (CrossModelAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp baker
 // AuthContext is used to validate macaroons used to access
 // application offers.
 type AuthContext struct {
-	offerBakery OfferBakeryInterface
-	systemState Backend
-	modelTag    names.ModelTag
+	offerBakery   OfferBakeryInterface
+	systemState   Backend
+	accessService AccessService
+	modelTag      names.ModelTag
 
 	offerThirdPartyKey *bakery.KeyPair
 
@@ -76,12 +77,14 @@ type AuthContext struct {
 // macaroons used with application offer requests.
 func NewAuthContext(
 	systemState Backend,
+	accessService AccessService,
 	modelTag names.ModelTag,
 	offerThirdPartyKey *bakery.KeyPair,
 	offerBakery OfferBakeryInterface,
 ) (*AuthContext, error) {
 	ctxt := &AuthContext{
 		systemState:        systemState,
+		accessService:      accessService,
 		modelTag:           modelTag,
 		offerThirdPartyKey: offerThirdPartyKey,
 		offerBakery:        offerBakery,
@@ -148,9 +151,11 @@ func (a *AuthContext) CheckOfferAccessCaveat(caveat string) (*offerPermissionChe
 // It returns an error with a *bakery.VerificationError cause if the macaroon
 // verification failed. If the macaroon is valid, CheckLocalAccessRequest
 // returns a list of caveats to add to the discharge macaroon.
-func (a *AuthContext) CheckLocalAccessRequest(details *offerPermissionCheck) ([]checkers.Caveat, error) {
+func (a *AuthContext) CheckLocalAccessRequest(ctx context.Context, details *offerPermissionCheck) ([]checkers.Caveat, error) {
 	authlogger.Debugf("authenticate local offer access: %+v", details)
-	if err := a.checkOfferAccess(a.systemState.UserPermission, details.User, details.OfferUUID); err != nil {
+	if err := a.checkOfferAccess(
+		ctx, a.accessService.ReadUserAccessLevelForTarget,
+		details.User, details.OfferUUID); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -166,25 +171,23 @@ func (a *AuthContext) CheckLocalAccessRequest(details *offerPermissionCheck) ([]
 	return firstPartyCaveats, nil
 }
 
-type userAccessFunc func(names.UserTag, names.Tag) (permission.Access, error)
-
-func (a *AuthContext) checkOfferAccess(userAccess userAccessFunc, username, offerUUID string) error {
+func (a *AuthContext) checkOfferAccess(ctx context.Context, userAccess common.UserAccessFunc, username, offerUUID string) error {
 	userTag := names.NewUserTag(username)
-	isAdmin, err := hasAccess(userAccess, userTag, permission.SuperuserAccess, a.systemState.ControllerTag())
+	isAdmin, err := hasAccess(ctx, userAccess, userTag, permission.SuperuserAccess, a.systemState.ControllerTag())
 	if is := errors.Is(err, authentication.ErrorEntityMissingPermission); err != nil && !is {
 		return apiservererrors.ErrPerm
 	}
 	if isAdmin {
 		return nil
 	}
-	isAdmin, err = hasAccess(userAccess, userTag, permission.AdminAccess, a.modelTag)
+	isAdmin, err = hasAccess(ctx, userAccess, userTag, permission.AdminAccess, a.modelTag)
 	if is := errors.Is(err, authentication.ErrorEntityMissingPermission); err != nil && !is {
 		return apiservererrors.ErrPerm
 	}
 	if isAdmin {
 		return nil
 	}
-	isConsume, err := hasAccess(userAccess, userTag, permission.ConsumeAccess, names.NewApplicationOfferTag(offerUUID))
+	isConsume, err := hasAccess(ctx, userAccess, userTag, permission.ConsumeAccess, names.NewApplicationOfferTag(offerUUID))
 	if is := errors.Is(err, authentication.ErrorEntityMissingPermission); err != nil && !is {
 		return err
 	}
@@ -196,8 +199,14 @@ func (a *AuthContext) checkOfferAccess(userAccess userAccessFunc, username, offe
 	return nil
 }
 
-func hasAccess(userAccess func(names.UserTag, names.Tag) (permission.Access, error), userTag names.UserTag, access permission.Access, target names.Tag) (bool, error) {
-	has, err := common.HasPermission(userAccess, userTag, access, target)
+func hasAccess(
+	ctx context.Context,
+	userAccess common.UserAccessFunc,
+	userTag names.UserTag,
+	access permission.Access,
+	target names.Tag,
+) (bool, error) {
+	has, err := common.HasPermission(ctx, userAccess, userTag, access, target)
 	if errors.Is(err, errors.NotFound) {
 		return false, nil
 	}

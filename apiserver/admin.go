@@ -449,7 +449,10 @@ func (a *admin) checkUserPermissions(
 		return nil, fmt.Errorf("establishing user tag from authenticated user entity")
 	}
 
-	controllerAccess, err := authInfo.SubjectPermissions(ctx, a.root.state.ControllerTag())
+	controllerAccess, err := authInfo.SubjectPermissions(ctx, permission.ID{
+		ObjectType: permission.Controller,
+		Key:        a.srv.shared.controllerUUID,
+	})
 	if errors.Is(err, accesserrors.PermissionNotFound) || errors.Is(err, accesserrors.UserNotFound) {
 		controllerAccess = permission.NoAccess
 	} else if err != nil {
@@ -464,7 +467,10 @@ func (a *admin) checkUserPermissions(
 		// admin.
 
 		var err error
-		modelAccess, err = authInfo.SubjectPermissions(ctx, a.root.model.ModelTag())
+		modelAccess, err = authInfo.SubjectPermissions(ctx, permission.ID{
+			ObjectType: permission.Model,
+			Key:        a.root.model.ModelTag().Id(),
+		})
 		if err != nil {
 			if controllerAccess != permission.SuperuserAccess {
 				return nil, errors.Wrap(err, apiservererrors.ErrPerm)

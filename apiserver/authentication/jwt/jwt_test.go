@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication/jwt"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apitesting "github.com/juju/juju/apiserver/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/testing"
 )
@@ -77,7 +78,9 @@ func (s *loginTokenSuite) TestAuthenticateLoginRequestNotSupported(c *gc.C) {
 }
 
 func (s *loginTokenSuite) TestUsesLoginToken(c *gc.C) {
-	modelTag := names.NewModelTag("test")
+	uuid, err := coremodel.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	modelTag := names.NewModelTag(uuid.String())
 	applicationOfferTag := names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")
 	tok, err := EncodedJWT(JWTParams{
 		Controller: testing.ControllerTag.Id(),
@@ -102,15 +105,24 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(authInfo.Entity.Tag().String(), gc.Equals, "user-fred")
-	perm, err := authInfo.SubjectPermissions(context.Background(), modelTag)
+	perm, err := authInfo.SubjectPermissions(context.Background(), permission.ID{
+		ObjectType: permission.Model,
+		Key:        modelTag.Id(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(perm, gc.Equals, permission.WriteAccess)
 
-	perm, err = authInfo.SubjectPermissions(context.Background(), testing.ControllerTag)
+	perm, err = authInfo.SubjectPermissions(context.Background(), permission.ID{
+		ObjectType: permission.Controller,
+		Key:        testing.ControllerTag.Id(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(perm, gc.Equals, permission.LoginAccess)
 
-	perm, err = authInfo.SubjectPermissions(context.Background(), applicationOfferTag)
+	perm, err = authInfo.SubjectPermissions(context.Background(), permission.ID{
+		ObjectType: permission.Offer,
+		Key:        applicationOfferTag.Id(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(perm, gc.Equals, permission.ConsumeAccess)
 }
@@ -146,7 +158,10 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *gc.C) {
 	badUser := jwt.TokenEntity{
 		User: names.NewUserTag("wallyworld"),
 	}
-	perm, err := authInfo.Delegator.SubjectPermissions(context.Background(), badUser, modelTag)
+	perm, err := authInfo.Delegator.SubjectPermissions(context.Background(), badUser.User.Id(), permission.ID{
+		ObjectType: permission.Model,
+		Key:        modelTag.Id(),
+	})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
 	c.Assert(perm, gc.Equals, permission.NoAccess)
@@ -154,7 +169,10 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *gc.C) {
 	badUser = jwt.TokenEntity{
 		User: names.NewUserTag(permission.EveryoneTagName),
 	}
-	perm, err = authInfo.Delegator.SubjectPermissions(context.Background(), badUser, modelTag)
+	perm, err = authInfo.Delegator.SubjectPermissions(context.Background(), badUser.User.Id(), permission.ID{
+		ObjectType: permission.Model,
+		Key:        modelTag.Id(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(perm, gc.Equals, permission.NoAccess)
 }
@@ -182,7 +200,10 @@ func (s *loginTokenSuite) TestControllerSuperuser(c *gc.C) {
 
 	c.Assert(authInfo.Entity.Tag().String(), gc.Equals, "user-fred")
 
-	perm, err := authInfo.SubjectPermissions(context.Background(), testing.ControllerTag)
+	perm, err := authInfo.SubjectPermissions(context.Background(), permission.ID{
+		ObjectType: permission.Controller,
+		Key:        testing.ControllerTag.Id(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(perm, gc.Equals, permission.SuperuserAccess)
 }

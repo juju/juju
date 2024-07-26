@@ -258,10 +258,10 @@ func (a controllerAdminAuthorizer) Authorize(ctx context.Context, authInfo authe
 		return errors.Errorf("%s is not a user", names.ReadableString(authInfo.Entity.Tag()))
 	}
 
-	has, err := common.HasPermission(
-		func(entity names.UserTag, subject names.Tag) (permission.Access, error) {
-			if entity.String() != userTag.String() {
-				return permission.NoAccess, fmt.Errorf("expected entity %q got %q", userTag.String(), entity.String())
+	has, err := common.HasPermission(ctx,
+		func(ctx context.Context, userName string, subject permission.ID) (permission.Access, error) {
+			if userName != userTag.Id() {
+				return permission.NoAccess, fmt.Errorf("expected user %q got %q", userTag.String(), userName)
 			}
 			return authInfo.SubjectPermissions(ctx, subject)
 		},

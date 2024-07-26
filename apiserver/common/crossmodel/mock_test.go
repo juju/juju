@@ -45,14 +45,6 @@ func (m *mockState) ApplicationOfferForUUID(offerUUID string) (*jujucrossmodel.A
 	return &jujucrossmodel.ApplicationOffer{OfferUUID: offerUUID}, nil
 }
 
-func (m *mockState) UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error) {
-	perm, ok := m.permissions[target.Id()+":"+subject.Id()]
-	if !ok {
-		return permission.NoAccess, nil
-	}
-	return perm, nil
-}
-
 func (m *mockState) GetOfferAccess(offerUUID string, user names.UserTag) (permission.Access, error) {
 	perm, ok := m.permissions[offerUUID+":"+user.Id()]
 	if !ok {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	userservice "github.com/juju/juju/domain/access/service"
 )
@@ -51,4 +52,13 @@ type BakeryConfigService interface {
 type ModelInfoService interface {
 	// GetModelInfo returns the read-only information for the current model.
 	GetModelInfo(ctx context.Context) (model.ReadOnlyModel, error)
+}
+
+// AccessService provides information about users and permissions.
+type AccessService interface {
+	// ReadUserAccessLevelForTarget returns the subject's (user) access level
+	// for the given user on the given target.
+	// If the access level of a user cannot be found then
+	// accesserrors.AccessNotFound is returned.
+	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
 }

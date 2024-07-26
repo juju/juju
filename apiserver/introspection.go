@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -45,21 +46,17 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 
 	accessService := h.ctx.srv.shared.serviceFactoryGetter.FactoryForModel(h.ctx.srv.shared.controllerModelID).Access()
 
-	userPermission := func(subject names.UserTag, target names.Tag) (permission.Access, error) {
-		if kind := target.Kind(); !(kind == names.ControllerTagKind || kind == names.ModelTagKind) {
-			return "", errors.NotValidf("%q as a target", target.Kind())
+	userPermission := func(ctx context.Context, userName string, target permission.ID) (permission.Access, error) {
+		if objectType := target.ObjectType; !(objectType == permission.Controller || objectType == permission.Model) {
+			return "", errors.NotValidf("%q as a target", target.ObjectType)
 		}
 
-		pID, err := permission.ParseTagForID(target)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-
-		access, err := accessService.ReadUserAccessForTarget(r.Context(), subject.Id(), pID)
+		access, err := accessService.ReadUserAccessForTarget(ctx, userName, target)
 		return access.Access, errors.Trace(err)
 	}
 
 	ok, err := common.HasPermission(
+		r.Context(),
 		userPermission,
 		entity.Tag(),
 		permission.SuperuserAccess,
@@ -73,6 +70,7 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 	}
 
 	ok, err = common.HasPermission(
+		r.Context(),
 		userPermission,
 		entity.Tag(),
 		permission.ReadAccess,

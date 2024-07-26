@@ -419,6 +419,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 	// The auth context for authenticating access to application offers.
 	srv.offerAuthCtxt, err = newOfferAuthContext(
 		ctx, cfg.StatePool,
+		controllerServiceFactory.Access(),
 		controllerServiceFactory.ModelInfo(),
 		controllerConfigService, macaroonService,
 	)

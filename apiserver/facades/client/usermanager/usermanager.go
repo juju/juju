@@ -358,20 +358,22 @@ func (api *UserManagerAPI) infoForUser(ctx context.Context, tag names.UserTag, u
 			Disabled:       user.Disabled,
 		},
 	}
+
 	if user.Disabled {
 		// disabled users have no access to the controller.
 		result.Result.Access = string(permission.NoAccess)
+		return result
+	}
+
+	access, err := api.accessService.ReadUserAccessLevelForTarget(ctx, tag.Id(), permission.ID{
+		ObjectType: permission.Controller,
+		Key:        api.controllerUUID,
+	})
+	if err != nil && !errors.Is(err, accesserrors.AccessNotFound) {
+		result.Result = nil
+		result.Error = apiservererrors.ServerError(err)
 	} else {
-		access, err := api.accessService.ReadUserAccessLevelForTarget(ctx, tag.Id(), permission.ID{
-			ObjectType: permission.Controller,
-			Key:        api.controllerUUID,
-		})
-		if err != nil && !errors.Is(err, accesserrors.AccessNotFound) {
-			result.Result = nil
-			result.Error = apiservererrors.ServerError(err)
-		} else {
-			result.Result.Access = string(access)
-		}
+		result.Result.Access = string(access)
 	}
 	return result
 }
