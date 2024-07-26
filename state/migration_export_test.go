@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/charm/v12"
 	charmresource "github.com/juju/charm/v12/resource"
-	"github.com/juju/description/v5"
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -614,6 +614,76 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 	} else {
 		c.Assert(exported.ProvisioningState(), gc.IsNil)
 	}
+
+	// Check that we're exporting the metadata.
+
+	exportedCharmMetadata := exported.CharmMetadata()
+	c.Assert(exportedCharmMetadata, gc.NotNil)
+	c.Check(exportedCharmMetadata.Name(), gc.Equals, ch.Meta().Name)
+	c.Check(exportedCharmMetadata.Summary(), gc.Equals, ch.Meta().Summary)
+	c.Check(exportedCharmMetadata.Description(), gc.Equals, ch.Meta().Description)
+	c.Check(exportedCharmMetadata.Categories(), jc.DeepEquals, ch.Meta().Categories)
+	c.Check(exportedCharmMetadata.Tags(), jc.DeepEquals, ch.Meta().Tags)
+	c.Check(exportedCharmMetadata.Subordinate(), gc.Equals, ch.Meta().Subordinate)
+	c.Check(exportedCharmMetadata.Terms(), jc.DeepEquals, ch.Meta().Terms)
+
+	extraBindings := make(map[string]string)
+	for name, binding := range ch.Meta().ExtraBindings {
+		extraBindings[name] = binding.Name
+	}
+	c.Check(exportedCharmMetadata.ExtraBindings(), jc.DeepEquals, extraBindings)
+
+	expectedProvides := make(map[string]string)
+	for name, provider := range ch.Meta().Provides {
+		expectedProvides[name] = provider.Name
+	}
+	exportedProvides := make(map[string]string)
+	for name, provider := range exportedCharmMetadata.Provides() {
+		exportedProvides[name] = provider.Name()
+	}
+	c.Check(exportedProvides, jc.DeepEquals, expectedProvides)
+
+	expectedRequires := make(map[string]string)
+	for name, provider := range ch.Meta().Requires {
+		expectedRequires[name] = provider.Name
+	}
+	exportedRequires := make(map[string]string)
+	for name, provider := range exportedCharmMetadata.Requires() {
+		exportedRequires[name] = provider.Name()
+	}
+	c.Check(exportedRequires, jc.DeepEquals, expectedRequires)
+
+	expectedPeers := make(map[string]string)
+	for name, provider := range ch.Meta().Peers {
+		expectedPeers[name] = provider.Name
+	}
+	exportedPeers := make(map[string]string)
+	for name, provider := range exportedCharmMetadata.Peers() {
+		exportedPeers[name] = provider.Name()
+	}
+	c.Check(exportedPeers, jc.DeepEquals, expectedPeers)
+
+	// Check that we're exporting the manifest.
+	exportedCharmManifest := exported.CharmManifest()
+	c.Assert(exportedCharmManifest, gc.NotNil)
+
+	expectedManifestBases := make([]string, 0)
+	for _, base := range ch.Manifest().Bases {
+		expectedManifestBases = append(expectedManifestBases, fmt.Sprintf("%s %s %v",
+			base.Name,
+			base.Channel.String(),
+			base.Architectures,
+		))
+	}
+	exportedManifestBases := make([]string, 0)
+	for _, base := range exportedCharmManifest.Bases() {
+		exportedManifestBases = append(exportedManifestBases, fmt.Sprintf("%s %s %v",
+			base.Name(),
+			base.Channel(),
+			base.Architectures(),
+		))
+	}
+	c.Check(exportedManifestBases, jc.DeepEquals, expectedManifestBases)
 }
 
 func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {

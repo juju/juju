@@ -4,13 +4,15 @@
 package state
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v12/resource"
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v5"
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
@@ -861,11 +863,16 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 	delete(e.modelSettings, leadershipKey)
 
+	charmURL := application.doc.CharmURL
+	if charmURL == nil {
+		return errors.Errorf("missing charm URL for application %q", appName)
+	}
+
 	args := description.ApplicationArgs{
 		Tag:                  application.ApplicationTag(),
 		Type:                 e.model.Type(),
 		Subordinate:          application.doc.Subordinate,
-		CharmURL:             *application.doc.CharmURL,
+		CharmURL:             *charmURL,
 		CharmModifiedVersion: application.doc.CharmModifiedVersion,
 		ForceCharm:           application.doc.ForceCharm,
 		Exposed:              application.doc.Exposed,
@@ -939,6 +946,15 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			ApplicationDescription: offer.ApplicationDescription,
 		})
 	}
+
+	// Find the current charm.
+	charmData, err := e.charmData(*charmURL)
+	if err != nil {
+		return errors.Annotatef(err, "charm metadata for application %s", appName)
+	}
+
+	exApplication.SetCharmMetadata(charmData.Metadata)
+	exApplication.SetCharmManifest(charmData.Manifest)
 
 	// Find the current application status.
 	statusArgs, err := e.statusArgs(globalKey)
@@ -2981,4 +2997,430 @@ func (m storagePoolSettingsManager) ListSettings(keyPrefix string) (map[string]m
 		}
 	}
 	return result, nil
+}
+
+type charmData struct {
+	Metadata description.CharmMetadataArgs
+	Manifest description.CharmManifestArgs
+}
+
+func (e *exporter) charmData(charmURL string) (charmData, error) {
+	ch, err := e.st.Charm(charmURL)
+	if err != nil {
+		return charmData{}, errors.Annotatef(err, "getting charm %q", charmURL)
+	}
+
+	metadata, err := e.charmMetadata(ch)
+	if err != nil {
+		return charmData{}, errors.Annotatef(err, "getting metadata for charm %q", charmURL)
+	}
+
+	manifest, err := e.charmManifest(ch)
+	if err != nil {
+		return charmData{}, errors.Annotatef(err, "getting manifest for charm %q", charmURL)
+	}
+
+	return charmData{
+		Metadata: metadata,
+		Manifest: manifest,
+	}, nil
+}
+
+func (e *exporter) charmMetadata(ch *Charm) (description.CharmMetadataArgs, error) {
+	meta := ch.Meta()
+	if meta == nil {
+		return description.CharmMetadataArgs{}, errors.Errorf("missing metadata")
+	}
+
+	assumes, err := json.Marshal(meta.Assumes)
+	if err != nil {
+		return description.CharmMetadataArgs{}, errors.Annotate(err, "marshalling assumes")
+	}
+
+	return description.CharmMetadataArgs{
+		Name:           meta.Name,
+		Summary:        meta.Summary,
+		Description:    meta.Description,
+		Subordinate:    meta.Subordinate,
+		MinJujuVersion: meta.MinJujuVersion.String(),
+		RunAs:          string(meta.CharmUser),
+		Assumes:        string(assumes),
+		Tags:           meta.Tags,
+		Categories:     meta.Categories,
+		Terms:          meta.Terms,
+		Provides:       e.charmRelations(meta.Provides),
+		Requires:       e.charmRelations(meta.Requires),
+		Peers:          e.charmRelations(meta.Peers),
+		ExtraBindings:  e.charmExtraBindings(meta.ExtraBindings),
+		Storage:        e.charmStorage(meta.Storage),
+		Devices:        e.charmDevices(meta.Devices),
+		Payloads:       e.charmPayloads(meta.PayloadClasses),
+		Resources:      e.charmResources(meta.Resources),
+		Containers:     e.charmContainers(meta.Containers),
+	}, nil
+}
+
+func (e *exporter) charmManifest(ch *Charm) (description.CharmManifestArgs, error) {
+	manifest := ch.Manifest()
+	if manifest == nil {
+		return description.CharmManifestArgs{}, nil
+	}
+
+	bases := make([]description.CharmManifestBase, len(manifest.Bases))
+
+	for i, base := range manifest.Bases {
+		bases[i] = charmManifestBase{
+			name:          base.Name,
+			channel:       base.Channel.String(),
+			architectures: base.Architectures,
+		}
+	}
+
+	return description.CharmManifestArgs{
+		Bases: bases,
+	}, nil
+}
+
+func (e *exporter) charmRelations(relations map[string]charm.Relation) map[string]description.CharmMetadataRelation {
+	result := make(map[string]description.CharmMetadataRelation)
+	for name, rel := range relations {
+		result[name] = charmMetadataRelation{
+			name:     rel.Name,
+			role:     string(rel.Role),
+			iface:    rel.Interface,
+			scope:    string(rel.Scope),
+			optional: rel.Optional,
+			limit:    rel.Limit,
+		}
+	}
+	return result
+}
+
+func (e *exporter) charmExtraBindings(bindings map[string]charm.ExtraBinding) map[string]string {
+	result := make(map[string]string)
+	for name, binding := range bindings {
+		result[name] = binding.Name
+	}
+	return result
+}
+
+func (e *exporter) charmStorage(storages map[string]charm.Storage) map[string]description.CharmMetadataStorage {
+	result := make(map[string]description.CharmMetadataStorage)
+	for name, storage := range storages {
+		result[name] = charmMetadataStorage{
+			name:        storage.Name,
+			description: storage.Description,
+			typ:         string(storage.Type),
+			shared:      storage.Shared,
+			readonly:    storage.ReadOnly,
+			countMin:    storage.CountMin,
+			countMax:    storage.CountMax,
+			minimumSize: int(storage.MinimumSize),
+			location:    storage.Location,
+			properties:  storage.Properties,
+		}
+	}
+	return result
+}
+
+func (e *exporter) charmDevices(devices map[string]charm.Device) map[string]description.CharmMetadataDevice {
+	result := make(map[string]description.CharmMetadataDevice)
+	for name, device := range devices {
+		result[name] = charmMetadataDevice{
+			name:        device.Name,
+			description: device.Description,
+			typ:         string(device.Type),
+			countMin:    int(device.CountMin),
+			countMax:    int(device.CountMax),
+		}
+	}
+	return result
+}
+
+func (e *exporter) charmPayloads(payloads map[string]charm.PayloadClass) map[string]description.CharmMetadataPayload {
+	result := make(map[string]description.CharmMetadataPayload)
+	for name, payload := range payloads {
+		result[name] = charmMetadataPayload{
+			name: name,
+			typ:  payload.Type,
+		}
+	}
+	return result
+}
+
+func (e *exporter) charmResources(resources map[string]resource.Meta) map[string]description.CharmMetadataResource {
+	result := make(map[string]description.CharmMetadataResource)
+	for name, resource := range resources {
+		result[name] = charmMetadataResource{
+			name:        resource.Name,
+			typ:         resource.Type.String(),
+			path:        resource.Path,
+			description: resource.Description,
+		}
+	}
+	return result
+}
+
+func (e *exporter) charmContainers(containers map[string]charm.Container) map[string]description.CharmMetadataContainer {
+	result := make(map[string]description.CharmMetadataContainer)
+	for name, container := range containers {
+		mounts := make([]charmMetadataContainerMount, len(container.Mounts))
+		for i, mount := range container.Mounts {
+			mounts[i] = charmMetadataContainerMount{
+				storage:  mount.Storage,
+				location: mount.Location,
+			}
+		}
+		result[name] = charmMetadataContainer{
+			resource: name,
+			mounts:   mounts,
+			uid:      container.Uid,
+			gid:      container.Gid,
+		}
+	}
+	return result
+}
+
+type charmMetadataRelation struct {
+	name     string
+	role     string
+	iface    string
+	optional bool
+	limit    int
+	scope    string
+}
+
+// Name returns the name of the relation.
+func (r charmMetadataRelation) Name() string {
+	return r.name
+}
+
+// Role returns the role of the relation.
+func (r charmMetadataRelation) Role() string {
+	return r.role
+}
+
+// Interface returns the interface of the relation.
+func (r charmMetadataRelation) Interface() string {
+	return r.iface
+}
+
+// Optional returns whether the relation is optional.
+func (r charmMetadataRelation) Optional() bool {
+	return r.optional
+}
+
+// Limit returns the limit of the relation.
+func (r charmMetadataRelation) Limit() int {
+	return r.limit
+}
+
+// Scope returns the scope of the relation.
+func (r charmMetadataRelation) Scope() string {
+	return r.scope
+}
+
+type charmMetadataStorage struct {
+	name        string
+	description string
+	typ         string
+	shared      bool
+	readonly    bool
+	countMin    int
+	countMax    int
+	minimumSize int
+	location    string
+	properties  []string
+}
+
+// Name returns the name of the storage.
+func (s charmMetadataStorage) Name() string {
+	return s.name
+}
+
+// Description returns the description of the storage.
+func (s charmMetadataStorage) Description() string {
+	return s.description
+}
+
+// Type returns the type of the storage.
+func (s charmMetadataStorage) Type() string {
+	return s.typ
+}
+
+// Shared returns whether the storage is shared.
+func (s charmMetadataStorage) Shared() bool {
+	return s.shared
+}
+
+// Readonly returns whether the storage is readonly.
+func (s charmMetadataStorage) Readonly() bool {
+	return s.readonly
+}
+
+// CountMin returns the minimum count of the storage.
+func (s charmMetadataStorage) CountMin() int {
+	return s.countMin
+}
+
+// CountMax returns the maximum count of the storage.
+func (s charmMetadataStorage) CountMax() int {
+	return s.countMax
+}
+
+// MinimumSize returns the minimum size of the storage.
+func (s charmMetadataStorage) MinimumSize() int {
+	return s.minimumSize
+}
+
+// Location returns the location of the storage.
+func (s charmMetadataStorage) Location() string {
+	return s.location
+}
+
+// Properties returns the properties of the storage.
+func (s charmMetadataStorage) Properties() []string {
+	return s.properties
+}
+
+type charmMetadataDevice struct {
+	name        string
+	description string
+	typ         string
+	countMin    int
+	countMax    int
+}
+
+// Name returns the name of the device.
+func (d charmMetadataDevice) Name() string {
+	return d.name
+}
+
+// Description returns the description of the device.
+func (d charmMetadataDevice) Description() string {
+	return d.description
+}
+
+// Type returns the type of the device.
+func (d charmMetadataDevice) Type() string {
+	return d.typ
+}
+
+// CountMin returns the minimum count of the device.
+func (d charmMetadataDevice) CountMin() int {
+	return d.countMin
+}
+
+// CountMax returns the maximum count of the device.
+func (d charmMetadataDevice) CountMax() int {
+	return d.countMax
+}
+
+type charmMetadataPayload struct {
+	name string
+	typ  string
+}
+
+// Name returns the name of the payload.
+func (p charmMetadataPayload) Name() string {
+	return p.name
+}
+
+// Type returns the type of the payload.
+func (p charmMetadataPayload) Type() string {
+	return p.typ
+}
+
+type charmMetadataResource struct {
+	name        string
+	typ         string
+	path        string
+	description string
+}
+
+// Name returns the name of the resource.
+func (r charmMetadataResource) Name() string {
+	return r.name
+}
+
+// Type returns the type of the resource.
+func (r charmMetadataResource) Type() string {
+	return r.typ
+}
+
+// Path returns the path of the resource.
+func (r charmMetadataResource) Path() string {
+	return r.path
+}
+
+// Description returns the description of the resource.
+func (r charmMetadataResource) Description() string {
+	return r.description
+}
+
+type charmMetadataContainer struct {
+	resource string
+	mounts   []charmMetadataContainerMount
+	uid      *int
+	gid      *int
+}
+
+// Resource returns the resource of the container.
+func (c charmMetadataContainer) Resource() string {
+	return c.resource
+}
+
+// Mounts returns the mounts of the container.
+func (c charmMetadataContainer) Mounts() []description.CharmMetadataContainerMount {
+	mounts := make([]description.CharmMetadataContainerMount, len(c.mounts))
+	for i, m := range c.mounts {
+		mounts[i] = m
+	}
+	return mounts
+}
+
+// Uid returns the uid of the container.
+func (c charmMetadataContainer) Uid() *int {
+	return c.uid
+}
+
+// Gid returns the gid of the container.
+func (c charmMetadataContainer) Gid() *int {
+	return c.gid
+}
+
+type charmMetadataContainerMount struct {
+	storage  string
+	location string
+}
+
+// Storage returns the storage of the mount.
+func (m charmMetadataContainerMount) Storage() string {
+	return m.storage
+}
+
+// Location returns the location of the mount.
+func (m charmMetadataContainerMount) Location() string {
+	return m.location
+}
+
+type charmManifestBase struct {
+	name          string
+	channel       string
+	architectures []string
+}
+
+// Name returns the name of the base.
+func (r charmManifestBase) Name() string {
+	return r.name
+}
+
+// Channel returns the channel of the base.
+func (r charmManifestBase) Channel() string {
+	return r.channel
+}
+
+// Architectures returns the architectures of the base.
+func (r charmManifestBase) Architectures() []string {
+	return r.architectures
 }
