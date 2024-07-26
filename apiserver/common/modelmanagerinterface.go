@@ -5,7 +5,6 @@ package common
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
@@ -34,7 +33,6 @@ type ModelManagerBackend interface {
 	BlockGetter
 
 	ModelUUID() string
-	ModelBasicInfoForUser(user names.UserTag, isSuperuser bool) ([]state.ModelAccessInfo, error)
 	ModelSummariesForUser(user names.UserTag, isSupersser bool) ([]state.ModelSummary, error)
 	IsControllerAdmin(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
@@ -94,7 +92,6 @@ type Model interface {
 	CloudName() string
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
 	CloudRegion() string
-	Users() ([]permission.UserAccess, error)
 	Destroy(state.DestroyModelParams) error
 	MigrationMode() state.MigrationMode
 	Name() string
@@ -103,7 +100,6 @@ type Model interface {
 	// needs a Model with this model. Once this is gone ControllerUUID can be
 	// removed from this interface.
 	ControllerUUID() string
-	LastModelConnection(user names.UserTag) (time.Time, error)
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
 	SetCloudCredential(tag names.CloudCredentialTag) (bool, error)
 }

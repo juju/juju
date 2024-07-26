@@ -10,6 +10,7 @@ import (
 
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/domain/access"
 )
 
 // user represents a user in the state layer with the associated fields in the
@@ -189,3 +190,29 @@ type loginTime struct {
 
 // dbEveryoneExternal represents the permissions of the everyone@external user.
 type dbEveryoneExternal dbPermission
+
+// dbModelUserInfo represents information about a user on a particular model.
+type dbModelUserInfo struct {
+	// Name is the username of the user.
+	Name string `db:"name"`
+
+	// DisplayName is a user-friendly name represent the user as.
+	DisplayName string `db:"display_name"`
+
+	// LastModelLogin is the last time the user logged in to the model.
+	LastModelLogin time.Time `db:"time"`
+
+	// AccessType is the access level the user has on the model.
+	AccessType string `db:"access_type"`
+}
+
+// toModelUserInfo converts the result from the DB to the type
+// access.ModelUserInfo.
+func (info *dbModelUserInfo) toModelUserInfo() access.ModelUserInfo {
+	return access.ModelUserInfo{
+		Name:           info.Name,
+		DisplayName:    info.DisplayName,
+		LastModelLogin: info.LastModelLogin,
+		Access:         corepermission.Access(info.AccessType),
+	}
+}

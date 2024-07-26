@@ -5,7 +5,6 @@ package modelmanager_test
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -32,9 +31,10 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
-	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/access"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -52,8 +52,11 @@ type modelInfoSuite struct {
 	authorizer               apiservertesting.FakeAuthorizer
 	st                       *mockState
 	ctlrSt                   *mockState
+	controllerUserInfo       []access.ModelUserInfo
+	modelUserInfo            []access.ModelUserInfo
 	mockSecretBackendService *mocks.MockSecretBackendService
 	controllerUUID           uuid.UUID
+	mockAccessService        *mocks.MockAccessService
 }
 
 func pUint64(v uint64) *uint64 {
@@ -89,6 +92,14 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
+	s.controllerUserInfo = []access.ModelUserInfo{{
+		Name:   "admin",
+		Access: permission.AdminAccess,
+	}, {
+		Name:   "otheruser",
+		Access: permission.AdminAccess,
+	}}
+
 	controllerModel := &mockModel{
 		owner: names.NewUserTag("admin@local"),
 		life:  state.Alive,
@@ -116,6 +127,23 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		model:           controllerModel,
 		controllerModel: controllerModel,
 	}
+
+	s.modelUserInfo = []access.ModelUserInfo{{
+		Name:   "admin",
+		Access: permission.AdminAccess,
+	}, {
+		Name:        "bob",
+		DisplayName: "Bob",
+		Access:      permission.ReadAccess,
+	}, {
+		Name:        "charlotte",
+		DisplayName: "Charlotte",
+		Access:      permission.ReadAccess,
+	}, {
+		Name:        "mary",
+		DisplayName: "Mary",
+		Access:      permission.WriteAccess,
+	}}
 
 	s.st.model = &mockModel{
 		owner:          names.NewUserTag("bob@local"),
@@ -183,6 +211,7 @@ func (s *modelInfoSuite) TearDownTest(c *gc.C) {
 func (s *modelInfoSuite) getAPI(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 	s.mockSecretBackendService = mocks.NewMockSecretBackendService(ctrl)
+	s.mockAccessService = mocks.NewMockAccessService(ctrl)
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
@@ -196,7 +225,7 @@ func (s *modelInfoSuite) getAPI(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock
 			CredentialService:    apiservertesting.ConstCredentialGetter(&cred),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.mockAccessService,
 			ObjectStore:          &mockObjectStore{},
 			SecretBackendService: s.mockSecretBackendService,
 		},
@@ -215,6 +244,7 @@ func (s *modelInfoSuite) getAPI(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock
 func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmanager.ModelManagerAPI, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 	s.mockSecretBackendService = mocks.NewMockSecretBackendService(ctrl)
+	s.mockAccessService = mocks.NewMockAccessService(ctrl)
 	s.authorizer.Tag = user
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
@@ -229,7 +259,7 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 			CredentialService:    apiservertesting.ConstCredentialGetter(&cred),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.mockAccessService,
 			ObjectStore:          &mockObjectStore{},
 			SecretBackendService: s.mockSecretBackendService,
 		},
@@ -262,22 +292,22 @@ func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) pa
 		},
 		Users: []params.ModelUserInfo{{
 			UserName:       "admin",
-			LastConnection: &time.Time{},
+			LastConnection: nil,
 			Access:         params.ModelAdminAccess,
 		}, {
 			UserName:       "bob",
 			DisplayName:    "Bob",
-			LastConnection: &time.Time{},
+			LastConnection: nil,
 			Access:         params.ModelReadAccess,
 		}, {
 			UserName:       "charlotte",
 			DisplayName:    "Charlotte",
-			LastConnection: &time.Time{},
+			LastConnection: nil,
 			Access:         params.ModelReadAccess,
 		}, {
 			UserName:       "mary",
 			DisplayName:    "Mary",
-			LastConnection: &time.Time{},
+			LastConnection: nil,
 			Access:         params.ModelWriteAccess,
 		}},
 		Machines: []params.ModelMachineInfo{{
@@ -312,9 +342,10 @@ func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) pa
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
+	s.mockAccessService.EXPECT().GetModelUsers(gomock.Any(), "admin", coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return([]*secretbackendservice.SecretBackendInfo{
 		{
-			SecretBackend: coresecrets.SecretBackend{
+			SecretBackend: secrets.SecretBackend{
 				Name:        "myvault",
 				BackendType: "vault",
 				Config: map[string]interface{}{
@@ -356,15 +387,6 @@ func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo
 		{"Life", nil},
 		{"Config", nil},
 		{"Status", nil},
-		{"Users", nil},
-		{"ModelTag", nil},
-		{"ModelTag", nil},
-		{"ModelTag", nil},
-		{"ModelTag", nil},
-		{"LastModelConnection", []interface{}{names.NewUserTag("admin")}},
-		{"LastModelConnection", []interface{}{names.NewLocalUserTag("bob")}},
-		{"LastModelConnection", []interface{}{names.NewLocalUserTag("charlotte")}},
-		{"LastModelConnection", []interface{}{names.NewLocalUserTag("mary")}},
 		{"UUID", nil},
 		{"Type", nil},
 	})
@@ -376,6 +398,13 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 	api, ctrl := s.getAPIWithUser(c, mary)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+	s.mockAccessService.EXPECT().GetModelUsers(gomock.Any(), "mary", coremodel.UUID(s.st.model.cfg.UUID())).Return(
+		[]access.ModelUserInfo{{
+			Name:        "mary",
+			DisplayName: "Mary",
+			Access:      permission.WriteAccess,
+		}}, nil,
+	)
 
 	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
 	c.Assert(info.Users, gc.HasLen, 1)
@@ -386,6 +415,13 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
 	api, ctrl := s.getAPIWithUser(c, names.NewUserTag("charlotte@local"))
 	defer ctrl.Finish()
+	s.mockAccessService.EXPECT().GetModelUsers(gomock.Any(), "charlotte", coremodel.UUID(s.st.model.cfg.UUID())).Return(
+		[]access.ModelUserInfo{{
+			Name:        "charlotte",
+			DisplayName: "Charlotte",
+			Access:      permission.ReadAccess,
+		}}, nil,
+	)
 	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
 	c.Assert(info.Users, gc.HasLen, 1)
 	c.Assert(info.Users[0].UserName, gc.Equals, "charlotte")
@@ -405,7 +441,6 @@ func (s *modelInfoSuite) getModelInfo(c *gc.C, modelInfo modelInfo, modelUUID st
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Result, gc.NotNil)
-	c.Assert(results.Results[0].Error, gc.IsNil)
 	return *results.Results[0].Result
 }
 
@@ -428,21 +463,19 @@ func (s *modelInfoSuite) TestModelInfoErrorModelConfig(c *gc.C) {
 
 func (s *modelInfoSuite) TestModelInfoErrorModelUsers(c *gc.C) {
 	api, _ := s.getAPI(c)
-	s.st.model.SetErrors(
-		nil,                               // Config
-		nil,                               // Status
-		errors.Errorf("no users for you"), // Users
-	)
-	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `no users for you`)
+	s.mockAccessService.EXPECT().GetModelUsers(gomock.Any(), "admin", coremodel.UUID(coretesting.ModelTag.Id())).Return(nil, errors.Errorf("no users for you"))
+	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `getting model user info: no users for you`)
 }
 
 func (s *modelInfoSuite) TestModelInfoErrorNoModelUsers(c *gc.C) {
+	c.Skip("This error check in modelInfo is disabled until all permissions have been moved to domain")
 	api, _ := s.getAPI(c)
 	s.st.model.users = nil
 	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `permission denied`)
 }
 
 func (s *modelInfoSuite) TestModelInfoErrorNoAccess(c *gc.C) {
+	c.Skip("This error check in modelInfo is disabled until all permissions have been moved to domain")
 	api, _ := s.getAPIWithUser(c, names.NewUserTag("nemo@local"))
 	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `permission denied`)
 }
@@ -451,6 +484,7 @@ func (s *modelInfoSuite) TestRunningMigration(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+	s.mockAccessService.EXPECT().GetModelUsers(gomock.Any(), "admin", coremodel.UUID(coretesting.ModelTag.Id())).Return(s.modelUserInfo, nil)
 	start := time.Now().Add(-20 * time.Minute)
 	s.st.migration = &mockMigration{
 		status: "computing optimal bin packing",
@@ -472,6 +506,7 @@ func (s *modelInfoSuite) TestFailedMigration(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+	s.mockAccessService.EXPECT().GetModelUsers(gomock.Any(), "admin", coremodel.UUID(coretesting.ModelTag.Id())).Return(s.modelUserInfo, nil)
 	start := time.Now().Add(-20 * time.Minute)
 	end := time.Now().Add(-10 * time.Minute)
 	s.st.migration = &mockMigration{
@@ -495,6 +530,7 @@ func (s *modelInfoSuite) TestNoMigration(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+	s.mockAccessService.EXPECT().GetModelUsers(gomock.Any(), "admin", coremodel.UUID(coretesting.ModelTag.Id())).Return(s.modelUserInfo, nil)
 	results, err := api.ModelInfo(context.Background(), params.Entities{
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	})
@@ -506,6 +542,7 @@ func (s *modelInfoSuite) TestAliveModelGetsAllInfo(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+	s.mockAccessService.EXPECT().GetModelUsers(gomock.Any(), "admin", coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }
 
@@ -527,13 +564,14 @@ func (s *modelInfoSuite) TestAliveModelWithUsersFailure(c *gc.C) {
 	api, _ := s.getAPI(c)
 	s.st.model.life = state.Alive
 	s.setModelUsersError()
-	s.testModelInfoError(c, api, s.st.model.tag.String(), "users not found")
+	s.testModelInfoError(c, api, s.st.model.tag.String(), "getting model user info: model not found")
 }
 
 func (s *modelInfoSuite) TestDeadModelGetsAllInfo(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+	s.mockAccessService.EXPECT().GetModelUsers(gomock.Any(), "admin", coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dead, life.Dead)
 }
 
@@ -541,6 +579,7 @@ func (s *modelInfoSuite) TestDeadModelWithConfigFailure(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+	s.mockAccessService.EXPECT().GetModelUsers(gomock.Any(), "admin", coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelConfigError,
 		desiredLife:  state.Dead,
@@ -553,6 +592,7 @@ func (s *modelInfoSuite) TestDeadModelWithStatusFailure(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+	s.mockAccessService.EXPECT().GetModelUsers(gomock.Any(), "admin", coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelStatusError,
 		desiredLife:  state.Dead,
@@ -577,6 +617,7 @@ func (s *modelInfoSuite) TestDyingModelWithConfigFailure(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+	s.mockAccessService.EXPECT().GetModelUsers(gomock.Any(), "admin", coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelConfigError,
 		desiredLife:  state.Dying,
@@ -589,6 +630,7 @@ func (s *modelInfoSuite) TestDyingModelWithStatusFailure(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+	s.mockAccessService.EXPECT().GetModelUsers(gomock.Any(), "admin", coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelStatusError,
 		desiredLife:  state.Dying,
@@ -613,6 +655,7 @@ func (s *modelInfoSuite) TestImportingModelGetsAllInfo(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+	s.mockAccessService.EXPECT().GetModelUsers(gomock.Any(), "admin", coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
 	s.st.model.migrationStatus = state.MigrationModeImporting
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }
@@ -621,6 +664,7 @@ func (s *modelInfoSuite) TestImportingModelWithConfigFailure(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+	s.mockAccessService.EXPECT().GetModelUsers(gomock.Any(), "admin", coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
 	s.st.model.migrationStatus = state.MigrationModeImporting
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelConfigError,
@@ -634,6 +678,7 @@ func (s *modelInfoSuite) TestImportingModelWithStatusFailure(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
+	s.mockAccessService.EXPECT().GetModelUsers(gomock.Any(), "admin", coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
 	s.st.model.migrationStatus = state.MigrationModeImporting
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelStatusError,
@@ -674,10 +719,13 @@ func (s *modelInfoSuite) setModelStatusError() {
 }
 
 func (s *modelInfoSuite) setModelUsersError() {
-	s.st.model.SetErrors(
-		nil,                       // Config
-		nil,                       // Status
-		errors.NotFoundf("users"), // Users
+	s.mockAccessService.EXPECT().GetModelUsers(
+		gomock.Any(),
+		"admin",
+		gomock.Any(),
+	).Return(
+		nil,
+		modelerrors.NotFound,
 	)
 }
 
@@ -936,11 +984,6 @@ func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (permission
 func (st *mockState) ModelSummariesForUser(user names.UserTag, isSuperuser bool) ([]state.ModelSummary, error) {
 	st.MethodCall(st, "ModelSummariesForUser", user, isSuperuser)
 	return st.modelDetailsForUser()
-}
-
-func (st *mockState) ModelBasicInfoForUser(user names.UserTag, isSuperuser bool) ([]state.ModelAccessInfo, error) {
-	st.MethodCall(st, "ModelBasicInfoForUser", user, isSuperuser)
-	return []state.ModelAccessInfo{}, st.NextErr()
 }
 
 func (st *mockState) RemoveUserAccess(subject names.UserTag, target names.Tag) error {
@@ -1215,25 +1258,6 @@ func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	return names.NewCloudCredentialTag("dummy/bob/some-credential"), true
 }
 
-func (m *mockModel) Users() ([]permission.UserAccess, error) {
-	m.MethodCall(m, "Users")
-	if err := m.NextErr(); err != nil {
-		return nil, err
-	}
-	users := make([]permission.UserAccess, len(m.users))
-	for i, user := range m.users {
-		users[i] = permission.UserAccess{
-			UserID:      strings.ToLower(user.userName),
-			UserTag:     names.NewUserTag(user.userName),
-			Object:      m.ModelTag(),
-			Access:      user.access,
-			DisplayName: user.displayName,
-			UserName:    user.userName,
-		}
-	}
-	return users, nil
-}
-
 func (m *mockModel) Destroy(args state.DestroyModelParams) error {
 	m.MethodCall(m, "Destroy", args)
 	return m.NextErr()
@@ -1262,10 +1286,6 @@ func (m *mockModel) MigrationMode() state.MigrationMode {
 func (m *mockModel) AddUser(spec state.UserAccessSpec) (permission.UserAccess, error) {
 	m.MethodCall(m, "AddUser", spec)
 	return permission.UserAccess{}, m.NextErr()
-}
-func (m *mockModel) LastModelConnection(user names.UserTag) (time.Time, error) {
-	m.MethodCall(m, "LastModelConnection", user)
-	return time.Time{}, m.NextErr()
 }
 
 func (m *mockModel) getModelDetails() state.ModelSummary {

@@ -151,7 +151,7 @@ func (st *PermissionState) UpsertPermission(ctx context.Context, args access.Upd
 		return errors.Trace(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		apiUserUUID, err := st.upsertPermissionAuthorized(ctx, tx, args.ApiUser, args.AccessSpec.Target.Key)
+		apiUserUUID, err := st.authorizedOnTarget(ctx, tx, args.ApiUser, args.AccessSpec.Target.Key)
 		if err != nil {
 			return errors.Annotatef(err, "permission creator %q", args.ApiUser)
 		}
@@ -753,12 +753,11 @@ AND     u.removed = false
 	return inOut.UUID, nil
 }
 
-// upsertPermissionAuthorized determines if the given user is able a user and
-// create/update the given permissions. If superuser, the user can do
-// everything. If the user has admin permissions on the grantOn, the
-// permission changes can be made. If the apiUser has permissions, return their
-// UUID.
-func (st *PermissionState) upsertPermissionAuthorized(
+// authorizedOnTarget determines if the given user has admin/superuser
+// permissions on a given target. If superuser, the user can do everything. If
+// the user has admin permissions on the grantOn, the permission changes can be
+// made. If the apiUser has permissions, return their UUID.
+func (st *PermissionState) authorizedOnTarget(
 	ctx context.Context, tx *sqlair.TX, apiUser string, grantOn string,
 ) (user.UUID, error) {
 	var apiUserUUID user.UUID
