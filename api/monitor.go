@@ -27,6 +27,9 @@ type monitor struct {
 }
 
 func (m *monitor) run() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	defer close(m.broken)
 	for {
 		select {
@@ -36,7 +39,7 @@ func (m *monitor) run() {
 			logger.Debugf("RPC connection died")
 			return
 		case <-m.clock.After(m.pingPeriod):
-			if !m.pingWithTimeout(context.TODO()) {
+			if !m.pingWithTimeout(ctx) {
 				return
 			}
 		}

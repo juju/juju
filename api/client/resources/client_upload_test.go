@@ -159,20 +159,21 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &args, result).SetArg(3, results).Return(nil)
 
 	cURL := "ch:spam"
-	pendingIDs, err := s.client.AddPendingResources(resources.AddPendingResourcesArgs{
-		ApplicationID: "a-application",
-		CharmID: resources.CharmID{
-			URL: cURL,
-			Origin: apicharm.Origin{
-				Source:       apicharm.OriginCharmHub,
-				ID:           "id",
-				Risk:         "stable",
-				Base:         corebase.MakeDefaultBase("ubuntu", "22.04"),
-				Architecture: "arm64",
+	pendingIDs, err := s.client.AddPendingResources(context.Background(),
+		resources.AddPendingResourcesArgs{
+			ApplicationID: "a-application",
+			CharmID: resources.CharmID{
+				URL: cURL,
+				Origin: apicharm.Origin{
+					Source:       apicharm.OriginCharmHub,
+					ID:           "id",
+					Risk:         "stable",
+					Base:         corebase.MakeDefaultBase("ubuntu", "22.04"),
+					Architecture: "arm64",
+				},
 			},
-		},
-		Resources: []charmresource.Resource{res[0].Resource},
-	})
+			Resources: []charmresource.Resource{res[0].Resource},
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pendingIDs, jc.DeepEquals, expected)
 }

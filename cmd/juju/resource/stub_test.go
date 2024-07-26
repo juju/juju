@@ -45,7 +45,7 @@ func (s *stubAPIClient) Upload(_ context.Context, application, name, filename, p
 	return nil
 }
 
-func (s *stubAPIClient) ListResources(applications []string) ([]resources.ApplicationResources, error) {
+func (s *stubAPIClient) ListResources(ctx context.Context, applications []string) ([]resources.ApplicationResources, error) {
 	s.stub.AddCall("ListResources", applications)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

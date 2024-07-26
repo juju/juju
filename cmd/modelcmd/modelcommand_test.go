@@ -4,6 +4,7 @@
 package modelcmd_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -181,7 +182,7 @@ func (s *ModelCommandSuite) TestModelType(c *gc.C) {
 
 	cmd, err := runTestCommand(c, s.store)
 	c.Assert(err, jc.ErrorIsNil)
-	modelType, err := cmd.ModelType()
+	modelType, err := cmd.ModelType(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelType, gc.Equals, model.IAAS)
 }
@@ -269,7 +270,7 @@ func (s *ModelCommandSuite) TestIAASOnlyCommandIAASModel(c *gc.C) {
 	cmd, err := runTestCommand(c, s.store)
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelType, err := cmd.ModelType()
+	modelType, err := cmd.ModelType(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelType, gc.Equals, model.IAAS)
 }
@@ -311,7 +312,7 @@ func (s *ModelCommandSuite) TestAllowedCommandCAASModel(c *gc.C) {
 
 	cmd, err := runAllowedCAASCommand(c, s.store)
 	c.Assert(err, jc.ErrorIsNil)
-	modelType, err := cmd.ModelType()
+	modelType, err := cmd.ModelType(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelType, gc.Equals, model.CAAS)
 }
@@ -322,7 +323,7 @@ func (s *ModelCommandSuite) TestPartialModelUUIDSuccess(c *gc.C) {
 	cmd, err := runTestCommand(c, s.store, "-m", "uuidfoo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelType, err := cmd.ModelType()
+	modelType, err := cmd.ModelType(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelType, gc.Equals, model.IAAS)
 }
@@ -348,7 +349,7 @@ func (s *ModelCommandSuite) setupIAASModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func noOpRefresh(_ jujuclient.ClientStore, _ string) error {
+func noOpRefresh(_ context.Context, _ jujuclient.ClientStore, _ string) error {
 	return nil
 }
 

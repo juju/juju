@@ -4,6 +4,8 @@
 package backups
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -32,7 +34,7 @@ func (s *createSuite) TestCreate(c *gc.C) {
 	s.facade.EXPECT().FacadeCall(gomock.Any(), "Create", arg, gomock.Any()).SetArg(3, result)
 
 	client := s.newClient()
-	got, err := client.Create("important", true)
+	got, err := client.Create(context.Background(), "important", true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Log(got)
 	resultMeta := backupstesting.UpdateNotes(meta, "important")

@@ -84,7 +84,7 @@ func validConfig() migrationmaster.Config {
 		ModelUUID:       coretesting.ModelTag.Id(),
 		Guard:           struct{ fortress.Guard }{},
 		Facade:          struct{ migrationmaster.Facade }{},
-		APIOpen:         func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
+		APIOpen:         func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
 		UploadBinaries:  func(context.Context, migration.UploadBinariesConfig, logger.Logger) error { return nil },
 		CharmDownloader: struct{ migration.CharmDownloader }{},
 		ToolsDownloader: struct{ migration.ToolsDownloader }{},

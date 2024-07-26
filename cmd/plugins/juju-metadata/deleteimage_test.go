@@ -4,6 +4,8 @@
 package main
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
@@ -63,7 +65,7 @@ func (s *deleteImageSuite) TestDeleteImageMetadataFailed(c *gc.C) {
 func (s *deleteImageSuite) runDeleteImageMetadata(c *gc.C, args ...string) error {
 	tstDelete := &deleteImageMetadataCommand{}
 	tstDelete.SetClientStore(jujuclienttesting.MinimalStore())
-	tstDelete.newAPIFunc = func() (MetadataDeleteAPI, error) {
+	tstDelete.newAPIFunc = func(ctx context.Context) (MetadataDeleteAPI, error) {
 		return s.mockAPI, nil
 	}
 	deleteCmd := modelcmd.Wrap(tstDelete)
@@ -96,7 +98,7 @@ func (s mockDeleteAPI) Close() error {
 	return nil
 }
 
-func (s mockDeleteAPI) Delete(imageId string) error {
+func (s mockDeleteAPI) Delete(ctx context.Context, imageId string) error {
 	s.MethodCall(s, "Delete", imageId)
 	return s.delete(imageId)
 }

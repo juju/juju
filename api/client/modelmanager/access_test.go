@@ -4,6 +4,8 @@
 package modelmanager_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -28,9 +30,9 @@ const (
 func accessCall(client *modelmanager.Client, action params.ModelAction, user, access string, modelUUIDs ...string) error {
 	switch action {
 	case params.GrantModelAccess:
-		return client.GrantModel(user, access, modelUUIDs...)
+		return client.GrantModel(context.Background(), user, access, modelUUIDs...)
 	case params.RevokeModelAccess:
-		return client.RevokeModel(user, access, modelUUIDs...)
+		return client.RevokeModel(context.Background(), user, access, modelUUIDs...)
 	default:
 		panic(action)
 	}
@@ -185,6 +187,6 @@ func (s *accessSuite) TestInvalidResultCount(c *gc.C) {
 			return nil
 		})
 	client := modelmanager.NewClient(apiCaller)
-	err := client.GrantModel("bob", "write", someModelUUID, someModelUUID)
+	err := client.GrantModel(context.Background(), "bob", "write", someModelUUID, someModelUUID)
 	c.Assert(err, gc.ErrorMatches, "expected 2 results, got 0")
 }

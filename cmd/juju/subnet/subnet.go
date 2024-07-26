@@ -4,6 +4,7 @@
 package subnet
 
 import (
+	"context"
 	"io"
 	"net"
 
@@ -25,11 +26,11 @@ type SubnetAPI interface {
 	io.Closer
 
 	// AddSubnet adds an existing subnet to Juju.
-	AddSubnet(cidr string, id network.Id, spaceTag names.SpaceTag, zones []string) error
+	AddSubnet(ctx context.Context, cidr string, id network.Id, spaceTag names.SpaceTag, zones []string) error
 
 	// ListSubnets returns information about subnets known to Juju,
 	// optionally filtered by space and/or zone (both can be empty).
-	ListSubnets(withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error)
+	ListSubnets(ctx context.Context, withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error)
 }
 
 // mvpAPIShim forwards SubnetAPI methods to the real API facade for
@@ -45,8 +46,8 @@ func (m *mvpAPIShim) Close() error {
 	return m.apiState.Close()
 }
 
-func (m *mvpAPIShim) ListSubnets(withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error) {
-	return m.facade.ListSubnets(withSpace, withZone)
+func (m *mvpAPIShim) ListSubnets(ctx context.Context, withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error) {
+	return m.facade.ListSubnets(ctx, withSpace, withZone)
 }
 
 var logger = internallogger.GetLogger("juju.cmd.juju.subnet")
@@ -61,12 +62,12 @@ type SubnetCommandBase struct {
 
 // NewAPI returns a SubnetAPI for the root api endpoint that the
 // environment command returns.
-func (c *SubnetCommandBase) NewAPI() (SubnetAPI, error) {
+func (c *SubnetCommandBase) NewAPI(ctx context.Context) (SubnetAPI, error) {
 	if c.api != nil {
 		// Already created.
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -82,7 +83,7 @@ func (c *SubnetCommandBase) NewAPI() (SubnetAPI, error) {
 type RunOnAPI func(api SubnetAPI, ctx *cmd.Context) error
 
 func (c *SubnetCommandBase) RunWithAPI(ctx *cmd.Context, toRun RunOnAPI) error {
-	api, err := c.NewAPI()
+	api, err := c.NewAPI(ctx)
 	if err != nil {
 		return errors.Annotate(err, "cannot connect to the API server")
 	}

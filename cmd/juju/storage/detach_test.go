@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/cmd/v4"
@@ -82,7 +83,7 @@ type fakeEntityDetacher struct {
 	results []params.ErrorResult
 }
 
-func (f *fakeEntityDetacher) new() (storage.EntityDetacherCloser, error) {
+func (f *fakeEntityDetacher) new(ctx context.Context) (storage.EntityDetacherCloser, error) {
 	f.MethodCall(f, "NewEntityDetacherCloser")
 	return f, f.NextErr()
 }
@@ -92,7 +93,7 @@ func (f *fakeEntityDetacher) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeEntityDetacher) Detach(ids []string, force *bool, maxWait *time.Duration) ([]params.ErrorResult, error) {
+func (f *fakeEntityDetacher) Detach(ctx context.Context, ids []string, force *bool, maxWait *time.Duration) ([]params.ErrorResult, error) {
 	f.MethodCall(f, "Detach", ids, force, maxWait)
 	return f.results, f.NextErr()
 }

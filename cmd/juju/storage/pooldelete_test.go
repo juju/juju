@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
@@ -63,7 +65,7 @@ type mockPoolRemoveAPI struct {
 	err          error
 }
 
-func (s *mockPoolRemoveAPI) RemovePool(pname string) error {
+func (s *mockPoolRemoveAPI) RemovePool(ctx context.Context, pname string) error {
 	s.RemovedPools = append(s.RemovedPools, pname)
 	return s.err
 }

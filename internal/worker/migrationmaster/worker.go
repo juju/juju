@@ -124,7 +124,7 @@ type Config struct {
 	ModelUUID       string
 	Facade          Facade
 	Guard           fortress.Guard
-	APIOpen         func(*api.Info, api.DialOpts) (api.Connection, error)
+	APIOpen         func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
 	UploadBinaries  func(context.Context, migration.UploadBinariesConfig, logger.Logger) error
 	CharmDownloader migration.CharmDownloader
 	ToolsDownloader migration.ToolsDownloader
@@ -359,7 +359,7 @@ func (w *Worker) prechecks(ctx context.Context, status coremigration.MigrationSt
 	}
 
 	w.setInfoStatus(ctx, "performing target prechecks")
-	targetConn, err := w.openAPIConn(status.TargetInfo)
+	targetConn, err := w.openAPIConn(ctx, status.TargetInfo)
 	if err != nil {
 		return errors.Annotate(err, "failed to connect to target controller during prechecks")
 	}
@@ -431,7 +431,7 @@ func (w *Worker) transferModel(ctx context.Context, targetInfo coremigration.Tar
 	}
 
 	w.setInfoStatus(ctx, "importing model into target controller")
-	conn, err := w.openAPIConn(targetInfo)
+	conn, err := w.openAPIConn(ctx, targetInfo)
 	if err != nil {
 		return errors.Annotate(err, "failed to connect to target controller")
 	}
@@ -496,7 +496,7 @@ func (w *Worker) doVALIDATION(ctx context.Context, status coremigration.Migratio
 		return coremigration.ABORT, nil
 	}
 
-	client, closer, err := w.openTargetAPI(status.TargetInfo)
+	client, closer, err := w.openTargetAPI(ctx, status.TargetInfo)
 	if err != nil {
 		return coremigration.UNKNOWN, errors.Trace(err)
 	}
@@ -568,7 +568,7 @@ func (w *Worker) doSUCCESS(ctx context.Context, status coremigration.MigrationSt
 
 func (w *Worker) transferResources(ctx context.Context, targetInfo coremigration.TargetInfo, modelUUID string) error {
 	w.setInfoStatus(ctx, "transferring ownership of cloud resources to target controller")
-	conn, err := w.openAPIConn(targetInfo)
+	conn, err := w.openAPIConn(ctx, targetInfo)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -598,7 +598,7 @@ func (w *Worker) transferLogs(ctx context.Context, targetInfo coremigration.Targ
 	}
 	reportProgress(false, sent)
 
-	conn, err := w.openAPIConn(targetInfo)
+	conn, err := w.openAPIConn(ctx, targetInfo)
 	if err != nil {
 		return errors.Annotate(err, "connecting to target API")
 	}
@@ -694,7 +694,7 @@ func (w *Worker) doABORT(ctx context.Context, targetInfo coremigration.TargetInf
 }
 
 func (w *Worker) removeImportedModel(ctx context.Context, targetInfo coremigration.TargetInfo, modelUUID string) error {
-	conn, err := w.openAPIConn(targetInfo)
+	conn, err := w.openAPIConn(ctx, targetInfo)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -898,19 +898,19 @@ func formatMinionWaitUpdate(reports coremigration.MinionReports) string {
 	return msg
 }
 
-func (w *Worker) openTargetAPI(targetInfo coremigration.TargetInfo) (*migrationtarget.Client, func() error, error) {
-	conn, err := w.openAPIConn(targetInfo)
+func (w *Worker) openTargetAPI(ctx context.Context, targetInfo coremigration.TargetInfo) (*migrationtarget.Client, func() error, error) {
+	conn, err := w.openAPIConn(ctx, targetInfo)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	return migrationtarget.NewClient(conn), conn.Close, nil
 }
 
-func (w *Worker) openAPIConn(targetInfo coremigration.TargetInfo) (api.Connection, error) {
-	return w.openAPIConnForModel(targetInfo, "")
+func (w *Worker) openAPIConn(ctx context.Context, targetInfo coremigration.TargetInfo) (api.Connection, error) {
+	return w.openAPIConnForModel(ctx, targetInfo, "")
 }
 
-func (w *Worker) openAPIConnForModel(targetInfo coremigration.TargetInfo, modelUUID string) (api.Connection, error) {
+func (w *Worker) openAPIConnForModel(ctx context.Context, targetInfo coremigration.TargetInfo, modelUUID string) (api.Connection, error) {
 	apiInfo := &api.Info{
 		Addrs:     targetInfo.Addrs,
 		CACert:    targetInfo.CACert,
@@ -923,7 +923,7 @@ func (w *Worker) openAPIConnForModel(targetInfo coremigration.TargetInfo, modelU
 	if targetInfo.AuthTag.IsLocal() {
 		apiInfo.Tag = targetInfo.AuthTag
 	}
-	return w.config.APIOpen(apiInfo, migration.ControllerDialOpts())
+	return w.config.APIOpen(ctx, apiInfo, migration.ControllerDialOpts())
 }
 
 func modelHasMigrated(phase coremigration.Phase) bool {

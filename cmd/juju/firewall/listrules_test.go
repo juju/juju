@@ -4,6 +4,7 @@
 package firewall_test
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -106,7 +107,7 @@ func (s *mockListAPI) Close() error {
 	return nil
 }
 
-func (s *mockListAPI) ModelGet() (map[string]interface{}, error) {
+func (s *mockListAPI) ModelGet(ctx context.Context) (map[string]interface{}, error) {
 	if s.err != nil {
 		return nil, s.err
 	}

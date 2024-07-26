@@ -4,6 +4,8 @@
 package caas_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
@@ -51,7 +53,7 @@ type fakeRemoveCloudAPI struct {
 	jujutesting.Stub
 }
 
-func (api *fakeRemoveCloudAPI) RemoveCloud(cloud string) error {
+func (api *fakeRemoveCloudAPI) RemoveCloud(ctx context.Context, cloud string) error {
 	api.AddCall("RemoveCloud", cloud)
 	return api.NextErr()
 }
@@ -82,7 +84,7 @@ func (s *removeCAASSuite) makeCommand() cmd.Command {
 		s.cloudMetadataStore,
 		s.store,
 		s.store,
-		func() (caas.RemoveCloudAPI, error) {
+		func(ctx context.Context) (caas.RemoveCloudAPI, error) {
 			return s.fakeCloudAPI, nil
 		},
 	)

@@ -73,7 +73,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *Suite) apiOpen(info *api.Info, _ api.DialOpts) (api.Connection, error) {
+func (s *Suite) apiOpen(ctx context.Context, info *api.Info, _ api.DialOpts) (api.Connection, error) {
 	s.stub.AddCall("API open", info)
 	return &stubConnection{stub: s.stub}, nil
 }
@@ -205,7 +205,7 @@ func (s *Suite) TestVALIDATIONCantConnect(c *gc.C) {
 		MigrationId: "id",
 		Phase:       migration.VALIDATION,
 	}
-	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
+	s.config.APIOpen = func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
 		s.stub.AddCall("API open")
 		return nil, errors.New("boom")
 	}
@@ -244,7 +244,7 @@ func (s *Suite) TestVALIDATIONCantConnectNotReportForTryAgainError(c *gc.C) {
 		MigrationId: "id",
 		Phase:       migration.VALIDATION,
 	}
-	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
+	s.config.APIOpen = func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
 		s.stub.AddCall("API open")
 		return nil, apiservererrors.ErrTryAgain
 	}
@@ -375,7 +375,7 @@ func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *gc.C) {
 	}
 	s.agent.conf.tag = names.NewUnitTag("app/0")
 	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
-	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
+	s.config.APIOpen = func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
 		s.stub.AddCall("API open")
 		return nil, apiservererrors.ErrTryAgain
 	}

@@ -52,17 +52,17 @@ func (api *fakeUpdateCloudAPI) Close() error {
 	return nil
 }
 
-func (api *fakeUpdateCloudAPI) UpdateCloud(kloud cloud.Cloud) error {
+func (api *fakeUpdateCloudAPI) UpdateCloud(ctx context.Context, kloud cloud.Cloud) error {
 	api.MethodCall(api, "UpdateCloud", kloud)
 	return nil
 }
 
-func (api *fakeUpdateCloudAPI) Cloud(tag names.CloudTag) (cloud.Cloud, error) {
+func (api *fakeUpdateCloudAPI) Cloud(ctx context.Context, tag names.CloudTag) (cloud.Cloud, error) {
 	api.MethodCall(api, "Cloud", tag)
 	return api.cloud, nil
 }
 
-func (api *fakeUpdateCloudAPI) UpdateCloudsCredentials(cloudCredentials map[string]cloud.Credential, force bool) ([]params.UpdateCredentialResult, error) {
+func (api *fakeUpdateCloudAPI) UpdateCloudsCredentials(ctx context.Context, cloudCredentials map[string]cloud.Credential, force bool) ([]params.UpdateCredentialResult, error) {
 	api.MethodCall(api, "UpdateCloudsCredentials", cloudCredentials, force)
 	var tag string
 	for k := range cloudCredentials {
@@ -135,7 +135,7 @@ func (s *updateCAASSuite) makeCommand() cmd.Command {
 	return caas.NewUpdateCAASCommandForTest(
 		s.cloudMetadataStore,
 		s.clientStore,
-		func() (caas.UpdateCloudAPI, error) {
+		func(ctx context.Context) (caas.UpdateCloudAPI, error) {
 			return s.fakeCloudAPI, nil
 		},
 		func(_ context.Context, cloud cloud.Cloud, credential cloud.Credential) (k8s.ClusterMetadataChecker, error) {

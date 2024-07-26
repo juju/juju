@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -277,7 +278,7 @@ func (s mockListAPI) Close() error {
 	return nil
 }
 
-func (s mockListAPI) List(stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
+func (s mockListAPI) List(ctx context.Context, stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
 	return s.list(stream, region, bases, arch, virtType, rootStorageType)
 }
 

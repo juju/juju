@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -36,7 +37,7 @@ func NewBlockHelper(st api.Connection) BlockHelper {
 // on switches on desired block and
 // asserts that no errors were encountered.
 func (s BlockHelper) on(c *gc.C, blockType model.BlockType, msg string) {
-	c.Assert(s.client.SwitchBlockOn(fmt.Sprintf("%v", blockType), msg), gc.IsNil)
+	c.Assert(s.client.SwitchBlockOn(context.Background(), fmt.Sprintf("%v", blockType), msg), gc.IsNil)
 }
 
 // BlockAllChanges blocks all operations that could change the model.

@@ -4,6 +4,8 @@
 package firewall_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
@@ -74,7 +76,7 @@ func (s *mockSetRuleAPI) Close() error {
 	return nil
 }
 
-func (s *mockSetRuleAPI) ModelSet(cfg map[string]interface{}) error {
+func (s *mockSetRuleAPI) ModelSet(ctx context.Context, cfg map[string]interface{}) error {
 	if s.err != nil {
 		return s.err
 	}

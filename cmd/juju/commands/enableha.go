@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -25,8 +26,8 @@ import (
 
 func newEnableHACommand() cmd.Command {
 	haCommand := &enableHACommand{}
-	haCommand.newHAClientFunc = func() (MakeHAClient, error) {
-		root, err := haCommand.NewAPIRoot()
+	haCommand.newHAClientFunc = func(ctx context.Context) (MakeHAClient, error) {
+		root, err := haCommand.NewAPIRoot(ctx)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot get API connection")
 		}
@@ -43,7 +44,7 @@ type enableHACommand struct {
 	out cmd.Output
 
 	// newHAClientFunc returns HA Client to be used by the command.
-	newHAClientFunc func() (MakeHAClient, error)
+	newHAClientFunc func(ctx context.Context) (MakeHAClient, error)
 
 	// NumControllers specifies the number of controllers to make available.
 	NumControllers int
@@ -201,6 +202,7 @@ type availabilityInfo struct {
 type MakeHAClient interface {
 	Close() error
 	EnableHA(
+		ctx context.Context,
 		numControllers int, cons constraints.Value,
 		placement []string) (params.ControllersChanges, error)
 }
@@ -212,7 +214,7 @@ func (c *enableHACommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := common.ValidateIaasController(c.CommandBase, c.Info().Name, controllerName, c.ClientStore()); err != nil {
+	if err := common.ValidateIaasController(ctx, c.CommandBase, c.Info().Name, controllerName, c.ClientStore()); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -220,13 +222,14 @@ func (c *enableHACommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	haClient, err := c.newHAClientFunc()
+	haClient, err := c.newHAClientFunc(ctx)
 	if err != nil {
 		return err
 	}
 
 	defer func() { _ = haClient.Close() }()
 	enableHAResult, err := haClient.EnableHA(
+		ctx,
 		c.NumControllers,
 		c.Constraints,
 		c.Placement,

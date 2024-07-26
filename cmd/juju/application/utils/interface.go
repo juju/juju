@@ -25,5 +25,5 @@ type CharmClient interface {
 // ResourceLister defines a subset of the resources facade, as required
 // by the upgrade-charm command and to deploy bundles.
 type ResourceLister interface {
-	ListResources([]string) ([]resources.ApplicationResources, error)
+	ListResources(context.Context, []string) ([]resources.ApplicationResources, error)
 }

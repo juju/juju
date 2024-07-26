@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/cmd/v4"
@@ -20,8 +21,8 @@ import (
 // used to detach storage from application units.
 func NewDetachStorageCommandWithAPI() cmd.Command {
 	command := &detachStorageCommand{}
-	command.newEntityDetacherCloser = func() (EntityDetacherCloser, error) {
-		return command.NewStorageAPI()
+	command.newEntityDetacherCloser = func(ctx context.Context) (EntityDetacherCloser, error) {
+		return command.NewStorageAPI(ctx)
 	}
 	return modelcmd.Wrap(command)
 }
@@ -118,13 +119,13 @@ func (c *detachStorageCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	detacher, err := c.newEntityDetacherCloser()
+	detacher, err := c.newEntityDetacherCloser(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer detacher.Close()
 
-	results, err := detacher.Detach(c.storageIds, &c.Force, maxWait)
+	results, err := detacher.Detach(ctx, c.storageIds, &c.Force, maxWait)
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
 			common.PermissionsMessage(ctx.Stderr, "detach storage")
@@ -151,7 +152,7 @@ func (c *detachStorageCommand) Run(ctx *cmd.Context) error {
 
 // NewEntityDetacherCloser is the type of a function that returns an
 // EntityDetacherCloser.
-type NewEntityDetacherCloserFunc func() (EntityDetacherCloser, error)
+type NewEntityDetacherCloserFunc func(ctx context.Context) (EntityDetacherCloser, error)
 
 // EntityDetacherCloser extends EntityDetacher with a Closer method.
 type EntityDetacherCloser interface {
@@ -162,5 +163,5 @@ type EntityDetacherCloser interface {
 // EntityDetacher defines an interface for detaching storage with the
 // specified IDs.
 type EntityDetacher interface {
-	Detach([]string, *bool, *time.Duration) ([]params.ErrorResult, error)
+	Detach(context.Context, []string, *bool, *time.Duration) ([]params.ErrorResult, error)
 }

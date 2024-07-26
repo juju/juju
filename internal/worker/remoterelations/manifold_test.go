@@ -4,6 +4,8 @@
 package remoterelations_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -32,7 +34,7 @@ func (s *ManifoldConfigSuite) validConfig(c *gc.C) remoterelations.ManifoldConfi
 	return remoterelations.ManifoldConfig{
 		AgentName:                "agent",
 		APICallerName:            "api-caller",
-		NewControllerConnection:  func(*api.Info) (api.Connection, error) { return nil, nil },
+		NewControllerConnection:  func(context.Context, *api.Info) (api.Connection, error) { return nil, nil },
 		NewRemoteRelationsFacade: func(base.APICaller) remoterelations.RemoteRelationsFacade { return nil },
 		NewWorker:                func(remoterelations.Config) (worker.Worker, error) { return nil, nil },
 		Logger:                   loggertesting.WrapCheckLog(c),

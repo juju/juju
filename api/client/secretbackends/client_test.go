@@ -4,6 +4,7 @@
 package secretbackends_test
 
 import (
+	"context"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -62,7 +63,7 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *gc.C) {
 		}), BestVersion: 1,
 	}
 	client := secretbackends.NewClient(apiCaller)
-	result, err := client.ListSecretBackends([]string{"myvault"}, true)
+	result, err := client.ListSecretBackends(context.Background(), []string{"myvault"}, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []secretbackends.SecretBackend{{
 		Name:                "foo",
@@ -111,7 +112,7 @@ func (s *SecretBackendsSuite) TestAddSecretsBackend(c *gc.C) {
 		}), BestVersion: 1,
 	}
 	client := secretbackends.NewClient(apiCaller)
-	err := client.AddSecretBackend(backend)
+	err := client.AddSecretBackend(context.Background(), backend)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
@@ -138,7 +139,7 @@ func (s *SecretBackendsSuite) TestRemoveSecretsBackend(c *gc.C) {
 		}), BestVersion: 1,
 	}
 	client := secretbackends.NewClient(apiCaller)
-	err := client.RemoveSecretBackend("foo", true)
+	err := client.RemoveSecretBackend(context.Background(), "foo", true)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
@@ -174,6 +175,6 @@ func (s *SecretBackendsSuite) TestUpdateSecretsBackend(c *gc.C) {
 		}), BestVersion: 1,
 	}
 	client := secretbackends.NewClient(apiCaller)
-	err := client.UpdateSecretBackend(backend, true)
+	err := client.UpdateSecretBackend(context.Background(), backend, true)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }

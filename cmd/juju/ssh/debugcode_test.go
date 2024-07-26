@@ -32,7 +32,7 @@ func (s *DebugCodeSuite) TestArgFormatting(c *gc.C) {
 	defer ctrl.Finish()
 
 	ssh, app, status := s.setupModel(ctrl, false, nil, nil, "mysql/0")
-	app.EXPECT().GetCharmURLOrigin("mysql").Return(charm.MustParseURL("mysql"), apicharm.Origin{}, nil)
+	app.EXPECT().GetCharmURLOrigin(gomock.Any(), "mysql").Return(charm.MustParseURL("mysql"), apicharm.Origin{}, nil)
 
 	charmAPI := mocks.NewMockCharmAPI(ctrl)
 	chInfo := &charms.CharmInfo{Meta: &meta, Actions: &actions}

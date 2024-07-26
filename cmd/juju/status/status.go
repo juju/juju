@@ -4,6 +4,7 @@
 package status
 
 import (
+	stdcontext "context"
 	"fmt"
 	"io"
 	"os"
@@ -31,7 +32,7 @@ import (
 var logger = internallogger.GetLogger("juju.cmd.juju.status")
 
 type statusAPI interface {
-	Status(*client.StatusArgs) (*params.FullStatus, error)
+	Status(stdcontext.Context, *client.StatusArgs) (*params.FullStatus, error)
 	Close() error
 }
 
@@ -242,9 +243,9 @@ func (c *statusCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *statusCommand) getStatusAPI() (statusAPI, error) {
+func (c *statusCommand) getStatusAPI(ctx stdcontext.Context) (statusAPI, error) {
 	if c.statusAPI == nil {
-		api, err := c.NewAPIClient()
+		api, err := c.NewAPIClient(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -261,12 +262,12 @@ func (c *statusCommand) close() {
 	}
 }
 
-func (c *statusCommand) getStatus(includeStorage bool) (*params.FullStatus, error) {
-	apiclient, err := c.getStatusAPI()
+func (c *statusCommand) getStatus(ctx stdcontext.Context, includeStorage bool) (*params.FullStatus, error) {
+	apiclient, err := c.getStatusAPI(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return apiclient.Status(&client.StatusArgs{
+	return apiclient.Status(ctx, &client.StatusArgs{
 		Patterns:       c.patterns,
 		IncludeStorage: includeStorage,
 	})
@@ -292,14 +293,14 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 	}
 
 	// Always attempt to get the status at least once, and retry if it fails.
-	status, err := c.getStatus(showStorage)
+	status, err := c.getStatus(ctx, showStorage)
 	if err != nil && !modelcmd.IsModelMigratedError(err) {
 		for i := 0; i < c.retryCount; i++ {
 			// fun bit - make sure a new api connection is used for each new call
 			c.SetModelAPI(nil)
 			// Wait for a bit before retries.
 			<-c.clock.After(c.retryDelay)
-			status, err = c.getStatus(showStorage)
+			status, err = c.getStatus(ctx, showStorage)
 			if err == nil || modelcmd.IsModelMigratedError(err) {
 				break
 			}

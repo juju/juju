@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -107,13 +108,13 @@ func (c *listImagesCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
-	api, err := getImageMetadataListAPI(c)
+	api, err := getImageMetadataListAPI(c, ctx)
 	if err != nil {
 		return err
 	}
 	defer api.Close()
 
-	found, err := c.List(api, bases)
+	found, err := c.List(ctx, api, bases)
 	if err != nil {
 		return err
 	}
@@ -140,8 +141,8 @@ func (c *listImagesCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, output)
 }
 
-func (c *listImagesCommand) List(api MetadataListAPI, bases []corebase.Base) ([]params.CloudImageMetadata, error) {
-	return api.List(c.Stream, c.Region, bases, c.Arches, c.VirtType, c.RootStorageType)
+func (c *listImagesCommand) List(ctx context.Context, api MetadataListAPI, bases []corebase.Base) ([]params.CloudImageMetadata, error) {
+	return api.List(ctx, c.Stream, c.Region, bases, c.Arches, c.VirtType, c.RootStorageType)
 }
 
 var getImageMetadataListAPI = (*listImagesCommand).getImageMetadataListAPI
@@ -149,11 +150,11 @@ var getImageMetadataListAPI = (*listImagesCommand).getImageMetadataListAPI
 // MetadataListAPI defines the API methods that list image metadata command uses.
 type MetadataListAPI interface {
 	Close() error
-	List(stream, region string, bases []corebase.Base, arches []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error)
+	List(ctx context.Context, stream, region string, bases []corebase.Base, arches []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error)
 }
 
-func (c *listImagesCommand) getImageMetadataListAPI() (MetadataListAPI, error) {
-	return c.NewImageMetadataAPI()
+func (c *listImagesCommand) getImageMetadataListAPI(ctx context.Context) (MetadataListAPI, error) {
+	return c.NewImageMetadataAPI(ctx)
 }
 
 // convertDetailsToInfo converts cloud image metadata received from api to

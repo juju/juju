@@ -5,6 +5,7 @@ package user
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -79,8 +80,8 @@ const loginExamples = `
 var (
 	apiOpen          = (*modelcmd.CommandBase).APIOpen
 	newAPIConnection = juju.NewAPIConnection
-	listModels       = func(c api.Connection, userName string) ([]apibase.UserModel, error) {
-		return modelmanager.NewClient(c).ListModels(userName)
+	listModels       = func(ctx context.Context, c api.Connection, userName string) ([]apibase.UserModel, error) {
+		return modelmanager.NewClient(c).ListModels(ctx, userName)
 	}
 	// loginClientStore is used as the client store. When it is nil,
 	// the default client store will be used.
@@ -290,7 +291,7 @@ use "juju unregister %s" to remove the existing controller.`[1:], c.domain, c.co
 	}
 	// Now list the models available so we can show them and store their
 	// details locally.
-	models, err := listModels(conn, updatedAccountDetails.User)
+	models, err := listModels(ctx, conn, updatedAccountDetails.User)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -310,7 +311,7 @@ func (c *loginCommand) existingControllerLogin(ctx *cmd.Context, store jujuclien
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return newAPIConnection(args)
+		return newAPIConnection(ctx, args)
 	}
 	return c.login(ctx, currentAccountDetails, dial)
 }
@@ -446,7 +447,7 @@ func (c *loginCommand) publicControllerLogin(
 			return nil, errors.Annotatef(err, "getting sni host from host %q", host)
 		}
 
-		return apiOpen(&c.CommandBase, &api.Info{
+		return apiOpen(&c.CommandBase, ctx, &api.Info{
 			Tag:         tag,
 			Password:    d.Password,
 			Addrs:       []string{host},

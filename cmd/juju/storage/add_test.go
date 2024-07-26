@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -269,6 +270,6 @@ func (s mockAddAPI) Close() error {
 	return nil
 }
 
-func (s mockAddAPI) AddToUnit(storages []params.StorageAddParams) ([]params.AddStorageResult, error) {
+func (s mockAddAPI) AddToUnit(ctx context.Context, storages []params.StorageAddParams) ([]params.AddStorageResult, error) {
 	return s.addToUnitFunc(storages)
 }

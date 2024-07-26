@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -147,7 +148,7 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 
 func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 	fake := &fakeDebugLogAPI{}
-	s.PatchValue(&getDebugLogAPI, func(_ *debugLogCommand, _ []string) (DebugLogAPI, error) {
+	s.PatchValue(&getDebugLogAPI, func(ctx context.Context, _ *debugLogCommand, _ []string) (DebugLogAPI, error) {
 		return fake, nil
 	})
 	_, err := cmdtesting.RunCommand(c, newDebugLogCommand(jujuclienttesting.MinimalStore()),
@@ -357,7 +358,7 @@ type fakeDebugLogAPI struct {
 	err    error
 }
 
-func (fake *fakeDebugLogAPI) WatchDebugLog(params common.DebugLogParams) (<-chan common.LogMessage, error) {
+func (fake *fakeDebugLogAPI) WatchDebugLog(ctx context.Context, params common.DebugLogParams) (<-chan common.LogMessage, error) {
 	if fake.err != nil {
 		return nil, fake.err
 	}
@@ -382,7 +383,7 @@ func (*fakeControllerDetailsAPI) BestAPIVersion() int {
 	return 3
 }
 
-func (fake *fakeControllerDetailsAPI) ControllerDetails() (map[string]highavailability.ControllerDetails, error) {
+func (fake *fakeControllerDetailsAPI) ControllerDetails(ctx context.Context) (map[string]highavailability.ControllerDetails, error) {
 	return map[string]highavailability.ControllerDetails{
 		"666": {
 			ControllerID: "666",

@@ -51,7 +51,7 @@ func (c *ReloadCommand) Info() *cmd.Info {
 // Run implements Command.Run.
 func (c *ReloadCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithSpaceAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
-		err := api.ReloadSpaces()
+		err := api.ReloadSpaces(ctx)
 		if err != nil {
 			if errors.Is(err, errors.NotSupported) {
 				ctx.Infof("cannot reload spaces: %v", err)

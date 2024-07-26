@@ -91,7 +91,7 @@ func (s *clientCredentialsLoginProviderProviderSuite) TestClientCredentialsLogin
 	})
 
 	lp := api.NewClientCredentialsLoginProvider(clientID, clientSecret)
-	apiState, err := api.Open(&api.Info{
+	apiState, err := api.Open(context.Background(), &api.Info{
 		Addrs:          info.Addrs,
 		ControllerUUID: info.ControllerUUID,
 		CACert:         info.CACert,

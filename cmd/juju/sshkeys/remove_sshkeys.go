@@ -72,8 +72,8 @@ func (c *removeKeysCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *removeKeysCommand) Run(context *cmd.Context) error {
-	client, err := c.NewKeyManagerClient()
+func (c *removeKeysCommand) Run(ctx *cmd.Context) error {
+	client, err := c.NewKeyManagerClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -82,13 +82,13 @@ func (c *removeKeysCommand) Run(context *cmd.Context) error {
 	// TODO(alexisb) - currently keys are global which is not ideal.
 	// keymanager needs to be updated to allow keys per user
 	c.user = "admin"
-	results, err := client.DeleteKeys(c.user, c.keyIds...)
+	results, err := client.DeleteKeys(ctx, c.user, c.keyIds...)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	for i, result := range results {
 		if result.Error != nil {
-			fmt.Fprintf(context.Stderr, "cannot remove key id %q: %v\n", c.keyIds[i], result.Error)
+			fmt.Fprintf(ctx.Stderr, "cannot remove key id %q: %v\n", c.keyIds[i], result.Error)
 		}
 	}
 	return nil

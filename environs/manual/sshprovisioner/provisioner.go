@@ -5,6 +5,8 @@
 package sshprovisioner
 
 import (
+	"context"
+
 	"github.com/juju/juju/environs/manual"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
@@ -16,11 +18,11 @@ var (
 
 // ProvisionMachine returns a new machineId and nil if the provision process is done successfully
 // The func will manual provision a linux machine using as it's default protocol SSH
-func ProvisionMachine(args manual.ProvisionMachineArgs) (machineId string, err error) {
+func ProvisionMachine(ctx context.Context, args manual.ProvisionMachineArgs) (machineId string, err error) {
 	defer func() {
 		if machineId != "" && err != nil {
 			logger.Errorf("provisioning failed, removing machine %v: %v", machineId, err)
-			results, cleanupErr := args.Client.DestroyMachinesWithParams(false, false, false, nil, machineId)
+			results, cleanupErr := args.Client.DestroyMachinesWithParams(ctx, false, false, false, nil, machineId)
 			if cleanupErr == nil {
 				cleanupErr = results[0].Error
 			}
@@ -46,12 +48,12 @@ func ProvisionMachine(args manual.ProvisionMachineArgs) (machineId string, err e
 	}
 
 	// Inform Juju that the machine exists.
-	machineId, err = manual.RecordMachineInState(args.Client, *machineParams)
+	machineId, err = manual.RecordMachineInState(ctx, args.Client, *machineParams)
 	if err != nil {
 		return "", err
 	}
 
-	provisioningScript, err := args.Client.ProvisioningScript(params.ProvisioningScriptParams{
+	provisioningScript, err := args.Client.ProvisioningScript(ctx, params.ProvisioningScriptParams{
 		MachineId:              machineId,
 		Nonce:                  machineParams.Nonce,
 		DisablePackageCommands: !args.EnableOSRefreshUpdate && !args.EnableOSUpgrade,

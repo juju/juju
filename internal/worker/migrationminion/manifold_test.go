@@ -37,7 +37,7 @@ func (s *ManifoldSuite) validConfig(c *gc.C) migrationminion.ManifoldConfig {
 		APICallerName:     "api-caller",
 		FortressName:      "fortress",
 		Clock:             struct{ clock.Clock }{},
-		APIOpen:           func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
+		APIOpen:           func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
 		ValidateMigration: func(context.Context, base.APICaller) error { return nil },
 		NewFacade:         func(base.APICaller) (migrationminion.Facade, error) { return nil, nil },
 		NewWorker:         func(migrationminion.Config) (worker.Worker, error) { return nil, nil },

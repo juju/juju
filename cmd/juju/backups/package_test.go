@@ -186,7 +186,7 @@ func (f *fakeAPIClient) CheckArgs(c *gc.C, args ...string) {
 	c.Check(f.args, jc.DeepEquals, args)
 }
 
-func (c *fakeAPIClient) Create(notes string, noDownload bool) (*params.BackupsMetadataResult, error) {
+func (c *fakeAPIClient) Create(ctx context.Context, notes string, noDownload bool) (*params.BackupsMetadataResult, error) {
 	c.calls = append(c.calls, "Create")
 	c.args = append(c.args, notes, fmt.Sprintf("%t", noDownload))
 	c.notes = notes

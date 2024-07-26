@@ -4,6 +4,7 @@
 package imagemetadatamanager_test
 
 import (
+	"context"
 	"regexp"
 
 	"github.com/juju/errors"
@@ -71,6 +72,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "List", args, res).SetArg(3, ress).Return(nil)
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 	found, err := client.List(
+		context.Background(),
 		stream, region,
 		[]corebase.Base{base}, []string{arch},
 		virtType, rootStorageType,
@@ -96,7 +98,7 @@ func (s *imagemetadataSuite) TestListFacadeCallError(c *gc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "List", args, res).Return(errors.New(msg))
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
-	found, err := client.List("", "", nil, nil, "", "")
+	found, err := client.List(context.Background(), "", "", nil, nil, "", "")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(found, gc.HasLen, 0)
 }
@@ -119,7 +121,7 @@ func (s *imagemetadataSuite) TestSave(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Save", args, res).SetArg(3, ress).Return(nil)
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.Save([]params.CloudImageMetadata{m, m})
+	err := client.Save(context.Background(), []params.CloudImageMetadata{m, m})
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -139,7 +141,7 @@ func (s *imagemetadataSuite) TestSaveFacadeCallError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Save", args, res).Return(errors.New(msg))
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.Save(m)
+	err := client.Save(context.Background(), m)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }
 
@@ -164,7 +166,7 @@ func (s *imagemetadataSuite) TestSaveFacadeCallErrorResult(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Save", args, res).SetArg(3, ress).Return(nil)
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.Save(m)
+	err := client.Save(context.Background(), m)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }
 
@@ -184,7 +186,7 @@ func (s *imagemetadataSuite) TestDelete(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Delete", args, res).SetArg(3, ress).Return(nil)
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.Delete(imageId)
+	err := client.Delete(context.Background(), imageId)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -204,7 +206,7 @@ func (s *imagemetadataSuite) TestDeleteMultipleResult(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Delete", args, res).SetArg(3, ress).Return(nil)
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.Delete(imageId)
+	err := client.Delete(context.Background(), imageId)
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`expected to find one result for image id "tst12345" but found 2`))
 }
 
@@ -224,7 +226,7 @@ func (s *imagemetadataSuite) TestDeleteFailure(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Delete", args, res).SetArg(3, ress).Return(nil)
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.Delete("tst12345")
+	err := client.Delete(context.Background(), "tst12345")
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
@@ -241,6 +243,6 @@ func (s *imagemetadataSuite) TestDeleteFacadeCallError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Delete", args, res).Return(errors.New(msg))
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.Delete("tst12345")
+	err := client.Delete(context.Background(), "tst12345")
 	c.Assert(err, gc.ErrorMatches, msg)
 }

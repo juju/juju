@@ -44,7 +44,7 @@ func (s *UpgradeModelSuite) TestAbortModelUpgrade(c *gc.C) {
 	).Return(nil)
 
 	client := modelupgrader.NewClient(apiCaller)
-	err := client.AbortModelUpgrade(coretesting.ModelTag.Id())
+	err := client.AbortModelUpgrade(context.Background(), coretesting.ModelTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -71,6 +71,7 @@ func (s *UpgradeModelSuite) TestUpgradeModel(c *gc.C) {
 
 	client := modelupgrader.NewClient(apiCaller)
 	chosenVersion, err := client.UpgradeModel(
+		context.Background(),
 		coretesting.ModelTag.Id(),
 		version.MustParse("2.9.1"),
 		"", true, true,

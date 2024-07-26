@@ -4,6 +4,7 @@
 package user_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -51,7 +52,7 @@ func (f *fakeClock) Now() time.Time {
 	return f.now
 }
 
-func (f *fakeUserListAPI) ModelUserInfo(modelUUID string) ([]params.ModelUserInfo, error) {
+func (f *fakeUserListAPI) ModelUserInfo(ctx context.Context, modelUUID string) ([]params.ModelUserInfo, error) {
 	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
 	last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
 
@@ -78,7 +79,7 @@ func (f *fakeUserListAPI) ModelUserInfo(modelUUID string) ([]params.ModelUserInf
 	return userlist, nil
 }
 
-func (f *fakeUserListAPI) UserInfo(usernames []string, all usermanager.IncludeDisabled) ([]params.UserInfo, error) {
+func (f *fakeUserListAPI) UserInfo(ctx context.Context, usernames []string, all usermanager.IncludeDisabled) ([]params.UserInfo, error) {
 	if len(usernames) > 0 {
 		return nil, errors.Errorf("expected no usernames, got %d", len(usernames))
 	}

@@ -103,11 +103,11 @@ type SyncToolAPI interface {
 	Close() error
 }
 
-func (c *syncAgentBinaryCommand) getSyncToolAPI() (SyncToolAPI, error) {
+func (c *syncAgentBinaryCommand) getSyncToolAPI(ctx context.Context) (SyncToolAPI, error) {
 	if c.syncToolAPI != nil {
 		return c.syncToolAPI, nil
 	}
-	return c.NewModelUpgraderAPIClient()
+	return c.NewModelUpgraderAPIClient(ctx)
 }
 
 func (c *syncAgentBinaryCommand) Run(ctx *cmd.Context) (resultErr error) {
@@ -149,7 +149,7 @@ func (c *syncAgentBinaryCommand) Run(ctx *cmd.Context) (resultErr error) {
 		if c.public {
 			logger.Infof("--public is ignored unless --local-dir is specified")
 		}
-		api, err := c.getSyncToolAPI()
+		api, err := c.getSyncToolAPI(ctx)
 		if err != nil {
 			return err
 		}

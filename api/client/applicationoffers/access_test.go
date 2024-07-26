@@ -4,6 +4,8 @@
 package applicationoffers_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -26,9 +28,9 @@ const (
 func accessCall(client *applicationoffers.Client, action params.OfferAction, user, access string, offerURLs ...string) error {
 	switch action {
 	case params.GrantOfferAccess:
-		return client.GrantOffer(user, access, offerURLs...)
+		return client.GrantOffer(context.Background(), user, access, offerURLs...)
 	case params.RevokeOfferAccess:
-		return client.RevokeOffer(user, access, offerURLs...)
+		return client.RevokeOffer(context.Background(), user, access, offerURLs...)
 	default:
 		panic(action)
 	}
@@ -207,6 +209,6 @@ func (s *accessSuite) TestInvalidResultCount(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModifyOfferAccess", args, res).SetArg(3, ress).Return(nil)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.GrantOffer("bob", "consume", someOffer, someOffer)
+	err := client.GrantOffer(context.Background(), "bob", "consume", someOffer, someOffer)
 	c.Assert(err, gc.ErrorMatches, "expected 2 results, got 0")
 }

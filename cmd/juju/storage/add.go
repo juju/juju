@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -23,8 +24,8 @@ import (
 // NewAddCommand returns a command used to add unit storage.
 func NewAddCommand() cmd.Command {
 	cmd := &addCommand{}
-	cmd.newAPIFunc = func() (StorageAddAPI, error) {
-		return cmd.NewStorageAPI()
+	cmd.newAPIFunc = func(ctx context.Context) (StorageAddAPI, error) {
+		return cmd.NewStorageAPI(ctx)
 	}
 	return modelcmd.Wrap(cmd)
 }
@@ -101,7 +102,7 @@ type addCommand struct {
 	// storageDirectives is a map of storage directives, keyed on the storage name
 	// defined in charm storage metadata.
 	storageDirectives map[string]storage.Directive
-	newAPIFunc        func() (StorageAddAPI, error)
+	newAPIFunc        func(ctx context.Context) (StorageAddAPI, error)
 }
 
 // Init implements Command.Init.
@@ -138,14 +139,14 @@ func (c *addCommand) Info() *cmd.Info {
 
 // Run implements Command.Run.
 func (c *addCommand) Run(ctx *cmd.Context) (err error) {
-	api, err := c.newAPIFunc()
+	api, err := c.newAPIFunc(ctx)
 	if err != nil {
 		return err
 	}
 	defer api.Close()
 
 	storages := c.createStorageAddParams()
-	results, err := api.AddToUnit(storages)
+	results, err := api.AddToUnit(ctx, storages)
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
 			common.PermissionsMessage(ctx.Stderr, "add storage")
@@ -198,7 +199,7 @@ func (c *addCommand) Run(ctx *cmd.Context) (err error) {
 // StorageAddAPI defines the API methods that the storage commands use.
 type StorageAddAPI interface {
 	Close() error
-	AddToUnit(storages []params.StorageAddParams) ([]params.AddStorageResult, error)
+	AddToUnit(ctx context.Context, storages []params.StorageAddParams) ([]params.AddStorageResult, error)
 }
 
 func (c *addCommand) createStorageAddParams() []params.StorageAddParams {

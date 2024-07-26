@@ -251,7 +251,7 @@ func (s *macaroonLoginSuite) TestLoginToModelSuccess(c *gc.C) {
 		return remoteUser
 	}
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
+	client, err := api.Open(context.Background(), s.APIInfo(c), api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer client.Close()
 
@@ -263,7 +263,7 @@ func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
 	s.DischargerLogin = func() string {
 		return ""
 	}
-	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
+	client, err := api.Open(context.Background(), s.APIInfo(c), api.DialOpts{})
 	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
 	c.Assert(client, gc.Equals, nil)
 }
@@ -282,7 +282,7 @@ func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 	}
 
 	// First log into the regular API.
-	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
+	client, err := api.Open(context.Background(), s.APIInfo(c), api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dischargeCount, gc.Equals, 1)
 

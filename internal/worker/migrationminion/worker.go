@@ -55,7 +55,7 @@ type Config struct {
 	Facade            Facade
 	Guard             fortress.Guard
 	Clock             clock.Clock
-	APIOpen           func(*api.Info, api.DialOpts) (api.Connection, error)
+	APIOpen           func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
 	ValidateMigration func(context.Context, base.APICaller) error
 	NewFacade         func(base.APICaller) (Facade, error)
 	Logger            logger.Logger
@@ -234,7 +234,7 @@ func (w *Worker) validate(ctx context.Context, status watcher.MigrationStatus) e
 	// Use zero DialOpts (no retries) because the worker must stay
 	// responsive to Kill requests. We don't want it to be blocked by
 	// a long set of retry attempts.
-	conn, err := w.config.APIOpen(apiInfo, api.DialOpts{})
+	conn, err := w.config.APIOpen(ctx, apiInfo, api.DialOpts{})
 	if err != nil {
 		return errors.Annotate(err, "failed to open API to target controller")
 	}
@@ -304,7 +304,7 @@ func (w *Worker) robustReport(ctx context.Context, status watcher.MigrationStatu
 		Func: func() error {
 			w.config.Logger.Infof("reporting back for phase %s: %v", status.Phase, success)
 
-			conn, err := w.config.APIOpen(apiInfo, api.DialOpts{})
+			conn, err := w.config.APIOpen(ctx, apiInfo, api.DialOpts{})
 			if err != nil {
 				return fmt.Errorf("cannot dial source controller: %w", err)
 			}

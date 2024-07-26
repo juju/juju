@@ -32,19 +32,19 @@ func NewClient(st base.APICallCloser, options ...Option) *Client {
 }
 
 // Get returns annotations that have been set on the given entities.
-func (c *Client) Get(tags []string) ([]params.AnnotationsGetResult, error) {
+func (c *Client) Get(ctx context.Context, tags []string) ([]params.AnnotationsGetResult, error) {
 	annotations := params.AnnotationsGetResults{}
-	if err := c.facade.FacadeCall(context.TODO(), "Get", entitiesFromTags(tags), &annotations); err != nil {
+	if err := c.facade.FacadeCall(ctx, "Get", entitiesFromTags(tags), &annotations); err != nil {
 		return annotations.Results, errors.Trace(err)
 	}
 	return annotations.Results, nil
 }
 
 // Set sets entity annotation pairs.
-func (c *Client) Set(annotations map[string]map[string]string) ([]params.ErrorResult, error) {
+func (c *Client) Set(ctx context.Context, annotations map[string]map[string]string) ([]params.ErrorResult, error) {
 	args := params.AnnotationsSet{entitiesAnnotations(annotations)}
 	results := new(params.ErrorResults)
-	if err := c.facade.FacadeCall(context.TODO(), "Set", args, results); err != nil {
+	if err := c.facade.FacadeCall(ctx, "Set", args, results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return results.Results, nil

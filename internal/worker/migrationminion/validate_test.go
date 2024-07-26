@@ -79,7 +79,7 @@ func validConfig(c *gc.C) migrationminion.Config {
 		Guard:             struct{ fortress.Guard }{},
 		Facade:            struct{ migrationminion.Facade }{},
 		Clock:             struct{ clock.Clock }{},
-		APIOpen:           func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
+		APIOpen:           func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
 		ValidateMigration: func(context.Context, base.APICaller) error { return nil },
 		Logger:            loggertesting.WrapCheckLog(c),
 	}

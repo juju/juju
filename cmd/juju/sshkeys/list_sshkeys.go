@@ -72,8 +72,8 @@ func (c *listKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Run implements Command.Run.
-func (c *listKeysCommand) Run(context *cmd.Context) error {
-	client, err := c.NewKeyManagerClient()
+func (c *listKeysCommand) Run(ctx *cmd.Context) error {
+	client, err := c.NewKeyManagerClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (c *listKeysCommand) Run(context *cmd.Context) error {
 	// TODO(alexisb) - currently keys are global which is not ideal.
 	// keymanager needs to be updated to allow keys per user
 	c.user = "admin"
-	results, err := client.ListKeys(mode, c.user)
+	results, err := client.ListKeys(ctx, mode, c.user)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -95,14 +95,14 @@ func (c *listKeysCommand) Run(context *cmd.Context) error {
 		return errors.Trace(result.Error)
 	}
 	if len(result.Result) == 0 {
-		context.Infof("No keys to display.")
+		ctx.Infof("No keys to display.")
 		return nil
 	}
 	modelIdentifier, err := c.ModelIdentifier()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, _ = fmt.Fprintf(context.Stdout, "Keys used in model: %s\n", modelIdentifier)
-	_, _ = fmt.Fprintln(context.Stdout, strings.Join(result.Result, "\n"))
+	_, _ = fmt.Fprintf(ctx.Stdout, "Keys used in model: %s\n", modelIdentifier)
+	_, _ = fmt.Fprintln(ctx.Stdout, strings.Join(result.Result, "\n"))
 	return nil
 }

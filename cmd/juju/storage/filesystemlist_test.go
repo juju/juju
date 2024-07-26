@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/juju/cmd/v4"
@@ -73,7 +74,7 @@ func (s *ListSuite) TestFilesystemListJSON(c *gc.C) {
 func (s *ListSuite) TestFilesystemListWithErrorResults(c *gc.C) {
 	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsListResult, error) {
 		var emptyMockAPI mockListAPI
-		results, _ := emptyMockAPI.ListFilesystems(nil)
+		results, _ := emptyMockAPI.ListFilesystems(context.Background(), nil)
 		results = append(results, params.FilesystemDetailsListResult{
 			Error: &params.Error{Message: "bad"},
 		})
@@ -104,7 +105,7 @@ func (s *ListSuite) TestFilesystemListTabular(c *gc.C) {
 	// Do it again, reversing the results returned by the API.
 	// We should get everything sorted in the appropriate order.
 	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsListResult, error) {
-		results, _ := mockListAPI{}.ListFilesystems(nil)
+		results, _ := mockListAPI{}.ListFilesystems(context.Background(), nil)
 		n := len(results)
 		for i := 0; i < n/2; i++ {
 			results[i], results[n-i-1] = results[n-i-1], results[i]
@@ -184,7 +185,7 @@ func (s *ListSuite) assertUnmarshalledOutput(c *gc.C, unmarshal unmarshaller, ex
 // expect returns the FilesystemInfo mapping we should expect to unmarshal
 // from rendered YAML or JSON.
 func (s *ListSuite) expect(c *gc.C, machines []string) map[string]storage.FilesystemInfo {
-	all, err := s.mockAPI.ListFilesystems(machines)
+	all, err := s.mockAPI.ListFilesystems(context.Background(), machines)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var valid []params.FilesystemDetails
@@ -217,7 +218,7 @@ func (s *ListSuite) assertUserFacingOutput(c *gc.C, context *cmd.Context, expect
 	c.Assert(obtainedErr, gc.Equals, expectedErr)
 }
 
-func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDetailsListResult, error) {
+func (s mockListAPI) ListFilesystems(ctx context.Context, machines []string) ([]params.FilesystemDetailsListResult, error) {
 	if s.listFilesystems != nil {
 		return s.listFilesystems(machines)
 	}

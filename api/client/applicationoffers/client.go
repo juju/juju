@@ -41,7 +41,7 @@ func NewClient(st base.APICallCloser, options ...Option) *Client {
 }
 
 // Offer prepares application's endpoints for consumption.
-func (c *Client) Offer(modelUUID, application string, endpoints []string, owner, offerName, desc string) ([]params.ErrorResult, error) {
+func (c *Client) Offer(ctx context.Context, modelUUID, application string, endpoints []string, owner, offerName, desc string) ([]params.ErrorResult, error) {
 	// TODO(wallyworld) - support endpoint aliases
 	ep := make(map[string]string)
 	for _, name := range endpoints {
@@ -58,7 +58,7 @@ func (c *Client) Offer(modelUUID, application string, endpoints []string, owner,
 		},
 	}
 	out := params.ErrorResults{}
-	if err := c.facade.FacadeCall(context.TODO(), "Offer", params.AddApplicationOffers{Offers: offers}, &out); err != nil {
+	if err := c.facade.FacadeCall(ctx, "Offer", params.AddApplicationOffers{Offers: offers}, &out); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return out.Results, nil
@@ -66,7 +66,7 @@ func (c *Client) Offer(modelUUID, application string, endpoints []string, owner,
 
 // ListOffers gets all remote applications that have been offered from this Juju model.
 // Each returned application satisfies at least one of the the specified filters.
-func (c *Client) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]*crossmodel.ApplicationOfferDetails, error) {
+func (c *Client) ListOffers(ctx context.Context, filters ...crossmodel.ApplicationOfferFilter) ([]*crossmodel.ApplicationOfferDetails, error) {
 	var paramsFilter params.OfferFilters
 	for _, f := range filters {
 		filterTerm := params.OfferFilter{
@@ -93,7 +93,7 @@ func (c *Client) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]*cr
 	}
 
 	offers := params.QueryApplicationOffersResultsV5{}
-	err := c.facade.FacadeCall(context.TODO(), "ListApplicationOffers", paramsFilter, &offers)
+	err := c.facade.FacadeCall(ctx, "ListApplicationOffers", paramsFilter, &offers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -155,16 +155,16 @@ func offerParamsToDetails(offer params.ApplicationOfferAdminDetailsV5) (*crossmo
 }
 
 // GrantOffer grants a user access to the specified offers.
-func (c *Client) GrantOffer(user, access string, offerURLs ...string) error {
-	return c.modifyOfferUser(params.GrantOfferAccess, user, access, offerURLs)
+func (c *Client) GrantOffer(ctx context.Context, user, access string, offerURLs ...string) error {
+	return c.modifyOfferUser(ctx, params.GrantOfferAccess, user, access, offerURLs)
 }
 
 // RevokeOffer revokes a user's access to the specified offers.
-func (c *Client) RevokeOffer(user, access string, offerURLs ...string) error {
-	return c.modifyOfferUser(params.RevokeOfferAccess, user, access, offerURLs)
+func (c *Client) RevokeOffer(ctx context.Context, user, access string, offerURLs ...string) error {
+	return c.modifyOfferUser(ctx, params.RevokeOfferAccess, user, access, offerURLs)
 }
 
-func (c *Client) modifyOfferUser(action params.OfferAction, user, access string, offerURLs []string) error {
+func (c *Client) modifyOfferUser(ctx context.Context, action params.OfferAction, user, access string, offerURLs []string) error {
 	var args params.ModifyOfferAccessRequest
 
 	if !names.IsValidUser(user) {
@@ -186,7 +186,7 @@ func (c *Client) modifyOfferUser(action params.OfferAction, user, access string,
 	}
 
 	var result params.ErrorResults
-	err := c.facade.FacadeCall(context.TODO(), "ModifyOfferAccess", args, &result)
+	err := c.facade.FacadeCall(ctx, "ModifyOfferAccess", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -204,7 +204,7 @@ func (c *Client) modifyOfferUser(action params.OfferAction, user, access string,
 }
 
 // ApplicationOffer returns offered remote application details for a given URL.
-func (c *Client) ApplicationOffer(urlStr string) (*crossmodel.ApplicationOfferDetails, error) {
+func (c *Client) ApplicationOffer(ctx context.Context, urlStr string) (*crossmodel.ApplicationOfferDetails, error) {
 
 	url, err := crossmodel.ParseOfferURL(urlStr)
 	if err != nil {
@@ -216,7 +216,7 @@ func (c *Client) ApplicationOffer(urlStr string) (*crossmodel.ApplicationOfferDe
 
 	found := params.ApplicationOffersResults{}
 
-	err = c.facade.FacadeCall(context.TODO(), "ApplicationOffers", params.OfferURLs{[]string{urlStr}, bakery.LatestVersion}, &found)
+	err = c.facade.FacadeCall(ctx, "ApplicationOffers", params.OfferURLs{[]string{urlStr}, bakery.LatestVersion}, &found)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -234,7 +234,7 @@ func (c *Client) ApplicationOffer(urlStr string) (*crossmodel.ApplicationOfferDe
 }
 
 // FindApplicationOffers returns all application offers matching the supplied filter.
-func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFilter) ([]*crossmodel.ApplicationOfferDetails, error) {
+func (c *Client) FindApplicationOffers(ctx context.Context, filters ...crossmodel.ApplicationOfferFilter) ([]*crossmodel.ApplicationOfferDetails, error) {
 	// We need at least one filter. The default filter will list all local applications.
 	if len(filters) == 0 {
 		return nil, errors.New("at least one filter must be specified")
@@ -256,7 +256,7 @@ func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFil
 	}
 
 	offers := params.QueryApplicationOffersResultsV5{}
-	err := c.facade.FacadeCall(context.TODO(), "FindApplicationOffers", paramsFilter, &offers)
+	err := c.facade.FacadeCall(ctx, "FindApplicationOffers", paramsFilter, &offers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -264,7 +264,7 @@ func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFil
 }
 
 // GetConsumeDetails returns details necessary to consume an offer at a given URL.
-func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, error) {
+func (c *Client) GetConsumeDetails(ctx context.Context, urlStr string) (params.ConsumeOfferDetails, error) {
 
 	url, err := crossmodel.ParseOfferURL(urlStr)
 	if err != nil {
@@ -281,7 +281,7 @@ func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, e
 		OfferURLs: offerURLs,
 	}
 
-	err = c.facade.FacadeCall(context.TODO(), "GetConsumeDetails", args, &found)
+	err = c.facade.FacadeCall(ctx, "GetConsumeDetails", args, &found)
 	if err != nil {
 		return params.ConsumeOfferDetails{}, errors.Trace(err)
 	}
@@ -303,7 +303,7 @@ func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, e
 }
 
 // DestroyOffers removes the specified application offers.
-func (c *Client) DestroyOffers(force bool, offerURLs ...string) error {
+func (c *Client) DestroyOffers(ctx context.Context, force bool, offerURLs ...string) error {
 	if len(offerURLs) == 0 {
 		return nil
 	}
@@ -319,7 +319,7 @@ func (c *Client) DestroyOffers(force bool, offerURLs ...string) error {
 	}
 
 	var result params.ErrorResults
-	err := c.facade.FacadeCall(context.TODO(), "DestroyOffers", args, &result)
+	err := c.facade.FacadeCall(ctx, "DestroyOffers", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}

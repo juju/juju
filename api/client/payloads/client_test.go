@@ -4,6 +4,8 @@
 package payloads_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -45,7 +47,7 @@ func (s *ClientSuite) TestList(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "List", args, gomock.Any()).SetArg(3, resultParams).Return(nil)
 	client := payloads.NewClientFromCaller(mockFacadeCaller)
 
-	results, err := client.ListFull("a-tag", "a-application/0")
+	results, err := client.ListFull(context.Background(), "a-tag", "a-application/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, jc.DeepEquals, []corepayloads.FullPayloadInfo{
 		{

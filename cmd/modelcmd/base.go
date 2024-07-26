@@ -112,7 +112,7 @@ type Command interface {
 
 // ModelAPI provides access to the model client facade methods.
 type ModelAPI interface {
-	ListModels(user string) ([]base.UserModel, error)
+	ListModels(ctx context.Context, user string) ([]base.UserModel, error)
 	Close() error
 }
 
@@ -127,7 +127,7 @@ type CommandBase struct {
 	apiOpenFunc   api.OpenFunc
 	authOpts      AuthOpts
 	runStarted    bool
-	refreshModels func(jujuclient.ClientStore, string) error
+	refreshModels func(context.Context, jujuclient.ClientStore, string) error
 
 	// StdContext is the Go context.
 	StdContext context.Context
@@ -188,16 +188,16 @@ func (c *CommandBase) SetAPIOpen(apiOpen api.OpenFunc) {
 }
 
 // SetModelRefresh sets the function used for refreshing models.
-func (c *CommandBase) SetModelRefresh(refresh func(jujuclient.ClientStore, string) error) {
+func (c *CommandBase) SetModelRefresh(refresh func(context.Context, jujuclient.ClientStore, string) error) {
 	c.refreshModels = refresh
 }
 
-func (c *CommandBase) modelAPI(store jujuclient.ClientStore, controllerName string) (ModelAPI, error) {
+func (c *CommandBase) modelAPI(ctx context.Context, store jujuclient.ClientStore, controllerName string) (ModelAPI, error) {
 	c.assertRunStarted()
 	if c.modelAPI_ != nil {
 		return c.modelAPI_, nil
 	}
-	conn, err := c.NewAPIRoot(store, controllerName, "")
+	conn, err := c.NewAPIRoot(ctx, store, controllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -208,10 +208,11 @@ func (c *CommandBase) modelAPI(store jujuclient.ClientStore, controllerName stri
 // NewAPIRoot returns a new connection to the API server for the given
 // model or controller.
 func (c *CommandBase) NewAPIRoot(
+	ctx context.Context,
 	store jujuclient.ClientStore,
 	controllerName, modelName string,
 ) (api.Connection, error) {
-	return c.NewAPIRootWithDialOpts(store, controllerName, modelName, nil, nil)
+	return c.NewAPIRootWithDialOpts(ctx, store, controllerName, modelName, nil, nil)
 }
 
 func processAccountDetails(accountDetails *jujuclient.AccountDetails) *jujuclient.AccountDetails {
@@ -242,6 +243,7 @@ func processAccountDetails(accountDetails *jujuclient.AccountDetails) *jujuclien
 // given model or controller (the default dial options will be overridden if
 // dialOpts is not nil).
 func (c *CommandBase) NewAPIRootWithDialOpts(
+	ctx context.Context,
 	store jujuclient.ClientStore,
 	controllerName, modelName string,
 	addressOverride []string,
@@ -265,7 +267,7 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 	if dialOpts != nil {
 		param.DialOpts = *dialOpts
 	}
-	conn, err := juju.NewAPIConnection(param)
+	conn, err := juju.NewAPIConnection(ctx, param)
 	if modelName != "" && params.ErrCode(err) == params.CodeModelNotFound {
 		return nil, c.missingModelError(store, controllerName, modelName)
 	}
@@ -385,32 +387,32 @@ func (c *CommandBase) BakeryClient(store jujuclient.CookieStore, controllerName 
 // APIOpen establishes a connection to the API server using the
 // the given api.Info and api.DialOpts, and associating any stored
 // authorization tokens with the given controller name.
-func (c *CommandBase) APIOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+func (c *CommandBase) APIOpen(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 	c.assertRunStarted()
-	return c.apiOpen(info, opts)
+	return c.apiOpen(ctx, info, opts)
 }
 
 // apiOpen establishes a connection to the API server using the
 // the give api.Info and api.DialOpts.
-func (c *CommandBase) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+func (c *CommandBase) apiOpen(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 	if c.apiOpenFunc != nil {
-		return c.apiOpenFunc(info, opts)
+		return c.apiOpenFunc(ctx, info, opts)
 	}
-	return api.Open(info, opts)
+	return api.Open(ctx, info, opts)
 }
 
 // RefreshModels refreshes the local models cache for the current user
 // on the specified controller.
-func (c *CommandBase) RefreshModels(store jujuclient.ClientStore, controllerName string) error {
+func (c *CommandBase) RefreshModels(ctx context.Context, store jujuclient.ClientStore, controllerName string) error {
 	if c.refreshModels == nil {
-		return c.doRefreshModels(store, controllerName)
+		return c.doRefreshModels(ctx, store, controllerName)
 	}
-	return c.refreshModels(store, controllerName)
+	return c.refreshModels(ctx, store, controllerName)
 }
 
-func (c *CommandBase) doRefreshModels(store jujuclient.ClientStore, controllerName string) error {
+func (c *CommandBase) doRefreshModels(ctx context.Context, store jujuclient.ClientStore, controllerName string) error {
 	c.assertRunStarted()
-	modelManager, err := c.modelAPI(store, controllerName)
+	modelManager, err := c.modelAPI(ctx, store, controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -421,7 +423,7 @@ func (c *CommandBase) doRefreshModels(store jujuclient.ClientStore, controllerNa
 		return errors.Trace(err)
 	}
 
-	models, err := modelManager.ListModels(accountDetails.User)
+	models, err := modelManager.ListModels(ctx, accountDetails.User)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -446,14 +448,14 @@ func (c *CommandBase) SetControllerModels(store jujuclient.ClientStore, controll
 }
 
 // ModelUUIDs returns the model UUIDs for the given model names.
-func (c *CommandBase) ModelUUIDs(store jujuclient.ClientStore, controllerName string, modelNames []string) ([]string, error) {
+func (c *CommandBase) ModelUUIDs(ctx context.Context, store jujuclient.ClientStore, controllerName string, modelNames []string) ([]string, error) {
 	var result []string
 	for _, modelName := range modelNames {
 		model, err := store.ModelByName(controllerName, modelName)
 		if errors.Is(err, errors.NotFound) {
 			// The model isn't known locally, so query the models available in the controller.
 			logger.Infof("model %q not cached locally, refreshing models from controller", modelName)
-			if err := c.RefreshModels(store, controllerName); err != nil {
+			if err := c.RefreshModels(ctx, store, controllerName); err != nil {
 				return nil, errors.Annotatef(err, "refreshing model %q", modelName)
 			}
 			model, err = store.ModelByName(controllerName, modelName)
@@ -622,7 +624,7 @@ func newAPIConnectionParams(
 // OpenAPIFuncWithMacaroons is a middleware to ensure that we have a set of
 // macaroons for a given open request.
 func OpenAPIFuncWithMacaroons(apiOpen api.OpenFunc, store jujuclient.ClientStore, controllerName string) api.OpenFunc {
-	return func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
+	return func(ctx context.Context, info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
 		// When attempting to connect to the non websocket fronted HTTPS
 		// endpoints, we need to ensure that we have a series of macaroons
 		// correctly set if there isn't a password.
@@ -636,7 +638,7 @@ func OpenAPIFuncWithMacaroons(apiOpen api.OpenFunc, store jujuclient.ClientStore
 			info.Macaroons = httpbakery.MacaroonsForURL(cookieJar, cookieURL)
 		}
 
-		return apiOpen(info, dialOpts)
+		return apiOpen(ctx, info, dialOpts)
 	}
 }
 

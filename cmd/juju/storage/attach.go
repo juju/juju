@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 
@@ -18,8 +20,8 @@ import (
 // used to attach storage to application units.
 func NewAttachStorageCommandWithAPI() cmd.Command {
 	cmd := &attachStorageCommand{}
-	cmd.newEntityAttacherCloser = func() (EntityAttacherCloser, error) {
-		return cmd.NewStorageAPI()
+	cmd.newEntityAttacherCloser = func(ctx context.Context) (EntityAttacherCloser, error) {
+		return cmd.NewStorageAPI(ctx)
 	}
 	return modelcmd.Wrap(cmd)
 }
@@ -76,13 +78,13 @@ func (c *attachStorageCommand) Info() *cmd.Info {
 
 // Run implements Command.Run.
 func (c *attachStorageCommand) Run(ctx *cmd.Context) error {
-	attacher, err := c.newEntityAttacherCloser()
+	attacher, err := c.newEntityAttacherCloser(ctx)
 	if err != nil {
 		return err
 	}
 	defer attacher.Close()
 
-	results, err := attacher.Attach(c.unitId, c.storageIds)
+	results, err := attacher.Attach(ctx, c.unitId, c.storageIds)
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
 			common.PermissionsMessage(ctx.Stderr, "attach storage")
@@ -109,7 +111,7 @@ func (c *attachStorageCommand) Run(ctx *cmd.Context) error {
 
 // NewEntityAttacherCloser is the type of a function that returns an
 // EntityAttacherCloser.
-type NewEntityAttacherCloserFunc func() (EntityAttacherCloser, error)
+type NewEntityAttacherCloserFunc func(ctx context.Context) (EntityAttacherCloser, error)
 
 // EntityAttacherCloser extends EntityAttacher with a Closer method.
 type EntityAttacherCloser interface {
@@ -120,5 +122,5 @@ type EntityAttacherCloser interface {
 // EntityAttacher defines an interface for attaching storage with the
 // specified IDs to a unit.
 type EntityAttacher interface {
-	Attach(string, []string) ([]params.ErrorResult, error)
+	Attach(context.Context, string, []string) ([]params.ErrorResult, error)
 }

@@ -4,6 +4,7 @@
 package juju
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"reflect"
@@ -63,7 +64,7 @@ func IsNoAddressesError(err error) bool {
 // NewAPIConnection returns an api.Connection to the specified Juju controller,
 // with specified account credentials, optionally scoped to the specified model
 // name.
-func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error) {
+func NewAPIConnection(ctx context.Context, args NewAPIConnectionParams) (_ api.Connection, err error) {
 	if args.OpenAPI == nil {
 		args.OpenAPI = api.Open
 	}
@@ -87,7 +88,7 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 	dnsCache := dnsCacheMap(controller.DNSCache).copy()
 	args.DialOpts.DNSCache = dnsCache
 	logger.Infof("connecting to API addresses: %v", apiInfo.Addrs)
-	st, err := args.OpenAPI(apiInfo, args.DialOpts)
+	st, err := args.OpenAPI(ctx, apiInfo, args.DialOpts)
 	if err != nil {
 		var redirErr *api.RedirectError
 		if !errors.As(err, &redirErr) || !redirErr.FollowRedirect {
@@ -106,7 +107,7 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 			CACert:         redirErr.CACert,
 			ControllerUUID: apiInfo.ControllerUUID,
 		}
-		st, err = args.OpenAPI(apiInfo, args.DialOpts)
+		st, err = args.OpenAPI(ctx, apiInfo, args.DialOpts)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot connect to redirected address")
 		}

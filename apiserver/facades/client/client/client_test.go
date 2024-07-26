@@ -130,7 +130,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	loggo.GetLogger("juju.core.cache").SetLogLevel(loggo.TRACE)
 	s.setUpScenario(c)
 	conn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), jjtesting.AdminUser, defaultPassword(jjtesting.AdminUser), "")
-	status, err := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c)).Status(nil)
+	status, err := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c)).Status(context.Background(), nil)
 	clearSinceTimes(status)
 	clearContollerTimestamp(status)
 	c.Assert(err, jc.ErrorIsNil)
@@ -140,7 +140,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 func (s *clientSuite) TestClientStatusControllerTimestamp(c *gc.C) {
 	s.setUpScenario(c)
 	conn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), jjtesting.AdminUser, defaultPassword(jjtesting.AdminUser), "")
-	status, err := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c)).Status(nil)
+	status, err := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c)).Status(context.Background(), nil)
 	clearSinceTimes(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.ControllerTimestamp, gc.NotNil)

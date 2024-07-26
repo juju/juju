@@ -4,6 +4,8 @@
 package user
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v4"
 
@@ -70,7 +72,7 @@ func NewShowUserCommandForTest(api UserInfoAPI, store jujuclient.ClientStore) cm
 // NewChangePasswordCommand returns a ChangePasswordCommand with the api
 // and writer provided as specified.
 func NewChangePasswordCommandForTest(
-	newAPIConnection func(juju.NewAPIConnectionParams) (api.Connection, error),
+	newAPIConnection func(context.Context, juju.NewAPIConnectionParams) (api.Connection, error),
 	api ChangePasswordAPI,
 	store jujuclient.ClientStore,
 ) (cmd.Command, *ChangePasswordCommand) {

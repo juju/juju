@@ -54,7 +54,7 @@ func (c *sshContainer) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *sshContainer) setHostChecker(_ jujussh.ReachableChecker) {}
 
-func (c *sshContainer) setLeaderAPI(leaderAPI LeaderAPI) {
+func (c *sshContainer) setLeaderAPI(ctx context.Context, leaderAPI LeaderAPI) {
 	c.leaderAPI = leaderAPI
 }
 
@@ -90,18 +90,18 @@ func (c *sshContainer) initRun(ctx context.Context, mc ModelCommand) (err error)
 	}
 
 	if len(c.modelUUID) == 0 {
-		_, mDetails, err := mc.ModelDetails()
+		_, mDetails, err := mc.ModelDetails(ctx)
 		if err != nil {
 			return err
 		}
 		c.modelUUID = mDetails.ModelUUID
 	}
 
-	cAPI, err := mc.NewControllerAPIRoot()
+	cAPI, err := mc.NewControllerAPIRoot(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	root, err := mc.NewAPIRoot()
+	root, err := mc.NewAPIRoot(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -127,7 +127,7 @@ func (c *sshContainer) initRun(ctx context.Context, mc ModelCommand) (err error)
 	}
 
 	if c.execClient == nil {
-		if c.execClient, err = c.getExecClient(); err != nil {
+		if c.execClient, err = c.getExecClient(ctx); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -181,7 +181,7 @@ func (c *sshContainer) resolveTarget(ctx context.Context, target string) (*resol
 	}
 	// If the user specified a leader unit, try to resolve it to the
 	// appropriate unit name and override the requested target name.
-	resolvedTargetName, err := c.maybeResolveLeaderUnit(target)
+	resolvedTargetName, err := c.maybeResolveLeaderUnit(ctx, target)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -191,7 +191,7 @@ func (c *sshContainer) resolveTarget(ctx context.Context, target string) (*resol
 	}
 	unitTag := names.NewUnitTag(resolvedTargetName)
 
-	unitInfoResults, err := c.applicationAPI.UnitsInfo([]names.UnitTag{unitTag})
+	unitInfoResults, err := c.applicationAPI.UnitsInfo(ctx, []names.UnitTag{unitTag})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -331,14 +331,14 @@ func modelNameWithoutUsername(modelName string) string {
 	return modelName
 }
 
-func (c *sshContainer) getExecClient() (k8sexec.Executor, error) {
-	cloudSpec, err := c.sshClient.ModelCredentialForSSH()
+func (c *sshContainer) getExecClient(ctx context.Context) (k8sexec.Executor, error) {
+	cloudSpec, err := c.sshClient.ModelCredentialForSSH(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return c.execClientGetter(c.namespace, cloudSpec)
 }
 
-func (c *sshContainer) maybePopulateTargetViaField(_ *resolvedTarget, _ func(*client.StatusArgs) (*params.FullStatus, error)) error {
+func (c *sshContainer) maybePopulateTargetViaField(ctx context.Context, _ *resolvedTarget, _ func(context.Context, *client.StatusArgs) (*params.FullStatus, error)) error {
 	return nil
 }

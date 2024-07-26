@@ -5,6 +5,7 @@ package commands
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -55,7 +56,7 @@ func (f *fakeHAClient) Close() error {
 	return nil
 }
 
-func (f *fakeHAClient) EnableHA(numControllers int, cons constraints.Value, placement []string) (
+func (f *fakeHAClient) EnableHA(ctx context.Context, numControllers int, cons constraints.Value, placement []string) (
 	params.ControllersChanges, error,
 ) {
 	f.numControllers = numControllers
@@ -96,7 +97,7 @@ func (f *fakeHAClient) EnableHA(numControllers int, cons constraints.Value, plac
 var _ = gc.Suite(&EnableHASuite{})
 
 func (s *EnableHASuite) runEnableHA(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := &enableHACommand{newHAClientFunc: func() (MakeHAClient, error) { return s.fake, nil }}
+	command := &enableHACommand{newHAClientFunc: func(ctx context.Context) (MakeHAClient, error) { return s.fake, nil }}
 	store := jujuclient.NewMemStore()
 	store.CurrentControllerName = "arthur"
 	store.Controllers["arthur"] = jujuclient.ControllerDetails{}

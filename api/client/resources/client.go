@@ -52,14 +52,14 @@ func NewClient(apiCaller base.APICallCloser, options ...Option) (*Client, error)
 
 // ListResources calls the ListResources API server method with
 // the given application names.
-func (c Client) ListResources(applications []string) ([]resources.ApplicationResources, error) {
-	args, err := newListResourcesArgs(applications)
+func (c Client) ListResources(ctx context.Context, applications []string) ([]resources.ApplicationResources, error) {
+	args, err := newListResourcesArgs(ctx, applications)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var apiResults params.ResourcesResults
-	if err := c.facade.FacadeCall(context.TODO(), "ListResources", &args, &apiResults); err != nil {
+	if err := c.facade.FacadeCall(ctx, "ListResources", &args, &apiResults); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -88,7 +88,7 @@ func (c Client) ListResources(applications []string) ([]resources.ApplicationRes
 }
 
 // newListResourcesArgs returns the arguments for the ListResources endpoint.
-func newListResourcesArgs(applications []string) (params.ListResourcesArgs, error) {
+func newListResourcesArgs(ctx context.Context, applications []string) (params.ListResourcesArgs, error) {
 	var args params.ListResourcesArgs
 	var errs []error
 	for _, application := range applications {
@@ -158,15 +158,15 @@ type AddPendingResourcesArgs struct {
 
 // AddPendingResources sends the provided resource info up to Juju
 // without making it available yet.
-func (c Client) AddPendingResources(args AddPendingResourcesArgs) ([]string, error) {
+func (c Client) AddPendingResources(ctx context.Context, args AddPendingResourcesArgs) ([]string, error) {
 	tag := names.NewApplicationTag(args.ApplicationID)
-	apiArgs, err := newAddPendingResourcesArgsV2(tag, args.CharmID, args.Resources)
+	apiArgs, err := newAddPendingResourcesArgsV2(ctx, tag, args.CharmID, args.Resources)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var result params.AddPendingResourcesResult
-	if err := c.facade.FacadeCall(context.TODO(), "AddPendingResources", &apiArgs, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "AddPendingResources", &apiArgs, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
@@ -189,7 +189,7 @@ func (c Client) AddPendingResources(args AddPendingResourcesArgs) ([]string, err
 
 // newAddPendingResourcesArgsV2 returns the arguments for the
 // AddPendingResources APIv2 endpoint.
-func newAddPendingResourcesArgsV2(tag names.ApplicationTag, chID CharmID, resources []charmresource.Resource) (params.AddPendingResourcesArgsV2, error) {
+func newAddPendingResourcesArgsV2(ctx context.Context, tag names.ApplicationTag, chID CharmID, resources []charmresource.Resource) (params.AddPendingResourcesArgsV2, error) {
 	var args params.AddPendingResourcesArgsV2
 
 	var apiResources []params.CharmResource
@@ -226,7 +226,7 @@ func (c Client) UploadPendingResource(ctx context.Context, application string, r
 		return "", errors.Errorf("invalid application %q", application)
 	}
 
-	ids, err := c.AddPendingResources(AddPendingResourcesArgs{
+	ids, err := c.AddPendingResources(ctx, AddPendingResourcesArgs{
 		ApplicationID: application,
 		Resources:     []charmresource.Resource{res},
 	})
