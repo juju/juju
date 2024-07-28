@@ -63,9 +63,10 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport,
 				// Should not happen.
 				return nil, errors.Errorf("unexpected empty secret content for %q", md.URI.ID)
 			}
-			allSecrets.Content[md.URI.ID] = map[int]coresecrets.SecretData{
-				rev.Revision: data,
+			if _, ok := allSecrets.Content[md.URI.ID]; !ok {
+				allSecrets.Content[md.URI.ID] = make(map[int]coresecrets.SecretData)
 			}
+			allSecrets.Content[md.URI.ID][rev.Revision] = data
 		}
 	}
 

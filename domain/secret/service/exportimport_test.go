@@ -32,6 +32,8 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 			BackendID:  "backend-id",
 			RevisionID: "revision-id",
 		},
+	}, {
+		Revision: 3,
 	}}}
 
 	s.state = NewMockState(ctrl)
@@ -40,6 +42,9 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 	)
 	s.state.EXPECT().GetSecretValue(gomock.Any(), uri, 1).Return(
 		coresecrets.SecretData{"foo": "bar"}, nil, nil,
+	)
+	s.state.EXPECT().GetSecretValue(gomock.Any(), uri, 3).Return(
+		coresecrets.SecretData{"foo": "bar3"}, nil, nil,
 	)
 	s.state.EXPECT().AllSecretGrants(gomock.Any()).Return(
 		map[string][]domainsecret.GrantParams{
@@ -85,6 +90,7 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 		Content: map[string]map[int]coresecrets.SecretData{
 			uri.ID: {
 				1: {"foo": "bar"},
+				3: {"foo": "bar3"},
 			},
 		},
 		Consumers: map[string][]ConsumerInfo{
