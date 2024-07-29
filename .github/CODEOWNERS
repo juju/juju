@@ -18,3 +18,7 @@
 /core/model/**                  @tlm
 /domain/model/**                @tlm
 /domain/modelconfig/**          @tlm
+
+# Macaroons
+/internal/macaroon/**           @jack-w-shaw
+/domain/macaroon/**             @jack-w-shaw
