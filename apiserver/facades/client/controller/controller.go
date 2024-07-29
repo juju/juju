@@ -686,14 +686,18 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 
 	if err := runMigrationPrechecks(
 		ctx,
-		hostedState.State, systemState,
-		c.agentService,
-		&targetInfo, c.presence,
+		hostedState.State,
+		systemState,
+		&targetInfo,
+		modelInfo,
+		c.presence,
 		c.controllerConfigService,
 		c.cloudService,
 		c.credentialService,
 		c.upgradeService,
-		modelInfo,
+		c.agentService,
+		c.accessService,
+		c.apiUser.Id(),
 		c.modelExporter,
 		c.store,
 		leaders,
@@ -836,14 +840,16 @@ func (c *ControllerAPI) ConfigSet(ctx context.Context, args params.ControllerCon
 var runMigrationPrechecks = func(
 	ctx context.Context,
 	st, ctlrSt *state.State,
-	agentService AgentService,
 	targetInfo *coremigration.TargetInfo,
+	coremodelInfo coremodel.Model,
 	presence facade.Presence,
 	controllerConfigService ControllerConfigService,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
-	coremodelInfo coremodel.Model,
+	agentService AgentService,
+	accessService ControllerAccessService,
+	apiUser string,
 	modelExporter ModelExporter,
 	store objectstore.ObjectStore,
 	leaders map[string]string,
@@ -868,8 +874,17 @@ var runMigrationPrechecks = func(
 	}
 
 	// Check target controller.
-	modelInfo, srcUserList, err := makeModelInfo(ctx, st, agentService,
-		controllerConfigService, coremodelInfo, modelExporter, store, leaders)
+	modelInfo, srcUserList, err := makeModelInfo(
+		ctx,
+		coremodelInfo,
+		controllerConfigService,
+		agentService,
+		accessService,
+		apiUser,
+		modelExporter,
+		store,
+		leaders,
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -968,10 +983,12 @@ users to the destination controller or remove them from the current model:
 	return nil
 }
 
-func makeModelInfo(ctx context.Context, st *state.State,
-	agentService AgentService,
-	controllerConfigService ControllerConfigService,
+func makeModelInfo(ctx context.Context,
 	modelInfo coremodel.Model,
+	controllerConfigService ControllerConfigService,
+	agentService AgentService,
+	accessService ControllerAccessService,
+	apiUser string,
 	modelExporter ModelExporter,
 	store objectstore.ObjectStore,
 	leaders map[string]string,
@@ -979,23 +996,18 @@ func makeModelInfo(ctx context.Context, st *state.State,
 	var empty coremigration.ModelInfo
 	var ul userList
 
-	model, err := st.Model()
-	if err != nil {
-		return empty, ul, errors.Trace(err)
-	}
-
 	description, err := modelExporter.ExportModel(ctx, leaders, store)
 	if err != nil {
 		return empty, ul, errors.Trace(err)
 	}
 
-	users, err := model.Users()
+	users, err := accessService.GetModelUsers(ctx, apiUser, modelInfo.UUID)
 	if err != nil {
-		return empty, ul, errors.Trace(err)
+		return empty, ul, fmt.Errorf("getting users for model %q: %w", modelInfo.UUID, err)
 	}
 	ul.users = set.NewStrings()
 	for _, u := range users {
-		ul.users.Add(u.UserName)
+		ul.users.Add(u.Name)
 	}
 
 	// Retrieve agent version for the model.

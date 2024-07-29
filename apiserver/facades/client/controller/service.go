@@ -41,6 +41,8 @@ type ControllerAccessService interface {
 	// LastModelLogin gets the time the specified user last connected to the
 	// model.
 	LastModelLogin(context.Context, string, model.UUID) (time.Time, error)
+	// GetModelUsers gets all users for the model with the given ID.
+	GetModelUsers(ctx context.Context, apiUser string, modelID model.UUID) ([]access.ModelUserInfo, error)
 }
 
 // ModelService provides access to currently deployed models.

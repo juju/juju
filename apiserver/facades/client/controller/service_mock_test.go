@@ -46,6 +46,45 @@ func (m *MockControllerAccessService) EXPECT() *MockControllerAccessServiceMockR
 	return m.recorder
 }
 
+// GetModelUsers mocks base method.
+func (m *MockControllerAccessService) GetModelUsers(arg0 context.Context, arg1 string, arg2 model.UUID) ([]access.ModelUserInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelUsers", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]access.ModelUserInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelUsers indicates an expected call of GetModelUsers.
+func (mr *MockControllerAccessServiceMockRecorder) GetModelUsers(arg0, arg1, arg2 any) *MockControllerAccessServiceGetModelUsersCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelUsers", reflect.TypeOf((*MockControllerAccessService)(nil).GetModelUsers), arg0, arg1, arg2)
+	return &MockControllerAccessServiceGetModelUsersCall{Call: call}
+}
+
+// MockControllerAccessServiceGetModelUsersCall wrap *gomock.Call
+type MockControllerAccessServiceGetModelUsersCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerAccessServiceGetModelUsersCall) Return(arg0 []access.ModelUserInfo, arg1 error) *MockControllerAccessServiceGetModelUsersCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerAccessServiceGetModelUsersCall) Do(f func(context.Context, string, model.UUID) ([]access.ModelUserInfo, error)) *MockControllerAccessServiceGetModelUsersCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerAccessServiceGetModelUsersCall) DoAndReturn(f func(context.Context, string, model.UUID) ([]access.ModelUserInfo, error)) *MockControllerAccessServiceGetModelUsersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // LastModelLogin mocks base method.
 func (m *MockControllerAccessService) LastModelLogin(arg0 context.Context, arg1 string, arg2 model.UUID) (time.Time, error) {
 	m.ctrl.T.Helper()

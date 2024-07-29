@@ -22,17 +22,20 @@ func SetPrecheckResult(p patcher, err error) {
 	p.PatchValue(&runMigrationPrechecks, func(
 		ctx context.Context,
 		st, ctlrSt *state.State,
-		agentService AgentService,
 		targetInfo *coremigration.TargetInfo,
+		coremodelInfo coremodel.Model,
 		presence facade.Presence,
 		controllerConfigService ControllerConfigService,
 		cloudService common.CloudService,
 		credentialService common.CredentialService,
 		upgradeService UpgradeService,
-		_ coremodel.Model,
+		agentService AgentService,
+		accessService ControllerAccessService,
+		apiUser string,
 		modelExporter ModelExporter,
 		store objectstore.ObjectStore,
-		leaders map[string]string) error {
+		leaders map[string]string,
+	) error {
 		return err
 	})
 }
