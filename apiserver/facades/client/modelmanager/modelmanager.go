@@ -794,71 +794,133 @@ func (m *ModelManagerAPI) DumpModelsDB(ctx context.Context, args params.Entities
 // can list models for any user.  Other users
 // can only ask about their own models.
 func (m *ModelManagerAPI) ListModelSummaries(ctx context.Context, req params.ModelSummariesRequest) (params.ModelSummaryResults, error) {
-	result := params.ModelSummaryResults{}
-
 	userTag, err := names.ParseUserTag(req.UserTag)
 	if err != nil {
-		return result, errors.Trace(err)
+		return params.ModelSummaryResults{}, errors.Trace(err)
 	}
 
 	err = m.authCheck(userTag)
 	if err != nil {
-		return result, errors.Trace(err)
+		return params.ModelSummaryResults{}, errors.Trace(err)
 	}
 
-	modelInfos, err := m.state.ModelSummariesForUser(userTag, req.All && m.isAdmin)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	err = m.fillInStatusBasedOnCloudCredentialValidity(ctx, modelInfos)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	for _, mi := range modelInfos {
-		lastConnection, err := m.accessService.LastModelLogin(ctx, userTag.Id(), coremodel.UUID(mi.UUID))
-		if errors.Is(err, accesserrors.UserNeverAccessedModel) {
-			mi.UserLastConnection = nil
-		} else if errors.Is(err, modelerrors.NotFound) {
-			// TODO (aflynn): Once models are fully in domain, replace the line
-			// below with a `continue`. When models are still in state, this
-			// case is triggered because the model cannot be found in the domain
-			// db. Generally, it should only be triggered if the model has been
-			// removed since we got the UUID.
-			mi.UserLastConnection = nil
-		} else if err != nil {
-			return result, errors.Annotatef(err, "getting model last login time for user %q on model %q", userTag.Name(), mi.Name)
-		} else {
-			mi.UserLastConnection = &lastConnection
+	if req.All {
+		if !m.isAdmin {
+			return params.ModelSummaryResults{}, fmt.Errorf(
+				"%w: cannot list all models as non-admin user", apiservererrors.ErrPerm,
+			)
 		}
-		summary := m.makeModelSummary(mi)
-		result.Results = append(result.Results, params.ModelSummaryResult{Result: summary})
+		return m.listAllModelSummaries(ctx)
+	} else {
+		return m.listModelSummariesForUser(ctx, userTag)
 	}
-	return result, nil
-
 }
 
-func (m *ModelManagerAPI) makeModelSummary(mi state.ModelSummary) *params.ModelSummary {
+// listAllModelSummaries returns the model summary results containing summaries
+// for all the models known to the controller.
+func (m *ModelManagerAPI) listAllModelSummaries(ctx context.Context) (params.ModelSummaryResults, error) {
+	result := params.ModelSummaryResults{}
+	modelInfos, err := m.modelService.ListAllModelSummaries(ctx)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	result.Results = make([]params.ModelSummaryResult, len(modelInfos))
+	for i, mi := range modelInfos {
+		summary, err := m.makeModelSummary(ctx, mi)
+		if err != nil {
+			result.Results[i] = params.ModelSummaryResult{Error: apiservererrors.ServerError(err)}
+		} else {
+			result.Results[i] = params.ModelSummaryResult{Result: summary}
+		}
+	}
+	return result, nil
+}
+
+// listModelSummariesForUser returns the model summary results containing
+// summaries for all the models known to the user.
+func (m *ModelManagerAPI) listModelSummariesForUser(ctx context.Context, tag names.UserTag) (params.ModelSummaryResults, error) {
+	result := params.ModelSummaryResults{}
+	modelInfos, err := m.modelService.ListModelSummariesForUser(ctx, tag.Id())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	result.Results = make([]params.ModelSummaryResult, len(modelInfos))
+	for i, mi := range modelInfos {
+		summary, err := m.makeUserModelSummary(ctx, mi)
+		if err != nil {
+			result.Results[i] = params.ModelSummaryResult{Error: apiservererrors.ServerError(err)}
+		} else {
+			result.Results[i] = params.ModelSummaryResult{Result: summary}
+		}
+	}
+	return result, nil
+}
+
+func (m *ModelManagerAPI) makeUserModelSummary(ctx context.Context, mi coremodel.UserModelSummary) (*params.ModelSummary, error) {
+	userAccess, err := common.EncodeAccess(mi.UserAccess)
+	if err != nil && !errors.Is(err, errors.NotValid) {
+		return nil, errors.Trace(err)
+	}
+	ms, err := m.makeModelSummary(ctx, mi.ModelSummary)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ms.UserAccess = userAccess
+	ms.UserLastConnection = mi.UserLastConnection
+	return ms, nil
+}
+
+func (m *ModelManagerAPI) makeModelSummary(ctx context.Context, mi coremodel.ModelSummary) (*params.ModelSummary, error) {
+	credTag, err := mi.CloudCredentialKey.Tag()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// These should never be invalid since it has come from our database. We
+	// have to check anyway since the names package will panic if they are
+	// somehow not.
+	if !names.IsValidCloud(mi.CloudName) {
+		return nil, apiservererrors.ServerError(
+			fmt.Errorf("invalid cloud name %q", mi.CloudName),
+		)
+	}
+	cloudTag := names.NewCloudTag(mi.CloudName)
+	if !names.IsValidUser(mi.OwnerName) {
+		return nil, apiservererrors.ServerError(
+			fmt.Errorf("invalid model owner user name %q", mi.OwnerName),
+		)
+	}
+	userTag := names.NewUserTag(mi.OwnerName)
+
+	// TODO(aflynn): 07-08-24 Move this check into the function on model domain
+	// once the state is in domain.
+	err = m.fillInStatusBasedOnCloudCredentialValidity(ctx, &mi)
+	if err != nil {
+		return nil, apiservererrors.ServerError(
+			errors.Annotatef(err, "listing model summaries: filling in status for missing cloud credential"),
+		)
+	}
+
 	summary := &params.ModelSummary{
 		Name:           mi.Name,
-		UUID:           mi.UUID,
-		Type:           string(mi.Type),
-		OwnerTag:       names.NewUserTag(mi.Owner).String(),
+		UUID:           mi.UUID.String(),
+		Type:           mi.ModelType.String(),
+		OwnerTag:       userTag.String(),
 		ControllerUUID: mi.ControllerUUID,
 		IsController:   mi.IsController,
-		Life:           life.Value(mi.Life.String()),
+		Life:           mi.Life,
 
-		CloudTag:    mi.CloudTag,
+		CloudTag:    cloudTag.String(),
 		CloudRegion: mi.CloudRegion,
 
-		CloudCredentialTag: mi.CloudCredentialTag,
+		CloudCredentialTag: credTag.String(),
 
-		ProviderType: mi.ProviderType,
-		AgentVersion: mi.AgentVersion,
+		ProviderType: mi.CloudType,
+		AgentVersion: &mi.AgentVersion,
 
-		Status:             common.EntityStatusFromState(mi.Status),
-		Counts:             []params.ModelEntityCount{},
-		UserLastConnection: mi.UserLastConnection,
+		Status: common.EntityStatusFromState(mi.Status),
+		Counts: []params.ModelEntityCount{},
 	}
 	if mi.MachineCount > 0 {
 		summary.Counts = append(summary.Counts, params.ModelEntityCount{Entity: params.Machines, Count: mi.MachineCount})
@@ -872,70 +934,33 @@ func (m *ModelManagerAPI) makeModelSummary(mi state.ModelSummary) *params.ModelS
 		summary.Counts = append(summary.Counts, params.ModelEntityCount{Entity: params.Units, Count: mi.UnitCount})
 	}
 
-	access, err := common.StateToParamsUserAccessPermission(mi.Access)
-	if err == nil {
-		summary.UserAccess = access
-	}
 	if mi.Migration != nil {
-		migration := mi.Migration
-		startTime := migration.StartTime()
-		endTime := new(time.Time)
-		*endTime = migration.EndTime()
-		var zero time.Time
-		if *endTime == zero {
-			endTime = nil
-		}
-
 		summary.Migration = &params.ModelMigrationStatus{
-			Status: migration.StatusMessage(),
-			Start:  &startTime,
-			End:    endTime,
+			Status: mi.Migration.Status,
+			Start:  mi.Migration.Start,
+			End:    mi.Migration.End,
 		}
 	}
-	return summary
+
+	return summary, nil
 }
 
-// fillInStatusBasedOnCloudCredentialValidity fills in the Status on every model (if credential is invalid).
-func (m *ModelManagerAPI) fillInStatusBasedOnCloudCredentialValidity(ctx context.Context, summaries []state.ModelSummary) error {
-	credentialModels := map[names.CloudCredentialTag][]string{}
-	indexByUUID := make(map[string]int)
-	for i, model := range summaries {
-		if model.CloudCredentialTag == "" {
-			continue
-		}
-		indexByUUID[model.UUID] = i
-		tag, err := names.ParseCloudCredentialTag(model.CloudCredentialTag)
-		if err != nil {
-			logger.Warningf("could not parse cloud credential tag %v for model%v: %v", model.CloudCredentialTag, model.UUID, err)
-			// Don't stop the rest of the models
-			continue
-		}
-		summaries, ok := credentialModels[tag]
-		if !ok {
-			summaries = []string{}
-		}
-		credentialModels[tag] = append(summaries, model.UUID)
-	}
-	if len(credentialModels) == 0 {
+// fillInStatusBasedOnCloudCredentialValidity fills in the Status on every model
+// (if credential is invalid).
+func (m *ModelManagerAPI) fillInStatusBasedOnCloudCredentialValidity(ctx context.Context, summary *coremodel.ModelSummary) error {
+	if summary.CloudCredentialKey.IsZero() {
 		return nil
 	}
-
-	// TODO(wallyworld) - bulk query
-	for tag := range credentialModels {
-		cred, err := m.credentialService.CloudCredential(ctx, credential.KeyFromTag(tag))
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if cred.Invalid {
-			for _, uuid := range credentialModels[tag] {
-				idx, ok := indexByUUID[uuid]
-				if !ok {
-					continue
-				}
-				details := &summaries[idx]
-				details.Status = state.ModelStatusInvalidCredential(cred.InvalidReason)
-			}
-		}
+	tag, err := summary.CloudCredentialKey.Tag()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	cred, err := m.credentialService.CloudCredential(ctx, credential.KeyFromTag(tag))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if cred.Invalid {
+		summary.Status = state.ModelStatusInvalidCredential(cred.InvalidReason)
 	}
 	return nil
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
@@ -28,6 +29,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
 	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type serviceSuite struct {
@@ -840,4 +842,102 @@ func (s *serviceSuite) TestControllerModel(c *gc.C) {
 		Owner:        adminUUID,
 		OwnerName:    coremodel.ControllerModelOwnerUsername,
 	})
+}
+
+func (s *serviceSuite) TestListAllModelSummaries(c *gc.C) {
+	uuid1, err := coremodel.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	uuid2, err := coremodel.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	s.state.controllerModelUUID = uuid1
+	s.state.models = map[coremodel.UUID]coremodel.Model{
+		uuid1: {
+			Name:         "my-awesome-model",
+			AgentVersion: jujuversion.Current,
+			UUID:         uuid1,
+			Cloud:        "aws",
+			CloudRegion:  "myregion",
+			ModelType:    coremodel.IAAS,
+			OwnerName:    "admin",
+			Life:         life.Alive,
+		},
+		uuid2: {
+			Name:         "",
+			AgentVersion: jujuversion.Current,
+			UUID:         uuid2,
+			Cloud:        "aws",
+			CloudRegion:  "myregion",
+			ModelType:    coremodel.IAAS,
+			OwnerName:    "tlm",
+			Life:         life.Alive,
+		},
+	}
+	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
+	models, err := svc.ListAllModelSummaries(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(models, gc.DeepEquals, []coremodel.ModelSummary{{
+		Name:           "my-awesome-model",
+		AgentVersion:   jujuversion.Current,
+		UUID:           uuid1,
+		CloudName:      "aws",
+		CloudRegion:    "myregion",
+		ModelType:      coremodel.IAAS,
+		OwnerName:      "admin",
+		Life:           life.Alive,
+		ControllerUUID: jujutesting.ControllerTag.Id(),
+		IsController:   true,
+	}, {
+		Name:           "",
+		AgentVersion:   jujuversion.Current,
+		UUID:           uuid2,
+		CloudName:      "aws",
+		CloudRegion:    "myregion",
+		ModelType:      coremodel.IAAS,
+		OwnerName:      "tlm",
+		Life:           life.Alive,
+		ControllerUUID: jujutesting.ControllerTag.Id(),
+		IsController:   false,
+	}})
+}
+
+func (s *serviceSuite) TestListModelsForUserBadName(c *gc.C) {
+	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
+	_, err := svc.ListModelsForUser(context.Background(), "((*)(")
+	c.Check(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *serviceSuite) TestListModelSummariesForUser(c *gc.C) {
+	uuid1, err := coremodel.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	s.state.controllerModelUUID = uuid1
+	s.state.models = map[coremodel.UUID]coremodel.Model{
+		uuid1: {
+			Name:         "my-awesome-model",
+			AgentVersion: jujuversion.Current,
+			UUID:         uuid1,
+			Cloud:        "aws",
+			CloudRegion:  "myregion",
+			ModelType:    coremodel.IAAS,
+			OwnerName:    "admin",
+			Life:         life.Alive,
+		},
+	}
+	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
+	models, err := svc.ListModelSummariesForUser(context.Background(), "admin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(models, gc.DeepEquals, []coremodel.UserModelSummary{{
+		UserAccess: permission.AdminAccess,
+		ModelSummary: coremodel.ModelSummary{
+			Name:           "my-awesome-model",
+			AgentVersion:   jujuversion.Current,
+			UUID:           uuid1,
+			CloudName:      "aws",
+			CloudRegion:    "myregion",
+			ModelType:      coremodel.IAAS,
+			OwnerName:      "admin",
+			Life:           life.Alive,
+			ControllerUUID: jujutesting.ControllerTag.Id(),
+			IsController:   true,
+		},
+	}})
 }

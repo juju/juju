@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
@@ -16,6 +17,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -82,6 +84,14 @@ type State interface {
 	// specified by user id. If no user or models are found an empty slice is
 	// returned.
 	ListModelsForUser(context.Context, coreuser.UUID) ([]coremodel.Model, error)
+
+	// ListModelSummariesForUser returns a slice of model summaries for a given
+	// user. If no models are found an empty slice is returned.
+	ListModelSummariesForUser(ctx context.Context, userName string) ([]coremodel.UserModelSummary, error)
+
+	// ListAllModelSummaries returns a slice of model summaries for all models
+	// known to the controller.
+	ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSummary, error)
 
 	// ModelCloudNameAndCredential returns the cloud name and credential id for a
 	// model identified by the model name and the owner. If no model exists for
@@ -462,6 +472,21 @@ func ModelTypeForCloud(
 		return coremodel.CAAS, nil
 	}
 	return coremodel.IAAS, nil
+}
+
+// ListModelSummariesForUser returns a slice of model summaries for a given
+// user. If no models are found an empty slice is returned.
+func (s *Service) ListModelSummariesForUser(ctx context.Context, userName string) ([]coremodel.UserModelSummary, error) {
+	if !names.IsValidUser(userName) {
+		return nil, errors.Annotatef(accesserrors.UserNameNotValid, "%q", userName)
+	}
+	return s.st.ListModelSummariesForUser(ctx, userName)
+}
+
+// ListAllModelSummaries returns a slice of model summaries for all models
+// known to the controller.
+func (s *Service) ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSummary, error) {
+	return s.st.ListAllModelSummaries(ctx)
 }
 
 // UpdateCredential is responsible for updating the cloud credential

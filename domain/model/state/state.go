@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
-	usererrors "github.com/juju/juju/domain/access/errors"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/model"
@@ -578,7 +578,7 @@ AND removed = false
 	var userUUID string
 	err = tx.QueryRowContext(ctx, userStmt, input.Owner).Scan(&userUUID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("%w for model owner %q", usererrors.UserNotFound, input.Owner)
+		return fmt.Errorf("%w for model owner %q", accesserrors.UserNotFound, input.Owner)
 	} else if err != nil {
 		return fmt.Errorf("getting user uuid for setting model %q owner: %w", input.Name, err)
 	}
@@ -976,6 +976,144 @@ OR uuid IN (SELECT grant_on
 	}
 
 	return rval, nil
+}
+
+// ListModelSummariesForUser lists model summaries of all models the user has
+// access to. If no models are found then a nil slice is returned.
+// TODO(aflynn): 05-08-2024 - The ModelSummary struct includes a machine count,
+// unit count and cpu core count, model status as well as migration status. This
+// information has not yet been migrated over to the relational database. Once
+// it has, it needs to be included here.
+func (s *State) ListModelSummariesForUser(ctx context.Context, userName string) ([]coremodel.UserModelSummary, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	q := `
+SELECT    (p.access_type, m.uuid, m.name, m.cloud_name, m.cloud_region_name, 
+          m.model_type, m.cloud_type, m.owner_name, m.cloud_credential_name, 
+          m.cloud_credential_cloud_name, m.cloud_credential_owner_name,
+          m.life, mll.time, m.target_agent_version) AS (&dbModelSummary.*)
+FROM      v_user_auth u
+JOIN      v_permission p ON p.grant_to = u.uuid
+JOIN      v_model m ON m.uuid = p.grant_on
+LEFT JOIN model_last_login mll ON m.uuid = mll.model_uuid AND mll.user_uuid = u.uuid
+WHERE     u.removed = false
+AND       u.name = $dbUserName.name
+`
+	name := dbUserName{Name: userName}
+	modelStmt, err := s.Prepare(q, name, dbModelSummary{})
+	if err != nil {
+		return nil, errors.Annotatef(err, "preparing get model summary for user statement")
+	}
+
+	controllerInfo := dbController{}
+	controllerUUIDstmt, err := s.Prepare(`
+SELECT &dbController.*
+FROM controller
+`, controllerInfo)
+	if err != nil {
+		return nil, errors.Annotatef(err, "preparing get controller uuid statement")
+	}
+
+	var models []dbModelSummary
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, modelStmt, name).GetAll(&models)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+
+		err = tx.Query(ctx, controllerUUIDstmt).Get(&controllerInfo)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// If this happens something is very wrong.
+			return errors.New("controller uuid not found")
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "getting model summaries for user")
+	}
+
+	modelSummaries := make([]coremodel.UserModelSummary, len(models))
+	for i, m := range models {
+		modelSummaries[i], err = m.decodeUserModelSummary(controllerInfo)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting model summaries for user")
+		}
+	}
+
+	return modelSummaries, nil
+}
+
+// ListAllModelSummaries lists summaries of all the models known to the
+// controller. It does not fill in the access or last model login since there is
+// no subject user for the model summary.
+// TODO(aflynn): 05-08-2024 - The ModelSummary struct includes a machine count,
+// unit count and cpu core count, model status as well as migration status. This
+// information has not yet been migrated over to the relational database. Once
+// it has, it needs to be included here.
+func (s *State) ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSummary, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	modelStmt, err := s.Prepare(`
+SELECT    (m.uuid, m.name, m.cloud_name, m.cloud_region_name, 
+          m.model_type, m.cloud_type, m.owner_name, m.cloud_credential_name, 
+          m.cloud_credential_cloud_name, m.cloud_credential_owner_name,
+          m.life, m.target_agent_version) AS (&dbModelSummary.*)
+FROM      v_model m 
+`, dbModelSummary{})
+	if err != nil {
+		return nil, errors.Annotatef(err, "preparing get model statement")
+	}
+
+	controllerInfo := dbController{}
+	controllerUUIDstmt, err := s.Prepare(`
+SELECT &dbController.*
+FROM controller
+`, controllerInfo)
+	if err != nil {
+		return nil, errors.Annotatef(err, "preparing get controller uuid statement")
+	}
+
+	var models []dbModelSummary
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, modelStmt).GetAll(&models)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return modelerrors.NotFound
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+
+		err = tx.Query(ctx, controllerUUIDstmt).Get(&controllerInfo)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// If this happens something is very wrong.
+			return errors.New("controller uuid not found")
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting all model summaries")
+	}
+
+	modelSummaries := make([]coremodel.ModelSummary, len(models))
+	for i, m := range models {
+		modelSummaries[i], err = m.decodeModelSummary(controllerInfo)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting all model summaries")
+		}
+	}
+
+	return modelSummaries, nil
 }
 
 // ModelCloudNameAndCredential returns the cloud name and credential id for a
@@ -1409,7 +1547,7 @@ AND    ot.type = ?
 	)
 
 	if jujudb.IsErrConstraintUnique(err) {
-		return fmt.Errorf("%w for model %q and owner %q", usererrors.PermissionAlreadyExists, modelUUID, ownerUUID)
+		return fmt.Errorf("%w for model %q and owner %q", accesserrors.PermissionAlreadyExists, modelUUID, ownerUUID)
 	} else if err != nil {
 		return fmt.Errorf("setting permission for model %q: %w", modelUUID, err)
 	}

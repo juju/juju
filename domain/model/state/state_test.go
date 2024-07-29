@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -164,7 +165,8 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	userState.UpdateLastModelLogin(context.Background(), m.userName, m.uuid)
+	err = userState.UpdateLastModelLogin(context.Background(), m.userName, m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = modelSt.Activate(context.Background(), m.uuid)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1200,4 +1202,178 @@ func (m *stateSuite) TestGetControllerModel(c *gc.C) {
 		Owner:     m.userUUID,
 		OwnerName: m.userName,
 	})
+}
+
+func (m *stateSuite) TestListModelSummariesForUser(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+	// Add a second model (one was added in SetUpTest).
+	modelUUID := m.createTestModel(c, modelSt, "my-test-model-2", m.userUUID)
+
+	models, err := modelSt.ListModelSummariesForUser(context.Background(), "test-user")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(models), gc.Equals, 2)
+	slices.SortFunc(models, func(a, b coremodel.UserModelSummary) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	expected := []coremodel.UserModelSummary{{
+		UserLastConnection: &time.Time{},
+		UserAccess:         permission.AdminAccess,
+		ModelSummary: coremodel.ModelSummary{
+			Name:        "my-test-model",
+			UUID:        m.uuid,
+			CloudName:   "my-cloud",
+			CloudRegion: "my-region",
+			CloudType:   "ec2",
+			CloudCredentialKey: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			ControllerUUID: m.controllerUUID,
+			IsController:   true,
+			AgentVersion:   version.Current,
+			ModelType:      coremodel.IAAS,
+			OwnerName:      "test-user",
+			Life:           life.Alive,
+		}}, {
+		UserLastConnection: nil,
+		UserAccess:         permission.AdminAccess,
+		ModelSummary: coremodel.ModelSummary{
+			Name:        "my-test-model-2",
+			UUID:        modelUUID,
+			CloudName:   "my-cloud",
+			CloudRegion: "my-region",
+			CloudType:   "ec2",
+			CloudCredentialKey: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			ControllerUUID: m.controllerUUID,
+			IsController:   false,
+			AgentVersion:   version.Current,
+			ModelType:      coremodel.IAAS,
+			OwnerName:      "test-user",
+			Life:           life.Alive,
+		}},
+	}
+
+	for i, e := range expected {
+		if e.UserLastConnection != nil {
+			c.Assert(models[i].UserLastConnection, gc.NotNil)
+			e.UserLastConnection = models[i].UserLastConnection
+		}
+		c.Assert(models[i], gc.DeepEquals, e)
+	}
+}
+
+func (m *stateSuite) TestListModelSummariesForUserModelNotFound(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+
+	_, err := modelSt.ListModelSummariesForUser(context.Background(), "wrong-user")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (m *stateSuite) TestListAllModelSummaries(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+	accessSt := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	userUUID := m.createTestUser(c, accessSt, "new-user")
+	modelUUID := m.createTestModel(c, modelSt, "new-model", userUUID)
+
+	models, err := modelSt.ListAllModelSummaries(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(models), gc.Equals, 2)
+	slices.SortFunc(models, func(a, b coremodel.ModelSummary) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	c.Assert(models, gc.DeepEquals, []coremodel.ModelSummary{
+		{
+			Name:        "my-test-model",
+			UUID:        m.uuid,
+			CloudName:   "my-cloud",
+			CloudRegion: "my-region",
+			CloudType:   "ec2",
+			CloudCredentialKey: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			ControllerUUID: m.controllerUUID,
+			IsController:   true,
+			AgentVersion:   version.Current,
+			ModelType:      coremodel.IAAS,
+			OwnerName:      "test-user",
+			Life:           life.Alive,
+		},
+		{
+			Name:        "new-model",
+			UUID:        modelUUID,
+			CloudName:   "my-cloud",
+			CloudRegion: "my-region",
+			CloudType:   "ec2",
+			CloudCredentialKey: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			ControllerUUID: m.controllerUUID,
+			IsController:   false,
+			AgentVersion:   version.Current,
+			ModelType:      coremodel.IAAS,
+			OwnerName:      "new-user",
+			Life:           life.Alive,
+		},
+	})
+}
+
+func (m *stateSuite) createTestUser(c *gc.C, userState *accessstate.State, name string) user.UUID {
+	userUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = userState.AddUser(
+		context.Background(),
+		userUUID,
+		name,
+		name,
+		false,
+		m.userUUID,
+		permission.AccessSpec{
+			Access: permission.SuperuserAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        m.controllerUUID,
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	return userUUID
+}
+
+func (m *stateSuite) createTestModel(c *gc.C, modelSt *State, name string, creatorUUID user.UUID) coremodel.UUID {
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := modelSt.Create(
+		context.Background(),
+		modelUUID,
+		coremodel.IAAS,
+		model.ModelCreationArgs{
+			AgentVersion: version.Current,
+			Cloud:        "my-cloud",
+			CloudRegion:  "my-region",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Name:          name,
+			Owner:         creatorUUID,
+			SecretBackend: juju.BackendName,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelSt.Activate(context.Background(), modelUUID), jc.ErrorIsNil)
+	return modelUUID
 }

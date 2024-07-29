@@ -40,7 +40,7 @@ func ModelUserInfo(ctx context.Context, service accessService, apiUser names.Use
 			lmi := mi.LastModelLogin
 			lastModelLogin = &lmi
 		}
-		accessType, err := StateToParamsUserAccessPermission(mi.Access)
+		accessType, err := EncodeAccess(mi.Access)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -54,8 +54,8 @@ func ModelUserInfo(ctx context.Context, service accessService, apiUser names.Use
 	return modelUserInfo, nil
 }
 
-// StateToParamsUserAccessPermission converts permission.Access to params.AccessPermission.
-func StateToParamsUserAccessPermission(descriptionAccess permission.Access) (params.UserAccessPermission, error) {
+// EncodeAccess converts permission.Access to params.AccessPermission.
+func EncodeAccess(descriptionAccess permission.Access) (params.UserAccessPermission, error) {
 	switch descriptionAccess {
 	case permission.ReadAccess:
 		return params.ModelReadAccess, nil
