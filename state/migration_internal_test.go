@@ -85,9 +85,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// machine removals.
 		cleanupsC,
 		machineRemovalsC,
-		// The autocert cache is non-critical. After migration
-		// you'll just need to acquire new certificates.
-		autocertCacheC,
 		// We don't export the controller model at this stage.
 		controllersC,
 		controllerNodesC,
