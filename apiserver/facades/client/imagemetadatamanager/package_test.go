@@ -1,21 +1,15 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package imagemetadatamanager_test
+package imagemetadatamanager
 
 import (
-	"context"
 	stdtesting "testing"
 
-	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
-	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
@@ -24,7 +18,7 @@ import (
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package imagemetadatamanager_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/imagemetadatamanager ModelConfigService
+//go:generate go run go.uber.org/mock/mockgen -package imagemetadatamanager -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/imagemetadatamanager ModelConfigService,ModelInfoService
 
 func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)
@@ -33,11 +27,10 @@ func TestAll(t *stdtesting.T) {
 type baseImageMetadataSuite struct {
 	coretesting.BaseSuite
 
-	resources  *common.Resources
-	authorizer testing.FakeAuthorizer
-
-	api   *imagemetadatamanager.API
-	state *mockState
+	modelConfigService *MockModelConfigService
+	modelInfoService   *MockModelInfoService
+	api                *API
+	state              *mockState
 }
 
 func (s *baseImageMetadataSuite) SetUpSuite(c *gc.C) {
@@ -47,28 +40,25 @@ func (s *baseImageMetadataSuite) SetUpSuite(c *gc.C) {
 
 func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("testuser"), Controller: true, AdminTag: names.NewUserTag("testuser")}
-
-	s.state = s.constructState(testConfig(c))
+	s.state = s.constructState()
 }
 
-func (s *baseImageMetadataSuite) setupAPI(c *gc.C) (*gomock.Controller, *MockModelConfigService) {
+func (s *baseImageMetadataSuite) setupAPI(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	// Need to create the mock modelConfigService first so we can pass it to the API
-	modelConfigService := NewMockModelConfigService(ctrl)
+	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.modelInfoService = NewMockModelInfoService(ctrl)
 
-	var err error
-	s.api, err = imagemetadatamanager.CreateAPI(
-		context.Background(),
-		s.state, modelConfigService,
+	s.api = newAPI(
+		s.state,
+		s.modelConfigService,
+		s.modelInfoService,
 		func() (environs.Environ, error) {
 			return &mockEnviron{}, nil
-		}, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+		},
+	)
 
-	return ctrl, modelConfigService
+	return ctrl
 }
 
 func (s *baseImageMetadataSuite) assertCalls(c *gc.C, expectedCalls ...string) {
@@ -79,12 +69,9 @@ const (
 	findMetadata   = "findMetadata"
 	saveMetadata   = "saveMetadata"
 	deleteMetadata = "deleteMetadata"
-	modelConfig    = "modelConfig"
-	controllerTag  = "controllerTag"
-	model          = "model"
 )
 
-func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
+func (s *baseImageMetadataSuite) constructState() *mockState {
 	return &mockState{
 		Stub: &jujutesting.Stub{},
 		findMetadata: func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
@@ -96,12 +83,6 @@ func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
 		deleteMetadata: func(imageId string) error {
 			return nil
 		},
-		modelConfig: func() (*config.Config, error) {
-			return cfg, nil
-		},
-		controllerTag: func() names.ControllerTag {
-			return names.NewControllerTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
-		},
 	}
 }
 
@@ -111,8 +92,6 @@ type mockState struct {
 	findMetadata   func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error)
 	saveMetadata   func(m []cloudimagemetadata.Metadata) error
 	deleteMetadata func(imageId string) error
-	modelConfig    func() (*config.Config, error)
-	controllerTag  func() names.ControllerTag
 }
 
 func (st *mockState) FindMetadata(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
@@ -128,35 +107,6 @@ func (st *mockState) SaveMetadata(m []cloudimagemetadata.Metadata) error {
 func (st *mockState) DeleteMetadata(imageId string) error {
 	st.Stub.MethodCall(st, deleteMetadata, imageId)
 	return st.deleteMetadata(imageId)
-}
-
-func (st *mockState) ModelConfig() (*config.Config, error) {
-	st.Stub.MethodCall(st, modelConfig)
-	return st.modelConfig()
-}
-
-func (st *mockState) ControllerTag() names.ControllerTag {
-	st.Stub.MethodCall(st, controllerTag)
-	return st.controllerTag()
-}
-
-func (st *mockState) Model() (imagemetadatamanager.Model, error) {
-	st.Stub.MethodCall(st, model)
-	return &mockModel{}, nil
-}
-
-type mockModel struct{}
-
-func (*mockModel) CloudRegion() string {
-	return "some-region"
-}
-
-func testConfig(c *gc.C) *config.Config {
-	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"type": "mock",
-	}))
-	c.Assert(err, jc.ErrorIsNil)
-	return cfg
 }
 
 // mockEnviron is an environment without networking support.
