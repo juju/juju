@@ -63,9 +63,10 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport,
 				// Should not happen.
 				return nil, errors.Errorf("unexpected empty secret content for %q", md.URI.ID)
 			}
-			allSecrets.Content[md.URI.ID] = map[int]coresecrets.SecretData{
-				rev.Revision: data,
+			if _, ok := allSecrets.Content[md.URI.ID]; !ok {
+				allSecrets.Content[md.URI.ID] = make(map[int]coresecrets.SecretData)
 			}
+			allSecrets.Content[md.URI.ID][rev.Revision] = data
 		}
 	}
 
@@ -140,7 +141,142 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport,
 }
 
 // ImportSecrets saves the supplied secret details to the model.
-func (s *SecretService) ImportSecrets(context.Context, *SecretExport) error {
-	// TODO(secrets)
+func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretExport) error {
+	if err := s.importRemoteSecrets(ctx, modelSecrets.RemoteSecrets); err != nil {
+		return errors.Annotate(err, "importing remote secrets")
+	}
+
+	for _, md := range modelSecrets.Secrets {
+		revisions := modelSecrets.Revisions[md.URI.ID]
+		content := modelSecrets.Content[md.URI.ID]
+		if err := s.importSecretRevisions(ctx, md, revisions, content); err != nil {
+			return errors.Annotatef(err, "saving secret %q", md.URI.ID)
+		}
+		for _, sc := range modelSecrets.Consumers[md.URI.ID] {
+			if err := s.st.SaveSecretConsumer(ctx, md.URI, sc.Accessor.ID, &coresecrets.SecretConsumerMetadata{
+				Label:           sc.Label,
+				CurrentRevision: sc.CurrentRevision,
+			}); err != nil {
+				return errors.Annotatef(err, "saving secret consumer %q for %q", sc.Accessor.ID, md.URI.ID)
+			}
+		}
+
+		for _, rc := range modelSecrets.RemoteConsumers[md.URI.ID] {
+			if err := s.st.SaveSecretRemoteConsumer(ctx, md.URI, rc.Accessor.ID, &coresecrets.SecretConsumerMetadata{
+				Label:           rc.Label,
+				CurrentRevision: rc.CurrentRevision,
+			}); err != nil {
+				return errors.Annotatef(err, "saving secret remote consumer %q for %q", rc.Accessor.ID, md.URI.ID)
+			}
+		}
+
+		for _, access := range modelSecrets.Access[md.URI.ID] {
+			p := grantParams(SecretAccessParams{
+				Scope: SecretAccessScope{
+					Kind: access.Scope.Kind,
+					ID:   access.Scope.ID,
+				},
+				Subject: SecretAccessor{
+					Kind: access.Subject.Kind,
+					ID:   access.Subject.ID,
+				},
+				Role: access.Role,
+			})
+			if err := s.st.GrantAccess(ctx, md.URI, p); err != nil {
+				return errors.Annotatef(err, "saving secret access for %s-%s for secret %q",
+					access.Subject.Kind, access.Subject.ID, md.URI.ID)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *SecretService) importSecretRevisions(
+	ctx context.Context, md *coresecrets.SecretMetadata,
+	revisions []*coresecrets.SecretRevisionMetadata,
+	content map[int]coresecrets.SecretData,
+) error {
+	for i, rev := range revisions {
+		params := secret.UpsertSecretParams{
+			ValueRef: rev.ValueRef,
+		}
+		if rev.ValueRef == nil {
+			if data, ok := content[rev.Revision]; ok {
+				params.Data = data
+			} else {
+				// Should never happen.
+				return errors.Errorf("missing content for secret %s/%d", md.URI.ID, rev.Revision)
+			}
+		}
+		// The expiry time of the most recent revision
+		// is included in the export.
+		if i == len(revisions)-1 {
+			params.ExpireTime = md.LatestExpireTime
+		}
+		if i == 0 {
+			if err := s.createImportedSecret(ctx, md, params); err != nil {
+				return errors.Annotatef(err, "cannot import secret %q", md.URI.ID)
+			}
+			continue
+		}
+		if err := s.st.UpdateSecret(ctx, md.URI, params); err != nil {
+			return errors.Annotatef(err, "cannot import secret %q revision %d", md.URI.ID, rev.Revision)
+		}
+	}
+	return nil
+}
+
+func (s *SecretService) createImportedSecret(
+	ctx context.Context, md *coresecrets.SecretMetadata, params secret.UpsertSecretParams,
+) error {
+	params.NextRotateTime = md.NextRotateTime
+	if md.RotatePolicy != "" && md.RotatePolicy != coresecrets.RotateNever {
+		policy := secret.MarshallRotatePolicy(&md.RotatePolicy)
+		params.RotatePolicy = &policy
+	}
+	if md.Description != "" {
+		params.Description = &md.Description
+	}
+	if md.Label != "" {
+		params.Label = &md.Label
+	}
+	if md.AutoPrune {
+		params.AutoPrune = &md.AutoPrune
+	}
+	var err error
+	switch md.Owner.Kind {
+	case coresecrets.ModelOwner:
+		err = s.st.CreateUserSecret(ctx, md.Version, md.URI, params)
+	case coresecrets.ApplicationOwner:
+		err = s.st.CreateCharmApplicationSecret(ctx, md.Version, md.URI, md.Owner.ID, params)
+	case coresecrets.UnitOwner:
+		err = s.st.CreateCharmUnitSecret(ctx, md.Version, md.URI, md.Owner.ID, params)
+	default:
+		// Should never happen.
+		return errors.Errorf("cannot import secret %q with owner kind %q", md.URI.ID, md.Owner.Kind)
+	}
+	return err
+}
+
+func (s *SecretService) importRemoteSecrets(ctx context.Context, remoteSecrets []RemoteSecret) error {
+	remoteSecretLatest := make(map[*coresecrets.URI]int)
+	for _, rs := range remoteSecrets {
+		remoteSecretLatest[rs.URI] = rs.LatestRevision
+	}
+	for uri, latest := range remoteSecretLatest {
+		if err := s.st.UpdateRemoteSecretRevision(ctx, uri, latest); err != nil {
+			return errors.Annotatef(err, "saving remote secret reference for %q", uri)
+		}
+	}
+	for _, rs := range remoteSecrets {
+		if err := s.st.SaveSecretConsumer(ctx, rs.URI, rs.Accessor.ID, &coresecrets.SecretConsumerMetadata{
+			Label:           rs.Label,
+			CurrentRevision: rs.CurrentRevision,
+		}); err != nil {
+			return errors.Annotatef(err, "saving remote consumer %s-%s for secret %q",
+				rs.Accessor.Kind, rs.Accessor.ID, rs.URI.ID)
+		}
+	}
 	return nil
 }
