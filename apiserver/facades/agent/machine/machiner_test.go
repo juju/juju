@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/machine"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/testing"
@@ -36,7 +37,7 @@ type machinerSuite struct {
 
 var _ = gc.Suite(&machinerSuite{})
 
-func (s *machinerSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *machinerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.networkService = NewMockNetworkService(ctrl)
@@ -44,14 +45,7 @@ func (s *machinerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *machinerSuite) SetUpTest(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-	s.commonSuite.SetUpTest(c)
-
-	// Create the resource registry separately to track invocations to
-	// Register.
-	s.resources = common.NewResources()
-
+func (s *machinerSuite) makeAPI(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	// Create a machiner API for machine 1.
 	machiner, err := machine.NewMachinerAPIForState(
@@ -69,8 +63,17 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.machiner = machiner
 }
 
+func (s *machinerSuite) SetUpTest(c *gc.C) {
+	s.commonSuite.SetUpTest(c)
+
+	// Create the resource registry separately to track invocations to
+	// Register.
+	s.resources = common.NewResources()
+
+}
+
 func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("ubuntu/1")
@@ -92,7 +95,11 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 }
 
 func (s *machinerSuite) TestSetStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
 	now := time.Now()
+
 	sInfo := status.StatusInfo{
 		Status:  status.Started,
 		Message: "blah",
@@ -137,6 +144,9 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 }
 
 func (s *machinerSuite) TestLife(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
 	err := s.machine1.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine1.Refresh()
@@ -160,6 +170,8 @@ func (s *machinerSuite) TestLife(c *gc.C) {
 }
 
 func (s *machinerSuite) TestEnsureDead(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
 
 	c.Assert(s.machine0.Life(), gc.Equals, state.Alive)
 	c.Assert(s.machine1.Life(), gc.Equals, state.Alive)
@@ -169,7 +181,7 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
 	}}
-	s.machineService.EXPECT().EnsureDeadMachine(gomock.Any(), "1").Return(nil).Times(1)
+	s.machineService.EXPECT().EnsureDeadMachine(gomock.Any(), coremachine.Name("1")).Return(nil).Times(2)
 	result, err := s.machiner.EnsureDead(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
@@ -204,6 +216,9 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 }
 
 func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
 	c.Assert(s.machine0.Addresses(), gc.HasLen, 0)
 	c.Assert(s.machine1.Addresses(), gc.HasLen, 0)
 
@@ -216,6 +231,8 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 		{Tag: "machine-0", Addresses: params.FromMachineAddresses(addresses...)},
 		{Tag: "machine-42", Addresses: params.FromMachineAddresses(addresses...)},
 	}}
+
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
 	result, err := s.machiner.SetMachineAddresses(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -238,6 +255,9 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 }
 
 func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
 	// Set some addresses so we can ensure they are removed.
 	addresses := []network.MachineAddress{
 		network.NewMachineAddress("127.0.0.1"),
@@ -246,6 +266,7 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
 		{Tag: "machine-1", Addresses: params.FromMachineAddresses(addresses...)},
 	}}
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Times(2)
 	result, err := s.machiner.SetMachineAddresses(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
@@ -272,6 +293,9 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 }
 
 func (s *machinerSuite) TestWatch(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
 	loggo.GetLogger("juju.state.pool.txnwatcher").SetLogLevel(loggo.TRACE)
 	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
 
@@ -305,6 +329,9 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 }
 
 func (s *machinerSuite) TestRecordAgentStartInformation(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
 	args := params.RecordAgentStartInformationArgs{Args: []params.RecordAgentStartInformationArg{
 		{Tag: "machine-1", Hostname: "thundering-herds"},
 		{Tag: "machine-0", Hostname: "eldritch-octopii"},
