@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -21,11 +20,6 @@ type StateBackend interface {
 // UploadedCharm represents a charm whose upload status can be queried.
 type UploadedCharm interface {
 	IsUploaded() bool
-}
-
-// ModelBackend describes an API for accessing model-specific details.
-type ModelBackend interface {
-	Config() (*config.Config, error)
 }
 
 // Storage describes an API for storing and deleting blobs.

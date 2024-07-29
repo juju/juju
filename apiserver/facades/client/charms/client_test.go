@@ -51,10 +51,11 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.api, err = charms.NewFacade(facadetest.ModelContext{
-		Auth_:   s.auth,
-		State_:  s.ControllerModel(c).State(),
-		Logger_: loggertesting.WrapCheckLog(c),
+	s.api, err = charms.NewFacade(context.Background(), facadetest.ModelContext{
+		Auth_:           s.auth,
+		State_:          s.ControllerModel(c).State(),
+		Logger_:         loggertesting.WrapCheckLog(c),
+		ServiceFactory_: s.DefaultModelServiceFactory(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -86,7 +87,6 @@ func (s *charmsSuite) assertListCharms(c *gc.C, someCharms, args, expected []str
 }
 
 type charmsMockSuite struct {
-	model        *mocks.MockBackendModel
 	state        *mocks.MockBackendState
 	authorizer   *apiservermocks.MockAuthorizer
 	repoFactory  *mocks.MockRepositoryFactory
@@ -97,6 +97,8 @@ type charmsMockSuite struct {
 	unit2        *mocks.MockUnit
 	machine      *mocks.MockMachine
 	machine2     *mocks.MockMachine
+
+	modelConfigService *MockModelConfigService
 }
 
 var _ = gc.Suite(&charmsMockSuite{})
@@ -489,7 +491,8 @@ func (s *charmsMockSuite) api(c *gc.C) *charms.API {
 	api, err := charms.NewCharmsAPI(
 		s.authorizer,
 		s.state,
-		s.model,
+		s.modelConfigService,
+		names.NewModelTag("deadbeef-abcd-4fd2-967d-db9663db7bea"),
 		s.repoFactory,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -503,12 +506,8 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.authorizer = apiservermocks.NewMockAuthorizer(ctrl)
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-	s.model = mocks.NewMockBackendModel(ctrl)
-	s.model.EXPECT().ModelTag().Return(names.NewModelTag("deadbeef-abcd-4fd2-967d-db9663db7bea")).AnyTimes()
-
 	s.state = mocks.NewMockBackendState(ctrl)
 	s.state.EXPECT().ControllerTag().Return(names.NewControllerTag("deadbeef-abcd-dead-beef-db9663db7b42")).AnyTimes()
-	s.state.EXPECT().ModelUUID().Return("deadbeef-abcd-dead-beef-db9663db7b42").AnyTimes()
 
 	s.repoFactory = mocks.NewMockRepositoryFactory(ctrl)
 	s.repository = mocks.NewMockRepository(ctrl)
@@ -519,6 +518,8 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.unit2 = mocks.NewMockUnit(ctrl)
 	s.machine = mocks.NewMockMachine(ctrl)
 	s.machine2 = mocks.NewMockMachine(ctrl)
+
+	s.modelConfigService = NewMockModelConfigService(ctrl)
 
 	return ctrl
 }

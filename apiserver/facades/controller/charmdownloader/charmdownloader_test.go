@@ -28,13 +28,13 @@ import (
 )
 
 type charmDownloaderSuite struct {
-	clk              *testclock.Clock
-	authChecker      *mocks.MockAuthChecker
-	resourcesBackend *mocks.MockResourcesBackend
-	stateBackend     *mocks.MockStateBackend
-	modelBackend     *mocks.MockModelBackend
-	downloader       *mocks.MockDownloader
-	api              *charmdownloader.CharmDownloaderAPI
+	clk                *testclock.Clock
+	authChecker        *mocks.MockAuthChecker
+	resourcesBackend   *mocks.MockResourcesBackend
+	stateBackend       *mocks.MockStateBackend
+	downloader         *mocks.MockDownloader
+	api                *charmdownloader.CharmDownloaderAPI
+	modelConfigService *MockModelConfigService
 }
 
 var _ = gc.Suite(&charmDownloaderSuite{})
@@ -247,14 +247,14 @@ func (s *charmDownloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.authChecker = mocks.NewMockAuthChecker(ctrl)
 	s.resourcesBackend = mocks.NewMockResourcesBackend(ctrl)
 	s.stateBackend = mocks.NewMockStateBackend(ctrl)
-	s.modelBackend = mocks.NewMockModelBackend(ctrl)
+	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.downloader = mocks.NewMockDownloader(ctrl)
 
 	s.api = charmdownloader.NewAPI(
 		s.authChecker,
 		s.resourcesBackend,
 		s.stateBackend,
-		s.modelBackend,
+		s.modelConfigService,
 		s.clk,
 		http.DefaultClient,
 		nil,

@@ -359,7 +359,6 @@ func (s *deployerSuite) expectCharmhubCharmUpload(c *gc.C, name string) {
 		},
 	}
 
-	s.stateBackend.EXPECT().Model().Return(s.model, nil)
 	s.charmRepo.EXPECT().ResolveWithPreferredChannel(gomock.Any(), name, origin).Return(curl, origin, nil, nil)
 	s.charmDownloader.EXPECT().DownloadAndStore(gomock.Any(), curl, origin, false).Return(origin, nil)
 }

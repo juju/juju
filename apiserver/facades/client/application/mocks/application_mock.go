@@ -18,14 +18,12 @@ import (
 	application "github.com/juju/juju/apiserver/facades/client/application"
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
-	crossmodel "github.com/juju/juju/core/crossmodel"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
 	status "github.com/juju/juju/core/status"
 	config0 "github.com/juju/juju/environs/config"
 	charm "github.com/juju/juju/internal/charm"
-	resource "github.com/juju/juju/internal/charm/resource"
 	services "github.com/juju/juju/internal/charm/services"
 	tools "github.com/juju/juju/internal/tools"
 	state "github.com/juju/juju/state"
@@ -94,84 +92,6 @@ func (c *MockBackendAddApplicationCall) Do(f func(state.AddApplicationArgs, obje
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendAddApplicationCall) DoAndReturn(f func(state.AddApplicationArgs, objectstore.ObjectStore) (application.Application, error)) *MockBackendAddApplicationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// AddCharmMetadata mocks base method.
-func (m *MockBackend) AddCharmMetadata(arg0 state.CharmInfo) (application.Charm, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddCharmMetadata", arg0)
-	ret0, _ := ret[0].(application.Charm)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddCharmMetadata indicates an expected call of AddCharmMetadata.
-func (mr *MockBackendMockRecorder) AddCharmMetadata(arg0 any) *MockBackendAddCharmMetadataCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharmMetadata", reflect.TypeOf((*MockBackend)(nil).AddCharmMetadata), arg0)
-	return &MockBackendAddCharmMetadataCall{Call: call}
-}
-
-// MockBackendAddCharmMetadataCall wrap *gomock.Call
-type MockBackendAddCharmMetadataCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendAddCharmMetadataCall) Return(arg0 application.Charm, arg1 error) *MockBackendAddCharmMetadataCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendAddCharmMetadataCall) Do(f func(state.CharmInfo) (application.Charm, error)) *MockBackendAddCharmMetadataCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAddCharmMetadataCall) DoAndReturn(f func(state.CharmInfo) (application.Charm, error)) *MockBackendAddCharmMetadataCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// AddPendingResource mocks base method.
-func (m *MockBackend) AddPendingResource(arg0 string, arg1 resource.Resource, arg2 objectstore.ObjectStore) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddPendingResource", arg0, arg1, arg2)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddPendingResource indicates an expected call of AddPendingResource.
-func (mr *MockBackendMockRecorder) AddPendingResource(arg0, arg1, arg2 any) *MockBackendAddPendingResourceCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPendingResource", reflect.TypeOf((*MockBackend)(nil).AddPendingResource), arg0, arg1, arg2)
-	return &MockBackendAddPendingResourceCall{Call: call}
-}
-
-// MockBackendAddPendingResourceCall wrap *gomock.Call
-type MockBackendAddPendingResourceCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendAddPendingResourceCall) Return(arg0 string, arg1 error) *MockBackendAddPendingResourceCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendAddPendingResourceCall) Do(f func(string, resource.Resource, objectstore.ObjectStore) (string, error)) *MockBackendAddPendingResourceCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAddPendingResourceCall) DoAndReturn(f func(string, resource.Resource, objectstore.ObjectStore) (string, error)) *MockBackendAddPendingResourceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -258,45 +178,6 @@ func (c *MockBackendAddRemoteApplicationCall) DoAndReturn(f func(state.AddRemote
 	return c
 }
 
-// AllModelUUIDs mocks base method.
-func (m *MockBackend) AllModelUUIDs() ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllModelUUIDs")
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllModelUUIDs indicates an expected call of AllModelUUIDs.
-func (mr *MockBackendMockRecorder) AllModelUUIDs() *MockBackendAllModelUUIDsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelUUIDs", reflect.TypeOf((*MockBackend)(nil).AllModelUUIDs))
-	return &MockBackendAllModelUUIDsCall{Call: call}
-}
-
-// MockBackendAllModelUUIDsCall wrap *gomock.Call
-type MockBackendAllModelUUIDsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendAllModelUUIDsCall) Return(arg0 []string, arg1 error) *MockBackendAllModelUUIDsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendAllModelUUIDsCall) Do(f func() ([]string, error)) *MockBackendAllModelUUIDsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAllModelUUIDsCall) DoAndReturn(f func() ([]string, error)) *MockBackendAllModelUUIDsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Application mocks base method.
 func (m *MockBackend) Application(arg0 string) (application.Application, error) {
 	m.ctrl.T.Helper()
@@ -332,45 +213,6 @@ func (c *MockBackendApplicationCall) Do(f func(string) (application.Application,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendApplicationCall) DoAndReturn(f func(string) (application.Application, error)) *MockBackendApplicationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ApplicationOfferForUUID mocks base method.
-func (m *MockBackend) ApplicationOfferForUUID(arg0 string) (*crossmodel.ApplicationOffer, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationOfferForUUID", arg0)
-	ret0, _ := ret[0].(*crossmodel.ApplicationOffer)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ApplicationOfferForUUID indicates an expected call of ApplicationOfferForUUID.
-func (mr *MockBackendMockRecorder) ApplicationOfferForUUID(arg0 any) *MockBackendApplicationOfferForUUIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationOfferForUUID", reflect.TypeOf((*MockBackend)(nil).ApplicationOfferForUUID), arg0)
-	return &MockBackendApplicationOfferForUUIDCall{Call: call}
-}
-
-// MockBackendApplicationOfferForUUIDCall wrap *gomock.Call
-type MockBackendApplicationOfferForUUIDCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendApplicationOfferForUUIDCall) Return(arg0 *crossmodel.ApplicationOffer, arg1 error) *MockBackendApplicationOfferForUUIDCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendApplicationOfferForUUIDCall) Do(f func(string) (*crossmodel.ApplicationOffer, error)) *MockBackendApplicationOfferForUUIDCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendApplicationOfferForUUIDCall) DoAndReturn(f func(string) (*crossmodel.ApplicationOffer, error)) *MockBackendApplicationOfferForUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -693,45 +535,6 @@ func (c *MockBackendModelCall) DoAndReturn(f func() (application.Model, error)) 
 	return c
 }
 
-// ModelConstraints mocks base method.
-func (m *MockBackend) ModelConstraints() (constraints.Value, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConstraints")
-	ret0, _ := ret[0].(constraints.Value)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ModelConstraints indicates an expected call of ModelConstraints.
-func (mr *MockBackendMockRecorder) ModelConstraints() *MockBackendModelConstraintsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConstraints", reflect.TypeOf((*MockBackend)(nil).ModelConstraints))
-	return &MockBackendModelConstraintsCall{Call: call}
-}
-
-// MockBackendModelConstraintsCall wrap *gomock.Call
-type MockBackendModelConstraintsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendModelConstraintsCall) Return(arg0 constraints.Value, arg1 error) *MockBackendModelConstraintsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendModelConstraintsCall) Do(f func() (constraints.Value, error)) *MockBackendModelConstraintsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendModelConstraintsCall) DoAndReturn(f func() (constraints.Value, error)) *MockBackendModelConstraintsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ModelUUID mocks base method.
 func (m *MockBackend) ModelUUID() string {
 	m.ctrl.T.Helper()
@@ -961,44 +764,6 @@ func (c *MockBackendRemoteApplicationCall) Do(f func(string) (application.Remote
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendRemoteApplicationCall) DoAndReturn(f func(string) (application.RemoteApplication, error)) *MockBackendRemoteApplicationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// RemovePendingResources mocks base method.
-func (m *MockBackend) RemovePendingResources(arg0 string, arg1 map[string]string, arg2 objectstore.ObjectStore) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemovePendingResources", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemovePendingResources indicates an expected call of RemovePendingResources.
-func (mr *MockBackendMockRecorder) RemovePendingResources(arg0, arg1, arg2 any) *MockBackendRemovePendingResourcesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovePendingResources", reflect.TypeOf((*MockBackend)(nil).RemovePendingResources), arg0, arg1, arg2)
-	return &MockBackendRemovePendingResourcesCall{Call: call}
-}
-
-// MockBackendRemovePendingResourcesCall wrap *gomock.Call
-type MockBackendRemovePendingResourcesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendRemovePendingResourcesCall) Return(arg0 error) *MockBackendRemovePendingResourcesCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendRemovePendingResourcesCall) Do(f func(string, map[string]string, objectstore.ObjectStore) error) *MockBackendRemovePendingResourcesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendRemovePendingResourcesCall) DoAndReturn(f func(string, map[string]string, objectstore.ObjectStore) error) *MockBackendRemovePendingResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1496,45 +1261,6 @@ func (m *MockModel) EXPECT() *MockModelMockRecorder {
 	return m.recorder
 }
 
-// AgentVersion mocks base method.
-func (m *MockModel) AgentVersion() (version.Number, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AgentVersion")
-	ret0, _ := ret[0].(version.Number)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AgentVersion indicates an expected call of AgentVersion.
-func (mr *MockModelMockRecorder) AgentVersion() *MockModelAgentVersionCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentVersion", reflect.TypeOf((*MockModel)(nil).AgentVersion))
-	return &MockModelAgentVersionCall{Call: call}
-}
-
-// MockModelAgentVersionCall wrap *gomock.Call
-type MockModelAgentVersionCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelAgentVersionCall) Return(arg0 version.Number, arg1 error) *MockModelAgentVersionCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelAgentVersionCall) Do(f func() (version.Number, error)) *MockModelAgentVersionCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelAgentVersionCall) DoAndReturn(f func() (version.Number, error)) *MockModelAgentVersionCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // CloudCredentialTag mocks base method.
 func (m *MockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	m.ctrl.T.Helper()
@@ -1727,45 +1453,6 @@ func (c *MockModelControllerUUIDCall) DoAndReturn(f func() string) *MockModelCon
 	return c
 }
 
-// ModelConfig mocks base method.
-func (m *MockModel) ModelConfig(arg0 context.Context) (*config0.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig", arg0)
-	ret0, _ := ret[0].(*config0.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockModelMockRecorder) ModelConfig(arg0 any) *MockModelModelConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockModel)(nil).ModelConfig), arg0)
-	return &MockModelModelConfigCall{Call: call}
-}
-
-// MockModelModelConfigCall wrap *gomock.Call
-type MockModelModelConfigCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelModelConfigCall) Return(arg0 *config0.Config, arg1 error) *MockModelModelConfigCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelModelConfigCall) Do(f func(context.Context) (*config0.Config, error)) *MockModelModelConfigCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelModelConfigCall) DoAndReturn(f func(context.Context) (*config0.Config, error)) *MockModelModelConfigCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ModelTag mocks base method.
 func (m *MockModel) ModelTag() names.ModelTag {
 	m.ctrl.T.Helper()
@@ -1800,44 +1487,6 @@ func (c *MockModelModelTagCall) Do(f func() names.ModelTag) *MockModelModelTagCa
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelModelTagCall) DoAndReturn(f func() names.ModelTag) *MockModelModelTagCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Name mocks base method.
-func (m *MockModel) Name() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Name")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// Name indicates an expected call of Name.
-func (mr *MockModelMockRecorder) Name() *MockModelNameCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockModel)(nil).Name))
-	return &MockModelNameCall{Call: call}
-}
-
-// MockModelNameCall wrap *gomock.Call
-type MockModelNameCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelNameCall) Return(arg0 string) *MockModelNameCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelNameCall) Do(f func() string) *MockModelNameCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelNameCall) DoAndReturn(f func() string) *MockModelNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1881,82 +1530,6 @@ func (c *MockModelOpenedPortRangesForMachineCall) DoAndReturn(f func(string) (st
 	return c
 }
 
-// Owner mocks base method.
-func (m *MockModel) Owner() names.UserTag {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Owner")
-	ret0, _ := ret[0].(names.UserTag)
-	return ret0
-}
-
-// Owner indicates an expected call of Owner.
-func (mr *MockModelMockRecorder) Owner() *MockModelOwnerCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Owner", reflect.TypeOf((*MockModel)(nil).Owner))
-	return &MockModelOwnerCall{Call: call}
-}
-
-// MockModelOwnerCall wrap *gomock.Call
-type MockModelOwnerCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelOwnerCall) Return(arg0 names.UserTag) *MockModelOwnerCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelOwnerCall) Do(f func() names.UserTag) *MockModelOwnerCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelOwnerCall) DoAndReturn(f func() names.UserTag) *MockModelOwnerCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Tag mocks base method.
-func (m *MockModel) Tag() names.Tag {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(names.Tag)
-	return ret0
-}
-
-// Tag indicates an expected call of Tag.
-func (mr *MockModelMockRecorder) Tag() *MockModelTagCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockModel)(nil).Tag))
-	return &MockModelTagCall{Call: call}
-}
-
-// MockModelTagCall wrap *gomock.Call
-type MockModelTagCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelTagCall) Return(arg0 names.Tag) *MockModelTagCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelTagCall) Do(f func() names.Tag) *MockModelTagCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelTagCall) DoAndReturn(f func() names.Tag) *MockModelTagCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Type mocks base method.
 func (m *MockModel) Type() state.ModelType {
 	m.ctrl.T.Helper()
@@ -1991,44 +1564,6 @@ func (c *MockModelTypeCall) Do(f func() state.ModelType) *MockModelTypeCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelTypeCall) DoAndReturn(f func() state.ModelType) *MockModelTypeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// UUID mocks base method.
-func (m *MockModel) UUID() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UUID")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// UUID indicates an expected call of UUID.
-func (mr *MockModelMockRecorder) UUID() *MockModelUUIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UUID", reflect.TypeOf((*MockModel)(nil).UUID))
-	return &MockModelUUIDCall{Call: call}
-}
-
-// MockModelUUIDCall wrap *gomock.Call
-type MockModelUUIDCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelUUIDCall) Return(arg0 string) *MockModelUUIDCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelUUIDCall) Do(f func() string) *MockModelUUIDCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelUUIDCall) DoAndReturn(f func() string) *MockModelUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

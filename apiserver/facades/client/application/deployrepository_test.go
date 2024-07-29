@@ -38,6 +38,8 @@ type validatorSuite struct {
 	repo        *MockRepository
 	repoFactory *MockRepositoryFactory
 	state       *MockDeployFromRepositoryState
+
+	modelConfigService *MockModelConfigService
 }
 
 var _ = gc.Suite(&deployRepositorySuite{})
@@ -65,7 +67,6 @@ func (s *validatorSuite) TestValidateSuccess(c *gc.C) {
 	resolvedData := getResolvedData(resultURL, resolvedOrigin)
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any(), charmID).Return(resolvedData, nil)
 	s.repo.EXPECT().ResolveResources(gomock.Any(), nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
-	s.model.EXPECT().UUID().Return("")
 
 	// getCharm
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
@@ -119,7 +120,6 @@ func (s *validatorSuite) testValidateIAASAttachStorage(c *gc.C, argStorage []str
 	resolvedData := getResolvedData(resultURL, resolvedOrigin)
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any(), charmID).Return(resolvedData, nil)
 	s.repo.EXPECT().ResolveResources(gomock.Any(), nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
-	s.model.EXPECT().UUID().Return("")
 
 	// getCharm
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
@@ -169,7 +169,6 @@ func (s *validatorSuite) TestValidatePlacementSuccess(c *gc.C) {
 	resolvedData := getResolvedData(resultURL, resolvedOrigin)
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any(), charmID).Return(resolvedData, nil)
 	s.repo.EXPECT().ResolveResources(gomock.Any(), nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
-	s.model.EXPECT().UUID().Return("")
 
 	// Placement
 	s.state.EXPECT().Machine("0").Return(s.machine, nil)
@@ -221,7 +220,6 @@ func (s *validatorSuite) TestValidateEndpointBindingSuccess(c *gc.C) {
 	resolvedData := getResolvedData(resultURL, resolvedOrigin)
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any(), charmID).Return(resolvedData, nil)
 	s.repo.EXPECT().ResolveResources(gomock.Any(), nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
-	s.model.EXPECT().UUID().Return("")
 
 	// state bindings
 	endpointMap := map[string]string{"to": "from"}
@@ -268,7 +266,6 @@ func (s *validatorSuite) TestValidateEndpointBindingFail(c *gc.C) {
 	resolvedData := getResolvedData(resultURL, resolvedOrigin)
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any(), charmID).Return(resolvedData, nil)
 	s.repo.EXPECT().ResolveResources(gomock.Any(), nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
-	s.model.EXPECT().UUID().Return("")
 
 	// state bindings
 	endpointMap := map[string]string{"to": "from"}
@@ -277,9 +274,10 @@ func (s *validatorSuite) TestValidateEndpointBindingFail(c *gc.C) {
 
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any(), gomock.Any()).Return(s.repo, nil).AnyTimes()
 	v := &deployFromRepositoryValidator{
-		model:       s.model,
-		state:       s.state,
-		repoFactory: s.repoFactory,
+		model:              s.model,
+		modelConfigService: s.modelConfigService,
+		state:              s.state,
+		repoFactory:        s.repoFactory,
 		newStateBindings: func(st any, givenMap map[string]string) (Bindings, error) {
 			return nil, errors.NotFoundf("space")
 		},
@@ -298,7 +296,7 @@ func (s *validatorSuite) TestValidateEndpointBindingFail(c *gc.C) {
 func (s *validatorSuite) expectSimpleValidate() {
 	// createOrigin
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
-	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig())).AnyTimes()
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, coretesting.FakeConfig())).AnyTimes()
 }
 
 func (s *validatorSuite) TestResolveCharm(c *gc.C) {
@@ -320,7 +318,7 @@ func (s *validatorSuite) TestResolveCharm(c *gc.C) {
 	charmID := corecharm.CharmID{URL: curl, Origin: origin}
 	resolvedData := getResolvedData(resultURL, resolvedOrigin)
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any(), charmID).Return(resolvedData, nil)
-	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{
 		Arch: strptr("arm64"),
 	}, nil)
@@ -350,7 +348,7 @@ func (s *validatorSuite) TestResolveCharmArchAll(c *gc.C) {
 	charmID := corecharm.CharmID{URL: curl, Origin: origin}
 	resolvedData := getResolvedData(resultURL, resolvedOrigin)
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any(), charmID).Return(resolvedData, nil)
-	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 
 	obtained, err := s.getValidator(c).resolveCharm(context.Background(), curl, origin, false, false, constraints.Value{})
@@ -382,7 +380,7 @@ func (s *validatorSuite) TestResolveCharmUnsupportedSeriesErrorForce(c *gc.C) {
 	charmID := corecharm.CharmID{URL: curl, Origin: origin}
 	resolvedData := getResolvedData(resultURL, resolvedOrigin)
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any(), charmID).Return(resolvedData, newErr)
-	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 
 	obtained, err := s.getValidator(c).resolveCharm(context.Background(), curl, origin, true, false, constraints.Value{})
@@ -427,7 +425,7 @@ func (s *validatorSuite) TestResolveCharmExplicitBaseErrorWhenUserImageID(c *gc.
 	charmID := corecharm.CharmID{URL: curl, Origin: origin}
 	resolvedData := getResolvedData(resultURL, resolvedOrigin)
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any(), charmID).Return(resolvedData, nil)
-	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 
 	_, err := s.getValidator(c).resolveCharm(context.Background(), curl, origin, false, false, constraints.Value{ImageID: strptr("ubuntu-bf2")})
@@ -453,7 +451,7 @@ func (s *validatorSuite) TestResolveCharmExplicitBaseErrorWhenModelImageID(c *gc
 	charmID := corecharm.CharmID{URL: curl, Origin: origin}
 	resolvedData := getResolvedData(resultURL, resolvedOrigin)
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any(), charmID).Return(resolvedData, nil)
-	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{
 		Arch:    strptr("arm64"),
 		ImageID: strptr("ubuntu-bf2"),
@@ -466,13 +464,13 @@ func (s *validatorSuite) TestResolveCharmExplicitBaseErrorWhenModelImageID(c *gc
 func (s *validatorSuite) TestCreateOrigin(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
-	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testcharm",
 		Revision:  intptr(7),
 	}
-	curl, origin, defaultBase, err := s.getValidator(c).createOrigin(arg)
+	curl, origin, defaultBase, err := s.getValidator(c).createOrigin(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("ch:testcharm-7"))
 	c.Assert(origin, gc.DeepEquals, corecharm.Origin{
@@ -487,14 +485,14 @@ func (s *validatorSuite) TestCreateOrigin(c *gc.C) {
 func (s *validatorSuite) TestCreateOriginChannel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
-	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testcharm",
 		Revision:  intptr(7),
 		Channel:   strptr("yoga/candidate"),
 	}
-	curl, origin, defaultBase, err := s.getValidator(c).createOrigin(arg)
+	curl, origin, defaultBase, err := s.getValidator(c).createOrigin(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("ch:testcharm-7"))
 	expectedChannel := corecharm.MustParseChannel("yoga/candidate")
@@ -643,10 +641,10 @@ func (s *validatorSuite) TestDeducePlatformSimple(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	//model constraint default
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("amd64")}, nil)
-	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 
 	arg := params.DeployFromRepositoryArg{CharmName: "testme"}
-	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(arg)
+	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(context.Background(), arg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(usedModelDefaultBase, jc.IsFalse)
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{Architecture: "amd64"})
@@ -663,7 +661,7 @@ func (s *validatorSuite) TestDeducePlatformArgArchBase(c *gc.C) {
 			Channel: "22.10",
 		},
 	}
-	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(arg)
+	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(context.Background(), arg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(usedModelDefaultBase, jc.IsFalse)
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
@@ -683,12 +681,12 @@ func (s *validatorSuite) TestDeducePlatformModelDefaultBase(c *gc.C) {
 	})
 	cfg, err := config.New(config.NoDefaults, sConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	s.model.EXPECT().Config().Return(cfg, nil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
 	}
-	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(arg)
+	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(context.Background(), arg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(usedModelDefaultBase, jc.IsTrue)
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
@@ -716,7 +714,7 @@ func (s *validatorSuite) TestDeducePlatformPlacementSimpleFound(c *gc.C) {
 			{Scope: "lxd"},
 		},
 	}
-	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(arg)
+	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(context.Background(), arg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(usedModelDefaultBase, jc.IsFalse)
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
@@ -745,7 +743,7 @@ func (s *validatorSuite) TestDeducePlatformPlacementNoPanic(c *gc.C) {
 			{Scope: "lxd"},
 		},
 	}
-	_, _, err := s.getValidator(c).deducePlatform(arg)
+	_, _, err := s.getValidator(c).deducePlatform(context.Background(), arg)
 	c.Assert(err, gc.NotNil)
 }
 
@@ -761,7 +759,7 @@ func (s *validatorSuite) TestDeducePlatformPlacementSimpleNotFound(c *gc.C) {
 			Scope: instance.MachineScope, Directive: "0/lxd/0",
 		}},
 	}
-	_, _, err := s.getValidator(c).deducePlatform(arg)
+	_, _, err := s.getValidator(c).deducePlatform(context.Background(), arg)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -802,7 +800,7 @@ func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatch(c *gc.C) {
 			{Scope: instance.MachineScope, Directive: "3"},
 		},
 	}
-	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(arg)
+	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(context.Background(), arg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(usedModelDefaultBase, jc.IsFalse)
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
@@ -837,7 +835,7 @@ func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatchFail(c *gc.C) {
 			{Scope: instance.MachineScope, Directive: "1"},
 		},
 	}
-	_, _, err := s.getValidator(c).deducePlatform(arg)
+	_, _, err := s.getValidator(c).deducePlatform(context.Background(), arg)
 	c.Assert(err, jc.ErrorIs, errors.BadRequest, gc.Commentf("%+v", err))
 }
 
@@ -1005,7 +1003,6 @@ func (s *validatorSuite) TestCaasDeployFromRepositoryValidator(c *gc.C) {
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{
 		Arch: strptr("arm64"),
 	}, nil)
-	s.model.EXPECT().UUID().Return("")
 
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testcharm",
@@ -1026,7 +1023,6 @@ func (s *validatorSuite) TestIaaSDeployFromRepositoryFailResolveCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any(), gomock.Any()).Return(corecharm.ResolvedDataForDeploy{}, fmt.Errorf("fail resolve"))
-	s.model.EXPECT().UUID().Return("")
 
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testcharm",
@@ -1040,7 +1036,6 @@ func (s *validatorSuite) TestCaaSDeployFromRepositoryFailResolveCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any(), gomock.Any()).Return(corecharm.ResolvedDataForDeploy{}, fmt.Errorf("fail resolve"))
-	s.model.EXPECT().UUID().Return("")
 
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testcharm",
@@ -1080,15 +1075,17 @@ func (s *validatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.repo = NewMockRepository(ctrl)
 	s.repoFactory = NewMockRepositoryFactory(ctrl)
 	s.state = NewMockDeployFromRepositoryState(ctrl)
+	s.modelConfigService = NewMockModelConfigService(ctrl)
 	return ctrl
 }
 
 func (s *validatorSuite) getValidator(c *gc.C) *deployFromRepositoryValidator {
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any(), gomock.Any()).Return(s.repo, nil).AnyTimes()
 	return &deployFromRepositoryValidator{
-		model:       s.model,
-		state:       s.state,
-		repoFactory: s.repoFactory,
+		model:              s.model,
+		modelConfigService: s.modelConfigService,
+		state:              s.state,
+		repoFactory:        s.repoFactory,
 		newStateBindings: func(st any, givenMap map[string]string) (Bindings, error) {
 			return s.bindings, nil
 		},

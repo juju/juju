@@ -17,11 +17,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// StoragePoolGetter instances get a storage pool by name.
-type StoragePoolGetter interface {
-	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
-}
-
 // charmStorageParams returns filesystem parameters needed
 // to provision storage used for a charm operator or workload.
 func charmStorageParams(

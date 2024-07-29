@@ -22,9 +22,9 @@ var _ = gc.Suite(&repoFactoryTestSuite{})
 type repoFactoryTestSuite struct {
 	testing.IsolationSuite
 
-	stateBackend *MockStateBackend
-	modelBackend *MockModelBackend
-	repoFactory  corecharm.RepositoryFactory
+	stateBackend       *MockStateBackend
+	modelConfigService *MockModelConfigService
+	repoFactory        corecharm.RepositoryFactory
 }
 
 func (s *repoFactoryTestSuite) TestGetCharmHubRepository(c *gc.C) {
@@ -37,7 +37,7 @@ func (s *repoFactoryTestSuite) TestGetCharmHubRepository(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.modelBackend.EXPECT().Config().Return(modelCfg, nil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(modelCfg, nil)
 
 	repo, err := s.repoFactory.GetCharmRepository(context.Background(), corecharm.CharmHub)
 	c.Assert(err, jc.ErrorIsNil)
@@ -54,7 +54,7 @@ func (s *repoFactoryTestSuite) TestGetCharmRepositoryMemoization(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.modelBackend.EXPECT().Config().Return(modelCfg, nil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(modelCfg, nil)
 
 	repo1, err := s.repoFactory.GetCharmRepository(context.Background(), corecharm.CharmHub)
 	c.Assert(err, jc.ErrorIsNil)
@@ -71,12 +71,11 @@ func (s *repoFactoryTestSuite) TestGetCharmRepositoryMemoization(c *gc.C) {
 func (s *repoFactoryTestSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.stateBackend = NewMockStateBackend(ctrl)
-	s.modelBackend = NewMockModelBackend(ctrl)
+	s.modelConfigService = NewMockModelConfigService(ctrl)
 
 	s.repoFactory = NewCharmRepoFactory(CharmRepoFactoryConfig{
-		Logger:       loggertesting.WrapCheckLog(c),
-		StateBackend: s.stateBackend,
-		ModelBackend: s.modelBackend,
+		Logger:             loggertesting.WrapCheckLog(c),
+		ModelConfigService: s.modelConfigService,
 	})
 	return ctrl
 }

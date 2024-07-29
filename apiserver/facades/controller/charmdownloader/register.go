@@ -8,7 +8,6 @@ import (
 	"reflect"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/internal/charm/services"
@@ -26,17 +25,13 @@ func newFacadeV1(ctx facade.ModelContext) (*CharmDownloaderAPI, error) {
 	authorizer := ctx.Auth()
 	rawState := ctx.State()
 	stateBackend := stateShim{rawState}
-	modelBackend, err := rawState.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	resourcesBackend := resourcesShim{ctx.Resources()}
 
 	return newAPI(
 		authorizer,
 		resourcesBackend,
 		stateBackend,
-		modelBackend,
+		ctx.ServiceFactory().Config(),
 		clock.WallClock,
 		ctx.HTTPClient(facade.CharmhubHTTPClient),
 		ctx.ObjectStore(),

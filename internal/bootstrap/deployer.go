@@ -158,16 +158,12 @@ type StateBackend interface {
 	Unit(string) (Unit, error)
 }
 
-// ApplicationService instances create an application.
-type ApplicationService interface {
-	CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationParams, units ...applicationservice.AddUnitParams) error
-}
-
 // BaseDeployerConfig holds the configuration for a baseDeployer.
 type BaseDeployerConfig struct {
 	DataDir             string
 	StateBackend        StateBackend
 	ApplicationService  ApplicationService
+	ModelConfigService  ModelConfigService
 	CharmUploader       CharmUploader
 	ObjectStore         objectstore.ObjectStore
 	Constraints         constraints.Value
@@ -190,6 +186,9 @@ func (c BaseDeployerConfig) Validate() error {
 	}
 	if c.ApplicationService == nil {
 		return errors.NotValidf("ApplicationService")
+	}
+	if c.ModelConfigService == nil {
+		return errors.NotValidf("ModelConfigService")
 	}
 	if c.CharmUploader == nil {
 		return errors.NotValidf("CharmUploader")
@@ -219,6 +218,7 @@ type baseDeployer struct {
 	dataDir             string
 	stateBackend        StateBackend
 	applicationService  ApplicationService
+	modelConfigService  ModelConfigService
 	charmUploader       CharmUploader
 	objectStore         objectstore.ObjectStore
 	constraints         constraints.Value
@@ -236,6 +236,7 @@ func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 		dataDir:             config.DataDir,
 		stateBackend:        config.StateBackend,
 		applicationService:  config.ApplicationService,
+		modelConfigService:  config.ModelConfigService,
 		charmUploader:       config.CharmUploader,
 		objectStore:         config.ObjectStore,
 		constraints:         config.Constraints,
@@ -290,16 +291,10 @@ func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base c
 
 // DeployCharmhubCharm deploys the controller charm from charm hub.
 func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, base corebase.Base) (string, *corecharm.Origin, error) {
-	model, err := b.stateBackend.Model()
-	if err != nil {
-		return "", nil, errors.Trace(err)
-	}
-
 	charmRepo, err := b.newCharmRepo(services.CharmRepoFactoryConfig{
 		Logger:             b.logger,
 		CharmhubHTTPClient: b.charmhubHTTPClient,
-		StateBackend:       b.charmUploader,
-		ModelBackend:       model,
+		ModelConfigService: b.modelConfigService,
 	})
 	if err != nil {
 		return "", nil, errors.Trace(err)
@@ -345,7 +340,7 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 		CharmhubHTTPClient: b.charmhubHTTPClient,
 		ObjectStore:        b.objectStore,
 		StateBackend:       b.charmUploader,
-		ModelBackend:       model,
+		ModelConfigService: b.modelConfigService,
 	})
 	if err != nil {
 		return "", nil, errors.Trace(err)

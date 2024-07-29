@@ -8,18 +8,9 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
 )
-
-type BackendModel interface {
-	Config() (*config.Config, error)
-	ModelTag() names.ModelTag
-	CloudRegion() string
-	ControllerUUID() string
-	Type() state.ModelType
-}
 
 type BackendState interface {
 	AddCharmMetadata(state.CharmInfo) (*state.Charm, error)
@@ -30,7 +21,6 @@ type BackendState interface {
 	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
 	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
 	Machine(string) (Machine, error)
-	ModelUUID() string
 	ModelConstraints() (constraints.Value, error)
 }
 

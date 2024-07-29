@@ -10,7 +10,7 @@ run_charmhub_download() {
 	check_contains "${output}" 'Fetching charm "juju-qa-test"'
 
 	juju deploy "${TEST_DIR}/juju-qa-test.charm" juju-qa-test
-	juju wait-for application --timeout=15m juju-qa-test
+	wait_for "juju-qa-test" "$(active_idle_condition "juju-qa-test")" 900
 
 	destroy_model "${name}"
 }
