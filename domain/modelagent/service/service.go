@@ -45,6 +45,8 @@ func (s *Service) GetModelAgentVersion(ctx context.Context, modelID model.UUID) 
 }
 
 // ControllerAgentVersion returns the agent version for the controller model.
+// If the controller model cannot be found, an error satisfying
+// [github.com/juju/juju/domain/model/errors.NotFound] will be returned.
 func (s *Service) ControllerAgentVersion(ctx context.Context) (version.Number, error) {
 	return s.st.AgentVersionForModelName(ctx, model.ControllerModelOwnerUsername, model.ControllerModelName)
 }

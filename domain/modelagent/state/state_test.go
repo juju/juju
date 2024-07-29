@@ -38,7 +38,7 @@ func (s *stateSuite) TestGetModelAgentVersionSuccess(c *gc.C) {
 	s.setAgentVersion(c, modelID, expectedVersion.String())
 
 	obtainedVersion, err := state.GetModelAgentVersion(context.Background(), modelID)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(obtainedVersion, jc.DeepEquals, expectedVersion)
 }
 
@@ -78,7 +78,7 @@ func (s *stateSuite) TestAgentVersionForModelNameSuccess(c *gc.C) {
 	s.setAgentVersion(c, modelID, expectedVersion.String())
 
 	obtainedVersion, err := state.AgentVersionForModelName(context.Background(), "bob", "mymodel")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(obtainedVersion, jc.DeepEquals, expectedVersion)
 }
 

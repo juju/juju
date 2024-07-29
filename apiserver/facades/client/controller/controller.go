@@ -481,7 +481,7 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 
 	models, err := c.modelService.ListAllModels(ctx)
 	if err != nil {
-		return result, fmt.Errorf("getting model IDs: %w", err)
+		return result, fmt.Errorf("cannot list all models: %w", err)
 	}
 	controllerModel, err := c.modelService.ControllerModel(ctx)
 	if err != nil {
@@ -507,11 +507,11 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 			continue
 		}
 		config.Config = modelConf.AllAttrs()
+
 		cloudSpec := c.GetCloudSpec(ctx, names.NewModelTag(model.UUID.String()))
-		if config.Error == nil {
-			config.CloudSpec = cloudSpec.Result
-			config.Error = cloudSpec.Error
-		}
+		config.CloudSpec = cloudSpec.Result
+		config.Error = cloudSpec.Error
+
 		result.Models = append(result.Models, config)
 	}
 
@@ -1017,7 +1017,7 @@ func makeModelInfo(ctx context.Context,
 	// Retrieve agent version for the model.
 	agentVersion, err := agentService.GetModelAgentVersion(ctx, modelInfo.UUID)
 	if err != nil {
-		return coremigration.ModelInfo{}, userList{}, fmt.Errorf("getting agent version for current model: %w", err)
+		return coremigration.ModelInfo{}, userList{}, fmt.Errorf("getting agent version for model %q: %w", modelInfo.UUID, err)
 	}
 
 	// Retrieve agent version for the controller.
