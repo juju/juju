@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 )
 
 type deployCharm struct {
@@ -66,11 +67,20 @@ func (d *deployCharm) deploy(
 	}
 	checkPodspec(charmInfo.Charm(), ctx)
 
-	// storage cannot be added to a container.
-	if len(d.storage) > 0 || len(d.attachStorage) > 0 {
-		for _, placement := range d.placement {
-			if t, err := instance.ParseContainerType(placement.Scope); err == nil {
-				return errors.NotSupportedf("adding storage to %s container", string(t))
+	// Check storage on containers is supported.
+	// This is a rather simplistic client side check based on pool name.
+	// When we support passthrough/bindmount etc we'll need to shift this server side.
+	for _, placement := range d.placement {
+		t, err := instance.ParseContainerType(placement.Scope)
+		if err != nil {
+			continue
+		}
+		if len(d.attachStorage) > 0 {
+			return errors.NotSupportedf("attaching storage to %s container", string(t))
+		}
+		for _, s := range d.storage {
+			if !provider.AllowedContainerProvider(storage.ProviderType(s.Pool)) {
+				return errors.NotSupportedf("adding storage of type %q to %s container", s.Pool, string(t))
 			}
 		}
 	}

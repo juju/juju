@@ -72,3 +72,10 @@ func testDetachFilesystems(
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, fstab)
 }
+
+func (s *providerCommonSuite) TestAllowedContainerProvider(c *gc.C) {
+	c.Assert(provider.AllowedContainerProvider(provider.LoopProviderType), jc.IsTrue)
+	c.Assert(provider.AllowedContainerProvider(provider.RootfsProviderType), jc.IsTrue)
+	c.Assert(provider.AllowedContainerProvider(provider.TmpfsProviderType), jc.IsTrue)
+	c.Assert(provider.AllowedContainerProvider("somestorage"), jc.IsFalse)
+}
