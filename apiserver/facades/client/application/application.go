@@ -157,7 +157,14 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 
 	state := &stateShim{State: ctx.State(), prechecker: prechecker}
 
-	charmhubHTTPClient := ctx.HTTPClient(facade.CharmhubHTTPClient)
+	charmhubHTTPClient, err := ctx.HTTPClient(facade.CharmhubHTTPClient)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"getting charm hub http client: %w",
+			err,
+		)
+	}
+
 	repoLogger := ctx.Logger().Child("deployfromrepo")
 	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {

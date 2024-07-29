@@ -5,6 +5,7 @@ package charmdownloader
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/juju/clock"
@@ -27,13 +28,21 @@ func newFacadeV1(ctx facade.ModelContext) (*CharmDownloaderAPI, error) {
 	stateBackend := stateShim{rawState}
 	resourcesBackend := resourcesShim{ctx.Resources()}
 
+	charmhubHTTPClient, err := ctx.HTTPClient(facade.CharmhubHTTPClient)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"getting charm hub http client: %w",
+			err,
+		)
+	}
+
 	return newAPI(
 		authorizer,
 		resourcesBackend,
 		stateBackend,
 		ctx.ServiceFactory().Config(),
 		clock.WallClock,
-		ctx.HTTPClient(facade.CharmhubHTTPClient),
+		charmhubHTTPClient,
 		ctx.ObjectStore(),
 		func(cfg services.CharmDownloaderConfig) (Downloader, error) {
 			return services.NewCharmDownloader(cfg)

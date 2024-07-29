@@ -41,7 +41,7 @@ func (g *githubSuite) TestSubjectNotFound(c *gc.C) {
 	g.client.EXPECT().Do(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
 			c.Check(req.URL.Path, gc.Equals, "/users/tlm/keys")
-			c.Check(req.Header.Get("Accept"), gc.Equals, "application/vnd.github+json; charset=utf-8")
+			c.Check(req.Header.Get("Accept"), gc.Equals, "application/json; charset=utf-8")
 			return &http.Response{
 				Body:       io.NopCloser(strings.NewReader("")),
 				StatusCode: http.StatusNotFound,
@@ -61,7 +61,7 @@ func (g *githubSuite) TestSubjectPublicKeys(c *gc.C) {
 	g.client.EXPECT().Do(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
 			c.Check(req.URL.Path, gc.Equals, "/users/tlm/keys")
-			c.Check(req.Header.Get("Accept"), gc.Equals, "application/vnd.github+json; charset=utf-8")
+			c.Check(req.Header.Get("Accept"), gc.Equals, "application/json; charset=utf-8")
 
 			res := []githubKeyResponse{
 				{

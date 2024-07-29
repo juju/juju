@@ -74,6 +74,7 @@ import (
 	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/servicefactory"
+	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/looputil"
 	internalupgrade "github.com/juju/juju/internal/upgrade"
@@ -624,6 +625,9 @@ func (a *MachineAgent) makeEngineCreator(
 		s3Logger := internallogger.GetLogger("juju.objectstore.s3", corelogger.OBJECTSTORE)
 		s3HTTPClient := s3client.DefaultHTTPClient(s3Logger)
 
+		sshImporterLogger := internallogger.GetLogger("juju.ssh.importer", corelogger.SSHIMPORTER)
+		sshImporterClient := sshimporter.DefaultHTTPClient(sshImporterLogger)
+
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:              previousAgentVersion,
 			AgentName:                         agentName,
@@ -671,6 +675,7 @@ func (a *MachineAgent) makeEngineCreator(
 			S3HTTPClient:            s3HTTPClient,
 			NewEnvironFunc:          newEnvirons,
 			NewCAASBrokerFunc:       newCAASBroker,
+			SSHImporterHTTPClient:   sshImporterClient,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {

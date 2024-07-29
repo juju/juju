@@ -30,9 +30,18 @@ var MigrationInProgressError = errors.New(CodeMigrationInProgress)
 
 // Error is the type of error returned by any call to the state API.
 type Error struct {
-	Message string                 `json:"message"`
-	Code    string                 `json:"code"`
-	Info    map[string]interface{} `json:"info,omitempty"`
+	Message string         `json:"message"`
+	Code    string         `json:"code"`
+	Info    map[string]any `json:"info,omitempty"`
+}
+
+// WithInfo is responsible for setting the [Error.Info] information
+func (e Error) WithInfo(info map[string]any) *Error {
+	return &Error{
+		Code:    e.Code,
+		Message: e.Message,
+		Info:    info,
+	}
 }
 
 func (e Error) Error() string {
@@ -151,7 +160,6 @@ func serializeToMap(v interface{}) map[string]interface{} {
 // The Code constants hold error codes for well known errors.
 const (
 	CodeNotFound                   = "not found"
-	CodeUserNotFound               = "user not found"
 	CodeModelNotFound              = "model not found"
 	CodeSecretNotFound             = "secret not found"
 	CodeSecretRevisionNotFound     = "secret revision not found"
@@ -206,6 +214,70 @@ const (
 	CodeSecretBackendNotValid      = "secret backend not valid"
 	CodeAccessRequired             = "access required"
 	CodeAppShouldNotHaveUnits      = "application should not have units"
+
+	//
+	// Tag based error
+	//
+
+	// CodeTagInvalid represents an error code when the tag supplied by the
+	// caller is not parsable.
+	CodeTagInvalid = "invalid tag"
+
+	// CodeTagKindNotSupport represents an error code when a tag has been
+	// provided to a facade call and the tags kind is unsupported by the facade.
+	CodeTagKindNotSupported = "tag kind not supported"
+
+	//
+	// Machine based errors
+	//
+
+	// CodeMachineInvalidID represents an error code that indicates a supplied
+	// machine id is invalid.
+	CodeMachineInvalidID = "invalid machine id"
+
+	// CodeMachineNotFound represents an error code that indicates the machine
+	// requested does not exist.
+	CodeMachineNotFound = "machine not found"
+
+	//
+	// User based errors
+	//
+
+	// CodeUserInvalidName represents an error that happens when a user name
+	// has been supplied that is invalid.
+	CodeUserInvalidName = "invalid user name"
+
+	// CodeUserNotFound represents an error that happens when a user requested
+	// does not exist.
+	CodeUserNotFound = "user not found"
+
+	//
+	// User ssh key errors
+	//
+
+	// CodeUserKeyInvalidComment represents an error where a requested key to be
+	// added by a user violates the Juju comment restrictions.
+	CodeUserKeyInvalidComment = "invalid public key comment"
+
+	// CodeUserKeyInvalidKey represents an error where a requested key to be
+	// added is not considered valid.
+	CodeUserKeyInvalidKey = "invalid public key"
+
+	// CodeUserKeyAlreadyExists represents an error where a requested key to be
+	// added already exists for the user.
+	CodeUserKeyAlreadyExists = "public key already exists"
+
+	// CodeUserKeyInvalidKeySource represents an error where by a public key
+	// ssh import source is not valid.
+	CodeUserKeyInvalidKeySource = "invalid user public key source"
+
+	// CodeUserKeyUnknownKeySource represents an error where the public key
+	// source being asked to import for is unknown and not supported.
+	CodeUserKeyUnknownKeySource = "unknown user public key source"
+
+	// CodeUserKeySourceSubjectNotFound represents an error where the key source
+	// has told us the subject being imported does not exist.
+	CodeUserKeySourceSubjectNotFound = "key source subject not found"
 )
 
 // TranslateWellKnownError translates well known wire error codes into a github.com/juju/errors error

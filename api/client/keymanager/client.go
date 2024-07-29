@@ -33,7 +33,7 @@ func NewClient(st base.APICallCloser, options ...Option) *Client {
 
 // ListKeys returns the authorised ssh keys for the specified users.
 func (c *Client) ListKeys(mode ssh.ListMode, users ...string) ([]params.StringsResult, error) {
-	p := params.ListSSHKeys{Mode: mode}
+	p := params.ListSSHKeys{Mode: params.SSHListMode(mode)}
 	p.Entities.Entities = make([]params.Entity, len(users))
 	for i, userName := range users {
 		p.Entities.Entities[i] = params.Entity{Tag: userName}

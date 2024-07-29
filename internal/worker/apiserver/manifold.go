@@ -74,11 +74,15 @@ type ManifoldConfig struct {
 	LeaseManagerName       string
 	LogSinkName            string
 	CharmhubHTTPClientName string
-	DBAccessorName         string
-	ChangeStreamName       string
-	ServiceFactoryName     string
-	TraceName              string
-	ObjectStoreName        string
+
+	// SSHImporterHTTPClientName is the name of the manifold dependency for
+	// fetching a new HTTPClient.
+	SSHImporterHTTPClientName string
+	DBAccessorName            string
+	ChangeStreamName          string
+	ServiceFactoryName        string
+	TraceName                 string
+	ObjectStoreName           string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -128,6 +132,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.CharmhubHTTPClientName == "" {
 		return errors.NotValidf("empty CharmhubHTTPClientName")
+	}
+	if config.SSHImporterHTTPClientName == "" {
+		return errors.NotValidf("empty SSHImporterHTTPClientName")
 	}
 	if config.DBAccessorName == "" {
 		return errors.NotValidf("empty DBAccessorName")
@@ -180,6 +187,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AuditConfigUpdaterName,
 			config.LeaseManagerName,
 			config.CharmhubHTTPClientName,
+			config.SSHImporterHTTPClientName,
 			config.DBAccessorName,
 			config.ChangeStreamName,
 			config.ServiceFactoryName,
@@ -244,6 +252,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	var charmhubHTTPClient HTTPClient
 	if err := getter.Get(config.CharmhubHTTPClientName, &charmhubHTTPClient); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var sshImporterHTTPClient HTTPClient
+	if err := getter.Get(config.SSHImporterHTTPClientName, &sshImporterHTTPClient); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -317,6 +330,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		EmbeddedCommand:                   execEmbeddedCommand,
 		LogSink:                           logSink,
 		CharmhubHTTPClient:                charmhubHTTPClient,
+		SSHImporterHTTPClient:             sshImporterHTTPClient,
 		DBGetter:                          dbGetter,
 		DBDeleter:                         dbDeleter,
 		ServiceFactoryGetter:              serviceFactoryGetter,

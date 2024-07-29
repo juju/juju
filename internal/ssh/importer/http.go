@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/version"
+	jujuhttp "github.com/juju/juju/internal/http"
 )
 
 const (
@@ -37,6 +39,14 @@ type Client interface {
 // clientFunc is a convience method for implementing the [Client] interface as
 // a func.
 type clientFunc func(*http.Request) (*http.Response, error)
+
+// DefaultHTTPClient returns the default http client used to import ssh public
+// keys.
+func DefaultHTTPClient(logger logger.Logger) *jujuhttp.Client {
+	return jujuhttp.NewClient(
+		jujuhttp.WithLogger(logger),
+	)
+}
 
 // Do implements the [Client] interface for [clientFunc].
 func (c clientFunc) Do(r *http.Request) (*http.Response, error) {

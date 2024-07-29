@@ -28,7 +28,7 @@ const (
 
 	// launchpadPathUserKeys is the Launchpad path for fetching a users public
 	// keys.
-	launchpadPathUserKeys = "%s/+sshkeys"
+	launchpadPathUserKeys = "~%s/+sshkeys"
 )
 
 // PublicKeysForSubject implements the [Resolver] interface by taking a

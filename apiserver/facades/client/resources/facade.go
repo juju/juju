@@ -5,6 +5,7 @@ package resources
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -64,6 +65,14 @@ func NewFacade(ctx facade.ModelContext) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
+	charmhubHTTPClient, err := ctx.HTTPClient(facade.CharmhubHTTPClient)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"getting charm hub http client: %w",
+			err,
+		)
+	}
+
 	logger := ctx.Logger().Child("resources")
 	factory := func(curl *charm.URL) (NewCharmRepository, error) {
 		schema := curl.Schema
@@ -72,7 +81,7 @@ func NewFacade(ctx facade.ModelContext) (*API, error) {
 			chURL, _ := modelCfg.CharmHubURL()
 			chClient, err := charmhub.NewClient(charmhub.Config{
 				URL:        chURL,
-				HTTPClient: ctx.HTTPClient(facade.CharmhubHTTPClient),
+				HTTPClient: charmhubHTTPClient,
 				Logger:     logger,
 			})
 			if err != nil {
