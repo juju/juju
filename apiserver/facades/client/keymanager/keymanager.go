@@ -113,6 +113,9 @@ func (api *KeyManagerAPI) ListKeys(
 			})
 			continue
 		case errors.Is(err, accesserrors.UserNotFound):
+			// We are only checking for the authenticated user here and not the
+			// user that has been passed in by params. This is because the juju
+			// client currently only supplies admin.
 			results = append(results, params.StringsResult{
 				Error: apiservererrors.ParamsErrorf(
 					params.CodeUserNotFound,
