@@ -485,7 +485,8 @@ func (m *Model) Name() string {
 
 // Type returns the type of the model.
 //
-// Deprecated: please use the Type field from
+// Deprecated: please use [github.com/juju/juju/domain/model/service.Service.ModelType]
+// or the Type field from
 // [github.com/juju/juju/domain/model/service.ModelService.GetModelInfo] instead.
 func (m *Model) Type() ModelType {
 	return m.doc.Type
