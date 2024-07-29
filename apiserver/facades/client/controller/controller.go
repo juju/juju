@@ -333,12 +333,6 @@ func (c *ControllerAPI) DashboardConnectionInfo(ctx context.Context) (params.Das
 				return rval, fmt.Errorf("getting model for ID %q: %w", rel.ModelUUID(), err)
 			}
 
-			model, ph, err := c.statePool.GetModel(rel.ModelUUID())
-			if err != nil {
-				return rval, errors.Trace(err)
-			}
-			defer ph.Release()
-
 			relatedEps, err := rel.RelatedEndpoints(controllerApp.Name())
 			if err != nil {
 				return rval, errors.Trace(err)
@@ -350,18 +344,28 @@ func (c *ControllerAPI) DashboardConnectionInfo(ctx context.Context) (params.Das
 				return rval, errors.Trace(err)
 			}
 
-			if modelInfo.ModelType == coremodel.IAAS {
+			switch modelInfo.ModelType {
+			case coremodel.IAAS:
 				sshConnection, err := c.dashboardConnectionInfoForIAAS(
 					ctx,
 					related.ApplicationName,
 					appSettings)
 				rval.SSHConnection = sshConnection
 				return rval, err
-			}
 
-			proxyConnection, err := c.dashboardConnectionInfoForCAAS(ctx, model, related.ApplicationName)
-			rval.ProxyConnection = proxyConnection
-			return rval, err
+			case coremodel.CAAS:
+				model, ph, err := c.statePool.GetModel(rel.ModelUUID())
+				if err != nil {
+					return rval, errors.Trace(err)
+				}
+				defer ph.Release()
+				proxyConnection, err := c.dashboardConnectionInfoForCAAS(ctx, model, related.ApplicationName)
+				rval.ProxyConnection = proxyConnection
+				return rval, err
+
+			default:
+				return rval, fmt.Errorf("unknown model type %q", modelInfo.ModelType)
+			}
 		}
 
 		return rval, errors.NotFoundf("dashboard")
