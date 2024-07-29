@@ -104,7 +104,7 @@ func CreateTestModelWithConfig(
 
 	var userName string
 	if config.Owner == "" {
-		userName = "test-user" + modelName
+		userName = "test-user-" + modelName
 	} else {
 		userName = config.Owner
 	}
