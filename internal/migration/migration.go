@@ -12,7 +12,7 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/juju/description/v6"
+	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
