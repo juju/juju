@@ -1201,7 +1201,7 @@ func (s *DeploySuite) TestDeployStorageFailContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	container := "lxd:" + machine.Id()
 	err = s.runDeploy(c, charmDir.Path, "--to", container, "--storage", "data=machinescoped,1G")
-	c.Assert(err, gc.ErrorMatches, "adding storage to lxd container not supported")
+	c.Assert(err, gc.ErrorMatches, `adding storage of type "machinescoped" to lxd container not supported`)
 }
 
 func (s *DeploySuite) TestPlacement(c *gc.C) {
