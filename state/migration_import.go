@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/transform"
-	"github.com/juju/description/v6"
+	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
