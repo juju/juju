@@ -418,6 +418,11 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		// Status
 		"machine_status_values",
 		"instance_status_values",
+
+		// Opened Ports
+		"protocol",
+		"port_range",
+		"unit_endpoint",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
