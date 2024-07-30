@@ -6,7 +6,7 @@ run_user_ssh_keys() {
 	ssh_key_file_pub="${ssh_key_file}.pub"
 
 	ssh-keygen -t ed25519 -f "$ssh_key_file" -C "isgreat@juju.is" -P ""
-	fingerprint=$(ssh-keygen -E md5 -lf "${ssh_key_file_pub}" | cut -f 2 -d ' ' | cut -f 2- -d ':')
+	fingerprint=$(ssh-keygen -lf "${ssh_key_file_pub}" | cut -f 2 -d ' ')
 
 	# Add the SSH key and see that it comes back out in the list of user keys.
 	juju add-ssh-key "$(cat $ssh_key_file_pub)"

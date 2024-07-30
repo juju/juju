@@ -5,8 +5,9 @@ package modelmigration
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/juju/description/v6"
+	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -135,12 +136,13 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			content, ok := allSecrets.Content[md.URI.ID][rev.Revision]
 			if ok && len(content) > 0 {
 				revArg.Content = content
-			}
-			if rev.ValueRef != nil {
+			} else if rev.ValueRef != nil {
 				revArg.ValueRef = &description.SecretValueRefArgs{
 					BackendID:  rev.ValueRef.BackendID,
 					RevisionID: rev.ValueRef.RevisionID,
 				}
+			} else {
+				return fmt.Errorf("missing secret content to export for secret %q", md.URI.ID)
 			}
 			revisionArgsByID[md.URI.ID] = append(revisionArgsByID[md.URI.ID], revArg)
 		}

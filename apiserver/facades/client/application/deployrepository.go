@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	jujuversion "github.com/juju/juju/core/version"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -280,6 +281,8 @@ type validatorConfig struct {
 	charmhubHTTPClient facade.HTTPClient
 	caasBroker         CaasBrokerInterface
 	model              Model
+	modelInfo          model.ReadOnlyModel
+	modelConfigService ModelConfigService
 	cloudService       common.CloudService
 	credentialService  common.CredentialService
 	registry           storage.ProviderRegistry
@@ -292,6 +295,8 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 	v := &deployFromRepositoryValidator{
 		charmhubHTTPClient: cfg.charmhubHTTPClient,
 		model:              cfg.model,
+		modelInfo:          cfg.modelInfo,
+		modelConfigService: cfg.modelConfigService,
 		cloudService:       cfg.cloudService,
 		credentialService:  cfg.credentialService,
 		state:              cfg.state,
@@ -303,7 +308,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 		},
 		logger: cfg.logger,
 	}
-	if cfg.model.Type() == state.ModelTypeCAAS {
+	if cfg.modelInfo.Type == model.CAAS {
 		return &caasDeployFromRepositoryValidator{
 			caasBroker:        cfg.caasBroker,
 			registry:          cfg.registry,
@@ -322,7 +327,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 					placement:       dt.placement,
 					storage:         dt.storage,
 				}
-				return cdp.precheck(ctx, v.model, cfg.storagePoolGetter, cfg.registry, cfg.caasBroker)
+				return cdp.precheck(ctx, v.modelConfigService, cfg.storagePoolGetter, cfg.registry, cfg.caasBroker)
 			},
 		}
 	}
@@ -332,10 +337,12 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 }
 
 type deployFromRepositoryValidator struct {
-	model             Model
-	cloudService      common.CloudService
-	credentialService common.CredentialService
-	state             DeployFromRepositoryState
+	model              Model
+	modelInfo          model.ReadOnlyModel
+	modelConfigService ModelConfigService
+	cloudService       common.CloudService
+	credentialService  common.CredentialService
+	state              DeployFromRepositoryState
 
 	mu          sync.Mutex
 	repoFactory corecharm.RepositoryFactory
@@ -380,7 +387,7 @@ type deployFromRepositoryValidator struct {
 func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	errs := make([]error, 0)
 
-	if err := checkMachinePlacement(v.state, v.model.UUID(), arg.ApplicationName, arg.Placement); err != nil {
+	if err := checkMachinePlacement(v.state, v.modelInfo.UUID, arg.ApplicationName, arg.Placement); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -578,7 +585,7 @@ func (v iaasDeployFromRepositoryValidator) ValidateArg(ctx context.Context, arg 
 	return dt, errs
 }
 
-func (v *deployFromRepositoryValidator) createOrigin(arg params.DeployFromRepositoryArg) (*charm.URL, corecharm.Origin, bool, error) {
+func (v *deployFromRepositoryValidator) createOrigin(ctx context.Context, arg params.DeployFromRepositoryArg) (*charm.URL, corecharm.Origin, bool, error) {
 	path, err := charm.EnsureSchema(arg.CharmName, charm.CharmHub)
 	if err != nil {
 		return nil, corecharm.Origin{}, false, err
@@ -602,7 +609,7 @@ func (v *deployFromRepositoryValidator) createOrigin(arg params.DeployFromReposi
 		return nil, corecharm.Origin{}, false, err
 	}
 
-	plat, usedModelDefaultBase, err := v.deducePlatform(arg)
+	plat, usedModelDefaultBase, err := v.deducePlatform(ctx, arg)
 	if err != nil {
 		return nil, corecharm.Origin{}, false, err
 	}
@@ -629,7 +636,7 @@ func (v *deployFromRepositoryValidator) createOrigin(arg params.DeployFromReposi
 // Use that for the platform if no base provided by the user.
 // Return an error if the placement platform and user provided base do not
 // match.
-func (v *deployFromRepositoryValidator) deducePlatform(arg params.DeployFromRepositoryArg) (corecharm.Platform, bool, error) {
+func (v *deployFromRepositoryValidator) deducePlatform(ctx context.Context, arg params.DeployFromRepositoryArg) (corecharm.Platform, bool, error) {
 	argArch := arg.Cons.Arch
 	argBase := arg.Base
 	var usedModelDefaultBase bool
@@ -673,7 +680,7 @@ func (v *deployFromRepositoryValidator) deducePlatform(arg params.DeployFromRepo
 	// No machine scoped placement to match, return after checking
 	// if using default model base.
 	if placementPlatform == nil {
-		return v.modelDefaultBase(platform)
+		return v.modelDefaultBase(ctx, platform)
 	}
 	// There can be only 1 platform.
 	if !placementsMatch {
@@ -702,12 +709,12 @@ func (v *deployFromRepositoryValidator) deducePlatform(arg params.DeployFromRepo
 
 }
 
-func (v *deployFromRepositoryValidator) modelDefaultBase(p corecharm.Platform) (corecharm.Platform, bool, error) {
+func (v *deployFromRepositoryValidator) modelDefaultBase(ctx context.Context, p corecharm.Platform) (corecharm.Platform, bool, error) {
 	// No provided platform channel, check model defaults.
 	if p.Channel != "" {
 		return p, false, nil
 	}
-	mCfg, err := v.model.Config()
+	mCfg, err := v.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return p, false, nil
 	}
@@ -833,7 +840,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 		}
 	}
 
-	modelCfg, err := v.model.Config()
+	modelCfg, err := v.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
@@ -878,7 +885,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 // getCharm returns the charm being deployed. Either it already has been
 // used once, and we get the data from state. Or we get the essential metadata.
 func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params.DeployFromRepositoryArg) (*charm.URL, corecharm.Origin, charm.Charm, error) {
-	initialCurl, requestedOrigin, usedModelDefaultBase, err := v.createOrigin(arg)
+	initialCurl, requestedOrigin, usedModelDefaultBase, err := v.createOrigin(ctx, arg)
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, errors.Trace(err)
 	}
@@ -952,8 +959,7 @@ func (v *deployFromRepositoryValidator) getCharmRepository(ctx context.Context, 
 	repoFactory := v.newRepoFactory(services.CharmRepoFactoryConfig{
 		Logger:             v.logger,
 		CharmhubHTTPClient: v.charmhubHTTPClient,
-		StateBackend:       v.state,
-		ModelBackend:       v.model,
+		ModelConfigService: v.modelConfigService,
 	})
 
 	return repoFactory.GetCharmRepository(ctx, src)

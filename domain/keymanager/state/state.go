@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
+	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/keymanager"
@@ -188,14 +189,14 @@ WHERE s.algorithm = $userPublicKeyInsert.algorithm
 func (s *State) GetPublicKeysForUser(
 	ctx context.Context,
 	id user.UUID,
-) ([]string, error) {
+) ([]coressh.PublicKey, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	stmt, err := s.Prepare(`
-SELECT public_key AS &publicKey.*
+SELECT (public_key, fingerprint) AS (&publicKey.*)
 FROM user_public_ssh_key
 WHERE user_id = $userId.user_id
 `, userId{}, publicKey{})
@@ -221,6 +222,53 @@ WHERE user_id = $userId.user_id
 	if err != nil {
 		return nil, fmt.Errorf(
 			"cannot get public keys for user %q: %w", id, err,
+		)
+	}
+
+	rval := make([]coressh.PublicKey, 0, len(publicKeys))
+	for _, pk := range publicKeys {
+		rval = append(rval, coressh.PublicKey{
+			Fingerprint: pk.Fingerprint,
+			Key:         pk.PublicKey,
+		})
+	}
+	return rval, nil
+}
+
+// GetPublicKeysDataForUser is responsible for returning all of the public keys
+// raw data for the user id in this model. If the user does not exist no error
+// is returned.
+func (s *State) GetPublicKeysDataForUser(
+	ctx context.Context,
+	id user.UUID,
+) ([]string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	userId := userId{id.String()}
+
+	stmt, err := s.Prepare(`
+SELECT (public_key) AS (&publicKeyData.*)
+FROM user_public_ssh_key
+WHERE user_id = $userId.user_id
+`, userId, publicKeyData{})
+
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	publicKeys := []publicKeyData{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, userId).GetAll(&publicKeys)
+	})
+
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, fmt.Errorf(
+			"cannot get public keys data for user %q: %w", id, err,
 		)
 	}
 

@@ -22,6 +22,7 @@ import (
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 )
 
 // State describes retrieval and persistence methods needed for
@@ -202,6 +203,12 @@ func (s *SecretService) loadBackendInfo(ctx context.Context, activeOnly bool) er
 		}
 		s.backends[id], err = s.getBackend(&cfg)
 		if err != nil {
+			if id != info.ActiveID && cfg.BackendType == kubernetes.BackendType {
+				// TODO(secrets) - on an iaas controller, attempting to get the "model" k8s backend fails
+				//The root cause is not filtering backends to those that are in use.
+				s.logger.Debugf("failed to load backend info for id %s (%s): %v", id, cfg.BackendType, err)
+				continue
+			}
 			return errors.Trace(err)
 		}
 	}

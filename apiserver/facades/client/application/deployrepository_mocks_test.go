@@ -27,7 +27,6 @@ import (
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	schema "github.com/juju/schema"
-	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 	environschema "gopkg.in/juju/environschema.v1"
 )
@@ -667,45 +666,6 @@ func (m *MockModel) EXPECT() *MockModelMockRecorder {
 	return m.recorder
 }
 
-// AgentVersion mocks base method.
-func (m *MockModel) AgentVersion() (version.Number, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AgentVersion")
-	ret0, _ := ret[0].(version.Number)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AgentVersion indicates an expected call of AgentVersion.
-func (mr *MockModelMockRecorder) AgentVersion() *MockModelAgentVersionCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentVersion", reflect.TypeOf((*MockModel)(nil).AgentVersion))
-	return &MockModelAgentVersionCall{Call: call}
-}
-
-// MockModelAgentVersionCall wrap *gomock.Call
-type MockModelAgentVersionCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelAgentVersionCall) Return(arg0 version.Number, arg1 error) *MockModelAgentVersionCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelAgentVersionCall) Do(f func() (version.Number, error)) *MockModelAgentVersionCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelAgentVersionCall) DoAndReturn(f func() (version.Number, error)) *MockModelAgentVersionCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // CloudCredentialTag mocks base method.
 func (m *MockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	m.ctrl.T.Helper()
@@ -898,45 +858,6 @@ func (c *MockModelControllerUUIDCall) DoAndReturn(f func() string) *MockModelCon
 	return c
 }
 
-// ModelConfig mocks base method.
-func (m *MockModel) ModelConfig(arg0 context.Context) (*config0.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig", arg0)
-	ret0, _ := ret[0].(*config0.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockModelMockRecorder) ModelConfig(arg0 any) *MockModelModelConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockModel)(nil).ModelConfig), arg0)
-	return &MockModelModelConfigCall{Call: call}
-}
-
-// MockModelModelConfigCall wrap *gomock.Call
-type MockModelModelConfigCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelModelConfigCall) Return(arg0 *config0.Config, arg1 error) *MockModelModelConfigCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelModelConfigCall) Do(f func(context.Context) (*config0.Config, error)) *MockModelModelConfigCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelModelConfigCall) DoAndReturn(f func(context.Context) (*config0.Config, error)) *MockModelModelConfigCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ModelTag mocks base method.
 func (m *MockModel) ModelTag() names.ModelTag {
 	m.ctrl.T.Helper()
@@ -971,44 +892,6 @@ func (c *MockModelModelTagCall) Do(f func() names.ModelTag) *MockModelModelTagCa
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelModelTagCall) DoAndReturn(f func() names.ModelTag) *MockModelModelTagCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Name mocks base method.
-func (m *MockModel) Name() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Name")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// Name indicates an expected call of Name.
-func (mr *MockModelMockRecorder) Name() *MockModelNameCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockModel)(nil).Name))
-	return &MockModelNameCall{Call: call}
-}
-
-// MockModelNameCall wrap *gomock.Call
-type MockModelNameCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelNameCall) Return(arg0 string) *MockModelNameCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelNameCall) Do(f func() string) *MockModelNameCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelNameCall) DoAndReturn(f func() string) *MockModelNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1052,82 +935,6 @@ func (c *MockModelOpenedPortRangesForMachineCall) DoAndReturn(f func(string) (st
 	return c
 }
 
-// Owner mocks base method.
-func (m *MockModel) Owner() names.UserTag {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Owner")
-	ret0, _ := ret[0].(names.UserTag)
-	return ret0
-}
-
-// Owner indicates an expected call of Owner.
-func (mr *MockModelMockRecorder) Owner() *MockModelOwnerCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Owner", reflect.TypeOf((*MockModel)(nil).Owner))
-	return &MockModelOwnerCall{Call: call}
-}
-
-// MockModelOwnerCall wrap *gomock.Call
-type MockModelOwnerCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelOwnerCall) Return(arg0 names.UserTag) *MockModelOwnerCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelOwnerCall) Do(f func() names.UserTag) *MockModelOwnerCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelOwnerCall) DoAndReturn(f func() names.UserTag) *MockModelOwnerCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Tag mocks base method.
-func (m *MockModel) Tag() names.Tag {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(names.Tag)
-	return ret0
-}
-
-// Tag indicates an expected call of Tag.
-func (mr *MockModelMockRecorder) Tag() *MockModelTagCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockModel)(nil).Tag))
-	return &MockModelTagCall{Call: call}
-}
-
-// MockModelTagCall wrap *gomock.Call
-type MockModelTagCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelTagCall) Return(arg0 names.Tag) *MockModelTagCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelTagCall) Do(f func() names.Tag) *MockModelTagCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelTagCall) DoAndReturn(f func() names.Tag) *MockModelTagCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Type mocks base method.
 func (m *MockModel) Type() state.ModelType {
 	m.ctrl.T.Helper()
@@ -1162,44 +969,6 @@ func (c *MockModelTypeCall) Do(f func() state.ModelType) *MockModelTypeCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelTypeCall) DoAndReturn(f func() state.ModelType) *MockModelTypeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// UUID mocks base method.
-func (m *MockModel) UUID() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UUID")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// UUID indicates an expected call of UUID.
-func (mr *MockModelMockRecorder) UUID() *MockModelUUIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UUID", reflect.TypeOf((*MockModel)(nil).UUID))
-	return &MockModelUUIDCall{Call: call}
-}
-
-// MockModelUUIDCall wrap *gomock.Call
-type MockModelUUIDCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelUUIDCall) Return(arg0 string) *MockModelUUIDCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelUUIDCall) Do(f func() string) *MockModelUUIDCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelUUIDCall) DoAndReturn(f func() string) *MockModelUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

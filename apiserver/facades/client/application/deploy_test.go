@@ -66,6 +66,7 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -87,6 +88,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -114,6 +116,7 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -142,6 +145,7 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -210,13 +214,14 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 	dbSpaceId := "db-space"
 	publicSpaceId := "public-space"
 
-	model, err := st.Model()
+	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	app, err := application.DeployApplication(
 		context.Background(),
 		stateDeployer{State: st},
-		model,
+		m,
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -265,13 +270,14 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 	publicSpaceId := "public-space"
 	internalSpaceId := "internal-space"
 
-	model, err := st.Model()
+	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	app, err := application.DeployApplication(
 		context.Background(),
 		stateDeployer{State: st},
-		model,
+		m,
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -314,6 +320,7 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -343,6 +350,7 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -373,6 +381,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: st},
 		s.ControllerModel(c),
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -415,6 +424,7 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -446,6 +456,7 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: st},
 		s.ControllerModel(c),
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -471,6 +482,7 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -501,6 +513,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -534,6 +547,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -572,6 +586,7 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -607,13 +622,14 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 
 	var f = fakeDeployer{}
 
-	model, err := st.Model()
+	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = application.DeployApplication(
 		context.Background(),
 		&f,
-		model,
+		m,
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -641,13 +657,14 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 
 	var f = fakeDeployer{}
 
-	model, err := st.Model()
+	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = application.DeployApplication(
 		context.Background(),
 		&f,
-		model,
+		m,
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
@@ -674,6 +691,7 @@ func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		model.ReadOnlyModel{},
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),

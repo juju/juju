@@ -17,6 +17,7 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	flagservice "github.com/juju/juju/domain/flag/service"
+	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
 	keyupdaterservice "github.com/juju/juju/domain/keyupdater/service"
 	macaroonservice "github.com/juju/juju/domain/macaroon/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
@@ -80,6 +81,16 @@ func (s *TestingServiceFactory) Model() *modelservice.Service {
 
 // ModelDefaults returns the model defaults service.
 func (s *TestingServiceFactory) ModelDefaults() *modeldefaultsservice.Service {
+	return nil
+}
+
+// KeyManager returns the model key manager serivce.
+func (s *TestingServiceFactory) KeyManager(_ keymanagerservice.PublicKeyImporter) *keymanagerservice.Service {
+	return nil
+}
+
+// KeyUpdater returns the model key updater service.
+func (s *TestingServiceFactory) KeyUpdater() *keyupdaterservice.WatchableService {
 	return nil
 }
 

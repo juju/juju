@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/description/v6"
+	"github.com/juju/description/v8"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"

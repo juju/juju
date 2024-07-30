@@ -26,8 +26,8 @@ type CharmDownloaderConfig struct {
 	// given model.
 	ObjectStore Storage
 
-	StateBackend StateBackend
-	ModelBackend ModelBackend
+	StateBackend       StateBackend
+	ModelConfigService ModelConfigService
 }
 
 // NewCharmDownloader wires the provided configuration options into a new
@@ -43,8 +43,7 @@ func NewCharmDownloader(cfg CharmDownloaderConfig) (*charmdownloader.Downloader,
 		factory: NewCharmRepoFactory(CharmRepoFactoryConfig{
 			Logger:             cfg.Logger.Child("charmrepofactory"),
 			CharmhubHTTPClient: cfg.CharmhubHTTPClient,
-			StateBackend:       cfg.StateBackend,
-			ModelBackend:       cfg.ModelBackend,
+			ModelConfigService: cfg.ModelConfigService,
 		}),
 	}
 

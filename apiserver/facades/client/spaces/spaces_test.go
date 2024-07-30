@@ -806,9 +806,28 @@ var _ = gc.Suite(&LegacySuite{})
 func (s *LegacySuite) SetUpSuite(c *gc.C) {
 	s.StubNetwork.SetUpSuite(c)
 	s.BaseSuite.SetUpSuite(c)
+}
 
+func (s *LegacySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+
 	s.networkService = spaces.NewMockNetworkService(ctrl)
+
+	return ctrl
+}
+
+func (s *LegacySuite) makeAPI(c *gc.C) {
+	var err error
+	s.facade, err = spaces.NewAPIWithBacking(spaces.APIConfig{
+		Backing:                     &stubBacking{apiservertesting.BackingInstance},
+		Check:                       &s.blockChecker,
+		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
+		Resources:                   s.resources,
+		Authorizer:                  s.auth,
+		NetworkService:              s.networkService,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.facade, gc.NotNil)
 }
 
 func (s *LegacySuite) TearDownSuite(c *gc.C) {
@@ -832,17 +851,6 @@ func (s *LegacySuite) SetUpTest(c *gc.C) {
 	}
 
 	s.blockChecker = mockBlockChecker{}
-	var err error
-	s.facade, err = spaces.NewAPIWithBacking(spaces.APIConfig{
-		Backing:                     &stubBacking{apiservertesting.BackingInstance},
-		Check:                       &s.blockChecker,
-		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
-		Resources:                   s.resources,
-		Authorizer:                  s.auth,
-		NetworkService:              s.networkService,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.facade, gc.NotNil)
 }
 
 func (s *LegacySuite) TearDownTest(c *gc.C) {
@@ -893,6 +901,9 @@ func (s *LegacySuite) TestShowSpaceError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestCreateSpacesModelConfigError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
 	apiservertesting.SharedStub.SetErrors(
 		errors.New("boom"), // Backing.ModelConfig()
 	)
@@ -903,6 +914,9 @@ func (s *LegacySuite) TestCreateSpacesModelConfigError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestCreateSpacesProviderOpenError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
 	apiservertesting.SharedStub.SetErrors(
 		nil,                // Backing.ModelConfig()
 		nil,                // Backing.CloudSpec()
@@ -916,6 +930,9 @@ func (s *LegacySuite) TestCreateSpacesProviderOpenError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestCreateSpacesNotSupportedError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
 	apiservertesting.SharedStub.SetErrors(
 		nil,                            // Backing.ModelConfig()
 		nil,                            // Backing.CloudSpec()
@@ -929,6 +946,9 @@ func (s *LegacySuite) TestCreateSpacesNotSupportedError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
 	expected := []params.Space{{
 		Id:   "1",
 		Name: "default",
@@ -1009,6 +1029,9 @@ func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
 }
 
 func (s *LegacySuite) TestListSpacesAllSpacesError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
 	boom := errors.New("backing boom")
 	apiservertesting.BackingInstance.SetErrors(boom)
 	_, err := s.facade.ListSpaces(stdcontext.Background())
@@ -1016,6 +1039,9 @@ func (s *LegacySuite) TestListSpacesAllSpacesError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestListSpacesSubnetsError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
 	apiservertesting.SharedStub.SetErrors(
 		nil,                                 // Backing.ModelConfig()
 		nil,                                 // Backing.CloudSpec()
@@ -1037,6 +1063,9 @@ func (s *LegacySuite) TestListSpacesSubnetsError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
 	boom := errors.New("boom")
 	apiservertesting.SharedStub.SetErrors(
 		nil,  // Backing.ModelConfig()
@@ -1061,6 +1090,9 @@ func (s *LegacySuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestListSpacesNotSupportedError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
 	apiservertesting.SharedStub.SetErrors(
 		nil,                            // Backing.ModelConfig()
 		nil,                            // Backing.CloudSpec()
@@ -1073,6 +1105,9 @@ func (s *LegacySuite) TestListSpacesNotSupportedError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestCreateSpacesBlocked(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
 	s.blockChecker.SetErrors(apiservererrors.ServerError(apiservererrors.OperationBlockedError("test block")))
 	_, err := s.facade.CreateSpaces(stdcontext.Background(), params.CreateSpacesParams{})
 	c.Assert(err, gc.ErrorMatches, "test block")

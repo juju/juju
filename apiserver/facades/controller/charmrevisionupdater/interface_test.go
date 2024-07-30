@@ -176,6 +176,11 @@ type facadeContextShim struct {
 	state               *state.State
 	authorizer          facade.Authorizer
 	logger              corelogger.Logger
+	httpClient          facade.HTTPClient
+}
+
+func (s facadeContextShim) HTTPClient(_ facade.HTTPClientPurpose) (facade.HTTPClient, error) {
+	return s.httpClient, nil
 }
 
 func (s facadeContextShim) Auth() facade.Authorizer {

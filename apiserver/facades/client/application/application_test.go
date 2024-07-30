@@ -49,21 +49,28 @@ type applicationSuite struct {
 	authorizer     *apiservertesting.FakeAuthorizer
 	lastKnownRev   map[string]int
 
-	store          objectstore.ObjectStore
-	networkService *application.MockNetworkService
+	store              objectstore.ObjectStore
+	networkService     *application.MockNetworkService
+	modelConfigService *application.MockModelConfigService
+	modelAgentService  *application.MockModelAgentService
 }
 
 var _ = gc.Suite(&applicationSuite{})
 
 func (s *applicationSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+	s.modelConfigService = application.NewMockModelConfigService(ctrl)
+	s.modelAgentService = application.NewMockModelAgentService(ctrl)
 
 	s.networkService = application.NewMockNetworkService(ctrl)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(network.SpaceInfos{
+		{ID: "0", Name: "alpha"},
+	}, nil).AnyTimes()
+
 	return ctrl
 }
 
 func (s *applicationSuite) SetUpTest(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
 	s.ApiServerSuite.SetUpTest(c)
 	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
@@ -75,13 +82,12 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: jujutesting.AdminUser,
 	}
-	s.applicationAPI = s.makeAPI(c)
 	s.lastKnownRev = make(map[string]int)
 
 	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID())
 }
 
-func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
+func (s *applicationSuite) makeAPI(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	storageAccess, err := application.GetStorageState(st)
 	c.Assert(err, jc.ErrorIsNil)
@@ -99,6 +105,10 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		return env
 	}
 
+	modelInfo := model.ReadOnlyModel{
+		UUID: model.UUID(testing.ModelTag.Id()),
+		Type: model.IAAS,
+	}
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	serviceFactoryGetter := s.ServiceFactoryGetter(c)
 	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Storage(registry)
@@ -111,6 +121,9 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		nil,
 		blockChecker,
 		application.GetModel(m),
+		modelInfo,
+		s.modelConfigService,
+		s.modelAgentService,
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),
@@ -126,7 +139,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return api
+	s.applicationAPI = api
 }
 
 func (s *applicationSuite) setupApplicationDeploy(c *gc.C, args string) (string, charm.Charm, constraints.Value) {
@@ -163,24 +176,36 @@ func (s *applicationSuite) assertApplicationDeployPrincipalBlocked(c *gc.C, msg 
 }
 
 func (s *applicationSuite) TestBlockDestroyApplicationDeployPrincipal(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	curl, bundle, cons := s.setupApplicationDeploy(c, "arch=amd64 mem=4G")
 	s.BlockDestroyModel(c, "TestBlockDestroyApplicationDeployPrincipal")
 	s.assertApplicationDeployPrincipal(c, curl, bundle, cons)
 }
 
 func (s *applicationSuite) TestBlockRemoveApplicationDeployPrincipal(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	curl, bundle, cons := s.setupApplicationDeploy(c, "arch=amd64 mem=4G")
 	s.BlockRemoveObject(c, "TestBlockRemoveApplicationDeployPrincipal")
 	s.assertApplicationDeployPrincipal(c, curl, bundle, cons)
 }
 
 func (s *applicationSuite) TestBlockChangesApplicationDeployPrincipal(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	curl, _, cons := s.setupApplicationDeploy(c, "mem=4G")
 	s.BlockAllChanges(c, "TestBlockChangesApplicationDeployPrincipal")
 	s.assertApplicationDeployPrincipalBlocked(c, "TestBlockChangesApplicationDeployPrincipal", curl, cons)
 }
 
 func (s *applicationSuite) TestApplicationDeploySubordinate(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	curl, ch := s.addCharmToState(c, "ch:utopic/logging-47", "logging")
 	results, err := s.applicationAPI.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -215,6 +240,9 @@ func (s *applicationSuite) combinedSettings(ch *state.Charm, inSettings charm.Se
 }
 
 func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	curl, _ := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
 	results, err := s.applicationAPI.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -238,6 +266,9 @@ func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
 	curl, _ := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
@@ -257,6 +288,9 @@ func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	curl, ch := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
 
 	st := s.ControllerModel(c).State()
@@ -307,6 +341,9 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	curl, ch := s.addCharmToState(c, "ch:jammy/lxd-profile-0", "lxd-profile")
 
 	st := s.ControllerModel(c).State()
@@ -363,6 +400,9 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAndForceStillSucceeds(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	curl, ch := s.addCharmToState(c, "ch:jammy/lxd-profile-fail-0", "lxd-profile-fail")
 
 	st := s.ControllerModel(c).State()
@@ -419,6 +459,9 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 }
 
 func (s *applicationSuite) TestApplicationDeployToCharmNotFound(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	results, err := s.applicationAPI.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        "ch:jammy/application-name-1",
@@ -436,6 +479,9 @@ func (s *applicationSuite) TestApplicationDeployToCharmNotFound(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationUpdateDoesNotSetMinUnitsWithLXDProfile(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	series := "quantal"
 	repo := testcharms.RepoForSeries(series)
 	ch := repo.CharmDir("lxd-profile-fail")
@@ -479,6 +525,9 @@ var clientAddApplicationUnitsTests = []struct {
 }
 
 func (s *applicationSuite) TestClientAddApplicationUnits(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeApplication(c, &factory.ApplicationParams{
@@ -515,6 +564,9 @@ func (s *applicationSuite) TestClientAddApplicationUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestAddApplicationUnitsToNewContainer(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	app := f.MakeApplication(c, &factory.ApplicationParams{
@@ -566,6 +618,9 @@ var addApplicationUnitTests = []struct {
 }
 
 func (s *applicationSuite) TestAddApplicationUnits(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeApplication(c, &factory.ApplicationParams{
@@ -621,6 +676,9 @@ func (s *applicationSuite) assertAddApplicationUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationCharmRelations(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeApplication(c, &factory.ApplicationParams{
@@ -657,6 +715,9 @@ func (s *applicationSuite) assertAddApplicationUnitsBlocked(c *gc.C, msg string)
 }
 
 func (s *applicationSuite) TestBlockDestroyAddApplicationUnits(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeApplication(c, &factory.ApplicationParams{
@@ -668,6 +729,9 @@ func (s *applicationSuite) TestBlockDestroyAddApplicationUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestBlockRemoveAddApplicationUnits(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeApplication(c, &factory.ApplicationParams{
@@ -679,6 +743,9 @@ func (s *applicationSuite) TestBlockRemoveAddApplicationUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestBlockChangeAddApplicationUnits(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeApplication(c, &factory.ApplicationParams{
@@ -690,6 +757,9 @@ func (s *applicationSuite) TestBlockChangeAddApplicationUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestAddUnitToMachineNotFound(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeApplication(c, &factory.ApplicationParams{
@@ -705,6 +775,9 @@ func (s *applicationSuite) TestAddUnitToMachineNotFound(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationExpose(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	charm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
@@ -726,6 +799,9 @@ func (s *applicationSuite) TestApplicationExpose(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	app := f.MakeApplication(c, &factory.ApplicationParams{
@@ -755,6 +831,9 @@ func (s *applicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationExposeEndpointsWithPre29Client(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	app := f.MakeApplication(c, &factory.ApplicationParams{
@@ -902,18 +981,27 @@ func (s *applicationSuite) assertApplicationExposeBlocked(c *gc.C, msg string) {
 }
 
 func (s *applicationSuite) TestBlockDestroyApplicationExpose(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	s.setupApplicationExpose(c)
 	s.BlockDestroyModel(c, "TestBlockDestroyApplicationExpose")
 	s.assertApplicationExpose(c)
 }
 
 func (s *applicationSuite) TestBlockRemoveApplicationExpose(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	s.setupApplicationExpose(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveApplicationExpose")
 	s.assertApplicationExpose(c)
 }
 
 func (s *applicationSuite) TestBlockChangesApplicationExpose(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	s.setupApplicationExpose(c)
 	s.BlockAllChanges(c, "TestBlockChangesApplicationExpose")
 	s.assertApplicationExposeBlocked(c, "TestBlockChangesApplicationExpose")
@@ -976,6 +1064,9 @@ var applicationUnexposeTests = []struct {
 }
 
 func (s *applicationSuite) TestApplicationUnexpose(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	charm := f.MakeCharm(c, nil)
@@ -1037,24 +1128,36 @@ func (s *applicationSuite) assertApplicationUnexposeBlocked(c *gc.C, app *state.
 }
 
 func (s *applicationSuite) TestBlockDestroyApplicationUnexpose(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	app := s.setupApplicationUnexpose(c)
 	s.BlockDestroyModel(c, "TestBlockDestroyApplicationUnexpose")
 	s.assertApplicationUnexpose(c, app)
 }
 
 func (s *applicationSuite) TestBlockRemoveApplicationUnexpose(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	app := s.setupApplicationUnexpose(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveApplicationUnexpose")
 	s.assertApplicationUnexpose(c, app)
 }
 
 func (s *applicationSuite) TestBlockChangesApplicationUnexpose(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	app := s.setupApplicationUnexpose(c)
 	s.BlockAllChanges(c, "TestBlockChangesApplicationUnexpose")
 	s.assertApplicationUnexposeBlocked(c, app, "TestBlockChangesApplicationUnexpose")
 }
 
 func (s *applicationSuite) TestClientSetApplicationConstraints(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	app := f.MakeApplication(c, &factory.ApplicationParams{
@@ -1102,24 +1205,36 @@ func (s *applicationSuite) assertSetApplicationConstraintsBlocked(c *gc.C, msg s
 }
 
 func (s *applicationSuite) TestBlockDestroySetApplicationConstraints(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	app, cons := s.setupSetApplicationConstraints(c)
 	s.BlockDestroyModel(c, "TestBlockDestroySetApplicationConstraints")
 	s.assertSetApplicationConstraints(c, app, cons)
 }
 
 func (s *applicationSuite) TestBlockRemoveSetApplicationConstraints(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	app, cons := s.setupSetApplicationConstraints(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveSetApplicationConstraints")
 	s.assertSetApplicationConstraints(c, app, cons)
 }
 
 func (s *applicationSuite) TestBlockChangesSetApplicationConstraints(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	app, cons := s.setupSetApplicationConstraints(c)
 	s.BlockAllChanges(c, "TestBlockChangesSetApplicationConstraints")
 	s.assertSetApplicationConstraintsBlocked(c, "TestBlockChangesSetApplicationConstraints", app, cons)
 }
 
 func (s *applicationSuite) TestClientGetApplicationConstraints(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	fooConstraints := constraints.MustParse("arch=amd64", "mem=4G")
@@ -1237,20 +1352,33 @@ func (s *applicationSuite) assertAddRelation(c *gc.C, endpoints, viaCIDRs []stri
 }
 
 func (s *applicationSuite) TestSuccessfullyAddRelation(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	endpoints := []string{"wordpress", "mysql"}
 	s.assertAddRelation(c, endpoints, nil)
 }
 
 func (s *applicationSuite) TestBlockDestroyAddRelation(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	s.BlockDestroyModel(c, "TestBlockDestroyAddRelation")
 	s.assertAddRelation(c, []string{"wordpress", "mysql"}, nil)
 }
+
 func (s *applicationSuite) TestBlockRemoveAddRelation(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	s.BlockRemoveObject(c, "TestBlockRemoveAddRelation")
 	s.assertAddRelation(c, []string{"wordpress", "mysql"}, nil)
 }
 
 func (s *applicationSuite) TestBlockChangesAddRelation(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeApplication(c, &factory.ApplicationParams{
@@ -1263,6 +1391,9 @@ func (s *applicationSuite) TestBlockChangesAddRelation(c *gc.C) {
 }
 
 func (s *applicationSuite) TestSuccessfullyAddRelationSwapped(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	// Show that the order of the applications listed in the AddRelation call
 	// does not matter.  This is a repeat of the previous test with the application
 	// names swapped.
@@ -1271,6 +1402,9 @@ func (s *applicationSuite) TestSuccessfullyAddRelationSwapped(c *gc.C) {
 }
 
 func (s *applicationSuite) TestCallWithOnlyOneEndpoint(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeApplication(c, &factory.ApplicationParams{
@@ -1283,6 +1417,9 @@ func (s *applicationSuite) TestCallWithOnlyOneEndpoint(c *gc.C) {
 }
 
 func (s *applicationSuite) TestCallWithOneEndpointTooMany(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeApplication(c, &factory.ApplicationParams{
@@ -1299,6 +1436,9 @@ func (s *applicationSuite) TestCallWithOneEndpointTooMany(c *gc.C) {
 }
 
 func (s *applicationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeApplication(c, &factory.ApplicationParams{
@@ -1336,17 +1476,26 @@ func (s *applicationSuite) setupRemoteApplication(c *gc.C) {
 }
 
 func (s *applicationSuite) TestAddRemoteRelation(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	s.setupRemoteApplication(c)
 	// There's already a wordpress in the scenario this assertion sets up.
 	s.assertAddRelation(c, []string{"wordpress", "hosted-mysql"}, nil)
 }
 
 func (s *applicationSuite) TestAddRemoteRelationWithRelName(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	s.setupRemoteApplication(c)
 	s.assertAddRelation(c, []string{"wordpress", "hosted-mysql:server"}, nil)
 }
 
 func (s *applicationSuite) TestAddRemoteRelationVia(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	s.setupRemoteApplication(c)
 	s.assertAddRelation(c, []string{"wordpress", "hosted-mysql:server"}, []string{"192.168.0.0/16"})
 
@@ -1360,6 +1509,9 @@ func (s *applicationSuite) TestAddRemoteRelationVia(c *gc.C) {
 }
 
 func (s *applicationSuite) TestAddRemoteRelationOnlyOneEndpoint(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	s.setupRemoteApplication(c)
 	endpoints := []string{"hosted-mysql"}
 	_, err := s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints})
@@ -1367,6 +1519,9 @@ func (s *applicationSuite) TestAddRemoteRelationOnlyOneEndpoint(c *gc.C) {
 }
 
 func (s *applicationSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	s.setupRemoteApplication(c)
 	endpoints := []string{"wordpress", "hosted-mysql"}
 	s.assertAddRelation(c, endpoints, nil)
@@ -1377,6 +1532,9 @@ func (s *applicationSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
 }
 
 func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	s.setupRemoteApplication(c)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -1391,6 +1549,9 @@ func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 }
 
 func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	results, err := s.applicationAPI.Consume(context.Background(), params.ConsumeApplicationArgsV5{
 		Args: []params.ConsumeApplicationArgV5{
 			{ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
@@ -1418,6 +1579,9 @@ func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 }
 
 func (s *applicationSuite) TestRemoteRelationApplicationNotFound(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeApplication(c, &factory.ApplicationParams{
@@ -1468,6 +1632,9 @@ func (s *applicationSuite) addCharmToState(c *gc.C, charmURL string, name string
 }
 
 func (s *applicationSuite) TestValidateSecretConfig(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.makeAPI(c)
+
 	chCfg := &charm.Config{
 		Options: map[string]charm.Option{
 			"foo": {Type: "secret"},

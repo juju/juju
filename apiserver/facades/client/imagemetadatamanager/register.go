@@ -5,11 +5,15 @@ package imagemetadatamanager
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -17,12 +21,29 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ImageMetadataManager", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newAPI(stdCtx, ctx)
+		api, err := makeAPI(stdCtx, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("making ImageMetadataManager facade: %w", err)
+		}
+
+		return api, nil
 	}, reflect.TypeOf((*API)(nil)))
 }
 
-// newAPI returns a new cloud image metadata API facade.
-func newAPI(ctx context.Context, modelctx facade.ModelContext) (*API, error) {
+// makeAPI is responsible for constructing a new [API] from the provided model
+// context.
+func makeAPI(ctx context.Context, modelctx facade.ModelContext) (*API, error) {
+	authorizer := modelctx.Auth()
+	if !authorizer.AuthClient() {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	controllerTag := names.NewControllerTag(modelctx.ControllerUUID())
+	err := authorizer.HasPermission(ctx, permission.SuperuserAccess, controllerTag)
+	if err != nil {
+		return nil, err
+	}
+
 	st := modelctx.State()
 	model, err := st.Model()
 	if err != nil {
@@ -31,5 +52,10 @@ func newAPI(ctx context.Context, modelctx facade.ModelContext) (*API, error) {
 	newEnviron := func() (environs.Environ, error) {
 		return stateenvirons.GetNewEnvironFunc(environs.New)(model, modelctx.ServiceFactory().Cloud(), modelctx.ServiceFactory().Credential())
 	}
-	return createAPI(ctx, getState(st), modelctx.ServiceFactory().Config(), newEnviron, modelctx.Resources(), modelctx.Auth())
+	return newAPI(
+		getState(st),
+		modelctx.ServiceFactory().Config(),
+		modelctx.ServiceFactory().ModelInfo(),
+		newEnviron,
+	), nil
 }

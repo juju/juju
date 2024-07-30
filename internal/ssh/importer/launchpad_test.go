@@ -48,7 +48,7 @@ func (l *launchpadSuite) TestSubjectNotFound(c *gc.C) {
 	)
 
 	lp := LaunchpadResolver{l.client}
-	_, err := lp.PublicKeysForSubject(context.Background(), "~tlm")
+	_, err := lp.PublicKeysForSubject(context.Background(), "tlm")
 	c.Check(err, jc.ErrorIs, importererrors.SubjectNotFound)
 }
 
@@ -77,7 +77,7 @@ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe
 	)
 
 	lp := LaunchpadResolver{l.client}
-	keys, err := lp.PublicKeysForSubject(context.Background(), "~tlm")
+	keys, err := lp.PublicKeysForSubject(context.Background(), "tlm")
 	c.Check(err, jc.ErrorIsNil)
 
 	expected := []string{

@@ -36,7 +36,7 @@ const (
 	// githubContentTypeJSON represents the content type that we accept back
 	// from Github as defined in
 	// https://docs.github.com/en/rest/using-the-rest-api/getting-started-with-the-rest-api?apiVersion=2022-11-28#accept
-	githubContentTypeJSON = "application/vnd.github+json; charset=utf-8"
+	githubContentTypeJSON = "application/json; charset=utf-8"
 
 	// githubAPIURL is the constant url for contacting Github.
 	githubAPIURL = "https://api.github.com"

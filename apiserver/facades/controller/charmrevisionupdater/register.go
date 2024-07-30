@@ -5,6 +5,7 @@ package charmrevisionupdater
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/juju/clock"
@@ -26,8 +27,16 @@ func newCharmRevisionUpdaterAPI(ctx facade.ModelContext) (*CharmRevisionUpdaterA
 	if !ctx.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
+
+	charmhubHTTPClient, err := ctx.HTTPClient(facade.CharmhubHTTPClient)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"getting charm hub http client: %w",
+			err,
+		)
+	}
 	newCharmhubClient := func(st State) (CharmhubRefreshClient, error) {
-		httpClient := ctx.HTTPClient(facade.CharmhubHTTPClient)
+		httpClient := charmhubHTTPClient
 		return common.CharmhubClient(charmhubClientStateShim{state: st}, httpClient, ctx.Logger().Child("charmrevisionupdater"))
 	}
 	return NewCharmRevisionUpdaterAPIState(

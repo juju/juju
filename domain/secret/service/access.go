@@ -132,13 +132,16 @@ func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI,
 	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
 		return errors.Trace(err)
 	}
+	return s.st.GrantAccess(ctx, uri, grantParams(params))
+}
 
+func grantParams(in SecretAccessParams) domainsecret.GrantParams {
 	p := domainsecret.GrantParams{
-		ScopeID:   params.Scope.ID,
-		SubjectID: params.Subject.ID,
-		RoleID:    domainsecret.MarshallRole(params.Role),
+		ScopeID:   in.Scope.ID,
+		SubjectID: in.Subject.ID,
+		RoleID:    domainsecret.MarshallRole(in.Role),
 	}
-	switch params.Subject.Kind {
+	switch in.Subject.Kind {
 	case UnitAccessor:
 		p.SubjectTypeID = domainsecret.SubjectUnit
 	case ApplicationAccessor:
@@ -149,7 +152,7 @@ func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI,
 		p.SubjectTypeID = domainsecret.SubjectModel
 	}
 
-	switch params.Scope.Kind {
+	switch in.Scope.Kind {
 	case UnitAccessScope:
 		p.ScopeTypeID = domainsecret.ScopeUnit
 	case ApplicationAccessScope:
@@ -159,8 +162,7 @@ func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI,
 	case RelationAccessScope:
 		p.ScopeTypeID = domainsecret.ScopeRelation
 	}
-
-	return s.st.GrantAccess(ctx, uri, p)
+	return p
 }
 
 // RevokeSecretAccess revokes access to the secret for the specified subject.

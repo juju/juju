@@ -17,6 +17,7 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	flagservice "github.com/juju/juju/domain/flag/service"
+	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
 	keyupdaterservice "github.com/juju/juju/domain/keyupdater/service"
 	macaroonservice "github.com/juju/juju/domain/macaroon/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
@@ -89,6 +90,10 @@ type ModelServiceFactory interface {
 	Application(registry storage.ProviderRegistry) *applicationservice.Service
 	// Unit returns the machine service.
 	Unit() *unitservice.Service
+	// KeyManager returns the key manager service.
+	KeyManager(keymanagerservice.PublicKeyImporter) *keymanagerservice.Service
+	// KeyUpdater returns the key updater service.
+	KeyUpdater() *keyupdaterservice.WatchableService
 	// Network returns the space service.
 	Network() *networkservice.WatchableService
 	// Annotation returns the annotation service.
@@ -105,8 +110,6 @@ type ModelServiceFactory interface {
 	// the model service. As this is only for read-only model information, we
 	// can rename it to the more obscure version.
 	ModelInfo() *modelservice.ModelService
-	// KeyUpdater returns the key updater service.
-	KeyUpdater() *keyupdaterservice.Service
 	// ModelSecretBackend returns the model secret backend service.
 	ModelSecretBackend() *secretbackendservice.ModelSecretBackendService
 }

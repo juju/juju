@@ -6,11 +6,12 @@ package modelmigration
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v6"
+	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -190,26 +191,26 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 		secretRevisions, secretContent, err := i.collateRevisionInfo(secret.Revisions())
 		if err != nil {
-			return errors.Annotate(err, "collating secret revisions")
+			return errors.Annotatef(err, "collating revisions for secret %q", secret.Id())
 		}
 		allSecrets.Revisions[secret.Id()] = secretRevisions
 		allSecrets.Content[secret.Id()] = secretContent
 
 		secretAccess, err := i.collateAccess(secret.ACL())
 		if err != nil {
-			return errors.Annotate(err, "collating secret access")
+			return errors.Annotatef(err, "collating access for secret %q", secret.Id())
 		}
 		allSecrets.Access[secret.Id()] = secretAccess
 
 		secretConsumers, err := i.collateConsumers(secret.Consumers(), secret.LatestRevision())
 		if err != nil {
-			return errors.Annotate(err, "collating secret consumers")
+			return errors.Annotatef(err, "collating consumers for secret %q", secret.Id())
 		}
 		allSecrets.Consumers[secret.Id()] = secretConsumers
 
 		remoteConsumers, err := i.collateRemoteConsumers(secret.RemoteConsumers())
 		if err != nil {
-			return errors.Annotate(err, "collating secret remote consumers")
+			return errors.Annotatef(err, "collating remote consumers for secret %q", secret.Id())
 		}
 		allSecrets.RemoteConsumers[secret.Id()] = remoteConsumers
 	}
@@ -246,6 +247,13 @@ func (i *importOperation) collateRevisionInfo(revisions []description.SecretRevi
 		}
 		var valueRef *secrets.ValueRef
 		if len(dataCopy) == 0 {
+			// This should ever happen, but just in case, avoid a nil pointer dereference.
+			switch v := reflect.ValueOf(rev.ValueRef()); v.Kind() {
+			case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+				if v.IsNil() {
+					return nil, nil, fmt.Errorf("missing content for secret revision %d", rev.Number())
+				}
+			}
 			valueRef = &secrets.ValueRef{
 				BackendID:  rev.ValueRef().BackendID(),
 				RevisionID: rev.ValueRef().RevisionID(),

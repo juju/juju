@@ -10,10 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
@@ -25,35 +22,22 @@ type API struct {
 	newEnviron func() (environs.Environ, error)
 
 	modelConfigService ModelConfigService
+	modelInfoService   ModelInfoService
 }
 
-// ModelConfigService is an interface that provides access to model config.
-type ModelConfigService interface {
-	ModelConfig(ctx context.Context) (*config.Config, error)
-}
-
-// createAPI returns a new image metadata API facade.
-func createAPI(
-	ctx context.Context,
+// newAPI is responsible for constructing a new [API]
+func newAPI(
 	st metadataAccess,
 	modelConfigService ModelConfigService,
+	modelInfoService ModelInfoService,
 	newEnviron func() (environs.Environ, error),
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*API, error) {
-	if !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-	err := authorizer.HasPermission(ctx, permission.SuperuserAccess, st.ControllerTag())
-	if err != nil {
-		return nil, err
-	}
-
+) *API {
 	return &API{
 		metadata:           st,
 		newEnviron:         newEnviron,
 		modelConfigService: modelConfigService,
-	}, nil
+		modelInfoService:   modelInfoService,
+	}
 }
 
 // List returns all found cloud image metadata that satisfy
@@ -90,14 +74,15 @@ func (api *API) List(ctx context.Context, filter params.ImageMetadataFilter) (pa
 // Save stores given cloud image metadata.
 // It supports bulk calls.
 func (api *API) Save(ctx context.Context, metadata params.MetadataSaveParams) (params.ErrorResults, error) {
-	model, err := api.metadata.Model()
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
+
 	for _, mList := range metadata.Metadata {
 		for i, m := range mList.Metadata {
 			if m.Region == "" {
-				m.Region = model.CloudRegion()
+				m.Region = modelInfo.CloudRegion
 				mList.Metadata[i] = m
 			}
 		}

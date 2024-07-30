@@ -12,7 +12,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/v4/ssh"
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
@@ -689,10 +688,25 @@ type AllWatcherId struct {
 	AllWatcherId string `json:"watcher-id"`
 }
 
+// SSHListMode describes the mode to use when list ssh keys. This value has been
+// brought over from [github.com/juju/utils/ssh].
+type SSHListMode bool
+
+const (
+	// SSHListModeFull is a [SSHListMode] that list ssh keys with their full raw
+	// value. This const comes from [github.com/juju/utils/ssh.FullKeys]
+	SSHListModeFull = SSHListMode(true)
+
+	// SSHListModeFingerprint is a [SSHListMode] that list ssh keys with just
+	// their fingerprint value. This const comes from
+	// [github.com/juju/utils/ssh.Fingerprints]
+	SSHListModeFingerprint = SSHListMode(false)
+)
+
 // ListSSHKeys stores parameters used for a KeyManager.ListKeys call.
 type ListSSHKeys struct {
 	Entities `json:"entities"`
-	Mode     ssh.ListMode `json:"mode"`
+	Mode     SSHListMode `json:"mode"`
 }
 
 // ModifyUserSSHKeys stores parameters used for a KeyManager.Add|Delete|Import call for a user.

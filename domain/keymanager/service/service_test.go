@@ -13,6 +13,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -277,13 +278,21 @@ func (s *serviceSuite) TestListKeysForNonExistentUser(c *gc.C) {
 func (s *serviceSuite) TestListKeysForUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	publicKeys := make([]coressh.PublicKey, 0, len(existingUserPublicKeys))
+	for _, existingKey := range existingUserPublicKeys {
+		publicKeys = append(publicKeys, coressh.PublicKey{
+			Fingerprint: "fingerprint",
+			Key:         existingKey,
+		})
+	}
+
 	s.state.EXPECT().GetPublicKeysForUser(gomock.Any(), s.userID).
-		Return(existingUserPublicKeys, nil)
+		Return(publicKeys, nil)
 	svc := NewService(s.keyImporter, s.state)
 
 	keys, err := svc.ListPublicKeysForUser(context.Background(), s.userID)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(keys, gc.DeepEquals, existingUserPublicKeys)
+	c.Check(keys, jc.DeepEquals, publicKeys)
 }
 
 // TestDeleteKeysForInvalidUser is asserting that if we pass an invalid user id

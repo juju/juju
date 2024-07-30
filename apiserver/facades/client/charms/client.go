@@ -44,7 +44,6 @@ type API struct {
 	charmInfoAPI       *charmscommon.CharmInfoAPI
 	authorizer         facade.Authorizer
 	backendState       charmsinterfaces.BackendState
-	backendModel       charmsinterfaces.BackendModel
 	charmhubHTTPClient facade.HTTPClient
 
 	tag             names.ModelTag
@@ -56,6 +55,8 @@ type API struct {
 	repoFactory corecharm.RepositoryFactory
 
 	logger corelogger.Logger
+
+	modelConfigService ModelConfigService
 }
 
 // CharmInfo returns information about the requested charm.
@@ -87,18 +88,19 @@ func (a *API) checkCanWrite(ctx context.Context) error {
 func NewCharmsAPI(
 	authorizer facade.Authorizer,
 	st charmsinterfaces.BackendState,
-	m charmsinterfaces.BackendModel,
+	modelConfigService ModelConfigService,
+	modelTag names.ModelTag,
 	repoFactory corecharm.RepositoryFactory,
 	logger corelogger.Logger,
 ) (*API, error) {
 	return &API{
-		authorizer:      authorizer,
-		backendState:    st,
-		backendModel:    m,
-		tag:             m.ModelTag(),
-		requestRecorder: noopRequestRecorder{},
-		repoFactory:     repoFactory,
-		logger:          logger,
+		authorizer:         authorizer,
+		backendState:       st,
+		modelConfigService: modelConfigService,
+		tag:                modelTag,
+		requestRecorder:    noopRequestRecorder{},
+		repoFactory:        repoFactory,
+		logger:             logger,
 	}, nil
 }
 
@@ -435,8 +437,7 @@ func (a *API) getCharmRepository(ctx context.Context, src corecharm.Source) (cor
 	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
 		Logger:             a.logger,
 		CharmhubHTTPClient: a.charmhubHTTPClient,
-		StateBackend:       a.backendState,
-		ModelBackend:       a.backendModel,
+		ModelConfigService: a.modelConfigService,
 	})
 
 	return repoFactory.GetCharmRepository(ctx, src)

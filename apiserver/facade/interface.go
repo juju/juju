@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/juju/description/v6"
+	"github.com/juju/description/v8"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/leadership"
@@ -153,8 +153,13 @@ type ModelContext interface {
 	// RequestRecorder defines a metrics collector for outbound requests.
 	RequestRecorder() RequestRecorder
 
-	// HTTPClient returns an HTTP client to use for the given purpose.
-	HTTPClient(purpose HTTPClientPurpose) HTTPClient
+	// HTTPClient returns an HTTP client to use for the given purpose. The
+	// following errors can be expected:
+	// - [ErrorHTTPClientPurposeInvalid] when the requested purpose is not
+	// understood by the context.
+	// - [ErrorHTTPClientForPurposeNotFound] when no http client can be found
+	// for the requested [HTTPClientPurpose].
+	HTTPClient(HTTPClientPurpose) (HTTPClient, error)
 
 	// MachineTag returns the current machine tag.
 	MachineTag() names.Tag
@@ -308,4 +313,9 @@ type HTTPClientPurpose string
 
 const (
 	CharmhubHTTPClient HTTPClientPurpose = "charmhub"
+
+	// HTTPClientPurposeUserSSHImport describes a http client purpose for
+	// fetching and importing user ssh keys from an external source. This was
+	// established for use in the keymanager facade.
+	HTTPClientPurposeUserSSHImport HTTPClientPurpose = "ssh-key-import"
 )

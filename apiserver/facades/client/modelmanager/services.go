@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/description/v6"
+	"github.com/juju/description/v8"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"

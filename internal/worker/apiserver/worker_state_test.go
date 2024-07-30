@@ -16,6 +16,7 @@ import (
 	coreapiserver "github.com/juju/juju/apiserver"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/model"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiserver"
 	statetesting "github.com/juju/juju/state/testing"
@@ -64,11 +65,27 @@ func (s *WorkerStateSuite) TearDownTest(c *gc.C) {
 	s.workerFixture.TearDownTest(c)
 }
 
+func (s *WorkerStateSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.modelService = NewMockModelService(ctrl)
+
+	s.config.ControllerConfigService = s.controllerConfigService
+	s.config.ModelService = s.modelService
+
+	return ctrl
+}
+
 func (s *WorkerStateSuite) TestStart(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(
 		map[string]any{"controller-uuid": coretesting.ControllerTag.Id()},
 		nil,
 	)
+	s.modelService.EXPECT().ControllerModel(gomock.Any()).Return(model.Model{
+		UUID: s.controllerModelID,
+	}, nil)
 	w, err := apiserver.NewWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -124,6 +141,7 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		MetricsCollector:           s.metricsCollector,
 		LogSink:                    s.logSink,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
+		SSHImporterHTTPClient:      s.sshimporterHTTPClient,
 		DBGetter:                   s.dbGetter,
 		DBDeleter:                  s.dbDeleter,
 		ServiceFactoryGetter:       s.serviceFactoryGetter,

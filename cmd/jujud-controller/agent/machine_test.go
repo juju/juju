@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/juju/cmd/v4"
@@ -21,8 +20,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/cert"
-	"github.com/juju/utils/v4/ssh"
-	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
@@ -49,7 +46,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	jworker "github.com/juju/juju/internal/worker"
-	"github.com/juju/juju/internal/worker/authenticationworker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	databasetesting "github.com/juju/juju/internal/worker/dbaccessor/testing"
 	"github.com/juju/juju/internal/worker/diskmanager"
@@ -304,38 +300,6 @@ func (s *MachineSuite) TestAgentSetsToolsVersionManageModel(c *gc.C) {
 
 func (s *MachineSuite) TestAgentSetsToolsVersionHostUnits(c *gc.C) {
 	s.assertAgentSetsToolsVersion(c, state.JobHostUnits)
-}
-
-func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
-	// Update the keys in the environment.
-	sshKey := sshtesting.ValidKeyOne.Key + " user@host"
-	err := s.ControllerModel(c).UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{"authorized-keys": sshKey}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Wait for ssh keys file to be updated.
-	timeout := time.After(coretesting.LongWait)
-	sshKeyWithCommentPrefix := sshtesting.ValidKeyOne.Key + " Juju:user@host"
-	for {
-		select {
-		case <-timeout:
-			c.Fatalf("timeout while waiting for authorised ssh keys to change")
-		case <-time.After(coretesting.ShortWait):
-			keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
-			c.Assert(err, jc.ErrorIsNil)
-			keysStr := strings.Join(keys, "\n")
-			if sshKeyWithCommentPrefix != keysStr {
-				continue
-			}
-			return
-		}
-	}
 }
 
 func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {

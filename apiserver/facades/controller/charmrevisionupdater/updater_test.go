@@ -5,6 +5,7 @@ package charmrevisionupdater_test
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/juju/clock"
@@ -60,6 +61,7 @@ func (s *updaterSuite) TestNewAuthSuccess(c *gc.C) {
 		state:      nil,
 		authorizer: authoriser,
 		logger:     loggertesting.WrapCheckLog(c),
+		httpClient: &http.Client{},
 	}
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPI(facadeCtx)
 	c.Assert(err, jc.ErrorIsNil)

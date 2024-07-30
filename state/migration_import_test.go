@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time" // only uses time.Time values
 
-	"github.com/juju/description/v6"
+	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -420,7 +420,7 @@ func (s *MigrationImportSuite) ApplicationPortOps(c *gc.C) {
 	c.Assert(ops[0].Id, gc.Equals, "gitlab")
 }
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/description_mock.go github.com/juju/description/v6 Application,Machine,PortRanges,UnitPortRanges
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/description_mock.go github.com/juju/description/v8 Application,Machine,PortRanges,UnitPortRanges
 func setupMockOpenedPortRanges(c *gc.C, mID string) (*gomock.Controller, *mocks.MockMachine) {
 	ctrl := gomock.NewController(c)
 	mockMachine := mocks.NewMockMachine(ctrl)

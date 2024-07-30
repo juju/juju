@@ -14,6 +14,7 @@ import (
 	url "net/url"
 	reflect "reflect"
 
+	ssh "github.com/juju/juju/core/ssh"
 	user "github.com/juju/juju/core/user"
 	keymanager "github.com/juju/juju/domain/keymanager"
 	gomock "go.uber.org/mock/gomock"
@@ -219,10 +220,10 @@ func (c *MockStateDeletePublicKeysForUserCall) DoAndReturn(f func(context.Contex
 }
 
 // GetPublicKeysForUser mocks base method.
-func (m *MockState) GetPublicKeysForUser(arg0 context.Context, arg1 user.UUID) ([]string, error) {
+func (m *MockState) GetPublicKeysForUser(arg0 context.Context, arg1 user.UUID) ([]ssh.PublicKey, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPublicKeysForUser", arg0, arg1)
-	ret0, _ := ret[0].([]string)
+	ret0, _ := ret[0].([]ssh.PublicKey)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -240,19 +241,19 @@ type MockStateGetPublicKeysForUserCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetPublicKeysForUserCall) Return(arg0 []string, arg1 error) *MockStateGetPublicKeysForUserCall {
+func (c *MockStateGetPublicKeysForUserCall) Return(arg0 []ssh.PublicKey, arg1 error) *MockStateGetPublicKeysForUserCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetPublicKeysForUserCall) Do(f func(context.Context, user.UUID) ([]string, error)) *MockStateGetPublicKeysForUserCall {
+func (c *MockStateGetPublicKeysForUserCall) Do(f func(context.Context, user.UUID) ([]ssh.PublicKey, error)) *MockStateGetPublicKeysForUserCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetPublicKeysForUserCall) DoAndReturn(f func(context.Context, user.UUID) ([]string, error)) *MockStateGetPublicKeysForUserCall {
+func (c *MockStateGetPublicKeysForUserCall) DoAndReturn(f func(context.Context, user.UUID) ([]ssh.PublicKey, error)) *MockStateGetPublicKeysForUserCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

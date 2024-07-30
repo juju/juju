@@ -36,7 +36,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -57,29 +56,6 @@ import (
 )
 
 var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
-
-// ExternalControllerService provides a subset of the external controller domain
-// service methods.
-type ExternalControllerService interface {
-	// UpdateExternalController persists the input controller
-	// record.
-	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
-}
-
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
-type NetworkService interface {
-	// Space returns a space from state that matches the input ID.
-	// An error is returned if the space does not exist or if there was a problem
-	// accessing its information.
-	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
-	// SpaceByName returns a space from state that matches the input name.
-	// An error is returned that satisfied errors.NotFound if the space was not found
-	// or an error static any problems fetching the given space.
-	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
-	// GetAllSpaces returns all spaces for the model.
-	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
-}
 
 // APIv20 provides the Application API facade for version 20.
 type APIv20 struct {
@@ -104,6 +80,9 @@ type APIBase struct {
 	repoDeploy DeployFromRepository
 
 	model              Model
+	modelInfo          model.ReadOnlyModel
+	modelConfigService ModelConfigService
+	modelAgentService  ModelAgentService
 	cloudService       common.CloudService
 	credentialService  common.CredentialService
 	machineService     MachineService
@@ -178,12 +157,25 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 
 	state := &stateShim{State: ctx.State(), prechecker: prechecker}
 
-	charmhubHTTPClient := ctx.HTTPClient(facade.CharmhubHTTPClient)
+	charmhubHTTPClient, err := ctx.HTTPClient(facade.CharmhubHTTPClient)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"getting charm hub http client: %w",
+			err,
+		)
+	}
+
 	repoLogger := ctx.Logger().Child("deployfromrepo")
+	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
+	if err != nil {
+		return nil, fmt.Errorf("getting model info: %w", err)
+	}
 	validatorCfg := validatorConfig{
 		charmhubHTTPClient: charmhubHTTPClient,
 		caasBroker:         caasBroker,
 		model:              m,
+		modelInfo:          modelInfo,
+		modelConfigService: serviceFactory.Config(),
 		cloudService:       serviceFactory.Cloud(),
 		credentialService:  serviceFactory.Credential(),
 		registry:           registry,
@@ -209,6 +201,9 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		repoDeploy,
 		blockChecker,
 		model,
+		modelInfo,
+		serviceFactory.Config(),
+		serviceFactory.Agent(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),
@@ -230,6 +225,7 @@ type DeployApplicationFunc = func(
 	context.Context,
 	ApplicationDeployer,
 	Model,
+	model.ReadOnlyModel,
 	common.CloudService,
 	common.CredentialService,
 	ApplicationService,
@@ -248,6 +244,9 @@ func NewAPIBase(
 	repoDeploy DeployFromRepository,
 	blockChecker BlockChecker,
 	model Model,
+	modelInfo model.ReadOnlyModel,
+	modelConfigService ModelConfigService,
+	modelAgentService ModelAgentService,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
 	machineService MachineService,
@@ -275,6 +274,9 @@ func NewAPIBase(
 		repoDeploy:            repoDeploy,
 		check:                 blockChecker,
 		model:                 model,
+		modelInfo:             modelInfo,
+		modelConfigService:    modelConfigService,
+		modelAgentService:     modelAgentService,
 		cloudService:          cloudService,
 		credentialService:     credentialService,
 		machineService:        machineService,
@@ -291,12 +293,17 @@ func NewAPIBase(
 	}, nil
 }
 
+// checkAccess checks if this API has the requested access level.
+func (api *APIBase) checkAccess(ctx context.Context, access permission.Access) error {
+	return api.authorizer.HasPermission(ctx, access, names.NewModelTag(api.modelInfo.UUID.String()))
+}
+
 func (api *APIBase) checkCanRead(ctx context.Context) error {
-	return api.authorizer.HasPermission(ctx, permission.ReadAccess, api.model.ModelTag())
+	return api.checkAccess(ctx, permission.ReadAccess)
 }
 
 func (api *APIBase) checkCanWrite(ctx context.Context) error {
-	return api.authorizer.HasPermission(ctx, permission.WriteAccess, api.model.ModelTag())
+	return api.checkAccess(ctx, permission.WriteAccess)
 }
 
 // Deploy fetches the charms from the charm store and deploys them
@@ -438,7 +445,7 @@ type caasDeployParams struct {
 // requirements.
 func (c caasDeployParams) precheck(
 	ctx context.Context,
-	model Model,
+	modelConfigService ModelConfigService,
 	storagePoolGetter StoragePoolGetter,
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
@@ -459,9 +466,9 @@ func (c caasDeployParams) precheck(
 			return errors.Errorf("block storage %q is not supported for container charms", s.Name)
 		}
 	}
-	cfg, err := model.ModelConfig(ctx)
+	cfg, err := modelConfigService.ModelConfig(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return fmt.Errorf("getting model config: %w", err)
 	}
 
 	// For older charms, operator-storage model config is mandatory.
@@ -520,7 +527,7 @@ func (api *APIBase) deployApplication(
 
 	// This check is done early so that errors deeper in the call-stack do not
 	// leave an application deployment in an unrecoverable error state.
-	if err := checkMachinePlacement(api.backend, api.model.UUID(), args.ApplicationName, args.Placement); err != nil {
+	if err := checkMachinePlacement(api.backend, api.modelInfo.UUID, args.ApplicationName, args.Placement); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -534,8 +541,7 @@ func (api *APIBase) deployApplication(
 		return errors.Trace(err)
 	}
 
-	modelType := api.model.Type()
-	if modelType != state.ModelTypeIAAS {
+	if api.modelInfo.Type == model.CAAS {
 		caas := caasDeployParams{
 			applicationName: args.ApplicationName,
 			attachStorage:   args.AttachStorage,
@@ -544,7 +550,7 @@ func (api *APIBase) deployApplication(
 			placement:       args.Placement,
 			storage:         args.Storage,
 		}
-		if err := caas.precheck(ctx, api.model, api.storagePoolGetter, api.registry, api.caasBroker); err != nil {
+		if err := caas.precheck(ctx, api.modelConfigService, api.storagePoolGetter, api.registry, api.caasBroker); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -579,7 +585,8 @@ func (api *APIBase) deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = api.deployApplicationFunc(ctx, api.backend, api.model, api.cloudService, api.credentialService, api.applicationService, api.store, DeployApplicationParams{
+	// TODO: replace model with model info/config services
+	_, err = api.deployApplicationFunc(ctx, api.backend, api.model, api.modelInfo, api.cloudService, api.credentialService, api.applicationService, api.store, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Charm:             api.stateCharm(ch),
 		CharmOrigin:       origin,
@@ -773,14 +780,14 @@ type MachinePlacementBackend interface {
 // placement directives.
 // If the placement scope is for a machine, ensure that the machine exists.
 // If the placement scope is model-uuid, replace it with the actual model uuid.
-func checkMachinePlacement(backend MachinePlacementBackend, modelUUID string, app string, placement []*instance.Placement) error {
+func checkMachinePlacement(backend MachinePlacementBackend, modelID model.UUID, app string, placement []*instance.Placement) error {
 	for _, p := range placement {
 		if p == nil {
 			continue
 		}
 		// Substitute the placeholder with the actual model uuid.
 		if p.Scope == "model-uuid" {
-			p.Scope = modelUUID
+			p.Scope = modelID.String()
 			continue
 		}
 
@@ -980,7 +987,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if api.model.Type() == state.ModelTypeCAAS {
+	if api.modelInfo.Type == model.CAAS {
 		// We need to disallow updates that k8s does not yet support,
 		// eg changing the filesystem or device directives.
 		// TODO(wallyworld) - support resizing of existing storage.
@@ -1019,7 +1026,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 	// machines.
 	if lxdprofile.NotEmpty(lxdCharmProfiler{Charm: currentCharm}) ||
 		lxdprofile.NotEmpty(lxdCharmProfiler{Charm: newCharm}) {
-		if err := validateAgentVersions(oneApplication, api.model); err != nil {
+		if err := validateAgentVersions(ctx, oneApplication, api.modelAgentService); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1189,7 +1196,7 @@ func (api *APIBase) GetCharmURLOrigin(ctx context.Context, args params.Applicati
 		result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin for %q", args.ApplicationName))
 		return result, nil
 	}
-	result.Origin.InstanceKey = charmhub.CreateInstanceKey(oneApplication.ApplicationTag(), api.model.ModelTag())
+	result.Origin.InstanceKey = charmhub.CreateInstanceKey(oneApplication.ApplicationTag(), names.NewModelTag(api.modelInfo.UUID.String()))
 	return result, nil
 }
 
@@ -1338,7 +1345,7 @@ func (api *APIBase) Unexpose(ctx context.Context, args params.ApplicationUnexpos
 
 // AddUnits adds a given number of units to an application.
 func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
-	if api.model.Type() == state.ModelTypeCAAS {
+	if api.modelInfo.Type == model.CAAS {
 		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to a container-based model")
 	}
 
@@ -1381,22 +1388,21 @@ func (api *APIBase) addApplicationUnits(
 		return nil, errors.New("must add at least one unit")
 	}
 
-	modelType := api.model.Type()
 	assignUnits := true
-	if modelType != state.ModelTypeIAAS {
+	if api.modelInfo.Type != model.IAAS {
 		// In a CAAS model, there are no machines for
 		// units to be assigned to.
 		assignUnits = false
 		if len(args.AttachStorage) > 0 {
 			return nil, errors.Errorf(
 				"AttachStorage may not be specified for %s models",
-				modelType,
+				api.modelInfo.Type,
 			)
 		}
 		if len(args.Placement) > 1 {
 			return nil, errors.Errorf(
 				"only 1 placement directive is supported for %s models, got %d",
-				modelType,
+				api.modelInfo.Type,
 				len(args.Placement),
 			)
 		}
@@ -1431,7 +1437,7 @@ func (api *APIBase) addApplicationUnits(
 
 // DestroyUnit removes a given set of application units.
 func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
-	if api.model.Type() == state.ModelTypeCAAS {
+	if api.modelInfo.Type == model.CAAS {
 		return params.DestroyUnitResults{}, errors.NotSupportedf("removing units on a non-container model")
 	}
 	if err := api.checkCanWrite(ctx); err != nil {
@@ -1680,7 +1686,7 @@ func (api *APIBase) DestroyConsumedApplications(ctx context.Context, args params
 
 // ScaleApplications scales the specified application to the requested number of units.
 func (api *APIBase) ScaleApplications(ctx context.Context, args params.ScaleApplicationsParams) (params.ScaleApplicationResults, error) {
-	if api.model.Type() != state.ModelTypeCAAS {
+	if api.modelInfo.Type != model.CAAS {
 		return params.ScaleApplicationResults{}, errors.NotSupportedf("scaling applications on a non-container model")
 	}
 	if err := api.checkCanWrite(ctx); err != nil {
@@ -1907,7 +1913,7 @@ func (api *APIBase) SetRelationsSuspended(ctx context.Context, args params.Relat
 			return errors.Errorf("cannot set suspend status for %q which is not associated with an offer", rel.Tag().Id())
 		}
 		if oc != nil && !arg.Suspended && rel.Suspended() {
-			ok, err := commoncrossmodel.CheckCanConsume(ctx, api.authorizer, api.backend.ControllerTag(), api.model.ModelTag(), oc)
+			ok, err := commoncrossmodel.CheckCanConsume(ctx, api.authorizer, api.backend.ControllerTag(), names.NewModelTag(api.modelInfo.UUID.String()), oc)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -2533,15 +2539,11 @@ func getAgentToolsVersion(agentTools AgentTools) (version.Number, error) {
 	return tools.Version.Number, nil
 }
 
-func getAgentVersion(versioner AgentVersioner) (version.Number, error) {
-	agent, err := versioner.AgentVersion()
-	if err != nil {
-		return version.Zero, err
-	}
-	return agent, nil
-}
-
-func validateAgentVersions(application Application, versioner AgentVersioner) error {
+func validateAgentVersions(
+	ctx context.Context,
+	application Application,
+	modelAgentService ModelAgentService,
+) error {
 	// The epoch is set like this, because beta tags are less than release tags.
 	// So 2.6-beta1.1 < 2.6.0, even though the patch is greater than 0. To
 	// prevent the miss-match, we add the upper epoch limit.
@@ -2563,7 +2565,7 @@ func validateAgentVersions(application Application, versioner AgentVersioner) er
 		// to that version.
 		// This should be enough for a pre-flight check, rather than querying
 		// potentially thousands of units (think large production stacks).
-		modelVer, modelErr := getAgentVersion(versioner)
+		modelVer, modelErr := modelAgentService.GetModelAgentVersion(ctx)
 		if modelErr != nil {
 			// If we can't find the model config version, then we can't do the
 			// comparison check.
