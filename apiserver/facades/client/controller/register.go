@@ -42,7 +42,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		return nil, errors.Trace(err)
 	}
 
-	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
+	controllerModelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, fmt.Errorf("getting model info: %w", err)
 	}
@@ -52,7 +52,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 	}
 
 	return NewControllerAPI(
-		modelInfo.UUID,
+		controllerModelInfo.UUID,
 		st,
 		pool,
 		authorizer,

@@ -43,12 +43,12 @@ func (st *State) GetModelAgentVersion(ctx context.Context, modelID model.UUID) (
 	q := `
 SELECT &dbAgentVersion.target_agent_version
 FROM v_model
-WHERE uuid = $M.model_id
+WHERE uuid = $modelIDArgs.model_id
 `
 
 	rval := dbAgentVersion{}
-	args := sqlair.M{
-		"model_id": modelID,
+	args := modelIDArgs{
+		ModelID: modelID,
 	}
 
 	stmt, err := st.Prepare(q, rval, args)
@@ -92,14 +92,14 @@ func (st *State) AgentVersionForModelName(
 	q := `
 SELECT &dbAgentVersion.target_agent_version
 FROM v_model
-WHERE name = $M.model_name
-AND owner_name = $M.owner
+WHERE name = $modelNameArgs.model_name
+AND owner_name = $modelNameArgs.owner
 `
 
 	rval := dbAgentVersion{}
-	args := sqlair.M{
-		"model_name": modelName,
-		"owner":      username,
+	args := modelNameArgs{
+		ModelName: modelName,
+		Owner:     username,
 	}
 
 	stmt, err := st.Prepare(q, rval, args)
