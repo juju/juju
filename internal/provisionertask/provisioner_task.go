@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner
+package provisionertask
 
 import (
 	"context"
@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/container"
-	"github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/password"
 	providercommon "github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
@@ -102,10 +101,19 @@ type ControllerAPI interface {
 	APIAddresses(context.Context) ([]string, error)
 }
 
-// ContainerProvisionerAPI describes methods for provisioning a container.
-type ContainerProvisionerAPI interface {
-	ContainerManagerConfigGetter
-	broker.APICalls
+// ContainerManagerConfigGetter describes methods for retrieving model config
+// needed for configuring the container manager.
+type ContainerManagerConfigGetter interface {
+	ContainerManagerConfig(context.Context, params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error)
+}
+
+// RetryStrategy defines the retry behavior when encountering a retryable
+// error during provisioning.
+//
+// TODO(katco): 2016-08-09: lp:1611427
+type RetryStrategy struct {
+	RetryDelay time.Duration
+	RetryCount int
 }
 
 // TaskConfig holds the initialisation data for a ProvisionerTask instance.
@@ -1425,7 +1433,7 @@ func (task *provisionerTask) doStartMachine(
 	// across the zones, then we try each zone for every attempt, or until
 	// one of the StartInstance calls returns an error satisfying
 	// Is(err, environs.ErrAvailabilityZoneIndependent)
-	for attemptsLeft := task.retryStartInstanceStrategy.retryCount; attemptsLeft >= 0; {
+	for attemptsLeft := task.retryStartInstanceStrategy.RetryCount; attemptsLeft >= 0; {
 		if startInstanceParams.AvailabilityZone, err = task.machineAvailabilityZoneDistribution(
 			machine.Id(), distributionGroupMachineIds, startInstanceParams.Constraints,
 		); err != nil {
@@ -1471,7 +1479,7 @@ func (task *provisionerTask) doStartMachine(
 				retryMsg = fmt.Sprintf(
 					"failed to start machine %s in zone %q, retrying in %v with new availability zone: %s",
 					machine, startInstanceParams.AvailabilityZone,
-					task.retryStartInstanceStrategy.retryDelay, err,
+					task.retryStartInstanceStrategy.RetryDelay, err,
 				)
 				task.logger.Debugf("%s", retryMsg)
 				// There's still more zones to try, so don't decrement "attemptsLeft" yet.
@@ -1486,7 +1494,7 @@ func (task *provisionerTask) doStartMachine(
 		if retrying {
 			retryMsg = fmt.Sprintf(
 				"failed to start machine %s (%s), retrying in %v (%d more attempts)",
-				machine, err.Error(), task.retryStartInstanceStrategy.retryDelay, attemptsLeft,
+				machine, err.Error(), task.retryStartInstanceStrategy.RetryDelay, attemptsLeft,
 			)
 			task.logger.Warningf("%s", retryMsg)
 			attemptsLeft--
@@ -1499,7 +1507,7 @@ func (task *provisionerTask) doStartMachine(
 		select {
 		case <-task.catacomb.Dying():
 			return task.catacomb.ErrDying()
-		case <-time.After(task.retryStartInstanceStrategy.retryDelay):
+		case <-time.After(task.retryStartInstanceStrategy.RetryDelay):
 		}
 	}
 
