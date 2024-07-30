@@ -45,7 +45,7 @@ type MachineService interface {
 
 // ApplicationService instances add units to an application in dqlite state.
 type ApplicationService interface {
-	AddUnits(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
+	AddUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) error
 }
 
 // ControllerConfigService instances read the controller config.
@@ -181,7 +181,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 		}
 	}
 	if len(addedUnits) > 0 {
-		addUnitArgs := make([]applicationservice.AddUnitParams, len(addedUnits))
+		addUnitArgs := make([]applicationservice.AddUnitArg, len(addedUnits))
 		for i := range addUnitArgs {
 			n := addedUnits[i]
 			addUnitArgs[i].UnitName = &n

@@ -31,7 +31,8 @@ func (i *importSuite) TestApplicationSave(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	appArgs := description.ApplicationArgs{
-		Tag: names.NewApplicationTag("prometheus"),
+		Tag:      names.NewApplicationTag("prometheus"),
+		CharmURL: "ch:prometheus-1",
 	}
 	model.AddApplication(appArgs).AddUnit(description.UnitArgs{
 		Tag: names.NewUnitTag("prometheus/0"),
@@ -43,10 +44,11 @@ func (i *importSuite) TestApplicationSave(c *gc.C) {
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
-		[]service.AddUnitParams{{
+		gomock.Any(),
+		[]service.AddUnitArg{{
 			UnitName: ptrString("prometheus/0"),
 		}},
-	).Return(nil)
+	).Return("", nil)
 
 	importOp := importOperation{
 		service: i.importService,

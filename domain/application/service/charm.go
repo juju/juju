@@ -404,6 +404,10 @@ func (s *WatchableCharmService) WatchCharms() (watcher.StringsWatcher, error) {
 // encodeCharm encodes a charm to the service representation.
 // Returns an error if the charm metadata cannot be encoded.
 func encodeCharm(ch internalcharm.Charm) (charm.Charm, []string, error) {
+	if ch == nil {
+		return charm.Charm{}, nil, applicationerrors.CharmNotValid
+	}
+
 	metadata, err := encodeMetadata(ch.Meta())
 	if err != nil {
 		return charm.Charm{}, nil, fmt.Errorf("encode metadata: %w", err)
@@ -425,7 +429,7 @@ func encodeCharm(ch internalcharm.Charm) (charm.Charm, []string, error) {
 	}
 
 	var profile []byte
-	if lxdProfile, ok := ch.(internalcharm.LXDProfiler); ok {
+	if lxdProfile, ok := ch.(internalcharm.LXDProfiler); ok && lxdProfile != nil {
 		profile, err = encodeLXDProfile(lxdProfile.LXDProfile())
 		if err != nil {
 			return charm.Charm{}, warnings, fmt.Errorf("encode lxd profile: %w", err)

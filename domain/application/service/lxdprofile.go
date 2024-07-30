@@ -28,7 +28,7 @@ func decodeLXDProfile(profile []byte) (internalcharm.LXDProfile, error) {
 }
 
 func encodeLXDProfile(profile *internalcharm.LXDProfile) ([]byte, error) {
-	if profile.Empty() && profile.Description == "" {
+	if profile == nil || (profile.Empty() && profile.Description == "") {
 		return nil, nil
 	}
 

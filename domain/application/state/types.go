@@ -10,6 +10,16 @@ type KeyValue struct {
 	Value string `db:"value"`
 }
 
+// applicationID is used to get the ID of an application.
+type applicationID struct {
+	ID string `db:"uuid"`
+}
+
+// applicationName is used to get the name of an application.
+type applicationName struct {
+	Name string `db:"name"`
+}
+
 // These structs represent the persistent charm schema in the database.
 
 // charmID represents a single charm row from the charm table, that only
@@ -317,6 +327,7 @@ type setCharmMount struct {
 type charmManifest struct {
 	CharmUUID    string `db:"charm_uuid"`
 	Index        int    `db:"array_index"`
+	NestedIndex  int    `db:"nested_array_index"`
 	Track        string `db:"track"`
 	Risk         string `db:"risk"`
 	Branch       string `db:"branch"`
@@ -329,6 +340,7 @@ type charmManifest struct {
 type setCharmManifest struct {
 	CharmUUID      string `db:"charm_uuid"`
 	Index          int    `db:"array_index"`
+	NestedIndex    int    `db:"nested_array_index"`
 	Track          string `db:"track"`
 	Risk           string `db:"risk"`
 	Branch         string `db:"branch"`
@@ -345,20 +357,20 @@ type charmLXDProfile struct {
 // charmConfig is used to get the config of a charm.
 // This is a row based struct that is normalised form of a map of config.
 type charmConfig struct {
-	CharmUUID    string `db:"charm_uuid"`
-	Key          string `db:"key"`
-	Type         string `db:"type"`
-	DefaultValue string `db:"default_value"`
-	Description  string `db:"description"`
+	CharmUUID    string  `db:"charm_uuid"`
+	Key          string  `db:"key"`
+	Type         string  `db:"type"`
+	DefaultValue *string `db:"default_value"`
+	Description  string  `db:"description"`
 }
 
 // setCharmConfig is used to set the config of a charm.
 type setCharmConfig struct {
-	CharmUUID    string `db:"charm_uuid"`
-	Key          string `db:"key"`
-	TypeID       int    `db:"type_id"`
-	DefaultValue string `db:"default_value"`
-	Description  string `db:"description"`
+	CharmUUID    string  `db:"charm_uuid"`
+	Key          string  `db:"key"`
+	TypeID       int     `db:"type_id"`
+	DefaultValue *string `db:"default_value"`
+	Description  string  `db:"description"`
 }
 
 // charmAction is used to get the actions of a charm.

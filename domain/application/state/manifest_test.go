@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/charm"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -20,7 +21,7 @@ type manifestSuite struct {
 
 var _ = gc.Suite(&manifestSuite{})
 
-var manifestTestCases = [...]struct {
+var decodeManifestTestCases = [...]struct {
 	name   string
 	input  []charmManifest
 	output charm.Manifest
@@ -87,13 +88,139 @@ var manifestTestCases = [...]struct {
 	},
 }
 
+var encodeManifestTestCases = [...]struct {
+	name   string
+	id     corecharm.ID
+	input  charm.Manifest
+	output []setCharmManifest
+}{
+	{
+		name:   "empty",
+		input:  charm.Manifest{},
+		output: []setCharmManifest{},
+	},
+	{
+		name: "no architectures",
+		id:   "deadbeef",
+		input: charm.Manifest{
+			Bases: []charm.Base{
+				{
+					Name: "ubuntu",
+					Channel: charm.Channel{
+						Track: "22.04",
+						Risk:  charm.RiskEdge,
+					},
+				},
+			},
+		},
+		output: []setCharmManifest{
+			{
+				CharmUUID:      "deadbeef",
+				Index:          0,
+				OSID:           0,
+				ArchitectureID: 0,
+				Track:          "22.04",
+				Risk:           "edge",
+			},
+		},
+	},
+	{
+		name: "no architectures - multiple",
+		id:   "deadbeef",
+		input: charm.Manifest{
+			Bases: []charm.Base{
+				{
+					Name: "ubuntu",
+					Channel: charm.Channel{
+						Track: "22.04",
+						Risk:  charm.RiskEdge,
+					},
+				},
+				{
+					Name: "ubuntu",
+					Channel: charm.Channel{
+						Track: "24.04",
+						Risk:  charm.RiskEdge,
+					},
+				},
+			},
+		},
+		output: []setCharmManifest{
+			{
+				CharmUUID:      "deadbeef",
+				Index:          0,
+				NestedIndex:    0,
+				OSID:           0,
+				ArchitectureID: 0,
+				Track:          "22.04",
+				Risk:           "edge",
+			},
+			{
+				CharmUUID:      "deadbeef",
+				Index:          1,
+				NestedIndex:    0,
+				OSID:           0,
+				ArchitectureID: 0,
+				Track:          "24.04",
+				Risk:           "edge",
+			},
+		},
+	},
+	{
+		name: "architectures",
+		id:   "deadbeef",
+		input: charm.Manifest{
+			Bases: []charm.Base{
+				{
+					Name: "ubuntu",
+					Channel: charm.Channel{
+						Track: "22.04",
+						Risk:  charm.RiskEdge,
+					},
+					Architectures: []string{"amd64", "arm64"},
+				},
+			},
+		},
+		output: []setCharmManifest{
+			{
+				CharmUUID:      "deadbeef",
+				Index:          0,
+				NestedIndex:    0,
+				OSID:           0,
+				ArchitectureID: 0,
+				Track:          "22.04",
+				Risk:           "edge",
+			},
+			{
+				CharmUUID:      "deadbeef",
+				Index:          0,
+				NestedIndex:    1,
+				OSID:           0,
+				ArchitectureID: 1,
+				Track:          "22.04",
+				Risk:           "edge",
+			},
+		},
+	},
+}
+
 func (s *manifestSuite) TestDecodeManifest(c *gc.C) {
-	for _, tc := range manifestTestCases {
+	for _, tc := range decodeManifestTestCases {
 		c.Logf("Running test case %q", tc.name)
 
 		decoded, err := decodeManifest(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(decoded, gc.DeepEquals, tc.output)
+	}
+}
+
+func (s *manifestSuite) TestEncodeManifest(c *gc.C) {
+	for _, tc := range encodeManifestTestCases {
+		c.Logf("Running test case %q", tc.name)
+
+		encoded, err := encodeManifest(tc.id, tc.input)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(encoded, gc.DeepEquals, tc.output)
 	}
 }
 

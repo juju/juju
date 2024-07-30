@@ -8,14 +8,28 @@ import (
 )
 
 const (
-	// ApplicationNotFound describes an error that occurs when the application being operated on
-	// does not exist.
+	// ApplicationNotFound describes an error that occurs when the application
+	// being operated on does not exist.
 	ApplicationNotFound = errors.ConstError("application not found")
-	// ApplicationHasUnits describes an error that occurs when the application being deleted still
-	// has associated units.
+
+	// ApplicationAlreadyExists describes an error that occurs when the
+	// application being created already exists.
+	ApplicationAlreadyExists = errors.ConstError("application already exists")
+
+	// ApplicationHasUnits describes an error that occurs when the application
+	// being deleted still has associated units.
 	ApplicationHasUnits = errors.ConstError("application has units")
-	// MissingStorageDirective describes an error that occurs when expected storage directives are missing.
+
+	// MissingStorageDirective describes an error that occurs when expected
+	// storage directives are missing.
 	MissingStorageDirective = errors.ConstError("no storage directive specified")
+
+	// ApplicationNameNotValid describes an error when the application is
+	// not valid.
+	ApplicationNameNotValid = errors.ConstError("application name not valid")
+
+	// CharmNotValid describes an error that occurs when the charm is not valid.
+	CharmNotValid = errors.ConstError("charm not valid")
 
 	// CharmNameNotValid describes an error that occurs when attempting to get
 	// a charm using an invalid name.

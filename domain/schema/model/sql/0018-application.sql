@@ -2,9 +2,7 @@ CREATE TABLE application (
     uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
     life_id INT NOT NULL,
-    -- charm_uuid should not be nullable, but we need to allow it for now
-    -- whilst we're wiring up the model.
-    charm_uuid TEXT,
+    charm_uuid TEXT NOT NULL,
     charm_modified_version INT,
     charm_upgrade_on_error BOOLEAN DEFAULT FALSE,
     exposed BOOLEAN DEFAULT FALSE,

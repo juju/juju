@@ -9,9 +9,11 @@ import (
 
 	"github.com/juju/errors"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application"
+	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/charm"
@@ -28,14 +30,18 @@ type ApplicationState interface {
 	// satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
 	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error)
 
+	// CreateApplication creates the specified application, with the charm, and
+	// the units if required.
+	CreateApplication(context.Context, string, domaincharm.Charm, ...application.AddUnitArg) (coreapplication.ID, error)
+
 	// UpsertApplication persists the input Application entity.
-	UpsertApplication(context.Context, string, ...application.AddUnitParams) error
+	UpsertApplication(context.Context, string, ...application.AddUnitArg) error
 
 	// DeleteApplication deletes the input Application entity.
 	DeleteApplication(context.Context, string) error
 
 	// AddUnits adds the specified units to the application.
-	AddUnits(ctx context.Context, applicationName string, args ...application.AddUnitParams) error
+	AddUnits(ctx context.Context, applicationName string, args ...application.AddUnitArg) error
 }
 
 // ApplicationService provides the API for working with applications.
@@ -64,36 +70,68 @@ func NewApplicationService(st ApplicationState, registry storage.ProviderRegistr
 }
 
 // CreateApplication creates the specified application and units if required.
-func (s *ApplicationService) CreateApplication(ctx context.Context, name string, params AddApplicationParams, units ...AddUnitParams) error {
-	args := make([]application.AddUnitParams, len(units))
+func (s *ApplicationService) CreateApplication(
+	ctx context.Context,
+	name string, charm charm.Charm,
+	args AddApplicationArgs,
+	units ...AddUnitArg,
+) (coreapplication.ID, error) {
+	// Validate that we have a valid charm and name.
+	meta := charm.Meta()
+	if meta == nil {
+		return "", applicationerrors.CharmMetadataNotValid
+	} else if name == "" && meta.Name == "" {
+		return "", applicationerrors.ApplicationNameNotValid
+	} else if meta.Name == "" {
+		return "", applicationerrors.CharmNameNotValid
+	}
+
+	// We know that the charm name is valid, so we can use it as the application
+	// name if that is not provided.
+	if name == "" {
+		name = meta.Name
+	}
+
+	// TODO (stickupkid): These should be done either in the application
+	// state in one transaction, or be operating on the domain/charm types.
+	//TODO(storage) - insert storage directive for app
+	cons := make(map[string]storage.Directive)
+	for n, sc := range args.Storage {
+		cons[n] = sc
+	}
+	if err := s.addDefaultStorageDirectives(ctx, s.modelType, cons, meta); err != nil {
+		return "", errors.Annotate(err, "adding default storage directives")
+	}
+	if err := s.validateStorageDirectives(ctx, s.modelType, cons, charm); err != nil {
+		return "", errors.Annotate(err, "invalid storage directives")
+	}
+
+	// When encoding the charm, this will also validate the charm metadata,
+	// when parsing it.
+	ch, _, err := encodeCharm(charm)
+	if err != nil {
+		return "", fmt.Errorf("encode charm: %w", err)
+	}
+
+	unitArgs := make([]application.AddUnitArg, len(units))
 	for i, u := range units {
-		args[i] = application.AddUnitParams{
+		unitArgs[i] = application.AddUnitArg{
 			UnitName: u.UnitName,
 		}
 	}
-	//TODO(storage) - insert storage directive for app
-	cons := make(map[string]storage.Directive)
-	for n, sc := range params.Storage {
-		cons[n] = sc
-	}
-	if params.Charm != nil {
-		if err := s.addDefaultStorageDirectives(ctx, s.modelType, cons, params.Charm.Meta()); err != nil {
-			return errors.Annotate(err, "adding default storage directives")
-		}
-		if err := s.validateStorageDirectives(ctx, s.modelType, cons, params.Charm); err != nil {
-			return errors.Annotate(err, "invalid storage directives")
-		}
-	}
 
-	err := s.st.UpsertApplication(ctx, name, args...)
-	return errors.Annotatef(err, "saving application %q", name)
+	id, err := s.st.CreateApplication(ctx, name, ch, unitArgs...)
+	if err != nil {
+		return "", errors.Annotatef(err, "creating application %q", name)
+	}
+	return id, nil
 }
 
 // AddUnits adds units to the application.
-func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ...AddUnitParams) error {
-	args := make([]application.AddUnitParams, len(units))
+func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ...AddUnitArg) error {
+	args := make([]application.AddUnitArg, len(units))
 	for i, u := range units {
-		args[i] = application.AddUnitParams{
+		args[i] = application.AddUnitArg{
 			UnitName: u.UnitName,
 		}
 	}
@@ -103,7 +141,7 @@ func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ..
 
 // UpsertCAASUnit records the existence of a unit in a caas model.
 func (s *ApplicationService) UpsertCAASUnit(ctx context.Context, name string, unit UpsertCAASUnitParams) error {
-	args := application.AddUnitParams{
+	args := application.AddUnitArg{
 		UnitName: unit.UnitName,
 	}
 	err := s.st.UpsertApplication(ctx, name, args)

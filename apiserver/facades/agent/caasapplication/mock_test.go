@@ -17,6 +17,7 @@ import (
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm"
 	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
@@ -250,4 +251,30 @@ func (a *mockCAASApplication) State() (caas.ApplicationState, error) {
 func (a *mockCAASApplication) Units() ([]caas.Unit, error) {
 	a.MethodCall(a, "Units")
 	return a.units, a.NextErr()
+}
+
+type stubCharm struct {
+	charm.Charm
+}
+
+func (s *stubCharm) Meta() *charm.Meta {
+	return &charm.Meta{
+		Name: "gitlab",
+	}
+}
+
+func (s *stubCharm) Manifest() *charm.Manifest {
+	return &charm.Manifest{}
+}
+
+func (s *stubCharm) Config() *charm.Config {
+	return &charm.Config{}
+}
+
+func (s *stubCharm) Actions() *charm.Actions {
+	return &charm.Actions{}
+}
+
+func (s *stubCharm) Revision() int {
+	return 1
 }

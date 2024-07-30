@@ -31,7 +31,8 @@ var _ = gc.Suite(&watcherSuite{})
 func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
 
-	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }, loggertesting.WrapCheckLog(c)),
+	svc := service.NewWatchableService(
+		state.NewState(func() (database.TxnRunner, error) { return factory() }, loggertesting.WrapCheckLog(c)),
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),

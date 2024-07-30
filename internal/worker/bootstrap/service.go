@@ -6,14 +6,15 @@ package bootstrap
 import (
 	"context"
 
+	coreapplication "github.com/juju/juju/core/application"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm"
 )
 
-// ApplicationService instances create an application.
+// ApplicationService instances save an application to dqlite state.
 type ApplicationService interface {
-	// CreateApplication creates the specified application and units if required.
-	CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationParams, units ...applicationservice.AddUnitParams) error
+	CreateApplication(ctx context.Context, name string, charm charm.Charm, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) (coreapplication.ID, error)
 }
 
 // ModelConfigService provides access to the model configuration.

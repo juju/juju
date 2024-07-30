@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -30,11 +31,15 @@ var _ = gc.Suite(&applicationStateSuite{})
 func (s *applicationStateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	s.state = NewApplicationState(domain.NewStateBase(s.TxnRunnerFactory()), loggertesting.WrapCheckLog(c))
+	s.state = NewApplicationState(&commonStateBase{StateBase: domain.NewStateBase(s.TxnRunnerFactory())}, loggertesting.WrapCheckLog(c))
 }
 
 func (s *applicationStateSuite) TestCreateApplicationNoUnits(c *gc.C) {
-	err := s.state.UpsertApplication(context.Background(), "666")
+	_, err := s.state.CreateApplication(context.Background(), "666", applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Name: "666",
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var name string
@@ -50,10 +55,15 @@ func (s *applicationStateSuite) TestCreateApplicationNoUnits(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
-	u := application.AddUnitParams{
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	err := s.state.UpsertApplication(context.Background(), "666", u)
+	_, err := s.state.CreateApplication(context.Background(), "666", applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Name: "666",
+		},
+	}, u)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var name string
@@ -80,10 +90,14 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestUpdateApplication(c *gc.C) {
-	err := s.state.UpsertApplication(context.Background(), "666")
+	_, err := s.state.CreateApplication(context.Background(), "666", applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Name: "666",
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	u := application.AddUnitParams{
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	err = s.state.UpsertApplication(context.Background(), "666", u)
@@ -113,7 +127,11 @@ func (s *applicationStateSuite) TestUpdateApplication(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestDeleteApplication(c *gc.C) {
-	err := s.state.UpsertApplication(context.Background(), "666")
+	_, err := s.state.CreateApplication(context.Background(), "666", applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Name: "666",
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	//s.insertBlockDevice(c, bd, bdUUID, "666")
@@ -134,10 +152,14 @@ func (s *applicationStateSuite) TestDeleteApplication(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *gc.C) {
-	u := application.AddUnitParams{
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	err := s.state.UpsertApplication(context.Background(), "666", u)
+	_, err := s.state.CreateApplication(context.Background(), "666", applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Name: "666",
+		},
+	}, u)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.DeleteApplication(context.Background(), "666")
@@ -157,10 +179,14 @@ func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
-	err := s.state.UpsertApplication(context.Background(), "666")
+	_, err := s.state.CreateApplication(context.Background(), "666", applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Name: "666",
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	u := application.AddUnitParams{
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	err = s.state.AddUnits(context.Background(), "666", u)
@@ -190,7 +216,7 @@ func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestAddUnitsMissingApplication(c *gc.C) {
-	u := application.AddUnitParams{
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	err := s.state.AddUnits(context.Background(), "666", u)

@@ -70,3 +70,9 @@ func (s *metadataSuite) TestConvertLXDProfile(c *gc.C) {
 		c.Check(converted, jc.DeepEquals, tc.input)
 	}
 }
+
+func (s *metadataSuite) TestConvertNilLXDProfile(c *gc.C) {
+	converted, err := encodeLXDProfile(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(converted, gc.IsNil)
+}

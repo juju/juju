@@ -54,7 +54,7 @@ func (api *API) Get(ctx context.Context, args params.Entities) params.Annotation
 	for _, entity := range args.Entities {
 		anEntityResult := params.AnnotationsGetResult{EntityTag: entity.Tag}
 		if annts, err := api.getEntityAnnotations(ctx, entity.Tag); err != nil {
-			anEntityResult.Error = params.ErrorResult{annotateError(err, entity.Tag, "getting")}
+			anEntityResult.Error = params.ErrorResult{Error: annotateError(err, entity.Tag, "getting")}
 		} else {
 			anEntityResult.Annotations = annts
 		}
@@ -87,7 +87,7 @@ func annotateError(err error, tag, op string) *params.Error {
 	return apiservererrors.ServerError(
 		errors.Trace(
 			errors.Annotatef(
-				err, "while %v annotations to %q", op, tag)))
+				err, "%v annotations for %q", op, tag)))
 }
 
 func (api *API) getEntityAnnotations(ctx context.Context, entityTag string) (map[string]string, error) {

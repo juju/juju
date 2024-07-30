@@ -12,7 +12,10 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/domain/application"
+	domaincharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/charm"
@@ -52,31 +55,64 @@ func ptr[T any](v T) *T {
 func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	u := application.AddUnitParams{
+	id := applicationtesting.GenApplicationUUID(c)
+
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
+	}
+	ch := domaincharm.Charm{
+		Metadata: domaincharm.Metadata{
+			Name:  "foo",
+			RunAs: "default",
+		},
 	}
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().UpsertApplication(gomock.Any(), "666", u).Return(nil)
-	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
+	s.state.EXPECT().CreateApplication(gomock.Any(), "666", ch, u).Return(id, nil)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
+	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "foo",
+	}).AnyTimes()
 
-	a := AddUnitParams{
+	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	err := s.service.CreateApplication(context.Background(), "666", AddApplicationParams{
-		Charm: s.charm,
-	}, a)
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, AddApplicationArgs{}, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	u := application.AddUnitParams{
+	id := applicationtesting.GenApplicationUUID(c)
+
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
+	ch := domaincharm.Charm{
+		Metadata: domaincharm.Metadata{
+			Name:  "foo",
+			RunAs: "default",
+			Storage: map[string]domaincharm.Storage{
+				"data": {
+					Name:        "data",
+					Type:        domaincharm.StorageBlock,
+					Shared:      false,
+					CountMin:    1,
+					CountMax:    2,
+					MinimumSize: 10,
+				},
+			},
+		},
+	}
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().UpsertApplication(gomock.Any(), "666", u).Return(nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "666", ch, u).Return(id, nil)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
+	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+	s.charm.EXPECT().Config().Return(&charm.Config{})
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "foo",
 		Storage: map[string]charm.Storage{
 			"data": {
 				Name:        "data",
@@ -91,24 +127,44 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 	pool := domainstorage.StoragePoolDetails{Name: "loop", Provider: "loop"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").Return(pool, nil)
 
-	a := AddUnitParams{
+	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	err := s.service.CreateApplication(context.Background(), "666", AddApplicationParams{
-		Charm: s.charm,
-	}, a)
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, AddApplicationArgs{}, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	u := application.AddUnitParams{
+	id := applicationtesting.GenApplicationUUID(c)
+
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
+	ch := domaincharm.Charm{
+		Metadata: domaincharm.Metadata{
+			Name:  "foo",
+			RunAs: "default",
+			Storage: map[string]domaincharm.Storage{
+				"data": {
+					Name:        "data",
+					Type:        domaincharm.StorageBlock,
+					Shared:      false,
+					CountMin:    1,
+					CountMax:    2,
+					MinimumSize: 10,
+				},
+			},
+		},
+	}
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultBlockSource: ptr("fast")}, nil)
-	s.state.EXPECT().UpsertApplication(gomock.Any(), "666", u).Return(nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "666", ch, u).Return(id, nil)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
+	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+	s.charm.EXPECT().Config().Return(&charm.Config{})
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "foo",
 		Storage: map[string]charm.Storage{
 			"data": {
 				Name:        "data",
@@ -123,11 +179,10 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 	pool := domainstorage.StoragePoolDetails{Name: "fast", Provider: "modelscoped-block"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil)
 
-	a := AddUnitParams{
+	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	err := s.service.CreateApplication(context.Background(), "666", AddApplicationParams{
-		Charm: s.charm,
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, AddApplicationArgs{
 		Storage: map[string]storage.Directive{
 			"data": {Count: 2},
 		},
@@ -138,12 +193,34 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	u := application.AddUnitParams{
+	id := applicationtesting.GenApplicationUUID(c)
+
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
+	ch := domaincharm.Charm{
+		Metadata: domaincharm.Metadata{
+			Name:  "foo",
+			RunAs: "default",
+			Storage: map[string]domaincharm.Storage{
+				"data": {
+					Name:        "data",
+					Type:        domaincharm.StorageFilesystem,
+					Shared:      false,
+					CountMin:    1,
+					CountMax:    2,
+					MinimumSize: 10,
+				},
+			},
+		},
+	}
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().UpsertApplication(gomock.Any(), "666", u).Return(nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "666", ch, u).Return(id, nil)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
+	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+	s.charm.EXPECT().Config().Return(&charm.Config{})
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "foo",
 		Storage: map[string]charm.Storage{
 			"data": {
 				Name:        "data",
@@ -158,28 +235,49 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	pool := domainstorage.StoragePoolDetails{Name: "rootfs", Provider: "rootfs"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "rootfs").Return(pool, nil)
 
-	a := AddUnitParams{
+	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	err := s.service.CreateApplication(context.Background(), "666", AddApplicationParams{
-		Charm: s.charm,
-	}, a)
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, AddApplicationArgs{}, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	u := application.AddUnitParams{
+	id := applicationtesting.GenApplicationUUID(c)
+
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
+	ch := domaincharm.Charm{
+		Metadata: domaincharm.Metadata{
+			Name:  "foo",
+			RunAs: "default",
+			Storage: map[string]domaincharm.Storage{
+				"data": {
+					Name:        "data",
+					Type:        domaincharm.StorageFilesystem,
+					Shared:      false,
+					CountMin:    1,
+					CountMax:    2,
+					MinimumSize: 10,
+				},
+			},
+		},
+	}
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultFilesystemSource: ptr("fast")}, nil)
-	s.state.EXPECT().UpsertApplication(gomock.Any(), "666", u).Return(nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "666", ch, u).Return(id, nil)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
+	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+	s.charm.EXPECT().Config().Return(&charm.Config{})
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "foo",
 		Storage: map[string]charm.Storage{
 			"data": {
 				Name:        "data",
 				Type:        charm.StorageFilesystem,
+				Shared:      false,
 				CountMin:    1,
 				CountMax:    2,
 				MinimumSize: 10,
@@ -189,11 +287,10 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 	pool := domainstorage.StoragePoolDetails{Name: "fast", Provider: "modelscoped"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil)
 
-	a := AddUnitParams{
+	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	err := s.service.CreateApplication(context.Background(), "666", AddApplicationParams{
-		Charm: s.charm,
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, AddApplicationArgs{
 		Storage: map[string]storage.Directive{
 			"data": {Count: 2},
 		},
@@ -206,6 +303,7 @@ func (s *applicationServiceSuite) TestCreateWithSharedStorageMissingDirectives(c
 
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "foo",
 		Storage: map[string]charm.Storage{
 			"data": {
 				Name:   "data",
@@ -215,12 +313,10 @@ func (s *applicationServiceSuite) TestCreateWithSharedStorageMissingDirectives(c
 		},
 	}).AnyTimes()
 
-	a := AddUnitParams{
+	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	err := s.service.CreateApplication(context.Background(), "666", AddApplicationParams{
-		Charm: s.charm,
-	}, a)
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, AddApplicationArgs{}, a)
 	c.Assert(err, jc.ErrorIs, storageerrors.MissingSharedStorageDirectiveError)
 	c.Assert(err, gc.ErrorMatches, `adding default storage directives: no storage directive specified for shared charm storage "data"`)
 }
@@ -241,11 +337,11 @@ func (s *applicationServiceSuite) TestCreateWithStorageValidates(c *gc.C) {
 		},
 	}).AnyTimes()
 
-	a := AddUnitParams{
+	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	err := s.service.CreateApplication(context.Background(), "666", AddApplicationParams{
-		Charm: s.charm,
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, AddApplicationArgs{
+
 		Storage: map[string]storage.Directive{
 			"logs": {Count: 2},
 		},
@@ -253,19 +349,51 @@ func (s *applicationServiceSuite) TestCreateWithStorageValidates(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid storage directives: charm "mine" has no store called "logs"`)
 }
 
+func (s *applicationServiceSuite) TestCreateApplicationWithNoCharmName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
+
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, AddApplicationArgs{})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationWithNoApplicationOrCharmName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
+
+	_, err := s.service.CreateApplication(context.Background(), "", s.charm, AddApplicationArgs{})
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationWithNoMeta(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(nil).AnyTimes()
+
+	_, err := s.service.CreateApplication(context.Background(), "", s.charm, AddApplicationArgs{})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmMetadataNotValid)
+}
+
 func (s *applicationServiceSuite) TestCreateApplicationError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	id := applicationtesting.GenApplicationUUID(c)
+
 	rErr := errors.New("boom")
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().UpsertApplication(gomock.Any(), "666").Return(rErr)
-	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
+	s.state.EXPECT().CreateApplication(gomock.Any(), "666", gomock.Any()).Return(id, rErr)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
+	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "foo",
+	}).AnyTimes()
 
-	err := s.service.CreateApplication(context.Background(), "666", AddApplicationParams{
-		Charm: s.charm,
-	})
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, AddApplicationArgs{})
 	c.Check(err, jc.ErrorIs, rErr)
-	c.Assert(err, gc.ErrorMatches, `saving application "666": boom`)
+	c.Assert(err, gc.ErrorMatches, `creating application "666": boom`)
 }
 
 func (s *applicationServiceSuite) TestDeleteApplicationSuccess(c *gc.C) {
@@ -291,12 +419,12 @@ func (s *applicationServiceSuite) TestDeleteApplicationError(c *gc.C) {
 func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	u := application.AddUnitParams{
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	s.state.EXPECT().AddUnits(gomock.Any(), "666", u).Return(nil)
 
-	a := AddUnitParams{
+	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	err := s.service.AddUnits(context.Background(), "666", a)
@@ -306,7 +434,7 @@ func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 func (s *applicationServiceSuite) TestAddUpsertCAASUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	u := application.AddUnitParams{
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	s.state.EXPECT().UpsertApplication(gomock.Any(), "foo", u).Return(nil)

@@ -3,8 +3,8 @@
 
 package application
 
-// AddUnitParams contains parameters for saving a unit to state.
-type AddUnitParams struct {
+// AddUnitArg contains parameters for saving a unit to state.
+type AddUnitArg struct {
 	// UnitName is for CAAS models when creating stateful units.
 	UnitName *string
 }

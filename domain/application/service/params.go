@@ -8,16 +8,14 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
-// AddApplicationParams contain parameters for adding an application to the model.
-type AddApplicationParams struct {
-	// Charm is the application's charm.
-	Charm charm.Charm
+// AddApplicationArgs contain arguments for adding an application to the model.
+type AddApplicationArgs struct {
 	// Storage contains the application's storage directives.
 	Storage map[string]storage.Directive
 }
 
-// AddUnitParams contains parameters for adding a unit to the model.
-type AddUnitParams struct {
+// AddUnitArgs contains parameters for adding a unit to the model.
+type AddUnitArg struct {
 	// UnitName is for migration, adding named units.
 	UnitName *string
 

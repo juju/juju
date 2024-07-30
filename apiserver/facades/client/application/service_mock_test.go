@@ -13,11 +13,13 @@ import (
 	context "context"
 	reflect "reflect"
 
+	application "github.com/juju/juju/core/application"
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
 	service "github.com/juju/juju/domain/application/service"
 	config "github.com/juju/juju/environs/config"
+	charm "github.com/juju/juju/internal/charm"
 	storage "github.com/juju/juju/internal/storage"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
@@ -109,7 +111,7 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // AddUnits mocks base method.
-func (m *MockApplicationService) AddUnits(arg0 context.Context, arg1 string, arg2 ...service.AddUnitParams) error {
+func (m *MockApplicationService) AddUnits(arg0 context.Context, arg1 string, arg2 ...service.AddUnitArg) error {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1}
 	for _, a := range arg2 {
@@ -140,33 +142,34 @@ func (c *MockApplicationServiceAddUnitsCall) Return(arg0 error) *MockApplication
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceAddUnitsCall) Do(f func(context.Context, string, ...service.AddUnitParams) error) *MockApplicationServiceAddUnitsCall {
+func (c *MockApplicationServiceAddUnitsCall) Do(f func(context.Context, string, ...service.AddUnitArg) error) *MockApplicationServiceAddUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceAddUnitsCall) DoAndReturn(f func(context.Context, string, ...service.AddUnitParams) error) *MockApplicationServiceAddUnitsCall {
+func (c *MockApplicationServiceAddUnitsCall) DoAndReturn(f func(context.Context, string, ...service.AddUnitArg) error) *MockApplicationServiceAddUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CreateApplication mocks base method.
-func (m *MockApplicationService) CreateApplication(arg0 context.Context, arg1 string, arg2 service.AddApplicationParams, arg3 ...service.AddUnitParams) error {
+func (m *MockApplicationService) CreateApplication(arg0 context.Context, arg1 string, arg2 charm.Charm, arg3 service.AddApplicationArgs, arg4 ...service.AddUnitArg) (application.ID, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2}
-	for _, a := range arg3 {
+	varargs := []any{arg0, arg1, arg2, arg3}
+	for _, a := range arg4 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "CreateApplication", varargs...)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(application.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateApplication indicates an expected call of CreateApplication.
-func (mr *MockApplicationServiceMockRecorder) CreateApplication(arg0, arg1, arg2 any, arg3 ...any) *MockApplicationServiceCreateApplicationCall {
+func (mr *MockApplicationServiceMockRecorder) CreateApplication(arg0, arg1, arg2, arg3 any, arg4 ...any) *MockApplicationServiceCreateApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	varargs := append([]any{arg0, arg1, arg2, arg3}, arg4...)
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateApplication", reflect.TypeOf((*MockApplicationService)(nil).CreateApplication), varargs...)
 	return &MockApplicationServiceCreateApplicationCall{Call: call}
 }
@@ -177,19 +180,19 @@ type MockApplicationServiceCreateApplicationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceCreateApplicationCall) Return(arg0 error) *MockApplicationServiceCreateApplicationCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockApplicationServiceCreateApplicationCall) Return(arg0 application.ID, arg1 error) *MockApplicationServiceCreateApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceCreateApplicationCall) Do(f func(context.Context, string, service.AddApplicationParams, ...service.AddUnitParams) error) *MockApplicationServiceCreateApplicationCall {
+func (c *MockApplicationServiceCreateApplicationCall) Do(f func(context.Context, string, charm.Charm, service.AddApplicationArgs, ...service.AddUnitArg) (application.ID, error)) *MockApplicationServiceCreateApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceCreateApplicationCall) DoAndReturn(f func(context.Context, string, service.AddApplicationParams, ...service.AddUnitParams) error) *MockApplicationServiceCreateApplicationCall {
+func (c *MockApplicationServiceCreateApplicationCall) DoAndReturn(f func(context.Context, string, charm.Charm, service.AddApplicationArgs, ...service.AddUnitArg) (application.ID, error)) *MockApplicationServiceCreateApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

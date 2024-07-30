@@ -52,12 +52,18 @@ func (s *stateSuite) TestDeleteUnit(c *gc.C) {
 func (s *stateSuite) insertUnit(c *gc.C, appName string) {
 	db := s.DB()
 
-	applicationUUID := uuid.MustNewUUID().String()
+	charmUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(context.Background(), `
-INSERT INTO application (uuid, name, life_id)
-VALUES (?, ?, ?)
-`, applicationUUID, appName, life.Alive)
+INSERT INTO charm (uuid, name)
+VALUES (?, ?);
+`, charmUUID, appName)
 	c.Assert(err, jc.ErrorIsNil)
+
+	applicationUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(context.Background(), `
+INSERT INTO application (uuid, charm_uuid, name, life_id)
+VALUES (?, ?, ?, ?)
+`, applicationUUID, charmUUID, appName, life.Alive)
 	c.Assert(err, jc.ErrorIsNil)
 
 	netNodeUUID := uuid.MustNewUUID().String()

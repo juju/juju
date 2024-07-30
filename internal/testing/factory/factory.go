@@ -587,8 +587,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 				Count: sc.Count,
 			}
 		}
-		err = factory.applicationService.CreateApplication(context.Background(), params.Name, applicationservice.AddApplicationParams{
-			Charm:   params.Charm,
+		_, err = factory.applicationService.CreateApplication(context.Background(), params.Name, params.Charm, applicationservice.AddApplicationArgs{
 			Storage: directives,
 		})
 		c.Assert(err, jc.ErrorIsNil)
