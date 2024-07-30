@@ -316,6 +316,11 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 
 	exp := s.accessService.EXPECT()
 	a := gomock.Any()
+	exp.GetUserByName(a, "mary@external").Return(coreuser.User{
+		UUID:     newUserUUID(c),
+		Name:     "mary@external",
+		Disabled: false,
+	}, nil)
 	exp.GetUserByName(a, "foobar").Return(coreuser.User{
 		UUID:     newUserUUID(c),
 		Name:     "foobar",
@@ -328,15 +333,15 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 	}, nil)
 	exp.GetUserByName(a, "ellie").Return(coreuser.User{}, usererrors.UserNotFound)
 
-	exp.ReadUserAccessForTarget(gomock.Any(), "foobar", permission.ID{
+	exp.ReadUserAccessLevelForTarget(gomock.Any(), "foobar", permission.ID{
 		ObjectType: permission.Controller,
 		Key:        s.ControllerUUID,
-	}).Return(permission.UserAccess{Access: permission.LoginAccess}, nil)
+	}).Return(permission.LoginAccess, nil)
 
-	exp.ReadUserAccessForTarget(gomock.Any(), "mary@external", permission.ID{
+	exp.ReadUserAccessLevelForTarget(gomock.Any(), "mary@external", permission.ID{
 		ObjectType: permission.Controller,
 		Key:        s.ControllerUUID,
-	}).Return(permission.UserAccess{Access: permission.SuperuserAccess}, nil)
+	}).Return(permission.SuperuserAccess, nil)
 
 	args := params.UserInfoRequest{
 		Entities: []params.Entity{
@@ -428,10 +433,10 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 
 	// The access service is used only for none-deactivated users, deactivated
 	// users have NoPermissions.
-	s.accessService.EXPECT().ReadUserAccessForTarget(gomock.Any(), "fred", permission.ID{
+	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), "fred", permission.ID{
 		ObjectType: permission.Controller,
 		Key:        s.ControllerUUID,
-	}).Return(permission.UserAccess{Access: permission.LoginAccess}, nil).Times(2)
+	}).Return(permission.LoginAccess, nil).Times(2)
 
 	results, err := s.api.UserInfo(context.Background(), params.UserInfoRequest{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -474,10 +479,10 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 		LastLogin:   fakeLastLogin,
 	}, nil)
 
-	s.accessService.EXPECT().ReadUserAccessForTarget(gomock.Any(), "aardvark", permission.ID{
+	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), "aardvark", permission.ID{
 		ObjectType: permission.Controller,
 		Key:        s.ControllerUUID,
-	}).Return(permission.UserAccess{Access: permission.LoginAccess}, nil)
+	}).Return(permission.LoginAccess, nil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()

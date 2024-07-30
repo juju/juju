@@ -41,9 +41,6 @@ type Backend interface {
 	// GetOfferAccess gets the access permission for the specified user on an offer.
 	GetOfferAccess(offerUUID string, user names.UserTag) (permission.Access, error)
 
-	// UserPermission returns the access permission for the passed subject and target.
-	UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error)
-
 	// RemoteApplication returns a remote application by name.
 	RemoteApplication(string) (RemoteApplication, error)
 
@@ -303,4 +300,13 @@ type RemoteApplication interface {
 
 	// DestroyOperation returns a model operation to destroy remote application.
 	DestroyOperation(bool) state.ModelOperation
+}
+
+// AccessService provides information about users and permissions.
+type AccessService interface {
+	// ReadUserAccessLevelForTarget returns the subject's (user) access level
+	// for the given user on the given target.
+	// If the access level of a user cannot be found then
+	// accesserrors.AccessNotFound is returned.
+	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
 }

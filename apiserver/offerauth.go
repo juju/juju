@@ -47,6 +47,7 @@ func addOfferAuthHandlers(offerAuthCtxt *crossmodel.AuthContext, mux *apiserverh
 func newOfferAuthContext(
 	ctx context.Context,
 	pool *state.StatePool,
+	accessService AccessService,
 	modelInfoService ModelInfoService,
 	controllerConfigService ControllerConfigService,
 	macaroonService MacaroonService,
@@ -87,13 +88,13 @@ func newOfferAuthContext(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return crossmodel.NewAuthContext(crossmodel.GetBackend(st), modelTag, key, offerBakery)
+		return crossmodel.NewAuthContext(crossmodel.GetBackend(st), accessService, modelTag, key, offerBakery)
 	}
 	offerBakery, err := crossmodel.NewLocalOfferBakery(location, key, store, checker)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return crossmodel.NewAuthContext(crossmodel.GetBackend(st), modelTag, key, offerBakery)
+	return crossmodel.NewAuthContext(crossmodel.GetBackend(st), accessService, modelTag, key, offerBakery)
 }
 
 func (h *localOfferAuthHandler) checkThirdPartyCaveat(stdctx context.Context, req *http.Request, cavInfo *bakery.ThirdPartyCaveatInfo, _ *httpbakery.DischargeToken) ([]checkers.Caveat, error) {
@@ -103,7 +104,7 @@ func (h *localOfferAuthHandler) checkThirdPartyCaveat(stdctx context.Context, re
 		return nil, errors.Trace(err)
 	}
 
-	firstPartyCaveats, err := h.authCtx.CheckLocalAccessRequest(details)
+	firstPartyCaveats, err := h.authCtx.CheckLocalAccessRequest(stdctx, details)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

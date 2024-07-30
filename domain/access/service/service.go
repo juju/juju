@@ -172,6 +172,8 @@ type PermissionState interface {
 
 	// ReadUserAccessLevelForTarget returns the subject's (user) access level
 	// for the given user on the given target.
+	// If the access level of a user cannot be found then
+	// accesserrors.AccessNotFound is returned.
 	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
 
 	// ReadUserAccessLevelForTargetAddingMissingUser returns the user access level for

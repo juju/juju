@@ -371,13 +371,13 @@ func (r *apiHandler) HasPermission(ctx context.Context, operation permission.Acc
 func (r *apiHandler) EntityHasPermission(
 	ctx context.Context, entity names.Tag, operation permission.Access, target names.Tag,
 ) error {
-	var userAccessFunc common.UserAccessFunc = func(entity names.UserTag, subject names.Tag) (permission.Access, error) {
+	var userAccessFunc common.UserAccessFunc = func(ctx context.Context, userName string, target permission.ID) (permission.Access, error) {
 		if r.authInfo.Delegator == nil {
 			return permission.NoAccess, fmt.Errorf("permissions %w for auth info", errors.NotImplemented)
 		}
-		return r.authInfo.Delegator.SubjectPermissions(ctx, authentication.TagToEntity(entity), subject)
+		return r.authInfo.Delegator.SubjectPermissions(ctx, userName, target)
 	}
-	has, err := common.HasPermission(userAccessFunc, entity, operation, target)
+	has, err := common.HasPermission(ctx, userAccessFunc, entity, operation, target)
 	if err != nil {
 		return fmt.Errorf("checking entity %q has permission: %w", entity, err)
 	}

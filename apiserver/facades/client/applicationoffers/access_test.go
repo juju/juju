@@ -41,7 +41,7 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
 	s.authContext, err = crossmodel.NewAuthContext(
-		s.mockState, names.NewModelTag(modelID.String()), thirdPartyKey,
+		s.mockState, nil, names.NewModelTag(modelID.String()), thirdPartyKey,
 		crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
 	c.Assert(err, jc.ErrorIsNil)

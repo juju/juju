@@ -94,7 +94,7 @@ func (s *CrossModelSecretsSuite) SetUpTest(c *gc.C) {
 	})
 	s.bakery = &mockBakery{bakery}
 	s.authContext, err = crossmodel.NewAuthContext(
-		nil, coretesting.ModelTag, key, crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
+		nil, nil, coretesting.ModelTag, key, crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

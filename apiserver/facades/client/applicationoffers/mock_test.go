@@ -6,7 +6,6 @@ package applicationoffers_test
 import (
 	stdcontext "context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -440,20 +439,6 @@ func (m *mockState) GetOfferUsers(offerUUID string) (map[string]permission.Acces
 		result[offerAccess.user.Id()] = access
 	}
 	return result, nil
-}
-
-func (m *mockState) UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error) {
-	// This is just used for checking admin or superuser access.
-	if subject.Id() == m.AdminTag.Id() {
-		return permission.AdminAccess, nil
-	}
-	if strings.HasPrefix(subject.Id(), "admin") && target.Kind() == names.ModelTagKind {
-		return permission.AdminAccess, nil
-	}
-	if strings.HasPrefix(subject.Id(), "superuser") && target.Kind() == names.ControllerTagKind {
-		return permission.SuperuserAccess, nil
-	}
-	return permission.NoAccess, nil
 }
 
 func (m *mockState) AllSpaceInfos() (network.SpaceInfos, error) {

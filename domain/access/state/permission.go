@@ -262,6 +262,8 @@ AND     u.removed = false
 
 // ReadUserAccessLevelForTarget returns the subject's (user) access level
 // for the given user on the given target.
+// If the access level of a user cannot be found then
+// accesserrors.AccessNotFound is returned.
 func (st *PermissionState) ReadUserAccessLevelForTarget(ctx context.Context, subject string, target corepermission.ID) (corepermission.Access, error) {
 	userAccess := corepermission.NoAccess
 	db, err := st.DB()

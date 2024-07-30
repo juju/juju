@@ -110,10 +110,10 @@ func (t TokenEntity) Tag() names.Tag {
 // SubjectPermissions implements PermissionDelegator
 func (p *PermissionDelegator) SubjectPermissions(
 	_ context.Context,
-	e authentication.Entity,
-	subject names.Tag,
+	userName string,
+	target permission.ID,
 ) (a permission.Access, err error) {
-	if e.Tag().Id() == permission.EveryoneTagName {
+	if userName == permission.EveryoneTagName {
 		// JWT auth process does not support everyone@external.
 		// The everyone@external will be never included in the JWT token at least for now.
 		return permission.NoAccess, nil
@@ -124,14 +124,14 @@ func (p *PermissionDelegator) SubjectPermissions(
 	}
 	// We need to make very sure that the entity the request pertains to
 	// is the same entity this function was seeded with.
-	if tokenEntity.Tag().String() != e.Tag().String() {
+	if tokenEntity.Tag().String() != names.NewUserTag(userName).String() {
 		err = fmt.Errorf(
 			"%w to use token permissions for one entity on another",
 			apiservererrors.ErrPerm,
 		)
 		return permission.NoAccess, errors.WithType(err, authentication.ErrorEntityMissingPermission)
 	}
-	return PermissionFromToken(p.Token, subject)
+	return PermissionFromToken(p.Token, target)
 }
 
 // PermissionsError implements PermissionDelegator
@@ -198,16 +198,16 @@ func userFromToken(token jwt.Token) (TokenEntity, error) {
 // PermissionFromToken will extract the permission a jwt token has for the
 // provided subject. If no permission is found permission.NoAccess will be
 // returned.
-func PermissionFromToken(token jwt.Token, subject names.Tag) (permission.Access, error) {
+func PermissionFromToken(token jwt.Token, subject permission.ID) (permission.Access, error) {
 	var validate func(permission.Access) error
-	switch subject.Kind() {
-	case names.ControllerTagKind:
+	switch subject.ObjectType {
+	case permission.Controller:
 		validate = permission.ValidateControllerAccess
-	case names.ModelTagKind:
+	case permission.Model:
 		validate = permission.ValidateModelAccess
-	case names.CloudTagKind:
+	case permission.Cloud:
 		validate = permission.ValidateCloudAccess
-	case names.ApplicationOfferTagKind:
+	case permission.Offer:
 		validate = permission.ValidateOfferAccess
 	default:
 		return "", errors.NotValidf("%q as a target", subject)
@@ -216,10 +216,42 @@ func PermissionFromToken(token jwt.Token, subject names.Tag) (permission.Access,
 	if !ok || len(accessClaims) == 0 {
 		return permission.NoAccess, nil
 	}
-	access, ok := accessClaims[subject.String()]
+	tag, err := permissionIDToTag(subject)
+	if err != nil {
+		return permission.NoAccess, err
+	}
+	access, ok := accessClaims[tag.String()]
 	if !ok {
 		return permission.NoAccess, nil
 	}
 	result := permission.Access(fmt.Sprintf("%v", access))
 	return result, validate(result)
+}
+
+// permissionIDToTag returns a tag from a permission ID object.
+func permissionIDToTag(id permission.ID) (names.Tag, error) {
+	switch id.ObjectType {
+	case permission.Cloud:
+		if !names.IsValidCloud(id.Key) {
+			return nil, fmt.Errorf("invalid cloud id %q", id.Key)
+		}
+		return names.NewCloudTag(id.Key), nil
+	case permission.Controller:
+		if !names.IsValidController(id.Key) {
+			return nil, fmt.Errorf("invalid controller id %q", id.Key)
+		}
+		return names.NewControllerTag(id.Key), nil
+	case permission.Model:
+		if !names.IsValidModel(id.Key) {
+			return nil, fmt.Errorf("invalid model id %q", id.Key)
+		}
+		return names.NewModelTag(id.Key), nil
+	case permission.Offer:
+		if !names.IsValidApplicationOffer(id.Key) {
+			return nil, fmt.Errorf("invalid application offer id %q", id.Key)
+		}
+		return names.NewApplicationOfferTag(id.Key), nil
+	default:
+		return nil, errors.NotSupportedf("target id type %s", id.ObjectType)
+	}
 }
