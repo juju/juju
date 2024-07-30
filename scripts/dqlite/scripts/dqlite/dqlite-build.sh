@@ -33,9 +33,9 @@ build() {
     # on the hosts libc.
     #
     # TODO: investigate zig-gcc as an alternative.
-    wget https://musl.libc.org/releases/musl-1.2.3.tar.gz
-    tar xf musl-1.2.3.tar.gz
-    cd musl-1.2.3
+    wget https://musl.libc.org/releases/musl-1.2.5.tar.gz
+    tar xf musl-1.2.5.tar.gz
+    cd musl-1.2.5
     ./configure CFLAGS="${CUSTOM_CFLAGS}"
     sudo make install
 
@@ -58,7 +58,6 @@ build() {
     # libnsl (required by dqlite)
     # libuv (required by raft)
     # liblz4 (required by raft)
-    # raft (required by dqlite)
     # sqlite3 (required by dqlite)
     # dqlite
 
@@ -100,20 +99,6 @@ build() {
         make lib
     cd ../
 
-    # raft
-    git clone https://github.com/canonical/raft.git --depth 1 --branch ${TAG_RAFT}
-    cd raft
-    autoreconf -i
-    CFLAGS="-I${PWD}/../libuv/include -I${PWD}/../lz4/lib ${CUSTOM_CFLAGS}" \
-            LDFLAGS="-L${PWD}/../libuv/.libs -L${PWD}/../lz4/lib" \
-            UV_CFLAGS="-I${PWD}/../libuv/include" \
-            UV_LIBS="-L${PWD}/../libuv/.libs" \
-            LZ4_CFLAGS="-I${PWD}/../lz4/lib" \
-            LZ4_LIBS="-L${PWD}/../lz4/lib" \
-            ./configure --disable-shared
-    make
-    cd ../
-
     # sqlite3
     git clone https://github.com/sqlite/sqlite.git --depth 1 --branch ${TAG_SQLITE}
     cd sqlite
@@ -125,14 +110,14 @@ build() {
     git clone https://github.com/canonical/dqlite.git --depth 1 --branch ${TAG_DQLITE}
     cd dqlite
     autoreconf -i
-    CFLAGS="-I${PWD}/../raft/include -I${PWD}/../sqlite -I${PWD}/../libuv/include -I${PWD}/../lz4/lib -I/usr/local/musl/include -Werror=implicit-function-declaration ${CUSTOM_CFLAGS}" \
-            LDFLAGS="-L${PWD}/../raft/.libs -L${PWD}/../libuv/.libs -L${PWD}/../lz4/lib -L${PWD}/../libnsl/src" \
-            RAFT_CFLAGS="-I${PWD}/../raft/include" \
-            RAFT_LIBS="-L${PWD}/../raft/.libs" \
+    CFLAGS="-I${PWD}/../sqlite -I${PWD}/../libuv/include -I${PWD}/../lz4/lib -I/usr/local/musl/include -Werror=implicit-function-declaration ${CUSTOM_CFLAGS}" \
+            LDFLAGS="-L${PWD}/../libuv/.libs -L${PWD}/../lz4/lib -L${PWD}/../libnsl/src" \
             UV_CFLAGS="-I${PWD}/../libuv/include" \
             UV_LIBS="-L${PWD}/../libuv/.libs" \
+            LZ4_CFLAGS="-I${PWD}/../lz4/lib" \
+            LZ4_LIBS="-L${PWD}/../lz4/lib" \
             SQLITE_CFLAGS="-I${PWD}/../sqlite" \
-            ./configure --disable-shared ${DQLITE_CONFIGURE_FLAGS}
+            ./configure --disable-shared --enable-build-raft ${DQLITE_CONFIGURE_FLAGS}
     make
     cd ../
 
@@ -146,13 +131,11 @@ build() {
     cp libuv/.libs/* juju-dqlite-static-lib-deps/
     cp lz4/lib/*.a juju-dqlite-static-lib-deps/
     cp lz4/lib/*.so* juju-dqlite-static-lib-deps/
-    cp raft/.libs/*.a juju-dqlite-static-lib-deps/
     cp sqlite/.libs/*.a juju-dqlite-static-lib-deps/
     cp dqlite/.libs/*.a juju-dqlite-static-lib-deps/
 
     # Collect required headers
     mkdir juju-dqlite-static-lib-deps/include
-    cp -r raft/include/* juju-dqlite-static-lib-deps/include
     cp -r sqlite/*.h juju-dqlite-static-lib-deps/include
     cp -r dqlite/include/* juju-dqlite-static-lib-deps/include
 
@@ -161,7 +144,6 @@ build() {
     echo "libnsl ${TAG_LIBNSL}" >> juju-dqlite-static-lib-deps/BOM
     echo "libuv ${TAG_LIBUV}" >> juju-dqlite-static-lib-deps/BOM
     echo "liblz4 ${TAG_LIBLZ4}" >> juju-dqlite-static-lib-deps/BOM
-    echo "raft ${TAG_RAFT}" >> juju-dqlite-static-lib-deps/BOM
     echo "sqlite ${TAG_SQLITE}" >> juju-dqlite-static-lib-deps/BOM
     echo "dqlite ${TAG_DQLITE}" >> juju-dqlite-static-lib-deps/BOM
 
