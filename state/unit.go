@@ -30,6 +30,7 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	mgoutils "github.com/juju/juju/internal/mongo/utils"
 	internalpassword "github.com/juju/juju/internal/password"
+	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -1943,30 +1944,26 @@ func validateDynamicMachineStoragePools(sb *storageBackend, m MachineRef, pools 
 	if pools.IsEmpty() {
 		return nil
 	}
-	if m.ContainerType() != "" {
-		// TODO(axw) consult storage providers to check if they
-		// support adding storage to containers. Loop is fine,
-		// for example.
-		//
-		// TODO(axw) later we might allow *any* storage, and
-		// passthrough/bindmount storage. That would imply either
-		// container creation time only, or requiring containers
-		// to be restarted to pick up new configuration.
-		return errors.NotSupportedf("adding storage to %s container", m.ContainerType())
-	}
-	return validateDynamicStoragePools(sb, pools)
+	return validateDynamicStoragePools(sb, pools, m.ContainerType())
 }
 
 // validateDynamicStoragePools validates that all of the specified storage
 // providers support dynamic storage provisioning. If any provider doesn't
 // support dynamic storage, then an IsNotSupported error is returned.
-func validateDynamicStoragePools(sb *storageBackend, pools set.Strings) error {
+func validateDynamicStoragePools(sb *storageBackend, pools set.Strings, containerType instance.ContainerType) error {
 	for pool := range pools {
-		providerType, provider, _, err := poolStorageProvider(sb, pool)
+		providerType, p, _, err := poolStorageProvider(sb, pool)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if !provider.Dynamic() {
+		if containerType != "" && !provider.AllowedContainerProvider(providerType) {
+			// TODO(axw) later we might allow *any* storage, and
+			// passthrough/bindmount storage. That would imply either
+			// container creation time only, or requiring containers
+			// to be restarted to pick up new configuration.
+			return errors.NotSupportedf("adding storage of type %q to %s container", providerType, containerType)
+		}
+		if !p.Dynamic() {
 			return errors.NewNotSupported(err, fmt.Sprintf(
 				"%q storage provider does not support dynamic storage",
 				providerType,

@@ -632,8 +632,11 @@ func (s *DeploySuite) TestDeployStorageFailContainer(c *gc.C) {
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@22.04"), charmDir.Meta(), false, 1, nil, nil)
 
-	err := s.runDeploy(c, charmDir.Path, "--to", "lxd:1", "--storage", "data=machinescoped,1G")
-	c.Assert(err, gc.ErrorMatches, "adding storage to lxd container not supported")
+	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	container := "lxd:" + machine.Id()
+	err = s.runDeploy(c, charmDir.Path, "--to", container, "--storage", "data=machinescoped,1G")
+	c.Assert(err, gc.ErrorMatches, `adding storage of type "machinescoped" to lxd container not supported`)
 }
 
 func (s *DeploySuite) TestPlacement(c *gc.C) {

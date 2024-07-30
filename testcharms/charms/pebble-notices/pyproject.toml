@@ -17,6 +17,9 @@ target-version = ["py38"]
 # Linting tools configuration
 [tool.ruff]
 line-length = 99
+extend-exclude = ["__pycache__", "*.egg_info"]
+
+[lint]
 select = ["E", "W", "F", "C", "N", "D", "I001"]
 extend-ignore = [
     "D203",
@@ -32,10 +35,9 @@ extend-ignore = [
     "D413",
 ]
 ignore = ["E501", "D107"]
-extend-exclude = ["__pycache__", "*.egg_info"]
 per-file-ignores = {"tests/*" = ["D100","D101","D102","D103","D104"]}
 
-[tool.ruff.mccabe]
+[lint.mccabe]
 max-complexity = 10
 
 [tool.codespell]

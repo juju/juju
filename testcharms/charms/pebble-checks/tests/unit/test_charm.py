@@ -4,7 +4,7 @@ import unittest.mock
 import ops
 import ops.pebble
 import ops.testing
-from charm import PebbleChecksCharm, MockCheckInfo
+from charm import PebbleChecksCharm
 
 
 class TestCharm(unittest.TestCase):
@@ -14,39 +14,7 @@ class TestCharm(unittest.TestCase):
         self.harness.set_can_connect("ubuntu", True)
         self.harness.begin()
 
-    # TODO(CHARMTECH-165): update to use pebble-check-failed once ops updates:
-    #                      https://github.com/canonical/operator/pull/1281
-    def _pebble_emit_check(self, status, container_name, check_name):
-        import os
-
-        os.environ["JUJU_PEBBLE_CHECK_NAME"] = check_name
-        event = ops.WorkloadEvent(
-            None,
-            self.harness.model.unit.get_container(container_name),
-        )
-        event.info = MockCheckInfo(event.workload, check_name)
-        if status == "failed":
-            self.harness.charm._on_check_failed(event)
-        elif status == "recovered":
-            self.harness.charm._on_check_recovered(event)
-
     def test_check_failed(self):
-        # TODO: Remove this when ops has native support (see note above).
-        import os
-        import enum
-
-        os.environ["JUJU_DISPATCH_PATH"] = "hooks/ubuntu-pebble-check-failed"
-        self.addCleanup(os.environ.__delitem__, "JUJU_DISPATCH_PATH")
-        self.addCleanup(os.environ.__delitem__, "JUJU_PEBBLE_CHECK_NAME")
-        self.addCleanup(setattr, ops.pebble, "NoticeType", ops.pebble.NoticeType)
-
-        class NoticeType(enum.Enum):
-            CUSTOM = "custom"
-            # Harness.pebble_notify() only permits "custom".
-            CHANGE_UPDATE = "custom"
-
-        ops.pebble.NoticeType = NoticeType
-
         def get_change(_: ops.pebble.Client, change_id: str):
             return ops.pebble.Change.from_dict(
                 {
@@ -68,29 +36,14 @@ class TestCharm(unittest.TestCase):
                 type=ops.pebble.NoticeType.CHANGE_UPDATE,
                 data={"kind": "perform-check", "check-name": "exec-check"},
             )
-        self._pebble_emit_check("failed", "ubuntu", "exec-check")
+        container = self.harness.charm.model.unit.get_container("ubuntu")
+        self.harness.charm.on["ubuntu"].pebble_check_failed.emit(container, "exec-check")
         self.assertEqual(
             self.harness.model.unit.status,
             ops.MaintenanceStatus("check failed: exec-check"),
         )
 
     def test_check_recovered(self):
-        # TODO: Remove this when ops has native support (see note above).
-        import os
-        import enum
-
-        os.environ["JUJU_DISPATCH_PATH"] = "hooks/ubuntu-pebble-check-recovered"
-        self.addCleanup(os.environ.__delitem__, "JUJU_DISPATCH_PATH")
-        self.addCleanup(os.environ.__delitem__, "JUJU_PEBBLE_CHECK_NAME")
-        self.addCleanup(setattr, ops.pebble, "NoticeType", ops.pebble.NoticeType)
-
-        class NoticeType(enum.Enum):
-            CUSTOM = "custom"
-            # Harness.pebble_notify() only permits "custom".
-            CHANGE_UPDATE = "custom"
-
-        ops.pebble.NoticeType = NoticeType
-
         def get_change(_: ops.pebble.Client, change_id: str):
             return ops.pebble.Change.from_dict(
                 {
@@ -112,7 +65,8 @@ class TestCharm(unittest.TestCase):
                 type=ops.pebble.NoticeType.CHANGE_UPDATE,
                 data={"kind": "recover-check", "check-name": "exec-check"},
             )
-        self._pebble_emit_check("recovered", "ubuntu", "exec-check")
+        container = self.harness.charm.model.unit.get_container("ubuntu")
+        self.harness.charm.on["ubuntu"].pebble_check_recovered.emit(container, "exec-check")
         self.assertEqual(
             self.harness.model.unit.status,
             ops.ActiveStatus("check recovered: exec-check"),

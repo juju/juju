@@ -421,6 +421,7 @@ func (s *MigrationImportSuite) ApplicationPortOps(c *gc.C) {
 }
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/description_mock.go github.com/juju/description/v8 Application,Machine,PortRanges,UnitPortRanges
+
 func setupMockOpenedPortRanges(c *gc.C, mID string) (*gomock.Controller, *mocks.MockMachine) {
 	ctrl := gomock.NewController(c)
 	mockMachine := mocks.NewMockMachine(ctrl)
