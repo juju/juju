@@ -3074,7 +3074,9 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	// Verify no ports are opened yet on the machine (or unit).
 	machinePortRanges, err := s.machine0.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machinePortRanges.UniquePortRanges(), gc.HasLen, 0)
+	for _, unit := range machinePortRanges.ByUnit() {
+		c.Assert(unit.UniquePortRanges(), gc.HasLen, 0)
+	}
 
 	// Add another mysql unit on machine 0.
 	mysqlUnit1, err := s.mysql.AddUnit(state.AddUnitParams{})
@@ -3334,12 +3336,12 @@ func (s *uniterSuite) TestRefreshNoArgs(c *gc.C) {
 }
 
 func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
-	_, cm, app, unit := s.setupCAASModel(c)
+	_, cm, _, unit := s.setupCAASModel(c)
 	st := cm.State()
 
-	appPortRanges, err := app.OpenedPortRanges()
+	unitPortRanges, err := unit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+	c.Assert(unitPortRanges.UniquePortRanges(), gc.HasLen, 0)
 
 	portRanges, err := unit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3557,7 +3559,7 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 }
 
 func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) {
-	_, cm, app, unit := s.setupCAASModel(c)
+	_, cm, _, unit := s.setupCAASModel(c)
 
 	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
 	b.UpdateNetworkInfo()
@@ -3588,13 +3590,10 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 		},
 	})
 
-	appPortRanges, err := app.OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 80}})
-
 	portRanges, err := unit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Assert(portRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 80}})
 	c.Assert(portRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
 		"db": []network.PortRange{network.MustParsePortRange("80/tcp")},
 	})

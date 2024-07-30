@@ -400,7 +400,8 @@ func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
 
 	machPortRanges, err := s.machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machPortRanges.UniquePortRanges(), gc.HasLen, 1)
+	c.Assert(machPortRanges.ByUnit(), gc.HasLen, 1)
+	c.Assert(machPortRanges.ForUnit(unit.Name()).UniquePortRanges(), gc.HasLen, 1)
 
 	err = unit.UnassignFromMachine()
 	c.Assert(err, jc.ErrorIsNil)

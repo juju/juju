@@ -96,15 +96,6 @@ func (p *applicationPortRanges) ByEndpoint() network.GroupedPortRanges {
 	return out
 }
 
-// UniquePortRanges returns a slice of unique open PortRanges all units.
-func (p *applicationPortRanges) UniquePortRanges() []network.PortRange {
-	allRanges := make(network.GroupedPortRanges)
-	for _, unitRanges := range p.ByUnit() {
-		allRanges[""] = append(allRanges[""], unitRanges.UniquePortRanges()...)
-	}
-	return allRanges.UniquePortRanges()
-}
-
 func (p *applicationPortRanges) clearPendingRecords() {
 	p.pendingOpenRanges = make(network.GroupedPortRanges)
 	p.pendingCloseRanges = make(network.GroupedPortRanges)
@@ -220,18 +211,6 @@ func (p *unitPortRanges) UniquePortRanges() []network.PortRange {
 // ByEndpoint returns the list of open port ranges grouped by endpoint.
 func (p *unitPortRanges) ByEndpoint() network.GroupedPortRanges {
 	return p.apg.doc.UnitRanges[p.unitName]
-}
-
-// ForEndpoint returns a list of port ranges that the unit has opened for the
-// specified endpoint.
-func (p *unitPortRanges) ForEndpoint(endpointName string) []network.PortRange {
-	unitPortRange := p.apg.doc.UnitRanges[p.unitName]
-	if len(unitPortRange) == 0 || len(unitPortRange[endpointName]) == 0 {
-		return nil
-	}
-	res := append([]network.PortRange(nil), unitPortRange[endpointName]...)
-	network.SortPortRanges(res)
-	return res
 }
 
 var _ ModelOperation = (*applicationPortRangesOperation)(nil)

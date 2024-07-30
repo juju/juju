@@ -1009,15 +1009,11 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 
 	unitPortRanges, err = imported.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitPortRanges.UniquePortRanges(), gc.HasLen, 1)
-
-	portRanges := unitPortRanges.ForEndpoint(allEndpoints)
-	c.Assert(portRanges, gc.HasLen, 1)
-	c.Assert(portRanges[0], gc.Equals, network.PortRange{
+	c.Assert(unitPortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{{
 		FromPort: 1234,
 		ToPort:   2345,
 		Protocol: "tcp",
-	})
+	}})
 }
 
 func (s *MigrationImportSuite) TestFirewallRules(c *gc.C) {

@@ -23,18 +23,6 @@ func (p *unitPortRangesForMachine) UnitName() string {
 	return p.unitName
 }
 
-// ForEndpoint returns a list of port ranges that the unit has opened for the
-// specified endpoint.
-func (p *unitPortRangesForMachine) ForEndpoint(endpointName string) []network.PortRange {
-	unitPortRangeDoc := p.machinePortRanges.doc.UnitRanges[p.unitName]
-	if len(unitPortRangeDoc) == 0 || len(unitPortRangeDoc[endpointName]) == 0 {
-		return nil
-	}
-	res := append([]network.PortRange(nil), unitPortRangeDoc[endpointName]...)
-	network.SortPortRanges(res)
-	return res
-}
-
 // ByEndpoint returns a map where keys are endpoint names and values are the
 // port ranges that the unit has opened for each endpoint.
 func (p *unitPortRangesForMachine) ByEndpoint() network.GroupedPortRanges {

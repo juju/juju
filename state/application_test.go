@@ -2490,10 +2490,6 @@ func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c
 	st, app := s.addCAASSidecarApplication(c)
 	defer st.Close()
 
-	appPortRanges, err := app.OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
-
 	unit0, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	portRangesUnit0, err := unit0.OpenedPortRanges()
@@ -2518,10 +2514,6 @@ func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(portRangesUnit1.UniquePortRanges(), gc.HasLen, 2)
 
-	appPortRanges, err = app.OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 3)
-
 	portRangesUnit1.Close(allEndpoints, network.MustParsePortRange("3002/tcp"))
 	c.Assert(st.ApplyOperation(portRangesUnit1.Changes()), jc.ErrorIsNil)
 
@@ -2529,25 +2521,17 @@ func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(portRangesUnit1.UniquePortRanges(), gc.HasLen, 1)
 
-	appPortRanges, err = app.OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 2)
-
 	portRangesUnit1.Open(allEndpoints, network.MustParsePortRange("3003/tcp"))
 	c.Assert(st.ApplyOperation(portRangesUnit1.Changes()), jc.ErrorIsNil)
 
-	appPortRanges, err = app.OpenedPortRanges()
+	portRangesUnit1, err = unit1.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 3)
+	c.Assert(portRangesUnit1.UniquePortRanges(), gc.HasLen, 2)
 
 	err = unit1.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit1.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-
-	appPortRanges, err = app.OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 2)
 
 	// Remove all units, all opened ports should be removed.
 	err = unit0.EnsureDead()
@@ -2559,9 +2543,11 @@ func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c
 	err = unit1.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	appPortRanges, err = app.OpenedPortRanges()
+	appPortRanges, err := app.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+	for _, unit := range appPortRanges.ByUnit() {
+		c.Assert(unit.UniquePortRanges(), gc.HasLen, 0)
+	}
 
 	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2639,7 +2625,9 @@ func (s *ApplicationSuite) TestOpenedPortRanges(c *gc.C) {
 
 	appPortRanges, err := app.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+	for _, unit := range appPortRanges.ByUnit() {
+		c.Assert(unit.UniquePortRanges(), gc.HasLen, 0)
+	}
 
 	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)

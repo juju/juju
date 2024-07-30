@@ -14,10 +14,6 @@ type UnitPortRanges interface {
 	// UnitName returns the name of the unit these ranges apply to.
 	UnitName() string
 
-	// ForEndpoint returns a list of open port ranges for a particular
-	// application endpoint.
-	ForEndpoint(endpointName string) []network.PortRange
-
 	// ByEndpoint returns the list of open port ranges grouped by
 	// application endpoint.
 	ByEndpoint() network.GroupedPortRanges
@@ -57,10 +53,6 @@ type MachinePortRanges interface {
 	// Changes returns a ModelOperation for applying any changes that were
 	// made to this port range instance for all machine units.
 	Changes() ModelOperation
-
-	// UniquePortRanges returns a slice of unique open PortRanges for
-	// all units on this machine.
-	UniquePortRanges() []network.PortRange
 }
 
 // ApplicationPortRanges is implemented by types that can query and/or
@@ -82,7 +74,4 @@ type ApplicationPortRanges interface {
 	// Changes returns a ModelOperation for applying any changes that were
 	// made to this port range instance.
 	Changes() ModelOperation
-
-	// UniquePortRanges returns a slice of unique open PortRanges all units.
-	UniquePortRanges() []network.PortRange
 }
