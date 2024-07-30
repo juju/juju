@@ -13,7 +13,6 @@ import (
 	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/internal/servicefactory"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/state"
@@ -51,14 +51,12 @@ type workerFixture struct {
 	objectStoreGetter       stubObjectStoreGetter
 	controllerConfigService *MockControllerConfigService
 	modelService            *MockModelService
-	serviceFactoryGetter    *MockServiceFactoryGetter
+	serviceFactoryGetter    servicefactory.ServiceFactoryGetter
 	controllerUUID          string
 	controllerModelID       model.UUID
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
 	s.IsolationSuite.SetUpTest(c)
 	s.agentConfig = mockAgentConfig{
 		dataDir: c.MkDir(),
@@ -76,9 +74,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.logSink = &mockModelLogger{}
 	s.charmhubHTTPClient = &http.Client{}
 	s.sshimporterHTTPClient = &http.Client{}
-	s.controllerConfigService = NewMockControllerConfigService(ctrl)
-	s.modelService = NewMockModelService(ctrl)
-	s.serviceFactoryGetter = NewMockServiceFactoryGetter(ctrl)
+	s.serviceFactoryGetter = &stubServiceFactoryGetter{}
 	s.controllerUUID = coretesting.ControllerTag.Id()
 	s.controllerModelID = modeltesting.GenModelUUID(c)
 	s.stub.ResetCalls()
@@ -178,6 +174,12 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *apiserver.Config) { cfg.ObjectStoreGetter = nil },
 		"nil ObjectStoreGetter not valid",
+	}, {
+		func(cfg *apiserver.Config) { cfg.ControllerConfigService = nil },
+		"nil ControllerConfigService not valid",
+	}, {
+		func(cfg *apiserver.Config) { cfg.ModelService = nil },
+		"nil ModelService not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
