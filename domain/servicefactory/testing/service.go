@@ -240,11 +240,6 @@ func (s *TestingServiceFactory) ModelInfo() *modelservice.ModelService {
 	return nil
 }
 
-// KeyUpdater returns the block device service.
-func (s *TestingServiceFactory) KeyUpdater() *keyupdaterservice.Service {
-	return nil
-}
-
 // ModelAgent returns the modelagent service.
 func (s *TestingServiceFactory) ModelAgent() *modelagentservice.ModelService {
 	return nil
