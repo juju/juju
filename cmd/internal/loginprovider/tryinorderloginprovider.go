@@ -6,6 +6,7 @@ package loginprovider
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -21,14 +22,27 @@ import (
 // for the first time when we still don't know which login method.
 func NewTryInOrderLoginProvider(logger loggo.Logger, providers ...api.LoginProvider) api.LoginProvider {
 	return &tryInOrderLoginProviders{
-		providers: providers,
-		logger:    logger,
+		providers:  providers,
+		logger:     logger,
+		authHeader: missingHeader,
 	}
 }
 
+func missingHeader() (http.Header, error) {
+	return nil, api.ErrorLoginFirst
+}
+
 type tryInOrderLoginProviders struct {
-	providers []api.LoginProvider
-	logger    loggo.Logger
+	providers  []api.LoginProvider
+	logger     loggo.Logger
+	authHeader func() (http.Header, error)
+}
+
+// AuthHeader implements the [LoginProvider.AuthHeader] method.
+// It attempts to retrieve the auth header from the last successful login provider.
+// If login was never attempted/successful, an ErrorLoginFirst error is returned.
+func (p *tryInOrderLoginProviders) AuthHeader() (http.Header, error) {
+	return p.authHeader()
 }
 
 // Login implements the LoginProvider.Login method.
@@ -40,6 +54,7 @@ func (p *tryInOrderLoginProviders) Login(ctx context.Context, caller base.APICal
 			p.logger.Debugf("login error using provider %d - %s", i, err.Error())
 		} else {
 			p.logger.Debugf("successful login using provider %d", i)
+			p.authHeader = func() (http.Header, error) { return provider.AuthHeader() }
 			return result, nil
 		}
 		lastError = err
