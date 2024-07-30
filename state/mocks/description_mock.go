@@ -418,34 +418,6 @@ func (c *MockApplicationCharmMetadataCall) DoAndReturn(f func() description.Char
 	return c
 }
 
-// CharmManifest mocks base method.
-func (m *MockApplication) CharmManifest() description.CharmManifest {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmManifest")
-	ret0, _ := ret[0].(description.CharmManifest)
-	return ret0
-}
-
-// CharmManifest indicates an expected call of CharmManifest.
-func (mr *MockApplicationMockRecorder) CharmManifest() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmManifest", reflect.TypeOf((*MockApplication)(nil).CharmManifest))
-}
-
-// CharmMetadata mocks base method.
-func (m *MockApplication) CharmMetadata() description.CharmMetadata {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmMetadata")
-	ret0, _ := ret[0].(description.CharmMetadata)
-	return ret0
-}
-
-// CharmMetadata indicates an expected call of CharmMetadata.
-func (mr *MockApplicationMockRecorder) CharmMetadata() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmMetadata", reflect.TypeOf((*MockApplication)(nil).CharmMetadata))
-}
-
 // CharmModifiedVersion mocks base method.
 func (m *MockApplication) CharmModifiedVersion() int {
 	m.ctrl.T.Helper()
@@ -1464,30 +1436,6 @@ func (c *MockApplicationSetCharmMetadataCall) Do(f func(description.CharmMetadat
 func (c *MockApplicationSetCharmMetadataCall) DoAndReturn(f func(description.CharmMetadataArgs)) *MockApplicationSetCharmMetadataCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
-}
-
-// SetCharmManifest mocks base method.
-func (m *MockApplication) SetCharmManifest(arg0 description.CharmManifestArgs) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetCharmManifest", arg0)
-}
-
-// SetCharmManifest indicates an expected call of SetCharmManifest.
-func (mr *MockApplicationMockRecorder) SetCharmManifest(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmManifest", reflect.TypeOf((*MockApplication)(nil).SetCharmManifest), arg0)
-}
-
-// SetCharmMetadata mocks base method.
-func (m *MockApplication) SetCharmMetadata(arg0 description.CharmMetadataArgs) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetCharmMetadata", arg0)
-}
-
-// SetCharmMetadata indicates an expected call of SetCharmMetadata.
-func (mr *MockApplicationMockRecorder) SetCharmMetadata(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmMetadata", reflect.TypeOf((*MockApplication)(nil).SetCharmMetadata), arg0)
 }
 
 // SetCharmOrigin mocks base method.
