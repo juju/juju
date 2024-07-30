@@ -19,7 +19,6 @@ import (
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/prometheus/client_golang/prometheus"
-	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -76,8 +75,6 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = &mockAgent{}
@@ -95,8 +92,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.stub.ResetCalls()
 	s.serviceFactoryGetter = &stubServiceFactoryGetter{}
 	s.dbDeleter = stubDBDeleter{}
-	s.controllerConfigService = NewMockControllerConfigService(ctrl)
-	s.modelService = NewMockModelService(ctrl)
 
 	s.getter = s.newGetter(nil)
 	s.manifold = apiserver.Manifold(apiserver.ManifoldConfig{
