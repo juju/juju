@@ -6,6 +6,7 @@ package controller_test
 import (
 	"context"
 	stdcontext "context"
+	coremodel "github.com/juju/juju/core/model"
 	"regexp"
 	"time"
 
@@ -26,12 +27,10 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/domain/access"
-	accesserrors "github.com/juju/juju/domain/access/errors"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/internal/docker"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -725,52 +724,83 @@ func (s *accessSuite) TestGetControllerAccessPermissions(c *gc.C) {
 
 func (s *accessSuite) TestAllModels(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	var models []model.Model
 
-	// Add "never accessed" model
-	neverAccessedModelID := modeltesting.GenModelUUID(c)
-	models = append(models, model.Model{
-		Name:      "never-accessed",
-		UUID:      neverAccessedModelID,
-		ModelType: model.IAAS,
-		OwnerName: "admin",
-	})
-	s.accessService.EXPECT().LastModelLogin(gomock.Any(), gomock.Any(), neverAccessedModelID).Return(time.Time{}, accesserrors.UserNeverAccessedModel)
+	// Controller model is already in state
+	controllerModelID := coremodel.UUID(s.State.ControllerModelUUID())
+	s.modelService.EXPECT().Model(gomock.Any(), controllerModelID).Return(coremodel.Model{
+		Name:      "controller",
+		UUID:      controllerModelID,
+		ModelType: coremodel.IAAS,
+		OwnerName: "test-admin",
+	}, nil)
 
-	// Add "accessed" model
-	accessedModelID := modeltesting.GenModelUUID(c)
-	models = append(models, model.Model{
-		Name:      "accessed",
-		UUID:      accessedModelID,
-		ModelType: model.IAAS,
-		OwnerName: "admin",
-	})
-	lastAccessed := time.Date(2024, 5, 6, 7, 8, 9, 10, time.UTC)
-	s.accessService.EXPECT().LastModelLogin(gomock.Any(), gomock.Any(), accessedModelID).Return(lastAccessed, nil)
+	admin := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+	ownedSt := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "owned", Owner: admin.UserTag()})
+	ownedModelID := coremodel.UUID(ownedSt.ModelUUID())
+	s.modelService.EXPECT().Model(gomock.Any(), ownedModelID).Return(coremodel.Model{
+		Name:      "owned",
+		UUID:      ownedModelID,
+		ModelType: coremodel.IAAS,
+		OwnerName: "foobar",
+	}, nil)
+	ownedSt.Close()
 
-	s.modelService.EXPECT().ListAllModels(gomock.Any()).Return(models, nil)
-
-	userModelList, err := s.controllerAPI(c).AllModels(context.Background())
+	remoteUserTag := names.NewUserTag("user@remote")
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "user", Owner: remoteUserTag})
+	defer func() { _ = st.Close() }()
+	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(userModelList, jc.DeepEquals, params.UserModelList{
-		UserModels: []params.UserModel{{
-			Model: params.Model{
-				Name:     "never-accessed",
-				UUID:     neverAccessedModelID.String(),
-				Type:     "iaas",
-				OwnerTag: "user-admin",
-			},
-			LastConnection: nil,
-		}, {
-			Model: params.Model{
-				Name:     "accessed",
-				UUID:     accessedModelID.String(),
-				Type:     "iaas",
-				OwnerTag: "user-admin",
-			},
-			LastConnection: &lastAccessed,
-		}},
-	})
+
+	userModelID := coremodel.UUID(model.UUID())
+	s.modelService.EXPECT().Model(gomock.Any(), userModelID).Return(coremodel.Model{
+		Name:      "user",
+		UUID:      userModelID,
+		ModelType: coremodel.IAAS,
+		OwnerName: "user@remote",
+	}, nil)
+
+	model.AddUser(
+		state.UserAccessSpec{
+			User:        admin.UserTag(),
+			CreatedBy:   remoteUserTag,
+			DisplayName: "Foo Bar",
+			Access:      permission.WriteAccess})
+
+	noAccessSt := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "no-access", Owner: remoteUserTag})
+	noAccessModelID := coremodel.UUID(noAccessSt.ModelUUID())
+	s.modelService.EXPECT().Model(gomock.Any(), noAccessModelID).Return(coremodel.Model{
+		Name:      "no-access",
+		UUID:      noAccessModelID,
+		ModelType: coremodel.IAAS,
+		OwnerName: "user@remote",
+	}, nil)
+	noAccessSt.Close()
+
+	s.accessService.EXPECT().LastModelLogin(gomock.Any(), "test-admin", gomock.Any()).Times(4)
+
+	response, err := s.controllerAPI(c).AllModels(stdcontext.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	// The results are sorted.
+	expected := []string{"controller", "no-access", "owned", "user"}
+	var obtained []string
+	for _, userModel := range response.UserModels {
+		c.Assert(userModel.Type, gc.Equals, "iaas")
+		obtained = append(obtained, userModel.Name)
+		stateModel, ph, err := s.StatePool.GetModel(userModel.UUID)
+		c.Assert(err, jc.ErrorIsNil)
+		defer ph.Release()
+		s.checkModelMatches(c, userModel.Model, stateModel)
+	}
+	c.Assert(obtained, jc.DeepEquals, expected)
+}
+
+func (s *accessSuite) checkModelMatches(c *gc.C, model params.Model, expected *state.Model) {
+	c.Check(model.Name, gc.Equals, expected.Name())
+	c.Check(model.UUID, gc.Equals, expected.UUID())
+	c.Check(model.OwnerTag, gc.Equals, expected.Owner().String())
 }
 
 type noopLeadershipReader struct {
