@@ -388,11 +388,21 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 		return result, errors.Trace(err)
 	}
 
-	models, err := c.modelService.ListAllModels(ctx)
+	modelUUIDs, err := c.state.AllModelUUIDs()
 	if err != nil {
-		return result, fmt.Errorf("getting models: %w", err)
+		return result, errors.Trace(err)
 	}
-	for _, model := range models {
+
+	for _, modelUUID := range modelUUIDs {
+		model, err := c.modelService.Model(ctx, coremodel.UUID(modelUUID))
+		if errors.Is(err, modelerrors.NotFound) {
+			// This model could have been removed.
+			continue
+		}
+		if err != nil {
+			return result, fmt.Errorf("getting model: %w", err)
+		}
+
 		userModel := params.UserModel{
 			Model: params.Model{
 				Name:     model.Name,
@@ -479,18 +489,28 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 		return result, errors.Trace(err)
 	}
 
-	models, err := c.modelService.ListAllModels(ctx)
+	modelUUIDs, err := c.state.AllModelUUIDs()
 	if err != nil {
-		return result, fmt.Errorf("cannot list all models: %w", err)
+		return result, errors.Trace(err)
 	}
+
 	controllerModel, err := c.modelService.ControllerModel(ctx)
 	if err != nil {
 		return result, fmt.Errorf("getting controller model: %w", err)
 	}
 
-	for _, model := range models {
-		if model.UUID == controllerModel.UUID {
+	for _, modelUUID := range modelUUIDs {
+		if modelUUID == controllerModel.UUID.String() {
 			continue
+		}
+
+		model, err := c.modelService.Model(ctx, coremodel.UUID(modelUUID))
+		if errors.Is(err, modelerrors.NotFound) {
+			// This model could have been removed.
+			continue
+		}
+		if err != nil {
+			return result, fmt.Errorf("getting model: %w", err)
 		}
 
 		config := params.HostedModelConfig{

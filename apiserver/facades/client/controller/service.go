@@ -51,9 +51,6 @@ type ModelService interface {
 	Model(ctx context.Context, uuid model.UUID) (model.Model, error)
 	// ControllerModel returns the model used for housing the Juju controller.
 	ControllerModel(ctx context.Context) (model.Model, error)
-	// ListAllModels lists all models in the controller. If no models exist
-	// then an empty slice is returned.
-	ListAllModels(ctx context.Context) ([]model.Model, error)
 }
 
 // ModelConfigService provides access to the model configuration.

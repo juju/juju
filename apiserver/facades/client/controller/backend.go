@@ -14,6 +14,7 @@ type Backend interface {
 	Model() (*state.Model, error)
 	Application(name string) (Application, error)
 	MongoVersion() (string, error)
+	AllModelUUIDs() ([]string, error)
 	AllBlocksForController() ([]state.Block, error)
 	RemoveAllBlocksForController() error
 }
