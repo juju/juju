@@ -5,8 +5,6 @@ package controller_test
 
 import (
 	"context"
-	stdcontext "context"
-	coremodel "github.com/juju/juju/core/model"
 	"regexp"
 	"time"
 
@@ -27,6 +25,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
+	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
@@ -139,7 +138,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 }
 
 func (s *controllerSuite) TestListBlockedModelsNoBlocks(c *gc.C) {
-	list, err := s.controller.ListBlockedModels(stdcontext.Background())
+	list, err := s.controller.ListBlockedModels(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(list.Models, gc.HasLen, 0)
 }
@@ -195,7 +194,7 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.controller.RemoveBlocks(stdcontext.Background(), params.RemoveBlocksArgs{All: true})
+	err := s.controller.RemoveBlocks(context.Background(), params.RemoveBlocksArgs{All: true})
 	c.Assert(err, jc.ErrorIsNil)
 
 	blocks, err := s.State.AllBlocksForController()
@@ -204,7 +203,7 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 }
 
 func (s *controllerSuite) TestRemoveBlocksNotAll(c *gc.C) {
-	err := s.controller.RemoveBlocks(stdcontext.Background(), params.RemoveBlocksArgs{})
+	err := s.controller.RemoveBlocks(context.Background(), params.RemoveBlocksArgs{})
 	c.Assert(err, gc.ErrorMatches, "not supported")
 }
 
@@ -268,7 +267,7 @@ func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *gc.C) {
 				Access:  string(permission.SuperuserAccess),
 			}}}
 
-		result, err := s.controller.ModifyControllerAccess(stdcontext.Background(), args)
+		result, err := s.controller.ModifyControllerAccess(context.Background(), args)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 	}
@@ -311,7 +310,7 @@ func (s *controllerSuite) TestConfigSet(c *gc.C) {
 	// Sanity check.
 	c.Assert(config.AuditingEnabled(), gc.Equals, false)
 
-	err = s.controller.ConfigSet(stdcontext.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"auditing-enabled": true,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -339,7 +338,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 		}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = endpoint.ConfigSet(stdcontext.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = endpoint.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"something": 23,
 	}})
 
@@ -355,7 +354,7 @@ func (s *controllerSuite) TestConfigSetPublishesEvent(c *gc.C) {
 		close(done)
 	})
 
-	err := s.controller.ConfigSet(stdcontext.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err := s.controller.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"features": "foo,bar",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -377,7 +376,7 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config.CAASImageRepo(), gc.Equals, "")
 
-	err = s.controller.ConfigSet(stdcontext.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"caas-image-repo": "juju-repo.local",
 	}})
 	c.Assert(err, gc.ErrorMatches, `cannot change caas-image-repo as it is not currently set`)
@@ -389,12 +388,12 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *gc.C) {
 		}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.controller.ConfigSet(stdcontext.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"caas-image-repo": "juju-repo.local",
 	}})
 	c.Assert(err, gc.ErrorMatches, `cannot change caas-image-repo: repository read-only, only authentication can be updated`)
 
-	err = s.controller.ConfigSet(stdcontext.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"caas-image-repo": `{"repository":"jujusolutions","username":"foo","password":"bar"}`,
 	}})
 	c.Assert(err, gc.ErrorMatches, `cannot change caas-image-repo: unable to add authentication details`)
@@ -406,7 +405,7 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *gc.C) {
 		}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.controller.ConfigSet(stdcontext.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"caas-image-repo": `{"repository":"jujusolutions","username":"foo","password":"bar"}`,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -425,7 +424,7 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *gc.C) {
 }
 
 func (s *controllerSuite) TestMongoVersion(c *gc.C) {
-	result, err := s.controller.MongoVersion(stdcontext.Background())
+	result, err := s.controller.MongoVersion(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var resErr *params.Error
@@ -443,7 +442,7 @@ func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
 	}(s.controllerConfigAttrs)
 
 	// Our default test configuration does not specify an IdentityURL
-	urlRes, err := s.controller.IdentityProviderURL(stdcontext.Background())
+	urlRes, err := s.controller.IdentityProviderURL(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(urlRes.Result, gc.Equals, "")
 
@@ -458,7 +457,7 @@ func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
 
 	s.SetUpTest(c)
 
-	urlRes, err = s.controller.IdentityProviderURL(stdcontext.Background())
+	urlRes, err = s.controller.IdentityProviderURL(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(urlRes.Result, gc.Equals, expURL)
 }
@@ -475,7 +474,7 @@ func (s *controllerSuite) TestWatchAllModelSummariesByAdmin(c *gc.C) {
 	// TODO(dqlite) - implement me
 	c.Skip("watch model summaries to be implemented")
 	// Default authorizer is an admin.
-	result, err := s.controller.WatchAllModelSummaries(stdcontext.Background())
+	result, err := s.controller.WatchAllModelSummaries(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	watcherAPI := s.newSummaryWatcherFacade(c, result.WatcherID)
@@ -522,7 +521,7 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 		}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = endPoint.WatchAllModelSummaries(stdcontext.Background())
+	_, err = endPoint.WatchAllModelSummaries(context.Background())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -547,7 +546,7 @@ func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *gc.C) {
 
 	// Default authorizer is an admin. As a user, admin can't see
 	// Bob's model.
-	result, err := s.controller.WatchModelSummaries(stdcontext.Background())
+	result, err := s.controller.WatchModelSummaries(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	watcherAPI := s.newSummaryWatcherFacade(c, result.WatcherID)
@@ -682,7 +681,7 @@ func (s *accessSuite) TestModifyControllerAccess(c *gc.C) {
 		Access:  string(permission.SuperuserAccess),
 	}}}
 
-	result, err := s.controllerAPI(c).ModifyControllerAccess(stdcontext.Background(), args)
+	result, err := s.controllerAPI(c).ModifyControllerAccess(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 }
@@ -710,7 +709,7 @@ func (s *accessSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: userTag.String()}, {Tag: names.NewUserTag(differentUser).String()}},
 	}
-	results, err := s.controllerAPI(c).GetControllerAccess(stdcontext.Background(), req)
+	results, err := s.controllerAPI(c).GetControllerAccess(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
 	c.Assert(*results.Results[0].Result, jc.DeepEquals, params.UserAccess{
@@ -781,7 +780,7 @@ func (s *accessSuite) TestAllModels(c *gc.C) {
 
 	s.accessService.EXPECT().LastModelLogin(gomock.Any(), "test-admin", gomock.Any()).Times(4)
 
-	response, err := s.controllerAPI(c).AllModels(stdcontext.Background())
+	response, err := s.controllerAPI(c).AllModels(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	// The results are sorted.
 	expected := []string{"controller", "no-access", "owned", "user"}
