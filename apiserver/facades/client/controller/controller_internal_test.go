@@ -515,23 +515,25 @@ func (s *controllerMockSuite) TestHostedModelConfigs(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	controllerModel := model.Model{
-		Name:      "controller",
-		UUID:      modeltesting.GenModelUUID(c),
-		OwnerName: "admin",
-	}
-	hostedModel := model.Model{
-		Name:      "first",
-		UUID:      modeltesting.GenModelUUID(c),
-		OwnerName: "username-3",
-	}
+	// ControllerModel is already set up in state
+	controllerModelUUID := s.State.ControllerModelUUID()
+	s.modelService.EXPECT().ControllerModel(gomock.Any()).Return(model.Model{
+		UUID: model.UUID(controllerModelUUID),
+	}, nil)
 
-	s.modelService.EXPECT().ListAllModels(gomock.Any()).Return([]model.Model{controllerModel, hostedModel}, nil)
-	s.modelService.EXPECT().ControllerModel(gomock.Any()).Return(controllerModel, nil)
+	// Set up another model in state
+	st := s.Factory.MakeModel(c, &factory.ModelParams{Name: "first"})
+	defer st.Close()
+	hostedModelUUID := model.UUID(st.ModelUUID())
+	s.modelService.EXPECT().Model(gomock.Any(), hostedModelUUID).Return(model.Model{
+		Name:      "first",
+		UUID:      hostedModelUUID,
+		OwnerName: "username-3",
+	}, nil)
 
 	modelConfig, err := config.New(config.UseDefaults, map[string]any{
-		"name": hostedModel.Name,
-		"uuid": hostedModel.UUID.String(),
+		"name": "first",
+		"uuid": hostedModelUUID.String(),
 		"type": "ec2",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -540,7 +542,7 @@ func (s *controllerMockSuite) TestHostedModelConfigs(c *gc.C) {
 
 	modelConfigServiceGetter := func(modelID model.UUID) ModelConfigService {
 		switch modelID {
-		case hostedModel.UUID:
+		case hostedModelUUID:
 			return modelConfigService
 		default:
 			c.Fatalf("modelConfigServiceGetter called for model ID %q", modelID)
@@ -549,7 +551,7 @@ func (s *controllerMockSuite) TestHostedModelConfigs(c *gc.C) {
 	}
 
 	cloudSpec := &params.CloudSpec{
-		Name:             hostedModel.Name,
+		Name:             "first",
 		Type:             "ec2",
 		Region:           "region",
 		Endpoint:         "endpoint",
@@ -567,11 +569,12 @@ func (s *controllerMockSuite) TestHostedModelConfigs(c *gc.C) {
 		SkipTLSVerify:  true,
 	}
 	cloudSpecer := NewMockCloudSpecer(ctrl)
-	cloudSpecer.EXPECT().GetCloudSpec(gomock.Any(), names.NewModelTag(hostedModel.UUID.String())).
+	cloudSpecer.EXPECT().GetCloudSpec(gomock.Any(), names.NewModelTag(hostedModelUUID.String())).
 		Return(params.CloudSpecResult{Result: cloudSpec})
 
 	controllerAPI := ControllerAPI{
 		CloudSpecer:              cloudSpecer,
+		state:                    &stateShim{s.State},
 		authorizer:               s.authorizer,
 		modelService:             s.modelService,
 		modelConfigServiceGetter: modelConfigServiceGetter,
