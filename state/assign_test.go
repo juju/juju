@@ -699,7 +699,7 @@ func (s *assignSuite) TestAssignToMachineErrors(c *gc.C) {
 	}, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(container)
-	c.Assert(err, gc.ErrorMatches, `cannot assign unit "storage-filesystem/0" to machine 0/lxd/0: adding storage to lxd container not supported`)
+	c.Assert(err, gc.ErrorMatches, `cannot assign unit "storage-filesystem/0" to machine 0/lxd/0: adding storage of type "static" to lxd container not supported`)
 }
 
 func (s *assignSuite) TestAssignUnitWithNonDynamicStorageAndZonePlacementDirective(c *gc.C) {
