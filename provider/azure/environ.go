@@ -18,7 +18,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/juju/collections/set"
@@ -1873,9 +1875,95 @@ func (env *azureEnviron) DestroyController(ctx context.ProviderCallContext, cont
 	if err := env.deleteControllerManagedResourceGroups(ctx, controllerUUID); err != nil {
 		return errors.Trace(err)
 	}
+	logger.Debugf("deleting auto managed identities")
+	if err := env.deleteControllerManagedIdentities(ctx, controllerUUID); err != nil {
+		return errors.Trace(err)
+	}
 	// Resource groups are self-contained and fully encompass
 	// all environ armresources. Once you delete the group, there
 	// is nothing else to do.
+	return nil
+}
+
+func (env *azureEnviron) deleteControllerManagedIdentities(ctx context.ProviderCallContext, controllerUUID string) error {
+	roleDefinitionClient, err := env.roleDefinitionClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	scope := "/subscriptions/" + env.subscriptionId
+
+	// Look for any role definitions and role assignments created by the controller
+	// so they can be cleaned up. API doesn't support the queries needed so we need
+	// to iterate over the list.
+	var roleDefinitionID string
+	roleName := fmt.Sprintf("juju-controller-role-%s", controllerUUID)
+	roleDefinitionPager := roleDefinitionClient.NewListPager(scope, &armauthorization.RoleDefinitionsClientListOptions{})
+	for roleDefinitionPager.More() {
+		page, err := roleDefinitionPager.NextPage(ctx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, v := range page.Value {
+			if v.Properties.RoleName != nil && *v.Properties.RoleName == roleName {
+				roleDefinitionID = *v.ID
+				break
+			}
+		}
+	}
+	logger.Debugf("found role definition id: %s", roleDefinitionID)
+
+	roleAssignmentsClient, err := env.roleAssignmentClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var roleAssignmentID string
+	roleAssignmentsPager := roleAssignmentsClient.NewListForResourceGroupPager(env.resourceGroup, &armauthorization.RoleAssignmentsClientListForResourceGroupOptions{})
+	for roleAssignmentsPager.More() {
+		page, err := roleAssignmentsPager.NextPage(ctx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, v := range page.Value {
+			if v.Properties.RoleDefinitionID != nil && *v.Properties.RoleDefinitionID == roleDefinitionID {
+				roleAssignmentID = *v.ID
+				break
+			}
+		}
+	}
+	logger.Debugf("found role assignment id: %s", roleAssignmentID)
+
+	if roleAssignmentID != "" {
+		parts := strings.Split(roleAssignmentID, "/")
+		toDelete := parts[len(parts)-1]
+		_, err = roleAssignmentsClient.Delete(ctx, scope, toDelete, &armauthorization.RoleAssignmentsClientDeleteOptions{})
+		if err != nil {
+			logger.Criticalf("cannot delete role assignment %q: %v", toDelete, err)
+		}
+	}
+
+	if roleDefinitionID != "" {
+		parts := strings.Split(roleDefinitionID, "/")
+		toDelete := parts[len(parts)-1]
+		_, err = roleDefinitionClient.Delete(ctx, scope, toDelete, &armauthorization.RoleDefinitionsClientDeleteOptions{})
+		if err != nil {
+			logger.Warningf("cannot delete role definition %q: %v", toDelete, err)
+		}
+	}
+
+	// Also clean up any managed identity created by the controller.
+	identityName := fmt.Sprintf("juju-controller-%s", controllerUUID)
+	clientFactory, err := armmsi.NewClientFactory(env.subscriptionId, env.credential, &arm.ClientOptions{
+		ClientOptions: env.clientOptions,
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = clientFactory.NewUserAssignedIdentitiesClient().Delete(ctx, env.resourceGroup, identityName, nil)
+	if !errorutils.IsNotFoundError(err) {
+		logger.Warningf("cannot delete managed identity %q: %v", identityName, err)
+	}
+
 	return nil
 }
 

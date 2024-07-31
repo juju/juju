@@ -5,6 +5,7 @@ package azure
 
 import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
@@ -104,6 +105,18 @@ func (env *azureEnviron) securityRulesClient() (*armnetwork.SecurityRulesClient,
 
 func (env *azureEnviron) securityGroupsClient() (*armnetwork.SecurityGroupsClient, error) {
 	return armnetwork.NewSecurityGroupsClient(env.subscriptionId, env.credential, &arm.ClientOptions{
+		ClientOptions: env.clientOptions,
+	})
+}
+
+func (env *azureEnviron) roleDefinitionClient() (*armauthorization.RoleDefinitionsClient, error) {
+	return armauthorization.NewRoleDefinitionsClient(env.credential, &arm.ClientOptions{
+		ClientOptions: env.clientOptions,
+	})
+}
+
+func (env *azureEnviron) roleAssignmentClient() (*armauthorization.RoleAssignmentsClient, error) {
+	return armauthorization.NewRoleAssignmentsClient(env.subscriptionId, env.credential, &arm.ClientOptions{
 		ClientOptions: env.clientOptions,
 	})
 }
