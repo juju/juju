@@ -96,7 +96,7 @@ func (s *MachinePortsDocSuite) openCloseMachinePorts(machPorts state.MachinePort
 	for _, pr := range closeRanges {
 		unitPorts.Close(endpointName, pr)
 	}
-	return s.State.ApplyOperation(machPorts.Changes())
+	return s.State.ApplyOperation(unitPorts.Changes())
 }
 
 func (s *MachinePortsDocSuite) TestModelAllOpenPortRanges(c *gc.C) {
@@ -368,7 +368,7 @@ func (s *MachinePortsDocSuite) TestComposedOpenCloseOperationNoEffectiveOps(c *g
 
 	// As the doc does not exist and the end result is still an empty port range
 	// this should return ErrNoOperations
-	_, err := s.machPortRanges.Changes().Build(0)
+	_, err := unitPortRanges.Changes().Build(0)
 	c.Assert(err, gc.Equals, jujutxn.ErrNoOperations)
 }
 
@@ -532,6 +532,8 @@ func (s *MachinePortsDocSuite) TestChangesForIndividualUnits(c *gc.C) {
 
 	// Verify that if we call changes on the machine ports instance we
 	// get no ops as everything has been committed.
-	_, err = s.machPortRanges.Changes().Build(0)
-	c.Assert(err, gc.Equals, jujutxn.ErrNoOperations, gc.Commentf("machine port range was not synced correctly after applying changes"))
+	_, err = unit1PortRanges.Changes().Build(0)
+	c.Assert(err, gc.Equals, jujutxn.ErrNoOperations, gc.Commentf("unit 1 port range was not synced correctly after applying changes"))
+	_, err = unit2PortRanges.Changes().Build(0)
+	c.Assert(err, gc.Equals, jujutxn.ErrNoOperations, gc.Commentf("unit 2 port range was not synced correctly after applying changes"))
 }

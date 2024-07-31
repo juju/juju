@@ -49,10 +49,6 @@ type MachinePortRanges interface {
 	// ForUnit returns the set of port ranges opened by the specified unit
 	// in a particular machine subnet.
 	ForUnit(unitName string) UnitPortRanges
-
-	// Changes returns a ModelOperation for applying any changes that were
-	// made to this port range instance for all machine units.
-	Changes() ModelOperation
 }
 
 // ApplicationPortRanges is implemented by types that can query and/or

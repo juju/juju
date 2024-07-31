@@ -3092,7 +3092,8 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	msPortRanges := machinePortRanges.ForUnit(mysqlUnit1.Name())
 	msPortRanges.Open("server", network.MustParsePortRange("3306/tcp"))
 
-	c.Assert(s.ControllerModel(c).State().ApplyOperation(machinePortRanges.Changes()), jc.ErrorIsNil)
+	c.Assert(s.ControllerModel(c).State().ApplyOperation(wpPortRanges.Changes()), jc.ErrorIsNil)
+	c.Assert(s.ControllerModel(c).State().ApplyOperation(msPortRanges.Changes()), jc.ErrorIsNil)
 
 	// Get the open port ranges
 	args := params.Entities{Entities: []params.Entity{

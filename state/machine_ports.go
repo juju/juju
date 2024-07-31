@@ -76,14 +76,6 @@ func (p *machinePortRanges) ForUnit(unitName string) UnitPortRanges {
 	}
 }
 
-// Changes returns a ModelOperation for applying any changes that were made to
-// this port range instance for all machine units.
-func (p *machinePortRanges) Changes() ModelOperation {
-	return &openClosePortRangesOperation{
-		mpr: p,
-	}
-}
-
 // Refresh refreshes the port document from state.
 func (p *machinePortRanges) Refresh() error {
 	openedPorts, closer := p.st.db().GetCollection(openedPortsC)
