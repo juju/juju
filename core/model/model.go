@@ -5,12 +5,10 @@ package model
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/user"
@@ -115,17 +113,4 @@ func (u UUID) Validate() error {
 		return fmt.Errorf("uuid %q %w", u, errors.NotValid)
 	}
 	return nil
-}
-
-// HostedModel bundles a Model with its cloud and credential.
-type HostedModel struct {
-	Model
-	cloud.Cloud
-	cloud.Credential
-}
-
-type ModelWithLogin struct {
-	Model
-	UserID    user.UUID
-	LastLogin *time.Time
 }

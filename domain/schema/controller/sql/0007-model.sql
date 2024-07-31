@@ -99,5 +99,3 @@ INNER JOIN user AS o ON m.owner_uuid = o.uuid
 INNER JOIN life AS l ON m.life_id = l.id
 INNER JOIN model_agent AS ma ON m.uuid = ma.model_uuid
 WHERE m.activated = TRUE;
-
-CREATE INDEX idx_v_model_life ON v_model (life);

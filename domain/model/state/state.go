@@ -8,26 +8,19 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/cloud"
-	corecloud "github.com/juju/juju/core/cloud"
 	"github.com/juju/juju/core/credential"
-	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
-	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
-	cloudstate "github.com/juju/juju/domain/cloud/state"
-	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/life"
-	domainmodel "github.com/juju/juju/domain/model"
+	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	jujudb "github.com/juju/juju/internal/database"
@@ -109,7 +102,7 @@ func (s *State) Create(
 	ctx context.Context,
 	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
-	input domainmodel.ModelCreationArgs,
+	input model.ModelCreationArgs,
 ) error {
 	db, err := s.DB()
 	if err != nil {
@@ -137,7 +130,7 @@ func Create(
 	tx *sql.Tx,
 	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
-	input domainmodel.ModelCreationArgs,
+	input model.ModelCreationArgs,
 ) error {
 	// This function is responsible for driving all of the facets of model
 	// creation.
@@ -556,7 +549,7 @@ func createModel(
 	tx *sql.Tx,
 	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
-	input domainmodel.ModelCreationArgs,
+	input model.ModelCreationArgs,
 ) error {
 	cloudStmt := `
 SELECT uuid
@@ -795,11 +788,10 @@ func (s *State) ListAllModels(ctx context.Context) ([]coremodel.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	query := `
-SELECT (uuid,
+	modelStmt := `
+SELECT uuid,
        name,
        cloud_name,
-       cloud_type,
        cloud_region_name,
 	   model_type,
 	   owner_uuid,
@@ -807,265 +799,60 @@ SELECT (uuid,
 	   cloud_credential_name,
 	   cloud_credential_owner_name,
 	   cloud_credential_cloud_name,
-	   life,
-       target_agent_version) AS (&model.*)
+	   life
 FROM v_model
 `
 
-	resultsForModel := []model{}
-
-	stmt, err := sqlair.Prepare(query, model{})
-	if err != nil {
-		return nil, fmt.Errorf("preparing get model statement: %w", err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).GetAll(&resultsForModel)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("getting models from database: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("getting all models: %w", err)
-	}
-
-	return transformModelDBResult(resultsForModel...)
-}
-
-// ListAllHostedModels retrieves all hosted models on the controller, along
-// with their cloud and credential information. This function will filter on
-// models that have a "life" value in the includeLifes slice. Any models with
-// an ID in the excludeIDs slice will be excluded. If no matching models exist,
-// then an empty slice is returned.
-func (s *State) ListAllHostedModels(
-	ctx context.Context,
-	includeLifes []corelife.Value,
-	excludeIDs []coremodel.UUID,
-) ([]coremodel.HostedModel, error) {
-	db, err := s.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	query := `
-SELECT (uuid,
-       name,
-       cloud_uuid,
-       cloud_name,
-       cloud_type,
-       cloud_region_name,
-	   model_type,
-	   owner_uuid,
-	   owner_name,
-	   cloud_credential_name,
-       cloud_credential_uuid,
-	   cloud_credential_owner_name,
-	   cloud_credential_cloud_name,
-	   life,
-       target_agent_version) AS (&model.*)
-FROM v_model
-WHERE life IN ($hostedModelArgs.include_lifes[:])
-AND uuid NOT IN ($hostedModelArgs.exclude_ids[:])
-`
-
-	args := hostedModelArgs{
-		IncludeLifes: includeLifes,
-		ExcludeIDs:   excludeIDs,
-	}
-
-	stmt, err := sqlair.Prepare(query, model{}, args)
-	if err != nil {
-		return nil, fmt.Errorf("preparing get model statement: %w", err)
-	}
-
-	resultsForModel := []model{}
-	modelClouds := map[string]cloud.Cloud{}
-	modelCredentials := map[string]cloud.Credential{}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, args).GetAll(&resultsForModel)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("getting models from database: %w", err)
-		}
-
-		for _, dbModel := range resultsForModel {
-			modelCloud, err := cloudstate.GetCloudForID(ctx, s, tx, corecloud.ID(dbModel.CloudID))
-			if err != nil {
-				return fmt.Errorf("cannot get cloud %q for model %q: %w", dbModel.CloudID, dbModel.ID, err)
-			}
-			modelClouds[dbModel.ID] = modelCloud
-
-			modelCredential, err := credentialstate.GetCloudCredential(ctx, s, tx, corecredential.ID(dbModel.CredentialID))
-			if err != nil {
-				return fmt.Errorf("cannot get credential %q for model %q: %w", dbModel.CredentialID, dbModel.ID, err)
-			}
-			modelCredentials[dbModel.ID] = modelCredential.AsCredential()
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("getting all models: %w", err)
-	}
-
-	hostedModels := make([]coremodel.HostedModel, 0, len(resultsForModel))
-	for _, dbModel := range resultsForModel {
-		model, err := transformModelDBResult(dbModel)
+	rval := []coremodel.Model{}
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, modelStmt)
 		if err != nil {
-			return nil, fmt.Errorf("transforming model %q from db: %w", dbModel.ID, err)
+			return err
+		}
+		defer rows.Close()
+		defer func() { _ = rows.Close() }()
+
+		var (
+			// cloudRegion could be null
+			cloudRegion sql.NullString
+			modelType   string
+			userUUID    string
+			credKey     credential.Key
+			model       coremodel.Model
+		)
+
+		for rows.Next() {
+			err := rows.Scan(
+				&model.UUID,
+				&model.Name,
+				&model.Cloud,
+				&cloudRegion,
+				&modelType,
+				&userUUID,
+				&model.OwnerName,
+				&credKey.Name,
+				&credKey.Owner,
+				&credKey.Cloud,
+				&model.Life,
+			)
+			if err != nil {
+				return err
+			}
+
+			model.CloudRegion = cloudRegion.String
+			model.ModelType = coremodel.ModelType(modelType)
+			model.Owner = user.UUID(userUUID)
+			model.Credential = credKey
+			rval = append(rval, model)
 		}
 
-		hostedModels = append(hostedModels, coremodel.HostedModel{
-			Model:      model[0],
-			Cloud:      modelClouds[dbModel.ID],
-			Credential: modelCredentials[dbModel.ID],
-		})
-	}
-	return hostedModels, nil
-}
-
-// ListAllModelsWithLastLogin lists all models along with the last login by the specified user.
-func (s *State) ListAllModelsWithLastLogin(ctx context.Context, userID user.UUID) ([]coremodel.ModelWithLogin, error) {
-	db, err := s.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	query := `
-SELECT (uuid,
-       name,
-       cloud_uuid,
-       cloud_name,
-       cloud_type,
-       cloud_region_name,
-	   model_type,
-	   owner_uuid,
-	   owner_name,
-	   cloud_credential_name,
-       cloud_credential_uuid,
-	   cloud_credential_owner_name,
-	   cloud_credential_cloud_name,
-	   life,
-       target_agent_version) AS (&model.*),
-       (mll.time,
-       mll.user_uuid) AS (&userModelLastLogin.*)
-FROM v_model
-LEFT JOIN model_last_login AS mll ON m.uuid = mll.model_uuid
-WHERE mll.user_uuid = $M.user_uuid
-`
-
-	args := sqlair.M{
-		"user_uuid": userID,
-	}
-
-	stmt, err := sqlair.Prepare(query, model{}, userModelLastLogin{}, args)
-	if err != nil {
-		return nil, fmt.Errorf("preparing list models with login statement: %w", err)
-	}
-
-	resultsForModel := []model{}
-	lastLogins := []userModelLastLogin{}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, args).GetAll(&resultsForModel, &lastLogins)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("getting models from database: %w", err)
-		}
-
-		for _, dbModel := range resultsForModel {
-			// TODO: fill in retval
-		}
-
-		return nil
+		return rows.Err()
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("getting all models: %w", err)
 	}
 
-}
-
-// ListAllModelsWithLife returns all models registered in the controller
-// that have a "life" value in the given slice. If no such models exist, a
-// zero value slice will be returned.
-//
-//	TODO: write tests
-func (s *State) ListAllModelsWithLife(ctx context.Context, lifes []corelife.Value) ([]coremodel.Model, error) {
-	db, err := s.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	query := `
-SELECT (uuid,
-       name,
-       cloud_name,
-       cloud_type,
-       cloud_region_name,
-	   model_type,
-	   owner_uuid,
-	   owner_name,
-	   cloud_credential_name,
-	   cloud_credential_owner_name,
-	   cloud_credential_cloud_name,
-	   life,
-       target_agent_version) AS (&model.*)
-FROM v_model
-WHERE life IN ($S[:])
-`
-
-	resultsForModel := []model{}
-	args := make(sqlair.S, 0, len(lifes))
-	for _, life := range lifes {
-		args = append(args, life)
-	}
-
-	stmt, err := sqlair.Prepare(query, model{}, args)
-	if err != nil {
-		return nil, fmt.Errorf("preparing get model statement: %w", err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, args).GetAll(&resultsForModel)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("getting models from database: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("getting all models: %w", err)
-	}
-
-	return transformModelDBResult(resultsForModel...)
-}
-
-func transformModelDBResult(models ...model) ([]coremodel.Model, error) {
-	rval := make([]coremodel.Model, 0, len(models))
-	for _, dbModel := range models {
-		agentVersion, err := version.Parse(dbModel.AgentVersion)
-		if err != nil {
-			return nil, fmt.Errorf("couldn't parse agent version %q for model %q: %w",
-				dbModel.AgentVersion, dbModel.ID, err)
-		}
-
-		rval = append(rval, coremodel.Model{
-			Name:         dbModel.Name,
-			Life:         corelife.Value(dbModel.Life),
-			UUID:         coremodel.UUID(dbModel.ID),
-			ModelType:    coremodel.ModelType(dbModel.ModelType),
-			AgentVersion: agentVersion,
-			Cloud:        dbModel.Cloud,
-			CloudType:    dbModel.CloudType,
-			CloudRegion:  dbModel.CloudRegion,
-			Credential: credential.Key{
-				Name:  dbModel.CredentialName,
-				Cloud: dbModel.CredentialCloud,
-				Owner: dbModel.CredentialOwner,
-			},
-			Owner:     user.UUID(dbModel.OwnerID),
-			OwnerName: dbModel.OwnerName,
-		})
-	}
 	return rval, nil
 }
 

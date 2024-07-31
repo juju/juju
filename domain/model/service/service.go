@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
@@ -72,17 +71,6 @@ type State interface {
 	// ListAllModels returns all models registered in the controller. If no
 	// models exist a zero value slice will be returned.
 	ListAllModels(context.Context) ([]coremodel.Model, error)
-
-	// ListAllModelsWithLife returns all models registered in the controller
-	// that have a "life" value in the given slice. If no such models exist, a
-	// zero value slice will be returned.
-	//ListAllModelsWithLife(context.Context, []life.Value) ([]coremodel.Model, error)
-
-	// ListAllHostedModels retrieves all hosted models on the controller, along
-	// with their cloud and credential information. This excludes the controller
-	// model and any dead models. If no hosted models exist, then an empty slice is
-	// returned.
-	ListAllHostedModels(ctx context.Context) ([]coremodel.HostedModel, error)
 
 	// ListModelIDs returns a list of all model UUIDs.
 	ListModelIDs(context.Context) ([]coremodel.UUID, error)
@@ -441,19 +429,6 @@ func (s *Service) ListModelIDs(ctx context.Context) ([]coremodel.UUID, error) {
 // an empty slice is returned.
 func (s *Service) ListAllModels(ctx context.Context) ([]coremodel.Model, error) {
 	return s.st.ListAllModels(ctx)
-}
-
-// ListAllModelsWithLastLogin lists all models along with the last login by the specified user.
-func (s *Service) ListAllModelsWithLastLogin(ctx context.Context, userID coreuser.UUID) ([]coremodel.ModelWithLogin, error) {
-	return s.st.ListAllModelsWithLife(ctx, []life.Value{life.Alive, life.Dying})
-}
-
-// ListAllHostedModels retrieves all hosted models on the controller, along
-// with their cloud and credential information. This excludes the controller
-// model and any dead models. If no hosted models exist, then an empty slice is
-// returned.
-func (s *Service) ListAllHostedModels(ctx context.Context) ([]coremodel.HostedModel, error) {
-	return s.st.ListAllHostedModels(ctx)
 }
 
 // ListModelsForUser lists the models that are either owned by the user or
