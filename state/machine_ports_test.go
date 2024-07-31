@@ -42,7 +42,9 @@ func (s *MachinePortsDocSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machPortRanges, err = s.machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machPortRanges.UniquePortRanges(), gc.HasLen, 0, gc.Commentf("expected no port ranges to be open for machine"))
+	for _, unit := range s.machPortRanges.ByUnit() {
+		c.Assert(unit.UniquePortRanges(), gc.HasLen, 0, gc.Commentf("expected no port ranges to be open for unit %q", unit.UnitName()))
+	}
 }
 
 func assertRefreshMachinePortsDoc(c *gc.C, p state.MachinePortRanges, errIs error) {
@@ -94,7 +96,7 @@ func (s *MachinePortsDocSuite) openCloseMachinePorts(machPorts state.MachinePort
 	for _, pr := range closeRanges {
 		unitPorts.Close(endpointName, pr)
 	}
-	return s.State.ApplyOperation(machPorts.Changes())
+	return s.State.ApplyOperation(unitPorts.Changes())
 }
 
 func (s *MachinePortsDocSuite) TestModelAllOpenPortRanges(c *gc.C) {
@@ -117,8 +119,9 @@ func (s *MachinePortsDocSuite) TestModelAllOpenPortRanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allMachinePortRanges, gc.HasLen, 2)
 
-	c.Assert(allMachinePortRanges[0].UniquePortRanges(), gc.DeepEquals, toOpen[0:2])
-	c.Assert(allMachinePortRanges[1].UniquePortRanges(), gc.DeepEquals, toOpen[2:])
+	c.Assert(allMachinePortRanges[0].ForUnit(s.unit1.Name()).UniquePortRanges(), jc.DeepEquals, toOpen[0:1])
+	c.Assert(allMachinePortRanges[0].ForUnit(s.unit2.Name()).UniquePortRanges(), jc.DeepEquals, toOpen[1:2])
+	c.Assert(allMachinePortRanges[1].ForUnit(unit3.Name()).UniquePortRanges(), jc.DeepEquals, toOpen[2:])
 }
 
 func (s *MachinePortsDocSuite) TestOpenMachinePortsForWildcardEndpoint(c *gc.C) {
@@ -136,7 +139,6 @@ func (s *MachinePortsDocSuite) testOpenPortsForEndpoint(c *gc.C, endpoint string
 	machPorts, err := s.machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machPorts.MachineID(), gc.Equals, s.machine.Id())
-	c.Assert(machPorts.UniquePortRanges(), gc.DeepEquals, toOpen)
 }
 
 func (s *MachinePortsDocSuite) TestOpenAndCloseMachinePorts(c *gc.C) {
@@ -340,7 +342,7 @@ func (s *MachinePortsDocSuite) TestComposedOpenCloseOperation(c *gc.C) {
 
 	// Enumerate ports
 	assertRefreshMachinePortsDoc(c, s.machPortRanges, nil)
-	unitRanges := s.machPortRanges.ForUnit(s.unit1.Name()).ForEndpoint(allEndpoints)
+	unitRanges := s.machPortRanges.ForUnit(s.unit1.Name()).UniquePortRanges()
 	c.Assert(unitRanges, gc.DeepEquals, []network.PortRange{network.MustParsePortRange("400-500/tcp")})
 
 	// If we open and close the same set of ports the port doc should be deleted.
@@ -366,7 +368,7 @@ func (s *MachinePortsDocSuite) TestComposedOpenCloseOperationNoEffectiveOps(c *g
 
 	// As the doc does not exist and the end result is still an empty port range
 	// this should return ErrNoOperations
-	_, err := s.machPortRanges.Changes().Build(0)
+	_, err := unitPortRanges.Changes().Build(0)
 	c.Assert(err, gc.Equals, jujutxn.ErrNoOperations)
 }
 
@@ -485,15 +487,17 @@ func (s *MachinePortsDocSuite) TestChangesForIndividualUnits(c *gc.C) {
 
 	// Check that the existing machine port ranges instance reflects the
 	// unit 1 changes we just applied.
-	c.Assert(s.machPortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
+	unit1PortRanges = s.machPortRanges.ForUnit(s.unit1.Name())
+	c.Assert(unit1PortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
 		network.MustParsePortRange("100-200/tcp"),
 	}, gc.Commentf("machine port ranges instance not updated correctly after unit-scoped port change application"))
 
 	// Grab a fresh copy of the machine ranges and verify the expected ports
 	// have been correctly persisted.
-	freshMachPortRanges, err := s.machine.OpenedPortRanges()
+	freshMacPortRanges, err := s.machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(freshMachPortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
+	unit1PortRanges = freshMacPortRanges.ForUnit(s.unit1.Name())
+	c.Assert(unit1PortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
 		network.MustParsePortRange("100-200/tcp"),
 	}, gc.Commentf("unit 1 changes were not correctly persisted to DB"))
 
@@ -502,22 +506,34 @@ func (s *MachinePortsDocSuite) TestChangesForIndividualUnits(c *gc.C) {
 
 	// Check that the existing machine port ranges instance reflects both
 	// unit 1 and unit 2 changes
-	c.Assert(s.machPortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
+	freshMacPortRanges, err = s.machine.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	unit1PortRanges = freshMacPortRanges.ForUnit(s.unit1.Name())
+	unit2PortRanges = freshMacPortRanges.ForUnit(s.unit2.Name())
+	c.Assert(unit1PortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
 		network.MustParsePortRange("100-200/tcp"),
+	}, gc.Commentf("unit 1 changes were not correctly persisted to DB"))
+	c.Assert(unit2PortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
 		network.MustParsePortRange("8080/tcp"),
-	}, gc.Commentf("machine port ranges instance not updated correctly after unit-scoped port change application"))
+	}, gc.Commentf("unit 2 changes were not correctly persisted to DB"))
 
 	// Grab a fresh copy of the machine ranges and verify the expected ports
 	// have been correctly persisted.
-	freshMachPortRanges, err = s.machine.OpenedPortRanges()
+	freshMacPortRanges, err = s.machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(freshMachPortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
+	unit1PortRanges = freshMacPortRanges.ForUnit(s.unit1.Name())
+	unit2PortRanges = freshMacPortRanges.ForUnit(s.unit2.Name())
+	c.Assert(unit1PortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
 		network.MustParsePortRange("100-200/tcp"),
+	}, gc.Commentf("unit 1 changes were not correctly persisted to DB"))
+	c.Assert(unit2PortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
 		network.MustParsePortRange("8080/tcp"),
-	}, gc.Commentf("unit changes were not correctly persisted to DB"))
+	}, gc.Commentf("unit 2 changes were not correctly persisted to DB"))
 
 	// Verify that if we call changes on the machine ports instance we
 	// get no ops as everything has been committed.
-	_, err = s.machPortRanges.Changes().Build(0)
-	c.Assert(err, gc.Equals, jujutxn.ErrNoOperations, gc.Commentf("machine port range was not synced correctly after applying changes"))
+	_, err = unit1PortRanges.Changes().Build(0)
+	c.Assert(err, gc.Equals, jujutxn.ErrNoOperations, gc.Commentf("unit 1 port range was not synced correctly after applying changes"))
+	_, err = unit2PortRanges.Changes().Build(0)
+	c.Assert(err, gc.Equals, jujutxn.ErrNoOperations, gc.Commentf("unit 2 port range was not synced correctly after applying changes"))
 }

@@ -506,44 +506,6 @@ func (c *MockMachinePortRangesByUnitCall) DoAndReturn(f func() map[string]state.
 	return c
 }
 
-// Changes mocks base method.
-func (m *MockMachinePortRanges) Changes() state.ModelOperation {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Changes")
-	ret0, _ := ret[0].(state.ModelOperation)
-	return ret0
-}
-
-// Changes indicates an expected call of Changes.
-func (mr *MockMachinePortRangesMockRecorder) Changes() *MockMachinePortRangesChangesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Changes", reflect.TypeOf((*MockMachinePortRanges)(nil).Changes))
-	return &MockMachinePortRangesChangesCall{Call: call}
-}
-
-// MockMachinePortRangesChangesCall wrap *gomock.Call
-type MockMachinePortRangesChangesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachinePortRangesChangesCall) Return(arg0 state.ModelOperation) *MockMachinePortRangesChangesCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachinePortRangesChangesCall) Do(f func() state.ModelOperation) *MockMachinePortRangesChangesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachinePortRangesChangesCall) DoAndReturn(f func() state.ModelOperation) *MockMachinePortRangesChangesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ForUnit mocks base method.
 func (m *MockMachinePortRanges) ForUnit(arg0 string) state.UnitPortRanges {
 	m.ctrl.T.Helper()
@@ -616,44 +578,6 @@ func (c *MockMachinePortRangesMachineIDCall) Do(f func() string) *MockMachinePor
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachinePortRangesMachineIDCall) DoAndReturn(f func() string) *MockMachinePortRangesMachineIDCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// UniquePortRanges mocks base method.
-func (m *MockMachinePortRanges) UniquePortRanges() []network.PortRange {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UniquePortRanges")
-	ret0, _ := ret[0].([]network.PortRange)
-	return ret0
-}
-
-// UniquePortRanges indicates an expected call of UniquePortRanges.
-func (mr *MockMachinePortRangesMockRecorder) UniquePortRanges() *MockMachinePortRangesUniquePortRangesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UniquePortRanges", reflect.TypeOf((*MockMachinePortRanges)(nil).UniquePortRanges))
-	return &MockMachinePortRangesUniquePortRangesCall{Call: call}
-}
-
-// MockMachinePortRangesUniquePortRangesCall wrap *gomock.Call
-type MockMachinePortRangesUniquePortRangesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachinePortRangesUniquePortRangesCall) Return(arg0 []network.PortRange) *MockMachinePortRangesUniquePortRangesCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachinePortRangesUniquePortRangesCall) Do(f func() []network.PortRange) *MockMachinePortRangesUniquePortRangesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachinePortRangesUniquePortRangesCall) DoAndReturn(f func() []network.PortRange) *MockMachinePortRangesUniquePortRangesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -789,44 +713,6 @@ func (c *MockUnitPortRangesCloseCall) Do(f func(string, network.PortRange)) *Moc
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockUnitPortRangesCloseCall) DoAndReturn(f func(string, network.PortRange)) *MockUnitPortRangesCloseCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ForEndpoint mocks base method.
-func (m *MockUnitPortRanges) ForEndpoint(arg0 string) []network.PortRange {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ForEndpoint", arg0)
-	ret0, _ := ret[0].([]network.PortRange)
-	return ret0
-}
-
-// ForEndpoint indicates an expected call of ForEndpoint.
-func (mr *MockUnitPortRangesMockRecorder) ForEndpoint(arg0 any) *MockUnitPortRangesForEndpointCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForEndpoint", reflect.TypeOf((*MockUnitPortRanges)(nil).ForEndpoint), arg0)
-	return &MockUnitPortRangesForEndpointCall{Call: call}
-}
-
-// MockUnitPortRangesForEndpointCall wrap *gomock.Call
-type MockUnitPortRangesForEndpointCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockUnitPortRangesForEndpointCall) Return(arg0 []network.PortRange) *MockUnitPortRangesForEndpointCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockUnitPortRangesForEndpointCall) Do(f func(string) []network.PortRange) *MockUnitPortRangesForEndpointCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitPortRangesForEndpointCall) DoAndReturn(f func(string) []network.PortRange) *MockUnitPortRangesForEndpointCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

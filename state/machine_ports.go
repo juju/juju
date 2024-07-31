@@ -76,26 +76,6 @@ func (p *machinePortRanges) ForUnit(unitName string) UnitPortRanges {
 	}
 }
 
-// UniquePortRanges returns a slice of unique open PortRanges for all units on
-// this machine.
-func (p *machinePortRanges) UniquePortRanges() []network.PortRange {
-	var allRanges []network.PortRange
-	for _, unitRanges := range p.ByUnit() {
-		allRanges = append(allRanges, unitRanges.UniquePortRanges()...)
-	}
-
-	network.SortPortRanges(allRanges)
-	return allRanges
-}
-
-// Changes returns a ModelOperation for applying any changes that were made to
-// this port range instance for all machine units.
-func (p *machinePortRanges) Changes() ModelOperation {
-	return &openClosePortRangesOperation{
-		mpr: p,
-	}
-}
-
 // Refresh refreshes the port document from state.
 func (p *machinePortRanges) Refresh() error {
 	openedPorts, closer := p.st.db().GetCollection(openedPortsC)

@@ -86,7 +86,7 @@ func MustOpenUnitPortRanges(c *gc.C, st *State, machine *Machine, unitName, endp
 	for _, pr := range portRanges {
 		unitPortRanges.Open(endpointName, pr)
 	}
-	c.Assert(st.ApplyOperation(machPortRanges.Changes()), jc.ErrorIsNil)
+	c.Assert(st.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
 }
 
 // MustCloseUnitPortRange ensures that the provided port range is closed
@@ -105,5 +105,5 @@ func MustCloseUnitPortRanges(c *gc.C, st *State, machine *Machine, unitName, end
 	for _, pr := range portRanges {
 		unitPortRanges.Close(endpointName, pr)
 	}
-	c.Assert(st.ApplyOperation(machPortRanges.Changes()), jc.ErrorIsNil)
+	c.Assert(st.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
 }
