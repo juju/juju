@@ -403,7 +403,9 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 		return result, errors.Trace(err)
 	}
 
-	modelUUIDs, err := c.state.AllModelUUIDs()
+	// list all non-dead models along with last login
+
+	models, err := c.modelService.ListAllNonDeadModels(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -544,7 +546,9 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 		return result, errors.Trace(err)
 	}
 
-	modelUUIDs, err := c.state.AllModelUUIDs()
+	// list all non-dead, non-controller models along with model config
+
+	models, err := c.modelService.ListAllNonDeadModels(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

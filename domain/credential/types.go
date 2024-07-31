@@ -3,6 +3,8 @@
 
 package credential
 
+import "github.com/juju/juju/cloud"
+
 // CloudCredentialInfo represents a credential.
 type CloudCredentialInfo struct {
 	// AuthType is the credential auth type.
@@ -31,4 +33,12 @@ type CloudCredentialResult struct {
 
 	// CloudName is the cloud the credential belongs to.
 	CloudName string
+}
+
+// AsCredential converts a CloudCredentialInfo into a cloud.Credential.
+func (c CloudCredentialInfo) AsCredential() cloud.Credential {
+	cred := cloud.NewNamedCredential(c.Label, cloud.AuthType(c.AuthType), c.Attributes, c.Revoked)
+	cred.Invalid = c.Invalid
+	cred.InvalidReason = c.InvalidReason
+	return cred
 }
