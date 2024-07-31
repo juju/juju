@@ -2066,14 +2066,17 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 
 	env := s.openEnviron(c)
 	s.sender = azuretesting.Senders{
-		makeSender(".*/resourcegroups", result),        // GET
-		makeSender(".*/resourcegroups/group[12]", nil), // DELETE
-		makeSender(".*/resourcegroups/group[12]", nil), // DELETE
+		makeSender(".*/resourcegroups", result),                        // GET
+		makeSender(".*/resourcegroups/group[12]", nil),                 // DELETE
+		makeSender(".*/resourcegroups/group[12]", nil),                 // DELETE
+		makeSender(".*/roleDefinitions*", nil),                         // GET
+		makeSender(".*/roleAssignments*", nil),                         // GET
+		makeSender(".*/userAssignedIdentities/juju-controller-*", nil), // DELETE
 	}
 	err := env.DestroyController(s.callCtx, s.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(s.requests, gc.HasLen, 6)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
 	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
 		"tagName eq 'juju-controller-uuid' and tagValue eq '%s'",
@@ -2088,6 +2091,11 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		path.Base(s.requests[2].URL.Path),
 	}
 	c.Assert(groupsDeleted, jc.SameContents, []string{"group1", "group2"})
+
+	c.Assert(s.requests[3].Method, gc.Equals, "GET")
+	c.Assert(s.requests[4].Method, gc.Equals, "GET")
+	c.Assert(s.requests[5].Method, gc.Equals, "DELETE")
+	c.Assert(path.Base(s.requests[5].URL.Path), gc.Equals, "juju-controller-"+testing.ControllerTag.Id())
 }
 
 func (s *environSuite) TestDestroyControllerWithInvalidCredential(c *gc.C) {
