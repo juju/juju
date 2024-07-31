@@ -154,44 +154,6 @@ func (c *MockApplicationPortRangesByUnitCall) DoAndReturn(f func() map[string]st
 	return c
 }
 
-// Changes mocks base method.
-func (m *MockApplicationPortRanges) Changes() state.ModelOperation {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Changes")
-	ret0, _ := ret[0].(state.ModelOperation)
-	return ret0
-}
-
-// Changes indicates an expected call of Changes.
-func (mr *MockApplicationPortRangesMockRecorder) Changes() *MockApplicationPortRangesChangesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Changes", reflect.TypeOf((*MockApplicationPortRanges)(nil).Changes))
-	return &MockApplicationPortRangesChangesCall{Call: call}
-}
-
-// MockApplicationPortRangesChangesCall wrap *gomock.Call
-type MockApplicationPortRangesChangesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationPortRangesChangesCall) Return(arg0 state.ModelOperation) *MockApplicationPortRangesChangesCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationPortRangesChangesCall) Do(f func() state.ModelOperation) *MockApplicationPortRangesChangesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationPortRangesChangesCall) DoAndReturn(f func() state.ModelOperation) *MockApplicationPortRangesChangesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ForUnit mocks base method.
 func (m *MockApplicationPortRanges) ForUnit(arg0 string) state.UnitPortRanges {
 	m.ctrl.T.Helper()

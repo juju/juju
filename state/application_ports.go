@@ -51,14 +51,6 @@ type applicationPortRanges struct {
 	pendingCloseRanges network.GroupedPortRanges
 }
 
-// Changes returns a ModelOperation for applying any changes that were made to
-// this port range instance.
-func (p *applicationPortRanges) Changes() ModelOperation {
-	// The application scope opened port range is not implemented yet.
-	// We manage(open/close) ports by units using "unitPortRanges.Open|Close|Changes()".
-	return nil
-}
-
 // Persisted returns true if the underlying document for this instance exists
 // in the database.
 func (p *applicationPortRanges) Persisted() bool {

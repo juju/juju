@@ -70,8 +70,4 @@ type ApplicationPortRanges interface {
 	// ByEndpoint returns the list of open port ranges grouped by
 	// application endpoint.
 	ByEndpoint() network.GroupedPortRanges
-
-	// Changes returns a ModelOperation for applying any changes that were
-	// made to this port range instance.
-	Changes() ModelOperation
 }
