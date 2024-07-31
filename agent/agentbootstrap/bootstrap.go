@@ -257,7 +257,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	databaseBootstrapOptions := []database.BootstrapOpt{
 		// The controller config needs to be inserted before the admin users
 		// because the admin users permissions require the controller UUID.
-		ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
+		ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig, controllerModelUUID),
 		// The admin user needs to be added before everything else that
 		// requires being owned by a Juju user.
 		addAdminUser,

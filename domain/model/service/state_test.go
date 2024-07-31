@@ -27,11 +27,12 @@ type dummyStateCloud struct {
 }
 
 type dummyState struct {
-	clouds             map[string]dummyStateCloud
-	models             map[coremodel.UUID]coremodel.Model
-	nonActivatedModels map[coremodel.UUID]coremodel.Model
-	users              map[user.UUID]string
-	secretBackends     []string
+	clouds              map[string]dummyStateCloud
+	models              map[coremodel.UUID]coremodel.Model
+	nonActivatedModels  map[coremodel.UUID]coremodel.Model
+	users               map[user.UUID]string
+	secretBackends      []string
+	controllerModelUUID coremodel.UUID
 }
 
 type dummyDeleter struct {
@@ -146,6 +147,16 @@ func (d *dummyState) GetModel(
 	info, exists := d.models[uuid]
 	if !exists {
 		return coremodel.Model{}, fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
+	}
+	return info, nil
+}
+
+func (d *dummyState) GetControllerModel(
+	_ context.Context,
+) (coremodel.Model, error) {
+	info, exists := d.models[d.controllerModelUUID]
+	if !exists {
+		return coremodel.Model{}, modelerrors.NotFound
 	}
 	return info, nil
 }

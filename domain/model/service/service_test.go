@@ -824,6 +824,7 @@ func (s *serviceSuite) TestControllerModel(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+	s.state.controllerModelUUID = modelID
 
 	model, err := svc.ControllerModel(context.Background())
 	c.Check(err, jc.ErrorIsNil)

@@ -54,6 +54,10 @@ var ModelTag = names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 // ControllerTag is a defined known valid UUID that can be used in testing.
 var ControllerTag = names.NewControllerTag("deadbeef-1bad-500d-9000-4b1d0d06f00d")
 
+// ControllerModelTag is a defined known valid UUID that can be used in testing
+// for the model the controller is running on.
+var ControllerModelTag = names.NewControllerTag("deadbeef-2bad-500d-9000-4b1d0d06f00d")
+
 // FakeControllerConfig returns an environment configuration
 // that is expected to be found in state for a fake controller.
 func FakeControllerConfig() controller.Config {

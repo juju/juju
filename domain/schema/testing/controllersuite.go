@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/testing"
@@ -51,12 +52,23 @@ func (s *ControllerSuite) ControllerTxnRunner() coredatabase.TxnRunner {
 	return s.TxnRunner()
 }
 
-// SeedControllerUUID sets the uuid in the controller table to the default
-// testing value. It does not add any other controller config.
-func (s *ControllerSuite) SeedControllerUUID(c *gc.C) string {
-	controllerUUID := jujutesting.ControllerTag.Id()
+// SeedControllerTable sets the uuid in the controller table to the default
+// testing value and the controller mode uuid to the supplied value. It does not
+// add any other controller config.
+func (s *ControllerSuite) SeedControllerTable(c *gc.C, controllerModelUUID coremodel.UUID) (controllerUUID string) {
+	controllerUUID = jujutesting.ControllerTag.Id()
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO controller (uuid) VALUES (?)`, controllerUUID)
+		_, err := tx.ExecContext(ctx, `INSERT INTO controller (uuid, model_uuid) VALUES (?, ?)`, controllerUUID, controllerModelUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return controllerUUID
+}
+
+func (s *ControllerSuite) SeedControllerUUID(c *gc.C) (controllerUUID string) {
+	controllerUUID = jujutesting.ControllerTag.Id()
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO controller (uuid, model_uuid) VALUES (?, ?)`, controllerUUID, jujutesting.ControllerModelTag.Id())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

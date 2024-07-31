@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/controllerconfig/bootstrap"
 	"github.com/juju/juju/domain/controllerconfig/service"
 	domainstate "github.com/juju/juju/domain/controllerconfig/state"
@@ -47,7 +48,9 @@ func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bootstrap.InsertInitialControllerConfig(cfgIn)(ctx.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	controllerModelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
+
+	err = bootstrap.InsertInitialControllerConfig(cfgIn, controllerModelUUID)(ctx.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfgOut, err := srv.ControllerConfig(ctx.Background())

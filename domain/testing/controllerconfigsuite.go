@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	coredatabase "github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/controllerconfig/bootstrap"
 )
 
@@ -24,9 +25,10 @@ type ControllerTxnProvider interface {
 func SeedControllerConfig(
 	c *gc.C,
 	config controller.Config,
+	controllerModelUUID coremodel.UUID,
 	provider ControllerTxnProvider,
 ) controller.Config {
-	err := bootstrap.InsertInitialControllerConfig(config)(context.Background(), provider.ControllerTxnRunner(), noopTxnRunner{})
+	err := bootstrap.InsertInitialControllerConfig(config, controllerModelUUID)(context.Background(), provider.ControllerTxnRunner(), noopTxnRunner{})
 	c.Assert(err, jc.ErrorIsNil)
 	return config
 }

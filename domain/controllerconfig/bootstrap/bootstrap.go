@@ -12,15 +12,20 @@ import (
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	internaldatabase "github.com/juju/juju/internal/database"
 )
 
 // InsertInitialControllerConfig inserts the initial controller configuration
 // into the database.
-func InsertInitialControllerConfig(cfg jujucontroller.Config) internaldatabase.BootstrapOpt {
+func InsertInitialControllerConfig(cfg jujucontroller.Config, controllerModelUUID coremodel.UUID) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		values, err := jujucontroller.EncodeToString(cfg)
 		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if err = controllerModelUUID.Validate(); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -43,12 +48,13 @@ func InsertInitialControllerConfig(cfg jujucontroller.Config) internaldatabase.B
 			return errors.Trace(err)
 		}
 
-		controllerStmt, err := sqlair.Prepare(`INSERT INTO controller (uuid) VALUES ($dbController.uuid)`, dbController{})
+		controllerData := dbController{
+			UUID:      values[jujucontroller.ControllerUUIDKey],
+			ModelUUID: controllerModelUUID.String(),
+		}
+		controllerStmt, err := sqlair.Prepare(`INSERT INTO controller (uuid, model_uuid) VALUES ($dbController.*)`, controllerData)
 		if err != nil {
 			return errors.Trace(err)
-		}
-		data := dbController{
-			UUID: values[jujucontroller.ControllerUUIDKey],
 		}
 
 		updateKeyValues := make([]dbKeyValue, 0)
@@ -64,7 +70,7 @@ func InsertInitialControllerConfig(cfg jujucontroller.Config) internaldatabase.B
 
 		return errors.Trace(controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			// Insert the controller data.
-			if err := tx.Query(ctx, controllerStmt, data).Run(); err != nil {
+			if err := tx.Query(ctx, controllerStmt, controllerData).Run(); err != nil {
 				return errors.Trace(err)
 			}
 
@@ -88,5 +94,8 @@ type dbKeyValue struct {
 }
 
 type dbController struct {
+	// UUID is the unique identifier of the controller.
 	UUID string `db:"uuid"`
+	// ModelUUID is the uuid of the model this controller is in.
+	ModelUUID string `db:"model_uuid"`
 }
