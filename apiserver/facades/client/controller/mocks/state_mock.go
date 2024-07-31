@@ -80,6 +80,45 @@ func (c *MockBackendAllBlocksForControllerCall) DoAndReturn(f func() ([]state.Bl
 	return c
 }
 
+// AllModelUUIDs mocks base method.
+func (m *MockBackend) AllModelUUIDs() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllModelUUIDs")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllModelUUIDs indicates an expected call of AllModelUUIDs.
+func (mr *MockBackendMockRecorder) AllModelUUIDs() *MockBackendAllModelUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelUUIDs", reflect.TypeOf((*MockBackend)(nil).AllModelUUIDs))
+	return &MockBackendAllModelUUIDsCall{Call: call}
+}
+
+// MockBackendAllModelUUIDsCall wrap *gomock.Call
+type MockBackendAllModelUUIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockBackendAllModelUUIDsCall) Return(arg0 []string, arg1 error) *MockBackendAllModelUUIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockBackendAllModelUUIDsCall) Do(f func() ([]string, error)) *MockBackendAllModelUUIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockBackendAllModelUUIDsCall) DoAndReturn(f func() ([]string, error)) *MockBackendAllModelUUIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Application mocks base method.
 func (m *MockBackend) Application(arg0 string) (controller.Application, error) {
 	m.ctrl.T.Helper()
