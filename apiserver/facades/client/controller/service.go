@@ -53,7 +53,7 @@ type ModelService interface {
 	ControllerModel(ctx context.Context) (model.Model, error)
 	// ListAllModels lists all models in the controller. If no models exist
 	// then an empty slice is returned.
-	ListAllModels(ctx context.Context) ([]model.Model, error)
+	ListAllNonDeadModels(ctx context.Context) ([]model.Model, error)
 }
 
 // ModelConfigService provides access to the model configuration.

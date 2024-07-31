@@ -388,7 +388,9 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 		return result, errors.Trace(err)
 	}
 
-	models, err := c.modelService.ListAllModels(ctx)
+	// list all non-dead models along with last login
+
+	models, err := c.modelService.ListAllNonDeadModels(ctx)
 	if err != nil {
 		return result, fmt.Errorf("getting models: %w", err)
 	}
@@ -479,7 +481,9 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 		return result, errors.Trace(err)
 	}
 
-	models, err := c.modelService.ListAllModels(ctx)
+	// list all non-dead, non-controller models along with model config
+
+	models, err := c.modelService.ListAllNonDeadModels(ctx)
 	if err != nil {
 		return result, fmt.Errorf("cannot list all models: %w", err)
 	}
