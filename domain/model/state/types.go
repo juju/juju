@@ -39,6 +39,9 @@ type dbModel struct {
 	// CloudName is the name of the cloud to associate with the model.
 	CloudName string `db:"cloud_name"`
 
+	// CloudID is the ID of the model's cloud from the cloud table.
+	CloudID string `db:"cloud_uuid"`
+
 	// CloudType is the type of the underlying cloud (e.g. lxd, azure, ...)
 	CloudType string `db:"cloud_type"`
 
@@ -47,6 +50,10 @@ type dbModel struct {
 
 	// CredentialName is the name of the model cloud credential.
 	CredentialName string `db:"cloud_credential_name"`
+
+	// CredentialID is the ID of the model's credential from the
+	// cloud_credential table.
+	CredentialID string `db:"cloud_credential_uuid"`
 
 	// CredentialCloudName is the cloud name that the model cloud credential applies to.
 	CredentialCloudName string `db:"cloud_credential_cloud_name"`
@@ -89,7 +96,6 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 type dbModelUUID struct {
 	ModelUUID string `db:"model_uuid"`
 }
-
 
 // lifeList represents a list of life values, to be used to filter returned
 // models.

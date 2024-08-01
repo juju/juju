@@ -1020,9 +1020,9 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 	})
 }
 
-// TestModelsOwnedByNonExistantUser tests that if we ask for models from a non
-// existent user we get back an empty model list.
-func (m *stateSuite) TestModelsOwnedByNonExistantUser(c *gc.C) {
+// TestModelsOwnedByNonExistentUser tests that if we ask for models from a
+// non-existent user, we get back an empty model list.
+func (m *stateSuite) TestModelsOwnedByNonExistentUser(c *gc.C) {
 	userID := usertesting.GenUserUUID(c)
 	modelSt := NewState(m.TxnRunnerFactory())
 
@@ -1436,7 +1436,7 @@ func (m *stateSuite) TestGetControllerModel(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(model, gc.DeepEquals, coremodel.Model{
 		Name:         "my-test-model",
-		Life:         life.Alive,
+		Life:         corelife.Alive,
 		UUID:         m.uuid,
 		ModelType:    coremodel.IAAS,
 		AgentVersion: version.Current,

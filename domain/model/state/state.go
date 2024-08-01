@@ -800,13 +800,13 @@ func (s *State) ListAllModels(ctx context.Context) ([]coremodel.Model, error) {
 	}
 
 	query := `
-SELECT &stateModel.*
+SELECT &dbModel.*
 FROM v_model
 `
 
-	resultsForModel := []stateModel{}
+	var resultsForModel []dbModel
 
-	stmt, err := sqlair.Prepare(query, stateModel{})
+	stmt, err := sqlair.Prepare(query, dbModel{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing get model statement: %w", err)
 	}
@@ -841,7 +841,7 @@ func (s *State) HostedModels(
 	}
 
 	query := `
-SELECT &stateModel.*
+SELECT &dbModel.*
 FROM v_model
 WHERE life IN ($lifeList[:])
 AND uuid NOT IN ($modelIDList[:])
@@ -850,12 +850,12 @@ AND uuid NOT IN ($modelIDList[:])
 	inputLifes := lifeList(includeLifes)
 	inputModelIDs := modelIDList(excludeIDs)
 
-	stmt, err := sqlair.Prepare(query, stateModel{}, inputLifes, inputModelIDs)
+	stmt, err := sqlair.Prepare(query, dbModel{}, inputLifes, inputModelIDs)
 	if err != nil {
 		return nil, fmt.Errorf("preparing get model statement: %w", err)
 	}
 
-	resultsForModel := []stateModel{}
+	resultsForModel := []dbModel{}
 	modelClouds := map[string]cloud.Cloud{}
 	modelCredentials := map[string]cloud.Credential{}
 
@@ -865,18 +865,18 @@ AND uuid NOT IN ($modelIDList[:])
 			return fmt.Errorf("getting models from database: %w", err)
 		}
 
-		for _, dbModel := range resultsForModel {
-			modelCloud, err := cloudstate.GetCloudForID(ctx, s, tx, corecloud.ID(dbModel.CloudID))
+		for _, stateModel := range resultsForModel {
+			modelCloud, err := cloudstate.GetCloudForID(ctx, s, tx, corecloud.ID(stateModel.CloudID))
 			if err != nil {
-				return fmt.Errorf("cannot get cloud %q for model %q: %w", dbModel.CloudID, dbModel.ID, err)
+				return fmt.Errorf("cannot get cloud %q for model %q: %w", stateModel.CloudID, stateModel.UUID, err)
 			}
-			modelClouds[dbModel.ID] = modelCloud
+			modelClouds[stateModel.UUID] = modelCloud
 
-			modelCredential, err := credentialstate.GetCloudCredential(ctx, s, tx, corecredential.ID(dbModel.CredentialID))
+			modelCredential, err := credentialstate.GetCloudCredential(ctx, s, tx, corecredential.ID(stateModel.CredentialID))
 			if err != nil {
-				return fmt.Errorf("cannot get credential %q for model %q: %w", dbModel.CredentialID, dbModel.ID, err)
+				return fmt.Errorf("cannot get credential %q for model %q: %w", stateModel.CredentialID, stateModel.UUID, err)
 			}
-			modelCredentials[dbModel.ID] = modelCredential.AsCredential()
+			modelCredentials[stateModel.UUID] = modelCredential.AsCredential()
 		}
 
 		return nil
@@ -886,16 +886,16 @@ AND uuid NOT IN ($modelIDList[:])
 	}
 
 	hostedModels := make([]coremodel.HostedModel, 0, len(resultsForModel))
-	for _, dbModel := range resultsForModel {
-		model, err := transformModelDBResult(dbModel)
+	for _, stateModel := range resultsForModel {
+		coreModel, err := stateModel.toCoreModel()
 		if err != nil {
-			return nil, fmt.Errorf("transforming model %q from db: %w", dbModel.ID, err)
+			return nil, fmt.Errorf("transforming model %q from db: %w", stateModel.UUID, err)
 		}
 
 		hostedModels = append(hostedModels, coremodel.HostedModel{
-			Model:      model[0],
-			Cloud:      modelClouds[dbModel.ID],
-			Credential: modelCredentials[dbModel.ID],
+			Model:      coreModel,
+			Cloud:      modelClouds[stateModel.UUID],
+			Credential: modelCredentials[stateModel.UUID],
 		})
 	}
 	return hostedModels, nil
@@ -915,7 +915,7 @@ func (s *State) ModelLastLogins(
 	}
 
 	query := `
-SELECT &stateModel.*, &userModelLastLogin.*
+SELECT &dbModel.*, &userModelLastLogin.*
 FROM v_model
 LEFT JOIN model_last_login AS mll
     ON v_model.uuid = mll.model_uuid
@@ -928,12 +928,12 @@ WHERE life IN ($lifeList[:])
 		"user_uuid": userID,
 	}
 
-	stmt, err := sqlair.Prepare(query, stateModel{}, userModelLastLogin{}, inputLifes, args)
+	stmt, err := sqlair.Prepare(query, dbModel{}, userModelLastLogin{}, inputLifes, args)
 	if err != nil {
 		return nil, fmt.Errorf("preparing select models statement: %w", err)
 	}
 
-	resultsForModel := []stateModel{}
+	resultsForModel := []dbModel{}
 	lastLogins := []userModelLastLogin{}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -948,13 +948,13 @@ WHERE life IN ($lifeList[:])
 	}
 
 	rval := make([]coremodel.ModelWithLogin, 0, len(resultsForModel))
-	for i, dbModel := range resultsForModel {
-		model, err := transformModelDBResult(dbModel)
+	for i, stateModel := range resultsForModel {
+		coreModel, err := stateModel.toCoreModel()
 		if err != nil {
-			return nil, fmt.Errorf("transforming model %q from state: %w", dbModel.ID, err)
+			return nil, fmt.Errorf("transforming model %q from state: %w", stateModel.UUID, err)
 		}
 		rval = append(rval, coremodel.ModelWithLogin{
-			Model:     model[0],
+			Model:     coreModel,
 			UserID:    user.UUID(lastLogins[i].UserID),
 			LastLogin: lastLogins[i].LastLogin,
 		})
@@ -962,32 +962,14 @@ WHERE life IN ($lifeList[:])
 	return rval, nil
 }
 
-func transformModelDBResult(models ...stateModel) ([]coremodel.Model, error) {
+func transformModelDBResult(models ...dbModel) ([]coremodel.Model, error) {
 	rval := make([]coremodel.Model, 0, len(models))
-	for _, dbModel := range models {
-		agentVersion, err := version.Parse(dbModel.AgentVersion)
+	for _, stateModel := range models {
+		coreModel, err := stateModel.toCoreModel()
 		if err != nil {
-			return nil, fmt.Errorf("couldn't parse agent version %q for model %q: %w",
-				dbModel.AgentVersion, dbModel.ID, err)
+			return nil, fmt.Errorf("transforming model %q from DB: %w", stateModel.UUID, err)
 		}
-
-		rval = append(rval, coremodel.Model{
-			Name:         dbModel.Name,
-			Life:         corelife.Value(dbModel.Life),
-			UUID:         coremodel.UUID(dbModel.ID),
-			ModelType:    coremodel.ModelType(dbModel.ModelType),
-			AgentVersion: agentVersion,
-			Cloud:        dbModel.Cloud,
-			CloudType:    dbModel.CloudType,
-			CloudRegion:  dbModel.CloudRegion,
-			Credential: credential.Key{
-				Name:  dbModel.CredentialName,
-				Cloud: dbModel.CredentialCloud,
-				Owner: dbModel.CredentialOwner,
-			},
-			Owner:     user.UUID(dbModel.OwnerID),
-			OwnerName: dbModel.OwnerName,
-		})
+		rval = append(rval, coreModel)
 	}
 	return rval, nil
 }
