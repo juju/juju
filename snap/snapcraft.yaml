@@ -78,11 +78,25 @@ parts:
     source-depth: 1
     plugin: nil
     build-packages:
-      - musl-dev
+      - musl-tools
     override-build: |
       set -ex
 
       MACHINE_TYPE="$(gcc -dumpmachine | awk -F'-' '{print $1}')"
+      if [ "${MACHINE_TYPE}" = "powerpc64le" ]; then
+      cat <<EOM | tee -a "/usr/lib/powerpc64le-linux-musl/musl-gcc.specs"
+      %rename cpp_options x_cpp_options
+
+      *cpp_options:
+      -mlong-double-64 %(x_cpp_options)
+
+      %rename cc1 x_cc1
+
+      *cc1:
+      -mlong-double-64 %(x_cc1)
+
+      EOM
+      fi
       ln -s $(pwd)/include/sys/queue.h /usr/include/${MACHINE_TYPE}-linux-musl/sys/queue.h || true
       ln -s /usr/include/${MACHINE_TYPE}-linux-gnu/asm /usr/include/${MACHINE_TYPE}-linux-musl/asm || true
       ln -s /usr/include/asm-generic /usr/include/${MACHINE_TYPE}-linux-musl/asm-generic || true
@@ -116,8 +130,8 @@ parts:
   libnsl:
     after:
       - libtirpc
-    source: https://git.launchpad.net/ubuntu/+source/libnsl
-    source-branch: applied/ubuntu/noble
+    source: https://github.com/thkukuk/libnsl.git
+    source-tag: v2.0.0
     source-type: git
     source-depth: 1
     plugin: nil
@@ -220,7 +234,6 @@ parts:
       - autopoint
       - gettext
       - libtool
-      - libsqlite3-dev
       - make
       - pkg-config
       - tcl
