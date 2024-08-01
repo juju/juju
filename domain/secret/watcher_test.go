@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	jujuversion "github.com/juju/juju/core/version"
 	corewatcher "github.com/juju/juju/core/watcher"
@@ -75,7 +76,7 @@ func createNewRevision(c *gc.C, st *state.State, uri *coresecrets.URI) {
 	sp := secret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo-new": "bar-new"},
 	}
-	err := st.UpdateSecret(context.Background(), uri, sp)
+	_, err := st.UpdateSecret(context.Background(), uri, sp)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -87,7 +88,7 @@ func (s *watcherSuite) setupServiceAndState(c *gc.C) (*service.WatchableService,
 		logger,
 	)
 	return service.NewWatchableService(
-		st, logger,
+		st, nil, model.UUID(s.ModelUUID()), logger,
 		factory, nil,
 	), st
 }
@@ -103,19 +104,19 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	_, err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/0", sp)
+	_, err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri3 := coresecrets.NewURI()
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri3, "mediawiki", sp)
+	_, err = st.CreateCharmApplicationSecret(ctx, 1, uri3, "mediawiki", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri4 := coresecrets.NewURI()
-	err = st.CreateCharmUnitSecret(ctx, 1, uri4, "mediawiki/0", sp)
+	_, err = st.CreateCharmUnitSecret(ctx, 1, uri4, "mediawiki/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	watchAll, err := svc.WatchObsolete(ctx,
@@ -186,11 +187,11 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *gc.C) {
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	_, err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/0", sp)
+	_, err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	watchSingleApplicaiton, err := svc.WatchObsolete(ctx,
@@ -240,11 +241,11 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	_, err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/0", sp)
+	_, err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	watchSingleUnit, err := svc.WatchObsolete(ctx,
@@ -293,11 +294,11 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	uri2 := coresecrets.NewURI()
 	c.Logf("uri1: %v, uri2: %v", uri1, uri2)
 
-	err := st.CreateUserSecret(ctx, 1, uri1, secret.UpsertSecretParams{
+	_, err := st.CreateUserSecret(ctx, 1, uri1, secret.UpsertSecretParams{
 		Data: data,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateUserSecret(ctx, 1, uri2, secret.UpsertSecretParams{
+	_, err = st.CreateUserSecret(ctx, 1, uri2, secret.UpsertSecretParams{
 		Data:      data,
 		AutoPrune: ptr(true),
 	})
@@ -321,7 +322,7 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	createNewRevision(c, st, uri2)
 	wc.AssertNChanges(2)
 
-	err = st.UpdateSecret(context.Background(), uri1, secret.UpsertSecretParams{
+	_, err = st.UpdateSecret(context.Background(), uri1, secret.UpsertSecretParams{
 		AutoPrune: ptr(true),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -355,11 +356,11 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	_, err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
+	_, err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The consumed revision 1 is the initial revision - will be ignored.
@@ -500,12 +501,12 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	_, err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 	uri1.SourceUUID = s.ModelUUID()
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
+	_, err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 	uri2.SourceUUID = s.ModelUUID()
 
@@ -573,11 +574,11 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	_, err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mediawiki/0", sp)
+	_, err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mediawiki/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 	createNewRevision(c, st, uri2)
 
@@ -668,7 +669,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 	uri2 := coresecrets.NewURI()
 	c.Logf("uri1: %v, uri2: %v", uri1, uri2)
 
-	err := st.CreateCharmUnitSecret(ctx, 1, uri2, "mediawiki/0", secret.UpsertSecretParams{
+	_, err := st.CreateCharmUnitSecret(ctx, 1, uri2, "mediawiki/0", secret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -694,13 +695,13 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 	wc.AssertNoChange()
 
 	now := time.Now()
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", secret.UpsertSecretParams{
+	_, err = st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", secret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		ExpireTime: ptr(now.Add(1 * time.Hour)),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.UpdateSecret(context.Background(), uri2, secret.UpsertSecretParams{
+	_, err = st.UpdateSecret(context.Background(), uri2, secret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
 		ExpireTime: ptr(now.Add(2 * time.Hour)),
 	})
