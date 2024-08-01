@@ -244,3 +244,19 @@ type CloudRow struct {
 	// ModelOwnerUserName holds the name of the user who owns the model.
 	ModelOwnerUserName string `db:"model_owner_user_name"`
 }
+
+// SecretBackendReference represents a single row from the state database's secret_backend_reference table.
+type SecretBackendReference struct {
+	// BackendID is the unique identifier for the secret backend.
+	BackendID string `db:"secret_backend_uuid"`
+	// ModelID is the unique identifier for the model.
+	ModelID coremodel.UUID `db:"model_uuid"`
+	// SecretRevisionID is the unique identifier for the secret revision.
+	SecretRevisionID string `db:"secret_revision_uuid"`
+}
+
+// Count is a helper struct to count the number of rows.
+type Count struct {
+	// Num is the number of rows.
+	Num int `db:"num"`
+}

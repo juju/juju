@@ -328,14 +328,6 @@ func convertConfigToString(config map[string]interface{}) map[string]string {
 	})
 }
 
-// GetSecretBackendConfig returns the secret backend configuration for the given backend ID.
-func (s *Service) GetSecretBackendConfig(
-	ctx context.Context, modelUUID coremodel.UUID, cloud cloud.Cloud, cred cloud.Credential,
-) (*provider.ModelBackendConfigInfo, error) {
-	// TODO: implement once we have secret service in place.
-	return nil, nil
-}
-
 func getK8sBackendConfig(cloud cloud.Cloud, cred cloud.Credential) (*provider.BackendConfig, error) {
 	spec, err := cloudspec.MakeCloudSpec(cloud, "", &cred)
 	if err != nil {
