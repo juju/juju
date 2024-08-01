@@ -15,6 +15,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs"
@@ -25,6 +26,18 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 )
 
+// charmUploader is an implementation of
+// [github.com/juju/juju/internal/bootstrap.CharmUploader]. We have made this
+// transition type to bridge the gap between [SystemState] and the information
+// that we now get from domain services.
+type charmUploader struct {
+	SystemState
+
+	// modelID is the model id to be used by the charm uploader. See
+	// [charmUploader.ModelUUID]
+	modelID coremodel.UUID
+}
+
 // SystemState is the interface that is used to get the legacy state (mongo).
 //
 // Note: It is expected over time for each one of these methods to be replaced
@@ -32,13 +45,6 @@ import (
 //
 // Deprecated: Use domain services when available.
 type SystemState interface {
-	// ControllerModelUUID returns the UUID of the model that was
-	// bootstrapped.  This is the only model that can have controller
-	// machines.  The owner of this model is also considered "special", in
-	// that they are the only user that is able to create other users
-	// (until we have more fine grained permissions), and they cannot be
-	// disabled.
-	ControllerModelUUID() string
 	// ToolsStorage returns a new binarystorage.StorageCloser that stores tools
 	// metadata in the "juju" database "toolsmetadata" collection.
 	ToolsStorage(store objectstore.ObjectStore) (binarystorage.StorageCloser, error)
@@ -46,10 +52,6 @@ type SystemState interface {
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (bootstrap.Application, error)
 	// Charm returns the charm with the given name.
 	Charm(string) (bootstrap.Charm, error)
-	// Model returns the model.
-	Model() (bootstrap.Model, error)
-	// ModelUUID returns the UUID of the model.
-	ModelUUID() string
 	// Unit returns the unit with the given id.
 	Unit(string) (bootstrap.Unit, error)
 	// Machine returns the machine with the given id.
@@ -99,6 +101,7 @@ type AgentBinaryBootstrapFunc func(context.Context, string, BinaryAgentStorageSe
 type ControllerCharmDeployerConfig struct {
 	StateBackend                SystemState
 	ApplicationService          ApplicationService
+	Model                       coremodel.Model
 	ModelConfigService          ModelConfigService
 	ObjectStore                 objectstore.ObjectStore
 	ControllerConfig            controller.Config
@@ -166,12 +169,15 @@ func IAASControllerCharmUploader(cfg ControllerCharmDeployerConfig) (bootstrap.C
 
 func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDeployerConfig {
 	return bootstrap.BaseDeployerConfig{
-		DataDir:             cfg.DataDir,
-		ObjectStore:         cfg.ObjectStore,
-		StateBackend:        cfg.StateBackend,
-		ApplicationService:  cfg.ApplicationService,
-		ModelConfigService:  cfg.ModelConfigService,
-		CharmUploader:       cfg.StateBackend,
+		DataDir:            cfg.DataDir,
+		ObjectStore:        cfg.ObjectStore,
+		StateBackend:       cfg.StateBackend,
+		ApplicationService: cfg.ApplicationService,
+		ModelConfigService: cfg.ModelConfigService,
+		CharmUploader: charmUploader{
+			cfg.StateBackend,
+			cfg.Model.UUID,
+		},
 		Constraints:         cfg.BootstrapMachineConstraints,
 		ControllerConfig:    cfg.ControllerConfig,
 		Channel:             cfg.ControllerCharmChannel,
@@ -186,6 +192,13 @@ func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDep
 		},
 		Logger: cfg.Logger,
 	}
+}
+
+// ModelUUID implements [github.com/juju/juju/internal/bootstrap.CharmUploader].
+// This method implements the missing pieces of [SystemState] that are now being
+// served by services.
+func (c charmUploader) ModelUUID() string {
+	return c.modelID.String()
 }
 
 type stateShim struct {

@@ -21,7 +21,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination state_mock_test.go github.com/juju/juju/internal/worker/state StateTracker
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Unlocker
-//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap ControllerConfigService,FlagService,ObjectStoreGetter,SystemState,HTTPClient,CredentialService,CloudService,StorageService,ApplicationService,ModelConfigService,NetworkService,UserService,BakeryConfigService
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap ControllerConfigService,FlagService,ObjectStoreGetter,SystemState,HTTPClient,CredentialService,CloudService,StorageService,ApplicationService,ModelConfigService,NetworkService,UserService,BakeryConfigService,ModelService
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination deployer_mock_test.go github.com/juju/juju/internal/bootstrap Model
 
 func TestPackage(t *testing.T) {
@@ -48,6 +48,7 @@ type baseSuite struct {
 	storageService          *MockStorageService
 	applicationService      *MockApplicationService
 	modelConfigService      *MockModelConfigService
+	modelService            *MockModelService
 	userService             *MockUserService
 	networkService          *MockNetworkService
 	bakeryConfigService     *MockBakeryConfigService
@@ -76,6 +77,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.storageService = NewMockStorageService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.modelService = NewMockModelService(ctrl)
 	s.userService = NewMockUserService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.bakeryConfigService = NewMockBakeryConfigService(ctrl)

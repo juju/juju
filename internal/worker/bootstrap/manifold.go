@@ -354,6 +354,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				StorageService:          modelServiceFactory.Storage(registry),
 				ProviderRegistry:        registry,
 				ApplicationService:      modelServiceFactory.Application(registry),
+				ModelService:            controllerServiceFactory.Model(),
 				ModelConfigService:      modelServiceFactory.Config(),
 				FlagService:             flagService,
 				NetworkService:          modelServiceFactory.Network(),

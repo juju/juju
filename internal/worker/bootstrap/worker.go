@@ -50,6 +50,7 @@ type WorkerConfig struct {
 	StorageService          StorageService
 	ProviderRegistry        storage.ProviderRegistry
 	ApplicationService      ApplicationService
+	ModelService            ModelService
 	ModelConfigService      ModelConfigService
 	FlagService             FlagService
 	NetworkService          NetworkService
@@ -94,6 +95,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.ApplicationService == nil {
 		return errors.NotValidf("nil ApplicationService")
+	}
+	if c.ModelService == nil {
+		return errors.NotValidf("nil ModelService")
 	}
 	if c.ModelConfigService == nil {
 		return errors.NotValidf("nil ModelConfigService")
@@ -227,6 +231,8 @@ func (w *bootstrapWorker) loop() error {
 	bootstrapAddresses, err := w.cfg.BootstrapAddressFinder(ctx, BootstrapAddressesConfig{
 		BootstrapInstanceID:    bootstrapParams.BootstrapMachineInstanceId,
 		SystemState:            w.cfg.SystemState,
+		ModelService:           w.cfg.ModelService,
+		ModelConfigService:     w.cfg.ModelConfigService,
 		CloudService:           w.cfg.CloudService,
 		CredentialService:      w.cfg.CredentialService,
 		NewEnvironFunc:         w.cfg.NewEnviron,
@@ -403,7 +409,14 @@ func (w *bootstrapWorker) scopedContext() (context.Context, context.CancelFunc) 
 }
 
 func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) (func(), error) {
-	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, w.cfg.SystemState.ControllerModelUUID())
+	controllerModel, err := w.cfg.ModelService.ControllerModel(ctx)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to get controller model when seeding agent binary: %w",
+			err,
+		)
+	}
+	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, controllerModel.UUID.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get object store: %w", err)
 	}
@@ -424,7 +437,12 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 		return errors.Trace(err)
 	}
 
-	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, w.cfg.SystemState.ControllerModelUUID())
+	controllerModel, err := w.cfg.ModelService.ControllerModel(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get controller model when seeding controller charm: %w", err)
+	}
+
+	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, controllerModel.UUID.String())
 	if err != nil {
 		return fmt.Errorf("failed to get object store: %w", err)
 	}
@@ -433,6 +451,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 	deployer, err := w.cfg.ControllerCharmDeployer(ControllerCharmDeployerConfig{
 		StateBackend:                w.cfg.SystemState,
 		ApplicationService:          w.cfg.ApplicationService,
+		Model:                       controllerModel,
 		ModelConfigService:          w.cfg.ModelConfigService,
 		ObjectStore:                 objectStore,
 		ControllerConfig:            controllerConfig,

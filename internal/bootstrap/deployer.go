@@ -154,7 +154,6 @@ type Unit interface {
 type StateBackend interface {
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 	Charm(string) (Charm, error)
-	Model() (Model, error)
 	Unit(string) (Unit, error)
 }
 
