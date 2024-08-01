@@ -61,8 +61,6 @@ type WorkerConfig struct {
 	PopulateControllerCharm PopulateControllerCharmFunc
 	CharmhubHTTPClient      HTTPClient
 	UnitPassword            string
-	NewEnviron              NewEnvironFunc
-	BootstrapAddresses      BootstrapAddressesFunc
 	BootstrapAddressFinder  BootstrapAddressFinderFunc
 	Logger                  logger.Logger
 
@@ -134,12 +132,6 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.BootstrapAddressFinder == nil {
 		return errors.NotValidf("nil BootstrapAddressFinder")
-	}
-	if c.NewEnviron == nil {
-		return errors.NotValidf("nil NewEnviron")
-	}
-	if c.BootstrapAddresses == nil {
-		return errors.NotValidf("nil BootstrapAddresses")
 	}
 	return nil
 }
@@ -228,19 +220,11 @@ func (w *bootstrapWorker) loop() error {
 	}
 
 	// Retrieve controller addresses needed to set the API host ports.
-	bootstrapAddresses, err := w.cfg.BootstrapAddressFinder(ctx, BootstrapAddressesConfig{
-		BootstrapInstanceID:    bootstrapParams.BootstrapMachineInstanceId,
-		SystemState:            w.cfg.SystemState,
-		ModelService:           w.cfg.ModelService,
-		ModelConfigService:     w.cfg.ModelConfigService,
-		CloudService:           w.cfg.CloudService,
-		CredentialService:      w.cfg.CredentialService,
-		NewEnvironFunc:         w.cfg.NewEnviron,
-		BootstrapAddressesFunc: w.cfg.BootstrapAddresses,
-	})
+	bootstrapAddresses, err := w.cfg.BootstrapAddressFinder(ctx, bootstrapParams.BootstrapMachineInstanceId)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	servingInfo, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return errors.Errorf("state serving information not available")

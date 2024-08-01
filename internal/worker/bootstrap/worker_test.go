@@ -29,7 +29,6 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	accessservice "github.com/juju/juju/domain/access/service"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/charm"
@@ -304,11 +303,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		ControllerCharmDeployer: func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
 			return nil, nil
 		},
-		NewEnviron: func(context.Context, environs.OpenParams) (environs.Environ, error) { return nil, nil },
-		BootstrapAddresses: func(context.Context, environs.Environ, instance.Id) (network.ProviderAddresses, error) {
-			return nil, nil
-		},
-		BootstrapAddressFinder: func(context.Context, BootstrapAddressesConfig) (network.ProviderAddresses, error) {
+		BootstrapAddressFinder: func(context.Context, instance.Id) (network.ProviderAddresses, error) {
 			return nil, nil
 		},
 	}, s.states)

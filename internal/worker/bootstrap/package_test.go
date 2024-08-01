@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination addressfinder_mock_test.go github.com/juju/juju/environs InstanceLister
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination instance_mock_test.go github.com/juju/juju/environs/instances Instance
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination state_mock_test.go github.com/juju/juju/internal/worker/state StateTracker
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore

@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -14,15 +15,11 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/flags"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/user"
-	userservice "github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
@@ -44,18 +41,6 @@ type ObjectStoreGetter interface {
 	GetObjectStore(context.Context, string) (objectstore.ObjectStore, error)
 }
 
-// UserService is the interface that is used to add a new user to the
-// database.
-type UserService interface {
-	// AddUser will add a new user to the database and return the UUID of the
-	// user if successful. If no password is set in the incoming argument,
-	// the user will be added with an activation key.
-	AddUser(ctx context.Context, arg userservice.AddUserArg) (user.UUID, []byte, error)
-
-	// GetUserByName will return the user with the given name.
-	GetUserByName(ctx context.Context, name string) (user.User, error)
-}
-
 // ControllerCharmDeployerFunc is the function that is used to upload the
 // controller charm.
 type ControllerCharmDeployerFunc func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error)
@@ -72,47 +57,9 @@ type ControllerUnitPasswordFunc func(context.Context) (string, error)
 // process has completed.
 type RequiresBootstrapFunc func(context.Context, FlagService) (bool, error)
 
-// NewEnvironFunc is the function that is used to create a new environ.
-type NewEnvironFunc func(context.Context, environs.OpenParams) (environs.Environ, error)
-
-// BootstrapAddressesFunc is the function that is used to get the bootstrap
-// addresses.
-type BootstrapAddressesFunc func(context.Context, environs.Environ, instance.Id) (network.ProviderAddresses, error)
-
-// BootstrapAddressFinderFunc is the function that is used to upload the agent
-// binary.
-type BootstrapAddressFinderFunc func(context.Context, BootstrapAddressesConfig) (network.ProviderAddresses, error)
-
 // HTTPClient is the interface that is used to make HTTP requests.
 type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
-}
-
-// BootstrapAddress attempts to use the provided Environ to get the list of
-// instances and its addresses. If the Environ does not implement
-// InstanceListener (this is the case of CAAS for the moment), then we
-// return the hard-coded 'localhost' address.
-func BootstrapAddresses(
-	ctx context.Context,
-	env environs.Environ,
-	bootstrapInstanceID instance.Id,
-) (network.ProviderAddresses, error) {
-	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
-	instanceLister, ok := env.(environs.InstanceLister)
-	if !ok {
-		return nil, errors.NotSupportedf("bootstrap address not supported on this environ")
-
-	}
-	// TODO(nvinuesa): which instanceID to use?
-	instances, err := instanceLister.Instances(callCtx, []instance.Id{bootstrapInstanceID})
-	if err != nil {
-		return nil, errors.Annotate(err, "getting bootstrap instance")
-	}
-	addrs, err := instances[0].Addresses(callCtx)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting bootstrap instance addresses")
-	}
-	return addrs, nil
 }
 
 // ManifoldConfig defines the configuration for the trace manifold.
@@ -123,16 +70,13 @@ type ManifoldConfig struct {
 	BootstrapGateName      string
 	ServiceFactoryName     string
 	CharmhubHTTPClientName string
+	ProviderFactoryName    string
 
 	AgentBinaryUploader     AgentBinaryBootstrapFunc
 	ControllerCharmDeployer ControllerCharmDeployerFunc
 	ControllerUnitPassword  ControllerUnitPasswordFunc
 	RequiresBootstrap       RequiresBootstrapFunc
 	PopulateControllerCharm PopulateControllerCharmFunc
-
-	BootstrapAddressFinder BootstrapAddressFinderFunc
-	NewEnviron             NewEnvironFunc
-	BootstrapAddresses     BootstrapAddressesFunc
 
 	Logger logger.Logger
 }
@@ -157,6 +101,9 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.CharmhubHTTPClientName == "" {
 		return errors.NotValidf("empty CharmhubHTTPClientName")
 	}
+	if cfg.ProviderFactoryName == "" {
+		return errors.NotValidf("empty ProviderFactoryName")
+	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
@@ -175,15 +122,6 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.PopulateControllerCharm == nil {
 		return errors.NotValidf("nil PopulateControllerCharm")
 	}
-	if cfg.BootstrapAddressFinder == nil {
-		return errors.NotValidf("nil BootstrapAddressFinder")
-	}
-	if cfg.NewEnviron == nil {
-		return errors.NotValidf("nil NewEnviron")
-	}
-	if cfg.BootstrapAddresses == nil {
-		return errors.NotValidf("nil BootstrapAddresses")
-	}
 	return nil
 }
 
@@ -197,6 +135,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.BootstrapGateName,
 			config.ServiceFactoryName,
 			config.CharmhubHTTPClientName,
+			config.ProviderFactoryName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
@@ -234,6 +173,24 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+
+			var providerFactory providertracker.ProviderFactory
+			if err := getter.Get(config.ProviderFactoryName, &providerFactory); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			controllerModel, err := controllerServiceFactory.Model().ControllerModel(ctx)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"cannot get controller model when making bootstrap worker: %w",
+					err,
+				)
+			}
+
+			instanceListerProvider := providertracker.ProviderRunner[environs.InstanceLister](
+				providerFactory, controllerModel.UUID.String(),
+			)
+			addressFinder := BootstrapAddressFinder(instanceListerProvider)
 
 			var objectStoreGetter objectstore.ObjectStoreGetter
 			if err := getter.Get(config.ObjectStoreName, &objectStoreGetter); err != nil {
@@ -319,9 +276,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				CharmhubHTTPClient:      charmhubHTTPClient,
 				UnitPassword:            unitPassword,
 				Logger:                  config.Logger,
-				NewEnviron:              config.NewEnviron,
-				BootstrapAddresses:      config.BootstrapAddresses,
-				BootstrapAddressFinder:  config.BootstrapAddressFinder,
+				BootstrapAddressFinder:  addressFinder,
 			})
 			if err != nil {
 				_ = stTracker.Done()

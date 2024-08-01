@@ -918,10 +918,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
 			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
 			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
-
-			NewEnviron:             config.NewEnvironFunc,
-			BootstrapAddresses:     bootstrap.BootstrapAddresses,
-			BootstrapAddressFinder: bootstrap.IAASBootstrapAddressFinder,
+			ProviderFactoryName:     providerTrackerName,
 
 			AgentBinaryUploader:     bootstrap.IAASAgentBinaryUploader,
 			ControllerCharmDeployer: bootstrap.IAASControllerCharmUploader,
@@ -1135,10 +1132,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
 			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
 			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
-
-			BootstrapAddressFinder: bootstrap.CAASBootstrapAddressFinder,
-			NewEnviron:             bootstrap.CAASNewEnviron,
-			BootstrapAddresses:     bootstrap.BootstrapAddresses,
+			ProviderFactoryName:     providerTrackerName,
 
 			AgentBinaryUploader:     bootstrap.CAASAgentBinaryUploader,
 			ControllerCharmDeployer: bootstrap.CAASControllerCharmUploader,
