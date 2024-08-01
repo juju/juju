@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/gate"
-	"github.com/juju/juju/state/binarystorage"
 )
 
 const (
@@ -38,20 +37,6 @@ const (
 	stateStarted   = "started"
 	stateCompleted = "completed"
 )
-
-// LegacyState is the interface that is used to get the legacy state (mongo).
-type LegacyState interface {
-	// ControllerModelUUID returns the UUID of the model that was
-	// bootstrapped.  This is the only model that can have controller
-	// machines.  The owner of this model is also considered "special", in
-	// that they are the only user that is able to create other users
-	// (until we have more fine grained permissions), and they cannot be
-	// disabled.
-	ControllerModelUUID() string
-	// ToolsStorage returns a new binarystorage.StorageCloser that stores tools
-	// metadata in the "juju" database "toolsmetadata" collection.
-	ToolsStorage(store objectstore.ObjectStore) (binarystorage.StorageCloser, error)
-}
 
 // WorkerConfig encapsulates the configuration options for the
 // bootstrap worker.
