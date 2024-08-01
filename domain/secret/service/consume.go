@@ -67,7 +67,6 @@ func (s *SecretService) GetURIByConsumerLabel(ctx context.Context, label string,
 
 // GetConsumedRevision returns the secret revision number for the specified consumer, possibly updating
 // the label associated with the secret for the consumer.
-// TODO(secrets) - test
 func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.URI, unitName string, refresh, peek bool, labelToUpdate *string) (int, error) {
 	consumerInfo, latestRevision, err := s.GetSecretConsumerAndLatest(ctx, uri, unitName)
 	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
