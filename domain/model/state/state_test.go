@@ -1230,10 +1230,23 @@ func (m *stateSuite) TestListModelsWithLastLogin(c *gc.C) {
 	_, err = userState.LastModelLogin(context.Background(), m.userName, neverLoggedInModelID)
 	c.Assert(err, jc.ErrorIs, accesserrors.UserNeverAccessedModel)
 
-	// Get models with last login
-	modelsWithLogin, err := modelState.ListModelsWithLastLogin(context.Background(), m.userUUID)
+	// Add "dead" model
+	deadModelID := modeltesting.GenModelUUID(c)
+	err = modelState.Create(context.Background(), deadModelID, coremodel.IAAS,
+		model.ModelCreationArgs{
+			Name:          "dead",
+			Owner:         m.userUUID,
+			Cloud:         "my-cloud",
+			SecretBackend: juju.BackendName,
+		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(modelsWithLogin, jc.DeepEquals, []coremodel.ModelWithLogin{{
+	err = modelState.Activate(context.Background(), deadModelID)
+	c.Assert(err, jc.ErrorIsNil)
+	m.setLife(c, deadModelID, domainlife.Dead)
+	err = userState.UpdateLastModelLogin(context.Background(), m.userName, deadModelID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := []coremodel.ModelWithLogin{{
 		Model: coremodel.Model{
 			Name:         "my-test-model",
 			Life:         corelife.Alive,
@@ -1264,11 +1277,27 @@ func (m *stateSuite) TestListModelsWithLastLogin(c *gc.C) {
 			Owner:     m.userUUID,
 			OwnerName: m.userName,
 		},
-		UserID:    m.userUUID,
+		//UserID:    m.userUUID,
 		LastLogin: nil,
-	}})
+	}}
 
-	// TODO: update model login and try again?
+	// Get models with last login
+	modelsWithLogin, err := modelState.ListModelsWithLastLogin(context.Background(),
+		m.userUUID, []corelife.Value{corelife.Alive, corelife.Dying})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelsWithLogin, jc.DeepEquals, expected)
+
+	// Update model login and check this is reflected in model list
+	err = userState.UpdateLastModelLogin(context.Background(), m.userName, m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	updatedLogin, err := userState.LastModelLogin(context.Background(), m.userName, m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	expected[0].LastLogin = &updatedLogin
+
+	modelsWithLogin, err = modelState.ListModelsWithLastLogin(context.Background(),
+		m.userUUID, []corelife.Value{corelife.Alive, corelife.Dying})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelsWithLogin, jc.DeepEquals, expected)
 }
 
 // TestSecretBackendNotFoundForModelCreate is testing that if we specify a

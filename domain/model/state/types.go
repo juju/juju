@@ -1,11 +1,14 @@
 package state
 
 import (
+	"time"
+
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 )
 
-// stateModel represents a model pulled from the controller database model table.
+// stateModel represents a model pulled from the controller database model
+// table.
 type stateModel struct {
 	Name            string `db:"name"`
 	Life            string `db:"life"`
@@ -24,11 +27,16 @@ type stateModel struct {
 	OwnerName       string `db:"owner_name"`
 }
 
+// lifeList represents a list of life values, to be used to filter returned
+// models.
 type lifeList []corelife.Value
 
+// modelIDList represents a list of model IDs, to be used to filter returned
+// models.
 type modelIDList []coremodel.UUID
 
+// userModelLastLogin represents a row from the model_last_login table.
 type userModelLastLogin struct {
-	UserID    string `db:"user_uuid"`
-	LastLogin string `db:"time"`
+	UserID    string     `db:"user_uuid"`
+	LastLogin *time.Time `db:"time"`
 }

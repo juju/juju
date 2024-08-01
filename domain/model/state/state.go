@@ -796,19 +796,7 @@ func (s *State) ListAllModels(ctx context.Context) ([]coremodel.Model, error) {
 	}
 
 	query := `
-SELECT (uuid,
-       name,
-       cloud_name,
-       cloud_type,
-       cloud_region_name,
-	   model_type,
-	   owner_uuid,
-	   owner_name,
-	   cloud_credential_name,
-	   cloud_credential_owner_name,
-	   cloud_credential_cloud_name,
-	   life,
-       target_agent_version) AS (&stateModel.*)
+SELECT &stateModel.*
 FROM v_model
 `
 
@@ -849,21 +837,7 @@ func (s *State) ListHostedModels(
 	}
 
 	query := `
-SELECT (uuid,
-       name,
-       cloud_uuid,
-       cloud_name,
-       cloud_type,
-       cloud_region_name,
-	   model_type,
-	   owner_uuid,
-	   owner_name,
-	   cloud_credential_name,
-       cloud_credential_uuid,
-	   cloud_credential_owner_name,
-	   cloud_credential_cloud_name,
-	   life,
-       target_agent_version) AS (&stateModel.*)
+SELECT &stateModel.*
 FROM v_model
 WHERE life IN ($lifeList[:])
 AND uuid NOT IN ($modelIDList[:])
@@ -923,50 +897,44 @@ AND uuid NOT IN ($modelIDList[:])
 	return hostedModels, nil
 }
 
-// ListModelsWithLastLogin lists all models along with the last login by the specified user.
-func (s *State) ListModelsWithLastLogin(ctx context.Context, userID user.UUID) ([]coremodel.ModelWithLogin, error) {
+// ListModelsWithLastLogin lists all models along with the last login by the
+// specified user.  This function will filter on models that have a "life"
+// value in the includeLifes slice. If no matching models exist, then an empty
+// slice is returned.
+func (s *State) ListModelsWithLastLogin(
+	ctx context.Context,
+	userID user.UUID,
+	includeLifes []corelife.Value,
+) ([]coremodel.ModelWithLogin, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	query := `
-SELECT (uuid,
-       name,
-       cloud_uuid,
-       cloud_name,
-       cloud_type,
-       cloud_region_name,
-	   model_type,
-	   owner_uuid,
-	   owner_name,
-	   cloud_credential_name,
-       cloud_credential_uuid,
-	   cloud_credential_owner_name,
-	   cloud_credential_cloud_name,
-	   life,
-       target_agent_version) AS (&stateModel.*),
-       (mll.time,
-       mll.user_uuid) AS (&userModelLastLogin.*)
+SELECT &stateModel.*, &userModelLastLogin.*
 FROM v_model
-LEFT JOIN model_last_login AS mll ON v_model.uuid = mll.model_uuid
-WHERE mll.user_uuid = $M.user_uuid
+LEFT JOIN model_last_login AS mll
+    ON v_model.uuid = mll.model_uuid
+    AND mll.user_uuid = $M.user_uuid
+WHERE life IN ($lifeList[:])
 `
 
+	inputLifes := lifeList(includeLifes)
 	args := sqlair.M{
 		"user_uuid": userID,
 	}
 
-	stmt, err := sqlair.Prepare(query, stateModel{}, userModelLastLogin{}, args)
+	stmt, err := sqlair.Prepare(query, stateModel{}, userModelLastLogin{}, inputLifes, args)
 	if err != nil {
-		return nil, fmt.Errorf("preparing list models with login statement: %w", err)
+		return nil, fmt.Errorf("preparing select models statement: %w", err)
 	}
 
 	resultsForModel := []stateModel{}
 	lastLogins := []userModelLastLogin{}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, args).GetAll(&resultsForModel, &lastLogins)
+		err := tx.Query(ctx, stmt, inputLifes, args).GetAll(&resultsForModel, &lastLogins)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("getting models from database: %w", err)
 		}
@@ -976,61 +944,19 @@ WHERE mll.user_uuid = $M.user_uuid
 		return nil, fmt.Errorf("getting all models: %w", err)
 	}
 
-	return nil, nil
-}
-
-// ListAllModelsWithLife returns all models registered in the controller
-// that have a "life" value in the given slice. If no such models exist, a
-// zero value slice will be returned.
-//
-//	TODO: delete
-func (s *State) ListAllModelsWithLife(ctx context.Context, lifes []corelife.Value) ([]coremodel.Model, error) {
-	db, err := s.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	query := `
-SELECT (uuid,
-       name,
-       cloud_name,
-       cloud_type,
-       cloud_region_name,
-	   model_type,
-	   owner_uuid,
-	   owner_name,
-	   cloud_credential_name,
-	   cloud_credential_owner_name,
-	   cloud_credential_cloud_name,
-	   life,
-       target_agent_version) AS (&stateModel.*)
-FROM v_model
-WHERE life IN ($S[:])
-`
-
-	resultsForModel := []stateModel{}
-	args := make(sqlair.S, 0, len(lifes))
-	for _, life := range lifes {
-		args = append(args, life)
-	}
-
-	stmt, err := sqlair.Prepare(query, stateModel{}, args)
-	if err != nil {
-		return nil, fmt.Errorf("preparing get model statement: %w", err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, args).GetAll(&resultsForModel)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("getting models from database: %w", err)
+	rval := make([]coremodel.ModelWithLogin, 0, len(resultsForModel))
+	for i, dbModel := range resultsForModel {
+		model, err := transformModelDBResult(dbModel)
+		if err != nil {
+			return nil, fmt.Errorf("transforming model %q from state: %w", dbModel.ID, err)
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("getting all models: %w", err)
+		rval = append(rval, coremodel.ModelWithLogin{
+			Model:     model[0],
+			UserID:    user.UUID(lastLogins[i].UserID),
+			LastLogin: lastLogins[i].LastLogin,
+		})
 	}
-
-	return transformModelDBResult(resultsForModel...)
+	return rval, nil
 }
 
 func transformModelDBResult(models ...stateModel) ([]coremodel.Model, error) {
