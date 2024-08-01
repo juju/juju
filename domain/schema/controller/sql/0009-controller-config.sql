@@ -4,7 +4,8 @@ CREATE TABLE controller_config (
 );
 
 CREATE TABLE controller (
-    uuid TEXT NOT NULL PRIMARY KEY
+    uuid TEXT NOT NULL PRIMARY KEY,
+    model_uuid TEXT NOT NULL
 );
 
 -- A unique constraint over a constant index ensures only 1 entry matching the 

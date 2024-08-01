@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/canonical/sqlair"
@@ -43,7 +42,7 @@ func SetModelConfig(
 		}
 
 		var m coremodel.Model
-		err = controller.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		err = controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			var err error
 			m, err = modelstate.GetModel(ctx, tx, modelID)
 			return err

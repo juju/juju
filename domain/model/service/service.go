@@ -65,6 +65,9 @@ type State interface {
 	// GetModelType returns the model type for a model with the provided uuid.
 	GetModelType(context.Context, coremodel.UUID) (coremodel.ModelType, error)
 
+	// GetControllerModel returns the model the controller is running in.
+	GetControllerModel(ctx context.Context) (coremodel.Model, error)
+
 	// Delete removes a model and all of it's associated data from Juju.
 	Delete(context.Context, coremodel.UUID) error
 
@@ -349,7 +352,7 @@ func (s *Service) ImportModel(
 // Should no model exist for the controller an error of [modelerrors.NotFound]
 // will be returned.
 func (s *Service) ControllerModel(ctx context.Context) (coremodel.Model, error) {
-	return s.st.GetModelByName(ctx, coremodel.ControllerModelOwnerUsername, coremodel.ControllerModelName)
+	return s.st.GetControllerModel(ctx)
 }
 
 // Model returns the model associated with the provided uuid.

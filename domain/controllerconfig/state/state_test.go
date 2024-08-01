@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/controllerconfig/bootstrap"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
@@ -29,7 +30,8 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 		controller.ControllerUUIDKey: jujutesting.ControllerTag.Id(),
 		controller.CACertKey:         jujutesting.CACert,
 	}
-	err := bootstrap.InsertInitialControllerConfig(cfg)(ctx.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	controllerModelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
+	err := bootstrap.InsertInitialControllerConfig(cfg, controllerModelUUID)(ctx.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

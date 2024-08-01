@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
@@ -190,7 +191,7 @@ func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (coremodel.Mo
 	}
 
 	var model coremodel.Model
-	return model, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	return model, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		model, err = GetModel(ctx, tx, uuid)
 		return err
@@ -324,6 +325,43 @@ func (s *State) GetModelType(ctx context.Context, uuid coremodel.UUID) (coremode
 	return modelType, nil
 }
 
+// GetControllerModel returns the model the controller is running in.
+func (s *State) GetControllerModel(ctx context.Context) (coremodel.Model, error) {
+	db, err := s.DB()
+	if err != nil {
+		return coremodel.Model{}, errors.Trace(err)
+	}
+
+	controllerModelUUID := dbModelUUID{}
+	stmt, err := s.Prepare(`
+SELECT &dbModelUUID.model_uuid 
+FROM   controller
+`, controllerModelUUID)
+	if err != nil {
+		return coremodel.Model{}, errors.Annotate(err, "preparing get controller model UUID statement")
+	}
+
+	var model coremodel.Model
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&controllerModelUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// If there is no controller model, something has gone terribly
+			// wrong. There is no point making this a modelerrors.NotFound type
+			// as that implies the error is catchable and something can be done
+			// about it, this is not the case.
+			return fmt.Errorf("controller model not found")
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		model, err = GetModel(ctx, tx, coremodel.UUID(controllerModelUUID.ModelUUID))
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return coremodel.Model{}, errors.Annotatef(err, "getting controller model")
+	}
+	return model, nil
+}
+
 // GetModelType returns the model type for the provided model uuid. If the model
 // does not exist then an error satisfying [modelerrors.NotFound] will be
 // returned.
@@ -354,12 +392,12 @@ WHERE uuid = ?
 // will be returned.
 func GetModel(
 	ctx context.Context,
-	tx *sql.Tx,
+	tx *sqlair.TX,
 	uuid coremodel.UUID,
 ) (coremodel.Model, error) {
-	modelStmt := `
-SELECT name,
-       ma.target_version           AS agent_version,
+	q := `
+SELECT (name,
+       ma.target_version,
        cloud_name,
        cloud_type,
        cloud_region_name,
@@ -369,62 +407,29 @@ SELECT name,
        cloud_credential_cloud_name,
        cloud_credential_owner_name,
        cloud_credential_name,
-       life
+       life) AS (&dbModel.*)
 FROM v_model
 INNER JOIN model_agent ma ON v_model.uuid = ma.model_uuid
-WHERE uuid = ?
+WHERE uuid = $dbModel.uuid
 `
+	model := dbModel{UUID: uuid.String()}
+	stmt, err := sqlair.Prepare(q, model)
+	if err != nil {
+		return coremodel.Model{}, errors.Annotate(err, "preparing select model statement")
+	}
 
-	row := tx.QueryRowContext(ctx, modelStmt, uuid)
-
-	var (
-		// cloudRegion could be null
-		agentVersion string
-		cloudRegion  sql.NullString
-		modelType    string
-		userUUID     string
-		credName     sql.NullString
-		credOwner    sql.NullString
-		credCloud    sql.NullString
-		model        coremodel.Model
-	)
-	err := row.Scan(
-		&model.Name,
-		&agentVersion,
-		&model.Cloud,
-		&model.CloudType,
-		&cloudRegion,
-		&modelType,
-		&userUUID,
-		&model.OwnerName,
-		&credCloud,
-		&credOwner,
-		&credName,
-		&model.Life,
-	)
-
-	if errors.Is(err, sql.ErrNoRows) {
+	err = tx.Query(ctx, stmt, model).Get(&model)
+	if errors.Is(err, sqlair.ErrNoRows) {
 		return coremodel.Model{}, fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
 	} else if err != nil {
 		return coremodel.Model{}, fmt.Errorf("getting model %q: %w", uuid, err)
 	}
 
-	model.AgentVersion, err = version.Parse(agentVersion)
+	coreModel, err := model.toCoreModel()
 	if err != nil {
-		return coremodel.Model{}, fmt.Errorf("parsing model %q agent version %q: %w", uuid, agentVersion, err)
+		return coremodel.Model{}, errors.Trace(err)
 	}
-
-	model.CloudRegion = cloudRegion.String
-	model.ModelType = coremodel.ModelType(modelType)
-	model.Owner = user.UUID(userUUID)
-	model.Credential = credential.Key{
-		Name:  credName.String,
-		Cloud: credCloud.String,
-		Owner: credOwner.String,
-	}
-	model.UUID = uuid
-
-	return model, nil
+	return coreModel, nil
 }
 
 // createModelAgent is responsible for creating a new model's agent record for

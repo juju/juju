@@ -94,6 +94,7 @@ func (s *ServiceFactorySuite) DefaultModelServiceFactory(c *gc.C) servicefactory
 func (s *ServiceFactorySuite) SeedControllerConfig(c *gc.C) {
 	fn := controllerconfigbootstrap.InsertInitialControllerConfig(
 		s.ControllerConfig,
+		s.ControllerModelUUID,
 	)
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
