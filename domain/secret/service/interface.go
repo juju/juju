@@ -108,24 +108,6 @@ type State interface {
 	) ([]domainsecret.ExpiryInfo, error)
 }
 
-// type secretBackendReferenceMutator struct {
-// 	modelID coremodel.UUID
-// 	SecretBackendState
-// }
-
-// // NewSecretBackendReferenceMutator returns a new secret backend reference mutator.
-// func NewSecretBackendReferenceMutator(modelID coremodel.UUID, state SecretBackendState) domainsecret.SecretBackendReferenceMutator {
-// 	return &secretBackendReferenceMutator{
-// 		modelID:            modelID,
-// 		SecretBackendState: state,
-// 	}
-// }
-
-// // AddSecretBackendReference adds a reference to the secret backend for the given secret revision.
-// func (m *secretBackendReferenceMutator) AddSecretBackendReference(ctx context.Context, backendID *string, revisionID string) error {
-// 	return m.SecretBackendState.AddSecretBackendReference(ctx, backendID, m.modelID, revisionID)
-// }
-
 // SecretBackendReferenceMutator describes methods for interacting with the secret backend state.
 type SecretBackendReferenceMutator interface {
 	// AddSecretBackendReference adds a reference to the secret backend for the given secret revision.
