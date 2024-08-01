@@ -218,6 +218,8 @@ func (s *ModelFactory) Secret(adminConfigGetter secretservice.BackendAdminConfig
 	logger := s.logger.Child("secret")
 	return secretservice.NewWatchableService(
 		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), logger.Child("state")),
+		secretbackendstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), logger.Child("secretbackendstate")),
+		s.modelUUID,
 		logger.Child("service"),
 		domain.NewWatcherFactory(s.modelDB, logger.Child("watcherfactory")),
 		adminConfigGetter,

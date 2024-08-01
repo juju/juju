@@ -27,7 +27,7 @@ func (s *serviceSuite) TestCanManageOwnerUnit(c *gc.C) {
 
 	token := NewMockToken(ctrl)
 
-	err := s.service(c).canManage(context.Background(), uri, SecretAccessor{
+	err := s.service.canManage(context.Background(), uri, SecretAccessor{
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
 	}, token)
@@ -52,7 +52,7 @@ func (s *serviceSuite) TestCanManageLeaderUnitAppSecret(c *gc.C) {
 	token := NewMockToken(ctrl)
 	token.EXPECT().Check().Return(nil)
 
-	err := s.service(c).canManage(context.Background(), uri, SecretAccessor{
+	err := s.service.canManage(context.Background(), uri, SecretAccessor{
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
 	}, token)
@@ -72,7 +72,7 @@ func (s *serviceSuite) TestCanManageUserSecrets(c *gc.C) {
 
 	token := NewMockToken(ctrl)
 
-	err := s.service(c).canManage(context.Background(), uri, SecretAccessor{
+	err := s.service.canManage(context.Background(), uri, SecretAccessor{
 		Kind: ModelAccessor,
 		ID:   "model-uuid",
 	}, token)
@@ -94,7 +94,7 @@ func (s *serviceSuite) TestCanReadAppSecret(c *gc.C) {
 		SubjectID:     "mariadb",
 	}).Return("view", nil)
 
-	err := s.service(c).canRead(context.Background(), uri, SecretAccessor{
+	err := s.service.canRead(context.Background(), uri, SecretAccessor{
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
 	})

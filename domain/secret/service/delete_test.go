@@ -26,9 +26,10 @@ func (s *serviceSuite) TestDeleteSecretInternal(c *gc.C) {
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
 	s.state.EXPECT().ListExternalSecretRevisions(gomock.Any(), uri, 666).Return([]coresecrets.ValueRef{}, nil)
-	s.state.EXPECT().DeleteSecret(gomock.Any(), uri, []int{666}).Return(nil)
+	s.state.EXPECT().DeleteSecret(gomock.Any(), uri, []int{666}).Return([]string{"rev-uuid-1", "rev-uuid-2"}, nil)
+	s.secretBackendReferenceMutator.EXPECT().RemoveSecretBackendReference(gomock.Any(), "rev-uuid-1", "rev-uuid-2").Return(nil)
 
-	err := s.service(c).DeleteSecret(context.Background(), uri, DeleteSecretParams{
+	err := s.service.DeleteSecret(context.Background(), uri, DeleteSecretParams{
 		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
@@ -79,7 +80,9 @@ func (s *serviceSuite) TestDeleteObsoleteUserSecretRevisions(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.state.EXPECT().DeleteObsoleteUserSecretRevisions(gomock.Any()).Return(nil)
-	err := s.service(c).DeleteObsoleteUserSecretRevisions(context.Background())
+	s.state.EXPECT().DeleteObsoleteUserSecretRevisions(gomock.Any()).Return([]string{"rev-uuid-1", "rev-uuid-2"}, nil)
+	s.secretBackendReferenceMutator.EXPECT().RemoveSecretBackendReference(gomock.Any(), "rev-uuid-1", "rev-uuid-2").Return(nil)
+
+	err := s.service.DeleteObsoleteUserSecretRevisions(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }

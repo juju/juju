@@ -120,3 +120,19 @@ type RemoteSecretInfo struct {
 	CurrentRevision int
 	LatestRevision  int
 }
+
+// // SecretBackendReferenceMutator describes methods for adding and removing secret backend references.
+// type SecretBackendReferenceMutator interface {
+// 	// AddSecretBackendReference adds a reference to the secret backend for the given secret revision.
+// 	AddSecretBackendReference(ctx context.Context, backendID *string, revisionID string) error
+// 	// RemoveSecretBackendReference removes the reference to the secret backend for the given secret revision.
+// 	RemoveSecretBackendReference(ctx context.Context, revisionIDs ...string) error
+// }
+
+// // SecretBackendReferenceMutator describes methods for interacting with the secret backend state.
+// type SecretBackendReferenceMutator interface {
+// 	// AddSecretBackendReference adds a reference to the secret backend for the given secret revision.
+// 	AddSecretBackendReference(ctx context.Context, backendID *string, modelID coremodel.UUID, revisionID string) error
+// 	// RemoveSecretBackendReference removes the reference to the secret backend for the given secret revision.
+// 	RemoveSecretBackendReference(ctx context.Context, revisionIDs ...string) error
+// }

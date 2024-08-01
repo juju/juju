@@ -12,12 +12,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/eventsource"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -25,118 +23,19 @@ import (
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 )
 
-// State describes retrieval and persistence methods needed for
-// the secrets domain service.
-type State interface {
-	GetModelUUID(ctx context.Context) (string, error)
-	CreateUserSecret(ctx context.Context, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
-	CreateCharmApplicationSecret(ctx context.Context, version int, uri *secrets.URI, appName string, secret domainsecret.UpsertSecretParams) error
-	CreateCharmUnitSecret(ctx context.Context, version int, uri *secrets.URI, unitName string, secret domainsecret.UpsertSecretParams) error
-	UpdateSecret(ctx context.Context, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
-	DeleteSecret(ctx context.Context, uri *secrets.URI, revs []int) error
-	DeleteObsoleteUserSecretRevisions(ctx context.Context) error
-	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
-	GetLatestRevision(ctx context.Context, uri *secrets.URI) (int, error)
-	ListExternalSecretRevisions(ctx context.Context, uri *secrets.URI, revisions ...int) ([]secrets.ValueRef, error)
-	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
-	ListSecrets(ctx context.Context, uri *secrets.URI,
-		revision *int, labels domainsecret.Labels,
-	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
-	ListCharmSecrets(ctx context.Context,
-		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
-	GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
-	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
-	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
-	GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*secrets.URI, error)
-	GetSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
-	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
-	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error
-	GrantAccess(ctx context.Context, uri *secrets.URI, params domainsecret.GrantParams) error
-	RevokeAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) error
-	GetSecretAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
-	GetSecretAccessScope(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (*domainsecret.AccessScope, error)
-	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]domainsecret.GrantParams, error)
-	ListGrantedSecretsForBackend(
-		ctx context.Context, backendID string, accessors []domainsecret.AccessParams, role secrets.SecretRole,
-	) ([]*secrets.SecretRevisionRef, error)
-	ListCharmSecretsToDrain(
-		ctx context.Context,
-		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-	) ([]*secrets.SecretMetadataForDrain, error)
-	ListUserSecretsToDrain(ctx context.Context) ([]*secrets.SecretMetadataForDrain, error)
-	SecretRotated(ctx context.Context, uri *secrets.URI, next time.Time) error
-	GetRotatePolicy(ctx context.Context, uri *secrets.URI) (secrets.RotatePolicy, error)
-	GetRotationExpiryInfo(ctx context.Context, uri *secrets.URI) (*domainsecret.RotationExpiryInfo, error)
-	ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, valueRef *secrets.ValueRef, data secrets.SecretData) error
-
-	// For watching obsolete secret revision changes.
-	InitialWatchStatementForObsoleteRevision(
-		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-	) (tableName string, statement eventsource.NamespaceQuery)
-	GetRevisionIDsForObsolete(
-		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
-	) ([]string, error)
-
-	// For watching obsolete user secret revisions to prune.
-	GetObsoleteUserSecretRevisionsReadyToPrune(ctx context.Context) ([]string, error)
-
-	// For watching consumed local secret changes.
-	InitialWatchStatementForConsumedSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
-	GetConsumedSecretURIsWithChanges(ctx context.Context, unitName string, revisionIDs ...string) ([]string, error)
-
-	// For watching consumed remote secret changes.
-	InitialWatchStatementForConsumedRemoteSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
-	GetConsumedRemoteSecretURIsWithChanges(ctx context.Context, unitName string, secretIDs ...string) (secretURIs []string, err error)
-
-	// For watching local secret changes that consumed by remote consumers.
-	InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName string) (string, eventsource.NamespaceQuery)
-	GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx context.Context, appName string, secretIDs ...string) ([]string, error)
-
-	// For watching secret rotation changes.
-	InitialWatchStatementForSecretsRotationChanges(
-		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-	) (string, eventsource.NamespaceQuery)
-	GetSecretsRotationChanges(
-		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, secretIDs ...string,
-	) ([]domainsecret.RotationInfo, error)
-
-	// For watching secret revision expiry changes.
-	InitialWatchStatementForSecretsRevisionExpiryChanges(
-		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-	) (string, eventsource.NamespaceQuery)
-	GetSecretsRevisionExpiryChanges(
-		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
-	) ([]domainsecret.ExpiryInfo, error)
-
-	// Methods for loading secrets to be exported.
-	AllSecretGrants(ctx context.Context) (map[string][]domainsecret.GrantParams, error)
-	AllSecretConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error)
-	AllSecretRemoteConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error)
-	AllRemoteSecrets(ctx context.Context) ([]domainsecret.RemoteSecretInfo, error)
-}
-
-// WatcherFactory describes methods for creating watchers.
-type WatcherFactory interface {
-	// NewNamespaceWatcher returns a new namespace watcher
-	// for events based on the input change mask.
-	NewNamespaceWatcher(string, changestream.ChangeType, eventsource.NamespaceQuery) (watcher.StringsWatcher, error)
-
-	// NewNamespaceNotifyMapperWatcher returns a new namespace notify watcher
-	// for events based on the input change mask and mapper.
-	NewNamespaceNotifyMapperWatcher(
-		namespace string, changeMask changestream.ChangeType, mapper eventsource.Mapper,
-	) (watcher.NotifyWatcher, error)
-}
-
 // NewSecretService returns a new secret service wrapping the specified state.
-func NewSecretService(st State, logger logger.Logger, adminConfigGetter BackendAdminConfigGetter) *SecretService {
+func NewSecretService(
+	secretState State, secretBackendReferenceMutator SecretBackendReferenceMutator, modelID coremodel.UUID,
+	logger logger.Logger, adminConfigGetter BackendAdminConfigGetter,
+) *SecretService {
 	return &SecretService{
-		st:                st,
-		logger:            logger,
-		clock:             clock.WallClock,
-		providerGetter:    provider.Provider,
-		adminConfigGetter: adminConfigGetter,
+		modelID:                       modelID,
+		secretState:                   secretState,
+		secretBackendReferenceMutator: secretBackendReferenceMutator,
+		logger:                        logger,
+		clock:                         clock.WallClock,
+		providerGetter:                provider.Provider,
+		adminConfigGetter:             adminConfigGetter,
 	}
 }
 
@@ -151,13 +50,15 @@ var NotImplementedBackendConfigGetter = func(context.Context) (*provider.ModelBa
 
 // SecretService provides the API for working with secrets.
 type SecretService struct {
-	st                State
-	logger            logger.Logger
-	clock             clock.Clock
-	providerGetter    func(backendType string) (provider.SecretBackendProvider, error)
-	adminConfigGetter BackendAdminConfigGetter
+	secretState                   State
+	secretBackendReferenceMutator SecretBackendReferenceMutator
+	logger                        logger.Logger
+	clock                         clock.Clock
+	providerGetter                func(backendType string) (provider.SecretBackendProvider, error)
+	adminConfigGetter             BackendAdminConfigGetter
 
 	activeBackendID string
+	modelID         coremodel.UUID
 	backends        map[string]provider.SecretsBackend
 }
 
@@ -167,7 +68,7 @@ func (s *SecretService) CreateSecretURIs(ctx context.Context, count int) ([]*sec
 		return nil, errors.NotValidf("secret URi count %d", count)
 	}
 
-	modelUUID, err := s.st.GetModelUUID(ctx)
+	modelUUID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model uuid")
 	}
@@ -266,8 +167,18 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}
 	}
 
-	err = s.st.CreateUserSecret(ctx, params.Version, uri, p)
-	return errors.Annotatef(err, "creating user secret %q", uri.ID)
+	revisionID, err := s.secretState.CreateUserSecret(ctx, params.Version, uri, p)
+	if err != nil {
+		return errors.Annotatef(err, "cannot create user secret %q", uri.ID)
+	}
+	var backendID *string
+	if p.ValueRef != nil {
+		backendID = &p.ValueRef.BackendID
+	}
+	if err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, backendID, s.modelID, revisionID); err != nil {
+		return errors.Annotatef(err, "cannot add secret backend reference for revision %q", revisionID)
+	}
+	return nil
 }
 
 // CreateCharmSecret creates a charm secret with the specified parameters, returning an error
@@ -297,7 +208,10 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 		p.NextRotateTime = params.RotatePolicy.NextRotateTime(s.clock.Now())
 	}
 	p.ExpireTime = params.ExpireTime
-	var err error
+	var (
+		revisionID string
+		err        error
+	)
 	if params.CharmOwner.Kind == ApplicationOwner {
 		// Only unit leaders can create application secrets.
 		if params.LeaderToken == nil {
@@ -309,14 +223,24 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 			}
 			return errors.Trace(err)
 		}
-		err = s.st.CreateCharmApplicationSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
+		revisionID, err = s.secretState.CreateCharmApplicationSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
 	} else {
-		err = s.st.CreateCharmUnitSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
+		revisionID, err = s.secretState.CreateCharmUnitSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
 	}
 	if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
 		return errors.Errorf("secret with label %q is already being used", *params.Label)
 	}
-	return errors.Annotatef(err, "creating charm secret %q", uri.ID)
+	if err != nil {
+		return errors.Annotatef(err, "cannot create charm secret %q", uri.ID)
+	}
+	var backendID *string
+	if p.ValueRef != nil {
+		backendID = &p.ValueRef.BackendID
+	}
+	if err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, backendID, s.modelID, revisionID); err != nil {
+		return errors.Annotatef(err, "cannot add secret backend reference for revision %q", revisionID)
+	}
+	return nil
 }
 
 // UpdateUserSecret updates a user secret with the specified parameters, returning an error
@@ -378,8 +302,23 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}
 	}
 
-	err := s.st.UpdateSecret(ctx, uri, p)
-	return errors.Annotatef(err, "updating user secret %q", uri.ID)
+	revisonIDCreated, err := s.secretState.UpdateSecret(ctx, uri, p)
+	if err != nil {
+		return errors.Annotatef(err, "cannot update user secret %q", uri.ID)
+	}
+	if revisonIDCreated == "" {
+		// No new revision was created.
+		return nil
+	}
+	// Add the secret backend reference for the new revision.
+	var backendID *string
+	if p.ValueRef != nil {
+		backendID = &p.ValueRef.BackendID
+	}
+	if err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, backendID, s.modelID, revisonIDCreated); err != nil {
+		return errors.Annotatef(err, "cannot add secret backend reference for revision %q", revisonIDCreated)
+	}
+	return nil
 }
 
 // UpdateCharmSecret updates a charm secret with the specified parameters, returning an error
@@ -406,7 +345,7 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 	rotatePolicy := domainsecret.MarshallRotatePolicy(params.RotatePolicy)
 	p.RotatePolicy = &rotatePolicy
 	if params.RotatePolicy.WillRotate() {
-		policy, err := s.st.GetRotatePolicy(ctx, uri)
+		policy, err := s.secretState.GetRotatePolicy(ctx, uri)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -420,11 +359,26 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 			p.Data[k] = v
 		}
 	}
-	err := s.st.UpdateSecret(ctx, uri, p)
+	revisonIDCreated, err := s.secretState.UpdateSecret(ctx, uri, p)
 	if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
 		return errors.Errorf("secret with label %q is already being used", *params.Label)
 	}
-	return errors.Annotatef(err, "updating charm secret %q", uri.ID)
+	if err != nil {
+		return errors.Annotatef(err, "cannot update charm secret %q", uri.ID)
+	}
+	if revisonIDCreated == "" {
+		// No new revision was created.
+		return nil
+	}
+	// Add the secret backend reference for the new revision.
+	var backendID *string
+	if p.ValueRef != nil {
+		backendID = &p.ValueRef.BackendID
+	}
+	if err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, backendID, s.modelID, revisonIDCreated); err != nil {
+		return errors.Annotatef(err, "cannot add secret backend reference for revision %q", revisonIDCreated)
+	}
+	return nil
 }
 
 // ListSecrets returns the secrets matching the specified terms.
@@ -434,7 +388,7 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 	revision *int,
 	labels domainsecret.Labels,
 ) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
-	return s.st.ListSecrets(ctx, uri, revision, labels)
+	return s.secretState.ListSecrets(ctx, uri, revision, labels)
 }
 
 func splitCharmSecretOwners(owners ...CharmSecretOwner) (domainsecret.ApplicationOwners, domainsecret.UnitOwners) {
@@ -457,19 +411,19 @@ func splitCharmSecretOwners(owners ...CharmSecretOwner) (domainsecret.Applicatio
 // The count of secret and revisions in the result must match.
 func (s *SecretService) ListCharmSecrets(ctx context.Context, owners ...CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
-	return s.st.ListCharmSecrets(ctx, appOwners, unitOwners)
+	return s.secretState.ListCharmSecrets(ctx, appOwners, unitOwners)
 }
 
 // GetSecret returns the secret with the specified URI.
 // If returns [secreterrors.SecretNotFound] is there's no such secret.
 func (s *SecretService) GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error) {
-	return s.st.GetSecret(ctx, uri)
+	return s.secretState.GetSecret(ctx, uri)
 }
 
 // GetUserSecretURIByLabel returns the user secret URI with the specified label.
 // If returns [secreterrors.SecretNotFound] is there's no such secret.
 func (s *SecretService) GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error) {
-	return s.st.GetUserSecretURIByLabel(ctx, label)
+	return s.secretState.GetUserSecretURIByLabel(ctx, label)
 }
 
 // ListCharmSecretsToDrain returns secret drain revision info for
@@ -479,12 +433,12 @@ func (s *SecretService) ListCharmSecretsToDrain(
 	owners ...CharmSecretOwner,
 ) ([]*secrets.SecretMetadataForDrain, error) {
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
-	return s.st.ListCharmSecretsToDrain(ctx, appOwners, unitOwners)
+	return s.secretState.ListCharmSecretsToDrain(ctx, appOwners, unitOwners)
 }
 
 // ListUserSecretsToDrain returns secret drain revision info for any user secrets.
 func (s *SecretService) ListUserSecretsToDrain(ctx context.Context) ([]*secrets.SecretMetadataForDrain, error) {
-	return s.st.ListUserSecretsToDrain(ctx)
+	return s.secretState.ListUserSecretsToDrain(ctx)
 }
 
 // GetSecretValue returns the value of the specified secret revision.
@@ -493,7 +447,7 @@ func (s *SecretService) GetSecretValue(ctx context.Context, uri *secrets.URI, re
 	if err := s.canRead(ctx, uri, accessor); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	data, ref, err := s.st.GetSecretValue(ctx, uri, rev)
+	data, ref, err := s.secretState.GetSecretValue(ctx, uri, rev)
 	return secrets.NewSecretValue(data), ref, errors.Trace(err)
 }
 
@@ -509,7 +463,7 @@ func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *se
 	}
 	lastBackendID := ""
 	for {
-		data, ref, err := s.st.GetSecretValue(ctx, uri, rev)
+		data, ref, err := s.secretState.GetSecretValue(ctx, uri, rev)
 		val := secrets.NewSecretValue(data)
 		if err != nil {
 			notFound := errors.Is(err, secreterrors.SecretNotFound) || errors.Is(err, secreterrors.SecretRevisionNotFound)
@@ -556,7 +510,7 @@ func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *se
 func (s *SecretService) ProcessCharmSecretConsumerLabel(
 	ctx context.Context, unitName string, uri *secrets.URI, label string, token leadership.Token,
 ) (_ *secrets.URI, _ *string, err error) {
-	modelUUID, err := s.st.GetModelUUID(ctx)
+	modelUUID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting model uuid")
 	}
@@ -683,7 +637,21 @@ func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.UR
 	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
 		return errors.Trace(err)
 	}
-	return s.st.ChangeSecretBackend(ctx, uri, revision, params.ValueRef, params.Data)
+	revisionID, err := s.secretState.ChangeSecretBackend(ctx, uri, revision, params.ValueRef, params.Data)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := s.secretBackendReferenceMutator.RemoveSecretBackendReference(ctx, revisionID); err != nil {
+		return errors.Trace(err)
+	}
+	var backendID *string
+	if params.ValueRef != nil {
+		backendID = &params.ValueRef.BackendID
+	}
+	if err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, backendID, s.modelID, revisionID); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // SecretRotated rotates the secret with the specified URI.
@@ -692,7 +660,7 @@ func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, par
 		return errors.Trace(err)
 	}
 
-	info, err := s.st.GetRotationExpiryInfo(ctx, uri)
+	info, err := s.secretState.GetRotationExpiryInfo(ctx, uri)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -718,5 +686,5 @@ func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, par
 		nextRotateTime = forcedRotateTime
 	}
 	s.logger.Debugf("secret %q next rotate time is now: %s", uri.ID, nextRotateTime.UTC().Format(time.RFC3339))
-	return s.st.SecretRotated(ctx, uri, nextRotateTime)
+	return s.secretState.SecretRotated(ctx, uri, nextRotateTime)
 }

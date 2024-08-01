@@ -20,7 +20,7 @@ import (
 // GetSecretGrants returns the subjects which have the specified access to the secret.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 func (s *SecretService) GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]SecretAccess, error) {
-	accessors, err := s.st.GetSecretGrants(ctx, uri, role)
+	accessors, err := s.secretState.GetSecretGrants(ctx, uri, role)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -76,7 +76,7 @@ func (s *SecretService) GetSecretAccessScope(ctx context.Context, uri *secrets.U
 	case ModelAccessor:
 		ap.SubjectTypeID = domainsecret.SubjectModel
 	}
-	accessScope, err := s.st.GetSecretAccessScope(ctx, uri, ap)
+	accessScope, err := s.secretState.GetSecretAccessScope(ctx, uri, ap)
 	if err != nil {
 		return SecretAccessScope{}, errors.Trace(err)
 	}
@@ -112,7 +112,7 @@ func (s *SecretService) getSecretAccess(ctx context.Context, uri *secrets.URI, a
 	case ModelAccessor:
 		ap.SubjectTypeID = domainsecret.SubjectModel
 	}
-	role, err := s.st.GetSecretAccess(ctx, uri, ap)
+	role, err := s.secretState.GetSecretAccess(ctx, uri, ap)
 	if err != nil {
 		return secrets.RoleNone, errors.Trace(err)
 	}
@@ -132,7 +132,7 @@ func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI,
 	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
 		return errors.Trace(err)
 	}
-	return s.st.GrantAccess(ctx, uri, grantParams(params))
+	return s.secretState.GrantAccess(ctx, uri, grantParams(params))
 }
 
 func grantParams(in SecretAccessParams) domainsecret.GrantParams {
@@ -186,7 +186,7 @@ func (s *SecretService) RevokeSecretAccess(ctx context.Context, uri *secrets.URI
 		p.SubjectTypeID = domainsecret.SubjectModel
 	}
 
-	return s.st.RevokeAccess(ctx, uri, p)
+	return s.secretState.RevokeAccess(ctx, uri, p)
 }
 
 // canManage checks that the accessor can manage the secret.
