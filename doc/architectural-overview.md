@@ -137,38 +137,41 @@ Code for dealing with mongodb is found primarily in the `state`, `state/watcher`
 
 ## API
 
-Juju controllers expose an API endpoint over a websocket connection. The methods
-available over the API are broken down by client; there's a `Client` facade that
-exposes the methods used by clients, an `Agent` facade that exposes the methods
-common to all agents, and a wide range of worker-specific *facades* that individually
-deal with particular chunks of functionality implemented by one agent or another
-(for example, `Provisioner`, `Upgrader`, and `Uniter`, each used by the eponymous
-worker types).
+Juju controllers expose an API endpoint over a websocket connection. Related
+API endpoints are grouped into a set called a "facade". Each facade serves
+either the client, the controller, or Juju agents. Each worker that needs to
+talk to the API server will get its own facade (for example, `Provisioner`,
+`Upgrader`, and `Uniter`, each used by the eponymous worker types).
 
-The API server is implemented in the `apiserver` top level package. Each API
-facade has it's own subpackage (e.g. `apiserver/provisioner`). The code under
-`apiserver` is the only code that is allowed to import from the `state`
-package.
+The API server is implemented in the `apiserver` top level package. Facades
+live inside the `apiserver/facades` package. There is a subpackage `agent` for
+agent facades, `client` for client facades, and `controller` for controller
+facades.
 
-Various facades share functionality; for example, the Life method is used by many
-worker facades. In these cases, the method is implemented on a separate type,
-which is embedded in the facade implementation.
+Various facades share functionality; for example, the Life method is used by
+many worker facades. In these cases, the method is implemented on a separate
+type in the `apiserver/common` package, which can be added as a field to the
+facade type, and then the common method can be exposed on the facade. Note that
+any public functions on the facade become part of the facade's API.
 
-All APIs *should* be implemented such that they can be called in bulk, but not
-all of them are. The agent facades are (almost?) all implemented correctly, but
-the Client facade is almost exclusively not. As functionality evolves, and new
-versions of the client APIs are implemented, we must take care to implement them
-consistently -- this means both implementing bulk calls *and* splitting the
-monolithic Client facade into smaller application-specific facades, such that we
-can evolve interaction with (say) users without bumping global API versions
-across the board).
+Each facade is separately versioned. For any Juju version, you can see the list
+of supported versions for each facade in `api/facadeversions.go`. When using
+two different versions of Juju, they will "negotiate" to find a version of the
+facade which is supported by both. A facade's version must be incremented when
+the interface changes, and old facade versions can generally only be removed in
+a new major version. You can use the `facadecheck` script in the `scripts`
+folder to compare supported facade versions for any two versions of Juju.
+
+Moving forward all APIs *should* be implemented such that they can be called in
+bulk.
 
 The Juju API client is implemented under the `api` top level package. Client
 side API facade are implemented as subpackages underneath `api`.
 
+
 ## The Agents
 
-Agents all use the same `jujud` binary, and all follow roughly the same  model.
+Agents all use the same `jujud` binary, and all follow roughly the same model.
 When starting up, they authenticate with an API server; possibly reset their
 password, if the one they used has been stored persistently somewhere and is
 thus vulnerable; determine their responsibilities; and run a set of tasks in
