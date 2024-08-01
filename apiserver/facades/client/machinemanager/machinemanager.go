@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs/config"
 	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
@@ -358,7 +359,11 @@ func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, machineName st
 	// This is temporary - just insert the machine id all al the parent ones.
 	var errs []error
 	for machineName != "" {
-		if _, err := mm.machineService.CreateMachine(ctx, machine.Name(machineName)); err != nil {
+		_, err := mm.machineService.CreateMachine(ctx, machine.Name(machineName))
+		// The machine might already exist e.g. if we are adding a subordinate
+		// unit to an already existing machine. In this case, just continue
+		// without error.
+		if err != nil && !errors.Is(err, machineerrors.MachineAlreadyExists) {
 			errs = append(errs, errors.Annotatef(err, "saving info for machine %q", machineName))
 		}
 		parent := names.NewMachineTag(machineName).Parent()

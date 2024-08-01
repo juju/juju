@@ -51,14 +51,6 @@ type applicationPortRanges struct {
 	pendingCloseRanges network.GroupedPortRanges
 }
 
-// Changes returns a ModelOperation for applying any changes that were made to
-// this port range instance.
-func (p *applicationPortRanges) Changes() ModelOperation {
-	// The application scope opened port range is not implemented yet.
-	// We manage(open/close) ports by units using "unitPortRanges.Open|Close|Changes()".
-	return nil
-}
-
 // Persisted returns true if the underlying document for this instance exists
 // in the database.
 func (p *applicationPortRanges) Persisted() bool {
@@ -94,15 +86,6 @@ func (p *applicationPortRanges) ByEndpoint() network.GroupedPortRanges {
 		}
 	}
 	return out
-}
-
-// UniquePortRanges returns a slice of unique open PortRanges all units.
-func (p *applicationPortRanges) UniquePortRanges() []network.PortRange {
-	allRanges := make(network.GroupedPortRanges)
-	for _, unitRanges := range p.ByUnit() {
-		allRanges[""] = append(allRanges[""], unitRanges.UniquePortRanges()...)
-	}
-	return allRanges.UniquePortRanges()
 }
 
 func (p *applicationPortRanges) clearPendingRecords() {
@@ -220,18 +203,6 @@ func (p *unitPortRanges) UniquePortRanges() []network.PortRange {
 // ByEndpoint returns the list of open port ranges grouped by endpoint.
 func (p *unitPortRanges) ByEndpoint() network.GroupedPortRanges {
 	return p.apg.doc.UnitRanges[p.unitName]
-}
-
-// ForEndpoint returns a list of port ranges that the unit has opened for the
-// specified endpoint.
-func (p *unitPortRanges) ForEndpoint(endpointName string) []network.PortRange {
-	unitPortRange := p.apg.doc.UnitRanges[p.unitName]
-	if len(unitPortRange) == 0 || len(unitPortRange[endpointName]) == 0 {
-		return nil
-	}
-	res := append([]network.PortRange(nil), unitPortRange[endpointName]...)
-	network.SortPortRanges(res)
-	return res
 }
 
 var _ ModelOperation = (*applicationPortRangesOperation)(nil)

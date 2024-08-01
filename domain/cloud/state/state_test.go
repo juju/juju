@@ -105,11 +105,11 @@ func (s *stateSuite) assertCloud(c *gc.C, cloud cloud.Cloud) string {
 	row := db.QueryRow("SELECT uuid, name, cloud_type, endpoint, identity_endpoint, storage_endpoint, skip_tls_verify FROM v_cloud WHERE name = ?", "fluffy")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
-	var dbCloud Cloud
-	err := row.Scan(&dbCloud.ID, &dbCloud.Name, &dbCloud.Type, &dbCloud.Endpoint, &dbCloud.IdentityEndpoint, &dbCloud.StorageEndpoint, &dbCloud.SkipTLSVerify)
+	var dbCloud dbCloud
+	err := row.Scan(&dbCloud.UUID, &dbCloud.Name, &dbCloud.Type, &dbCloud.Endpoint, &dbCloud.IdentityEndpoint, &dbCloud.StorageEndpoint, &dbCloud.SkipTLSVerify)
 	c.Assert(err, jc.ErrorIsNil)
-	if !utils.IsValidUUIDString(dbCloud.ID) {
-		c.Fatalf("invalid cloud uuid %q", dbCloud.ID)
+	if !utils.IsValidUUIDString(dbCloud.UUID) {
+		c.Fatalf("invalid cloud uuid %q", dbCloud.UUID)
 	}
 	c.Check(dbCloud.Name, gc.Equals, cloud.Name)
 	c.Check(dbCloud.Type, gc.Equals, "ec2")
@@ -118,11 +118,11 @@ func (s *stateSuite) assertCloud(c *gc.C, cloud cloud.Cloud) string {
 	c.Check(dbCloud.StorageEndpoint, gc.Equals, cloud.StorageEndpoint)
 	c.Check(dbCloud.SkipTLSVerify, gc.Equals, cloud.SkipTLSVerify)
 
-	s.assertAuthTypes(c, dbCloud.ID, cloud.AuthTypes)
-	s.assertCaCerts(c, dbCloud.ID, cloud.CACertificates)
-	s.assertRegions(c, dbCloud.ID, cloud.Regions)
+	s.assertAuthTypes(c, dbCloud.UUID, cloud.AuthTypes)
+	s.assertCaCerts(c, dbCloud.UUID, cloud.CACertificates)
+	s.assertRegions(c, dbCloud.UUID, cloud.Regions)
 
-	return dbCloud.ID
+	return dbCloud.UUID
 }
 
 func (s *stateSuite) assertAuthTypes(c *gc.C, cloudUUID string, expected cloud.AuthTypes) {
@@ -183,7 +183,7 @@ func (s *stateSuite) assertCaCerts(c *gc.C, cloudUUID string, expected []string)
 	c.Check(certs.Values(), jc.SameContents, expected)
 }
 
-func regionsFromDbRegions(dbRegions []CloudRegion) []cloud.Region {
+func regionsFromDbRegions(dbRegions []cloudRegion) []cloud.Region {
 	regions := make([]cloud.Region, len(dbRegions))
 	for i, region := range dbRegions {
 		regions[i] = cloud.Region{
@@ -203,9 +203,9 @@ func (s *stateSuite) assertRegions(c *gc.C, cloudUUID string, expected []cloud.R
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = rows.Close() }()
 
-	var dbRegions []CloudRegion
+	var dbRegions []cloudRegion
 	for rows.Next() {
-		var dbRegion CloudRegion
+		var dbRegion cloudRegion
 		err = rows.Scan(&dbRegion.Name, &dbRegion.Endpoint, &dbRegion.IdentityEndpoint, &dbRegion.StorageEndpoint)
 		c.Assert(err, jc.ErrorIsNil)
 		dbRegions = append(dbRegions, dbRegion)
@@ -775,7 +775,7 @@ func (s *stateSuite) TestSetCloudDefaults(c *gc.C) {
 	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return SetCloudDefaults(ctx, tx, cld.Name, map[string]string{
 			"clouddefault": "one",
 		})
@@ -795,7 +795,7 @@ func (s *stateSuite) TestSetCloudDefaults(c *gc.C) {
 func (s *stateSuite) TestSetCloudDefaultsNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return SetCloudDefaults(ctx, tx, "noexist", map[string]string{
 			"clouddefault": "one",
 		})
@@ -815,7 +815,7 @@ func (s *stateSuite) TestSetCloudDefaultsOverrides(c *gc.C) {
 	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return SetCloudDefaults(ctx, tx, cld.Name, map[string]string{
 			"clouddefault": "one",
 		})
@@ -828,7 +828,7 @@ func (s *stateSuite) TestSetCloudDefaultsOverrides(c *gc.C) {
 		"clouddefault": "one",
 	})
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return SetCloudDefaults(ctx, tx, cld.Name, map[string]string{
 			"clouddefaultnew": "two",
 		})
@@ -851,7 +851,7 @@ func (s *stateSuite) TestSetCloudDefaultsDelete(c *gc.C) {
 	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return SetCloudDefaults(ctx, tx, cld.Name, map[string]string{
 			"clouddefault": "one",
 		})
@@ -864,7 +864,7 @@ func (s *stateSuite) TestSetCloudDefaultsDelete(c *gc.C) {
 		"clouddefault": "one",
 	})
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return SetCloudDefaults(ctx, tx, cld.Name, nil)
 	})
 	c.Check(err, jc.ErrorIsNil)

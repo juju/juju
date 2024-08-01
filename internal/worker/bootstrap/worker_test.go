@@ -21,13 +21,14 @@ import (
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	accessservice "github.com/juju/juju/domain/access/service"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/charm"
@@ -36,16 +37,25 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type workerSuite struct {
 	baseSuite
 
+	adminUserID     user.UUID
+	controllerModel coremodel.Model
+
 	states chan string
 }
 
 var _ = gc.Suite(&workerSuite{})
+
+func (s *workerSuite) SetUpTest(c *gc.C) {
+	s.adminUserID = usertesting.GenUserUUID(c)
+	s.controllerModel = coremodel.Model{
+		UUID: modeltesting.GenModelUUID(c),
+	}
+}
 
 func (s *workerSuite) TestKilled(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -96,8 +106,9 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 			PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 				return nil
 			},
-			SystemState: s.state,
-			Logger:      s.logger,
+			SystemState:     s.state,
+			ControllerModel: s.controllerModel,
+			Logger:          s.logger,
 		},
 	}
 	cleanup, err := w.seedAgentBinary(context.Background(), c.MkDir())
@@ -279,8 +290,8 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		UserService:             s.userService,
 		ApplicationService:      s.applicationService,
 		ModelConfigService:      s.modelConfigService,
+		ControllerModel:         s.controllerModel,
 		ControllerConfigService: s.controllerConfigService,
-		CredentialService:       s.credentialService,
 		StorageService:          s.storageService,
 		ProviderRegistry:        provider.CommonStorageProviders(),
 		CloudService:            s.cloudService,
@@ -296,11 +307,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		ControllerCharmDeployer: func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
 			return nil, nil
 		},
-		NewEnviron: func(context.Context, environs.OpenParams) (environs.Environ, error) { return nil, nil },
-		BootstrapAddresses: func(context.Context, environs.Environ, instance.Id) (network.ProviderAddresses, error) {
-			return nil, nil
-		},
-		BootstrapAddressFinder: func(context.Context, BootstrapAddressesConfig) (network.ProviderAddresses, error) {
+		BootstrapAddressFinder: func(context.Context, instance.Id) (network.ProviderAddresses, error) {
 			return nil, nil
 		},
 	}, s.states)
@@ -344,7 +351,7 @@ func (s *workerSuite) expectControllerConfig() {
 
 func (s *workerSuite) expectUser(c *gc.C) {
 	s.userService.EXPECT().GetUserByName(gomock.Any(), "admin").Return(user.User{
-		UUID: usertesting.GenUserUUID(c),
+		UUID: s.adminUserID,
 	}, nil)
 	s.userService.EXPECT().AddUser(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, u accessservice.AddUserArg) (user.UUID, []byte, error) {
 		c.Check(u.Name, gc.Equals, "juju-metrics")
@@ -367,7 +374,6 @@ func (s *workerSuite) expectInitialiseBakeryConfig(err error) {
 }
 
 func (s *workerSuite) expectObjectStoreGetter(num int) {
-	s.state.EXPECT().ControllerModelUUID().Return(uuid.MustNewUUID().String()).Times(num)
 	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any(), gomock.Any()).Return(s.objectStore, nil).Times(num)
 }
 

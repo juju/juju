@@ -1335,7 +1335,11 @@ func (c *Config) EnableOSUpgrade() bool {
 // SSLHostnameVerification returns whether the environment has requested
 // SSL hostname verification to be enabled.
 func (c *Config) SSLHostnameVerification() bool {
-	return c.defined[SSLHostnameVerificationKey].(bool)
+	val, ok := c.defined["ssl-hostname-verification"].(bool)
+	if !ok {
+		return true
+	}
+	return val
 }
 
 // LoggingConfig returns the configuration string for the loggers.

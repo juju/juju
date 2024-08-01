@@ -34,12 +34,11 @@ import (
 )
 
 type getToolsSuite struct {
-	entityFinder *mocks.MockToolsFindEntity
-	configGetter *mocks.MockEnvironConfigGetter
-	toolsFinder  *mocks.MockToolsFinder
-	store        *mocks.MockObjectStore
-
-	machine0 *mocks.MockAgentTooler
+	entityFinder      *mocks.MockToolsFindEntity
+	modelAgentService *MockModelAgentService
+	toolsFinder       *mocks.MockToolsFinder
+	store             *mocks.MockObjectStore
+	machine0          *mocks.MockAgentTooler
 }
 
 var _ = gc.Suite(&getToolsSuite{})
@@ -48,10 +47,9 @@ func (s *getToolsSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.entityFinder = mocks.NewMockToolsFindEntity(ctrl)
-	s.configGetter = mocks.NewMockEnvironConfigGetter(ctrl)
+	s.modelAgentService = NewMockModelAgentService(ctrl)
 	s.toolsFinder = mocks.NewMockToolsFinder(ctrl)
 	s.store = mocks.NewMockObjectStore(ctrl)
-
 	s.machine0 = mocks.NewMockAgentTooler(ctrl)
 
 	return ctrl
@@ -66,7 +64,7 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 		}, nil
 	}
 	tg := common.NewToolsGetter(
-		s.entityFinder, s.configGetter, nil,
+		s.entityFinder, s.modelAgentService, nil,
 		nil, s.toolsFinder, getCanRead,
 	)
 	c.Assert(tg, gc.NotNil)
@@ -80,16 +78,7 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 	}
 
 	current := coretesting.CurrentVersion()
-	configAttrs := map[string]interface{}{
-		"name":                 "some-name",
-		"type":                 "some-type",
-		"uuid":                 coretesting.ModelTag.Id(),
-		config.AgentVersionKey: current.Number.String(),
-		"secret-backend":       "auto",
-	}
-	cfg, err := config.New(config.NoDefaults, configAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	s.configGetter.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
+	s.modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(current.Number, nil)
 
 	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("0")).Return(s.machine0, nil)
 	s.machine0.EXPECT().AgentTools().Return(&coretools.Tools{Version: current}, nil)
@@ -126,7 +115,7 @@ func (s *getToolsSuite) TestOSTools(c *gc.C) {
 		}, nil
 	}
 	tg := common.NewToolsGetter(
-		s.entityFinder, s.configGetter, nil,
+		s.entityFinder, s.modelAgentService, nil,
 		nil, s.toolsFinder, getCanRead,
 	)
 	c.Assert(tg, gc.NotNil)
@@ -134,16 +123,7 @@ func (s *getToolsSuite) TestOSTools(c *gc.C) {
 	current := coretesting.CurrentVersion()
 	currentCopy := current
 	currentCopy.Release = "foo"
-	configAttrs := map[string]interface{}{
-		"name":                 "some-name",
-		"type":                 "some-type",
-		"uuid":                 coretesting.ModelTag.Id(),
-		config.AgentVersionKey: currentCopy.Number.String(),
-		"secret-backend":       "auto",
-	}
-	cfg, err := config.New(config.NoDefaults, configAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	s.configGetter.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
+	s.modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(currentCopy.Number, nil)
 
 	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("0")).Return(s.machine0, nil)
 	s.machine0.EXPECT().AgentTools().Return(&coretools.Tools{Version: currentCopy}, nil)
@@ -178,7 +158,7 @@ func (s *getToolsSuite) TestToolsError(c *gc.C) {
 		return nil, fmt.Errorf("splat")
 	}
 	tg := common.NewToolsGetter(
-		s.entityFinder, s.configGetter, nil,
+		s.entityFinder, s.modelAgentService, nil,
 		nil, s.toolsFinder, getCanRead,
 	)
 	c.Assert(tg, gc.NotNil)
@@ -364,11 +344,7 @@ func (s *findToolsSuite) TestFindToolsMatchMajor(c *gc.C) {
 	s.expectMatchingStorageTools(storageMetadata, nil)
 	s.expectBootstrapEnvironConfig(c)
 
-	toolsFinder := common.NewToolsFinder(
-		controllerConfigService{},
-		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
-		s.store,
-	)
+	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, s.urlGetter, s.newEnviron, s.store)
 
 	result, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{
 		MajorVersion: 123,
@@ -422,11 +398,7 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 	s.expectMatchingStorageTools(storageMetadata, nil)
 	s.expectBootstrapEnvironConfig(c)
 
-	toolsFinder := common.NewToolsFinder(
-		controllerConfigService{},
-		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
-		s.store,
-	)
+	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, s.urlGetter, s.newEnviron, s.store)
 	result, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{
 		MajorVersion: 123,
 		MinorVersion: 456,
@@ -459,11 +431,7 @@ func (s *findToolsSuite) TestFindToolsNotFound(c *gc.C) {
 	s.expectMatchingStorageTools([]binarystorage.Metadata{}, nil)
 	s.expectBootstrapEnvironConfig(c)
 
-	toolsFinder := common.NewToolsFinder(
-		controllerConfigService{},
-		nil, s.toolsStorageGetter, nil, s.newEnviron,
-		s.store,
-	)
+	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, nil, s.newEnviron, s.store)
 	_, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{})
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
@@ -516,11 +484,7 @@ func (s *findToolsSuite) testFindToolsExact(c *gc.C, inStorage bool, develVersio
 		}
 		return nil, errors.NotFoundf("tools")
 	})
-	toolsFinder := common.NewToolsFinder(
-		controllerConfigService{},
-		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
-		s.store,
-	)
+	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, s.urlGetter, s.newEnviron, s.store)
 	_, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{
 		Number: jujuversion.Current,
 		OSType: current.Release,
@@ -546,11 +510,7 @@ func (s *findToolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 
 	s.expectMatchingStorageTools(nil, errors.New("AllMetadata failed"))
 
-	toolsFinder := common.NewToolsFinder(
-		controllerConfigService{},
-		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
-		s.store,
-	)
+	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, s.urlGetter, s.newEnviron, s.store)
 	_, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{})
 	// ToolsStorage errors always cause FindAgents to bail. Only
 	// if AllMetadata succeeds but returns nothing that matches

@@ -1845,13 +1845,13 @@ func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
 
 	machPortRanges, err := machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machPortRanges.UniquePortRanges(), gc.HasLen, 0)
+	c.Assert(machPortRanges.ForUnit(s.unit.Name()).UniquePortRanges(), gc.HasLen, 0)
 
 	state.MustOpenUnitPortRange(c, s.State, machine, s.unit.Name(), allEndpoints, network.MustParsePortRange("100-200/tcp"))
 
 	machPortRanges, err = machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machPortRanges.UniquePortRanges(), gc.HasLen, 1)
+	c.Assert(machPortRanges.ForUnit(s.unit.Name()).UniquePortRanges(), gc.HasLen, 1)
 
 	// Now remove the unit and check again.
 	err = s.unit.EnsureDead()
@@ -1865,7 +1865,7 @@ func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
 	// removed as well.
 	machPortRanges, err = machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machPortRanges.UniquePortRanges(), gc.HasLen, 0)
+	c.Assert(machPortRanges.ForUnit(s.unit.Name()).UniquePortRanges(), gc.HasLen, 0)
 }
 
 func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
@@ -1886,8 +1886,6 @@ func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 
 	machPortRanges, err := machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machPortRanges.UniquePortRanges(), gc.HasLen, 2)
-
 	c.Assert(machPortRanges.ForUnit(s.unit.Name()).UniquePortRanges(), jc.DeepEquals, []network.PortRange{
 		network.MustParsePortRange("100-200/tcp"),
 	})
@@ -1906,7 +1904,6 @@ func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 	// Verify only otherUnit still has open ports.
 	machPortRanges, err = machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machPortRanges.UniquePortRanges(), gc.HasLen, 1)
 	c.Assert(machPortRanges.ForUnit(s.unit.Name()).UniquePortRanges(), gc.HasLen, 0)
 	c.Assert(machPortRanges.ForUnit(otherUnit.Name()).UniquePortRanges(), jc.DeepEquals, []network.PortRange{
 		network.MustParsePortRange("300-400/udp"),

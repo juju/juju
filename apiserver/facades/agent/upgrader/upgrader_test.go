@@ -88,6 +88,7 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, s.authorizer,
 		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
+		serviceFactory.Agent(),
 		s.store,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -153,6 +154,7 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
 		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
+		serviceFactory.Agent(),
 		s.store,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -200,6 +202,7 @@ func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
 		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
+		serviceFactory.Agent(),
 		s.store,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -242,6 +245,7 @@ func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
 		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
+		serviceFactory.Agent(),
 		s.store,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -283,6 +287,7 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
 		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
+		serviceFactory.Agent(),
 		s.store,
 	)
 	c.Check(err, jc.ErrorIsNil)
@@ -318,6 +323,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
 		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
+		serviceFactory.Agent(),
 		s.store,
 	)
 	c.Check(err, jc.ErrorIsNil)
@@ -402,6 +408,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
 		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
+		serviceFactory.Agent(),
 		s.store,
 	)
 	c.Check(err, jc.ErrorIsNil)
@@ -471,6 +478,7 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
 		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
+		serviceFactory.Agent(),
 		s.store,
 	)
 	c.Check(err, jc.ErrorIsNil)
@@ -559,6 +567,7 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
 		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
+		serviceFactory.Agent(),
 		s.store,
 	)
 	c.Assert(err, jc.ErrorIsNil)

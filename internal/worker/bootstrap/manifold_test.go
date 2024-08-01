@@ -12,12 +12,9 @@ import (
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/servicefactory/testing"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/bootstrap"
 )
 
@@ -73,18 +70,6 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.ControllerUnitPassword = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
-	cfg.NewEnviron = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
-	cfg.BootstrapAddresses = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
-	cfg.BootstrapAddressFinder = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
@@ -94,6 +79,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		StateName:              "state",
 		BootstrapGateName:      "bootstrap-gate",
 		ServiceFactoryName:     "service-factory",
+		ProviderFactoryName:    "provider-factory",
 		CharmhubHTTPClientName: "charmhub-http-client",
 		Logger:                 s.logger,
 		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, logger.Logger) (func(), error) {
@@ -111,13 +97,6 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		RequiresBootstrap: func(context.Context, FlagService) (bool, error) {
 			return false, nil
 		},
-		NewEnviron: func(context.Context, environs.OpenParams) (environs.Environ, error) { return nil, nil },
-		BootstrapAddresses: func(context.Context, environs.Environ, instance.Id) (network.ProviderAddresses, error) {
-			return nil, nil
-		},
-		BootstrapAddressFinder: func(context.Context, BootstrapAddressesConfig) (network.ProviderAddresses, error) {
-			return nil, nil
-		},
 	}
 }
 
@@ -133,7 +112,15 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"agent", "state", "object-store", "bootstrap-gate", "service-factory", "charmhub-http-client"}
+var expectedInputs = []string{
+	"agent",
+	"state",
+	"object-store",
+	"bootstrap-gate",
+	"service-factory",
+	"charmhub-http-client",
+	"provider-factory",
+}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)

@@ -64,7 +64,8 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	m.userUUID = userUUID
 	m.userName = "test-user"
 	c.Assert(err, jc.ErrorIsNil)
-	m.controllerUUID = m.SeedControllerUUID(c)
+	m.uuid = modeltesting.GenModelUUID(c)
+	m.controllerUUID = m.SeedControllerTable(c, m.uuid)
 	userState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = userState.AddUser(
 		context.Background(),
@@ -145,7 +146,6 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	err = bootstrap.CreateDefaultBackends(coremodel.IAAS)(context.Background(), m.ControllerTxnRunner(), m.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	m.uuid = modeltesting.GenModelUUID(c)
 	modelSt := NewState(m.TxnRunnerFactory())
 	err = modelSt.Create(
 		context.Background(),
@@ -1424,4 +1424,31 @@ func (m *stateSuite) TestCleanupBrokenModel(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestGetControllerModel is asserting the happy path of
+// [State.GetControllerModel] and checking that we can retrieve the controller
+// model established in SetUpTest.
+func (m *stateSuite) TestGetControllerModel(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+	// The controller model uuid was set in SetUpTest.
+	model, err := modelSt.GetControllerModel(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(model, gc.DeepEquals, coremodel.Model{
+		Name:         "my-test-model",
+		Life:         life.Alive,
+		UUID:         m.uuid,
+		ModelType:    coremodel.IAAS,
+		AgentVersion: version.Current,
+		Cloud:        "my-cloud",
+		CloudType:    "ec2",
+		CloudRegion:  "my-region",
+		Credential: corecredential.Key{
+			Cloud: "my-cloud",
+			Owner: "test-user",
+			Name:  "foobar",
+		},
+		Owner:     m.userUUID,
+		OwnerName: m.userName,
+	})
 }

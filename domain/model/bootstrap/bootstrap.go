@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/database"
@@ -127,7 +128,7 @@ func CreateReadOnlyModel(
 		}
 
 		var m coremodel.Model
-		err := controllerDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		err := controllerDB.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			var err error
 			m, err = state.GetModel(ctx, tx, id)
 			return err

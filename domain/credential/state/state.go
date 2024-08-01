@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	userstate "github.com/juju/juju/domain/access/state"
-	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/internal/database"
@@ -284,13 +283,13 @@ func dbCredentialFromCredential(ctx context.Context, tx *sqlair.TX, credentialUU
 	}
 	cred.OwnerUUID = userUUID.String()
 
-	q := "SELECT uuid AS &Credential.cloud_uuid FROM cloud WHERE name = $Cloud.name"
-	stmt, err := sqlair.Prepare(q, Credential{}, dbcloud.Cloud{})
+	q := "SELECT uuid AS &Credential.cloud_uuid FROM cloud WHERE name = $dbCloudName.name"
+	stmt, err := sqlair.Prepare(q, Credential{}, dbCloudName{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	err = tx.Query(ctx, stmt, dbcloud.Cloud{Name: key.Cloud}).Get(cred)
+	err = tx.Query(ctx, stmt, dbCloudName{Name: key.Cloud}).Get(cred)
 	if err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil, fmt.Errorf("cloud %q for credential %w", key.Cloud, errors.NotFound)
@@ -320,21 +319,22 @@ func dbCredentialFromCredential(ctx context.Context, tx *sqlair.TX, credentialUU
 	return cred, nil
 }
 
-func validAuthTypesForCloud(ctx context.Context, tx *sqlair.TX, cloudName string) ([]dbcloud.AuthType, error) {
+func validAuthTypesForCloud(ctx context.Context, tx *sqlair.TX, cloudName string) (authTypes, error) {
 	authTypeQuery := `
-SELECT &AuthType.*
+SELECT &authType.*
 FROM   auth_type
 JOIN   cloud_auth_type ON auth_type.id = cloud_auth_type.auth_type_id
 JOIN   cloud ON cloud_auth_type.cloud_uuid = cloud.uuid
-WHERE  cloud.name = $Cloud.name
+WHERE  cloud.name = $dbCloudName.name
 `
-	stmt, err := sqlair.Prepare(authTypeQuery, dbcloud.AuthType{}, dbcloud.Cloud{})
+	cloud := dbCloudName{Name: cloudName}
+	stmt, err := sqlair.Prepare(authTypeQuery, authType{}, cloud)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var result dbcloud.AuthTypes
-	err = tx.Query(ctx, stmt, dbcloud.Cloud{Name: cloudName}).GetAll(&result)
+	var result authTypes
+	err = tx.Query(ctx, stmt, cloud).GetAll(&result)
 	return result, errors.Trace(err)
 }
 
@@ -446,8 +446,8 @@ SELECT (cc.uuid, cc.name,
        cc.revoked, cc.invalid, 
        cc.invalid_reason, 
        cc.owner_uuid) AS (&Credential.*),
-       auth_type.type AS &AuthType.*,
-       cloud.name AS &Cloud.*,
+       auth_type.type AS &authType.type,
+       cloud.name AS &dbCloudName.name,
        (cc_attr.key, cc_attr.value) AS (&CredentialAttribute.*)
 FROM   cloud_credential cc
        JOIN auth_type ON cc.auth_type_id = auth_type.id
@@ -464,8 +464,8 @@ FROM   cloud_credential cc
 	})
 	types := []any{
 		Credential{},
-		dbcloud.AuthType{},
-		dbcloud.Cloud{},
+		authType{},
+		dbCloudName{},
 		CredentialAttribute{},
 	}
 	var queryArgs []any
@@ -482,8 +482,8 @@ FROM   cloud_credential cc
 
 	var (
 		dbRows      Credentials
-		dbAuthTypes []dbcloud.AuthType
-		dbclouds    []dbcloud.Cloud
+		dbAuthTypes []authType
+		dbclouds    []dbCloudName
 		keyValues   []CredentialAttribute
 	)
 	err = tx.Query(ctx, credStmt, queryArgs...).GetAll(&dbRows, &dbAuthTypes, &dbclouds, &keyValues)
