@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/environs/config"
 )
@@ -51,9 +52,13 @@ type ModelService interface {
 	Model(ctx context.Context, uuid model.UUID) (model.Model, error)
 	// ControllerModel returns the model used for housing the Juju controller.
 	ControllerModel(ctx context.Context) (model.Model, error)
-	// ListAllModels lists all models in the controller. If no models exist
-	// then an empty slice is returned.
-	ListAllNonDeadModels(ctx context.Context) ([]model.Model, error)
+	// HostedModels retrieves all hosted models on the controller, along with their
+	// cloud and credential information. This excludes the controller model and any
+	// dead models. If no hosted models exist, then an empty slice is returned.
+	HostedModels(ctx context.Context) ([]model.HostedModel, error)
+	// ModelLastLogins lists all non-dead models along with the last login by the
+	// specified user.
+	ModelLastLogins(ctx context.Context, userID user.UUID) ([]model.ModelWithLogin, error)
 }
 
 // ModelConfigService provides access to the model configuration.

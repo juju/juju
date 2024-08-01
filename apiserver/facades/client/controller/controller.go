@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v8"
@@ -34,10 +33,9 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
-	accesserrors "github.com/juju/juju/domain/access/errors"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/docker"
@@ -47,33 +45,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
-
-// ControllerConfigService is the interface that wraps the ControllerConfig method.
-type ControllerConfigService interface {
-	// ControllerConfig returns a controller.Config
-	ControllerConfig(context.Context) (corecontroller.Config, error)
-	// UpdateControllerConfig updates the controller config and has an optional
-	// list of config keys to remove.
-	UpdateControllerConfig(context.Context, corecontroller.Config, []string) error
-}
-
-// UpgradeService provides a subset of the upgrade domain service methods.
-type UpgradeService interface {
-	// IsUpgrading returns whether the controller is currently upgrading.
-	IsUpgrading(context.Context) (bool, error)
-}
-
-// ControllerAccessService provides a subset of the Access domain for use.
-type ControllerAccessService interface {
-	// ReadUserAccessLevelForTarget returns the access level for the provided
-	// subject (user) for controller.
-	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
-	// UpdatePermission updates the access level for a user for the controller.
-	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
-	// LastModelLogin gets the time the specified user last connected to the
-	// model.
-	LastModelLogin(context.Context, string, coremodel.UUID) (time.Time, error)
-}
 
 // ModelExporter exports a model to a description.Model.
 type ModelExporter interface {
@@ -90,21 +61,23 @@ type ControllerAPI struct {
 	*common.ModelStatusAPI
 	cloudspec.CloudSpecer
 
-	state                   Backend
-	statePool               *state.StatePool
-	authorizer              facade.Authorizer
-	apiUser                 names.UserTag
-	resources               facade.Resources
-	presence                facade.Presence
-	hub                     facade.Hub
-	cloudService            common.CloudService
-	credentialService       common.CredentialService
-	upgradeService          UpgradeService
-	controllerConfigService ControllerConfigService
-	accessService           ControllerAccessService
-	modelExporter           ModelExporter
-	store                   objectstore.ObjectStore
-	leadership              leadership.Reader
+	state                    Backend
+	statePool                *state.StatePool
+	authorizer               facade.Authorizer
+	apiUser                  names.UserTag
+	resources                facade.Resources
+	presence                 facade.Presence
+	hub                      facade.Hub
+	cloudService             common.CloudService
+	credentialService        common.CredentialService
+	upgradeService           UpgradeService
+	controllerConfigService  ControllerConfigService
+	accessService            ControllerAccessService
+	modelService             ModelService
+	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService
+	modelExporter            ModelExporter
+	store                    objectstore.ObjectStore
+	leadership               leadership.Reader
 
 	logger corelogger.Logger
 
@@ -403,57 +376,22 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 		return result, errors.Trace(err)
 	}
 
-	// list all non-dead models along with last login
-
-	models, err := c.modelService.ListAllNonDeadModels(ctx)
+	modelsWithLogins, err := c.modelService.ModelLastLogins(ctx, user.UUID(c.apiUser.Id()))
 	if err != nil {
-		return result, errors.Trace(err)
+		return params.UserModelList{}, fmt.Errorf("getting models: %w", err)
 	}
-	for _, modelUUID := range modelUUIDs {
-		st, err := c.statePool.Get(modelUUID)
-		if err != nil {
-			// This model could have been removed.
-			if errors.Is(err, errors.NotFound) {
-				continue
-			}
-			return result, errors.Trace(err)
-		}
-		defer st.Release()
 
-		model, err := st.Model()
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-
-		userModel := params.UserModel{
+	for _, model := range modelsWithLogins {
+		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
-				Name:     model.Name(),
-				UUID:     model.UUID(),
-				Type:     string(model.Type()),
-				OwnerTag: model.Owner().String(),
+				Name:     model.Model.Name,
+				UUID:     model.Model.UUID.String(),
+				Type:     model.Model.ModelType.String(),
+				OwnerTag: names.NewUserTag(model.Model.OwnerName).String(),
 			},
-		}
-
-		lastConn, err := c.accessService.LastModelLogin(ctx, c.apiUser.Id(), coremodel.UUID(model.UUID()))
-		if errors.Is(err, accesserrors.UserNeverAccessedModel) {
-			userModel.LastConnection = nil
-		} else if errors.Is(err, modelerrors.NotFound) {
-			// TODO (aflynn): Once models are fully in domain, replace the line
-			// below with a `continue`. When models are still in state, this
-			// case is triggered because the model cannot be found in the domain
-			// db. Generally, it should only be triggered if the model has been
-			// removed since we got the UUID.
-			userModel.LastConnection = nil
-		} else if err != nil {
-			return result, errors.Annotatef(err,
-				"getting model last login time for user %q on model %q", c.apiUser.Name(), model.Name())
-		} else {
-			userModel.LastConnection = &lastConn
-		}
-
-		result.UserModels = append(result.UserModels, userModel)
+			LastConnection: model.LastLogin,
+		})
 	}
-
 	return result, nil
 }
 
@@ -546,42 +484,25 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 		return result, errors.Trace(err)
 	}
 
-	// list all non-dead, non-controller models along with model config
-
-	models, err := c.modelService.ListAllNonDeadModels(ctx)
+	hostedModels, err := c.modelService.HostedModels(ctx)
 	if err != nil {
-		return result, errors.Trace(err)
+		return result, fmt.Errorf("getting hosted models: %w", err)
 	}
 
-	for _, modelUUID := range modelUUIDs {
-		if modelUUID == c.state.ControllerModelUUID() {
-			continue
-		}
-		st, err := c.statePool.Get(modelUUID)
-		if err != nil {
-			// This model could have been removed.
-			if errors.Is(err, errors.NotFound) {
-				continue
-			}
-			return result, errors.Trace(err)
-		}
-		defer st.Release()
-		model, err := st.Model()
-		if err != nil {
-			return result, errors.Trace(err)
+	for _, hostedModel := range hostedModels {
+		config := params.HostedModelConfig{
+			Name:     hostedModel.Model.Name,
+			OwnerTag: names.NewUserTag(hostedModel.Model.OwnerName).String(),
 		}
 
-		config := params.HostedModelConfig{
-			Name:     model.Name(),
-			OwnerTag: model.Owner().String(),
-		}
-		modelConf, err := model.Config()
+		modelConf, err := c.modelConfigServiceGetter(hostedModel.Model.UUID).ModelConfig(ctx)
 		if err != nil {
 			config.Error = apiservererrors.ServerError(err)
-		} else {
-			config.Config = modelConf.AllAttrs()
+			continue
 		}
-		cloudSpec := c.GetCloudSpec(ctx, model.ModelTag())
+		config.Config = modelConf.AllAttrs()
+
+		cloudSpec := c.GetCloudSpec(ctx, names.NewModelTag(hostedModel.Model.UUID.String()))
 		if config.Error == nil {
 			config.CloudSpec = cloudSpec.Result
 			config.Error = cloudSpec.Error
