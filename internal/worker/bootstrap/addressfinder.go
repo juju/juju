@@ -35,6 +35,13 @@ func getInstanceAddresses(
 			instanceID, err,
 		)
 	}
+	if len(instances) != 1 {
+		return nil, fmt.Errorf(
+			"requested instance %q from instance lister and got %d instances, unable to determine correct result",
+			instanceID,
+			len(instances),
+		)
+	}
 	addrs, err := instances[0].Addresses(callCtx)
 	if err != nil {
 		return nil, fmt.Errorf(
