@@ -13,9 +13,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
@@ -24,63 +21,15 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/user"
 	userservice "github.com/juju/juju/domain/access/service"
-	storageservice "github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/servicefactory"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
-
-// ControllerConfigService is the interface that is used to get the
-// controller configuration.
-type ControllerConfigService interface {
-	ControllerConfig(context.Context) (controller.Config, error)
-}
-
-// CredentialService is the interface that is used to get the
-// cloud credential.
-type CredentialService interface {
-	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
-}
-
-// CloudService is the interface that is used to interact with the
-// cloud.
-type CloudService interface {
-	Cloud(context.Context, string) (*cloud.Cloud, error)
-}
-
-// StorageService instances save a storage pool to dqlite state.
-type StorageService interface {
-	CreateStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs) error
-}
-
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
-type NetworkService interface {
-	// Space returns a space from state that matches the input ID.
-	// An error is returned if the space does not exist or if there was a problem
-	// accessing its information.
-	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
-	// SpaceByName returns a space from state that matches the input name.
-	// An error is returned that satisfied errors.NotFound if the space was not found
-	// or an error static any problems fetching the given space.
-	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
-	// GetAllSpaces returns all spaces for the model.
-	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
-	// ReloadSpaces loads spaces and subnets from the provider into state.
-	ReloadSpaces(ctx context.Context) error
-}
-
-// BakeryConfigService describes the service used to initialise the
-// maccaroon bakery config
-type BakeryConfigService interface {
-	InitialiseBakeryConfig(context.Context) error
-}
 
 // FlagService is the interface that is used to set the value of a
 // flag.
