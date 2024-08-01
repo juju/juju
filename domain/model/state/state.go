@@ -27,7 +27,7 @@ import (
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/life"
-	domainmodel "github.com/juju/juju/domain/model"
+	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	jujudb "github.com/juju/juju/internal/database"
@@ -109,7 +109,7 @@ func (s *State) Create(
 	ctx context.Context,
 	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
-	input domainmodel.ModelCreationArgs,
+	input model.ModelCreationArgs,
 ) error {
 	db, err := s.DB()
 	if err != nil {
@@ -137,7 +137,7 @@ func Create(
 	tx *sql.Tx,
 	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
-	input domainmodel.ModelCreationArgs,
+	input model.ModelCreationArgs,
 ) error {
 	// This function is responsible for driving all of the facets of model
 	// creation.
@@ -556,7 +556,7 @@ func createModel(
 	tx *sql.Tx,
 	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
-	input domainmodel.ModelCreationArgs,
+	input model.ModelCreationArgs,
 ) error {
 	cloudStmt := `
 SELECT uuid
@@ -808,13 +808,13 @@ SELECT (uuid,
 	   cloud_credential_owner_name,
 	   cloud_credential_cloud_name,
 	   life,
-       target_agent_version) AS (&model.*)
+       target_agent_version) AS (&stateModel.*)
 FROM v_model
 `
 
-	resultsForModel := []model{}
+	resultsForModel := []stateModel{}
 
-	stmt, err := sqlair.Prepare(query, model{})
+	stmt, err := sqlair.Prepare(query, stateModel{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing get model statement: %w", err)
 	}
@@ -863,28 +863,26 @@ SELECT (uuid,
 	   cloud_credential_owner_name,
 	   cloud_credential_cloud_name,
 	   life,
-       target_agent_version) AS (&model.*)
+       target_agent_version) AS (&stateModel.*)
 FROM v_model
-WHERE life IN ($hostedModelArgs.include_lifes[:])
-AND uuid NOT IN ($hostedModelArgs.exclude_ids[:])
+WHERE life IN ($lifeList[:])
+AND uuid NOT IN ($modelIDList[:])
 `
 
-	args := hostedModelArgs{
-		IncludeLifes: includeLifes,
-		ExcludeIDs:   excludeIDs,
-	}
+	inputLifes := lifeList(includeLifes)
+	inputModelIDs := modelIDList(excludeIDs)
 
-	stmt, err := sqlair.Prepare(query, model{}, args)
+	stmt, err := sqlair.Prepare(query, stateModel{}, inputLifes, inputModelIDs)
 	if err != nil {
 		return nil, fmt.Errorf("preparing get model statement: %w", err)
 	}
 
-	resultsForModel := []model{}
+	resultsForModel := []stateModel{}
 	modelClouds := map[string]cloud.Cloud{}
 	modelCredentials := map[string]cloud.Credential{}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, args).GetAll(&resultsForModel)
+		err := tx.Query(ctx, stmt, inputLifes, inputModelIDs).GetAll(&resultsForModel)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("getting models from database: %w", err)
 		}
@@ -947,7 +945,7 @@ SELECT (uuid,
 	   cloud_credential_owner_name,
 	   cloud_credential_cloud_name,
 	   life,
-       target_agent_version) AS (&model.*),
+       target_agent_version) AS (&stateModel.*),
        (mll.time,
        mll.user_uuid) AS (&userModelLastLogin.*)
 FROM v_model
@@ -959,12 +957,12 @@ WHERE mll.user_uuid = $M.user_uuid
 		"user_uuid": userID,
 	}
 
-	stmt, err := sqlair.Prepare(query, model{}, userModelLastLogin{}, args)
+	stmt, err := sqlair.Prepare(query, stateModel{}, userModelLastLogin{}, args)
 	if err != nil {
 		return nil, fmt.Errorf("preparing list models with login statement: %w", err)
 	}
 
-	resultsForModel := []model{}
+	resultsForModel := []stateModel{}
 	lastLogins := []userModelLastLogin{}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -972,17 +970,13 @@ WHERE mll.user_uuid = $M.user_uuid
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("getting models from database: %w", err)
 		}
-
-		for _, dbModel := range resultsForModel {
-			// TODO: fill in retval
-		}
-
 		return nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("getting all models: %w", err)
 	}
 
+	return nil, nil
 }
 
 // ListAllModelsWithLife returns all models registered in the controller
@@ -1009,18 +1003,18 @@ SELECT (uuid,
 	   cloud_credential_owner_name,
 	   cloud_credential_cloud_name,
 	   life,
-       target_agent_version) AS (&model.*)
+       target_agent_version) AS (&stateModel.*)
 FROM v_model
 WHERE life IN ($S[:])
 `
 
-	resultsForModel := []model{}
+	resultsForModel := []stateModel{}
 	args := make(sqlair.S, 0, len(lifes))
 	for _, life := range lifes {
 		args = append(args, life)
 	}
 
-	stmt, err := sqlair.Prepare(query, model{}, args)
+	stmt, err := sqlair.Prepare(query, stateModel{}, args)
 	if err != nil {
 		return nil, fmt.Errorf("preparing get model statement: %w", err)
 	}
@@ -1039,7 +1033,7 @@ WHERE life IN ($S[:])
 	return transformModelDBResult(resultsForModel...)
 }
 
-func transformModelDBResult(models ...model) ([]coremodel.Model, error) {
+func transformModelDBResult(models ...stateModel) ([]coremodel.Model, error) {
 	rval := make([]coremodel.Model, 0, len(models))
 	for _, dbModel := range models {
 		agentVersion, err := version.Parse(dbModel.AgentVersion)
