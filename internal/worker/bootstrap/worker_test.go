@@ -42,10 +42,20 @@ import (
 type workerSuite struct {
 	baseSuite
 
+	adminUserID     user.UUID
+	controllerModel coremodel.Model
+
 	states chan string
 }
 
 var _ = gc.Suite(&workerSuite{})
+
+func (s *workerSuite) SetUpTest(c *gc.C) {
+	s.adminUserID = usertesting.GenUserUUID(c)
+	s.controllerModel = coremodel.Model{
+		UUID: modeltesting.GenModelUUID(c),
+	}
+}
 
 func (s *workerSuite) TestKilled(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -53,7 +63,6 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 	s.ensureBootstrapParams(c)
 
 	s.expectGateUnlock()
-	s.expectControllerModel(c, 2)
 	s.expectUser(c)
 	s.expectControllerConfig()
 	s.expectAgentConfig()
@@ -82,10 +91,6 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 
 	s.expectObjectStoreGetter(1)
 
-	s.modelService.EXPECT().ControllerModel(gomock.Any()).Return(coremodel.Model{
-		UUID: modeltesting.GenModelUUID(c),
-	}, nil)
-
 	var called bool
 	w := &bootstrapWorker{
 		internalStates: s.states,
@@ -101,9 +106,9 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 			PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 				return nil
 			},
-			SystemState:  s.state,
-			ModelService: s.modelService,
-			Logger:       s.logger,
+			SystemState:     s.state,
+			ControllerModel: s.controllerModel,
+			Logger:          s.logger,
 		},
 	}
 	cleanup, err := w.seedAgentBinary(context.Background(), c.MkDir())
@@ -285,7 +290,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		UserService:             s.userService,
 		ApplicationService:      s.applicationService,
 		ModelConfigService:      s.modelConfigService,
-		ModelService:            s.modelService,
+		ControllerModel:         s.controllerModel,
 		ControllerConfigService: s.controllerConfigService,
 		StorageService:          s.storageService,
 		ProviderRegistry:        provider.CommonStorageProviders(),
@@ -337,13 +342,6 @@ func (s *workerSuite) ensureState(c *gc.C, st string) {
 	}
 }
 
-func (s *workerSuite) expectControllerModel(c *gc.C, num int) {
-	s.modelService.EXPECT().ControllerModel(gomock.Any()).
-		Return(coremodel.Model{
-			UUID: modeltesting.GenModelUUID(c),
-		}, nil).Times(num)
-}
-
 func (s *workerSuite) expectControllerConfig() {
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).
 		Return(controller.Config{
@@ -353,7 +351,7 @@ func (s *workerSuite) expectControllerConfig() {
 
 func (s *workerSuite) expectUser(c *gc.C) {
 	s.userService.EXPECT().GetUserByName(gomock.Any(), "admin").Return(user.User{
-		UUID: usertesting.GenUserUUID(c),
+		UUID: s.adminUserID,
 	}, nil)
 	s.userService.EXPECT().AddUser(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, u accessservice.AddUserArg) (user.UUID, []byte, error) {
 		c.Check(u.Name, gc.Equals, "juju-metrics")

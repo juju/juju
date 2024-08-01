@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -49,7 +50,7 @@ type WorkerConfig struct {
 	StorageService          StorageService
 	ProviderRegistry        storage.ProviderRegistry
 	ApplicationService      ApplicationService
-	ModelService            ModelService
+	ControllerModel         coremodel.Model
 	ModelConfigService      ModelConfigService
 	FlagService             FlagService
 	NetworkService          NetworkService
@@ -90,9 +91,6 @@ func (c *WorkerConfig) Validate() error {
 	if c.ApplicationService == nil {
 		return errors.NotValidf("nil ApplicationService")
 	}
-	if c.ModelService == nil {
-		return errors.NotValidf("nil ModelService")
-	}
 	if c.ModelConfigService == nil {
 		return errors.NotValidf("nil ModelConfigService")
 	}
@@ -128,6 +126,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.BootstrapAddressFinder == nil {
 		return errors.NotValidf("nil BootstrapAddressFinder")
+	}
+	if err := c.ControllerModel.UUID.Validate(); err != nil {
+		return fmt.Errorf("controller model id: %w", err)
 	}
 	return nil
 }
@@ -389,14 +390,10 @@ func (w *bootstrapWorker) scopedContext() (context.Context, context.CancelFunc) 
 }
 
 func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) (func(), error) {
-	controllerModel, err := w.cfg.ModelService.ControllerModel(ctx)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"failed to get controller model when seeding agent binary: %w",
-			err,
-		)
-	}
-	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, controllerModel.UUID.String())
+	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(
+		ctx,
+		w.cfg.ControllerModel.UUID.String(),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get object store: %w", err)
 	}
@@ -417,12 +414,10 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 		return errors.Trace(err)
 	}
 
-	controllerModel, err := w.cfg.ModelService.ControllerModel(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get controller model when seeding controller charm: %w", err)
-	}
-
-	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, controllerModel.UUID.String())
+	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(
+		ctx,
+		w.cfg.ControllerModel.UUID.String(),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to get object store: %w", err)
 	}
@@ -431,7 +426,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 	deployer, err := w.cfg.ControllerCharmDeployer(ControllerCharmDeployerConfig{
 		StateBackend:                w.cfg.SystemState,
 		ApplicationService:          w.cfg.ApplicationService,
-		Model:                       controllerModel,
+		Model:                       w.cfg.ControllerModel,
 		ModelConfigService:          w.cfg.ModelConfigService,
 		ObjectStore:                 objectStore,
 		ControllerConfig:            controllerConfig,
