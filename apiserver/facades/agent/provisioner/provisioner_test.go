@@ -74,14 +74,21 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	s.ApiServerSuite.ControllerModelConfigAttrs["image-stream"] = "daily"
 	s.ApiServerSuite.SetUpTest(c)
 
+	controllerServiceFactory := s.ControllerServiceFactory(c)
+	err := controllerServiceFactory.Config().UpdateModelConfig(context.Background(),
+		map[string]any{
+			"image-stream": "daily",
+		},
+		nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Reset previous machines (if any) and create 3 machines
 	// for the tests, plus an optional controller machine.
 	s.machines = nil
 	// Note that the specific machine ids allocated are assumed
 	// to be numerically consecutive from zero.
 	st := s.ControllerModel(c).State()
-
-	controllerServiceFactory := s.ControllerServiceFactory(c)
 
 	if withController {
 		controllerConfigService := controllerServiceFactory.ControllerConfig()

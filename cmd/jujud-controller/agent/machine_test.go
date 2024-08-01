@@ -5,12 +5,12 @@ package agent
 
 import (
 	"context"
-	stdcontext "context"
 	"os"
 	"path/filepath"
 	"reflect"
 	"time"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/collections/set"
@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain"
 	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/environs/filestorage"
 	envstorage "github.com/juju/juju/environs/storage"
@@ -135,7 +136,7 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	coretesting.DumpTestLogsAfter(time.Minute, c, s)
 
 	// Ensure the dummy provider is initialised - no need to actually bootstrap.
-	ctx := envtesting.BootstrapContext(stdcontext.Background(), c)
+	ctx := envtesting.BootstrapContext(context.Background(), c)
 	err = s.Environ.PrepareForBootstrap(ctx, "controller")
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -165,7 +166,7 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		aCfg := agentconf.NewAgentConf(s.DataDir)
 		s.PrimeAgent(c, names.NewMachineTag("42"), initialMachinePassword)
 		logger := s.newBufferedLogWriter()
-		newDBWorkerFunc := func(stdcontext.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
+		newDBWorkerFunc := func(context.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
 			return databasetesting.NewTrackedDB(s.TxnRunnerFactory()), nil
 		}
 		a := NewMachineAgentCommand(
@@ -188,7 +189,7 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	s.cmdRunner = mocks.NewMockCommandRunner(ctrl)
 
-	newDBWorkerFunc := func(stdcontext.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
+	newDBWorkerFunc := func(context.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
 		return databasetesting.NewTrackedDB(s.TxnRunnerFactory()), nil
 	}
 	a := NewMachineAgentCommand(
@@ -219,7 +220,7 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	s.cmdRunner = mocks.NewMockCommandRunner(ctrl)
 
-	newDBWorkerFunc := func(stdcontext.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
+	newDBWorkerFunc := func(context.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
 		return databasetesting.NewTrackedDB(s.TxnRunnerFactory()), nil
 	}
 	a := NewMachineAgentCommand(
@@ -259,8 +260,16 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 	newVers.Patch++
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, s.agentStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), newVers)[0]
+
+	// Set a new agent version
+	// Currently we have to dual-write, because the actual agent version is
+	// read from dqlite, but the check of "should I upgrade" is still being
+	// read from Mongo.
 	err := s.ControllerModel(c).State().SetModelAgentVersion(newVers.Number, nil, true, upgrader)
 	c.Assert(err, jc.ErrorIsNil)
+	s.setAgentVersion(c, newVers.Number.String())
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = runWithTimeout(c, agent)
 	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
 		AgentName: tag,
@@ -268,6 +277,31 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 		NewTools:  newTools.Version,
 		DataDir:   s.DataDir,
 	})
+}
+
+// setAgentVersion sets the agent version for the controller model in dqlite.
+func (s *MachineSuite) setAgentVersion(c *gc.C, vers string) {
+	st := domain.NewStateBase(s.TxnRunnerFactory())
+	db, err := st.DB()
+	c.Assert(err, jc.ErrorIsNil)
+
+	q := `
+UPDATE model_agent
+SET target_version = $M.target_agent_version
+WHERE model_uuid = $M.model_id
+`
+	args := sqlair.M{
+		"model_id":             s.ControllerModelUUID(),
+		"target_agent_version": vers,
+	}
+
+	stmt, err := st.Prepare(q, args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, args).Run()
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
@@ -370,7 +404,7 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 
 	// Wait for state to be updated.
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		devices, err := blockdevicestate.NewState(s.TxnRunnerFactory()).BlockDevices(stdcontext.Background(), m.Id())
+		devices, err := blockdevicestate.NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), m.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		if len(devices) > 0 {
 			c.Assert(devices, gc.HasLen, 1)
@@ -566,7 +600,7 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 
 	agentConfig := a.CurrentConfig()
 
-	err := a.ensureMongoServer(stdcontext.Background(), agentConfig)
+	err := a.ensureMongoServer(context.Background(), agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)

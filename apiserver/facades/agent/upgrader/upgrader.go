@@ -58,6 +58,7 @@ func NewUpgraderAPI(
 	logger corelogger.Logger,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
+	modelAgentService ModelAgentService,
 	controllerStore objectstore.ObjectStore,
 ) (*UpgraderAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthApplicationAgent() && !authorizer.AuthModelAgent() && !authorizer.AuthUnitAgent() {
@@ -74,9 +75,9 @@ func NewUpgraderAPI(
 	configGetter := stateenvirons.EnvironConfigGetter{
 		Model: model, CloudService: cloudService, CredentialService: credentialService}
 	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
-	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron, controllerStore)
+	toolsFinder := common.NewToolsFinder(controllerConfigGetter, st, urlGetter, newEnviron, controllerStore)
 	return &UpgraderAPI{
-		ToolsGetter: common.NewToolsGetter(st, configGetter, st, urlGetter, toolsFinder, getCanReadWrite),
+		ToolsGetter: common.NewToolsGetter(st, modelAgentService, st, urlGetter, toolsFinder, getCanReadWrite),
 		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),
 		st:          st,
 		m:           model,

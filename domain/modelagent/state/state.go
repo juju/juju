@@ -32,7 +32,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 }
 
 // GetModelAgentVersion returns the agent version for the specified model. If
-// the agent version cannot be found, an error satisfying [errors.NotFound]
+// the agent version cannot be found, an error satisfying [modelerrors.NotFound]
 // will be returned.
 func (st *State) GetModelAgentVersion(ctx context.Context, modelID model.UUID) (version.Number, error) {
 	db, err := st.DB()

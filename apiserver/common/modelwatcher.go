@@ -20,7 +20,10 @@ import (
 // ModelConfigService is an interface that provides access to the
 // model configuration.
 type ModelConfigService interface {
+	// ModelConfig returns the current config for the model.
 	ModelConfig(ctx context.Context) (*config.Config, error)
+	// Watch returns a watcher that returns keys for any changes to model
+	// config.
 	Watch() (watcher.StringsWatcher, error)
 }
 

@@ -10,7 +10,9 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -29,8 +31,23 @@ type AgentProvisionerService interface {
 // ControllerConfigService is the interface that the provisioner facade
 // uses to get the controller config.
 type ControllerConfigService interface {
-	// ControllerConfig returns this controllers config.
+	// ControllerConfig returns this controller's config.
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// ModelConfigService is the interface that the provisioner facade uses to get
+// the model config.
+type ModelConfigService interface {
+	// ModelConfig returns the current config for the model.
+	ModelConfig(context.Context) (*config.Config, error)
+}
+
+// ModelInfoService describe the service for interacting and reading the underlying
+// model information.
+type ModelInfoService interface {
+	// GetModelInfo returns the readonly model information for the model in
+	// question.
+	GetModelInfo(context.Context) (model.ReadOnlyModel, error)
 }
 
 // StoragePoolGetter instances get a storage pool by name.

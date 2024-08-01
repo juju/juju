@@ -144,7 +144,7 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 	controllerConfigService := serviceFactory.ControllerConfig()
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
-	toolsFinder := common.NewToolsFinder(controllerConfigService, configGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
+	toolsFinder := common.NewToolsFinder(controllerConfigService, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
 	blockChecker := common.NewBlockChecker(st)
 	leadershipReader, err := ctx.LeadershipReader()
 	if err != nil {
