@@ -1054,12 +1054,12 @@ func (m *stateSuite) TestAllModels(c *gc.C) {
 	})
 }
 
-// TestListAllHostedModels tests the basic functionality of
-// State.ListAllHostedModels:
+// TestListHostedModels tests the basic functionality of
+// State.ListHostedModels:
 // - only models with the specified life values will be returned
 // - excluded model IDs are not returned
 // - cloud and credential info for the returned models is correct
-func (m *stateSuite) TestListAllHostedModels(c *gc.C) {
+func (m *stateSuite) TestListHostedModels(c *gc.C) {
 	st := NewState(m.TxnRunnerFactory())
 	credentialKey := corecredential.Key{
 		Cloud: "my-cloud",
@@ -1121,7 +1121,7 @@ func (m *stateSuite) TestListAllHostedModels(c *gc.C) {
 	m.setLife(c, dyingModelID, domainlife.Dying)
 
 	// Get hosted models
-	hostedModels, err := st.ListAllHostedModels(context.Background(),
+	hostedModels, err := st.ListHostedModels(context.Background(),
 		[]corelife.Value{corelife.Alive, corelife.Dying}, // exclude dead models
 		[]coremodel.UUID{controllerModelID},              // exclude controller model
 	)
@@ -1205,7 +1205,7 @@ WHERE uuid = $M.model_id
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (m *stateSuite) TestListAllModelsWithLastLogin(c *gc.C) {
+func (m *stateSuite) TestListModelsWithLastLogin(c *gc.C) {
 	// model logged in
 	// model never logged in
 }

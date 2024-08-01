@@ -833,12 +833,12 @@ FROM v_model
 	return transformModelDBResult(resultsForModel...)
 }
 
-// ListAllHostedModels retrieves all hosted models on the controller, along
+// ListHostedModels retrieves all hosted models on the controller, along
 // with their cloud and credential information. This function will filter on
 // models that have a "life" value in the includeLifes slice. Any models with
 // an ID in the excludeIDs slice will be excluded. If no matching models exist,
 // then an empty slice is returned.
-func (s *State) ListAllHostedModels(
+func (s *State) ListHostedModels(
 	ctx context.Context,
 	includeLifes []corelife.Value,
 	excludeIDs []coremodel.UUID,
@@ -923,8 +923,8 @@ AND uuid NOT IN ($modelIDList[:])
 	return hostedModels, nil
 }
 
-// ListAllModelsWithLastLogin lists all models along with the last login by the specified user.
-func (s *State) ListAllModelsWithLastLogin(ctx context.Context, userID user.UUID) ([]coremodel.ModelWithLogin, error) {
+// ListModelsWithLastLogin lists all models along with the last login by the specified user.
+func (s *State) ListModelsWithLastLogin(ctx context.Context, userID user.UUID) ([]coremodel.ModelWithLogin, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -983,7 +983,7 @@ WHERE mll.user_uuid = $M.user_uuid
 // that have a "life" value in the given slice. If no such models exist, a
 // zero value slice will be returned.
 //
-//	TODO: write tests
+//	TODO: delete
 func (s *State) ListAllModelsWithLife(ctx context.Context, lifes []corelife.Value) ([]coremodel.Model, error) {
 	db, err := s.DB()
 	if err != nil {
