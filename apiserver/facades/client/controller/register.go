@@ -11,19 +11,12 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/model"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Controller", 11, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		api, err := makeControllerAPIv11(stdCtx, ctx)
-		if err != nil {
-			return nil, fmt.Errorf("creating Controller facade v11: %w", err)
-		}
-		return api, nil
-	}, reflect.TypeOf((*ControllerAPIv11)(nil)))
-
-	registry.MustRegister("Controller", 12, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+	registry.MustRegisterForMultiModel("Controller", 12, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		api, err := makeControllerAPI(stdCtx, ctx)
 		if err != nil {
 			return nil, fmt.Errorf("creating Controller facade v12: %w", err)
@@ -32,9 +25,8 @@ func Register(registry facade.FacadeRegistry) {
 	}, reflect.TypeOf((*ControllerAPI)(nil)))
 }
 
-// newControllerAPIv11 creates a new ControllerAPIv11
-func makeControllerAPI(stdCtx context.Context, ctx facade.ModelContext) (*ControllerAPI, error) {
-
+// makeControllerAPI creates a new ControllerAPI.
+func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*ControllerAPI, error) {
 	var (
 		st             = ctx.State()
 		authorizer     = ctx.Auth()
@@ -48,6 +40,10 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Contro
 	leadership, err := ctx.LeadershipReader()
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	modelConfigServiceGetter := func(modelID model.UUID) ModelConfigService {
+		return ctx.ServiceFactoryForModel(modelID).Config()
 	}
 
 	return NewControllerAPI(
@@ -65,20 +61,10 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Contro
 		serviceFactory.Credential(),
 		serviceFactory.Upgrade(),
 		serviceFactory.Access(),
+		serviceFactory.Model(),
+		modelConfigServiceGetter,
 		ctx.ModelExporter(st),
 		ctx.ObjectStore(),
 		leadership,
 	)
-}
-
-// makeControllerAPIv11 creates a new ControllerAPIv11
-func makeControllerAPIv11(stdCtx context.Context, ctx facade.ModelContext) (*ControllerAPIv11, error) {
-	controllerAPI, err := makeControllerAPI(stdCtx, ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ControllerAPIv11{
-		ControllerAPI: controllerAPI,
-	}, nil
 }
