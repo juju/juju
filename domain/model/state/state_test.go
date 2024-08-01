@@ -1054,8 +1054,18 @@ func (m *stateSuite) TestAllModels(c *gc.C) {
 	})
 }
 
+// TestListAllHostedModels tests the basic functionality of
+// State.ListAllHostedModels:
+// - only models with the specified life values will be returned
+// - excluded model IDs are not returned
+// - cloud and credential info for the returned models is correct
 func (m *stateSuite) TestListAllHostedModels(c *gc.C) {
 	st := NewState(m.TxnRunnerFactory())
+	credentialKey := corecredential.Key{
+		Cloud: "my-cloud",
+		Owner: "test-user",
+		Name:  "foobar",
+	}
 
 	// Add controller model
 	controllerModelID := modeltesting.GenModelUUID(c)
@@ -1065,8 +1075,12 @@ func (m *stateSuite) TestListAllHostedModels(c *gc.C) {
 			Owner:         m.userUUID,
 			Cloud:         "my-cloud",
 			SecretBackend: juju.BackendName,
+			Credential:    credentialKey,
 		})
 	c.Assert(err, jc.ErrorIsNil)
+	err = st.Activate(context.Background(), controllerModelID)
+	c.Assert(err, jc.ErrorIsNil)
+	m.setLife(c, controllerModelID, domainlife.Alive)
 
 	// We already have a test model was created in SetUpTest
 	// Mark this as "dead".
@@ -1080,7 +1094,10 @@ func (m *stateSuite) TestListAllHostedModels(c *gc.C) {
 			Owner:         m.userUUID,
 			Cloud:         "my-cloud",
 			SecretBackend: juju.BackendName,
+			Credential:    credentialKey,
 		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.Activate(context.Background(), aliveModelID)
 	c.Assert(err, jc.ErrorIsNil)
 	m.setLife(c, aliveModelID, domainlife.Alive)
 
@@ -1090,9 +1107,16 @@ func (m *stateSuite) TestListAllHostedModels(c *gc.C) {
 		model.ModelCreationArgs{
 			Name:          "dying",
 			Owner:         m.userUUID,
-			Cloud:         "my-cloud",
+			Cloud:         "other-cloud",
 			SecretBackend: juju.BackendName,
+			Credential: corecredential.Key{
+				Cloud: "other-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
 		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.Activate(context.Background(), dyingModelID)
 	c.Assert(err, jc.ErrorIsNil)
 	m.setLife(c, dyingModelID, domainlife.Dying)
 
@@ -1104,33 +1128,61 @@ func (m *stateSuite) TestListAllHostedModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostedModels, jc.DeepEquals, []coremodel.HostedModel{{
 		Model: coremodel.Model{
-			Name:  "alive",
-			Life:  corelife.Alive,
-			UUID:  aliveModelID,
-			Owner: m.userUUID,
-			Cloud: "my-cloud",
+			Name:       "alive",
+			Life:       corelife.Alive,
+			UUID:       aliveModelID,
+			ModelType:  coremodel.IAAS,
+			Cloud:      "my-cloud",
+			CloudType:  "ec2",
+			Credential: credentialKey,
+			Owner:      m.userUUID,
+			OwnerName:  "test-user",
 		},
-		Cloud:      cloud.Cloud{},
-		Credential: cloud.Credential{},
+		Cloud: cloud.Cloud{
+			Name:      "my-cloud",
+			Type:      "ec2",
+			AuthTypes: cloud.AuthTypes{"access-key", "userpass"},
+			Regions:   []cloud.Region{{Name: "my-region"}},
+		},
+		Credential: credential.CloudCredentialInfo{
+			AuthType: "access-key",
+			Attributes: map[string]string{
+				"foo": "foo val",
+				"bar": "bar val",
+			},
+			Label: "foobar",
+		}.AsCredential(),
 	}, {
 		Model: coremodel.Model{
-			Name:  "dying",
-			Life:  corelife.Dying,
-			UUID:  dyingModelID,
-			Owner: m.userUUID,
-			Cloud: "my-cloud",
+			Name:      "dying",
+			Life:      corelife.Dying,
+			UUID:      dyingModelID,
+			ModelType: coremodel.IAAS,
+			Cloud:     "other-cloud",
+			CloudType: "ec2",
+			Credential: corecredential.Key{
+				Cloud: "other-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Owner:     m.userUUID,
+			OwnerName: "test-user",
 		},
-		Cloud:      cloud.Cloud{},
-		Credential: cloud.Credential{},
+		Cloud: cloud.Cloud{
+			Name:      "other-cloud",
+			Type:      "ec2",
+			AuthTypes: cloud.AuthTypes{"access-key", "userpass"},
+			Regions:   []cloud.Region{{Name: "other-region"}},
+		},
+		Credential: credential.CloudCredentialInfo{
+			AuthType: "access-key",
+			Attributes: map[string]string{
+				"foo": "foo val",
+				"bar": "bar val",
+			},
+			Label: "foobar",
+		}.AsCredential(),
 	}})
-
-	// Add 4 models:
-	//  - controller model - exclude UUID
-	//  - alive model
-	//  - dying model
-	//  - dead model
-	// only the alive and dying models should show up
-	// check correct cloud and credential
 }
 
 // setLife sets the life value of the given model in the DB.
