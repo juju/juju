@@ -200,7 +200,7 @@ func (d *dummyState) ListAllModels(
 	return rval, nil
 }
 
-func (d *dummyState) ListHostedModels(_ context.Context, includeLifes []life.Value, excludeIDs []coremodel.UUID) ([]coremodel.HostedModel, error) {
+func (d *dummyState) HostedModels(_ context.Context, includeLifes []life.Value, excludeIDs []coremodel.UUID) ([]coremodel.HostedModel, error) {
 	var hostedModels []coremodel.HostedModel
 
 	for _, m := range d.models {
@@ -225,7 +225,7 @@ func (d *dummyState) ListHostedModels(_ context.Context, includeLifes []life.Val
 	return hostedModels, nil
 }
 
-func (d *dummyState) ListModelsWithLastLogin(_ context.Context, userID coreuser.UUID, includeLifes []life.Value) ([]coremodel.ModelWithLogin, error) {
+func (d *dummyState) ModelLastLogins(_ context.Context, userID coreuser.UUID, includeLifes []life.Value) ([]coremodel.ModelWithLogin, error) {
 	var modelsWithLogin []coremodel.ModelWithLogin
 
 	for _, m := range d.models {

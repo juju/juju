@@ -1055,12 +1055,11 @@ func (m *stateSuite) TestAllModels(c *gc.C) {
 	})
 }
 
-// TestListHostedModels tests the basic functionality of
-// State.ListHostedModels:
-// - only models with the specified life values will be returned
-// - excluded model IDs are not returned
-// - cloud and credential info for the returned models is correct
-func (m *stateSuite) TestListHostedModels(c *gc.C) {
+// TestHostedModels tests the basic functionality of State.HostedModels:
+//   - only models with the specified life values will be returned
+//   - excluded model IDs are not returned
+//   - cloud and credential info for the returned models is correct
+func (m *stateSuite) TestHostedModels(c *gc.C) {
 	st := NewState(m.TxnRunnerFactory())
 	credentialKey := corecredential.Key{
 		Cloud: "my-cloud",
@@ -1122,7 +1121,7 @@ func (m *stateSuite) TestListHostedModels(c *gc.C) {
 	m.setLife(c, dyingModelID, domainlife.Dying)
 
 	// Get hosted models
-	hostedModels, err := st.ListHostedModels(context.Background(),
+	hostedModels, err := st.HostedModels(context.Background(),
 		[]corelife.Value{corelife.Alive, corelife.Dying}, // exclude dead models
 		[]coremodel.UUID{controllerModelID},              // exclude controller model
 	)
@@ -1206,7 +1205,11 @@ WHERE uuid = $M.model_id
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (m *stateSuite) TestListModelsWithLastLogin(c *gc.C) {
+// TestModelLastLogins tests the basic functionality of State.ModelLastLogins:
+//   - models can be filtered out by life
+//   - models are still returned even if they have never been accessed
+//   - new logins are reflected in the return value.
+func (m *stateSuite) TestModelLastLogins(c *gc.C) {
 	modelState := NewState(m.TxnRunnerFactory())
 	userState := accessstate.NewUserState(m.TxnRunnerFactory())
 
@@ -1282,7 +1285,7 @@ func (m *stateSuite) TestListModelsWithLastLogin(c *gc.C) {
 	}}
 
 	// Get models with last login
-	modelsWithLogin, err := modelState.ListModelsWithLastLogin(context.Background(),
+	modelsWithLogin, err := modelState.ModelLastLogins(context.Background(),
 		m.userUUID, []corelife.Value{corelife.Alive, corelife.Dying})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelsWithLogin, jc.DeepEquals, expected)
@@ -1294,7 +1297,7 @@ func (m *stateSuite) TestListModelsWithLastLogin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected[0].LastLogin = &updatedLogin
 
-	modelsWithLogin, err = modelState.ListModelsWithLastLogin(context.Background(),
+	modelsWithLogin, err = modelState.ModelLastLogins(context.Background(),
 		m.userUUID, []corelife.Value{corelife.Alive, corelife.Dying})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelsWithLogin, jc.DeepEquals, expected)

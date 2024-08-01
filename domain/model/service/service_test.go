@@ -635,9 +635,8 @@ func (s *serviceSuite) TestListAllModels(c *gc.C) {
 	})
 }
 
-// TestListModelsWithLastLogin tests the happy path for
-// Service.ListModelsWithLastLogin.
-func (s *serviceSuite) TestListModelsWithLastLogin(c *gc.C) {
+// TestModelLastLogins tests the happy path for Service.ModelLastLogins.
+func (s *serviceSuite) TestModelLastLogins(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
@@ -697,7 +696,7 @@ func (s *serviceSuite) TestListModelsWithLastLogin(c *gc.C) {
 	err = s.state.setLife(nil, deadModelID, life.Dead)
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelsWithLogin, err := svc.ListModelsWithLastLogin(context.Background(), userID)
+	modelsWithLogin, err := svc.ModelLastLogins(context.Background(), userID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelsWithLogin, jc.DeepEquals, []coremodel.ModelWithLogin{{
 		Model: coremodel.Model{
@@ -730,8 +729,8 @@ func (s *serviceSuite) TestListModelsWithLastLogin(c *gc.C) {
 	}})
 }
 
-// TestListHostedModels tests the happy path for Service.ListHostedModels.
-func (s *serviceSuite) TestListHostedModels(c *gc.C) {
+// TestHostedModels tests the happy path for Service.HostedModels.
+func (s *serviceSuite) TestHostedModels(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
@@ -805,7 +804,7 @@ func (s *serviceSuite) TestListHostedModels(c *gc.C) {
 	err = s.state.setLife(nil, deadModelID, life.Dead)
 	c.Assert(err, jc.ErrorIsNil)
 
-	hostedModels, err := svc.ListHostedModels(context.Background())
+	hostedModels, err := svc.HostedModels(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(hostedModels, jc.DeepEquals, []coremodel.HostedModel{{
 		Model: coremodel.Model{

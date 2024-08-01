@@ -821,12 +821,12 @@ FROM v_model
 	return transformModelDBResult(resultsForModel...)
 }
 
-// ListHostedModels retrieves all hosted models on the controller, along
-// with their cloud and credential information. This function will filter on
-// models that have a "life" value in the includeLifes slice. Any models with
-// an ID in the excludeIDs slice will be excluded. If no matching models exist,
-// then an empty slice is returned.
-func (s *State) ListHostedModels(
+// HostedModels retrieves all hosted models on the controller, along with their
+// cloud and credential information. This function will filter on models that
+// have a "life" value in the includeLifes slice. Any models with an ID in the
+// excludeIDs slice will be excluded. If no matching models exist, an empty
+// slice is returned.
+func (s *State) HostedModels(
 	ctx context.Context,
 	includeLifes []corelife.Value,
 	excludeIDs []coremodel.UUID,
@@ -897,11 +897,10 @@ AND uuid NOT IN ($modelIDList[:])
 	return hostedModels, nil
 }
 
-// ListModelsWithLastLogin lists all models along with the last login by the
-// specified user.  This function will filter on models that have a "life"
-// value in the includeLifes slice. If no matching models exist, then an empty
-// slice is returned.
-func (s *State) ListModelsWithLastLogin(
+// ModelLastLogins lists all models along with the last login by the specified
+// user. This function will filter on models that have a "life" value in the
+// includeLifes slice. If no matching models exist, an empty slice is returned.
+func (s *State) ModelLastLogins(
 	ctx context.Context,
 	userID user.UUID,
 	includeLifes []corelife.Value,
