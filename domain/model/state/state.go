@@ -402,18 +402,7 @@ func GetModel(
 	uuid coremodel.UUID,
 ) (coremodel.Model, error) {
 	q := `
-SELECT (name,
-       ma.target_version,
-       cloud_name,
-       cloud_type,
-       cloud_region_name,
-       model_type,
-       owner_uuid,
-	   owner_name,
-       cloud_credential_cloud_name,
-       cloud_credential_owner_name,
-       cloud_credential_name,
-       life) AS (&dbModel.*)
+SELECT &dbModel.*
 FROM v_model
 INNER JOIN model_agent ma ON v_model.uuid = ma.model_uuid
 WHERE uuid = $dbModel.uuid

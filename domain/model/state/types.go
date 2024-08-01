@@ -34,7 +34,7 @@ type dbModel struct {
 	ModelType string `db:"model_type"`
 
 	// AgentVersion is the target version for agents running under this model.
-	AgentVersion string `db:"target_version"`
+	AgentVersion string `db:"target_agent_version"`
 
 	// CloudName is the name of the cloud to associate with the model.
 	CloudName string `db:"cloud_name"`

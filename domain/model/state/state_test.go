@@ -1038,13 +1038,15 @@ func (m *stateSuite) TestAllModels(c *gc.C) {
 
 	c.Check(models, gc.DeepEquals, []coremodel.Model{
 		{
-			Name:        "my-test-model",
-			UUID:        m.uuid,
-			Cloud:       "my-cloud",
-			CloudRegion: "my-region",
-			ModelType:   coremodel.IAAS,
-			Owner:       m.userUUID,
-			OwnerName:   "test-user",
+			Name:         "my-test-model",
+			UUID:         m.uuid,
+			Cloud:        "my-cloud",
+			CloudType:    "ec2",
+			CloudRegion:  "my-region",
+			ModelType:    coremodel.IAAS,
+			AgentVersion: version.Current,
+			Owner:        m.userUUID,
+			OwnerName:    "test-user",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: "test-user",
