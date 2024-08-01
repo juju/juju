@@ -761,6 +761,7 @@ func (s *serviceSuite) TestHostedModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.state.setLife(nil, controllerModelID, life.Alive)
 	c.Assert(err, jc.ErrorIsNil)
+	s.state.controllerModelUUID = controllerModelID
 
 	// Add "alive" model
 	aliveModelID, activate, err := svc.CreateModel(context.Background(),
