@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -44,12 +45,12 @@ type WorkerConfig struct {
 	Agent                   agent.Agent
 	ObjectStoreGetter       ObjectStoreGetter
 	ControllerConfigService ControllerConfigService
-	CredentialService       CredentialService
 	CloudService            CloudService
 	UserService             UserService
 	StorageService          StorageService
 	ProviderRegistry        storage.ProviderRegistry
 	ApplicationService      ApplicationService
+	ControllerModel         coremodel.Model
 	ModelConfigService      ModelConfigService
 	FlagService             FlagService
 	NetworkService          NetworkService
@@ -60,8 +61,6 @@ type WorkerConfig struct {
 	PopulateControllerCharm PopulateControllerCharmFunc
 	CharmhubHTTPClient      HTTPClient
 	UnitPassword            string
-	NewEnviron              NewEnvironFunc
-	BootstrapAddresses      BootstrapAddressesFunc
 	BootstrapAddressFinder  BootstrapAddressFinderFunc
 	Logger                  logger.Logger
 
@@ -79,9 +78,6 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.ControllerConfigService == nil {
 		return errors.NotValidf("nil ControllerConfigService")
-	}
-	if c.CredentialService == nil {
-		return errors.NotValidf("nil CredentialService")
 	}
 	if c.CloudService == nil {
 		return errors.NotValidf("nil CloudService")
@@ -131,11 +127,8 @@ func (c *WorkerConfig) Validate() error {
 	if c.BootstrapAddressFinder == nil {
 		return errors.NotValidf("nil BootstrapAddressFinder")
 	}
-	if c.NewEnviron == nil {
-		return errors.NotValidf("nil NewEnviron")
-	}
-	if c.BootstrapAddresses == nil {
-		return errors.NotValidf("nil BootstrapAddresses")
+	if err := c.ControllerModel.UUID.Validate(); err != nil {
+		return fmt.Errorf("controller model id: %w", err)
 	}
 	return nil
 }
@@ -224,17 +217,11 @@ func (w *bootstrapWorker) loop() error {
 	}
 
 	// Retrieve controller addresses needed to set the API host ports.
-	bootstrapAddresses, err := w.cfg.BootstrapAddressFinder(ctx, BootstrapAddressesConfig{
-		BootstrapInstanceID:    bootstrapParams.BootstrapMachineInstanceId,
-		SystemState:            w.cfg.SystemState,
-		CloudService:           w.cfg.CloudService,
-		CredentialService:      w.cfg.CredentialService,
-		NewEnvironFunc:         w.cfg.NewEnviron,
-		BootstrapAddressesFunc: w.cfg.BootstrapAddresses,
-	})
+	bootstrapAddresses, err := w.cfg.BootstrapAddressFinder(ctx, bootstrapParams.BootstrapMachineInstanceId)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	servingInfo, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return errors.Errorf("state serving information not available")
@@ -403,7 +390,10 @@ func (w *bootstrapWorker) scopedContext() (context.Context, context.CancelFunc) 
 }
 
 func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) (func(), error) {
-	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, w.cfg.SystemState.ControllerModelUUID())
+	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(
+		ctx,
+		w.cfg.ControllerModel.UUID.String(),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get object store: %w", err)
 	}
@@ -424,7 +414,10 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 		return errors.Trace(err)
 	}
 
-	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, w.cfg.SystemState.ControllerModelUUID())
+	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(
+		ctx,
+		w.cfg.ControllerModel.UUID.String(),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to get object store: %w", err)
 	}
@@ -433,6 +426,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 	deployer, err := w.cfg.ControllerCharmDeployer(ControllerCharmDeployerConfig{
 		StateBackend:                w.cfg.SystemState,
 		ApplicationService:          w.cfg.ApplicationService,
+		Model:                       w.cfg.ControllerModel,
 		ModelConfigService:          w.cfg.ModelConfigService,
 		ObjectStore:                 objectStore,
 		ControllerConfig:            controllerConfig,
