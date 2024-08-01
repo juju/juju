@@ -218,13 +218,7 @@ func (d *dummyState) ListHostedModels(_ context.Context, includeLifes []life.Val
 				Type:            m.CloudType,
 				HostCloudRegion: m.CloudRegion,
 			},
-			Credential: cloud.NewNamedCredential(m.Credential.Name, "",
-				map[string]string{
-					"cloud": m.Credential.Cloud,
-					"owner": m.Credential.Owner,
-				},
-				false,
-			),
+			Credential: cloud.Credential{},
 		})
 	}
 

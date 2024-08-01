@@ -15,6 +15,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -731,7 +732,116 @@ func (s *serviceSuite) TestListModelsWithLastLogin(c *gc.C) {
 
 // TestListHostedModels tests the happy path for Service.ListHostedModels.
 func (s *serviceSuite) TestListHostedModels(c *gc.C) {
-	// TODO: write this
+	cred := credential.Key{
+		Cloud: "aws",
+		Name:  "foobar",
+		Owner: s.userUUID.String(),
+	}
+	s.state.clouds["aws"] = dummyStateCloud{
+		Credentials: map[string]credential.Key{
+			cred.String(): cred,
+		},
+		Regions: []string{"myregion"},
+	}
+
+	userID := usertesting.GenUserUUID(c)
+	s.state.users[userID] = coremodel.ControllerModelOwnerUsername
+
+	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
+
+	// Add controller model
+	controllerModelID, activate, err := svc.CreateModel(context.Background(),
+		model.ModelCreationArgs{
+			Name:        coremodel.ControllerModelName,
+			Cloud:       "aws",
+			CloudRegion: "myregion",
+			Owner:       userID,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = activate(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.setLife(nil, controllerModelID, life.Alive)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add "alive" model
+	aliveModelID, activate, err := svc.CreateModel(context.Background(),
+		model.ModelCreationArgs{
+			Name:        "alive",
+			Cloud:       "aws",
+			CloudRegion: "myregion",
+			Owner:       userID,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = activate(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.setLife(nil, aliveModelID, life.Alive)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add "dying" model
+	dyingModelID, activate, err := svc.CreateModel(context.Background(),
+		model.ModelCreationArgs{
+			Name:        "dying",
+			Cloud:       "aws",
+			CloudRegion: "myregion",
+			Owner:       userID,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = activate(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.setLife(nil, dyingModelID, life.Dying)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add "dead" model
+	deadModelID, activate, err := svc.CreateModel(context.Background(),
+		model.ModelCreationArgs{
+			Name:        "dead",
+			Cloud:       "aws",
+			CloudRegion: "myregion",
+			Owner:       userID,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = activate(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.setLife(nil, deadModelID, life.Dead)
+	c.Assert(err, jc.ErrorIsNil)
+
+	hostedModels, err := svc.ListHostedModels(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(hostedModels, jc.DeepEquals, []coremodel.HostedModel{{
+		Model: coremodel.Model{
+			Name:         "alive",
+			Life:         life.Alive,
+			UUID:         aliveModelID,
+			ModelType:    coremodel.IAAS,
+			AgentVersion: jujuversion.Current,
+			Cloud:        "aws",
+			CloudRegion:  "myregion",
+			Owner:        userID,
+			OwnerName:    "admin",
+		},
+		Cloud: cloud.Cloud{
+			Name:            "aws",
+			HostCloudRegion: "myregion",
+		},
+		Credential: cloud.Credential{},
+	}, {
+		Model: coremodel.Model{
+			Name:         "dying",
+			Life:         life.Dying,
+			UUID:         dyingModelID,
+			ModelType:    coremodel.IAAS,
+			AgentVersion: jujuversion.Current,
+			Cloud:        "aws",
+			CloudRegion:  "myregion",
+			Owner:        userID,
+			OwnerName:    "admin",
+		},
+		Cloud: cloud.Cloud{
+			Name:            "aws",
+			HostCloudRegion: "myregion",
+		},
+		Credential: cloud.Credential{},
+	}})
 }
 
 // TestListModelsForUser is asserting that for a non existent user we return
