@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs"
@@ -225,11 +224,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
-			modelServiceFactory := serviceFactoryGetter.FactoryForModel(model.UUID(systemState.ModelUUID()))
+			controllerModelServiceFactory := serviceFactoryGetter.FactoryForModel(controllerModel.UUID)
 
 			// TODO (stickupkid): This should be removed once we get rid of
 			// the policy and move it into the service factory.
-			prechecker, err := stateenvirons.NewInstancePrechecker(systemState, modelServiceFactory.Cloud(), modelServiceFactory.Credential())
+			prechecker, err := stateenvirons.NewInstancePrechecker(
+				systemState,
+				controllerModelServiceFactory.Cloud(),
+				controllerModelServiceFactory.Credential(),
+			)
 			if err != nil {
 				_ = stTracker.Done()
 				return nil, errors.Trace(err)
@@ -256,13 +259,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ControllerConfigService: controllerServiceFactory.ControllerConfig(),
 				CloudService:            controllerServiceFactory.Cloud(),
 				UserService:             controllerServiceFactory.Access(),
-				StorageService:          modelServiceFactory.Storage(registry),
+				StorageService:          controllerModelServiceFactory.Storage(registry),
 				ProviderRegistry:        registry,
-				ApplicationService:      modelServiceFactory.Application(registry),
+				ApplicationService:      controllerModelServiceFactory.Application(registry),
 				ModelService:            controllerServiceFactory.Model(),
-				ModelConfigService:      modelServiceFactory.Config(),
+				ModelConfigService:      controllerModelServiceFactory.Config(),
 				FlagService:             flagService,
-				NetworkService:          modelServiceFactory.Network(),
+				NetworkService:          controllerModelServiceFactory.Network(),
 				BakeryConfigService:     controllerServiceFactory.Macaroon(),
 				SystemState: &stateShim{
 					State:      systemState,
