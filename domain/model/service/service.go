@@ -73,16 +73,18 @@ type State interface {
 	// models exist a zero value slice will be returned.
 	ListAllModels(context.Context) ([]coremodel.Model, error)
 
-	// ListAllModelsWithLife returns all models registered in the controller
-	// that have a "life" value in the given slice. If no such models exist, a
-	// zero value slice will be returned.
-	//ListAllModelsWithLife(context.Context, []life.Value) ([]coremodel.Model, error)
-
 	// ListHostedModels retrieves all hosted models on the controller, along
-	// with their cloud and credential information. This excludes the controller
-	// model and any dead models. If no hosted models exist, then an empty slice is
-	// returned.
-	ListHostedModels(ctx context.Context) ([]coremodel.HostedModel, error)
+	// with their cloud and credential information. This function will filter on
+	// models that have a "life" value in the includeLifes slice. Any models with
+	// an ID in the excludeIDs slice will be excluded. If no matching models exist,
+	// then an empty slice is returned.
+	ListHostedModels(ctx context.Context, includeLifes []life.Value, excludeIDs []coremodel.UUID) ([]coremodel.HostedModel, error)
+
+	// ListModelsWithLastLogin lists all models along with the last login by the
+	// specified user.  This function will filter on models that have a "life"
+	// value in the includeLifes slice. If no matching models exist, then an empty
+	// slice is returned.
+	ListModelsWithLastLogin(ctx context.Context, userID coreuser.UUID, includeLifes []life.Value) ([]coremodel.ModelWithLogin, error)
 
 	// ListModelIDs returns a list of all model UUIDs.
 	ListModelIDs(context.Context) ([]coremodel.UUID, error)
@@ -437,15 +439,16 @@ func (s *Service) ListModelIDs(ctx context.Context) ([]coremodel.UUID, error) {
 	return uuids, nil
 }
 
-// ListAllModels  lists all models in the controller. If no models exist then
+// ListAllModels lists all models in the controller. If no models exist then
 // an empty slice is returned.
 func (s *Service) ListAllModels(ctx context.Context) ([]coremodel.Model, error) {
 	return s.st.ListAllModels(ctx)
 }
 
-// ListModelsWithLastLogin lists all non-dead models along with the last login by the specified user.
+// ListModelsWithLastLogin lists all non-dead models along with the last login
+// by the specified user.
 func (s *Service) ListModelsWithLastLogin(ctx context.Context, userID coreuser.UUID) ([]coremodel.ModelWithLogin, error) {
-	return s.st.ListModelsWithLastLogin(ctx, []life.Value{life.Alive, life.Dying})
+	return s.st.ListModelsWithLastLogin(ctx, userID, []life.Value{life.Alive, life.Dying})
 }
 
 // ListHostedModels retrieves all hosted models on the controller, along
@@ -453,11 +456,20 @@ func (s *Service) ListModelsWithLastLogin(ctx context.Context, userID coreuser.U
 // model and any dead models. If no hosted models exist, then an empty slice is
 // returned.
 func (s *Service) ListHostedModels(ctx context.Context) ([]coremodel.HostedModel, error) {
-	return s.st.ListHostedModels(ctx)
+	// Get controller model. We want to exclude this from the returned models.
+	controllerModel, err := s.ControllerModel(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting controller model: %w", err)
+	}
+
+	return s.st.ListHostedModels(ctx,
+		[]life.Value{life.Alive, life.Dying},
+		[]coremodel.UUID{controllerModel.UUID},
+	)
 }
 
 // ListModelsForUser lists the models that are either owned by the user or
-// accessible  by the user specified by the user id. If no user or models exists
+// accessible by the user specified by the user id. If no user or models exists
 // an empty slice of models will be returned.
 func (s *Service) ListModelsForUser(ctx context.Context, userID coreuser.UUID) ([]coremodel.Model, error) {
 	if err := userID.Validate(); err != nil {
