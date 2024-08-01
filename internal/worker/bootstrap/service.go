@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/user"
@@ -42,12 +41,6 @@ type ControllerConfigService interface {
 // cloud.
 type CloudService interface {
 	Cloud(context.Context, string) (*cloud.Cloud, error)
-}
-
-// CredentialService is the interface that is used to get the
-// cloud credential.
-type CredentialService interface {
-	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
 }
 
 // ModelConfigService provides access to the model configuration.

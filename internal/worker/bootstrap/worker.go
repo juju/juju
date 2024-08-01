@@ -44,7 +44,6 @@ type WorkerConfig struct {
 	Agent                   agent.Agent
 	ObjectStoreGetter       ObjectStoreGetter
 	ControllerConfigService ControllerConfigService
-	CredentialService       CredentialService
 	CloudService            CloudService
 	UserService             UserService
 	StorageService          StorageService
@@ -78,9 +77,6 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.ControllerConfigService == nil {
 		return errors.NotValidf("nil ControllerConfigService")
-	}
-	if c.CredentialService == nil {
-		return errors.NotValidf("nil CredentialService")
 	}
 	if c.CloudService == nil {
 		return errors.NotValidf("nil CloudService")

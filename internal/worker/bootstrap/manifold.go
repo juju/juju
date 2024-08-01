@@ -254,7 +254,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Agent:                   a,
 				ObjectStoreGetter:       objectStoreGetter,
 				ControllerConfigService: controllerServiceFactory.ControllerConfig(),
-				CredentialService:       controllerServiceFactory.Credential(),
 				CloudService:            controllerServiceFactory.Cloud(),
 				UserService:             controllerServiceFactory.Access(),
 				StorageService:          modelServiceFactory.Storage(registry),

@@ -287,7 +287,6 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		ModelConfigService:      s.modelConfigService,
 		ModelService:            s.modelService,
 		ControllerConfigService: s.controllerConfigService,
-		CredentialService:       s.credentialService,
 		StorageService:          s.storageService,
 		ProviderRegistry:        provider.CommonStorageProviders(),
 		CloudService:            s.cloudService,
