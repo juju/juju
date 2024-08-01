@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/version"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	accessstate "github.com/juju/juju/domain/access/state"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
@@ -1206,8 +1207,68 @@ WHERE uuid = $M.model_id
 }
 
 func (m *stateSuite) TestListModelsWithLastLogin(c *gc.C) {
-	// model logged in
-	// model never logged in
+	modelState := NewState(m.TxnRunnerFactory())
+	userState := accessstate.NewUserState(m.TxnRunnerFactory())
+
+	// The test model created in SetUpTest has already been logged in
+	lastLogin, err := userState.LastModelLogin(context.Background(), m.userName, m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a "never logged in" model
+	neverLoggedInModelID := modeltesting.GenModelUUID(c)
+	err = modelState.Create(context.Background(), neverLoggedInModelID, coremodel.IAAS,
+		model.ModelCreationArgs{
+			Name:          "never-logged-in",
+			Owner:         m.userUUID,
+			Cloud:         "my-cloud",
+			SecretBackend: juju.BackendName,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = modelState.Activate(context.Background(), neverLoggedInModelID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = userState.LastModelLogin(context.Background(), m.userName, neverLoggedInModelID)
+	c.Assert(err, jc.ErrorIs, accesserrors.UserNeverAccessedModel)
+
+	// Get models with last login
+	modelsWithLogin, err := modelState.ListModelsWithLastLogin(context.Background(), m.userUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelsWithLogin, jc.DeepEquals, []coremodel.ModelWithLogin{{
+		Model: coremodel.Model{
+			Name:         "my-test-model",
+			Life:         corelife.Alive,
+			UUID:         m.uuid,
+			ModelType:    coremodel.IAAS,
+			AgentVersion: version.Current,
+			Cloud:        "my-cloud",
+			CloudType:    "ec2",
+			CloudRegion:  "my-region",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Owner:     m.userUUID,
+			OwnerName: m.userName,
+		},
+		UserID:    m.userUUID,
+		LastLogin: &lastLogin,
+	}, {
+		Model: coremodel.Model{
+			Name:      "never-logged-in",
+			Life:      corelife.Alive,
+			UUID:      neverLoggedInModelID,
+			ModelType: coremodel.IAAS,
+			Cloud:     "my-cloud",
+			CloudType: "ec2",
+			Owner:     m.userUUID,
+			OwnerName: m.userName,
+		},
+		UserID:    m.userUUID,
+		LastLogin: nil,
+	}})
+
+	// TODO: update model login and try again?
 }
 
 // TestSecretBackendNotFoundForModelCreate is testing that if we specify a

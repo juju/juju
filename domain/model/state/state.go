@@ -949,7 +949,7 @@ SELECT (uuid,
        (mll.time,
        mll.user_uuid) AS (&userModelLastLogin.*)
 FROM v_model
-LEFT JOIN model_last_login AS mll ON m.uuid = mll.model_uuid
+LEFT JOIN model_last_login AS mll ON v_model.uuid = mll.model_uuid
 WHERE mll.user_uuid = $M.user_uuid
 `
 
