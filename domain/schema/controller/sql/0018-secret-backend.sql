@@ -52,6 +52,20 @@ CREATE TABLE secret_backend_rotation (
     REFERENCES secret_backend (uuid)
 );
 
+CREATE TABLE secret_backend_reference (
+    secret_backend_uuid TEXT NOT NULL,
+    model_uuid TEXT NOT NULL,
+    secret_revision_uuid TEXT NOT NULL,
+    CONSTRAINT pk_secret_backend_reference
+    PRIMARY KEY (secret_backend_uuid, model_uuid, secret_revision_uuid),
+    CONSTRAINT fk_secret_backend_reference_model_uuid
+    FOREIGN KEY (model_uuid)
+    REFERENCES model (uuid),
+    CONSTRAINT fk_secret_backend_reference_secret_backend_uuid
+    FOREIGN KEY (secret_backend_uuid)
+    REFERENCES secret_backend (uuid)
+);
+
 CREATE TABLE model_secret_backend (
     model_uuid TEXT NOT NULL PRIMARY KEY,
     secret_backend_uuid TEXT NOT NULL,
