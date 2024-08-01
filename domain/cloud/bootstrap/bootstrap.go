@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/canonical/sqlair"
@@ -50,7 +49,7 @@ func SetCloudDefaults(
 			return fmt.Errorf("coercing cloud %q default values for storage: %w", cloudName, err)
 		}
 
-		err = controller.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		err = controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			return state.SetCloudDefaults(ctx, tx, cloudName, strDefaults)
 		})
 

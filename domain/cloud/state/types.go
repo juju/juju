@@ -5,29 +5,27 @@ package state
 
 // These structs represent the persistent cloud entity schema in the database.
 
-// CloudType represents a single row from the cloud_type table.
-type CloudType struct {
+// cloudType represents a single row from the cloud_type table.
+type cloudType struct {
 	ID   int    `db:"id"`
 	Type string `db:"type"`
 }
 
-type AuthTypes []AuthType
+// authTypeIds represents a list of ids from the database.
+type authTypeIds []int
 
-// AuthTypeIds represents a list of ids from the database.
-type AuthTypeIds []int
-
-// AuthType represents a single row from the auth_type table.
-type AuthType struct {
+// authType represents a single row from the auth_type table.
+type authType struct {
 	ID   int    `db:"id"`
 	Type string `db:"type"`
 }
 
-// Cloud represents a row from the cloud table joined with the cloud_type and
+// dbCloud represents a row from the cloud table joined with the cloud_type and
 // auth_type tables along with a column built form various tables signalling if
 // the cloud is a controller.
-type Cloud struct {
-	// ID holds the cloud document key.
-	ID string `db:"uuid"`
+type dbCloud struct {
+	// UUID holds the cloud's unique identifier.
+	UUID string `db:"uuid"`
 
 	// Name holds the cloud name.
 	Name string `db:"name"`
@@ -54,11 +52,11 @@ type Cloud struct {
 	IsControllerCloud bool `db:"is_controller_cloud"`
 }
 
-// CloudWithAuthType represents a row from v_cloud_auth that can be decoded into
+// cloudWithAuthType represents a row from v_cloud_auth that can be decoded into
 // this type.
-type CloudWithAuthType struct {
+type cloudWithAuthType struct {
 	// ID holds the cloud document key.
-	ID string `db:"uuid"`
+	UUID string `db:"uuid"`
 
 	// Name holds the cloud name.
 	Name string `db:"name"`
@@ -88,14 +86,14 @@ type CloudWithAuthType struct {
 	AuthType string `db:"auth_type"`
 }
 
-// Attrs stores a list of attributes corresponding to keys in the cloud_defaults
+// attrs stores a list of attributes corresponding to keys in the cloud_defaults
 // table.
-type Attrs []string
+type attrs []string
 
-// CloudDefaults represents a single row from the cloud__defaults table.
-type CloudDefaults struct {
-	// ID holds the cloud uuid.
-	ID string `db:"cloud_uuid"`
+// cloudDefaults represents a single row from the cloud__defaults table.
+type cloudDefaults struct {
+	// UUID holds the cloud uuid.
+	UUID string `db:"cloud_uuid"`
 
 	// Key is the key value.
 	Key string `db:"key"`
@@ -104,7 +102,7 @@ type CloudDefaults struct {
 	Value string `db:"value"`
 }
 
-type CloudAuthType struct {
+type cloudAuthType struct {
 	// CloudUUID holds the cloud reference.
 	CloudUUID string `db:"cloud_uuid"`
 
@@ -112,14 +110,14 @@ type CloudAuthType struct {
 	AuthTypeID int `db:"auth_type_id"`
 }
 
-// RegionNames stores a list of regions names corresponding to names the
+// regionNames stores a list of regions names corresponding to names the
 // cloud_region table.
-type RegionNames []string
+type regionNames []string
 
-// CloudRegion represents a row in the cloud_region table.
-type CloudRegion struct {
-	// ID holds the cloud region document key.
-	ID string `db:"uuid"`
+// cloudRegion represents a row in the cloud_region table.
+type cloudRegion struct {
+	// UUID holds the cloud region's unique identifier.
+	UUID string `db:"uuid"`
 
 	// CloudUUID holds the cloud reference.
 	CloudUUID string `db:"cloud_uuid"`
@@ -137,11 +135,11 @@ type CloudRegion struct {
 	StorageEndpoint string `db:"storage_endpoint"`
 }
 
-// CloudRegionDefaults represents a single row from the cloud_region_defaults
+// cloudRegionDefaults represents a single row from the cloud_region_defaults
 // table.
-type CloudRegionDefaults struct {
-	// ID holds the cloud region uuid.
-	ID string `db:"region_uuid"`
+type cloudRegionDefaults struct {
+	// UUID holds the cloud region uuid.
+	UUID string `db:"region_uuid"`
 
 	// Key is the key value.
 	Key string `db:"key"`
@@ -150,10 +148,10 @@ type CloudRegionDefaults struct {
 	Value string `db:"value"`
 }
 
-// CloudRegionDefaultValue represents a single row from cloud_region_defaults
+// cloudRegionDefaultValue represents a single row from cloud_region_defaults
 // when joined with cloud_region on cloud_region_uuid. It is used when
 // deserializing defaults for all regions of a cloud.
-type CloudRegionDefaultValue struct {
+type cloudRegionDefaultValue struct {
 	// Name is the name of the region.
 	Name string `db:"name"`
 
@@ -164,16 +162,30 @@ type CloudRegionDefaultValue struct {
 	Value string `db:"value"`
 }
 
-// CloudUUIDs is a slice of uuids from the database.
-type CloudUUIDs []string
+// uuids is a slice of uuids from the database.
+type uuids []string
 
-// CloudCACert represents a single row from the cloud_ca_cert table.
-type CloudCACert struct {
+// cloudCACert represents a single row from the cloud_ca_cert table.
+type cloudCACert struct {
 	// CloudUUID holds the cloud reference.
 	CloudUUID string `db:"cloud_uuid"`
 
 	// CACert holds the ca cert.
 	CACert string `db:"ca_cert"`
+}
+
+// cloudID represents only the name and UUID of a cloud
+type cloudID struct {
+	// UUID holds the cloud's unique identifier.
+	UUID string `db:"uuid"`
+	// Name holds the cloud name.
+	Name string `db:"name"`
+}
+
+// cloudName represents only the name of a cloud
+type dbCloudName struct {
+	// Name holds the cloud name.
+	Name string `db:"name"`
 }
 
 // dbAddUserPermission represents a permission in the system where the values

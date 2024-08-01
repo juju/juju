@@ -6,7 +6,6 @@ package state
 import (
 	"github.com/juju/errors"
 
-	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 )
 
@@ -105,10 +104,23 @@ type CredentialAttribute struct {
 	Value string `db:"value"`
 }
 
+// dbCloudName represents the name of a cloud.
+type dbCloudName struct {
+	Name string `db:"name"`
+}
+
+type authTypes []authType
+
+// authType represents a single row from the auth_type table.
+type authType struct {
+	ID   int    `db:"id"`
+	Type string `db:"type"`
+}
+
 type Credentials []Credential
 
 // ToCloudCredentials converts the given credentials to a slice of cloud credentials.
-func (rows Credentials) ToCloudCredentials(authTypes []dbcloud.AuthType, clouds []dbcloud.Cloud, keyValues []CredentialAttribute) ([]credential.CloudCredentialResult, error) {
+func (rows Credentials) ToCloudCredentials(authTypes []authType, clouds []dbCloudName, keyValues []CredentialAttribute) ([]credential.CloudCredentialResult, error) {
 	if n := len(rows); n != len(authTypes) || n != len(keyValues) || n != len(clouds) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch")
