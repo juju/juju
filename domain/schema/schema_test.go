@@ -357,6 +357,17 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"hash_kind",
 		"os",
 
+		// Resources
+		"application_resource",
+		"repository_resource",
+		"resource",
+		"resource_meta",
+		"resource_origin_type",
+		"resource_state",
+		"resource_supplied_by",
+		"resource_supplied_by_type",
+		"unit_resource",
+
 		// Space
 		"space",
 		"provider_space",
