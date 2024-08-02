@@ -114,6 +114,8 @@ type SecretBackendReferenceMutator interface {
 	AddSecretBackendReference(ctx context.Context, backendID *string, modelID coremodel.UUID, revisionID string) error
 	// RemoveSecretBackendReference removes the reference to the secret backend for the given secret revision.
 	RemoveSecretBackendReference(ctx context.Context, revisionIDs ...string) error
+	// UpdateSecretBackendReference updates the reference to the secret backend for the given secret revision.
+	UpdateSecretBackendReference(ctx context.Context, backendID *string, modelID coremodel.UUID, revisionID string) error
 }
 
 // WatcherFactory describes methods for creating watchers.
