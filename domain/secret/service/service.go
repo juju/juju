@@ -641,14 +641,12 @@ func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.UR
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := s.secretBackendReferenceMutator.RemoveSecretBackendReference(ctx, revisionID); err != nil {
-		return errors.Trace(err)
-	}
+
 	var backendID *string
 	if params.ValueRef != nil {
 		backendID = &params.ValueRef.BackendID
 	}
-	if err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, backendID, s.modelID, revisionID); err != nil {
+	if err := s.secretBackendReferenceMutator.UpdateSecretBackendReference(ctx, backendID, s.modelID, revisionID); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

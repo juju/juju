@@ -120,3 +120,41 @@ func (c *MockSecretBackendReferenceMutatorRemoveSecretBackendReferenceCall) DoAn
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// UpdateSecretBackendReference mocks base method.
+func (m *MockSecretBackendReferenceMutator) UpdateSecretBackendReference(arg0 context.Context, arg1 *string, arg2 model.UUID, arg3 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateSecretBackendReference", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateSecretBackendReference indicates an expected call of UpdateSecretBackendReference.
+func (mr *MockSecretBackendReferenceMutatorMockRecorder) UpdateSecretBackendReference(arg0, arg1, arg2, arg3 any) *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecretBackendReference", reflect.TypeOf((*MockSecretBackendReferenceMutator)(nil).UpdateSecretBackendReference), arg0, arg1, arg2, arg3)
+	return &MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall{Call: call}
+}
+
+// MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall wrap *gomock.Call
+type MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall) Return(arg0 error) *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall) Do(f func(context.Context, *string, model.UUID, string) error) *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall) DoAndReturn(f func(context.Context, *string, model.UUID, string) error) *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

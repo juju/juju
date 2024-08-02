@@ -782,6 +782,14 @@ func (s *State) AddSecretBackendReference(ctx context.Context, backendID *string
 		return errors.Trace(err)
 	}
 
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := s.addSecretBackendReference(ctx, tx, backendID, modelID, revisionID)
+		return errors.Trace(err)
+	})
+	return errors.Trace(err)
+}
+
+func (s *State) addSecretBackendReference(ctx context.Context, tx *sqlair.TX, backendID *string, modelID coremodel.UUID, revisionID string) error {
 	input := SecretBackendReference{
 		ModelID:          modelID,
 		SecretRevisionID: revisionID,
@@ -793,29 +801,46 @@ VALUES ($SecretBackendReference.*)`, input)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		getArg := secretbackend.BackendIdentifier{}
-		if backendID != nil {
-			getArg.ID = *backendID
-		} else {
-			getArg.Name = juju.BackendName
-		}
-		backend, err := s.getSecretBackend(ctx, tx, getArg)
-		if err != nil {
-			return fmt.Errorf("cannot get ID of secret backend %q for model %q: %w", juju.BackendName, modelID, err)
-		}
-		input.BackendID = backend.ID
 
-		err = tx.Query(ctx, stmt, input).Run()
-		if database.IsErrConstraintForeignKey(err) {
-			return fmt.Errorf("%w: model %q", modelerrors.NotFound, input.ModelID)
-		}
-		return errors.Trace(err)
-	})
+	getArg := secretbackend.BackendIdentifier{}
+	if backendID != nil {
+		getArg.ID = *backendID
+	} else {
+		getArg.Name = juju.BackendName
+	}
+	backend, err := s.getSecretBackend(ctx, tx, getArg)
+	if err != nil {
+		return fmt.Errorf("cannot get ID of secret backend %q for model %q: %w", juju.BackendName, modelID, err)
+	}
+	input.BackendID = backend.ID
+
+	err = tx.Query(ctx, stmt, input).Run()
+	if database.IsErrConstraintForeignKey(err) {
+		return fmt.Errorf("%w: model %q", modelerrors.NotFound, input.ModelID)
+	}
 	if err != nil {
 		return fmt.Errorf("cannot add secret backend reference for secret revision %q: %w", revisionID, err)
 	}
 	return nil
+}
+
+// UpdateSecretBackendReference updates the reference to the secret backend for the given secret revision.
+func (s *State) UpdateSecretBackendReference(ctx context.Context, backendID *string, modelID coremodel.UUID, revisionID string) error {
+	db, err := s.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := s.removeSecretBackendReferenceForRevisions(ctx, tx, revisionID); err != nil {
+			return errors.Trace(err)
+		}
+		if err := s.addSecretBackendReference(ctx, tx, backendID, modelID, revisionID); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	return errors.Trace(err)
 }
 
 type secretRevisionIDs []string
@@ -831,6 +856,18 @@ func (s *State) RemoveSecretBackendReference(ctx context.Context, revisionIDs ..
 		return errors.Trace(err)
 	}
 
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := s.removeSecretBackendReferenceForRevisions(ctx, tx, revisionIDs...)
+		return errors.Trace(err)
+	})
+	return errors.Trace(err)
+}
+
+func (s *State) removeSecretBackendReferenceForRevisions(ctx context.Context, tx *sqlair.TX, revisionIDs ...string) error {
+	if len(revisionIDs) == 0 {
+		return nil
+	}
+
 	input := secretRevisionIDs(revisionIDs)
 	stmt, err := s.Prepare(`
 DELETE FROM secret_backend_reference
@@ -838,10 +875,10 @@ WHERE  secret_revision_uuid IN ($secretRevisionIDs[:])`, input)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, input).Run()
-		return errors.Trace(err)
-	})
+	err = tx.Query(ctx, stmt, input).Run()
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("cannot remove secret backend reference for %d secret revision(s): %w", len(revisionIDs), err)
 	}

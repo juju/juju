@@ -1065,6 +1065,110 @@ func (s *serviceSuite) TestGetSecretGrants(c *gc.C) {
 	}})
 }
 
+func (s *serviceSuite) TestChangeSecretBackendToExternalBackend(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mariadb/0",
+	}).Return("manage", nil)
+
+	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), uri, 1,
+		&coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-id"}, nil,
+	).Return("revision-uuid", nil)
+	s.secretBackendReferenceMutator.EXPECT().UpdateSecretBackendReference(gomock.Any(), ptr("backend-id"), s.modelID, "revision-uuid").Return(nil)
+
+	err := s.service.ChangeSecretBackend(ctx, uri, 1, ChangeSecretBackendParams{
+		LeaderToken: successfulToken{},
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mariadb/0",
+		},
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestChangeSecretBackendToInternalBackend(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mariadb/0",
+	}).Return("manage", nil)
+
+	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), uri, 1,
+		nil, map[string]string{"foo": "bar"},
+	).Return("revision-uuid", nil)
+	s.secretBackendReferenceMutator.EXPECT().UpdateSecretBackendReference(gomock.Any(), nil, s.modelID, "revision-uuid").Return(nil)
+
+	err := s.service.ChangeSecretBackend(ctx, uri, 1, ChangeSecretBackendParams{
+		LeaderToken: successfulToken{},
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mariadb/0",
+		},
+		Data: map[string]string{"foo": "bar"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestChangeSecretBackendFailedPermissionDenied(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mariadb/0",
+	}).Return("view", nil)
+
+	err := s.service.ChangeSecretBackend(ctx, uri, 1, ChangeSecretBackendParams{
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mariadb/0",
+		},
+		Data: map[string]string{"foo": "bar"},
+	})
+	c.Assert(err, jc.ErrorIs, secreterrors.PermissionDenied)
+}
+
+func (s *serviceSuite) TestChangeSecretBackendFailedSecretNotFound(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mariadb/0",
+	}).Return("manage", nil)
+
+	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), uri, 1,
+		nil, map[string]string{"foo": "bar"},
+	).Return("", secreterrors.SecretNotFound)
+
+	err := s.service.ChangeSecretBackend(ctx, uri, 1, ChangeSecretBackendParams{
+		LeaderToken: successfulToken{},
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mariadb/0",
+		},
+		Data: map[string]string{"foo": "bar"},
+	})
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+}
+
 func (s *serviceSuite) TestSecretsRotated(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
