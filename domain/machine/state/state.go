@@ -4,11 +4,16 @@
 package state
 
 import (
+	"bytes"
 	"context"
+	"database/sql"
+	"fmt"
+	"text/tabwriter"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
+	"github.com/juju/loggo/v2"
 
 	coredb "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -539,6 +544,52 @@ func (st *State) SetMachineLife(ctx context.Context, mName machine.Name, life li
 	})
 }
 
+func DumpTable(db *sql.Tx, table string) error {
+	rows, err := db.Query("SELECT * FROM " + table)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	cols, err := rows.Columns()
+	if err != nil {
+		return err
+	}
+
+	buffer := new(bytes.Buffer)
+
+	writer := tabwriter.NewWriter(buffer, 0, 8, 1, '\t', 0)
+	for _, col := range cols {
+		fmt.Fprintf(writer, "%s\t", col)
+	}
+
+	vals := make([]any, len(cols))
+	for i := range vals {
+		vals[i] = new(any)
+	}
+
+	for rows.Next() {
+		err = rows.Scan(vals...)
+		if err != nil {
+			return err
+		}
+
+		for _, val := range vals {
+			fmt.Fprintf(writer, "%v\t", *val.(*any))
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
+
+	writer.Flush()
+
+	loggo.GetLogger("***").Criticalf("%s", buffer.String())
+
+	return nil
+}
+
 // IsMachineController returns whether the machine is a controller machine.
 // It returns a NotFound if the given machine doesn't exist.
 func (st *State) IsMachineController(ctx context.Context, mName machine.Name) (bool, error) {
@@ -554,6 +605,12 @@ func (st *State) IsMachineController(ctx context.Context, mName machine.Name) (b
 	if err != nil {
 		return false, errors.Trace(err)
 	}
+
+	loggo.GetLogger("***").Criticalf("Dumping machine table %q", mName)
+
+	_ = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return DumpTable(tx, "machine")
+	})
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)

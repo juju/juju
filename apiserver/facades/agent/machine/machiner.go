@@ -166,7 +166,7 @@ func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.Set
 
 // SetMachineAddresses is not supported in MachinerAPI at version 5.
 func (api *MachinerAPIv5) SetMachineAddresses(ctx context.Context, args params.SetMachinesAddresses) (params.ErrorResults, error) {
-	return params.ErrorResults{}, errors.NotSupported
+	return params.ErrorResults{}, apiservererrors.ServerError(errors.NotSupportedf("SetMachineAddresses"))
 }
 
 // Jobs is not supported in MachinerAPI at version 5.
