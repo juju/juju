@@ -327,6 +327,9 @@ post_bootstrap() {
 	controller=${1}
 	model=${2}
 
+	# Unset the bootstrap args to reset them for subsequent tests.
+	unset BOOTSTRAP_ADDITIONAL_ARGS
+
 	# Setup up log tailing on the controller.
 	# shellcheck disable=SC2069
 	juju debug-log -m "${controller}:controller" --replay --tail 2>&1 >"${TEST_DIR}/${controller}-controller-debug.log" &
