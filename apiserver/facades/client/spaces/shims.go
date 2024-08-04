@@ -4,11 +4,15 @@
 package spaces
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // machineShim implements Machine.
@@ -47,21 +51,40 @@ func (m *machineShim) Units() ([]Unit, error) {
 // stateShim forwards and adapts state.State
 // methods to Backing methods.
 type stateShim struct {
-	stateenvirons.EnvironConfigGetter
+	environs.EnvironConfigGetter
 	*state.State
-	model *state.Model
+	model    *state.Model
+	modelTag names.ModelTag
 }
 
 // NewStateShim returns a new state shim.
-func NewStateShim(st *state.State, cloudService common.CloudService, credentialService common.CredentialService) (*stateShim, error) {
+func NewStateShim(
+	st *state.State,
+	cloudService common.CloudService,
+	credentialService common.CredentialService,
+	modelConfigService common.ModelConfigService,
+	modelInfoService common.ModelInfoService,
+) (*stateShim, error) {
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	modelInfo, err := modelInfoService.GetModelInfo(context.TODO())
+	if err != nil {
+		return nil, fmt.Errorf("getting model info: %w", err)
+	}
+
 	return &stateShim{
-		EnvironConfigGetter: stateenvirons.EnvironConfigGetter{Model: m, CloudService: cloudService, CredentialService: credentialService},
-		State:               st,
-		model:               m,
+		EnvironConfigGetter: common.NewServiceEnvironConfigGetter(
+			modelConfigService,
+			modelInfoService,
+			cloudService,
+			credentialService,
+		),
+		State:    st,
+		model:    m,
+		modelTag: names.NewModelTag(modelInfo.UUID.String()),
 	}, nil
 }
 
@@ -117,4 +140,8 @@ func (s *stateShim) ConstraintsBySpaceName(spaceName string) ([]Constraints, err
 		cons[i] = v
 	}
 	return cons, nil
+}
+
+func (s *stateShim) ModelTag() names.ModelTag {
+	return s.modelTag
 }
