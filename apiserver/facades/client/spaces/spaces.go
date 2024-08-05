@@ -19,6 +19,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
@@ -72,6 +73,7 @@ type API struct {
 	resources                   facade.Resources
 	auth                        facade.Authorizer
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
+	providerGetter              providertracker.ProviderGetter[environs.NetworkingEnviron]
 
 	check  BlockChecker
 	logger corelogger.Logger
@@ -83,6 +85,7 @@ type apiConfig struct {
 	Backing                     Backing
 	Check                       BlockChecker
 	CredentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
+	providerGetter              providertracker.ProviderGetter[environs.NetworkingEnviron]
 	Resources                   facade.Resources
 	Authorizer                  facade.Authorizer
 	logger                      corelogger.Logger
@@ -103,6 +106,7 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 		resources:                   cfg.Resources,
 		auth:                        cfg.Authorizer,
 		credentialInvalidatorGetter: cfg.CredentialInvalidatorGetter,
+		providerGetter:              cfg.providerGetter,
 		check:                       cfg.Check,
 		logger:                      cfg.logger,
 	}, nil
@@ -297,7 +301,7 @@ func (api *API) ReloadSpaces(ctx stdcontext.Context) error {
 // checkSupportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
 func (api *API) checkSupportsSpaces(ctx stdcontext.Context) error {
-	env, err := environs.GetEnviron(ctx, api.backing, environs.New)
+	env, err := api.providerGetter(ctx)
 	if err != nil {
 		return errors.Annotate(err, "getting environ")
 	}
@@ -369,22 +373,16 @@ func (api *API) ensureSpacesAreMutable(ctx stdcontext.Context) error {
 // An error is returned if it is the provider and not the Juju operator
 // that determines the space topology.
 func (api *API) ensureSpacesNotProviderSourced(ctx stdcontext.Context) error {
-	env, err := environs.GetEnviron(ctx, api.backing, environs.New)
+	env, err := api.providerGetter(ctx)
 	if err != nil {
 		return errors.Annotate(err, "retrieving environ")
 	}
-
-	netEnv, ok := env.(environs.NetworkingEnviron)
-	if !ok {
-		return errors.NotSupportedf("provider networking")
-	}
-
 	invalidatorFunc, err := api.credentialInvalidatorGetter()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
-	providerSourced, err := netEnv.SupportsSpaceDiscovery(callCtx)
+	providerSourced, err := env.SupportsSpaceDiscovery(callCtx)
 	if err != nil {
 		return errors.Trace(err)
 	}
