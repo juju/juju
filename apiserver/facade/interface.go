@@ -89,11 +89,11 @@ type ModelContext interface {
 	ObjectStoreFactory
 	Logger
 
-	// ModelProviderFactory returns a provider for a given model. This should
-	// be used very sparingly in facades. The recommended usage is to define a
-	// provider interface with the methods you need, and pass the context into
-	// the top-level ProviderRunner function to get a provider of the correct
-	// type:
+	// ModelProviderFactory returns a provider for the current model. This
+	// should be used very sparingly in facades. The recommended usage is to
+	// define a provider interface with the methods you need, and pass the
+	// context into the top-level ProviderRunner function to get a provider of
+	// the correct type:
 	//
 	//     providerGetter := facade.ProviderRunner[myProviderType](ctx)
 	ModelProviderFactory

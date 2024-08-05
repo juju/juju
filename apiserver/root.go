@@ -277,6 +277,12 @@ func (r *apiHandler) Authorizer() facade.Authorizer {
 	return r
 }
 
+// ProviderFactory returns a facade.ModelProviderFactory which allows access to
+// a provider for the current model.
+func (r *apiHandler) ProviderFactory() facade.ModelProviderFactory {
+	return r.providerFactory
+}
+
 // CloseConn closes the underlying connection.
 func (r *apiHandler) CloseConn() error {
 	return r.rpcConn.Close()
