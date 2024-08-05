@@ -64,11 +64,8 @@ type Config struct {
 	ControllerConfigService ControllerConfigService
 	ModelService            ModelService
 
-	// ProviderFactory returns a provider for a given model. This is a
-	// temporary stopgap measure to allow existing facades to be moved to
-	// dqlite. It should not be used in any new facades. Eventually, all facade
-	// logic that deals with providers/environs should be moved into the
-	// service layer, and then we can remove this field.
+	// ProviderFactory returns a provider for a given model. This should be
+	// used sparingly in API facades.
 	ProviderFactory providertracker.ProviderFactory
 }
 

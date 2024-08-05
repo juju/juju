@@ -87,11 +87,8 @@ type ManifoldConfig struct {
 	ObjectStoreName           string
 
 	// ProviderFactoryName is the name of the manifold dependency for the
-	// provider tracker, which returns a provider for a given model. This is a
-	// temporary stopgap measure to allow existing facades to be moved to
-	// dqlite. It should not be used in any new facades. Eventually, all facade
-	// logic that deals with providers/environs should be moved into the
-	// service layer, and then we can remove this field.
+	// provider tracker, which returns a provider for a given model. This
+	// should be used sparingly in API facades.
 	ProviderFactoryName string
 
 	PrometheusRegisterer              prometheus.Registerer

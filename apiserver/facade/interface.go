@@ -89,11 +89,13 @@ type ModelContext interface {
 	ObjectStoreFactory
 	Logger
 
-	// ModelProviderFactory returns a provider for a given model. This is a
-	// temporary stopgap measure to allow existing facades to be moved to
-	// dqlite. It should not be used in any new facades. Eventually, all facade
-	// logic that deals with providers/environs should be moved into the
-	// service layer, and then we can remove this field.
+	// ModelProviderFactory returns a provider for a given model. This should
+	// be used very sparingly in facades. The recommended usage is to define a
+	// provider interface with the methods you need, and pass the context into
+	// the top-level ProviderRunner function to get a provider of the correct
+	// type:
+	//
+	//     providerGetter := facade.ProviderRunner[myProviderType](ctx)
 	ModelProviderFactory
 
 	// Auth represents information about the connected client. You
@@ -330,28 +332,35 @@ const (
 	HTTPClientPurposeUserSSHImport HTTPClientPurpose = "ssh-key-import"
 )
 
+// ModelProviderFactory allows instantiation of a provider for the given model.
 type ModelProviderFactory interface {
-	ProviderForModel(context.Context) (providertracker.Provider, error)
+	GetProvider(context.Context) (providertracker.Provider, error)
 }
 
+// ModelProviderFactoryFunc is a simple implementation of ModelProviderFactory.
 type ModelProviderFactoryFunc func(context.Context) (providertracker.Provider, error)
 
-func (f ModelProviderFactoryFunc) ProviderForModel(ctx context.Context) (providertracker.Provider, error) {
+// GetProvider implements ModelProviderFactory.
+func (f ModelProviderFactoryFunc) GetProvider(ctx context.Context) (providertracker.Provider, error) {
 	return f(ctx)
 }
 
+// NewModelProviderFactory returns a new ModelProviderFactory given a
+// providertracker.ProviderFactory and a given model ID.
 func NewModelProviderFactory(
-	modelID model.UUID, providerFactory providertracker.ProviderFactory,
+	modelID model.UUID,
+	providerFactory providertracker.ProviderFactory,
 ) ModelProviderFactoryFunc {
 	return func(ctx context.Context) (providertracker.Provider, error) {
 		return providerFactory.ProviderForModel(ctx, modelID.String())
 	}
 }
 
+// ProviderRunner allows getting a provider satisfying a given interface.
 func ProviderRunner[T any](providerFactory ModelProviderFactory) func(context.Context) (T, error) {
 	var zero T
 	return func(ctx context.Context) (T, error) {
-		p, err := providerFactory.ProviderForModel(ctx)
+		p, err := providerFactory.GetProvider(ctx)
 		if err != nil {
 			return zero, fmt.Errorf("getting provider for model: %w", err)
 		}

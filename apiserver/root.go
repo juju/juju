@@ -75,11 +75,8 @@ type apiHandler struct {
 	// access a different model's service factory.
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
 
-	// providerFactory returns a provider for the current model. This is a
-	// temporary stopgap measure to allow existing facades to be moved to
-	// dqlite. It should not be used in any new facades. Eventually, all facade
-	// logic that deals with providers/environs should be moved into the
-	// service layer, and then we can remove this field.
+	// providerFactory returns a provider for the current model. This should be
+	// used sparingly in facades.
 	providerFactory facade.ModelProviderFactory
 
 	// objectStore is the object store for the resolved model UUID. This is
@@ -459,11 +456,8 @@ type apiRootHandler interface {
 	WatcherRegistry() facade.WatcherRegistry
 	// Authorizer returns the authorizer used for accessing API method calls.
 	Authorizer() facade.Authorizer
-	// ProviderFactory returns the provider factory for this model. This is a
-	// temporary stopgap measure to allow existing facades to be moved to
-	// dqlite. It should not be used in any new facades. Eventually, all facade
-	// logic that deals with providers/environs should be moved into the
-	// service layer, and then we can remove this method.
+	// ProviderFactory returns the provider factory for this model. This should
+	// be used sparingly in facade code.
 	ProviderFactory() facade.ModelProviderFactory
 }
 
@@ -486,11 +480,8 @@ type apiRoot struct {
 	objectCache           map[objectKey]reflect.Value
 	requestRecorder       facade.RequestRecorder
 
-	// ProviderFactory returns a provider for the current model. This is a
-	// temporary stopgap measure to allow existing facades to be moved to
-	// dqlite. It should not be used in any new facades. Eventually, all facade
-	// logic that deals with providers/environs should be moved into the
-	// service layer, and then we can remove this field.
+	// providerFactory returns a provider for the current model. This should be
+	// used sparingly in facade code.
 	providerFactory facade.ModelProviderFactory
 
 	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
@@ -1039,13 +1030,10 @@ func (ctx *facadeContext) ObjectStoreForModel(stdCtx context.Context, modelUUID 
 	return ctx.r.objectStoreGetter.GetObjectStore(stdCtx, modelUUID)
 }
 
-// ProviderForModel returns a provider for the current model. This is a
-// temporary stopgap measure to allow existing facades to be moved to
-// dqlite. It should not be used in any new facades. Eventually, all facade
-// logic that deals with providers/environs should be moved into the
-// service layer, and then we can remove this field.
-func (ctx *facadeContext) ProviderForModel(stdCtx context.Context) (providertracker.Provider, error) {
-	return ctx.r.providerFactory.ProviderForModel(stdCtx)
+// GetProvider returns a provider for the current model. This should be used
+// sparingly in facade code.
+func (ctx *facadeContext) GetProvider(stdCtx context.Context) (providertracker.Provider, error) {
+	return ctx.r.providerFactory.GetProvider(stdCtx)
 }
 
 // DescribeFacades returns the list of available Facades and their Versions
