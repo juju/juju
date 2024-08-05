@@ -166,7 +166,9 @@ func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.Set
 
 // SetMachineAddresses is not supported in MachinerAPI at version 5.
 func (api *MachinerAPIv5) SetMachineAddresses(ctx context.Context, args params.SetMachinesAddresses) (params.ErrorResults, error) {
-	return params.ErrorResults{}, errors.NotSupported
+	return params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.MachineAddresses)),
+	}, nil
 }
 
 // Jobs is not supported in MachinerAPI at version 5.
@@ -177,7 +179,12 @@ func (api *MachinerAPIv5) Jobs(ctx context.Context, args params.Entities) (param
 	}
 
 	for i, entity := range args.Entities {
-		isController, err := api.machineService.IsMachineController(ctx, machine.Name(entity.Tag))
+		machineTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+		}
+
+		isController, err := api.machineService.IsMachineController(ctx, machine.Name(machineTag.Id()))
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
