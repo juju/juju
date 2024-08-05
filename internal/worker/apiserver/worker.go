@@ -26,6 +26,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/state"
@@ -62,6 +63,13 @@ type Config struct {
 	ObjectStoreGetter       objectstore.ObjectStoreGetter
 	ControllerConfigService ControllerConfigService
 	ModelService            ModelService
+
+	// ProviderFactory returns a provider for a given model. This is a
+	// temporary stopgap measure to allow existing facades to be moved to
+	// dqlite. It should not be used in any new facades. Eventually, all facade
+	// logic that deals with providers/environs should be moved into the
+	// service layer, and then we can remove this field.
+	ProviderFactory providertracker.ProviderFactory
 }
 
 type HTTPClient interface {
@@ -133,6 +141,9 @@ func (config Config) Validate() error {
 	}
 	if config.ObjectStoreGetter == nil {
 		return errors.NotValidf("nil ObjectStoreGetter")
+	}
+	if config.ProviderFactory == nil {
+		return errors.NotValidf("nil ProviderFactory")
 	}
 	if config.ControllerConfigService == nil {
 		return errors.NotValidf("nil ControllerConfigService")
@@ -209,6 +220,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		ServiceFactoryGetter:          config.ServiceFactoryGetter,
 		TracerGetter:                  config.TracerGetter,
 		ObjectStoreGetter:             config.ObjectStoreGetter,
+		ProviderFactory:               config.ProviderFactory,
 		SSHImporterHTTPClient:         config.SSHImporterHTTPClient,
 	}
 	return config.NewServer(ctx, serverConfig)

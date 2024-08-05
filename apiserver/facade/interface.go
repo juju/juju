@@ -5,11 +5,13 @@ package facade
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/juju/description/v8"
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/leadership"
@@ -19,6 +21,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
 )
@@ -85,6 +88,13 @@ type ModelContext interface {
 	ServiceFactory
 	ObjectStoreFactory
 	Logger
+
+	// ModelProviderFactory returns a provider for a given model. This is a
+	// temporary stopgap measure to allow existing facades to be moved to
+	// dqlite. It should not be used in any new facades. Eventually, all facade
+	// logic that deals with providers/environs should be moved into the
+	// service layer, and then we can remove this field.
+	ModelProviderFactory
 
 	// Auth represents information about the connected client. You
 	// should always be checking individual requests against Auth:
@@ -319,3 +329,35 @@ const (
 	// established for use in the keymanager facade.
 	HTTPClientPurposeUserSSHImport HTTPClientPurpose = "ssh-key-import"
 )
+
+type ModelProviderFactory interface {
+	ProviderForModel(context.Context) (providertracker.Provider, error)
+}
+
+type ModelProviderFactoryFunc func(context.Context) (providertracker.Provider, error)
+
+func (f ModelProviderFactoryFunc) ProviderForModel(ctx context.Context) (providertracker.Provider, error) {
+	return f(ctx)
+}
+
+func NewModelProviderFactory(
+	modelID model.UUID, providerFactory providertracker.ProviderFactory,
+) ModelProviderFactoryFunc {
+	return func(ctx context.Context) (providertracker.Provider, error) {
+		return providerFactory.ProviderForModel(ctx, modelID.String())
+	}
+}
+
+func ProviderRunner[T any](providerFactory ModelProviderFactory) func(context.Context) (T, error) {
+	var zero T
+	return func(ctx context.Context) (T, error) {
+		p, err := providerFactory.ProviderForModel(ctx)
+		if err != nil {
+			return zero, fmt.Errorf("getting provider for model: %w", err)
+		}
+		if v, ok := p.(T); ok {
+			return v, nil
+		}
+		return zero, errors.NotSupportedf("provider type %T", zero)
+	}
+}

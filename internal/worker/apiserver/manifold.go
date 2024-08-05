@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -29,6 +30,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
@@ -83,6 +85,14 @@ type ManifoldConfig struct {
 	ServiceFactoryName        string
 	TraceName                 string
 	ObjectStoreName           string
+
+	// ProviderFactoryName is the name of the manifold dependency for the
+	// provider tracker, which returns a provider for a given model. This is a
+	// temporary stopgap measure to allow existing facades to be moved to
+	// dqlite. It should not be used in any new facades. Eventually, all facade
+	// logic that deals with providers/environs should be moved into the
+	// service layer, and then we can remove this field.
+	ProviderFactoryName string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -151,6 +161,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.ObjectStoreName == "" {
 		return errors.NotValidf("empty ObjectStoreName")
 	}
+	if config.ProviderFactoryName == "" {
+		return errors.NotValidf("empty ProviderFactoryName")
+	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
 	}
@@ -193,6 +206,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ServiceFactoryName,
 			config.TraceName,
 			config.ObjectStoreName,
+			config.ProviderFactoryName,
 			config.LogSinkName,
 		},
 		Start: config.start,
@@ -285,6 +299,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	var providerFactory providertracker.ProviderFactory
+	if err := getter.Get(config.ProviderFactoryName, &providerFactory); err != nil {
+		return nil, fmt.Errorf("getting provider factory: %w", err)
+	}
+
 	controllerConfigService, err := config.GetControllerConfigService(getter, config.ServiceFactoryName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -336,6 +355,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		ServiceFactoryGetter:              serviceFactoryGetter,
 		TracerGetter:                      tracerGetter,
 		ObjectStoreGetter:                 objectStoreGetter,
+		ProviderFactory:                   providerFactory,
 		ControllerConfigService:           controllerConfigService,
 		ModelService:                      modelService,
 	})
