@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
+	"github.com/juju/version/v2"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
@@ -18,6 +19,8 @@ import (
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/assumes"
+	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -96,23 +99,23 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			unitArgs = append(unitArgs, arg)
 		}
 
-		// TODO (stickupkid): This is a temporary solution until we have a
-		// charms in the description model.
-		url, err := internalcharm.ParseURL(app.CharmURL())
+		charm, err := i.importCharm(ctx, charmData{
+			Metadata: app.CharmMetadata(),
+			Manifest: app.CharmManifest(),
+			Actions:  app.CharmActions(),
+			Config:   app.CharmConfigs(),
+		})
 		if err != nil {
-			return fmt.Errorf("parse charm URL %q: %w", app.CharmURL(), err)
+			return fmt.Errorf("import model application %q charm: %w", app.Name(), err)
 		}
 
-		origin, err := i.makeCharmOrigin(app)
+		origin, err := i.importCharmOrigin(app)
 		if err != nil {
 			return fmt.Errorf("parse charm origin %v: %w", app.CharmOrigin(), err)
 		}
 
 		_, err = i.service.CreateApplication(
-			ctx, app.Name(), &stubCharm{
-				name:     url.Name,
-				revision: url.Revision,
-			}, *origin, service.AddApplicationArgs{}, unitArgs...,
+			ctx, app.Name(), charm, *origin, service.AddApplicationArgs{}, unitArgs...,
 		)
 		if err != nil {
 			return fmt.Errorf(
@@ -125,13 +128,13 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	return nil
 }
 
-// makeCharmOrigin returns the charm origin for an application
+// importCharmOrigin returns the charm origin for an application
 //
 // Ensure ID, Hash and Channel are dropped from local charm.
 // Due to LP:1986547: where the track is missing from the effective channel it implicitly
 // resolves to 'latest' if the charm does not have a default channel defined. So if the
 // received channel has no track, we can be confident it should be 'latest'
-func (i *importOperation) makeCharmOrigin(a description.Application) (*corecharm.Origin, error) {
+func (i *importOperation) importCharmOrigin(a description.Application) (*corecharm.Origin, error) {
 	sourceOrigin := a.CharmOrigin()
 	if sourceOrigin == nil {
 		return nil, errors.Errorf("nil charm origin importing application %q", a.Name())
@@ -228,26 +231,338 @@ type stubCharm struct {
 	revision int
 }
 
-var _ internalcharm.Charm = stubCharm{}
+type charmData struct {
+	Metadata description.CharmMetadata
+	Manifest description.CharmManifest
+	Actions  description.CharmActions
+	Config   description.CharmConfigs
+}
 
-func (s stubCharm) Meta() *internalcharm.Meta {
+// Import the application charm description from the migrating model into
+// the current model. This will then be saved with the application and allow
+// us to keep RI of the application and the charm.
+func (i *importOperation) importCharm(ctx context.Context, data charmData) (internalcharm.Charm, error) {
+	// Don't be tempted to just use the internal/charm package here, or to
+	// attempt to make the description package conform to the internal/charm
+	// package Charm interface. The internal/charm package is for dealing with
+	// charms sent on the wire. These are different things.
+	// The description package is versioned at a different rate than the ones
+	// in the internal/charm package.
+	// By converting the description to the internal charm we can ensure that
+	// there is some level of negotiation between the two.
+	//
+	// This is a good thing.
+
+	metadata, err := i.importCharmMetadata(data.Metadata)
+	if err != nil {
+		return nil, fmt.Errorf("import charm metadata: %w", err)
+	}
+
+	// Return a valid charm base that can then be used to create the
+	// application.
+	return internalcharm.NewCharmBase(metadata, nil, nil, nil, nil), nil
+}
+
+func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*internalcharm.Meta, error) {
+	var (
+		err    error
+		runsAs internalcharm.RunAs
+	)
+	if runsAs, err = importCharmUser(data); err != nil {
+		return nil, fmt.Errorf("import charm user: %w", err)
+	}
+
+	var assumes *assumes.ExpressionTree
+	if assumes, err = importAssumes(data.Assumes()); err != nil {
+		return nil, fmt.Errorf("import charm assumes: %w", err)
+	}
+
+	var minJujuVersion version.Number
+	if minJujuVersion, err = importMinJujuVersion(data.MinJujuVersion()); err != nil {
+		return nil, fmt.Errorf("import min juju version: %w", err)
+	}
+
+	var provides map[string]internalcharm.Relation
+	if provides, err = importRelations(data.Provides()); err != nil {
+		return nil, fmt.Errorf("import provides relations: %w", err)
+	}
+
+	var requires map[string]internalcharm.Relation
+	if requires, err = importRelations(data.Requires()); err != nil {
+		return nil, fmt.Errorf("import requires relations: %w", err)
+	}
+
+	var peers map[string]internalcharm.Relation
+	if peers, err = importRelations(data.Peers()); err != nil {
+		return nil, fmt.Errorf("import peers relations: %w", err)
+	}
+
+	var extraBindings map[string]internalcharm.ExtraBinding
+	if extraBindings, err = importExtraBindings(data.ExtraBindings()); err != nil {
+		return nil, fmt.Errorf("import extra bindings: %w", err)
+	}
+
+	var storage map[string]internalcharm.Storage
+	if storage, err = importStorage(data.Storage()); err != nil {
+		return nil, fmt.Errorf("import storage: %w", err)
+	}
+
+	var devices map[string]internalcharm.Device
+	if devices, err = importDevices(data.Devices()); err != nil {
+		return nil, fmt.Errorf("import devices: %w", err)
+	}
+
+	var payloadClasses map[string]internalcharm.PayloadClass
+	if payloadClasses, err = importPayloadClasses(data.Payloads()); err != nil {
+		return nil, fmt.Errorf("import payload classes: %w", err)
+	}
+
+	var containers map[string]internalcharm.Container
+	if containers, err = importContainers(data.Containers()); err != nil {
+		return nil, fmt.Errorf("import containers: %w", err)
+	}
+
+	var resources map[string]resource.Meta
+	if resources, err = importResources(data.Resources()); err != nil {
+		return nil, fmt.Errorf("import resources: %w", err)
+	}
+
 	return &internalcharm.Meta{
-		Name: s.name,
+		Name:           data.Name(),
+		Summary:        data.Summary(),
+		Description:    data.Description(),
+		Subordinate:    data.Subordinate(),
+		Categories:     data.Categories(),
+		Tags:           data.Tags(),
+		Terms:          data.Terms(),
+		CharmUser:      runsAs,
+		Assumes:        assumes,
+		MinJujuVersion: minJujuVersion,
+		Provides:       provides,
+		Requires:       requires,
+		Peers:          peers,
+		ExtraBindings:  extraBindings,
+		Storage:        storage,
+		Devices:        devices,
+		PayloadClasses: payloadClasses,
+		Containers:     containers,
+		Resources:      resources,
+	}, nil
+}
+
+func importCharmUser(data description.CharmMetadata) (internalcharm.RunAs, error) {
+	switch data.RunAs() {
+	case "default", "":
+		return internalcharm.RunAsDefault, nil
+	case "root":
+		return internalcharm.RunAsRoot, nil
+	case "sudoer":
+		return internalcharm.RunAsSudoer, nil
+	case "non-root":
+		return internalcharm.RunAsNonRoot, nil
+	default:
+		return internalcharm.RunAsDefault, fmt.Errorf("unknown run-as value %q", data.RunAs())
 	}
 }
 
-func (s stubCharm) Actions() *internalcharm.Actions {
-	return &internalcharm.Actions{}
+func importAssumes(data string) (*assumes.ExpressionTree, error) {
+	// Assumes i§§s a recursive structure, rather than sending all that data over
+	// the wire as yaml, the description package encodes that information as
+	// a JSON string.
+
+	// If the data is empty, we don't have any assumes at all, so it's safe
+	// to just return nil.
+	if data == "" {
+		return nil, nil
+	}
+
+	var tree *assumes.ExpressionTree
+	if err := tree.UnmarshalJSON([]byte(data)); err != nil {
+		return nil, fmt.Errorf("unmarshal assumes: %w", err)
+	}
+	return tree, nil
 }
 
-func (s stubCharm) Config() *internalcharm.Config {
-	return &internalcharm.Config{}
+func importMinJujuVersion(data string) (version.Number, error) {
+	// minJujuVersion is optional, so if the data is empty, we can just return
+	// an empty version.
+	if data == "" {
+		return version.Number{}, nil
+	}
+
+	ver, err := version.Parse(data)
+	if err != nil {
+		return version.Number{}, fmt.Errorf("parse min juju version: %w", err)
+	}
+	return ver, nil
 }
 
-func (s stubCharm) Manifest() *internalcharm.Manifest {
-	return &internalcharm.Manifest{}
+func importRelations(data map[string]description.CharmMetadataRelation) (map[string]internalcharm.Relation, error) {
+	relations := make(map[string]internalcharm.Relation, len(data))
+	for name, rel := range data {
+		role, err := importRelationRole(rel.Role())
+		if err != nil {
+			return nil, fmt.Errorf("import relation role: %w", err)
+		}
+
+		scope, err := importRelationScope(rel.Scope())
+		if err != nil {
+			return nil, fmt.Errorf("import relation scope: %w", err)
+		}
+
+		relations[name] = internalcharm.Relation{
+			Name:      rel.Name(),
+			Role:      role,
+			Interface: rel.Interface(),
+			Optional:  rel.Optional(),
+			Limit:     rel.Limit(),
+			Scope:     scope,
+		}
+	}
+	return relations, nil
 }
 
-func (s stubCharm) Revision() int {
-	return s.revision
+func importRelationRole(data string) (internalcharm.RelationRole, error) {
+	switch data {
+	case "peer":
+		return internalcharm.RolePeer, nil
+	case "provider":
+		return internalcharm.RoleProvider, nil
+	case "requirer":
+		return internalcharm.RoleRequirer, nil
+	default:
+		return "", fmt.Errorf("unknown relation role %q", data)
+	}
+}
+
+func importRelationScope(data string) (internalcharm.RelationScope, error) {
+	switch data {
+	case "global":
+		return internalcharm.ScopeGlobal, nil
+	case "container":
+		return internalcharm.ScopeContainer, nil
+	default:
+		return "", fmt.Errorf("unknown relation scope %q", data)
+	}
+}
+
+func importExtraBindings(data map[string]string) (map[string]internalcharm.ExtraBinding, error) {
+	extraBindings := make(map[string]internalcharm.ExtraBinding, len(data))
+	for key, name := range data {
+		extraBindings[key] = internalcharm.ExtraBinding{
+			Name: name,
+		}
+	}
+	return extraBindings, nil
+}
+
+func importStorage(data map[string]description.CharmMetadataStorage) (map[string]internalcharm.Storage, error) {
+	storage := make(map[string]internalcharm.Storage, len(data))
+	for name, s := range data {
+		typ, err := importStorageType(s.Type())
+		if err != nil {
+			return nil, fmt.Errorf("import storage type: %w", err)
+		}
+
+		storage[name] = internalcharm.Storage{
+			Name:        s.Name(),
+			Type:        typ,
+			Description: s.Description(),
+			Shared:      s.Shared(),
+			ReadOnly:    s.Readonly(),
+			MinimumSize: uint64(s.MinimumSize()),
+			Location:    s.Location(),
+			CountMin:    s.CountMin(),
+			CountMax:    s.CountMax(),
+			Properties:  s.Properties(),
+		}
+	}
+	return storage, nil
+}
+
+func importStorageType(data string) (internalcharm.StorageType, error) {
+	switch data {
+	case "block":
+		return internalcharm.StorageBlock, nil
+	case "filesystem":
+		return internalcharm.StorageFilesystem, nil
+	default:
+		return "", fmt.Errorf("unknown storage type %q", data)
+	}
+}
+
+func importDevices(data map[string]description.CharmMetadataDevice) (map[string]internalcharm.Device, error) {
+	devices := make(map[string]internalcharm.Device, len(data))
+	for name, d := range data {
+
+		devices[name] = internalcharm.Device{
+			Name:        d.Name(),
+			Description: d.Description(),
+			Type:        internalcharm.DeviceType(d.Type()),
+			CountMin:    int64(d.CountMin()),
+			CountMax:    int64(d.CountMax()),
+		}
+	}
+	return devices, nil
+}
+
+func importPayloadClasses(data map[string]description.CharmMetadataPayload) (map[string]internalcharm.PayloadClass, error) {
+	payloadClasses := make(map[string]internalcharm.PayloadClass, len(data))
+	for name, p := range data {
+		payloadClasses[name] = internalcharm.PayloadClass{
+			Name: p.Name(),
+			Type: p.Type(),
+		}
+	}
+	return payloadClasses, nil
+}
+
+func importContainers(data map[string]description.CharmMetadataContainer) (map[string]internalcharm.Container, error) {
+	containers := make(map[string]internalcharm.Container, len(data))
+	for name, c := range data {
+		mounts := make([]internalcharm.Mount, len(c.Mounts()))
+		for i, m := range c.Mounts() {
+			mounts[i] = internalcharm.Mount{
+				Location: m.Location(),
+				Storage:  m.Storage(),
+			}
+		}
+
+		containers[name] = internalcharm.Container{
+			Resource: c.Resource(),
+			Uid:      c.Uid(),
+			Gid:      c.Gid(),
+			Mounts:   mounts,
+		}
+	}
+	return containers, nil
+}
+
+func importResources(data map[string]description.CharmMetadataResource) (map[string]resource.Meta, error) {
+	resources := make(map[string]resource.Meta, len(data))
+	for name, r := range data {
+		typ, err := importResourceType(r.Type())
+		if err != nil {
+			return nil, fmt.Errorf("import resource type: %w", err)
+		}
+
+		resources[name] = resource.Meta{
+			Name:        r.Name(),
+			Type:        typ,
+			Path:        r.Path(),
+			Description: r.Description(),
+		}
+	}
+	return resources, nil
+}
+
+func importResourceType(data string) (resource.Type, error) {
+	switch data {
+	case "file":
+		return resource.TypeFile, nil
+	case "oci-image":
+		return resource.TypeContainerImage, nil
+	default:
+		return -1, fmt.Errorf("unknown resource type %q", data)
+	}
 }
