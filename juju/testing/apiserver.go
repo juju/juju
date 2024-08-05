@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
@@ -351,6 +352,8 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 		serviceFactoryGetter: cfg.ServiceFactoryGetter,
 	}
 	s.ObjectStoreGetter = cfg.ObjectStoreGetter
+
+	cfg.ProviderFactory = &fakeProviderFactory{}
 
 	// Set up auth handler.
 	factory := s.ControllerServiceFactory(c)
@@ -793,4 +796,10 @@ func (f *fakePresence) AgentStatus(agent string) (presence.Status, error) {
 		return status, nil
 	}
 	return presence.Alive, nil
+}
+
+type fakeProviderFactory struct{}
+
+func (*fakeProviderFactory) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
+	return nil, nil
 }
