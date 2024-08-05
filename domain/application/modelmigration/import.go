@@ -270,9 +270,19 @@ func (i *importOperation) importCharm(ctx context.Context, data charmData) (inte
 		return nil, fmt.Errorf("import charm lxd profile: %w", err)
 	}
 
+	config, err := i.importCharmConfig(data.Config)
+	if err != nil {
+		return nil, fmt.Errorf("import charm config: %w", err)
+	}
+
+	actions, err := i.importCharmActions(data.Actions)
+	if err != nil {
+		return nil, fmt.Errorf("import charm actions: %w", err)
+	}
+
 	// Return a valid charm base that can then be used to create the
 	// application.
-	return internalcharm.NewCharmBase(metadata, manifest, nil, nil, lxdProfile), nil
+	return internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile), nil
 }
 
 func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*internalcharm.Meta, error) {
@@ -388,6 +398,55 @@ func (i *importOperation) importCharmLXDProfile(data description.CharmMetadata) 
 	}
 
 	return &profile, nil
+}
+
+func (i *importOperation) importCharmConfig(data description.CharmConfigs) (*internalcharm.Config, error) {
+	// Charm config is optional, so if we don't have any data, we can just
+	// return nil.
+	if len(data.Configs()) == 0 {
+		return nil, nil
+	}
+
+	descriptionConfig := data.Configs()
+
+	options := make(map[string]internalcharm.Option, len(descriptionConfig))
+	for name, c := range descriptionConfig {
+		options[name] = internalcharm.Option{
+			Type:        c.Type(),
+			Description: c.Description(),
+			Default:     c.Default(),
+		}
+	}
+
+	return &internalcharm.Config{
+		Options: options,
+	}, nil
+
+}
+
+func (i *importOperation) importCharmActions(data description.CharmActions) (*internalcharm.Actions, error) {
+	// Charm actions is optional, so if we don't have any data, we can just
+	// return nil.
+	if len(data.Actions()) == 0 {
+		return nil, nil
+	}
+
+	descriptionActions := data.Actions()
+
+	actions := make(map[string]internalcharm.ActionSpec, len(descriptionActions))
+	for name, a := range descriptionActions {
+		actions[name] = internalcharm.ActionSpec{
+			Description:    a.Description(),
+			Parallel:       a.Parallel(),
+			ExecutionGroup: a.ExecutionGroup(),
+			Params:         a.Parameters(),
+		}
+	}
+
+	return &internalcharm.Actions{
+		ActionSpecs: actions,
+	}, nil
+
 }
 
 func importCharmUser(data description.CharmMetadata) (internalcharm.RunAs, error) {
