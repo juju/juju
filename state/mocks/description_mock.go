@@ -304,6 +304,44 @@ func (c *MockApplicationChannelCall) DoAndReturn(f func() string) *MockApplicati
 	return c
 }
 
+// CharmActions mocks base method.
+func (m *MockApplication) CharmActions() description.CharmActions {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CharmActions")
+	ret0, _ := ret[0].(description.CharmActions)
+	return ret0
+}
+
+// CharmActions indicates an expected call of CharmActions.
+func (mr *MockApplicationMockRecorder) CharmActions() *MockApplicationCharmActionsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmActions", reflect.TypeOf((*MockApplication)(nil).CharmActions))
+	return &MockApplicationCharmActionsCall{Call: call}
+}
+
+// MockApplicationCharmActionsCall wrap *gomock.Call
+type MockApplicationCharmActionsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationCharmActionsCall) Return(arg0 description.CharmActions) *MockApplicationCharmActionsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationCharmActionsCall) Do(f func() description.CharmActions) *MockApplicationCharmActionsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationCharmActionsCall) DoAndReturn(f func() description.CharmActions) *MockApplicationCharmActionsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CharmConfig mocks base method.
 func (m *MockApplication) CharmConfig() map[string]any {
 	m.ctrl.T.Helper()
@@ -338,6 +376,44 @@ func (c *MockApplicationCharmConfigCall) Do(f func() map[string]any) *MockApplic
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationCharmConfigCall) DoAndReturn(f func() map[string]any) *MockApplicationCharmConfigCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CharmConfigs mocks base method.
+func (m *MockApplication) CharmConfigs() description.CharmConfigs {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CharmConfigs")
+	ret0, _ := ret[0].(description.CharmConfigs)
+	return ret0
+}
+
+// CharmConfigs indicates an expected call of CharmConfigs.
+func (mr *MockApplicationMockRecorder) CharmConfigs() *MockApplicationCharmConfigsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmConfigs", reflect.TypeOf((*MockApplication)(nil).CharmConfigs))
+	return &MockApplicationCharmConfigsCall{Call: call}
+}
+
+// MockApplicationCharmConfigsCall wrap *gomock.Call
+type MockApplicationCharmConfigsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationCharmConfigsCall) Return(arg0 description.CharmConfigs) *MockApplicationCharmConfigsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationCharmConfigsCall) Do(f func() description.CharmConfigs) *MockApplicationCharmConfigsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationCharmConfigsCall) DoAndReturn(f func() description.CharmConfigs) *MockApplicationCharmConfigsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1362,6 +1438,78 @@ func (c *MockApplicationSetAnnotationsCall) Do(f func(map[string]string)) *MockA
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationSetAnnotationsCall) DoAndReturn(f func(map[string]string)) *MockApplicationSetAnnotationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetCharmActions mocks base method.
+func (m *MockApplication) SetCharmActions(arg0 description.CharmActionsArgs) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetCharmActions", arg0)
+}
+
+// SetCharmActions indicates an expected call of SetCharmActions.
+func (mr *MockApplicationMockRecorder) SetCharmActions(arg0 any) *MockApplicationSetCharmActionsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmActions", reflect.TypeOf((*MockApplication)(nil).SetCharmActions), arg0)
+	return &MockApplicationSetCharmActionsCall{Call: call}
+}
+
+// MockApplicationSetCharmActionsCall wrap *gomock.Call
+type MockApplicationSetCharmActionsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationSetCharmActionsCall) Return() *MockApplicationSetCharmActionsCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationSetCharmActionsCall) Do(f func(description.CharmActionsArgs)) *MockApplicationSetCharmActionsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationSetCharmActionsCall) DoAndReturn(f func(description.CharmActionsArgs)) *MockApplicationSetCharmActionsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetCharmConfigs mocks base method.
+func (m *MockApplication) SetCharmConfigs(arg0 description.CharmConfigsArgs) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetCharmConfigs", arg0)
+}
+
+// SetCharmConfigs indicates an expected call of SetCharmConfigs.
+func (mr *MockApplicationMockRecorder) SetCharmConfigs(arg0 any) *MockApplicationSetCharmConfigsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmConfigs", reflect.TypeOf((*MockApplication)(nil).SetCharmConfigs), arg0)
+	return &MockApplicationSetCharmConfigsCall{Call: call}
+}
+
+// MockApplicationSetCharmConfigsCall wrap *gomock.Call
+type MockApplicationSetCharmConfigsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationSetCharmConfigsCall) Return() *MockApplicationSetCharmConfigsCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationSetCharmConfigsCall) Do(f func(description.CharmConfigsArgs)) *MockApplicationSetCharmConfigsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationSetCharmConfigsCall) DoAndReturn(f func(description.CharmConfigsArgs)) *MockApplicationSetCharmConfigsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
