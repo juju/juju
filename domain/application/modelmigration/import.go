@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/juju/description/v8"
@@ -372,7 +373,21 @@ func (i *importOperation) importCharmManifest(data description.CharmManifest) (*
 }
 
 func (i *importOperation) importCharmLXDProfile(data description.CharmMetadata) (*internalcharm.LXDProfile, error) {
-	return nil, nil
+	// LXDProfile is optional, so if we don't have any data, we can just return
+	// nil. If it does exist, then it's JSON encoded blob that we need to
+	// unmarshal into the internalcharm.LXDProfile struct.
+
+	lxdProfile := data.LXDProfile()
+	if lxdProfile == "" {
+		return nil, nil
+	}
+
+	var profile internalcharm.LXDProfile
+	if err := json.Unmarshal([]byte(lxdProfile), &profile); err != nil {
+		return nil, fmt.Errorf("unmarshal lxd profile: %w", err)
+	}
+
+	return &profile, nil
 }
 
 func importCharmUser(data description.CharmMetadata) (internalcharm.RunAs, error) {
