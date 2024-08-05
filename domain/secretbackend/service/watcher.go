@@ -43,8 +43,7 @@ func newSecretBackendRotateWatcher(
 }
 
 func (w *secretBackendRotateWatcher) scopedContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	return w.catacomb.Context(ctx), cancel
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }
 
 func (w *secretBackendRotateWatcher) loop() (err error) {
