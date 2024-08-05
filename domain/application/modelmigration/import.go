@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/internal/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
@@ -258,9 +259,19 @@ func (i *importOperation) importCharm(ctx context.Context, data charmData) (inte
 		return nil, fmt.Errorf("import charm metadata: %w", err)
 	}
 
+	manifest, err := i.importCharmManifest(data.Manifest)
+	if err != nil {
+		return nil, fmt.Errorf("import charm manifest: %w", err)
+	}
+
+	lxdProfile, err := i.importCharmLXDProfile(data.Metadata)
+	if err != nil {
+		return nil, fmt.Errorf("import charm lxd profile: %w", err)
+	}
+
 	// Return a valid charm base that can then be used to create the
 	// application.
-	return internalcharm.NewCharmBase(metadata, nil, nil, nil, nil), nil
+	return internalcharm.NewCharmBase(metadata, manifest, nil, nil, lxdProfile), nil
 }
 
 func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*internalcharm.Meta, error) {
@@ -348,6 +359,20 @@ func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*
 		Containers:     containers,
 		Resources:      resources,
 	}, nil
+}
+
+func (i *importOperation) importCharmManifest(data description.CharmManifest) (*internalcharm.Manifest, error) {
+	bases, err := importManifestBases(data.Bases())
+	if err != nil {
+		return nil, fmt.Errorf("import manifest bases: %w", err)
+	}
+	return &internalcharm.Manifest{
+		Bases: bases,
+	}, nil
+}
+
+func (i *importOperation) importCharmLXDProfile(data description.CharmMetadata) (*internalcharm.LXDProfile, error) {
+	return nil, nil
 }
 
 func importCharmUser(data description.CharmMetadata) (internalcharm.RunAs, error) {
@@ -565,4 +590,34 @@ func importResourceType(data string) (resource.Type, error) {
 	default:
 		return -1, fmt.Errorf("unknown resource type %q", data)
 	}
+}
+
+func importManifestBases(data []description.CharmManifestBase) ([]internalcharm.Base, error) {
+	// This shouldn't happen, but we should handle the case that if we don't
+	// have any bases, we should just return nil.
+	if len(data) == 0 {
+		return nil, nil
+	}
+
+	bases := make([]internalcharm.Base, len(data))
+	for i, base := range data {
+		channel, err := importBaseChannel(base.Channel())
+		if err != nil {
+			return nil, fmt.Errorf("import channel for %q: %w", base.Name(), err)
+		}
+
+		bases[i] = internalcharm.Base{
+			Name:          base.Name(),
+			Channel:       channel,
+			Architectures: base.Architectures(),
+		}
+	}
+	return bases, nil
+}
+
+func importBaseChannel(data string) (internalcharm.Channel, error) {
+	// We expect the channel to be non-empty. The parse channel will return
+	// not valid error if it is empty. This might be a bit too strict, but
+	// it's better to be strict than to be lenient.
+	return charm.ParseChannel(data)
 }
