@@ -1132,6 +1132,40 @@ func (st State) GetSecret(ctx context.Context, uri *coresecrets.URI) (*coresecre
 	return secrets[0], nil
 }
 
+// GetLatestRevision returns the latest revision number for the specified secret,
+// returning an error satisfying [secreterrors.SecretNotFound] if the secret does not exist.
+func (st State) GetLatestRevision(ctx context.Context, uri *coresecrets.URI) (int, error) {
+	db, err := st.DB()
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	query := `
+SELECT MAX(sr.revision) AS &secretInfo.latest_revision
+FROM   secret_revision sr
+WHERE  sr.secret_id = $secretInfo.secret_id
+`
+	info := secretInfo{
+		ID: uri.ID,
+	}
+	stmt, err := st.Prepare(query, info)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, info).Get(&info)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if info.LatestRevision == 0 {
+			return fmt.Errorf("secret %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
+		}
+		return nil
+	}); err != nil {
+		return 0, errors.Trace(err)
+	}
+	return info.LatestRevision, nil
+}
+
 // GetRotationExpiryInfo returns the rotation expiry information for the specified secret.
 func (st State) GetRotationExpiryInfo(ctx context.Context, uri *coresecrets.URI) (*domainsecret.RotationExpiryInfo, error) {
 	db, err := st.DB()

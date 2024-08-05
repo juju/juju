@@ -36,6 +36,7 @@ type State interface {
 	DeleteSecret(ctx context.Context, uri *secrets.URI, revs []int) error
 	DeleteObsoleteUserSecretRevisions(ctx context.Context) error
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
+	GetLatestRevision(ctx context.Context, uri *secrets.URI) (int, error)
 	ListExternalSecretRevisions(ctx context.Context, uri *secrets.URI, revisions ...int) ([]secrets.ValueRef, error)
 	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
 	ListSecrets(ctx context.Context, uri *secrets.URI,
@@ -139,16 +140,11 @@ func NewSecretService(st State, logger logger.Logger, adminConfigGetter BackendA
 	}
 }
 
-// For testing.
-var (
-	GetProvider = provider.Provider
-)
-
 // BackendAdminConfigGetter is a func used to get admin level secret backend config.
 type BackendAdminConfigGetter func(context.Context) (*provider.ModelBackendConfigInfo, error)
 
 // NotImplementedBackendConfigGetter is a not implemented secret backend getter.
-// TODO(secrets) - this is a placeholder
+// It is used by callers of the secret service that do not need any backend functionality.
 var NotImplementedBackendConfigGetter = func(context.Context) (*provider.ModelBackendConfigInfo, error) {
 	return nil, errors.NotImplemented
 }
@@ -183,7 +179,7 @@ func (s *SecretService) CreateSecretURIs(ctx context.Context, count int) ([]*sec
 }
 
 func (s *SecretService) getBackend(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-	p, err := GetProvider(cfg.BackendType)
+	p, err := s.providerGetter(cfg.BackendType)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -350,13 +346,12 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		// loadBackendInfo will error is there's no active backend.
 		backend := s.backends[s.activeBackendID]
 
-		// TODO: use a bespoke "GetLatestRevision(ctx, uri) method instead of GetSecret().
-		md, err := s.GetSecret(ctx, uri)
+		latestRevision, err := s.st.GetLatestRevision(ctx, uri)
 		if err != nil {
 			// Check if the uri exists or not.
 			return errors.Trace(err)
 		}
-		revId, err := backend.SaveContent(ctx, uri, md.LatestRevision+1, secrets.NewSecretValue(params.Data))
+		revId, err := backend.SaveContent(ctx, uri, latestRevision+1, secrets.NewSecretValue(params.Data))
 		if err != nil && !errors.Is(err, errors.NotSupported) {
 			return errors.Annotatef(err, "saving secret content to backend")
 		}
