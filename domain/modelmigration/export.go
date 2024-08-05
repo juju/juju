@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"github.com/juju/juju/core/logger"
+	application "github.com/juju/juju/domain/application/modelmigration"
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
 	credential "github.com/juju/juju/domain/credential/modelmigration"
 	externalcontroller "github.com/juju/juju/domain/externalcontroller/modelmigration"
@@ -24,7 +25,6 @@ func ExportOperations(
 	registry internalstorage.ProviderRegistry,
 	logger logger.Logger,
 ) {
-	// Note: All the export operations are registered here.
 	modelconfig.RegisterExport(coordinator)
 	credential.RegisterExport(coordinator, logger.Child("credential"))
 	network.RegisterExport(coordinator, logger.Child("network"))
@@ -33,4 +33,5 @@ func ExportOperations(
 	blockdevice.RegisterExport(coordinator, logger.Child("blockdevice"))
 	storage.RegisterExport(coordinator, registry, logger.Child("storage"))
 	secret.RegisterExport(coordinator, logger.Child("secret"))
+	application.RegisterExport(coordinator, logger.Child("application"))
 }

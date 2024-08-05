@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
-	"github.com/juju/juju/internal/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
@@ -693,5 +692,5 @@ func importBaseChannel(data string) (internalcharm.Channel, error) {
 	// We expect the channel to be non-empty. The parse channel will return
 	// not valid error if it is empty. This might be a bit too strict, but
 	// it's better to be strict than to be lenient.
-	return charm.ParseChannel(data)
+	return internalcharm.ParseChannel(data)
 }

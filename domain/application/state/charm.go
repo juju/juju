@@ -407,6 +407,24 @@ func (s *CharmState) GetCharmMetadata(ctx context.Context, id corecharm.ID) (cha
 
 	ident := charmID{UUID: id.String()}
 
+	var charmMetadata charm.Metadata
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		charmMetadata, err = s.getMetadata(ctx, tx, ident)
+		return errors.Trace(err)
+	}); err != nil {
+		return charm.Metadata{}, fmt.Errorf("failed to run transaction: %w", err)
+	}
+
+	return charmMetadata, nil
+}
+
+// getMetadata returns the metadata for the charm using the charm ID.
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// It's safe to do this in the transaction loop, the query will cached against
+// the state base, and if the decode fails, the retry logic won't be triggered,
+// as it doesn't satisfy the retry error types.
+func (s *CharmState) getMetadata(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Metadata, error) {
 	// Unlike other domain methods, we're not constructing a row struct here.
 	// Attempting to get the metadata as a series of rows will yield potentially
 	// hundreds of rows, which is not what we want. This is because of all the
@@ -429,55 +447,50 @@ func (s *CharmState) GetCharmMetadata(ctx context.Context, id corecharm.ID) (cha
 		resources     []charmResource
 		containers    []charmContainer
 	)
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		if metadata, err = s.getCharmMetadata(ctx, tx, ident); err != nil {
-			return errors.Trace(err)
-		}
 
-		if tags, err = s.getCharmTags(ctx, tx, ident); err != nil {
-			return errors.Trace(err)
-		}
+	var err error
+	if metadata, err = s.getCharmMetadata(ctx, tx, ident); err != nil {
+		return charm.Metadata{}, errors.Trace(err)
+	}
 
-		if categories, err = s.getCharmCategories(ctx, tx, ident); err != nil {
-			return errors.Trace(err)
-		}
+	if tags, err = s.getCharmTags(ctx, tx, ident); err != nil {
+		return charm.Metadata{}, errors.Trace(err)
+	}
 
-		if terms, err = s.getCharmTerms(ctx, tx, ident); err != nil {
-			return errors.Trace(err)
-		}
+	if categories, err = s.getCharmCategories(ctx, tx, ident); err != nil {
+		return charm.Metadata{}, errors.Trace(err)
+	}
 
-		if relations, err = s.getCharmRelations(ctx, tx, ident); err != nil {
-			return errors.Trace(err)
-		}
+	if terms, err = s.getCharmTerms(ctx, tx, ident); err != nil {
+		return charm.Metadata{}, errors.Trace(err)
+	}
 
-		if extraBindings, err = s.getCharmExtraBindings(ctx, tx, ident); err != nil {
-			return errors.Trace(err)
-		}
+	if relations, err = s.getCharmRelations(ctx, tx, ident); err != nil {
+		return charm.Metadata{}, errors.Trace(err)
+	}
 
-		if storage, err = s.getCharmStorage(ctx, tx, ident); err != nil {
-			return errors.Trace(err)
-		}
+	if extraBindings, err = s.getCharmExtraBindings(ctx, tx, ident); err != nil {
+		return charm.Metadata{}, errors.Trace(err)
+	}
 
-		if devices, err = s.getCharmDevices(ctx, tx, ident); err != nil {
-			return errors.Trace(err)
-		}
+	if storage, err = s.getCharmStorage(ctx, tx, ident); err != nil {
+		return charm.Metadata{}, errors.Trace(err)
+	}
 
-		if payloads, err = s.getCharmPayloads(ctx, tx, ident); err != nil {
-			return errors.Trace(err)
-		}
+	if devices, err = s.getCharmDevices(ctx, tx, ident); err != nil {
+		return charm.Metadata{}, errors.Trace(err)
+	}
 
-		if resources, err = s.getCharmResources(ctx, tx, ident); err != nil {
-			return errors.Trace(err)
-		}
+	if payloads, err = s.getCharmPayloads(ctx, tx, ident); err != nil {
+		return charm.Metadata{}, errors.Trace(err)
+	}
 
-		if containers, err = s.getCharmContainers(ctx, tx, ident); err != nil {
-			return errors.Trace(err)
-		}
+	if resources, err = s.getCharmResources(ctx, tx, ident); err != nil {
+		return charm.Metadata{}, errors.Trace(err)
+	}
 
-		return nil
-	}); err != nil {
-		return charm.Metadata{}, fmt.Errorf("failed to run transaction: %w", err)
+	if containers, err = s.getCharmContainers(ctx, tx, ident); err != nil {
+		return charm.Metadata{}, errors.Trace(err)
 	}
 
 	return decodeMetadata(metadata, decodeMetadataArgs{
@@ -504,6 +517,24 @@ func (s *CharmState) GetCharmManifest(ctx context.Context, id corecharm.ID) (cha
 
 	ident := charmID{UUID: id.String()}
 
+	var manifest charm.Manifest
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		manifest, err = s.getCharmManifest(ctx, tx, ident)
+		return errors.Trace(err)
+	}); err != nil {
+		return charm.Manifest{}, fmt.Errorf("failed to run transaction: %w", err)
+	}
+
+	return manifest, nil
+}
+
+// getCharmManifest returns the manifest for the charm, using the charm ID.
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// It's safe to do this in the transaction loop, the query will cached against
+// the state base, and if the decode fails, the retry logic won't be triggered,
+// as it doesn't satisfy the retry error types.
+func (s *CharmState) getCharmManifest(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Manifest, error) {
 	query := `
 SELECT &charmManifest.*
 FROM v_charm_manifest
@@ -517,16 +548,11 @@ ORDER BY array_index ASC, nested_array_index ASC;
 	}
 
 	var manifests []charmManifest
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, ident).GetAll(&manifests); err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return applicationerrors.CharmNotFound
-			}
-			return fmt.Errorf("failed to get charm manifest: %w", err)
+	if err := tx.Query(ctx, stmt, ident).GetAll(&manifests); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return charm.Manifest{}, applicationerrors.CharmNotFound
 		}
-		return nil
-	}); err != nil {
-		return charm.Manifest{}, fmt.Errorf("failed to run transaction: %w", err)
+		return charm.Manifest{}, fmt.Errorf("failed to get charm manifest: %w", err)
 	}
 
 	return decodeManifest(manifests)
@@ -543,11 +569,30 @@ func (s *CharmState) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([
 
 	ident := charmID{UUID: id.String()}
 
+	var profile []byte
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		profile, err = s.getCharmLXDProfile(ctx, tx, ident)
+		return errors.Trace(err)
+	}); err != nil {
+		return nil, fmt.Errorf("failed to run transaction: %w", err)
+	}
+
+	return profile, nil
+}
+
+// getCharmLXDProfile returns the LXD profile for the charm using the
+// charm ID.
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// It's safe to do this in the transaction loop, the query will cached against
+// the state base, and if the decode fails, the retry logic won't be triggered,
+// as it doesn't satisfy the retry error types.
+func (s *CharmState) getCharmLXDProfile(ctx context.Context, tx *sqlair.TX, ident charmID) ([]byte, error) {
 	query := `
-SELECT &charmLXDProfile.*
-FROM charm
-WHERE uuid = $charmID.uuid;
-`
+	SELECT &charmLXDProfile.*
+	FROM charm
+	WHERE uuid = $charmID.uuid;
+	`
 
 	var profile charmLXDProfile
 	stmt, err := s.Prepare(query, profile, ident)
@@ -555,16 +600,11 @@ WHERE uuid = $charmID.uuid;
 		return nil, fmt.Errorf("failed to prepare query: %w", err)
 	}
 
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, ident).Get(&profile); err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return applicationerrors.CharmNotFound
-			}
-			return fmt.Errorf("failed to get charm lxd profile: %w", err)
+	if err := tx.Query(ctx, stmt, ident).Get(&profile); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil, applicationerrors.CharmNotFound
 		}
-		return nil
-	}); err != nil {
-		return nil, fmt.Errorf("failed to run transaction: %w", err)
+		return nil, fmt.Errorf("failed to get charm lxd profile: %w", err)
 	}
 
 	return profile.LXDProfile, nil
@@ -580,6 +620,24 @@ func (s *CharmState) GetCharmConfig(ctx context.Context, id corecharm.ID) (charm
 
 	ident := charmID{UUID: id.String()}
 
+	var charmConfig charm.Config
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		charmConfig, err = s.getCharmConfig(ctx, tx, ident)
+		return errors.Trace(err)
+	}); err != nil {
+		return charm.Config{}, fmt.Errorf("failed to run transaction: %w", err)
+	}
+	return charmConfig, nil
+
+}
+
+// getCharmConfig returns the config for the charm using the charm ID.
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// It's safe to do this in the transaction loop, the query will cached against
+// the state base, and if the decode fails, the retry logic won't be triggered,
+// as it doesn't satisfy the retry error types.
+func (s *CharmState) getCharmConfig(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Config, error) {
 	charmQuery := `
 SELECT &charmID.*
 FROM charm
@@ -593,30 +651,25 @@ WHERE charm_uuid = $charmID.uuid;
 
 	charmStmt, err := s.Prepare(charmQuery, ident)
 	if err != nil {
-		return charm.Config{}, fmt.Errorf("failed to prepare query: %w", err)
+		return charm.Config{}, fmt.Errorf("failed to prepare charm query: %w", err)
 	}
 	configStmt, err := s.Prepare(configQuery, charmConfig{}, ident)
 	if err != nil {
-		return charm.Config{}, fmt.Errorf("failed to prepare query: %w", err)
+		return charm.Config{}, fmt.Errorf("failed to prepare config query: %w", err)
+	}
+
+	if err := tx.Query(ctx, charmStmt, ident).Get(&ident); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return charm.Config{}, applicationerrors.CharmNotFound
+		}
 	}
 
 	var configs []charmConfig
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, charmStmt, ident).Get(&ident); err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return applicationerrors.CharmNotFound
-			}
+	if err := tx.Query(ctx, configStmt, ident).GetAll(&configs); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return charm.Config{}, nil
 		}
-
-		if err := tx.Query(ctx, configStmt, ident).GetAll(&configs); err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return nil
-			}
-			return fmt.Errorf("failed to get charm config: %w", err)
-		}
-		return nil
-	}); err != nil {
-		return charm.Config{}, fmt.Errorf("failed to run transaction: %w", err)
+		return charm.Config{}, fmt.Errorf("failed to get charm config: %w", err)
 	}
 
 	return decodeConfig(configs)
@@ -632,46 +685,100 @@ func (s *CharmState) GetCharmActions(ctx context.Context, id corecharm.ID) (char
 
 	ident := charmID{UUID: id.String()}
 
-	charmQuery := `
-SELECT &charmID.*
-FROM charm
-WHERE uuid = $charmID.uuid;
-`
-	actionQuery := `
-SELECT &charmAction.*
-FROM charm_action
-WHERE charm_uuid = $charmID.uuid;
-`
-
-	charmStmt, err := s.Prepare(charmQuery, ident)
-	if err != nil {
-		return charm.Actions{}, fmt.Errorf("failed to prepare query: %w", err)
-	}
-	actionsStmt, err := s.Prepare(actionQuery, charmAction{}, ident)
-	if err != nil {
-		return charm.Actions{}, fmt.Errorf("failed to prepare query: %w", err)
-	}
-
-	var actions []charmAction
+	var actions charm.Actions
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, charmStmt, ident).Get(&ident); err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return applicationerrors.CharmNotFound
-			}
-		}
-
-		if err := tx.Query(ctx, actionsStmt, ident).GetAll(&actions); err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return nil
-			}
-			return fmt.Errorf("failed to get charm actions: %w", err)
-		}
-		return nil
+		var err error
+		actions, err = s.getCharmActions(ctx, tx, ident)
+		return errors.Trace(err)
 	}); err != nil {
 		return charm.Actions{}, fmt.Errorf("failed to run transaction: %w", err)
 	}
 
+	return actions, nil
+}
+
+// getCharmActions returns the actions for the charm using the charm ID.
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// It's safe to do this in the transaction loop, the query will cached against
+// the state base, and if the decode fails, the retry logic won't be triggered,
+// as it doesn't satisfy the retry error types.
+func (s *CharmState) getCharmActions(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Actions, error) {
+	charmQuery := `
+SELECT &charmID.*
+FROM charm
+WHERE uuid = $charmID.uuid;
+	`
+	actionQuery := `
+SELECT &charmAction.*
+FROM charm_action
+WHERE charm_uuid = $charmID.uuid;
+	`
+
+	charmStmt, err := s.Prepare(charmQuery, ident)
+	if err != nil {
+		return charm.Actions{}, fmt.Errorf("failed to prepare charm query: %w", err)
+	}
+	actionsStmt, err := s.Prepare(actionQuery, charmAction{}, ident)
+	if err != nil {
+		return charm.Actions{}, fmt.Errorf("failed to prepare action query: %w", err)
+	}
+
+	if err := tx.Query(ctx, charmStmt, ident).Get(&ident); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return charm.Actions{}, applicationerrors.CharmNotFound
+		}
+	}
+
+	var actions []charmAction
+	if err := tx.Query(ctx, actionsStmt, ident).GetAll(&actions); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return charm.Actions{}, nil
+		}
+		return charm.Actions{}, fmt.Errorf("failed to get charm actions: %w", err)
+	}
+
 	return decodeActions(actions), nil
+}
+
+// GetCharm returns the charm using the charm ID.
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+func (s *CharmState) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, error) {
+	db, err := s.DB()
+	if err != nil {
+		return charm.Charm{}, errors.Trace(err)
+	}
+
+	ident := charmID{UUID: id.String()}
+
+	var charm charm.Charm
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		if charm.Metadata, err = s.getMetadata(ctx, tx, ident); err != nil {
+			return errors.Trace(err)
+		}
+
+		if charm.Config, err = s.getCharmConfig(ctx, tx, ident); err != nil {
+			return errors.Trace(err)
+		}
+
+		if charm.Manifest, err = s.getCharmManifest(ctx, tx, ident); err != nil {
+			return errors.Trace(err)
+		}
+
+		if charm.Actions, err = s.getCharmActions(ctx, tx, ident); err != nil {
+			return errors.Trace(err)
+		}
+
+		if charm.LXDProfile, err = s.getCharmLXDProfile(ctx, tx, ident); err != nil {
+			return errors.Trace(err)
+		}
+
+		return nil
+	}); err != nil {
+		return charm, fmt.Errorf("failed to run transaction: %w", err)
+	}
+
+	return charm, nil
 }
 
 // SetCharm persists the charm metadata, actions, config and manifest to

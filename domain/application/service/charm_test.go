@@ -158,6 +158,50 @@ func (s *charmServiceSuite) TestSupportsContainersInvalidUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
+func (s *charmServiceSuite) TestGetCharm(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Conversion of the metadata tests is done in the types package.
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
+		Metadata: domaincharm.Metadata{
+			Name: "foo",
+
+			// RunAs becomes mandatory when being persisted. Empty string is not
+			// allowed.
+			RunAs: "default",
+		},
+	}, nil)
+
+	metadata, err := s.service.GetCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(metadata, gc.DeepEquals, internalcharm.Meta{
+		Name: "foo",
+
+		// Notice that the RunAs field becomes empty string when being returned.
+	})
+}
+
+func (s *charmServiceSuite) TestGetCharmCharmNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{}, applicationerrors.CharmNotFound)
+
+	_, err := s.service.GetCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *charmServiceSuite) TestGetCharmInvalidUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetCharm(context.Background(), "")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
 func (s *charmServiceSuite) TestGetCharmMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
