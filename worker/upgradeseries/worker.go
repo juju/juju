@@ -126,8 +126,14 @@ func NewWorker(config Config) (worker.Worker, error) {
 }
 
 func (w *upgradeSeriesWorker) loop() error {
+	// From 4.0 onwards, the upgrade-series worker is not supported, the
+	// upgrade-series facade has been removed from the API server. Thus we
+	// need to trap the error and return out. Nothing in the worker will work
+	// as expected.
 	uw, err := w.WatchUpgradeSeriesNotifications()
-	if err != nil {
+	if errors.Is(err, errors.NotImplemented) {
+		return nil
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 	err = w.catacomb.Add(uw)
