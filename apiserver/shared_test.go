@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"context"
 	"net/http"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/providertracker"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/testing"
@@ -52,7 +50,6 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		dbGetter:              StubDBGetter{},
 		dbDeleter:             StubDBDeleter{},
 		serviceFactoryGetter:  &StubServiceFactoryGetter{},
-		providerFactory:       &fakeProviderFactory{},
 		tracerGetter:          &StubTracerGetter{},
 		objectStoreGetter:     &StubObjectStoreGetter{},
 		machineTag:            names.NewMachineTag("0"),
@@ -157,10 +154,4 @@ func (s *sharedServerContextSuite) TestControllerConfigChanged(c *gc.C) {
 	c.Check(ctx.featureEnabled("bar"), jc.IsTrue)
 	c.Check(ctx.featureEnabled("baz"), jc.IsFalse)
 	c.Check(stub.published, gc.HasLen, 0)
-}
-
-type fakeProviderFactory struct{}
-
-func (*fakeProviderFactory) ProviderForModel(context.Context, string) (providertracker.Provider, error) {
-	return nil, nil
 }

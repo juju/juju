@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 )
 
@@ -57,6 +58,8 @@ type Bindings interface {
 
 // Backing describes the state methods used in this package.
 type Backing interface {
+	environs.EnvironConfigGetter
+
 	// ModelTag returns the tag of this model.
 	ModelTag() names.ModelTag
 
