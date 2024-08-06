@@ -91,12 +91,8 @@ type state struct {
 	// access it safely.
 	loggedIn int32
 
-	// tag, password, macaroons and nonce hold the cached login
-	// credentials. These are only valid if loggedIn is 1.
-	tag       string
-	password  string
-	macaroons []macaroon.Slice
-	nonce     string
+	// loginProvider holds the provider used for login.
+	loginProvider LoginProvider
 
 	// serverRootAddress holds the cached API server address and port used
 	// to login.
@@ -125,7 +121,7 @@ type state struct {
 // TODO (alesstimec, wallyworld): This method should be removed and
 // a login provider should be used instead.
 func (st *state) Login(name names.Tag, password, nonce string, ms []macaroon.Slice) error {
-	lp := NewUserpassLoginProvider(name, password, nonce, ms, st.bakeryClient, st.cookieURL)
+	lp := NewLegacyLoginProvider(name, password, nonce, ms, st.bakeryClient, st.cookieURL)
 	result, err := lp.Login(context.Background(), st)
 	if err != nil {
 		return errors.Trace(err)

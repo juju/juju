@@ -396,7 +396,7 @@ func (c *loginCommand) publicControllerLogin(
 				})
 			},
 		),
-		api.NewUserpassLoginProvider(names.UserTag{}, "", "", nil, bclient, cookieURL),
+		api.NewLegacyLoginProvider(names.UserTag{}, "", "", nil, bclient, cookieURL),
 	)
 
 	// Keep track of existing interactors as the dial callback will create

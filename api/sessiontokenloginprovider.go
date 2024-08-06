@@ -7,8 +7,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http/v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
@@ -48,6 +50,16 @@ type sessionTokenLoginProvider struct {
 	// updateAccountDetailsFunc function is used to update the session
 	// token for the account details.
 	updateAccountDetailsFunc func(string) error
+}
+
+// AuthHeader implements the [LoginProvider.AuthHeader] method.
+// Returns an HTTP header with basic auth set.
+// Returns an ErrorLoginFirst error if no token is available.
+func (p *sessionTokenLoginProvider) AuthHeader() (http.Header, error) {
+	if p.sessionToken == "" {
+		return nil, ErrorLoginFirst
+	}
+	return jujuhttp.BasicAuthHeader("", p.sessionToken), nil
 }
 
 // Login implements the LoginProvider.Login method.

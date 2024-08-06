@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -28,6 +29,11 @@ import (
 
 // AnonymousUsername is the special username to use for anonymous logins.
 const AnonymousUsername = "jujuanonymous"
+
+const (
+	// ErrorLoginFirst indicates that login has not taken place yet.
+	ErrorLoginFirst = errors.ConstError("login provider needs to be logged in")
+)
 
 // Info encapsulates information about a server holding juju state and
 // can be used to make a connection to it.
@@ -185,6 +191,13 @@ func NewLoginResultParams(result params.LoginResult) (*LoginResultParams, error)
 type LoginProvider interface {
 	// Login performs log in when connecting to the controller.
 	Login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error)
+	// AuthHeader returns an HTTP header used for authentication.
+	// This is normally used as part of basic authentication in scenarios where a client
+	// makes use of a StreamConnector like when fetching logs using `juju debug-log`.
+	// Can return [ErrorLoginFirst] when the provider requires an RPC login before basic auth
+	// can be performed.
+	// Other errors are also possible indicating an internal error in the provider.
+	AuthHeader() (http.Header, error)
 }
 
 // DialOpts holds configuration parameters that control the
