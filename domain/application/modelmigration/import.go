@@ -72,10 +72,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	return nil
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
+// Execute the import, adding the application to the model.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
 	for _, app := range model.Applications() {
 		unitArgs := make([]service.AddUnitArg, 0, len(app.Units()))
@@ -693,4 +690,8 @@ func importBaseChannel(data string) (internalcharm.Channel, error) {
 	// not valid error if it is empty. This might be a bit too strict, but
 	// it's better to be strict than to be lenient.
 	return internalcharm.ParseChannel(data)
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
