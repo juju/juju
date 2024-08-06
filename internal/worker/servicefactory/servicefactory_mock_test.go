@@ -852,17 +852,17 @@ func (c *MockModelServiceFactoryConfigCall) DoAndReturn(f func() *service17.Watc
 }
 
 // KeyManager mocks base method.
-func (m *MockModelServiceFactory) KeyManager(arg0 service11.PublicKeyImporter) *service11.Service {
+func (m *MockModelServiceFactory) KeyManager() *service11.Service {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "KeyManager", arg0)
+	ret := m.ctrl.Call(m, "KeyManager")
 	ret0, _ := ret[0].(*service11.Service)
 	return ret0
 }
 
 // KeyManager indicates an expected call of KeyManager.
-func (mr *MockModelServiceFactoryMockRecorder) KeyManager(arg0 any) *MockModelServiceFactoryKeyManagerCall {
+func (mr *MockModelServiceFactoryMockRecorder) KeyManager() *MockModelServiceFactoryKeyManagerCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyManager", reflect.TypeOf((*MockModelServiceFactory)(nil).KeyManager), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyManager", reflect.TypeOf((*MockModelServiceFactory)(nil).KeyManager))
 	return &MockModelServiceFactoryKeyManagerCall{Call: call}
 }
 
@@ -878,13 +878,51 @@ func (c *MockModelServiceFactoryKeyManagerCall) Return(arg0 *service11.Service) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceFactoryKeyManagerCall) Do(f func(service11.PublicKeyImporter) *service11.Service) *MockModelServiceFactoryKeyManagerCall {
+func (c *MockModelServiceFactoryKeyManagerCall) Do(f func() *service11.Service) *MockModelServiceFactoryKeyManagerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceFactoryKeyManagerCall) DoAndReturn(f func(service11.PublicKeyImporter) *service11.Service) *MockModelServiceFactoryKeyManagerCall {
+func (c *MockModelServiceFactoryKeyManagerCall) DoAndReturn(f func() *service11.Service) *MockModelServiceFactoryKeyManagerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// KeyManagerWithImporter mocks base method.
+func (m *MockModelServiceFactory) KeyManagerWithImporter(arg0 service11.PublicKeyImporter) *service11.ImporterService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "KeyManagerWithImporter", arg0)
+	ret0, _ := ret[0].(*service11.ImporterService)
+	return ret0
+}
+
+// KeyManagerWithImporter indicates an expected call of KeyManagerWithImporter.
+func (mr *MockModelServiceFactoryMockRecorder) KeyManagerWithImporter(arg0 any) *MockModelServiceFactoryKeyManagerWithImporterCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyManagerWithImporter", reflect.TypeOf((*MockModelServiceFactory)(nil).KeyManagerWithImporter), arg0)
+	return &MockModelServiceFactoryKeyManagerWithImporterCall{Call: call}
+}
+
+// MockModelServiceFactoryKeyManagerWithImporterCall wrap *gomock.Call
+type MockModelServiceFactoryKeyManagerWithImporterCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelServiceFactoryKeyManagerWithImporterCall) Return(arg0 *service11.ImporterService) *MockModelServiceFactoryKeyManagerWithImporterCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelServiceFactoryKeyManagerWithImporterCall) Do(f func(service11.PublicKeyImporter) *service11.ImporterService) *MockModelServiceFactoryKeyManagerWithImporterCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelServiceFactoryKeyManagerWithImporterCall) DoAndReturn(f func(service11.PublicKeyImporter) *service11.ImporterService) *MockModelServiceFactoryKeyManagerWithImporterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1825,17 +1863,17 @@ func (c *MockServiceFactoryFlagCall) DoAndReturn(f func() *service10.Service) *M
 }
 
 // KeyManager mocks base method.
-func (m *MockServiceFactory) KeyManager(arg0 service11.PublicKeyImporter) *service11.Service {
+func (m *MockServiceFactory) KeyManager() *service11.Service {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "KeyManager", arg0)
+	ret := m.ctrl.Call(m, "KeyManager")
 	ret0, _ := ret[0].(*service11.Service)
 	return ret0
 }
 
 // KeyManager indicates an expected call of KeyManager.
-func (mr *MockServiceFactoryMockRecorder) KeyManager(arg0 any) *MockServiceFactoryKeyManagerCall {
+func (mr *MockServiceFactoryMockRecorder) KeyManager() *MockServiceFactoryKeyManagerCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyManager", reflect.TypeOf((*MockServiceFactory)(nil).KeyManager), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyManager", reflect.TypeOf((*MockServiceFactory)(nil).KeyManager))
 	return &MockServiceFactoryKeyManagerCall{Call: call}
 }
 
@@ -1851,13 +1889,51 @@ func (c *MockServiceFactoryKeyManagerCall) Return(arg0 *service11.Service) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryKeyManagerCall) Do(f func(service11.PublicKeyImporter) *service11.Service) *MockServiceFactoryKeyManagerCall {
+func (c *MockServiceFactoryKeyManagerCall) Do(f func() *service11.Service) *MockServiceFactoryKeyManagerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryKeyManagerCall) DoAndReturn(f func(service11.PublicKeyImporter) *service11.Service) *MockServiceFactoryKeyManagerCall {
+func (c *MockServiceFactoryKeyManagerCall) DoAndReturn(f func() *service11.Service) *MockServiceFactoryKeyManagerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// KeyManagerWithImporter mocks base method.
+func (m *MockServiceFactory) KeyManagerWithImporter(arg0 service11.PublicKeyImporter) *service11.ImporterService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "KeyManagerWithImporter", arg0)
+	ret0, _ := ret[0].(*service11.ImporterService)
+	return ret0
+}
+
+// KeyManagerWithImporter indicates an expected call of KeyManagerWithImporter.
+func (mr *MockServiceFactoryMockRecorder) KeyManagerWithImporter(arg0 any) *MockServiceFactoryKeyManagerWithImporterCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyManagerWithImporter", reflect.TypeOf((*MockServiceFactory)(nil).KeyManagerWithImporter), arg0)
+	return &MockServiceFactoryKeyManagerWithImporterCall{Call: call}
+}
+
+// MockServiceFactoryKeyManagerWithImporterCall wrap *gomock.Call
+type MockServiceFactoryKeyManagerWithImporterCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockServiceFactoryKeyManagerWithImporterCall) Return(arg0 *service11.ImporterService) *MockServiceFactoryKeyManagerWithImporterCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockServiceFactoryKeyManagerWithImporterCall) Do(f func(service11.PublicKeyImporter) *service11.ImporterService) *MockServiceFactoryKeyManagerWithImporterCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockServiceFactoryKeyManagerWithImporterCall) DoAndReturn(f func(service11.PublicKeyImporter) *service11.ImporterService) *MockServiceFactoryKeyManagerWithImporterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

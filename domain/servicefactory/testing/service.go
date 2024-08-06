@@ -84,8 +84,14 @@ func (s *TestingServiceFactory) ModelDefaults() *modeldefaultsservice.Service {
 	return nil
 }
 
-// KeyManager returns the model key manager serivce.
-func (s *TestingServiceFactory) KeyManager(_ keymanagerservice.PublicKeyImporter) *keymanagerservice.Service {
+// KeyManager returns the model key manager service.
+func (s *TestingServiceFactory) KeyManager() *keymanagerservice.Service {
+	return nil
+}
+
+// KeyManagerWithImporter returns the model key manager serivce that is capable
+// of importing keys from an external source.
+func (s *TestingServiceFactory) KeyManagerWithImporter(_ keymanagerservice.PublicKeyImporter) *keymanagerservice.ImporterService {
 	return nil
 }
 

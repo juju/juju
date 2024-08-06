@@ -56,7 +56,7 @@ func makeFacadeV1(stdCtx context.Context, ctx facade.ModelContext) (*KeyManagerA
 
 	keyImporter := sshimporter.NewImporter(keyImporterHTTPClient)
 	return newKeyManagerAPI(
-		ctx.ServiceFactory().KeyManager(keyImporter),
+		ctx.ServiceFactory().KeyManagerWithImporter(keyImporter),
 		ctx.ServiceFactory().Access(),
 		authorizer,
 		common.NewBlockChecker(ctx.State()),
