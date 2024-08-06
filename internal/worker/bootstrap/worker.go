@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	userservice "github.com/juju/juju/domain/access/service"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
@@ -281,9 +282,9 @@ func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {
 
 	controllerUUID := controllerCfg.ControllerUUID()
 
-	adminUser, err := w.cfg.UserService.GetUserByName(ctx, "admin")
+	adminUser, err := w.cfg.UserService.GetUserByName(ctx, user.AdminUserName)
 	if err != nil {
-		return errors.Annotatef(err, "getting admin user")
+		return errors.Annotatef(err, "getting admin user %q", user.AdminUserName)
 	}
 
 	pass, err := password.RandomPassword()
