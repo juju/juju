@@ -282,6 +282,10 @@ func (i *importOperation) importCharm(ctx context.Context, data charmData) (inte
 }
 
 func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*internalcharm.Meta, error) {
+	if data == nil {
+		return nil, fmt.Errorf("import charm metadata: %w", errors.NotValid)
+	}
+
 	var (
 		err    error
 		runsAs internalcharm.RunAs
@@ -313,11 +317,6 @@ func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*
 	var peers map[string]internalcharm.Relation
 	if peers, err = importRelations(data.Peers()); err != nil {
 		return nil, fmt.Errorf("import peers relations: %w", err)
-	}
-
-	var extraBindings map[string]internalcharm.ExtraBinding
-	if extraBindings, err = importExtraBindings(data.ExtraBindings()); err != nil {
-		return nil, fmt.Errorf("import extra bindings: %w", err)
 	}
 
 	var storage map[string]internalcharm.Storage
@@ -359,7 +358,7 @@ func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*
 		Provides:       provides,
 		Requires:       requires,
 		Peers:          peers,
-		ExtraBindings:  extraBindings,
+		ExtraBindings:  importExtraBindings(data.ExtraBindings()),
 		Storage:        storage,
 		Devices:        devices,
 		PayloadClasses: payloadClasses,
@@ -369,6 +368,12 @@ func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*
 }
 
 func (i *importOperation) importCharmManifest(data description.CharmManifest) (*internalcharm.Manifest, error) {
+	// Officially the manifest is optional, so if we don't have any data, we can
+	// just return nil.
+	if data == nil {
+		return nil, nil
+	}
+
 	bases, err := importManifestBases(data.Bases())
 	if err != nil {
 		return nil, fmt.Errorf("import manifest bases: %w", err)
@@ -399,7 +404,7 @@ func (i *importOperation) importCharmLXDProfile(data description.CharmMetadata) 
 func (i *importOperation) importCharmConfig(data description.CharmConfigs) (*internalcharm.Config, error) {
 	// Charm config is optional, so if we don't have any data, we can just
 	// return nil.
-	if len(data.Configs()) == 0 {
+	if data == nil {
 		return nil, nil
 	}
 
@@ -423,7 +428,7 @@ func (i *importOperation) importCharmConfig(data description.CharmConfigs) (*int
 func (i *importOperation) importCharmActions(data description.CharmActions) (*internalcharm.Actions, error) {
 	// Charm actions is optional, so if we don't have any data, we can just
 	// return nil.
-	if len(data.Actions()) == 0 {
+	if data == nil {
 		return nil, nil
 	}
 
@@ -456,7 +461,7 @@ func importCharmUser(data description.CharmMetadata) (internalcharm.RunAs, error
 	case "non-root":
 		return internalcharm.RunAsNonRoot, nil
 	default:
-		return internalcharm.RunAsDefault, fmt.Errorf("unknown run-as value %q", data.RunAs())
+		return internalcharm.RunAsDefault, fmt.Errorf("unknown run-as value %q: %w", data.RunAs(), errors.NotValid)
 	}
 }
 
@@ -471,9 +476,9 @@ func importAssumes(data string) (*assumes.ExpressionTree, error) {
 		return nil, nil
 	}
 
-	var tree *assumes.ExpressionTree
+	tree := new(assumes.ExpressionTree)
 	if err := tree.UnmarshalJSON([]byte(data)); err != nil {
-		return nil, fmt.Errorf("unmarshal assumes: %w", err)
+		return nil, fmt.Errorf("unmarshal assumes: %w: %w", err, errors.NotValid)
 	}
 	return tree, nil
 }
@@ -487,7 +492,7 @@ func importMinJujuVersion(data string) (version.Number, error) {
 
 	ver, err := version.Parse(data)
 	if err != nil {
-		return version.Number{}, fmt.Errorf("parse min juju version: %w", err)
+		return version.Number{}, fmt.Errorf("parse min juju version: %w: %w", err, errors.NotValid)
 	}
 	return ver, nil
 }
@@ -526,7 +531,7 @@ func importRelationRole(data string) (internalcharm.RelationRole, error) {
 	case "requirer":
 		return internalcharm.RoleRequirer, nil
 	default:
-		return "", fmt.Errorf("unknown relation role %q", data)
+		return "", fmt.Errorf("unknown relation role %q: %w", data, errors.NotValid)
 	}
 }
 
@@ -537,18 +542,18 @@ func importRelationScope(data string) (internalcharm.RelationScope, error) {
 	case "container":
 		return internalcharm.ScopeContainer, nil
 	default:
-		return "", fmt.Errorf("unknown relation scope %q", data)
+		return "", fmt.Errorf("unknown relation scope %q: %w", data, errors.NotValid)
 	}
 }
 
-func importExtraBindings(data map[string]string) (map[string]internalcharm.ExtraBinding, error) {
+func importExtraBindings(data map[string]string) map[string]internalcharm.ExtraBinding {
 	extraBindings := make(map[string]internalcharm.ExtraBinding, len(data))
 	for key, name := range data {
 		extraBindings[key] = internalcharm.ExtraBinding{
 			Name: name,
 		}
 	}
-	return extraBindings, nil
+	return extraBindings
 }
 
 func importStorage(data map[string]description.CharmMetadataStorage) (map[string]internalcharm.Storage, error) {
@@ -582,7 +587,7 @@ func importStorageType(data string) (internalcharm.StorageType, error) {
 	case "filesystem":
 		return internalcharm.StorageFilesystem, nil
 	default:
-		return "", fmt.Errorf("unknown storage type %q", data)
+		return "", fmt.Errorf("unknown storage type %q: %w", data, errors.NotValid)
 	}
 }
 
@@ -658,7 +663,7 @@ func importResourceType(data string) (resource.Type, error) {
 	case "oci-image":
 		return resource.TypeContainerImage, nil
 	default:
-		return -1, fmt.Errorf("unknown resource type %q", data)
+		return -1, fmt.Errorf("unknown resource type %q: %w", data, errors.NotValid)
 	}
 }
 
