@@ -130,7 +130,7 @@ jobs:
       if: ${{ failure() }}
 
     - name: Upload debug log
-      uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v2
+      uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v2
       with:
         name: juju-debug-actions
         path: juju-debug.log
@@ -158,7 +158,7 @@ jobs:
       if: ${{ failure() }}
 
     - name: Upload inspect tarball
-      uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v2
+      uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v2
       with:
         name: inspection-report-actions
         path: ./inspection-report-${{ strategy.job-index }}.tar.gz
@@ -174,7 +174,7 @@ jobs:
       if: ${{ failure() }}
 
     - name: Upload kubectl describe
-      uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v2
+      uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v2
       with:
         name: kubectl-describe-actions
         path: describe/*.describe
@@ -192,7 +192,7 @@ jobs:
       if: ${{ failure() }}
 
     - name: Upload kubeflow pod logs
-      uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v2
+      uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v2
       with:
         name: kubectl-stdout-actions
         path: stdout/*.log
