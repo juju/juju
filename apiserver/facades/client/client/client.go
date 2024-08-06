@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = internallogger.GetLogger("juju.apiserver.client")
@@ -110,10 +111,6 @@ func (c *Client) checkIsAdmin(ctx context.Context) error {
 	return c.api.auth.HasPermission(ctx, permission.AdminAccess, c.api.stateAccessor.ModelTag())
 }
 
-type provider interface {
-	environs.BootstrapEnviron
-}
-
 // NewFacade creates a Client facade to handle API requests.
 // Changes:
 // - FindTools deals with CAAS models now;
@@ -130,10 +127,12 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 
 	serviceFactory := ctx.ServiceFactory()
 
-	providerGetter := facade.ProviderRunner[provider](ctx)
-	newEnviron := func(ctx context.Context) (environs.BootstrapEnviron, error) {
-		return providerGetter(ctx)
+	configGetter := stateenvirons.EnvironConfigGetter{
+		Model:             model,
+		CloudService:      serviceFactory.Cloud(),
+		CredentialService: serviceFactory.Credential(),
 	}
+	newEnviron := common.EnvironFuncForModel(model, serviceFactory.Cloud(), serviceFactory.Credential(), configGetter)
 
 	modelUUID := model.UUID()
 

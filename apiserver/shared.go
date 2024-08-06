@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/trace"
@@ -65,10 +64,6 @@ type sharedServerContext struct {
 	// ServiceFactoryGetter is used to get the service factory for controllers
 	// and models.
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
-
-	// providerFactory returns a provider for a given model. This should be
-	// used sparingly in facade code.
-	providerFactory providertracker.ProviderFactory
 
 	// TraceGetter is used to get the tracer for the API server.
 	tracerGetter trace.TracerGetter
@@ -117,10 +112,6 @@ type sharedServerConfig struct {
 	machineTag           names.Tag
 	dataDir              string
 	logDir               string
-
-	// providerFactory returns a provider for a given model. This should be
-	// used sparingly in facades.
-	providerFactory providertracker.ProviderFactory
 }
 
 func (c *sharedServerConfig) validate() error {
@@ -150,9 +141,6 @@ func (c *sharedServerConfig) validate() error {
 	}
 	if c.serviceFactoryGetter == nil {
 		return errors.NotValidf("nil serviceFactoryGetter")
-	}
-	if c.providerFactory == nil {
-		return errors.NotValidf("nil providerFactory")
 	}
 	if c.tracerGetter == nil {
 		return errors.NotValidf("nil tracerGetter")
@@ -187,7 +175,6 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		dbGetter:              config.dbGetter,
 		dbDeleter:             config.dbDeleter,
 		serviceFactoryGetter:  config.serviceFactoryGetter,
-		providerFactory:       config.providerFactory,
 		tracerGetter:          config.tracerGetter,
 		objectStoreGetter:     config.objectStoreGetter,
 		machineTag:            config.machineTag,
