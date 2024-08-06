@@ -23,6 +23,8 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs"
+	environmocks "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -799,6 +801,7 @@ type LegacySuite struct {
 
 	blockChecker   mockBlockChecker
 	networkService *spaces.MockNetworkService
+	environ        *environmocks.MockNetworkingEnviron
 }
 
 var _ = gc.Suite(&LegacySuite{})
@@ -810,9 +813,8 @@ func (s *LegacySuite) SetUpSuite(c *gc.C) {
 
 func (s *LegacySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-
 	s.networkService = spaces.NewMockNetworkService(ctrl)
-
+	s.environ = environmocks.NewMockNetworkingEnviron(ctrl)
 	return ctrl
 }
 
@@ -822,9 +824,12 @@ func (s *LegacySuite) makeAPI(c *gc.C) {
 		Backing:                     &stubBacking{apiservertesting.BackingInstance},
 		Check:                       &s.blockChecker,
 		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
-		Resources:                   s.resources,
-		Authorizer:                  s.auth,
-		NetworkService:              s.networkService,
+		ProviderGetter: func(ctx stdcontext.Context) (environs.NetworkingEnviron, error) {
+			return s.environ, nil
+		},
+		Resources:      s.resources,
+		Authorizer:     s.auth,
+		NetworkService: s.networkService,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.facade, gc.NotNil)

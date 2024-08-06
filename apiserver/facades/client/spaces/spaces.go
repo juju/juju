@@ -85,7 +85,7 @@ type apiConfig struct {
 	Backing                     Backing
 	Check                       BlockChecker
 	CredentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
-	providerGetter              providertracker.ProviderGetter[environs.NetworkingEnviron]
+	ProviderGetter              providertracker.ProviderGetter[environs.NetworkingEnviron]
 	Resources                   facade.Resources
 	Authorizer                  facade.Authorizer
 	logger                      corelogger.Logger
@@ -106,7 +106,7 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 		resources:                   cfg.Resources,
 		auth:                        cfg.Authorizer,
 		credentialInvalidatorGetter: cfg.CredentialInvalidatorGetter,
-		providerGetter:              cfg.providerGetter,
+		providerGetter:              cfg.ProviderGetter,
 		check:                       cfg.Check,
 		logger:                      cfg.logger,
 	}, nil

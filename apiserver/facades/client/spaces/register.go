@@ -46,7 +46,7 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 		Backing:                     stateShim,
 		Check:                       check,
 		CredentialInvalidatorGetter: credentialInvalidatorGetter,
-		providerGetter:              providerGetter,
+		ProviderGetter:              providerGetter,
 		Resources:                   ctx.Resources(),
 		Authorizer:                  auth,
 		logger:                      ctx.Logger().Child("spaces"),
