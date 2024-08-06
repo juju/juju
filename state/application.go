@@ -2966,6 +2966,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 		removeStatusOp(a.st, u.globalCloudContainerKey()),
 		removeConstraintsOp(u.globalAgentKey()),
 		annotationRemoveOp(a.st, u.globalKey()),
+		removeSSHHostKeyOp(u.globalKey()),
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name, op.Force),
 	}
 	ops = append(ops, portsOps...)

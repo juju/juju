@@ -5,6 +5,7 @@ package api
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -39,6 +40,27 @@ func (s *state) RootHTTPClient() (*httprequest.Client, error) {
 		Scheme: s.serverScheme,
 		Host:   s.Addr(),
 	})
+}
+
+// NewHTTPRequest returns a new request, and the tls.Dialer to connect with.
+func (s *state) NewHTTPRequest() (*http.Request, *tls.Dialer, error) {
+	baseURL, err := s.apiEndpoint("/", "")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req := &http.Request{
+		URL:    baseURL,
+		Header: http.Header{},
+	}
+	err = authHTTPRequest(req, s.tag, s.password, s.nonce, s.macaroons)
+	if err != nil {
+		return nil, nil, err
+	}
+	dialer := &tls.Dialer{
+		Config: s.tlsConfig,
+	}
+	return req, dialer, nil
 }
 
 func (s *state) httpClient(baseURL *url.URL) (*httprequest.Client, error) {

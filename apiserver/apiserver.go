@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/sshproxy"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/controller"
@@ -851,6 +852,12 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	backupHandler := &backupHandler{ctxt: httpCtxt}
 	registerHandler := &registerUserHandler{ctxt: httpCtxt}
 
+	sshProxyHandler := sshproxy.Handler(
+		logger.Child("sshproxy"),
+		httpCtxt.stateForRequestAuthenticatedUser,
+	)
+	sshProxyAuthorizer := tagKindAuthorizer{names.UserTagKind}
+
 	// HTTP handler for application offer macaroon authentication.
 	addOfferAuthHandlers(srv.offerAuthCtxt, srv.mux)
 
@@ -921,6 +928,16 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		pattern:    modelRoutePrefix + "/backups",
 		handler:    backupHandler,
 		authorizer: controllerAdminAuthorizer,
+	}, {
+		pattern:    modelRoutePrefix + "/machine/",
+		methods:    []string{"CONNECT"},
+		handler:    sshProxyHandler,
+		authorizer: sshProxyAuthorizer,
+	}, {
+		pattern:    modelRoutePrefix + "/application/",
+		methods:    []string{"CONNECT"},
+		handler:    sshProxyHandler,
+		authorizer: sshProxyAuthorizer,
 	}, {
 		// Legacy migration endpoint. Used by Juju 3.3 and prior
 		pattern:    "/migrate/charms",
