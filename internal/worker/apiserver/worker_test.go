@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/servicefactory"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiserver"
@@ -52,6 +53,7 @@ type workerFixture struct {
 	controllerConfigService *MockControllerConfigService
 	modelService            *MockModelService
 	serviceFactoryGetter    servicefactory.ServiceFactoryGetter
+	providerFactory         *fakeProviderFactory
 	controllerUUID          string
 	controllerModelID       model.UUID
 }
@@ -75,6 +77,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.charmhubHTTPClient = &http.Client{}
 	s.sshimporterHTTPClient = &http.Client{}
 	s.serviceFactoryGetter = &stubServiceFactoryGetter{}
+	s.providerFactory = &fakeProviderFactory{}
 	s.controllerUUID = coretesting.ControllerTag.Id()
 	s.controllerModelID = modeltesting.GenModelUUID(c)
 	s.stub.ResetCalls()
@@ -102,6 +105,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		ServiceFactoryGetter:              s.serviceFactoryGetter,
 		TracerGetter:                      s.tracerGetter,
 		ObjectStoreGetter:                 s.objectStoreGetter,
+		ProviderFactory:                   s.providerFactory,
 	}
 }
 
@@ -175,6 +179,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *apiserver.Config) { cfg.ObjectStoreGetter = nil },
 		"nil ObjectStoreGetter not valid",
 	}, {
+		func(cfg *apiserver.Config) { cfg.ProviderFactory = nil },
+		"nil ProviderFactory not valid",
+	}, {
 		func(cfg *apiserver.Config) { cfg.ControllerConfigService = nil },
 		"nil ControllerConfigService not valid",
 	}, {
@@ -208,4 +215,10 @@ func (s *WorkerValidationSuite) testValidateLogSinkConfig(c *gc.C, key, value, e
 	s.agentConfig.values = map[string]string{key: value}
 	_, err := apiserver.NewWorker(context.Background(), s.config)
 	c.Check(err, gc.ErrorMatches, "getting log sink config: "+expect)
+}
+
+type fakeProviderFactory struct{}
+
+func (*fakeProviderFactory) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
+	return nil, nil
 }
