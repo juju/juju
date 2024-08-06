@@ -1139,6 +1139,8 @@ func (srv *Server) serveConn(
 		resolvedModelID = srv.shared.controllerModelID
 	}
 
+	ctx = model.WithContextModelUUID(ctx, resolvedModelID)
+
 	tracer, err := srv.shared.tracerGetter.GetTracer(
 		ctx,
 		coretrace.Namespace("apiserver", resolvedModelID.String()),
