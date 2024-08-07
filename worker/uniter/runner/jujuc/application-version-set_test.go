@@ -64,7 +64,7 @@ func (s *ApplicationVersionSetSuite) TestHelp(c *gc.C) {
 Usage: application-version-set <new-version>
 
 Summary:
-specify which version of the application is deployed
+Specify which version of the application is deployed.
 
 Details:
 application-version-set tells Juju which version of the application

@@ -31,7 +31,7 @@ func (s *stateGetSuite) TestHelp(c *gc.C) {
 Usage: state-get [options] [<key>]
 
 Summary:
-print server-side-state value
+Print server-side-state value.
 
 Options:
 --format  (= smart)
@@ -46,8 +46,8 @@ state-get prints the value of the server side state specified by key.
 If no key is given, or if the key is "-", all keys and values will be printed.
 
 See also:
-    state-delete
-    state-set
+ - state-delete
+ - state-set
 `[1:]
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, expectedHelp)
 }

@@ -64,7 +64,7 @@ func (c *RelationSetCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "relation-set",
 		Args:    "key=value [key=value ...]",
-		Purpose: "set relation settings",
+		Purpose: "Set relation settings.",
 		Doc:     relationSetDoc,
 	})
 }

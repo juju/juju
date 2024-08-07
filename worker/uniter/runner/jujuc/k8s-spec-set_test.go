@@ -82,7 +82,7 @@ func (s *K8sSpecSetSuite) TestHelp(c *gc.C) {
 		"Usage: k8s-spec-set [options] --file <core spec file> [--k8s-resources <k8s spec file>]\n" +
 		"\n" +
 		"Summary:\n" +
-		"set k8s spec information\n" +
+		"Set k8s spec information.\n" +
 		"\n" +
 		"Options:\n" +
 		"--file  (= -)\n" +

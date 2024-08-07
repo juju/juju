@@ -29,7 +29,7 @@ Gets configuration data used to set up k8s resources.
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "k8s-raw-get",
-		Purpose: "get k8s raw spec information",
+		Purpose: "Get k8s raw spec information.",
 		Doc:     doc,
 	})
 }

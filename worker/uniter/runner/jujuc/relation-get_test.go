@@ -220,7 +220,7 @@ var helpTemplate = `
 Usage: %s
 
 Summary:
-get relation settings
+Get relation settings.
 
 Options:
 --app  (= false)

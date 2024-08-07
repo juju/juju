@@ -29,7 +29,7 @@ func (c *GoalStateCommand) Info() *cmd.Info {
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "goal-state",
-		Purpose: "print the status of the charm's peers and related units",
+		Purpose: "Print the status of the charm's peers and related units.",
 		Doc:     doc,
 	})
 }

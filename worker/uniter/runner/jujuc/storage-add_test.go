@@ -34,7 +34,7 @@ func (s *storageAddSuite) TestHelp(c *gc.C) {
 Usage: storage-add <charm storage name>[=count] ...
 
 Summary:
-add storage instances
+Add storage instances.
 
 Details:
 `[1:] +
