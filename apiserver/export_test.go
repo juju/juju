@@ -86,6 +86,10 @@ func (testingAPIRootHandler) Authorizer() facade.Authorizer {
 	return nil
 }
 
+func (testingAPIRootHandler) ProviderFactory() facade.ModelProviderFactory {
+	return nil
+}
+
 // Deprecated: Resources are deprecated. Use WatcherRegistry instead.
 func (testingAPIRootHandler) Resources() *common.Resources {
 	return common.NewResources()
@@ -141,7 +145,22 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servi
 		},
 		tag: names.NewMachineTag("0"),
 	}
-	h, err := newAPIHandler(context.Background(), srv, st, nil, sf, nil, coretrace.NoopTracer{}, nil, nil, nil, model.UUID(st.ModelUUID()), 6543, "testing.invalid:1234")
+	h, err := newAPIHandler(
+		context.Background(),
+		srv,
+		st,
+		nil,
+		sf,
+		nil,
+		nil,
+		coretrace.NoopTracer{},
+		nil,
+		nil,
+		nil,
+		model.UUID(st.ModelUUID()),
+		6543,
+		"testing.invalid:1234",
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return h, h.Resources()
