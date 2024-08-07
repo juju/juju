@@ -11,6 +11,12 @@ const (
 	// AlreadyExists describes an error that occurs when a secret backend already exists.
 	AlreadyExists = errors.ConstError("secret backend already exists")
 
+	// RefCountAlreadyExists describes an error that occurs when a secret backend reference count record already exists.
+	RefCountAlreadyExists = errors.ConstError("secret backend reference count already exists")
+
+	// RefCountNotFound describes an error that occurs when a secret backend reference count record is not found.
+	RefCountNotFound = errors.ConstError("secret backend reference count not found")
+
 	// NotFound describes an error that occurs when the secret backend being operated on does not exist.
 	NotFound = errors.ConstError("secret backend not found")
 
