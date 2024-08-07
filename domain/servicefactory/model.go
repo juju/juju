@@ -141,12 +141,21 @@ func (s *ModelFactory) Application(registry storage.ProviderRegistry) *applicati
 	)
 }
 
-// KeyManager returns the model's user public ssh key manager. Use this service
+// KeyManager  returns the model's user public ssh key manager. Use this service
 // when wanting to modify a user's public ssh keys within a model.
-func (s *ModelFactory) KeyManager(
-	importer keymanagerservice.PublicKeyImporter,
-) *keymanagerservice.Service {
+func (s *ModelFactory) KeyManager() *keymanagerservice.Service {
 	return keymanagerservice.NewService(
+		keymanagerstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+	)
+}
+
+// KeyManagerWithImporter returns the model's user public ssh key manager with
+// the ability to import ssh public keys from external sources. Use this service
+// when wanting to modify a user's public ssh keys within a model.
+func (s *ModelFactory) KeyManagerWithImporter(
+	importer keymanagerservice.PublicKeyImporter,
+) *keymanagerservice.ImporterService {
+	return keymanagerservice.NewImporterService(
 		importer,
 		keymanagerstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)

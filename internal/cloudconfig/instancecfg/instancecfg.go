@@ -278,6 +278,10 @@ type StateInitializationParams struct {
 	// ControllerModelConfig holds the initial controller model configuration.
 	ControllerModelConfig *config.Config
 
+	// ControllerModelAuthorizedKeys is a list of authorized keys to be added to
+	// the controller model and the admin user during bootstrap.
+	ControllerModelAuthorizedKeys []string
+
 	// ControllerModelEnvironVersion holds the initial controller model
 	// environ version.
 	ControllerModelEnvironVersion int
@@ -351,8 +355,9 @@ type StateInitializationParams struct {
 
 type stateInitializationParamsInternal struct {
 	AgentVersion                            string                            `yaml:"agent-version"`
-	ControllerConfig                        map[string]interface{}            `yaml:"controller-config"`
-	ControllerModelConfig                   map[string]interface{}            `yaml:"controller-model-config"`
+	ControllerConfig                        map[string]any                    `yaml:"controller-config"`
+	ControllerModelConfig                   map[string]any                    `yaml:"controller-model-config"`
+	ControllerModelAuthorizedKeys           []string                          `yaml:"controller-model-authorized-keys"`
 	ControllerModelEnvironVersion           int                               `yaml:"controller-model-version"`
 	ControllerInheritedConfig               map[string]interface{}            `yaml:"controller-config-defaults,omitempty"`
 	RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
@@ -385,6 +390,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		AgentVersion:                            p.AgentVersion.String(),
 		ControllerConfig:                        p.ControllerConfig,
 		ControllerModelConfig:                   p.ControllerModelConfig.AllAttrs(),
+		ControllerModelAuthorizedKeys:           p.ControllerModelAuthorizedKeys,
 		ControllerModelEnvironVersion:           p.ControllerModelEnvironVersion,
 		ControllerInheritedConfig:               p.ControllerInheritedConfig,
 		RegionInheritedConfig:                   p.RegionInheritedConfig,
@@ -432,6 +438,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		AgentVersion:                            agentVersion,
 		ControllerConfig:                        internal.ControllerConfig,
 		ControllerModelConfig:                   cfg,
+		ControllerModelAuthorizedKeys:           internal.ControllerModelAuthorizedKeys,
 		ControllerModelEnvironVersion:           internal.ControllerModelEnvironVersion,
 		ControllerInheritedConfig:               internal.ControllerInheritedConfig,
 		RegionInheritedConfig:                   internal.RegionInheritedConfig,

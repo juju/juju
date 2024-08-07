@@ -145,3 +145,25 @@ func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *modelBootstrapSuite) TestCreateModelWithDifferingBuildNumber(c *gc.C) {
+	v := jujuversion.Current
+	v.Build++
+
+	args := model.ModelCreationArgs{
+		AgentVersion: v,
+		Cloud:        s.cloudName,
+		Credential: credential.Key{
+			Cloud: s.cloudName,
+			Name:  s.credentialName,
+			Owner: coreuser.AdminUserName,
+		},
+		Name:  "test",
+		Owner: s.adminUserUUID,
+	}
+
+	// Create a model and then create a read-only model from it.
+	fn := CreateModel(modeltesting.GenModelUUID(c), args)
+	err := fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+}

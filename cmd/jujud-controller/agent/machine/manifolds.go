@@ -614,7 +614,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Kind:            coretrace.KindController,
 		}),
 
-		httpServerArgsName: ifDatabaseUpgradeComplete(httpserverargs.Manifold(httpserverargs.ManifoldConfig{
+		httpServerArgsName: ifBootstrapComplete(httpserverargs.Manifold(httpserverargs.ManifoldConfig{
 			ClockName:             clockName,
 			StateName:             stateName,
 			ServiceFactoryName:    serviceFactoryName,
@@ -647,7 +647,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:          logsink.NewWorker,
 		})),
 
-		apiServerName: ifBootstrapComplete(apiserver.Manifold(apiserver.ManifoldConfig{
+		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:                 agentName,
 			AuthenticatorName:         httpServerArgsName,
 			ClockName:                 clockName,
@@ -661,6 +661,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			SSHImporterHTTPClientName: sshImporterHTTPClientName,
 			TraceName:                 traceName,
 			ObjectStoreName:           objectStoreName,
+			ProviderFactoryName:       providerTrackerName,
 
 			// Note that although there is a transient dependency on dbaccessor
 			// via changestream, the direct dependency supplies the capability
@@ -677,7 +678,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetModelService:                   apiserver.GetModelService,
 			NewWorker:                         apiserver.NewWorker,
 			NewMetricsCollector:               apiserver.NewMetricsCollector,
-		})),
+		}),
 
 		charmhubHTTPClientName: dependency.Manifold{
 			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {

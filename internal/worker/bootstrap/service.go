@@ -43,6 +43,14 @@ type CloudService interface {
 	Cloud(context.Context, string) (*cloud.Cloud, error)
 }
 
+// KeyManagerService provides access to the authorised keys for individual users
+// of a model.
+type KeyManagerService interface {
+	// AddPublicKeysForUser is responsible for adding public keys to a user in
+	// this model. If no keys are supplied then no operation will take place.
+	AddPublicKeysForUser(context.Context, user.UUID, ...string) error
+}
+
 // ModelConfigService provides access to the model configuration.
 type ModelConfigService interface {
 	// ModelConfig returns the current config for the model.

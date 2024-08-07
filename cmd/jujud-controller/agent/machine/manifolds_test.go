@@ -352,7 +352,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"audit-config-updater",
 		"bootstrap",
 		"control-socket",
-		"http-server-args",
 		"log-sink",
 		"object-store",
 		"object-store-s3-caller",
@@ -361,7 +360,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 
 	// bootstrapWorkers are workers that are run directly run after bootstrap.
 	bootstrapWorkers := set.NewStrings(
-		"api-server",
+		"http-server-args",
 	)
 
 	for name, manifold := range manifolds {
@@ -782,9 +781,11 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
-		"provider-tracker",
+		"is-bootstrap-flag",
+		"is-bootstrap-gate",
 		"is-controller-flag",
 		"provider-service-factory",
+		"provider-tracker",
 		"query-logger",
 		"service-factory",
 		"state",
@@ -1524,9 +1525,11 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
-		"provider-tracker",
+		"is-bootstrap-flag",
+		"is-bootstrap-gate",
 		"is-controller-flag",
 		"provider-service-factory",
+		"provider-tracker",
 		"query-logger",
 		"service-factory",
 		"state",
