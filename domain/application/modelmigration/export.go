@@ -154,9 +154,13 @@ func (e *exportOperation) exportCharmMetadata(metadata *internalcharm.Meta, lxdP
 
 	// Assumes is a recursive structure, so we need to marshal it to JSON as
 	// a string, to prevent YAML from trying to interpret it.
-	assumes, err := metadata.Assumes.MarshalJSON()
-	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+	var assumesBytes []byte
+	if expr := metadata.Assumes; expr != nil {
+		var err error
+		assumesBytes, err = json.Marshal(expr)
+		if err != nil {
+			return description.CharmMetadataArgs{}, fmt.Errorf("cannot marshal assumes: %v", err)
+		}
 	}
 
 	runAs, err := exportCharmUser(metadata.CharmUser)
@@ -218,7 +222,7 @@ func (e *exportOperation) exportCharmMetadata(metadata *internalcharm.Meta, lxdP
 		Tags:           metadata.Tags,
 		Terms:          metadata.Terms,
 		RunAs:          runAs,
-		Assumes:        string(assumes),
+		Assumes:        string(assumesBytes),
 		MinJujuVersion: metadata.MinJujuVersion.String(),
 		Provides:       provides,
 		Requires:       requires,
@@ -523,26 +527,32 @@ type relationType struct {
 	scope    string
 }
 
+// Name returns the name of the relation.
 func (r relationType) Name() string {
 	return r.name
 }
 
+// Role returns the role of the relation.
 func (r relationType) Role() string {
 	return r.role
 }
 
+// Interface returns the interface of the relation.
 func (r relationType) Interface() string {
 	return r.iface
 }
 
+// Optional returns whether the relation is optional.
 func (r relationType) Optional() bool {
 	return r.optional
 }
 
+// Limit returns the limit of the relation.
 func (r relationType) Limit() int {
 	return r.limit
 }
 
+// Scope returns the scope of the relation.
 func (r relationType) Scope() string {
 	return r.scope
 }
@@ -560,42 +570,52 @@ type storageType struct {
 	properties  []string
 }
 
+// Name returns the name of the storage.
 func (s storageType) Name() string {
 	return s.name
 }
 
+// Description returns the description of the storage.
 func (s storageType) Description() string {
 	return s.description
 }
 
+// Type returns the type of the storage.
 func (s storageType) Type() string {
 	return s.typ
 }
 
+// Shared returns whether the storage is shared.
 func (s storageType) Shared() bool {
 	return s.shared
 }
 
+// Readonly returns whether the storage is readonly.
 func (s storageType) Readonly() bool {
 	return s.readonly
 }
 
+// CountMin returns the minimum count of the storage.
 func (s storageType) CountMin() int {
 	return s.countMin
 }
 
+// CountMax returns the maximum count of the storage.
 func (s storageType) CountMax() int {
 	return s.countMax
 }
 
+// MinimumSize returns the minimum size of the storage.
 func (s storageType) MinimumSize() int {
 	return s.minimumSize
 }
 
+// Location returns the location of the storage.
 func (s storageType) Location() string {
 	return s.location
 }
 
+// Properties returns the properties of the storage.
 func (s storageType) Properties() []string {
 	return s.properties
 }
@@ -608,22 +628,27 @@ type deviceType struct {
 	countMax    int
 }
 
+// Name returns the name of the device.
 func (d deviceType) Name() string {
 	return d.name
 }
 
+// Description returns the description of the device.
 func (d deviceType) Description() string {
 	return d.description
 }
 
+// Type returns the type of the device.
 func (d deviceType) Type() string {
 	return d.typ
 }
 
+// CountMin returns the minimum count of the device.
 func (d deviceType) CountMin() int {
 	return d.countMin
 }
 
+// CountMax returns the maximum count of the device.
 func (d deviceType) CountMax() int {
 	return d.countMax
 }
@@ -633,10 +658,12 @@ type payloadType struct {
 	typ  string
 }
 
+// Name returns the name of the payload.
 func (p payloadType) Name() string {
 	return p.name
 }
 
+// Type returns the type of the payload.
 func (p payloadType) Type() string {
 	return p.typ
 }
@@ -648,18 +675,22 @@ type containerType struct {
 	gid      *int
 }
 
+// Resource returns the resource of the container.
 func (c containerType) Resource() string {
 	return c.resource
 }
 
+// Mounts returns the mounts of the container.
 func (c containerType) Mounts() []description.CharmMetadataContainerMount {
 	return c.mounts
 }
 
+// Uid returns the uid of the container.
 func (c containerType) Uid() *int {
 	return c.uid
 }
 
+// Gid returns the gid of the container.
 func (c containerType) Gid() *int {
 	return c.gid
 }
@@ -669,10 +700,12 @@ type containerMountType struct {
 	storage  string
 }
 
+// Location returns the location of the container mount.
 func (c containerMountType) Location() string {
 	return c.location
 }
 
+// Storage returns the storage of the container mount.
 func (c containerMountType) Storage() string {
 	return c.storage
 }
@@ -684,18 +717,22 @@ type resourceType struct {
 	description string
 }
 
+// Name returns the name of the resource.
 func (r resourceType) Name() string {
 	return r.name
 }
 
+// Type returns the type of the resource.
 func (r resourceType) Type() string {
 	return r.typ
 }
 
+// Path returns the path of the resource.
 func (r resourceType) Path() string {
 	return r.path
 }
 
+// Description returns the description of the resource.
 func (r resourceType) Description() string {
 	return r.description
 }
@@ -706,14 +743,17 @@ type baseType struct {
 	architectures []string
 }
 
+// Name returns the name of the base.
 func (b baseType) Name() string {
 	return b.name
 }
 
+// Channel returns the channel of the base.
 func (b baseType) Channel() string {
 	return b.channel
 }
 
+// Architectures returns the architectures of the base.
 func (b baseType) Architectures() []string {
 	return b.architectures
 }
@@ -724,14 +764,17 @@ type configType struct {
 	defaultValue interface{}
 }
 
+// Type returns the type of the config.
 func (c configType) Type() string {
 	return c.typ
 }
 
+// Default returns the default value of the config.
 func (c configType) Default() interface{} {
 	return c.defaultValue
 }
 
+// Description returns the description of the config.
 func (c configType) Description() string {
 	return c.description
 }
@@ -743,18 +786,22 @@ type actionType struct {
 	parameters     map[string]interface{}
 }
 
+// Description returns the description of the action.
 func (a actionType) Description() string {
 	return a.description
 }
 
+// Parallel returns whether the action is parallel.
 func (a actionType) Parallel() bool {
 	return a.parallel
 }
 
+// ExecutionGroup returns the execution group of the action.
 func (a actionType) ExecutionGroup() string {
 	return a.executionGroup
 }
 
+// Parameters returns the parameters of the action.
 func (a actionType) Parameters() map[string]interface{} {
 	return a.parameters
 }

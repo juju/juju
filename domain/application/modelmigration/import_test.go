@@ -53,7 +53,7 @@ type importSuite struct {
 
 var _ = gc.Suite(&importSuite{})
 
-func (s *importSuite) TestApplicationSaveWithMinimalCharm(c *gc.C) {
+func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	appArgs := description.ApplicationArgs{
