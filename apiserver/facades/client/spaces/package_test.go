@@ -104,16 +104,6 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	return ctrl, unReg
 }
 
-// SupportsSpaces is used by the legacy test suite and
-// can be removed when it is grandfathered out.
-func SupportsSpaces(backing Backing) error {
-	api := &API{
-		backing:                     backing,
-		credentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
-	}
-	return api.checkSupportsSpaces(stdcontext.Background())
-}
-
 // NewAPIWithBacking is also a legacy-only artifact,
 // only used by the legacy test suite.
 var NewAPIWithBacking = newAPIWithBacking

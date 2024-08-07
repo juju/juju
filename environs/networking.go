@@ -130,8 +130,7 @@ func supportsNetworking(environ BootstrapEnviron) (NetworkingEnviron, bool) {
 	return ne, ok
 }
 
-// SupportsSpaces checks if the environment implements NetworkingEnviron
-// and also if it supports spaces.
+// SupportsSpaces checks if the environment supports spaces.
 func SupportsSpaces(ctx envcontext.ProviderCallContext, env NetworkingEnviron) bool {
 	ok, err := env.SupportsSpaces(ctx)
 	if err != nil {

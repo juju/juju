@@ -1119,63 +1119,6 @@ func (s *LegacySuite) TestCreateSpacesBlocked(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeOperationBlocked)
 }
 
-func (s *LegacySuite) TestSupportsSpacesModelConfigError(c *gc.C) {
-	apiservertesting.SharedStub.SetErrors(
-		errors.New("boom"), // Backing.ModelConfig()
-	)
-
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance})
-	c.Assert(err, gc.ErrorMatches, "getting environ: retrieving model config: boom")
-}
-
-func (s *LegacySuite) TestSupportsSpacesEnvironNewError(c *gc.C) {
-	apiservertesting.SharedStub.SetErrors(
-		nil,                // Backing.ModelConfig()
-		nil,                // Backing.CloudSpec()
-		errors.New("boom"), // environs.New()
-	)
-
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance})
-	c.Assert(err, gc.ErrorMatches,
-		`getting environ: creating environ for model \"stub-zoned-networking-environ\" \(.*\): boom`)
-}
-
-func (s *LegacySuite) TestSupportsSpacesWithoutNetworking(c *gc.C) {
-	apiservertesting.BackingInstance.SetUp(
-		c,
-		apiservertesting.StubEnvironName,
-		apiservertesting.WithoutZones,
-		apiservertesting.WithoutSpaces,
-		apiservertesting.WithoutSubnets)
-
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance})
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
-}
-
-func (s *LegacySuite) TestSupportsSpacesWithoutSpaces(c *gc.C) {
-	apiservertesting.BackingInstance.SetUp(
-		c,
-		apiservertesting.StubNetworkingEnvironName,
-		apiservertesting.WithoutZones,
-		apiservertesting.WithoutSpaces,
-		apiservertesting.WithoutSubnets)
-
-	apiservertesting.SharedStub.SetErrors(
-		nil,                // Backing.ModelConfig()
-		nil,                // Backing.CloudSpec()
-		nil,                // environs.New()
-		errors.New("boom"), // Backing.supportsSpaces()
-	)
-
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance})
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
-}
-
-func (s *LegacySuite) TestSupportsSpaces(c *gc.C) {
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 type mockBlockChecker struct {
 	jtesting.Stub
 }
