@@ -5,10 +5,12 @@ package api
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -30,6 +32,12 @@ func NewClientCredentialsLoginProvider(clientID, clientSecret string) *clientCre
 type clientCredentialsLoginProvider struct {
 	clientID     string
 	clientSecret string
+}
+
+// AuthHeader implements the [LoginProvider.AuthHeader] method.
+// It returns an HTTP header with basic auth set.
+func (p *clientCredentialsLoginProvider) AuthHeader() (http.Header, error) {
+	return jujuhttp.BasicAuthHeader(p.clientID, p.clientSecret), nil
 }
 
 // Login implements the LoginProvider.Login method.

@@ -290,7 +290,7 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 				})
 			},
 		),
-		api.NewUserpassLoginProvider(names.UserTag{}, "", "", nil, bclient, cookieURL),
+		api.NewLegacyLoginProvider(names.UserTag{}, "", "", nil, bclient, cookieURL),
 	)
 
 	conn, err := c.apiOpen(&api.Info{
