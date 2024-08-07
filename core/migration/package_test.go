@@ -32,5 +32,6 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"core/resources",
 		"internal/charm/resource",
 		"internal/logger",
+		"internal/uuid",
 	})
 }

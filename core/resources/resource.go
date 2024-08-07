@@ -49,17 +49,17 @@ type Resource struct {
 	// distinguishes it from other pending resources with the same model
 	// ID (and from the active resource). The active resource for the
 	// applications will not have PendingID set.
+	// Deprecated.
 	PendingID string
-
-	// TODO(ericsnow) Use names.ApplicationTag for applicationID?
 
 	// ApplicationID identifies the application for the resource.
 	ApplicationID string
 
-	// TODO(ericsnow) Use names.UserTag for Username?
-
-	// Username is the ID of the user that added the revision
-	// to the model (whether implicitly or explicitly).
+	// Username is the ID of who added the resource to the controller.
+	// The ID is a username if the resource is uploaded from the cli
+	// by a specific user. If the resources is downloaded from a repository,
+	// the ID of the unit which triggered the download, or the name of
+	// the application in the case of oci-images.
 	Username string
 
 	// Timestamp indicates when the resource was added to the model.
