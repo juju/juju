@@ -14,102 +14,138 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-// DumpTable dumps the contents of the given table to stdout.
+// DumpTables dumps the contents of the given tables to stdout.
 // This is useful for debugging tests. It is not intended for use
 // in production code.
-func DumpTable(c *gc.C, db *sql.DB, table string) {
-	rows, err := db.Query("SELECT * FROM " + table)
-	c.Assert(err, jc.ErrorIsNil)
-	defer rows.Close()
-
-	cols, err := rows.Columns()
-	c.Assert(err, jc.ErrorIsNil)
-
-	fmt.Fprintln(os.Stdout)
-
-	writer := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', 0)
-	for _, col := range cols {
-		fmt.Fprintf(writer, "%s\t", col)
+func DumpTables(c *gc.C, db *sql.DB, tables ...string) {
+	for _, table := range tables {
+		dumpTable(c, db, table, newTabularFormatter())
 	}
-	fmt.Fprintln(writer)
+}
 
-	vals := make([]any, len(cols))
-	for i := range vals {
-		vals[i] = new(any)
+// DumpTablesJSON prints the named tables to stdout in a JSON-like format. The
+// output of this function is not, and is not intended to be, valid JSON.
+// This is intended as a debugging tool for state tests. It is not intended for
+// use in production code.
+func DumpTablesJSON(c *gc.C, db *sql.DB, tables ...string) {
+	for _, table := range tables {
+		dumpTable(c, db, table, newJSONFormatter(c))
 	}
+}
+
+func dumpTable(c *gc.C, db *sql.DB, tableName string, f formatter) {
+	f.SetTableName(tableName)
+	rows, err := db.Query("SELECT * FROM " + tableName)
+	if err != nil {
+		// Soft fail, most likely the table doesn't exist
+		fmt.Println(err)
+		return
+	}
+
+	columns, err := rows.Columns()
+	c.Assert(err, jc.ErrorIsNil)
+	f.SetColumns(columns)
 
 	for rows.Next() {
-		err = rows.Scan(vals...)
-		c.Assert(err, jc.ErrorIsNil)
-
-		for _, val := range vals {
-			fmt.Fprintf(writer, "%v\t", *val.(*any))
+		row := make([]any, len(columns))
+		for i := range row {
+			row[i] = new(any)
 		}
+		err = rows.Scan(row...)
+		c.Assert(err, jc.ErrorIsNil)
+		f.AddRow(row)
 	}
-	err = rows.Err()
-	c.Assert(err, jc.ErrorIsNil)
+	f.Flush()
+}
 
-	writer.Flush()
+// formatter defines a way of printing a table.
+type formatter interface {
+	// SetTableName defines the name of the table
+	SetTableName(string)
+	// SetColumns defines the columns of the table.
+	SetColumns([]string)
+	// AddRow adds a row to the table
+	AddRow([]any)
+	// Flush prints the table.
+	Flush()
+}
+
+// tabularFormatter formats a table in a tabular format.
+type tabularFormatter struct {
+	tableName string
+	tw        *tabwriter.Writer
+}
+
+func newTabularFormatter() *tabularFormatter {
+	return &tabularFormatter{
+		tw: tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', 0),
+	}
+}
+
+func (t *tabularFormatter) SetTableName(name string) {
+	t.tableName = name
+}
+
+func (t *tabularFormatter) SetColumns(cols []string) {
+	for _, col := range cols {
+		fmt.Fprintf(t.tw, "%s\t", col)
+	}
+	fmt.Fprintln(t.tw)
+}
+
+func (t *tabularFormatter) AddRow(vals []any) {
+	for _, val := range vals {
+		fmt.Fprintf(t.tw, "%v\t", *val.(*any))
+	}
+}
+
+func (t *tabularFormatter) Flush() {
+	fmt.Fprintln(os.Stdout)
+	fmt.Printf("***** TABLE %q *****\n", t.tableName)
+	t.tw.Flush()
 	fmt.Fprintln(os.Stdout)
 }
 
-// DumpTablesJSON prints the named tables to stdout in a JSON format. This is
-// intended as a debugging tool for state tests. It is not intended for use in
-// production code.
-func DumpTablesJSON(c *gc.C, db *sql.DB, tableNames ...string) {
-	for _, tableName := range tableNames {
-		query := fmt.Sprintf("SELECT * FROM %s", tableName)
-		table := &tableData{
-			tableName: tableName,
-		}
-
-		rows, err := db.Query(query)
-		if err != nil {
-			// Soft fail, most likely the table doesn't exist
-			fmt.Println(err)
-			continue
-		}
-
-		columns, err := rows.Columns()
-		c.Assert(err, jc.ErrorIsNil)
-		table.columnNames = columns
-
-		for rows.Next() {
-			row := make([]any, len(columns))
-			for i := range row {
-				row[i] = new(any)
-			}
-			err = rows.Scan(row...)
-			c.Assert(err, jc.ErrorIsNil)
-			table.rows = append(table.rows, row)
-		}
-
-		printJSON(c, table)
-	}
-
-}
-
-// tableData is an intermediate representation of an arbitrary table, ready to
-// be processed for printing.
-type tableData struct {
+// jsonFormatter formats a table in a JSON-like format. The output of this
+// formatter is not, and is not intended to be, valid JSON.
+type jsonFormatter struct {
+	c           *gc.C
 	tableName   string
 	columnNames []string
 	rows        [][]any
 }
 
-func printJSON(c *gc.C, table *tableData) {
-	fmt.Printf("***** TABLE %q *****\n", table.tableName)
+func newJSONFormatter(c *gc.C) *jsonFormatter {
+	return &jsonFormatter{
+		c: c,
+	}
+}
+
+func (j *jsonFormatter) SetTableName(name string) {
+	j.tableName = name
+}
+
+func (j *jsonFormatter) SetColumns(cols []string) {
+	j.columnNames = cols
+}
+
+func (j *jsonFormatter) AddRow(row []any) {
+	j.rows = append(j.rows, row)
+}
+
+func (j *jsonFormatter) Flush() {
+	fmt.Printf("***** TABLE %q *****\n", j.tableName)
 	stdout := json.NewEncoder(os.Stdout)
 
-	for _, row := range table.rows {
+	for _, row := range j.rows {
 		jsonRow := map[string]any{}
-		for i, columnName := range table.columnNames {
+		for i, columnName := range j.columnNames {
 			jsonRow[columnName] = row[i]
 		}
 
 		stdout.SetIndent("", "  ")
 		err := stdout.Encode(jsonRow)
-		c.Assert(err, jc.ErrorIsNil)
+		j.c.Assert(err, jc.ErrorIsNil)
 	}
 	fmt.Println()
 }
