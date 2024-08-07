@@ -58,8 +58,9 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 	unitName := fmt.Sprintf("%s/0", appName)
 	_, err := svc.CreateApplication(context.Background(),
 		appName,
-		&stubCharm{},
-		applicationservice.AddApplicationArgs{},
+		applicationservice.AddApplicationArgs{
+			Charm: &stubCharm{},
+		},
 		applicationservice.AddUnitArg{UnitName: &unitName},
 	)
 	c.Assert(err, jc.ErrorIsNil)

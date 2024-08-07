@@ -298,12 +298,12 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 
 		// Unit
 		"unit",
-		"unit_platform",
 		"unit_resolve_kind",
 		"unit_state_charm",
 		"unit_state_relation",
 		"unit_state",
-		"unit_tool",
+		"unit_agent",
+		"unit_principal",
 
 		// Constraint
 		"constraint",
@@ -315,7 +315,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"machine",
 		"machine_parent",
 		"machine_constraint",
-		"machine_tool",
+		"machine_agent",
 		"machine_volume",
 		"machine_filesystem",
 		"machine_requires_reboot",

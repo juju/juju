@@ -16,13 +16,12 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
 
 // ApplicationService instances save an application to dqlite state.
 type ApplicationService interface {
-	CreateApplication(ctx context.Context, name string, charm charm.Charm, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) (coreapplication.ID, error)
+	CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) (coreapplication.ID, error)
 }
 
 // BakeryConfigService describes the service used to initialise the

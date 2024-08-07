@@ -156,7 +156,8 @@ func DeployApplication(
 
 	// Dual write storage directives to dqlite.
 	if err == nil {
-		_, err = applicationService.CreateApplication(ctx, args.ApplicationName, args.Charm, applicationservice.AddApplicationArgs{
+		_, err = applicationService.CreateApplication(ctx, args.ApplicationName, applicationservice.AddApplicationArgs{
+			Charm:   args.Charm,
 			Storage: args.Storage,
 		}, unitArgs...)
 	}

@@ -263,8 +263,20 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 	s.stateBackend.EXPECT().Unit(unitName).Return(s.unit, nil)
 	s.applicationService.EXPECT().CreateApplication(
 		gomock.Any(),
-		bootstrap.ControllerApplicationName, s.charm,
-		applicationservice.AddApplicationArgs{}, applicationservice.AddUnitArg{UnitName: &unitName},
+		bootstrap.ControllerApplicationName,
+		applicationservice.AddApplicationArgs{
+			Charm: s.charm,
+			Origin: corecharm.Origin{
+				Source:  "charm-hub",
+				Type:    "charm",
+				Channel: &charm.Channel{},
+				Platform: corecharm.Platform{
+					Architecture: "arm64",
+					OS:           "ubuntu",
+					Channel:      "22.04",
+				},
+			},
+		}, applicationservice.AddUnitArg{UnitName: &unitName},
 	)
 
 	deployer := s.newBaseDeployer(c, cfg)

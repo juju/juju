@@ -12,6 +12,8 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -30,17 +32,23 @@ type ApplicationState interface {
 	// satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
 	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error)
 
-	// CreateApplication creates the specified application, with the charm, and
-	// the units if required.
-	CreateApplication(context.Context, string, domaincharm.Charm, ...application.AddUnitArg) (coreapplication.ID, error)
+	// CreateApplication creates an application, whilst inserting a charm into the
+	// database, returning an error satisfying [applicationerrors.ApplicationAle\readyExists]
+	// if the application already exists.
+	CreateApplication(context.Context, string, application.AddApplicationArg, ...application.AddUnitArg) (coreapplication.ID, error)
 
-	// UpsertApplication persists the input Application entity.
-	UpsertApplication(context.Context, string, ...application.AddUnitArg) error
+	// UpsertApplicationUnit creates or updates the specified application unit, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+	UpsertApplicationUnit(context.Context, string, application.AddUnitArg) error
 
-	// DeleteApplication deletes the input Application entity.
+	// DeleteApplication deletes the specified application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+	// If the application still has units, as error satisfying [applicationerrors.ApplicationHasUnits]
+	// is returned.
 	DeleteApplication(context.Context, string) error
 
-	// AddUnits adds the specified units to the application.
+	// AddUnits adds the specified units to the application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 	AddUnits(ctx context.Context, applicationName string, args ...application.AddUnitArg) error
 }
 
@@ -69,15 +77,17 @@ func NewApplicationService(st ApplicationState, registry storage.ProviderRegistr
 	}
 }
 
-// CreateApplication creates the specified application and units if required.
+// CreateApplication creates the specified application and units if required,
+// returning an error satisfying [applicationerrors.ApplicationAle\readyExists]
+// if the application already exists.
 func (s *ApplicationService) CreateApplication(
 	ctx context.Context,
-	name string, charm charm.Charm,
+	name string,
 	args AddApplicationArgs,
 	units ...AddUnitArg,
 ) (coreapplication.ID, error) {
 	// Validate that we have a valid charm and name.
-	meta := charm.Meta()
+	meta := args.Charm.Meta()
 	if meta == nil {
 		return "", applicationerrors.CharmMetadataNotValid
 	} else if name == "" && meta.Name == "" {
@@ -102,32 +112,77 @@ func (s *ApplicationService) CreateApplication(
 	if err := s.addDefaultStorageDirectives(ctx, s.modelType, cons, meta); err != nil {
 		return "", errors.Annotate(err, "adding default storage directives")
 	}
-	if err := s.validateStorageDirectives(ctx, s.modelType, cons, charm); err != nil {
+	if err := s.validateStorageDirectives(ctx, s.modelType, cons, args.Charm); err != nil {
 		return "", errors.Annotate(err, "invalid storage directives")
 	}
 
 	// When encoding the charm, this will also validate the charm metadata,
 	// when parsing it.
-	ch, _, err := encodeCharm(charm)
+	ch, _, err := encodeCharm(args.Charm)
 	if err != nil {
 		return "", fmt.Errorf("encode charm: %w", err)
 	}
 
-	unitArgs := make([]application.AddUnitArg, len(units))
-	for i, u := range units {
-		unitArgs[i] = application.AddUnitArg{
-			UnitName: u.UnitName,
+	origin := args.Origin
+	var channel *domaincharm.Channel
+	if origin.Channel != nil {
+		normalisedC := origin.Channel.Normalize()
+		channel = &domaincharm.Channel{
+			Track:  normalisedC.Track,
+			Risk:   domaincharm.ChannelRisk(normalisedC.Risk),
+			Branch: normalisedC.Branch,
 		}
 	}
+	appArg := application.AddApplicationArg{
+		Charm:   ch,
+		Channel: channel,
+		Platform: application.Platform{
+			Channel:        origin.Platform.Channel,
+			OSTypeID:       application.MarshallOSType(ostype.OSTypeForName(origin.Platform.OS)),
+			ArchitectureID: application.MarshallArchitecture(origin.Platform.Architecture),
+		},
+	}
 
-	id, err := s.st.CreateApplication(ctx, name, ch, unitArgs...)
+	unitArgs := make([]application.AddUnitArg, len(units))
+	for i, u := range units {
+		unitArgs[i] = makeAddUnitArgs(u)
+	}
+
+	id, err := s.st.CreateApplication(ctx, name, appArg, unitArgs...)
 	if err != nil {
 		return "", errors.Annotatef(err, "creating application %q", name)
 	}
 	return id, nil
 }
 
-// AddUnits adds units to the application.
+func makeAddUnitArgs(in AddUnitArg) application.AddUnitArg {
+	result := application.AddUnitArg{
+		UnitName:     in.UnitName,
+		PasswordHash: in.PasswordHash,
+	}
+	if in.CloudContainer != nil {
+		result.CloudContainer = &application.CloudContainer{
+			ProviderId: in.CloudContainer.ProviderId,
+			Ports:      in.CloudContainer.Ports,
+		}
+		if in.CloudContainer.Address != nil {
+			result.CloudContainer.Address = &application.Address{
+				Value:       in.CloudContainer.Address.Value,
+				AddressType: string(in.CloudContainer.Address.AddressType()),
+				Scope:       string(in.CloudContainer.Address.Scope),
+				SpaceID:     in.CloudContainer.Address.SpaceID,
+				Origin:      string(network.OriginProvider),
+			}
+			if in.CloudContainer.AddressOrigin != nil {
+				result.CloudContainer.Address.Origin = string(*in.CloudContainer.AddressOrigin)
+			}
+		}
+	}
+	return result
+}
+
+// AddUnits adds the specified units to the application, returning an error
+// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ...AddUnitArg) error {
 	args := make([]application.AddUnitArg, len(units))
 	for i, u := range units {
@@ -139,16 +194,38 @@ func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ..
 	return errors.Annotatef(err, "adding units to application %q", name)
 }
 
-// UpsertCAASUnit records the existence of a unit in a caas model.
-func (s *ApplicationService) UpsertCAASUnit(ctx context.Context, name string, unit UpsertCAASUnitParams) error {
-	args := application.AddUnitArg{
-		UnitName: unit.UnitName,
+// UpsertCAASUnit creates or updates the specified application unit in a caas model,
+// returning an error satisfying [applicationerrors.ApplicationNotFoundError]
+// if the application doesn't exist.
+func (s *ApplicationService) UpsertCAASUnit(ctx context.Context, appName string, unit UpsertCAASUnitParams) error {
+	p := AddUnitArg{
+		UnitName:     &unit.UnitName,
+		PasswordHash: unit.PasswordHash,
 	}
-	err := s.st.UpsertApplication(ctx, name, args)
-	return errors.Annotatef(err, "saving application %q", name)
+	if unit.ProviderId != nil || unit.Address != nil || unit.Ports != nil {
+		cldContainer := &CloudContainerParams{
+			ProviderId: unit.ProviderId,
+			Ports:      unit.Ports,
+		}
+		if unit.Address != nil {
+			addr := network.NewSpaceAddress(*unit.Address, network.WithScope(network.ScopeMachineLocal))
+			// k8s doesn't support spaces yet.
+			addr.SpaceID = network.AlphaSpaceId
+			cldContainer.Address = &addr
+			origin := network.OriginProvider
+			cldContainer.AddressOrigin = &origin
+		}
+		p.CloudContainer = cldContainer
+	}
+	unitArg := makeAddUnitArgs(p)
+	err := s.st.UpsertApplicationUnit(ctx, appName, unitArg)
+	return errors.Annotatef(err, "saving caas unit %q", unit.UnitName)
 }
 
-// DeleteApplication deletes the specified application.
+// DeleteApplication deletes the specified application, returning an error
+// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+// If the application still has units, as error satisfying [applicationerrors.ApplicationHasUnits]
+// is returned.
 func (s *ApplicationService) DeleteApplication(ctx context.Context, name string) error {
 	err := s.st.DeleteApplication(ctx, name)
 	return errors.Annotatef(err, "deleting application %q", name)

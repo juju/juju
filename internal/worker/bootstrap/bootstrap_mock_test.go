@@ -955,10 +955,10 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // CreateApplication mocks base method.
-func (m *MockApplicationService) CreateApplication(arg0 context.Context, arg1 string, arg2 charm.Charm, arg3 service0.AddApplicationArgs, arg4 ...service0.AddUnitArg) (application.ID, error) {
+func (m *MockApplicationService) CreateApplication(arg0 context.Context, arg1 string, arg2 service0.AddApplicationArgs, arg3 ...service0.AddUnitArg) (application.ID, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2, arg3}
-	for _, a := range arg4 {
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "CreateApplication", varargs...)
@@ -968,9 +968,9 @@ func (m *MockApplicationService) CreateApplication(arg0 context.Context, arg1 st
 }
 
 // CreateApplication indicates an expected call of CreateApplication.
-func (mr *MockApplicationServiceMockRecorder) CreateApplication(arg0, arg1, arg2, arg3 any, arg4 ...any) *MockApplicationServiceCreateApplicationCall {
+func (mr *MockApplicationServiceMockRecorder) CreateApplication(arg0, arg1, arg2 any, arg3 ...any) *MockApplicationServiceCreateApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2, arg3}, arg4...)
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateApplication", reflect.TypeOf((*MockApplicationService)(nil).CreateApplication), varargs...)
 	return &MockApplicationServiceCreateApplicationCall{Call: call}
 }
@@ -987,13 +987,13 @@ func (c *MockApplicationServiceCreateApplicationCall) Return(arg0 application.ID
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceCreateApplicationCall) Do(f func(context.Context, string, charm.Charm, service0.AddApplicationArgs, ...service0.AddUnitArg) (application.ID, error)) *MockApplicationServiceCreateApplicationCall {
+func (c *MockApplicationServiceCreateApplicationCall) Do(f func(context.Context, string, service0.AddApplicationArgs, ...service0.AddUnitArg) (application.ID, error)) *MockApplicationServiceCreateApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceCreateApplicationCall) DoAndReturn(f func(context.Context, string, charm.Charm, service0.AddApplicationArgs, ...service0.AddUnitArg) (application.ID, error)) *MockApplicationServiceCreateApplicationCall {
+func (c *MockApplicationServiceCreateApplicationCall) DoAndReturn(f func(context.Context, string, service0.AddApplicationArgs, ...service0.AddUnitArg) (application.ID, error)) *MockApplicationServiceCreateApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

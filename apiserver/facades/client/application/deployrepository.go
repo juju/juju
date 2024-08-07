@@ -164,7 +164,9 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 			n := fmt.Sprintf("%s/%d", dt.applicationName, nextUnitNum+i)
 			unitArgs[i].UnitName = &n
 		}
-		_, addApplicationErr = api.applicationService.CreateApplication(ctx, dt.applicationName, ch, applicationservice.AddApplicationArgs{
+		_, addApplicationErr = api.applicationService.CreateApplication(ctx, dt.applicationName, applicationservice.AddApplicationArgs{
+			Charm:   ch,
+			Origin:  dt.origin,
 			Storage: dt.storage,
 		}, unitArgs...)
 	}

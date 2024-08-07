@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
+	corecharm "github.com/juju/juju/core/charm"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -587,7 +588,29 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 				Count: sc.Count,
 			}
 		}
-		_, err = factory.applicationService.CreateApplication(context.Background(), params.Name, params.Charm, applicationservice.AddApplicationArgs{
+		var channel *charm.Channel
+		if params.CharmOrigin.Channel != nil {
+			channel = &charm.Channel{
+				Track:  params.CharmOrigin.Channel.Track,
+				Risk:   charm.Risk(params.CharmOrigin.Channel.Risk),
+				Branch: params.CharmOrigin.Channel.Branch,
+			}
+		}
+		_, err = factory.applicationService.CreateApplication(context.Background(), params.Name, applicationservice.AddApplicationArgs{
+			Charm: params.Charm,
+			Origin: corecharm.Origin{
+				Source:   corecharm.Source(params.CharmOrigin.Source),
+				Type:     params.CharmOrigin.Type,
+				ID:       params.CharmOrigin.ID,
+				Hash:     params.CharmOrigin.Hash,
+				Revision: params.CharmOrigin.Revision,
+				Channel:  channel,
+				Platform: corecharm.Platform{
+					Architecture: params.CharmOrigin.Platform.Architecture,
+					OS:           params.CharmOrigin.Platform.OS,
+					Channel:      params.CharmOrigin.Platform.Channel,
+				},
+			},
 			Storage: directives,
 		})
 		c.Assert(err, jc.ErrorIsNil)

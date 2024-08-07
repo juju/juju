@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/servicefactory/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -54,7 +55,10 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	// Seed the model with an application, this will be used to allow the
 	// upserting of units.
 	serviceFactory := s.DefaultModelServiceFactory(c)
-	serviceFactory.Application(nil).CreateApplication(context.Background(), "gitlab", &stubCharm{}, service.AddApplicationArgs{})
+	serviceFactory.Application(nil).CreateApplication(context.Background(), "gitlab", service.AddApplicationArgs{
+		Charm:  &stubCharm{},
+		Origin: corecharm.Origin{},
+	})
 
 	s.st = newMockState()
 	s.broker = &mockBroker{}

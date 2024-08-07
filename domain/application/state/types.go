@@ -3,6 +3,11 @@
 
 package state
 
+import (
+	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/life"
+)
+
 // These structs represent the persistent block device entity schema in the database.
 
 type KeyValue struct {
@@ -18,6 +23,37 @@ type applicationID struct {
 // applicationName is used to get the name of an application.
 type applicationName struct {
 	Name string `db:"name"`
+}
+
+type applicationDetails struct {
+	ApplicationID string    `db:"uuid"`
+	Name          string    `db:"name"`
+	CharmID       string    `db:"charm_uuid"`
+	LifeID        life.Life `db:"life_id"`
+}
+
+type applicationPlatform struct {
+	ApplicationID  string                   `db:"application_uuid"`
+	OsID           application.OSType       `db:"os_id"`
+	Channel        string                   `db:"channel"`
+	ArchitectureID application.Architecture `db:"architecture_id"`
+}
+
+type applicationChannel struct {
+	ApplicationID string `db:"application_uuid"`
+	Track         string `db:"track"`
+	Risk          string `db:"risk"`
+	Branch        string `db:"branch"`
+}
+
+type unitDetails struct {
+	UnitID                  string    `db:"uuid"`
+	NetNodeID               string    `db:"net_node_uuid"`
+	Name                    string    `db:"name"`
+	ApplicationID           string    `db:"application_uuid"`
+	LifeID                  life.Life `db:"life_id"`
+	PasswordHash            string    `db:"password_hash"`
+	PasswordHashAlgorithmID int       `db:"password_hash_algorithm_id"`
 }
 
 // These structs represent the persistent charm schema in the database.
