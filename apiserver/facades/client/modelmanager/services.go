@@ -67,6 +67,14 @@ type ModelService interface {
 
 	// ListAllModels returns a list of all models.
 	ListAllModels(context.Context) ([]coremodel.Model, error)
+
+	// ListModelSummariesForUser returns a slice of model summaries for a given
+	// user. If no models are found an empty slice is returned.
+	ListModelSummariesForUser(ctx context.Context, userName string) ([]coremodel.UserModelSummary, error)
+
+	// ListAllModelSummaries returns a slice of model summaries for all models
+	// known to the controller.
+	ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSummary, error)
 }
 
 // ModelDefaultsService defines a interface for interacting with the model

@@ -19,10 +19,11 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/credential"
+	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	jujuversion "github.com/juju/juju/core/version"
-	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/provider/azure"
 	_ "github.com/juju/juju/internal/provider/ec2"
@@ -45,6 +46,7 @@ type ListModelsWithInfoSuite struct {
 	authoriser        apiservertesting.FakeAuthorizer
 	adminUser         names.UserTag
 	mockAccessService *mocks.MockAccessService
+	mockModelService  *mocks.MockModelService
 
 	api *modelmanager.ModelManagerAPI
 
@@ -85,7 +87,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 				clouds: map[string]cloud.Cloud{"dummy": jtesting.DefaultCloud},
 			},
 			CredentialService:    apiservertesting.ConstCredentialGetter(&s.cred),
-			ModelService:         nil,
+			ModelService:         s.mockModelService,
 			ModelDefaultsService: nil,
 			AccessService:        s.mockAccessService,
 			ObjectStore:          &mockObjectStore{},
@@ -101,6 +103,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockAccessService = mocks.NewMockAccessService(ctrl)
+	s.mockModelService = mocks.NewMockModelService(ctrl)
 	api, err := modelmanager.NewModelManagerAPI(
 		stdcontext.Background(),
 		s.st, nil, &mockState{},
@@ -111,7 +114,7 @@ func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
 				clouds: map[string]cloud.Cloud{"dummy": jtesting.DefaultCloud},
 			},
 			CredentialService:    apiservertesting.ConstCredentialGetter(&s.cred),
-			ModelService:         nil,
+			ModelService:         s.mockModelService,
 			ModelDefaultsService: nil,
 			AccessService:        s.mockAccessService,
 			ObjectStore:          &mockObjectStore{},
@@ -149,7 +152,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 				clouds: map[string]cloud.Cloud{"dummy": jtesting.DefaultCloud},
 			},
 			CredentialService:    apiservertesting.ConstCredentialGetter(&s.cred),
-			ModelService:         nil,
+			ModelService:         s.mockModelService,
 			ModelDefaultsService: nil,
 			AccessService:        s.mockAccessService,
 			ObjectStore:          &mockObjectStore{},
@@ -165,11 +168,31 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	lastLoginTime := time.Now()
-	s.mockAccessService.EXPECT().LastModelLogin(
-		gomock.Any(),
-		"admin",
-		coremodel.UUID(s.st.ModelUUID()),
-	).Return(lastLoginTime, nil)
+	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), "admin").Return([]coremodel.UserModelSummary{{
+		UserLastConnection: &lastLoginTime,
+		UserAccess:         permission.AdminAccess,
+		ModelSummary: coremodel.ModelSummary{
+			Name:           "testmodel",
+			OwnerName:      "admin",
+			UUID:           coremodel.UUID(testing.ModelTag.Id()),
+			ModelType:      coremodel.IAAS,
+			CloudType:      "ec2",
+			ControllerUUID: s.controllerUUID.String(),
+			IsController:   true,
+			CloudName:      "dummy",
+			CloudRegion:    "dummy-region",
+			CloudCredentialKey: credential.Key{
+				Cloud: "dummy",
+				Owner: "bob",
+				Name:  "some-credential",
+			},
+			Life:         corelife.Alive,
+			AgentVersion: jujuversion.Current,
+			MachineCount: 10,
+			CoreCount:    42,
+			UnitCount:    10,
+		},
+	}}, nil)
 
 	result, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -181,98 +204,57 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 					OwnerTag:           s.adminUser.String(),
 					UUID:               s.st.ModelUUID(),
 					Type:               string(state.ModelTypeIAAS),
-					CloudTag:           "dummy",
+					ProviderType:       "ec2",
+					ControllerUUID:     s.controllerUUID.String(),
+					IsController:       true,
+					CloudTag:           "cloud-dummy",
 					CloudRegion:        "dummy-region",
 					CloudCredentialTag: "cloudcred-dummy_bob_some-credential",
 					Life:               "alive",
-					Status:             params.EntityStatus{},
-					Counts:             []params.ModelEntityCount{},
 					UserLastConnection: &lastLoginTime,
+					UserAccess:         "admin",
+					AgentVersion:       &jujuversion.Current,
+					Status:             params.EntityStatus{},
+					Counts: []params.ModelEntityCount{
+						{params.Machines, 10},
+						{params.Cores, 42},
+						{params.Units, 10},
+					},
+					Migration: nil,
 				},
 			},
 		},
 	})
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesWithUserAccess(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesAll(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.mockAccessService.EXPECT().LastModelLogin(
-		gomock.Any(),
-		"admin",
-		coremodel.UUID(s.st.ModelUUID()),
-	).Return(time.Time{}, accesserrors.UserNeverAccessedModel)
-	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
-		summary := s.st.model.getModelDetails()
-		summary.Access = permission.AdminAccess
-		return []state.ModelSummary{summary}, nil
-	}
-	result, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Result.UserAccess, jc.DeepEquals, params.ModelAdminAccess)
-}
+	s.mockModelService.EXPECT().ListAllModelSummaries(gomock.Any()).Return([]coremodel.ModelSummary{{
+		Name:           "testmodel",
+		OwnerName:      "admin",
+		UUID:           coremodel.UUID(testing.ModelTag.Id()),
+		ModelType:      coremodel.IAAS,
+		CloudType:      "ec2",
+		ControllerUUID: s.controllerUUID.String(),
+		IsController:   true,
+		CloudName:      "dummy",
+		CloudRegion:    "dummy-region",
+		CloudCredentialKey: credential.Key{
+			Cloud: "dummy",
+			Owner: "bob",
+			Name:  "some-credential",
+		},
+		Life:         corelife.Alive,
+		AgentVersion: jujuversion.Current,
+		MachineCount: 10,
+		CoreCount:    42,
+		UnitCount:    10,
+	}}, nil)
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesWithLastConnected(c *gc.C) {
-	now := time.Now()
-	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
-		summary := s.st.model.getModelDetails()
-		summary.UserLastConnection = &now
-		return []state.ModelSummary{summary}, nil
-	}
-	result, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Result.UserLastConnection, jc.DeepEquals, &now)
-}
-
-func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineCount(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.mockAccessService.EXPECT().LastModelLogin(
-		gomock.Any(),
-		"admin",
-		coremodel.UUID(s.st.ModelUUID()),
-	).Return(time.Time{}, accesserrors.UserNeverAccessedModel)
-	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
-		summary := s.st.model.getModelDetails()
-		summary.MachineCount = int64(64)
-		return []state.ModelSummary{summary}, nil
-	}
-	result, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Result.Counts[0], jc.DeepEquals, params.ModelEntityCount{params.Machines, 64})
-}
-
-func (s *ListModelsWithInfoSuite) TestListModelSummariesWithCoreCount(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.mockAccessService.EXPECT().LastModelLogin(
-		gomock.Any(),
-		"admin",
-		coremodel.UUID(s.st.ModelUUID()),
-	).Return(time.Time{}, accesserrors.UserNeverAccessedModel)
-	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
-		summary := s.st.model.getModelDetails()
-		summary.CoreCount = int64(43)
-		return []state.ModelSummary{summary}, nil
-	}
-	result, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Result.Counts[0], jc.DeepEquals, params.ModelEntityCount{params.Cores, 43})
-}
-
-func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineAndUserDetails(c *gc.C) {
-	now := time.Now()
-	defer s.setupMocks(c).Finish()
-	s.mockAccessService.EXPECT().LastModelLogin(
-		gomock.Any(),
-		"admin",
-		coremodel.UUID(s.st.ModelUUID()),
-	).Return(now, nil)
-	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
-		summary := s.st.model.getModelDetails()
-		summary.Access = permission.AdminAccess
-		summary.MachineCount = int64(10)
-		summary.CoreCount = int64(42)
-		return []state.ModelSummary{summary}, nil
-	}
-	result, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
+	result, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{
+		UserTag: s.adminUser.String(),
+		All:     true,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ModelSummaryResults{
 		Results: []params.ModelSummaryResult{
@@ -282,17 +264,23 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineAndUserDetail
 					OwnerTag:           s.adminUser.String(),
 					UUID:               s.st.ModelUUID(),
 					Type:               string(state.ModelTypeIAAS),
-					CloudTag:           "dummy",
+					ProviderType:       "ec2",
+					ControllerUUID:     s.controllerUUID.String(),
+					IsController:       true,
+					CloudTag:           "cloud-dummy",
 					CloudRegion:        "dummy-region",
 					CloudCredentialTag: "cloudcred-dummy_bob_some-credential",
 					Life:               "alive",
+					UserLastConnection: nil,
+					UserAccess:         "",
+					AgentVersion:       &jujuversion.Current,
 					Status:             params.EntityStatus{},
-					UserAccess:         params.ModelAdminAccess,
-					UserLastConnection: &now,
 					Counts: []params.ModelEntityCount{
 						{params.Machines, 10},
 						{params.Cores, 42},
+						{params.Units, 10},
 					},
+					Migration: nil,
 				},
 			},
 		},
@@ -312,17 +300,17 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesInvalidUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"invalid" is not a valid tag`)
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesStateError(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesDomainError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	errMsg := "captain error for ModelSummariesForUser"
-	s.st.Stub.SetErrors(errors.New(errMsg))
+	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), "admin").Return(nil, errors.New(errMsg))
 	_, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, gc.ErrorMatches, errMsg)
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelSummariesNoModelsForUser(c *gc.C) {
-	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
-		return []state.ModelSummary{}, nil
-	}
+	defer s.setupMocks(c).Finish()
+	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), "admin").Return(nil, nil)
 	results, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)

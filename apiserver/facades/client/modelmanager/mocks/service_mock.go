@@ -449,6 +449,45 @@ func (c *MockModelServiceDeleteModelCall) DoAndReturn(f func(context.Context, mo
 	return c
 }
 
+// ListAllModelSummaries mocks base method.
+func (m *MockModelService) ListAllModelSummaries(arg0 context.Context) ([]model.ModelSummary, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListAllModelSummaries", arg0)
+	ret0, _ := ret[0].([]model.ModelSummary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListAllModelSummaries indicates an expected call of ListAllModelSummaries.
+func (mr *MockModelServiceMockRecorder) ListAllModelSummaries(arg0 any) *MockModelServiceListAllModelSummariesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAllModelSummaries", reflect.TypeOf((*MockModelService)(nil).ListAllModelSummaries), arg0)
+	return &MockModelServiceListAllModelSummariesCall{Call: call}
+}
+
+// MockModelServiceListAllModelSummariesCall wrap *gomock.Call
+type MockModelServiceListAllModelSummariesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelServiceListAllModelSummariesCall) Return(arg0 []model.ModelSummary, arg1 error) *MockModelServiceListAllModelSummariesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelServiceListAllModelSummariesCall) Do(f func(context.Context) ([]model.ModelSummary, error)) *MockModelServiceListAllModelSummariesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelServiceListAllModelSummariesCall) DoAndReturn(f func(context.Context) ([]model.ModelSummary, error)) *MockModelServiceListAllModelSummariesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ListAllModels mocks base method.
 func (m *MockModelService) ListAllModels(arg0 context.Context) ([]model.Model, error) {
 	m.ctrl.T.Helper()
@@ -484,6 +523,45 @@ func (c *MockModelServiceListAllModelsCall) Do(f func(context.Context) ([]model.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelServiceListAllModelsCall) DoAndReturn(f func(context.Context) ([]model.Model, error)) *MockModelServiceListAllModelsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ListModelSummariesForUser mocks base method.
+func (m *MockModelService) ListModelSummariesForUser(arg0 context.Context, arg1 string) ([]model.UserModelSummary, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListModelSummariesForUser", arg0, arg1)
+	ret0, _ := ret[0].([]model.UserModelSummary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListModelSummariesForUser indicates an expected call of ListModelSummariesForUser.
+func (mr *MockModelServiceMockRecorder) ListModelSummariesForUser(arg0, arg1 any) *MockModelServiceListModelSummariesForUserCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListModelSummariesForUser", reflect.TypeOf((*MockModelService)(nil).ListModelSummariesForUser), arg0, arg1)
+	return &MockModelServiceListModelSummariesForUserCall{Call: call}
+}
+
+// MockModelServiceListModelSummariesForUserCall wrap *gomock.Call
+type MockModelServiceListModelSummariesForUserCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelServiceListModelSummariesForUserCall) Return(arg0 []model.UserModelSummary, arg1 error) *MockModelServiceListModelSummariesForUserCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelServiceListModelSummariesForUserCall) Do(f func(context.Context, string) ([]model.UserModelSummary, error)) *MockModelServiceListModelSummariesForUserCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelServiceListModelSummariesForUserCall) DoAndReturn(f func(context.Context, string) ([]model.UserModelSummary, error)) *MockModelServiceListModelSummariesForUserCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

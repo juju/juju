@@ -5,12 +5,15 @@ package state
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/life"
+	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 )
 
@@ -66,7 +69,7 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 	}
 	return coremodel.Model{
 		Name:         m.Name,
-		Life:         life.Value(m.Life),
+		Life:         corelife.Value(m.Life),
 		UUID:         coremodel.UUID(m.UUID),
 		ModelType:    coremodel.ModelType(m.ModelType),
 		AgentVersion: agentVersion,
@@ -86,4 +89,97 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 // dbModelUUID represents the controller model uuid from the controller table.
 type dbModelUUID struct {
 	ModelUUID string `db:"model_uuid"`
+}
+
+// dbModelSummary stores the information from the model table for a model
+// summary.
+type dbModelSummary struct {
+	// Name is the model name.
+	Name string `db:"name"`
+	// UUID is the model unique identifier.
+	UUID string `db:"uuid"`
+	// Type is the model type (e.g. IAAS or CAAS).
+	Type string `db:"model_type"`
+	// OwnerName is the tag of the user that owns the model.
+	Owner string `db:"owner_name"`
+	// Life is the current lifecycle state of the model.
+	Life string `db:"life"`
+
+	// CloudName is the name of the model cloud.
+	CloudName string `db:"cloud_name"`
+	// Cloud type is the models cloud type.
+	CloudType string `db:"cloud_type"`
+	// CloudRegion is the region of the model cloud.
+	CloudRegion string `db:"cloud_region_name"`
+
+	// CloudCredentialName is the name of the cloud credential.
+	CloudCredentialName string `db:"cloud_credential_name"`
+	// CloudCredentialCloudName is the name of the cloud the credential is for.
+	CloudCredentialCloudName string `db:"cloud_credential_cloud_name"`
+	// CloudCredentialOwnerName is the name of the cloud credential owner.
+	CloudCredentialOwnerName string `db:"cloud_credential_owner_name"`
+
+	// Access is the access level the supplied user has on this model
+	Access permission.Access `db:"access_type"`
+	// UserLastConnection is the last time this user has accessed this model
+	UserLastConnection *time.Time `db:"time"`
+
+	// AgentVersion is the agent version for this model.
+	AgentVersion string `db:"target_agent_version"`
+}
+
+// decodeModelSummary transforms a dbModelSummary into a coremodel.ModelSummary.
+func (m dbModelSummary) decodeUserModelSummary(controllerInfo dbController) (coremodel.UserModelSummary, error) {
+	ms, err := m.decodeModelSummary(controllerInfo)
+	if err != nil {
+		return coremodel.UserModelSummary{}, errors.Trace(err)
+	}
+	return coremodel.UserModelSummary{
+		ModelSummary:       ms,
+		UserAccess:         m.Access,
+		UserLastConnection: m.UserLastConnection,
+	}, nil
+}
+
+// decodeModelSummary transforms a dbModelSummary into a coremodel.ModelSummary.
+func (m dbModelSummary) decodeModelSummary(controllerInfo dbController) (coremodel.ModelSummary, error) {
+	var agentVersion version.Number
+	if m.AgentVersion != "" {
+		var err error
+		agentVersion, err = version.Parse(m.AgentVersion)
+		if err != nil {
+			return coremodel.ModelSummary{}, errors.Annotatef(
+				err, "parsing model %q agent version %q", m.Name, agentVersion,
+			)
+		}
+	}
+	return coremodel.ModelSummary{
+		Name:        m.Name,
+		UUID:        coremodel.UUID(m.UUID),
+		ModelType:   coremodel.ModelType(m.Type),
+		CloudType:   m.CloudType,
+		CloudName:   m.CloudName,
+		CloudRegion: m.CloudRegion,
+		CloudCredentialKey: credential.Key{
+			Cloud: m.CloudCredentialCloudName,
+			Owner: m.CloudCredentialOwnerName,
+			Name:  m.CloudCredentialName,
+		},
+		ControllerUUID: controllerInfo.UUID,
+		IsController:   m.UUID == controllerInfo.ModelUUID,
+		OwnerName:      m.Owner,
+		Life:           corelife.Value(m.Life),
+		AgentVersion:   agentVersion,
+	}, nil
+}
+
+// dbController represents a row from the controller table.
+type dbController struct {
+	ModelUUID string `db:"model_uuid"`
+	UUID      string `db:"uuid"`
+}
+
+// dbUserName represents a user name.
+type dbUserName struct {
+	Name string `db:"name"`
 }

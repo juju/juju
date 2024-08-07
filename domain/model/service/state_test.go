@@ -12,13 +12,16 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/core/version"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type dummyStateCloud struct {
@@ -276,4 +279,49 @@ func (d *dummyState) UpdateCredential(
 	}
 
 	return nil
+}
+
+func (d *dummyState) ListModelSummariesForUser(_ context.Context, userName string) ([]coremodel.UserModelSummary, error) {
+	var rval []coremodel.UserModelSummary
+	for _, m := range d.models {
+		if m.OwnerName == userName {
+			rval = append(rval, coremodel.UserModelSummary{
+				UserAccess: permission.AdminAccess,
+				ModelSummary: coremodel.ModelSummary{
+					Name:           m.Name,
+					UUID:           m.UUID,
+					ModelType:      m.ModelType,
+					CloudName:      m.Cloud,
+					CloudType:      m.CloudType,
+					CloudRegion:    m.CloudRegion,
+					ControllerUUID: jujutesting.ControllerTag.Id(),
+					IsController:   m.UUID == d.controllerModelUUID,
+					OwnerName:      m.OwnerName,
+					Life:           m.Life,
+					AgentVersion:   version.Current,
+				},
+			})
+		}
+	}
+	return rval, nil
+}
+
+func (d *dummyState) ListAllModelSummaries(_ context.Context) ([]coremodel.ModelSummary, error) {
+	var rval []coremodel.ModelSummary
+	for _, m := range d.models {
+		rval = append(rval, coremodel.ModelSummary{
+			Name:           m.Name,
+			UUID:           m.UUID,
+			ModelType:      m.ModelType,
+			CloudName:      m.Cloud,
+			CloudType:      m.CloudType,
+			CloudRegion:    m.CloudRegion,
+			ControllerUUID: jujutesting.ControllerTag.Id(),
+			IsController:   m.UUID == d.controllerModelUUID,
+			OwnerName:      m.OwnerName,
+			Life:           m.Life,
+			AgentVersion:   version.Current,
+		})
+	}
+	return rval, nil
 }

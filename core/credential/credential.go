@@ -21,7 +21,7 @@ type Key struct {
 	// Owner is the owner of the credential. Key is valid when this value is set.
 	Owner string
 
-	// Name is the name of the credential. Is is valid when this value is set.
+	// Name is the name of the credential. It is valid when this value is set.
 	Name string
 }
 
