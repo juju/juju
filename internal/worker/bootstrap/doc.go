@@ -11,7 +11,8 @@
 //  5. The controller application has been created, along with the supporting
 //     machine and spaces.
 //  6. The controller charm is seeded into the objectstore.
-//  7. Finally, set a flag to indicate bootstrap has been completed
+//  7. Seed any extra authorised keys into the controller model.
+//  8. Finally, set a flag to indicate bootstrap has been completed
 //
 // The intention is that the worker is started as soon as possible during
 // bootstrap and that it will uninstall itself once the bootstrap process

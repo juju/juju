@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	userservice "github.com/juju/juju/domain/access/service"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
@@ -52,6 +53,7 @@ type WorkerConfig struct {
 	ApplicationService      ApplicationService
 	ControllerModel         coremodel.Model
 	ModelConfigService      ModelConfigService
+	KeyManagerService       KeyManagerService
 	FlagService             FlagService
 	NetworkService          NetworkService
 	BakeryConfigService     BakeryConfigService
@@ -93,6 +95,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.ModelConfigService == nil {
 		return errors.NotValidf("nil ModelConfigService")
+	}
+	if c.KeyManagerService == nil {
+		return errors.NotValidf("nil KeyManagerService")
 	}
 	if c.BootstrapUnlocker == nil {
 		return errors.NotValidf("nil BootstrapUnlocker")
@@ -235,6 +240,10 @@ func (w *bootstrapWorker) loop() error {
 		w.logger.Debugf("reload spaces not supported due to a non-networking environement")
 	}
 
+	if err := w.seedInitialAuthorizedKeys(ctx, bootstrapParams.ControllerModelAuthorizedKeys); err != nil {
+		return errors.Trace(err)
+	}
+
 	// Convert the provider addresses that we got from the bootstrap instance
 	// to space ID decorated addresses.
 	if err := w.initAPIHostPorts(ctx, controllerConfig, bootstrapAddresses, servingInfo.APIPort); err != nil {
@@ -273,9 +282,9 @@ func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {
 
 	controllerUUID := controllerCfg.ControllerUUID()
 
-	adminUser, err := w.cfg.UserService.GetUserByName(ctx, "admin")
+	adminUser, err := w.cfg.UserService.GetUserByName(ctx, user.AdminUserName)
 	if err != nil {
-		return errors.Annotatef(err, "getting admin user")
+		return errors.Annotatef(err, "getting admin user %q", user.AdminUserName)
 	}
 
 	pass, err := password.RandomPassword()
@@ -301,6 +310,34 @@ func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {
 		return nil
 	}
 	return errors.Annotatef(err, "inserting initial users")
+}
+
+// seedInitialAuthorisedKeys is responsible for adding any extra authorised keys
+// requested during bootstrap to the admin user on the controller model. It is
+// valid and safe to pass in a nil slice of keys to this function.
+func (w *bootstrapWorker) seedInitialAuthorizedKeys(
+	ctx context.Context,
+	keys []string,
+) error {
+	adminUser, err := w.cfg.UserService.GetUserByName(ctx, coremodel.ControllerModelOwnerUsername)
+	if err != nil {
+		return fmt.Errorf(
+			"cannot get %q user to seed %d authorized keys into the controller model: %w",
+			coremodel.ControllerModelOwnerUsername,
+			len(keys),
+			err,
+		)
+	}
+
+	err = w.cfg.KeyManagerService.AddPublicKeysForUser(ctx, adminUser.UUID, keys...)
+	if err != nil {
+		return fmt.Errorf("cannot seed %d authorized keys into the controller model: %w",
+			len(keys),
+			err,
+		)
+	}
+
+	return nil
 }
 
 func (w *bootstrapWorker) seedStoragePools(ctx context.Context, poolParams map[string]storage.Attrs) error {

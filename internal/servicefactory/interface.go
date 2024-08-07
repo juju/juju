@@ -89,7 +89,10 @@ type ModelServiceFactory interface {
 	// Unit returns the machine service.
 	Unit() *unitservice.Service
 	// KeyManager returns the key manager service.
-	KeyManager(keymanagerservice.PublicKeyImporter) *keymanagerservice.Service
+	KeyManager() *keymanagerservice.Service
+	// KeyManager returns they manager service that is capable of importing keys
+	// from an external source.
+	KeyManagerWithImporter(keymanagerservice.PublicKeyImporter) *keymanagerservice.ImporterService
 	// KeyUpdater returns the key updater service.
 	KeyUpdater() *keyupdaterservice.WatchableService
 	// Network returns the space service.

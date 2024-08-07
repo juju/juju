@@ -40,7 +40,7 @@ type exportOperation struct {
 
 // Name returns the name of this operation.
 func (e *exportOperation) Name() string {
-	return "export model configuration"
+	return "export block devices"
 }
 
 // Setup implements Operation.

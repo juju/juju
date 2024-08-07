@@ -76,6 +76,32 @@ func (s *stateSuite) TestGetSecretNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
 }
 
+func (s *stateSuite) TestGetLatestRevisionNotFound(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	_, err := st.GetLatestRevision(context.Background(), coresecrets.NewURI())
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+}
+
+func (s *stateSuite) TestGetLatestRevision(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	sp := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.UpdateSecret(ctx, uri, domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar1"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	latest, err := st.GetLatestRevision(ctx, uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(latest, gc.Equals, 2)
+}
+
 func (s *stateSuite) TestGetRotatePolicy(c *gc.C) {
 	s.setupUnits(c, "mysql")
 

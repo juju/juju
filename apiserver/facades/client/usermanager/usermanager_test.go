@@ -412,7 +412,7 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 				Username:       "fred",
 				Disabled:       false,
 				Access:         "login",
-				LastConnection: &time.Time{},
+				LastConnection: nil,
 			},
 		}}}
 	expectedIncDisabled := params.UserInfoResults{
@@ -421,7 +421,7 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 				Username:       "nancy",
 				Disabled:       true,
 				Access:         "",
-				LastConnection: &time.Time{},
+				LastConnection: nil,
 			},
 		}),
 	}

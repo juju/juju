@@ -68,6 +68,7 @@ type ManifoldSuite struct {
 	modelService            *MockModelService
 	tracerGetter            stubTracerGetter
 	objectStoreGetter       stubObjectStoreGetter
+	providerFactory         *fakeProviderFactory
 
 	stub testing.Stub
 }
@@ -92,6 +93,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.stub.ResetCalls()
 	s.serviceFactoryGetter = &stubServiceFactoryGetter{}
 	s.dbDeleter = stubDBDeleter{}
+	s.providerFactory = &fakeProviderFactory{}
 
 	s.getter = s.newGetter(nil)
 	s.manifold = apiserver.Manifold(apiserver.ManifoldConfig{
@@ -111,6 +113,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		ObjectStoreName:                   "object-store",
 		ChangeStreamName:                  "change-stream",
 		DBAccessorName:                    "db-accessor",
+		ProviderFactoryName:               "provider-tracker",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
@@ -144,6 +147,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 		"service-factory":         s.serviceFactoryGetter,
 		"trace":                   s.tracerGetter,
 		"object-store":            s.objectStoreGetter,
+		"provider-tracker":        s.providerFactory,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -176,6 +180,7 @@ var expectedInputs = []string{
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
 	"charmhub-http-client", "sshimporter-http-client", "change-stream",
 	"service-factory", "trace", "object-store", "log-sink", "db-accessor",
+	"provider-tracker",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -188,7 +193,7 @@ func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context.Background(), getter)
-		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+		c.Assert(err, jc.ErrorIs, dependency.ErrMissing)
 
 		// The state tracker must have either no calls, or a Use and a Done.
 		if len(s.state.Calls()) > 0 {
@@ -248,6 +253,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ServiceFactoryGetter:       s.serviceFactoryGetter,
 		TracerGetter:               s.tracerGetter,
 		ObjectStoreGetter:          s.objectStoreGetter,
+		ProviderFactory:            s.providerFactory,
 		ControllerConfigService:    s.controllerConfigService,
 		ModelService:               s.modelService,
 	})

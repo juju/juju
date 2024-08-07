@@ -967,7 +967,7 @@ var runMigrationPrechecks = func(
 		}
 	}
 	err = client.Prechecks(ctx, modelInfo)
-	return errors.Annotate(err, "target prechecks failed 2")
+	return errors.Annotate(err, "target prechecks failed")
 }
 
 // userList encapsulates information about the users who have been granted

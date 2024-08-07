@@ -264,6 +264,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ApplicationService:      controllerModelServiceFactory.Application(registry),
 				ControllerModel:         controllerModel,
 				ModelConfigService:      controllerModelServiceFactory.Config(),
+				KeyManagerService:       controllerModelServiceFactory.KeyManager(),
 				FlagService:             flagService,
 				NetworkService:          controllerModelServiceFactory.Network(),
 				BakeryConfigService:     controllerServiceFactory.Macaroon(),

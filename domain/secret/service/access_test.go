@@ -15,12 +15,11 @@ import (
 )
 
 func (s *serviceSuite) TestCanManageOwnerUnit(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	uri := coresecrets.NewURI()
 
-	s.state = NewMockState(ctrl)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
@@ -36,12 +35,11 @@ func (s *serviceSuite) TestCanManageOwnerUnit(c *gc.C) {
 }
 
 func (s *serviceSuite) TestCanManageLeaderUnitAppSecret(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	uri := coresecrets.NewURI()
 
-	s.state = NewMockState(ctrl)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
@@ -62,12 +60,11 @@ func (s *serviceSuite) TestCanManageLeaderUnitAppSecret(c *gc.C) {
 }
 
 func (s *serviceSuite) TestCanManageUserSecrets(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	uri := coresecrets.NewURI()
 
-	s.state = NewMockState(ctrl)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectModel,
 		SubjectID:     "model-uuid",
@@ -83,12 +80,11 @@ func (s *serviceSuite) TestCanManageUserSecrets(c *gc.C) {
 }
 
 func (s *serviceSuite) TestCanReadAppSecret(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	uri := coresecrets.NewURI()
 
-	s.state = NewMockState(ctrl)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",

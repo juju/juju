@@ -64,6 +64,7 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 
 	s.expectGateUnlock()
 	s.expectUser(c)
+	s.expectAuthorizedKeys()
 	s.expectControllerConfig()
 	s.expectAgentConfig()
 	s.expectObjectStoreGetter(2)
@@ -115,6 +116,33 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(cleanup, gc.NotNil)
+}
+
+// TestSeedAuthorizedNilKeys is asserting that if we add a nill slice of
+// authorized keys to the controller model that it is safe. This test is here
+// assert that we don't break. Specifically because this functionality is being
+// added after the fact and may not always be set.
+func (s *workerSuite) TestSeedAuthorizedNilKeys(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.userService.EXPECT().GetUserByName(gomock.Any(), "admin").Return(
+		user.User{
+			UUID: s.adminUserID,
+		},
+		nil,
+	)
+
+	s.keyManagerService.EXPECT().AddPublicKeysForUser(gomock.Any(), s.adminUserID, []string{}).Return(nil)
+
+	w := &bootstrapWorker{
+		cfg: WorkerConfig{
+			UserService:       s.userService,
+			KeyManagerService: s.keyManagerService,
+		},
+	}
+
+	err := w.seedInitialAuthorizedKeys(context.Background(), nil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *workerSuite) TestSeedBakeryConfig(c *gc.C) {
@@ -291,6 +319,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		ApplicationService:      s.applicationService,
 		ModelConfigService:      s.modelConfigService,
 		ControllerModel:         s.controllerModel,
+		KeyManagerService:       s.keyManagerService,
 		ControllerConfigService: s.controllerConfigService,
 		StorageService:          s.storageService,
 		ProviderRegistry:        provider.CommonStorageProviders(),
@@ -352,11 +381,15 @@ func (s *workerSuite) expectControllerConfig() {
 func (s *workerSuite) expectUser(c *gc.C) {
 	s.userService.EXPECT().GetUserByName(gomock.Any(), "admin").Return(user.User{
 		UUID: s.adminUserID,
-	}, nil)
+	}, nil).Times(2)
 	s.userService.EXPECT().AddUser(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, u accessservice.AddUserArg) (user.UUID, []byte, error) {
 		c.Check(u.Name, gc.Equals, "juju-metrics")
 		return usertesting.GenUserUUID(c), nil, nil
 	})
+}
+
+func (s *workerSuite) expectAuthorizedKeys() {
+	s.keyManagerService.EXPECT().AddPublicKeysForUser(gomock.Any(), s.adminUserID, []string{}).Return(nil)
 }
 
 func (s *workerSuite) expectStateServingInfo() {

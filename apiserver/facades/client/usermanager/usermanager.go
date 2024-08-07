@@ -6,6 +6,7 @@ package usermanager
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -348,13 +349,17 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 // information needed but not contained in the core user from the access
 // service.
 func (api *UserManagerAPI) infoForUser(ctx context.Context, tag names.UserTag, user coreuser.User) params.UserInfoResult {
+	var lastLogin *time.Time
+	if !user.LastLogin.IsZero() {
+		lastLogin = &user.LastLogin
+	}
 	result := params.UserInfoResult{
 		Result: &params.UserInfo{
 			Username:       user.Name,
 			DisplayName:    user.DisplayName,
 			CreatedBy:      user.CreatorName,
 			DateCreated:    user.CreatedAt,
-			LastConnection: &user.LastLogin,
+			LastConnection: lastLogin,
 			Disabled:       user.Disabled,
 		},
 	}

@@ -74,7 +74,7 @@ func CreateModel(
 			agentVersion = jujuversion.Current
 		}
 
-		if agentVersion.Compare(jujuversion.Current) != 0 {
+		if agentVersion.Major != jujuversion.Current.Major || agentVersion.Minor != jujuversion.Current.Minor {
 			return fmt.Errorf("%w %q during bootstrap", modelerrors.AgentVersionNotSupported, agentVersion)
 		}
 		args.AgentVersion = agentVersion

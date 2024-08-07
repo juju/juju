@@ -37,12 +37,19 @@ type PublicKeyImporter interface {
 // Service provides the means for interacting with a users underlying
 // public keys for a model.
 type Service struct {
+	// st provides the state access layer to this service.
+	st State
+}
+
+// ImporterService provides the means for interacting with a users underlying
+// public keys for a model while also offering a mechanism to import keys for a
+// user from an external source.
+type ImporterService struct {
+	*Service
+
 	// keyImporter is the [PublicKeyImporter] to use for fetching a users
 	// public key's for subject.
 	keyImporter PublicKeyImporter
-
-	// st provides the state access layer to this service.
-	st State
 }
 
 // State provides the access layer the [Service] needs for persisting and
@@ -77,12 +84,21 @@ var (
 	)
 )
 
-// NewService constructs a new [Service] for interacting with a users
-// public keys.
-func NewService(keyImporter PublicKeyImporter, state State) *Service {
+// NewService constructs a new [Service] for interacting with a users public
+// keys.
+func NewService(state State) *Service {
 	return &Service{
+		st: state,
+	}
+}
+
+// NewImporterService constructs a new [ImporterService] that can both be used
+// for interacting with a users public keys and also importing new public keys
+// from external sources.
+func NewImporterService(keyImporter PublicKeyImporter, state State) *ImporterService {
+	return &ImporterService{
 		keyImporter: keyImporter,
-		st:          state,
+		Service:     NewService(state),
 	}
 }
 
@@ -178,7 +194,7 @@ func (s *Service) DeleteKeysForUser(
 // is unknown to the service.
 // - [keyserrors.ImportSubjectNotFound] when the source has indicated that the
 // subject for the import operation does not exist.
-func (s *Service) ImportPublicKeysForUser(
+func (s *ImporterService) ImportPublicKeysForUser(
 	ctx context.Context,
 	userID user.UUID,
 	subject *url.URL,
