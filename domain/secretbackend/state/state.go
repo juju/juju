@@ -17,6 +17,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State represents database interactions dealing with secret backends.
@@ -774,25 +776,82 @@ WHERE  secret_backend_uuid = $SecretBackendReference.secret_backend_uuid`, input
 
 // AddSecretBackendReference adds a reference to the secret backend for the given secret revision, returning an error
 // satisfying [secretbackenderrors.NotFound] if the secret backend does not exist,
-// or [modelerrors.NotFound] if the model does not exist.
-// If the backendID is nil, the internal controller backend is used.
-func (s *State) AddSecretBackendReference(ctx context.Context, backendID *string, modelID coremodel.UUID, revisionID string) error {
+// or [modelerrors.NotFound] if the model does not exist,
+// or [secretbackenderrors.RefCountAlreadyExists] if the reference already exists.
+// If the ValueRef is nil, the internal controller backend is used.
+// It returns a rollback function which can be used to revert the changes.
+func (s *State) AddSecretBackendReference(
+	ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID uuid.UUID,
+) (func() error, error) {
 	db, err := s.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
+	var backendID string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		backendID, err = s.getSecretBackendID(ctx, tx, valueRef)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		err := s.addSecretBackendReference(ctx, tx, backendID, modelID, revisionID)
 		return errors.Trace(err)
 	})
-	return errors.Trace(err)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return func() error {
+		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			input := SecretBackendReference{
+				BackendID:        backendID,
+				SecretRevisionID: revisionID.String(),
+			}
+			stmt, err := s.Prepare(`
+DELETE FROM secret_backend_reference
+WHERE  secret_backend_uuid = $SecretBackendReference.secret_backend_uuid
+    AND secret_revision_uuid = $SecretBackendReference.secret_revision_uuid`, input)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			err = tx.Query(ctx, stmt, input).Run()
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil
+			}
+			if err != nil {
+				return fmt.Errorf(
+					"cannot revert secret backend reference for secret backend %q secret revision %q: %w",
+					backendID, revisionID, err,
+				)
+			}
+			return nil
+		})
+		return errors.Trace(err)
+	}, nil
 }
 
-func (s *State) addSecretBackendReference(ctx context.Context, tx *sqlair.TX, backendID *string, modelID coremodel.UUID, revisionID string) error {
+func (s *State) getSecretBackendID(ctx context.Context, tx *sqlair.TX, valueRef *secrets.ValueRef) (string, error) {
+	arg := secretbackend.BackendIdentifier{}
+	if valueRef != nil {
+		// We want to check if the backend exists for the given ID.
+		arg.ID = valueRef.BackendID
+	} else {
+		arg.Name = juju.BackendName
+	}
+
+	backend, err := s.getSecretBackend(ctx, tx, arg)
+	if err != nil {
+		return "", fmt.Errorf("cannot get secret backend ID for %q: %w", arg, err)
+	}
+	return backend.ID, nil
+}
+
+func (s *State) addSecretBackendReference(
+	ctx context.Context, tx *sqlair.TX, backendID string, modelID coremodel.UUID, revisionID uuid.UUID,
+) error {
 	input := SecretBackendReference{
+		BackendID:        backendID,
 		ModelID:          modelID,
-		SecretRevisionID: revisionID,
+		SecretRevisionID: revisionID.String(),
 	}
 
 	stmt, err := s.Prepare(`
@@ -802,21 +861,16 @@ VALUES ($SecretBackendReference.*)`, input)
 		return errors.Trace(err)
 	}
 
-	getArg := secretbackend.BackendIdentifier{}
-	if backendID != nil {
-		getArg.ID = *backendID
-	} else {
-		getArg.Name = juju.BackendName
-	}
-	backend, err := s.getSecretBackend(ctx, tx, getArg)
-	if err != nil {
-		return fmt.Errorf("cannot get ID of secret backend %q for model %q: %w", juju.BackendName, modelID, err)
-	}
-	input.BackendID = backend.ID
-
 	err = tx.Query(ctx, stmt, input).Run()
 	if database.IsErrConstraintForeignKey(err) {
 		return fmt.Errorf("%w: model %q", modelerrors.NotFound, input.ModelID)
+	}
+	if database.IsErrConstraintPrimaryKey(err) {
+		return fmt.Errorf(
+			"%w: backend %q model %q secret revision %q",
+			secretbackenderrors.RefCountAlreadyExists,
+			input.BackendID, input.ModelID, input.SecretRevisionID,
+		)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot add secret backend reference for secret revision %q: %w", revisionID, err)
@@ -824,14 +878,59 @@ VALUES ($SecretBackendReference.*)`, input)
 	return nil
 }
 
-// UpdateSecretBackendReference updates the reference to the secret backend for the given secret revision.
-func (s *State) UpdateSecretBackendReference(ctx context.Context, backendID *string, modelID coremodel.UUID, revisionID string) error {
-	db, err := s.DB()
+func (s *State) getSecretBackendReferenceBackendID(
+	ctx context.Context, tx *sqlair.TX, modelID coremodel.UUID, revisionID uuid.UUID,
+) (SecretBackendReference, error) {
+	refCount := SecretBackendReference{
+		ModelID:          modelID,
+		SecretRevisionID: revisionID.String(),
+	}
+	stmt, err := s.Prepare(`
+SELECT secret_backend_uuid AS &SecretBackendReference.secret_backend_uuid
+FROM   secret_backend_reference
+WHERE  model_uuid = $SecretBackendReference.model_uuid
+	AND secret_revision_uuid = $SecretBackendReference.secret_revision_uuid`, refCount)
 	if err != nil {
-		return errors.Trace(err)
+		return SecretBackendReference{}, errors.Trace(err)
 	}
 
+	err = tx.Query(ctx, stmt, refCount).Get(&refCount)
+	if errors.Is(err, sql.ErrNoRows) {
+		return SecretBackendReference{}, fmt.Errorf(
+			"%w: model %q secret revision %q",
+			secretbackenderrors.RefCountNotFound, modelID, revisionID,
+		)
+	}
+	if err != nil {
+		return SecretBackendReference{}, fmt.Errorf(
+			"cannot get secret backend reference for model %q secret revision %q: %w",
+			modelID, revisionID, err,
+		)
+	}
+	return refCount, nil
+}
+
+// UpdateSecretBackendReference updates the reference to the secret backend for the given secret revision.
+// It returns a rollback function which can be used to revert the changes.
+func (s *State) UpdateSecretBackendReference(
+	ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID uuid.UUID,
+) (func() error, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var existing SecretBackendReference
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		existing, err = s.getSecretBackendReferenceBackendID(ctx, tx, modelID, revisionID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		backendID, err := s.getSecretBackendID(ctx, tx, valueRef)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		if err := s.removeSecretBackendReferenceForRevisions(ctx, tx, revisionID); err != nil {
 			return errors.Trace(err)
 		}
@@ -840,13 +939,25 @@ func (s *State) UpdateSecretBackendReference(ctx context.Context, backendID *str
 		}
 		return nil
 	})
-	return errors.Trace(err)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return func() error {
+		err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			if err := s.removeSecretBackendReferenceForRevisions(ctx, tx, revisionID); err != nil {
+				return errors.Trace(err)
+			}
+			err := s.addSecretBackendReference(ctx, tx, existing.BackendID, modelID, revisionID)
+			return errors.Trace(err)
+		})
+		return errors.Trace(err)
+	}, nil
 }
 
 type secretRevisionIDs []string
 
 // RemoveSecretBackendReference removes the reference to the secret backend for the given secret revision.
-func (s *State) RemoveSecretBackendReference(ctx context.Context, revisionIDs ...string) error {
+func (s *State) RemoveSecretBackendReference(ctx context.Context, revisionIDs ...uuid.UUID) error {
 	if len(revisionIDs) == 0 {
 		return nil
 	}
@@ -863,12 +974,15 @@ func (s *State) RemoveSecretBackendReference(ctx context.Context, revisionIDs ..
 	return errors.Trace(err)
 }
 
-func (s *State) removeSecretBackendReferenceForRevisions(ctx context.Context, tx *sqlair.TX, revisionIDs ...string) error {
+func (s *State) removeSecretBackendReferenceForRevisions(ctx context.Context, tx *sqlair.TX, revisionIDs ...uuid.UUID) error {
 	if len(revisionIDs) == 0 {
 		return nil
 	}
 
-	input := secretRevisionIDs(revisionIDs)
+	input := make(secretRevisionIDs, len(revisionIDs))
+	for i, id := range revisionIDs {
+		input[i] = id.String()
+	}
 	stmt, err := s.Prepare(`
 DELETE FROM secret_backend_reference
 WHERE  secret_revision_uuid IN ($secretRevisionIDs[:])`, input)
@@ -885,8 +999,8 @@ WHERE  secret_revision_uuid IN ($secretRevisionIDs[:])`, input)
 	return nil
 }
 
-func (s *State) removeSecretBackendReferenceForBackend(ctx context.Context, tx *sqlair.TX, secretBackendID string) error {
-	input := SecretBackendReference{BackendID: secretBackendID}
+func (s *State) removeSecretBackendReferenceForBackend(ctx context.Context, tx *sqlair.TX, backendID string) error {
+	input := SecretBackendReference{BackendID: backendID}
 	stmt, err := s.Prepare(`
 DELETE FROM secret_backend_reference
 WHERE  secret_backend_uuid = $SecretBackendReference.secret_backend_uuid`, input)
@@ -898,7 +1012,7 @@ WHERE  secret_backend_uuid = $SecretBackendReference.secret_backend_uuid`, input
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("cannot remove secret backend reference for secret backend %q: %w", secretBackendID, err)
+		return fmt.Errorf("cannot remove secret backend reference for secret backend %q: %w", backendID, err)
 	}
 	return nil
 }

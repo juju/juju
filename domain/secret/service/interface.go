@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	domainsecret "github.com/juju/juju/domain/secret"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State describes retrieval and persistence methods needed for
@@ -20,17 +21,17 @@ import (
 type State interface {
 	GetModelUUID(ctx context.Context) (string, error)
 	CreateUserSecret(
-		ctx context.Context, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams,
-	) (string, error)
+		ctx context.Context, version int, uri *secrets.URI, revisionID uuid.UUID, secret domainsecret.UpsertSecretParams,
+	) error
 	CreateCharmApplicationSecret(
-		ctx context.Context, version int, uri *secrets.URI, appName string, secret domainsecret.UpsertSecretParams,
-	) (string, error)
+		ctx context.Context, version int, uri *secrets.URI, revisionID uuid.UUID, appName string, secret domainsecret.UpsertSecretParams,
+	) error
 	CreateCharmUnitSecret(
-		ctx context.Context, version int, uri *secrets.URI, unitName string, secret domainsecret.UpsertSecretParams,
-	) (string, error)
-	UpdateSecret(ctx context.Context, uri *secrets.URI, secret domainsecret.UpsertSecretParams) (string, error)
-	DeleteSecret(ctx context.Context, uri *secrets.URI, revs []int) ([]string, error)
-	DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string, error)
+		ctx context.Context, version int, uri *secrets.URI, revisionID uuid.UUID, unitName string, secret domainsecret.UpsertSecretParams,
+	) error
+	UpdateSecret(ctx context.Context, uri *secrets.URI, revisionID uuid.UUID, secret domainsecret.UpsertSecretParams) error
+	DeleteSecret(ctx context.Context, uri *secrets.URI, revs []int) ([]uuid.UUID, error)
+	DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]uuid.UUID, error)
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetLatestRevision(ctx context.Context, uri *secrets.URI) (int, error)
 	ListExternalSecretRevisions(ctx context.Context, uri *secrets.URI, revisions ...int) ([]secrets.ValueRef, error)
@@ -64,9 +65,10 @@ type State interface {
 	SecretRotated(ctx context.Context, uri *secrets.URI, next time.Time) error
 	GetRotatePolicy(ctx context.Context, uri *secrets.URI) (secrets.RotatePolicy, error)
 	GetRotationExpiryInfo(ctx context.Context, uri *secrets.URI) (*domainsecret.RotationExpiryInfo, error)
+	GetSecretRevisionID(ctx context.Context, uri *secrets.URI, revision int) (uuid.UUID, error)
 	ChangeSecretBackend(
-		ctx context.Context, uri *secrets.URI, revision int, valueRef *secrets.ValueRef, data secrets.SecretData,
-	) (string, error)
+		ctx context.Context, revisionID uuid.UUID, valueRef *secrets.ValueRef, data secrets.SecretData,
+	) error
 
 	// For watching obsolete secret revision changes.
 	InitialWatchStatementForObsoleteRevision(
@@ -111,11 +113,11 @@ type State interface {
 // SecretBackendReferenceMutator describes methods for interacting with the secret backend state.
 type SecretBackendReferenceMutator interface {
 	// AddSecretBackendReference adds a reference to the secret backend for the given secret revision.
-	AddSecretBackendReference(ctx context.Context, backendID *string, modelID coremodel.UUID, revisionID string) error
+	AddSecretBackendReference(ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID uuid.UUID) (func() error, error)
 	// RemoveSecretBackendReference removes the reference to the secret backend for the given secret revision.
-	RemoveSecretBackendReference(ctx context.Context, revisionIDs ...string) error
+	RemoveSecretBackendReference(ctx context.Context, revisionIDs ...uuid.UUID) error
 	// UpdateSecretBackendReference updates the reference to the secret backend for the given secret revision.
-	UpdateSecretBackendReference(ctx context.Context, backendID *string, modelID coremodel.UUID, revisionID string) error
+	UpdateSecretBackendReference(ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID uuid.UUID) (func() error, error)
 }
 
 // WatcherFactory describes methods for creating watchers.

@@ -17,6 +17,7 @@ import (
 	secrets "github.com/juju/juju/core/secrets"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	secret "github.com/juju/juju/domain/secret"
+	uuid "github.com/juju/juju/internal/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -200,18 +201,17 @@ func (c *MockStateAllSecretRemoteConsumersCall) DoAndReturn(f func(context.Conte
 }
 
 // ChangeSecretBackend mocks base method.
-func (m *MockState) ChangeSecretBackend(arg0 context.Context, arg1 *secrets.URI, arg2 int, arg3 *secrets.ValueRef, arg4 secrets.SecretData) (string, error) {
+func (m *MockState) ChangeSecretBackend(arg0 context.Context, arg1 uuid.UUID, arg2 *secrets.ValueRef, arg3 secrets.SecretData) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ChangeSecretBackend", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "ChangeSecretBackend", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // ChangeSecretBackend indicates an expected call of ChangeSecretBackend.
-func (mr *MockStateMockRecorder) ChangeSecretBackend(arg0, arg1, arg2, arg3, arg4 any) *MockStateChangeSecretBackendCall {
+func (mr *MockStateMockRecorder) ChangeSecretBackend(arg0, arg1, arg2, arg3 any) *MockStateChangeSecretBackendCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeSecretBackend", reflect.TypeOf((*MockState)(nil).ChangeSecretBackend), arg0, arg1, arg2, arg3, arg4)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeSecretBackend", reflect.TypeOf((*MockState)(nil).ChangeSecretBackend), arg0, arg1, arg2, arg3)
 	return &MockStateChangeSecretBackendCall{Call: call}
 }
 
@@ -221,36 +221,35 @@ type MockStateChangeSecretBackendCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateChangeSecretBackendCall) Return(arg0 string, arg1 error) *MockStateChangeSecretBackendCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStateChangeSecretBackendCall) Return(arg0 error) *MockStateChangeSecretBackendCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateChangeSecretBackendCall) Do(f func(context.Context, *secrets.URI, int, *secrets.ValueRef, secrets.SecretData) (string, error)) *MockStateChangeSecretBackendCall {
+func (c *MockStateChangeSecretBackendCall) Do(f func(context.Context, uuid.UUID, *secrets.ValueRef, secrets.SecretData) error) *MockStateChangeSecretBackendCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateChangeSecretBackendCall) DoAndReturn(f func(context.Context, *secrets.URI, int, *secrets.ValueRef, secrets.SecretData) (string, error)) *MockStateChangeSecretBackendCall {
+func (c *MockStateChangeSecretBackendCall) DoAndReturn(f func(context.Context, uuid.UUID, *secrets.ValueRef, secrets.SecretData) error) *MockStateChangeSecretBackendCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CreateCharmApplicationSecret mocks base method.
-func (m *MockState) CreateCharmApplicationSecret(arg0 context.Context, arg1 int, arg2 *secrets.URI, arg3 string, arg4 secret.UpsertSecretParams) (string, error) {
+func (m *MockState) CreateCharmApplicationSecret(arg0 context.Context, arg1 int, arg2 *secrets.URI, arg3 uuid.UUID, arg4 string, arg5 secret.UpsertSecretParams) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateCharmApplicationSecret", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "CreateCharmApplicationSecret", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // CreateCharmApplicationSecret indicates an expected call of CreateCharmApplicationSecret.
-func (mr *MockStateMockRecorder) CreateCharmApplicationSecret(arg0, arg1, arg2, arg3, arg4 any) *MockStateCreateCharmApplicationSecretCall {
+func (mr *MockStateMockRecorder) CreateCharmApplicationSecret(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockStateCreateCharmApplicationSecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCharmApplicationSecret", reflect.TypeOf((*MockState)(nil).CreateCharmApplicationSecret), arg0, arg1, arg2, arg3, arg4)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCharmApplicationSecret", reflect.TypeOf((*MockState)(nil).CreateCharmApplicationSecret), arg0, arg1, arg2, arg3, arg4, arg5)
 	return &MockStateCreateCharmApplicationSecretCall{Call: call}
 }
 
@@ -260,36 +259,35 @@ type MockStateCreateCharmApplicationSecretCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateCreateCharmApplicationSecretCall) Return(arg0 string, arg1 error) *MockStateCreateCharmApplicationSecretCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStateCreateCharmApplicationSecretCall) Return(arg0 error) *MockStateCreateCharmApplicationSecretCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCreateCharmApplicationSecretCall) Do(f func(context.Context, int, *secrets.URI, string, secret.UpsertSecretParams) (string, error)) *MockStateCreateCharmApplicationSecretCall {
+func (c *MockStateCreateCharmApplicationSecretCall) Do(f func(context.Context, int, *secrets.URI, uuid.UUID, string, secret.UpsertSecretParams) error) *MockStateCreateCharmApplicationSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCreateCharmApplicationSecretCall) DoAndReturn(f func(context.Context, int, *secrets.URI, string, secret.UpsertSecretParams) (string, error)) *MockStateCreateCharmApplicationSecretCall {
+func (c *MockStateCreateCharmApplicationSecretCall) DoAndReturn(f func(context.Context, int, *secrets.URI, uuid.UUID, string, secret.UpsertSecretParams) error) *MockStateCreateCharmApplicationSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CreateCharmUnitSecret mocks base method.
-func (m *MockState) CreateCharmUnitSecret(arg0 context.Context, arg1 int, arg2 *secrets.URI, arg3 string, arg4 secret.UpsertSecretParams) (string, error) {
+func (m *MockState) CreateCharmUnitSecret(arg0 context.Context, arg1 int, arg2 *secrets.URI, arg3 uuid.UUID, arg4 string, arg5 secret.UpsertSecretParams) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateCharmUnitSecret", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "CreateCharmUnitSecret", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // CreateCharmUnitSecret indicates an expected call of CreateCharmUnitSecret.
-func (mr *MockStateMockRecorder) CreateCharmUnitSecret(arg0, arg1, arg2, arg3, arg4 any) *MockStateCreateCharmUnitSecretCall {
+func (mr *MockStateMockRecorder) CreateCharmUnitSecret(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockStateCreateCharmUnitSecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCharmUnitSecret", reflect.TypeOf((*MockState)(nil).CreateCharmUnitSecret), arg0, arg1, arg2, arg3, arg4)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCharmUnitSecret", reflect.TypeOf((*MockState)(nil).CreateCharmUnitSecret), arg0, arg1, arg2, arg3, arg4, arg5)
 	return &MockStateCreateCharmUnitSecretCall{Call: call}
 }
 
@@ -299,36 +297,35 @@ type MockStateCreateCharmUnitSecretCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateCreateCharmUnitSecretCall) Return(arg0 string, arg1 error) *MockStateCreateCharmUnitSecretCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStateCreateCharmUnitSecretCall) Return(arg0 error) *MockStateCreateCharmUnitSecretCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCreateCharmUnitSecretCall) Do(f func(context.Context, int, *secrets.URI, string, secret.UpsertSecretParams) (string, error)) *MockStateCreateCharmUnitSecretCall {
+func (c *MockStateCreateCharmUnitSecretCall) Do(f func(context.Context, int, *secrets.URI, uuid.UUID, string, secret.UpsertSecretParams) error) *MockStateCreateCharmUnitSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCreateCharmUnitSecretCall) DoAndReturn(f func(context.Context, int, *secrets.URI, string, secret.UpsertSecretParams) (string, error)) *MockStateCreateCharmUnitSecretCall {
+func (c *MockStateCreateCharmUnitSecretCall) DoAndReturn(f func(context.Context, int, *secrets.URI, uuid.UUID, string, secret.UpsertSecretParams) error) *MockStateCreateCharmUnitSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CreateUserSecret mocks base method.
-func (m *MockState) CreateUserSecret(arg0 context.Context, arg1 int, arg2 *secrets.URI, arg3 secret.UpsertSecretParams) (string, error) {
+func (m *MockState) CreateUserSecret(arg0 context.Context, arg1 int, arg2 *secrets.URI, arg3 uuid.UUID, arg4 secret.UpsertSecretParams) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateUserSecret", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "CreateUserSecret", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // CreateUserSecret indicates an expected call of CreateUserSecret.
-func (mr *MockStateMockRecorder) CreateUserSecret(arg0, arg1, arg2, arg3 any) *MockStateCreateUserSecretCall {
+func (mr *MockStateMockRecorder) CreateUserSecret(arg0, arg1, arg2, arg3, arg4 any) *MockStateCreateUserSecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateUserSecret", reflect.TypeOf((*MockState)(nil).CreateUserSecret), arg0, arg1, arg2, arg3)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateUserSecret", reflect.TypeOf((*MockState)(nil).CreateUserSecret), arg0, arg1, arg2, arg3, arg4)
 	return &MockStateCreateUserSecretCall{Call: call}
 }
 
@@ -338,28 +335,28 @@ type MockStateCreateUserSecretCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateCreateUserSecretCall) Return(arg0 string, arg1 error) *MockStateCreateUserSecretCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStateCreateUserSecretCall) Return(arg0 error) *MockStateCreateUserSecretCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCreateUserSecretCall) Do(f func(context.Context, int, *secrets.URI, secret.UpsertSecretParams) (string, error)) *MockStateCreateUserSecretCall {
+func (c *MockStateCreateUserSecretCall) Do(f func(context.Context, int, *secrets.URI, uuid.UUID, secret.UpsertSecretParams) error) *MockStateCreateUserSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCreateUserSecretCall) DoAndReturn(f func(context.Context, int, *secrets.URI, secret.UpsertSecretParams) (string, error)) *MockStateCreateUserSecretCall {
+func (c *MockStateCreateUserSecretCall) DoAndReturn(f func(context.Context, int, *secrets.URI, uuid.UUID, secret.UpsertSecretParams) error) *MockStateCreateUserSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DeleteObsoleteUserSecretRevisions mocks base method.
-func (m *MockState) DeleteObsoleteUserSecretRevisions(arg0 context.Context) ([]string, error) {
+func (m *MockState) DeleteObsoleteUserSecretRevisions(arg0 context.Context) ([]uuid.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteObsoleteUserSecretRevisions", arg0)
-	ret0, _ := ret[0].([]string)
+	ret0, _ := ret[0].([]uuid.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -377,28 +374,28 @@ type MockStateDeleteObsoleteUserSecretRevisionsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateDeleteObsoleteUserSecretRevisionsCall) Return(arg0 []string, arg1 error) *MockStateDeleteObsoleteUserSecretRevisionsCall {
+func (c *MockStateDeleteObsoleteUserSecretRevisionsCall) Return(arg0 []uuid.UUID, arg1 error) *MockStateDeleteObsoleteUserSecretRevisionsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateDeleteObsoleteUserSecretRevisionsCall) Do(f func(context.Context) ([]string, error)) *MockStateDeleteObsoleteUserSecretRevisionsCall {
+func (c *MockStateDeleteObsoleteUserSecretRevisionsCall) Do(f func(context.Context) ([]uuid.UUID, error)) *MockStateDeleteObsoleteUserSecretRevisionsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateDeleteObsoleteUserSecretRevisionsCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockStateDeleteObsoleteUserSecretRevisionsCall {
+func (c *MockStateDeleteObsoleteUserSecretRevisionsCall) DoAndReturn(f func(context.Context) ([]uuid.UUID, error)) *MockStateDeleteObsoleteUserSecretRevisionsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DeleteSecret mocks base method.
-func (m *MockState) DeleteSecret(arg0 context.Context, arg1 *secrets.URI, arg2 []int) ([]string, error) {
+func (m *MockState) DeleteSecret(arg0 context.Context, arg1 *secrets.URI, arg2 []int) ([]uuid.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteSecret", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]string)
+	ret0, _ := ret[0].([]uuid.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -416,19 +413,19 @@ type MockStateDeleteSecretCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateDeleteSecretCall) Return(arg0 []string, arg1 error) *MockStateDeleteSecretCall {
+func (c *MockStateDeleteSecretCall) Return(arg0 []uuid.UUID, arg1 error) *MockStateDeleteSecretCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateDeleteSecretCall) Do(f func(context.Context, *secrets.URI, []int) ([]string, error)) *MockStateDeleteSecretCall {
+func (c *MockStateDeleteSecretCall) Do(f func(context.Context, *secrets.URI, []int) ([]uuid.UUID, error)) *MockStateDeleteSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateDeleteSecretCall) DoAndReturn(f func(context.Context, *secrets.URI, []int) ([]string, error)) *MockStateDeleteSecretCall {
+func (c *MockStateDeleteSecretCall) DoAndReturn(f func(context.Context, *secrets.URI, []int) ([]uuid.UUID, error)) *MockStateDeleteSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1036,6 +1033,45 @@ func (c *MockStateGetSecretRemoteConsumerCall) Do(f func(context.Context, *secre
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetSecretRemoteConsumerCall) DoAndReturn(f func(context.Context, *secrets.URI, string) (*secrets.SecretConsumerMetadata, int, error)) *MockStateGetSecretRemoteConsumerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetSecretRevisionID mocks base method.
+func (m *MockState) GetSecretRevisionID(arg0 context.Context, arg1 *secrets.URI, arg2 int) (uuid.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretRevisionID", arg0, arg1, arg2)
+	ret0, _ := ret[0].(uuid.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretRevisionID indicates an expected call of GetSecretRevisionID.
+func (mr *MockStateMockRecorder) GetSecretRevisionID(arg0, arg1, arg2 any) *MockStateGetSecretRevisionIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretRevisionID", reflect.TypeOf((*MockState)(nil).GetSecretRevisionID), arg0, arg1, arg2)
+	return &MockStateGetSecretRevisionIDCall{Call: call}
+}
+
+// MockStateGetSecretRevisionIDCall wrap *gomock.Call
+type MockStateGetSecretRevisionIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetSecretRevisionIDCall) Return(arg0 uuid.UUID, arg1 error) *MockStateGetSecretRevisionIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetSecretRevisionIDCall) Do(f func(context.Context, *secrets.URI, int) (uuid.UUID, error)) *MockStateGetSecretRevisionIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetSecretRevisionIDCall) DoAndReturn(f func(context.Context, *secrets.URI, int) (uuid.UUID, error)) *MockStateGetSecretRevisionIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1950,18 +1986,17 @@ func (c *MockStateUpdateRemoteSecretRevisionCall) DoAndReturn(f func(context.Con
 }
 
 // UpdateSecret mocks base method.
-func (m *MockState) UpdateSecret(arg0 context.Context, arg1 *secrets.URI, arg2 secret.UpsertSecretParams) (string, error) {
+func (m *MockState) UpdateSecret(arg0 context.Context, arg1 *secrets.URI, arg2 uuid.UUID, arg3 secret.UpsertSecretParams) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1, arg2)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // UpdateSecret indicates an expected call of UpdateSecret.
-func (mr *MockStateMockRecorder) UpdateSecret(arg0, arg1, arg2 any) *MockStateUpdateSecretCall {
+func (mr *MockStateMockRecorder) UpdateSecret(arg0, arg1, arg2, arg3 any) *MockStateUpdateSecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockState)(nil).UpdateSecret), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockState)(nil).UpdateSecret), arg0, arg1, arg2, arg3)
 	return &MockStateUpdateSecretCall{Call: call}
 }
 
@@ -1971,19 +2006,19 @@ type MockStateUpdateSecretCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateUpdateSecretCall) Return(arg0 string, arg1 error) *MockStateUpdateSecretCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStateUpdateSecretCall) Return(arg0 error) *MockStateUpdateSecretCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateSecretCall) Do(f func(context.Context, *secrets.URI, secret.UpsertSecretParams) (string, error)) *MockStateUpdateSecretCall {
+func (c *MockStateUpdateSecretCall) Do(f func(context.Context, *secrets.URI, uuid.UUID, secret.UpsertSecretParams) error) *MockStateUpdateSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateSecretCall) DoAndReturn(f func(context.Context, *secrets.URI, secret.UpsertSecretParams) (string, error)) *MockStateUpdateSecretCall {
+func (c *MockStateUpdateSecretCall) DoAndReturn(f func(context.Context, *secrets.URI, uuid.UUID, secret.UpsertSecretParams) error) *MockStateUpdateSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

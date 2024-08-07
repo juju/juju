@@ -14,22 +14,25 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/uuid"
 )
 
 func (s *serviceSuite) TestDeleteSecretInternal(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
+	revisionID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
 	s.state.EXPECT().ListExternalSecretRevisions(gomock.Any(), uri, 666).Return([]coresecrets.ValueRef{}, nil)
-	s.state.EXPECT().DeleteSecret(gomock.Any(), uri, []int{666}).Return([]string{"rev-uuid-1", "rev-uuid-2"}, nil)
-	s.secretBackendReferenceMutator.EXPECT().RemoveSecretBackendReference(gomock.Any(), "rev-uuid-1", "rev-uuid-2").Return(nil)
+	s.state.EXPECT().DeleteSecret(gomock.Any(), uri, []int{666}).Return([]uuid.UUID{revisionID}, nil)
+	s.secretBackendReferenceMutator.EXPECT().RemoveSecretBackendReference(gomock.Any(), revisionID).Return(nil)
 
-	err := s.service.DeleteSecret(context.Background(), uri, DeleteSecretParams{
+	err = s.service.DeleteSecret(context.Background(), uri, DeleteSecretParams{
 		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
@@ -80,9 +83,14 @@ func (s *serviceSuite) TestDeleteObsoleteUserSecretRevisions(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.state.EXPECT().DeleteObsoleteUserSecretRevisions(gomock.Any()).Return([]string{"rev-uuid-1", "rev-uuid-2"}, nil)
-	s.secretBackendReferenceMutator.EXPECT().RemoveSecretBackendReference(gomock.Any(), "rev-uuid-1", "rev-uuid-2").Return(nil)
+	revisionID1, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	revisionID2, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
 
-	err := s.service.DeleteObsoleteUserSecretRevisions(context.Background())
+	s.state.EXPECT().DeleteObsoleteUserSecretRevisions(gomock.Any()).Return([]uuid.UUID{revisionID1, revisionID2}, nil)
+	s.secretBackendReferenceMutator.EXPECT().RemoveSecretBackendReference(gomock.Any(), revisionID1, revisionID2).Return(nil)
+
+	err = s.service.DeleteObsoleteUserSecretRevisions(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
