@@ -196,10 +196,10 @@ ifeq ($(VERBOSE_CHECK), 1)
 endif
 
 define link_flags_version
--X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) \
--X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) \
--X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER) \
--X $(PROJECT)/version.GoBuildTags=$(FINAL_BUILD_TAGS)
+-X $(PROJECT)/core/version.GitCommit=$(GIT_COMMIT) \
+-X $(PROJECT)/core/version.GitTreeState=$(GIT_TREE_STATE) \
+-X $(PROJECT)/core/version.build=$(JUJU_BUILD_NUMBER) \
+-X $(PROJECT)/core/version.GoBuildTags=$(FINAL_BUILD_TAGS)
 endef
 
 # Compile with debug flags if requested.
