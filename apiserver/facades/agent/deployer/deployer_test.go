@@ -72,8 +72,17 @@ func (s *deployerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.unitRemover = mocks.NewMockUnitRemover(ctrl)
 	s.unitRemover.EXPECT().DeleteUnit(gomock.Any(), gomock.Any()).AnyTimes()
 
+	return ctrl
+}
+
+func (s *deployerSuite) makeDeployerAPI(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	var err error
+
+	// The two known machines now contain the following units:
+	// machine 0 (not authorized): mysql/1 (principal1)
+	// machine 1 (authorized): mysql/0 (principal0), logging/0 (subordinate0)
+
 	s.machine0, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -136,17 +145,10 @@ func (s *deployerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.deployer = deployer
-
-	return ctrl
 }
 
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
-
-	// The two known machines now contain the following units:
-	// machine 0 (not authorized): mysql/1 (principal1)
-	// machine 1 (authorized): mysql/0 (principal0), logging/0 (subordinate0)
-
 }
 
 func (s *deployerSuite) TestDeployerFailsWithNonMachineAgentUser(c *gc.C) {
@@ -167,6 +169,8 @@ func (s *deployerSuite) TestDeployerFailsWithNonMachineAgentUser(c *gc.C) {
 
 func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.makeDeployerAPI(c)
+
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -199,6 +203,8 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 
 func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.makeDeployerAPI(c)
+
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{Tag: "unit-mysql-0", Password: "xxx-12345678901234567890"},
@@ -249,6 +255,8 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 
 func (s *deployerSuite) TestLife(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.makeDeployerAPI(c)
+
 	err := s.subordinate0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.subordinate0.Refresh()
@@ -298,6 +306,8 @@ func (s *deployerSuite) TestLife(c *gc.C) {
 
 func (s *deployerSuite) TestRemove(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.makeDeployerAPI(c)
+
 	c.Assert(s.principal0.Life(), gc.Equals, state.Alive)
 	c.Assert(s.subordinate0.Life(), gc.Equals, state.Alive)
 
@@ -357,6 +367,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 
 func (s *deployerSuite) TestConnectionInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.makeDeployerAPI(c)
 
 	st := s.ControllerModel(c).State()
 	controllerConfig, err := s.controllerConfigGetter.ControllerConfig(context.Background())
@@ -386,6 +397,8 @@ func (s *deployerSuite) TestConnectionInfo(c *gc.C) {
 
 func (s *deployerSuite) TestSetStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.makeDeployerAPI(c)
+
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: "unit-mysql-0", Status: "blocked", Info: "waiting", Data: map[string]interface{}{"foo": "bar"}},
