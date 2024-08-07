@@ -810,7 +810,6 @@ var _ = gc.Suite(&LegacySuite{})
 func (s *LegacySuite) SetUpSuite(c *gc.C) {
 	s.StubNetwork.SetUpSuite(c)
 	s.BaseSuite.SetUpSuite(c)
-
 }
 
 func (s *LegacySuite) setupMocks(c *gc.C) *gomock.Controller {

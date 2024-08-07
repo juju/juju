@@ -61,14 +61,6 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	s.authorizer.EXPECT().AuthClient().Return(true)
 
-	//cloudSpec := environscloudspec.CloudSpec{
-	//	Type:             "mock-provider",
-	//	Name:             "cloud-name",
-	//	Endpoint:         "endpoint",
-	//	IdentityEndpoint: "identity-endpoint",
-	//	StorageEndpoint:  "storage-endpoint",
-	//}
-
 	s.Backing = NewMockBacking(ctrl)
 	bExp := s.Backing.EXPECT()
 	bExp.ModelTag().Return(names.NewModelTag("123"))
