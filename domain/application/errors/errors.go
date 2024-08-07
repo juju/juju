@@ -28,6 +28,10 @@ const (
 	// not valid.
 	ApplicationNameNotValid = errors.ConstError("application name not valid")
 
+	// ApplicationDyingOrDead describes an error where resource query fails because the
+	// application is dying or dead.
+	ApplicationDyingOrDead = errors.ConstError("application dying or dead")
+
 	// CharmNotValid describes an error that occurs when the charm is not valid.
 	CharmNotValid = errors.ConstError("charm not valid")
 
@@ -68,4 +72,16 @@ const (
 	// CharmBaseNameNotSupported describes an error that occurs when the charm
 	// base name is not supported.
 	CharmBaseNameNotSupported = errors.ConstError("charm base name not supported")
+
+	// ResourceNotFound describes an error that occurs when a resource is
+	// not found.
+	ResourceNotFound = errors.ConstError("resource not found")
+
+	// UnknownResourceType describes an error where the resource type is
+	// not oci-image or file.
+	UnknownResourceType = errors.ConstError("unknown resource type resource")
+
+	// ResourceNameNotValid describes an error where the resource name is not
+	// valid, usually because it's empty.
+	ResourceNameNotValid = errors.ConstError("resource name not valid")
 )
