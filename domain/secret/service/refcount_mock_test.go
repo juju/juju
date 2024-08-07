@@ -14,6 +14,8 @@ import (
 	reflect "reflect"
 
 	model "github.com/juju/juju/core/model"
+	secrets "github.com/juju/juju/core/secrets"
+	uuid "github.com/juju/juju/internal/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -41,11 +43,12 @@ func (m *MockSecretBackendReferenceMutator) EXPECT() *MockSecretBackendReference
 }
 
 // AddSecretBackendReference mocks base method.
-func (m *MockSecretBackendReferenceMutator) AddSecretBackendReference(arg0 context.Context, arg1 *string, arg2 model.UUID, arg3 string) error {
+func (m *MockSecretBackendReferenceMutator) AddSecretBackendReference(arg0 context.Context, arg1 *secrets.ValueRef, arg2 model.UUID, arg3 uuid.UUID) (func() error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddSecretBackendReference", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(func() error)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // AddSecretBackendReference indicates an expected call of AddSecretBackendReference.
@@ -61,25 +64,25 @@ type MockSecretBackendReferenceMutatorAddSecretBackendReferenceCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockSecretBackendReferenceMutatorAddSecretBackendReferenceCall) Return(arg0 error) *MockSecretBackendReferenceMutatorAddSecretBackendReferenceCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockSecretBackendReferenceMutatorAddSecretBackendReferenceCall) Return(arg0 func() error, arg1 error) *MockSecretBackendReferenceMutatorAddSecretBackendReferenceCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretBackendReferenceMutatorAddSecretBackendReferenceCall) Do(f func(context.Context, *string, model.UUID, string) error) *MockSecretBackendReferenceMutatorAddSecretBackendReferenceCall {
+func (c *MockSecretBackendReferenceMutatorAddSecretBackendReferenceCall) Do(f func(context.Context, *secrets.ValueRef, model.UUID, uuid.UUID) (func() error, error)) *MockSecretBackendReferenceMutatorAddSecretBackendReferenceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretBackendReferenceMutatorAddSecretBackendReferenceCall) DoAndReturn(f func(context.Context, *string, model.UUID, string) error) *MockSecretBackendReferenceMutatorAddSecretBackendReferenceCall {
+func (c *MockSecretBackendReferenceMutatorAddSecretBackendReferenceCall) DoAndReturn(f func(context.Context, *secrets.ValueRef, model.UUID, uuid.UUID) (func() error, error)) *MockSecretBackendReferenceMutatorAddSecretBackendReferenceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // RemoveSecretBackendReference mocks base method.
-func (m *MockSecretBackendReferenceMutator) RemoveSecretBackendReference(arg0 context.Context, arg1 ...string) error {
+func (m *MockSecretBackendReferenceMutator) RemoveSecretBackendReference(arg0 context.Context, arg1 ...uuid.UUID) error {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0}
 	for _, a := range arg1 {
@@ -110,23 +113,24 @@ func (c *MockSecretBackendReferenceMutatorRemoveSecretBackendReferenceCall) Retu
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretBackendReferenceMutatorRemoveSecretBackendReferenceCall) Do(f func(context.Context, ...string) error) *MockSecretBackendReferenceMutatorRemoveSecretBackendReferenceCall {
+func (c *MockSecretBackendReferenceMutatorRemoveSecretBackendReferenceCall) Do(f func(context.Context, ...uuid.UUID) error) *MockSecretBackendReferenceMutatorRemoveSecretBackendReferenceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretBackendReferenceMutatorRemoveSecretBackendReferenceCall) DoAndReturn(f func(context.Context, ...string) error) *MockSecretBackendReferenceMutatorRemoveSecretBackendReferenceCall {
+func (c *MockSecretBackendReferenceMutatorRemoveSecretBackendReferenceCall) DoAndReturn(f func(context.Context, ...uuid.UUID) error) *MockSecretBackendReferenceMutatorRemoveSecretBackendReferenceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // UpdateSecretBackendReference mocks base method.
-func (m *MockSecretBackendReferenceMutator) UpdateSecretBackendReference(arg0 context.Context, arg1 *string, arg2 model.UUID, arg3 string) error {
+func (m *MockSecretBackendReferenceMutator) UpdateSecretBackendReference(arg0 context.Context, arg1 *secrets.ValueRef, arg2 model.UUID, arg3 uuid.UUID) (func() error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateSecretBackendReference", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(func() error)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateSecretBackendReference indicates an expected call of UpdateSecretBackendReference.
@@ -142,19 +146,19 @@ type MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall) Return(arg0 error) *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall) Return(arg0 func() error, arg1 error) *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall) Do(f func(context.Context, *string, model.UUID, string) error) *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall {
+func (c *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall) Do(f func(context.Context, *secrets.ValueRef, model.UUID, uuid.UUID) (func() error, error)) *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall) DoAndReturn(f func(context.Context, *string, model.UUID, string) error) *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall {
+func (c *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall) DoAndReturn(f func(context.Context, *secrets.ValueRef, model.UUID, uuid.UUID) (func() error, error)) *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

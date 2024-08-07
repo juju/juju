@@ -21,6 +21,7 @@ import (
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // NewSecretService returns a new secret service wrapping the specified state.
@@ -36,6 +37,7 @@ func NewSecretService(
 		clock:                         clock.WallClock,
 		providerGetter:                provider.Provider,
 		adminConfigGetter:             adminConfigGetter,
+		uuidGenerator:                 uuid.NewUUID,
 	}
 }
 
@@ -60,6 +62,7 @@ type SecretService struct {
 	activeBackendID string
 	modelID         coremodel.UUID
 	backends        map[string]provider.SecretsBackend
+	uuidGenerator   func() (uuid.UUID, error)
 }
 
 // CreateSecretURIs returns the specified number of new secret URIs.
@@ -166,17 +169,25 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 			RevisionID: revId,
 		}
 	}
-
-	revisionID, err := s.secretState.CreateUserSecret(ctx, params.Version, uri, p)
+	revisionID, err := s.uuidGenerator()
 	if err != nil {
+		return errors.Trace(err)
+	}
+
+	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, s.modelID, revisionID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer func() {
+		if errOut != nil {
+			if err := rollBack(); err != nil {
+				s.logger.Warningf("failed to roll back secret reference count: %v", err)
+			}
+		}
+	}()
+
+	if err = s.secretState.CreateUserSecret(ctx, params.Version, uri, revisionID, p); err != nil {
 		return errors.Annotatef(err, "cannot create user secret %q", uri.ID)
-	}
-	var backendID *string
-	if p.ValueRef != nil {
-		backendID = &p.ValueRef.BackendID
-	}
-	if err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, backendID, s.modelID, revisionID); err != nil {
-		return errors.Annotatef(err, "cannot add secret backend reference for revision %q", revisionID)
 	}
 	return nil
 }
@@ -184,7 +195,7 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 // CreateCharmSecret creates a charm secret with the specified parameters, returning an error
 // satisfying [secreterrors.SecretLabelAlreadyExists] if the secret owner already has
 // a secret with the same label.
-func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI, params CreateCharmSecretParams) error {
+func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI, params CreateCharmSecretParams) (errOut error) {
 	if len(params.Data) > 0 && params.ValueRef != nil {
 		return errors.New("must specify either content or a value reference but not both")
 	}
@@ -208,10 +219,23 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 		p.NextRotateTime = params.RotatePolicy.NextRotateTime(s.clock.Now())
 	}
 	p.ExpireTime = params.ExpireTime
-	var (
-		revisionID string
-		err        error
-	)
+
+	revisionID, err := s.uuidGenerator()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, s.modelID, revisionID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer func() {
+		if errOut != nil {
+			if err := rollBack(); err != nil {
+				s.logger.Warningf("failed to roll back secret reference count: %v", err)
+			}
+		}
+	}()
 	if params.CharmOwner.Kind == ApplicationOwner {
 		// Only unit leaders can create application secrets.
 		if params.LeaderToken == nil {
@@ -223,22 +247,15 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 			}
 			return errors.Trace(err)
 		}
-		revisionID, err = s.secretState.CreateCharmApplicationSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
+		err = s.secretState.CreateCharmApplicationSecret(ctx, params.Version, uri, revisionID, params.CharmOwner.ID, p)
 	} else {
-		revisionID, err = s.secretState.CreateCharmUnitSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
+		err = s.secretState.CreateCharmUnitSecret(ctx, params.Version, uri, revisionID, params.CharmOwner.ID, p)
 	}
 	if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
 		return errors.Errorf("secret with label %q is already being used", *params.Label)
 	}
 	if err != nil {
 		return errors.Annotatef(err, "cannot create charm secret %q", uri.ID)
-	}
-	var backendID *string
-	if p.ValueRef != nil {
-		backendID = &p.ValueRef.BackendID
-	}
-	if err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, backendID, s.modelID, revisionID); err != nil {
-		return errors.Annotatef(err, "cannot add secret backend reference for revision %q", revisionID)
 	}
 	return nil
 }
@@ -302,21 +319,27 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}
 	}
 
-	revisonIDCreated, err := s.secretState.UpdateSecret(ctx, uri, p)
+	revisionID, err := s.uuidGenerator()
 	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if p.ValueRef != nil || len(params.Data) != 0 {
+		rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, s.modelID, revisionID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer func() {
+			if errOut != nil {
+				if err := rollBack(); err != nil {
+					s.logger.Warningf("failed to roll back secret reference count: %v", err)
+				}
+			}
+		}()
+	}
+
+	if err := s.secretState.UpdateSecret(ctx, uri, revisionID, p); err != nil {
 		return errors.Annotatef(err, "cannot update user secret %q", uri.ID)
-	}
-	if revisonIDCreated == "" {
-		// No new revision was created.
-		return nil
-	}
-	// Add the secret backend reference for the new revision.
-	var backendID *string
-	if p.ValueRef != nil {
-		backendID = &p.ValueRef.BackendID
-	}
-	if err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, backendID, s.modelID, revisonIDCreated); err != nil {
-		return errors.Annotatef(err, "cannot add secret backend reference for revision %q", revisonIDCreated)
 	}
 	return nil
 }
@@ -326,7 +349,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 // It also returns an error satisfying [secreterrors.SecretLabelAlreadyExists] if
 // the secret owner already has a secret with the same label.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
-func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI, params UpdateCharmSecretParams) error {
+func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI, params UpdateCharmSecretParams) (errOut error) {
 	if len(params.Data) > 0 && params.ValueRef != nil {
 		return errors.New("must specify either content or a value reference but not both")
 	}
@@ -359,24 +382,32 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 			p.Data[k] = v
 		}
 	}
-	revisonIDCreated, err := s.secretState.UpdateSecret(ctx, uri, p)
+
+	revisionID, err := s.uuidGenerator()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if p.ValueRef != nil || len(params.Data) != 0 {
+		rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, s.modelID, revisionID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer func() {
+			if errOut != nil {
+				if err := rollBack(); err != nil {
+					s.logger.Warningf("failed to roll back secret reference count: %v", err)
+				}
+			}
+		}()
+	}
+
+	err = s.secretState.UpdateSecret(ctx, uri, revisionID, p)
 	if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
 		return errors.Errorf("secret with label %q is already being used", *params.Label)
 	}
 	if err != nil {
 		return errors.Annotatef(err, "cannot update charm secret %q", uri.ID)
-	}
-	if revisonIDCreated == "" {
-		// No new revision was created.
-		return nil
-	}
-	// Add the secret backend reference for the new revision.
-	var backendID *string
-	if p.ValueRef != nil {
-		backendID = &p.ValueRef.BackendID
-	}
-	if err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, backendID, s.modelID, revisonIDCreated); err != nil {
-		return errors.Annotatef(err, "cannot add secret backend reference for revision %q", revisonIDCreated)
 	}
 	return nil
 }
@@ -633,20 +664,29 @@ func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx context.Context
 // ChangeSecretBackend sets the secret backend where the specified secret revision is stored.
 // It returns [secreterrors.SecretNotFound] is there's no such secret.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
-func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params ChangeSecretBackendParams) error {
+func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params ChangeSecretBackendParams) (errOut error) {
 	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
 		return errors.Trace(err)
 	}
-	revisionID, err := s.secretState.ChangeSecretBackend(ctx, uri, revision, params.ValueRef, params.Data)
+	revisionID, err := s.secretState.GetSecretRevisionID(ctx, uri, revision)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	var backendID *string
-	if params.ValueRef != nil {
-		backendID = &params.ValueRef.BackendID
+	rollBack, err := s.secretBackendReferenceMutator.UpdateSecretBackendReference(ctx, params.ValueRef, s.modelID, revisionID)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	if err := s.secretBackendReferenceMutator.UpdateSecretBackendReference(ctx, backendID, s.modelID, revisionID); err != nil {
+	defer func() {
+		if errOut != nil {
+			if err := rollBack(); err != nil {
+				s.logger.Warningf("failed to roll back secret reference count: %v", err)
+			}
+		}
+	}()
+
+	err = s.secretState.ChangeSecretBackend(ctx, revisionID, params.ValueRef, params.Data)
+	if err != nil {
 		return errors.Trace(err)
 	}
 	return nil
