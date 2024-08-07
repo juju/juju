@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/storage"
@@ -26,6 +28,10 @@ func main() {
 	baseDocsDir := mustEnv("DOCS_DIR")
 	hookToolDocsDir := filepath.Join(baseDocsDir, "hook-tools")
 
+	// We need to transform the discourse-topic-ids.yaml into a format that can
+	// be accepted by the juju documentation command.
+	discourseIDs := translateDiscourseIDs()
+
 	jujucSuperCmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
 	for _, name := range jujuc.CommandNames() {
 		hookTool, err := jujuc.NewCommand(dummyHookContext{}, name)
@@ -34,7 +40,10 @@ func main() {
 	}
 
 	jujucSuperCmd.SetFlags(&gnuflag.FlagSet{})
-	err := jujucSuperCmd.Init([]string{"documentation", "--split", "--out", hookToolDocsDir})
+	err := jujucSuperCmd.Init([]string{"documentation", "--split",
+		"--out", hookToolDocsDir,
+		"--discourse-ids", discourseIDs,
+	})
 	check(err)
 	err = jujucSuperCmd.Run(&cmd.Context{})
 	check(err)
@@ -45,6 +54,33 @@ func main() {
 	check(err)
 	err = os.Remove(filepath.Join(hookToolDocsDir, "help.md"))
 	check(err)
+}
+
+// Extracts the Discourse IDs relating to hook tools. Returns a filepath
+// pointing to the filtered map of IDs.
+func translateDiscourseIDs() string {
+	allDiscourseIDs := mustEnv("TOPIC_IDS")
+	file, err := os.Open(allDiscourseIDs)
+	check(err)
+
+	allIDs := map[string]int{}
+	err = yaml.NewDecoder(file).Decode(&allIDs)
+	check(err)
+
+	// Filter out hook tool IDs
+	hookToolIDs := map[string]int{}
+	for fullname, id := range allIDs {
+		if hookToolName, ok := strings.CutPrefix(fullname, "hook-tools/"); ok {
+			hookToolIDs[hookToolName] = id
+		}
+	}
+
+	newFile, err := os.CreateTemp("", "topic_ids")
+	check(err)
+	err = yaml.NewEncoder(newFile).Encode(hookToolIDs)
+	check(err)
+	check(newFile.Close())
+	return newFile.Name()
 }
 
 // dummyHookContext implements hooks.Context, as expected by hooks.NewCommand.
