@@ -41,5 +41,13 @@ func (s *ControllerKeyService) ControllerAuthorisedKeys(
 		return nil, fmt.Errorf("cannot get juju controller public ssh keys: %w", err)
 	}
 
-	return ssh.SplitAuthorizedKeys(ctrlConfig[controller.SystemSSHKeys]), nil
+	keys, err := ssh.SplitAuthorizedKeys(ctrlConfig[controller.SystemSSHKeys])
+	if err != nil {
+		return nil, fmt.Errorf(
+			"cannot split authorized keys from controller config system ssh keys: %w",
+			err,
+		)
+	}
+
+	return keys, nil
 }
