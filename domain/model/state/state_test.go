@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -16,19 +17,21 @@ import (
 
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/life"
+	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/version"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	accessstate "github.com/juju/juju/domain/access/state"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
+	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -301,7 +304,7 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 		Owner:     m.userUUID,
 		OwnerName: "test-user",
 		ModelType: coremodel.IAAS,
-		Life:      life.Alive,
+		Life:      corelife.Alive,
 	})
 }
 
@@ -982,7 +985,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			Life: life.Alive,
+			Life: corelife.Alive,
 		},
 		{
 			Name:        "owned1",
@@ -997,7 +1000,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			Life: life.Alive,
+			Life: corelife.Alive,
 		},
 		{
 			Name:        "owned2",
@@ -1012,14 +1015,14 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			Life: life.Alive,
+			Life: corelife.Alive,
 		},
 	})
 }
 
-// TestModelsOwnedByNonExistantUser tests that if we ask for models from a non
-// existent user we get back an empty model list.
-func (m *stateSuite) TestModelsOwnedByNonExistantUser(c *gc.C) {
+// TestModelsOwnedByNonExistentUser tests that if we ask for models from a
+// non-existent user, we get back an empty model list.
+func (m *stateSuite) TestModelsOwnedByNonExistentUser(c *gc.C) {
 	userID := usertesting.GenUserUUID(c)
 	modelSt := NewState(m.TxnRunnerFactory())
 
@@ -1035,21 +1038,271 @@ func (m *stateSuite) TestAllModels(c *gc.C) {
 
 	c.Check(models, gc.DeepEquals, []coremodel.Model{
 		{
-			Name:        "my-test-model",
-			UUID:        m.uuid,
-			Cloud:       "my-cloud",
-			CloudRegion: "my-region",
-			ModelType:   coremodel.IAAS,
-			Owner:       m.userUUID,
-			OwnerName:   "test-user",
+			Name:         "my-test-model",
+			UUID:         m.uuid,
+			Cloud:        "my-cloud",
+			CloudType:    "ec2",
+			CloudRegion:  "my-region",
+			ModelType:    coremodel.IAAS,
+			AgentVersion: version.Current,
+			Owner:        m.userUUID,
+			OwnerName:    "test-user",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			Life: life.Alive,
+			Life: corelife.Alive,
 		},
 	})
+}
+
+// TestHostedModels tests the basic functionality of State.HostedModels:
+//   - only models with the specified life values will be returned
+//   - excluded model IDs are not returned
+//   - cloud and credential info for the returned models is correct
+func (m *stateSuite) TestHostedModels(c *gc.C) {
+	st := NewState(m.TxnRunnerFactory())
+	credentialKey := corecredential.Key{
+		Cloud: "my-cloud",
+		Owner: "test-user",
+		Name:  "foobar",
+	}
+
+	// Add controller model
+	controllerModelID := modeltesting.GenModelUUID(c)
+	err := st.Create(context.Background(), controllerModelID, coremodel.IAAS,
+		model.ModelCreationArgs{
+			Name:          "controller",
+			Owner:         m.userUUID,
+			Cloud:         "my-cloud",
+			SecretBackend: juju.BackendName,
+			Credential:    credentialKey,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.Activate(context.Background(), controllerModelID)
+	c.Assert(err, jc.ErrorIsNil)
+	m.setLife(c, controllerModelID, domainlife.Alive)
+
+	// We already have a test model was created in SetUpTest
+	// Mark this as "dead".
+	m.setLife(c, m.uuid, domainlife.Dead)
+
+	// Add "alive" model
+	aliveModelID := modeltesting.GenModelUUID(c)
+	err = st.Create(context.Background(), aliveModelID, coremodel.IAAS,
+		model.ModelCreationArgs{
+			Name:          "alive",
+			Owner:         m.userUUID,
+			Cloud:         "my-cloud",
+			SecretBackend: juju.BackendName,
+			Credential:    credentialKey,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.Activate(context.Background(), aliveModelID)
+	c.Assert(err, jc.ErrorIsNil)
+	m.setLife(c, aliveModelID, domainlife.Alive)
+
+	// Add "dying" model
+	dyingModelID := modeltesting.GenModelUUID(c)
+	err = st.Create(context.Background(), dyingModelID, coremodel.IAAS,
+		model.ModelCreationArgs{
+			Name:          "dying",
+			Owner:         m.userUUID,
+			Cloud:         "other-cloud",
+			SecretBackend: juju.BackendName,
+			Credential: corecredential.Key{
+				Cloud: "other-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.Activate(context.Background(), dyingModelID)
+	c.Assert(err, jc.ErrorIsNil)
+	m.setLife(c, dyingModelID, domainlife.Dying)
+
+	// Get hosted models
+	hostedModels, err := st.HostedModels(context.Background(),
+		[]corelife.Value{corelife.Alive, corelife.Dying}, // exclude dead models
+		[]coremodel.UUID{controllerModelID},              // exclude controller model
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hostedModels, jc.DeepEquals, []coremodel.HostedModel{{
+		Model: coremodel.Model{
+			Name:       "alive",
+			Life:       corelife.Alive,
+			UUID:       aliveModelID,
+			ModelType:  coremodel.IAAS,
+			Cloud:      "my-cloud",
+			CloudType:  "ec2",
+			Credential: credentialKey,
+			Owner:      m.userUUID,
+			OwnerName:  "test-user",
+		},
+		Cloud: cloud.Cloud{
+			Name:      "my-cloud",
+			Type:      "ec2",
+			AuthTypes: cloud.AuthTypes{"access-key", "userpass"},
+			Regions:   []cloud.Region{{Name: "my-region"}},
+		},
+		Credential: credential.CloudCredentialInfo{
+			AuthType: "access-key",
+			Attributes: map[string]string{
+				"foo": "foo val",
+				"bar": "bar val",
+			},
+			Label: "foobar",
+		}.AsCredential(),
+	}, {
+		Model: coremodel.Model{
+			Name:      "dying",
+			Life:      corelife.Dying,
+			UUID:      dyingModelID,
+			ModelType: coremodel.IAAS,
+			Cloud:     "other-cloud",
+			CloudType: "ec2",
+			Credential: corecredential.Key{
+				Cloud: "other-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Owner:     m.userUUID,
+			OwnerName: "test-user",
+		},
+		Cloud: cloud.Cloud{
+			Name:      "other-cloud",
+			Type:      "ec2",
+			AuthTypes: cloud.AuthTypes{"access-key", "userpass"},
+			Regions:   []cloud.Region{{Name: "other-region"}},
+		},
+		Credential: credential.CloudCredentialInfo{
+			AuthType: "access-key",
+			Attributes: map[string]string{
+				"foo": "foo val",
+				"bar": "bar val",
+			},
+			Label: "foobar",
+		}.AsCredential(),
+	}})
+}
+
+// setLife sets the life value of the given model in the DB.
+func (m *stateSuite) setLife(c *gc.C, modelID coremodel.UUID, life domainlife.Life) {
+	setLifeQuery := `
+UPDATE model
+SET life_id = $M.life_id
+WHERE uuid = $M.model_id
+`
+	args := sqlair.M{
+		"model_id": modelID,
+		"life_id":  life,
+	}
+	stmt, err := sqlair.Prepare(setLifeQuery, args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, args).Run()
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestModelLastLogins tests the basic functionality of State.ModelLastLogins:
+//   - models can be filtered out by life
+//   - models are still returned even if they have never been accessed
+//   - new logins are reflected in the return value.
+func (m *stateSuite) TestModelLastLogins(c *gc.C) {
+	modelState := NewState(m.TxnRunnerFactory())
+	userState := accessstate.NewUserState(m.TxnRunnerFactory())
+
+	// The test model created in SetUpTest has already been logged in
+	lastLogin, err := userState.LastModelLogin(context.Background(), m.userName, m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a "never logged in" model
+	neverLoggedInModelID := modeltesting.GenModelUUID(c)
+	err = modelState.Create(context.Background(), neverLoggedInModelID, coremodel.IAAS,
+		model.ModelCreationArgs{
+			Name:          "never-logged-in",
+			Owner:         m.userUUID,
+			Cloud:         "my-cloud",
+			SecretBackend: juju.BackendName,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = modelState.Activate(context.Background(), neverLoggedInModelID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = userState.LastModelLogin(context.Background(), m.userName, neverLoggedInModelID)
+	c.Assert(err, jc.ErrorIs, accesserrors.UserNeverAccessedModel)
+
+	// Add "dead" model
+	deadModelID := modeltesting.GenModelUUID(c)
+	err = modelState.Create(context.Background(), deadModelID, coremodel.IAAS,
+		model.ModelCreationArgs{
+			Name:          "dead",
+			Owner:         m.userUUID,
+			Cloud:         "my-cloud",
+			SecretBackend: juju.BackendName,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = modelState.Activate(context.Background(), deadModelID)
+	c.Assert(err, jc.ErrorIsNil)
+	m.setLife(c, deadModelID, domainlife.Dead)
+	err = userState.UpdateLastModelLogin(context.Background(), m.userName, deadModelID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := []coremodel.ModelWithLogin{{
+		Model: coremodel.Model{
+			Name:         "my-test-model",
+			Life:         corelife.Alive,
+			UUID:         m.uuid,
+			ModelType:    coremodel.IAAS,
+			AgentVersion: version.Current,
+			Cloud:        "my-cloud",
+			CloudType:    "ec2",
+			CloudRegion:  "my-region",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Owner:     m.userUUID,
+			OwnerName: m.userName,
+		},
+		UserID:    m.userUUID,
+		LastLogin: &lastLogin,
+	}, {
+		Model: coremodel.Model{
+			Name:      "never-logged-in",
+			Life:      corelife.Alive,
+			UUID:      neverLoggedInModelID,
+			ModelType: coremodel.IAAS,
+			Cloud:     "my-cloud",
+			CloudType: "ec2",
+			Owner:     m.userUUID,
+			OwnerName: m.userName,
+		},
+		//UserID:    m.userUUID,
+		LastLogin: nil,
+	}}
+
+	// Get models with last login
+	modelsWithLogin, err := modelState.ModelLastLogins(context.Background(),
+		m.userUUID, []corelife.Value{corelife.Alive, corelife.Dying})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelsWithLogin, jc.DeepEquals, expected)
+
+	// Update model login and check this is reflected in model list
+	err = userState.UpdateLastModelLogin(context.Background(), m.userName, m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	updatedLogin, err := userState.LastModelLogin(context.Background(), m.userName, m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	expected[0].LastLogin = &updatedLogin
+
+	modelsWithLogin, err = modelState.ModelLastLogins(context.Background(),
+		m.userUUID, []corelife.Value{corelife.Alive, corelife.Dying})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelsWithLogin, jc.DeepEquals, expected)
 }
 
 // TestSecretBackendNotFoundForModelCreate is testing that if we specify a
@@ -1103,7 +1356,7 @@ func (m *stateSuite) TestGetModelByName(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(model, gc.DeepEquals, coremodel.Model{
 		Name:         "my-test-model",
-		Life:         life.Alive,
+		Life:         corelife.Alive,
 		UUID:         m.uuid,
 		ModelType:    coremodel.IAAS,
 		AgentVersion: version.Current,
@@ -1185,7 +1438,7 @@ func (m *stateSuite) TestGetControllerModel(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(model, gc.DeepEquals, coremodel.Model{
 		Name:         "my-test-model",
-		Life:         life.Alive,
+		Life:         corelife.Alive,
 		UUID:         m.uuid,
 		ModelType:    coremodel.IAAS,
 		AgentVersion: version.Current,

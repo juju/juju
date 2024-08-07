@@ -6,9 +6,12 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
+	"time"
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -33,6 +36,7 @@ type dummyState struct {
 	users               map[user.UUID]string
 	secretBackends      []string
 	controllerModelUUID coremodel.UUID
+	lastLogin           map[user.UUID]map[coremodel.UUID]time.Time
 }
 
 type dummyDeleter struct {
@@ -207,6 +211,56 @@ func (d *dummyState) ListAllModels(
 	return rval, nil
 }
 
+func (d *dummyState) HostedModels(_ context.Context, includeLifes []life.Value, excludeIDs []coremodel.UUID) ([]coremodel.HostedModel, error) {
+	var hostedModels []coremodel.HostedModel
+
+	for _, m := range d.models {
+		if !slices.Contains(includeLifes, m.Life) {
+			continue
+		}
+		if slices.Contains(excludeIDs, m.UUID) {
+			continue
+		}
+
+		hostedModels = append(hostedModels, coremodel.HostedModel{
+			Model: m,
+			Cloud: cloud.Cloud{
+				Name:            m.Cloud,
+				Type:            m.CloudType,
+				HostCloudRegion: m.CloudRegion,
+			},
+			Credential: cloud.Credential{},
+		})
+	}
+
+	return hostedModels, nil
+}
+
+func (d *dummyState) ModelLastLogins(_ context.Context, userID coreuser.UUID, includeLifes []life.Value) ([]coremodel.ModelWithLogin, error) {
+	var modelsWithLogin []coremodel.ModelWithLogin
+
+	for _, m := range d.models {
+		if !slices.Contains(includeLifes, m.Life) {
+			continue
+		}
+
+		var lastLogin *time.Time
+		if userLogins, ok := d.lastLogin[userID]; ok {
+			if modelLogin, ok := userLogins[m.UUID]; ok {
+				lastLogin = &modelLogin
+			}
+		}
+
+		modelsWithLogin = append(modelsWithLogin, coremodel.ModelWithLogin{
+			Model:     m,
+			UserID:    userID,
+			LastLogin: lastLogin,
+		})
+	}
+
+	return modelsWithLogin, nil
+}
+
 func (d *dummyState) ListModelsForUser(
 	_ context.Context,
 	userID coreuser.UUID,
@@ -276,4 +330,22 @@ func (d *dummyState) UpdateCredential(
 	}
 
 	return nil
+}
+
+func (d *dummyState) setLife(_ context.Context, modelID coremodel.UUID, newLife life.Value) error {
+	m, ok := d.models[modelID]
+	if !ok {
+		return modelerrors.NotFound
+	}
+
+	m.Life = newLife
+	d.models[modelID] = m
+	return nil
+}
+
+func (d *dummyState) updateModelLogin(userID user.UUID, modelID coremodel.UUID, timestamp time.Time) {
+	if d.lastLogin[userID] == nil {
+		d.lastLogin[userID] = map[coremodel.UUID]time.Time{}
+	}
+	d.lastLogin[userID][modelID] = timestamp
 }

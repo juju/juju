@@ -12,14 +12,20 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/cloud"
+	corecloud "github.com/juju/juju/core/cloud"
 	"github.com/juju/juju/core/credential"
+	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
+	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
+	cloudstate "github.com/juju/juju/domain/cloud/state"
+	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -396,18 +402,7 @@ func GetModel(
 	uuid coremodel.UUID,
 ) (coremodel.Model, error) {
 	q := `
-SELECT (name,
-       ma.target_version,
-       cloud_name,
-       cloud_type,
-       cloud_region_name,
-       model_type,
-       owner_uuid,
-	   owner_name,
-       cloud_credential_cloud_name,
-       cloud_credential_owner_name,
-       cloud_credential_name,
-       life) AS (&dbModel.*)
+SELECT &dbModel.*
 FROM v_model
 INNER JOIN model_agent ma ON v_model.uuid = ma.model_uuid
 WHERE uuid = $dbModel.uuid
@@ -793,71 +788,178 @@ func (s *State) ListAllModels(ctx context.Context) ([]coremodel.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	modelStmt := `
-SELECT uuid,
-       name,
-       cloud_name,
-       cloud_region_name,
-	   model_type,
-	   owner_uuid,
-	   owner_name,
-	   cloud_credential_name,
-	   cloud_credential_owner_name,
-	   cloud_credential_cloud_name,
-	   life
+	query := `
+SELECT &dbModel.*
 FROM v_model
 `
 
-	rval := []coremodel.Model{}
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, modelStmt)
-		if err != nil {
-			return err
+	var resultsForModel []dbModel
+
+	stmt, err := sqlair.Prepare(query, dbModel{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing get model statement: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&resultsForModel)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("getting models from database: %w", err)
 		}
-		defer rows.Close()
-		defer func() { _ = rows.Close() }()
-
-		var (
-			// cloudRegion could be null
-			cloudRegion sql.NullString
-			modelType   string
-			userUUID    string
-			credKey     credential.Key
-			model       coremodel.Model
-		)
-
-		for rows.Next() {
-			err := rows.Scan(
-				&model.UUID,
-				&model.Name,
-				&model.Cloud,
-				&cloudRegion,
-				&modelType,
-				&userUUID,
-				&model.OwnerName,
-				&credKey.Name,
-				&credKey.Owner,
-				&credKey.Cloud,
-				&model.Life,
-			)
-			if err != nil {
-				return err
-			}
-
-			model.CloudRegion = cloudRegion.String
-			model.ModelType = coremodel.ModelType(modelType)
-			model.Owner = user.UUID(userUUID)
-			model.Credential = credKey
-			rval = append(rval, model)
-		}
-
-		return rows.Err()
+		return nil
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("getting all models: %w", err)
 	}
 
+	return transformModelDBResult(resultsForModel...)
+}
+
+// HostedModels retrieves all hosted models on the controller, along with their
+// cloud and credential information. This function will filter on models that
+// have a "life" value in the includeLifes slice. Any models with an ID in the
+// excludeIDs slice will be excluded. If no matching models exist, an empty
+// slice is returned.
+func (s *State) HostedModels(
+	ctx context.Context,
+	includeLifes []corelife.Value,
+	excludeIDs []coremodel.UUID,
+) ([]coremodel.HostedModel, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	query := `
+SELECT &dbModel.*
+FROM v_model
+WHERE life IN ($lifeList[:])
+AND uuid NOT IN ($modelIDList[:])
+`
+
+	inputLifes := lifeList(includeLifes)
+	inputModelIDs := modelIDList(excludeIDs)
+
+	stmt, err := sqlair.Prepare(query, dbModel{}, inputLifes, inputModelIDs)
+	if err != nil {
+		return nil, fmt.Errorf("preparing get model statement: %w", err)
+	}
+
+	resultsForModel := []dbModel{}
+	modelClouds := map[string]cloud.Cloud{}
+	modelCredentials := map[string]cloud.Credential{}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, inputLifes, inputModelIDs).GetAll(&resultsForModel)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("getting models from database: %w", err)
+		}
+
+		for _, stateModel := range resultsForModel {
+			modelCloud, err := cloudstate.GetCloudForID(ctx, s, tx, corecloud.ID(stateModel.CloudID))
+			if err != nil {
+				return fmt.Errorf("cannot get cloud %q for model %q: %w", stateModel.CloudID, stateModel.UUID, err)
+			}
+			modelClouds[stateModel.UUID] = modelCloud
+
+			modelCredential, err := credentialstate.GetCloudCredential(ctx, s, tx, corecredential.ID(stateModel.CredentialID))
+			if err != nil {
+				return fmt.Errorf("cannot get credential %q for model %q: %w", stateModel.CredentialID, stateModel.UUID, err)
+			}
+			modelCredentials[stateModel.UUID] = modelCredential.AsCredential()
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("getting all models: %w", err)
+	}
+
+	hostedModels := make([]coremodel.HostedModel, 0, len(resultsForModel))
+	for _, stateModel := range resultsForModel {
+		coreModel, err := stateModel.toCoreModel()
+		if err != nil {
+			return nil, fmt.Errorf("transforming model %q from db: %w", stateModel.UUID, err)
+		}
+
+		hostedModels = append(hostedModels, coremodel.HostedModel{
+			Model:      coreModel,
+			Cloud:      modelClouds[stateModel.UUID],
+			Credential: modelCredentials[stateModel.UUID],
+		})
+	}
+	return hostedModels, nil
+}
+
+// ModelLastLogins lists all models along with the last login by the specified
+// user. This function will filter on models that have a "life" value in the
+// includeLifes slice. If no matching models exist, an empty slice is returned.
+func (s *State) ModelLastLogins(
+	ctx context.Context,
+	userID user.UUID,
+	includeLifes []corelife.Value,
+) ([]coremodel.ModelWithLogin, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	query := `
+SELECT &dbModel.*, &userModelLastLogin.*
+FROM v_model
+LEFT JOIN model_last_login AS mll
+    ON v_model.uuid = mll.model_uuid
+    AND mll.user_uuid = $M.user_uuid
+WHERE life IN ($lifeList[:])
+`
+
+	inputLifes := lifeList(includeLifes)
+	args := sqlair.M{
+		"user_uuid": userID,
+	}
+
+	stmt, err := sqlair.Prepare(query, dbModel{}, userModelLastLogin{}, inputLifes, args)
+	if err != nil {
+		return nil, fmt.Errorf("preparing select models statement: %w", err)
+	}
+
+	resultsForModel := []dbModel{}
+	lastLogins := []userModelLastLogin{}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, inputLifes, args).GetAll(&resultsForModel, &lastLogins)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("getting models from database: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("getting all models: %w", err)
+	}
+
+	rval := make([]coremodel.ModelWithLogin, 0, len(resultsForModel))
+	for i, stateModel := range resultsForModel {
+		coreModel, err := stateModel.toCoreModel()
+		if err != nil {
+			return nil, fmt.Errorf("transforming model %q from state: %w", stateModel.UUID, err)
+		}
+		rval = append(rval, coremodel.ModelWithLogin{
+			Model:     coreModel,
+			UserID:    user.UUID(lastLogins[i].UserID),
+			LastLogin: lastLogins[i].LastLogin,
+		})
+	}
+	return rval, nil
+}
+
+func transformModelDBResult(models ...dbModel) ([]coremodel.Model, error) {
+	rval := make([]coremodel.Model, 0, len(models))
+	for _, stateModel := range models {
+		coreModel, err := stateModel.toCoreModel()
+		if err != nil {
+			return nil, fmt.Errorf("transforming model %q from DB: %w", stateModel.UUID, err)
+		}
+		rval = append(rval, coreModel)
+	}
 	return rval, nil
 }
 

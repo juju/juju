@@ -22,6 +22,11 @@ const (
 	Dead Value = "dead"
 )
 
+// String returns a string representation of this life Value.
+func (v Value) String() string {
+	return string(v)
+}
+
 // Validate returns an error if the value is not known.
 func (v Value) Validate() error {
 	switch v {

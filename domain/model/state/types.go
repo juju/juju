@@ -5,11 +5,13 @@ package state
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
+	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 )
@@ -32,10 +34,13 @@ type dbModel struct {
 	ModelType string `db:"model_type"`
 
 	// AgentVersion is the target version for agents running under this model.
-	AgentVersion string `db:"target_version"`
+	AgentVersion string `db:"target_agent_version"`
 
 	// CloudName is the name of the cloud to associate with the model.
 	CloudName string `db:"cloud_name"`
+
+	// CloudID is the ID of the model's cloud from the cloud table.
+	CloudID string `db:"cloud_uuid"`
 
 	// CloudType is the type of the underlying cloud (e.g. lxd, azure, ...)
 	CloudType string `db:"cloud_type"`
@@ -45,6 +50,10 @@ type dbModel struct {
 
 	// CredentialName is the name of the model cloud credential.
 	CredentialName string `db:"cloud_credential_name"`
+
+	// CredentialID is the ID of the model's credential from the
+	// cloud_credential table.
+	CredentialID string `db:"cloud_credential_uuid"`
 
 	// CredentialCloudName is the cloud name that the model cloud credential applies to.
 	CredentialCloudName string `db:"cloud_credential_cloud_name"`
@@ -86,4 +95,18 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 // dbModelUUID represents the controller model uuid from the controller table.
 type dbModelUUID struct {
 	ModelUUID string `db:"model_uuid"`
+}
+
+// lifeList represents a list of life values, to be used to filter returned
+// models.
+type lifeList []corelife.Value
+
+// modelIDList represents a list of model IDs, to be used to filter returned
+// models.
+type modelIDList []coremodel.UUID
+
+// userModelLastLogin represents a row from the model_last_login table.
+type userModelLastLogin struct {
+	UserID    string     `db:"user_uuid"`
+	LastLogin *time.Time `db:"time"`
 }
