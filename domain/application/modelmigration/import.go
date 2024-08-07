@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
@@ -436,18 +437,22 @@ func (i *importOperation) importCharmActions(data description.CharmActions) (*in
 
 	actions := make(map[string]internalcharm.ActionSpec, len(descriptionActions))
 	for name, a := range descriptionActions {
+		parameters, err := importCharmParameters(a.Parameters())
+		if err != nil {
+			return nil, fmt.Errorf("import charm parameters: %w", err)
+		}
+
 		actions[name] = internalcharm.ActionSpec{
 			Description:    a.Description(),
 			Parallel:       a.Parallel(),
 			ExecutionGroup: a.ExecutionGroup(),
-			Params:         a.Parameters(),
+			Params:         parameters,
 		}
 	}
 
 	return &internalcharm.Actions{
 		ActionSpecs: actions,
 	}, nil
-
 }
 
 func importCharmUser(data description.CharmMetadata) (internalcharm.RunAs, error) {
@@ -699,4 +704,72 @@ func importBaseChannel(data string) (internalcharm.Channel, error) {
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+func importCharmParameters(parameters map[string]any) (map[string]any, error) {
+	if len(parameters) == 0 {
+		return nil, nil
+	}
+
+	// We can't have any nested maps that are of the type map[any]any, so we
+	// need to convert the map[any]any to map[string]any.
+	result := make(map[string]any, len(parameters))
+	for key, value := range parameters {
+		switch value := value.(type) {
+		case map[any]any:
+			nested, err := convertNestedMap(value)
+			if err != nil {
+				return nil, fmt.Errorf("convert nested map: %w", err)
+			}
+			result[key] = nested
+		default:
+			result[key] = value
+		}
+	}
+	return result, nil
+}
+
+func convertNestedMap(nested map[any]any) (map[string]any, error) {
+	if len(nested) == 0 {
+		return nil, nil
+	}
+
+	result := make(map[string]any, len(nested))
+	for key, value := range nested {
+		coercedKey, err := convertKey(key)
+		if err != nil {
+			return nil, fmt.Errorf("convert key %v: %w", key, err)
+		}
+
+		switch value := value.(type) {
+		case map[any]any:
+			nested, err := convertNestedMap(value)
+			if err != nil {
+				return nil, fmt.Errorf("convert nested map: %w", err)
+			}
+			result[coercedKey] = nested
+		default:
+			result[coercedKey] = value
+		}
+	}
+	return result, nil
+}
+
+func convertKey(key any) (string, error) {
+	switch key := key.(type) {
+	case string:
+		return key, nil
+	case fmt.Stringer:
+		return key.String(), nil
+	case int:
+		return strconv.Itoa(key), nil
+	case int64:
+		return strconv.FormatInt(key, 10), nil
+	case float64:
+		return strconv.FormatFloat(key, 'f', -1, 64), nil
+	case bool:
+		return strconv.FormatBool(key), nil
+	default:
+		return "", fmt.Errorf("key can not be converted to a string: %w", errors.NotValid)
+	}
 }

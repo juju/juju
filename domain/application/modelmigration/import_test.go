@@ -665,6 +665,38 @@ func (s *importSuite) TestImportCharmActions(c *gc.C) {
 	})
 }
 
+func (s *importSuite) TestImportCharmActionsNestedMaps(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectCharmActionsNested()
+
+	importOp := importOperation{
+		service: s.importService,
+	}
+
+	meta, err := importOp.importCharmActions(s.charmActions)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(meta, gc.NotNil)
+	c.Check(meta.ActionSpecs, gc.DeepEquals, map[string]internalcharm.ActionSpec{
+		"foo": {
+			Description:    "baz",
+			Parallel:       true,
+			ExecutionGroup: "group",
+			Params: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "baz",
+					"foo": map[string]interface{}{
+						"1":    2,
+						"true": false,
+						"0.1":  "0.2",
+						"2":    int64(2),
+					},
+				},
+			},
+		},
+	})
+}
+
 func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -829,6 +861,29 @@ func (s *importSuite) expectCharmActions() {
 	actionExp.ExecutionGroup().Return("group")
 	actionExp.Parameters().Return(map[string]interface{}{
 		"foo": "bar",
+	})
+
+	exp := s.charmActions.EXPECT()
+	exp.Actions().Return(map[string]description.CharmAction{
+		"foo": s.charmAction,
+	})
+}
+
+func (s *importSuite) expectCharmActionsNested() {
+	actionExp := s.charmAction.EXPECT()
+	actionExp.Description().Return("baz")
+	actionExp.Parallel().Return(true)
+	actionExp.ExecutionGroup().Return("group")
+	actionExp.Parameters().Return(map[string]interface{}{
+		"foo": map[interface{}]interface{}{
+			"bar": "baz",
+			"foo": map[interface{}]interface{}{
+				1:        2,
+				true:     false,
+				0.1:      "0.2",
+				int64(2): int64(2),
+			},
+		},
 	})
 
 	exp := s.charmActions.EXPECT()
