@@ -390,11 +390,6 @@ CIDRs specifying what ingress can be applied to offers in this model.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	FanConfig: {
-		Description: "Configuration for fan networking for this model",
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
 	CloudInitUserDataKey: {
 		Description: "Cloud-init user-data (in yaml format) to be added to userdata for new machines created in this model",
 		Type:        environschema.Tstring,

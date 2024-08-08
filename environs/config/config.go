@@ -25,7 +25,6 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	coremodelconfig "github.com/juju/juju/core/modelconfig"
-	"github.com/juju/juju/core/network"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/charmhub"
@@ -258,9 +257,6 @@ const (
 	// EgressSubnets are the source addresses from which traffic from this model
 	// originates if the model is deployed such that NAT or similar is in use.
 	EgressSubnets = "egress-subnets"
-
-	// FanConfig defines the configuration for FAN network running in the model.
-	FanConfig = "fan-config"
 
 	// CloudInitUserDataKey is the key to specify cloud-init yaml the user
 	// wants to add into the cloud-config data produced by Juju when
@@ -575,7 +571,6 @@ var defaultConfigValues = map[string]any{
 	TransmitVendorMetricsKey:        true,
 	UpdateStatusHookInterval:        DefaultUpdateStatusHookInterval,
 	EgressSubnets:                   "",
-	FanConfig:                       "",
 	CloudInitUserDataKey:            "",
 	ContainerInheritPropertiesKey:   "",
 	BackupDirKey:                    "",
@@ -773,13 +768,6 @@ func Validate(_ctx context.Context, cfg, old *Config) error {
 			if cidr == "0.0.0.0/0" {
 				return errors.Errorf("CIDR %q not allowed", cidr)
 			}
-		}
-	}
-
-	if v, ok := cfg.defined[FanConfig].(string); ok && v != "" {
-		_, err := network.ParseFanConfig(v)
-		if err != nil {
-			return err
 		}
 	}
 
@@ -1673,12 +1661,6 @@ func (c *Config) EgressSubnets() []string {
 	return result
 }
 
-// FanConfig is the configuration of FAN network running in the model.
-func (c *Config) FanConfig() (network.FanConfig, error) {
-	// At this point we are sure that the line is valid.
-	return network.ParseFanConfig(c.asString(FanConfig))
-}
-
 // CloudInitUserData returns a copy of the raw user data attributes
 // that were specified by the user.
 func (c *Config) CloudInitUserData() map[string]any {
@@ -1828,7 +1810,6 @@ var alwaysOptional = schema.Defaults{
 	MaxActionResultsSize:            schema.Omit,
 	UpdateStatusHookInterval:        schema.Omit,
 	EgressSubnets:                   schema.Omit,
-	FanConfig:                       schema.Omit,
 	CloudInitUserDataKey:            schema.Omit,
 	ContainerInheritPropertiesKey:   schema.Omit,
 	BackupDirKey:                    schema.Omit,
