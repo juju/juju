@@ -12,10 +12,10 @@ STAFF_NOTICE = ("This doc was automatically generated from Juju code. Please "
 
 # Get configuration from environment variables
 DISCOURSE_HOST = os.environ.get('DISCOURSE_HOST', 'https://discourse.charmhub.io/')
-DISCOURSE_API_USERNAME = os.environ.get('DISCOURSE_API_USERNAME')
-DISCOURSE_API_KEY = os.environ.get('DISCOURSE_API_KEY')
-DOCS_DIR = os.environ.get('DOCS_DIR')
-TOPIC_IDS = os.environ.get('TOPIC_IDS')
+DISCOURSE_API_USERNAME = os.environ['DISCOURSE_API_USERNAME']
+DISCOURSE_API_KEY = os.environ['DISCOURSE_API_KEY']
+DOCS_DIR = os.environ['DOCS_DIR']
+TOPIC_IDS = os.environ['TOPIC_IDS']
 
 client = Client(
     host=DISCOURSE_HOST,
@@ -51,11 +51,8 @@ def check():
     no_discourse_topic = []
 
     for root, dirs, files in os.walk(DOCS_DIR):
-        # Current directory relative to DOCS_DIR
-        current_dir = os.path.relpath(root, DOCS_DIR)
-
         for name in files:
-            fullname = os.path.join(current_dir, name)
+            fullname = os.path.relpath(os.path.join(root, name), DOCS_DIR)
             if not fullname.endswith(".md"):
                 print(f'entry {fullname}: not a Markdown file: skipping')
                 continue
@@ -107,14 +104,14 @@ def sync():
         current_dir = os.path.relpath(root, DOCS_DIR)
 
         for name in files:
-            fullname = os.path.join(current_dir, name)
+            abs_path = os.path.join(root, name)
+            fullname = os.path.relpath(abs_path, DOCS_DIR)
             if not fullname.endswith(".md"):
                 print(f'entry {fullname}: not a Markdown file: skipping')
                 continue
 
             doc_name = removesuffix(fullname, ".md")
-            filepath = os.path.join(DOCS_DIR, fullname)
-            content = open(filepath, 'r').read()
+            content = open(abs_path, 'r').read()
 
             if doc_name not in topic_ids:
                 couldnt_sync[doc_name] = 'no topic ID in yaml file'
