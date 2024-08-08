@@ -363,7 +363,7 @@ parts:
     go-cgo-enabled: "1"
     go-cgo-cc: "musl-gcc"
     go-cgo-cflags: "-I/usr/local/musl/include"
-    go-cgo-ldflags: "-luv -ldqlite -llz4 -lsqlite3"
+    go-cgo-ldflags: "-luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576"
     go-cgo-ldflags-allow: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
 
   juju:
