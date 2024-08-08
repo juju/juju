@@ -5,11 +5,16 @@ package ssh
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/juju/utils/v3"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -21,6 +26,138 @@ type PublicKey struct {
 
 	// Comment is the comment string attached to the authorised key.
 	Comment string
+}
+
+const (
+	// publicKeyFileSuffix is the suffix Juju expectes public ssh keys to have.
+	publicKeyFileSuffix = ".pub"
+
+	// directoryUserLocalSSH is the directory name inside of a users home
+	// directory where we expect to find ssh keys and configuration.
+	directoryUserLocalSSH = ".ssh"
+)
+
+// commonPublicKeyFileNames returns a set of common filenames for public keys
+// that can be found inside of a Juju users .ssh directory.
+func commonPublicKeyFileNames() []string {
+	return []string{
+		"id_ed25519.pub",
+		"id_ecdsa.pub",
+		"id_rsa.pub",
+		"identity.pub",
+	}
+}
+
+// GetFileSystemPublicKeys will attempt to find all ssh public keys at the root
+// of the file system and read them all into a slice of public ssh keys. No
+// attempt is made to assert if a file contains a valid public key.
+//
+// Public keys are found based on the file in the file system ending in a ".pub"
+// suffix. If a file is read and a permission error or file not found error
+// occurs this function will simply move on and not report the problem upwards.
+// This is a best effort approach.
+//
+// This function is useful for reading the public keys found in a users juju ssh
+// directory. See [github.com/juju/juju/juju/osenv.JujuXDGDataSSHFS].
+func GetFileSystemPublicKeys(
+	ctx context.Context,
+	fileSystem fs.FS,
+) ([]string, error) {
+	pattern := "*" + publicKeyFileSuffix
+	fileNames, err := fs.Glob(fileSystem, pattern)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"finding all files in file system that matches %q: %w",
+			pattern,
+			err,
+		)
+	}
+
+	keys := []string{}
+	for _, fileName := range fileNames {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		key, err := readPublicKeyFile(fileSystem, fileName)
+		if errors.Is(err, fs.ErrPermission) ||
+			errors.Is(err, fs.ErrNotExist) {
+			continue
+		} else if err != nil {
+			return nil, fmt.Errorf("attempting to read public key %q from filesystem", fileName)
+		}
+
+		keys = append(keys, key)
+	}
+
+	return keys, nil
+}
+
+// readKeyFile is responsible for reading the file pointed at by file name from
+// the file system and processing the data as an ssh public key.
+//
+// No attempt is made to verify the contents of the file is a valid ssh public
+// key.
+func readPublicKeyFile(fileSystem fs.FS, fileName string) (string, error) {
+	data, err := fs.ReadFile(fileSystem, fileName)
+	if err != nil {
+		return "", fmt.Errorf("reading public key file %q: %w", fileName, err)
+	}
+
+	return trimPublicKey(string(data), ""), nil
+}
+
+// GetCommonUserPublicKeys is responsible for attempting to load common public
+// key files from the supplied file system. See [LocalUserSSHFileSystem] for
+// accessing the users ssh file system.
+//
+// The files target by this function are:
+// - id_ed25519.pub
+// - id_ecdsa.pub
+// - id_rsa.pub
+// - identity.pub
+//
+// No attempt is made to verify the contents of each file is a valid ssh public
+// key. Access errors to files such as permission or not found are ignored. Any
+// other read based errors are returned.
+func GetCommonUserPublicKeys(
+	ctx context.Context,
+	fileSystem fs.FS,
+) ([]string, error) {
+	keys := []string{}
+	for _, fileName := range commonPublicKeyFileNames() {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		key, err := readPublicKeyFile(fileSystem, fileName)
+		if errors.Is(err, fs.ErrPermission) ||
+			errors.Is(err, fs.ErrNotExist) {
+			continue
+		} else if err != nil {
+			return nil, fmt.Errorf("attempting to read public key %q from filesystem", fileName)
+		}
+
+		keys = append(keys, key)
+	}
+
+	return keys, nil
+}
+
+// LocalUserSSHFileSystem returns a file system rooted at the local users .ssh
+// directory.
+func LocalUserSSHFileSystem() fs.FS {
+	return os.DirFS(filepath.Join(utils.Home(), directoryUserLocalSSH))
+}
+
+// trimPublicKey is responsible for removing supurfulus data from public keys
+// read from files. extra runes to trim can be supplied in the extra argument.
+func trimPublicKey(key string, extra string) string {
+	return strings.Trim(key, " 	\r\n"+extra)
 }
 
 // Fingerprint returns the SHA256 fingerprint of the public key.
