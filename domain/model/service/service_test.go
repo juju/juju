@@ -875,7 +875,7 @@ func (s *serviceSuite) TestListAllModelSummaries(c *gc.C) {
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
 	models, err := svc.ListAllModelSummaries(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(models, gc.DeepEquals, []coremodel.ModelSummary{{
+	c.Check(models, jc.SameContents, []coremodel.ModelSummary{{
 		Name:           "my-awesome-model",
 		AgentVersion:   jujuversion.Current,
 		UUID:           uuid1,
