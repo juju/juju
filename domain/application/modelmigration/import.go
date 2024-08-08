@@ -225,11 +225,6 @@ func (i *importOperation) makeAddress(addr description.Address) (*network.SpaceA
 	return result, ptr(network.Origin(addr.Origin()))
 }
 
-type stubCharm struct {
-	name     string
-	revision int
-}
-
 type charmData struct {
 	Metadata description.CharmMetadata
 	Manifest description.CharmManifest
