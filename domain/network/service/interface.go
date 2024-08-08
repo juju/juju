@@ -38,15 +38,21 @@ type State interface {
 type SpaceState interface {
 	// AddSpace creates a space.
 	AddSpace(ctx context.Context, uuid string, name string, providerID network.Id, subnetIDs []string) error
-	// GetSpace returns the space by UUID.
+	// GetSpace returns the space by UUID. If the space is not found, an error
+	// is returned satisfying networkerrors.SpaceNotFound.
 	GetSpace(ctx context.Context, uuid string) (*network.SpaceInfo, error)
-	// GetSpaceByName returns the space by name.
+	// GetSpaceByName returns the space by name. If the space is not found, an
+	// error is returned satisfying networkerrors.SpaceNotFound.
 	GetSpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
-	// UpdateSpace updates the space identified by the passed uuid.
+	// UpdateSpace updates the space identified by the passed uuid. If the
+	// space is not found, an error is returned satisfying
+	// networkerrors.SpaceNotFound.
 	UpdateSpace(ctx context.Context, uuid string, name string) error
-	// DeleteSpace deletes the space identified by the passed uuid.
+	// DeleteSpace deletes the space identified by the passed uuid. If the
+	// space is not found, an error is returned satisfying
+	// networkerrors.SpaceNotFound.
 	DeleteSpace(ctx context.Context, uuid string) error
 }
 

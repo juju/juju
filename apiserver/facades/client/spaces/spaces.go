@@ -36,19 +36,22 @@ type ControllerConfigService interface {
 type NetworkService interface {
 	// AddSpace creates and returns a new space.
 	AddSpace(ctx context.Context, space network.SpaceInfo) (network.Id, error)
-	// Space returns a space from state that matches the input ID.
-	// An error is returned if the space does not exist or if there was a problem
-	// accessing its information.
+	// Space returns a space from state that matches the input ID. If the space
+	// is not found, an error is returned satisfying networkerrors.SpaceNotFound.
+	// An error is returned if there was a problem accessing its information.
 	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
-	// SpaceByName returns a space from state that matches the input name.
-	// An error is returned that satisfied errors.NotFound if the space was not found
-	// or an error static any problems fetching the given space.
+	// SpaceByName returns a space from state that matches the input name. If
+	// the space is not found, an error is returned satisfying
+	// networkerrors.SpaceNotFound.
 	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
-	// UpdateSpace updates the space name identified by the passed uuid.
+	// UpdateSpace updates the space name identified by the passed uuid. If
+	// the space is not found, an error is returned satisfying
+	// networkerrors.SpaceNotFound.
 	UpdateSpace(ctx context.Context, uuid string, name string) error
-	// RemoveSpace deletes a space identified by its uuid.
+	// RemoveSpace deletes a space identified by its uuid. If the space is not
+	// found, an error is returned satisfying networkerrors.SpaceNotFound.
 	RemoveSpace(ctx context.Context, uuid string) error
 	// ReloadSpaces loads spaces and subnets from the provider into state.
 	ReloadSpaces(ctx context.Context) error
