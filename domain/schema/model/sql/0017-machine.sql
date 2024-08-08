@@ -51,16 +51,24 @@ CREATE TABLE machine_constraint (
     REFERENCES "constraint" (uuid)
 );
 
-CREATE TABLE machine_tool (
+CREATE TABLE machine_agent (
     machine_uuid TEXT NOT NULL,
-    tool_url TEXT NOT NULL,
-    tool_version TEXT NOT NULL,
-    tool_sha256 TEXT NOT NULL,
-    tool_size INT NOT NULL,
+    url TEXT NOT NULL,
+    version_major INT NOT NULL,
+    version_minor INT NOT NULL,
+    version_tag TEXT,
+    version_patch INT NOT NULL,
+    version_build INT,
+    hash TEXT NOT NULL,
+    hash_kind_id INT NOT NULL DEFAULT 0,
+    binary_size INT NOT NULL,
     CONSTRAINT fk_machine_principal_machine
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid),
-    PRIMARY KEY (machine_uuid, tool_url)
+    CONSTRAINT fk_machine_agent_hash_kind
+    FOREIGN KEY (hash_kind_id)
+    REFERENCES hash_kind (id),
+    PRIMARY KEY (machine_uuid, url)
 );
 
 CREATE TABLE machine_volume (

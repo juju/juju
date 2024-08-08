@@ -1181,7 +1181,18 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 	}
 	s.state.EXPECT().ReadSequence("metadata-name").Return(0, nil)
 	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application, nil)
-	s.applicationService.EXPECT().CreateApplication(gomock.Any(), "metadata-name", s.charm, applicationservice.AddApplicationArgs{
+	s.applicationService.EXPECT().CreateApplication(gomock.Any(), "metadata-name", s.charm, corecharm.Origin{
+		Source:   "charm-hub",
+		Revision: intptr(5),
+		Channel: &charm.Channel{
+			Risk: "stable",
+		},
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
+		},
+	}, applicationservice.AddApplicationArgs{
 		Storage: nil,
 	}, applicationservice.AddUnitArg{UnitName: ptr("metadata-name/0")})
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI(c)
@@ -1313,7 +1324,18 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 	}
 	s.state.EXPECT().ReadSequence("metadata-name").Return(0, nil)
 	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application, nil)
-	s.applicationService.EXPECT().CreateApplication(gomock.Any(), "metadata-name", s.charm, applicationservice.AddApplicationArgs{
+	s.applicationService.EXPECT().CreateApplication(gomock.Any(), "metadata-name", s.charm, corecharm.Origin{
+		Source:   "charm-hub",
+		Revision: intptr(5),
+		Channel: &charm.Channel{
+			Risk: "stable",
+		},
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
+		},
+	}, applicationservice.AddApplicationArgs{
 		Storage: nil,
 	}, applicationservice.AddUnitArg{UnitName: ptr("metadata-name/0")})
 

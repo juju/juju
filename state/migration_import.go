@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"encoding/hex"
 	"fmt"
 	"reflect"
@@ -29,7 +28,6 @@ import (
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
-	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -38,16 +36,6 @@ import (
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
-
-// MachineService instances save a machine to dqlite state.
-type MachineService interface {
-	CreateMachine(context.Context, string) error
-}
-
-// ApplicationService instances save an application to dqlite state.
-type ApplicationService interface {
-	CreateApplication(ctx context.Context, name string, charm charm.Charm, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) error
-}
 
 // Import the database agnostic model representation into the database.
 func (ctrl *Controller) Import(

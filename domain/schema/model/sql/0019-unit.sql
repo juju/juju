@@ -17,9 +17,9 @@ CREATE TABLE unit (
     life_id INT NOT NULL,
     application_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
-    -- charm_uuid should not be nullable, but we need to allow it for now
-    -- whilst we're wiring up the model.
+    -- Freshly created units will not have a charm URL set.
     charm_uuid TEXT,
+    -- Resolve Kind starts out as None, is only set when a hook errors.
     resolve_kind_id INT NOT NULL DEFAULT 0,
     password_hash_algorithm_id TEXT,
     password_hash TEXT,
@@ -52,23 +52,20 @@ ON unit (application_uuid);
 CREATE INDEX idx_unit_net_node
 ON unit (net_node_uuid);
 
-CREATE TABLE unit_platform (
+-- unit_principal table is a table which is used to store the.
+-- principal units for subordinate units.
+CREATE TABLE unit_principal (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
-    os_id TEXT,
-    channel TEXT,
-    architecture_id TEXT,
-    CONSTRAINT fk_unit_platform_unit
+    principal_uuid TEXT NOT NULL,
+    CONSTRAINT fk_unit_principal_unit
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid),
-    CONSTRAINT fk_unit_platform_os
-    FOREIGN KEY (os_id)
-    REFERENCES os (id),
-    CONSTRAINT fk_unit_platform_architecture
-    FOREIGN KEY (architecture_id)
-    REFERENCES architecture (id)
+    CONSTRAINT fk_unit_principal_principal
+    FOREIGN KEY (principal_uuid)
+    REFERENCES unit (uuid)
 );
 
-CREATE TABLE unit_tool (
+CREATE TABLE unit_agent (
     unit_uuid TEXT NOT NULL,
     url TEXT NOT NULL,
     version_major INT NOT NULL,
@@ -76,9 +73,15 @@ CREATE TABLE unit_tool (
     version_tag TEXT,
     version_patch INT NOT NULL,
     version_build INT,
-    CONSTRAINT fk_unit_tool_unit
+    hash TEXT NOT NULL,
+    hash_kind_id INT NOT NULL DEFAULT 0,
+    binary_size INT NOT NULL,
+    CONSTRAINT fk_unit_agent_unit
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid),
+    CONSTRAINT fk_unit_agent_hash_kind
+    FOREIGN KEY (hash_kind_id)
+    REFERENCES hash_kind (id),
     CONSTRAINT fk_object_store_metadata_path_unit
     FOREIGN KEY (url)
     REFERENCES object_store_metadata_path (path),

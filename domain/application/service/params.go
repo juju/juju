@@ -4,20 +4,39 @@
 package service
 
 import (
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
 
-// AddApplicationArgs contain arguments for adding an application to the model.
+// AddApplicationArgs contains arguments for adding an application to the model.
 type AddApplicationArgs struct {
 	// Storage contains the application's storage directives.
 	Storage map[string]storage.Directive
 }
 
-// AddUnitArgs contains parameters for adding a unit to the model.
+// CloudContainerParams contains parameters for a unit cloud container.
+type CloudContainerParams struct {
+	ProviderId    *string
+	Address       *network.SpaceAddress
+	AddressOrigin *network.Origin
+	Ports         *[]string
+}
+
+// AddressParams contains parameters for a unit/cloud container address.
+type AddressParams struct {
+	Value       string
+	AddressType string
+	Scope       string
+	Origin      string
+	SpaceID     string
+}
+
+// AddUnitArg contains parameters for adding a unit to the model.
 type AddUnitArg struct {
-	// UnitName is for migration, adding named units.
-	UnitName *string
+	UnitName       *string
+	PasswordHash   *string
+	CloudContainer *CloudContainerParams
 
 	// Storage params go here.
 }
@@ -25,8 +44,13 @@ type AddUnitArg struct {
 // UpsertCAASUnitParams contain parameters for introducing
 // a k8s unit representing a new pod to the model.
 type UpsertCAASUnitParams struct {
-	// UnitName is for CAAS models when creating stateful units.
-	UnitName *string
+	UnitName     string
+	PasswordHash *string
+	ProviderId   *string
+	Address      *string
+	Ports        *[]string
+	OrderedScale bool
+	OrderedId    int
 }
 
 // UpdateCharmParams contains the parameters for updating

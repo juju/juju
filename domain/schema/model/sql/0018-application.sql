@@ -37,7 +37,7 @@ CREATE TABLE application_channel (
 CREATE TABLE application_scale (
     application_uuid TEXT NOT NULL PRIMARY KEY,
     scale INT,
-    scale_target TEXT,
+    scale_target INT,
     scaling BOOLEAN DEFAULT FALSE,
     CONSTRAINT fk_application_endpoint_space_application
     FOREIGN KEY (application_uuid)
@@ -46,9 +46,9 @@ CREATE TABLE application_scale (
 
 CREATE TABLE application_platform (
     application_uuid TEXT NOT NULL PRIMARY KEY,
-    os_id TEXT,
-    channel TEXT,
-    architecture_id TEXT,
+    os_id TEXT NOT NULL,
+    channel TEXT NOT NULL,
+    architecture_id TEXT NOT NULL,
     CONSTRAINT fk_application_platform_application
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid),

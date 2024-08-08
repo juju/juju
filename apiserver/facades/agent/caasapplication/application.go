@@ -178,7 +178,16 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	if err != nil {
 		return errResp(err)
 	}
-	if err := f.applicationService.UpsertCAASUnit(ctx, application.Name(), applicationservice.UpsertCAASUnitParams{UnitName: upsert.UnitName}); err != nil {
+	// Dual write CAAS unit to dqlite.
+	if err := f.applicationService.UpsertCAASUnit(ctx, application.Name(), applicationservice.UpsertCAASUnitParams{
+		UnitName:     *upsert.UnitName,
+		ProviderId:   upsert.ProviderId,
+		Address:      upsert.Address,
+		Ports:        upsert.Ports,
+		PasswordHash: upsert.PasswordHash,
+		OrderedScale: upsert.OrderedScale,
+		OrderedId:    upsert.OrderedId,
+	}); err != nil {
 		return errResp(err)
 	}
 

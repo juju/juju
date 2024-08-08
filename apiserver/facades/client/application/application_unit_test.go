@@ -1414,9 +1414,9 @@ func createCharmOriginFromURL(url string) *params.CharmOrigin {
 	curl := charm.MustParseURL(url)
 	switch curl.Schema {
 	case "local":
-		return &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}}
+		return &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}, Architecture: "amd64"}
 	default:
-		return &params.CharmOrigin{Source: "charm-hub", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}}
+		return &params.CharmOrigin{Source: "charm-hub", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}, Architecture: "amd64"}
 	}
 }
 
@@ -1424,9 +1424,9 @@ func createStateCharmOriginFromURL(url string) *state.CharmOrigin {
 	curl := charm.MustParseURL(url)
 	switch curl.Schema {
 	case "local":
-		return &state.CharmOrigin{Source: "local", Platform: &state.Platform{OS: "ubuntu", Channel: "22.04"}}
+		return &state.CharmOrigin{Source: "local", Platform: &state.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"}}
 	default:
-		return &state.CharmOrigin{Source: "charm-hub", Platform: &state.Platform{OS: "ubuntu", Channel: "22.04"}}
+		return &state.CharmOrigin{Source: "charm-hub", Platform: &state.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"}}
 	}
 }
 
