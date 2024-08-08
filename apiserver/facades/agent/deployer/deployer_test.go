@@ -76,6 +76,25 @@ func (s *deployerSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *deployerSuite) makeDeployerAPI(c *gc.C) {
+	// Create a deployer API for machine 1.
+
+	deployer, err := deployer.NewDeployerAPI(
+		s.controllerConfigGetter,
+		s.unitRemover,
+		s.authorizer,
+		s.ControllerModel(c).State(),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
+		s.resources,
+		s.revoker,
+		s.ControllerModel(c).State(),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.deployer = deployer
+}
+
+func (s *deployerSuite) SetUpTest(c *gc.C) {
+	s.ApiServerSuite.SetUpTest(c)
+
 	st := s.ControllerModel(c).State()
 	var err error
 
@@ -131,24 +150,6 @@ func (s *deployerSuite) makeDeployerAPI(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.revoker = &mockLeadershipRevoker{revoked: set.NewStrings()}
-	// Create a deployer API for machine 1.
-
-	deployer, err := deployer.NewDeployerAPI(
-		s.controllerConfigGetter,
-		s.unitRemover,
-		s.authorizer,
-		st,
-		testing.NewObjectStore(c, s.ControllerModelUUID()),
-		s.resources,
-		s.revoker,
-		st,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	s.deployer = deployer
-}
-
-func (s *deployerSuite) SetUpTest(c *gc.C) {
-	s.ApiServerSuite.SetUpTest(c)
 }
 
 func (s *deployerSuite) TestDeployerFailsWithNonMachineAgentUser(c *gc.C) {
