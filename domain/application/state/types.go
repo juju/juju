@@ -46,6 +46,21 @@ type applicationChannel struct {
 	Branch        string `db:"branch"`
 }
 
+type applicationScale struct {
+	ApplicationID string `db:"application_uuid"`
+	Scaling       bool   `db:"scaling"`
+	Scale         int    `db:"scale"`
+	ScaleTarget   int    `db:"scale_target"`
+}
+
+func (as applicationScale) ToScaleState() application.ScaleState {
+	return application.ScaleState{
+		Scaling:     as.Scaling,
+		Scale:       as.Scale,
+		ScaleTarget: as.ScaleTarget,
+	}
+}
+
 type unitDetails struct {
 	UnitID                  string    `db:"uuid"`
 	NetNodeID               string    `db:"net_node_uuid"`
@@ -54,6 +69,11 @@ type unitDetails struct {
 	LifeID                  life.Life `db:"life_id"`
 	PasswordHash            string    `db:"password_hash"`
 	PasswordHashAlgorithmID int       `db:"password_hash_algorithm_id"`
+}
+
+type cloudContainer struct {
+	NetNodeID  string `db:"net_node_uuid"`
+	ProviderID string `db:"provider_id"`
 }
 
 // These structs represent the persistent charm schema in the database.

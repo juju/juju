@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -18,7 +19,9 @@ import (
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
+	uniterrors "github.com/juju/juju/domain/unit/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
@@ -38,9 +41,24 @@ type ApplicationState interface {
 	// if the application already exists.
 	CreateApplication(context.Context, string, application.AddApplicationArg, ...application.AddUnitArg) (coreapplication.ID, error)
 
-	// UpsertApplicationUnit creates or updates the specified application unit, returning an error
+	// UpsertCAASApplicationUnit creates or updates the specified application unit, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-	UpsertApplicationUnit(context.Context, string, application.AddUnitArg) error
+	UpsertCAASApplicationUnit(context.Context, string, application.AddUnitArg, application.StateOperationFunc) error
+
+	// UpsertUnit creates or updates the specified application unit, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+	// This is exported because it's called from a closure in the application service.
+	UpsertUnit(context.Context, *sqlair.TX, coreapplication.ID, application.AddUnitArg) error
+
+	// ApplicationScaleState looks up the scale state of the specified application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
+	// This is exported because it's called from a closure in the application service.
+	ApplicationScaleState(context.Context, *sqlair.TX, coreapplication.ID) (application.ScaleState, error)
+
+	// UnitLife looks up the life of the specified unit, returning an error
+	// satisfying [uniterrors.NotFound] if the unit is not found.
+	// This is exported because it's called from a closure in the application service.
+	UnitLife(ctx context.Context, tx *sqlair.TX, unitName string) (life.Life, error)
 
 	// DeleteApplication deletes the specified application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
@@ -202,30 +220,66 @@ func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ..
 
 // UpsertCAASUnit creates or updates the specified application unit in a caas model,
 // returning an error satisfying [applicationerrors.ApplicationNotFoundError]
-// if the application doesn't exist.
-func (s *ApplicationService) UpsertCAASUnit(ctx context.Context, appName string, unit UpsertCAASUnitParams) error {
+// if the application doesn't exist. If the application life is Dead, an error
+// satisfying [applicationerrors.ApplicationAlreadyExistsError] is returned.
+func (s *ApplicationService) UpsertCAASUnit(ctx context.Context, appName string, args UpsertCAASUnitParams) error {
+	if args.PasswordHash == nil {
+		return errors.NotValidf("password hash")
+	}
+	if args.ProviderId == nil {
+		return errors.NotValidf("provider id")
+	}
+	if !args.OrderedScale {
+		return errors.NewNotImplemented(nil, "upserting CAAS units not supported without ordered unit IDs")
+	}
+	if args.UnitName == "" {
+		return errors.NotValidf("nil unit name")
+	}
+
 	p := AddUnitArg{
-		UnitName:     &unit.UnitName,
-		PasswordHash: unit.PasswordHash,
+		UnitName:     &args.UnitName,
+		PasswordHash: args.PasswordHash,
+		CloudContainer: &CloudContainerParams{
+			ProviderId: args.ProviderId,
+			Ports:      args.Ports,
+		},
 	}
-	if unit.ProviderId != nil || unit.Address != nil || unit.Ports != nil {
-		cldContainer := &CloudContainerParams{
-			ProviderId: unit.ProviderId,
-			Ports:      unit.Ports,
-		}
-		if unit.Address != nil {
-			addr := network.NewSpaceAddress(*unit.Address, network.WithScope(network.ScopeMachineLocal))
-			// k8s doesn't support spaces yet.
-			addr.SpaceID = network.AlphaSpaceId
-			cldContainer.Address = &addr
-			origin := network.OriginProvider
-			cldContainer.AddressOrigin = &origin
-		}
-		p.CloudContainer = cldContainer
+	if args.Address != nil {
+		addr := network.NewSpaceAddress(*args.Address, network.WithScope(network.ScopeMachineLocal))
+		// k8s doesn't support spaces yet.
+		addr.SpaceID = network.AlphaSpaceId
+		p.CloudContainer.Address = &addr
+		origin := network.OriginProvider
+		p.CloudContainer.AddressOrigin = &origin
 	}
+	// We need to do a bunch of business logic in the one transaction so pass in a closure that is
+	// given the transaction to use.
 	unitArg := makeAddUnitArgs(p)
-	err := s.st.UpsertApplicationUnit(ctx, appName, unitArg)
-	return errors.Annotatef(err, "saving caas unit %q", unit.UnitName)
+	err := s.st.UpsertCAASApplicationUnit(ctx, appName, unitArg, func(ctx context.Context, tx *sqlair.TX, appID coreapplication.ID) error {
+		unitLife, err := s.st.UnitLife(ctx, tx, args.UnitName)
+		if errors.Is(err, uniterrors.NotFound) {
+			return s.insertCAASUnit(ctx, tx, appID, args.OrderedId, unitArg)
+		}
+		if unitLife == life.Dead {
+			return fmt.Errorf("dead unit %q already exists%w", args.UnitName, errors.Hide(applicationerrors.ApplicationAlreadyExists))
+		}
+		return s.st.UpsertUnit(ctx, tx, appID, unitArg)
+	})
+	return errors.Annotatef(err, "saving caas unit %q", args.UnitName)
+}
+
+func (s *ApplicationService) insertCAASUnit(
+	ctx context.Context, tx *sqlair.TX, appID coreapplication.ID, orderedID int, args application.AddUnitArg,
+) error {
+	appScale, err := s.st.ApplicationScaleState(ctx, tx, appID)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Annotatef(err, "getting application scale state for app %q", appID)
+	}
+	if orderedID >= appScale.Scale ||
+		(appScale.Scaling && orderedID >= appScale.ScaleTarget) {
+		return fmt.Errorf("unrequired unit %s is not assigned%w", *args.UnitName, errors.Hide(uniterrors.NotAssigned))
+	}
+	return s.st.UpsertUnit(ctx, tx, appID, args)
 }
 
 // DeleteApplication deletes the specified application, returning an error

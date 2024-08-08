@@ -21,8 +21,8 @@ CREATE UNIQUE INDEX idx_cloud_service_application
 ON cloud_service (application_uuid);
 
 CREATE TABLE cloud_container (
-    uuid TEXT NOT NULL PRIMARY KEY,
     net_node_uuid TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
     CONSTRAINT fk_cloud_container_net_node
     FOREIGN KEY (net_node_uuid)
     REFERENCES net_node (uuid)
