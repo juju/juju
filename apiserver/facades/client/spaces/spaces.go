@@ -37,21 +37,22 @@ type NetworkService interface {
 	// AddSpace creates and returns a new space.
 	AddSpace(ctx context.Context, space network.SpaceInfo) (network.Id, error)
 	// Space returns a space from state that matches the input ID. If the space
-	// is not found, an error is returned satisfying networkerrors.SpaceNotFound.
-	// An error is returned if there was a problem accessing its information.
+	// is not found, an error is returned satisfying
+	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
 	// SpaceByName returns a space from state that matches the input name. If
 	// the space is not found, an error is returned satisfying
-	// networkerrors.SpaceNotFound.
+	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 	// UpdateSpace updates the space name identified by the passed uuid. If
 	// the space is not found, an error is returned satisfying
-	// networkerrors.SpaceNotFound.
+	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 	UpdateSpace(ctx context.Context, uuid string, name string) error
 	// RemoveSpace deletes a space identified by its uuid. If the space is not
-	// found, an error is returned satisfying networkerrors.SpaceNotFound.
+	// found, an error is returned satisfying
+	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 	RemoveSpace(ctx context.Context, uuid string) error
 	// ReloadSpaces loads spaces and subnets from the provider into state.
 	ReloadSpaces(ctx context.Context) error
@@ -306,7 +307,7 @@ func (api *API) ReloadSpaces(ctx stdcontext.Context) error {
 func (api *API) checkSupportsSpaces(ctx stdcontext.Context) error {
 	env, err := api.providerGetter(ctx)
 	if err != nil {
-		return errors.Annotate(err, "getting environ")
+		return fmt.Errorf("getting networking environ for model: %w", err)
 	}
 	invalidatorFunc, err := api.credentialInvalidatorGetter()
 	if err != nil {
@@ -378,7 +379,7 @@ func (api *API) ensureSpacesAreMutable(ctx stdcontext.Context) error {
 func (api *API) ensureSpacesNotProviderSourced(ctx stdcontext.Context) error {
 	env, err := api.providerGetter(ctx)
 	if err != nil {
-		return errors.Annotate(err, "retrieving environ")
+		return fmt.Errorf("getting networking environ for model: %w", err)
 	}
 	invalidatorFunc, err := api.credentialInvalidatorGetter()
 	if err != nil {

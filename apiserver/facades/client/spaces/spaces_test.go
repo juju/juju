@@ -907,18 +907,20 @@ func (s *LegacySuite) TestShowSpaceError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "getting environ: retrieving model config: boom")
 }
 
-func (s *LegacySuite) TestCreateSpacesProviderOpenError(c *gc.C) {
+// TestCreateSpacesGetProviderError tests that if we call API.CreateSpaces but
+// the providerGetter returns an error, the facade method errors as expected.
+func (s *LegacySuite) TestCreateSpacesGetProviderError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.providerGetter = func(stdcontext.Context) (environs.NetworkingEnviron, error) {
-		return nil, errors.New("boom")
+		return nil, errors.NotSupportedf("networking")
 	}
 	s.makeAPI(c)
 
 	args := params.CreateSpacesParams{}
 	_, err := s.facade.CreateSpaces(stdcontext.Background(), args)
-	c.Assert(err, gc.ErrorMatches,
-		`getting environ: boom`)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, gc.ErrorMatches, `getting environ: boom`)
 }
 
 func (s *LegacySuite) TestCreateSpacesNotSupportedError(c *gc.C) {
@@ -1019,12 +1021,12 @@ func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
 func (s *LegacySuite) TestListSpacesAllSpacesError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.providerGetter = func(stdcontext.Context) (environs.NetworkingEnviron, error) {
-		return nil, errors.New("backing boom")
+		return nil, errors.New("environ boom")
 	}
 	s.makeAPI(c)
 
 	_, err := s.facade.ListSpaces(stdcontext.Background())
-	c.Assert(err, gc.ErrorMatches, "getting environ: backing boom")
+	c.Assert(err, gc.ErrorMatches, "getting environ: environ boom")
 }
 
 func (s *LegacySuite) TestListSpacesSubnetsError(c *gc.C) {

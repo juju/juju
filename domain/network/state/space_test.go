@@ -237,7 +237,7 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 
 // TestRetrieveSpaceByUUIDNotFound tests that if we try to call State.GetSpace
 // with a non-existent space, it will return an error matching
-// networkerrors.SpaceNotFound.
+// [networkerrors.SpaceNotFound].
 func (s *stateSuite) TestRetrieveSpaceByUUIDNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -269,7 +269,7 @@ func (s *stateSuite) TestRetrieveSpaceByName(c *gc.C) {
 
 // TestRetrieveSpaceByNameNotFound tests that if we try to call
 // State.GetSpaceByName with a non-existent space, it will return an error
-// matching networkerrors.SpaceNotFound.
+// matching [networkerrors.SpaceNotFound].
 func (s *stateSuite) TestRetrieveSpaceByNameNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -382,7 +382,7 @@ func (s *stateSuite) TestUpdateSpace(c *gc.C) {
 
 // TestUpdateSpaceFailNotFound tests that if we try to call State.UpdateSpace
 // with a non-existent space, it will return an error matching
-// networkerrors.SpaceNotFound.
+// [networkerrors.SpaceNotFound].
 func (s *stateSuite) TestUpdateSpaceFailNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -442,7 +442,7 @@ func (s *stateSuite) TestDeleteSpace(c *gc.C) {
 
 // TestDeleteSpaceNotFound tests that if we try to call State.DeleteSpace with
 // a non-existent space, it will return an error matching
-// networkerrors.SpaceNotFound.
+// [networkerrors.SpaceNotFound].
 func (s *stateSuite) TestDeleteSpaceNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 

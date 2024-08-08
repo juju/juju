@@ -84,3 +84,19 @@ func (s *mockSuite) TestSupportsSpacesError(c *gc.C) {
 	err := api.checkSupportsSpaces(context.Background())
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
+
+// TestSupportsSpacesError checks that API.checkSupportsSpaces returns the
+// correct error if the environ does not support networking.
+func (s *mockSuite) TestSupportsSpacesNetworkingNotSupported(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	api := &API{
+		providerGetter: func(context.Context) (environs.NetworkingEnviron, error) {
+			return nil, errors.NotSupportedf("networking")
+		},
+		credentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
+	}
+
+	err := api.checkSupportsSpaces(context.Background())
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+}
