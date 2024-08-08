@@ -71,7 +71,7 @@ INSERT INTO application (*) VALUES ($applicationDetails.*)
 
 	platformInfo := applicationPlatform{
 		ApplicationID:  appID.String(),
-		OsID:           app.Platform.OSTypeID,
+		OSTypeID:       app.Platform.OSTypeID,
 		Channel:        app.Platform.Channel,
 		ArchitectureID: app.Platform.ArchitectureID,
 	}

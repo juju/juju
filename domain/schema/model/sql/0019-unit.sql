@@ -73,11 +73,15 @@ CREATE TABLE unit_agent (
     version_tag TEXT,
     version_patch INT NOT NULL,
     version_build INT,
-    sha256 TEXT NOT NULL,
+    hash TEXT NOT NULL,
+    hash_kind_id INT NOT NULL DEFAULT 0,
     binary_size INT NOT NULL,
     CONSTRAINT fk_unit_agent_unit
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid),
+    CONSTRAINT fk_unit_agent_hash_kind
+    FOREIGN KEY (hash_kind_id)
+    REFERENCES hash_kind (id),
     CONSTRAINT fk_object_store_metadata_path_unit
     FOREIGN KEY (url)
     REFERENCES object_store_metadata_path (path),

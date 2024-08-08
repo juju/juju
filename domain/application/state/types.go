@@ -34,7 +34,7 @@ type applicationDetails struct {
 
 type applicationPlatform struct {
 	ApplicationID  string                   `db:"application_uuid"`
-	OsID           application.OSType       `db:"os_id"`
+	OSTypeID       application.OSType       `db:"os_id"`
 	Channel        string                   `db:"channel"`
 	ArchitectureID application.Architecture `db:"architecture_id"`
 }

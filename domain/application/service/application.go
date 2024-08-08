@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -83,17 +84,23 @@ func NewApplicationService(st ApplicationState, registry storage.ProviderRegistr
 func (s *ApplicationService) CreateApplication(
 	ctx context.Context,
 	name string,
+	charm charm.Charm,
+	origin corecharm.Origin,
 	args AddApplicationArgs,
 	units ...AddUnitArg,
 ) (coreapplication.ID, error) {
 	// Validate that we have a valid charm and name.
-	meta := args.Charm.Meta()
+	meta := charm.Meta()
 	if meta == nil {
 		return "", applicationerrors.CharmMetadataNotValid
 	} else if name == "" && meta.Name == "" {
 		return "", applicationerrors.ApplicationNameNotValid
 	} else if meta.Name == "" {
 		return "", applicationerrors.CharmNameNotValid
+	}
+
+	if err := origin.Validate(); err != nil {
+		return "", fmt.Errorf("%w: %v", applicationerrors.CharmOriginNotValid, err)
 	}
 
 	// We know that the charm name is valid, so we can use it as the application
@@ -112,18 +119,17 @@ func (s *ApplicationService) CreateApplication(
 	if err := s.addDefaultStorageDirectives(ctx, s.modelType, cons, meta); err != nil {
 		return "", errors.Annotate(err, "adding default storage directives")
 	}
-	if err := s.validateStorageDirectives(ctx, s.modelType, cons, args.Charm); err != nil {
+	if err := s.validateStorageDirectives(ctx, s.modelType, cons, charm); err != nil {
 		return "", errors.Annotate(err, "invalid storage directives")
 	}
 
 	// When encoding the charm, this will also validate the charm metadata,
 	// when parsing it.
-	ch, _, err := encodeCharm(args.Charm)
+	ch, _, err := encodeCharm(charm)
 	if err != nil {
 		return "", fmt.Errorf("encode charm: %w", err)
 	}
 
-	origin := args.Origin
 	var channel *domaincharm.Channel
 	if origin.Channel != nil {
 		normalisedC := origin.Channel.Normalize()

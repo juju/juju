@@ -88,11 +88,9 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	_, err := s.service.CreateApplication(context.Background(), "666", AddApplicationArgs{
-		Origin: corecharm.Origin{
-			Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		},
-		Charm: s.charm}, a)
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	}, AddApplicationArgs{}, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -153,11 +151,9 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	_, err := s.service.CreateApplication(context.Background(), "666", AddApplicationArgs{
-		Origin: corecharm.Origin{
-			Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		},
-		Charm: s.charm}, a)
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	}, AddApplicationArgs{}, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -218,11 +214,9 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	_, err := s.service.CreateApplication(context.Background(), "666", AddApplicationArgs{
-		Origin: corecharm.Origin{
-			Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		},
-		Charm: s.charm,
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	}, AddApplicationArgs{
 		Storage: map[string]storage.Directive{
 			"data": {Count: 2},
 		},
@@ -287,11 +281,9 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	_, err := s.service.CreateApplication(context.Background(), "666", AddApplicationArgs{
-		Origin: corecharm.Origin{
-			Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		},
-		Charm: s.charm}, a)
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	}, AddApplicationArgs{}, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -352,11 +344,9 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	_, err := s.service.CreateApplication(context.Background(), "666", AddApplicationArgs{
-		Origin: corecharm.Origin{
-			Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		},
-		Charm: s.charm,
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	}, AddApplicationArgs{
 		Storage: map[string]storage.Directive{
 			"data": {Count: 2},
 		},
@@ -382,9 +372,9 @@ func (s *applicationServiceSuite) TestCreateWithSharedStorageMissingDirectives(c
 	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	_, err := s.service.CreateApplication(context.Background(), "666", AddApplicationArgs{
-		Charm: s.charm,
-	}, a)
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	}, AddApplicationArgs{}, a)
 	c.Assert(err, jc.ErrorIs, storageerrors.MissingSharedStorageDirectiveError)
 	c.Assert(err, gc.ErrorMatches, `adding default storage directives: no storage directive specified for shared charm storage "data"`)
 }
@@ -408,11 +398,9 @@ func (s *applicationServiceSuite) TestCreateWithStorageValidates(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	_, err := s.service.CreateApplication(context.Background(), "666", AddApplicationArgs{
-		Origin: corecharm.Origin{
-			Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		},
-		Charm: s.charm,
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	}, AddApplicationArgs{
 		Storage: map[string]storage.Directive{
 			"logs": {Count: 2},
 		},
@@ -425,9 +413,9 @@ func (s *applicationServiceSuite) TestCreateApplicationWithNoCharmName(c *gc.C) 
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
 
-	_, err := s.service.CreateApplication(context.Background(), "666", AddApplicationArgs{
-		Charm: s.charm,
-	})
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	}, AddApplicationArgs{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
@@ -436,9 +424,9 @@ func (s *applicationServiceSuite) TestCreateApplicationWithNoApplicationOrCharmN
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
 
-	_, err := s.service.CreateApplication(context.Background(), "", AddApplicationArgs{
-		Charm: s.charm,
-	})
+	_, err := s.service.CreateApplication(context.Background(), "", s.charm, corecharm.Origin{
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	}, AddApplicationArgs{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
@@ -447,10 +435,22 @@ func (s *applicationServiceSuite) TestCreateApplicationWithNoMeta(c *gc.C) {
 
 	s.charm.EXPECT().Meta().Return(nil).AnyTimes()
 
-	_, err := s.service.CreateApplication(context.Background(), "", AddApplicationArgs{
-		Charm: s.charm,
-	})
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	}, AddApplicationArgs{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmMetadataNotValid)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationWithNoArchitecture(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo"}).AnyTimes()
+
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Platform: corecharm.Platform{Channel: "24.04", OS: "ubuntu"},
+	}, AddApplicationArgs{})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmOriginNotValid)
 }
 
 func (s *applicationServiceSuite) TestCreateApplicationError(c *gc.C) {
@@ -468,9 +468,9 @@ func (s *applicationServiceSuite) TestCreateApplicationError(c *gc.C) {
 		Name: "foo",
 	}).AnyTimes()
 
-	_, err := s.service.CreateApplication(context.Background(), "666", AddApplicationArgs{
-		Charm: s.charm,
-	})
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	}, AddApplicationArgs{})
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Assert(err, gc.ErrorMatches, `creating application "666": boom`)
 }

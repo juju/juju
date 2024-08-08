@@ -596,25 +596,23 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 				Branch: params.CharmOrigin.Channel.Branch,
 			}
 		}
-		_, err = factory.applicationService.CreateApplication(context.Background(), params.Name, applicationservice.AddApplicationArgs{
-			Charm: params.Charm,
-			Origin: corecharm.Origin{
-				Source:   corecharm.Source(params.CharmOrigin.Source),
-				Type:     params.CharmOrigin.Type,
-				ID:       params.CharmOrigin.ID,
-				Hash:     params.CharmOrigin.Hash,
-				Revision: params.CharmOrigin.Revision,
-				Channel:  channel,
-				Platform: corecharm.Platform{
-					Architecture: params.CharmOrigin.Platform.Architecture,
-					OS:           params.CharmOrigin.Platform.OS,
-					Channel:      params.CharmOrigin.Platform.Channel,
-				},
+		_, err = factory.applicationService.CreateApplication(context.Background(), params.Name, params.Charm, corecharm.Origin{
+			Source:   corecharm.Source(params.CharmOrigin.Source),
+			Type:     params.CharmOrigin.Type,
+			ID:       params.CharmOrigin.ID,
+			Hash:     params.CharmOrigin.Hash,
+			Revision: params.CharmOrigin.Revision,
+			Channel:  channel,
+			Platform: corecharm.Platform{
+				Architecture: params.CharmOrigin.Platform.Architecture,
+				OS:           params.CharmOrigin.Platform.OS,
+				Channel:      params.CharmOrigin.Platform.Channel,
 			},
+		}, applicationservice.AddApplicationArgs{
 			Storage: directives,
 		})
-		c.Assert(err, jc.ErrorIsNil)
 	}
+	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := factory.st.Model()
 	c.Assert(err, jc.ErrorIsNil)

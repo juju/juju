@@ -14,7 +14,9 @@ import (
 	reflect "reflect"
 
 	application "github.com/juju/juju/core/application"
+	charm "github.com/juju/juju/core/charm"
 	service "github.com/juju/juju/domain/application/service"
+	charm0 "github.com/juju/juju/internal/charm"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,10 +44,10 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 }
 
 // CreateApplication mocks base method.
-func (m *MockImportService) CreateApplication(arg0 context.Context, arg1 string, arg2 service.AddApplicationArgs, arg3 ...service.AddUnitArg) (application.ID, error) {
+func (m *MockImportService) CreateApplication(arg0 context.Context, arg1 string, arg2 charm0.Charm, arg3 charm.Origin, arg4 service.AddApplicationArgs, arg5 ...service.AddUnitArg) (application.ID, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2}
-	for _, a := range arg3 {
+	varargs := []any{arg0, arg1, arg2, arg3, arg4}
+	for _, a := range arg5 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "CreateApplication", varargs...)
@@ -55,9 +57,9 @@ func (m *MockImportService) CreateApplication(arg0 context.Context, arg1 string,
 }
 
 // CreateApplication indicates an expected call of CreateApplication.
-func (mr *MockImportServiceMockRecorder) CreateApplication(arg0, arg1, arg2 any, arg3 ...any) *MockImportServiceCreateApplicationCall {
+func (mr *MockImportServiceMockRecorder) CreateApplication(arg0, arg1, arg2, arg3, arg4 any, arg5 ...any) *MockImportServiceCreateApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	varargs := append([]any{arg0, arg1, arg2, arg3, arg4}, arg5...)
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateApplication", reflect.TypeOf((*MockImportService)(nil).CreateApplication), varargs...)
 	return &MockImportServiceCreateApplicationCall{Call: call}
 }
@@ -74,13 +76,13 @@ func (c *MockImportServiceCreateApplicationCall) Return(arg0 application.ID, arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceCreateApplicationCall) Do(f func(context.Context, string, service.AddApplicationArgs, ...service.AddUnitArg) (application.ID, error)) *MockImportServiceCreateApplicationCall {
+func (c *MockImportServiceCreateApplicationCall) Do(f func(context.Context, string, charm0.Charm, charm.Origin, service.AddApplicationArgs, ...service.AddUnitArg) (application.ID, error)) *MockImportServiceCreateApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceCreateApplicationCall) DoAndReturn(f func(context.Context, string, service.AddApplicationArgs, ...service.AddUnitArg) (application.ID, error)) *MockImportServiceCreateApplicationCall {
+func (c *MockImportServiceCreateApplicationCall) DoAndReturn(f func(context.Context, string, charm0.Charm, charm.Origin, service.AddApplicationArgs, ...service.AddUnitArg) (application.ID, error)) *MockImportServiceCreateApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

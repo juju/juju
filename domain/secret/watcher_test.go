@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
+	corecharm "github.com/juju/juju/core/charm"
 	coresecrets "github.com/juju/juju/core/secrets"
 	jujuversion "github.com/juju/juju/core/version"
 	corewatcher "github.com/juju/juju/core/watcher"
@@ -58,9 +59,9 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 	unitName := fmt.Sprintf("%s/0", appName)
 	_, err := svc.CreateApplication(context.Background(),
 		appName,
-		applicationservice.AddApplicationArgs{
-			Charm: &stubCharm{},
-		},
+		&stubCharm{},
+		corecharm.Origin{},
+		applicationservice.AddApplicationArgs{},
 		applicationservice.AddUnitArg{UnitName: &unitName},
 	)
 	c.Assert(err, jc.ErrorIsNil)

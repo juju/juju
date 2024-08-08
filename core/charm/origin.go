@@ -55,6 +55,14 @@ type Origin struct {
 	InstanceKey string
 }
 
+// Validate returns an error if the origin is invalid.
+func (o Origin) Validate() error {
+	if CharmHub.Matches(o.Source.String()) && o.Platform.Architecture == "" {
+		return errors.NotValidf("empty architecture")
+	}
+	return nil
+}
+
 // Platform describes the platform used to install the charm with.
 type Platform struct {
 	Architecture string

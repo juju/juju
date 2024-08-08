@@ -17,6 +17,7 @@ import (
 	cloud "github.com/juju/juju/cloud"
 	controller "github.com/juju/juju/controller"
 	application "github.com/juju/juju/core/application"
+	charm "github.com/juju/juju/core/charm"
 	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
 	user "github.com/juju/juju/core/user"
@@ -25,7 +26,7 @@ import (
 	service1 "github.com/juju/juju/domain/storage/service"
 	config "github.com/juju/juju/environs/config"
 	bootstrap "github.com/juju/juju/internal/bootstrap"
-	charm "github.com/juju/juju/internal/charm"
+	charm0 "github.com/juju/juju/internal/charm"
 	services "github.com/juju/juju/internal/charm/services"
 	storage "github.com/juju/juju/internal/storage"
 	state "github.com/juju/juju/state"
@@ -514,10 +515,10 @@ func (c *MockSystemStatePrepareCharmUploadCall) DoAndReturn(f func(string) (serv
 }
 
 // PrepareLocalCharmUpload mocks base method.
-func (m *MockSystemState) PrepareLocalCharmUpload(arg0 string) (*charm.URL, error) {
+func (m *MockSystemState) PrepareLocalCharmUpload(arg0 string) (*charm0.URL, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareLocalCharmUpload", arg0)
-	ret0, _ := ret[0].(*charm.URL)
+	ret0, _ := ret[0].(*charm0.URL)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -535,19 +536,19 @@ type MockSystemStatePrepareLocalCharmUploadCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockSystemStatePrepareLocalCharmUploadCall) Return(arg0 *charm.URL, arg1 error) *MockSystemStatePrepareLocalCharmUploadCall {
+func (c *MockSystemStatePrepareLocalCharmUploadCall) Return(arg0 *charm0.URL, arg1 error) *MockSystemStatePrepareLocalCharmUploadCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSystemStatePrepareLocalCharmUploadCall) Do(f func(string) (*charm.URL, error)) *MockSystemStatePrepareLocalCharmUploadCall {
+func (c *MockSystemStatePrepareLocalCharmUploadCall) Do(f func(string) (*charm0.URL, error)) *MockSystemStatePrepareLocalCharmUploadCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSystemStatePrepareLocalCharmUploadCall) DoAndReturn(f func(string) (*charm.URL, error)) *MockSystemStatePrepareLocalCharmUploadCall {
+func (c *MockSystemStatePrepareLocalCharmUploadCall) DoAndReturn(f func(string) (*charm0.URL, error)) *MockSystemStatePrepareLocalCharmUploadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -955,10 +956,10 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // CreateApplication mocks base method.
-func (m *MockApplicationService) CreateApplication(arg0 context.Context, arg1 string, arg2 service0.AddApplicationArgs, arg3 ...service0.AddUnitArg) (application.ID, error) {
+func (m *MockApplicationService) CreateApplication(arg0 context.Context, arg1 string, arg2 charm0.Charm, arg3 charm.Origin, arg4 service0.AddApplicationArgs, arg5 ...service0.AddUnitArg) (application.ID, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2}
-	for _, a := range arg3 {
+	varargs := []any{arg0, arg1, arg2, arg3, arg4}
+	for _, a := range arg5 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "CreateApplication", varargs...)
@@ -968,9 +969,9 @@ func (m *MockApplicationService) CreateApplication(arg0 context.Context, arg1 st
 }
 
 // CreateApplication indicates an expected call of CreateApplication.
-func (mr *MockApplicationServiceMockRecorder) CreateApplication(arg0, arg1, arg2 any, arg3 ...any) *MockApplicationServiceCreateApplicationCall {
+func (mr *MockApplicationServiceMockRecorder) CreateApplication(arg0, arg1, arg2, arg3, arg4 any, arg5 ...any) *MockApplicationServiceCreateApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	varargs := append([]any{arg0, arg1, arg2, arg3, arg4}, arg5...)
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateApplication", reflect.TypeOf((*MockApplicationService)(nil).CreateApplication), varargs...)
 	return &MockApplicationServiceCreateApplicationCall{Call: call}
 }
@@ -987,13 +988,13 @@ func (c *MockApplicationServiceCreateApplicationCall) Return(arg0 application.ID
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceCreateApplicationCall) Do(f func(context.Context, string, service0.AddApplicationArgs, ...service0.AddUnitArg) (application.ID, error)) *MockApplicationServiceCreateApplicationCall {
+func (c *MockApplicationServiceCreateApplicationCall) Do(f func(context.Context, string, charm0.Charm, charm.Origin, service0.AddApplicationArgs, ...service0.AddUnitArg) (application.ID, error)) *MockApplicationServiceCreateApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceCreateApplicationCall) DoAndReturn(f func(context.Context, string, service0.AddApplicationArgs, ...service0.AddUnitArg) (application.ID, error)) *MockApplicationServiceCreateApplicationCall {
+func (c *MockApplicationServiceCreateApplicationCall) DoAndReturn(f func(context.Context, string, charm0.Charm, charm.Origin, service0.AddApplicationArgs, ...service0.AddUnitArg) (application.ID, error)) *MockApplicationServiceCreateApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

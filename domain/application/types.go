@@ -21,12 +21,14 @@ type Platform struct {
 	ArchitectureID Architecture
 }
 
+// CloudContainer contains parameters for a unit's cloud container.
 type CloudContainer struct {
 	ProviderId *string
 	Address    *Address
 	Ports      *[]string
 }
 
+// Address contains parameters for a cloud container address.
 type Address struct {
 	Value       string
 	AddressType string

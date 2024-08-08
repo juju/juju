@@ -69,28 +69,27 @@ func (i *importSuite) TestApplicationSave(c *gc.C) {
 	i.importService.EXPECT().CreateApplication(
 		gomock.Any(),
 		"prometheus",
-		service.AddApplicationArgs{
-			Charm: &stubCharm{
-				name:     "prometheus",
-				revision: 1,
+		&stubCharm{
+			name:     "prometheus",
+			revision: 1,
+		},
+		corecharm.Origin{
+			Source:   "charm-hub",
+			Type:     "charm",
+			ID:       "1234",
+			Hash:     "deadbeef",
+			Revision: &rev,
+			Channel: &charm.Channel{
+				Track: "666",
+				Risk:  "stable",
 			},
-			Origin: corecharm.Origin{
-				Source:   "charm-hub",
-				Type:     "charm",
-				ID:       "1234",
-				Hash:     "deadbeef",
-				Revision: &rev,
-				Channel: &charm.Channel{
-					Track: "666",
-					Risk:  "stable",
-				},
-				Platform: corecharm.Platform{
-					Architecture: "arm64",
-					OS:           "ubuntu",
-					Channel:      "24.04",
-				},
+			Platform: corecharm.Platform{
+				Architecture: "arm64",
+				OS:           "ubuntu",
+				Channel:      "24.04",
 			},
 		},
+		service.AddApplicationArgs{},
 		[]service.AddUnitArg{{
 			UnitName:     ptr("prometheus/0"),
 			PasswordHash: ptr("passwordhash"),

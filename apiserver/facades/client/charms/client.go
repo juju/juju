@@ -417,11 +417,7 @@ func validateOrigin(origin corecharm.Origin, curl *charm.URL, switchCharm bool) 
 			return errors.NotValidf("origin source %q with schema", origin.Source)
 		}
 	}
-
-	if corecharm.CharmHub.Matches(origin.Source.String()) && origin.Platform.Architecture == "" {
-		return errors.NotValidf("empty architecture")
-	}
-	return nil
+	return origin.Validate()
 }
 
 func (a *API) getCharmRepository(ctx context.Context, src corecharm.Source) (corecharm.Repository, error) {

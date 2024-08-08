@@ -51,7 +51,7 @@ type importOperation struct {
 // from another controller model to this controller.
 type ImportService interface {
 	// CreateApplication registers the existence of an application in the model.
-	CreateApplication(context.Context, string, service.AddApplicationArgs, ...service.AddUnitArg) (coreapplication.ID, error)
+	CreateApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, service.AddApplicationArgs, ...service.AddUnitArg) (coreapplication.ID, error)
 }
 
 // Name returns the name of this operation.
@@ -109,13 +109,10 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		}
 
 		_, err = i.service.CreateApplication(
-			ctx, app.Name(), service.AddApplicationArgs{
-				Charm: &stubCharm{
-					name:     url.Name,
-					revision: url.Revision,
-				},
-				Origin: *origin,
-			}, unitArgs...,
+			ctx, app.Name(), &stubCharm{
+				name:     url.Name,
+				revision: url.Revision,
+			}, *origin, service.AddApplicationArgs{}, unitArgs...,
 		)
 		if err != nil {
 			return fmt.Errorf(

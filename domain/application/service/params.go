@@ -4,7 +4,6 @@
 package service
 
 import (
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
@@ -12,10 +11,6 @@ import (
 
 // AddApplicationArgs contains arguments for adding an application to the model.
 type AddApplicationArgs struct {
-	// Charm is the application's charm.
-	Charm charm.Charm
-	// Origin is the origin of the charm.
-	Origin corecharm.Origin
 	// Storage contains the application's storage directives.
 	Storage map[string]storage.Directive
 }

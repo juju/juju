@@ -59,11 +59,15 @@ CREATE TABLE machine_agent (
     version_tag TEXT,
     version_patch INT NOT NULL,
     version_build INT,
-    sha256 TEXT NOT NULL,
+    hash TEXT NOT NULL,
+    hash_kind_id INT NOT NULL DEFAULT 0,
     binary_size INT NOT NULL,
     CONSTRAINT fk_machine_principal_machine
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid),
+    CONSTRAINT fk_machine_agent_hash_kind
+    FOREIGN KEY (hash_kind_id)
+    REFERENCES hash_kind (id),
     PRIMARY KEY (machine_uuid, url)
 );
 

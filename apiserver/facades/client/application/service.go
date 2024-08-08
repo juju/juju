@@ -9,11 +9,13 @@ import (
 	"github.com/juju/version/v2"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -49,7 +51,7 @@ type MachineService interface {
 // ApplicationService instances save an application to dqlite state.
 type ApplicationService interface {
 	// CreateApplication creates the specified application and units if required.
-	CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) (coreapplication.ID, error)
+	CreateApplication(ctx context.Context, name string, charm charm.Charm, origin corecharm.Origin, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) (coreapplication.ID, error)
 	// AddUnits adds units to the application.
 	AddUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) error
 	// UpdateApplicationCharm sets a new charm for the application, validating that aspects such

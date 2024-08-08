@@ -150,7 +150,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	ch := f2.MakeCharm(c, &factory.CharmParams{Name: "dashboard4miner", Series: "focal"})
 	app := f2.MakeApplication(c, &factory.ApplicationParams{
 		Name: "dashboard4miner", Charm: ch,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable", Architecture: "amd64"}},
 	})
 
 	schemaFields, defaults, err := application.ConfigSchema()
@@ -285,7 +285,7 @@ var getTests = []struct {
 	},
 	origin: &state.CharmOrigin{
 		Source:   "charm-hub",
-		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable", Architecture: "amd64"},
 	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{
@@ -344,7 +344,7 @@ var getTests = []struct {
 	},
 	origin: &state.CharmOrigin{
 		Source:   "charm-hub",
-		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable", Architecture: "amd64"},
 	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{
@@ -399,7 +399,7 @@ var getTests = []struct {
 	charm: "logging",
 	origin: &state.CharmOrigin{
 		Source:   "charm-hub",
-		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable", Architecture: "amd64"},
 	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{},
@@ -429,7 +429,7 @@ var getTests = []struct {
 			Risk:   "stable",
 			Branch: "foo",
 		},
-		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable", Architecture: "amd64"},
 	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{},
