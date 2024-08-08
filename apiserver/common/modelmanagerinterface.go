@@ -33,7 +33,6 @@ type ModelManagerBackend interface {
 	BlockGetter
 
 	ModelUUID() string
-	ModelSummariesForUser(user names.UserTag, isSupersser bool) ([]state.ModelSummary, error)
 	IsControllerAdmin(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 	Model() (Model, error)
