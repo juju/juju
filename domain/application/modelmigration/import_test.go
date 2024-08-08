@@ -15,10 +15,10 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/internal/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
@@ -94,17 +94,14 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 	s.importService.EXPECT().CreateApplication(
 		gomock.Any(),
 		"prometheus",
-		&stubCharm{
-			name:     "prometheus",
-			revision: 1,
-		},
+		gomock.Any(),
 		corecharm.Origin{
 			Source:   "charm-hub",
 			Type:     "charm",
 			ID:       "1234",
 			Hash:     "deadbeef",
 			Revision: &rev,
-			Channel: &charm.Channel{
+			Channel: &internalcharm.Channel{
 				Track: "666",
 				Risk:  "stable",
 			},
@@ -132,7 +129,10 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 				Ports:         ptr([]string{"6666"}),
 			}),
 		}},
-	).Return("", nil)
+	).DoAndReturn(func(_ context.Context, _ string, ch internalcharm.Charm, _ corecharm.Origin, _ service.AddApplicationArgs, _ ...service.AddUnitArg) (application.ID, error) {
+		c.Assert(ch.Meta().Name, gc.Equals, "prometheus")
+		return "", nil
+	})
 
 	importOp := importOperation{
 		service:      s.importService,
@@ -439,7 +439,7 @@ func (s *importSuite) TestImportCharmMetadata(c *gc.C) {
 			},
 		},
 		ExtraBindings: map[string]internalcharm.ExtraBinding{
-			"foo": internalcharm.ExtraBinding{
+			"foo": {
 				Name: "bar",
 			},
 		},

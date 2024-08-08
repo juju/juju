@@ -177,7 +177,7 @@ func (s *charmServiceSuite) TestGetCharm(c *gc.C) {
 
 	metadata, err := s.service.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(metadata, gc.DeepEquals, internalcharm.Meta{
+	c.Check(metadata.Meta(), gc.DeepEquals, &internalcharm.Meta{
 		Name: "foo",
 
 		// Notice that the RunAs field becomes empty string when being returned.

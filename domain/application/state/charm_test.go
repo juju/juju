@@ -2012,7 +2012,7 @@ func (s *charmStateSuite) TestGetCharmConfigEmpty(c *gc.C) {
 	config, err := st.GetCharmConfig(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(config, gc.DeepEquals, charm.Config{
-		Options: map[string]charm.Option{},
+		Options: map[string]charm.Option(nil),
 	})
 }
 
@@ -2130,7 +2130,7 @@ func (s *charmStateSuite) TestGetCharmActionsEmpty(c *gc.C) {
 	config, err := st.GetCharmActions(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(config, gc.DeepEquals, charm.Actions{
-		Actions: map[string]charm.Action{},
+		Actions: map[string]charm.Action(nil),
 	})
 }
 
