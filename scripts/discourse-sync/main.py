@@ -12,10 +12,10 @@ STAFF_NOTICE = ("This doc was automatically generated from Juju code. Please "
 
 # Get configuration from environment variables
 DISCOURSE_HOST = os.environ.get('DISCOURSE_HOST', 'https://discourse.charmhub.io/')
-DISCOURSE_API_USERNAME = os.environ['DISCOURSE_API_USERNAME']
-DISCOURSE_API_KEY = os.environ['DISCOURSE_API_KEY']
-DOCS_DIR = os.environ['DOCS_DIR']
-TOPIC_IDS = os.environ['TOPIC_IDS']
+DISCOURSE_API_USERNAME = os.environ.get('DISCOURSE_API_USERNAME')
+DISCOURSE_API_KEY = os.environ.get('DISCOURSE_API_KEY')
+DOCS_DIR = os.environ.get('DOCS_DIR')
+TOPIC_IDS = os.environ.get('TOPIC_IDS')
 
 client = Client(
     host=DISCOURSE_HOST,
@@ -238,6 +238,8 @@ def delete():
 
 
 def get_topic_ids():
+    if not TOPIC_IDS:
+        raise Exception("environment variable 'TOPIC_IDS' not defined")
     with open(TOPIC_IDS, 'r') as file:
         topic_ids = yaml.safe_load(file)
         return topic_ids or {}
