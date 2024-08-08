@@ -55,7 +55,6 @@ var (
 	// reservedPublicKeys are keys with reserved comments that can not be added
 	// or removed via the service.
 	reservedPublicKeys = []string{
-		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR juju-client-key",
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR juju-system-key",
 	}
 )
