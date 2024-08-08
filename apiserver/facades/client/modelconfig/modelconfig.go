@@ -120,13 +120,6 @@ func (c *ModelConfigAPI) ModelGet(ctx context.Context) (params.ModelConfigResult
 
 	result.Config = make(map[string]params.ConfigValue)
 	for attr, val := range values {
-		// Authorized keys are able to be listed using
-		// juju ssh-keys and including them here just
-		// clutters everything.
-		if attr == config.AuthorizedKeysKey {
-			continue
-		}
-
 		// Only admins get to see attributes marked as secret.
 		if attr, ok := defaultSchema[attr]; ok && attr.Secret && !isAdmin {
 			continue

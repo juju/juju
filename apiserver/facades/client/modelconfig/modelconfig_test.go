@@ -54,11 +54,10 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 	}
 	s.backend = &mockBackend{
 		cfg: config.ConfigValues{
-			"type":            {Value: "dummy", Source: "model"},
-			"agent-version":   {Value: "1.2.3.4", Source: "model"},
-			"ftp-proxy":       {Value: "http://proxy", Source: "model"},
-			"authorized-keys": {Value: coretesting.FakeAuthKeys, Source: "model"},
-			"charmhub-url":    {Value: "http://meshuggah.rocks", Source: "model"},
+			"type":          {Value: "dummy", Source: "model"},
+			"agent-version": {Value: "1.2.3.4", Source: "model"},
+			"ftp-proxy":     {Value: "http://proxy", Source: "model"},
+			"charmhub-url":  {Value: "http://meshuggah.rocks", Source: "model"},
 		},
 		secretBackend: &coresecrets.SecretBackend{
 			ID:          "backend-1",
@@ -78,11 +77,10 @@ func (s *modelconfigSuite) getAPI(c *gc.C) (*modelconfig.ModelConfigAPI, *gomock
 
 	s.mockModelConfigService.EXPECT().ModelConfigValues(gomock.Any()).Return(
 		config.ConfigValues{
-			"type":            {Value: "dummy", Source: "model"},
-			"agent-version":   {Value: "1.2.3.4", Source: "model"},
-			"ftp-proxy":       {Value: "http://proxy", Source: "model"},
-			"authorized-keys": {Value: coretesting.FakeAuthKeys, Source: "model"},
-			"charmhub-url":    {Value: "http://meshuggah.rocks", Source: "model"},
+			"type":          {Value: "dummy", Source: "model"},
+			"agent-version": {Value: "1.2.3.4", Source: "model"},
+			"ftp-proxy":     {Value: "http://proxy", Source: "model"},
+			"charmhub-url":  {Value: "http://meshuggah.rocks", Source: "model"},
 		}, nil,
 	).AnyTimes()
 
