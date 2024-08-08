@@ -6,6 +6,7 @@ package spaces_test
 import (
 	stdcontext "context"
 	"fmt"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	"sort"
 
 	"github.com/juju/collections/set"
@@ -327,7 +328,7 @@ func (s *APISuite) TestRenameSpaceErrorRename(c *gc.C) {
 	from, to := "bla", "blub"
 
 	bamErr := errors.New("bam")
-	s.expectDefaultSpace(ctrl, to, errors.NotFoundf(""))
+	s.expectDefaultSpace(ctrl, to, networkerrors.SpaceNotFound)
 	args := s.getRenameArgs(from, to)
 	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), from).Return(
 		&network.SpaceInfo{
@@ -361,7 +362,7 @@ func (s *APISuite) TestRenameSpaceSuccess(c *gc.C) {
 	defer unreg()
 	from, to := "bla", "blub"
 
-	s.expectDefaultSpace(ctrl, to, errors.NotFoundf("abc"))
+	s.expectDefaultSpace(ctrl, to, networkerrors.SpaceNotFound)
 	args := s.getRenameArgs(from, to)
 
 	fromSpace := &network.SpaceInfo{
@@ -919,8 +920,10 @@ func (s *LegacySuite) TestCreateSpacesGetProviderError(c *gc.C) {
 
 	args := params.CreateSpacesParams{}
 	_, err := s.facade.CreateSpaces(stdcontext.Background(), args)
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
-	c.Assert(err, gc.ErrorMatches, `getting environ: boom`)
+	c.Assert(err, gc.ErrorMatches, "getting networking environ for model: networking not supported")
+	var paramsErr *params.Error
+	c.Assert(errors.As(err, &paramsErr), jc.IsTrue)
+	c.Check(paramsErr.Code, gc.Equals, params.CodeNotSupported)
 }
 
 func (s *LegacySuite) TestCreateSpacesNotSupportedError(c *gc.C) {
@@ -1026,7 +1029,7 @@ func (s *LegacySuite) TestListSpacesAllSpacesError(c *gc.C) {
 	s.makeAPI(c)
 
 	_, err := s.facade.ListSpaces(stdcontext.Background())
-	c.Assert(err, gc.ErrorMatches, "getting environ: environ boom")
+	c.Assert(err, gc.ErrorMatches, "getting networking environ for model: environ boom")
 }
 
 func (s *LegacySuite) TestListSpacesSubnetsError(c *gc.C) {
