@@ -166,42 +166,6 @@ func (st *State) removeModelUser(user names.UserTag) error {
 	return nil
 }
 
-func (st *State) ModelSummariesForUser(user names.UserTag, isSuperuser bool) ([]ModelSummary, error) {
-	modelQuery, closer, err := st.modelQueryForUser(user, isSuperuser)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer closer()
-	var modelDocs []modelDoc
-	if err := modelQuery.All(&modelDocs); err != nil {
-		return nil, errors.Trace(err)
-	}
-	p := newProcessorFromModelDocs(st, modelDocs, user, isSuperuser)
-	modelDocs = nil
-	if err := p.fillInFromConfig(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := p.fillInFromStatus(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := p.fillInJustUser(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := p.fillInLastAccess(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := p.fillInMachineSummary(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := p.fillInApplicationSummary(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := p.fillInMigration(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return p.summaries, nil
-}
-
 // modelsForUser gives you the information about all models that a user has access to.
 // This includes the name and UUID, as well as the last time the user connected to that model.
 func (st *State) modelQueryForUser(user names.UserTag, isSuperuser bool) (mongo.Query, SessionCloser, error) {
