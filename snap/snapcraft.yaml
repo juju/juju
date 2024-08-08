@@ -105,7 +105,7 @@ parts:
     override-build: |
       set -ex
 
-      ln -s $(pwd)/include/sys/queue.h /usr/local/musl/include/sys/queue.h
+      ln -s $(pwd)/include/sys/queue.h /usr/local/musl/include/sys/queue.h || true
 
   libtirpc:
     after:
@@ -291,58 +291,14 @@ parts:
     stage:
     - -*.*
 
-  libraft:
-    after:
-      - libuv
-      - liblz4
-    source: https://github.com/canonical/raft.git
-    source-tag: v0.17.1
-    source-type: git
-    source-depth: 1
-    plugin: autotools
-    build-packages:
-      - automake
-      - make
-    override-build: |
-      set -ex
-
-      export PATH=/usr/local/musl/bin:$PATH
-      export CC=musl-gcc
-
-      CUSTOM_CFLAGS=""
-      if [ "$(uname -m)" = "ppc64le" ]; then
-        CUSTOM_CFLAGS="-mlong-double-64"
-      fi
-
-      autoreconf -i
-      CFLAGS="-I${SNAPCRAFT_STAGE}/libuv/include -I${SNAPCRAFT_STAGE}/liblz4/lib ${CUSTOM_CFLAGS}" \
-            LDFLAGS="-L${SNAPCRAFT_STAGE}/libuv/.libs -L${SNAPCRAFT_STAGE}/liblz4/lib" \
-            UV_CFLAGS="-I${SNAPCRAFT_STAGE}/libuv/include" \
-            UV_LIBS="-L${SNAPCRAFT_STAGE}/libuv/.libs" \
-            LZ4_CFLAGS="-I${SNAPCRAFT_STAGE}/liblz4/lib" \
-            LZ4_LIBS="-L${SNAPCRAFT_STAGE}/liblz4/lib" \
-            ./configure --disable-shared
-      make
-
-      mkdir -p $SNAPCRAFT_PART_INSTALL/libraft
-      cp -r $SNAPCRAFT_PART_BUILD/include $SNAPCRAFT_PART_INSTALL/libraft/include
-      cp -r $SNAPCRAFT_PART_BUILD/.libs $SNAPCRAFT_PART_INSTALL/libraft/.libs
-
-      mkdir -p $SNAPCRAFT_PART_INSTALL/libs
-      cp -r $SNAPCRAFT_PART_BUILD/.libs/*.a $SNAPCRAFT_PART_INSTALL/libs
-
-      mkdir -p $SNAPCRAFT_PART_INSTALL/libs/include
-      cp -r $SNAPCRAFT_PART_BUILD/include/* $SNAPCRAFT_PART_INSTALL/libs/include
-    stage:
-    - -*.*
-
   libdqlite:
     after:
       - libnsl
-      - libraft
+      - liblz4
+      - libuv
       - libsqlite3
     source: https://github.com/canonical/dqlite.git
-    source-tag: v1.14.0
+    source-tag: v1.16.7
     source-type: git
     source-depth: 1
     plugin: autotools
@@ -368,14 +324,14 @@ parts:
       fi
 
       autoreconf -i
-      CFLAGS="-I${SNAPCRAFT_STAGE}/libraft/include -I${SNAPCRAFT_STAGE}/libsqlite3 -I${SNAPCRAFT_STAGE}/libuv/include -I${SNAPCRAFT_STAGE}/liblz4/lib -I/usr/local/musl/include -Werror=implicit-function-declaration ${CUSTOM_CFLAGS}" \
-            LDFLAGS="-L${SNAPCRAFT_STAGE}/libraft/.libs -L${SNAPCRAFT_STAGE}/libuv/.libs -L${SNAPCRAFT_STAGE}/liblz4/lib -L${SNAPCRAFT_STAGE}/libnsl/src" \
-            RAFT_CFLAGS="-I${SNAPCRAFT_STAGE}/libraft/include" \
-            RAFT_LIBS="-L${SNAPCRAFT_STAGE}/libraft/.libs" \
+      CFLAGS="-I${SNAPCRAFT_STAGE}/libsqlite3 -I${SNAPCRAFT_STAGE}/libuv/include -I${SNAPCRAFT_STAGE}/liblz4/lib -I/usr/local/musl/include -Werror=implicit-function-declaration ${CUSTOM_CFLAGS}" \
+            LDFLAGS="-L${SNAPCRAFT_STAGE}/libuv/.libs -L${SNAPCRAFT_STAGE}/liblz4/lib -L${SNAPCRAFT_STAGE}/libnsl/src" \
             UV_CFLAGS="-I${SNAPCRAFT_STAGE}/libuv/include" \
             UV_LIBS="-L${SNAPCRAFT_STAGE}/libuv/.libs" \
+            LZ4_CFLAGS="-I${SNAPCRAFT_STAGE}/liblz4/lib" \
+            LZ4_LIBS="-L${SNAPCRAFT_STAGE}/liblz4/lib" \
             SQLITE_CFLAGS="-I${SNAPCRAFT_STAGE}/libsqlite3" \
-            ./configure --disable-shared --enable-debug
+            ./configure --disable-shared --enable-debug --enable-build-raft
       make
 
       mkdir -p $SNAPCRAFT_PART_INSTALL/libdqlite
@@ -407,7 +363,7 @@ parts:
     go-cgo-enabled: "1"
     go-cgo-cc: "musl-gcc"
     go-cgo-cflags: "-I/usr/local/musl/include"
-    go-cgo-ldflags: "-luv -lraft -ldqlite -llz4 -lsqlite3"
+    go-cgo-ldflags: "-luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576"
     go-cgo-ldflags-allow: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
 
   juju:
