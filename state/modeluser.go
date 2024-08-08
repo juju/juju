@@ -203,14 +203,6 @@ func (st *State) modelQueryForUser(user names.UserTag, isSuperuser bool) (mongo.
 	return modelQuery, closer, nil
 }
 
-type ModelAccessInfo struct {
-	Name           string    `bson:"name"`
-	UUID           string    `bson:"_id"`
-	Owner          string    `bson:"owner"`
-	Type           ModelType `bson:"type"`
-	LastConnection time.Time
-}
-
 // IsControllerAdmin returns true if the user specified has Super User Access.
 func (st *State) IsControllerAdmin(user names.UserTag) (bool, error) {
 	model, err := st.Model()
