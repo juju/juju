@@ -14,7 +14,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
@@ -39,12 +38,7 @@ func (api *APIBase) getConfig(
 		return params.ApplicationGetResults{}, err
 	}
 
-	// We need a guard on the API server-side for direct API callers such as
-	// python-libjuju. Always default to the master branch.
-	if args.BranchName == "" {
-		args.BranchName = model.GenerationMaster
-	}
-	settings, err := app.CharmConfig(args.BranchName)
+	settings, err := app.CharmConfig()
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}

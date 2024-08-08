@@ -23,11 +23,9 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
@@ -277,10 +275,6 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	details := jujuclient.ModelDetails{
 		ModelUUID: model.UUID,
 		ModelType: model.Type,
-	}
-	if featureflag.Enabled(featureflag.Branches) || featureflag.Enabled(featureflag.Generations) {
-		// Default target is the master branch.
-		details.ActiveBranch = coremodel.GenerationMaster
 	}
 	if modelOwner == accountDetails.User {
 		if err := store.UpdateModel(controllerName, c.Name, details); err != nil {

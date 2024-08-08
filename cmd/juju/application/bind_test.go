@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -67,7 +66,7 @@ func (s *BindSuite) SetUpTest(c *gc.C) {
 	}
 	store.Models["foo"] = &jujuclient.ControllerModels{
 		CurrentModel: "admin/bar",
-		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {ActiveBranch: model.GenerationMaster}},
+		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {}},
 	}
 	store.Accounts["foo"] = jujuclient.AccountDetails{
 		User: "testuser",
@@ -159,8 +158,8 @@ type mockApplicationBindClient struct {
 	getResults *params.ApplicationGetResults
 }
 
-func (m *mockApplicationBindClient) Get(generation string, app string) (*params.ApplicationGetResults, error) {
-	m.MethodCall(m, "Get", generation, app)
+func (m *mockApplicationBindClient) Get(app string) (*params.ApplicationGetResults, error) {
+	m.MethodCall(m, "Get", "", app)
 	return m.getResults, m.NextErr()
 }
 

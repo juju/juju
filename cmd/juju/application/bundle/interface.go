@@ -14,7 +14,7 @@ import (
 type ModelExtractor interface {
 	GetAnnotations(tags []string) ([]params.AnnotationsGetResult, error)
 	GetConstraints(applications ...string) ([]constraints.Value, error)
-	GetConfig(branchName string, applications ...string) ([]map[string]interface{}, error)
+	GetConfig(applications ...string) ([]map[string]interface{}, error)
 	Sequences() (map[string]int, error)
 }
 

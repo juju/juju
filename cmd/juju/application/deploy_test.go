@@ -1308,15 +1308,15 @@ func (f *fakeDeployAPI) ListSpaces() ([]params.Space, error) {
 	return results[0].([]params.Space), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) GetAnnotations(_ []string) ([]params.AnnotationsGetResult, error) {
+func (f *fakeDeployAPI) GetAnnotations([]string) ([]params.AnnotationsGetResult, error) {
 	return nil, nil
 }
 
-func (f *fakeDeployAPI) GetConfig(_ string, _ ...string) ([]map[string]interface{}, error) {
+func (f *fakeDeployAPI) GetConfig(...string) ([]map[string]interface{}, error) {
 	return nil, nil
 }
 
-func (f *fakeDeployAPI) GetConstraints(_ ...string) ([]constraints.Value, error) {
+func (f *fakeDeployAPI) GetConstraints(...string) ([]constraints.Value, error) {
 	return nil, nil
 }
 
@@ -1358,8 +1358,8 @@ func (f *fakeDeployAPI) SetAnnotation(annotations map[string]map[string]string) 
 	return results[0].([]params.ErrorResult), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) SetCharm(branchName string, cfg application.SetCharmConfig) error {
-	results := f.MethodCall(f, "SetCharm", branchName, cfg)
+func (f *fakeDeployAPI) SetCharm(cfg application.SetCharmConfig) error {
+	results := f.MethodCall(f, "SetCharm", cfg)
 	return jujutesting.TypeAssertError(results[0])
 }
 

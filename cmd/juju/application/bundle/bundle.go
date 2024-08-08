@@ -19,7 +19,6 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/model"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
@@ -180,9 +179,8 @@ func BuildModelRepresentation(
 		return nil, errors.Annotate(err, "getting model sequences")
 	}
 
-	// When dealing with bundles the current model generation is always used.
 	sort.Strings(appNames)
-	configValues, err := modelExtractor.GetConfig(model.GenerationMaster, appNames...)
+	configValues, err := modelExtractor.GetConfig(appNames...)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting application options")
 	}

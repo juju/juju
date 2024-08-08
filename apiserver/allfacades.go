@@ -55,8 +55,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/keymanager"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/machinemanager" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"    // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/modelgeneration"
-	"github.com/juju/juju/apiserver/facades/client/modelmanager" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/modelmanager"   // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
 	"github.com/juju/juju/apiserver/facades/client/payloads"
 	"github.com/juju/juju/apiserver/facades/client/pinger"
@@ -233,7 +232,6 @@ func AllFacades() *facade.Registry {
 	migrationminion.Register(registry)
 	migrationtarget.Register(requiredMigrationFacadeVersions())(registry)
 	modelconfig.Register(registry)
-	modelgeneration.Register(registry)
 	modelmanager.Register(registry)
 	modelupgrader.Register(registry)
 	payloads.Register(registry)

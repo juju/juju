@@ -272,9 +272,8 @@ func runCLICommands(ctx context.Context, controllerConfigService ControllerConfi
 	store.Models[controllerName] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
 			qualifiedModelName: {
-				ModelUUID:    m.UUID(),
-				ModelType:    model.ModelType(m.Type()),
-				ActiveBranch: commands.ActiveBranch,
+				ModelUUID: m.UUID(),
+				ModelType: model.ModelType(m.Type()),
 			},
 		},
 		CurrentModel: qualifiedModelName,

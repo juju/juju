@@ -42,8 +42,7 @@ func minimalStore(modelType model.ModelType) *jujuclient.MemStore {
 	store.Models["arthur"] = &jujuclient.ControllerModels{
 		CurrentModel: "king/sword",
 		Models: map[string]jujuclient.ModelDetails{"king/sword": {
-			ModelType:    modelType,
-			ActiveBranch: model.GenerationMaster,
+			ModelType: modelType,
 		}},
 	}
 	store.Accounts["arthur"] = jujuclient.AccountDetails{

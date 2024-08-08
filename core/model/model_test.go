@@ -18,24 +18,6 @@ type ModelSuite struct {
 
 var _ = gc.Suite(&ModelSuite{})
 
-func (*ModelSuite) TestValidateBranchName(c *gc.C) {
-	for _, t := range []struct {
-		branchName string
-		valid      bool
-	}{
-		{branchName: "", valid: false},
-		{branchName: GenerationMaster, valid: false},
-		{branchName: "something else", valid: true},
-	} {
-		err := ValidateBranchName(t.branchName)
-		if t.valid {
-			c.Check(err, jc.ErrorIsNil)
-		} else {
-			c.Check(err, jc.ErrorIs, errors.NotValid)
-		}
-	}
-}
-
 func (*ModelSuite) TestValidModelTypes(c *gc.C) {
 	validTypes := []ModelType{
 		CAAS,

@@ -851,14 +851,7 @@ type forceParams struct {
 	ForceBase, ForceUnits, Force bool
 }
 
-func (api *APIBase) setConfig(app Application, generation, settingsYAML string, settingsStrings map[string]string) error {
-	// We need a guard on the API server-side for direct API callers such as
-	// python-libjuju, and for older clients.
-	// Always default to the master branch.
-	if generation == "" {
-		generation = model.GenerationMaster
-	}
-
+func (api *APIBase) setConfig(app Application, settingsYAML string, settingsStrings map[string]string) error {
 	// Update settings for charm and/or application.
 	ch, _, err := app.Charm()
 	if err != nil {
@@ -873,24 +866,14 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 		return errors.Annotate(err, "parsing settings for application")
 	}
 
-	var configChanged bool
 	if len(charmSettings) != 0 {
-		if err = app.UpdateCharmConfig(generation, charmSettings); err != nil {
+		if err = app.UpdateCharmConfig(charmSettings); err != nil {
 			return errors.Annotate(err, "updating charm config settings")
 		}
-		configChanged = true
 	}
 	if cfgAttrs := appConfig.Attributes(); len(cfgAttrs) > 0 {
 		if err = app.UpdateApplicationConfig(cfgAttrs, nil, appConfigSchema, defaults); err != nil {
 			return errors.Annotate(err, "updating application config settings")
-		}
-		configChanged = true
-	}
-
-	// If the config change is generational, add the app to the generation.
-	if configChanged && generation != model.GenerationMaster {
-		if err := api.addAppToBranch(generation, app.Name()); err != nil {
-			return errors.Trace(err)
 		}
 	}
 
@@ -2121,8 +2104,7 @@ func (api *APIBase) maybeUpdateExistingApplicationEndpoints(
 	return existingRemoteApp, appStatus.Status, nil
 }
 
-// CharmConfig returns charm config for the input list of applications and
-// model generations.
+// CharmConfig returns charm config for the input list of applications.
 func (api *APIBase) CharmConfig(ctx context.Context, args params.ApplicationGetArgs) (params.ApplicationGetConfigResults, error) {
 	if err := api.checkCanRead(ctx); err != nil {
 		return params.ApplicationGetConfigResults{}, err
@@ -2131,7 +2113,7 @@ func (api *APIBase) CharmConfig(ctx context.Context, args params.ApplicationGetA
 		Results: make([]params.ConfigResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		config, err := api.getCharmConfig(arg.BranchName, arg.ApplicationName)
+		config, err := api.getCharmConfig(arg.ApplicationName)
 		results.Results[i].Config = config
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -2159,19 +2141,19 @@ func (api *APIBase) GetConfig(ctx context.Context, args params.Entities) (params
 		}
 
 		// Always deal with the master branch version of config.
-		config, err := api.getCharmConfig(model.GenerationMaster, tag.Id())
+		config, err := api.getCharmConfig(tag.Id())
 		results.Results[i].Config = config
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }
 
-func (api *APIBase) getCharmConfig(gen string, appName string) (map[string]interface{}, error) {
+func (api *APIBase) getCharmConfig(appName string) (map[string]interface{}, error) {
 	app, err := api.backend.Application(appName)
 	if err != nil {
 		return nil, err
 	}
-	settings, err := app.CharmConfig(gen)
+	settings, err := app.CharmConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -2200,19 +2182,10 @@ func (api *APIBase) SetConfigs(ctx context.Context, args params.ConfigSetArgs) (
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = api.setConfig(app, arg.Generation, arg.ConfigYAML, arg.Config)
+		err = api.setConfig(app, arg.ConfigYAML, arg.Config)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-func (api *APIBase) addAppToBranch(branchName string, appName string) error {
-	gen, err := api.backend.Branch(branchName)
-	if err != nil {
-		return errors.Annotate(err, "retrieving next generation")
-	}
-	err = gen.AssignApplication(appName)
-	return errors.Annotatef(err, "adding %q to next generation", appName)
 }
 
 // UnsetApplicationsConfig implements the server side of Application.UnsetApplicationsConfig.
@@ -2261,13 +2234,7 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 	}
 
 	if len(charmSettings) > 0 {
-		// We need a guard on the API server-side for direct API callers such as
-		// python-libjuju, and for older clients.
-		// Always default to the master branch.
-		if arg.BranchName == "" {
-			arg.BranchName = model.GenerationMaster
-		}
-		if err := app.UpdateCharmConfig(arg.BranchName, charmSettings); err != nil {
+		if err := app.UpdateCharmConfig(charmSettings); err != nil {
 			return errors.Annotate(err, "updating application charm settings")
 		}
 	}

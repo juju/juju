@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
@@ -135,7 +134,7 @@ func (s *ControllerSuite) TestSetMachineAddressesControllerCharm(c *gc.C) {
 	err = worker.SetMachineAddresses(controllerConfig, addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := controllerApp.CharmConfig(model.GenerationMaster)
+	cfg, err := controllerApp.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg["controller-url"], gc.Equals, "wss://10.0.0.1:17777/api")
 }

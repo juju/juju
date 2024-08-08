@@ -472,7 +472,7 @@ func (s *getSuite) TestApplicationGet(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		if t.config != nil {
-			err := app.UpdateCharmConfig(model.GenerationMaster, t.config)
+			err := app.UpdateCharmConfig(t.config)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		expect := t.expect
@@ -480,7 +480,7 @@ func (s *getSuite) TestApplicationGet(c *gc.C) {
 		expect.Application = app.Name()
 		expect.Charm = ch.Meta().Name
 		client := apiapplication.NewClient(s.OpenControllerModelAPI(c))
-		got, err := client.Get(model.GenerationMaster, app.Name())
+		got, err := client.Get(app.Name())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(*got, jc.DeepEquals, expect)
 	}
@@ -504,10 +504,10 @@ func (s *getSuite) TestGetMaxResolutionInt(c *gc.C) {
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
 	})
 
-	err := app.UpdateCharmConfig(model.GenerationMaster, map[string]interface{}{"skill-level": nonFloatInt})
+	err := app.UpdateCharmConfig(map[string]interface{}{"skill-level": nonFloatInt})
 	c.Assert(err, jc.ErrorIsNil)
 	client := apiapplication.NewClient(s.OpenControllerModelAPI(c))
-	got, err := client.Get(model.GenerationMaster, app.Name())
+	got, err := client.Get(app.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got.CharmConfig["skill-level"], jc.DeepEquals, map[string]interface{}{
 		"description": "A number indicating skill.",

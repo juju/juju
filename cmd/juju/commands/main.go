@@ -425,16 +425,6 @@ func registerCommands(r commandRegistry) {
 	r.Register(model.NewRevokeCommand())
 	r.Register(model.NewShowCommand())
 	r.Register(model.NewModelCredentialCommand())
-	if featureflag.Enabled(featureflag.Branches) || featureflag.Enabled(featureflag.Generations) {
-		r.Register(model.NewAddBranchCommand())
-		r.Register(model.NewCommitCommand())
-		r.Register(model.NewTrackBranchCommand())
-		r.Register(model.NewBranchCommand())
-		r.Register(model.NewDiffCommand())
-		r.Register(model.NewAbortCommand())
-		r.Register(model.NewCommitsCommand())
-		r.Register(model.NewShowCommitCommand())
-	}
 
 	r.Register(newMigrateCommand())
 	r.Register(model.NewExportBundleCommand())

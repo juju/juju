@@ -2545,56 +2545,6 @@ func (s *ApplicationSuite) TestRemoteRelationDisAllowedCIDR(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `CIDR "0.0.0.0/0" not allowed`)
 }
 
-func (s *ApplicationSuite) TestSetConfigBranch(c *gc.C) {
-	s.modelInfo.Type = model.CAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().UpdateCharmConfig("new-branch", charm.Settings{"stringOption": "stringVal"})
-	s.expectUpdateApplicationConfig(c, app)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	gen := mocks.NewMockGeneration(ctrl)
-	gen.EXPECT().AssignApplication("postgresql")
-	s.backend.EXPECT().Branch("new-branch").Return(gen, nil)
-
-	result, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{
-		Args: []params.ConfigSet{{
-			ApplicationName: "postgresql",
-			Config: map[string]string{
-				"trust":        "true",
-				"stringOption": "stringVal",
-			},
-			Generation: "new-branch",
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), jc.ErrorIsNil)
-}
-
-func (s *ApplicationSuite) TestSetEmptyConfigMasterBranch(c *gc.C) {
-	s.modelInfo.Type = model.CAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().UpdateCharmConfig("master", charm.Settings{"stringOption": ""})
-	s.expectUpdateApplicationConfig(c, app)
-
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-	result, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{
-		Args: []params.ConfigSet{{
-			ApplicationName: "postgresql",
-			Config: map[string]string{
-				"trust":        "true",
-				"stringOption": "",
-			},
-			Generation: "master",
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), jc.ErrorIsNil)
-}
-
 func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 	s.modelInfo.Type = model.CAAS
 	ctrl := s.setup(c)
@@ -2605,14 +2555,13 @@ func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().UpdateApplicationConfig(coreconfig.ConfigAttributes(nil), []string{"trust"}, schemaFields, defaults)
-	app.EXPECT().UpdateCharmConfig("new-branch", charm.Settings{"stringVal": nil})
+	app.EXPECT().UpdateCharmConfig(charm.Settings{"stringVal": nil})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	result, err := s.api.UnsetApplicationsConfig(context.Background(), params.ApplicationConfigUnsetArgs{
 		Args: []params.ApplicationUnset{{
 			ApplicationName: "postgresql",
 			Options:         []string{"trust", "stringVal"},
-			BranchName:      "new-branch",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
@@ -2717,7 +2666,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
 	}).MinTimes(1)
 	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil).MinTimes(1)
-	app.EXPECT().CharmConfig("master").Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
+	app.EXPECT().CharmConfig().Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
 
 	bindings := mocks.NewMockBindings(ctrl)
 	bindings.EXPECT().MapWithSpaceNames(gomock.Any()).Return(map[string]string{"juju-info": "myspace"}, nil).MinTimes(1)
@@ -2754,7 +2703,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
 	}).MinTimes(1)
 	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil).MinTimes(1)
-	app.EXPECT().CharmConfig("master").Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
+	app.EXPECT().CharmConfig().Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
 
 	bindings := mocks.NewMockBindings(ctrl)
 	bindings.EXPECT().MapWithSpaceNames(gomock.Any()).Return(map[string]string{"juju-info": "myspace"}, nil).MinTimes(1)
@@ -2796,7 +2745,7 @@ func (s *ApplicationSuite) TestApplicationsInfoDetailsErr(c *gc.C) {
 	defer ctrl.Finish()
 
 	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().CharmConfig("master").Return(nil, errors.Errorf("boom"))
+	app.EXPECT().CharmConfig().Return(nil, errors.Errorf("boom"))
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
@@ -2813,7 +2762,7 @@ func (s *ApplicationSuite) TestApplicationsInfoBindingsErr(c *gc.C) {
 
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil).MinTimes(1)
-	app.EXPECT().CharmConfig("master").Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
+	app.EXPECT().CharmConfig().Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
 	app.EXPECT().EndpointBindings().Return(nil, errors.Errorf("boom")).MinTimes(1)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
@@ -2835,7 +2784,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
 	}).MinTimes(1)
 	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil).MinTimes(1)
-	app.EXPECT().CharmConfig("master").Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
+	app.EXPECT().CharmConfig().Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
 
 	bindings := mocks.NewMockBindings(ctrl)
 	bindings.EXPECT().MapWithSpaceNames(gomock.Any()).Return(map[string]string{"juju-info": "myspace"}, nil).MinTimes(1)
@@ -3087,14 +3036,14 @@ func (s *ApplicationSuite) setupConfigTest(ctrl *gomock.Controller) {
 	}})
 
 	foo := s.expectApplicationWithCharm(ctrl, ch, "foo")
-	foo.EXPECT().CharmConfig(gomock.Any()).Return(map[string]interface{}{
+	foo.EXPECT().CharmConfig().Return(map[string]interface{}{
 		"title":       "foo",
 		"skill-level": 42,
 	}, nil)
 	s.backend.EXPECT().Application("foo").Return(foo, nil)
 
 	bar := s.expectApplicationWithCharm(ctrl, ch, "bar")
-	bar.EXPECT().CharmConfig(gomock.Any()).Return(map[string]interface{}{
+	bar.EXPECT().CharmConfig().Return(map[string]interface{}{
 		"title":   "bar",
 		"outlook": "fantastic",
 	}, nil)

@@ -1749,7 +1749,7 @@ func (st *State) maybeUpdateControllerCharm(controllerConfig controller.Config, 
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return controllerApp.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
+	return controllerApp.UpdateCharmConfig(charm.Settings{
 		"controller-url": api.ControllerAPIURL(publicAddr, controllerConfig.APIPort()),
 	})
 }

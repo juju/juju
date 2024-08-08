@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
@@ -487,7 +486,7 @@ func (s *UnitSuite) TestConfigSettingsIncludeDefaults(c *gc.C) {
 }
 
 func (s *UnitSuite) TestConfigSettingsReflectApplication(c *gc.C) {
-	err := s.application.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "no title"})
+	err := s.application.UpdateCharmConfig(charm.Settings{"blog-title": "no title"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
@@ -495,7 +494,7 @@ func (s *UnitSuite) TestConfigSettingsReflectApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "no title"})
 
-	err = s.application.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "ironic title"})
+	err = s.application.UpdateCharmConfig(charm.Settings{"blog-title": "ironic title"})
 	c.Assert(err, jc.ErrorIsNil)
 	settings, err = s.unit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -531,7 +530,7 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	err = s.unit.SetCharmURL(newCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.application.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "sauceror central"})
+	err = s.application.UpdateCharmConfig(charm.Settings{"blog-title": "sauceror central"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
@@ -544,14 +543,14 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	wc.AssertChange("606cdac123d3d8d3031fe93db3d5afd9c95f709dfbc17e5eade1332b081ec6f9")
 
 	// Non-change is not reported.
-	err = s.application.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
+	err = s.application.UpdateCharmConfig(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Add an attribute that comes before.
-	err = s.application.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
+	err = s.application.UpdateCharmConfig(charm.Settings{
 		"alphabetic": 1,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -567,13 +566,13 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	wc.AssertChange("886b9586df944be35b189e5678a85ac0b2ed4da46fcb10cecfd8c06b6d1baf0f")
 
 	// And one that comes after.
-	err = s.application.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"zygomatic": 23})
+	err = s.application.UpdateCharmConfig(charm.Settings{"zygomatic": 23})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("9ca0a511647f09db8fab07be3c70f49cc93f38f300ca82d6e26ec7d4a8b1b4c2")
 
 	// Setting a value to int64 instead of int has no effect on the
 	// hash (the information always comes back as int64).
-	err = s.application.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"alphabetic": int64(1)})
+	err = s.application.UpdateCharmConfig(charm.Settings{"alphabetic": int64(1)})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -585,7 +584,7 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change application config for new charm; nothing detected.
-	err = s.application.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"key": 42.0})
+	err = s.application.UpdateCharmConfig(charm.Settings{"key": 42.0})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -605,7 +604,7 @@ func (s *UnitSuite) TestConfigHashesDifferentForDifferentCharms(c *gc.C) {
 	// config-changed will be run on a unit after its charm is
 	// upgraded.
 	c.Logf("charm url %s", s.charm.URL())
-	err := s.application.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "sauceror central"})
+	err := s.application.UpdateCharmConfig(charm.Settings{"blog-title": "sauceror central"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
@@ -2191,28 +2190,6 @@ func (s *UnitSuite) TestRemove(c *gc.C) {
 	c.Assert(units, gc.HasLen, 0)
 	err = s.unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *UnitSuite) TestRemoveUnassignsFromBranch(c *gc.C) {
-	// Add unit to a branch
-	c.Assert(s.Model.AddBranch("apple", "testuser"), jc.ErrorIsNil)
-	branch, err := s.Model.Branch("apple")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(branch.AssignUnit(s.unit.Name()), jc.ErrorIsNil)
-	c.Assert(branch.Refresh(), jc.ErrorIsNil)
-	c.Assert(branch.AssignedUnits(), gc.DeepEquals, map[string][]string{
-		s.application.Name(): {s.unit.Name()},
-	})
-
-	// remove the unit
-	c.Assert(s.unit.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(s.unit.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
-
-	// verify branch no longer tracks unit
-	c.Assert(branch.Refresh(), jc.ErrorIsNil)
-	c.Assert(branch.AssignedUnits(), gc.DeepEquals, map[string][]string{
-		s.application.Name(): {},
-	})
 }
 
 func (s *UnitSuite) TestRemovePathological(c *gc.C) {

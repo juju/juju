@@ -177,7 +177,7 @@ func (c *debugHooksCommand) validateHooksOrActions(ctx context.Context) error {
 		return err
 	}
 
-	curl, _, err := c.applicationAPI.GetCharmURLOrigin("", appName)
+	curl, _, err := c.applicationAPI.GetCharmURLOrigin(appName)
 	if err != nil {
 		return err
 	}

@@ -19,7 +19,6 @@ import (
 	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -189,7 +188,7 @@ func opClientStatus(c *gc.C, st api.Connection, _ *state.State) (func(), error) 
 }
 
 func opClientApplicationGet(c *gc.C, st api.Connection, _ *state.State) (func(), error) {
-	_, err := application.NewClient(st).Get(model.GenerationMaster, "wordpress")
+	_, err := application.NewClient(st).Get("wordpress")
 	if err != nil {
 		return func() {}, err
 	}
@@ -273,7 +272,7 @@ func opClientApplicationSetCharm(c *gc.C, st api.Connection, _ *state.State) (fu
 			Origin: apicharm.Origin{Source: "local"},
 		},
 	}
-	err := application.NewClient(st).SetCharm(model.GenerationMaster, cfg)
+	err := application.NewClient(st).SetCharm(cfg)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}

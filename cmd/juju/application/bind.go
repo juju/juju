@@ -36,7 +36,7 @@ func NewBindCommand() cmd.Command {
 // ApplicationBindClient defines a subset of the application facade that deals with
 // querying and updating application bindings.
 type ApplicationBindClient interface {
-	Get(string, string) (*params.ApplicationGetResults, error)
+	Get(string) (*params.ApplicationGetResults, error)
 	MergeBindings(req params.ApplicationMergeBindingsArgs) error
 }
 
@@ -131,13 +131,8 @@ func (c *bindCommand) Run(ctx *cmd.Context) error {
 		return errors.New("no bindings specified")
 	}
 
-	generation, err := c.ActiveBranch()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	applicationClient := c.NewApplicationClient(apiRoot)
-	applicationInfo, err := applicationClient.Get(generation, c.ApplicationName)
+	applicationInfo, err := applicationClient.Get(c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}

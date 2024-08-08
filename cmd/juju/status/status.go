@@ -321,10 +321,6 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	activeBranch, err := c.ActiveBranch()
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	formatterParams := NewStatusFormatterParams{
 		Status:         status,
@@ -332,7 +328,6 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 		OutputName:     c.out.Name(),
 		ISOTime:        c.isoTime,
 		ShowRelations:  showIntegrations,
-		ActiveBranch:   activeBranch,
 	}
 	if showStorage {
 		// TODO: move this into StatusFormatter

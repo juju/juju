@@ -1243,7 +1243,7 @@ func (h *bundleHandler) upgradeCharm(ctx context.Context, change *bundlechanges.
 		Force:           h.force,
 	}
 	// Bundles only ever deal with the current generation.
-	if err := h.deployAPI.SetCharm(model.GenerationMaster, cfg); err != nil {
+	if err := h.deployAPI.SetCharm(cfg); err != nil {
 		return errors.Trace(err)
 	}
 	h.writeAddedResources(resNames2IDs)
@@ -1309,7 +1309,7 @@ func (h *bundleHandler) setOptions(change *bundlechanges.SetOptionsChange) error
 		return errors.Annotatef(err, "cannot marshal options for application %q", p.Application)
 	}
 
-	err = h.deployAPI.SetConfig(model.GenerationMaster, p.Application, string(cfg), nil)
+	err = h.deployAPI.SetConfig(p.Application, string(cfg), nil)
 	return errors.Annotatef(err, "cannot update options for application %q", p.Application)
 }
 

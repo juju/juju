@@ -2453,7 +2453,7 @@ func (s *BundleDeployRepositorySuite) expectAddOneUnit(name, directive, unit str
 func (s *BundleDeployRepositorySuite) expectSetConfig(c *gc.C, appName string, options map[string]interface{}) {
 	cfg, err := yaml.Marshal(map[string]map[string]interface{}{appName: options})
 	c.Assert(err, jc.ErrorIsNil)
-	s.deployerAPI.EXPECT().SetConfig(gomock.Any(), appName, string(cfg), gomock.Any())
+	s.deployerAPI.EXPECT().SetConfig(appName, string(cfg), gomock.Any())
 }
 
 func (s *BundleDeployRepositorySuite) expectSetConstraints(name string, cons string) {
@@ -2462,7 +2462,7 @@ func (s *BundleDeployRepositorySuite) expectSetConstraints(name string, cons str
 }
 
 func (s *BundleDeployRepositorySuite) expectSetCharm(c *gc.C, name string) {
-	s.deployerAPI.EXPECT().SetCharm(model.GenerationMaster, setCharmConfigMatcher{name: name, c: c})
+	s.deployerAPI.EXPECT().SetCharm(setCharmConfigMatcher{name: name, c: c})
 }
 
 func (s *BundleDeployRepositorySuite) expectStatus(status params.FullStatus) {

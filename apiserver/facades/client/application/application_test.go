@@ -258,7 +258,7 @@ func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 
 	app, err := s.ControllerModel(c).State().Application("application-name")
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := app.CharmConfig(model.GenerationMaster)
+	settings, err := app.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)

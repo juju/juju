@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/cmd/juju/application/bundle/mocks"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
@@ -175,7 +174,7 @@ func (s *buildModelRepSuite) expectGetConstraintsWordpress() {
 }
 
 func (s *buildModelRepSuite) expectEmptyGetConfig() {
-	s.modelExtractor.EXPECT().GetConfig(model.GenerationMaster, []string{}).Return(nil, nil)
+	s.modelExtractor.EXPECT().GetConfig([]string{}).Return(nil, nil)
 }
 
 func (s *buildModelRepSuite) expectGetConfigSubWordpress() {
@@ -195,7 +194,7 @@ func (s *buildModelRepSuite) expectGetConfigSubWordpress() {
 		{},           // sub
 		wordpressCfg, // wordpress
 	}
-	s.modelExtractor.EXPECT().GetConfig(model.GenerationMaster, "sub", "wordpress").Return(retval, nil)
+	s.modelExtractor.EXPECT().GetConfig("sub", "wordpress").Return(retval, nil)
 }
 
 func (s *buildModelRepSuite) expectEmptySequences() {
@@ -361,7 +360,7 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithExposed
 	s.expectGetConstraintsWordpress()
 	s.expectEmptySequences()
 
-	s.modelExtractor.EXPECT().GetConfig(model.GenerationMaster, "wordpress").Return(nil, nil)
+	s.modelExtractor.EXPECT().GetConfig("wordpress").Return(nil, nil)
 
 	status := &params.FullStatus{
 		Model: params.ModelStatusInfo{

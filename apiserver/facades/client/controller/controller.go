@@ -264,7 +264,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cfg, err := dashboardApp.CharmConfig(coremodel.GenerationMaster)
+	cfg, err := dashboardApp.CharmConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -300,7 +300,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cfg, err := dashboardApp.CharmConfig(coremodel.GenerationMaster)
+	cfg, err := dashboardApp.CharmConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

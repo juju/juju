@@ -80,10 +80,10 @@ func (c *MockModelExtractorGetAnnotationsCall) DoAndReturn(f func([]string) ([]p
 }
 
 // GetConfig mocks base method.
-func (m *MockModelExtractor) GetConfig(arg0 string, arg1 ...string) ([]map[string]any, error) {
+func (m *MockModelExtractor) GetConfig(arg0 ...string) ([]map[string]any, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0}
-	for _, a := range arg1 {
+	varargs := []any{}
+	for _, a := range arg0 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetConfig", varargs...)
@@ -93,10 +93,9 @@ func (m *MockModelExtractor) GetConfig(arg0 string, arg1 ...string) ([]map[strin
 }
 
 // GetConfig indicates an expected call of GetConfig.
-func (mr *MockModelExtractorMockRecorder) GetConfig(arg0 any, arg1 ...any) *MockModelExtractorGetConfigCall {
+func (mr *MockModelExtractorMockRecorder) GetConfig(arg0 ...any) *MockModelExtractorGetConfigCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0}, arg1...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConfig", reflect.TypeOf((*MockModelExtractor)(nil).GetConfig), varargs...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConfig", reflect.TypeOf((*MockModelExtractor)(nil).GetConfig), arg0...)
 	return &MockModelExtractorGetConfigCall{Call: call}
 }
 
@@ -112,13 +111,13 @@ func (c *MockModelExtractorGetConfigCall) Return(arg0 []map[string]any, arg1 err
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelExtractorGetConfigCall) Do(f func(string, ...string) ([]map[string]any, error)) *MockModelExtractorGetConfigCall {
+func (c *MockModelExtractorGetConfigCall) Do(f func(...string) ([]map[string]any, error)) *MockModelExtractorGetConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelExtractorGetConfigCall) DoAndReturn(f func(string, ...string) ([]map[string]any, error)) *MockModelExtractorGetConfigCall {
+func (c *MockModelExtractorGetConfigCall) DoAndReturn(f func(...string) ([]map[string]any, error)) *MockModelExtractorGetConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
