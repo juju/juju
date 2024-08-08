@@ -34,20 +34,12 @@ func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.api, err = client.NewClient(
 		s.st,
-		nil, // modelInfoService
 		nil, // storage
-		nil, // pool
 		nil, // block device service
-		nil, // controller config service
-		nil, // resources
 		authorizer,
 		nil, // presence
-		nil, // toolsFinder
-		nil, // newEnviron
-		nil, // blockChecker
-		nil,
+		nil, // leadership
 		nil, // networkService
-		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
