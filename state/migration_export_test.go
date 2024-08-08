@@ -664,6 +664,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 	c.Check(exportedPeers, jc.DeepEquals, expectedPeers)
 
 	// Check that we're exporting the manifest.
+
 	exportedCharmManifest := exported.CharmManifest()
 	c.Assert(exportedCharmManifest, gc.NotNil)
 
@@ -684,6 +685,69 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 		))
 	}
 	c.Check(exportedManifestBases, jc.DeepEquals, expectedManifestBases)
+
+	// Check that we're exporting the actions.
+
+	exportedCharmActions := exported.CharmActions()
+	c.Assert(exportedCharmActions, gc.NotNil)
+
+	type actionSpec struct {
+		Description    string
+		Parallel       bool
+		Params         map[string]interface{}
+		ExecutionGroup string
+	}
+
+	expectedActions := make(map[string]actionSpec)
+	for name, action := range ch.Actions().ActionSpecs {
+		expectedActions[name] = actionSpec{
+			Description:    action.Description,
+			Parallel:       action.Parallel,
+			Params:         action.Params,
+			ExecutionGroup: action.ExecutionGroup,
+		}
+	}
+
+	exportedActions := make(map[string]actionSpec)
+	for name, action := range exportedCharmActions.Actions() {
+		exportedActions[name] = actionSpec{
+			Description:    action.Description(),
+			Parallel:       action.Parallel(),
+			Params:         action.Parameters(),
+			ExecutionGroup: action.ExecutionGroup(),
+		}
+	}
+	c.Check(exportedActions, jc.DeepEquals, expectedActions)
+
+	// Check that we're exporting the config.
+
+	exportedCharmConfig := exported.CharmConfigs()
+	c.Assert(exportedCharmConfig, gc.NotNil)
+
+	type configSpec struct {
+		Type        string
+		Description string
+		Default     interface{}
+	}
+
+	expectedConfigs := make(map[string]configSpec)
+	for name, config := range ch.Config().Options {
+		expectedConfigs[name] = configSpec{
+			Type:        config.Type,
+			Description: config.Description,
+			Default:     config.Default,
+		}
+	}
+
+	exportedConfigs := make(map[string]configSpec)
+	for name, config := range exportedCharmConfig.Configs() {
+		exportedConfigs[name] = configSpec{
+			Type:        config.Type(),
+			Description: config.Description(),
+			Default:     config.Default(),
+		}
+	}
+	c.Check(exportedConfigs, jc.DeepEquals, expectedConfigs)
 }
 
 func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {

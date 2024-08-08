@@ -136,6 +136,20 @@ func (mr *MockApplicationMockRecorder) Channel() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Channel", reflect.TypeOf((*MockApplication)(nil).Channel))
 }
 
+// CharmActions mocks base method.
+func (m *MockApplication) CharmActions() description.CharmActions {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CharmActions")
+	ret0, _ := ret[0].(description.CharmActions)
+	return ret0
+}
+
+// CharmActions indicates an expected call of CharmActions.
+func (mr *MockApplicationMockRecorder) CharmActions() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmActions", reflect.TypeOf((*MockApplication)(nil).CharmActions))
+}
+
 // CharmConfig mocks base method.
 func (m *MockApplication) CharmConfig() map[string]any {
 	m.ctrl.T.Helper()
@@ -148,6 +162,20 @@ func (m *MockApplication) CharmConfig() map[string]any {
 func (mr *MockApplicationMockRecorder) CharmConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmConfig", reflect.TypeOf((*MockApplication)(nil).CharmConfig))
+}
+
+// CharmConfigs mocks base method.
+func (m *MockApplication) CharmConfigs() description.CharmConfigs {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CharmConfigs")
+	ret0, _ := ret[0].(description.CharmConfigs)
+	return ret0
+}
+
+// CharmConfigs indicates an expected call of CharmConfigs.
+func (mr *MockApplicationMockRecorder) CharmConfigs() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmConfigs", reflect.TypeOf((*MockApplication)(nil).CharmConfigs))
 }
 
 // CharmManifest mocks base method.
@@ -524,6 +552,30 @@ func (m *MockApplication) SetAnnotations(arg0 map[string]string) {
 func (mr *MockApplicationMockRecorder) SetAnnotations(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAnnotations", reflect.TypeOf((*MockApplication)(nil).SetAnnotations), arg0)
+}
+
+// SetCharmActions mocks base method.
+func (m *MockApplication) SetCharmActions(arg0 description.CharmActionsArgs) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetCharmActions", arg0)
+}
+
+// SetCharmActions indicates an expected call of SetCharmActions.
+func (mr *MockApplicationMockRecorder) SetCharmActions(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmActions", reflect.TypeOf((*MockApplication)(nil).SetCharmActions), arg0)
+}
+
+// SetCharmConfigs mocks base method.
+func (m *MockApplication) SetCharmConfigs(arg0 description.CharmConfigsArgs) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetCharmConfigs", arg0)
+}
+
+// SetCharmConfigs indicates an expected call of SetCharmConfigs.
+func (mr *MockApplicationMockRecorder) SetCharmConfigs(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmConfigs", reflect.TypeOf((*MockApplication)(nil).SetCharmConfigs), arg0)
 }
 
 // SetCharmManifest mocks base method.

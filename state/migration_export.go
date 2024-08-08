@@ -955,6 +955,8 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 
 	exApplication.SetCharmMetadata(charmData.Metadata)
 	exApplication.SetCharmManifest(charmData.Manifest)
+	exApplication.SetCharmActions(charmData.Actions)
+	exApplication.SetCharmConfigs(charmData.Config)
 
 	// Find the current application status.
 	statusArgs, err := e.statusArgs(globalKey)
@@ -3002,6 +3004,8 @@ func (m storagePoolSettingsManager) ListSettings(keyPrefix string) (map[string]m
 type charmData struct {
 	Metadata description.CharmMetadataArgs
 	Manifest description.CharmManifestArgs
+	Actions  description.CharmActionsArgs
+	Config   description.CharmConfigsArgs
 }
 
 func (e *exporter) charmData(charmURL string) (charmData, error) {
@@ -3020,9 +3024,21 @@ func (e *exporter) charmData(charmURL string) (charmData, error) {
 		return charmData{}, errors.Annotatef(err, "getting manifest for charm %q", charmURL)
 	}
 
+	actions, err := e.charmActions(ch)
+	if err != nil {
+		return charmData{}, errors.Annotatef(err, "getting actions for charm %q", charmURL)
+	}
+
+	config, err := e.charmConfig(ch)
+	if err != nil {
+		return charmData{}, errors.Annotatef(err, "getting config for charm %q", charmURL)
+	}
+
 	return charmData{
 		Metadata: metadata,
 		Manifest: manifest,
+		Actions:  actions,
+		Config:   config,
 	}, nil
 }
 
@@ -3035,6 +3051,13 @@ func (e *exporter) charmMetadata(ch *Charm) (description.CharmMetadataArgs, erro
 	assumes, err := json.Marshal(meta.Assumes)
 	if err != nil {
 		return description.CharmMetadataArgs{}, errors.Annotate(err, "marshalling assumes")
+	}
+
+	var lxdProfile []byte
+	if charmProfile := ch.LXDProfile(); charmProfile != nil {
+		if lxdProfile, err = json.Marshal(charmProfile); err != nil {
+			return description.CharmMetadataArgs{}, errors.Annotate(err, "marshalling lxd profile")
+		}
 	}
 
 	return description.CharmMetadataArgs{
@@ -3057,6 +3080,7 @@ func (e *exporter) charmMetadata(ch *Charm) (description.CharmMetadataArgs, erro
 		Payloads:       e.charmPayloads(meta.PayloadClasses),
 		Resources:      e.charmResources(meta.Resources),
 		Containers:     e.charmContainers(meta.Containers),
+		LXDProfile:     string(lxdProfile),
 	}, nil
 }
 
@@ -3078,6 +3102,47 @@ func (e *exporter) charmManifest(ch *Charm) (description.CharmManifestArgs, erro
 
 	return description.CharmManifestArgs{
 		Bases: bases,
+	}, nil
+}
+
+func (e *exporter) charmActions(ch *Charm) (description.CharmActionsArgs, error) {
+	actions := ch.Actions()
+	if actions == nil {
+		return description.CharmActionsArgs{}, nil
+	}
+
+	result := make(map[string]description.CharmAction)
+	for name, action := range actions.ActionSpecs {
+		result[name] = charmAction{
+			description:    action.Description,
+			parallel:       action.Parallel,
+			executionGroup: action.ExecutionGroup,
+			parameters:     action.Params,
+		}
+	}
+
+	return description.CharmActionsArgs{
+		Actions: result,
+	}, nil
+}
+
+func (e *exporter) charmConfig(ch *Charm) (description.CharmConfigsArgs, error) {
+	config := ch.Config()
+	if config == nil {
+		return description.CharmConfigsArgs{}, nil
+	}
+
+	result := make(map[string]description.CharmConfig)
+	for name, cfg := range config.Options {
+		result[name] = charmConfig{
+			description:  cfg.Description,
+			typ:          cfg.Type,
+			defaultValue: cfg.Default,
+		}
+	}
+
+	return description.CharmConfigsArgs{
+		Configs: result,
 	}, nil
 }
 
@@ -3423,4 +3488,52 @@ func (r charmManifestBase) Channel() string {
 // Architectures returns the architectures of the base.
 func (r charmManifestBase) Architectures() []string {
 	return r.architectures
+}
+
+type charmAction struct {
+	description    string
+	parallel       bool
+	executionGroup string
+	parameters     map[string]interface{}
+}
+
+// Description returns the description of the action.
+func (a charmAction) Description() string {
+	return a.description
+}
+
+// Parallel returns whether the action can be run in parallel.
+func (a charmAction) Parallel() bool {
+	return a.parallel
+}
+
+// ExecutionGroup returns the execution group of the action.
+func (a charmAction) ExecutionGroup() string {
+	return a.executionGroup
+}
+
+// Parameters returns the parameters of the action.
+func (a charmAction) Parameters() map[string]interface{} {
+	return a.parameters
+}
+
+type charmConfig struct {
+	typ          string
+	defaultValue interface{}
+	description  string
+}
+
+// Type returns the type of the config.
+func (c charmConfig) Type() string {
+	return c.typ
+}
+
+// Default returns the default value of the config.
+func (c charmConfig) Default() interface{} {
+	return c.defaultValue
+}
+
+// Description returns the description of the config.
+func (c charmConfig) Description() string {
+	return c.description
 }
