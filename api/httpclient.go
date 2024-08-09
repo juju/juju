@@ -5,9 +5,7 @@ package api
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -16,7 +14,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
 	"gopkg.in/httprequest.v1"
-	"gopkg.in/macaroon.v2"
 
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/rpc/params"
@@ -67,10 +64,7 @@ var _ httprequest.Doer = httpRequestDoer{}
 func (doer httpRequestDoer) Do(req *http.Request) (*http.Response, error) {
 	if err := authHTTPRequest(
 		req,
-		doer.c.tag,
-		doer.c.password,
-		doer.c.nonce,
-		doer.c.macaroons,
+		doer.c.loginProvider,
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -89,42 +83,21 @@ func (doer httpRequestDoer) Do(req *http.Request) (*http.Response, error) {
 // AuthHTTPRequest adds Juju auth info (username, password, nonce, macaroons)
 // to the given HTTP request, suitable for sending to a Juju API server.
 func AuthHTTPRequest(req *http.Request, info *Info) error {
-	var tag string
-	if info.Tag != nil {
-		tag = info.Tag.String()
-	}
-	return authHTTPRequest(req, tag, info.Password, info.Nonce, info.Macaroons)
+	lp := NewLegacyLoginProvider(info.Tag, info.Password, info.Nonce, info.Macaroons, nil, nil)
+	return authHTTPRequest(req, lp)
 }
 
-func authHTTPRequest(req *http.Request, tag, password, nonce string, macaroons []macaroon.Slice) error {
-	if tag != "" {
-		// Note that password may be empty here; we still
-		// want to pass the tag along. An empty password
-		// indicates that we're using macaroon authentication.
-		req.SetBasicAuth(tag, password)
+func authHTTPRequest(req *http.Request, lp LoginProvider) error {
+	header, err := lp.AuthHeader()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	if nonce != "" {
-		req.Header.Set(params.MachineNonceHeader, nonce)
+	// Copy headers to the request, using the first available value for each key.
+	for key := range header {
+		req.Header.Set(key, header.Get(key))
 	}
 	req.Header.Set(params.JujuClientVersion, jujuversion.Current.String())
-	req.Header.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
-	for _, ms := range macaroons {
-		encoded, err := encodeMacaroonSlice(ms)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		req.Header.Add(httpbakery.MacaroonsHeader, encoded)
-	}
 	return nil
-}
-
-// encodeMacaroonSlice base64-JSON-encodes a slice of macaroons.
-func encodeMacaroonSlice(ms macaroon.Slice) (string, error) {
-	data, err := json.Marshal(ms)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return base64.StdEncoding.EncodeToString(data), nil
 }
 
 func isJSONMediaType(header http.Header) bool {

@@ -497,14 +497,15 @@ func formatConfigTabular(writer io.Writer, value interface{}) error {
 	return nil
 }
 
-// ConfigDetails gets ModelDetails when a model is not available
-// to use.
-func ConfigDetails() (map[string]interface{}, error) {
+// ConfigDetails returns the set of available configuration keys that can be set
+// for a model along with printing information for the key containing a user
+// readable description and the expected type for the key.
+func ConfigDetails() (map[string]common.PrintConfigSchema, error) {
 	defaultSchema, err := envconfig.Schema(nil)
 	if err != nil {
 		return nil, err
 	}
-	specifics := make(map[string]interface{})
+	specifics := make(map[string]common.PrintConfigSchema, len(defaultSchema))
 	for key, attr := range defaultSchema {
 		if attr.Secret || isModelAttribute(key) ||
 			attr.Group != environschema.EnvironGroup {

@@ -309,8 +309,8 @@ func ConfigDetailsUpdatable() (map[string]interface{}, error) {
 
 // ConfigDetailsAll gets information about all the controller config
 // attributes, including those only settable during bootstrap.
-func ConfigDetailsAll() (map[string]interface{}, error) {
-	specifics := make(map[string]interface{})
+func ConfigDetailsAll() (map[string]common.PrintConfigSchema, error) {
+	specifics := make(map[string]common.PrintConfigSchema, len(controller.ConfigSchema))
 	for key, attr := range controller.ConfigSchema {
 		specifics[key] = attrToPrintSchema(attr)
 	}
@@ -320,7 +320,7 @@ func ConfigDetailsAll() (map[string]interface{}, error) {
 func attrToPrintSchema(attr environschema.Attr) common.PrintConfigSchema {
 	return common.PrintConfigSchema{
 		Description: attr.Description,
-		Type:        fmt.Sprintf("%s", attr.Type),
+		Type:        string(attr.Type),
 	}
 }
 

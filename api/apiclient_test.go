@@ -66,14 +66,14 @@ type testAdminAPI struct {
 	r testRootAPI
 }
 
-func (a testAdminAPI) Login(req params.LoginRequest) params.LoginResult {
+func (a testAdminAPI) Login(req params.LoginRequest) (params.LoginResult, error) {
 	return params.LoginResult{
 		ControllerTag: jtesting.ControllerTag.String(),
 		ModelTag:      jtesting.ModelTag.String(),
 		Servers:       a.r.serverAddrs,
 		ServerVersion: jujuversion.Current.String(),
 		PublicDNSName: "somewhere.example.com",
-	}
+	}, nil
 }
 
 func (s *apiclientSuite) APIInfo() *api.Info {

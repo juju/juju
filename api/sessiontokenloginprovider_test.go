@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -18,6 +19,8 @@ import (
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	jujuhttp "github.com/juju/juju/internal/http"
+	coretesting "github.com/juju/juju/internal/testing"
 	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -124,25 +127,26 @@ func (s *sessionTokenLoginProviderProviderSuite) TestSessionTokenLogin(c *gc.C) 
 	})
 
 	var output bytes.Buffer
+	lp := api.NewSessionTokenLoginProvider(
+		"expired-token",
+		&output,
+		func(sessionToken string) error {
+			obtainedSessionToken = sessionToken
+			return nil
+		})
 	apiState, err := api.Open(&api.Info{
 		Addrs:          info.Addrs,
 		ControllerUUID: info.ControllerUUID,
 		CACert:         info.CACert,
 	}, api.DialOpts{
-		LoginProvider: api.NewSessionTokenLoginProvider(
-			"expired-token",
-			&output,
-			func(sessionToken string) error {
-				obtainedSessionToken = sessionToken
-				return nil
-			},
-		),
+		LoginProvider: lp,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(output.String(), gc.Equals, "Please visit http://localhost:8080/test-verification and enter code 1234567 to log in.\n")
-	c.Assert(obtainedSessionToken, gc.Equals, sessionToken)
 	defer func() { _ = apiState.Close() }()
+
+	c.Check(output.String(), gc.Equals, "Please visit http://localhost:8080/test-verification and enter code 1234567 to log in.\n")
+	c.Check(obtainedSessionToken, gc.Equals, sessionToken)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *sessionTokenLoginProviderProviderSuite) TestInvalidSessionTokenLogin(c *gc.C) {
@@ -171,4 +175,42 @@ func (s *sessionTokenLoginProviderProviderSuite) TestInvalidSessionTokenLogin(c 
 		),
 	})
 	c.Assert(err, jc.ErrorIs, expectedErr)
+}
+
+// A separate suite for tests that don't need to communicate with a controller.
+type sessionTokenLoginProviderBasicSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&sessionTokenLoginProviderBasicSuite{})
+
+func (s *sessionTokenLoginProviderBasicSuite) TestSessionTokenAuthHeader(c *gc.C) {
+	var output bytes.Buffer
+	testCases := []struct {
+		desc     string
+		lp       api.LoginProvider
+		expected http.Header
+		err      string
+	}{
+		{
+			desc:     "Non-empty session token is valid",
+			expected: jujuhttp.BasicAuthHeader("", "test-token"),
+			lp:       api.NewSessionTokenLoginProvider("test-token", &output, nil),
+		},
+		{
+			desc: "Empty session token returns error",
+			lp:   api.NewSessionTokenLoginProvider("", &output, nil),
+			err:  "login provider needs to be logged in",
+		},
+	}
+	for i, tC := range testCases {
+		c.Logf("test %d: %s", i, tC.desc)
+		header, err := tC.lp.AuthHeader()
+		if tC.err != "" {
+			c.Assert(err, gc.ErrorMatches, tC.err)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(tC.expected, gc.DeepEquals, header)
+		}
+	}
 }

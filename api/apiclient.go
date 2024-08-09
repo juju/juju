@@ -20,7 +20,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock"
@@ -36,7 +35,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	jujuhttp "github.com/juju/juju/internal/http"
 	internallogger "github.com/juju/juju/internal/logger"
-	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	jujuproxy "github.com/juju/juju/internal/proxy"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/rpc"
@@ -162,7 +160,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 	// is refactored we fall back to using the user-pass login provider
 	// with information from Info.
 	if loginProvider == nil {
-		loginProvider = NewUserpassLoginProvider(info.Tag, info.Password, info.Nonce, info.Macaroons, bakeryClient, CookieURLFromHost(host))
+		loginProvider = NewLegacyLoginProvider(info.Tag, info.Password, info.Nonce, info.Macaroons, bakeryClient, CookieURLFromHost(host))
 	}
 
 	c := &conn{
@@ -175,18 +173,14 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		pingerFacadeVersion: pingerFacadeVersions[len(pingerFacadeVersions)-1],
 		serverScheme:        "https",
 		serverRootAddress:   dialResult.addr,
-		// We populate the username and password before
-		// login because, when doing HTTP requests, we'll want
-		// to use the same username and password for authenticating
-		// those. If login fails, we discard the connection.
-		tag:          tagToString(info.Tag),
-		password:     info.Password,
-		macaroons:    info.Macaroons,
-		nonce:        info.Nonce,
-		tlsConfig:    dialResult.tlsConfig,
-		bakeryClient: bakeryClient,
-		modelTag:     info.ModelTag,
-		proxier:      dialResult.proxier,
+		// We keep the login provider around to provide auth headers
+		// when doing HTTP requests.
+		// If login fails, we discard the connection.
+		loginProvider: loginProvider,
+		tlsConfig:     dialResult.tlsConfig,
+		bakeryClient:  bakeryClient,
+		modelTag:      info.ModelTag,
+		proxier:       dialResult.proxier,
 	}
 	if !info.SkipLogin {
 		if err := loginWithContext(dialCtx, c, loginProvider); err != nil {
@@ -360,23 +354,12 @@ func (c *conn) connectStream(path string, attrs url.Values, extraHeaders http.He
 		Proxy:           proxy.DefaultConfig.GetProxy,
 		TLSClientConfig: c.tlsConfig,
 	}
-	var requestHeader http.Header
-	if c.tag != "" {
-		requestHeader = jujuhttp.BasicAuthHeader(c.tag, c.password)
-	} else {
-		requestHeader = make(http.Header)
-	}
-	requestHeader.Set(params.JujuClientVersion, jujuversion.Current.String())
-	requestHeader.Set("Origin", "http://localhost/")
-	if c.nonce != "" {
-		requestHeader.Set(params.MachineNonceHeader, c.nonce)
-	}
-	// Add any cookies because they will not be sent to websocket
-	// connections by default.
-	err := c.addCookiesToHeader(requestHeader)
+	requestHeader, err := c.loginProvider.AuthHeader()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	requestHeader.Set(params.JujuClientVersion, jujuversion.Current.String())
+	requestHeader.Set("Origin", "http://localhost/")
 	for header, values := range extraHeaders {
 		for _, value := range values {
 			requestHeader.Add(header, value)
@@ -421,39 +404,6 @@ func readInitialStreamError(ws base.Stream) error {
 	if errResult.Error != nil {
 		return errResult.Error
 	}
-	return nil
-}
-
-// addCookiesToHeader adds any cookies associated with the
-// API host to the given header. This is necessary because
-// otherwise cookies are not sent to websocket endpoints.
-func (c *conn) addCookiesToHeader(h http.Header) error {
-	// net/http only allows adding cookies to a request,
-	// but when it sends a request to a non-http endpoint,
-	// it doesn't add the cookies, so make a request, starting
-	// with the given header, add the cookies to use, then
-	// throw away the request but keep the header.
-	req := &http.Request{
-		Header: h,
-	}
-	cookies := c.bakeryClient.Client.Jar.Cookies(c.cookieURL)
-	for _, c := range cookies {
-		req.AddCookie(c)
-	}
-	if len(cookies) == 0 && len(c.macaroons) > 0 {
-		// These macaroons must have been added directly rather than
-		// obtained from a request. Add them. (For example in the
-		// logtransfer connection for a migration.)
-		// See https://bugs.launchpad.net/juju/+bug/1650451
-		for _, macaroon := range c.macaroons {
-			cookie, err := httpbakery.NewCookie(internalmacaroon.MacaroonNamespace, macaroon)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			req.AddCookie(cookie)
-		}
-	}
-	h.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
 	return nil
 }
 
@@ -503,14 +453,6 @@ func apiPath(model, path string) (string, error) {
 		return path, nil
 	}
 	return modelRoot + model + path, nil
-}
-
-// tagToString returns the value of a tag's String method, or "" if the tag is nil.
-func tagToString(tag names.Tag) string {
-	if tag == nil {
-		return ""
-	}
-	return tag.String()
 }
 
 // dialResult holds a dialed connection, the URL

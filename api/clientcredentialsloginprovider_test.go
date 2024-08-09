@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	jujuhttp "github.com/juju/juju/internal/http"
 	coretesting "github.com/juju/juju/internal/testing"
 	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -46,7 +47,7 @@ func (s *clientCredentialsLoginProviderProviderSuite) APIInfo() *api.Info {
 	return info
 }
 
-func (s *clientCredentialsLoginProviderProviderSuite) Test(c *gc.C) {
+func (s *clientCredentialsLoginProviderProviderSuite) TestClientCredentialsLogin(c *gc.C) {
 	info := s.APIInfo()
 
 	clientID := "test-client-id"
@@ -89,14 +90,32 @@ func (s *clientCredentialsLoginProviderProviderSuite) Test(c *gc.C) {
 		return nil
 	})
 
+	lp := api.NewClientCredentialsLoginProvider(clientID, clientSecret)
 	apiState, err := api.Open(&api.Info{
 		Addrs:          info.Addrs,
 		ControllerUUID: info.ControllerUUID,
 		CACert:         info.CACert,
 	}, api.DialOpts{
-		LoginProvider: api.NewClientCredentialsLoginProvider(clientID, clientSecret),
+		LoginProvider: lp,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
 	defer func() { _ = apiState.Close() }()
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// A separate suite for tests that don't need to communicate with a Juju controller.
+type clientCredentialsLoginProviderBasicSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&clientCredentialsLoginProviderBasicSuite{})
+
+func (s *clientCredentialsLoginProviderBasicSuite) TestClientCredentialsAuthHeader(c *gc.C) {
+	clientID := "test-client-id"
+	clientSecret := "test-client-secret"
+	lp := api.NewClientCredentialsLoginProvider(clientID, clientSecret)
+	expectedHeader := jujuhttp.BasicAuthHeader(clientID, clientSecret)
+	got, err := lp.AuthHeader()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, jc.DeepEquals, expectedHeader)
 }
