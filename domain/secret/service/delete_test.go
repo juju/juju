@@ -48,13 +48,14 @@ func (s *serviceSuite) TestDeleteSecretExternal(c *gc.C) {
 	defer ctrl.Finish()
 
 	uri := coresecrets.NewURI()
+	revisionID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
 
-	p := NewMockSecretBackendProvider(ctrl)
-	p.EXPECT().Type().Return("active-type").AnyTimes()
-	p.EXPECT().NewBackend(ptr(backendConfigs.Configs["backend-id"])).DoAndReturn(func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+	s.secretsBackendProvider.EXPECT().Type().Return("active-type").AnyTimes()
+	s.secretsBackendProvider.EXPECT().NewBackend(ptr(backendConfigs.Configs["backend-id"])).DoAndReturn(func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 		return s.secretsBackend, nil
 	})
-	p.EXPECT().CleanupSecrets(gomock.Any(), ptr(backendConfigs.Configs["backend-id"]), "mariadb/0", provider.SecretRevisions{
+	s.secretsBackendProvider.EXPECT().CleanupSecrets(gomock.Any(), ptr(backendConfigs.Configs["backend-id"]), "mariadb/0", provider.SecretRevisions{
 		uri.ID: set.NewStrings("rev-id"),
 	})
 
@@ -66,9 +67,10 @@ func (s *serviceSuite) TestDeleteSecretExternal(c *gc.C) {
 		BackendID:  "backend-id",
 		RevisionID: "rev-id",
 	}}, nil)
-	s.state.EXPECT().DeleteSecret(gomock.Any(), uri, []int{666}).Return(nil)
+	s.state.EXPECT().DeleteSecret(gomock.Any(), uri, []int{666}).Return([]uuid.UUID{revisionID}, nil)
+	s.secretBackendReferenceMutator.EXPECT().RemoveSecretBackendReference(gomock.Any(), revisionID).Return(nil)
 
-	err := s.serviceWithProvider(c, p).DeleteSecret(context.Background(), uri, DeleteSecretParams{
+	err = s.service.DeleteSecret(context.Background(), uri, DeleteSecretParams{
 		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,

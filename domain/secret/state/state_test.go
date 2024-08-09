@@ -91,9 +91,9 @@ func (s *stateSuite) TestGetLatestRevision(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpdateSecret(ctx, uri, domainsecret.UpsertSecretParams{
+	err = st.UpdateSecret(ctx, uri, uuid.MustNewUUID(), domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar1"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1157,10 +1157,10 @@ func (s *stateSuite) TestAllSecretConsumers(c *gc.C) {
 	}
 	ctx := context.Background()
 	uri := coresecrets.NewURI().WithSource(s.modelUUID)
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 	uri2 := coresecrets.NewURI().WithSource(s.modelUUID)
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/1", sp2)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql/1", sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consumer := &coresecrets.SecretConsumerMetadata{
@@ -2128,10 +2128,10 @@ func (s *stateSuite) TestAllSecretRemoteConsumers(c *gc.C) {
 	}
 	ctx := context.Background()
 	uri := coresecrets.NewURI().WithSource(s.modelUUID)
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 	uri2 := coresecrets.NewURI().WithSource(s.modelUUID)
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/1", sp2)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql/1", sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consumer := &coresecrets.SecretConsumerMetadata{
@@ -2801,9 +2801,9 @@ func (s *stateSuite) TestAllSecretGrants(c *gc.C) {
 	ctx := context.Background()
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp2)
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql", sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := domainsecret.GrantParams{

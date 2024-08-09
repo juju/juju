@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/secret/state"
 	backendservice "github.com/juju/juju/domain/secretbackend/service"
 	backendstate "github.com/juju/juju/domain/secretbackend/state"
+	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -71,7 +72,8 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	// nil watcher factory.
 	i.service = service.NewSecretService(
 		state.NewState(scope.ModelDB(), i.logger),
-		i.logger,
+		secretbackendstate.NewState(scope.ControllerDB(), i.logger),
+		scope.ModelUUID(), i.logger,
 		service.NotImplementedBackendConfigGetter)
 	i.backendService = backendservice.NewService(
 		backendstate.NewState(scope.ControllerDB(), i.logger),
