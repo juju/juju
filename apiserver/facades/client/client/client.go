@@ -39,12 +39,20 @@ type Client struct {
 	stateAccessor   Backend
 	storageAccessor StorageInterface
 	auth            facade.Authorizer
+	resources       facade.Resources
 	presence        facade.Presence
 
+	multiwatcherFactory multiwatcher.Factory
 	leadershipReader    leadership.Reader
 	modelCache          *cache.Model
-	multiwatcherFactory multiwatcher.Factory
-	resources           facade.Resources
+}
+
+// TODO(wallyworld) - remove this method
+// state returns a state.State instance for this API.
+// Until all code is refactored to use interfaces, we
+// need this helper to keep older code happy.
+func (c *Client) state() *state.State {
+	return c.stateAccessor.(*stateShim).State
 }
 
 // ClientV7 serves the (v7) client-specific API methods.
@@ -57,14 +65,6 @@ type ClientV7 struct {
 // ClientV6 serves the (v6) client-specific API methods.
 type ClientV6 struct {
 	*ClientV7
-}
-
-// TODO(wallyworld) - remove this method
-// state returns a state.State instance for this API.
-// Until all code is refactored to use interfaces, we
-// need this helper to keep older code happy.
-func (c *Client) state() *state.State {
-	return c.stateAccessor.(*stateShim).State
 }
 
 func (c *Client) checkCanRead() error {
@@ -182,10 +182,10 @@ func NewClientV7(
 			stateAccessor:       backend,
 			storageAccessor:     storageAccessor,
 			auth:                authorizer,
+			resources:           resources,
 			presence:            presence,
 			leadershipReader:    leadershipReader,
 			modelCache:          modelCache,
-			resources:           resources,
 			multiwatcherFactory: factory,
 		},
 		registryAPIFunc: registryAPIFunc,
