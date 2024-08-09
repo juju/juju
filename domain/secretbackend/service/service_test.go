@@ -323,6 +323,7 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 				"endpoint": "http://vault",
 				"token":    "deadbeef",
 			},
+			NumSecrets: 1,
 		},
 		{
 			ID:          "another-vault-id",
@@ -331,23 +332,19 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 			Config: map[string]string{
 				"endpoint": "http://another-vault",
 			},
+			NumSecrets: 2,
 		},
 	}
+	var listK8sBackendResult []*secretbackend.SecretBackend
 	if modelType == coremodel.CAAS {
-		cld := cloud.Cloud{
-			Name:              "test",
-			Type:              "kubernetes",
-			Endpoint:          "http://nowhere",
-			CACertificates:    []string{"cert-data"},
-			IsControllerCloud: true,
+		listK8sBackendResult = []*secretbackend.SecretBackend{
+			{
+				ID:          k8sBackendID,
+				Name:        "my-model-local",
+				BackendType: kubernetes.BackendType,
+				NumSecrets:  3,
+			},
 		}
-		cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"foo": "bar"})
-		s.mockState.EXPECT().GetControllerModelCloudAndCredential(gomock.Any()).Return(cld, cred, nil)
-		backends = append(backends, &secretbackend.SecretBackend{
-			ID:          k8sBackendID,
-			Name:        kubernetes.BackendName,
-			BackendType: kubernetes.BackendType,
-		})
 	} else {
 		backends = append(backends, &secretbackend.SecretBackend{
 			ID:          jujuBackendID,
@@ -356,6 +353,7 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 		})
 	}
 	s.mockState.EXPECT().ListSecretBackends(gomock.Any()).Return(backends, nil)
+	s.mockState.EXPECT().ListKubernetesSecretBackends(gomock.Any()).Return(listK8sBackendResult, nil)
 	s.mockRegistry.EXPECT().Type().Return(vault.BackendType).AnyTimes()
 	if set.NewStrings(names...).Contains("myvault") || len(names) == 0 {
 		s.mockRegistry.EXPECT().NewBackend(&provider.ModelBackendConfig{
@@ -389,13 +387,11 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 	sort.Slice(info, func(i, j int) bool {
 		return info[i].Name < info[j].Name
 	})
-	sort.Slice(expected, func(i, j int) bool {
-		return expected[i].Name < expected[j].Name
-	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("info: \n%s", pretty.Sprint(info))
 	c.Logf("expected: \n%s", pretty.Sprint(expected))
-	c.Assert(info, jc.DeepEquals, expected)
+	c.Assert(info, jc.SameContents, expected)
 }
 
 func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllCAAS(c *gc.C) {
@@ -424,22 +420,18 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllCAAS(c *gc.C) {
 						"endpoint": "http://another-vault",
 					},
 				},
-				Status:  "error",
-				Message: "boom",
+				NumSecrets: 2,
+				Status:     "error",
+				Message:    "boom",
 			},
 			{
 				SecretBackend: coresecrets.SecretBackend{
 					ID:          k8sBackendID,
-					Name:        "model-local",
+					Name:        "my-model-local",
 					BackendType: kubernetes.BackendType,
-					Config: map[string]interface{}{
-						"ca-certs":            []string{"cert-data"},
-						"credential":          `{"auth-type":"access-key","Attributes":{"foo":"bar"}}`,
-						"endpoint":            "http://nowhere",
-						"is-controller-cloud": true,
-					},
 				},
-				Status: "active",
+				NumSecrets: 3,
+				Status:     "active",
 			},
 			{
 				SecretBackend: coresecrets.SecretBackend{
@@ -450,7 +442,8 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllCAAS(c *gc.C) {
 						"endpoint": "http://vault",
 					},
 				},
-				Status: "active",
+				NumSecrets: 1,
+				Status:     "active",
 			},
 		},
 	)
@@ -482,8 +475,9 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllIAAS(c *gc.C) {
 						"endpoint": "http://another-vault",
 					},
 				},
-				Status:  "error",
-				Message: "boom",
+				NumSecrets: 2,
+				Status:     "error",
+				Message:    "boom",
 			},
 			{
 				SecretBackend: coresecrets.SecretBackend{
@@ -502,7 +496,8 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllIAAS(c *gc.C) {
 						"endpoint": "http://vault",
 					},
 				},
-				Status: "active",
+				NumSecrets: 1,
+				Status:     "active",
 			},
 		},
 	)
@@ -534,8 +529,9 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterNames(c *gc.C) {
 						"endpoint": "http://another-vault",
 					},
 				},
-				Status:  "error",
-				Message: "boom",
+				NumSecrets: 2,
+				Status:     "error",
+				Message:    "boom",
 			},
 		},
 	)

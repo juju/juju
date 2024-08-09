@@ -370,6 +370,7 @@ func (s *Service) BackendSummaryInfoForModel(ctx context.Context, modelUUID core
 				TokenRotateInterval: b.TokenRotateInterval,
 				Config:              convertConfigToAny(b.Config),
 			},
+			NumSecrets: b.NumSecrets,
 		})
 	}
 	return s.composeBackendInfoResults(ctx, backendInfos, false)
@@ -387,14 +388,17 @@ func (s *Service) ListBackendIDs(ctx context.Context) ([]string, error) {
 // BackendSummaryInfo returns a summary of the secret backends.
 // If names are specified, just those backends are included, else all.
 func (s *Service) BackendSummaryInfo(ctx context.Context, reveal bool, names ...string) ([]*SecretBackendInfo, error) {
-	// TODO(secrets) - we need to look up secrets grouped by model
-	// For now, the best we can do is just list the secret backends directly.
 	backends, err := s.st.ListSecretBackends(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	backendInfos := make([]*SecretBackendInfo, 0, len(backends))
 	for _, b := range backends {
+		if b.Name == kubernetes.BackendName {
+			// We only care about non kubernetes backend here and
+			// the kubernetes backend info will be fetched later using the reference count data.
+			continue
+		}
 		backendInfos = append(backendInfos, &SecretBackendInfo{
 			SecretBackend: coresecrets.SecretBackend{
 				ID:                  b.ID,
@@ -403,17 +407,29 @@ func (s *Service) BackendSummaryInfo(ctx context.Context, reveal bool, names ...
 				TokenRotateInterval: b.TokenRotateInterval,
 				Config:              convertConfigToAny(b.Config),
 			},
+			NumSecrets: b.NumSecrets,
 		})
 	}
-	results, err := s.composeBackendInfoResults(ctx, backendInfos, reveal, names...)
+
+	k8sBackends, err := s.st.ListKubernetesSecretBackends(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO(secrets) - this will change when we can track secrets for backends
-	for _, b := range results {
-		if b.Name == kubernetes.BackendName {
-			b.Name = kubernetes.BuiltInName("model")
-		}
+	for _, b := range k8sBackends {
+		backendInfos = append(backendInfos, &SecretBackendInfo{
+			SecretBackend: coresecrets.SecretBackend{
+				ID:          b.ID,
+				Name:        b.Name,
+				BackendType: b.BackendType,
+				// TODO: fetch the correct config for non controller model k8s backend.
+			},
+			NumSecrets: b.NumSecrets,
+		})
+	}
+
+	results, err := s.composeBackendInfoResults(ctx, backendInfos, reveal, names...)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	return results, nil
 }
@@ -427,13 +443,6 @@ func (s *Service) composeBackendInfoResults(ctx context.Context, backendInfos []
 			continue
 		} else {
 			i++
-		}
-		if b.Name == kubernetes.BackendName {
-			cfg, err := s.tryControllerModelK8sBackendConfig(ctx)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			b.Config = cfg
 		}
 		p, err := s.registry(b.BackendType)
 		if err != nil {

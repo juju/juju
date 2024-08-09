@@ -371,32 +371,32 @@ func (m *MockState) ListSecretBackendIDs(arg0 context.Context) ([]string, error)
 	return ret0, ret1
 }
 
-// ListSecretBackendIDs indicates an expected call of ListSecretBackendIDs.
-func (mr *MockStateMockRecorder) ListSecretBackendIDs(arg0 any) *MockStateListSecretBackendIDsCall {
+// ListKubernetesSecretBackends indicates an expected call of ListKubernetesSecretBackends.
+func (mr *MockStateMockRecorder) ListKubernetesSecretBackends(arg0 any) *MockStateListKubernetesSecretBackendsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecretBackendIDs", reflect.TypeOf((*MockState)(nil).ListSecretBackendIDs), arg0)
-	return &MockStateListSecretBackendIDsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKubernetesSecretBackends", reflect.TypeOf((*MockState)(nil).ListKubernetesSecretBackends), arg0)
+	return &MockStateListKubernetesSecretBackendsCall{Call: call}
 }
 
-// MockStateListSecretBackendIDsCall wrap *gomock.Call
-type MockStateListSecretBackendIDsCall struct {
+// MockStateListKubernetesSecretBackendsCall wrap *gomock.Call
+type MockStateListKubernetesSecretBackendsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateListSecretBackendIDsCall) Return(arg0 []string, arg1 error) *MockStateListSecretBackendIDsCall {
+func (c *MockStateListKubernetesSecretBackendsCall) Return(arg0 []*secretbackend.SecretBackend, arg1 error) *MockStateListKubernetesSecretBackendsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateListSecretBackendIDsCall) Do(f func(context.Context) ([]string, error)) *MockStateListSecretBackendIDsCall {
+func (c *MockStateListKubernetesSecretBackendsCall) Do(f func(context.Context) ([]*secretbackend.SecretBackend, error)) *MockStateListKubernetesSecretBackendsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateListSecretBackendIDsCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockStateListSecretBackendIDsCall {
+func (c *MockStateListKubernetesSecretBackendsCall) DoAndReturn(f func(context.Context) ([]*secretbackend.SecretBackend, error)) *MockStateListKubernetesSecretBackendsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
