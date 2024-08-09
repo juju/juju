@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -30,7 +31,7 @@ func (f *Facade) WatchForFanConfigChanges() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
 	err := f.caller.FacadeCall("WatchForFanConfigChanges", nil, &result)
 	if err != nil {
-		return nil, err
+		return nil, apiservererrors.RestoreError(err)
 	}
 	return apiwatcher.NewNotifyWatcher(f.caller.RawAPICaller(), result), nil
 }
@@ -40,7 +41,7 @@ func (f *Facade) FanConfig() (network.FanConfig, error) {
 	var result params.FanConfigResult
 	err := f.caller.FacadeCall("FanConfig", nil, &result)
 	if err != nil {
-		return nil, err
+		return nil, apiservererrors.RestoreError(err)
 	}
 	return networkingcommon.FanConfigResultToFanConfig(result)
 }

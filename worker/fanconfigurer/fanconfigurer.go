@@ -43,10 +43,18 @@ func (fc *FanConfigurer) processNewConfig() error {
 	fc.mu.Lock()
 	defer fc.mu.Unlock()
 
+	// In 4.0 fan-config, along with fanconfigurer facade has been removed.
+	// If we've been migrated from 3.6 to 4.0 the agent will attempt to
+	// use the new facade, but it will fail.
+	// Part of the migration steps to 4.0 prevents a migration with fan-config
+	// set, so the code below is dead code.
 	fanConfig, err := fc.config.Facade.FanConfig()
-	if err != nil {
-		return err
+	if errors.Is(err, errors.NotImplemented) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
 	}
+
 	if len(fanConfig) == 0 {
 		logger.Debugf("Fan not enabled")
 		// TODO(wpk) 2017-08-05 We have to clean this up!
@@ -93,8 +101,15 @@ func NewFanConfigurer(config FanConfigurerConfig, clock clock.Clock) (*FanConfig
 }
 
 func (fc *FanConfigurer) loop() error {
+	// In 4.0 fan-config, along with fanconfigurer facade has been removed.
+	// If we've been migrated from 3.6 to 4.0 the agent will attempt to
+	// use the new facade, but it will fail.
+	// Part of the migration steps to 4.0 prevents a migration with fan-config
+	// set, so the code below is dead code.
 	configWatcher, err := fc.config.Facade.WatchForFanConfigChanges()
-	if err != nil {
+	if errors.Is(err, errors.NotImplemented) {
+		return nil
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 	if err := fc.catacomb.Add(configWatcher); err != nil {
