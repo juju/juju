@@ -66,7 +66,7 @@ Tools metadata uses a simplestreams content type of "content-download".
 The product id is formed as follows:
 "com.ubuntu.juju:<os_type>:<arch>"
 eg
-"com.ubuntu.juju:ubuntu:amd64"
+"com.ubuntu.juju:linux:amd64"
 
 The metadata index and product files are required to be in the following directory tree
 (relative to the URL associated with each path component). In addition, agent binaries tarballs
@@ -189,61 +189,3 @@ users, since each Juju model will upload its own separate copy of the required f
 
 Using the image-metadata-url and agent-metadata-url to point to publicly accessible locations is useful
 when several Juju models are to be deployed on a private cloud and the metadata should be shared.
-
-1. Image metadata
-
-Generate image metadata using
-  juju metadata generate-image -d <metadata_dir>
-
-As a minimum, the above command needs to know the image id to use and a directory in which to write the files.
-Other required parameters like region, series, architecture etc are taken from the current Juju model (or
-a model specified with the -m option). These parameters can also be overridden on the command line.
-
-The image metadata command can be run multiple times with different regions, series, architecture, and
-it will keep adding to the metadata files. Once all required image ids have been added, the index and product
-json files are ready to use. These can be uploaded to a location in the Juju metadata search path or the bootstrap
---metadata-source option may be used.
-
-Examples:
-1. image-metadata-url
- - upload contents of <metadata_dir> to http://somelocation
- - set image-metadata-url to http://somelocation/images
-2. bootstrap option
- - juju bootstrap --metadata-source <metadata_dir>
-
-To ensure that the image metadata has been generated and uploaded correctly, use the validation command to
-ensure an image id can be discovered for a given scenario (region series, arch):
-  juju metadata validate-images
-
-If run without parameters, the validation command will take all required details from the current Juju
-model (or as specified by -m) and print the image id it would use to spin up an instance.
-Alternatively, series, region, architecture etc can be specified on the command line to override values
-in the model config.
-
-2. Tools metadata
-
-Generally, agent binaries and related metadata are mirrored from https://streams.canonical.com/juju/tools. However,
-it is possible to manually generate metadata for a custom built agent binary tarball using:
-  juju generate-agent-binaries -d <metadata_dir> --stream <stream>
-
-where the required agent binary tarballs are first placed in a directory <metadata_dir>/tools/<stream>.
-If unspecified, <stream> defaults to "released".
-Then, the contents of <metadata_dir> can be uploaded to a location in the Juju metadata search path or the
-bootstrap --metadata-source option may be used.
-
-Examples:
-1. agent-metadata-url
- - upload contents of <metadata_dir> to http://somelocation
- - set agent-metadata-url to http://somelocation/tools
-2. bootstrap option
- - juju bootstrap --metadata-source <tools_dir>
-
-Note that image and agent metadata are generally written into the same local directory and the bootstrap
---metadata-source option will upload both types of metadata.
-
-As with image metadata, the validation command is used to ensure tools are available for Juju to use:
-  juju metadata validate-agent-binaries
-
-The same comments apply. Run the validation tool without parameters to use details from the Juju
-model, or override values as required on the command line. See juju help metadata validate-agent-binaries
-for more details.
