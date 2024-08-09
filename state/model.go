@@ -459,32 +459,50 @@ func (m *Model) ControllerTag() names.ControllerTag {
 }
 
 // UUID returns the universally unique identifier of the model.
+//
+// Deprecated: please use the UUID field from
+// [github.com/juju/juju/domain/model/service.ModelService.GetModelInfo] instead.
 func (m *Model) UUID() string {
 	return m.doc.UUID
 }
 
 // ControllerUUID returns the universally unique identifier of the controller
 // in which the model is running.
+//
+// Deprecated: please use the ControllerUUID field from
+// [github.com/juju/juju/domain/model/service.ModelService.GetModelInfo] instead.
 func (m *Model) ControllerUUID() string {
 	return m.doc.ControllerUUID
 }
 
 // Name returns the human friendly name of the model.
+//
+// Deprecated: please use the Name field from
+// [github.com/juju/juju/domain/model/service.ModelService.GetModelInfo] instead.
 func (m *Model) Name() string {
 	return m.doc.Name
 }
 
 // Type returns the type of the model.
+//
+// Deprecated: please use the Type field from
+// [github.com/juju/juju/domain/model/service.ModelService.GetModelInfo] instead.
 func (m *Model) Type() ModelType {
 	return m.doc.Type
 }
 
 // CloudName returns the name of the cloud to which the model is deployed.
+//
+// Deprecated: please use the Cloud field from
+// [github.com/juju/juju/domain/model/service.ModelService.GetModelInfo] instead.
 func (m *Model) CloudName() string {
 	return m.doc.Cloud
 }
 
 // CloudRegion returns the name of the cloud region to which the model is deployed.
+//
+// Deprecated: please use the CloudRegion field from
+// [github.com/juju/juju/domain/model/service.ModelService.GetModelInfo] instead.
 func (m *Model) CloudRegion() string {
 	return m.doc.CloudRegion
 }
@@ -608,6 +626,9 @@ func (m *Model) StatusHistory(filter status.StatusHistoryFilter) ([]status.Statu
 }
 
 // Config returns the config for the model.
+//
+// Deprecated: please use
+// [github.com/juju/juju/domain/modelconfig/service.Service.ModelConfig] instead.
 func (m *Model) Config() (*config.Config, error) {
 	return getModelConfig(m.st.db(), m.UUID())
 }
@@ -821,6 +842,9 @@ func (m *Model) AllEndpointBindings() (map[string]*Bindings, error) {
 }
 
 // Users returns a slice of all users for this model.
+//
+// Deprecated: please use
+// [github.com/juju/juju/domain/access/service.Service.GetModelUsers] instead.
 func (m *Model) Users() ([]permission.UserAccess, error) {
 	coll, closer := m.st.db().GetCollection(modelUsersC)
 	defer closer()

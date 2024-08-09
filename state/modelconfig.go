@@ -23,12 +23,19 @@ var disallowedModelConfigAttrs = [...]string{
 }
 
 // ModelConfig returns the complete config for the model
+//
+// Deprecated: please use
+// [github.com/juju/juju/domain/modelconfig/service.Service.ModelConfig] instead.
 func (m *Model) ModelConfig(context.Context) (*config.Config, error) {
 	return getModelConfig(m.st.db(), m.UUID())
 }
 
 // AgentVersion returns the agent version for the model config.
 // If no agent version is found, it returns NotFound error.
+//
+// Deprecated: please use
+// [github.com/juju/juju/domain/modelagent/service.ModelService.GetModelAgentVersion]
+// instead.
 func (m *Model) AgentVersion() (version.Number, error) {
 	cfg, err := m.ModelConfig(context.Background())
 	if err != nil {
