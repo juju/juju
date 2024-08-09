@@ -79,18 +79,18 @@ func (c *MockBackendServiceRotateBackendTokenCall) DoAndReturn(f func(context.Co
 }
 
 // WatchSecretBackendRotationChanges mocks base method.
-func (m *MockBackendService) WatchSecretBackendRotationChanges() (watcher.SecretBackendRotateWatcher, error) {
+func (m *MockBackendService) WatchSecretBackendRotationChanges(arg0 context.Context) (watcher.SecretBackendRotateWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchSecretBackendRotationChanges")
+	ret := m.ctrl.Call(m, "WatchSecretBackendRotationChanges", arg0)
 	ret0, _ := ret[0].(watcher.SecretBackendRotateWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchSecretBackendRotationChanges indicates an expected call of WatchSecretBackendRotationChanges.
-func (mr *MockBackendServiceMockRecorder) WatchSecretBackendRotationChanges() *MockBackendServiceWatchSecretBackendRotationChangesCall {
+func (mr *MockBackendServiceMockRecorder) WatchSecretBackendRotationChanges(arg0 any) *MockBackendServiceWatchSecretBackendRotationChangesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSecretBackendRotationChanges", reflect.TypeOf((*MockBackendService)(nil).WatchSecretBackendRotationChanges))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSecretBackendRotationChanges", reflect.TypeOf((*MockBackendService)(nil).WatchSecretBackendRotationChanges), arg0)
 	return &MockBackendServiceWatchSecretBackendRotationChangesCall{Call: call}
 }
 
@@ -106,13 +106,13 @@ func (c *MockBackendServiceWatchSecretBackendRotationChangesCall) Return(arg0 wa
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBackendServiceWatchSecretBackendRotationChangesCall) Do(f func() (watcher.SecretBackendRotateWatcher, error)) *MockBackendServiceWatchSecretBackendRotationChangesCall {
+func (c *MockBackendServiceWatchSecretBackendRotationChangesCall) Do(f func(context.Context) (watcher.SecretBackendRotateWatcher, error)) *MockBackendServiceWatchSecretBackendRotationChangesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendServiceWatchSecretBackendRotationChangesCall) DoAndReturn(f func() (watcher.SecretBackendRotateWatcher, error)) *MockBackendServiceWatchSecretBackendRotationChangesCall {
+func (c *MockBackendServiceWatchSecretBackendRotationChangesCall) DoAndReturn(f func(context.Context) (watcher.SecretBackendRotateWatcher, error)) *MockBackendServiceWatchSecretBackendRotationChangesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

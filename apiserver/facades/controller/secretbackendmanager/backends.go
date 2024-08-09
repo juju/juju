@@ -27,7 +27,7 @@ type SecretBackendsManagerAPI struct {
 // WatchSecretBackendsRotateChanges sets up a watcher to notify of changes to secret backend rotations.
 func (s *SecretBackendsManagerAPI) WatchSecretBackendsRotateChanges(ctx context.Context) (params.SecretBackendRotateWatchResult, error) {
 	result := params.SecretBackendRotateWatchResult{}
-	w, err := s.backendService.WatchSecretBackendRotationChanges()
+	w, err := s.backendService.WatchSecretBackendRotationChanges(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

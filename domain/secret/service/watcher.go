@@ -84,7 +84,7 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 // WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any unit
 // of the specified app and retuens a watcher which notifies of secret URIs
 // that have had a new revision added.
-func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context, appName string) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchRemoteConsumedSecretsChanges(_ context.Context, appName string) (watcher.StringsWatcher, error) {
 	table, query := s.st.InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
 		table, changestream.All, query,
@@ -105,7 +105,7 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context
 //
 // Obsolete revisions results are "uri/revno" and deleted
 // secret results are "uri".
-func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSecretOwner) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchObsolete(_ context.Context, owners ...CharmSecretOwner) (watcher.StringsWatcher, error) {
 	if len(owners) == 0 {
 		return nil, errors.New("at least one owner must be provided")
 	}
@@ -125,7 +125,7 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 }
 
 // WatchSecretRevisionsExpiryChanges returns a watcher that notifies when the expiry time of a secret revision changes.
-func (s *WatchableService) WatchSecretRevisionsExpiryChanges(ctx context.Context, owners ...CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
+func (s *WatchableService) WatchSecretRevisionsExpiryChanges(_ context.Context, owners ...CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
 	if len(owners) == 0 {
 		return nil, errors.New("at least one owner must be provided")
 	}
@@ -157,7 +157,7 @@ func (s *WatchableService) WatchSecretRevisionsExpiryChanges(ctx context.Context
 }
 
 // WatchSecretsRotationChanges returns a watcher that notifies when the rotation time of a secret changes.
-func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owners ...CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
+func (s *WatchableService) WatchSecretsRotationChanges(_ context.Context, owners ...CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
 	if len(owners) == 0 {
 		return nil, errors.New("at least one owner must be provided")
 	}
@@ -227,21 +227,21 @@ type secretWatcher[T any] struct {
 	catacomb catacomb.Catacomb
 	logger   logger.Logger
 
-	sourceWatcher watcher.StringsWatcher
-	handle        func(ctx context.Context, events ...string) ([]T, error)
+	sourceWatcher  watcher.StringsWatcher
+	processChanges func(ctx context.Context, events ...string) ([]T, error)
 
 	out chan []T
 }
 
 func newSecretStringWatcher[T any](
 	sourceWatcher watcher.StringsWatcher, logger logger.Logger,
-	handle func(ctx context.Context, events ...string) ([]T, error),
+	processChanges func(ctx context.Context, events ...string) ([]T, error),
 ) (*secretWatcher[T], error) {
 	w := &secretWatcher[T]{
-		sourceWatcher: sourceWatcher,
-		logger:        logger,
-		handle:        handle,
-		out:           make(chan []T),
+		sourceWatcher:  sourceWatcher,
+		logger:         logger,
+		processChanges: processChanges,
+		out:            make(chan []T),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -251,10 +251,8 @@ func newSecretStringWatcher[T any](
 	return w, errors.Trace(err)
 }
 
-func (w *secretWatcher[T]) processChanges(events ...string) ([]T, error) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	return w.handle(w.catacomb.Context(ctx), events...)
+func (w *secretWatcher[T]) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }
 
 func (w *secretWatcher[T]) loop() error {
@@ -270,7 +268,9 @@ func (w *secretWatcher[T]) loop() error {
 		if len(events) == 0 {
 			return nil
 		}
-		processed, err := w.processChanges(events.Values()...)
+		ctx, cancel := w.scopedContext()
+		processed, err := w.processChanges(ctx, events.Values()...)
+		cancel()
 		if err != nil {
 			return errors.Trace(err)
 		}

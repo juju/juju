@@ -44,7 +44,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 		domain.NewWatcherFactory(factory, logger),
 	)
 
-	watcher, err := svc.WatchSecretBackendRotationChanges()
+	watcher, err := svc.WatchSecretBackendRotationChanges(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, watcher)
 
@@ -136,11 +136,12 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 	// Triggered - updated the rotation time.
-	wC.AssertChanges(corewatcher.SecretBackendRotateChange{
-		ID:              backendID2,
-		Name:            "my-backend2",
-		NextTriggerTime: newNextRotateTime,
-	},
+	wC.AssertChanges(
+		corewatcher.SecretBackendRotateChange{
+			ID:              backendID2,
+			Name:            "my-backend2",
+			NextTriggerTime: newNextRotateTime,
+		},
 	)
 
 	// NOT triggered - delete the backend.

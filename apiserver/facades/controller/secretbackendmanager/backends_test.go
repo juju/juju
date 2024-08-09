@@ -56,9 +56,7 @@ func (s *SecretsManagerSuite) expectAuthController() {
 func (s *SecretsManagerSuite) TestWatchBackendRotateChanges(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockService.EXPECT().WatchSecretBackendRotationChanges().Return(
-		s.mockWatcher, nil,
-	)
+	s.mockService.EXPECT().WatchSecretBackendRotationChanges(gomock.Any()).Return(s.mockWatcher, nil)
 	s.watcherRegistry.EXPECT().Register(s.mockWatcher).Return("1", nil)
 
 	next := time.Now().Add(time.Hour)
