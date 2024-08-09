@@ -159,6 +159,8 @@ func (s *DestroySuite) TestDestroyUnknownModelCallsRefresh(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
 	s.stub.SetErrors(errors.New("connection refused"))
+	s.api.modelStatusPayload = []base.ModelStatus{{}}
+	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy model: connection refused")
 	c.Check(c.GetTestLog(), jc.Contains, "failed to destroy model \"test2\"")
@@ -173,6 +175,8 @@ func (s *DestroySuite) TestSystemDestroyFails(c *gc.C) {
 
 func (s *DestroySuite) TestDestroy(c *gc.C) {
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	s.api.modelStatusPayload = []base.ModelStatus{{}}
+	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
@@ -184,6 +188,8 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyWithPartModelUUID(c *gc.C) {
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	s.api.modelStatusPayload = []base.ModelStatus{{}}
+	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2-uu", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
@@ -195,6 +201,8 @@ func (s *DestroySuite) TestDestroyWithPartModelUUID(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyWithForce(c *gc.C) {
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	s.api.modelStatusPayload = []base.ModelStatus{{}}
+	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
@@ -206,6 +214,8 @@ func (s *DestroySuite) TestDestroyWithForce(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyWithForceTimeout(c *gc.C) {
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	s.api.modelStatusPayload = []base.ModelStatus{{}}
+	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt", "--force", "--timeout", "30m")
 	c.Assert(err, jc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
@@ -224,6 +234,8 @@ func (s *DestroySuite) TestDestroyWithTimeoutNoForce(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyWithForceNoWait(c *gc.C) {
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	s.api.modelStatusPayload = []base.ModelStatus{{}}
+	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt", "--force", "--no-wait")
 	c.Assert(err, jc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
@@ -236,21 +248,25 @@ func (s *DestroySuite) TestDestroyWithForceNoWait(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyBlocks(c *gc.C) {
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
-	s.api.modelInfoErr = []*params.Error{{}, {Code: params.CodeNotFound}}
+	s.api.modelStatusPayload = []base.ModelStatus{{}}
+	s.api.modelInfoErr = []*params.Error{nil, {}, {Code: params.CodeNotFound}}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
-	c.Assert(s.api.statusCallCount, gc.Equals, 1)
+	c.Assert(s.api.statusCallCount, gc.Equals, 2)
 }
 
 func (s *DestroySuite) TestFailedDestroyModel(c *gc.C) {
 	s.stub.SetErrors(errors.New("permission denied"))
+	s.api.modelStatusPayload = []base.ModelStatus{{}}
+	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test1:test2", "--no-prompt")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy model: permission denied")
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
 }
 
 func (s *DestroySuite) TestDestroyDestroyStorage(c *gc.C) {
+	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt", "--destroy-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	destroyStorage := true
@@ -260,6 +276,7 @@ func (s *DestroySuite) TestDestroyDestroyStorage(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyReleaseStorage(c *gc.C) {
+	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt", "--release-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	destroyStorage := false
@@ -274,13 +291,13 @@ func (s *DestroySuite) TestDestroyDestroyReleaseStorageFlagsMutuallyExclusive(c 
 }
 
 func (s *DestroySuite) TestDestroyDestroyStorageFlagUnspecified(c *gc.C) {
-	s.stub.SetErrors(&params.Error{Code: params.CodeHasPersistentStorage})
-	s.api.modelInfoErr = []*params.Error{nil}
+	s.api.modelInfoErr = []*params.Error{nil, nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt")
 	c.Assert(err, gc.ErrorMatches, `cannot destroy model "test2"
 
 The model has persistent storage remaining:
-	2 volumes and 1 filesystem
+    2 volume\(s\)
+    1 filesystem\(s\)
 
 To destroy the storage, run the destroy-model
 command again with the "--destroy-storage" option.
@@ -291,6 +308,24 @@ option instead. The storage can then be imported
 into another Juju model.
 
 `)
+}
+
+func (s *DestroySuite) TestDestroyDestroyFlagUnspecifiedWithStorageNotDetachable(c *gc.C) {
+	// Ensure that the destroy-storage flag is not required if the model has storage that is not
+	// detachable.
+	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	s.api.modelStatusPayload = []base.ModelStatus{{
+		Volumes:     []base.Volume{{Detachable: false}},
+		Filesystems: []base.Filesystem{{Detachable: false}},
+	}}
+	s.api.modelInfoErr = []*params.Error{nil}
+	_, err := s.runDestroyCommand(c, "test2", "--no-prompt")
+	c.Assert(err, jc.ErrorIsNil)
+	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
+	s.stub.CheckCalls(c, []jutesting.StubCall{
+		{"DestroyModel",
+			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
+	})
 }
 
 func (s *DestroySuite) resetModel(c *gc.C) {
@@ -309,7 +344,8 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
 	ctx.Stderr = &stderr
-	s.api.modelInfoErr = []*params.Error{nil, nil, nil}
+	s.api.modelStatusPayload = []base.ModelStatus{{}}
+	s.api.modelInfoErr = []*params.Error{nil, nil, nil, nil}
 
 	// Ensure confirmation is requested if "--no-prompt" is not specified.
 	stdin.WriteString("n")
@@ -360,6 +396,8 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 
 func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
 	s.stub.SetErrors(apiservererrors.OperationBlockedError("TestBlockedDestroy"))
+	s.api.modelStatusPayload = []base.ModelStatus{{}}
+	s.api.modelInfoErr = []*params.Error{nil}
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt")
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedDestroy.*")
 }
