@@ -36,7 +36,8 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.controllerUUID = s.SeedControllerUUID(c)
 
-	s.modelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model")
+	s.modelUUID = modeltesting.CreateTestModelWithConfig(c, s.TxnRunnerFactory(), "test-model",
+		modeltesting.TestModelConfig{Owner: "model-owner"})
 
 	s.ensureUser(c, "42", "admin", "42", false) // model owner
 	s.ensureUser(c, "123", "bob", "42", false)
@@ -81,8 +82,8 @@ func (s *stateSuite) TestGetModelUsers(c *gc.C) {
 			LastModelLogin: time.Time{},
 		},
 		{
-			Name:           "test-model",
-			DisplayName:    "test-usertest-model",
+			Name:           "model-owner",
+			DisplayName:    "model-owner",
 			Access:         corepermission.AdminAccess,
 			LastModelLogin: time.Time{},
 		},
@@ -170,14 +171,14 @@ func (s *stateSuite) TestGetModelUsersExternalUsers(c *gc.C) {
 			LastModelLogin: time.Time{},
 		},
 		{
-			Name:           "test-model",
-			DisplayName:    "test-usertest-model",
+			Name:           "model-owner",
+			DisplayName:    "model-owner",
 			Access:         corepermission.AdminAccess,
 			LastModelLogin: time.Time{},
 		},
 	}
 
-	modelUsers, err := st.GetModelUsers(context.Background(), "test-model", s.modelUUID)
+	modelUsers, err := st.GetModelUsers(context.Background(), "model-owner", s.modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Slice(modelUsers, func(i, j int) bool {
 		return modelUsers[i].Name < modelUsers[j].Name

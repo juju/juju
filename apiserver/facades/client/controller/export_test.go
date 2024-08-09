@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	coremigration "github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
 )
@@ -18,21 +19,23 @@ type patcher interface {
 }
 
 func SetPrecheckResult(p patcher, err error) {
-	p.PatchValue(&runMigrationPrechecks, func(ctx context.Context,
+	p.PatchValue(&runMigrationPrechecks, func(
+		ctx context.Context,
 		st, ctlrSt *state.State,
 		targetInfo *coremigration.TargetInfo,
+		coremodelInfo coremodel.Model,
 		presence facade.Presence,
 		controllerConfigService ControllerConfigService,
 		cloudService common.CloudService,
 		credentialService common.CredentialService,
 		upgradeService UpgradeService,
+		agentService AgentService,
+		accessService ControllerAccessService,
+		apiUser string,
 		modelExporter ModelExporter,
 		store objectstore.ObjectStore,
-		leaders map[string]string) error {
+		leaders map[string]string,
+	) error {
 		return err
 	})
 }
-
-var (
-	NewControllerAPIv11 = makeControllerAPIv11
-)

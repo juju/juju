@@ -70,3 +70,19 @@ func (s *suite) TestGetModelAgentVersionModelNotFound(c *gc.C) {
 	_, err := svc.GetModelAgentVersion(context.Background(), modelID)
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
+
+// TestControllerAgentVersion tests the happy path for
+// Service.ControllerAgentVersion.
+func (s *suite) TestControllerAgentVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expectedVersion, err := version.Parse("4.21.65")
+	c.Assert(err, jc.ErrorIsNil)
+	s.state.EXPECT().AgentVersionForModelName(gomock.Any(), "admin", "controller").
+		Return(expectedVersion, nil)
+
+	svc := NewService(s.state)
+	ver, err := svc.ControllerAgentVersion(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ver, jc.DeepEquals, expectedVersion)
+}

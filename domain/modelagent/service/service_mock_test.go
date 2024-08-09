@@ -41,6 +41,45 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// AgentVersionForModelName mocks base method.
+func (m *MockState) AgentVersionForModelName(arg0 context.Context, arg1, arg2 string) (version.Number, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AgentVersionForModelName", arg0, arg1, arg2)
+	ret0, _ := ret[0].(version.Number)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AgentVersionForModelName indicates an expected call of AgentVersionForModelName.
+func (mr *MockStateMockRecorder) AgentVersionForModelName(arg0, arg1, arg2 any) *MockStateAgentVersionForModelNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentVersionForModelName", reflect.TypeOf((*MockState)(nil).AgentVersionForModelName), arg0, arg1, arg2)
+	return &MockStateAgentVersionForModelNameCall{Call: call}
+}
+
+// MockStateAgentVersionForModelNameCall wrap *gomock.Call
+type MockStateAgentVersionForModelNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAgentVersionForModelNameCall) Return(arg0 version.Number, arg1 error) *MockStateAgentVersionForModelNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAgentVersionForModelNameCall) Do(f func(context.Context, string, string) (version.Number, error)) *MockStateAgentVersionForModelNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAgentVersionForModelNameCall) DoAndReturn(f func(context.Context, string, string) (version.Number, error)) *MockStateAgentVersionForModelNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetModelAgentVersion mocks base method.
 func (m *MockState) GetModelAgentVersion(arg0 context.Context, arg1 model.UUID) (version.Number, error) {
 	m.ctrl.T.Helper()

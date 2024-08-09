@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 )
 
 type ctrData struct {
@@ -113,7 +114,7 @@ func newData(ctx context.Context, api destroyControllerAPI, controllerModelUUID 
 	var applications []base.Application
 	for _, model := range status {
 		if model.Error != nil {
-			if errors.Is(model.Error, errors.NotFound) {
+			if errors.Is(model.Error, errors.NotFound) || errors.Is(model.Error, modelerrors.NotFound) {
 				// This most likely occurred because a model was
 				// destroyed half-way through the call.
 				// Since we filter out models with life.Dead below, it's safe

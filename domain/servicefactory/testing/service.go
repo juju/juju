@@ -169,7 +169,7 @@ func (s *TestingServiceFactory) Secret(secretservice.BackendAdminConfigGetter) *
 }
 
 // Agent returns the modelagent service.
-func (s *TestingServiceFactory) Agent() *modelagentservice.ModelService {
+func (s *TestingServiceFactory) Agent() *modelagentservice.Service {
 	return nil
 }
 
@@ -243,5 +243,10 @@ func (s *TestingServiceFactory) WithUnitService(getter func() *unitservice.Servi
 // the model service. As this is only for read-only model information, we
 // can rename it to the more obscure version.
 func (s *TestingServiceFactory) ModelInfo() *modelservice.ModelService {
+	return nil
+}
+
+// ModelAgent returns the modelagent service.
+func (s *TestingServiceFactory) ModelAgent() *modelagentservice.ModelService {
 	return nil
 }

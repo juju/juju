@@ -6,7 +6,7 @@ run_dashboard_deploy() {
 	juju expose dashboard
 	juju relate dashboard controller
 
-	juju wait-for application dashboard
+	wait_for "dashboard" "$(idle_condition dashboard)"
 	sleep 5 # short wait for relation data to update
 	open_dashboard
 

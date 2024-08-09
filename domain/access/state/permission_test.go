@@ -1182,10 +1182,11 @@ func (s *permissionStateSuite) TestModelAccessForCloudCredential(c *gc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	ctx := context.Background()
 
-	modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "model-access")
+	modeltesting.CreateTestModelWithConfig(c, s.TxnRunnerFactory(), "model-access",
+		modeltesting.TestModelConfig{Owner: "bobby"})
 	key := credential.Key{
 		Cloud: "model-access",
-		Owner: "model-access",
+		Owner: "bobby",
 		Name:  "foobar",
 	}
 
