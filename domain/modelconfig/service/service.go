@@ -341,7 +341,6 @@ func (s *Service) validatorForSetModelConfig(
 // - Agent version is not being changed.
 // - CharmhubURL is not being changed.
 // - Network space exists.
-// - There is no changes to authorized keys.
 // - Container networking method is not being changed.
 func (s *Service) validatorForUpdateModelConfig(
 	additional ...config.Validator,
@@ -353,7 +352,6 @@ func (s *Service) validatorForUpdateModelConfig(
 			validators.SpaceChecker(&spaceValidator{
 				st: s.st,
 			}),
-			validators.AuthorizedKeysChange(),
 			validators.ContainerNetworkingMethodChange(),
 			s.modelValidator,
 		},

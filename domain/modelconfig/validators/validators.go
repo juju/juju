@@ -61,22 +61,6 @@ func AgentVersionChange() config.ValidatorFunc {
 	}
 }
 
-// AuthorizedKeysChange checks to see if there has been any change to a model
-// config authorized keys.
-func AuthorizedKeysChange() config.ValidatorFunc {
-	return func(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
-		if cfg.AuthorizedKeys() == old.AuthorizedKeys() {
-			// No change. Nothing more todo.
-			return cfg, nil
-		}
-
-		return cfg, &config.ValidationError{
-			InvalidAttrs: []string{config.AuthorizedKeysKey},
-			Reason:       "authorized-keys cannot be changed",
-		}
-	}
-}
-
 // ContainerNetworkingMethodValue checks that the container networking method
 // supplied to model config is a valid value.
 func ContainerNetworkingMethodValue() config.ValidatorFunc {
