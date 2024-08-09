@@ -42,7 +42,7 @@ func NewDockerResource(c *gc.C, stub *testing.Stub, name, applicationID, content
 }
 
 // NewCharmResource produces basic resource info for the given name
-// and content. The origin is set set to "upload".
+// and content. The origin is set to "upload".
 func NewCharmResource(c *gc.C, name, content string) charmresource.Resource {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
@@ -124,4 +124,12 @@ func newStubReadCloser(stub *testing.Stub, content string) io.ReadCloser {
 			Stub: stub,
 		},
 	}
+}
+
+// GenResourceID can be used in testing for generating a charm ID that is
+// checked for subsequent errors using the test suit's go check instance.
+func GenResourceID(c *gc.C) resources.ID {
+	id, err := resources.NewID()
+	c.Assert(err, jc.ErrorIsNil)
+	return id
 }

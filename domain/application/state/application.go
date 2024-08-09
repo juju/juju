@@ -14,6 +14,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -297,7 +298,7 @@ func (st *ApplicationState) AddUnits(ctx context.Context, applicationName string
 func (st *ApplicationState) upsertUnit(
 	ctx context.Context, tx *sqlair.TX, appName string, appID coreapplication.ID, args application.AddUnitArg,
 ) error {
-	unitUUID, err := uuid.NewUUID()
+	unitUUID, err := coreunit.NewID()
 	if err != nil {
 		return errors.Trace(err)
 	}
