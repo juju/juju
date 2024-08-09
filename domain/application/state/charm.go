@@ -589,9 +589,9 @@ func (s *CharmState) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([
 // as it doesn't satisfy the retry error types.
 func (s *CharmState) getCharmLXDProfile(ctx context.Context, tx *sqlair.TX, ident charmID) ([]byte, error) {
 	query := `
-	SELECT &charmLXDProfile.*
-	FROM charm
-	WHERE uuid = $charmID.uuid;
+SELECT &charmLXDProfile.*
+FROM charm
+WHERE uuid = $charmID.uuid;
 	`
 
 	var profile charmLXDProfile

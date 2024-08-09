@@ -64,6 +64,7 @@ func (i *importOperation) Name() string {
 	return "import applications"
 }
 
+// Setup creates the service that is used to import applications.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewService(
 		state.NewState(scope.ModelDB(), i.logger),
@@ -73,7 +74,8 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	return nil
 }
 
-// Execute the import, adding the application to the model.
+// Execute the import, adding the application to the model. This also includes
+// the charm and any units that are associated with the application.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
 	for _, app := range model.Applications() {
 		unitArgs := make([]service.AddUnitArg, 0, len(app.Units()))
@@ -124,6 +126,16 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		}
 	}
 
+	return nil
+}
+
+// Rollback the import operation. This is required to remove any applications
+// that were added during the import operation.
+// For instance, if multiple applications are add, each with their own
+// transaction, then if one fails, the others should be rolled back.
+func (i *importOperation) Rollback(ctx context.Context, model description.Model) error {
+	// TODO: Implement rollback of applications that were added during the
+	// import.
 	return nil
 }
 
@@ -234,7 +246,7 @@ type charmData struct {
 
 // Import the application charm description from the migrating model into
 // the current model. This will then be saved with the application and allow
-// us to keep RI of the application and the charm.
+// us to keep RI (referential integrity) of the application and the charm.
 func (i *importOperation) importCharm(ctx context.Context, data charmData) (internalcharm.Charm, error) {
 	// Don't be tempted to just use the internal/charm package here, or to
 	// attempt to make the description package conform to the internal/charm
@@ -452,13 +464,13 @@ func (i *importOperation) importCharmActions(data description.CharmActions) (*in
 
 func importCharmUser(data description.CharmMetadata) (internalcharm.RunAs, error) {
 	switch data.RunAs() {
-	case "default", "":
+	case runAsDefault, "":
 		return internalcharm.RunAsDefault, nil
-	case "root":
+	case runAsRoot:
 		return internalcharm.RunAsRoot, nil
-	case "sudoer":
+	case runAsSudoer:
 		return internalcharm.RunAsSudoer, nil
-	case "non-root":
+	case runAsNonRoot:
 		return internalcharm.RunAsNonRoot, nil
 	default:
 		return internalcharm.RunAsDefault, fmt.Errorf("unknown run-as value %q: %w", data.RunAs(), errors.NotValid)
@@ -466,7 +478,7 @@ func importCharmUser(data description.CharmMetadata) (internalcharm.RunAs, error
 }
 
 func importAssumes(data string) (*assumes.ExpressionTree, error) {
-	// Assumes i§§s a recursive structure, rather than sending all that data over
+	// Assumes is a recursive structure, rather than sending all that data over
 	// the wire as yaml, the description package encodes that information as
 	// a JSON string.
 
@@ -524,11 +536,11 @@ func importRelations(data map[string]description.CharmMetadataRelation) (map[str
 
 func importRelationRole(data string) (internalcharm.RelationRole, error) {
 	switch data {
-	case "peer":
+	case rolePeer:
 		return internalcharm.RolePeer, nil
-	case "provider":
+	case roleProvider:
 		return internalcharm.RoleProvider, nil
-	case "requirer":
+	case roleRequirer:
 		return internalcharm.RoleRequirer, nil
 	default:
 		return "", fmt.Errorf("unknown relation role %q: %w", data, errors.NotValid)
@@ -537,9 +549,9 @@ func importRelationRole(data string) (internalcharm.RelationRole, error) {
 
 func importRelationScope(data string) (internalcharm.RelationScope, error) {
 	switch data {
-	case "global":
+	case scopeGlobal:
 		return internalcharm.ScopeGlobal, nil
-	case "container":
+	case scopeContainer:
 		return internalcharm.ScopeContainer, nil
 	default:
 		return "", fmt.Errorf("unknown relation scope %q: %w", data, errors.NotValid)
@@ -582,9 +594,9 @@ func importStorage(data map[string]description.CharmMetadataStorage) (map[string
 
 func importStorageType(data string) (internalcharm.StorageType, error) {
 	switch data {
-	case "block":
+	case storageBlock:
 		return internalcharm.StorageBlock, nil
-	case "filesystem":
+	case storageFilesystem:
 		return internalcharm.StorageFilesystem, nil
 	default:
 		return "", fmt.Errorf("unknown storage type %q: %w", data, errors.NotValid)
@@ -658,9 +670,9 @@ func importResources(data map[string]description.CharmMetadataResource) (map[str
 
 func importResourceType(data string) (resource.Type, error) {
 	switch data {
-	case "file":
+	case resourceFile:
 		return resource.TypeFile, nil
-	case "oci-image":
+	case resourceContainer:
 		return resource.TypeContainerImage, nil
 	default:
 		return -1, fmt.Errorf("unknown resource type %q: %w", data, errors.NotValid)
@@ -724,6 +736,9 @@ func importCharmParameters(parameters map[string]any) (map[string]any, error) {
 	return result, nil
 }
 
+// convertNestedMap converts a nested map[any]any to a map[string]any.
+// This is a recursive function that will convert all nested maps to
+// map[string]any.
 func convertNestedMap(nested map[any]any) (map[string]any, error) {
 	if len(nested) == 0 {
 		return nil, nil

@@ -31,13 +31,15 @@ func RegisterExport(coordinator Coordinator, logger logger.Logger) {
 // ExportService provides a subset of the application domain
 // service methods needed for application export.
 type ExportService interface {
-	// GetCharmID returns a charm ID by name. It returns an error if the charm
-	// can not be found by the name.
+	// GetCharmID returns a charm ID by name. It returns an error.CharmNotFound
+	// if the charm can not be found by the name.
 	// This can also be used as a cheap way to see if a charm exists without
 	// needing to load the charm metadata.
 	GetCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error)
 
 	// GetCharm returns the charm metadata for the given charm ID.
+	// It returns an error.CharmNotFound if the charm can not be found by the
+	// ID.
 	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, error)
 }
 
@@ -55,8 +57,11 @@ func (e *exportOperation) Name() string {
 	return "export applications"
 }
 
-// Setup implements Operation.
+// Setup the export operation.
+// This will create a new service instance.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
+	// TODO (stickupkid): The storage.ProviderRegistry should be passed in
+	// so that we can create the appropriate storage instances.
 	e.service = service.NewService(
 		state.NewState(scope.ModelDB(), e.logger),
 		nil,
@@ -66,6 +71,8 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 }
 
 // Execute the export, adding the application to the model.
+// The export also includes all the charm metadata, manifest, config and
+// actions. Along with units and resources.
 func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
 	// We don't currently export applications, that'll be done in a future.
 	// For now we need to ensure that we write the charms on the applications.
@@ -81,9 +88,9 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			continue
 		}
 
-		// To locate a charm, we currently need to know the charm URL of the
-		// application. This is not going to work like this in the future,
-		// we can use the charm_uuid instead.
+		// TODO(stickupkid): To locate a charm, we currently need to know the
+		// charm URL of the application. This is not going to work like this in
+		// the future, we can use the charm_uuid instead.
 
 		curl, err := internalcharm.ParseURL(app.CharmURL())
 		if err != nil {
@@ -307,16 +314,28 @@ func (e *exportOperation) exportCharmActions(actions *internalcharm.Actions) (de
 	}, nil
 }
 
+const (
+	// Convert the charm-user to a string representation. This is a string
+	// representation of the internalcharm.RunAs type. This is done to ensure
+	// that if any changes to the on the wire protocol are made, we can easily
+	// adapt and convert to them, without breaking migrations to older versions.
+	// The strings ARE the API when it comes to migrations.
+	runAsRoot    = "root"
+	runAsDefault = "default"
+	runAsNonRoot = "non-root"
+	runAsSudoer  = "sudoer"
+)
+
 func exportCharmUser(user internalcharm.RunAs) (string, error) {
 	switch user {
 	case internalcharm.RunAsRoot:
-		return "root", nil
+		return runAsRoot, nil
 	case internalcharm.RunAsDefault:
-		return "default", nil
+		return runAsDefault, nil
 	case internalcharm.RunAsNonRoot:
-		return "non-root", nil
+		return runAsNonRoot, nil
 	case internalcharm.RunAsSudoer:
-		return "sudoer", nil
+		return runAsSudoer, nil
 	default:
 		return "", errors.Errorf("unknown run-as value %q", user)
 	}
@@ -355,25 +374,46 @@ func exportRelation(relation internalcharm.Relation) (description.CharmMetadataR
 	}, nil
 }
 
+const (
+	// Convert the charm role to a string representation. This is a string
+	// representation of the internalcharm.RelationRole type. This is done to
+	// ensure that if any changes to the on the wire protocol are made, we can
+	// easily adapt and convert to them, without breaking migrations to older
+	// versions. The strings ARE the API when it comes to migrations.
+	roleProvider = "provider"
+	roleRequirer = "requirer"
+	rolePeer     = "peer"
+)
+
 func exportCharmRole(role internalcharm.RelationRole) (string, error) {
 	switch role {
 	case internalcharm.RoleProvider:
-		return "provider", nil
+		return roleProvider, nil
 	case internalcharm.RoleRequirer:
-		return "requirer", nil
+		return roleRequirer, nil
 	case internalcharm.RolePeer:
-		return "peer", nil
+		return rolePeer, nil
 	default:
 		return "", errors.Errorf("unknown role value %q", role)
 	}
 }
 
+const (
+	// Convert the charm scope to a string representation. This is a string
+	// representation of the internalcharm.RelationScope type. This is done to
+	// ensure that if any changes to the on the wire protocol are made, we can
+	// easily adapt and convert to them, without breaking migrations to older
+	// versions. The strings ARE the API when it comes to migrations.
+	scopeGlobal    = "global"
+	scopeContainer = "container"
+)
+
 func exportCharmScope(scope internalcharm.RelationScope) (string, error) {
 	switch scope {
 	case internalcharm.ScopeGlobal:
-		return "global", nil
+		return scopeGlobal, nil
 	case internalcharm.ScopeContainer:
-		return "container", nil
+		return scopeContainer, nil
 	default:
 		return "", errors.Errorf("unknown scope value %q", scope)
 	}
@@ -411,12 +451,22 @@ func exportStorage(storage map[string]internalcharm.Storage) (map[string]descrip
 	return result, nil
 }
 
+const (
+	// Convert the charm storage type to a string representation. This is a string
+	// representation of the internalcharm.StorageType type. This is done to
+	// ensure that if any changes to the on the wire protocol are made, we can
+	// easily adapt and convert to them, without breaking migrations to older
+	// versions. The strings ARE the API when it comes to migrations.
+	storageBlock      = "block"
+	storageFilesystem = "filesystem"
+)
+
 func exportStorageType(storage internalcharm.Storage) (string, error) {
 	switch storage.Type {
 	case internalcharm.StorageBlock:
-		return "block", nil
+		return storageBlock, nil
 	case internalcharm.StorageFilesystem:
-		return "filesystem", nil
+		return storageFilesystem, nil
 	default:
 		return "", errors.Errorf("unknown storage type %q", storage.Type)
 	}
@@ -491,12 +541,22 @@ func exportResources(resources map[string]resource.Meta) (map[string]description
 	return result, nil
 }
 
+const (
+	// Convert the charm resource type to a string representation. This is a
+	// string representation of the resource.Type type. This is done to ensure
+	// that if any changes to the on the wire protocol are made, we can easily
+	// adapt and convert to them, without breaking migrations to older versions.
+	// The strings ARE the API when it comes to migrations.
+	resourceFile      = "file"
+	resourceContainer = "oci-image"
+)
+
 func exportResourceType(typ resource.Type) (string, error) {
 	switch typ {
 	case resource.TypeFile:
-		return "file", nil
+		return resourceFile, nil
 	case resource.TypeContainerImage:
-		return "oci-image", nil
+		return resourceContainer, nil
 	default:
 		return "", errors.Errorf("unknown resource type %q", typ)
 	}
