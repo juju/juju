@@ -5,6 +5,7 @@ package user
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -48,7 +49,7 @@ Continue (y/N)? `
 // RemoveUserAPI defines the usermanager API methods that the remove command
 // uses.
 type RemoveUserAPI interface {
-	RemoveUser(username string) error
+	RemoveUser(ctx context.Context, username string) error
 	Close() error
 }
 
@@ -111,7 +112,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 
 	if api == nil { // The real McCoy.
 		var err error
-		api, err = c.NewUserManagerAPIClient()
+		api, err = c.NewUserManagerAPIClient(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -125,7 +126,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	if err := api.RemoveUser(c.UserName); err != nil {
+	if err := api.RemoveUser(ctx, c.UserName); err != nil {
 		// This is very awful, but it makes the user experience crisper. At
 		// least maybe more tenable until users and authn/z are overhauled.
 		if e, ok := err.(*params.Error); ok {

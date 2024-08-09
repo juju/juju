@@ -4,6 +4,8 @@
 package remoterelations
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
@@ -35,9 +37,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 func remoteRelationsFacadeForModelFunc(
 	connectionFunc apicaller.NewExternalControllerConnectionFunc,
 ) newRemoteRelationsFacadeFunc {
-	return func(apiInfo *api.Info) (RemoteModelRelationsFacadeCloser, error) {
+	return func(ctx context.Context, apiInfo *api.Info) (RemoteModelRelationsFacadeCloser, error) {
 		apiInfo.Tag = names.NewUserTag(api.AnonymousUsername)
-		conn, err := connectionFunc(apiInfo)
+		conn, err := connectionFunc(ctx, apiInfo)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

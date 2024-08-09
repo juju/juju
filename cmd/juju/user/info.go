@@ -4,6 +4,8 @@
 package user
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
@@ -35,7 +37,7 @@ const helpExamples = `
 
 // UserInfoAPI defines the API methods that the info command uses.
 type UserInfoAPI interface {
-	UserInfo([]string, usermanager.IncludeDisabled) ([]params.UserInfo, error)
+	UserInfo(context.Context, []string, usermanager.IncludeDisabled) ([]params.UserInfo, error)
 	Close() error
 }
 
@@ -104,16 +106,16 @@ func (c *infoCommand) Init(args []string) (err error) {
 	return err
 }
 
-func (c *infoCommandBase) getUserInfoAPI() (UserInfoAPI, error) {
+func (c *infoCommandBase) getUserInfoAPI(ctx context.Context) (UserInfoAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewUserManagerAPIClient()
+	return c.NewUserManagerAPIClient(ctx)
 }
 
 // Run implements Command.Run.
 func (c *infoCommand) Run(ctx *cmd.Context) (err error) {
-	client, err := c.getUserInfoAPI()
+	client, err := c.getUserInfoAPI(ctx)
 	if err != nil {
 		return err
 	}
@@ -126,7 +128,7 @@ func (c *infoCommand) Run(ctx *cmd.Context) (err error) {
 		}
 		username = accountDetails.User
 	}
-	result, err := client.UserInfo([]string{username}, false)
+	result, err := client.UserInfo(ctx, []string{username}, false)
 	if err != nil {
 		return err
 	}

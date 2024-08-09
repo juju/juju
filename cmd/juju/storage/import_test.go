@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	"context"
 	"errors"
 
 	"github.com/juju/cmd/v4"
@@ -82,7 +83,7 @@ func (s *ImportFilesystemSuite) TestImportError(c *gc.C) {
 
 func (s *ImportFilesystemSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, storage.NewImportFilesystemCommand(
-		func(*storage.StorageCommandBase) (storage.StorageImporter, error) {
+		func(context.Context, *storage.StorageCommandBase) (storage.StorageImporter, error) {
 			return &s.importer, nil
 		},
 		s.store,
@@ -99,6 +100,7 @@ func (m *mockStorageImporter) Close() error {
 }
 
 func (m *mockStorageImporter) ImportStorage(
+	ctx context.Context,
 	k jujustorage.StorageKind,
 	pool, providerId, storageName string,
 ) (names.StorageTag, error) {

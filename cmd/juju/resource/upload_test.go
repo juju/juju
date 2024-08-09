@@ -5,6 +5,7 @@ package resource_test
 
 import (
 	"bytes"
+	"context"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -206,7 +207,7 @@ type stubUploadDeps struct {
 	client resourcecmd.UploadClient
 }
 
-func (s *stubUploadDeps) NewClient() (resourcecmd.UploadClient, error) {
+func (s *stubUploadDeps) NewClient(ctx context.Context) (resourcecmd.UploadClient, error) {
 	s.stub.AddCall("NewClient")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

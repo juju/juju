@@ -81,7 +81,7 @@ func (c *ShowSpaceCommand) Init(args []string) error {
 func (c *ShowSpaceCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithSpaceAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		// Add the new space.
-		space, err := api.ShowSpace(c.Name)
+		space, err := api.ShowSpace(ctx, c.Name)
 		if err != nil {
 			if errors.Is(err, errors.NotSupported) {
 				ctx.Infof("cannot retrieve space %q: %v", c.Name, err)

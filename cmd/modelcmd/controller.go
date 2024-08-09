@@ -4,6 +4,7 @@
 package modelcmd
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -225,8 +226,8 @@ func (c *ControllerCommandBase) CookieJar() (http.CookieJar, error) {
 
 // NewModelManagerAPIClient returns an API client for the
 // ModelManager on the current controller using the current credentials.
-func (c *ControllerCommandBase) NewModelManagerAPIClient() (*modelmanager.Client, error) {
-	root, err := c.NewAPIRoot()
+func (c *ControllerCommandBase) NewModelManagerAPIClient(ctx context.Context) (*modelmanager.Client, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -235,8 +236,8 @@ func (c *ControllerCommandBase) NewModelManagerAPIClient() (*modelmanager.Client
 
 // NewControllerAPIClient returns an API client for the Controller on
 // the current controller using the current credentials.
-func (c *ControllerCommandBase) NewControllerAPIClient() (*controller.Client, error) {
-	root, err := c.NewAPIRoot()
+func (c *ControllerCommandBase) NewControllerAPIClient(ctx context.Context) (*controller.Client, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -245,8 +246,8 @@ func (c *ControllerCommandBase) NewControllerAPIClient() (*controller.Client, er
 
 // NewUserManagerAPIClient returns an API client for the UserManager on the
 // current controller using the current credentials.
-func (c *ControllerCommandBase) NewUserManagerAPIClient() (*usermanager.Client, error) {
-	root, err := c.NewAPIRoot()
+func (c *ControllerCommandBase) NewUserManagerAPIClient(ctx context.Context) (*usermanager.Client, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -256,13 +257,13 @@ func (c *ControllerCommandBase) NewUserManagerAPIClient() (*usermanager.Client, 
 // NewAPIRoot returns a restricted API for the current controller using the current
 // credentials.  Only the UserManager and ModelManager may be accessed
 // through this API connection.
-func (c *ControllerCommandBase) NewAPIRoot() (api.Connection, error) {
-	return c.newAPIRoot("")
+func (c *ControllerCommandBase) NewAPIRoot(ctx context.Context) (api.Connection, error) {
+	return c.newAPIRoot(ctx, "")
 }
 
 // NewModelAPIRoot returns a new connection to the API server for the named model
 // in the specified controller.
-func (c *ControllerCommandBase) NewModelAPIRoot(modelName string) (api.Connection, error) {
+func (c *ControllerCommandBase) NewModelAPIRoot(ctx context.Context, modelName string) (api.Connection, error) {
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -274,28 +275,28 @@ func (c *ControllerCommandBase) NewModelAPIRoot(modelName string) (api.Connectio
 		}
 		// The model isn't known locally, so query the models
 		// available in the controller, and cache them locally.
-		if err := c.RefreshModels(c.store, controllerName); err != nil {
+		if err := c.RefreshModels(ctx, c.store, controllerName); err != nil {
 			return nil, errors.Annotate(err, "refreshing models")
 		}
 	}
-	return c.newAPIRoot(modelName)
+	return c.newAPIRoot(ctx, modelName)
 }
 
-func (c *ControllerCommandBase) newAPIRoot(modelName string) (api.Connection, error) {
+func (c *ControllerCommandBase) newAPIRoot(ctx context.Context, modelName string) (api.Connection, error) {
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.CommandBase.NewAPIRoot(c.store, controllerName, modelName)
+	return c.CommandBase.NewAPIRoot(ctx, c.store, controllerName, modelName)
 }
 
 // ModelUUIDs returns the model UUIDs for the given model names.
-func (c *ControllerCommandBase) ModelUUIDs(modelNames []string) ([]string, error) {
+func (c *ControllerCommandBase) ModelUUIDs(ctx context.Context, modelNames []string) ([]string, error) {
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.CommandBase.ModelUUIDs(c.ClientStore(), controllerName, modelNames)
+	return c.CommandBase.ModelUUIDs(ctx, c.ClientStore(), controllerName, modelNames)
 }
 
 // CurrentAccountDetails returns details of the account associated with

@@ -942,7 +942,7 @@ var runMigrationPrechecks = func(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	targetConn, err := api.Open(targetToAPIInfo(targetInfo), migration.ControllerDialOpts())
+	targetConn, err := api.Open(context.Background(), targetToAPIInfo(targetInfo), migration.ControllerDialOpts())
 	if err != nil {
 		return errors.Annotate(err, "connect to target controller")
 	}
@@ -1102,7 +1102,7 @@ func getTargetControllerUsers(ctx context.Context, conn api.Connection) (userLis
 	ul := userList{}
 
 	userClient := usermanager.NewClient(conn)
-	users, err := userClient.UserInfo(nil, usermanager.AllUsers)
+	users, err := userClient.UserInfo(context.Background(), nil, usermanager.AllUsers)
 	if err != nil {
 		return ul, errors.Trace(err)
 	}

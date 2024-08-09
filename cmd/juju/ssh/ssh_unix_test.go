@@ -7,6 +7,7 @@
 package ssh
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"time"
@@ -314,10 +315,10 @@ func (s *SSHSuite) TestMaybeResolveLeaderUnit(c *gc.C) {
 	defer ctrl.Finish()
 
 	leaderAPI := mocks.NewMockLeaderAPI(ctrl)
-	leaderAPI.EXPECT().Leader("loop").Return("loop/1", nil)
+	leaderAPI.EXPECT().Leader(gomock.Any(), "loop").Return("loop/1", nil)
 
 	ldr := leaderResolver{leaderAPI: leaderAPI}
-	resolvedUnit, err := ldr.maybeResolveLeaderUnit("loop/leader")
+	resolvedUnit, err := ldr.maybeResolveLeaderUnit(context.Background(), "loop/leader")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resolvedUnit, gc.Equals, "loop/1", gc.Commentf("expected leader to resolve to loop/1 for principal application"))
 }
@@ -343,7 +344,7 @@ func (s *SSHSuite) TestKeyFetchRetries(c *gc.C) {
 			}
 		},
 	}
-	keysFunc := func(target string) ([]string, error) {
+	keysFunc := func(ctx context.Context, target string) ([]string, error) {
 		c.Check(target, gc.Equals, "1")
 		select {
 		case <-done:

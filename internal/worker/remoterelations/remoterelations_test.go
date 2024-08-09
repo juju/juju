@@ -4,6 +4,7 @@
 package remoterelations_test
 
 import (
+	"context"
 	"reflect"
 	"time"
 
@@ -61,7 +62,7 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 	s.config = remoterelations.Config{
 		ModelUUID:       "local-model-uuid",
 		RelationsFacade: s.relationsFacade,
-		NewRemoteModelFacadeFunc: func(*api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
+		NewRemoteModelFacadeFunc: func(context.Context, *api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
 			return s.remoteRelationsFacade, nil
 		},
 		Clock:  clk,
@@ -151,7 +152,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkers(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestExternalControllerError(c *gc.C) {
-	s.config.NewRemoteModelFacadeFunc = func(info *api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
+	s.config.NewRemoteModelFacadeFunc = func(ctx context.Context, info *api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
 		return nil, errors.New("boom")
 	}
 
@@ -178,7 +179,7 @@ func (s *remoteRelationsSuite) TestExternalControllerError(c *gc.C) {
 func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirect(c *gc.C) {
 	newControllerTag := names.NewControllerTag(uuid.MustNewUUID().String())
 
-	s.config.NewRemoteModelFacadeFunc = func(info *api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
+	s.config.NewRemoteModelFacadeFunc = func(ctx context.Context, info *api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
 		// If attempting to connect to the remote controller as defined in
 		// SetUpTest, return a redirect error with a different address.
 		if info.Addrs[0] == "1.2.3.4:1234" {
@@ -232,7 +233,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirectControllerUpd
 
 	newControllerTag := names.NewControllerTag(uuid.MustNewUUID().String())
 
-	s.config.NewRemoteModelFacadeFunc = func(info *api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
+	s.config.NewRemoteModelFacadeFunc = func(ctx context.Context, info *api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
 		// If attempting to connect to the remote controller as defined in
 		// SetUpTest, return a redirect error with a different address.
 		if info.Addrs[0] == "1.2.3.4:1234" {

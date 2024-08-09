@@ -85,7 +85,8 @@ func (s *upgradeModelSuite) upgradeModelCommand(c *gc.C, isCAAS bool) (*gomock.C
 		ModelType: modelType,
 	}, nil)
 
-	return ctrl, newUpgradeJujuCommandForTest(s.store,
+	return ctrl, newUpgradeJujuCommandForTest(
+		s.store,
 		s.modelConfigAPI, s.modelUpgrader, s.controllerModelConfigAPI,
 	)
 }

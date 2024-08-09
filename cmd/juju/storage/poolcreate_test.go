@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
@@ -149,7 +151,7 @@ type mockPoolCreateAPI struct {
 	Creates []mockCreateData
 }
 
-func (s *mockPoolCreateAPI) CreatePool(pname, ptype string, pconfig map[string]interface{}) error {
+func (s *mockPoolCreateAPI) CreatePool(ctx context.Context, pname, ptype string, pconfig map[string]interface{}) error {
 	s.Creates = append(s.Creates, mockCreateData{Name: pname, Provider: ptype, Config: pconfig})
 	return nil
 }

@@ -4,6 +4,7 @@
 package applicationoffers_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -61,7 +62,7 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Offer", args, res).SetArg(3, ress).Return(nil)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	results, err := client.Offer("uuid", application, []string{endPointA, endPointB}, owner, offer, desc)
+	results, err := client.Offer(context.Background(), "uuid", application, []string{endPointA, endPointB}, owner, offer, desc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
 	c.Assert(results, jc.DeepEquals,
@@ -94,7 +95,7 @@ func (s *crossmodelMockSuite) TestOfferFacadeCallError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Offer", args, res).Return(errors.New(msg))
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	results, err := client.Offer("", "", nil, "fred", "", "")
+	results, err := client.Offer(context.Background(), "", "", nil, "fred", "", "")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(results, gc.IsNil)
 }
@@ -161,7 +162,7 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListApplicationOffers", args, res).SetArg(3, ress).Return(nil)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	results, err := client.ListOffers(filter)
+	results, err := client.ListOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []*jujucrossmodel.ApplicationOfferDetails{{
 		OfferURL:        url,
@@ -208,7 +209,7 @@ func (s *crossmodelMockSuite) TestListError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListApplicationOffers", args, res).Return(errors.New(msg))
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	results, err := client.ListOffers(filter)
+	results, err := client.ListOffers(context.Background(), filter)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(results, gc.IsNil)
 }
@@ -258,7 +259,7 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationOffers", args, res).SetArg(3, ress).Return(nil)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	results, err := client.ApplicationOffer(url)
+	results, err := client.ApplicationOffer(context.Background(), url)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results, jc.DeepEquals, &jujucrossmodel.ApplicationOfferDetails{
@@ -300,7 +301,7 @@ func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationOffers", args, res).SetArg(3, ress).Return(nil)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	found, err := client.ApplicationOffer(url)
+	found, err := client.ApplicationOffer(context.Background(), url)
 
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(found, gc.IsNil)
@@ -344,7 +345,7 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationOffers", args, res).SetArg(3, ress).Return(nil)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	found, err := client.ApplicationOffer(url)
+	found, err := client.ApplicationOffer(context.Background(), url)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`expected to find one result for url %q but found 2`, url))
 	c.Assert(found, gc.IsNil)
 }
@@ -361,7 +362,7 @@ func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationOffers", args, res).Return(errors.New(msg))
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	found, err := client.ApplicationOffer("fred/model.db2")
+	found, err := client.ApplicationOffer(context.Background(), "fred/model.db2")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(found, gc.IsNil)
 }
@@ -415,7 +416,7 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "FindApplicationOffers", args, res).SetArg(3, ress).Return(nil)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	results, err := client.FindApplicationOffers(filter)
+	results, err := client.FindApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []*jujucrossmodel.ApplicationOfferDetails{{
 		OfferURL:  url,
@@ -433,7 +434,7 @@ func (s *crossmodelMockSuite) TestFindNoFilter(c *gc.C) {
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.FindApplicationOffers()
+	_, err := client.FindApplicationOffers(context.Background())
 	c.Assert(err, gc.ErrorMatches, "at least one filter must be specified")
 }
 
@@ -460,7 +461,7 @@ func (s *crossmodelMockSuite) TestFindError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "FindApplicationOffers", args, res).Return(errors.New(msg))
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	_, err := client.FindApplicationOffers(filter)
+	_, err := client.FindApplicationOffers(context.Background(), filter)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }
 
@@ -505,7 +506,7 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetConsumeDetails", args, res).SetArg(3, ress).Return(nil)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	details, err := client.GetConsumeDetails("me/prod.app")
+	details, err := client.GetConsumeDetails(context.Background(), "me/prod.app")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details, jc.DeepEquals, params.ConsumeOfferDetails{
 		Offer:          &offer,
@@ -520,7 +521,7 @@ func (s *crossmodelMockSuite) TestGetConsumeDetailsBadURL(c *gc.C) {
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.GetConsumeDetails("badurl")
+	_, err := client.GetConsumeDetails(context.Background(), "badurl")
 	c.Assert(err, gc.ErrorMatches, "application offer URL is missing application")
 }
 
@@ -543,6 +544,6 @@ func (s *crossmodelMockSuite) TestDestroyOffers(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyOffers", args, res).SetArg(3, ress).Return(nil)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.DestroyOffers(true, "me/prod.app")
+	err := client.DestroyOffers(context.Background(), true, "me/prod.app")
 	c.Assert(err, gc.ErrorMatches, "fail")
 }

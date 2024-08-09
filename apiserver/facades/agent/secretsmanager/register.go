@@ -77,7 +77,7 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 			ModelTag: names.NewModelTag(uri.SourceUUID),
 		}
 		apiInfo.Tag = names.NewUserTag(api.AnonymousUsername)
-		conn, err := apicaller.NewExternalControllerConnection(&apiInfo)
+		conn, err := apicaller.NewExternalControllerConnection(stdCtx, &apiInfo)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

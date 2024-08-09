@@ -178,7 +178,7 @@ func (c *mockListClient) Close() error {
 	return nil
 }
 
-func (c *mockListClient) List() ([]params.Block, error) {
+func (c *mockListClient) List(ctx context.Context) ([]params.Block, error) {
 	return c.blocks, c.err
 }
 

@@ -48,7 +48,7 @@ func (s *httpSuite) SetUpTest(c *gc.C) {
 		ModelTag:       testing.ModelTag,
 	}
 	var err error
-	s.conn, err = api.Open(info, api.DialOpts{})
+	s.conn, err = api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { c.Assert(s.conn.Close(), jc.ErrorIsNil) })
 	client, err := s.conn.HTTPClient()
@@ -211,7 +211,7 @@ func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *gc.C) {
 		Nonce:          nonce,
 	}
 
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	httpClient, err := conn.HTTPClient()
 	c.Assert(err, jc.ErrorIsNil)

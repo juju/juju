@@ -41,6 +41,7 @@ func NewClient(st base.APICallCloser, options ...Option) *Client {
 
 // AddUser creates a new local user in the controller, sharing with that user any specified models.
 func (c *Client) AddUser(
+	ctx context.Context,
 	username, displayName, password string,
 ) (_ names.UserTag, secretKey []byte, _ error) {
 	if !names.IsValidUser(username) {
@@ -55,7 +56,7 @@ func (c *Client) AddUser(
 		}},
 	}
 	var results params.AddUserResults
-	err := c.facade.FacadeCall(context.TODO(), "AddUser", userArgs, &results)
+	err := c.facade.FacadeCall(ctx, "AddUser", userArgs, &results)
 	if err != nil {
 		return names.UserTag{}, nil, errors.Trace(err)
 	}
@@ -74,7 +75,7 @@ func (c *Client) AddUser(
 	return tag, result.SecretKey, nil
 }
 
-func (c *Client) userCall(username string, methodCall string) error {
+func (c *Client) userCall(ctx context.Context, username string, methodCall string) error {
 	if !names.IsValidUser(username) {
 		return errors.Errorf("%q is not a valid username", username)
 	}
@@ -84,7 +85,7 @@ func (c *Client) userCall(username string, methodCall string) error {
 	args := params.Entities{
 		[]params.Entity{{tag.String()}},
 	}
-	err := c.facade.FacadeCall(context.TODO(), methodCall, args, &results)
+	err := c.facade.FacadeCall(ctx, methodCall, args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -93,20 +94,20 @@ func (c *Client) userCall(username string, methodCall string) error {
 
 // DisableUser disables a user.  If the user is already disabled, the action
 // is considered a success.
-func (c *Client) DisableUser(username string) error {
-	return c.userCall(username, "DisableUser")
+func (c *Client) DisableUser(ctx context.Context, username string) error {
+	return c.userCall(ctx, username, "DisableUser")
 }
 
 // EnableUser enables a users.  If the user is already enabled, the action is
 // considered a success.
-func (c *Client) EnableUser(username string) error {
-	return c.userCall(username, "EnableUser")
+func (c *Client) EnableUser(ctx context.Context, username string) error {
+	return c.userCall(ctx, username, "EnableUser")
 }
 
 // RemoveUser deletes a user. That is it permanently removes the user, while
 // retaining the record of the user to maintain provenance.
-func (c *Client) RemoveUser(username string) error {
-	return c.userCall(username, "RemoveUser")
+func (c *Client) RemoveUser(ctx context.Context, username string) error {
+	return c.userCall(ctx, username, "RemoveUser")
 }
 
 // IncludeDisabled is a type alias to avoid bare true/false values
@@ -124,7 +125,7 @@ var (
 // UserInfo returns information about the specified users.  If no users are
 // specified, the call should return all users.  If includeDisabled is set to
 // ActiveUsers, only enabled users are returned.
-func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.UserInfo, error) {
+func (c *Client) UserInfo(ctx context.Context, usernames []string, all IncludeDisabled) ([]params.UserInfo, error) {
 	var results params.UserInfoResults
 	var entities []params.Entity
 	for _, username := range usernames {
@@ -138,7 +139,7 @@ func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.Use
 		Entities:        entities,
 		IncludeDisabled: bool(all),
 	}
-	err := c.facade.FacadeCall(context.TODO(), "UserInfo", args, &results)
+	err := c.facade.FacadeCall(ctx, "UserInfo", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -171,14 +172,14 @@ func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.Use
 }
 
 // ModelUserInfo returns information on all users in the model.
-func (c *Client) ModelUserInfo(modelUUID string) ([]params.ModelUserInfo, error) {
+func (c *Client) ModelUserInfo(ctx context.Context, modelUUID string) ([]params.ModelUserInfo, error) {
 	var results params.ModelUserInfoResults
 	args := params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.NewModelTag(modelUUID).String(),
 		}},
 	}
-	err := c.facade.FacadeCall(context.TODO(), "ModelUserInfo", args, &results)
+	err := c.facade.FacadeCall(ctx, "ModelUserInfo", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -194,7 +195,7 @@ func (c *Client) ModelUserInfo(modelUUID string) ([]params.ModelUserInfo, error)
 }
 
 // SetPassword changes the password for the specified user.
-func (c *Client) SetPassword(username, password string) error {
+func (c *Client) SetPassword(ctx context.Context, username, password string) error {
 	if !names.IsValidUser(username) {
 		return errors.Errorf("%q is not a valid username", username)
 	}
@@ -205,7 +206,7 @@ func (c *Client) SetPassword(username, password string) error {
 			Password: password}},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall(context.TODO(), "SetPassword", args, &results)
+	err := c.facade.FacadeCall(ctx, "SetPassword", args, &results)
 	if err != nil {
 		return err
 	}
@@ -213,7 +214,7 @@ func (c *Client) SetPassword(username, password string) error {
 }
 
 // ResetPassword resets password for the specified user.
-func (c *Client) ResetPassword(username string) ([]byte, error) {
+func (c *Client) ResetPassword(ctx context.Context, username string) ([]byte, error) {
 	if !names.IsValidUser(username) {
 		return nil, fmt.Errorf("invalid user name %q", username)
 	}
@@ -224,7 +225,7 @@ func (c *Client) ResetPassword(username string) ([]byte, error) {
 		}},
 	}
 	var out params.AddUserResults
-	err := c.facade.FacadeCall(context.TODO(), "ResetPassword", in, &out)
+	err := c.facade.FacadeCall(ctx, "ResetPassword", in, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

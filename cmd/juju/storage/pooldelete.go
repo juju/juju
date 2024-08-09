@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 
@@ -15,7 +17,7 @@ import (
 // PoolRemoveAPI defines the API methods that the storage commands use.
 type PoolRemoveAPI interface {
 	Close() error
-	RemovePool(name string) error
+	RemovePool(ctx context.Context, name string) error
 }
 
 const poolRemoveCommandDoc = `
@@ -31,8 +33,8 @@ Remove the storage-pool named fast-storage:
 // NewPoolRemoveCommand returns a command that removes the named storage pool.
 func NewPoolRemoveCommand() cmd.Command {
 	cmd := &poolRemoveCommand{}
-	cmd.newAPIFunc = func() (PoolRemoveAPI, error) {
-		return cmd.NewStorageAPI()
+	cmd.newAPIFunc = func(ctx context.Context) (PoolRemoveAPI, error) {
+		return cmd.NewStorageAPI(ctx)
 	}
 	return modelcmd.Wrap(cmd)
 }
@@ -40,7 +42,7 @@ func NewPoolRemoveCommand() cmd.Command {
 // poolRemoveCommand removes a storage pool.
 type poolRemoveCommand struct {
 	PoolCommandBase
-	newAPIFunc func() (PoolRemoveAPI, error)
+	newAPIFunc func(ctx context.Context) (PoolRemoveAPI, error)
 	poolName   string
 }
 
@@ -71,12 +73,12 @@ func (c *poolRemoveCommand) Info() *cmd.Info {
 
 // Run implements Command.Run.
 func (c *poolRemoveCommand) Run(ctx *cmd.Context) (err error) {
-	api, err := c.newAPIFunc()
+	api, err := c.newAPIFunc(ctx)
 	if err != nil {
 		return err
 	}
 	defer api.Close()
-	err = api.RemovePool(c.poolName)
+	err = api.RemovePool(ctx, c.poolName)
 	if params.IsCodeNotFound(err) {
 		ctx.Infof("removing storage pool %s failed: %s", c.poolName, err)
 		return cmd.ErrSilent

@@ -167,7 +167,7 @@ func lifeTest(c *gc.C, stub *testing.Stub, life apiagent.Life, test func() (api.
 func strategyTest(stub *testing.Stub, strategy retry.CallArgs, test func(api.OpenFunc) (api.Connection, error)) (api.Connection, error) {
 	unpatch := testing.PatchValue(apicaller.Strategy, strategy)
 	defer unpatch()
-	return test(func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+	return test(func(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		// copy because I don't trust what might happen to info
 		stub.AddCall("apiOpen", *info, opts)
 		err := stub.NextErr()

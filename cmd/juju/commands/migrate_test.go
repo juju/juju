@@ -433,7 +433,7 @@ func (s *MigrateSuite) makeCommand() modelcmd.ModelCommand {
 	}
 	inner.modelAPI = s.modelAPI
 	inner.userAPI = s.userAPI
-	inner.newAPIRoot = func(jujuclient.ClientStore, string, string) (api.Connection, error) {
+	inner.newAPIRoot = func(context.Context, jujuclient.ClientStore, string, string) (api.Connection, error) {
 		return s.targetControllerAPI, nil
 	}
 	return cmd
@@ -462,11 +462,11 @@ type fakeModelAPI struct {
 	modelInfo []params.ModelInfo
 }
 
-func (m *fakeModelAPI) ListModels(user string) ([]base.UserModel, error) {
+func (m *fakeModelAPI) ListModels(ctx context.Context, user string) ([]base.UserModel, error) {
 	return m.models, nil
 }
 
-func (m *fakeModelAPI) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, error) {
+func (m *fakeModelAPI) ModelInfo(ctx context.Context, tags []names.ModelTag) ([]params.ModelInfoResult, error) {
 	var (
 		mi  *params.ModelInfo
 		err *params.Error
@@ -507,7 +507,7 @@ func (*fakeUserAPI) Close() error {
 	return nil
 }
 
-func (a *fakeUserAPI) UserInfo(_ []string, _ usermanager.IncludeDisabled) ([]params.UserInfo, error) {
+func (a *fakeUserAPI) UserInfo(ctx context.Context, _ []string, _ usermanager.IncludeDisabled) ([]params.UserInfo, error) {
 	return a.users, nil
 }
 

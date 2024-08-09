@@ -5,6 +5,7 @@ package caas
 
 import (
 	"bytes"
+	"context"
 	stdcontext "context"
 	"fmt"
 	"io"
@@ -54,8 +55,8 @@ type CredentialStoreAPI interface {
 
 // AddCloudAPI - Implemented by cloudapi.Client.
 type AddCloudAPI interface {
-	AddCloud(jujucloud.Cloud, bool) error
-	AddCredential(tag string, credential jujucloud.Credential) error
+	AddCloud(context.Context, jujucloud.Cloud, bool) error
+	AddCredential(ctx context.Context, tag string, credential jujucloud.Credential) error
 	Close() error
 }
 
@@ -131,7 +132,7 @@ type AddCAASCommand struct {
 	clock jujuclock.Clock
 
 	// These attributes are used when adding a cluster to a controller.
-	addCloudAPIFunc func() (AddCloudAPI, error)
+	addCloudAPIFunc func(ctx context.Context) (AddCloudAPI, error)
 
 	// caasName is the name of the CAAS to add.
 	caasName string
@@ -206,8 +207,8 @@ func newAddCAASCommand(cloudMetadataStore CloudMetadataStore, clock jujuclock.Cl
 		},
 		credentialUIDGetter: decideCredentialUID,
 	}
-	command.addCloudAPIFunc = func() (AddCloudAPI, error) {
-		root, err := command.NewAPIRoot(command.Store, command.ControllerName, "")
+	command.addCloudAPIFunc = func(ctx context.Context) (AddCloudAPI, error) {
+		root, err := command.NewAPIRoot(ctx, command.Store, command.ControllerName, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -645,7 +646,7 @@ by the existing %q storage class`,
 		} else {
 			successMsg += fmt.Sprintf(" on controller %s.", c.ControllerName)
 		}
-		if err := c.addRemoteCloud(newCloud, newCredential, credentialName); err == nil {
+		if err := c.addRemoteCloud(ctx, newCloud, newCredential, credentialName); err == nil {
 			if !msgDisplayed {
 				fmt.Fprintln(ctx.Stdout, successMsg)
 			}
@@ -656,20 +657,20 @@ by the existing %q storage class`,
 	return returnErr
 }
 
-func (c *AddCAASCommand) addRemoteCloud(newCloud jujucloud.Cloud, newCredential jujucloud.Credential, credentialName string) error {
+func (c *AddCAASCommand) addRemoteCloud(ctx context.Context, newCloud jujucloud.Cloud, newCredential jujucloud.Credential, credentialName string) error {
 	if err := jujuclient.ValidateControllerName(c.ControllerName); err != nil {
 		return errors.Trace(err)
 	}
-	cloudClient, err := c.addCloudAPIFunc()
+	cloudClient, err := c.addCloudAPIFunc(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer cloudClient.Close()
 
-	if err := addCloudToController(cloudClient, newCloud); err != nil {
+	if err := addCloudToController(ctx, cloudClient, newCloud); err != nil {
 		return errors.Trace(err)
 	}
-	if err := c.addCredentialToController(cloudClient, newCredential, newCloud.Name, credentialName); err != nil {
+	if err := c.addCredentialToController(ctx, cloudClient, newCredential, newCloud.Name, credentialName); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -912,9 +913,9 @@ func addCloudToLocal(cloudMetadataStore CloudMetadataStore, newCloud jujucloud.C
 	return cloudMetadataStore.WritePersonalCloudMetadata(personalClouds)
 }
 
-func addCloudToController(apiClient AddCloudAPI, newCloud jujucloud.Cloud) error {
+func addCloudToController(ctx context.Context, apiClient AddCloudAPI, newCloud jujucloud.Cloud) error {
 	// No need to force this addition as k8s is special.
-	err := apiClient.AddCloud(newCloud, false)
+	err := apiClient.AddCloud(ctx, newCloud, false)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -933,7 +934,7 @@ func (c *AddCAASCommand) addCredentialToLocal(store CredentialStoreAPI, cloudNam
 	return nil
 }
 
-func (c *AddCAASCommand) addCredentialToController(apiClient AddCloudAPI, newCredential jujucloud.Credential, cloudName, credentialName string) error {
+func (c *AddCAASCommand) addCredentialToController(ctx context.Context, apiClient AddCloudAPI, newCredential jujucloud.Credential, cloudName, credentialName string) error {
 	_, err := c.Store.ControllerByName(c.ControllerName)
 	if err != nil {
 		return errors.Trace(err)
@@ -950,7 +951,7 @@ func (c *AddCAASCommand) addCredentialToController(apiClient AddCloudAPI, newCre
 	}
 	cloudCredTag := names.NewCloudCredentialTag(id)
 
-	if err := apiClient.AddCredential(cloudCredTag.String(), newCredential); err != nil {
+	if err := apiClient.AddCredential(ctx, cloudCredTag.String(), newCredential); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

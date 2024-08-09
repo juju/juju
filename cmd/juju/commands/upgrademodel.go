@@ -127,13 +127,14 @@ const (
 
 // ModelConfigAPI defines the model config API methods.
 type ModelConfigAPI interface {
-	ModelGet() (map[string]interface{}, error)
+	ModelGet(ctx context.Context) (map[string]interface{}, error)
 	Close() error
 }
 
 // ModelUpgraderAPI defines model upgrader API methods.
 type ModelUpgraderAPI interface {
 	UpgradeModel(
+		ctx context.Context,
 		modelUUID string, targetVersion version.Number, stream string, ignoreAgentVersions, druRun bool,
 	) (version.Number, error)
 	UploadTools(ctx context.Context, r io.ReadSeeker, vers version.Binary) (coretools.List, error)
@@ -141,32 +142,32 @@ type ModelUpgraderAPI interface {
 	Close() error
 }
 
-func (c *upgradeModelCommand) getModelUpgraderAPI() (ModelUpgraderAPI, error) {
+func (c *upgradeModelCommand) getModelUpgraderAPI(ctx context.Context) (ModelUpgraderAPI, error) {
 	if c.modelUpgraderAPI != nil {
 		return c.modelUpgraderAPI, nil
 	}
 
-	return c.NewModelUpgraderAPIClient()
+	return c.NewModelUpgraderAPIClient(ctx)
 }
 
-func (c *upgradeModelCommand) getModelConfigAPI() (ModelConfigAPI, error) {
+func (c *upgradeModelCommand) getModelConfigAPI(ctx context.Context) (ModelConfigAPI, error) {
 	if c.modelConfigAPI != nil {
 		return c.modelConfigAPI, nil
 	}
 
-	api, err := c.NewAPIRoot()
+	api, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return modelconfig.NewClient(api), nil
 }
 
-func (c *upgradeModelCommand) getControllerModelConfigAPI() (ModelConfigAPI, error) {
+func (c *upgradeModelCommand) getControllerModelConfigAPI(ctx context.Context) (ModelConfigAPI, error) {
 	if c.controllerModelConfigAPI != nil {
 		return c.controllerModelConfigAPI, nil
 	}
 
-	api, err := c.NewControllerAPIRoot()
+	api, err := c.NewControllerAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -199,25 +200,25 @@ func (c *upgradeModelCommand) upgradeModel(ctx *cmd.Context, fetchTimeout time.D
 		}
 	}()
 
-	modelUpgrader, err := c.getModelUpgraderAPI()
+	modelUpgrader, err := c.getModelUpgraderAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer modelUpgrader.Close()
 
-	controllerClient, err := c.getControllerModelConfigAPI()
+	controllerClient, err := c.getControllerModelConfigAPI(ctx)
 	if err != nil {
 		return err
 	}
 	defer controllerClient.Close()
 
-	modelConfigClient, err := c.getModelConfigAPI()
+	modelConfigClient, err := c.getModelConfigAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer modelConfigClient.Close()
 
-	attrs, err := modelConfigClient.ModelGet()
+	attrs, err := modelConfigClient.ModelGet(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -236,7 +237,7 @@ func (c *upgradeModelCommand) upgradeModel(ctx *cmd.Context, fetchTimeout time.D
 		return errUpToDate
 	}
 
-	controllerModelConfig, err := controllerClient.ModelGet()
+	controllerModelConfig, err := controllerClient.ModelGet(ctx)
 	if err != nil && !params.IsCodeUnauthorized(err) {
 		return err
 	}
@@ -260,13 +261,14 @@ func (c *upgradeModelCommand) upgradeModel(ctx *cmd.Context, fetchTimeout time.D
 func (c *upgradeModelCommand) notifyControllerUpgrade(
 	ctx *cmd.Context, modelUpgrader ModelUpgraderAPI, targetVersion version.Number, dryRun bool,
 ) (chosenVersion version.Number, err error) {
-	_, details, err := c.ModelCommandBase.ModelDetails()
+	_, details, err := c.ModelCommandBase.ModelDetails(ctx)
 	if err != nil {
 		return chosenVersion, errors.Trace(err)
 	}
 	modelTag := names.NewModelTag(details.ModelUUID)
 
 	if chosenVersion, err = modelUpgrader.UpgradeModel(
+		ctx,
 		modelTag.Id(), targetVersion, c.AgentStream, c.IgnoreAgentVersions, dryRun,
 	); err != nil {
 		if params.IsCodeUpgradeInProgress(err) {

@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/v4"
@@ -192,6 +193,6 @@ func (s mockAddAPI) Close() error {
 	return nil
 }
 
-func (s mockAddAPI) Save(metadata []params.CloudImageMetadata) error {
+func (s mockAddAPI) Save(ctx context.Context, metadata []params.CloudImageMetadata) error {
 	return s.add(metadata)
 }

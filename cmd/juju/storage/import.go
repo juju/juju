@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"context"
 	"regexp"
 
 	"github.com/juju/cmd/v4"
@@ -39,13 +40,13 @@ func NewImportFilesystemCommand(
 
 // NewStorageImporterFunc is the type of a function passed to
 // NewImportFilesystemCommand, in order to acquire a StorageImporter.
-type NewStorageImporterFunc func(*StorageCommandBase) (StorageImporter, error)
+type NewStorageImporterFunc func(context.Context, *StorageCommandBase) (StorageImporter, error)
 
 // NewStorageImporter returns a new StorageImporter,
 // given a StorageCommandBase.
-func NewStorageImporter(cmd *StorageCommandBase) (StorageImporter, error) {
-	api, err := cmd.NewStorageAPI()
-	return apiStorageImporter{api}, err
+func NewStorageImporter(ctx context.Context, cmd *StorageCommandBase) (StorageImporter, error) {
+	api, err := cmd.NewStorageAPI(ctx)
+	return apiStorageImporter{Client: api}, err
 }
 
 const (
@@ -129,7 +130,7 @@ func (c *importFilesystemCommand) Info() *cmd.Info {
 
 // Run implements Command.Run.
 func (c *importFilesystemCommand) Run(ctx *cmd.Context) (err error) {
-	api, err := c.newAPIFunc(&c.StorageCommandBase)
+	api, err := c.newAPIFunc(ctx, &c.StorageCommandBase)
 	if err != nil {
 		return err
 	}
@@ -140,6 +141,7 @@ func (c *importFilesystemCommand) Run(ctx *cmd.Context) (err error) {
 		c.storageProviderId, c.storagePool, c.storageName,
 	)
 	storageTag, err := api.ImportStorage(
+		ctx,
 		storage.StorageKindFilesystem,
 		c.storagePool, c.storageProviderId, c.storageName,
 	)
@@ -155,6 +157,7 @@ type StorageImporter interface {
 	Close() error
 
 	ImportStorage(
+		ctx context.Context,
 		kind storage.StorageKind,
 		storagePool, storageProviderId, storageName string,
 	) (names.StorageTag, error)
@@ -165,7 +168,8 @@ type apiStorageImporter struct {
 }
 
 func (a apiStorageImporter) ImportStorage(
+	ctx context.Context,
 	kind storage.StorageKind, storagePool, storageProviderId, storageName string,
 ) (names.StorageTag, error) {
-	return a.Import(kind, storagePool, storageProviderId, storageName)
+	return a.Import(ctx, kind, storagePool, storageProviderId, storageName)
 }

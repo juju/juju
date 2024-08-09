@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -330,7 +331,7 @@ func (s *mockListAPI) Close() error {
 	return nil
 }
 
-func (s *mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
+func (s *mockListAPI) ListStorageDetails(ctx context.Context) ([]params.StorageDetails, error) {
 	if s.listErrors {
 		return nil, errors.New("list fails")
 	}

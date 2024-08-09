@@ -5,7 +5,6 @@ package firewaller
 
 import (
 	"context"
-	stdcontext "context"
 	"io"
 
 	"github.com/juju/names/v5"
@@ -29,28 +28,28 @@ import (
 
 // FirewallerAPI exposes functionality off the firewaller API facade to a worker.
 type FirewallerAPI interface {
-	WatchModelMachines(stdcontext.Context) (watcher.StringsWatcher, error)
-	WatchOpenedPorts(stdcontext.Context) (watcher.StringsWatcher, error)
-	WatchModelFirewallRules(stdcontext.Context) (watcher.NotifyWatcher, error)
-	ModelFirewallRules(stdcontext.Context) (firewall.IngressRules, error)
-	ModelConfig(stdcontext.Context) (*config.Config, error)
-	Machine(ctx stdcontext.Context, tag names.MachineTag) (Machine, error)
-	Unit(ctx stdcontext.Context, tag names.UnitTag) (Unit, error)
-	Relation(ctx stdcontext.Context, tag names.RelationTag) (*firewaller.Relation, error)
-	WatchEgressAddressesForRelation(ctx stdcontext.Context, tag names.RelationTag) (watcher.StringsWatcher, error)
-	WatchIngressAddressesForRelation(ctx stdcontext.Context, tag names.RelationTag) (watcher.StringsWatcher, error)
-	ControllerAPIInfoForModel(ctx stdcontext.Context, modelUUID string) (*api.Info, error)
-	MacaroonForRelation(ctx stdcontext.Context, relationKey string) (*macaroon.Macaroon, error)
-	SetRelationStatus(ctx stdcontext.Context, relationKey string, status relation.Status, message string) error
-	AllSpaceInfos(ctx stdcontext.Context) (network.SpaceInfos, error)
-	WatchSubnets(ctx stdcontext.Context) (watcher.StringsWatcher, error)
+	WatchModelMachines(context.Context) (watcher.StringsWatcher, error)
+	WatchOpenedPorts(context.Context) (watcher.StringsWatcher, error)
+	WatchModelFirewallRules(context.Context) (watcher.NotifyWatcher, error)
+	ModelFirewallRules(context.Context) (firewall.IngressRules, error)
+	ModelConfig(context.Context) (*config.Config, error)
+	Machine(ctx context.Context, tag names.MachineTag) (Machine, error)
+	Unit(ctx context.Context, tag names.UnitTag) (Unit, error)
+	Relation(ctx context.Context, tag names.RelationTag) (*firewaller.Relation, error)
+	WatchEgressAddressesForRelation(ctx context.Context, tag names.RelationTag) (watcher.StringsWatcher, error)
+	WatchIngressAddressesForRelation(ctx context.Context, tag names.RelationTag) (watcher.StringsWatcher, error)
+	ControllerAPIInfoForModel(ctx context.Context, modelUUID string) (*api.Info, error)
+	MacaroonForRelation(ctx context.Context, relationKey string) (*macaroon.Macaroon, error)
+	SetRelationStatus(ctx context.Context, relationKey string, status relation.Status, message string) error
+	AllSpaceInfos(ctx context.Context) (network.SpaceInfos, error)
+	WatchSubnets(ctx context.Context) (watcher.StringsWatcher, error)
 }
 
 // CrossModelFirewallerFacade exposes firewaller functionality on the
 // remote offering model to a worker.
 type CrossModelFirewallerFacade interface {
-	PublishIngressNetworkChange(stdcontext.Context, params.IngressNetworksChangeEvent) error
-	WatchEgressAddressesForRelation(ctx stdcontext.Context, details params.RemoteEntityArg) (watcher.StringsWatcher, error)
+	PublishIngressNetworkChange(context.Context, params.IngressNetworksChangeEvent) error
+	WatchEgressAddressesForRelation(ctx context.Context, details params.RemoteEntityArg) (watcher.StringsWatcher, error)
 }
 
 // CrossModelFirewallerFacadeCloser implements CrossModelFirewallerFacade
@@ -107,7 +106,7 @@ type Unit interface {
 	Name() string
 	Tag() names.UnitTag
 	Life() life.Value
-	Refresh(ctx stdcontext.Context) error
+	Refresh(ctx context.Context) error
 	Application() (Application, error)
 	AssignedMachine(context.Context) (names.MachineTag, error)
 }

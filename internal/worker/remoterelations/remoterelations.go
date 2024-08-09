@@ -125,7 +125,7 @@ type RemoteRelationsFacade interface {
 	ConsumeRemoteSecretChanges(ctx context.Context, changes []watcher.SecretRevisionChange) error
 }
 
-type newRemoteRelationsFacadeFunc func(*api.Info) (RemoteModelRelationsFacadeCloser, error)
+type newRemoteRelationsFacadeFunc func(context.Context, *api.Info) (RemoteModelRelationsFacadeCloser, error)
 
 // Config defines the operation of a Worker.
 type Config struct {

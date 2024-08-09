@@ -68,7 +68,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
 
 	called := 0
 	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+	apiOpen := func(ctx context.Context, apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.ModelTag, gc.Equals, names.NewModelTag(fakeUUID))
 		called++
@@ -115,7 +115,7 @@ func (s *NewAPIClientSuite) TestIncorrectAuthTag(c *gc.C) {
 
 	called := 0
 	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+	apiOpen := func(ctx context.Context, apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		called++
 		expectState.authTag = names.NewUserTag("simon@external")
 		return expectState, nil
@@ -134,7 +134,7 @@ func (s *NewAPIClientSuite) TestCorrectAuthTag(c *gc.C) {
 
 	called := 0
 	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+	apiOpen := func(ctx context.Context, apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		called++
 		expectState.authTag = names.NewUserTag("wally@external")
 		return expectState, nil
@@ -150,7 +150,7 @@ func (s *NewAPIClientSuite) TestIncorrectAdminAuthTag(c *gc.C) {
 
 	called := 0
 	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+	apiOpen := func(ctx context.Context, apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		called++
 		expectState.authTag = names.NewUserTag("wally@external")
@@ -167,7 +167,7 @@ func (s *NewAPIClientSuite) TestCorrectAdminAuthTag(c *gc.C) {
 
 	called := 0
 	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+	apiOpen := func(ctx context.Context, apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		called++
 		return expectState, nil
@@ -183,7 +183,7 @@ func (s *NewAPIClientSuite) TestUpdatesLastKnownAccess(c *gc.C) {
 
 	called := 0
 	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+	apiOpen := func(ctx context.Context, apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.ModelTag, gc.Equals, names.NewModelTag(fakeUUID))
 		called++
@@ -205,7 +205,7 @@ func (s *NewAPIClientSuite) TestUpdatesLastKnownAccess(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestUpdatesPublicDNSName(c *gc.C) {
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+	apiOpen := func(ctx context.Context, apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		c.Assert(apiInfo.ControllerUUID, gc.Equals, fakeUUID)
 		conn := mockedAPIState(noFlags)
 		conn.publicDNSName = "somewhere.invalid"
@@ -286,7 +286,7 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
 	}}
 
 	openCount := 0
-	redirOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+	redirOpen := func(ctx context.Context, apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		c.Check(apiInfo.ControllerUUID, gc.Equals, fakeUUID)
 		c.Check(apiInfo.ModelTag.Id(), gc.Equals, fakeUUID)
 		openCount++
@@ -328,7 +328,7 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
 func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	jujuClient := newClientStore(c, "noconfig")
 
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+	apiOpen := func(ctx context.Context, apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return nil, errors.Errorf("an error")
 	}
 	st, err := newAPIConnectionFromNames(c, "noconfig", "", jujuClient, apiOpen)
@@ -360,7 +360,7 @@ func (s *NewAPIClientSuite) TestDialedAddressIsCached(c *gc.C) {
 		// Allow the dials to complete.
 		close(start)
 	}()
-	conn, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
+	conn, err := juju.NewAPIConnection(context.Background(), juju.NewAPIConnectionParams{
 		Store:          store,
 		ControllerName: "foo",
 		DialOpts: api.DialOpts{
@@ -422,7 +422,7 @@ func (s *NewAPIClientSuite) TestWithExistingDNSCache(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	start := make(chan struct{})
-	conn, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
+	conn, err := juju.NewAPIConnection(context.Background(), juju.NewAPIConnectionParams{
 		Store:          store,
 		ControllerName: "foo",
 		DialOpts: api.DialOpts{
@@ -501,7 +501,7 @@ func (s *NewAPIClientSuite) TestEndpointFiltering(c *gc.C) {
 		network.ProviderHostPort{ProviderAddress: network.NewMachineAddress("0.1.2.3").AsProviderAddress(), NetPort: 1235},
 	}})
 
-	conn, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
+	conn, err := juju.NewAPIConnection(context.Background(), juju.NewAPIConnectionParams{
 		Store:          store,
 		ControllerName: "foo",
 		DialOpts: api.DialOpts{
@@ -609,7 +609,7 @@ func newAPIConnectionFromNames(
 		c.Assert(err, jc.ErrorIsNil)
 		args.ModelUUID = modelDetails.ModelUUID
 	}
-	return juju.NewAPIConnection(args)
+	return juju.NewAPIConnection(context.Background(), args)
 }
 
 type ipAddrResolverFunc func(ctx context.Context, host string) ([]net.IPAddr, error)

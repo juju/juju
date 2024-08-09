@@ -27,11 +27,11 @@ import (
 // commands for the model.
 func NewListCommand() cmd.Command {
 	return modelcmd.Wrap(&listCommand{
-		apiFunc: func(c newAPIRoot) (blockListAPI, error) {
-			return getBlockAPI(c)
+		apiFunc: func(ctx context.Context, c newAPIRoot) (blockListAPI, error) {
+			return getBlockAPI(ctx, c)
 		},
-		controllerAPIFunc: func(c newControllerAPIRoot) (controllerListAPI, error) {
-			return getControllerAPI(c)
+		controllerAPIFunc: func(ctx context.Context, c newControllerAPIRoot) (controllerListAPI, error) {
+			return getControllerAPI(ctx, c)
 		},
 	})
 }
@@ -43,8 +43,8 @@ List disabled commands for the model.
 // listCommand list blocks.
 type listCommand struct {
 	modelcmd.ModelCommandBase
-	apiFunc           func(newAPIRoot) (blockListAPI, error)
-	controllerAPIFunc func(newControllerAPIRoot) (controllerListAPI, error)
+	apiFunc           func(context.Context, newAPIRoot) (blockListAPI, error)
+	controllerAPIFunc func(context.Context, newControllerAPIRoot) (controllerListAPI, error)
 	all               bool
 	out               cmd.Output
 }
@@ -90,13 +90,13 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 const noBlocks = "No commands are currently disabled."
 
 func (c *listCommand) listForModel(ctx *cmd.Context) (err error) {
-	api, err := c.apiFunc(c)
+	api, err := c.apiFunc(ctx, c)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer api.Close()
 
-	result, err := api.List()
+	result, err := api.List(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -108,7 +108,7 @@ func (c *listCommand) listForModel(ctx *cmd.Context) (err error) {
 }
 
 func (c *listCommand) listForController(ctx *cmd.Context) (err error) {
-	api, err := c.controllerAPIFunc(c)
+	api, err := c.controllerAPIFunc(ctx, c)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -139,7 +139,7 @@ func (c *listCommand) formatter(writer io.Writer, value interface{}) error {
 // blockListAPI defines the client API methods that block list command uses.
 type blockListAPI interface {
 	Close() error
-	List() ([]params.Block, error)
+	List(ctx context.Context) ([]params.Block, error)
 }
 
 // controllerListAPI defines the methods on the controller API endpoint
@@ -196,12 +196,12 @@ func formatBlocks(writer io.Writer, value interface{}) error {
 }
 
 type newControllerAPIRoot interface {
-	NewControllerAPIRoot() (api.Connection, error)
+	NewControllerAPIRoot(ctx context.Context) (api.Connection, error)
 }
 
 // getControllerAPI returns a block api for block manipulation.
-func getControllerAPI(c newControllerAPIRoot) (*controller.Client, error) {
-	root, err := c.NewControllerAPIRoot()
+func getControllerAPI(ctx context.Context, c newControllerAPIRoot) (*controller.Client, error) {
+	root, err := c.NewControllerAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -19,8 +20,8 @@ import (
 // NewListCommand returns a command for listing storage instances.
 func NewListCommand() cmd.Command {
 	cmd := &listCommand{}
-	cmd.newAPIFunc = func() (StorageListAPI, error) {
-		return cmd.NewStorageAPI()
+	cmd.newAPIFunc = func(ctx context.Context) (StorageListAPI, error) {
+		return cmd.NewStorageAPI(ctx)
 	}
 	return modelcmd.Wrap(cmd)
 }
@@ -50,7 +51,7 @@ type listCommand struct {
 	ids        []string
 	filesystem bool
 	volume     bool
-	newAPIFunc func() (StorageListAPI, error)
+	newAPIFunc func(ctx context.Context) (StorageListAPI, error)
 }
 
 // Info implements Command.Info.
@@ -98,7 +99,7 @@ func (c *listCommand) Init(args []string) (err error) {
 
 // Run implements Command.Run.
 func (c *listCommand) Run(ctx *cmd.Context) (err error) {
-	api, err := c.newAPIFunc()
+	api, err := c.newAPIFunc(ctx)
 	if err != nil {
 		return err
 	}
@@ -193,14 +194,14 @@ func CombinedStorageFromParams(
 // StorageListAPI defines the API methods that the storage commands use.
 type StorageListAPI interface {
 	Close() error
-	ListStorageDetails() ([]params.StorageDetails, error)
-	ListFilesystems(machines []string) ([]params.FilesystemDetailsListResult, error)
-	ListVolumes(machines []string) ([]params.VolumeDetailsListResult, error)
+	ListStorageDetails(ctx context.Context) ([]params.StorageDetails, error)
+	ListFilesystems(ctx context.Context, machines []string) ([]params.FilesystemDetailsListResult, error)
+	ListVolumes(ctx context.Context, machines []string) ([]params.VolumeDetailsListResult, error)
 }
 
 // generateListStorageOutput returns a map of storage details
 func generateListStorageOutput(ctx *cmd.Context, api StorageListAPI) (map[string]StorageInfo, error) {
-	results, err := api.ListStorageDetails()
+	results, err := api.ListStorageDetails(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

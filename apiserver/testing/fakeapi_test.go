@@ -4,6 +4,8 @@
 package testing_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -36,7 +38,7 @@ func (*fakeAPISuite) TestFakeAPI(c *gc.C) {
 		CACert:   jtesting.CACert,
 		ModelTag: names.NewModelTag(fakeUUID),
 	}
-	_, err := api.Open(info, api.DialOpts{})
+	_, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(r.calledMethods, jc.DeepEquals, []string{"Login"})

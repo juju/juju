@@ -95,7 +95,7 @@ func GetUpgradeResources(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	current, err := getCurrentResources(applicationID, resourceLister)
+	current, err := getCurrentResources(ctx, applicationID, resourceLister)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -105,10 +105,11 @@ func GetUpgradeResources(
 // getCurrentResources gets the current resources for this charm in
 // state.
 func getCurrentResources(
+	ctx context.Context,
 	applicationID string,
 	resourceLister ResourceLister,
 ) (map[string]resources.Resource, error) {
-	svcs, err := resourceLister.ListResources([]string{applicationID})
+	svcs, err := resourceLister.ListResources(ctx, []string{applicationID})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

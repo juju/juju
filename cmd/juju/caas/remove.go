@@ -38,7 +38,7 @@ const usageRemoveCAASExamples = `
 
 // RemoveCloudAPI is implemented by cloudapi.Client.
 type RemoveCloudAPI interface {
-	RemoveCloud(string) error
+	RemoveCloud(context.Context, string) error
 	Close() error
 }
 
@@ -52,7 +52,7 @@ type RemoveCAASCommand struct {
 	cloudMetadataStore CloudMetadataStore
 	credentialStoreAPI credentialGetter
 
-	apiFunc func() (RemoveCloudAPI, error)
+	apiFunc func(ctx context.Context) (RemoveCloudAPI, error)
 }
 
 // NewRemoveCAASCommand returns a command to add caas information.
@@ -66,8 +66,8 @@ func NewRemoveCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 		cloudMetadataStore: cloudMetadataStore,
 		credentialStoreAPI: store,
 	}
-	command.apiFunc = func() (RemoveCloudAPI, error) {
-		root, err := command.NewAPIRoot(command.Store, command.ControllerName, "")
+	command.apiFunc = func(ctx context.Context) (RemoveCloudAPI, error) {
+		root, err := command.NewAPIRoot(ctx, command.Store, command.ControllerName, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -103,17 +103,17 @@ func (c *RemoveCAASCommand) Init(args []string) (err error) {
 }
 
 // Run is defined on the Command interface.
-func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
-	if err := c.MaybePrompt(ctxt, fmt.Sprintf("remove k8s cloud %v from ", c.cloudName)); err != nil {
+func (c *RemoveCAASCommand) Run(ctx *cmd.Context) error {
+	if err := c.MaybePrompt(ctx, fmt.Sprintf("remove k8s cloud %v from ", c.cloudName)); err != nil {
 		return errors.Trace(err)
 	}
 
 	if c.ControllerName == "" {
-		ctxt.Infof("There are no controllers running.\nTo remove cloud %q from the current client, use the --client option.", c.cloudName)
+		ctx.Infof("There are no controllers running.\nTo remove cloud %q from the current client, use the --client option.", c.cloudName)
 	}
 
 	if c.ControllerName != "" && c.Client { // TODO(caas): only do RBAC cleanup for removing from both client and controller to less complexity.
-		if err := cleanUpCredentialRBACResources(ctxt, c.cloudName, c.cloudMetadataStore, c.credentialStoreAPI); err != nil {
+		if err := cleanUpCredentialRBACResources(ctx, c.cloudName, c.cloudMetadataStore, c.credentialStoreAPI); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -131,13 +131,13 @@ func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 		if err := jujuclient.ValidateControllerName(c.ControllerName); err != nil {
 			return errors.Trace(err)
 		}
-		cloudAPI, err := c.apiFunc()
+		cloudAPI, err := c.apiFunc(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		defer cloudAPI.Close()
 
-		if err := cloudAPI.RemoveCloud(c.cloudName); err != nil {
+		if err := cloudAPI.RemoveCloud(ctx, c.cloudName); err != nil {
 			return errors.Annotatef(err, "cannot remove k8s cloud from controller")
 		}
 	}

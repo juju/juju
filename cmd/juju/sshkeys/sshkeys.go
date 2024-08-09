@@ -4,6 +4,8 @@
 package sshkeys
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -20,10 +22,10 @@ type SSHKeysBase struct {
 
 // NewKeyManagerClient returns a keymanager client for the root api endpoint
 // that the environment command returns.
-func (c *SSHKeysBase) NewKeyManagerClient() (*keymanager.Client, error) {
+func (c *SSHKeysBase) NewKeyManagerClient(ctx context.Context) (*keymanager.Client, error) {
 	if c.apiRoot == nil {
 		var err error
-		c.apiRoot, err = c.NewAPIRoot()
+		c.apiRoot, err = c.NewAPIRoot(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

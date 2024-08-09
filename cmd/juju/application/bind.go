@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -36,8 +37,8 @@ func NewBindCommand() cmd.Command {
 // ApplicationBindClient defines a subset of the application facade that deals with
 // querying and updating application bindings.
 type ApplicationBindClient interface {
-	Get(string) (*params.ApplicationGetResults, error)
-	MergeBindings(req params.ApplicationMergeBindingsArgs) error
+	Get(context.Context, string) (*params.ApplicationGetResults, error)
+	MergeBindings(ctx context.Context, req params.ApplicationMergeBindingsArgs) error
 }
 
 // Bind is responsible for changing the bindings for an application.
@@ -114,7 +115,7 @@ func (c *bindCommand) Init(args []string) error {
 // Run connects to the specified environment and applies the requested binding
 // changes.
 func (c *bindCommand) Run(ctx *cmd.Context) error {
-	apiRoot, err := c.NewAPIRoot()
+	apiRoot, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -132,7 +133,7 @@ func (c *bindCommand) Run(ctx *cmd.Context) error {
 	}
 
 	applicationClient := c.NewApplicationClient(apiRoot)
-	applicationInfo, err := applicationClient.Get(c.ApplicationName)
+	applicationInfo, err := applicationClient.Get(ctx, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}

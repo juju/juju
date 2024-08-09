@@ -4,6 +4,7 @@
 package firewall
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/v4"
@@ -36,8 +37,8 @@ const listRulesHelpExamples = `
 // NewListFirewallRulesCommand returns a command to list firewall rules.
 func NewListFirewallRulesCommand() cmd.Command {
 	cmd := &listFirewallRulesCommand{}
-	cmd.newAPIFunc = func() (ListFirewallRulesAPI, error) {
-		root, err := cmd.NewAPIRoot()
+	cmd.newAPIFunc = func(ctx context.Context) (ListFirewallRulesAPI, error) {
+		root, err := cmd.NewAPIRoot(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -52,7 +53,7 @@ type listFirewallRulesCommand struct {
 	modelcmd.IAASOnlyCommand
 	out cmd.Output
 
-	newAPIFunc func() (ListFirewallRulesAPI, error)
+	newAPIFunc func(ctx context.Context) (ListFirewallRulesAPI, error)
 }
 
 // Info implements cmd.Command.
@@ -86,19 +87,19 @@ func (c *listFirewallRulesCommand) Init(args []string) (err error) {
 // ListFirewallRulesAPI defines the API methods that the list firewall rules command uses.
 type ListFirewallRulesAPI interface {
 	Close() error
-	ModelGet() (map[string]interface{}, error)
+	ModelGet(ctx context.Context) (map[string]interface{}, error)
 }
 
 // Run implements cmd.Command.
 func (c *listFirewallRulesCommand) Run(ctx *cmd.Context) error {
 	ctx.Warningf(deprecationWarning + "\n")
 
-	client, err := c.newAPIFunc()
+	client, err := c.newAPIFunc(ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	attrs, err := client.ModelGet()
+	attrs, err := client.ModelGet(ctx)
 	if err != nil {
 		return err
 	}

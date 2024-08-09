@@ -34,6 +34,7 @@ func NewClient(caller base.APICallCloser, options ...Option) *Client {
 
 // EnableHA ensures the availability of Juju controllers.
 func (c *Client) EnableHA(
+	ctx context.Context,
 	numControllers int, cons constraints.Value, placement []string,
 ) (params.ControllersChanges, error) {
 
@@ -45,7 +46,7 @@ func (c *Client) EnableHA(
 			Placement:      placement,
 		}}}
 
-	err := c.facade.FacadeCall(context.TODO(), "EnableHA", arg, &results)
+	err := c.facade.FacadeCall(ctx, "EnableHA", arg, &results)
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}
@@ -65,12 +66,12 @@ type ControllerDetails struct {
 	APIEndpoints []string
 }
 
-func (c *Client) ControllerDetails() (map[string]ControllerDetails, error) {
+func (c *Client) ControllerDetails(ctx context.Context) (map[string]ControllerDetails, error) {
 	if c.BestAPIVersion() < 3 {
 		return nil, errors.NotImplemented
 	}
 	var details params.ControllerDetailsResults
-	err := c.facade.FacadeCall(context.TODO(), "ControllerDetails", nil, &details)
+	err := c.facade.FacadeCall(ctx, "ControllerDetails", nil, &details)
 	if err != nil {
 		return nil, err
 	}

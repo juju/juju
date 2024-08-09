@@ -316,10 +316,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		return err
 	}
 
-	newExternalControllerWatcherClient := func(apiInfo *api.Info) (
+	newExternalControllerWatcherClient := func(ctx context.Context, apiInfo *api.Info) (
 		externalcontrollerupdater.ExternalControllerWatcherClientCloser, error,
 	) {
-		conn, err := apicaller.NewExternalControllerConnection(apiInfo)
+		conn, err := apicaller.NewExternalControllerConnection(ctx, apiInfo)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -25,7 +25,7 @@ type UploadClient interface {
 	Upload(ctx context.Context, application, name, filename, pendingID string, resource io.ReadSeeker) error
 
 	// ListResources returns info about resources for applications in the model.
-	ListResources(applications []string) ([]coreresources.ApplicationResources, error)
+	ListResources(ctx context.Context, applications []string) ([]coreresources.ApplicationResources, error)
 
 	// Close closes the client.
 	Close() error
@@ -35,7 +35,7 @@ type UploadClient interface {
 type UploadCommand struct {
 	modelcmd.ModelCommandBase
 
-	newClient func() (UploadClient, error)
+	newClient func(ctx context.Context) (UploadClient, error)
 
 	application   string
 	resourceValue resourceValue
@@ -45,8 +45,8 @@ type UploadCommand struct {
 // by a charm.
 func NewUploadCommand() modelcmd.ModelCommand {
 	c := &UploadCommand{}
-	c.newClient = func() (UploadClient, error) {
-		apiRoot, err := c.NewAPIRoot()
+	c.newClient = func(ctx context.Context) (UploadClient, error) {
+		apiRoot, err := c.NewAPIRoot(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -152,13 +152,13 @@ func (c *UploadCommand) addResourceValue(arg string) error {
 
 // Run implements cmd.Command.Run.
 func (c *UploadCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := c.newClient()
+	apiclient, err := c.newClient(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer apiclient.Close()
 
-	result, err := apiclient.ListResources([]string{c.application})
+	result, err := apiclient.ListResources(ctx, []string{c.application})
 	if err != nil {
 		return errors.Trace(err)
 	}

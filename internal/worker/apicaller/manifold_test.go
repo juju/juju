@@ -43,7 +43,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.manifoldConfig = apicaller.ManifoldConfig{
 		AgentName:            "agent-name",
 		APIConfigWatcherName: "api-config-watcher-name",
-		APIOpen: func(*api.Info, api.DialOpts) (api.Connection, error) {
+		APIOpen: func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
 			panic("just a fake")
 		},
 		NewConnection: func(_ context.Context, a agent.Agent, apiOpen api.OpenFunc, logger logger.Logger) (api.Connection, error) {

@@ -132,7 +132,7 @@ func main() {
 func connect(info *api.Info) (api.Connection, error) {
 	opts := api.DefaultDialOpts()
 	opts.InsecureSkipVerify = true
-	conn, err := api.Open(info, opts)
+	conn, err := api.Open(context.Background(), info, opts)
 	if err != nil {
 		return nil, err
 	}

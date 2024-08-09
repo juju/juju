@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -19,8 +21,8 @@ import (
 // on the specified machine
 func NewShowCommand() cmd.Command {
 	cmd := &showCommand{}
-	cmd.newAPIFunc = func() (StorageShowAPI, error) {
-		return cmd.NewStorageAPI()
+	cmd.newAPIFunc = func(ctx context.Context) (StorageShowAPI, error) {
+		return cmd.NewStorageAPI(ctx)
 	}
 	return modelcmd.Wrap(cmd)
 }
@@ -42,7 +44,7 @@ type showCommand struct {
 	StorageCommandBase
 	ids        []string
 	out        cmd.Output
-	newAPIFunc func() (StorageShowAPI, error)
+	newAPIFunc func(ctx context.Context) (StorageShowAPI, error)
 }
 
 // Init implements Command.Init.
@@ -79,7 +81,7 @@ func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *showCommand) Run(ctx *cmd.Context) (err error) {
-	api, err := c.newAPIFunc()
+	api, err := c.newAPIFunc(ctx)
 	if err != nil {
 		return err
 	}
@@ -90,7 +92,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	results, err := api.StorageDetails(tags)
+	results, err := api.StorageDetails(ctx, tags)
 	if err != nil {
 		return err
 	}
@@ -129,5 +131,5 @@ func (c *showCommand) getStorageTags() ([]names.StorageTag, error) {
 // StorageAPI defines the API methods that the storage commands use.
 type StorageShowAPI interface {
 	Close() error
-	StorageDetails(tags []names.StorageTag) ([]params.StorageDetailsResult, error)
+	StorageDetails(ctx context.Context, tags []names.StorageTag) ([]params.StorageDetailsResult, error)
 }

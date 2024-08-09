@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -45,7 +46,7 @@ import (
 
 // SpacesAPI defines the necessary API methods needed for listing spaces.
 type SpacesAPI interface {
-	ListSpaces() ([]apiparams.Space, error)
+	ListSpaces(ctx context.Context) ([]apiparams.Space, error)
 }
 
 type CharmsAPI interface {

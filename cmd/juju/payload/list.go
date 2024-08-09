@@ -4,6 +4,7 @@
 package payload
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -19,7 +20,7 @@ import (
 
 // ListAPI has the API methods needed by ListCommand.
 type ListAPI interface {
-	ListFull(patterns ...string) ([]corepayloads.FullPayloadInfo, error)
+	ListFull(ctx context.Context, patterns ...string) ([]corepayloads.FullPayloadInfo, error)
 	io.Closer
 }
 
@@ -29,15 +30,15 @@ type ListCommand struct {
 	out      cmd.Output
 	patterns []string
 
-	newAPIClient func() (ListAPI, error)
+	newAPIClient func(ctx context.Context) (ListAPI, error)
 }
 
 // NewListCommand returns a new command that lists charm payloads
 // in the current environment.
 func NewListCommand() modelcmd.ModelCommand {
 	c := &ListCommand{}
-	c.newAPIClient = func() (ListAPI, error) {
-		apiRoot, err := c.NewAPIRoot()
+	c.newAPIClient = func(ctx context.Context) (ListAPI, error) {
+		apiRoot, err := c.NewAPIRoot(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -90,13 +91,13 @@ func (c *ListCommand) Init(args []string) error {
 }
 
 func (c *ListCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := c.newAPIClient()
+	apiclient, err := c.newAPIClient(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer apiclient.Close()
 
-	payloads, err := apiclient.ListFull(c.patterns...)
+	payloads, err := apiclient.ListFull(ctx, c.patterns...)
 	if err != nil {
 		if payloads == nil {
 			// List call completely failed; there is nothing to report.

@@ -4,6 +4,7 @@
 package user_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/cmd/v4"
@@ -44,7 +45,7 @@ func (*fakeUserInfoAPI) Close() error {
 	return nil
 }
 
-func (*fakeUserInfoAPI) UserInfo(usernames []string, all usermanager.IncludeDisabled) ([]params.UserInfo, error) {
+func (*fakeUserInfoAPI) UserInfo(ctx context.Context, usernames []string, all usermanager.IncludeDisabled) ([]params.UserInfo, error) {
 	logger.Infof("fakeUserInfoAPI.UserInfo(%v, %v)", usernames, all)
 	info := params.UserInfo{
 		DateCreated:    dateCreated,

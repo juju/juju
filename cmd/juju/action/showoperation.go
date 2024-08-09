@@ -4,6 +4,7 @@
 package action
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -109,7 +110,7 @@ func (c *showOperationCommand) Init(args []string) error {
 
 // Run implements Command.
 func (c *showOperationCommand) Run(ctx *cmd.Context) error {
-	api, err := c.NewActionAPIClient()
+	api, err := c.NewActionAPIClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -125,9 +126,9 @@ func (c *showOperationCommand) Run(ctx *cmd.Context) error {
 	shouldWatch := c.wait.Nanoseconds() >= 0
 	if shouldWatch {
 		tick := c.clock.NewTimer(resultPollTime)
-		result, err = getOperationResult(api, c.requestedID, tick, wait)
+		result, err = getOperationResult(ctx, api, c.requestedID, tick, wait)
 	} else {
-		result, err = fetchOperationResult(api, c.requestedID)
+		result, err = fetchOperationResult(ctx, api, c.requestedID)
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -138,8 +139,8 @@ func (c *showOperationCommand) Run(ctx *cmd.Context) error {
 }
 
 // fetchOperationResult queries the given API for the given operation ID.
-func fetchOperationResult(api APIClient, requestedId string) (actionapi.Operation, error) {
-	result, err := api.Operation(requestedId)
+func fetchOperationResult(ctx context.Context, api APIClient, requestedId string) (actionapi.Operation, error) {
+	result, err := api.Operation(ctx, requestedId)
 	if err != nil {
 		return result, err
 	}
@@ -149,14 +150,14 @@ func fetchOperationResult(api APIClient, requestedId string) (actionapi.Operatio
 // getOperationResult tries to repeatedly fetch an operation until it is
 // in a completed state and then it returns it.
 // It waits for a maximum of "wait" before returning with the latest operation status.
-func getOperationResult(api APIClient, requestedId string, tick, wait clock.Timer) (actionapi.Operation, error) {
-	return operationTimerLoop(api, requestedId, tick, wait)
+func getOperationResult(ctx context.Context, api APIClient, requestedId string, tick, wait clock.Timer) (actionapi.Operation, error) {
+	return operationTimerLoop(ctx, api, requestedId, tick, wait)
 }
 
 // operationTimerLoop loops indefinitely to query the given API, until "wait" times
 // out, using the "tick" timer to delay the API queries.  It writes the
 // result to the given output.
-func operationTimerLoop(api APIClient, requestedId string, tick, wait clock.Timer) (actionapi.Operation, error) {
+func operationTimerLoop(ctx context.Context, api APIClient, requestedId string, tick, wait clock.Timer) (actionapi.Operation, error) {
 	var (
 		result actionapi.Operation
 		err    error
@@ -165,7 +166,7 @@ func operationTimerLoop(api APIClient, requestedId string, tick, wait clock.Time
 	// Loop over results until we get "failed", "completed", or "cancelled.  Wait for
 	// timer, and reset it each time.
 	for {
-		result, err = fetchOperationResult(api, requestedId)
+		result, err = fetchOperationResult(ctx, api, requestedId)
 		if err != nil {
 			return result, err
 		}

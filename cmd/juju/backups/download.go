@@ -76,10 +76,10 @@ func (c *downloadCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *downloadCommand) Run(ctx *cmd.Context) error {
-	if err := c.validateIaasController(c.Info().Name); err != nil {
+	if err := c.validateIaasController(ctx, c.Info().Name); err != nil {
 		return errors.Trace(err)
 	}
-	client, err := c.NewAPIClient()
+	client, err := c.NewAPIClient(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

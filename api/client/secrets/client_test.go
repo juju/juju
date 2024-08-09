@@ -4,6 +4,7 @@
 package secrets_test
 
 import (
+	"context"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -53,7 +54,7 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ListSecretResults{})
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
-			[]params.ListSecretResult{{
+			Results: []params.ListSecretResult{{
 				URI:                    uri.String(),
 				Version:                1,
 				OwnerTag:               "application-mysql",
@@ -92,7 +93,7 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 	})
 	client := apisecrets.NewClient(apiCaller)
 	owner := secrets.Owner{Kind: secrets.ApplicationOwner, ID: "mysql"}
-	result, err := client.ListSecrets(true, secrets.Filter{
+	result, err := client.ListSecrets(context.Background(), true, secrets.Filter{
 		URI: uri, Owner: ptr(owner), Revision: ptr(666)})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []apisecrets.SecretDetails{{
@@ -136,7 +137,7 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 func (s *SecretsSuite) TestListSecretsError(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
-			[]params.ListSecretResult{{
+			Results: []params.ListSecretResult{{
 				URI: "secret:9m4e2mr0ui3e8a215n4g",
 				Value: &params.SecretValueResult{
 					Error: &params.Error{Message: "boom"},
@@ -146,7 +147,7 @@ func (s *SecretsSuite) TestListSecretsError(c *gc.C) {
 		return nil
 	})
 	client := apisecrets.NewClient(apiCaller)
-	result, err := client.ListSecrets(true, secrets.Filter{})
+	result, err := client.ListSecrets(context.Background(), true, secrets.Filter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Assert(result[0].Error, gc.Equals, "boom")
@@ -156,9 +157,9 @@ func (s *SecretsSuite) TestCreateSecretError(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 1}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 1}
 	client := apisecrets.NewClient(caller)
-	_, err := client.CreateSecret("label", "this is a secret.", map[string]string{"foo": "bar"})
+	_, err := client.CreateSecret(context.Background(), "label", "this is a secret.", map[string]string{"foo": "bar"})
 	c.Assert(err, gc.ErrorMatches, "user secrets not supported")
 }
 
@@ -185,9 +186,9 @@ func (s *SecretsSuite) TestCreateSecret(c *gc.C) {
 		}
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 2}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	result, err := client.CreateSecret("my-secret", "this is a secret.", map[string]string{"foo": "bar"})
+	result, err := client.CreateSecret(context.Background(), "my-secret", "this is a secret.", map[string]string{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, uri.String())
 }
@@ -196,10 +197,10 @@ func (s *SecretsSuite) TestUpdateSecretError(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 1}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 1}
 	client := apisecrets.NewClient(caller)
 	uri := secrets.NewURI()
-	err := client.UpdateSecret(uri, "", ptr(true), "new-name", "this is a secret.", map[string]string{"foo": "bar"})
+	err := client.UpdateSecret(context.Background(), uri, "", ptr(true), "new-name", "this is a secret.", map[string]string{"foo": "bar"})
 	c.Assert(err, gc.ErrorMatches, "user secrets not supported")
 }
 
@@ -223,9 +224,9 @@ func (s *SecretsSuite) TestUpdateSecretWithoutContent(c *gc.C) {
 		*(result.(*params.ErrorResults)) = params.ErrorResults{Results: []params.ErrorResult{{}}}
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 2}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	err := client.UpdateSecret(uri, "", ptr(true), "new-name", "this is a secret.", nil)
+	err := client.UpdateSecret(context.Background(), uri, "", ptr(true), "new-name", "this is a secret.", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -248,9 +249,9 @@ func (s *SecretsSuite) TestUpdateSecretByName(c *gc.C) {
 		*(result.(*params.ErrorResults)) = params.ErrorResults{Results: []params.ErrorResult{{}}}
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 2}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	err := client.UpdateSecret(nil, "name", ptr(true), "new-name", "this is a secret.", nil)
+	err := client.UpdateSecret(context.Background(), nil, "name", ptr(true), "new-name", "this is a secret.", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -275,9 +276,9 @@ func (s *SecretsSuite) TestUpdateSecret(c *gc.C) {
 		*(result.(*params.ErrorResults)) = params.ErrorResults{Results: []params.ErrorResult{{}}}
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 2}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	err := client.UpdateSecret(uri, "", ptr(true), "label", "this is a secret.", map[string]string{"foo": "bar"})
+	err := client.UpdateSecret(context.Background(), uri, "", ptr(true), "label", "this is a secret.", map[string]string{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -285,10 +286,10 @@ func (s *SecretsSuite) TestRemoveSecretError(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 1}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 1}
 	client := apisecrets.NewClient(caller)
 	uri := secrets.NewURI()
-	err := client.RemoveSecret(uri, "", ptr(1))
+	err := client.RemoveSecret(context.Background(), uri, "", ptr(1))
 	c.Assert(err, gc.ErrorMatches, "user secrets not supported")
 }
 
@@ -307,9 +308,9 @@ func (s *SecretsSuite) TestRemoveSecret(c *gc.C) {
 		}
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 2}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	err := client.RemoveSecret(uri, "", nil)
+	err := client.RemoveSecret(context.Background(), uri, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -327,9 +328,9 @@ func (s *SecretsSuite) TestRemoveSecretByName(c *gc.C) {
 		}
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 2}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	err := client.RemoveSecret(nil, "my-secret", nil)
+	err := client.RemoveSecret(context.Background(), nil, "my-secret", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -348,9 +349,9 @@ func (s *SecretsSuite) TestRemoveSecretWithRevision(c *gc.C) {
 		}
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 2}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	err := client.RemoveSecret(uri, "", ptr(1))
+	err := client.RemoveSecret(context.Background(), uri, "", ptr(1))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -358,10 +359,10 @@ func (s *SecretsSuite) TestGrantSecretError(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 1}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 1}
 	client := apisecrets.NewClient(caller)
 	uri := secrets.NewURI()
-	_, err := client.GrantSecret(uri, "", []string{"gitlab"})
+	_, err := client.GrantSecret(context.Background(), uri, "", []string{"gitlab"})
 	c.Assert(err, gc.ErrorMatches, "user secrets not supported")
 }
 
@@ -374,13 +375,13 @@ func (s *SecretsSuite) TestGrantSecret(c *gc.C) {
 			URI: uri.String(), Applications: []string{"gitlab"},
 		})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{nil}},
+			Results: []params.ErrorResult{{Error: nil}},
 		}
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 2}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	result, err := client.GrantSecret(uri, "", []string{"gitlab"})
+	result, err := client.GrantSecret(context.Background(), uri, "", []string{"gitlab"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []error{nil})
 }
@@ -393,13 +394,13 @@ func (s *SecretsSuite) TestGrantSecretByName(c *gc.C) {
 			Label: "my-secret", Applications: []string{"gitlab"},
 		})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{nil}},
+			Results: []params.ErrorResult{{Error: nil}},
 		}
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 2}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	result, err := client.GrantSecret(nil, "my-secret", []string{"gitlab"})
+	result, err := client.GrantSecret(context.Background(), nil, "my-secret", []string{"gitlab"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []error{nil})
 }
@@ -408,10 +409,10 @@ func (s *SecretsSuite) TestRevokeSecretError(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 1}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 1}
 	client := apisecrets.NewClient(caller)
 	uri := secrets.NewURI()
-	_, err := client.RevokeSecret(uri, "", []string{"gitlab"})
+	_, err := client.RevokeSecret(context.Background(), uri, "", []string{"gitlab"})
 	c.Assert(err, gc.ErrorMatches, "user secrets not supported")
 }
 
@@ -424,13 +425,13 @@ func (s *SecretsSuite) TestRevokeSecret(c *gc.C) {
 			URI: uri.String(), Applications: []string{"gitlab"},
 		})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{nil}},
+			Results: []params.ErrorResult{{Error: nil}},
 		}
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 2}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	result, err := client.RevokeSecret(uri, "", []string{"gitlab"})
+	result, err := client.RevokeSecret(context.Background(), uri, "", []string{"gitlab"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []error{nil})
 }
@@ -443,13 +444,13 @@ func (s *SecretsSuite) TestRevokeSecretByName(c *gc.C) {
 			Label: "my-secret", Applications: []string{"gitlab"},
 		})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{nil}},
+			Results: []params.ErrorResult{{Error: nil}},
 		}
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 2}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	result, err := client.RevokeSecret(nil, "my-secret", []string{"gitlab"})
+	result, err := client.RevokeSecret(context.Background(), nil, "my-secret", []string{"gitlab"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []error{nil})
 }

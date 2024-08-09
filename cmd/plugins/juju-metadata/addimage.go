@@ -4,6 +4,8 @@
 package main
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -91,14 +93,14 @@ func (c *addImageMetadataCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	api, err := getImageMetadataAddAPI(c)
+	api, err := getImageMetadataAddAPI(c, ctx)
 	if err != nil {
 		return err
 	}
 	defer api.Close()
 
 	m := c.constructMetadataParam(base)
-	if err := api.Save([]params.CloudImageMetadata{m}); err != nil {
+	if err := api.Save(ctx, []params.CloudImageMetadata{m}); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -107,13 +109,13 @@ func (c *addImageMetadataCommand) Run(ctx *cmd.Context) error {
 // MetadataAddAPI defines the API methods that add image metadata command uses.
 type MetadataAddAPI interface {
 	Close() error
-	Save(metadata []params.CloudImageMetadata) error
+	Save(ctx context.Context, metadata []params.CloudImageMetadata) error
 }
 
 var getImageMetadataAddAPI = (*addImageMetadataCommand).getImageMetadataAddAPI
 
-func (c *addImageMetadataCommand) getImageMetadataAddAPI() (MetadataAddAPI, error) {
-	return c.NewImageMetadataAPI()
+func (c *addImageMetadataCommand) getImageMetadataAddAPI(ctx context.Context) (MetadataAddAPI, error) {
+	return c.NewImageMetadataAPI(ctx)
 }
 
 // constructMetadataParam returns cloud image metadata as a param.

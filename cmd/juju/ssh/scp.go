@@ -4,6 +4,8 @@
 package ssh
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -165,7 +167,7 @@ func (c *scpCommand) Init(args []string) (err error) {
 	if len(args) < 2 {
 		return errors.Errorf("at least two arguments required")
 	}
-	if c.modelType, err = c.ModelType(); err != nil {
+	if c.modelType, err = c.ModelType(context.TODO()); err != nil {
 		return err
 	}
 	if c.modelType == model.CAAS {

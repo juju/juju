@@ -36,6 +36,7 @@ func NewClient(st base.APICallCloser, options ...Option) *Client {
 // List returns image metadata that matches filter.
 // Empty filter will return all image metadata.
 func (c *Client) List(
+	ctx context.Context,
 	stream, region string,
 	bases []corebase.Base, arches []string,
 	virtType, rootStorageType string,
@@ -53,18 +54,18 @@ func (c *Client) List(
 		RootStorageType: rootStorageType,
 	}
 	out := params.ListCloudImageMetadataResult{}
-	err := c.facade.FacadeCall(context.TODO(), "List", in, &out)
+	err := c.facade.FacadeCall(ctx, "List", in, &out)
 	return out.Result, err
 }
 
 // Save saves specified image metadata.
 // Supports bulk saves for scenarios like cloud image metadata caching at bootstrap.
-func (c *Client) Save(metadata []params.CloudImageMetadata) error {
+func (c *Client) Save(ctx context.Context, metadata []params.CloudImageMetadata) error {
 	in := params.MetadataSaveParams{
 		Metadata: []params.CloudImageMetadataList{{metadata}},
 	}
 	out := params.ErrorResults{}
-	err := c.facade.FacadeCall(context.TODO(), "Save", in, &out)
+	err := c.facade.FacadeCall(ctx, "Save", in, &out)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -78,10 +79,10 @@ func (c *Client) Save(metadata []params.CloudImageMetadata) error {
 }
 
 // Delete removes image metadata for given image id from stored metadata.
-func (c *Client) Delete(imageId string) error {
+func (c *Client) Delete(ctx context.Context, imageId string) error {
 	in := params.MetadataImageIds{[]string{imageId}}
 	out := params.ErrorResults{}
-	err := c.facade.FacadeCall(context.TODO(), "Delete", in, &out)
+	err := c.facade.FacadeCall(ctx, "Delete", in, &out)
 	if err != nil {
 		return errors.Trace(err)
 	}

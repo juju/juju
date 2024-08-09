@@ -5,6 +5,7 @@ package payload_test
 
 import (
 	"bytes"
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -34,7 +35,7 @@ func (s *listSuite) SetUpTest(c *gc.C) {
 	s.client = &stubClient{stub: s.stub}
 }
 
-func (s *listSuite) newAPIClient() (payload.ListAPI, error) {
+func (s *listSuite) newAPIClient(ctx context.Context) (payload.ListAPI, error) {
 	return s.client, nil
 }
 
@@ -211,7 +212,7 @@ type stubClient struct {
 	payloads []corepayloads.FullPayloadInfo
 }
 
-func (s *stubClient) ListFull(patterns ...string) ([]corepayloads.FullPayloadInfo, error) {
+func (s *stubClient) ListFull(ctx context.Context, patterns ...string) ([]corepayloads.FullPayloadInfo, error) {
 	s.stub.AddCall("List", patterns)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

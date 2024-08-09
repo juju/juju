@@ -41,7 +41,7 @@ func NewAPI(caller base.APICallCloser, options ...Option) *API {
 }
 
 // ListSubnets fetches all the subnets known by the model.
-func (api *API) ListSubnets(spaceTag *names.SpaceTag, zone string) ([]params.Subnet, error) {
+func (api *API) ListSubnets(ctx context.Context, spaceTag *names.SpaceTag, zone string) ([]params.Subnet, error) {
 	var response params.ListSubnetsResults
 	var space string
 	if spaceTag != nil {
@@ -51,7 +51,7 @@ func (api *API) ListSubnets(spaceTag *names.SpaceTag, zone string) ([]params.Sub
 		SpaceTag: space,
 		Zone:     zone,
 	}
-	err := api.facade.FacadeCall(context.TODO(), "ListSubnets", args, &response)
+	err := api.facade.FacadeCall(ctx, "ListSubnets", args, &response)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -60,11 +60,11 @@ func (api *API) ListSubnets(spaceTag *names.SpaceTag, zone string) ([]params.Sub
 
 // SubnetsByCIDR returns the collection of subnets matching each CIDR in the
 // input.
-func (api *API) SubnetsByCIDR(cidrs []string) ([]params.SubnetsResult, error) {
+func (api *API) SubnetsByCIDR(ctx context.Context, cidrs []string) ([]params.SubnetsResult, error) {
 	args := params.CIDRParams{CIDRS: cidrs}
 
 	var result params.SubnetsResults
-	if err := api.facade.FacadeCall(context.TODO(), "SubnetsByCIDR", args, &result); err != nil {
+	if err := api.facade.FacadeCall(ctx, "SubnetsByCIDR", args, &result); err != nil {
 		if params.IsCodeNotSupported(err) {
 			return nil, errors.NewNotSupported(nil, err.Error())
 		}

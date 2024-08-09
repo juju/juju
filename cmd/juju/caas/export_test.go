@@ -23,7 +23,7 @@ func NewAddCAASCommandForTest(
 	cloudMetadataStore CloudMetadataStore,
 	credentialStoreAPI CredentialStoreAPI,
 	store jujuclient.ClientStore,
-	addCloudAPIFunc func() (AddCloudAPI, error),
+	addCloudAPIFunc func(ctx context.Context) (AddCloudAPI, error),
 	adminServiceAccountResolver func(context.Context, jujuclock.Clock) clientconfig.K8sCredentialResolver,
 	brokerGetter BrokerGetter,
 	k8sCluster k8sCluster,
@@ -50,7 +50,7 @@ func NewAddCAASCommandForTest(
 func NewUpdateCAASCommandForTest(
 	cloudMetadataStore CloudMetadataStore,
 	store jujuclient.ClientStore,
-	updateCloudAPIFunc func() (UpdateCloudAPI, error),
+	updateCloudAPIFunc func(ctx context.Context) (UpdateCloudAPI, error),
 	brokerGetter BrokerGetter,
 ) cmd.Command {
 	command := &UpdateCAASCommand{
@@ -82,7 +82,7 @@ func NewRemoveCAASCommandForTest(
 	cloudMetadataStore CloudMetadataStore,
 	credentialStoreAPI credentialGetter,
 	store jujuclient.ClientStore,
-	removeCloudAPIFunc func() (RemoveCloudAPI, error),
+	removeCloudAPIFunc func(ctx context.Context) (RemoveCloudAPI, error),
 ) cmd.Command {
 	command := &RemoveCAASCommand{
 		credentialStoreAPI:        credentialStoreAPI,

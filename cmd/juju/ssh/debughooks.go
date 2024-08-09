@@ -120,16 +120,16 @@ func (c *debugHooksCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *debugHooksCommand) initAPIs() (err error) {
+func (c *debugHooksCommand) initAPIs(ctx context.Context) (err error) {
 	defer func() {
-		c.provider.setLeaderAPI(c.applicationAPI)
+		c.provider.setLeaderAPI(ctx, c.applicationAPI)
 	}()
 
 	if c.charmAPI != nil && c.applicationAPI != nil {
 		return nil
 	}
 
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -177,7 +177,7 @@ func (c *debugHooksCommand) validateHooksOrActions(ctx context.Context) error {
 		return err
 	}
 
-	curl, _, err := c.applicationAPI.GetCharmURLOrigin(appName)
+	curl, _, err := c.applicationAPI.GetCharmURLOrigin(ctx, appName)
 	if err != nil {
 		return err
 	}
@@ -253,7 +253,7 @@ func (c *debugHooksCommand) commonRun(
 
 	// If the unit/leader syntax is used, we first need to resolve it into
 	// the unit name that corresponds to the current leader.
-	resolvedTargetName, err := c.provider.maybeResolveLeaderUnit(target)
+	resolvedTargetName, err := c.provider.maybeResolveLeaderUnit(ctx, target)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -271,7 +271,7 @@ func (c *debugHooksCommand) commonRun(
 // and connects to it via SSH to execute the debug-hooks
 // script.
 func (c *debugHooksCommand) Run(ctx *cmd.Context) error {
-	if err := c.initAPIs(); err != nil {
+	if err := c.initAPIs(ctx); err != nil {
 		return err
 	}
 	defer c.closeAPIs()

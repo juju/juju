@@ -4,6 +4,8 @@
 package user_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -29,7 +31,7 @@ type mockRemoveUserAPI struct {
 
 func (*mockRemoveUserAPI) Close() error { return nil }
 
-func (m *mockRemoveUserAPI) RemoveUser(username string) error {
+func (m *mockRemoveUserAPI) RemoveUser(ctx context.Context, username string) error {
 	m.username = username
 	return nil
 }

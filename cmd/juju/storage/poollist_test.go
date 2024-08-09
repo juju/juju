@@ -5,6 +5,7 @@ package storage_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -148,7 +149,7 @@ func (s poolListSuite) assertSamePoolInfos(c *gc.C, one, two map[string]storage.
 }
 
 func (s poolListSuite) expect(c *gc.C, types, names []string) map[string]storage.PoolInfo {
-	all, err := s.mockAPI.ListPools(types, names)
+	all, err := s.mockAPI.ListPools(context.Background(), types, names)
 	c.Assert(err, jc.ErrorIsNil)
 	result := make(map[string]storage.PoolInfo, len(all))
 	for _, one := range all {
@@ -173,7 +174,7 @@ func (s mockPoolListAPI) Close() error {
 	return nil
 }
 
-func (s mockPoolListAPI) ListPools(types []string, names []string) ([]params.StoragePool, error) {
+func (s mockPoolListAPI) ListPools(ctx context.Context, types []string, names []string) ([]params.StoragePool, error) {
 	results := make([]params.StoragePool, len(types)+len(names))
 	var index int
 	addInstance := func(aname, atype string) {
