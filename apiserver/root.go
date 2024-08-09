@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -1038,6 +1039,7 @@ func (ctx *facadeContext) modelDB(modelUUID string) (changestream.WatchableDB, e
 // higher level abstractions.
 func (ctx *facadeContext) migrationScope(modelUUID string) modelmigration.Scope {
 	return modelmigration.NewScope(
+		coremodel.UUID(modelUUID),
 		changestream.NewTxnRunnerFactory(ctx.controllerDB),
 		changestream.NewTxnRunnerFactory(func() (changestream.WatchableDB, error) {
 			return ctx.modelDB(modelUUID)
