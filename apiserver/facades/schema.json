@@ -16141,9 +16141,30 @@
                         }
                     },
                     "description": "StatusHistory returns a slice of past statuses for several entities."
+                },
+                "WatchAll": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/AllWatcherId"
+                        }
+                    },
+                    "description": "WatchAll initiates a watcher for entities in the connected model."
                 }
             },
             "definitions": {
+                "AllWatcherId": {
+                    "type": "object",
+                    "properties": {
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id"
+                    ]
+                },
                 "ApplicationOfferStatus": {
                     "type": "object",
                     "properties": {
