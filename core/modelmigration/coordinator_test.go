@@ -12,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	modeltesting "github.com/juju/juju/core/model/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -124,7 +125,8 @@ func (s *migrationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.txnRunner = NewMockTxnRunner(ctrl)
 	s.model = NewMockModel(ctrl)
 
-	s.scope = NewScope(nil, nil, nil)
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.scope = NewScope(modelUUID, nil, nil, nil)
 
 	return ctrl
 }
