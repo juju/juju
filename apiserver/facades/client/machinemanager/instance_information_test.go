@@ -26,14 +26,15 @@ import (
 var over9kCPUCores uint64 = 9001
 
 type instanceTypesSuite struct {
-	authorizer     *apiservertesting.FakeAuthorizer
-	st             *MockBackend
-	leadership     *MockLeadership
-	store          *MockObjectStore
-	cloudService   *commonmocks.MockCloudService
-	credService    *commonmocks.MockCredentialService
-	api            *machinemanager.MachineManagerAPI
-	networkService *MockNetworkService
+	authorizer        *apiservertesting.FakeAuthorizer
+	st                *MockBackend
+	leadership        *MockLeadership
+	store             *MockObjectStore
+	cloudService      *commonmocks.MockCloudService
+	credService       *commonmocks.MockCredentialService
+	api               *machinemanager.MachineManagerAPI
+	networkService    *MockNetworkService
+	keyUpdaterService *MockKeyUpdaterService
 
 	controllerConfigService *MockControllerConfigService
 	machineService          *MockMachineService
@@ -56,6 +57,7 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 	s.machineService = NewMockMachineService(ctrl)
 	s.store = NewMockObjectStore(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
+	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 
 	var err error
 	s.api, err = machinemanager.NewMachineManagerAPI(
@@ -77,6 +79,7 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 		s.leadership,
 		loggertesting.WrapCheckLog(c),
 		s.networkService,
+		s.keyUpdaterService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -15,6 +15,7 @@ import (
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -31,6 +32,7 @@ type machineConfigSuite struct {
 	model        *MockModel
 
 	controllerConfigService *MockControllerConfigService
+	keyUpdaterService       *MockKeyUpdaterService
 }
 
 var _ = gc.Suite(&machineConfigSuite{})
@@ -44,6 +46,7 @@ func (s *machineConfigSuite) setup(c *gc.C) *gomock.Controller {
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
 	s.store = NewMockObjectStore(ctrl)
+	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 
 	s.model = NewMockModel(ctrl)
 	s.model.EXPECT().UUID().Return("uuid").AnyTimes()
@@ -85,17 +88,25 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	}}}, nil).MinTimes(1)
 	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
+	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
+		gomock.Any(), coremachine.Name("0"),
+	).Return([]string{
+		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1",
+	}, nil)
+
 	services := machinemanager.InstanceConfigServices{
 		ControllerConfigService: s.controllerConfigService,
 		CloudService:            s.cloudService,
 		CredentialService:       s.credService,
 		ObjectStore:             s.store,
+		KeyUpdaterService:       s.keyUpdaterService,
 	}
 
 	icfg, err := machinemanager.InstanceConfig(context.Background(), s.ctrlSt, s.st, services, "0", "nonce", "")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(icfg.APIInfo.Addrs, gc.DeepEquals, []string{"1.2.3.4:1"})
-	c.Assert(icfg.ToolsList().URLs(), gc.DeepEquals, map[version.Binary][]string{
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(icfg.APIInfo.Addrs, gc.DeepEquals, []string{"1.2.3.4:1"})
+	c.Check(icfg.ToolsList().URLs(), gc.DeepEquals, map[version.Binary][]string{
 		icfg.AgentVersion(): {"https://1.2.3.4:1/model/uuid/tools/2.6.6-ubuntu-amd64"},
 	})
+	c.Check(icfg.AuthorizedKeys, gc.Equals, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1")
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
@@ -42,6 +41,14 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 // ControllerConfigService defines a method for getting the controller config.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// KeyUpdaterService is responsible for returning information about the ssh keys
+// for a machine within a model.
+type KeyUpdaterService interface {
+	// GetAuthorisedKeysForMachine returns the authorized keys that should be
+	// allowed to access the given machine.
+	GetAuthorisedKeysForMachine(context.Context, coremachine.Name) ([]string, error)
 }
 
 // Leadership represents a type for modifying the leadership settings of an
@@ -104,68 +111,12 @@ type MachineManagerAPI struct {
 	store                   objectstore.ObjectStore
 	controllerStore         objectstore.ObjectStore
 
-	machineService MachineService
-	networkService NetworkService
+	keyUpdaterService KeyUpdaterService
+	machineService    MachineService
+	networkService    NetworkService
 
 	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter
 	logger                      corelogger.Logger
-}
-
-// NewFacadeV11 create a new server-side MachineManager API facade. This
-// is used for facade registration.
-func NewFacadeV11(ctx facade.ModelContext) (*MachineManagerAPI, error) {
-	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	serviceFactory := ctx.ServiceFactory()
-
-	prechecker, err := stateenvirons.NewInstancePrechecker(st, serviceFactory.Cloud(), serviceFactory.Credential())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	backend := &stateShim{
-		State:     st,
-		prechcker: prechecker,
-	}
-	storageAccess, err := getStorageState(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	pool := &poolShim{ctx.StatePool()}
-
-	var leadership Leadership
-	leadership, err = common.NewLeadershipPinningFromContext(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	logger := ctx.Logger().Child("machinemanager")
-
-	controllerConfigService := serviceFactory.ControllerConfig()
-
-	return NewMachineManagerAPI(
-		controllerConfigService,
-		backend,
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
-		serviceFactory.Machine(),
-		ctx.ObjectStore(),
-		ctx.ControllerObjectStore(),
-		storageAccess,
-		pool,
-		ModelAuthorizer{
-			ModelTag:   model.ModelTag(),
-			Authorizer: ctx.Auth(),
-		},
-		credentialcommon.CredentialInvalidatorGetter(ctx),
-		ctx.Resources(),
-		leadership,
-		logger,
-		ctx.ServiceFactory().Network(),
-	)
 }
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
@@ -184,6 +135,7 @@ func NewMachineManagerAPI(
 	leadership Leadership,
 	logger corelogger.Logger,
 	networkService NetworkService,
+	keyUpdaterService KeyUpdaterService,
 ) (*MachineManagerAPI, error) {
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -206,6 +158,7 @@ func NewMachineManagerAPI(
 		storageAccess:               storageAccess,
 		logger:                      logger,
 		networkService:              networkService,
+		keyUpdaterService:           keyUpdaterService,
 	}
 	return api, nil
 }
@@ -400,6 +353,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 		CredentialService:       mm.credentialService,
 		ControllerConfigService: mm.controllerConfigService,
 		ObjectStore:             mm.controllerStore,
+		KeyUpdaterService:       mm.keyUpdaterService,
 	}
 
 	icfg, err := InstanceConfig(ctx, st, mm.st, services, args.MachineId, args.Nonce, args.DataDir)

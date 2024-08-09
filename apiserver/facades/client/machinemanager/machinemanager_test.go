@@ -23,6 +23,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -44,6 +45,7 @@ type MachineManagerSuite struct {
 	controllerConfigService *MockControllerConfigService
 	machineService          *MockMachineService
 	networkService          *MockNetworkService
+	keyUpdaterService       *MockKeyUpdaterService
 }
 
 func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
@@ -58,6 +60,7 @@ func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
+	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 
 	_, err := machinemanager.NewMachineManagerAPI(
 		s.controllerConfigService,
@@ -78,6 +81,7 @@ func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 		nil,
 		loggertesting.WrapCheckLog(c),
 		s.networkService,
+		s.keyUpdaterService,
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -98,6 +102,7 @@ type AddMachineManagerSuite struct {
 	controllerConfigService *MockControllerConfigService
 	machineService          *MockMachineService
 	networkService          *MockNetworkService
+	keyUpdaterService       *MockKeyUpdaterService
 }
 
 func (s *AddMachineManagerSuite) SetUpTest(c *gc.C) {
@@ -120,6 +125,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.machineService = NewMockMachineService(ctrl)
 	s.store = NewMockObjectStore(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
+	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 
 	var err error
 	s.api, err = machinemanager.NewMachineManagerAPI(
@@ -140,6 +146,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		loggertesting.WrapCheckLog(c),
 		s.networkService,
+		s.keyUpdaterService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -242,6 +249,7 @@ type DestroyMachineManagerSuite struct {
 	controllerConfigService *MockControllerConfigService
 	machineService          *MockMachineService
 	networkService          *MockNetworkService
+	keyUpdaterService       *MockKeyUpdaterService
 }
 
 func (s *DestroyMachineManagerSuite) SetUpTest(c *gc.C) {
@@ -261,6 +269,7 @@ func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.machineService = NewMockMachineService(ctrl)
 	s.store = NewMockObjectStore(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
+	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 
 	s.storageAccess = NewMockStorageInterface(ctrl)
 	s.storageAccess.EXPECT().VolumeAccess().Return(nil).AnyTimes()
@@ -289,6 +298,7 @@ func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		s.leadership,
 		loggertesting.WrapCheckLog(c),
 		s.networkService,
+		s.keyUpdaterService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -763,6 +773,7 @@ type ProvisioningMachineManagerSuite struct {
 	controllerConfigService *MockControllerConfigService
 	machineService          *MockMachineService
 	networkService          *MockNetworkService
+	keyUpdaterService       *MockKeyUpdaterService
 }
 
 func (s *ProvisioningMachineManagerSuite) SetUpTest(c *gc.C) {
@@ -792,6 +803,7 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
+	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 
 	s.store = NewMockObjectStore(ctrl)
 
@@ -814,6 +826,7 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		loggertesting.WrapCheckLog(c),
 		s.networkService,
+		s.keyUpdaterService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
@@ -862,6 +875,11 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
 		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      1,
 	}}}, nil).Times(2)
+	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
+		gomock.Any(), coremachine.Name("0"),
+	).Return([]string{
+		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1",
+	}, nil)
 
 	result, err := s.api.ProvisioningScript(stdcontext.Background(), params.ProvisioningScriptParams{
 		MachineId: "0",
@@ -919,6 +937,10 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      1,
 	}}}, nil).Times(2)
+
+	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
+		gomock.Any(), coremachine.Name("0"),
+	).Return([]string{}, nil)
 
 	result, err := s.api.ProvisioningScript(stdcontext.Background(), params.ProvisioningScriptParams{
 		MachineId: "0",

@@ -6,6 +6,7 @@ package machinemanager
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	corebase "github.com/juju/juju/core/base"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs"
@@ -33,6 +35,7 @@ type InstanceConfigServices struct {
 	ControllerConfigService ControllerConfigService
 	CloudService            common.CloudService
 	CredentialService       common.CredentialService
+	KeyUpdaterService       KeyUpdaterService
 	ObjectStore             objectstore.ObjectStore
 }
 
@@ -155,5 +158,18 @@ func InstanceConfig(
 	if err != nil {
 		return nil, errors.Annotate(err, "finishing instance config")
 	}
+
+	keys, err := services.KeyUpdaterService.GetAuthorisedKeysForMachine(
+		ctx,
+		coremachine.Name(machineId),
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"cannot get authorised keys for machine %q while generating instance config: %w",
+			machineId, err,
+		)
+	}
+	icfg.AuthorizedKeys = strings.Join(keys, "\n")
+
 	return icfg, nil
 }
