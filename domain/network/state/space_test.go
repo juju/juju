@@ -235,6 +235,9 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 	c.Check(sp.Subnets, jc.SameContents, expected)
 }
 
+// TestRetrieveSpaceByUUIDNotFound tests that if we try to call State.GetSpace
+// with a non-existent space, it will return an error matching
+// [networkerrors.SpaceNotFound].
 func (s *stateSuite) TestRetrieveSpaceByUUIDNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -264,6 +267,9 @@ func (s *stateSuite) TestRetrieveSpaceByName(c *gc.C) {
 	c.Check(sp1.Name, gc.Equals, network.SpaceName("space1"))
 }
 
+// TestRetrieveSpaceByNameNotFound tests that if we try to call
+// State.GetSpaceByName with a non-existent space, it will return an error
+// matching [networkerrors.SpaceNotFound].
 func (s *stateSuite) TestRetrieveSpaceByNameNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -374,6 +380,9 @@ func (s *stateSuite) TestUpdateSpace(c *gc.C) {
 	c.Check(sp.Name, gc.Equals, network.SpaceName("newSpaceName0"))
 }
 
+// TestUpdateSpaceFailNotFound tests that if we try to call State.UpdateSpace
+// with a non-existent space, it will return an error matching
+// [networkerrors.SpaceNotFound].
 func (s *stateSuite) TestUpdateSpaceFailNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -429,4 +438,16 @@ func (s *stateSuite) TestDeleteSpace(c *gc.C) {
 	subnet, err = st.GetSubnet(ctx.Background(), subnetUUID0.String())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(subnet.SpaceID, gc.Equals, network.AlphaSpaceId)
+}
+
+// TestDeleteSpaceNotFound tests that if we try to call State.DeleteSpace with
+// a non-existent space, it will return an error matching
+// [networkerrors.SpaceNotFound].
+func (s *stateSuite) TestDeleteSpaceNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	spUUID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.DeleteSpace(ctx.Background(), spUUID.String())
+	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
 }

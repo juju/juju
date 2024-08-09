@@ -91,7 +91,8 @@ VALUES ($ProviderSpace.*)`, providerSpace)
 	return errors.Trace(err)
 }
 
-// GetSpace returns the space by UUID.
+// GetSpace returns the space by UUID. If the space is not found, an error is
+// returned matching [networkerrors.SpaceNotFound].
 func (st *State) GetSpace(
 	ctx context.Context,
 	uuid string,
@@ -127,7 +128,8 @@ WHERE  uuid = $Space.uuid;`, SpaceSubnetRow{}, space)
 	return &spaceRows.ToSpaceInfos()[0], nil
 }
 
-// GetSpaceByName returns the space by name.
+// GetSpaceByName returns the space by name. If the space is not found, an
+// error is returned matching [networkerrors.SpaceNotFound].
 func (st *State) GetSpaceByName(
 	ctx context.Context,
 	name string,
@@ -202,7 +204,8 @@ FROM   v_space_subnet
 	return rows.ToSpaceInfos(), nil
 }
 
-// UpdateSpace updates the space identified by the passed uuid.
+// UpdateSpace updates the space identified by the passed uuid. If the space is
+// not found, an error is returned matching [networkerrors.SpaceNotFound].
 func (st *State) UpdateSpace(
 	ctx context.Context,
 	uuid string,
@@ -242,7 +245,8 @@ WHERE  uuid = $Space.uuid;`, space)
 	return err
 }
 
-// DeleteSpace deletes the space identified by the passed uuid.
+// DeleteSpace deletes the space identified by the passed uuid. If the space is
+// not found, an error is returned matching [networkerrors.SpaceNotFound].
 func (st *State) DeleteSpace(
 	ctx context.Context,
 	uuid string,

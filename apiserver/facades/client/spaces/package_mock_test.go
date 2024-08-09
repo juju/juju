@@ -17,8 +17,6 @@ import (
 	controller "github.com/juju/juju/controller"
 	constraints "github.com/juju/juju/core/constraints"
 	network "github.com/juju/juju/core/network"
-	cloudspec "github.com/juju/juju/environs/cloudspec"
-	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
 	txn "github.com/juju/mgo/v3/txn"
 	names "github.com/juju/names/v5"
@@ -203,45 +201,6 @@ func (c *MockBackingApplyOperationCall) DoAndReturn(f func(state.ModelOperation)
 	return c
 }
 
-// CloudSpec mocks base method.
-func (m *MockBacking) CloudSpec(arg0 context.Context) (cloudspec.CloudSpec, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudSpec", arg0)
-	ret0, _ := ret[0].(cloudspec.CloudSpec)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CloudSpec indicates an expected call of CloudSpec.
-func (mr *MockBackingMockRecorder) CloudSpec(arg0 any) *MockBackingCloudSpecCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockBacking)(nil).CloudSpec), arg0)
-	return &MockBackingCloudSpecCall{Call: call}
-}
-
-// MockBackingCloudSpecCall wrap *gomock.Call
-type MockBackingCloudSpecCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackingCloudSpecCall) Return(arg0 cloudspec.CloudSpec, arg1 error) *MockBackingCloudSpecCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackingCloudSpecCall) Do(f func(context.Context) (cloudspec.CloudSpec, error)) *MockBackingCloudSpecCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackingCloudSpecCall) DoAndReturn(f func(context.Context) (cloudspec.CloudSpec, error)) *MockBackingCloudSpecCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ConstraintsBySpaceName mocks base method.
 func (m *MockBacking) ConstraintsBySpaceName(arg0 string) ([]Constraints, error) {
 	m.ctrl.T.Helper()
@@ -315,45 +274,6 @@ func (c *MockBackingIsControllerCall) Do(f func() bool) *MockBackingIsController
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackingIsControllerCall) DoAndReturn(f func() bool) *MockBackingIsControllerCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ModelConfig mocks base method.
-func (m *MockBacking) ModelConfig(arg0 context.Context) (*config.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig", arg0)
-	ret0, _ := ret[0].(*config.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockBackingMockRecorder) ModelConfig(arg0 any) *MockBackingModelConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockBacking)(nil).ModelConfig), arg0)
-	return &MockBackingModelConfigCall{Call: call}
-}
-
-// MockBackingModelConfigCall wrap *gomock.Call
-type MockBackingModelConfigCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackingModelConfigCall) Return(arg0 *config.Config, arg1 error) *MockBackingModelConfigCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackingModelConfigCall) Do(f func(context.Context) (*config.Config, error)) *MockBackingModelConfigCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackingModelConfigCall) DoAndReturn(f func(context.Context) (*config.Config, error)) *MockBackingModelConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
