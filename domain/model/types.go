@@ -132,7 +132,7 @@ type ReadOnlyModelCreationArgs struct {
 	// CredentialOwner is the name of the credential owner for this model in
 	// the Juju controller.
 	// Optional and can be empty.
-	CredentialOwner string
+	CredentialOwner user.Name
 
 	// CredentialName is the name of the credential to be associated with the
 	// model.

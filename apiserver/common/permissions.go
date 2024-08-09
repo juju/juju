@@ -12,12 +12,13 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 )
 
 // UserAccessFunc represents a func that can answer the question about what
 // level of access a user has for a given target.
-type UserAccessFunc func(ctx context.Context, userName string, target permission.ID) (permission.Access, error)
+type UserAccessFunc func(ctx context.Context, userName coreuser.Name, target permission.ID) (permission.Access, error)
 
 // HasPermission returns true if the specified user has the specified
 // permission on target.
@@ -56,7 +57,7 @@ func HasPermission(
 		return false, nil
 	}
 
-	userAccess, err := accessGetter(ctx, userTag.Id(), permission.ID{
+	userAccess, err := accessGetter(ctx, coreuser.NameFromTag(userTag), permission.ID{
 		ObjectType: objectType,
 		Key:        target.Id(),
 	})

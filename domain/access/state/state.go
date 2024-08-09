@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -39,7 +40,7 @@ func NewState(factory database.TxnRunnerFactory, logger logger.Logger) *State {
 // If the model cannot be found it will return modelerrors.NotFound.
 // If no permissions can be found on the model it will return
 // accesserrors.PermissionNotValid.
-func (st *State) GetModelUsers(ctx context.Context, apiUser string, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error) {
+func (st *State) GetModelUsers(ctx context.Context, apiUser user.Name, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error) {
 	db, err := st.UserState.DB()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting DB access")
@@ -59,7 +60,7 @@ func (st *State) GetModelUsers(ctx context.Context, apiUser string, modelUUID co
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		_, err := st.authorizedOnTarget(ctx, tx, apiUser, modelUUID.String())
 		if errors.Is(err, accesserrors.PermissionNotValid) {
-			args = append(args, userName{Name: apiUser})
+			args = append(args, userName{Name: apiUser.Name()})
 			q += `AND u.name = $userName.name`
 		} else if err != nil {
 			return errors.Annotate(err, "getting query results")
@@ -84,14 +85,18 @@ func (st *State) GetModelUsers(ctx context.Context, apiUser string, modelUUID co
 		}
 
 		for _, modelUser := range modelUsers {
-			if modelUser.Name == permission.EveryoneTagName {
+			if modelUser.Name == permission.EveryoneUserName.Name() {
 				externalModelUsers, err := st.getExternalModelUsers(ctx, tx, uuid, modelUser.AccessType)
 				if err != nil {
 					return errors.Annotate(err, "getting external users")
 				}
 				userInfo = append(userInfo, externalModelUsers...)
 			} else {
-				userInfo = append(userInfo, modelUser.toModelUserInfo())
+				mui, err := modelUser.toModelUserInfo()
+				if err != nil {
+					return errors.Trace(err)
+				}
+				userInfo = append(userInfo, mui)
 			}
 		}
 
@@ -128,9 +133,13 @@ AND       u.external = true
 
 	var userInfo []access.ModelUserInfo
 	for _, modelUser := range modelUsers {
-		if modelUser.Name != permission.EveryoneTagName {
+		if modelUser.Name != permission.EveryoneUserName.Name() {
 			modelUser.AccessType = everyoneAccess
-			userInfo = append(userInfo, modelUser.toModelUserInfo())
+			mui, err := modelUser.toModelUserInfo()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			userInfo = append(userInfo, mui)
 		}
 	}
 

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/credential"
 	corepermission "github.com/juju/juju/core/permission"
+	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -37,7 +38,7 @@ func (s *serviceSuite) TestCreatePermission(c *gc.C) {
 	s.state.EXPECT().CreatePermission(gomock.Any(), gomock.AssignableToTypeOf(uuid.UUID{}), gomock.AssignableToTypeOf(corepermission.UserAccessSpec{})).Return(corepermission.UserAccess{}, nil)
 
 	spec := corepermission.UserAccessSpec{
-		User: "testme",
+		User: usertesting.GenNewName(c, "testme"),
 		AccessSpec: corepermission.AccessSpec{
 			Target: corepermission.ID{
 				ObjectType: corepermission.Cloud,
@@ -54,7 +55,7 @@ func (s *serviceSuite) TestCreatePermissionError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	spec := corepermission.UserAccessSpec{
-		User: "testme",
+		User: usertesting.GenNewName(c, "testme"),
 		AccessSpec: corepermission.AccessSpec{
 			Target: corepermission.ID{
 				ObjectType: corepermission.Cloud,
@@ -69,8 +70,8 @@ func (s *serviceSuite) TestCreatePermissionError(c *gc.C) {
 
 func (s *serviceSuite) TestDeletePermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().DeletePermission(gomock.Any(), "testme", gomock.AssignableToTypeOf(corepermission.ID{})).Return(nil)
-	err := NewService(s.state).DeletePermission(context.Background(), "testme", corepermission.ID{
+	s.state.EXPECT().DeletePermission(gomock.Any(), usertesting.GenNewName(c, "testme"), gomock.AssignableToTypeOf(corepermission.ID{})).Return(nil)
+	err := NewService(s.state).DeletePermission(context.Background(), usertesting.GenNewName(c, "testme"), corepermission.ID{
 		ObjectType: corepermission.Cloud,
 		Key:        "aws",
 	})
@@ -80,7 +81,7 @@ func (s *serviceSuite) TestDeletePermission(c *gc.C) {
 func (s *serviceSuite) TestDeletePermissionError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewService(s.state).DeletePermission(context.Background(), "testme", corepermission.ID{
+	err := NewService(s.state).DeletePermission(context.Background(), usertesting.GenNewName(c, "testme"), corepermission.ID{
 		ObjectType: "faileme",
 		Key:        "aws",
 	})
@@ -102,9 +103,9 @@ func (s *serviceSuite) TestUpsertPermission(c *gc.C) {
 				},
 			},
 			AddUser: false,
-			ApiUser: "admin",
+			ApiUser: usertesting.GenNewName(c, "admin"),
 			Change:  corepermission.Grant,
-			Subject: "testme",
+			Subject: usertesting.GenNewName(c, "testme"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,11 +113,11 @@ func (s *serviceSuite) TestUpsertPermission(c *gc.C) {
 
 func (s *serviceSuite) TestReadUserAccessForTarget(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().ReadUserAccessForTarget(gomock.Any(), "testme", gomock.AssignableToTypeOf(corepermission.ID{})).Return(corepermission.UserAccess{}, nil)
+	s.state.EXPECT().ReadUserAccessForTarget(gomock.Any(), usertesting.GenNewName(c, "testme"), gomock.AssignableToTypeOf(corepermission.ID{})).Return(corepermission.UserAccess{}, nil)
 
 	_, err := NewService(s.state).ReadUserAccessForTarget(
 		context.Background(),
-		"testme",
+		usertesting.GenNewName(c, "testme"),
 		corepermission.ID{
 			ObjectType: corepermission.Cloud,
 			Key:        "aws",
@@ -129,7 +130,7 @@ func (s *serviceSuite) TestReadUserAccessForTargetError(c *gc.C) {
 
 	_, err := NewService(s.state).ReadUserAccessForTarget(
 		context.Background(),
-		"testme",
+		usertesting.GenNewName(c, "testme"),
 		corepermission.ID{
 			ObjectType: "faileme",
 			Key:        "aws",
@@ -139,11 +140,11 @@ func (s *serviceSuite) TestReadUserAccessForTargetError(c *gc.C) {
 
 func (s *serviceSuite) TestReadUserAccessLevelForTarget(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), "testme", gomock.AssignableToTypeOf(corepermission.ID{})).Return(corepermission.NoAccess, nil)
+	s.state.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), usertesting.GenNewName(c, "testme"), gomock.AssignableToTypeOf(corepermission.ID{})).Return(corepermission.NoAccess, nil)
 
 	_, err := NewService(s.state).ReadUserAccessLevelForTarget(
 		context.Background(),
-		"testme",
+		usertesting.GenNewName(c, "testme"),
 		corepermission.ID{
 			ObjectType: corepermission.Cloud,
 			Key:        "aws",
@@ -156,7 +157,7 @@ func (s *serviceSuite) TestReadUserAccessLevelForTargetError(c *gc.C) {
 
 	_, err := NewService(s.state).ReadUserAccessForTarget(
 		context.Background(),
-		"testme",
+		usertesting.GenNewName(c, "testme"),
 		corepermission.ID{
 			ObjectType: "faileme",
 			Key:        "aws",
@@ -191,21 +192,21 @@ func (s *serviceSuite) TestReadAllUserAccessForTargetError(c *gc.C) {
 
 func (s *serviceSuite) TestReadAllUserAccessForUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().ReadAllUserAccessForUser(gomock.Any(), "testme").Return(nil, nil)
+	s.state.EXPECT().ReadAllUserAccessForUser(gomock.Any(), usertesting.GenNewName(c, "testme")).Return(nil, nil)
 
 	_, err := NewService(s.state).ReadAllUserAccessForUser(
 		context.Background(),
-		"testme")
+		usertesting.GenNewName(c, "testme"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestReadAllAccessForUserAndObjectType(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().ReadAllAccessForUserAndObjectType(gomock.Any(), "testme", corepermission.Cloud).Return(nil, nil)
+	s.state.EXPECT().ReadAllAccessForUserAndObjectType(gomock.Any(), usertesting.GenNewName(c, "testme"), corepermission.Cloud).Return(nil, nil)
 
 	_, err := NewService(s.state).ReadAllAccessForUserAndObjectType(
 		context.Background(),
-		"testme",
+		usertesting.GenNewName(c, "testme"),
 		corepermission.Cloud)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -215,7 +216,7 @@ func (s *serviceSuite) TestReadAllAccessForUserAndObjectTypeError(c *gc.C) {
 
 	_, err := NewService(s.state).ReadAllAccessForUserAndObjectType(
 		context.Background(),
-		"testme",
+		usertesting.GenNewName(c, "testme"),
 		"failme")
 	c.Assert(err, jc.ErrorIs, errors.NotValid, gc.Commentf("%+v", err))
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/environs"
@@ -52,7 +53,7 @@ func (s *registrationSuite) SetUpTest(c *gc.C) {
 	s.userService = s.ControllerServiceFactory(c).Access()
 	var err error
 	s.userUUID, _, err = s.userService.AddUser(context.Background(), service.AddUserArg{
-		Name:        "bob",
+		Name:        usertesting.GenNewName(c, "bob"),
 		CreatorUUID: s.AdminUserUUID,
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
@@ -64,7 +65,7 @@ func (s *registrationSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.activationKey, err = s.userService.ResetPassword(context.Background(), "bob")
+	s.activationKey, err = s.userService.ResetPassword(context.Background(), usertesting.GenNewName(c, "bob"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO (stickupkid): Permissions: This is only required to insert admin
@@ -107,7 +108,7 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	password := "hunter2"
 	// It should be not possible to log in as bob with the password "hunter2"
 	// now.
-	_, err := s.userService.GetUserByAuth(context.Background(), "bob", auth.NewPassword(password))
+	_, err := s.userService.GetUserByAuth(context.Background(), usertesting.GenNewName(c, "bob"), auth.NewPassword(password))
 	c.Assert(err, jc.ErrorIs, usererrors.UserUnauthorized)
 
 	validNonce := []byte(strings.Repeat("X", 24))
@@ -131,7 +132,7 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	// It should be possible to log in as bob with the
 	// password "hunter2" now, and there should be no
 	// secret key any longer.
-	user, err := s.userService.GetUserByAuth(context.Background(), "bob", auth.NewPassword(password))
+	user, err := s.userService.GetUserByAuth(context.Background(), usertesting.GenNewName(c, "bob"), auth.NewPassword(password))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(user.UUID, gc.Equals, s.userUUID)
 
@@ -216,7 +217,7 @@ func (s *registrationSuite) TestRegisterInvalidCiphertext(c *gc.C) {
 }
 
 func (s *registrationSuite) TestRegisterNoSecretKey(c *gc.C) {
-	err := s.userService.SetPassword(context.Background(), "bob", auth.NewPassword("anything"))
+	err := s.userService.SetPassword(context.Background(), usertesting.GenNewName(c, "bob"), auth.NewPassword("anything"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	validNonce := []byte(strings.Repeat("X", 24))

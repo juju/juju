@@ -16,6 +16,7 @@ import (
 	changestream "github.com/juju/juju/core/changestream"
 	credential "github.com/juju/juju/core/credential"
 	model "github.com/juju/juju/core/model"
+	user "github.com/juju/juju/core/user"
 	watcher "github.com/juju/juju/core/watcher"
 	credential0 "github.com/juju/juju/domain/credential"
 	gomock "go.uber.org/mock/gomock"
@@ -45,7 +46,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AllCloudCredentialsForOwner mocks base method.
-func (m *MockState) AllCloudCredentialsForOwner(arg0 context.Context, arg1 string) (map[credential.Key]credential0.CloudCredentialResult, error) {
+func (m *MockState) AllCloudCredentialsForOwner(arg0 context.Context, arg1 user.Name) (map[credential.Key]credential0.CloudCredentialResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllCloudCredentialsForOwner", arg0, arg1)
 	ret0, _ := ret[0].(map[credential.Key]credential0.CloudCredentialResult)
@@ -72,13 +73,13 @@ func (c *MockStateAllCloudCredentialsForOwnerCall) Return(arg0 map[credential.Ke
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAllCloudCredentialsForOwnerCall) Do(f func(context.Context, string) (map[credential.Key]credential0.CloudCredentialResult, error)) *MockStateAllCloudCredentialsForOwnerCall {
+func (c *MockStateAllCloudCredentialsForOwnerCall) Do(f func(context.Context, user.Name) (map[credential.Key]credential0.CloudCredentialResult, error)) *MockStateAllCloudCredentialsForOwnerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAllCloudCredentialsForOwnerCall) DoAndReturn(f func(context.Context, string) (map[credential.Key]credential0.CloudCredentialResult, error)) *MockStateAllCloudCredentialsForOwnerCall {
+func (c *MockStateAllCloudCredentialsForOwnerCall) DoAndReturn(f func(context.Context, user.Name) (map[credential.Key]credential0.CloudCredentialResult, error)) *MockStateAllCloudCredentialsForOwnerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -123,7 +124,7 @@ func (c *MockStateCloudCredentialCall) DoAndReturn(f func(context.Context, crede
 }
 
 // CloudCredentialsForOwner mocks base method.
-func (m *MockState) CloudCredentialsForOwner(arg0 context.Context, arg1, arg2 string) (map[string]credential0.CloudCredentialResult, error) {
+func (m *MockState) CloudCredentialsForOwner(arg0 context.Context, arg1 user.Name, arg2 string) (map[string]credential0.CloudCredentialResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudCredentialsForOwner", arg0, arg1, arg2)
 	ret0, _ := ret[0].(map[string]credential0.CloudCredentialResult)
@@ -150,13 +151,13 @@ func (c *MockStateCloudCredentialsForOwnerCall) Return(arg0 map[string]credentia
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCloudCredentialsForOwnerCall) Do(f func(context.Context, string, string) (map[string]credential0.CloudCredentialResult, error)) *MockStateCloudCredentialsForOwnerCall {
+func (c *MockStateCloudCredentialsForOwnerCall) Do(f func(context.Context, user.Name, string) (map[string]credential0.CloudCredentialResult, error)) *MockStateCloudCredentialsForOwnerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCloudCredentialsForOwnerCall) DoAndReturn(f func(context.Context, string, string) (map[string]credential0.CloudCredentialResult, error)) *MockStateCloudCredentialsForOwnerCall {
+func (c *MockStateCloudCredentialsForOwnerCall) DoAndReturn(f func(context.Context, user.Name, string) (map[string]credential0.CloudCredentialResult, error)) *MockStateCloudCredentialsForOwnerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -32,6 +32,8 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
 	accessservice "github.com/juju/juju/domain/access/service"
@@ -175,11 +177,12 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	st := s.openAPIWithoutLogin(c)
 
 	userTag := names.NewUserTag("charlie")
+	name := user.NameFromTag(userTag)
 	pass := "totally-secure-password"
 
 	accessService := s.ControllerServiceFactory(c).Access()
 	_, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
-		Name:        userTag.Name(),
+		Name:        name,
 		DisplayName: "Charlie Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(pass)),
@@ -193,7 +196,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = accessService.DisableUserAuthentication(context.Background(), userTag.Name())
+	err = accessService.DisableUserAuthentication(context.Background(), name)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Since these are user login tests, the nonce is empty.
@@ -215,11 +218,12 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	st := s.openAPIWithoutLogin(c)
 
 	userTag := names.NewUserTag("charlie")
+	name := user.NameFromTag(userTag)
 	pass := "totally-secure-password"
 
 	accessService := s.ControllerServiceFactory(c).Access()
 	_, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
-		Name:        userTag.Name(),
+		Name:        name,
 		DisplayName: "Charlie Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(pass)),
@@ -233,7 +237,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = accessService.RemoveUser(context.Background(), userTag.Name())
+	err = accessService.RemoveUser(context.Background(), name)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Since these are user login tests, the nonce is empty.
@@ -442,13 +446,14 @@ func (s *loginSuite) infoForNewUser(c *gc.C, info *api.Info) *api.Info {
 	newInfo := *info
 
 	userTag := names.NewUserTag("charlie")
+	name := user.NameFromTag(userTag)
 	pass := "shhh..."
 
 	accessService := s.ControllerServiceFactory(c).Access()
 
 	// Add a user with permission to log into this controller.
 	_, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
-		Name:        userTag.Name(),
+		Name:        name,
 		DisplayName: "Charlie Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(pass)),
@@ -472,7 +477,7 @@ func (s *loginSuite) infoForNewUser(c *gc.C, info *api.Info) *api.Info {
 	}
 	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
 		AccessSpec: accessSpec,
-		User:       userTag.Name(),
+		User:       name,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -706,12 +711,13 @@ func (s *loginSuite) TestOtherModel(c *gc.C) {
 	c.Skip("This test needs to be restored when st (*state.State) is removed from the API root.")
 
 	userTag := names.NewUserTag("charlie")
+	name := user.NameFromTag(userTag)
 	pass := "shhh..."
 
 	accessService := s.ControllerServiceFactory(c).Access()
 
 	_, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
-		Name:        userTag.Name(),
+		Name:        name,
 		DisplayName: "Charlie Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(pass)),
@@ -735,7 +741,7 @@ func (s *loginSuite) TestOtherModel(c *gc.C) {
 	}
 	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
 		AccessSpec: accessSpec,
-		User:       userTag.Name(),
+		User:       name,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -881,13 +887,14 @@ func (s *loginSuite) TestOtherModelWhenNotController(c *gc.C) {
 
 func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (names.UserTag, params.LoginResult) {
 	userTag := names.NewUserTag("charlie")
+	name := user.NameFromTag(userTag)
 	pass := "shhh..."
 
 	accessService := s.ControllerServiceFactory(c).Access()
 
 	// Add a user with permission to log into this controller.
 	_, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
-		Name:        userTag.Name(),
+		Name:        name,
 		DisplayName: "Charlie Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(pass)),
@@ -911,7 +918,7 @@ func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (names.UserTag, par
 	}
 	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
 		AccessSpec: accessSpec,
-		User:       userTag.Name(),
+		User:       name,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -986,9 +993,9 @@ func (s *loginSuite) assertRemoteModel(c *gc.C, conn api.Connection, expected na
 func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	accessService := s.ControllerServiceFactory(c).Access()
 
-	userName := "bobbrown"
+	name := usertesting.GenNewName(c, "bobbrown")
 	userUUID, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
-		Name:        userName,
+		Name:        name,
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
@@ -1010,7 +1017,7 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 			},
 			Access: permission.AdminAccess,
 		},
-		User: userName,
+		User: name,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1029,7 +1036,7 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(user.LastLogin, jc.Almost, now)
 
-	when, err := accessService.LastModelLogin(context.Background(), userName, coremodel.UUID(s.ControllerModelUUID()))
+	when, err := accessService.LastModelLogin(context.Background(), name, coremodel.UUID(s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(when, jc.Almost, now)
 }
@@ -1037,11 +1044,11 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 func (s *loginSuite) setEveryoneAccess(c *gc.C, accessLevel permission.Access) {
 	external := true
 	err := s.ControllerServiceFactory(c).Access().UpdatePermission(context.Background(), access.UpdatePermissionArgs{
-		Subject:  permission.EveryoneTagName,
+		Subject:  permission.EveryoneUserName,
 		Change:   permission.Grant,
 		External: &external,
 		AddUser:  true,
-		ApiUser:  "admin",
+		ApiUser:  user.AdminUserName,
 		AccessSpec: permission.AccessSpec{
 			Target: permission.ID{
 				ObjectType: permission.Controller,
@@ -1139,8 +1146,9 @@ func (s *loginV3Suite) TestClientLoginToController(c *gc.C) {
 
 func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *gc.C) {
 	accessService := s.ControllerServiceFactory(c).Access()
+	name := usertesting.GenNewName(c, "bobbrown")
 	uuid, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
-		Name:        "bobbrown",
+		Name:        name,
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
@@ -1159,12 +1167,12 @@ func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *g
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeUser(c, &factory.UserParams{
-		Name: "bobbrown",
+		Name: name.Name(),
 	})
 
 	now := s.Clock.Now().UTC().Truncate(time.Second)
 
-	s.OpenControllerAPIAs(c, names.NewUserTag("bobbrown"), "password")
+	s.OpenControllerAPIAs(c, names.NewUserTag(name.Name()), "password")
 
 	user, err := accessService.GetUser(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)

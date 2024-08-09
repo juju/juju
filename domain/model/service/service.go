@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
@@ -62,7 +61,7 @@ type State interface {
 	// GetModelByName returns the model associated with the given user and name.
 	// If no model exists for the provided user or model name then an error of
 	// [modelerrors.NotFound] will be returned.
-	GetModelByName(context.Context, string, string) (coremodel.Model, error)
+	GetModelByName(context.Context, coreuser.Name, string) (coremodel.Model, error)
 
 	// GetModelType returns the model type for a model with the provided uuid.
 	GetModelType(context.Context, coremodel.UUID) (coremodel.ModelType, error)
@@ -87,7 +86,7 @@ type State interface {
 
 	// ListModelSummariesForUser returns a slice of model summaries for a given
 	// user. If no models are found an empty slice is returned.
-	ListModelSummariesForUser(ctx context.Context, userName string) ([]coremodel.UserModelSummary, error)
+	ListModelSummariesForUser(ctx context.Context, userName coreuser.Name) ([]coremodel.UserModelSummary, error)
 
 	// ListAllModelSummaries returns a slice of model summaries for all models
 	// known to the controller.
@@ -96,7 +95,7 @@ type State interface {
 	// ModelCloudNameAndCredential returns the cloud name and credential id for a
 	// model identified by the model name and the owner. If no model exists for
 	// the provided name and user a [modelerrors.NotFound] error is returned.
-	ModelCloudNameAndCredential(context.Context, string, string) (string, credential.Key, error)
+	ModelCloudNameAndCredential(context.Context, string, coreuser.Name) (string, credential.Key, error)
 
 	// UpdateCredential updates a model's cloud credential.
 	UpdateCredential(context.Context, coremodel.UUID, credential.Key) error
@@ -476,9 +475,9 @@ func ModelTypeForCloud(
 
 // ListModelSummariesForUser returns a slice of model summaries for a given
 // user. If no models are found an empty slice is returned.
-func (s *Service) ListModelSummariesForUser(ctx context.Context, userName string) ([]coremodel.UserModelSummary, error) {
-	if !names.IsValidUser(userName) {
-		return nil, errors.Annotatef(accesserrors.UserNameNotValid, "%q", userName)
+func (s *Service) ListModelSummariesForUser(ctx context.Context, userName coreuser.Name) ([]coremodel.UserModelSummary, error) {
+	if userName.IsZero() {
+		return nil, errors.Annotatef(accesserrors.UserNameNotValid, "empty username")
 	}
 	return s.st.ListModelSummariesForUser(ctx, userName)
 }

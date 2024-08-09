@@ -17,6 +17,7 @@ import (
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/credential"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
@@ -42,11 +43,11 @@ type State interface {
 
 	// CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
 	// keyed by credential name.
-	CloudCredentialsForOwner(ctx context.Context, owner, cloudName string) (map[string]credential.CloudCredentialResult, error)
+	CloudCredentialsForOwner(ctx context.Context, owner user.Name, cloudName string) (map[string]credential.CloudCredentialResult, error)
 
 	// AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 	// for a given owner.
-	AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[corecredential.Key]credential.CloudCredentialResult, error)
+	AllCloudCredentialsForOwner(ctx context.Context, owner user.Name) (map[corecredential.Key]credential.CloudCredentialResult, error)
 
 	// RemoveCloudCredential removes a cloud credential with the given name, cloud, owner.
 	RemoveCloudCredential(ctx context.Context, key corecredential.Key) error
@@ -130,7 +131,7 @@ func (s *Service) CloudCredential(ctx context.Context, key corecredential.Key) (
 
 // AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 // for a given owner.
-func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[corecredential.Key]cloud.Credential, error) {
+func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner user.Name) (map[corecredential.Key]cloud.Credential, error) {
 	creds, err := s.st.AllCloudCredentialsForOwner(ctx, owner)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -144,7 +145,7 @@ func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner string)
 
 // CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
 // keyed by credential name.
-func (s *Service) CloudCredentialsForOwner(ctx context.Context, owner, cloudName string) (map[string]cloud.Credential, error) {
+func (s *Service) CloudCredentialsForOwner(ctx context.Context, owner user.Name, cloudName string) (map[string]cloud.Credential, error) {
 	creds, err := s.st.CloudCredentialsForOwner(ctx, owner, cloudName)
 	if err != nil {
 		return nil, errors.Trace(err)

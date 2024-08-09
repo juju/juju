@@ -17,3 +17,11 @@ func GenUserUUID(c *gc.C) coreuser.UUID {
 	c.Assert(err, jc.ErrorIsNil)
 	return uuid
 }
+
+// GenNewName returns a new username object. It asserts that the username is
+// valid.
+func GenNewName(c *gc.C, name string) coreuser.Name {
+	un, err := coreuser.NewName(name)
+	c.Assert(err, jc.ErrorIsNil)
+	return un
+}

@@ -1303,7 +1303,7 @@ func (c *MockUserServiceAddUserCall) DoAndReturn(f func(context.Context, service
 }
 
 // GetUserByName mocks base method.
-func (m *MockUserService) GetUserByName(arg0 context.Context, arg1 string) (user.User, error) {
+func (m *MockUserService) GetUserByName(arg0 context.Context, arg1 user.Name) (user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserByName", arg0, arg1)
 	ret0, _ := ret[0].(user.User)
@@ -1330,13 +1330,13 @@ func (c *MockUserServiceGetUserByNameCall) Return(arg0 user.User, arg1 error) *M
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUserServiceGetUserByNameCall) Do(f func(context.Context, string) (user.User, error)) *MockUserServiceGetUserByNameCall {
+func (c *MockUserServiceGetUserByNameCall) Do(f func(context.Context, user.Name) (user.User, error)) *MockUserServiceGetUserByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUserServiceGetUserByNameCall) DoAndReturn(f func(context.Context, string) (user.User, error)) *MockUserServiceGetUserByNameCall {
+func (c *MockUserServiceGetUserByNameCall) DoAndReturn(f func(context.Context, user.Name) (user.User, error)) *MockUserServiceGetUserByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

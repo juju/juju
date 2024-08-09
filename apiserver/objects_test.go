@@ -21,6 +21,7 @@ import (
 
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/charm"
@@ -567,7 +568,7 @@ func (s *putCharmObjectSuite) TestMigrateCharmUnauthorized(c *gc.C) {
 	userService := s.ControllerServiceFactory(c).Access()
 	userTag := names.NewUserTag("bobbrown")
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
-		Name:        userTag.Name(),
+		Name:        user.NameFromTag(userTag),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("hunter2")),

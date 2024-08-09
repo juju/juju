@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/credential"
 	corepermission "github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -45,8 +46,8 @@ func (s *PermissionService) CreatePermission(ctx context.Context, spec corepermi
 // DeletePermission removes the given user's access to the given target.
 // A NotValid error is returned if the subject (user) string is empty, or
 // the target is not valid. Any errors from the state layer are passed through.
-func (s *PermissionService) DeletePermission(ctx context.Context, subject string, target corepermission.ID) error {
-	if subject == "" {
+func (s *PermissionService) DeletePermission(ctx context.Context, subject user.Name, target corepermission.ID) error {
+	if subject.IsZero() {
 		return errors.Trace(errors.NotValidf("empty subject"))
 	}
 	if err := target.Validate(); err != nil {
@@ -59,8 +60,8 @@ func (s *PermissionService) DeletePermission(ctx context.Context, subject string
 // the given target. A NotValid error is returned if the subject (user)
 // string is empty, or the target is not valid. Any errors from the state
 // layer are passed through.
-func (s *PermissionService) ReadUserAccessForTarget(ctx context.Context, subject string, target corepermission.ID) (corepermission.UserAccess, error) {
-	if subject == "" {
+func (s *PermissionService) ReadUserAccessForTarget(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.UserAccess, error) {
+	if subject.IsZero() {
 		return corepermission.UserAccess{}, errors.Trace(errors.NotValidf("empty subject"))
 	}
 	if err := target.Validate(); err != nil {
@@ -75,8 +76,8 @@ func (s *PermissionService) ReadUserAccessForTarget(ctx context.Context, subject
 // created. A NotValid error is returned if the subject (user) string is empty,
 // or the target is not valid. Any errors from the state layer are passed
 // through.
-func (s *PermissionService) ReadUserAccessLevelForTargetAddingMissingUser(ctx context.Context, subject string, target corepermission.ID) (corepermission.Access, error) {
-	if subject == "" {
+func (s *PermissionService) ReadUserAccessLevelForTargetAddingMissingUser(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.Access, error) {
+	if subject.IsZero() {
 		return "", errors.Trace(errors.NotValidf("empty subject"))
 	}
 	if err := target.Validate(); err != nil {
@@ -93,8 +94,8 @@ func (s *PermissionService) ReadUserAccessLevelForTargetAddingMissingUser(ctx co
 // given user on the given target. A NotValid error is returned if the
 // subject (user) string is empty, or the target is not valid. Any errors
 // from the state layer are passed through.
-func (s *PermissionService) ReadUserAccessLevelForTarget(ctx context.Context, subject string, target corepermission.ID) (corepermission.Access, error) {
-	if subject == "" {
+func (s *PermissionService) ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.Access, error) {
+	if subject.IsZero() {
 		return "", errors.Trace(errors.NotValidf("empty subject"))
 	}
 	if err := target.Validate(); err != nil {
@@ -119,8 +120,8 @@ func (s *PermissionService) ReadAllUserAccessForTarget(ctx context.Context, targ
 // user has for any access type. // A NotValid error is returned if the
 // subject (user) string is empty. Any errors from the state layer are
 // passed through.
-func (s *PermissionService) ReadAllUserAccessForUser(ctx context.Context, subject string) ([]corepermission.UserAccess, error) {
-	if subject == "" {
+func (s *PermissionService) ReadAllUserAccessForUser(ctx context.Context, subject user.Name) ([]corepermission.UserAccess, error) {
+	if subject.IsZero() {
 		return nil, errors.Trace(errors.NotValidf("empty subject"))
 	}
 	userAccess, err := s.st.ReadAllUserAccessForUser(ctx, subject)
@@ -132,8 +133,8 @@ func (s *PermissionService) ReadAllUserAccessForUser(ctx context.Context, subjec
 // A NotValid error is returned if the given access type does not exist,
 // or the subject (user) is an empty string.
 // E.G. All clouds the user has access to.
-func (s *PermissionService) ReadAllAccessForUserAndObjectType(ctx context.Context, subject string, objectType corepermission.ObjectType) ([]corepermission.UserAccess, error) {
-	if subject == "" {
+func (s *PermissionService) ReadAllAccessForUserAndObjectType(ctx context.Context, subject user.Name, objectType corepermission.ObjectType) ([]corepermission.UserAccess, error) {
+	if subject.IsZero() {
 		return nil, errors.Trace(errors.NotValidf("empty subject"))
 	}
 	if err := objectType.Validate(); err != nil {

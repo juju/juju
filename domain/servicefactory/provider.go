@@ -41,7 +41,10 @@ func NewProviderFactory(
 // Model returns the provider model service.
 func (s *ProviderFactory) Model() *modelservice.ProviderService {
 	return modelservice.NewProviderService(
-		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		modelstate.NewModelState(
+			changestream.NewTxnRunnerFactory(s.modelDB),
+			s.logger.Child("modelinfo"),
+		),
 	)
 }
 

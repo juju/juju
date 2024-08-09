@@ -45,14 +45,14 @@ const (
 // of a controller.
 type AccessService interface {
 	// GetUserByAuth returns the user with the given name and password.
-	GetUserByAuth(ctx context.Context, name string, password auth.Password) (coreuser.User, error)
+	GetUserByAuth(ctx context.Context, name coreuser.Name, password auth.Password) (coreuser.User, error)
 
 	// GetUserByName returns the user with the given name.
-	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+	GetUserByName(ctx context.Context, name coreuser.Name) (coreuser.User, error)
 
 	// UpdateLastModelLogin updates the last login time for the user with the
 	// given name.
-	UpdateLastModelLogin(ctx context.Context, name string, modelUUID coremodel.UUID) error
+	UpdateLastModelLogin(ctx context.Context, name coreuser.Name, modelUUID coremodel.UUID) error
 
 	// ReadUserAccessLevelForTargetAddingMissingUser returns the user access level for
 	// the given user on the given target. If the user is external and does not yet
@@ -60,7 +60,7 @@ type AccessService interface {
 	// access can be found for this user, and (only in the case of external users),
 	// the everyone@external user.
 	ReadUserAccessLevelForTargetAddingMissingUser(
-		ctx context.Context, subject string, target corepermission.ID,
+		ctx context.Context, subject coreuser.Name, target corepermission.ID,
 	) (corepermission.Access, error)
 }
 

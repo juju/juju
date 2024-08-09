@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/auth"
@@ -406,7 +407,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 
 	// Add the admin user.
 	adminPassword := defaultPassword(testing.AdminUser)
-	err := accessService.SetPassword(context.Background(), testing.AdminUser.Name(), auth.NewPassword(adminPassword))
+	err := accessService.SetPassword(context.Background(), usertesting.GenNewName(c, testing.AdminUser.Name()), auth.NewPassword(adminPassword))
 	c.Assert(err, jc.ErrorIsNil)
 	add(taggedUser{tag: testing.AdminUser})
 
@@ -421,7 +422,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	userTag := names.NewUserTag("other")
 	userPassword := defaultPassword(userTag)
 	_, _, err = accessService.AddUser(context.Background(), service.AddUserArg{
-		Name:        userTag.Name(),
+		Name:        usertesting.GenNewName(c, userTag.Name()),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(userPassword)),
@@ -443,7 +444,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 			},
 			Access: permission.AdminAccess,
 		},
-		User: userTag.Name(),
+		User: usertesting.GenNewName(c, userTag.Name()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

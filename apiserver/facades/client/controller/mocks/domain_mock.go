@@ -17,6 +17,7 @@ import (
 	controller "github.com/juju/juju/controller"
 	model "github.com/juju/juju/core/model"
 	permission "github.com/juju/juju/core/permission"
+	user "github.com/juju/juju/core/user"
 	access "github.com/juju/juju/domain/access"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -45,7 +46,7 @@ func (m *MockControllerAccessService) EXPECT() *MockControllerAccessServiceMockR
 }
 
 // LastModelLogin mocks base method.
-func (m *MockControllerAccessService) LastModelLogin(arg0 context.Context, arg1 string, arg2 model.UUID) (time.Time, error) {
+func (m *MockControllerAccessService) LastModelLogin(arg0 context.Context, arg1 user.Name, arg2 model.UUID) (time.Time, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LastModelLogin", arg0, arg1, arg2)
 	ret0, _ := ret[0].(time.Time)
@@ -72,19 +73,19 @@ func (c *MockControllerAccessServiceLastModelLoginCall) Return(arg0 time.Time, a
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerAccessServiceLastModelLoginCall) Do(f func(context.Context, string, model.UUID) (time.Time, error)) *MockControllerAccessServiceLastModelLoginCall {
+func (c *MockControllerAccessServiceLastModelLoginCall) Do(f func(context.Context, user.Name, model.UUID) (time.Time, error)) *MockControllerAccessServiceLastModelLoginCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerAccessServiceLastModelLoginCall) DoAndReturn(f func(context.Context, string, model.UUID) (time.Time, error)) *MockControllerAccessServiceLastModelLoginCall {
+func (c *MockControllerAccessServiceLastModelLoginCall) DoAndReturn(f func(context.Context, user.Name, model.UUID) (time.Time, error)) *MockControllerAccessServiceLastModelLoginCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReadUserAccessLevelForTarget mocks base method.
-func (m *MockControllerAccessService) ReadUserAccessLevelForTarget(arg0 context.Context, arg1 string, arg2 permission.ID) (permission.Access, error) {
+func (m *MockControllerAccessService) ReadUserAccessLevelForTarget(arg0 context.Context, arg1 user.Name, arg2 permission.ID) (permission.Access, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadUserAccessLevelForTarget", arg0, arg1, arg2)
 	ret0, _ := ret[0].(permission.Access)
@@ -111,13 +112,13 @@ func (c *MockControllerAccessServiceReadUserAccessLevelForTargetCall) Return(arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerAccessServiceReadUserAccessLevelForTargetCall) Do(f func(context.Context, string, permission.ID) (permission.Access, error)) *MockControllerAccessServiceReadUserAccessLevelForTargetCall {
+func (c *MockControllerAccessServiceReadUserAccessLevelForTargetCall) Do(f func(context.Context, user.Name, permission.ID) (permission.Access, error)) *MockControllerAccessServiceReadUserAccessLevelForTargetCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerAccessServiceReadUserAccessLevelForTargetCall) DoAndReturn(f func(context.Context, string, permission.ID) (permission.Access, error)) *MockControllerAccessServiceReadUserAccessLevelForTargetCall {
+func (c *MockControllerAccessServiceReadUserAccessLevelForTargetCall) DoAndReturn(f func(context.Context, user.Name, permission.ID) (permission.Access, error)) *MockControllerAccessServiceReadUserAccessLevelForTargetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -259,8 +260,8 @@ func (a controllerAdminAuthorizer) Authorize(ctx context.Context, authInfo authe
 	}
 
 	has, err := common.HasPermission(ctx,
-		func(ctx context.Context, userName string, subject permission.ID) (permission.Access, error) {
-			if userName != userTag.Id() {
+		func(ctx context.Context, userName user.Name, subject permission.ID) (permission.Access, error) {
+			if userName.Name() != userTag.Id() {
 				return permission.NoAccess, fmt.Errorf("expected user %q got %q", userTag.String(), userName)
 			}
 			return authInfo.SubjectPermissions(ctx, subject)

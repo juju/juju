@@ -12,6 +12,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/rpc/params"
 )
@@ -22,13 +23,13 @@ type accessService interface {
 	// If the model cannot be found it will return modelerrors.NotFound.
 	// If no permissions can be found on the model it will return
 	// accesserrors.PermissionNotValid.
-	GetModelUsers(ctx context.Context, apiUser string, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error)
+	GetModelUsers(ctx context.Context, apiUser user.Name, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error)
 }
 
 // ModelUserInfo gets model user info from the accessService and converts it
 // into params.ModelUserInfo.
 func ModelUserInfo(ctx context.Context, service accessService, apiUser names.UserTag, modelTag names.ModelTag) ([]params.ModelUserInfo, error) {
-	userInfo, err := service.GetModelUsers(ctx, apiUser.Id(), coremodel.UUID(modelTag.Id()))
+	userInfo, err := service.GetModelUsers(ctx, user.NameFromTag(apiUser), coremodel.UUID(modelTag.Id()))
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +46,7 @@ func ModelUserInfo(ctx context.Context, service accessService, apiUser names.Use
 			return nil, errors.Trace(err)
 		}
 		modelUserInfo[i] = params.ModelUserInfo{
-			UserName:       mi.Name,
+			UserName:       mi.Name.Name(),
 			DisplayName:    mi.DisplayName,
 			LastConnection: lastModelLogin,
 			Access:         accessType,

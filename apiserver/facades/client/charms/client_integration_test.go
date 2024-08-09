@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/core/permission"
+	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -28,11 +29,11 @@ type clientMacaroonIntegrationSuite struct {
 var _ = gc.Suite(&clientMacaroonIntegrationSuite{})
 
 func (s *clientMacaroonIntegrationSuite) createTestClient(c *gc.C) *charms.LocalCharmClient {
-	username := "testuser@somewhere"
+	username := usertesting.GenNewName(c, "testuser@somewhere")
 	s.AddModelUser(c, username)
 	s.AddControllerUser(c, username, permission.LoginAccess)
 	cookieJar := jujutesting.NewClearableCookieJar()
-	s.DischargerLogin = func() string { return username }
+	s.DischargerLogin = func() string { return username.Name() }
 	api := s.OpenAPI(c, nil, cookieJar)
 	charmClient, err := charms.NewLocalCharmClient(api)
 	c.Assert(err, jc.ErrorIsNil)

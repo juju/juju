@@ -40,9 +40,9 @@ var logger = internallogger.GetLogger("juju.apiserver.authentication")
 // authenticate a user.
 type UserService interface {
 	// GetUserByAuth returns the user with the given name and password.
-	GetUserByAuth(ctx context.Context, name string, password auth.Password) (coreuser.User, error)
+	GetUserByAuth(ctx context.Context, name coreuser.Name, password auth.Password) (coreuser.User, error)
 	// GetUserByName returns the user with the given name.
-	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+	GetUserByName(ctx context.Context, name coreuser.Name) (coreuser.User, error)
 }
 
 // Bakery defines the subset of bakery.Bakery that we require for authentication.
@@ -133,7 +133,7 @@ func (u *LocalUserAuthenticator) Authenticate(
 	// We believe we've got a password, so we'll try to authenticate with it.
 	// This will check the user service for the user, ensuring that the user
 	// isn't disabled or deleted.
-	user, err := u.UserService.GetUserByAuth(ctx, userTag.Id(), auth.NewPassword(authParams.Credentials))
+	user, err := u.UserService.GetUserByAuth(ctx, coreuser.NameFromTag(userTag), auth.NewPassword(authParams.Credentials))
 	if errors.Is(err, usererrors.UserNotFound) || errors.Is(err, usererrors.UserUnauthorized) {
 		logger.Debugf("user %s not found", userTag.String())
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
@@ -181,7 +181,7 @@ func (u *LocalUserAuthenticator) authenticateMacaroons(ctx context.Context, user
 	}
 
 	// We've got a valid macaroon, so we can return the user.
-	user, err := u.UserService.GetUserByName(ctx, userTag.Id())
+	user, err := u.UserService.GetUserByName(ctx, coreuser.NameFromTag(userTag))
 	if errors.Is(err, usererrors.UserNotFound) || errors.Is(err, usererrors.UserUnauthorized) {
 		logger.Debugf("user %s not found", userTag.String())
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)

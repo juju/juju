@@ -11,10 +11,12 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -33,7 +35,7 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 
 func (s *modelSuite) TestCreateModel(c *gc.C) {
 	runner := s.TxnRunnerFactory()
-	state := NewModelState(runner)
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	id := modeltesting.GenModelUUID(c)
 	args := model.ReadOnlyModelCreationArgs{
@@ -45,7 +47,7 @@ func (s *modelSuite) TestCreateModel(c *gc.C) {
 		Cloud:           "aws",
 		CloudType:       "ec2",
 		CloudRegion:     "myregion",
-		CredentialOwner: "myowner",
+		CredentialOwner: usertesting.GenNewName(c, "myowner"),
 		CredentialName:  "mycredential",
 	}
 	err := state.Create(context.Background(), args)
@@ -63,14 +65,14 @@ func (s *modelSuite) TestCreateModel(c *gc.C) {
 		Cloud:           "aws",
 		CloudType:       "ec2",
 		CloudRegion:     "myregion",
-		CredentialOwner: "myowner",
+		CredentialOwner: usertesting.GenNewName(c, "myowner"),
 		CredentialName:  "mycredential",
 	})
 }
 
 func (s *modelSuite) TestDeleteModel(c *gc.C) {
 	runner := s.TxnRunnerFactory()
-	state := NewModelState(runner)
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	id := modeltesting.GenModelUUID(c)
 	args := model.ReadOnlyModelCreationArgs{
@@ -82,7 +84,7 @@ func (s *modelSuite) TestDeleteModel(c *gc.C) {
 		Cloud:           "aws",
 		CloudType:       "ec2",
 		CloudRegion:     "myregion",
-		CredentialOwner: "myowner",
+		CredentialOwner: usertesting.GenNewName(c, "myowner"),
 		CredentialName:  "mycredential",
 	}
 	err := state.Create(context.Background(), args)
@@ -101,7 +103,7 @@ func (s *modelSuite) TestDeleteModel(c *gc.C) {
 
 func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *gc.C) {
 	runner := s.TxnRunnerFactory()
-	state := NewModelState(runner)
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	// Ensure that we can't create the same model twice.
 
@@ -124,7 +126,7 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *gc.C) {
 
 func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *gc.C) {
 	runner := s.TxnRunnerFactory()
-	state := NewModelState(runner)
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	// Ensure that you can only ever insert one model.
 
@@ -153,7 +155,7 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *gc.C) {
 
 func (s *modelSuite) TestCreateModelAndUpdate(c *gc.C) {
 	runner := s.TxnRunnerFactory()
-	state := NewModelState(runner)
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	// Ensure that you can't update it.
 
@@ -177,7 +179,7 @@ func (s *modelSuite) TestCreateModelAndUpdate(c *gc.C) {
 
 func (s *modelSuite) TestCreateModelAndDelete(c *gc.C) {
 	runner := s.TxnRunnerFactory()
-	state := NewModelState(runner)
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	// Ensure that you can't update it.
 
@@ -200,7 +202,7 @@ func (s *modelSuite) TestCreateModelAndDelete(c *gc.C) {
 
 func (s *modelSuite) TestModelNotFound(c *gc.C) {
 	runner := s.TxnRunnerFactory()
-	state := NewModelState(runner)
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	_, err := state.Model(context.Background())
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)

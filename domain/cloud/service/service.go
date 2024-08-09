@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -27,7 +28,7 @@ type State interface {
 
 	// CreateCloud creates the input cloud entity and provides Admin
 	// permissions for the owner.
-	CreateCloud(ctx context.Context, owner string, cloudUUID string, cloud cloud.Cloud) error
+	CreateCloud(ctx context.Context, owner user.Name, cloudUUID string, cloud cloud.Cloud) error
 
 	// UpdateCloud updates the input cloud entity.
 	UpdateCloud(context.Context, cloud.Cloud) error
@@ -53,7 +54,7 @@ func NewService(st State) *Service {
 
 // CreateCloud creates the input cloud entity and provides Admin
 // permissions for the owner.
-func (s *Service) CreateCloud(ctx context.Context, owner string, cloud cloud.Cloud) error {
+func (s *Service) CreateCloud(ctx context.Context, owner user.Name, cloud cloud.Cloud) error {
 	credUUID, err := uuid.NewUUID()
 	if err != nil {
 		return errors.Annotatef(err, "creating uuid for cloud %q", cloud.Name)

@@ -16,6 +16,7 @@ import (
 	corecloud "github.com/juju/juju/core/cloud"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -681,7 +682,7 @@ WHERE  name = $dbCloud.name`, dbCloud{})
 // CreateCloud creates a cloud and provides admin permissions to the
 // provided ownerName.
 // This is the exported method for use with the cloud state.
-func (st *State) CreateCloud(ctx context.Context, ownerName, cloudUUID string, cloud cloud.Cloud) error {
+func (st *State) CreateCloud(ctx context.Context, ownerName user.Name, cloudUUID string, cloud cloud.Cloud) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -697,7 +698,7 @@ func (st *State) CreateCloud(ctx context.Context, ownerName, cloudUUID string, c
 // cloud for the provided user.
 // Exported for use in the related cloud bootstrap package.
 // Should never be directly called outside of the cloud bootstrap package.
-func CreateCloud(ctx context.Context, tx *sqlair.TX, ownerName, cloudUUID string, cloud cloud.Cloud) error {
+func CreateCloud(ctx context.Context, tx *sqlair.TX, ownerName user.Name, cloudUUID string, cloud cloud.Cloud) error {
 	if err := updateCloud(ctx, tx, cloudUUID, cloud); err != nil {
 		return errors.Annotatef(err, "updating cloud %s", cloudUUID)
 	}
@@ -898,8 +899,8 @@ ON CONFLICT(cloud_uuid, name) DO UPDATE SET name=excluded.name,
 
 // insertPermission inserts a permission for the owner of the cloud during
 // upsertCloud.
-func insertPermission(ctx context.Context, tx *sqlair.TX, ownerName, cloudName string) error {
-	if ownerName == "" {
+func insertPermission(ctx context.Context, tx *sqlair.TX, ownerName user.Name, cloudName string) error {
+	if ownerName.IsZero() {
 		return nil
 	}
 	newPermission := `
@@ -930,7 +931,7 @@ AND    ot.type = $dbAddUserPermission.object_type
 	perm := dbAddUserPermission{
 		UUID:       permUUID.String(),
 		GrantOn:    cloudName,
-		Name:       ownerName,
+		Name:       ownerName.Name(),
 		AccessType: string(permission.AdminAccess),
 		ObjectType: string(permission.Cloud),
 	}

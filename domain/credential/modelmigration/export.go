@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/credential/state"
 )
@@ -64,9 +65,13 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		// Not set.
 		return nil
 	}
+	name, err := user.NewName(credInfo.Owner())
+	if err != nil {
+		return errors.Trace(err)
+	}
 	key := credential.Key{
 		Cloud: credInfo.Cloud(),
-		Owner: credInfo.Owner(),
+		Owner: name,
 		Name:  credInfo.Name(),
 	}
 	cred, err := e.service.CloudCredential(ctx, key)
@@ -74,7 +79,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Trace(err)
 	}
 	model.SetCloudCredential(description.CloudCredentialArgs{
-		Owner:      names.NewUserTag(key.Owner),
+		Owner:      names.NewUserTag(key.Owner.Name()),
 		Cloud:      names.NewCloudTag(key.Cloud),
 		Name:       key.Name,
 		AuthType:   string(cred.AuthType()),

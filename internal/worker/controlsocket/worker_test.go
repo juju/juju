@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
 	auth "github.com/juju/juju/internal/auth"
@@ -32,6 +33,7 @@ type workerSuite struct {
 	logger            logger.Logger
 	userService       *MockUserService
 	permissionService *MockPermissionService
+	metricsUserName   coreuser.Name
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -150,16 +152,16 @@ func (s *workerSuite) TestMetricsUsersAddUsernameMissingPrefix(c *gc.C) {
 func (s *workerSuite) TestMetricsUsersAddSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.userService.EXPECT().GetUserByName(gomock.Any(), userCreator).Return(coreuser.User{
+	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, userCreator)).Return(coreuser.User{
 		UUID: coreuser.UUID("deadbeef"),
 	}, nil)
 	s.userService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
-		Name:        "juju-metrics-r0",
+		Name:        s.metricsUserName,
 		DisplayName: "juju-metrics-r0",
 		Password:    ptr(auth.NewPassword("bar")),
 		CreatorUUID: coreuser.UUID("deadbeef"),
 	}).Return(coreuser.UUID("foobar"), nil, nil)
-	s.permissionService.EXPECT().AddUserPermission(gomock.Any(), "juju-metrics-r0", permission.ReadAccess).Return(nil)
+	s.permissionService.EXPECT().AddUserPermission(gomock.Any(), s.metricsUserName, permission.ReadAccess).Return(nil)
 
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
@@ -173,17 +175,17 @@ func (s *workerSuite) TestMetricsUsersAddSuccess(c *gc.C) {
 func (s *workerSuite) TestMetricsUsersAddAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.userService.EXPECT().GetUserByName(gomock.Any(), userCreator).Return(coreuser.User{
+	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, userCreator)).Return(coreuser.User{
 		UUID: coreuser.UUID("deadbeef"),
 	}, nil)
 	s.userService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
-		Name:        "juju-metrics-r0",
+		Name:        s.metricsUserName,
 		DisplayName: "juju-metrics-r0",
 		Password:    ptr(auth.NewPassword("bar")),
 		CreatorUUID: coreuser.UUID("deadbeef"),
 	}).Return(coreuser.UUID("foobar"), nil, usererrors.UserAlreadyExists)
-	s.userService.EXPECT().GetUserByAuth(gomock.Any(), "juju-metrics-r0", auth.NewPassword("bar")).Return(coreuser.User{
-		CreatorName: "not-you",
+	s.userService.EXPECT().GetUserByAuth(gomock.Any(), s.metricsUserName, auth.NewPassword("bar")).Return(coreuser.User{
+		CreatorName: usertesting.GenNewName(c, "not-you"),
 	}, nil)
 
 	s.runHandlerTest(c, handlerTest{
@@ -198,17 +200,17 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExists(c *gc.C) {
 func (s *workerSuite) TestMetricsUsersAddAlreadyExistsButDisabled(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.userService.EXPECT().GetUserByName(gomock.Any(), userCreator).Return(coreuser.User{
+	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, userCreator)).Return(coreuser.User{
 		UUID: coreuser.UUID("deadbeef"),
 	}, nil)
 	s.userService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
-		Name:        "juju-metrics-r0",
+		Name:        s.metricsUserName,
 		DisplayName: "juju-metrics-r0",
 		Password:    ptr(auth.NewPassword("bar")),
 		CreatorUUID: coreuser.UUID("deadbeef"),
 	}).Return(coreuser.UUID("foobar"), nil, usererrors.UserAlreadyExists)
-	s.userService.EXPECT().GetUserByAuth(gomock.Any(), "juju-metrics-r0", auth.NewPassword("bar")).Return(coreuser.User{
-		CreatorName: "not-you",
+	s.userService.EXPECT().GetUserByAuth(gomock.Any(), s.metricsUserName, auth.NewPassword("bar")).Return(coreuser.User{
+		CreatorName: usertesting.GenNewName(c, "not-you"),
 		Disabled:    true,
 	}, nil)
 
@@ -224,19 +226,19 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExistsButDisabled(c *gc.C) {
 func (s *workerSuite) TestMetricsUsersAddIdempotent(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.userService.EXPECT().GetUserByName(gomock.Any(), userCreator).Return(coreuser.User{
+	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, userCreator)).Return(coreuser.User{
 		UUID: coreuser.UUID("deadbeef"),
 	}, nil)
 	s.userService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
-		Name:        "juju-metrics-r0",
+		Name:        s.metricsUserName,
 		DisplayName: "juju-metrics-r0",
 		Password:    ptr(auth.NewPassword("bar")),
 		CreatorUUID: coreuser.UUID("deadbeef"),
 	}).Return(coreuser.UUID("foobar"), nil, usererrors.UserAlreadyExists)
-	s.userService.EXPECT().GetUserByAuth(gomock.Any(), "juju-metrics-r0", auth.NewPassword("bar")).Return(coreuser.User{
-		CreatorName: userCreator,
+	s.userService.EXPECT().GetUserByAuth(gomock.Any(), s.metricsUserName, auth.NewPassword("bar")).Return(coreuser.User{
+		CreatorName: usertesting.GenNewName(c, userCreator),
 	}, nil)
-	s.permissionService.EXPECT().AddUserPermission(gomock.Any(), "juju-metrics-r0", permission.ReadAccess).Return(nil)
+	s.permissionService.EXPECT().AddUserPermission(gomock.Any(), s.metricsUserName, permission.ReadAccess).Return(nil)
 
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
@@ -272,11 +274,11 @@ func (s *workerSuite) TestMetricsUsersRemoveUsernameMissingPrefix(c *gc.C) {
 func (s *workerSuite) TestMetricsUsersRemoveSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.userService.EXPECT().GetUserByName(gomock.Any(), "juju-metrics-r0").Return(coreuser.User{
+	s.userService.EXPECT().GetUserByName(gomock.Any(), s.metricsUserName).Return(coreuser.User{
 		UUID:        coreuser.UUID("deadbeef"),
-		CreatorName: userCreator,
+		CreatorName: usertesting.GenNewName(c, userCreator),
 	}, nil)
-	s.userService.EXPECT().RemoveUser(gomock.Any(), "juju-metrics-r0").Return(nil)
+	s.userService.EXPECT().RemoveUser(gomock.Any(), s.metricsUserName).Return(nil)
 
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodDelete,
@@ -289,10 +291,10 @@ func (s *workerSuite) TestMetricsUsersRemoveSuccess(c *gc.C) {
 func (s *workerSuite) TestMetricsUsersRemoveForbidden(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.userService.EXPECT().GetUserByName(gomock.Any(), "juju-metrics-r0").Return(coreuser.User{
+	s.userService.EXPECT().GetUserByName(gomock.Any(), s.metricsUserName).Return(coreuser.User{
 		UUID:        coreuser.UUID("deadbeef"),
-		Name:        "juju-metrics-r0",
-		CreatorName: "not-you",
+		Name:        s.metricsUserName,
+		CreatorName: usertesting.GenNewName(c, "not-you"),
 	}, nil)
 
 	s.runHandlerTest(c, handlerTest{
@@ -306,10 +308,10 @@ func (s *workerSuite) TestMetricsUsersRemoveForbidden(c *gc.C) {
 func (s *workerSuite) TestMetricsUsersRemoveNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.userService.EXPECT().GetUserByName(gomock.Any(), "juju-metrics-r0").Return(coreuser.User{
+	s.userService.EXPECT().GetUserByName(gomock.Any(), s.metricsUserName).Return(coreuser.User{
 		UUID:        coreuser.UUID("deadbeef"),
-		Name:        "juju-metrics-r0",
-		CreatorName: "not-you",
+		Name:        s.metricsUserName,
+		CreatorName: usertesting.GenNewName(c, "not-you"),
 	}, usererrors.UserNotFound)
 
 	s.runHandlerTest(c, handlerTest{
@@ -327,6 +329,8 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.permissionService = NewMockPermissionService(ctrl)
 
 	s.logger = loggertesting.WrapCheckLog(c)
+
+	s.metricsUserName = usertesting.GenNewName(c, "juju-metrics-r0")
 
 	return ctrl
 }
