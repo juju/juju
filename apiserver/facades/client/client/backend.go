@@ -103,12 +103,6 @@ type Model interface {
 	Status() (status.StatusInfo, error)
 }
 
-// Pool contains the StatePool functionality used in this package.
-type Pool interface {
-	GetModel(string) (*state.Model, func(), error)
-	SystemState() (*state.State, error)
-}
-
 // Application represents a state.Application.
 type Application interface {
 	StatusHistory(status.StatusHistoryFilter) ([]status.StatusInfo, error)
@@ -165,22 +159,6 @@ func (s *stateShim) Unit(name string) (Unit, error) {
 func (s *stateShim) AllApplicationOffers() ([]*crossmodel.ApplicationOffer, error) {
 	offers := state.NewApplicationOffers(s.State)
 	return offers.AllApplicationOffers()
-}
-
-type poolShim struct {
-	pool *state.StatePool
-}
-
-func (p *poolShim) SystemState() (*state.State, error) {
-	return p.pool.SystemState()
-}
-
-func (p *poolShim) GetModel(uuid string) (*state.Model, func(), error) {
-	model, ph, err := p.pool.GetModel(uuid)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	return model, func() { ph.Release() }, nil
 }
 
 func (s stateShim) ModelConfig() (*config.Config, error) {
