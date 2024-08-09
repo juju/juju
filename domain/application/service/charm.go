@@ -91,6 +91,9 @@ type CharmState interface {
 	// the new charm ID for the revision.
 	ReserveCharmRevision(ctx context.Context, id corecharm.ID, revision int) (corecharm.ID, error)
 
+	// GetCharm returns the charm using the charm ID.
+	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, error)
+
 	// SetCharm persists the charm metadata, actions, config and manifest to
 	// state.
 	SetCharm(ctx context.Context, charm charm.Charm, state charm.SetStateArgs) (corecharm.ID, error)
@@ -174,6 +177,60 @@ func (s *CharmService) IsSubordinateCharm(ctx context.Context, id corecharm.ID) 
 		return false, errors.Trace(err)
 	}
 	return b, nil
+}
+
+// GetCharm returns the charm using the charm ID.
+// Calling this method will return all the data associated with the charm.
+// It is not expected to call this method for all calls, instead use the move
+// focused and specific methods. That's because this method is very expensive
+// to call. This is implemented for the cases where all the charm data is
+// needed; model migration, charm export, etc.
+//
+// If the charm does not exist, a NotFound error is returned.
+func (s *CharmService) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, error) {
+	if err := id.Validate(); err != nil {
+		return nil, fmt.Errorf("charm id: %w", err)
+	}
+
+	charm, err := s.st.GetCharm(ctx, id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// The charm needs to be decoded into the internalcharm.Charm type.
+
+	metadata, err := decodeMetadata(charm.Metadata)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	manifest, err := decodeManifest(charm.Manifest)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	actions, err := decodeActions(charm.Actions)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	config, err := decodeConfig(charm.Config)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	lxdProfile, err := decodeLXDProfile(charm.LXDProfile)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return internalcharm.NewCharmBase(
+		&metadata,
+		&manifest,
+		&config,
+		&actions,
+		&lxdProfile,
+	), nil
 }
 
 // GetCharmMetadata returns the metadata for the charm using the charm ID.

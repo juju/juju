@@ -1051,6 +1051,71 @@ func (s *charmStateSuite) TestSetCharmTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmAlreadyExists)
 }
 
+func (s *charmStateSuite) TestSetCharmThenGetCharm(c *gc.C) {
+	st := NewCharmState(&commonStateBase{StateBase: domain.NewStateBase(s.TxnRunnerFactory())})
+
+	expectedMetadata := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+	}
+	expectedManifest := charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Track: "latest",
+					Risk:  charm.RiskEdge,
+				},
+				Architectures: []string{"amd64", "arm64"},
+			},
+		},
+	}
+	expectedActions := charm.Actions{
+		Actions: map[string]charm.Action{
+			"action1": {
+				Description:    "description",
+				Parallel:       true,
+				ExecutionGroup: "group",
+				Params:         []byte(`{}`),
+			},
+		},
+	}
+	expectedConfig := charm.Config{
+		Options: map[string]charm.Option{
+			"option1": {
+				Type:        "string",
+				Description: "description",
+				Default:     "default",
+			},
+		},
+	}
+	expectedLXDProfile := []byte("[{}]")
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata:   expectedMetadata,
+		Manifest:   expectedManifest,
+		Actions:    expectedActions,
+		Config:     expectedConfig,
+		LXDProfile: expectedLXDProfile,
+	}, setStateArgs())
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, charm.Charm{
+		Metadata:   expectedMetadata,
+		Manifest:   expectedManifest,
+		Actions:    expectedActions,
+		Config:     expectedConfig,
+		LXDProfile: expectedLXDProfile,
+	})
+}
+
 func (s *charmStateSuite) TestSetCharmAllowsSameNameButDifferentRevision(c *gc.C) {
 	st := NewCharmState(&commonStateBase{StateBase: domain.NewStateBase(s.TxnRunnerFactory())})
 
@@ -1947,7 +2012,7 @@ func (s *charmStateSuite) TestGetCharmConfigEmpty(c *gc.C) {
 	config, err := st.GetCharmConfig(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(config, gc.DeepEquals, charm.Config{
-		Options: map[string]charm.Option{},
+		Options: map[string]charm.Option(nil),
 	})
 }
 
@@ -2065,7 +2130,7 @@ func (s *charmStateSuite) TestGetCharmActionsEmpty(c *gc.C) {
 	config, err := st.GetCharmActions(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(config, gc.DeepEquals, charm.Actions{
-		Actions: map[string]charm.Action{},
+		Actions: map[string]charm.Action(nil),
 	})
 }
 
