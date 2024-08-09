@@ -165,7 +165,7 @@ type ApplicationAPI interface {
 func (c *configCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "config",
-		Args:     "<application name> [--branch <branch-name>] [--reset <key[,key]>] [<attribute-key>][=<value>] ...]",
+		Args:     "<application name> [--reset <key[,key]>] [<attribute-key>][=<value>] ...]",
 		Purpose:  configSummary,
 		Doc:      configDetails,
 		Examples: examples,
