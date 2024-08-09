@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // WatchableService provides the API for working with the secret service.
@@ -42,6 +43,7 @@ func NewWatchableService(
 			clock:                         clock.WallClock,
 			providerGetter:                provider.Provider,
 			adminConfigGetter:             adminConfigGetter,
+			uuidGenerator:                 uuid.NewUUID,
 		},
 		watcherFactory: watcherFactory,
 	}
