@@ -287,7 +287,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		// loadBackendInfo will error is there's no active backend.
 		backend := s.backends[s.activeBackendID]
 
-		latestRevision, err := s.st.GetLatestRevision(ctx, uri)
+		latestRevision, err := s.secretState.GetLatestRevision(ctx, uri)
 		if err != nil {
 			// Check if the uri exists or not.
 			return errors.Trace(err)
@@ -321,7 +321,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		return errors.Trace(err)
 	}
 
-	if p.ValueRef != nil || len(params.Data) != 0 {
+	if p.ValueRef != nil || len(p.Data) != 0 {
 		rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, s.modelID, revisionID)
 		if err != nil {
 			return errors.Trace(err)
@@ -384,7 +384,7 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 		return errors.Trace(err)
 	}
 
-	if p.ValueRef != nil || len(params.Data) != 0 {
+	if p.ValueRef != nil || len(p.Data) != 0 {
 		rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, s.modelID, revisionID)
 		if err != nil {
 			return errors.Trace(err)
