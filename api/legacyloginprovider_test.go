@@ -9,14 +9,17 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	jujuversion "github.com/juju/juju/core/version"
 	jujuhttp "github.com/juju/juju/internal/http"
 	coretesting "github.com/juju/juju/internal/testing"
 	jtesting "github.com/juju/juju/internal/testing"
@@ -26,9 +29,32 @@ import (
 
 type legacyLoginProviderSuite struct {
 	coretesting.BaseSuite
+
+	mockRootAPI  *MockRootAPI
+	mockAdminAPI *MockAdminAPI
 }
 
 var _ = gc.Suite(&legacyLoginProviderSuite{})
+
+//go:generate go run go.uber.org/mock/mockgen -typed -package api_test -destination api_mock_test.go -source legacyloginprovider_test.go RootAPI,AdminAPI
+
+type RootAPI interface {
+	Admin(id string) (AdminAPI, error)
+}
+
+type AdminAPI interface {
+	Login(req params.LoginRequest) (params.LoginResult, error)
+}
+
+func (s *legacyLoginProviderSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.mockRootAPI = NewMockRootAPI(ctrl)
+	s.mockAdminAPI = NewMockAdminAPI(ctrl)
+	s.mockRootAPI.EXPECT().Admin(gomock.Any()).Return(s.mockAdminAPI, nil).AnyTimes()
+
+	return ctrl
+}
 
 func (s *legacyLoginProviderSuite) APIInfo() *api.Info {
 	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
@@ -36,7 +62,7 @@ func (s *legacyLoginProviderSuite) APIInfo() *api.Info {
 		if modelUUID != "" && modelUUID != jtesting.ModelTag.Id() {
 			err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
 		}
-		return &testRootAPI{}, err
+		return s.mockRootAPI, err
 	})
 	s.AddCleanup(func(_ *gc.C) { srv.Close() })
 	info := &api.Info{
@@ -51,6 +77,27 @@ func (s *legacyLoginProviderSuite) APIInfo() *api.Info {
 // TestLegacyProviderLogin verifies that the legacy login provider
 // works for login and returns the password as the token.
 func (s *legacyLoginProviderSuite) TestLegacyProviderLogin(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.mockAdminAPI.EXPECT().Login(gomock.Any()).DoAndReturn(func(lr params.LoginRequest) (params.LoginResult, error) {
+		mc := jc.NewMultiChecker()
+		mc.AddExpr("_.CLIArgs", jc.Ignore)
+		c.Check(lr, mc, params.LoginRequest{
+			AuthTag:       "user-admin",
+			Credentials:   "dummy-secret",
+			BakeryVersion: 3,
+			ClientVersion: jujuversion.Current.String(),
+		})
+		return params.LoginResult{
+			ControllerTag: jtesting.ControllerTag.String(),
+			ModelTag:      jtesting.ModelTag.String(),
+			Servers:       [][]params.HostPort{},
+			ServerVersion: jujuversion.Current.String(),
+			PublicDNSName: "somewhere.example.com",
+		}, nil
+	})
+
 	info := s.APIInfo()
 
 	username := names.NewUserTag("admin")
@@ -61,6 +108,7 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderLogin(c *gc.C) {
 		Addrs:          info.Addrs,
 		ControllerUUID: info.ControllerUUID,
 		CACert:         info.CACert,
+		ModelTag:       info.ModelTag,
 	}, api.DialOpts{
 		LoginProvider: lp,
 	})
@@ -70,7 +118,22 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderLogin(c *gc.C) {
 }
 
 func (s *legacyLoginProviderSuite) TestLegacyProviderWithNilTag(c *gc.C) {
-	info := s.APIInfo(c)
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.mockAdminAPI.EXPECT().Login(gomock.Any()).DoAndReturn(func(lr params.LoginRequest) (params.LoginResult, error) {
+		mc := jc.NewMultiChecker()
+		mc.AddExpr("_.CLIArgs", jc.Ignore)
+		c.Check(lr, mc, params.LoginRequest{
+			AuthTag:       "",
+			Credentials:   "dummy-secret",
+			BakeryVersion: 3,
+			ClientVersion: jujuversion.Current.String(),
+		})
+		return params.LoginResult{}, fmt.Errorf("failed to authenticate request: %w", errors.Unauthorized)
+	})
+
+	info := s.APIInfo()
 	password := jujutesting.AdminSecret
 
 	lp := api.NewLegacyLoginProvider(nil, password, "", nil, nil, nil)
@@ -78,6 +141,7 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderWithNilTag(c *gc.C) {
 		Addrs:          info.Addrs,
 		ControllerUUID: info.ControllerUUID,
 		CACert:         info.CACert,
+		ModelTag:       info.ModelTag,
 	}, api.DialOpts{
 		LoginProvider: lp,
 	})

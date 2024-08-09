@@ -1861,7 +1861,7 @@ func (env *azureEnviron) DestroyController(ctx envcontext.ProviderCallContext, c
 	return nil
 }
 
-func (env *azureEnviron) deleteControllerManagedIdentities(ctx context.ProviderCallContext, controllerUUID string) error {
+func (env *azureEnviron) deleteControllerManagedIdentities(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	roleDefinitionClient, err := env.roleDefinitionClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -1943,7 +1943,7 @@ func (env *azureEnviron) deleteControllerManagedIdentities(ctx context.ProviderC
 	return nil
 }
 
-func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx context.ProviderCallContext, controllerUUID string) error {
+func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	resourceGroups, err := env.resourceGroupsClient()
 	if err != nil {
 		return errors.Trace(err)

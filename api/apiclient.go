@@ -354,7 +354,7 @@ func (c *conn) connectStream(path string, attrs url.Values, extraHeaders http.He
 		Proxy:           proxy.DefaultConfig.GetProxy,
 		TLSClientConfig: c.tlsConfig,
 	}
-	requestHeader, err := st.loginProvider.AuthHeader()
+	requestHeader, err := c.loginProvider.AuthHeader()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
