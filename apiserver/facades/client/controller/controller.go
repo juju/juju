@@ -380,7 +380,7 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 		return result, errors.Trace(err)
 	}
 
-	modelsWithLogins, err := c.modelService.ModelLastLogins(ctx, user.UUID(c.apiUser.Id()))
+	modelsWithLogins, err := c.modelService.ModelsWithLastLogin(ctx, user.UUID(c.apiUser.Id()))
 	if err != nil {
 		return params.UserModelList{}, fmt.Errorf("getting models: %w", err)
 	}

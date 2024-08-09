@@ -58,7 +58,7 @@ type ModelService interface {
 	HostedModels(ctx context.Context) ([]model.HostedModel, error)
 	// ModelLastLogins lists all non-dead models along with the last login by the
 	// specified user.
-	ModelLastLogins(ctx context.Context, userID user.UUID) ([]model.ModelWithLogin, error)
+	ModelsWithLastLogin(ctx context.Context, userID user.UUID) ([]model.ModelWithLogin, error)
 }
 
 // ModelConfigService provides access to the model configuration.

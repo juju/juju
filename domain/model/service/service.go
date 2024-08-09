@@ -83,11 +83,11 @@ type State interface {
 	// models exist, an empty slice is returned.
 	HostedModels(ctx context.Context, includeLifes []life.Value, excludeIDs []coremodel.UUID) ([]coremodel.HostedModel, error)
 
-	// ModelLastLogins lists all models along with the last login by the
+	// ModelsWithLastLogin lists all models along with the last login by the
 	// specified user. This function will filter on models that have a "life"
 	// value in the includeLifes slice. If no matching models exist, an empty
 	// slice is returned.
-	ModelLastLogins(ctx context.Context, userID coreuser.UUID, includeLifes []life.Value) ([]coremodel.ModelWithLogin, error)
+	ModelsWithLastLogin(ctx context.Context, userID coreuser.UUID, includeLifes []life.Value) ([]coremodel.ModelWithLogin, error)
 
 	// ListModelIDs returns a list of all model UUIDs.
 	ListModelIDs(context.Context) ([]coremodel.UUID, error)
@@ -464,10 +464,10 @@ func (s *Service) HostedModels(ctx context.Context) ([]coremodel.HostedModel, er
 	)
 }
 
-// ModelLastLogins lists all non-dead models along with the last login by the
+// ModelsWithLastLogin lists all non-dead models along with the last login by the
 // specified user.
-func (s *Service) ModelLastLogins(ctx context.Context, userID coreuser.UUID) ([]coremodel.ModelWithLogin, error) {
-	return s.st.ModelLastLogins(ctx, userID, []life.Value{life.Alive, life.Dying})
+func (s *Service) ModelsWithLastLogin(ctx context.Context, userID coreuser.UUID) ([]coremodel.ModelWithLogin, error) {
+	return s.st.ModelsWithLastLogin(ctx, userID, []life.Value{life.Alive, life.Dying})
 }
 
 // ListModelsForUser lists the models that are either owned by the user or

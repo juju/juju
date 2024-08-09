@@ -1207,11 +1207,11 @@ WHERE uuid = $M.model_id
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// TestModelLastLogins tests the basic functionality of State.ModelLastLogins:
+// TestModelsWithLastLogin tests the basic functionality of State.ModelsWithLastLogin:
 //   - models can be filtered out by life
 //   - models are still returned even if they have never been accessed
 //   - new logins are reflected in the return value.
-func (m *stateSuite) TestModelLastLogins(c *gc.C) {
+func (m *stateSuite) TestModelsWithLastLogin(c *gc.C) {
 	modelState := NewState(m.TxnRunnerFactory())
 	userState := accessstate.NewUserState(m.TxnRunnerFactory())
 
@@ -1287,7 +1287,7 @@ func (m *stateSuite) TestModelLastLogins(c *gc.C) {
 	}}
 
 	// Get models with last login
-	modelsWithLogin, err := modelState.ModelLastLogins(context.Background(),
+	modelsWithLogin, err := modelState.ModelsWithLastLogin(context.Background(),
 		m.userUUID, []corelife.Value{corelife.Alive, corelife.Dying})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelsWithLogin, jc.DeepEquals, expected)
@@ -1299,7 +1299,7 @@ func (m *stateSuite) TestModelLastLogins(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected[0].LastLogin = &updatedLogin
 
-	modelsWithLogin, err = modelState.ModelLastLogins(context.Background(),
+	modelsWithLogin, err = modelState.ModelsWithLastLogin(context.Background(),
 		m.userUUID, []corelife.Value{corelife.Alive, corelife.Dying})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelsWithLogin, jc.DeepEquals, expected)

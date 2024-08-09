@@ -795,7 +795,7 @@ FROM v_model
 
 	var resultsForModel []dbModel
 
-	stmt, err := sqlair.Prepare(query, dbModel{})
+	stmt, err := s.Prepare(query, dbModel{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing get model statement: %w", err)
 	}
@@ -839,7 +839,7 @@ AND uuid NOT IN ($modelIDList[:])
 	inputLifes := lifeList(includeLifes)
 	inputModelIDs := modelIDList(excludeIDs)
 
-	stmt, err := sqlair.Prepare(query, dbModel{}, inputLifes, inputModelIDs)
+	stmt, err := s.Prepare(query, dbModel{}, inputLifes, inputModelIDs)
 	if err != nil {
 		return nil, fmt.Errorf("preparing get model statement: %w", err)
 	}
@@ -890,10 +890,10 @@ AND uuid NOT IN ($modelIDList[:])
 	return hostedModels, nil
 }
 
-// ModelLastLogins lists all models along with the last login by the specified
+// ModelsWithLastLogin lists all models along with the last login by the specified
 // user. This function will filter on models that have a "life" value in the
 // includeLifes slice. If no matching models exist, an empty slice is returned.
-func (s *State) ModelLastLogins(
+func (s *State) ModelsWithLastLogin(
 	ctx context.Context,
 	userID user.UUID,
 	includeLifes []corelife.Value,
@@ -917,7 +917,7 @@ WHERE life IN ($lifeList[:])
 		"user_uuid": userID,
 	}
 
-	stmt, err := sqlair.Prepare(query, dbModel{}, userModelLastLogin{}, inputLifes, args)
+	stmt, err := s.Prepare(query, dbModel{}, userModelLastLogin{}, inputLifes, args)
 	if err != nil {
 		return nil, fmt.Errorf("preparing select models statement: %w", err)
 	}
@@ -936,17 +936,17 @@ WHERE life IN ($lifeList[:])
 		return nil, fmt.Errorf("getting all models: %w", err)
 	}
 
-	rval := make([]coremodel.ModelWithLogin, 0, len(resultsForModel))
+	rval := make([]coremodel.ModelWithLogin, len(resultsForModel))
 	for i, stateModel := range resultsForModel {
 		coreModel, err := stateModel.toCoreModel()
 		if err != nil {
 			return nil, fmt.Errorf("transforming model %q from state: %w", stateModel.UUID, err)
 		}
-		rval = append(rval, coremodel.ModelWithLogin{
+		rval[i] = coremodel.ModelWithLogin{
 			Model:     coreModel,
 			UserID:    user.UUID(lastLogins[i].UserID),
 			LastLogin: lastLogins[i].LastLogin,
-		})
+		}
 	}
 	return rval, nil
 }

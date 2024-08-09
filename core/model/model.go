@@ -124,6 +124,7 @@ type HostedModel struct {
 	cloud.Credential
 }
 
+// ModelWithLogin bundles a Model with the last login by a certain user.
 type ModelWithLogin struct {
 	Model
 	UserID    user.UUID

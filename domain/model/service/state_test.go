@@ -236,7 +236,7 @@ func (d *dummyState) HostedModels(_ context.Context, includeLifes []life.Value, 
 	return hostedModels, nil
 }
 
-func (d *dummyState) ModelLastLogins(_ context.Context, userID coreuser.UUID, includeLifes []life.Value) ([]coremodel.ModelWithLogin, error) {
+func (d *dummyState) ModelsWithLastLogin(_ context.Context, userID coreuser.UUID, includeLifes []life.Value) ([]coremodel.ModelWithLogin, error) {
 	var modelsWithLogin []coremodel.ModelWithLogin
 
 	for _, m := range d.models {
