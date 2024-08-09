@@ -41,9 +41,13 @@ type runCommand struct {
 	args          [][]string
 }
 
+const runUsage = "<unit> [<unit> ...] <action-name> [<key>=<value> [<key>[.<key> ...]=<value>]]"
+
 const runDoc = `
 Run a charm action for execution on the given unit(s), with a given set of params.
 An ID is returned for use with 'juju show-operation <ID>'.
+
+All units must be of the same application.
 
 A action executed on a given unit becomes a task with an ID that can be
 used with 'juju show-task <ID>'.
@@ -62,8 +66,9 @@ results will be printed with the action id and action status. To see more detail
 information about run timings etc, use --format yaml.
 
 Valid unit identifiers are: 
-  a standard unit ID, such as mysql/0 or;
-  leader syntax of the form <application>/leader, such as mysql/leader.
+  a standard unit ID, such as mysql/0;
+  a leader syntax of the form <application>/leader, such as mysql/leader; or
+  an application ID, such as mysql, which will run the action on the leader unit.
 
 If the leader syntax is used, the leader unit for the application will be
 resolved before the action is enqueued.
@@ -88,6 +93,7 @@ const runExamples = `
     juju run mysql/3 backup --utc
     juju run mysql/3 backup
     juju run mysql/leader backup
+    juju run mysql backup
     juju show-operation <ID>
     juju run mysql/3 backup --params parameters.yml
     juju run mysql/3 backup out=out.tar.bz2 file.kind=xz file.quality=high
@@ -107,7 +113,7 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *runCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "run",
-		Args:     "<unit> [<unit> ...] <action-name> [<key>=<value> [<key>[.<key> ...]=<value>]]",
+		Args:     runUsage,
 		Purpose:  "Run an action on a specified unit.",
 		Doc:      runDoc,
 		Examples: runExamples,
@@ -124,22 +130,49 @@ func (c *runCommand) Init(args []string) (err error) {
 	if err := c.runCommandBase.Init(args); err != nil {
 		return errors.Trace(err)
 	}
-	for _, arg := range args {
-		if names.IsValidUnit(arg) || validLeader.MatchString(arg) {
-			c.unitReceivers = append(c.unitReceivers, arg)
-		} else if nameRule.MatchString(arg) {
-			c.actionName = arg
+	if len(args) < 2 {
+		return errors.New("too few arguments.  Usage: \"" + runUsage + "\"")
+	}
+
+	// Separate positional and key-value arguments
+	firstKeyValue := len(args)
+	for i, arg := range args {
+		if strings.Contains(arg, "=") {
+			firstKeyValue = i
 			break
-		} else {
-			return errors.Errorf("invalid unit or action name %q", arg)
 		}
 	}
-	if len(c.unitReceivers) == 0 {
-		return errors.New("no unit specified")
+	iAction := firstKeyValue - 1
+	applicationName := ""
+	// Parse positional arguments of form [<unit>, [<unit> ...], <action-name>]
+	for i, arg := range args[:iAction] {
+		thisApplicationName, thisUnitNumber, foundUnitNumber := strings.Cut(arg, unitSep)
+		if i == 0 {
+			applicationName = thisApplicationName
+			if err := names.ValidateApplicationName(applicationName); err != nil {
+				return err
+			}
+		}
+		if thisApplicationName != applicationName {
+			return errors.New("all units must be of the same application")
+		}
+
+		// No unit number specified.  Use leader
+		if !foundUnitNumber {
+			thisUnitNumber = leaderSuffix
+		}
+		thisUnitId := thisApplicationName + unitSep + thisUnitNumber
+		if !names.IsValidUnit(thisUnitId) && !validLeader.MatchString(thisUnitId) {
+			return errors.Errorf("invalid unit name %q", thisUnitId)
+		}
+		c.unitReceivers = append(c.unitReceivers, thisUnitId)
 	}
-	if c.actionName == "" {
-		return errors.New("no action specified")
+
+	actionName := args[iAction]
+	if !nameRule.MatchString(actionName) {
+		return errors.Errorf("invalid action name %q", actionName)
 	}
+	c.actionName = actionName
 
 	// Parse CLI key-value args if they exist.
 	c.args = make([][]string, 0)

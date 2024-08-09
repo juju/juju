@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -78,52 +79,67 @@ func (s *RunSuite) TestInit(c *gc.C) {
 	}{{
 		should:      "fail with missing args",
 		args:        []string{},
-		expectError: "no unit specified",
+		expectError: fmt.Sprintf("too few arguments.  Usage: " + regexp.QuoteMeta("\"<unit> [<unit> ...] <action-name> [<key>=<value> [<key>[.<key> ...]=<value>]]\"")),
 	}, {
 		should:      "fail with both --background and --wait",
-		args:        []string{"--background", "--wait=60s", validUnitId, "action"},
+		args:        []string{"--background", "--wait=60s", validUnitId, validActionId},
 		expectError: "cannot specify both --wait and --background",
 	}, {
-		should:      "fail with no action specified",
+		should:      "fail with missing args",
 		args:        []string{validUnitId},
-		expectError: "no action specified",
+		expectError: fmt.Sprintf("too few arguments.  Usage: " + regexp.QuoteMeta("\"<unit> [<unit> ...] <action-name> [<key>=<value> [<key>[.<key> ...]=<value>]]\"")),
+	}, {
+		should:      "fail with no action specified",
+		args:        []string{validUnitId, validUnitId},
+		expectError: fmt.Sprintf("invalid action name %q", validUnitId),
 	}, {
 		should:      "fail with invalid unit ID",
-		args:        []string{invalidUnitId, "valid-action-name"},
-		expectError: "invalid unit or action name \"something-strange-\"",
+		args:        []string{invalidUnitId, validActionId},
+		expectError: fmt.Sprintf("invalid application name %q", invalidUnitId),
 	}, {
-		should:      "fail with invalid unit ID first",
-		args:        []string{validUnitId, invalidUnitId, "valid-action-name"},
-		expectError: "invalid unit or action name \"something-strange-\"",
+		should:      "fail with invalid unit ID",
+		args:        []string{"unit/not-valid", validActionId},
+		expectError: fmt.Sprintf("invalid unit name %q", "unit/not-valid"),
+	}, {
+		should:      "fail with invalid action",
+		args:        []string{validUnitId, invalidActionId},
+		expectError: fmt.Sprintf("invalid action name %q", invalidActionId),
 	}, {
 		should:      "fail with invalid unit ID second",
-		args:        []string{invalidUnitId, validUnitId, "valid-action-name"},
-		expectError: "invalid unit or action name \"something-strange-\"",
+		args:        []string{validUnitId, invalidUnitId, validActionId},
+		expectError: "all units must be of the same application",
+	}, {
+		should:      "fail with units from different applications",
+		args:        []string{validUnitId, "a-different-application/0", validActionId},
+		expectError: "all units must be of the same application",
 	}, {
 		should:       "work with multiple valid units",
-		args:         []string{validUnitId, validUnitId2, "valid-action-name"},
+		args:         []string{validUnitId, validUnitId2, validActionId},
 		expectUnits:  []string{validUnitId, validUnitId2},
-		expectAction: "valid-action-name",
+		expectAction: validActionId,
 		expectKVArgs: [][]string{},
 	}, {
 		should:      "fail with invalid action name",
 		args:        []string{validUnitId, "BadName"},
-		expectError: "invalid unit or action name \"BadName\"",
+		expectError: "invalid action name \"BadName\"",
 	}, {
 		should:      "fail with invalid action name ending in \"-\"",
 		args:        []string{validUnitId, "name-end-with-dash-"},
-		expectError: "invalid unit or action name \"name-end-with-dash-\"",
+		expectError: "invalid action name \"name-end-with-dash-\"",
+	}, {
+		// Note: this message is misleading as see no key-value args so we parse "uh" as the action
+		//       name.  Have no way of detecting that valid-action-name was the intended action,
+		//       valid action names and application names have the same form.
+		should:      "fail with wrong formatting of k-v args, but give misleading error on cause",
+		args:        []string{validUnitId, validActionId, "uh"},
+		expectError: "all units must be of the same application",
 	}, {
 		should:      "fail with wrong formatting of k-v args",
-		args:        []string{validUnitId, "valid-action-name", "uh"},
-		expectError: "argument \"uh\" must be of the form key.key.key...=value",
-	}, {
-		should:      "fail with wrong formatting of k-v args",
-		args:        []string{validUnitId, "valid-action-name", "foo.Baz=3"},
+		args:        []string{validUnitId, validActionId, "foo.Baz=3"},
 		expectError: "key \"Baz\" must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens",
 	}, {
 		should:      "fail with wrong formatting of k-v args",
-		args:        []string{validUnitId, "valid-action-name", "no-go?od=3"},
+		args:        []string{validUnitId, validActionId, "no-go?od=3"},
 		expectError: "key \"no-go\\?od\" must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens",
 	}, {
 		should:       "use wait if specified",
@@ -148,46 +164,46 @@ func (s *RunSuite) TestInit(c *gc.C) {
 		expectAction: "00-action",
 	}, {
 		should:       "work with empty values",
-		args:         []string{validUnitId, "valid-action-name", "ok="},
+		args:         []string{validUnitId, validActionId, "ok="},
 		expectUnits:  []string{validUnitId},
-		expectAction: "valid-action-name",
+		expectAction: validActionId,
 		expectKVArgs: [][]string{{"ok", ""}},
 	}, {
 		should:             "handle --parse-strings",
-		args:               []string{validUnitId, "valid-action-name", "--string-args"},
+		args:               []string{validUnitId, validActionId, "--string-args"},
 		expectUnits:        []string{validUnitId},
-		expectAction:       "valid-action-name",
+		expectAction:       validActionId,
 		expectParseStrings: true,
 	}, {
 		// cf. worker/uniter/runner/jujuc/action-set_test.go per @fwereade
 		should:       "work with multiple '=' signs",
-		args:         []string{validUnitId, "valid-action-name", "ok=this=is=weird="},
+		args:         []string{validUnitId, validActionId, "ok=this=is=weird="},
 		expectUnits:  []string{validUnitId},
-		expectAction: "valid-action-name",
+		expectAction: validActionId,
 		expectKVArgs: [][]string{{"ok", "this=is=weird="}},
 	}, {
 		should:       "init properly with no params",
-		args:         []string{validUnitId, "valid-action-name"},
+		args:         []string{validUnitId, validActionId},
 		expectUnits:  []string{validUnitId},
-		expectAction: "valid-action-name",
+		expectAction: validActionId,
 	}, {
 		should:               "handle --params properly",
-		args:                 []string{validUnitId, "valid-action-name", "--params=foo.yml"},
+		args:                 []string{validUnitId, validActionId, "--params=foo.yml"},
 		expectUnits:          []string{validUnitId},
-		expectAction:         "valid-action-name",
+		expectAction:         validActionId,
 		expectParamsYamlPath: "foo.yml",
 	}, {
 		should: "handle --params and key-value args",
 		args: []string{
 			validUnitId,
-			"valid-action-name",
+			validActionId,
 			"--params=foo.yml",
 			"foo.bar=2",
 			"foo.baz.bo=3",
 			"bar.foo=hello",
 		},
 		expectUnits:          []string{validUnitId},
-		expectAction:         "valid-action-name",
+		expectAction:         validActionId,
 		expectParamsYamlPath: "foo.yml",
 		expectKVArgs: [][]string{
 			{"foo", "bar", "2"},
@@ -198,13 +214,13 @@ func (s *RunSuite) TestInit(c *gc.C) {
 		should: "handle key-value args with no --params",
 		args: []string{
 			validUnitId,
-			"valid-action-name",
+			validActionId,
 			"foo.bar=2",
 			"foo.baz.bo=y",
 			"bar.foo=hello",
 		},
 		expectUnits:  []string{validUnitId},
-		expectAction: "valid-action-name",
+		expectAction: validActionId,
 		expectKVArgs: [][]string{
 			{"foo", "bar", "2"},
 			{"foo", "baz", "bo", "y"},
@@ -212,9 +228,15 @@ func (s *RunSuite) TestInit(c *gc.C) {
 		},
 	}, {
 		should:       "work with leader identifier",
-		args:         []string{"mysql/leader", "valid-action-name"},
-		expectUnits:  []string{"mysql/leader"},
-		expectAction: "valid-action-name",
+		args:         []string{validLeaderUnitId, validActionId},
+		expectUnits:  []string{validLeaderUnitId},
+		expectAction: validActionId,
+		expectKVArgs: [][]string{},
+	}, {
+		should:       "work with implicit leader identifier",
+		args:         []string{validApplicationId, validActionId},
+		expectUnits:  []string{validLeaderUnitId},
+		expectAction: validActionId,
 		expectKVArgs: [][]string{},
 	}}
 
