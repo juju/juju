@@ -41,9 +41,9 @@ type AddUnitArg struct {
 	// Storage params go here.
 }
 
-// UpsertCAASUnitParams contain parameters for introducing
+// RegisterCAASUnitParams contain parameters for introducing
 // a k8s unit representing a new pod to the model.
-type UpsertCAASUnitParams struct {
+type RegisterCAASUnitParams struct {
 	UnitName     string
 	PasswordHash *string
 	ProviderId   *string

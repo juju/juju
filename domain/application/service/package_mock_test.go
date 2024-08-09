@@ -47,7 +47,7 @@ func (m *MockApplicationState) EXPECT() *MockApplicationStateMockRecorder {
 }
 
 // AddUnits mocks base method.
-func (m *MockApplicationState) AddUnits(arg0 context.Context, arg1 string, arg2 ...application0.AddUnitArg) error {
+func (m *MockApplicationState) AddUnits(arg0 context.Context, arg1 string, arg2 ...application0.UpsertUnitArg) error {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1}
 	for _, a := range arg2 {
@@ -78,19 +78,19 @@ func (c *MockApplicationStateAddUnitsCall) Return(arg0 error) *MockApplicationSt
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateAddUnitsCall) Do(f func(context.Context, string, ...application0.AddUnitArg) error) *MockApplicationStateAddUnitsCall {
+func (c *MockApplicationStateAddUnitsCall) Do(f func(context.Context, string, ...application0.UpsertUnitArg) error) *MockApplicationStateAddUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateAddUnitsCall) DoAndReturn(f func(context.Context, string, ...application0.AddUnitArg) error) *MockApplicationStateAddUnitsCall {
+func (c *MockApplicationStateAddUnitsCall) DoAndReturn(f func(context.Context, string, ...application0.UpsertUnitArg) error) *MockApplicationStateAddUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CreateApplication mocks base method.
-func (m *MockApplicationState) CreateApplication(arg0 context.Context, arg1 string, arg2 application0.AddApplicationArg, arg3 ...application0.AddUnitArg) (application.ID, error) {
+func (m *MockApplicationState) CreateApplication(arg0 context.Context, arg1 string, arg2 application0.AddApplicationArg, arg3 ...application0.UpsertUnitArg) (application.ID, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1, arg2}
 	for _, a := range arg3 {
@@ -122,13 +122,13 @@ func (c *MockApplicationStateCreateApplicationCall) Return(arg0 application.ID, 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateCreateApplicationCall) Do(f func(context.Context, string, application0.AddApplicationArg, ...application0.AddUnitArg) (application.ID, error)) *MockApplicationStateCreateApplicationCall {
+func (c *MockApplicationStateCreateApplicationCall) Do(f func(context.Context, string, application0.AddApplicationArg, ...application0.UpsertUnitArg) (application.ID, error)) *MockApplicationStateCreateApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateCreateApplicationCall) DoAndReturn(f func(context.Context, string, application0.AddApplicationArg, ...application0.AddUnitArg) (application.ID, error)) *MockApplicationStateCreateApplicationCall {
+func (c *MockApplicationStateCreateApplicationCall) DoAndReturn(f func(context.Context, string, application0.AddApplicationArg, ...application0.UpsertUnitArg) (application.ID, error)) *MockApplicationStateCreateApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -167,6 +167,44 @@ func (c *MockApplicationStateDeleteApplicationCall) Do(f func(context.Context, s
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationStateDeleteApplicationCall) DoAndReturn(f func(context.Context, string) error) *MockApplicationStateDeleteApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ExecuteTxnOperation mocks base method.
+func (m *MockApplicationState) ExecuteTxnOperation(arg0 context.Context, arg1 string, arg2 bool, arg3 application0.StateTxOperationFunc) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExecuteTxnOperation", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ExecuteTxnOperation indicates an expected call of ExecuteTxnOperation.
+func (mr *MockApplicationStateMockRecorder) ExecuteTxnOperation(arg0, arg1, arg2, arg3 any) *MockApplicationStateExecuteTxnOperationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteTxnOperation", reflect.TypeOf((*MockApplicationState)(nil).ExecuteTxnOperation), arg0, arg1, arg2, arg3)
+	return &MockApplicationStateExecuteTxnOperationCall{Call: call}
+}
+
+// MockApplicationStateExecuteTxnOperationCall wrap *gomock.Call
+type MockApplicationStateExecuteTxnOperationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationStateExecuteTxnOperationCall) Return(arg0 error) *MockApplicationStateExecuteTxnOperationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationStateExecuteTxnOperationCall) Do(f func(context.Context, string, bool, application0.StateTxOperationFunc) error) *MockApplicationStateExecuteTxnOperationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationStateExecuteTxnOperationCall) DoAndReturn(f func(context.Context, string, bool, application0.StateTxOperationFunc) error) *MockApplicationStateExecuteTxnOperationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -245,44 +283,6 @@ func (c *MockApplicationStateStorageDefaultsCall) Do(f func(context.Context) (st
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationStateStorageDefaultsCall) DoAndReturn(f func(context.Context) (storage.StorageDefaults, error)) *MockApplicationStateStorageDefaultsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// UpsertApplicationUnit mocks base method.
-func (m *MockApplicationState) UpsertApplicationUnit(arg0 context.Context, arg1 string, arg2 application0.AddUnitArg) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpsertApplicationUnit", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpsertApplicationUnit indicates an expected call of UpsertApplicationUnit.
-func (mr *MockApplicationStateMockRecorder) UpsertApplicationUnit(arg0, arg1, arg2 any) *MockApplicationStateUpsertApplicationUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertApplicationUnit", reflect.TypeOf((*MockApplicationState)(nil).UpsertApplicationUnit), arg0, arg1, arg2)
-	return &MockApplicationStateUpsertApplicationUnitCall{Call: call}
-}
-
-// MockApplicationStateUpsertApplicationUnitCall wrap *gomock.Call
-type MockApplicationStateUpsertApplicationUnitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationStateUpsertApplicationUnitCall) Return(arg0 error) *MockApplicationStateUpsertApplicationUnitCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateUpsertApplicationUnitCall) Do(f func(context.Context, string, application0.AddUnitArg) error) *MockApplicationStateUpsertApplicationUnitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateUpsertApplicationUnitCall) DoAndReturn(f func(context.Context, string, application0.AddUnitArg) error) *MockApplicationStateUpsertApplicationUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

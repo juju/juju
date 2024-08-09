@@ -18,7 +18,9 @@ import (
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
+	uniterrors "github.com/juju/juju/domain/unit/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
@@ -26,6 +28,14 @@ import (
 // ApplicationState describes retrieval and persistence methods for
 // applications.
 type ApplicationState interface {
+	// ExecuteTxnOperation starts a txn and looks up ID of the specified application.
+	// It invokes the supplied callback with the app ID and a set of operations which
+	// can be called and will run in the single transaction. It returns an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist
+	// and an error satisfying [applicationerrors.ApplicationIsDead] if the application is dead
+	// and deadOk is false.
+	ExecuteTxnOperation(ctx context.Context, appName string, deadOk bool, _ application.StateTxOperationFunc) error
+
 	// StorageDefaults returns the default storage sources for a model.
 	StorageDefaults(ctx context.Context) (domainstorage.StorageDefaults, error)
 
@@ -36,11 +46,7 @@ type ApplicationState interface {
 	// CreateApplication creates an application, whilst inserting a charm into the
 	// database, returning an error satisfying [applicationerrors.ApplicationAle\readyExists]
 	// if the application already exists.
-	CreateApplication(context.Context, string, application.AddApplicationArg, ...application.AddUnitArg) (coreapplication.ID, error)
-
-	// UpsertApplicationUnit creates or updates the specified application unit, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-	UpsertApplicationUnit(context.Context, string, application.AddUnitArg) error
+	CreateApplication(context.Context, string, application.AddApplicationArg, ...application.UpsertUnitArg) (coreapplication.ID, error)
 
 	// DeleteApplication deletes the specified application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
@@ -50,7 +56,7 @@ type ApplicationState interface {
 
 	// AddUnits adds the specified units to the application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-	AddUnits(ctx context.Context, applicationName string, args ...application.AddUnitArg) error
+	AddUnits(ctx context.Context, applicationName string, args ...application.UpsertUnitArg) error
 }
 
 // ApplicationService provides the API for working with applications.
@@ -149,9 +155,9 @@ func (s *ApplicationService) CreateApplication(
 		},
 	}
 
-	unitArgs := make([]application.AddUnitArg, len(units))
+	unitArgs := make([]application.UpsertUnitArg, len(units))
 	for i, u := range units {
-		unitArgs[i] = makeAddUnitArgs(u)
+		unitArgs[i] = makeUpsertUnitArgs(u)
 	}
 
 	id, err := s.st.CreateApplication(ctx, name, appArg, unitArgs...)
@@ -161,8 +167,8 @@ func (s *ApplicationService) CreateApplication(
 	return id, nil
 }
 
-func makeAddUnitArgs(in AddUnitArg) application.AddUnitArg {
-	result := application.AddUnitArg{
+func makeUpsertUnitArgs(in AddUnitArg) application.UpsertUnitArg {
+	result := application.UpsertUnitArg{
 		UnitName:     in.UnitName,
 		PasswordHash: in.PasswordHash,
 	}
@@ -190,9 +196,9 @@ func makeAddUnitArgs(in AddUnitArg) application.AddUnitArg {
 // AddUnits adds the specified units to the application, returning an error
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ...AddUnitArg) error {
-	args := make([]application.AddUnitArg, len(units))
+	args := make([]application.UpsertUnitArg, len(units))
 	for i, u := range units {
-		args[i] = application.AddUnitArg{
+		args[i] = application.UpsertUnitArg{
 			UnitName: u.UnitName,
 		}
 	}
@@ -200,32 +206,70 @@ func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ..
 	return errors.Annotatef(err, "adding units to application %q", name)
 }
 
-// UpsertCAASUnit creates or updates the specified application unit in a caas model,
+// RegisterCAASUnit creates or updates the specified application unit in a caas model,
 // returning an error satisfying [applicationerrors.ApplicationNotFoundError]
-// if the application doesn't exist.
-func (s *ApplicationService) UpsertCAASUnit(ctx context.Context, appName string, unit UpsertCAASUnitParams) error {
+// if the application doesn't exist. If the application life is Dead, an error
+// satisfying [applicationerrors.ApplicationIsDead] is returned.
+func (s *ApplicationService) RegisterCAASUnit(ctx context.Context, appName string, args RegisterCAASUnitParams) error {
+	if args.PasswordHash == nil {
+		return errors.NotValidf("password hash")
+	}
+	if args.ProviderId == nil {
+		return errors.NotValidf("provider id")
+	}
+	if !args.OrderedScale {
+		return errors.NewNotImplemented(nil, "registering CAAS units not supported without ordered unit IDs")
+	}
+	if args.UnitName == "" {
+		return errors.NotValidf("missing unit name")
+	}
+
 	p := AddUnitArg{
-		UnitName:     &unit.UnitName,
-		PasswordHash: unit.PasswordHash,
+		UnitName:     &args.UnitName,
+		PasswordHash: args.PasswordHash,
+		CloudContainer: &CloudContainerParams{
+			ProviderId: args.ProviderId,
+			Ports:      args.Ports,
+		},
 	}
-	if unit.ProviderId != nil || unit.Address != nil || unit.Ports != nil {
-		cldContainer := &CloudContainerParams{
-			ProviderId: unit.ProviderId,
-			Ports:      unit.Ports,
-		}
-		if unit.Address != nil {
-			addr := network.NewSpaceAddress(*unit.Address, network.WithScope(network.ScopeMachineLocal))
-			// k8s doesn't support spaces yet.
-			addr.SpaceID = network.AlphaSpaceId
-			cldContainer.Address = &addr
-			origin := network.OriginProvider
-			cldContainer.AddressOrigin = &origin
-		}
-		p.CloudContainer = cldContainer
+	if args.Address != nil {
+		addr := network.NewSpaceAddress(*args.Address, network.WithScope(network.ScopeMachineLocal))
+		// k8s doesn't support spaces yet.
+		addr.SpaceID = network.AlphaSpaceId
+		p.CloudContainer.Address = &addr
+		origin := network.OriginProvider
+		p.CloudContainer.AddressOrigin = &origin
 	}
-	unitArg := makeAddUnitArgs(p)
-	err := s.st.UpsertApplicationUnit(ctx, appName, unitArg)
-	return errors.Annotatef(err, "saving caas unit %q", unit.UnitName)
+	// We need to do a bunch of business logic in the one transaction so pass in a closure that is
+	// given the transaction to use.
+	unitArg := makeUpsertUnitArgs(p)
+	err := s.st.ExecuteTxnOperation(ctx, appName, false, func(ctx context.Context, stateOps application.StateTxOperations, appID coreapplication.ID) error {
+		unitLife, err := stateOps.UnitLife(ctx, args.UnitName)
+		if errors.Is(err, uniterrors.NotFound) {
+			return s.insertCAASUnit(ctx, stateOps, appID, args.OrderedId, unitArg)
+		}
+		if unitLife == life.Dead {
+			return fmt.Errorf("dead unit %q already exists%w", args.UnitName, errors.Hide(applicationerrors.ApplicationIsDead))
+		}
+		return stateOps.UpsertUnit(ctx, appID, unitArg)
+	})
+	return errors.Annotatef(err, "saving caas unit %q", args.UnitName)
+}
+
+func (s *ApplicationService) insertCAASUnit(
+	ctx context.Context, stateOps application.StateTxOperations, appID coreapplication.ID, orderedID int, args application.UpsertUnitArg,
+) error {
+	appScale, err := stateOps.ApplicationScaleState(ctx, appID)
+	// TODO(units) - need to wire up app scale updates
+	appScale.Scale = 99999
+	if err != nil {
+		return errors.Annotatef(err, "getting application scale state for app %q", appID)
+	}
+	if orderedID >= appScale.Scale ||
+		(appScale.Scaling && orderedID >= appScale.ScaleTarget) {
+		return fmt.Errorf("unrequired unit %s is not assigned%w", *args.UnitName, errors.Hide(uniterrors.NotAssigned))
+	}
+	return stateOps.UpsertUnit(ctx, appID, args)
 }
 
 // DeleteApplication deletes the specified application, returning an error

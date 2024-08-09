@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagestate "github.com/juju/juju/domain/storage/state"
+	uniterrors "github.com/juju/juju/domain/unit/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -39,7 +41,7 @@ func NewApplicationState(base *commonStateBase, logger logger.Logger) *Applicati
 // CreateApplication creates an application, whilst inserting a charm into the
 // database, returning an error satisfying [applicationerrors.ApplicationAle\readyExists]
 // if the application already exists.
-func (st *ApplicationState) CreateApplication(ctx context.Context, name string, app application.AddApplicationArg, units ...application.AddUnitArg) (coreapplication.ID, error) {
+func (st *ApplicationState) CreateApplication(ctx context.Context, name string, app application.AddApplicationArg, units ...application.UpsertUnitArg) (coreapplication.ID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -81,6 +83,16 @@ INSERT INTO application (*) VALUES ($applicationDetails.*)
 		return "", errors.Trace(err)
 	}
 
+	scaleInfo := applicationScale{
+		ApplicationID: appID.String(),
+		Scale:         len(units),
+	}
+	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
+	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
 	var (
 		createChannelStmt *sqlair.Statement
 		channelInfo       applicationChannel
@@ -117,6 +129,9 @@ INSERT INTO application (*) VALUES ($applicationDetails.*)
 		if err := tx.Query(ctx, createPlatformStmt, platformInfo).Run(); err != nil {
 			return errors.Annotatef(err, "creating platform row for application %q", name)
 		}
+		if err := tx.Query(ctx, createScaleStmt, scaleInfo).Run(); err != nil {
+			return errors.Annotatef(err, "creating scale row for application %q", name)
+		}
 		if createChannelStmt != nil {
 			if err := tx.Query(ctx, createChannelStmt, channelInfo).Run(); err != nil {
 				return errors.Annotatef(err, "creating channel row for application %q", name)
@@ -128,7 +143,7 @@ INSERT INTO application (*) VALUES ($applicationDetails.*)
 		}
 
 		for _, u := range units {
-			if err := st.upsertUnit(ctx, tx, name, appID, u); err != nil {
+			if err := st.insertUnit(ctx, tx, appID, u); err != nil {
 				return fmt.Errorf("adding unit for application %q: %w", name, err)
 			}
 		}
@@ -160,11 +175,11 @@ WHERE name = $applicationName.name
 	return applicationerrors.ApplicationAlreadyExists
 }
 
-func (st *ApplicationState) lookupApplication(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.ID, error) {
+func (st *ApplicationState) lookupApplication(ctx context.Context, tx *sqlair.TX, name string, deadOk bool) (coreapplication.ID, error) {
 	var appID applicationID
 	appName := applicationName{Name: name}
 	queryApplication := `
-SELECT application.uuid AS &applicationID.*
+SELECT (uuid, life_id) AS (&applicationID.*)
 FROM application
 WHERE name = $applicationName.name
 `
@@ -179,28 +194,38 @@ WHERE name = $applicationName.name
 		}
 		return "", fmt.Errorf("%w: %s", applicationerrors.ApplicationNotFound, name)
 	}
+	if !deadOk && appID.LifeID == life.Dead {
+		return "", fmt.Errorf("%w: %s", applicationerrors.ApplicationIsDead, name)
+	}
 	return coreapplication.ID(appID.ID), nil
 }
 
-// UpsertApplicationUnit creates or updates the specified application unit, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-func (st *ApplicationState) UpsertApplicationUnit(ctx context.Context, name string, unit application.AddUnitArg) error {
+// ExecuteTxnOperation starts a txn and looks up ID of the specified application.
+// It invokes the supplied callback with the app ID and a set of operations which
+// can be called and will run in the single transaction. It returns an error
+// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist
+// and an error satisfying [applicationerrors.ApplicationIsDead] if the application is dead
+// and deadOk is false.
+func (st *ApplicationState) ExecuteTxnOperation(ctx context.Context, name string, deadOk bool, updateFunc application.StateTxOperationFunc) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		appID, err := st.lookupApplication(ctx, tx, name)
+		appID, err := st.lookupApplication(ctx, tx, name, deadOk)
 		if err != nil {
-			return fmt.Errorf("cannot add unit %q: %w", name, err)
+			return fmt.Errorf("looking up application %q: %w", name, err)
 		}
-		if err := st.upsertUnit(ctx, tx, name, appID, unit); err != nil {
-			return fmt.Errorf("adding unit for application %q: %w", name, err)
+		if err := updateFunc(ctx, stateTxOperations{
+			ApplicationState: st,
+			tx:               tx,
+		}, appID); err != nil {
+			return fmt.Errorf("executing state operations with app ID %q: %w", appID, err)
 		}
 		return nil
 	})
-	return errors.Annotatef(err, "upserting application %q", name)
+	return errors.Annotatef(err, "executing service operations for %q", name)
 }
 
 // DeleteApplication deletes the specified application, returning an error
@@ -231,6 +256,11 @@ func (st *ApplicationState) DeleteApplication(ctx context.Context, name string) 
 	if err != nil {
 		return errors.Trace(err)
 	}
+	deleteScale := `DELETE FROM application_scale WHERE application_uuid = $applicationID.uuid`
+	deleteScaleStmt, err := st.Prepare(deleteScale, appID)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	deleteChannel := `DELETE FROM application_channel WHERE application_uuid = $applicationID.uuid`
 	deleteChannelStmt, err := st.Prepare(deleteChannel, appID)
 	if err != nil {
@@ -238,7 +268,7 @@ func (st *ApplicationState) DeleteApplication(ctx context.Context, name string) 
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		appUUID, err := st.lookupApplication(ctx, tx, name)
+		appUUID, err := st.lookupApplication(ctx, tx, name, true)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -260,6 +290,9 @@ func (st *ApplicationState) DeleteApplication(ctx context.Context, name string) 
 		if err := tx.Query(ctx, deletePlatformStmt, appID).Run(); err != nil {
 			return errors.Annotatef(err, "deleting platform row for application %q", name)
 		}
+		if err := tx.Query(ctx, deleteScaleStmt, appID).Run(); err != nil {
+			return errors.Annotatef(err, "deleting scale row for application %q", name)
+		}
 		if err := tx.Query(ctx, deleteChannelStmt, appID).Run(); err != nil {
 			return errors.Annotatef(err, "deleting channel row for application %q", name)
 		}
@@ -273,18 +306,18 @@ func (st *ApplicationState) DeleteApplication(ctx context.Context, name string) 
 
 // AddUnits adds the specified units to the application, returning an error
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-func (st *ApplicationState) AddUnits(ctx context.Context, applicationName string, args ...application.AddUnitArg) error {
+func (st *ApplicationState) AddUnits(ctx context.Context, applicationName string, args ...application.UpsertUnitArg) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		appID, err := st.lookupApplication(ctx, tx, applicationName)
+		appID, err := st.lookupApplication(ctx, tx, applicationName, false)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		for _, arg := range args {
-			if err := st.upsertUnit(ctx, tx, applicationName, appID, arg); err != nil {
+			if err := st.insertUnit(ctx, tx, appID, arg); err != nil {
 				return fmt.Errorf("adding unit for application %q: %w", applicationName, err)
 			}
 		}
@@ -293,9 +326,25 @@ func (st *ApplicationState) AddUnits(ctx context.Context, applicationName string
 	return errors.Annotatef(err, "adding units for application %q", applicationName)
 }
 
-// upsertUnit inserts of updates the specified unit..
-func (st *ApplicationState) upsertUnit(
-	ctx context.Context, tx *sqlair.TX, appName string, appID coreapplication.ID, args application.AddUnitArg,
+func (st *ApplicationState) getUnit(ctx context.Context, tx *sqlair.TX, unitName string) (*unitDetails, error) {
+	unit := unitDetails{Name: unitName}
+	getUnit := `SELECT (*) AS (&unitDetails.*) FROM unit WHERE name = $unitDetails.name`
+	getUnitStmt, err := st.Prepare(getUnit, unit)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = tx.Query(ctx, getUnitStmt, unit).Get(&unit)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, fmt.Errorf("unit %q not found%w", unitName, errors.Hide(uniterrors.NotFound))
+	}
+	if err != nil {
+		return nil, fmt.Errorf("querying unit %q: %w", unitName, err)
+	}
+	return &unit, nil
+}
+
+func (st *ApplicationState) insertUnit(
+	ctx context.Context, tx *sqlair.TX, appID coreapplication.ID, args application.UpsertUnitArg,
 ) error {
 	unitUUID, err := uuid.NewUUID()
 	if err != nil {
@@ -315,21 +364,14 @@ func (st *ApplicationState) upsertUnit(
 		createParams.PasswordHash = *args.PasswordHash
 		createParams.PasswordHashAlgorithmID = 0 //currently we only use sha256
 	}
-	// TODO(units) - handle the cloud container attributes
 
-	createUnit := `
-INSERT INTO unit (*) VALUES ($unitDetails.*)
-ON CONFLICT DO NOTHING
-`
+	createUnit := `INSERT INTO unit (*) VALUES ($unitDetails.*)`
 	createUnitStmt, err := st.Prepare(createUnit, createParams)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	createNode := `
-INSERT INTO net_node (uuid) VALUES ($unitDetails.net_node_uuid)
-ON CONFLICT DO NOTHING
-`
+	createNode := `INSERT INTO net_node (uuid) VALUES ($unitDetails.net_node_uuid)`
 	createNodeStmt, err := st.Prepare(createNode, createParams)
 	if err != nil {
 		return errors.Trace(err)
@@ -338,7 +380,7 @@ ON CONFLICT DO NOTHING
 	// TODO - we are mirroring what's in mongo, hence the unit name is known.
 	// In future we'll need to use a sequence to get a new unit id.
 	if args.UnitName == nil {
-		return fmt.Errorf("must pass unit name when adding a new unit for application %q", appName)
+		return fmt.Errorf("must pass unit name when adding a new unit for application %q", appID)
 	}
 	unitName := *args.UnitName
 	createParams.Name = unitName
@@ -349,7 +391,109 @@ ON CONFLICT DO NOTHING
 	if err := tx.Query(ctx, createUnitStmt, createParams).Run(); err != nil {
 		return errors.Annotatef(err, "creating unit row for unit %q", unitName)
 	}
+	if args.CloudContainer != nil {
+		if err := st.upsertUnitCloudContainer(ctx, tx, unitName, nodeUUID.String(), args.CloudContainer); err != nil {
+			return errors.Annotatef(err, "creating cloud container row for unit %q", unitName)
+		}
+	}
 	return nil
+}
+
+func (st *ApplicationState) upsertUnit(
+	ctx context.Context, tx *sqlair.TX, toUpdate unitDetails, args application.UpsertUnitArg,
+) error {
+	if args.PasswordHash != nil {
+		toUpdate.PasswordHash = *args.PasswordHash
+		toUpdate.PasswordHashAlgorithmID = 0 //currently we only use sha256
+	}
+
+	updateUnit := `
+UPDATE unit SET
+    life_id = $unitDetails.life_id,
+    password_hash = $unitDetails.password_hash,
+    password_hash_algorithm_id = $unitDetails.password_hash_algorithm_id
+WHERE uuid = $unitDetails.uuid
+`
+	updateUnitStmt, err := st.Prepare(updateUnit, toUpdate)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := tx.Query(ctx, updateUnitStmt, toUpdate).Run(); err != nil {
+		return errors.Annotatef(err, "updating unit row for unit %q", toUpdate.Name)
+	}
+	if args.CloudContainer != nil {
+		if err := st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.NetNodeID, args.CloudContainer); err != nil {
+			return errors.Annotatef(err, "creating cloud container row for unit %q", toUpdate.Name)
+		}
+	}
+	return nil
+}
+
+func (st *ApplicationState) upsertUnitCloudContainer(
+	ctx context.Context, tx *sqlair.TX, unitName, netNodeID string, cc *application.CloudContainer,
+) error {
+	existingContainerInfo := cloudContainer{
+		NetNodeID: netNodeID,
+	}
+	queryCloudContainer := `
+SELECT (*) AS (&cloudContainer.*)
+FROM cloud_container
+WHERE net_node_uuid = $cloudContainer.net_node_uuid
+`
+	queryStmt, err := st.Prepare(queryCloudContainer, existingContainerInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = tx.Query(ctx, queryStmt, existingContainerInfo).Get(&existingContainerInfo)
+	if err != nil {
+		if !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(err, "looking up cloud container %q", unitName)
+		}
+	}
+
+	var newProviderId string
+	if cc.ProviderId != nil {
+		newProviderId = *cc.ProviderId
+	}
+	if existingContainerInfo.ProviderID != "" &&
+		newProviderId != "" &&
+		existingContainerInfo.ProviderID != newProviderId {
+		st.logger.Debugf("unit %q has provider id %q which changed to %q",
+			unitName, existingContainerInfo.ProviderID, newProviderId)
+	}
+
+	newContainerInfo := cloudContainer{
+		NetNodeID: netNodeID,
+	}
+	if newProviderId != "" {
+		newContainerInfo.ProviderID = newProviderId
+	}
+	if cc.Address != nil {
+		// TODO(units) - handle addresses
+	}
+	if cc.Ports != nil {
+		// TODO(units) - handle ports
+	}
+	// Currently, we only update container attributes but that might change.
+	if reflect.DeepEqual(newContainerInfo, existingContainerInfo) {
+		return nil
+	}
+
+	upsertCloudContainer := `
+INSERT INTO cloud_container (*) VALUES ($cloudContainer.*)
+ON CONFLICT(net_node_uuid) DO UPDATE
+    SET provider_id = excluded.provider_id;
+`
+
+	upsertStmt, err := st.Prepare(upsertCloudContainer, newContainerInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = tx.Query(ctx, upsertStmt, newContainerInfo).Run()
+	return errors.Annotatef(err, "updating cloud container for unit %q", unitName)
 }
 
 // StorageDefaults returns the default storage sources for a model.
@@ -402,4 +546,75 @@ func (st *ApplicationState) GetStoragePoolByName(ctx context.Context, name strin
 		return domainstorage.StoragePoolDetails{}, errors.Trace(err)
 	}
 	return storagestate.GetStoragePoolByName(ctx, db, name)
+}
+
+// stateTxOperations allows the calling service to run operations
+// in the service using a given transaction, without exposing
+// the txn to the service business logic.
+type stateTxOperations struct {
+	*ApplicationState
+	tx *sqlair.TX
+}
+
+// UpsertUnit creates or updates the specified application unit, returning an error
+// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+func (st stateTxOperations) UpsertUnit(
+	ctx context.Context, appID coreapplication.ID, args application.UpsertUnitArg,
+) error {
+	unit, err := st.getUnit(ctx, st.tx, *args.UnitName)
+	if err != nil {
+		if errors.Is(err, uniterrors.NotFound) {
+			return st.insertUnit(ctx, st.tx, appID, args)
+		}
+		return errors.Trace(err)
+	}
+	return st.upsertUnit(ctx, st.tx, *unit, args)
+}
+
+// UnitLife looks up the life of the specified unit, returning an error
+// satisfying [uniterrors.NotFound] if the unit is not found.
+func (st stateTxOperations) UnitLife(ctx context.Context, unitName string) (life.Life, error) {
+	unit := unitDetails{Name: unitName}
+	queryUnit := `
+SELECT unit.life_id AS &unitDetails.*
+FROM unit
+WHERE name = $unitDetails.name
+`
+	queryUnitStmt, err := st.Prepare(queryUnit, unit)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
+
+	err = st.tx.Query(ctx, queryUnitStmt, unit).Get(&unit)
+	if err != nil {
+		if !errors.Is(err, sqlair.ErrNoRows) {
+			return -1, errors.Annotatef(err, "querying unit %q life", unitName)
+		}
+		return -1, fmt.Errorf("%w: %s", uniterrors.NotFound, unitName)
+	}
+	return unit.LifeID, errors.Annotatef(err, "querying unit %q life", unitName)
+}
+
+// ApplicationScaleState looks up the scale state of the specified application, returning an error
+// satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
+func (st stateTxOperations) ApplicationScaleState(ctx context.Context, appID coreapplication.ID) (application.ScaleState, error) {
+	appScale := applicationScale{ApplicationID: appID.String()}
+	queryScale := `
+SELECT (*) AS (&applicationScale.*)
+FROM application_scale
+WHERE application_uuid = $applicationScale.application_uuid
+`
+	queryScaleStmt, err := st.Prepare(queryScale, appScale)
+	if err != nil {
+		return application.ScaleState{}, errors.Trace(err)
+	}
+
+	err = st.tx.Query(ctx, queryScaleStmt, appScale).Get(&appScale)
+	if err != nil {
+		if !errors.Is(err, sqlair.ErrNoRows) {
+			return application.ScaleState{}, errors.Annotatef(err, "querying application %q scale", appID)
+		}
+		return application.ScaleState{}, fmt.Errorf("%w: %s", applicationerrors.ApplicationNotFound, appID)
+	}
+	return appScale.ToScaleState(), errors.Annotatef(err, "querying application %q scale", appID)
 }
