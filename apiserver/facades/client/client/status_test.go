@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/api"
 	apiclient "github.com/juju/juju/api/client/client"
-	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
 	"github.com/juju/juju/controller"
@@ -1180,7 +1179,6 @@ func (s *filteringBranchesSuite) assertBranchAssignApplication(c *gc.C, bName, a
 }
 
 type ControllerConfigService interface {
-	client.ControllerConfigService
 	UpdateControllerConfig(ctx context.Context, updateAttrs controller.Config, removeAttrs []string) error
 }
 
