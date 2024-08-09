@@ -364,7 +364,7 @@ func (c *ControllerAPI) DashboardConnectionInfo(ctx context.Context) (params.Das
 				return rval, err
 
 			default:
-				return rval, fmt.Errorf("unknown model type %q", modelInfo.ModelType)
+				return rval, fmt.Errorf("unknown type %q for model %q", modelInfo.ModelType, modelInfo.UUID)
 			}
 		}
 
