@@ -311,17 +311,6 @@ func (s *ApplicationSuite) expectApplicationWithCharm(ctrl *gomock.Controller, c
 	return app
 }
 
-func (s *ApplicationSuite) expectUpdateApplicationConfig(c *gc.C, app *mocks.MockApplication) {
-	appCfgSchema, defaults, err := application.ConfigSchema()
-	c.Assert(err, jc.ErrorIsNil)
-
-	appCfg, err := coreconfig.NewConfig(map[string]interface{}{
-		"trust": "true",
-	}, appCfgSchema, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	app.EXPECT().UpdateApplicationConfig(appCfg.Attributes(), []string(nil), appCfgSchema, defaults).Return(nil)
-}
-
 func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()

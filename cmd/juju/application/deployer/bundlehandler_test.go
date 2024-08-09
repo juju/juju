@@ -2193,7 +2193,7 @@ func (s *BundleDeployRepositorySuite) expectEmptyModelRepresentation() {
 
 func (s *BundleDeployRepositorySuite) expectEmptyModelRepresentationNotAnnotations() {
 	s.deployerAPI.EXPECT().GetConstraints(gomock.Any()).Return(nil, nil)
-	s.deployerAPI.EXPECT().GetConfig(gomock.Any(), gomock.Any()).Return(nil, nil)
+	s.deployerAPI.EXPECT().GetConfig(gomock.Any()).Return(nil, nil)
 	s.deployerAPI.EXPECT().Sequences().Return(nil, errors.NotSupportedf("sequences for test"))
 }
 
@@ -2240,7 +2240,6 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundle() {
 			},
 		},
 		ControllerTimestamp: nil,
-		Branches:            nil,
 	}
 	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
 }
@@ -2265,7 +2264,6 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoBundle() {
 		Offers:              nil,
 		Relations:           nil,
 		ControllerTimestamp: nil,
-		Branches:            nil,
 	}
 	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
 }
@@ -2301,7 +2299,6 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoMemBundle() {
 		Offers:              nil,
 		Relations:           nil,
 		ControllerTimestamp: nil,
-		Branches:            nil,
 	}
 	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
 }
@@ -2329,7 +2326,6 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjango2Units() {
 		Offers:              nil,
 		Relations:           nil,
 		ControllerTimestamp: nil,
-		Branches:            nil,
 	}
 	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
 }
@@ -2752,7 +2748,7 @@ func (s *BundleHandlerMakeModelSuite) expectEmptyModelRepresentation() {
 	// Setup as if an empty model
 	s.deployerAPI.EXPECT().GetAnnotations(gomock.Any()).Return(nil, nil)
 	s.deployerAPI.EXPECT().GetConstraints(gomock.Any()).Return(nil, nil)
-	s.deployerAPI.EXPECT().GetConfig(gomock.Any(), gomock.Any()).Return(nil, nil)
+	s.deployerAPI.EXPECT().GetConfig(gomock.Any()).Return(nil, nil)
 	s.deployerAPI.EXPECT().Sequences().Return(nil, errors.NotSupportedf("sequences for test"))
 }
 
@@ -2803,7 +2799,6 @@ func (s *BundleHandlerMakeModelSuite) expectDeployerAPIStatusWordpressBundle() {
 			},
 		},
 		ControllerTimestamp: nil,
-		Branches:            nil,
 	}
 	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
 }

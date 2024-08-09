@@ -28,17 +28,14 @@ controllers:
       admin/admin:
         uuid: ghi
         type: iaas
-        branch: master
   kontroll:
     models:
       admin/admin:
         uuid: abc
         type: iaas
-        branch: master
       admin/my-model:
         uuid: def
         type: iaas
-        branch: master
     current-model: admin/my-model
 `
 

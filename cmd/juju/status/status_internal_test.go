@@ -151,7 +151,6 @@ func (s *StatusSuite) newContext() *context {
 				Machines:           make(map[string]params.MachineStatus),
 				Applications:       make(map[string]params.ApplicationStatus),
 				Offers:             make(map[string]params.ApplicationOfferStatus),
-				Branches:           make(map[string]params.BranchStatus),
 				RemoteApplications: make(map[string]params.RemoteApplicationStatus),
 			},
 		},
@@ -1979,11 +1978,6 @@ var statusTests = []testCase{
 		setUnitAsLeader{"logging/1"},
 		setUnitAsLeader{"wordpress/0"},
 
-		addBranch{"apple"},
-		addBranch{"banana"},
-		trackBranch{"apple", "logging/1"},
-		trackBranch{"banana", "wordpress/0"},
-
 		expect{
 			what: "multiples related peer units",
 			output: M{
@@ -2026,7 +2020,6 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.1.1",
 								"leader":         true,
-								"branch":         "banana",
 							},
 						},
 						"endpoint-bindings": M{
@@ -2087,7 +2080,6 @@ var statusTests = []testCase{
 										},
 										"public-address": "10.0.2.1",
 										"leader":         true,
-										"branch":         "apple",
 									},
 								},
 								"public-address": "10.0.2.1",
@@ -2122,16 +2114,6 @@ var statusTests = []testCase{
 				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
-				},
-				"branches": M{
-					"apple": M{
-						"created":    "15:04:05+07:00",
-						"created-by": "testuser",
-					},
-					"banana": M{
-						"created":    "15:04:05+07:00",
-						"created-by": "testuser",
-					},
 				},
 			},
 		},
@@ -4250,31 +4232,6 @@ func (s setCharmProfiles) step(c *gc.C, ctx *context) {
 		}
 	}
 	ctx.api.result.Machines[s.machineId] = m
-}
-
-type addBranch struct {
-	name string
-}
-
-func (s addBranch) step(c *gc.C, ctx *context) {
-	ctx.api.result.Branches[s.name] = params.BranchStatus{
-		CreatedBy:     "testuser",
-		AssignedUnits: make(map[string][]string),
-	}
-}
-
-type trackBranch struct {
-	branch   string
-	unitName string
-}
-
-func (s trackBranch) step(c *gc.C, ctx *context) {
-	b, ok := ctx.api.result.Branches[s.branch]
-	c.Assert(ok, jc.IsTrue)
-
-	appName, _ := names.UnitApplication(s.unitName)
-	b.AssignedUnits[appName] = append(b.AssignedUnits[appName], s.unitName)
-	ctx.api.result.Branches[s.branch] = b
 }
 
 type expect struct {

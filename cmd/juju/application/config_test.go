@@ -256,10 +256,6 @@ var setCommandInitErrorTests = []struct {
 	args:        []string{"application", "key", "another"},
 	expectError: "cannot specify multiple keys to get",
 }, {
-	about:       "--branch with no value",
-	args:        []string{"application", "key", "--branch"},
-	expectError: "option needs an argument: --branch",
-}, {
 	about:       "set and reset same key",
 	args:        []string{"application", "key=val", "--reset", "key"},
 	expectError: `cannot set and reset key "key" simultaneously`,
