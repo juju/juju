@@ -657,6 +657,7 @@ func (s *State) Delete(
 	}
 
 	deleteSecretBackend := `DELETE FROM model_secret_backend WHERE model_uuid = ?`
+	deleteSecretBackendRefCount := `SELECT FROM secret_backend_reference WHERE model_uuid = ?`
 	deleteModelAgent := `DELETE FROM model_agent WHERE model_uuid = ?`
 	deletePermissionStmt := `DELETE FROM permission WHERE grant_on = ?;`
 	deleteModelLogin := `DELETE FROM model_last_login WHERE model_uuid = ?`
@@ -669,6 +670,11 @@ func (s *State) Delete(
 		_, err := tx.ExecContext(ctx, deleteSecretBackend, uuid)
 		if err != nil {
 			return fmt.Errorf("delete model %q secret backend: %w", uuid, err)
+		}
+
+		_, err = tx.ExecContext(ctx, deleteSecretBackendRefCount, uuid)
+		if err != nil {
+			return fmt.Errorf("delete model %q secret backend reference count: %w", uuid, err)
 		}
 
 		_, err = tx.ExecContext(ctx, deleteModelAgent, uuid)
