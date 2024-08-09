@@ -132,6 +132,10 @@ type SecretBackendRow struct {
 	ConfigName string `db:"config_name"`
 	// ConfigContent is the content of the secret backend config.
 	ConfigContent string `db:"config_content"`
+	// NumSecrets is the number of secrets stored in the secret backend.
+	NumSecrets int `db:"num_secrets"`
+	// ModelName is the name of the model.
+	ModelName string `db:"model_name"`
 }
 
 // SecretBackendRows represents a slice of SecretBackendRow.
@@ -149,6 +153,7 @@ func (rows SecretBackendRows) toSecretBackends() []*secretbackend.SecretBackend 
 			ID:          row.ID,
 			Name:        row.Name,
 			BackendType: row.BackendType,
+			NumSecrets:  row.NumSecrets,
 		}
 		interval := row.TokenRotateInterval
 		if interval.Valid {

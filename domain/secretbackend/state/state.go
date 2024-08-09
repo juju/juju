@@ -327,23 +327,20 @@ func (s *State) ListSecretBackends(ctx context.Context) ([]*secretbackend.Secret
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	q := fmt.Sprintf(`
+	q := `
 SELECT
-    b.uuid                  AS &SecretBackendRow.uuid,
-    b.name                  AS &SecretBackendRow.name,
-    bt.type                 AS &SecretBackendRow.backend_type,
-    b.token_rotate_interval AS &SecretBackendRow.token_rotate_interval,
-    c.name                  AS &SecretBackendRow.config_name,
-    c.content               AS &SecretBackendRow.config_content
+    b.uuid                                   AS &SecretBackendRow.uuid,
+    b.name                                   AS &SecretBackendRow.name,
+    bt.type                                  AS &SecretBackendRow.backend_type,
+    b.token_rotate_interval                  AS &SecretBackendRow.token_rotate_interval,
+    COUNT(DISTINCT sbr.secret_revision_uuid) AS &SecretBackendRow.num_secrets,
+    c.name                                   AS &SecretBackendRow.config_name,
+    c.content                                AS &SecretBackendRow.config_content
 FROM secret_backend b
     JOIN secret_backend_type bt ON b.backend_type_id = bt.id
     LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
-WHERE EXISTS (
-    SELECT 1
-    FROM secret_backend_reference
-    WHERE secret_backend_uuid = b.uuid
-) OR b.name = '%s' OR b.name = '%s'
-ORDER BY b.name`, kubernetes.BackendName, juju.BackendName)
+    LEFT JOIN secret_backend_reference sbr ON b.uuid = sbr.secret_backend_uuid
+GROUP BY b.name, c.name`
 	stmt, err := s.Prepare(q, SecretBackendRow{})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -367,6 +364,59 @@ ORDER BY b.name`, kubernetes.BackendName, juju.BackendName)
 		return nil, fmt.Errorf("cannot list secret backends: %w", err)
 	}
 	return rows.toSecretBackends(), errors.Trace(err)
+}
+
+// ListKubernetesSecretBackends returns a list of all kubernetes secret backends which contain secrets.
+func (s *State) ListKubernetesSecretBackends(ctx context.Context) ([]*secretbackend.SecretBackend, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	q := fmt.Sprintf(`
+SELECT
+    sbr.secret_backend_uuid                  AS &SecretBackendRow.uuid,
+    b.name                                   AS &SecretBackendRow.name,
+    m.name                                   AS &SecretBackendRow.model_name,
+    bt.type                                  AS &SecretBackendRow.backend_type,
+    COUNT(DISTINCT sbr.secret_revision_uuid) AS &SecretBackendRow.num_secrets
+FROM secret_backend_reference sbr
+    JOIN secret_backend b ON sbr.secret_backend_uuid = b.uuid
+    JOIN secret_backend_type bt ON b.backend_type_id = bt.id
+    JOIN model m ON sbr.model_uuid = m.uuid
+WHERE b.name = '%s'
+GROUP BY m.name`, kubernetes.BackendName)
+	stmt, err := s.Prepare(q, SecretBackendRow{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var rows SecretBackendRows
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&rows)
+		if errors.Is(err, sql.ErrNoRows) {
+			// We do not want to return an error if there are no secret backends.
+			// We just return an empty list.
+			s.logger.Debugf("no kubernetes secret backends found")
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("querying kubernetes secret backends: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("cannot list kubernetes secret backends: %w", err)
+	}
+	var result []*secretbackend.SecretBackend
+	for _, row := range rows {
+		result = append(result, &secretbackend.SecretBackend{
+			ID:          row.ID,
+			Name:        kubernetes.BuiltInName(row.ModelName),
+			BackendType: row.BackendType,
+			NumSecrets:  row.NumSecrets,
+		})
+	}
+	return result, errors.Trace(err)
 }
 
 // ListSecretBackendsForModel returns a list of all secret backends

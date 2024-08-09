@@ -906,12 +906,21 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 
 	backends, err := s.state.ListSecretBackends(context.Background())
 	c.Assert(err, gc.IsNil)
-	c.Assert(backends, gc.HasLen, 2)
+	c.Assert(backends, gc.HasLen, 4)
 	c.Assert(backends, jc.DeepEquals, []*secretbackend.SecretBackend{
 		{
 			ID:          s.internalBackendID,
 			Name:        "internal",
 			BackendType: "controller",
+		},
+		{
+			ID:          s.vaultBackendID,
+			Name:        "my-backend",
+			BackendType: "vault",
+			Config: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
 		},
 		{
 			ID:                  backendID1,
@@ -921,6 +930,17 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 			Config: map[string]string{
 				"key1": "value1",
 				"key2": "value2",
+			},
+			NumSecrets: 1,
+		},
+		{
+			ID:                  backendID2,
+			Name:                "my-backend2",
+			BackendType:         "kubernetes",
+			TokenRotateInterval: &rotateInternal2,
+			Config: map[string]string{
+				"key3": "value3",
+				"key4": "value4",
 			},
 		},
 	})
@@ -1203,6 +1223,55 @@ func (s *stateSuite) TestListSecretBackendsEmpty(c *gc.C) {
 	backends, err := s.state.ListSecretBackends(context.Background())
 	c.Assert(err, gc.IsNil)
 	c.Assert(backends, gc.IsNil)
+}
+
+func (s *stateSuite) TestListKubernetesSecretBackends(c *gc.C) {
+	backendID1 := uuid.MustNewUUID().String()
+	rotateInternal1 := 24 * time.Hour
+	nextRotateTime1 := time.Now().Add(rotateInternal1)
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
+		BackendIdentifier: secretbackend.BackendIdentifier{
+			ID:   backendID1,
+			Name: "my-backend1",
+		},
+		BackendType:         "vault",
+		TokenRotateInterval: &rotateInternal1,
+		NextRotateTime:      &nextRotateTime1,
+		Config: map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
+		ID:                  backendID1,
+		Name:                "my-backend1",
+		BackendType:         "vault",
+		TokenRotateInterval: &rotateInternal1,
+		Config: map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+		},
+	}, &nextRotateTime1)
+
+	modelUUID := s.createModel(c, coremodel.CAAS)
+	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "kubernetes")
+	c.Assert(err, gc.IsNil)
+	secrectRevisionID := uuid.MustNewUUID()
+	_, err = s.state.AddSecretBackendReference(context.Background(), &secrets.ValueRef{BackendID: s.kubernetesBackendID}, modelUUID, secrectRevisionID)
+	c.Assert(err, gc.IsNil)
+
+	backends, err := s.state.ListKubernetesSecretBackends(context.Background())
+	c.Assert(err, gc.IsNil)
+	c.Assert(backends, gc.HasLen, 1)
+	c.Assert(backends, jc.DeepEquals, []*secretbackend.SecretBackend{
+		{
+			ID:          s.kubernetesBackendID,
+			Name:        "my-model-local",
+			BackendType: "kubernetes",
+			NumSecrets:  1,
+		},
+	})
 }
 
 func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
