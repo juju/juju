@@ -67,6 +67,12 @@ type integrationSuite struct {
 
 var _ = gc.Suite(&integrationSuite{})
 
+func (s *integrationSuite) SetUpSuite(c *gc.C) {
+	// This suite needs Dqlite setup on a tcp port.
+	s.UseTCP = true
+	s.dqliteAppIntegrationSuite.SetUpSuite(c)
+}
+
 func (s *integrationSuite) SetUpTest(c *gc.C) {
 	s.DqliteSuite.SetUpTest(c)
 	s.dqliteAppIntegrationSuite.SetUpTest(c)
