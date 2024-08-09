@@ -51,7 +51,7 @@ var facadeVersions = facades.FacadeVersions{
 	"CharmRevisionUpdater":         {2},
 	"Charms":                       {5, 6, 7},
 	"Cleaner":                      {2},
-	"Client":                       {6, 7},
+	"Client":                       {6, 7, 8},
 	"Cloud":                        {7},
 	"Controller":                   {11, 12},
 	"CredentialManager":            {1},
