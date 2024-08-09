@@ -50,28 +50,30 @@ def check():
     no_topic_id = []
     no_discourse_topic = []
 
-    for entry in os.scandir(DOCS_DIR):
-        if not is_markdown_file(entry):
-            print(f'entry {entry.name}: not a Markdown file: skipping')
-            continue
+    for root, dirs, files in os.walk(DOCS_DIR):
+        for name in files:
+            fullname = os.path.relpath(os.path.join(root, name), DOCS_DIR)
+            if not fullname.endswith(".md"):
+                print(f'entry {fullname}: not a Markdown file: skipping')
+                continue
 
-        doc_name = removesuffix(entry.name, ".md")
+            doc_name = removesuffix(fullname, ".md")
 
-        if doc_name not in topic_ids:
-            print(f'doc {doc_name}: no topic ID found')
-            no_topic_id.append(doc_name)
-            continue
+            if doc_name not in topic_ids:
+                print(f'doc {doc_name}: no topic ID found')
+                no_topic_id.append(doc_name)
+                continue
 
-        topic_id = topic_ids[doc_name]
-        print(f'doc {doc_name} (topic #{topic_id}): checking topic on Discourse')
-        try:
-            client.topic(
-                slug='',
-                topic_id=topic_ids[doc_name],
-            )
-        except DiscourseClientError:
-            print(f'doc {doc_name} (topic #{topic_id}): not found on Discourse')
-            no_discourse_topic.append(doc_name)
+            topic_id = topic_ids[doc_name]
+            print(f'doc {doc_name} (topic #{topic_id}): checking topic on Discourse')
+            try:
+                client.topic(
+                    slug='',
+                    topic_id=topic_ids[doc_name],
+                )
+            except DiscourseClientError:
+                print(f'doc {doc_name} (topic #{topic_id}): not found on Discourse')
+                no_discourse_topic.append(doc_name)
 
     if no_topic_id:
         print(f"The following docs don't have corresponding entries in {TOPIC_IDS}.")
@@ -96,76 +98,83 @@ def sync():
     topic_ids = get_topic_ids()
     couldnt_sync = {}  # doc_name -> reason
 
-    for entry in os.scandir(DOCS_DIR):
-        if not is_markdown_file(entry):
-            print(f'entry {entry.name}: not a Markdown file: skipping')
-            continue
 
-        doc_name = removesuffix(entry.name, ".md")
-        content = open(entry.path, 'r').read()
+    for root, dirs, files in os.walk(DOCS_DIR):
+        # Current directory relative to DOCS_DIR
+        current_dir = os.path.relpath(root, DOCS_DIR)
 
-        if doc_name not in topic_ids:
-            couldnt_sync[doc_name] = 'no topic ID in yaml file'
-            continue
-
-        topic_id = topic_ids[doc_name]
-        print(f'doc {doc_name} (topic #{topic_id}): checking for changes')
-        try:
-            # API call to get the post ID from the topic ID
-            # TODO: we could save the post IDs in a separate yaml file and
-            #   avoid this extra API call
-            topic = client.topic(
-                slug='',
-                topic_id=topic_id,
-            )
-        except DiscourseClientError:
-            couldnt_sync[doc_name] = f'no topic with ID #{topic_id} on Discourse'
-            continue
-
-        post_id = topic['post_stream']['posts'][0]['id']
-        # Get current contents of post
-        try:
-            post2 = client.post_by_id(
-                post_id=post_id
-            )
-        except DiscourseClientError as e:
-            couldnt_sync[doc_name] = f"couldn't get post for topic ID #{topic_id}: {e}"
-            continue
-
-        current_contents = post2['raw']
-        if current_contents == content.rstrip('\n'):
-            print(f'doc {doc_name} (topic #{topic_ids[doc_name]}): already up-to-date: skipping')
-        else:
-            # Update Discourse post
-            print(f'doc {doc_name} (topic #{topic_ids[doc_name]}): updating')
-            try:
-                client.update_post(
-                    post_id=post_id,
-                    content=content,
-                )
-            except DiscourseClientError as e:
-                couldnt_sync[doc_name] = f"couldn't update post with ID #{post_id}: {e}"
+        for name in files:
+            abs_path = os.path.join(root, name)
+            fullname = os.path.relpath(abs_path, DOCS_DIR)
+            if not fullname.endswith(".md"):
+                print(f'entry {fullname}: not a Markdown file: skipping')
                 continue
 
-        # Lock post for editing
-        try:
-            client.lock_post(
-                post_id=post_id,
-                locked=True,
-            )
-        except DiscourseClientError as e:
-            couldnt_sync[doc_name] = f"couldn't lock post with ID #{post_id}: {e}"
-            continue
+            doc_name = removesuffix(fullname, ".md")
+            content = open(abs_path, 'r').read()
 
-        # Add staff notice
-        try:
-            client.add_staff_notice(
-                post_id=post_id,
-                notice=STAFF_NOTICE,
-            )
-        except DiscourseClientError as e:
-            couldnt_sync[doc_name] = f"couldn't add staff notice to post with ID #{post_id}: {e}"
-            continue
+            if doc_name not in topic_ids:
+                couldnt_sync[doc_name] = 'no topic ID in yaml file'
+                continue
+
+            topic_id = topic_ids[doc_name]
+            print(f'doc {doc_name} (topic #{topic_id}): checking for changes')
+            try:
+                # API call to get the post ID from the topic ID
+                # TODO: we could save the post IDs in a separate yaml file and
+                #   avoid this extra API call
+                topic = client.topic(
+                    slug='',
+                    topic_id=topic_id,
+                )
+            except DiscourseClientError:
+                couldnt_sync[doc_name] = f'no topic with ID #{topic_id} on Discourse'
+                continue
+
+            post_id = topic['post_stream']['posts'][0]['id']
+            # Get current contents of post
+            try:
+                post2 = client.post_by_id(
+                    post_id=post_id
+                )
+            except DiscourseClientError as e:
+                couldnt_sync[doc_name] = f"couldn't get post for topic ID #{topic_id}: {e}"
+                continue
+
+            current_contents = post2['raw']
+            if current_contents == content.rstrip('\n'):
+                print(f'doc {doc_name} (topic #{topic_ids[doc_name]}): already up-to-date: skipping')
+            else:
+                # Update Discourse post
+                print(f'doc {doc_name} (topic #{topic_ids[doc_name]}): updating')
+                try:
+                    client.update_post(
+                        post_id=post_id,
+                        content=content,
+                    )
+                except DiscourseClientError as e:
+                    couldnt_sync[doc_name] = f"couldn't update post with ID #{post_id}: {e}"
+                    continue
+
+            # Lock post for editing
+            try:
+                client.lock_post(
+                    post_id=post_id,
+                    locked=True,
+                )
+            except DiscourseClientError as e:
+                couldnt_sync[doc_name] = f"couldn't lock post with ID #{post_id}: {e}"
+                continue
+
+            # Add staff notice
+            try:
+                client.add_staff_notice(
+                    post_id=post_id,
+                    notice=STAFF_NOTICE,
+                )
+            except DiscourseClientError as e:
+                couldnt_sync[doc_name] = f"couldn't add staff notice to post with ID #{post_id}: {e}"
+                continue
 
     if len(couldnt_sync) > 0:
         print("Failed to sync the following docs:")
@@ -229,6 +238,8 @@ def delete():
 
 
 def get_topic_ids():
+    if not TOPIC_IDS:
+        raise Exception("environment variable 'TOPIC_IDS' not defined")
     with open(TOPIC_IDS, 'r') as file:
         topic_ids = yaml.safe_load(file)
         return topic_ids or {}
