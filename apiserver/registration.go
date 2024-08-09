@@ -15,21 +15,20 @@ import (
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/common"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/environs"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // registerUserHandler is an http.Handler for the "/register" endpoint. This is
 // used to complete a secure user registration process, and provide controller
 // login credentials.
 type registerUserHandler struct {
-	ctxt httpContext
+	ctxt           httpContext
+	providerGetter func(context.Context) (environs.ConnectorInfo, error)
 }
 
 // ServeHTTP implements the http.Handler interface.
@@ -59,8 +58,6 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		st.State,
 		serviceFactory.ControllerConfig(),
 		serviceFactory.Access(),
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 	)
 	if err != nil {
 		if err := sendError(w, err); err != nil {
@@ -115,7 +112,6 @@ func (h *registerUserHandler) processPost(
 	st *state.State,
 	controllerConfigService ControllerConfigService,
 	userService UserService,
-	cloudService common.CloudService, credentialService common.CredentialService,
 ) (
 	names.UserTag, *params.SecretKeyLoginResponse, error,
 ) {
@@ -148,7 +144,7 @@ func (h *registerUserHandler) processPost(
 
 	// Respond with the CA-cert and password, encrypted again with the
 	// activation key.
-	responsePayload, err := h.getSecretKeyLoginResponsePayload(req.Context(), st, controllerConfigService, cloudService, credentialService)
+	responsePayload, err := h.getSecretKeyLoginResponsePayload(req.Context(), st, controllerConfigService)
 	if err != nil {
 		return names.UserTag{}, nil, errors.Trace(err)
 	}
@@ -172,30 +168,12 @@ func (h *registerUserHandler) processPost(
 	return userTag, response, nil
 }
 
-func getConnectorInfoer(ctx context.Context, model stateenvirons.Model, cloudService common.CloudService, credentialService common.CredentialService) (environs.ConnectorInfo, error) {
-	configGetter := stateenvirons.EnvironConfigGetter{
-		Model: model, CloudService: cloudService, CredentialService: credentialService}
-	environ, err := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if connInfo, ok := environ.(environs.ConnectorInfo); ok {
-		return connInfo, nil
-	}
-	return nil, errors.NotSupportedf("environ %q", environ.Config().Type())
-}
-
-// For testing.
-var GetConnectorInfoer = getConnectorInfoer
-
 // getSecretKeyLoginResponsePayload returns the information required by the
 // client to login to the controller securely.
 func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	ctx context.Context,
 	st *state.State,
 	controllerConfigService ControllerConfigService,
-	cloudService common.CloudService,
-	credentialService common.CredentialService,
 ) (*params.SecretKeyLoginResponsePayload, error) {
 	if !st.IsController() {
 		return nil, errors.New("state is not for a controller")
@@ -210,11 +188,7 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 		ControllerUUID: controllerConfig.ControllerUUID(),
 	}
 
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	connInfo, err := GetConnectorInfoer(ctx, model, cloudService, credentialService)
+	connInfo, err := h.providerGetter(ctx)
 	if errors.Is(err, errors.NotSupported) { // Not all providers support this.
 		return &payload, nil
 	}
