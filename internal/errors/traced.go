@@ -67,6 +67,8 @@ func ErrorStack(err error) string {
 	return strings.Join(chain, "\n")
 }
 
+// Location returns the path-qualified function name where the error was created
+// and the line number.
 func (f frameTracer) Location() (string, int) {
 	frame, _ := runtime.CallersFrames([]uintptr{f.pc}).Next()
 	return frame.Function, frame.Line
@@ -87,6 +89,7 @@ func newFrameTracer(err error, skip int) frameTracer {
 	}
 }
 
+// Unwrap returns the underlying error that was wrapped by the frameTracer.
 func (f frameTracer) Unwrap() error {
 	return f.error
 }
