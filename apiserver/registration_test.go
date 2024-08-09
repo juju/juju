@@ -21,8 +21,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
@@ -33,7 +34,6 @@ import (
 	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 type registrationSuite struct {
@@ -92,7 +92,11 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	}
 	environ := NewMockConnectorInfo(ctrl)
 	proxier := NewMockProxier(ctrl)
-	s.PatchValue(&apiserver.GetConnectorInfoer, func(context.Context, stateenvirons.Model, common.CloudService, common.CredentialService) (environs.ConnectorInfo, error) {
+	s.PatchValue(&apiserver.GetConnectorInfoer, func(
+		ctx context.Context,
+		providerFactory providertracker.ProviderFactory,
+		controllerModelID model.UUID,
+	) (environs.ConnectorInfo, error) {
 		if hasProxy {
 			return environ, nil
 		}
