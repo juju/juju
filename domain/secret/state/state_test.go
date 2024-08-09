@@ -91,9 +91,9 @@ func (s *stateSuite) TestGetLatestRevision(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpdateSecret(ctx, uri, domainsecret.UpsertSecretParams{
+	err = st.UpdateSecret(ctx, uri, uuid.MustNewUUID(), domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar1"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -119,7 +119,7 @@ func (s *stateSuite) TestGetRotatePolicy(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := st.GetRotatePolicy(context.Background(), uri)
@@ -151,7 +151,7 @@ func (s *stateSuite) TestGetRotationExpiryInfo(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := st.GetRotationExpiryInfo(context.Background(), uri)
@@ -164,7 +164,7 @@ func (s *stateSuite) TestGetRotationExpiryInfo(c *gc.C) {
 	})
 
 	newExpireTime := expireTime.Add(2 * time.Hour)
-	err = st.UpdateSecret(ctx, uri, domainsecret.UpsertSecretParams{
+	err = st.UpdateSecret(ctx, uri, uuid.MustNewUUID(), domainsecret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo": "bar1"},
 		ExpireTime: ptr(newExpireTime),
 	})
@@ -205,9 +205,9 @@ func (s *stateSuite) TestCreateUserSecretLabelAlreadyExists(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateUserSecret(ctx, 1, uri, sp)
+	err = st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 }
 
@@ -285,7 +285,7 @@ func (s *stateSuite) TestCreateUserSecretWithContent(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 	owner := coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: s.modelUUID}
 	s.assertSecret(c, st, uri, sp, 1, owner)
@@ -319,7 +319,7 @@ func (s *stateSuite) TestCreateManyUserSecretsNoLabelClash(c *gc.C) {
 		}
 		uri := coresecrets.NewURI()
 		ctx := context.Background()
-		err := st.CreateUserSecret(ctx, 1, uri, sp)
+		err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 		c.Assert(err, jc.ErrorIsNil)
 		owner := coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: s.modelUUID}
 		s.assertSecret(c, st, uri, sp, 1, owner)
@@ -345,7 +345,7 @@ func (s *stateSuite) TestCreateUserSecretWithValueReference(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 	owner := coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: s.modelUUID}
 	s.assertSecret(c, st, uri, sp, 1, owner)
@@ -364,14 +364,14 @@ func (s *stateSuite) TestListExternalSecretRevisions(c *gc.C) {
 		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
 	}
 	uri := coresecrets.NewURI()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp2 := domainsecret.UpsertSecretParams{
 		Description: ptr("my secretMetadata"),
 		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend2", RevisionID: "some-revision2"},
 	}
-	err = st.UpdateSecret(ctx, uri, sp2)
+	err = st.UpdateSecret(ctx, uri, uuid.MustNewUUID(), sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp3 := domainsecret.UpsertSecretParams{
@@ -379,7 +379,7 @@ func (s *stateSuite) TestListExternalSecretRevisions(c *gc.C) {
 		Data:        coresecrets.SecretData{"foo": "bar"},
 	}
 	uri3 := coresecrets.NewURI()
-	err = st.CreateUserSecret(ctx, 1, uri3, sp3)
+	err = st.CreateUserSecret(ctx, 1, uri3, uuid.MustNewUUID(), sp3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	revs, err := st.ListExternalSecretRevisions(ctx, uri)
@@ -432,9 +432,9 @@ func (s *stateSuite) TestListSecrets(c *gc.C) {
 	}
 
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri[0], sp[0])
+	err := st.CreateUserSecret(ctx, 1, uri[0], uuid.MustNewUUID(), sp[0])
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateUserSecret(ctx, 1, uri[1], sp[1])
+	err = st.CreateUserSecret(ctx, 1, uri[1], uuid.MustNewUUID(), sp[1])
 	c.Assert(err, jc.ErrorIsNil)
 
 	secrets, revisions, err := st.ListSecrets(
@@ -482,9 +482,9 @@ func (s *stateSuite) TestListSecretsByURI(c *gc.C) {
 	}
 
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri[0], sp[0])
+	err := st.CreateUserSecret(ctx, 1, uri[0], uuid.MustNewUUID(), sp[0])
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateUserSecret(ctx, 1, uri[1], sp[1])
+	err = st.CreateUserSecret(ctx, 1, uri[1], uuid.MustNewUUID(), sp[1])
 	c.Assert(err, jc.ErrorIsNil)
 
 	secrets, revisions, err := st.ListSecrets(
@@ -554,7 +554,7 @@ func (s *stateSuite) TestListCharmSecretsToDrainNone(c *gc.C) {
 	uri := coresecrets.NewURI()
 
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	toDrain, err := st.ListCharmSecretsToDrain(ctx, domainsecret.ApplicationOwners{"mariadb"}, domainsecret.NilUnitOwners)
@@ -582,16 +582,16 @@ func (s *stateSuite) TestListCharmSecretsToDrain(c *gc.C) {
 	}
 
 	ctx := context.Background()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri[0], "mysql", sp[0])
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri[0], uuid.MustNewUUID(), "mysql", sp[0])
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmUnitSecret(ctx, 1, uri[1], "mysql/0", sp[1])
+	err = st.CreateCharmUnitSecret(ctx, 1, uri[1], uuid.MustNewUUID(), "mysql/0", sp[1])
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri3 := coresecrets.NewURI()
 	sp3 := domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar"},
 	}
-	err = st.CreateUserSecret(ctx, 1, uri3, sp3)
+	err = st.CreateUserSecret(ctx, 1, uri3, uuid.MustNewUUID(), sp3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	toDrain, err := st.ListCharmSecretsToDrain(ctx, domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mysql/0"})
@@ -625,7 +625,7 @@ func (s *stateSuite) TestListUserSecretsToDrainNone(c *gc.C) {
 	uri := coresecrets.NewURI()
 
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	toDrain, err := st.ListUserSecretsToDrain(ctx)
@@ -652,16 +652,16 @@ func (s *stateSuite) TestListUserSecretsToDrain(c *gc.C) {
 	}
 
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri[0], sp[0])
+	err := st.CreateUserSecret(ctx, 1, uri[0], uuid.MustNewUUID(), sp[0])
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateUserSecret(ctx, 1, uri[1], sp[1])
+	err = st.CreateUserSecret(ctx, 1, uri[1], uuid.MustNewUUID(), sp[1])
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri3 := coresecrets.NewURI()
 	sp3 := domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar"},
 	}
-	err = st.CreateCharmUnitSecret(ctx, 1, uri3, "mysql/0", sp3)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri3, uuid.MustNewUUID(), "mysql/0", sp3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	toDrain, err := st.ListUserSecretsToDrain(ctx)
@@ -701,7 +701,7 @@ func (s *stateSuite) TestCreateCharmSecretAutoPrune(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIs, secreterrors.AutoPruneNotSupported)
 }
 
@@ -722,7 +722,7 @@ func (s *stateSuite) TestCreateCharmApplicationSecretWithContent(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 	owner := coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"}
 	s.assertSecret(c, st, uri, sp, 1, owner)
@@ -750,11 +750,11 @@ func (s *stateSuite) TestCreateCharmApplicationSecretNotFound(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *stateSuite) TestCreateCharmUserSecretWithContent(c *gc.C) {
+func (s *stateSuite) TestCreateCharmUnitSecretWithContent(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
 	s.setupUnits(c, "mysql")
@@ -766,7 +766,7 @@ func (s *stateSuite) TestCreateCharmUserSecretWithContent(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 	owner := coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"}
 	s.assertSecret(c, st, uri, sp, 1, owner)
@@ -794,7 +794,7 @@ func (s *stateSuite) TestCreateCharmUnitSecretNotFound(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIs, uniterrors.NotFound)
 }
 
@@ -811,9 +811,9 @@ func (s *stateSuite) TestCreateCharmApplicationSecretLabelAlreadyExists(c *gc.C)
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 }
 
@@ -831,11 +831,11 @@ func (s *stateSuite) TestCreateCharmUnitSecretLabelAlreadyExists(c *gc.C) {
 	uri2 := coresecrets.NewURI()
 	uri3 := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/1", sp)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql/1", sp)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
-	err = st.CreateCharmUnitSecret(ctx, 1, uri3, "mysql/0", sp)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri3, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 }
 
@@ -852,9 +852,9 @@ func (s *stateSuite) TestCreateCharmUnitSecretLabelAlreadyExistsForApplication(c
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/0", sp)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 }
 
@@ -875,7 +875,7 @@ func (s *stateSuite) TestCreateManyApplicationSecretsNoLabelClash(c *gc.C) {
 		}
 		uri := coresecrets.NewURI()
 		ctx := context.Background()
-		err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+		err := st.CreateCharmApplicationSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql", sp)
 		c.Assert(err, jc.ErrorIsNil)
 		owner := coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"}
 		s.assertSecret(c, st, uri, sp, 1, owner)
@@ -907,7 +907,7 @@ func (s *stateSuite) TestCreateManyUnitSecretsNoLabelClash(c *gc.C) {
 		}
 		uri := coresecrets.NewURI()
 		ctx := context.Background()
-		err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+		err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 		c.Assert(err, jc.ErrorIsNil)
 		owner := coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"}
 		s.assertSecret(c, st, uri, sp, 1, owner)
@@ -952,9 +952,9 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *gc.C) {
 	}
 
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri[0], sp[0])
+	err := st.CreateUserSecret(ctx, 1, uri[0], uuid.MustNewUUID(), sp[0])
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmUnitSecret(ctx, 1, uri[1], "mysql/0", sp[1])
+	err = st.CreateCharmUnitSecret(ctx, 1, uri[1], uuid.MustNewUUID(), "mysql/0", sp[1])
 	c.Assert(err, jc.ErrorIsNil)
 
 	secrets, revisions, err := st.ListCharmSecrets(ctx,
@@ -1006,9 +1006,9 @@ func (s *stateSuite) TestListCharmSecretsByApplication(c *gc.C) {
 	}
 
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri[0], sp[0])
+	err := st.CreateUserSecret(ctx, 1, uri[0], uuid.MustNewUUID(), sp[0])
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri[1], "mysql", sp[1])
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri[1], uuid.MustNewUUID(), "mysql", sp[1])
 	c.Assert(err, jc.ErrorIsNil)
 
 	secrets, revisions, err := st.ListCharmSecrets(ctx,
@@ -1072,13 +1072,13 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
 	}
 
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri[0], sp[0])
+	err := st.CreateUserSecret(ctx, 1, uri[0], uuid.MustNewUUID(), sp[0])
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri[1], "mysql", sp[1])
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri[1], uuid.MustNewUUID(), "mysql", sp[1])
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmUnitSecret(ctx, 1, uri[2], "mysql/0", sp[2])
+	err = st.CreateCharmUnitSecret(ctx, 1, uri[2], uuid.MustNewUUID(), "mysql/0", sp[2])
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmUnitSecret(ctx, 1, uri[3], "postgresql/0", sp[3])
+	err = st.CreateCharmUnitSecret(ctx, 1, uri[3], uuid.MustNewUUID(), "postgresql/0", sp[3])
 	c.Assert(err, jc.ErrorIsNil)
 
 	secrets, revisions, err := st.ListCharmSecrets(ctx,
@@ -1147,10 +1147,10 @@ func (s *stateSuite) TestAllSecretConsumers(c *gc.C) {
 	}
 	ctx := context.Background()
 	uri := coresecrets.NewURI().WithSource(s.modelUUID)
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 	uri2 := coresecrets.NewURI().WithSource(s.modelUUID)
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/1", sp2)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql/1", sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consumer := &coresecrets.SecretConsumerMetadata{
@@ -1208,7 +1208,7 @@ func (s *stateSuite) TestSaveSecretConsumer(c *gc.C) {
 	}
 	uri := coresecrets.NewURI().WithSource(s.modelUUID)
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consumer := &coresecrets.SecretConsumerMetadata{
@@ -1238,7 +1238,7 @@ func (s *stateSuite) TestSaveSecretConsumerMarksObsolete(c *gc.C) {
 	}
 	uri := coresecrets.NewURI().WithSource(s.modelUUID)
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consumer := &coresecrets.SecretConsumerMetadata{
@@ -1256,7 +1256,7 @@ func (s *stateSuite) TestSaveSecretConsumerMarksObsolete(c *gc.C) {
 	sp2 := domainsecret.UpsertSecretParams{
 		ValueRef: &coresecrets.ValueRef{BackendID: "new-backend", RevisionID: "new-revision"},
 	}
-	err = st.UpdateSecret(context.Background(), uri, sp2)
+	err = st.UpdateSecret(context.Background(), uri, uuid.MustNewUUID(), sp2)
 	c.Assert(err, jc.ErrorIsNil)
 	content, valueRef, err := st.GetSecretValue(ctx, uri, 2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1323,7 +1323,7 @@ func (s *stateSuite) TestSaveSecretConsumerUnitNotExists(c *gc.C) {
 	uri := coresecrets.NewURI().WithSource(s.modelUUID)
 	ctx := context.Background()
 
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consumer := &coresecrets.SecretConsumerMetadata{
@@ -1456,7 +1456,7 @@ func (s *stateSuite) TestGetSecretConsumerFirstTime(c *gc.C) {
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
 
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, latest, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
@@ -1501,7 +1501,7 @@ func (s *stateSuite) TestGetSecretConsumerUnitNotExists(c *gc.C) {
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
 
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, err = st.GetSecretConsumer(ctx, uri, "mysql/0")
@@ -1519,7 +1519,7 @@ func (s *stateSuite) TestGetUserSecretURIByLabel(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetUserSecretURIByLabel(ctx, "my label")
@@ -1546,7 +1546,7 @@ func (s *stateSuite) TestGetURIByConsumerLabel(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", &coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
@@ -1577,7 +1577,7 @@ func (s *stateSuite) TestUpdateSecretNotFound(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
 	uri := coresecrets.NewURI()
-	err := st.UpdateSecret(context.Background(), uri, domainsecret.UpsertSecretParams{
+	err := st.UpdateSecret(context.Background(), uri, uuid.MustNewUUID(), domainsecret.UpsertSecretParams{
 		Label: ptr("label"),
 	})
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
@@ -1587,7 +1587,7 @@ func (s *stateSuite) TestUpdateSecretNothingToDo(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
 	uri := coresecrets.NewURI()
-	err := st.UpdateSecret(context.Background(), uri, domainsecret.UpsertSecretParams{})
+	err := st.UpdateSecret(context.Background(), uri, uuid.MustNewUUID(), domainsecret.UpsertSecretParams{})
 	c.Assert(err, gc.ErrorMatches, "must specify a new value or metadata to update a secret")
 }
 
@@ -1603,14 +1603,14 @@ func (s *stateSuite) TestUpdateUserSecretMetadataOnly(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp2 := domainsecret.UpsertSecretParams{
 		Description: ptr("my secretMetadata"),
 		Label:       ptr("my label2"),
 	}
-	err = st.UpdateSecret(context.Background(), uri, sp2)
+	err = st.UpdateSecret(context.Background(), uri, uuid.MustNewUUID(), sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, err := st.GetSecret(ctx, uri)
@@ -1642,15 +1642,15 @@ func (s *stateSuite) TestUpdateUserSecretLabelAlreadyExists(c *gc.C) {
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateUserSecret(ctx, 1, uri2, sp2)
+	err = st.CreateUserSecret(ctx, 1, uri2, uuid.MustNewUUID(), sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp = domainsecret.UpsertSecretParams{
 		Label: ptr("my label2"),
 	}
-	err = st.UpdateSecret(ctx, uri, sp)
+	err = st.UpdateSecret(ctx, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 }
 
@@ -1666,14 +1666,14 @@ func (s *stateSuite) TestUpdateCharmApplicationSecretMetadataOnly(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp2 := domainsecret.UpsertSecretParams{
 		Description: ptr("my secretMetadata"),
 		Label:       ptr("my label2"),
 	}
-	err = st.UpdateSecret(context.Background(), uri, sp2)
+	err = st.UpdateSecret(context.Background(), uri, uuid.MustNewUUID(), sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, err := st.GetSecret(ctx, uri)
@@ -1699,14 +1699,14 @@ func (s *stateSuite) TestUpdateCharmUnitSecretMetadataOnly(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp2 := domainsecret.UpsertSecretParams{
 		Description: ptr("my secretMetadata"),
 		Label:       ptr("my label2"),
 	}
-	err = st.UpdateSecret(context.Background(), uri, sp2)
+	err = st.UpdateSecret(context.Background(), uri, uuid.MustNewUUID(), sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, err := st.GetSecret(ctx, uri)
@@ -1738,13 +1738,13 @@ func (s *stateSuite) TestUpdateCharmApplicationSecretLabelAlreadyExists(c *gc.C)
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/0", sp2)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql/0", sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp.Label = ptr("my label2")
-	err = st.UpdateSecret(ctx, uri, sp)
+	err = st.UpdateSecret(ctx, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 }
 
@@ -1766,13 +1766,13 @@ func (s *stateSuite) TestUpdateCharmUnitSecretLabelAlreadyExists(c *gc.C) {
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp2)
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql", sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp.Label = ptr("my label2")
-	err = st.UpdateSecret(ctx, uri, sp)
+	err = st.UpdateSecret(ctx, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 }
 
@@ -1786,7 +1786,7 @@ func (s *stateSuite) TestUpdateSecretContent(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expireTime := time.Now().Add(2 * time.Hour)
@@ -1794,7 +1794,7 @@ func (s *stateSuite) TestUpdateSecretContent(c *gc.C) {
 		ExpireTime: &expireTime,
 		Data:       coresecrets.SecretData{"foo2": "bar2", "hello": "world"},
 	}
-	err = st.UpdateSecret(context.Background(), uri, sp2)
+	err = st.UpdateSecret(context.Background(), uri, uuid.MustNewUUID(), sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, revs, err := st.ListSecrets(ctx, uri, ptr(2), domainsecret.NilLabels)
@@ -1841,7 +1841,7 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a consumer so revision 1 does not go obsolete.
@@ -1858,7 +1858,7 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *gc.C) {
 		ExpireTime: &expireTime,
 		Data:       coresecrets.SecretData{"foo2": "bar2", "hello": "world"},
 	}
-	err = st.UpdateSecret(context.Background(), uri, sp2)
+	err = st.UpdateSecret(context.Background(), uri, uuid.MustNewUUID(), sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, revs, err := st.ListSecrets(ctx, uri, ptr(2), domainsecret.NilLabels)
@@ -1888,7 +1888,7 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *gc.C) {
 	sp3 := domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo3": "bar3", "hello": "world"},
 	}
-	err = st.UpdateSecret(context.Background(), uri, sp3)
+	err = st.UpdateSecret(context.Background(), uri, uuid.MustNewUUID(), sp3)
 	c.Assert(err, jc.ErrorIsNil)
 	content, valueRef, err = st.GetSecretValue(ctx, uri, 3)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1952,13 +1952,13 @@ func (s *stateSuite) TestUpdateSecretContentValueRef(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp2 := domainsecret.UpsertSecretParams{
 		ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "revision-id"},
 	}
-	err = st.UpdateSecret(context.Background(), uri, sp2)
+	err = st.UpdateSecret(context.Background(), uri, uuid.MustNewUUID(), sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, revs, err := st.ListSecrets(ctx, uri, ptr(2), domainsecret.NilLabels)
@@ -1995,13 +1995,13 @@ func (s *stateSuite) TestUpdateSecretNoRotate(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp2 := domainsecret.UpsertSecretParams{
 		RotatePolicy: ptr(domainsecret.RotateNever),
 	}
-	err = st.UpdateSecret(context.Background(), uri, sp2)
+	err = st.UpdateSecret(context.Background(), uri, uuid.MustNewUUID(), sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, err := st.GetSecret(ctx, uri)
@@ -2035,13 +2035,13 @@ func (s *stateSuite) TestUpdateCharmSecretAutoPrune(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp2 := domainsecret.UpsertSecretParams{
 		AutoPrune: ptr(true),
 	}
-	err = st.UpdateSecret(context.Background(), uri, sp2)
+	err = st.UpdateSecret(context.Background(), uri, uuid.MustNewUUID(), sp2)
 	c.Assert(err, jc.ErrorIs, secreterrors.AutoPruneNotSupported)
 }
 
@@ -2056,7 +2056,7 @@ func (s *stateSuite) TestSaveSecretRemoteConsumer(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consumer := &coresecrets.SecretConsumerMetadata{
@@ -2086,10 +2086,10 @@ func (s *stateSuite) TestAllSecretRemoteConsumers(c *gc.C) {
 	}
 	ctx := context.Background()
 	uri := coresecrets.NewURI().WithSource(s.modelUUID)
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 	uri2 := coresecrets.NewURI().WithSource(s.modelUUID)
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/1", sp2)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql/1", sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consumer := &coresecrets.SecretConsumerMetadata{
@@ -2139,10 +2139,10 @@ func (s *stateSuite) TestSaveSecretRemoteConsumerMarksObsolete(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 	sp.Label = ptr("")
-	err = st.UpdateSecret(ctx, uri, sp)
+	err = st.UpdateSecret(ctx, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consumer := &coresecrets.SecretConsumerMetadata{
@@ -2192,7 +2192,7 @@ func (s *stateSuite) TestGetSecretRemoteConsumerFirstTime(c *gc.C) {
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
 
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, latest, err := st.GetSecretRemoteConsumer(ctx, uri, "remote-app/0")
@@ -2251,7 +2251,7 @@ func (s *stateSuite) TestGrantUnitAccess(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := domainsecret.GrantParams{
@@ -2285,7 +2285,7 @@ func (s *stateSuite) TestGetUnitGrantAccessScope(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := domainsecret.GrantParams{
@@ -2322,7 +2322,7 @@ func (s *stateSuite) TestGrantApplicationAccess(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := domainsecret.GrantParams{
@@ -2356,7 +2356,7 @@ func (s *stateSuite) TestGetApplicationGrantAccessScope(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := domainsecret.GrantParams{
@@ -2391,7 +2391,7 @@ func (s *stateSuite) TestGrantModelAccess(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := domainsecret.GrantParams{
@@ -2425,7 +2425,7 @@ func (s *stateSuite) TestGrantRelationScope(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := domainsecret.GrantParams{
@@ -2459,7 +2459,7 @@ func (s *stateSuite) TestGetRelationGrantAccessScope(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := domainsecret.GrantParams{
@@ -2496,7 +2496,7 @@ func (s *stateSuite) TestGrantAccessInvariantScope(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := domainsecret.GrantParams{
@@ -2545,7 +2545,7 @@ func (s *stateSuite) TestGrantUnitNotFound(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := domainsecret.GrantParams{
@@ -2571,7 +2571,7 @@ func (s *stateSuite) TestGrantApplicationNotFound(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := domainsecret.GrantParams{
@@ -2597,7 +2597,7 @@ func (s *stateSuite) TestGrantScopeNotFound(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := domainsecret.GrantParams{
@@ -2623,7 +2623,7 @@ func (s *stateSuite) TestGetAccessNoGrant(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ap := domainsecret.AccessParams{
@@ -2645,7 +2645,7 @@ func (s *stateSuite) TestGetSecretGrantsNone(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	g, err := st.GetSecretGrants(ctx, uri, coresecrets.RoleView)
@@ -2665,7 +2665,7 @@ func (s *stateSuite) TestGetSecretGrantsAppUnit(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := domainsecret.GrantParams{
@@ -2711,7 +2711,7 @@ func (s *stateSuite) TestGetSecretGrantsModel(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := domainsecret.GrantParams{
@@ -2759,9 +2759,9 @@ func (s *stateSuite) TestAllSecretGrants(c *gc.C) {
 	ctx := context.Background()
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp2)
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql", sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := domainsecret.GrantParams{
@@ -2827,7 +2827,7 @@ func (s *stateSuite) TestRevokeAccess(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := domainsecret.GrantParams{
@@ -2877,7 +2877,7 @@ func (s *stateSuite) TestListGrantedSecrets(c *gc.C) {
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri := coresecrets.NewURI()
-	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp2 := domainsecret.UpsertSecretParams{
@@ -2887,7 +2887,7 @@ func (s *stateSuite) TestListGrantedSecrets(c *gc.C) {
 		},
 	}
 	uri2 := coresecrets.NewURI()
-	err = st.CreateUserSecret(ctx, 1, uri2, sp2)
+	err = st.CreateUserSecret(ctx, 1, uri2, uuid.MustNewUUID(), sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp3 := domainsecret.UpsertSecretParams{
@@ -2897,9 +2897,9 @@ func (s *stateSuite) TestListGrantedSecrets(c *gc.C) {
 		},
 	}
 	uri3 := coresecrets.NewURI()
-	err = st.CreateUserSecret(ctx, 1, uri3, sp3)
+	err = st.CreateUserSecret(ctx, 1, uri3, uuid.MustNewUUID(), sp3)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpdateSecret(ctx, uri3, domainsecret.UpsertSecretParams{
+	err = st.UpdateSecret(ctx, uri3, uuid.MustNewUUID(), domainsecret.UpsertSecretParams{
 		ValueRef: &coresecrets.ValueRef{
 			BackendID:  "backend-id2",
 			RevisionID: "revision-id3",
@@ -2958,22 +2958,22 @@ func (s *stateSuite) prepareSecretObsoleteRevisions(c *gc.C, st *State) (
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 	updateSecretContent(c, st, uri1)
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/0", sp)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 	updateSecretContent(c, st, uri2)
 
 	uri3 := coresecrets.NewURI()
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri3, "mediawiki", sp)
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri3, uuid.MustNewUUID(), "mediawiki", sp)
 	c.Assert(err, jc.ErrorIsNil)
 	updateSecretContent(c, st, uri3)
 
 	uri4 := coresecrets.NewURI()
-	err = st.CreateCharmUnitSecret(ctx, 1, uri4, "mediawiki/0", sp)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri4, uuid.MustNewUUID(), "mediawiki/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 	updateSecretContent(c, st, uri4)
 	return uri1, uri2, uri3, uri4
@@ -3004,7 +3004,7 @@ func updateSecretContent(c *gc.C, st *State, uri *coresecrets.URI) {
 	sp := domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo-new": "bar-new"},
 	}
-	err := st.UpdateSecret(context.Background(), uri, sp)
+	err := st.UpdateSecret(context.Background(), uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3182,21 +3182,21 @@ func (s *stateSuite) TestDeleteObsoleteUserSecretRevisions(c *gc.C) {
 	ctx := context.Background()
 	data := coresecrets.SecretData{"foo": "bar", "hello": "world"}
 
-	err := st.CreateUserSecret(ctx, 1, uriUser1, domainsecret.UpsertSecretParams{
+	err := st.CreateUserSecret(ctx, 1, uriUser1, uuid.MustNewUUID(), domainsecret.UpsertSecretParams{
 		Data: data,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateUserSecret(ctx, 1, uriUser2, domainsecret.UpsertSecretParams{
+	err = st.CreateUserSecret(ctx, 1, uriUser2, uuid.MustNewUUID(), domainsecret.UpsertSecretParams{
 		Data:      data,
 		AutoPrune: ptr(true),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateUserSecret(ctx, 1, uriUser3, domainsecret.UpsertSecretParams{
+	err = st.CreateUserSecret(ctx, 1, uriUser3, uuid.MustNewUUID(), domainsecret.UpsertSecretParams{
 		Data:      data,
 		AutoPrune: ptr(true),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmApplicationSecret(ctx, 1, uriCharm, "mysql", domainsecret.UpsertSecretParams{
+	err = st.CreateCharmApplicationSecret(ctx, 1, uriCharm, uuid.MustNewUUID(), "mysql", domainsecret.UpsertSecretParams{
 		Data: data,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3204,15 +3204,19 @@ func (s *stateSuite) TestDeleteObsoleteUserSecretRevisions(c *gc.C) {
 	sp := domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo-new": "bar-new"},
 	}
-	err = st.UpdateSecret(context.Background(), uriUser1, sp)
+	err = st.UpdateSecret(context.Background(), uriUser1, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpdateSecret(context.Background(), uriUser2, sp)
+	err = st.UpdateSecret(context.Background(), uriUser2, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpdateSecret(context.Background(), uriCharm, sp)
+	err = st.UpdateSecret(context.Background(), uriCharm, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.DeleteObsoleteUserSecretRevisions(ctx)
+	expectedToBeDeleted := []uuid.UUID{
+		parseUUID(c, getRevUUID(c, s.DB(), uriUser2, 1)),
+	}
+	deletedRevisionIDs, err := st.DeleteObsoleteUserSecretRevisions(ctx)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deletedRevisionIDs, jc.SameContents, expectedToBeDeleted)
 
 	assertRevision(c, s.DB(), uriUser1, 1, true)
 	assertRevision(c, s.DB(), uriUser1, 2, true)
@@ -3252,7 +3256,7 @@ func (s *stateSuite) TestDeleteSomeRevisions(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	data, ref, err := st.GetSecretValue(ctx, uri, 1)
@@ -3263,16 +3267,20 @@ func (s *stateSuite) TestDeleteSomeRevisions(c *gc.C) {
 	sp2 := domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar2"},
 	}
-	err = st.UpdateSecret(ctx, uri, sp2)
+	err = st.UpdateSecret(ctx, uri, uuid.MustNewUUID(), sp2)
 	c.Assert(err, jc.ErrorIsNil)
 	sp3 := domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar3"},
 	}
-	err = st.UpdateSecret(ctx, uri, sp3)
+	err = st.UpdateSecret(ctx, uri, uuid.MustNewUUID(), sp3)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.DeleteSecret(ctx, uri, []int{2})
+	expectedToBeDeleted := []uuid.UUID{
+		parseUUID(c, getRevUUID(c, s.DB(), uri, 2)),
+	}
+	deletedRevisionIDs, err := st.DeleteSecret(ctx, uri, []int{2})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deletedRevisionIDs, jc.SameContents, expectedToBeDeleted)
 
 	_, _, err = st.ListSecrets(ctx, uri, ptr(1), domainsecret.NilLabels)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3302,18 +3310,18 @@ func (s *stateSuite) assertDeleteAllRevisions(c *gc.C, revs []int) {
 	}
 	uri := coresecrets.NewURI().WithSource(s.modelUUID)
 	ctx := context.Background()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp2 := domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar2"},
 	}
-	err = st.UpdateSecret(ctx, uri, sp2)
+	err = st.UpdateSecret(ctx, uri, uuid.MustNewUUID(), sp2)
 	c.Assert(err, jc.ErrorIsNil)
 	sp3 := domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar3"},
 	}
-	err = st.UpdateSecret(ctx, uri, sp3)
+	err = st.UpdateSecret(ctx, uri, uuid.MustNewUUID(), sp3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consumer := &coresecrets.SecretConsumerMetadata{
@@ -3325,11 +3333,17 @@ func (s *stateSuite) assertDeleteAllRevisions(c *gc.C, revs []int) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.DeleteSecret(ctx, uri, revs)
+	expectedToBeDeleted := []uuid.UUID{
+		parseUUID(c, getRevUUID(c, s.DB(), uri, 1)),
+		parseUUID(c, getRevUUID(c, s.DB(), uri, 2)),
+		parseUUID(c, getRevUUID(c, s.DB(), uri, 3)),
+	}
+	deletedRevisionIDs, err := st.DeleteSecret(ctx, uri, revs)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deletedRevisionIDs, jc.SameContents, expectedToBeDeleted)
 
 	for r := 1; r <= 3; r++ {
 		_, _, err := st.ListSecrets(ctx, uri, ptr(r), domainsecret.NilLabels)
@@ -3345,6 +3359,44 @@ func (s *stateSuite) assertDeleteAllRevisions(c *gc.C, revs []int) {
 	data, _, err := st.GetSecretValue(ctx, uri2, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
+}
+
+func (s *stateSuite) TestGetSecretRevisionID(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	expireTime := time.Now().Add(2 * time.Hour)
+	sp := domainsecret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo": "bar"},
+		ExpireTime: ptr(expireTime),
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	revID := uuid.MustNewUUID()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, revID, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := st.GetSecretRevisionID(ctx, uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, revID)
+}
+
+func (s *stateSuite) TestGetSecretRevisionIDNotFound(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+
+	_, err := st.GetSecretRevisionID(ctx, uri, 1)
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretRevisionNotFound)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("secret revision not found: %s/%d", uri, 1))
+}
+
+func parseUUID(c *gc.C, s string) uuid.UUID {
+	id, err := uuid.UUIDFromString(s)
+	c.Assert(err, jc.ErrorIsNil)
+	return id
 }
 
 func (s *stateSuite) prepareWatchForConsumedSecrets(c *gc.C, ctx context.Context, st *State) (*coresecrets.URI, *coresecrets.URI) {
@@ -3363,11 +3415,11 @@ func (s *stateSuite) prepareWatchForConsumedSecrets(c *gc.C, ctx context.Context
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The consumed revision 1.
@@ -3484,12 +3536,12 @@ func (s *stateSuite) prepareWatchForRemoteConsumedSecretsChangesFromOfferingSide
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 	uri1.SourceUUID = s.modelUUID
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 	uri2.SourceUUID = s.modelUUID
 
@@ -3545,11 +3597,11 @@ func (s *stateSuite) prepareWatchForWatchStatementForSecretsRotationChanges(c *g
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, uuid.MustNewUUID(), "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mediawiki/0", sp)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mediawiki/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 	updateSecretContent(c, st, uri2)
 
@@ -3697,18 +3749,18 @@ func (s *stateSuite) prepareWatchForWatchStatementForSecretsRevisionExpiryChange
 
 	now := time.Now()
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", domainsecret.UpsertSecretParams{
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, uuid.MustNewUUID(), "mysql", domainsecret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		ExpireTime: ptr(now.Add(1 * time.Hour)),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mediawiki/0", domainsecret.UpsertSecretParams{
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mediawiki/0", domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpdateSecret(context.Background(), uri2, domainsecret.UpsertSecretParams{
+	err = st.UpdateSecret(context.Background(), uri2, uuid.MustNewUUID(), domainsecret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
 		ExpireTime: ptr(now.Add(2 * time.Hour)),
 	})
@@ -3866,7 +3918,7 @@ func (s *stateSuite) TestSecretRotated(c *gc.C) {
 
 	s.setupUnits(c, "mysql")
 	uri := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", domainsecret.UpsertSecretParams{
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, uuid.MustNewUUID(), "mysql", domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3891,7 +3943,7 @@ func (s *stateSuite) TestGetObsoleteUserSecretRevisionsReadyToPrune(c *gc.C) {
 	ctx := context.Background()
 	uri := coresecrets.NewURI()
 
-	err := st.CreateUserSecret(ctx, 1, uri, domainsecret.UpsertSecretParams{
+	err := st.CreateUserSecret(ctx, 1, uri, uuid.MustNewUUID(), domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3905,7 +3957,7 @@ func (s *stateSuite) TestGetObsoleteUserSecretRevisionsReadyToPrune(c *gc.C) {
 	sp := domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo-new": "bar-new"},
 	}
-	err = st.UpdateSecret(context.Background(), uri, sp)
+	err = st.UpdateSecret(context.Background(), uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = st.GetObsoleteUserSecretRevisionsReadyToPrune(ctx)
@@ -3915,7 +3967,7 @@ func (s *stateSuite) TestGetObsoleteUserSecretRevisionsReadyToPrune(c *gc.C) {
 	sp = domainsecret.UpsertSecretParams{
 		AutoPrune: ptr(true),
 	}
-	err = st.UpdateSecret(context.Background(), uri, sp)
+	err = st.UpdateSecret(context.Background(), uri, uuid.MustNewUUID(), sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = st.GetObsoleteUserSecretRevisionsReadyToPrune(ctx)
@@ -3937,28 +3989,22 @@ func (s *stateSuite) TestChangeSecretBackend(c *gc.C) {
 		RevisionID: "revision-id",
 	}
 
-	err := st.CreateCharmApplicationSecret(ctx, 1, uriCharm, "mysql", domainsecret.UpsertSecretParams{Data: dataInput})
+	err := st.CreateCharmApplicationSecret(ctx, 1, uriCharm, uuid.MustNewUUID(), "mysql", domainsecret.UpsertSecretParams{Data: dataInput})
 	c.Assert(err, jc.ErrorIsNil)
 	data, valueRef, err := st.GetSecretValue(ctx, uriCharm, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, dataInput)
 	c.Assert(valueRef, gc.IsNil)
 
-	err = st.CreateUserSecret(ctx, 1, uriUser, domainsecret.UpsertSecretParams{Data: dataInput})
+	err = st.CreateUserSecret(ctx, 1, uriUser, uuid.MustNewUUID(), domainsecret.UpsertSecretParams{Data: dataInput})
 	c.Assert(err, jc.ErrorIsNil)
 	data, valueRef, err = st.GetSecretValue(ctx, uriUser, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, dataInput)
 	c.Assert(valueRef, gc.IsNil)
 
-	// Change the backend failed.
-	err = st.ChangeSecretBackend(ctx, uriCharm, 1, nil, nil)
-	c.Assert(err, gc.ErrorMatches, "either valueRef or data must be set")
-	err = st.ChangeSecretBackend(ctx, uriCharm, 1, valueRefInput, dataInput)
-	c.Assert(err, gc.ErrorMatches, "both valueRef and data cannot be set")
-
 	// change to external backend.
-	err = st.ChangeSecretBackend(ctx, uriCharm, 1, valueRefInput, nil)
+	err = st.ChangeSecretBackend(ctx, parseUUID(c, getRevUUID(c, s.DB(), uriCharm, 1)), valueRefInput, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	data, valueRef, err = st.GetSecretValue(ctx, uriCharm, 1)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3966,7 +4012,7 @@ func (s *stateSuite) TestChangeSecretBackend(c *gc.C) {
 	c.Assert(valueRef, gc.DeepEquals, valueRefInput)
 
 	// change back to internal backend.
-	err = st.ChangeSecretBackend(ctx, uriCharm, 1, nil, dataInput)
+	err = st.ChangeSecretBackend(ctx, parseUUID(c, getRevUUID(c, s.DB(), uriCharm, 1)), nil, dataInput)
 	c.Assert(err, jc.ErrorIsNil)
 	data, valueRef, err = st.GetSecretValue(ctx, uriCharm, 1)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3974,7 +4020,7 @@ func (s *stateSuite) TestChangeSecretBackend(c *gc.C) {
 	c.Assert(valueRef, gc.IsNil)
 
 	// change to external backend for the user secret.
-	err = st.ChangeSecretBackend(ctx, uriUser, 1, valueRefInput, nil)
+	err = st.ChangeSecretBackend(ctx, parseUUID(c, getRevUUID(c, s.DB(), uriUser, 1)), valueRefInput, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	data, valueRef, err = st.GetSecretValue(ctx, uriUser, 1)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3982,7 +4028,7 @@ func (s *stateSuite) TestChangeSecretBackend(c *gc.C) {
 	c.Assert(valueRef, gc.DeepEquals, valueRefInput)
 
 	// change back to internal backend for the user secret.
-	err = st.ChangeSecretBackend(ctx, uriUser, 1, nil, dataInput)
+	err = st.ChangeSecretBackend(ctx, parseUUID(c, getRevUUID(c, s.DB(), uriUser, 1)), nil, dataInput)
 	c.Assert(err, jc.ErrorIsNil)
 	data, valueRef, err = st.GetSecretValue(ctx, uriUser, 1)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3995,7 +4041,6 @@ func (s *stateSuite) TestChangeSecretBackendFailed(c *gc.C) {
 	ctx := context.Background()
 
 	s.setupUnits(c, "mysql")
-	uriCharm := coresecrets.NewURI()
 
 	dataInput := coresecrets.SecretData{"foo": "bar", "hello": "world"}
 	valueRefInput := &coresecrets.ValueRef{
@@ -4003,8 +4048,8 @@ func (s *stateSuite) TestChangeSecretBackendFailed(c *gc.C) {
 		RevisionID: "revision-id",
 	}
 
-	err := st.ChangeSecretBackend(ctx, uriCharm, 1, nil, nil)
+	err := st.ChangeSecretBackend(ctx, uuid.MustNewUUID(), nil, nil)
 	c.Assert(err, gc.ErrorMatches, "either valueRef or data must be set")
-	err = st.ChangeSecretBackend(ctx, uriCharm, 1, valueRefInput, dataInput)
+	err = st.ChangeSecretBackend(ctx, uuid.MustNewUUID(), valueRefInput, dataInput)
 	c.Assert(err, gc.ErrorMatches, "both valueRef and data cannot be set")
 }

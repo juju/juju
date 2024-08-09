@@ -362,6 +362,45 @@ func (c *MockStateInitialWatchStatementForSecretBackendRotationChangesCall) DoAn
 	return c
 }
 
+// ListKubernetesSecretBackends mocks base method.
+func (m *MockState) ListKubernetesSecretBackends(arg0 context.Context) ([]*secretbackend.SecretBackend, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListKubernetesSecretBackends", arg0)
+	ret0, _ := ret[0].([]*secretbackend.SecretBackend)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListKubernetesSecretBackends indicates an expected call of ListKubernetesSecretBackends.
+func (mr *MockStateMockRecorder) ListKubernetesSecretBackends(arg0 any) *MockStateListKubernetesSecretBackendsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKubernetesSecretBackends", reflect.TypeOf((*MockState)(nil).ListKubernetesSecretBackends), arg0)
+	return &MockStateListKubernetesSecretBackendsCall{Call: call}
+}
+
+// MockStateListKubernetesSecretBackendsCall wrap *gomock.Call
+type MockStateListKubernetesSecretBackendsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateListKubernetesSecretBackendsCall) Return(arg0 []*secretbackend.SecretBackend, arg1 error) *MockStateListKubernetesSecretBackendsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateListKubernetesSecretBackendsCall) Do(f func(context.Context) ([]*secretbackend.SecretBackend, error)) *MockStateListKubernetesSecretBackendsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateListKubernetesSecretBackendsCall) DoAndReturn(f func(context.Context) ([]*secretbackend.SecretBackend, error)) *MockStateListKubernetesSecretBackendsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ListSecretBackendIDs mocks base method.
 func (m *MockState) ListSecretBackendIDs(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()

@@ -16,9 +16,11 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // WatchableService provides the API for working with the secret service.
@@ -29,15 +31,19 @@ type WatchableService struct {
 
 // NewWatchableService returns a new watchable service wrapping the specified state.
 func NewWatchableService(
-	st State, logger logger.Logger, watcherFactory WatcherFactory, adminConfigGetter BackendAdminConfigGetter,
+	secretState State, secretBackendReferenceMutator SecretBackendReferenceMutator, modelID coremodel.UUID,
+	logger logger.Logger, watcherFactory WatcherFactory, adminConfigGetter BackendAdminConfigGetter,
 ) *WatchableService {
 	return &WatchableService{
 		SecretService: SecretService{
-			st:                st,
-			logger:            logger,
-			clock:             clock.WallClock,
-			providerGetter:    provider.Provider,
-			adminConfigGetter: adminConfigGetter,
+			modelID:                       modelID,
+			secretState:                   secretState,
+			secretBackendReferenceMutator: secretBackendReferenceMutator,
+			logger:                        logger,
+			clock:                         clock.WallClock,
+			providerGetter:                provider.Provider,
+			adminConfigGetter:             adminConfigGetter,
+			uuidGenerator:                 uuid.NewUUID,
 		},
 		watcherFactory: watcherFactory,
 	}
@@ -46,7 +52,7 @@ func NewWatchableService(
 // WatchConsumedSecretsChanges watches secrets consumed by the specified unit
 // and returns a watcher which notifies of secret URIs that have had a new revision added.
 func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unitName string) (watcher.StringsWatcher, error) {
-	tableLocal, queryLocal := s.st.InitialWatchStatementForConsumedSecretsChange(unitName)
+	tableLocal, queryLocal := s.secretState.InitialWatchStatementForConsumedSecretsChange(unitName)
 	wLocal, err := s.watcherFactory.NewNamespaceWatcher(
 		// We are only interested in CREATE changes because
 		// the secret_revision.revision is immutable anyway.
@@ -56,14 +62,14 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 		return nil, errors.Trace(err)
 	}
 	processLocalChanges := func(ctx context.Context, revisionUUIDs ...string) ([]string, error) {
-		return s.st.GetConsumedSecretURIsWithChanges(ctx, unitName, revisionUUIDs...)
+		return s.secretState.GetConsumedSecretURIsWithChanges(ctx, unitName, revisionUUIDs...)
 	}
 	sWLocal, err := newSecretStringWatcher(wLocal, s.logger, processLocalChanges)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	tableRemote, queryRemote := s.st.InitialWatchStatementForConsumedRemoteSecretsChange(unitName)
+	tableRemote, queryRemote := s.secretState.InitialWatchStatementForConsumedRemoteSecretsChange(unitName)
 	wRemote, err := s.watcherFactory.NewNamespaceWatcher(
 		// We are interested in both CREATE and UPDATE changes on secret_reference table.
 		tableRemote, changestream.All, queryRemote,
@@ -72,7 +78,7 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 		return nil, errors.Trace(err)
 	}
 	processRemoteChanges := func(ctx context.Context, secretIDs ...string) ([]string, error) {
-		return s.st.GetConsumedRemoteSecretURIsWithChanges(ctx, unitName, secretIDs...)
+		return s.secretState.GetConsumedRemoteSecretURIsWithChanges(ctx, unitName, secretIDs...)
 	}
 	sWRemote, err := newSecretStringWatcher(wRemote, s.logger, processRemoteChanges)
 	if err != nil {
@@ -85,7 +91,7 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 // of the specified app and retuens a watcher which notifies of secret URIs
 // that have had a new revision added.
 func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context, appName string) (watcher.StringsWatcher, error) {
-	table, query := s.st.InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName)
+	table, query := s.secretState.InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
 		table, changestream.All, query,
 	)
@@ -93,7 +99,7 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context
 		return nil, errors.Trace(err)
 	}
 	processChanges := func(ctx context.Context, secretIDs ...string) ([]string, error) {
-		return s.st.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx, appName, secretIDs...)
+		return s.secretState.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx, appName, secretIDs...)
 	}
 	return newSecretStringWatcher(w, s.logger, processChanges)
 }
@@ -111,7 +117,7 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 	}
 
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
-	table, query := s.st.InitialWatchStatementForObsoleteRevision(appOwners, unitOwners)
+	table, query := s.secretState.InitialWatchStatementForObsoleteRevision(appOwners, unitOwners)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
 		table, changestream.Create, query,
 	)
@@ -119,7 +125,7 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 		return nil, errors.Trace(err)
 	}
 	processChanges := func(ctx context.Context, revisionUUIDs ...string) ([]string, error) {
-		return s.st.GetRevisionIDsForObsolete(ctx, appOwners, unitOwners, revisionUUIDs...)
+		return s.secretState.GetRevisionIDsForObsolete(ctx, appOwners, unitOwners, revisionUUIDs...)
 	}
 	return newSecretStringWatcher(w, s.logger, processChanges)
 }
@@ -131,7 +137,7 @@ func (s *WatchableService) WatchSecretRevisionsExpiryChanges(ctx context.Context
 	}
 
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
-	table, query := s.st.InitialWatchStatementForSecretsRevisionExpiryChanges(appOwners, unitOwners)
+	table, query := s.secretState.InitialWatchStatementForSecretsRevisionExpiryChanges(appOwners, unitOwners)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
 		table, changestream.All, query,
 	)
@@ -139,7 +145,7 @@ func (s *WatchableService) WatchSecretRevisionsExpiryChanges(ctx context.Context
 		return nil, errors.Trace(err)
 	}
 	processChanges := func(ctx context.Context, revisionUUIDs ...string) ([]watcher.SecretTriggerChange, error) {
-		result, err := s.st.GetSecretsRevisionExpiryChanges(ctx, appOwners, unitOwners, revisionUUIDs...)
+		result, err := s.secretState.GetSecretsRevisionExpiryChanges(ctx, appOwners, unitOwners, revisionUUIDs...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -163,7 +169,7 @@ func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owne
 	}
 
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
-	table, query := s.st.InitialWatchStatementForSecretsRotationChanges(appOwners, unitOwners)
+	table, query := s.secretState.InitialWatchStatementForSecretsRotationChanges(appOwners, unitOwners)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
 		table, changestream.All, query,
 	)
@@ -171,7 +177,7 @@ func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owne
 		return nil, errors.Trace(err)
 	}
 	processChanges := func(ctx context.Context, secretIDs ...string) ([]watcher.SecretTriggerChange, error) {
-		result, err := s.st.GetSecretsRotationChanges(ctx, appOwners, unitOwners, secretIDs...)
+		result, err := s.secretState.GetSecretsRotationChanges(ctx, appOwners, unitOwners, secretIDs...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -194,7 +200,7 @@ func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) 
 		if len(changes) == 0 {
 			return nil, nil
 		}
-		obsoleteRevs, err := s.st.GetObsoleteUserSecretRevisionsReadyToPrune(ctx)
+		obsoleteRevs, err := s.secretState.GetObsoleteUserSecretRevisionsReadyToPrune(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

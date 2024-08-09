@@ -16,6 +16,14 @@ type BackendIdentifier struct {
 	Name string
 }
 
+// String returns the identifier as a string.
+func (i BackendIdentifier) String() string {
+	if i.ID != "" {
+		return i.ID
+	}
+	return i.Name
+}
+
 // CreateSecretBackendParams are used to create a secret backend.
 type CreateSecretBackendParams struct {
 	BackendIdentifier
@@ -99,4 +107,6 @@ type SecretBackend struct {
 	NextRotateTime *time.Time
 	// Config is the configuration of the secret backend.
 	Config map[string]string
+	// NumSecrets is the number of secrets stored in the secret backend.
+	NumSecrets int
 }

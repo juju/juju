@@ -17,8 +17,7 @@ import (
 )
 
 func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
 	secrets := []*coresecrets.SecretMetadata{{
@@ -36,7 +35,6 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 		Revision: 3,
 	}}}
 
-	s.state = NewMockState(ctrl)
 	s.state.EXPECT().ListSecrets(gomock.Any(), nil, nil, domainsecret.NilLabels).Return(
 		secrets, revisions, nil,
 	)
@@ -80,7 +78,7 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 		[]domainsecret.RemoteSecretInfo{}, nil,
 	)
 
-	got, err := s.service(c).GetSecretsForExport(context.Background())
+	got, err := s.service.GetSecretsForExport(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, &SecretExport{
 		Secrets: secrets,
@@ -134,8 +132,7 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 }
 
 func (s *serviceSuite) TestImportSecrets(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
@@ -178,15 +175,13 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 		Revision: 5,
 	}}}
 
-	s.state = NewMockState(ctrl)
-
 	s.state.EXPECT().UpdateRemoteSecretRevision(gomock.Any(), uri2, 668)
 	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri2, "mysql/0", &coresecrets.SecretConsumerMetadata{
 		Label:           "remote label",
 		CurrentRevision: 666,
 	})
 
-	s.state.EXPECT().CreateCharmApplicationSecret(gomock.Any(), 0, uri, "mysql", domainsecret.UpsertSecretParams{
+	s.state.EXPECT().CreateCharmApplicationSecret(gomock.Any(), 0, uri, s.fakeUUID, "mysql", domainsecret.UpsertSecretParams{
 		RotatePolicy:   ptr(domainsecret.RotateHourly),
 		ExpireTime:     nil,
 		NextRotateTime: ptr(rotateTime),
@@ -195,13 +190,22 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 		AutoPrune:      nil,
 		Data:           map[string]string{"foo": "bar"},
 	})
-	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, domainsecret.UpsertSecretParams{
+	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID).Return(
+		func() error { return nil }, nil,
+	)
+	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, s.fakeUUID, domainsecret.UpsertSecretParams{
 		ExpireTime: ptr(expireTime),
 		ValueRef: &coresecrets.ValueRef{
 			BackendID:  "backend-id",
 			RevisionID: "revision-id",
 		},
 	})
+	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), &coresecrets.ValueRef{
+		BackendID:  "backend-id",
+		RevisionID: "revision-id",
+	}, s.modelID, s.fakeUUID).Return(
+		func() error { return nil }, nil,
+	)
 	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, "mysql/0", &coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 666,
@@ -225,11 +229,14 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 		RoleID:        1,
 	})
 
-	s.state.EXPECT().CreateUserSecret(gomock.Any(), 0, uri3, domainsecret.UpsertSecretParams{
+	s.state.EXPECT().CreateUserSecret(gomock.Any(), 0, uri3, s.fakeUUID, domainsecret.UpsertSecretParams{
 		Description: ptr(secrets[1].Description),
 		AutoPrune:   ptr(secrets[1].AutoPrune),
 		Data:        map[string]string{"foo": "baz"},
 	})
+	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID).Return(
+		func() error { return nil }, nil,
+	)
 
 	toImport := &SecretExport{
 		Secrets: secrets,
@@ -303,6 +310,6 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 			},
 		}},
 	}
-	err := s.service(c).ImportSecrets(context.Background(), toImport)
+	err := s.service.ImportSecrets(context.Background(), toImport)
 	c.Assert(err, jc.ErrorIsNil)
 }
