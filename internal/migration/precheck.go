@@ -433,11 +433,15 @@ type agentToolsGetter interface {
 	AgentTools() (*tools.Tools, error)
 }
 
+const (
+	fanConfigKey = "fan-config"
+)
+
 // checkNoFanConfig makes sure that no fan config was used in the config of the
 // model being migrated.
 func checkNoFanConfig(modelConfig map[string]interface{}) error {
-	if modelConfig[config.FanConfig] != nil && modelConfig[config.FanConfig] != "" {
-		return errors.Errorf("fan networking not supported, remove fan-config %q from migrating model config", modelConfig[config.FanConfig])
+	if modelConfig[fanConfigKey] != nil && modelConfig[fanConfigKey] != "" {
+		return errors.Errorf("fan networking not supported, remove fan-config %q from migrating model config", modelConfig[fanConfigKey])
 	}
 	if modelConfig[config.ContainerNetworkingMethodKey] != nil && modelConfig[config.ContainerNetworkingMethodKey] == "fan" {
 		return errors.Errorf("fan networking not supported, remove container-networking-method %q from migrating model config", modelConfig[config.ContainerNetworkingMethodKey])

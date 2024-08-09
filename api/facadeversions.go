@@ -59,7 +59,6 @@ var facadeVersions = facades.FacadeVersions{
 	"EntityWatcher":                {2},
 	"EnvironUpgrader":              {1},
 	"ExternalControllerUpdater":    {1},
-	"FanConfigurer":                {1},
 	"FilesystemAttachmentsWatcher": {2},
 	"Firewaller":                   {7},
 	"HighAvailability":             {2, 3},

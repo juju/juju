@@ -20,7 +20,7 @@ type validatorSuite struct {
 
 var _ = gc.Suite(&validatorSuite{})
 
-func (_ *validatorSuite) TestControllerNotContainingValidator(c *gc.C) {
+func (*validatorSuite) TestControllerNotContainingValidator(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, map[string]any{
 		config.NameKey:                 "wallyworld",
 		config.UUIDKey:                 testing.ModelTag.Id(),
@@ -39,7 +39,7 @@ func (_ *validatorSuite) TestControllerNotContainingValidator(c *gc.C) {
 	c.Assert(rval.AllAttrs(), jc.DeepEquals, cfg.AllAttrs())
 }
 
-func (_ *validatorSuite) TestModelValidator(c *gc.C) {
+func (*validatorSuite) TestModelValidator(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, map[string]any{
 		config.NameKey:         "wallyworld",
 		config.UUIDKey:         testing.ModelTag.Id(),
@@ -59,7 +59,7 @@ func (_ *validatorSuite) TestModelValidator(c *gc.C) {
 
 // Asserting the fact that model config validation when controller only config
 // attributes are used.
-func (_ *validatorSuite) TestModelValidatorFailsForControllerAttrs(c *gc.C) {
+func (*validatorSuite) TestModelValidatorFailsForControllerAttrs(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, map[string]any{
 		config.NameKey:                 "wallyworld",
 		config.UUIDKey:                 testing.ModelTag.Id(),
