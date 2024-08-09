@@ -47,7 +47,9 @@ func newFacadeV8(ctx facade.Context) (*Client, error) {
 	}
 
 	st := ctx.State()
+	resources := ctx.Resources()
 	presence := ctx.Presence()
+	factory := ctx.MultiwatcherFactory()
 
 	model, err := st.Model()
 	if err != nil {
@@ -71,11 +73,13 @@ func newFacadeV8(ctx facade.Context) (*Client, error) {
 	}
 
 	return &Client{
-		stateAccessor:    &stateShim{st, model, nil},
-		storageAccessor:  storageAccessor,
-		auth:             authorizer,
-		presence:         presence,
-		leadershipReader: leadershipReader,
-		modelCache:       modelCache,
+		stateAccessor:       &stateShim{st, model, nil},
+		storageAccessor:     storageAccessor,
+		auth:                authorizer,
+		presence:            presence,
+		leadershipReader:    leadershipReader,
+		modelCache:          modelCache,
+		resources:           resources,
+		multiwatcherFactory: factory,
 	}, nil
 }

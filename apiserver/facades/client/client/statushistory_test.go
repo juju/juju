@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package client_test
+package client
 
 import (
 	"time"
@@ -11,10 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/client"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
@@ -24,31 +22,18 @@ var _ = gc.Suite(&statusHistoryTestSuite{})
 type statusHistoryTestSuite struct {
 	testing.BaseSuite
 	st  *mockState
-	api *client.Client
+	api *Client
 }
 
 func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 	s.st = &mockState{}
 	tag := names.NewUserTag("admin")
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
-	var err error
-	s.api, err = client.NewClient(
-		s.st,
-		nil, // storage
-		nil, // pool
-		nil, // resources
-		authorizer,
-		nil,                                // presence
-		nil,                                // toolsFinder
-		nil,                                // newEnviron
-		nil,                                // blockChecker
-		context.NewEmptyCloudCallContext(), // ProviderCallContext
-		nil,
-		nil,
-		nil, // multiwatcher.Factory
-		nil,
-	)
-	c.Assert(err, jc.ErrorIsNil)
+
+	s.api = &Client{
+		stateAccessor: s.st,
+		auth:          authorizer,
+	}
 }
 
 func statusInfoWithDates(si []status.StatusInfo) []status.StatusInfo {
@@ -270,14 +255,14 @@ func (s *statusHistoryTestSuite) TestStatusHistoryModelOnly(c *gc.C) {
 }
 
 type mockState struct {
-	client.Backend
+	Backend
 	appHistory   []status.StatusInfo
 	unitHistory  []status.StatusInfo
 	agentHistory []status.StatusInfo
 	modelHistory []status.StatusInfo
 }
 
-func (m *mockState) Model() (client.Model, error) {
+func (m *mockState) Model() (Model, error) {
 	return &mockModel{status: m.modelHistory}, nil
 }
 
@@ -293,7 +278,7 @@ func (m *mockState) ControllerTag() names.ControllerTag {
 	return names.NewControllerTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 }
 
-func (m *mockState) Unit(name string) (client.Unit, error) {
+func (m *mockState) Unit(name string) (Unit, error) {
 	if name != "unit/0" {
 		return nil, errors.NotFoundf("%v", name)
 	}
@@ -303,7 +288,7 @@ func (m *mockState) Unit(name string) (client.Unit, error) {
 	}, nil
 }
 
-func (m *mockState) Application(name string) (client.Application, error) {
+func (m *mockState) Application(name string) (Application, error) {
 	if name != "app" {
 		return nil, errors.NotFoundf("%v", name)
 	}
@@ -314,7 +299,7 @@ func (m *mockState) Application(name string) (client.Application, error) {
 
 type mockModel struct {
 	status statuses
-	client.Model
+	Model
 }
 
 func (m mockModel) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
@@ -323,7 +308,7 @@ func (m mockModel) StatusHistory(filter status.StatusHistoryFilter) ([]status.St
 
 type mockApplication struct {
 	status statuses
-	client.Application
+	Application
 }
 
 func (m *mockApplication) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
@@ -333,7 +318,7 @@ func (m *mockApplication) StatusHistory(filter status.StatusHistoryFilter) ([]st
 type mockUnit struct {
 	status statuses
 	agent  *mockUnitAgent
-	client.Unit
+	Unit
 }
 
 func (m *mockUnit) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {

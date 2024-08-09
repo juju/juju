@@ -41,17 +41,17 @@ type Client struct {
 	auth            facade.Authorizer
 	presence        facade.Presence
 
-	leadershipReader leadership.Reader
-	modelCache       *cache.Model
+	leadershipReader    leadership.Reader
+	modelCache          *cache.Model
+	multiwatcherFactory multiwatcher.Factory
+	resources           facade.Resources
 }
 
 // ClientV7 serves the (v7) client-specific API methods.
 type ClientV7 struct {
 	*Client
-	registryAPIFunc     func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
-	resources           facade.Resources
-	multiwatcherFactory multiwatcher.Factory
-	toolsFinder         common.ToolsFinder
+	registryAPIFunc func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
+	toolsFinder     common.ToolsFinder
 }
 
 // ClientV6 serves the (v6) client-specific API methods.
@@ -179,22 +179,22 @@ func NewClientV7(
 
 	return &ClientV7{
 		Client: &Client{
-			stateAccessor:    backend,
-			storageAccessor:  storageAccessor,
-			auth:             authorizer,
-			presence:         presence,
-			leadershipReader: leadershipReader,
-			modelCache:       modelCache,
+			stateAccessor:       backend,
+			storageAccessor:     storageAccessor,
+			auth:                authorizer,
+			presence:            presence,
+			leadershipReader:    leadershipReader,
+			modelCache:          modelCache,
+			resources:           resources,
+			multiwatcherFactory: factory,
 		},
-		registryAPIFunc:     registryAPIFunc,
-		resources:           resources,
-		multiwatcherFactory: factory,
-		toolsFinder:         toolsFinder,
+		registryAPIFunc: registryAPIFunc,
+		toolsFinder:     toolsFinder,
 	}, nil
 }
 
 // WatchAll initiates a watcher for entities in the connected model.
-func (c *ClientV7) WatchAll() (params.AllWatcherId, error) {
+func (c *Client) WatchAll() (params.AllWatcherId, error) {
 	if err := c.checkCanRead(); err != nil {
 		return params.AllWatcherId{}, err
 	}
