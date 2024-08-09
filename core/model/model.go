@@ -119,14 +119,14 @@ func (u UUID) Validate() error {
 
 // HostedModel bundles a Model with its cloud and credential.
 type HostedModel struct {
-	Model
-	cloud.Cloud
-	cloud.Credential
+	Model      Model
+	Cloud      cloud.Cloud
+	Credential cloud.Credential
 }
 
 // ModelWithLogin bundles a Model with the last login by a certain user.
 type ModelWithLogin struct {
-	Model
+	Model     Model
 	UserID    user.UUID
 	LastLogin *time.Time
 }
