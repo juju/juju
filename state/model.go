@@ -1181,8 +1181,6 @@ func (m *Model) destroyOps(
 			ops = append(ops, newCleanupOp(cleanupStorageForDyingModel, modelUUID, args))
 		}
 	}
-	// Ensure we clean up the branches upon clean up of a model.
-	ops = append(ops, newCleanupOp(cleanupBranchesForDyingModel, modelUUID, args))
 	return append(prereqOps, ops...), nil
 }
 

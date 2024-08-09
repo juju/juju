@@ -16,10 +16,8 @@ import (
 
 	"github.com/juju/juju/api"
 	apiclient "github.com/juju/juju/api/client/client"
-	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
-	"github.com/juju/juju/controller"
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -27,7 +25,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub/transport"
-	"github.com/juju/juju/internal/featureflag"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
@@ -68,7 +65,6 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	c.Check(status.Offers, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
 	c.Check(status.ControllerTimestamp, gc.NotNil)
-	c.Check(status.Branches, gc.HasLen, 0)
 	resultMachine, ok := status.Machines[machine.Id()]
 	if !ok {
 		c.Fatalf("Missing machine with id %q", machine.Id())
@@ -497,11 +493,6 @@ func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerService := controllerServiceFactory.ControllerConfig()
-
-	setGenerationsControllerConfig(c, controllerService)
-
 	// Create a host model because controller models can't be migrated.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
@@ -961,232 +952,4 @@ func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmhub(c *gc.C) {
 	appStatus, ok = status.Applications["charmhubby"]
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "ch:amd64/jammy/charmhubby-42")
-}
-
-type filteringBranchesSuite struct {
-	baseSuite
-
-	appA string
-	appB string
-	subB string
-}
-
-var _ = gc.Suite(&filteringBranchesSuite{})
-
-func (s *filteringBranchesSuite) SetUpTest(c *gc.C) {
-	s.ApiServerSuite.WithLeaseManager = true
-	s.baseSuite.SetUpTest(c)
-
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerService := controllerServiceFactory.ControllerConfig()
-
-	setGenerationsControllerConfig(c, controllerService)
-
-	s.appA = "mysql"
-	s.appB = "wordpress"
-	s.subB = "logging"
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	release()
-	// Application A has no touch points with application C
-	// but will have a unit on the same machine is a unit of an application B.
-	applicationA := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{
-			Name: s.appA,
-		}),
-	})
-
-	// Application B will have a unit on the same machine as a unit of an application A
-	// and will have a relation to an application C.
-	applicationB := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{
-			Name: s.appB,
-		}),
-	})
-	endpoint1, err := applicationB.Endpoint("juju-info")
-	c.Assert(err, jc.ErrorIsNil)
-
-	f.MakeUnit(c, &factory.UnitParams{
-		Application: applicationA,
-	})
-	appBUnit := f.MakeUnit(c, &factory.UnitParams{
-		Application: applicationB,
-	})
-
-	// Application C has a relation to application B but has no touch points with
-	// an application A.
-	applicationC := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{Name: s.subB}),
-	})
-	endpoint2, err := applicationC.Endpoint("info")
-	c.Assert(err, jc.ErrorIsNil)
-	rel := f.MakeRelation(c, &factory.RelationParams{
-		Endpoints: []state.Endpoint{endpoint2, endpoint1},
-	})
-	// Trigger the creation of the subordinate unit by entering scope
-	// on the principal unit.
-	ru, err := rel.Unit(appBUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *filteringBranchesSuite) TestFullStatusBranchNoFilter(c *gc.C) {
-	st := s.ControllerModel(c).State()
-	err := st.AddBranch("apple", "test-user")
-	c.Assert(err, jc.ErrorIsNil)
-
-	conn := s.OpenControllerModelAPI(c)
-	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-
-	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("%#v", status.Branches)
-	b, ok := status.Branches["apple"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{})
-	c.Assert(status.Applications, gc.HasLen, 3)
-}
-
-func (s *filteringBranchesSuite) TestFullStatusBranchFilterUnit(c *gc.C) {
-	s.assertBranchAssignUnit(c, "apple", s.appA+"/0")
-	st := s.ControllerModel(c).State()
-	err := st.AddBranch("banana", "test-user")
-	c.Assert(err, jc.ErrorIsNil)
-
-	conn := s.OpenControllerModelAPI(c)
-	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-
-	status, err := client.Status(&apiclient.StatusArgs{
-		Patterns: []string{s.appA + "/0"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Branches, gc.HasLen, 1)
-	b, ok := status.Branches["apple"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.appA: {s.appA + "/0"}})
-	c.Assert(status.Applications, gc.HasLen, 1)
-}
-
-func (s *filteringBranchesSuite) TestFullStatusBranchFilterUnitLeader(c *gc.C) {
-	s.assertBranchAssignUnit(c, "apple", s.appA+"/0")
-	claimer, err := s.LeaseManager.Claimer("application-leadership", s.ControllerModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	err = claimer.Claim(s.appA, s.appA+"/0", time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
-
-	st := s.ControllerModel(c).State()
-	err = st.AddBranch("banana", "test-user")
-	c.Assert(err, jc.ErrorIsNil)
-
-	conn := s.OpenControllerModelAPI(c)
-	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-
-	status, err := client.Status(&apiclient.StatusArgs{
-		Patterns: []string{s.appA + "/leader"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Branches, gc.HasLen, 1)
-	b, ok := status.Branches["apple"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.appA: {s.appA + "/0"}})
-	c.Assert(status.Applications, gc.HasLen, 1)
-}
-
-func (s *filteringBranchesSuite) TestFullStatusBranchFilterApplication(c *gc.C) {
-	st := s.ControllerModel(c).State()
-	err := st.AddBranch("apple", "test-user")
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertBranchAssignApplication(c, "banana", s.appB)
-
-	conn := s.OpenControllerModelAPI(c)
-	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-
-	status, err := client.Status(&apiclient.StatusArgs{
-		Patterns: []string{s.appB},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Branches, gc.HasLen, 1)
-	b, ok := status.Branches["banana"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.appB: {}})
-	c.Assert(status.Applications, gc.HasLen, 2)
-}
-
-func (s *filteringBranchesSuite) TestFullStatusBranchFilterSubordinateUnit(c *gc.C) {
-	s.assertBranchAssignUnit(c, "apple", s.subB+"/0")
-	s.assertBranchAssignUnit(c, "banana", s.appA+"/0")
-	st := s.ControllerModel(c).State()
-	err := st.AddBranch("cucumber", "test-user")
-	c.Assert(err, jc.ErrorIsNil)
-
-	conn := s.OpenControllerModelAPI(c)
-	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-
-	status, err := client.Status(&apiclient.StatusArgs{
-		Patterns: []string{s.subB + "/0"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Branches, gc.HasLen, 1)
-	b, ok := status.Branches["apple"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.subB: {s.subB + "/0"}})
-	c.Assert(status.Applications, gc.HasLen, 2)
-
-}
-
-func (s *filteringBranchesSuite) TestFullStatusBranchFilterTwoBranchesSubordinateUnit(c *gc.C) {
-	s.assertBranchAssignUnit(c, "apple", s.subB+"/0")
-	s.assertBranchAssignUnit(c, "banana", s.appA+"/0")
-	s.assertBranchAssignUnit(c, "cucumber", s.appB+"/0")
-
-	conn := s.OpenControllerModelAPI(c)
-	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-
-	status, err := client.Status(&apiclient.StatusArgs{
-		Patterns: []string{s.appB + "/0"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Branches, gc.HasLen, 2)
-	b, ok := status.Branches["apple"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.subB: {s.subB + "/0"}})
-	b, ok = status.Branches["cucumber"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.appB: {s.appB + "/0"}})
-	c.Assert(status.Applications, gc.HasLen, 2)
-}
-
-func (s *filteringBranchesSuite) assertBranchAssignUnit(c *gc.C, bName, uName string) {
-	st := s.ControllerModel(c).State()
-	err := st.AddBranch(bName, "test-user")
-	c.Assert(err, jc.ErrorIsNil)
-	gen, err := st.Branch(bName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gen, gc.NotNil)
-	err = gen.AssignUnit(uName)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *filteringBranchesSuite) assertBranchAssignApplication(c *gc.C, bName, aName string) {
-	st := s.ControllerModel(c).State()
-	err := st.AddBranch(bName, "test-user")
-	c.Assert(err, jc.ErrorIsNil)
-	gen, err := st.Branch(bName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gen, gc.NotNil)
-	err = gen.AssignApplication(aName)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-type ControllerConfigService interface {
-	client.ControllerConfigService
-	UpdateControllerConfig(ctx context.Context, updateAttrs controller.Config, removeAttrs []string) error
-}
-
-func setGenerationsControllerConfig(c *gc.C, controllerConfigService ControllerConfigService) {
-	err := controllerConfigService.UpdateControllerConfig(context.Background(), map[string]interface{}{
-		"features": featureflag.Branches,
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
 }

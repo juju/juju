@@ -14,7 +14,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -45,31 +44,7 @@ func ReadModelsFile(file string) (map[string]*ControllerModels, error) {
 	if err := addModelType(models); err != nil {
 		return nil, err
 	}
-	if featureflag.Enabled(featureflag.Branches) || featureflag.Enabled(featureflag.Generations) {
-		if err := addGeneration(models); err != nil {
-			return nil, err
-		}
-	}
 	return models, nil
-}
-
-// addGeneration add missing generation version data if necessary.
-// Default to 'current'.
-func addGeneration(models map[string]*ControllerModels) error {
-	changes := false
-	for _, cm := range models {
-		for name, m := range cm.Models {
-			if m.ActiveBranch == "" {
-				changes = true
-				m.ActiveBranch = model.GenerationMaster
-				cm.Models[name] = m
-			}
-		}
-	}
-	if changes {
-		return WriteModelsFile(models)
-	}
-	return nil
 }
 
 // addModelType adds missing model type data if necessary.

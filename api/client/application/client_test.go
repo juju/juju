@@ -27,8 +27,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-const newBranchName = "new-branch"
-
 type applicationSuite struct{}
 
 var _ = gc.Suite(&applicationSuite{})
@@ -207,13 +205,12 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 	}
 	args := params.ApplicationGet{
 		ApplicationName: "application",
-		BranchName:      newBranchName,
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetCharmURLOrigin", args, result).SetArg(3, results).Return(nil)
 	client := application.NewClientFromCaller(mockFacadeCaller)
 
-	curl, origin, err := client.GetCharmURLOrigin(newBranchName, "application")
+	curl, origin, err := client.GetCharmURLOrigin("application")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("ch:curl"))
 	c.Assert(origin, gc.DeepEquals, apicharm.Origin{
@@ -250,7 +247,6 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 			"b": {Count: toUint64Ptr(123)},
 			"c": {Size: toUint64Ptr(123)},
 		},
-		Generation: newBranchName,
 	}
 
 	c.Assert(args.ConfigSettingsYAML, gc.Equals, "yaml")
@@ -290,7 +286,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetCharm", args, nil).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.SetCharm(newBranchName, cfg)
+	err := client.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -309,7 +305,7 @@ func (s *applicationSuite) TestDestroyApplications(c *gc.C) {
 	}}
 	delay := 1 * time.Minute
 	result := new(params.DestroyApplicationResults)
-	results := params.DestroyApplicationResults{expectedResults}
+	results := params.DestroyApplicationResults{Results: expectedResults}
 	args := params.DestroyApplicationsParams{
 		Applications: []params.DestroyApplicationParams{
 			{ApplicationTag: "application-foo", Force: true, MaxWait: &delay},
@@ -713,8 +709,8 @@ func (s *applicationSuite) TestGetConfig(c *gc.C) {
 	defer ctrl.Finish()
 
 	args := params.ApplicationGetArgs{Args: []params.ApplicationGet{
-		{ApplicationName: "foo", BranchName: newBranchName},
-		{ApplicationName: "bar", BranchName: newBranchName},
+		{ApplicationName: "foo"},
+		{ApplicationName: "bar"},
 	}}
 	fooConfig := map[string]interface{}{
 		"outlook": map[string]interface{}{
@@ -754,7 +750,7 @@ func (s *applicationSuite) TestGetConfig(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CharmConfig", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	res, err := client.GetConfig(newBranchName, "foo", "bar")
+	res, err := client.GetConfig("foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, jc.DeepEquals, []map[string]interface{}{
 		fooConfig, barConfig,
@@ -827,7 +823,6 @@ func (s *applicationSuite) TestSetConfig(c *gc.C) {
 			ApplicationName: "foo",
 			Config:          fooConfig,
 			ConfigYAML:      fooConfigYaml,
-			Generation:      newBranchName,
 		}}}
 	result := new(params.ErrorResults)
 	results := params.ErrorResults{
@@ -839,7 +834,7 @@ func (s *applicationSuite) TestSetConfig(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetConfigs", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.SetConfig(newBranchName, "foo", fooConfigYaml, fooConfig)
+	err := client.SetConfig("foo", fooConfigYaml, fooConfig)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
@@ -851,7 +846,6 @@ func (s *applicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 		Args: []params.ApplicationUnset{{
 			ApplicationName: "foo",
 			Options:         []string{"option"},
-			BranchName:      newBranchName,
 		}},
 	}
 	result := new(params.ErrorResults)
@@ -864,7 +858,7 @@ func (s *applicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UnsetApplicationsConfig", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.UnsetApplicationConfig(newBranchName, "foo", []string{"option"})
+	err := client.UnsetApplicationConfig("foo", []string{"option"})
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 

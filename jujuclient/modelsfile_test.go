@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -29,17 +28,14 @@ controllers:
       admin/admin:
         uuid: ghi
         type: iaas
-        branch: master
   kontroll:
     models:
       admin/admin:
         uuid: abc
         type: iaas
-        branch: master
       admin/my-model:
         uuid: def
         type: iaas
-        branch: master
     current-model: admin/my-model
 `
 
@@ -74,19 +70,16 @@ var testControllerModels = map[string]*jujuclient.ControllerModels{
 }
 
 var kontrollAdminModelDetails = jujuclient.ModelDetails{
-	ModelUUID:    "abc",
-	ModelType:    model.IAAS,
-	ActiveBranch: model.GenerationMaster,
+	ModelUUID: "abc",
+	ModelType: model.IAAS,
 }
 var kontrollMyModelModelDetails = jujuclient.ModelDetails{
-	ModelUUID:    "def",
-	ModelType:    model.IAAS,
-	ActiveBranch: model.GenerationMaster,
+	ModelUUID: "def",
+	ModelType: model.IAAS,
 }
 var ctrlAdminModelDetails = jujuclient.ModelDetails{
-	ModelUUID:    "ghi",
-	ModelType:    model.IAAS,
-	ActiveBranch: model.GenerationMaster,
+	ModelUUID: "ghi",
+	ModelType: model.IAAS,
 }
 
 func (s *ModelsFileSuite) TestWriteFile(c *gc.C) {
@@ -111,7 +104,6 @@ func (s *ModelsFileSuite) TestReadEmptyFile(c *gc.C) {
 }
 
 func (s *ModelsFileSuite) TestMigrateLegacyLocal(c *gc.C) {
-	s.SetFeatureFlags(featureflag.Branches)
 	err := os.WriteFile(jujuclient.JujuModelsPath(), []byte(testLegacyModelsYAML), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 

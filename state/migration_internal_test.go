@@ -25,7 +25,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		modelUserLastConnectionC,
 		permissionsC,
 		settingsC,
-		generationsC,
 		sequenceC,
 		sshHostKeysC,
 		statusesC,

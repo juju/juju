@@ -24,7 +24,6 @@ type formattedStatus struct {
 	Relations          []relationStatus                   `json:"-" yaml:"-"`
 	Storage            *storage.CombinedStorage           `json:"storage,omitempty" yaml:"storage,omitempty"`
 	Controller         *controllerStatus                  `json:"controller,omitempty" yaml:"controller,omitempty"`
-	Branches           map[string]branchStatus            `json:"branches,omitempty" yaml:"branches,omitempty"`
 }
 
 type formattedMachineStatus struct {
@@ -235,7 +234,6 @@ type unitStatus struct {
 	Address       string                `json:"address,omitempty" yaml:"address,omitempty"`
 	ProviderId    string                `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
 	Subordinates  map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
-	Branch        string                `json:"branch,omitempty" yaml:"branch,omitempty"`
 }
 
 func (s *formattedStatus) applicationScale(name string) (string, bool) {
@@ -329,11 +327,4 @@ type relationStatus struct {
 	Type      string
 	Status    string
 	Message   string
-}
-
-type branchStatus struct {
-	Ref       string `json:"ref,omitempty" yaml:"ref,omitempty"`
-	Created   string `json:"created,omitempty" yaml:"created,omitempty"`
-	CreatedBy string `json:"created-by,omitempty" yaml:"created-by,omitempty"`
-	Active    bool   `json:"active,omitempty" yaml:"active,omitempty"`
 }

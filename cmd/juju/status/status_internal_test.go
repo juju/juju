@@ -69,8 +69,7 @@ func (s *StatusSuite) SetUpTest(c *gc.C) {
 		CurrentModel: "controller",
 		Models: map[string]jujuclient.ModelDetails{
 			"admin/controller": {
-				ModelType:    coremodel.IAAS,
-				ActiveBranch: coremodel.GenerationMaster,
+				ModelType: coremodel.IAAS,
 			},
 		},
 	}
@@ -152,7 +151,6 @@ func (s *StatusSuite) newContext() *context {
 				Machines:           make(map[string]params.MachineStatus),
 				Applications:       make(map[string]params.ApplicationStatus),
 				Offers:             make(map[string]params.ApplicationOfferStatus),
-				Branches:           make(map[string]params.BranchStatus),
 				RemoteApplications: make(map[string]params.RemoteApplicationStatus),
 			},
 		},
@@ -1980,11 +1978,6 @@ var statusTests = []testCase{
 		setUnitAsLeader{"logging/1"},
 		setUnitAsLeader{"wordpress/0"},
 
-		addBranch{"apple"},
-		addBranch{"banana"},
-		trackBranch{"apple", "logging/1"},
-		trackBranch{"banana", "wordpress/0"},
-
 		expect{
 			what: "multiples related peer units",
 			output: M{
@@ -2027,7 +2020,6 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.1.1",
 								"leader":         true,
-								"branch":         "banana",
 							},
 						},
 						"endpoint-bindings": M{
@@ -2088,7 +2080,6 @@ var statusTests = []testCase{
 										},
 										"public-address": "10.0.2.1",
 										"leader":         true,
-										"branch":         "apple",
 									},
 								},
 								"public-address": "10.0.2.1",
@@ -2123,16 +2114,6 @@ var statusTests = []testCase{
 				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
-				},
-				"branches": M{
-					"apple": M{
-						"created":    "15:04:05+07:00",
-						"created-by": "testuser",
-					},
-					"banana": M{
-						"created":    "15:04:05+07:00",
-						"created-by": "testuser",
-					},
 				},
 			},
 		},
@@ -4253,31 +4234,6 @@ func (s setCharmProfiles) step(c *gc.C, ctx *context) {
 	ctx.api.result.Machines[s.machineId] = m
 }
 
-type addBranch struct {
-	name string
-}
-
-func (s addBranch) step(c *gc.C, ctx *context) {
-	ctx.api.result.Branches[s.name] = params.BranchStatus{
-		CreatedBy:     "testuser",
-		AssignedUnits: make(map[string][]string),
-	}
-}
-
-type trackBranch struct {
-	branch   string
-	unitName string
-}
-
-func (s trackBranch) step(c *gc.C, ctx *context) {
-	b, ok := ctx.api.result.Branches[s.branch]
-	c.Assert(ok, jc.IsTrue)
-
-	appName, _ := names.UnitApplication(s.unitName)
-	b.AssignedUnits[appName] = append(b.AssignedUnits[appName], s.unitName)
-	ctx.api.result.Branches[s.branch] = b
-}
-
 type expect struct {
 	what   string
 	output M
@@ -5410,7 +5366,6 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		Controller: &controllerStatus{
 			Timestamp: common.FormatTimeAsTimestamp(&now, isoTime),
 		},
-		Branches: map[string]branchStatus{},
 	})
 }
 
@@ -5459,7 +5414,6 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 		Applications:       map[string]applicationStatus{},
 		RemoteApplications: map[string]remoteApplicationStatus{},
 		Offers:             map[string]offerStatus{},
-		Branches:           map[string]branchStatus{},
 	})
 }
 
@@ -5514,7 +5468,6 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 		Controller: &controllerStatus{
 			Timestamp: common.FormatTimeAsTimestamp(&now, isoTime),
 		},
-		Branches: map[string]branchStatus{},
 	})
 }
 
@@ -5573,34 +5526,6 @@ func (s *StatusSuite) TestNonTabularRelations(c *gc.C) {
 	c.Assert(stderr, gc.HasLen, 0)
 	c.Assert(strings.Contains(stdout, "    relations:"), jc.IsTrue)
 	c.Assert(strings.Contains(stdout, "storage:"), jc.IsTrue)
-}
-
-func (s *StatusSuite) prepareBranchesOutput(c *gc.C) *context {
-	ctx := s.setupModel(c)
-	addBranch{"test"}.step(c, ctx)
-	addBranch{"bla"}.step(c, ctx)
-	m := ctx.store.Models["kontroll"].Models["admin/controller"]
-	m.ActiveBranch = "bla"
-	ctx.store.Models["kontroll"].Models["admin/controller"] = m
-	return ctx
-}
-
-func (s *StatusSuite) TestBranchesOutputTabular(c *gc.C) {
-	ctx := s.prepareBranchesOutput(c)
-
-	_, stdout, stderr := runStatus(c, ctx, "--no-color")
-	c.Assert(stderr, gc.HasLen, 0)
-	c.Assert(strings.Contains(stdout, "bla*"), jc.IsTrue)
-	c.Assert(strings.Contains(stdout, "test*"), jc.IsFalse)
-}
-
-func (s *StatusSuite) TestBranchesOutputNonTabular(c *gc.C) {
-	ctx := s.prepareBranchesOutput(c)
-	ctx.api.expectIncludeStorage = true
-
-	_, stdout, stderr := runStatus(c, ctx, "--no-color", "--format=yaml")
-	c.Assert(stderr, gc.HasLen, 0)
-	c.Assert(strings.Contains(stdout, "active: true"), jc.IsTrue)
 }
 
 func (s *StatusSuite) TestStatusFormatTabularEmptyModel(c *gc.C) {

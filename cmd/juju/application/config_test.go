@@ -21,8 +21,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/featureflag"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -91,24 +89,21 @@ var getTests = []struct {
 					"value":       true,
 				},
 			},
-			"settings":                               charmSettings,
-			"changes will be targeted to generation": interface{}(model.GenerationMaster),
+			"settings": charmSettings,
 		},
 	}, {
 		"dummy-application",
 		false,
 		map[string]interface{}{
-			"application":                            "dummy-application",
-			"charm":                                  "dummy",
-			"settings":                               charmSettings,
-			"changes will be targeted to generation": interface{}(model.GenerationMaster),
+			"application": "dummy-application",
+			"charm":       "dummy",
+			"settings":    charmSettings,
 		},
 	},
 }
 
 func (s *configCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.SetFeatureFlags(featureflag.Branches)
 
 	s.defaultCharmValues = map[string]interface{}{
 		"title":           "Nearly There",
@@ -122,7 +117,6 @@ func (s *configCommandSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.fake = &fakeApplicationAPI{
-		branchName:  model.GenerationMaster,
 		name:        "dummy-application",
 		charmName:   "dummy",
 		charmValues: s.defaultCharmValues,
@@ -156,16 +150,7 @@ func (s *configCommandSuite) TestGetCommandInitWithKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *configCommandSuite) TestGetCommandInitWithGeneration(c *gc.C) {
-	err := cmdtesting.InitCommand(
-		application.NewConfigCommandForTest(s.fake, s.store),
-		[]string{"app", "key", "--branch", model.GenerationMaster},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *configCommandSuite) TestGetConfig(c *gc.C) {
-	s.SetFeatureFlags(featureflag.Branches)
 	for _, t := range getTests {
 		if !t.useAppConfig {
 			s.fake.appValues = nil
@@ -271,10 +256,6 @@ var setCommandInitErrorTests = []struct {
 	args:        []string{"application", "key", "another"},
 	expectError: "cannot specify multiple keys to get",
 }, {
-	about:       "--branch with no value",
-	args:        []string{"application", "key", "--branch"},
-	expectError: "option needs an argument: --branch",
-}, {
 	about:       "set and reset same key",
 	args:        []string{"application", "key=val", "--reset", "key"},
 	expectError: `cannot set and reset key "key" simultaneously`,
@@ -315,26 +296,6 @@ func (s *configCommandSuite) TestSetCharmConfigSuccess(c *gc.C) {
 		"username=",
 	}, s.defaultAppValues, map[string]interface{}{
 		"username": "",
-		"outlook":  "hello@world.tld",
-	})
-	s.assertSetSuccess(c, s.dir, []string{
-		"--branch",
-		model.GenerationMaster,
-		"username=hello",
-		"outlook=hello@world.tld",
-	}, s.defaultAppValues, map[string]interface{}{
-		"username": "hello",
-		"outlook":  "hello@world.tld",
-	})
-
-	s.fake.branchName = "new-branch"
-	s.assertSetSuccess(c, s.dir, []string{
-		"username=hello",
-		"outlook=hello@world.tld",
-		"--branch",
-		"new-branch",
-	}, s.defaultAppValues, map[string]interface{}{
-		"username": "hello",
 		"outlook":  "hello@world.tld",
 	})
 }
@@ -409,8 +370,7 @@ func (s *configCommandSuite) TestSetFromStdin(c *gc.C) {
 
 func (s *configCommandSuite) TestResetCharmConfigToDefault(c *gc.C) {
 	s.fake = &fakeApplicationAPI{
-		branchName: model.GenerationMaster,
-		name:       "dummy-application", charmValues: map[string]interface{}{
+		name: "dummy-application", charmValues: map[string]interface{}{
 			"username": "hello",
 		}}
 	s.assertResetSuccess(c, s.dir, []string{
@@ -421,8 +381,7 @@ func (s *configCommandSuite) TestResetCharmConfigToDefault(c *gc.C) {
 
 func (s *configCommandSuite) TestResetAppConfig(c *gc.C) {
 	s.fake = &fakeApplicationAPI{
-		branchName: model.GenerationMaster,
-		name:       "dummy-application", appValues: map[string]interface{}{
+		name: "dummy-application", appValues: map[string]interface{}{
 			"trust": false,
 		}}
 	s.assertResetSuccess(c, s.dir, []string{
@@ -447,8 +406,7 @@ func (s *configCommandSuite) TestBlockSetConfig(c *gc.C) {
 
 func (s *configCommandSuite) TestSetReset(c *gc.C) {
 	s.fake = &fakeApplicationAPI{
-		branchName: model.GenerationMaster,
-		name:       "dummy-application", appValues: map[string]interface{}{
+		name: "dummy-application", appValues: map[string]interface{}{
 			"trust": false,
 		}}
 	s.assertResetSuccess(c, s.dir, []string{
@@ -596,10 +554,7 @@ type parseYamlAPI struct {
 	fakeApplicationAPI
 }
 
-func (f *parseYamlAPI) SetConfig(branchName, application, configYAML string, config map[string]string) error {
-	if branchName != f.branchName {
-		return errors.Errorf("expected branch %q, got %q", f.branchName, branchName)
-	}
+func (f *parseYamlAPI) SetConfig(application, configYAML string, config map[string]string) error {
 	if f.err != nil {
 		return f.err
 	}

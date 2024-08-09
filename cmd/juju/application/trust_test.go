@@ -43,7 +43,7 @@ func (s *TrustSuite) runTrust(c *gc.C, args ...string) error {
 func (s *TrustSuite) TestTrust(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.applicationAPI.EXPECT().SetConfig("", "gitlab", "", map[string]string{"trust": "true"})
+	s.applicationAPI.EXPECT().SetConfig("gitlab", "", map[string]string{"trust": "true"})
 	s.applicationAPI.EXPECT().Close()
 
 	err := s.runTrust(c, "gitlab")
@@ -60,7 +60,7 @@ func (s *TrustSuite) TestTrustCAAS(c *gc.C) {
 		}},
 	}
 
-	s.applicationAPI.EXPECT().SetConfig("", "gitlab", "", map[string]string{"trust": "true"})
+	s.applicationAPI.EXPECT().SetConfig("gitlab", "", map[string]string{"trust": "true"})
 	s.applicationAPI.EXPECT().Close()
 
 	err := s.runTrust(c, "gitlab", "--scope", "cluster")
@@ -77,7 +77,7 @@ func (s *TrustSuite) TestTrustCAASRemove(c *gc.C) {
 		}},
 	}
 
-	s.applicationAPI.EXPECT().SetConfig("", "gitlab", "", map[string]string{"trust": "false"})
+	s.applicationAPI.EXPECT().SetConfig("gitlab", "", map[string]string{"trust": "false"})
 	s.applicationAPI.EXPECT().Close()
 
 	err := s.runTrust(c, "gitlab", "--remove")

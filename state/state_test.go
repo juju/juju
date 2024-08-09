@@ -35,7 +35,6 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
@@ -579,7 +578,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				app, err := st.Application("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 
-				err = app.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "awesome"})
+				err = app.UpdateCharmConfig(charm.Settings{"blog-title": "awesome"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -1689,7 +1688,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
 	c.Assert(state.GetApplicationHasResources(wordpress), jc.IsFalse)
-	outsettings, err := wordpress.CharmConfig(model.GenerationMaster)
+	outsettings, err := wordpress.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
 	for name, value := range insettings {
@@ -1784,7 +1783,7 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	c.Assert(gitlab.Name(), gc.Equals, "gitlab")
 	c.Assert(gitlab.GetScale(), gc.Equals, 1)
 	c.Assert(state.GetApplicationHasResources(gitlab), jc.IsTrue)
-	outsettings, err := gitlab.CharmConfig(model.GenerationMaster)
+	outsettings, err := gitlab.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
 	for name, value := range insettings {
@@ -1950,7 +1949,7 @@ func (s *StateSuite) TestAddApplicationWithNilCharmConfigValues(c *gc.C) {
 		state.NewObjectStore(c, s.State.ModelUUID()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	outsettings, err := wordpress.CharmConfig(model.GenerationMaster)
+	outsettings, err := wordpress.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
 	for name, value := range insettings {

@@ -100,11 +100,11 @@ type ApplicationAPI interface {
 	GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error)
 	SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error)
 
-	GetCharmURLOrigin(string, string) (*charm.URL, commoncharm.Origin, error)
-	SetCharm(string, application.SetCharmConfig) error
+	GetCharmURLOrigin(string) (*charm.URL, commoncharm.Origin, error)
+	SetCharm(application.SetCharmConfig) error
 
-	GetConfig(branchName string, appNames ...string) ([]map[string]interface{}, error)
-	SetConfig(branchName string, application, configYAML string, config map[string]string) error
+	GetConfig(appNames ...string) ([]map[string]interface{}, error)
+	SetConfig(application, configYAML string, config map[string]string) error
 
 	GetConstraints(appNames ...string) ([]constraints.Value, error)
 	SetConstraints(application string, constraints constraints.Value) error

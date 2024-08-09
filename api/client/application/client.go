@@ -190,10 +190,9 @@ func (c *Client) Deploy(args DeployArgs) error {
 // given application is running at present.
 // The charm origin gives more information about the location of the charm and
 // what revision/channel it came from.
-func (c *Client) GetCharmURLOrigin(branchName, applicationName string) (*charm.URL, apicharm.Origin, error) {
+func (c *Client) GetCharmURLOrigin(applicationName string) (*charm.URL, apicharm.Origin, error) {
 	args := params.ApplicationGet{
 		ApplicationName: applicationName,
-		BranchName:      branchName,
 	}
 
 	var result params.CharmURLOriginResult
@@ -215,10 +214,10 @@ func (c *Client) GetCharmURLOrigin(branchName, applicationName string) (*charm.U
 // GetConfig returns the charm configuration settings for each of the
 // applications. If any of the applications are not found, an error is
 // returned.
-func (c *Client) GetConfig(branchName string, appNames ...string) ([]map[string]interface{}, error) {
+func (c *Client) GetConfig(appNames ...string) ([]map[string]interface{}, error) {
 	arg := params.ApplicationGetArgs{Args: make([]params.ApplicationGet, len(appNames))}
 	for i, appName := range appNames {
-		arg.Args[i] = params.ApplicationGet{ApplicationName: appName, BranchName: branchName}
+		arg.Args[i] = params.ApplicationGet{ApplicationName: appName}
 	}
 
 	var results params.ApplicationGetConfigResults
@@ -300,7 +299,7 @@ type SetCharmConfig struct {
 }
 
 // SetCharm sets the charm for a given application.
-func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
+func (c *Client) SetCharm(cfg SetCharmConfig) error {
 	var storageDirectives map[string]params.StorageDirectives
 	if len(cfg.StorageDirectives) > 0 {
 		storageDirectives = make(map[string]params.StorageDirectives)
@@ -337,7 +336,6 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 		ResourceIDs:        cfg.ResourceIDs,
 		StorageDirectives:  storageDirectives,
 		EndpointBindings:   cfg.EndpointBindings,
-		Generation:         branchName,
 	}
 	return c.facade.FacadeCall(context.TODO(), "SetCharm", args, nil)
 }
@@ -684,11 +682,10 @@ func (c *Client) Unexpose(application string, endpoints []string) error {
 }
 
 // Get returns the configuration for the named application.
-func (c *Client) Get(branchName, application string) (*params.ApplicationGetResults, error) {
+func (c *Client) Get(application string) (*params.ApplicationGetResults, error) {
 	var results params.ApplicationGetResults
 	args := params.ApplicationGet{
 		ApplicationName: application,
-		BranchName:      branchName,
 	}
 	err := c.facade.FacadeCall(context.TODO(), "Get", args, &results)
 	return &results, err
@@ -799,11 +796,10 @@ func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) 
 }
 
 // SetConfig sets configuration options on an application and the charm.
-func (c *Client) SetConfig(branchName, application, configYAML string, config map[string]string) error {
+func (c *Client) SetConfig(application, configYAML string, config map[string]string) error {
 	args := params.ConfigSetArgs{
 		Args: []params.ConfigSet{{
 			ApplicationName: application,
-			Generation:      branchName,
 			Config:          config,
 			ConfigYAML:      configYAML,
 		}},
@@ -817,11 +813,10 @@ func (c *Client) SetConfig(branchName, application, configYAML string, config ma
 }
 
 // UnsetApplicationConfig resets configuration options on an application.
-func (c *Client) UnsetApplicationConfig(branchName, application string, options []string) error {
+func (c *Client) UnsetApplicationConfig(application string, options []string) error {
 	args := params.ApplicationConfigUnsetArgs{
 		Args: []params.ApplicationUnset{{
 			ApplicationName: application,
-			BranchName:      branchName,
 			Options:         options,
 		}},
 	}

@@ -142,7 +142,7 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 			target = t.args[0]
 		}
 		ssh, app, status := s.setupModel(ctrl, withProxy, nil, nil, target)
-		app.EXPECT().GetCharmURLOrigin("", "mysql").DoAndReturn(func(_, curl string) (*charm.URL, apicharm.Origin, error) {
+		app.EXPECT().GetCharmURLOrigin("mysql").DoAndReturn(func(curl string) (*charm.URL, apicharm.Origin, error) {
 			if curl != "mysql" {
 				return nil, apicharm.Origin{}, errors.NotFoundf(curl)
 			}
@@ -173,7 +173,7 @@ func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *gc.C) {
 	defer ctrl.Finish()
 
 	ssh, app, status := s.setupModel(ctrl, false, nil, nil, "mysql/0")
-	app.EXPECT().GetCharmURLOrigin("", "mysql").Return(charm.MustParseURL("mysql"), apicharm.Origin{}, nil)
+	app.EXPECT().GetCharmURLOrigin("mysql").Return(charm.MustParseURL("mysql"), apicharm.Origin{}, nil)
 
 	charmAPI := mocks.NewMockCharmAPI(ctrl)
 	chInfo := &charms.CharmInfo{Meta: &meta, Actions: &actions}

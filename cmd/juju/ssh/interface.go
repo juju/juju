@@ -38,7 +38,7 @@ type ApplicationAPI interface {
 	Leader(string) (string, error)
 	Close() error
 	UnitsInfo(units []names.UnitTag) ([]application.UnitInfo, error)
-	GetCharmURLOrigin(branchName, applicationName string) (*charm.URL, apicharm.Origin, error)
+	GetCharmURLOrigin(applicationName string) (*charm.URL, apicharm.Origin, error)
 }
 
 // CharmAPI defines charm related APIs.

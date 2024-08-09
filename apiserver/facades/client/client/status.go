@@ -304,9 +304,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	if context.controllerTimestamp, err = c.api.stateAccessor.ControllerTimestamp(); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch controller timestamp")
 	}
-	if context.branches, err = fetchBranches(context.model); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch branches")
-	}
 
 	if args.IncludeStorage {
 		context.storageInstances, err = c.api.storageAccessor.AllStorageInstances()
@@ -462,10 +459,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 			context.machines[aStatus] = matched
 		}
 
-		// Filter branches
-		context.branches = filterBranches(context.branches, matchedApps,
-			matchedUnits.Union(set.NewStrings(args.Patterns...)))
-
 		// Filter storage
 		matchedStorageTags := set.NewStrings()
 		matchedStorageInstances := []state.StorageInstance{}
@@ -549,7 +542,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		Offers:              context.processOffers(),
 		Relations:           context.processRelations(),
 		ControllerTimestamp: context.controllerTimestamp,
-		Branches:            context.processBranches(),
 		Storage:             storageDetails,
 		Filesystems:         filesystemDetails,
 		Volumes:             volumeDetails,
@@ -570,43 +562,6 @@ func resolveLeaderUnits(patterns []string, leaders map[string]string) []string {
 		}
 	}
 	return patterns
-}
-
-func filterBranches(ctxBranches map[string]*state.Generation,
-	matchedApps, matchedForBranches set.Strings) map[string]*state.Generation {
-	// Filter branches based on matchedApps which contains
-	// the application name if matching on application or unit.
-	unmatchedBranches := set.NewStrings()
-	// Need a combination of the pattern strings and all units
-	// matched above, both principal and subordinate.
-	for bName, branch := range ctxBranches {
-		unmatchedBranches.Add(bName)
-		for appName, units := range branch.AssignedUnits() {
-			appMatch := matchedForBranches.Contains(appName)
-			// if the application is in the pattern, and this
-			// branch,
-			contains := matchedApps.Contains(appName)
-			if contains && appMatch {
-				unmatchedBranches.Remove(bName)
-				break
-			}
-			// if the application is in this branch, but not
-			// the pattern, check if any assigned units are in
-			// the pattern
-			if contains && !appMatch {
-				for _, u := range units {
-					if matchedForBranches.Contains(u) {
-						unmatchedBranches.Remove(bName)
-						break
-					}
-				}
-			}
-		}
-	}
-	for _, deleteBranch := range unmatchedBranches.Values() {
-		delete(ctxBranches, deleteBranch)
-	}
-	return ctxBranches
 }
 
 // newToolsVersionAvailable will return a string representing a tools
@@ -715,7 +670,6 @@ type statusContext struct {
 	relations                 map[string][]*state.Relation
 	relationsById             map[int]*state.Relation
 	leaders                   map[string]string
-	branches                  map[string]*state.Generation
 
 	// Information about all spaces.
 	spaceInfos network.SpaceInfos
@@ -1079,19 +1033,6 @@ func fetchRelations(st Backend) (map[string][]*state.Relation, map[int]*state.Re
 		}
 	}
 	return out, outById, nil
-}
-
-func fetchBranches(m *state.Model) (map[string]*state.Generation, error) {
-	// m.Branches() returns only active branches.
-	b, err := m.Branches()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	branches := make(map[string]*state.Generation, len(b))
-	for _, branch := range b {
-		branches[branch.BranchName()] = branch
-	}
-	return branches, nil
 }
 
 func (c *statusContext) processMachines(ctx context.Context) map[string]params.MachineStatus {
@@ -1713,18 +1654,6 @@ func (context *statusContext) processRemoteApplicationRelations(application *sta
 		related[relationName] = sn.SortedValues()
 	}
 	return related, nil
-}
-
-func (c *statusContext) processBranches() map[string]params.BranchStatus {
-	branchMap := make(map[string]params.BranchStatus, len(c.branches))
-	for name, branch := range c.branches {
-		branchMap[name] = params.BranchStatus{
-			AssignedUnits: branch.AssignedUnits(),
-			Created:       branch.Created(),
-			CreatedBy:     branch.CreatedBy(),
-		}
-	}
-	return branchMap
 }
 
 func (c *statusContext) unitToMachine(unitTag names.UnitTag) (names.MachineTag, error) {

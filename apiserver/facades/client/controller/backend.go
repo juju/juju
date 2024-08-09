@@ -24,7 +24,7 @@ type Backend interface {
 type Application interface {
 	Name() string
 	Relations() ([]Relation, error)
-	CharmConfig(branchName string) (charm.Settings, error)
+	CharmConfig() (charm.Settings, error)
 }
 
 type Relation interface {

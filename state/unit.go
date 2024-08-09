@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
@@ -158,8 +157,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 		return nil, fmt.Errorf("unit's charm URL must be set before retrieving config")
 	}
 
-	// TODO (manadart 2019-02-21) Factor the current generation into this call.
-	s, err := charmSettingsWithDefaults(u.st, u.doc.CharmURL, u.doc.Application, model.GenerationMaster)
+	s, err := charmSettingsWithDefaults(u.st, u.doc.CharmURL, u.doc.Application)
 	if err != nil {
 		return nil, errors.Annotatef(err, "charm config for unit %q", u.Name())
 	}

@@ -1189,9 +1189,9 @@ func (c *MockApplicationAPICloseCall) DoAndReturn(f func() error) *MockApplicati
 }
 
 // GetCharmURLOrigin mocks base method.
-func (m *MockApplicationAPI) GetCharmURLOrigin(arg0, arg1 string) (*charm0.URL, charm.Origin, error) {
+func (m *MockApplicationAPI) GetCharmURLOrigin(arg0 string) (*charm0.URL, charm.Origin, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharmURLOrigin", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetCharmURLOrigin", arg0)
 	ret0, _ := ret[0].(*charm0.URL)
 	ret1, _ := ret[1].(charm.Origin)
 	ret2, _ := ret[2].(error)
@@ -1199,9 +1199,9 @@ func (m *MockApplicationAPI) GetCharmURLOrigin(arg0, arg1 string) (*charm0.URL, 
 }
 
 // GetCharmURLOrigin indicates an expected call of GetCharmURLOrigin.
-func (mr *MockApplicationAPIMockRecorder) GetCharmURLOrigin(arg0, arg1 any) *MockApplicationAPIGetCharmURLOriginCall {
+func (mr *MockApplicationAPIMockRecorder) GetCharmURLOrigin(arg0 any) *MockApplicationAPIGetCharmURLOriginCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmURLOrigin", reflect.TypeOf((*MockApplicationAPI)(nil).GetCharmURLOrigin), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmURLOrigin", reflect.TypeOf((*MockApplicationAPI)(nil).GetCharmURLOrigin), arg0)
 	return &MockApplicationAPIGetCharmURLOriginCall{Call: call}
 }
 
@@ -1217,13 +1217,13 @@ func (c *MockApplicationAPIGetCharmURLOriginCall) Return(arg0 *charm0.URL, arg1 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationAPIGetCharmURLOriginCall) Do(f func(string, string) (*charm0.URL, charm.Origin, error)) *MockApplicationAPIGetCharmURLOriginCall {
+func (c *MockApplicationAPIGetCharmURLOriginCall) Do(f func(string) (*charm0.URL, charm.Origin, error)) *MockApplicationAPIGetCharmURLOriginCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationAPIGetCharmURLOriginCall) DoAndReturn(f func(string, string) (*charm0.URL, charm.Origin, error)) *MockApplicationAPIGetCharmURLOriginCall {
+func (c *MockApplicationAPIGetCharmURLOriginCall) DoAndReturn(f func(string) (*charm0.URL, charm.Origin, error)) *MockApplicationAPIGetCharmURLOriginCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

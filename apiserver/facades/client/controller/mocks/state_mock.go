@@ -375,18 +375,18 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 }
 
 // CharmConfig mocks base method.
-func (m *MockApplication) CharmConfig(arg0 string) (charm.Settings, error) {
+func (m *MockApplication) CharmConfig() (charm.Settings, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmConfig", arg0)
+	ret := m.ctrl.Call(m, "CharmConfig")
 	ret0, _ := ret[0].(charm.Settings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CharmConfig indicates an expected call of CharmConfig.
-func (mr *MockApplicationMockRecorder) CharmConfig(arg0 any) *MockApplicationCharmConfigCall {
+func (mr *MockApplicationMockRecorder) CharmConfig() *MockApplicationCharmConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmConfig", reflect.TypeOf((*MockApplication)(nil).CharmConfig), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmConfig", reflect.TypeOf((*MockApplication)(nil).CharmConfig))
 	return &MockApplicationCharmConfigCall{Call: call}
 }
 
@@ -402,13 +402,13 @@ func (c *MockApplicationCharmConfigCall) Return(arg0 charm.Settings, arg1 error)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationCharmConfigCall) Do(f func(string) (charm.Settings, error)) *MockApplicationCharmConfigCall {
+func (c *MockApplicationCharmConfigCall) Do(f func() (charm.Settings, error)) *MockApplicationCharmConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationCharmConfigCall) DoAndReturn(f func(string) (charm.Settings, error)) *MockApplicationCharmConfigCall {
+func (c *MockApplicationCharmConfigCall) DoAndReturn(f func() (charm.Settings, error)) *MockApplicationCharmConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

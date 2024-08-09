@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -236,9 +235,6 @@ func prepare(
 	details.Password = args.AdminSecret
 	details.LastKnownAccess = string(permission.SuperuserAccess)
 	details.ModelUUID = cfg.UUID()
-	if featureflag.Enabled(featureflag.Branches) || featureflag.Enabled(featureflag.Generations) {
-		details.ActiveBranch = model.GenerationMaster
-	}
 	details.ControllerDetails.Cloud = args.Cloud.Name
 	details.ControllerDetails.CloudRegion = args.Cloud.Region
 	details.ControllerDetails.CloudType = args.Cloud.Type

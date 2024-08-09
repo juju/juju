@@ -81,9 +81,6 @@ type ModelDetails struct {
 
 	// ModelType is the type of model.
 	ModelType model.ModelType `yaml:"type"`
-
-	// Active branch is the current working branch for the model.
-	ActiveBranch string `yaml:"branch"`
 }
 
 // AccountDetailsType defines the authentication method to be used for the account.

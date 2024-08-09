@@ -958,14 +958,6 @@ func NewInstanceCharmProfileDataCompatibilityWatcher(backend ModelBackendShim, m
 	return watchInstanceCharmProfileCompatibilityData(backend, memberId)
 }
 
-func UnitBranch(m *Model, unitName string) (*Generation, error) {
-	return m.unitBranch(unitName)
-}
-
-func ApplicationBranches(m *Model, appName string) ([]*Generation, error) {
-	return m.applicationBranches(appName)
-}
-
 func MachinePortOps(st *State, m description.Machine) ([]txn.Op, error) {
 	resolver := &importer{st: st}
 	return []txn.Op{resolver.machinePortsOp(m)}, nil

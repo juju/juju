@@ -73,8 +73,7 @@ same way as the deploy command) before comparing with the model.
 The map-machines option works similarly as for the deploy command, but
 existing is always assumed, so it doesn't need to be specified.
 
-Config values for comparison are always source from the "current" model
-generation.
+Config values for comparison are always source from the "current" model.
 
 Specifying a base will retrieve the bundle for the relevant store for
 the give base.
@@ -442,8 +441,8 @@ func (e *extractorImpl) GetConstraints(applications ...string) ([]constraints.Va
 }
 
 // GetConfig is part of ModelExtractor.
-func (e *extractorImpl) GetConfig(branchName string, applications ...string) ([]map[string]interface{}, error) {
-	return e.application.GetConfig(branchName, applications...)
+func (e *extractorImpl) GetConfig(applications ...string) ([]map[string]interface{}, error) {
+	return e.application.GetConfig(applications...)
 }
 
 // Sequences is part of ModelExtractor.

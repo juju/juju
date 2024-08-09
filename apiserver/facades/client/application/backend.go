@@ -51,7 +51,6 @@ type Backend interface {
 	Resources(objectstore.ObjectStore) Resources
 	OfferConnectionForRelation(string) (OfferConnection, error)
 	SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
-	Branch(string) (Generation, error)
 	services.StateBackend
 
 	// ReadSequence is a stop gap to allow the next unit number to be read from mongo
@@ -81,7 +80,7 @@ type Application interface {
 	CharmURL() (*string, bool)
 	CharmOrigin() *state.CharmOrigin
 	ClearExposed() error
-	CharmConfig(string) (charm.Settings, error)
+	CharmConfig() (charm.Settings, error)
 	Constraints() (constraints.Value, error)
 	Destroy(objectstore.ObjectStore) error
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
@@ -97,7 +96,7 @@ type Application interface {
 	MergeExposeSettings(map[string]state.ExposedEndpoint) error
 	UnsetExposeSettings([]string) error
 	SetMinUnits(int) error
-	UpdateCharmConfig(string, charm.Settings) error
+	UpdateCharmConfig(charm.Settings) error
 	UpdateApplicationConfig(coreconfig.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
 	SetScale(int, int64, bool) error
 	ChangeScale(int) (int, error)
@@ -216,10 +215,6 @@ type Model interface {
 // the state.Resources type for details on the methods.
 type Resources interface {
 	RemovePendingAppResources(string, map[string]string) error
-}
-
-type Generation interface {
-	AssignApplication(string) error
 }
 
 type stateShim struct {
@@ -471,14 +466,6 @@ func (s stateShim) OfferConnectionForRelation(key string) (OfferConnection, erro
 func (s stateShim) ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error) {
 	offers := state.NewApplicationOffers(s.State)
 	return offers.ApplicationOfferForUUID(offerUUID)
-}
-
-func (s stateShim) Branch(name string) (Generation, error) {
-	gen, err := s.State.Branch(name)
-	if err != nil {
-		return nil, err
-	}
-	return Generation(gen), nil
 }
 
 type stateApplicationShim struct {

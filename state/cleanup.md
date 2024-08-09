@@ -21,7 +21,6 @@ Simplistically model destroyOps, causes the model is marked as dying and up to
   * cleanupApplicationsForDyingModel,  only with non empty models
   * cleanupMachinesForDyingModel, only with non empty IAAS models
   * cleanupStorageForDyingModel, only with non empty models with storage
-  * cleanupBranchesForDyingModel, for all models
 
 ## Docs in the Cleanup collection
 

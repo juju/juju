@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
@@ -579,15 +578,6 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 		}
 	}
 
-	branchOps, err := op.unassignBranchOps()
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
-	}
-	ops = append(ops, branchOps...)
-
 	// If the application has no units, and all its known relations will be
 	// removed, the application can also be removed, so long as there are
 	// no other cluster resources, as can be the case for k8s charms.
@@ -683,29 +673,6 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 		Assert: notLastRefs,
 		Update: update,
 	})
-	return ops, nil
-}
-
-func (op *DestroyApplicationOperation) unassignBranchOps() ([]txn.Op, error) {
-	m, err := op.app.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	appName := op.app.doc.Name
-	branches, err := m.applicationBranches(appName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(branches) == 0 {
-		return nil, nil
-	}
-	ops := []txn.Op{}
-	for _, b := range branches {
-		// assumption: branches from applicationBranches will
-		// ALWAYS have the appName in assigned-units, but not
-		// always in config.
-		ops = append(ops, b.unassignAppOps(appName)...)
-	}
 	return ops, nil
 }
 
@@ -2829,14 +2796,6 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 		ops = append(ops, u.removeCloudContainerOps()...)
 		ops = append(ops, newCleanupOp(cleanupDyingUnitResources, u.doc.Name, op.Force, op.MaxWait))
 	}
-	branchOps, err := unassignUnitFromBranchOp(u.doc.Name, a.doc.Name, m)
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
-	}
-	ops = append(ops, branchOps...)
 
 	sb, err := NewStorageBackend(a.st)
 	if err != nil {
@@ -2891,18 +2850,6 @@ func removeUnitResourcesOps(st *State, store objectstore.ObjectStore, unitID str
 		return nil, errors.Trace(err)
 	}
 	return ops, nil
-}
-
-func unassignUnitFromBranchOp(unitName, appName string, m *Model) ([]txn.Op, error) {
-	branch, err := m.unitBranch(unitName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if branch == nil {
-		// Nothing to see here, move along.
-		return nil, nil
-	}
-	return branch.unassignUnitOps(unitName, appName), nil
 }
 
 // AllUnits returns all units of the application.
@@ -2972,17 +2919,18 @@ func matchingRelations(st *State, names ...string) (relations []*Relation, err e
 }
 
 // CharmConfig returns the raw user configuration for the application's charm.
-func (a *Application) CharmConfig(branchName string) (charm.Settings, error) {
+func (a *Application) CharmConfig() (charm.Settings, error) {
 	if a.doc.CharmURL == nil {
 		return nil, fmt.Errorf("application charm not set")
 	}
 
-	s, err := charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.Name(), branchName)
+	s, err := charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.Name())
 	return s, errors.Annotatef(err, "charm config for application %q", a.doc.Name)
 }
 
-func charmSettingsWithDefaults(st *State, cURL *string, appName, branchName string) (charm.Settings, error) {
-	cfg, err := branchCharmSettings(st, cURL, appName, branchName)
+func charmSettingsWithDefaults(st *State, cURL *string, appName string) (charm.Settings, error) {
+	key := applicationCharmConfigKey(appName, cURL)
+	cfg, err := readSettings(st.db(), settingsC, key)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2999,27 +2947,9 @@ func charmSettingsWithDefaults(st *State, cURL *string, appName, branchName stri
 	return result, nil
 }
 
-func branchCharmSettings(st *State, cURL *string, appName, branchName string) (*Settings, error) {
-	key := applicationCharmConfigKey(appName, cURL)
-	cfg, err := readSettings(st.db(), settingsC, key)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if branchName != model.GenerationMaster {
-		branch, err := st.Branch(branchName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		cfg.applyChanges(branch.Config()[appName])
-	}
-
-	return cfg, nil
-}
-
 // UpdateCharmConfig changes a application's charm config settings. Values set
 // to nil will be deleted; unknown and invalid values will return an error.
-func (a *Application) UpdateCharmConfig(branchName string, changes charm.Settings) error {
+func (a *Application) UpdateCharmConfig(changes charm.Settings) error {
 	ch, _, err := a.Charm()
 	if err != nil {
 		return errors.Trace(err)
@@ -3038,10 +2968,7 @@ func (a *Application) UpdateCharmConfig(branchName string, changes charm.Setting
 		return errors.Annotatef(err, "charm config for application %q", a.doc.Name)
 	}
 
-	if branchName == model.GenerationMaster {
-		return errors.Trace(a.updateMasterConfig(current, changes))
-	}
-	return errors.Trace(a.updateBranchConfig(branchName, current, changes))
+	return errors.Trace(a.updateMasterConfig(current, changes))
 }
 
 // TODO (manadart 2019-04-03): Implement master config changes as
@@ -3056,18 +2983,6 @@ func (a *Application) updateMasterConfig(current *Settings, validChanges charm.S
 	}
 	_, err := current.Write()
 	return errors.Trace(err)
-}
-
-// updateBranchConfig compares the incoming charm settings to the current
-// settings to generate a collection of changes, which is used to update the
-// branch with the input name.
-func (a *Application) updateBranchConfig(branchName string, current *Settings, validChanges charm.Settings) error {
-	branch, err := a.st.Branch(branchName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return errors.Trace(branch.UpdateCharmConfig(a.Name(), current, validChanges))
 }
 
 // ApplicationConfig returns the configuration for the application itself.

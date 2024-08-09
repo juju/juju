@@ -47,8 +47,7 @@ func (s *MinimalStatusSuite) SetUpTest(c *gc.C) {
 	store.Models["kontroll"] = &jujuclient.ControllerModels{
 		CurrentModel: "test",
 		Models: map[string]jujuclient.ModelDetails{"admin/test": {
-			ModelType:    coremodel.IAAS,
-			ActiveBranch: coremodel.GenerationMaster,
+			ModelType: coremodel.IAAS,
 		}},
 	}
 	store.Accounts["kontroll"] = jujuclient.AccountDetails{

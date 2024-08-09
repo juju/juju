@@ -24,12 +24,5 @@ const DeveloperMode = "developer-mode"
 // values for annotations, status, status history, or settings.
 const StrictMigration = "strict-migration"
 
-// Branches will allow for model branches functionality to be used.
-const Branches = "branches"
-
-// Generations will allow for model generation functionality to be used.
-// This is a deprecated flag name and is synonymous with "branches" above.
-const Generations = "generations"
-
 // RawK8sSpec indicates that it's allowed to set k8s spec using raw yaml format.
 const RawK8sSpec = "raw-k8s-spec"

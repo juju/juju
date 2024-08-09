@@ -61,10 +61,9 @@ const (
 	// TODO: should be renamed to something like deadCAASUnitResources.
 	cleanupDyingUnitResources cleanupKind = "dyingUnitResources"
 
-	cleanupResourceBlob          cleanupKind = "resourceBlob"
-	cleanupStorageForDyingModel  cleanupKind = "modelStorage"
-	cleanupForceStorage          cleanupKind = "forceStorage"
-	cleanupBranchesForDyingModel cleanupKind = "branches"
+	cleanupResourceBlob         cleanupKind = "resourceBlob"
+	cleanupStorageForDyingModel cleanupKind = "modelStorage"
+	cleanupForceStorage         cleanupKind = "forceStorage"
 )
 
 // cleanupDoc originally represented a set of documents that should be
@@ -263,8 +262,6 @@ func (st *State) Cleanup(
 			err = st.cleanupStorageForDyingModel(doc.Prefix, args)
 		case cleanupForceStorage:
 			err = st.cleanupForceStorage(args)
-		case cleanupBranchesForDyingModel:
-			err = st.cleanupBranchesForDyingModel(args)
 		default:
 			err = errors.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
@@ -577,14 +574,6 @@ func (st *State) cleanupForceStorage(cleanupArgs []bson.Raw) (err error) {
 		if err := sb.RemoveVolume(v.VolumeTag()); err != nil {
 			return errors.Trace(err)
 		}
-	}
-	return nil
-}
-
-func (st *State) cleanupBranchesForDyingModel(cleanupArgs []bson.Raw) (err error) {
-	change := branchesCleanupChange{}
-	if err := Apply(st.database, change); err != nil {
-		return errors.Trace(err)
 	}
 	return nil
 }

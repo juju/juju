@@ -114,7 +114,7 @@ func (c *trustCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = client.Close() }()
 
-	err = client.SetConfig("", c.applicationName, "",
+	err = client.SetConfig(c.applicationName, "",
 		map[string]string{coreapplication.TrustConfigOptionName: fmt.Sprint(!c.removeTrust)},
 	)
 	return errors.Trace(block.ProcessBlockedError(err, block.BlockChange))

@@ -70,13 +70,6 @@ type ModelCommand interface {
 	// ModelType returns the type of the model.
 	ModelType() (model.ModelType, error)
 
-	// SetActiveBranch sets the branch to use for this command,
-	// then updates the model's active branch in the local store.
-	SetActiveBranch(string) error
-
-	// ActiveBranch returns the current active branch for this model.
-	ActiveBranch() (string, error)
-
 	// ControllerName returns the name of the controller that contains
 	// the model returned by ModelIdentifier().
 	ControllerName() (string, error)
@@ -103,7 +96,6 @@ type ModelCommandBase struct {
 	// ControllerName respectively.
 	_modelIdentifier string
 	_modelType       model.ModelType
-	_activeBranch    string
 	_controllerName  string
 
 	allowDefaultModel bool
@@ -239,46 +231,6 @@ func (c *ModelCommandBase) ModelType() (model.ModelType, error) {
 	}
 	c._modelType = details.ModelType
 	return c._modelType, nil
-}
-
-// SetActiveBranch implements the ModelCommand interface.
-func (c *ModelCommandBase) SetActiveBranch(branchName string) error {
-	name, modelDetails, err := c.ModelDetails()
-	if err != nil {
-		return errors.Annotate(err, "getting model details")
-	}
-	modelDetails.ActiveBranch = branchName
-	if err = c.store.UpdateModel(c._controllerName, name, *modelDetails); err != nil {
-		return err
-	}
-	c._activeBranch = branchName
-	return nil
-}
-
-// ActiveBranch implements the ModelCommand interface.
-func (c *ModelCommandBase) ActiveBranch() (string, error) {
-	if c._activeBranch != "" {
-		return c._activeBranch, nil
-	}
-
-	// If we need to look up the model generation, we need to ensure we
-	// have access to the model details.
-	if err := c.maybeInitModel(); err != nil {
-		return "", errors.Trace(err)
-	}
-
-	_, details, err := c.modelFromStore(c._controllerName, c._modelIdentifier)
-	if err != nil {
-		if !c.runStarted {
-			return "", errors.Trace(err)
-		}
-		_, details, err = c.modelDetails(c._controllerName, c._modelIdentifier)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-	}
-	c._activeBranch = details.ActiveBranch
-	return c._activeBranch, nil
 }
 
 // ControllerName implements the ModelCommand interface.

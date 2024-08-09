@@ -95,9 +95,9 @@ func NewRefreshCommand() cmd.Command {
 // CharmRefreshClient defines a subset of the application facade, as required
 // by the refresh command.
 type CharmRefreshClient interface {
-	GetCharmURLOrigin(string, string) (*charm.URL, commoncharm.Origin, error)
-	Get(string, string) (*params.ApplicationGetResults, error)
-	SetCharm(string, application.SetCharmConfig) error
+	GetCharmURLOrigin(string) (*charm.URL, commoncharm.Origin, error)
+	Get(string) (*params.ApplicationGetResults, error)
+	SetCharm(application.SetCharmConfig) error
 }
 
 // NewCharmAdderFunc is the type of a function used to construct
@@ -352,12 +352,8 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = apiRoot.Close() }()
 
-	generation, err := c.ActiveBranch()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	charmRefreshClient := c.NewCharmRefreshClient(apiRoot)
-	oldURL, oldOrigin, err := charmRefreshClient.GetCharmURLOrigin(generation, c.ApplicationName)
+	oldURL, oldOrigin, err := charmRefreshClient.GetCharmURLOrigin(c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -407,7 +403,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		newRef = oldURL.WithRevision(c.Revision).String()
 	}
 
-	applicationInfo, err := charmRefreshClient.Get(generation, c.ApplicationName)
+	applicationInfo, err := charmRefreshClient.Get(c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -523,7 +519,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		EndpointBindings:   c.Bindings,
 	}
 
-	err = charmRefreshClient.SetCharm(generation, charmCfg)
+	err = charmRefreshClient.SetCharm(charmCfg)
 	err = block.ProcessBlockedError(err, block.BlockChange)
 	if params.IsCodeAppShouldNotHaveUnits(err) {
 		return errors.Errorf(upgradedApplicationHasUnitsMessage[1:], c.ApplicationName)
