@@ -12,14 +12,14 @@ check_go_version() {
 	exit_code=0
 	target_version="$(go mod edit -json | jq -r .Go | awk 'BEGIN{FS="."} {print $1"."$2}')"
 
-	snapcraft_go_juju_version="$(yq -r '.parts | .["juju"] | .["go-channel"]' snap/snapcraft.yaml)"
+	snapcraft_go_juju_version="$(yq -r '.parts | .["juju"] | .["build-snaps"].[] | select(. == "go/*")' snap/snapcraft.yaml | awk -F'/' '{print $2}')"
 	echo "${snapcraft_go_juju_version}" | grep -q "${target_version}"
 	if [ $? -ne 0 ]; then
 		echo "Go version in go.mod (${target_version}) does not match snapcraft.yaml (${snapcraft_go_juju_version}) for juju"
 		exit_code=1
 	fi
 
-	snapcraft_go_jujud_version="$(yq -r '.parts | .["jujud"] | .["go-channel"]' snap/snapcraft.yaml)"
+	snapcraft_go_jujud_version="$(yq -r '.parts | .["jujud"] | .["build-snaps"].[] | select(. == "go/*")' snap/snapcraft.yaml | awk -F'/' '{print $2}')"
 	echo "${snapcraft_go_jujud_version}" | grep -q "${target_version}"
 	if [ $? -ne 0 ]; then
 		echo "Go version in go.mod (${target_version}) does not match snapcraft.yaml (${snapcraft_go_jujud_version}) for jujud"
