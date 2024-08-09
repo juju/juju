@@ -48,7 +48,7 @@ run_charmstore_info() {
 
 test_charmhub_info() {
 	if [ "$(skip 'test_charmhub_info')" ]; then
-		echo "==> TEST SKIPPED: Charm Hub info"
+		echo "==> TEST SKIPPED: charmhub info"
 		return
 	fi
 

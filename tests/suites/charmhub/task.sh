@@ -1,6 +1,6 @@
 test_charmhub() {
 	if [ "$(skip 'test_charmhub')" ]; then
-		echo "==> TEST SKIPPED: Charm Hub tests"
+		echo "==> TEST SKIPPED: charmhub tests"
 		return
 	fi
 

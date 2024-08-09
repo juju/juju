@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -71,6 +72,7 @@ type downloadCommand struct {
 	archivePath   string
 	pipeToStdout  bool
 	noProgress    bool
+	resources     bool
 }
 
 // Info returns help related download about the command, it implements
@@ -102,6 +104,7 @@ func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.revision, "revision", -1, "specify a revision of the charm to download")
 	f.StringVar(&c.archivePath, "filepath", "", "filepath location of the charm to download to")
 	f.BoolVar(&c.noProgress, "no-progress", false, "disable the progress bar")
+	f.BoolVar(&c.resources, "resources", false, "download the resources associated with the charm (will be DEPRECATED and default behaviour in 4.0)")
 }
 
 // Init initializes the download command, including validating the provided
@@ -131,6 +134,10 @@ func (c *downloadCommand) Init(args []string) error {
 			return errors.Errorf("expected a charm or bundle name, followed by hyphen to pipe to stdout")
 		}
 		c.pipeToStdout = true
+	}
+
+	if c.pipeToStdout && c.resources {
+		return errors.Errorf("cannot pipe to stdout and download resources: do not pass --resources to download to stdout")
 	}
 
 	curl, err := c.validateCharmOrBundle(args[0])
@@ -278,13 +285,63 @@ Expected:   %s
 Calculated: %s`, c.charmOrBundle, entitySHA, calculatedHash)
 	}
 
+	rscPaths := make(map[string]string)
+	if c.resources {
+		dir := filepath.Dir(path)
+
+		for _, resource := range entity.Resources {
+			rscPath := filepath.Join(dir, fmt.Sprintf("resource_%s_r%d", resource.Name, resource.Revision))
+			if resource.Filename != "" {
+				rscPath = fmt.Sprintf("%s_%s", rscPath, resource.Filename)
+			}
+			rscURL, err := url.Parse(resource.Download.URL)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			rscCtx := context.WithValue(ctx, charmhub.DownloadNameKey, resource.Name)
+			if c.noProgress {
+				err = client.Download(rscCtx, rscURL, rscPath)
+			} else {
+				pb := progress.MakeProgressBar(cmdContext.Stdout)
+				err = client.Download(rscCtx, rscURL, rscPath, charmhub.WithProgressBar(pb))
+			}
+			if err != nil {
+				return errors.Trace(err)
+			}
+			rscHash, err := c.calculateHash(rscPath)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if rscHash != resource.Download.HashSHA256 {
+				return errors.Errorf(`Checksum of download failed for %q resource %s:
+Expected:   %s
+Calculated: %s`, c.charmOrBundle, resource.Name, resource.Download.HashSHA256, rscHash)
+			}
+			rscPaths[resource.Name] = rscPath
+		}
+	}
+
 	if !strings.HasPrefix(path, "/") {
 		path = fmt.Sprintf("./%s", path)
 	}
 
-	cmdContext.Infof(`
+	if c.resources && len(entity.Resources) > 0 {
+		resourceArgs := []string{}
+		for _, resource := range entity.Resources {
+			rscPath := rscPaths[resource.Name]
+			if !strings.HasPrefix(rscPath, "/") {
+				rscPath = fmt.Sprintf("./%s", rscPath)
+			}
+			resourceArgs = append(resourceArgs, "--resource", fmt.Sprintf("%s=%s", resource.Name, rscPath))
+		}
+		cmdContext.Infof(`
+Install the %q %s with:
+    juju deploy %s %s`[1:], entity.Name, entityType, path, strings.Join(resourceArgs, " "))
+	} else {
+		cmdContext.Infof(`
 Install the %q %s with:
     juju deploy %s`[1:], entity.Name, entityType, path)
+	}
 
 	return nil
 }
