@@ -35,7 +35,7 @@ type ControllerConfigService interface {
 
 // ApplicationService instances implement an application service.
 type ApplicationService interface {
-	UpsertCAASUnit(ctx context.Context, name string, unit applicationservice.UpsertCAASUnitParams) error
+	RegisterCAASUnit(ctx context.Context, name string, unit applicationservice.RegisterCAASUnitParams) error
 }
 
 // Facade defines the API methods on the CAASApplication facade.
@@ -179,7 +179,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		return errResp(err)
 	}
 	// Dual write CAAS unit to dqlite.
-	if err := f.applicationService.UpsertCAASUnit(ctx, application.Name(), applicationservice.UpsertCAASUnitParams{
+	if err := f.applicationService.RegisterCAASUnit(ctx, application.Name(), applicationservice.RegisterCAASUnitParams{
 		UnitName:     *upsert.UnitName,
 		ProviderId:   upsert.ProviderId,
 		Address:      upsert.Address,
