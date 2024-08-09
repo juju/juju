@@ -75,7 +75,7 @@ AND charm_origin.revision = $charmNameRevision.revision;
 		id = corecharm.ID(ident.UUID)
 		return nil
 	}); err != nil {
-		return "", fmt.Errorf("failed to run transaction: %w", err)
+		return "", fmt.Errorf("failed to get charm id by revision: %w", err)
 	}
 	return id, nil
 }
@@ -112,7 +112,7 @@ WHERE uuid = $charmID.uuid;
 		isController = result.Name == "juju-controller"
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("failed to run transaction: %w", err)
+		return false, fmt.Errorf("failed to is controller charm: %w", err)
 	}
 	return isController, nil
 }
@@ -149,7 +149,7 @@ WHERE uuid = $charmID.uuid;
 		isSubordinate = result.Subordinate
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("failed to run transaction: %w", err)
+		return false, fmt.Errorf("failed to is subordinate charm: %w", err)
 	}
 	return isSubordinate, nil
 }
@@ -194,7 +194,7 @@ WHERE uuid = $charmID.uuid;
 		supportsContainers = num > 0
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("failed to run transaction: %w", err)
+		return false, fmt.Errorf("failed to supports containers: %w", err)
 	}
 	return supportsContainers, nil
 }
@@ -233,7 +233,7 @@ WHERE uuid = $charmID.uuid;
 		isAvailable = result.Available
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("failed to run transaction: %w", err)
+		return false, fmt.Errorf("failed to is charm available: %w", err)
 	}
 	return isAvailable, nil
 }
@@ -284,7 +284,7 @@ WHERE charm_uuid = $charmID.uuid;
 		}
 		return nil
 	}); err != nil {
-		return fmt.Errorf("failed to run transaction: %w", err)
+		return fmt.Errorf("failed to set charm available: %w", err)
 	}
 
 	return nil
@@ -353,7 +353,7 @@ WHERE uuid = $charmID.uuid;
 
 		return nil
 	}); err != nil {
-		return "", fmt.Errorf("failed to run transaction: %w", err)
+		return "", fmt.Errorf("failed to reserve charm revision: %w", err)
 	}
 
 	return newID, nil
@@ -391,7 +391,7 @@ WHERE uuid = $charmID.uuid;
 		}
 		return nil
 	}); err != nil {
-		return "", fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+		return "", fmt.Errorf("failed to get charm archive path: %w", domain.CoerceError(err))
 	}
 
 	return archivePath.ArchivePath, nil
@@ -413,7 +413,7 @@ func (s *CharmState) GetCharmMetadata(ctx context.Context, id corecharm.ID) (cha
 		charmMetadata, err = s.getMetadata(ctx, tx, ident)
 		return errors.Trace(err)
 	}); err != nil {
-		return charm.Metadata{}, fmt.Errorf("failed to run transaction: %w", err)
+		return charm.Metadata{}, fmt.Errorf("failed to get charm metadata: %w", err)
 	}
 
 	return charmMetadata, nil
@@ -523,7 +523,7 @@ func (s *CharmState) GetCharmManifest(ctx context.Context, id corecharm.ID) (cha
 		manifest, err = s.getCharmManifest(ctx, tx, ident)
 		return errors.Trace(err)
 	}); err != nil {
-		return charm.Manifest{}, fmt.Errorf("failed to run transaction: %w", err)
+		return charm.Manifest{}, errors.Trace(err)
 	}
 
 	return manifest, nil
@@ -575,7 +575,7 @@ func (s *CharmState) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([
 		profile, err = s.getCharmLXDProfile(ctx, tx, ident)
 		return errors.Trace(err)
 	}); err != nil {
-		return nil, fmt.Errorf("failed to run transaction: %w", err)
+		return nil, errors.Trace(err)
 	}
 
 	return profile, nil
@@ -626,7 +626,7 @@ func (s *CharmState) GetCharmConfig(ctx context.Context, id corecharm.ID) (charm
 		charmConfig, err = s.getCharmConfig(ctx, tx, ident)
 		return errors.Trace(err)
 	}); err != nil {
-		return charm.Config{}, fmt.Errorf("failed to run transaction: %w", err)
+		return charm.Config{}, errors.Trace(err)
 	}
 	return charmConfig, nil
 
@@ -691,7 +691,7 @@ func (s *CharmState) GetCharmActions(ctx context.Context, id corecharm.ID) (char
 		actions, err = s.getCharmActions(ctx, tx, ident)
 		return errors.Trace(err)
 	}); err != nil {
-		return charm.Actions{}, fmt.Errorf("failed to run transaction: %w", err)
+		return charm.Actions{}, errors.Trace(err)
 	}
 
 	return actions, nil
@@ -775,7 +775,7 @@ func (s *CharmState) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm
 
 		return nil
 	}); err != nil {
-		return charm, fmt.Errorf("failed to run transaction: %w", err)
+		return charm, fmt.Errorf("failed to get charm: %w", err)
 	}
 
 	return charm, nil
@@ -816,7 +816,7 @@ func (s *CharmState) SetCharm(ctx context.Context, charm charm.Charm, charmArgs 
 
 		return nil
 	}); err != nil {
-		return "", fmt.Errorf("failed to run transaction: %w", err)
+		return "", fmt.Errorf("failed to set charm: %w", err)
 	}
 
 	return id, nil
@@ -905,7 +905,7 @@ func (s *CharmState) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 
 		return nil
 	}); err != nil {
-		return fmt.Errorf("failed to run transaction: %w", err)
+		return fmt.Errorf("failed to delete charm: %w", err)
 	}
 
 	return nil
