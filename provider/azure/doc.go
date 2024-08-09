@@ -1,9 +1,9 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package azure implements the Azure provider, registered with
-// environs under the name "azure". The provider implements the
-// [github.com/juju/juju/environs.Environ] interface, which defines
+// Package azure implements the Azure provider, registered with the
+// environs registry under the name "azure". The provider implements
+// the [github.com/juju/juju/environs.Environ] interface, which defines
 // methods for provisioning compute, network, and storage resources.
 //
 // Here we describe some key implementation details specific to the Azure provider.
@@ -12,23 +12,7 @@
 //
 // The provider implementation is built using the [Azure SDK].
 //
-// # Credential Types
-//
-// The supported credential types are:
-//   - service-principal-secret
-//   - managed-identity
-//
-// The recommended way to create a credential with which to bootstrap is
-// to run
-//
-//	juju add-credential azure
-//
-// and follow the prompts. Choosing "interactive" is the best choice for
-// setting up a service principal credential as the browser is used to
-// log into an Azure account and the credential attributes are filled
-// in automatically.
-//
-// # Resource Groups
+// # Models
 //
 // All models, including the controller model, are created in a resource group.
 // The resource group contains all artefacts for the model, including:
@@ -47,9 +31,12 @@
 // After bootstrap, API clients are created for particular resource types defined in the SDK.
 // All API clients use the same options which define the retry and logging behaviour.
 //
-// # Availability Sets
+// # Resiliency
 //
-// Each application has created for it an [Azure Availability Set] named after the application.
+// Unlike most other providers, the Azure provider does not currently support availability zones.
+// Instead, each application has created for it an [Azure Availability Set] named after the application.
+// Availability sets are scoped to a single Azure region. They are designed to protect against failures
+// within that region but do not provide protection against a regional outage
 //
 // # Machine Addresses
 //
