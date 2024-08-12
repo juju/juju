@@ -64,6 +64,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Remove LXD
+        if: env.RUN_TEST == 'RUN'
+        run: |
+          set -euxo pipefail
+          sudo snap remove lxd --purge
+
       - name: Setup LXD
         if: matrix.cloud == 'localhost'
         uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0

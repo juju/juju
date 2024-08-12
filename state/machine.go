@@ -430,29 +430,33 @@ func (m *Machine) CharmProfiles() ([]string, error) {
 // SetCharmProfiles sets the names of the charm profiles used on a machine
 // in its instanceData.
 func (m *Machine) SetCharmProfiles(profiles []string) error {
-	if len(profiles) == 0 {
-		return nil
-	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
+
 		// Exit early if the Machine profiles doesn't need to change.
-		mProfiles, err := m.CharmProfiles()
+		currentProfiles, err := m.CharmProfiles()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		mProfilesSet := set.NewStrings(mProfiles...)
-		if mProfilesSet.Union(set.NewStrings(profiles...)).Size() == mProfilesSet.Size() {
+		currentProfileSet := set.NewStrings(currentProfiles...)
+		newProfileSet := set.NewStrings(profiles...)
+		if currentProfileSet.Size() == newProfileSet.Size() &&
+			currentProfileSet.Intersection(newProfileSet).Size() == currentProfileSet.Size() {
 			return nil, jujutxn.ErrNoOperations
 		}
 
+		assertion := bson.M{"charm-profiles": currentProfiles}
+		if currentProfiles == nil {
+			assertion = bson.M{"charm-profiles": bson.D{{"$exists", false}}}
+		}
 		ops := []txn.Op{{
 			C:      instanceDataC,
 			Id:     m.doc.DocID,
-			Assert: txn.DocExists,
+			Assert: assertion,
 			Update: bson.D{{"$set", bson.D{{"charm-profiles", profiles}}}},
 		}}
 

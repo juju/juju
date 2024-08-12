@@ -73,7 +73,7 @@ func (*LXDProfileNameSuite) TestProfileNames(c *gc.C) {
 	}
 	for k, tc := range testCases {
 		c.Logf("running test %d with input %q", k, tc.input)
-		c.Assert(lxdprofile.LXDProfileNames(tc.input), gc.DeepEquals, tc.output)
+		c.Assert(lxdprofile.FilterLXDProfileNames(tc.input), gc.DeepEquals, tc.output)
 	}
 }
 

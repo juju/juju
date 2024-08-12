@@ -128,7 +128,7 @@ func (s *getToolsSuite) TestOSTools(c *gc.C) {
 
 	current := coretesting.CurrentVersion()
 	currentCopy := current
-	currentCopy.Release = coretesting.HostSeries(c)
+	currentCopy.Release = "jammy"
 	configAttrs := map[string]interface{}{
 		"name":                 "some-name",
 		"type":                 "some-type",

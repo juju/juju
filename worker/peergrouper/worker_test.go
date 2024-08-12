@@ -407,6 +407,35 @@ func (s *workerSuite) TestAddressChangeNoHA(c *gc.C) {
 	})
 }
 
+func (s *workerSuite) TestPendingMemberNotAdded(c *gc.C) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
+		st := NewFakeState()
+		InitState(c, st, 3, ipVersion)
+
+		// Set the third controller status to pending.
+		err := st.controller("12").SetStatus(status.StatusInfo{
+			Status: status.Pending,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+
+		memberWatcher := st.session.members.Watch()
+		defer memberWatcher.Close()
+
+		s.recordMemberChanges(c, memberWatcher)
+		update := s.mustNext(c, "init")
+		assertMembers(c, update, mkMembers("0v", ipVersion))
+
+		logger.Infof("starting worker")
+		w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
+		defer workertest.CleanKill(c, w)
+
+		// Wait for the worker to set the initial members.
+		// Only 2 members added, omitting the pending controller.
+		update = s.mustNext(c, "initial members")
+		assertMembers(c, update, mkMembers("0v 1", ipVersion))
+	})
+}
+
 var fatalErrorsTests = []struct {
 	errPattern string
 	err        error
