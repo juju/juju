@@ -775,14 +775,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
 		controllerModelUUID,
 	)
-	modelRestHandler := &modelRestHandler{
-		ctxt:              httpCtxt,
-		dataDir:           srv.dataDir,
-		objectStoreGetter: srv.shared.objectStoreGetter,
-	}
-	modelRestServer := &restHTTPHandler{
-		getHandler: modelRestHandler.ServeGet,
-	}
 	modelCharmsHandler := &charmsHandler{
 		ctxt:              httpCtxt,
 		dataDir:           srv.dataDir,
@@ -927,9 +919,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:         embeddedCLIHandler,
 		tracked:         true,
 		unauthenticated: true,
-	}, {
-		pattern: modelRoutePrefix + "/rest/1.0/:entity/:name/:attribute",
-		handler: modelRestServer,
 	}, {
 		// GET /charms has no authorizer
 		pattern: modelRoutePrefix + "/charms",
