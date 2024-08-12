@@ -12,10 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 )
 
@@ -363,105 +361,6 @@ func (s *ModelUserSuite) TestUpdateLastConnectionTwoModelUsers(c *gc.C) {
 	c.Assert(when.After(now) || when.Equal(now), jc.IsTrue)
 }
 
-func (s *ModelUserSuite) TestModelUUIDsForUserNone(c *gc.C) {
-	tag := names.NewUserTag("non-existent@remote")
-	models, err := s.State.ModelUUIDsForUser(tag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.HasLen, 0)
-}
-
-func (s *ModelUserSuite) TestModelUUIDsForUserNewLocalUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
-	models, err := s.State.ModelUUIDsForUser(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.HasLen, 0)
-}
-
-func (s *ModelUserSuite) TestModelUUIDsForUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, nil)
-	models, err := s.State.ModelUUIDsForUser(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, jc.DeepEquals, []string{s.State.ModelUUID()})
-
-	modelTag := names.NewModelTag(models[0])
-	access, err := s.State.UserAccess(user.UserTag(), modelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	when, err := s.Model.LastModelConnection(access.UserTag)
-	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
-	c.Assert(when.IsZero(), jc.IsTrue)
-}
-
-func (s *ModelUserSuite) TestImportingModelUUIDsForUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, nil)
-	models, err := s.State.ModelUUIDsForUser(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, jc.DeepEquals, []string{s.State.ModelUUID()})
-
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.SetMigrationMode(state.MigrationModeImporting)
-	c.Assert(err, jc.ErrorIsNil)
-
-	models, err = s.State.ModelUUIDsForUser(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.HasLen, 0)
-}
-
-func (s *ModelUserSuite) TestModelUUIDsForUserModelOwner(c *gc.C) {
-	owner := names.NewUserTag("external@remote")
-	model := s.newModelWithOwner(c, owner)
-
-	models, err := s.State.ModelUUIDsForUser(owner)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, jc.DeepEquals, []string{model.UUID()})
-}
-
-func (s *ModelUserSuite) TestModelUUIDsForUserOfNewModel(c *gc.C) {
-	userTag := names.NewUserTag("external@remote")
-	model := s.newModelWithUser(c, userTag, state.ModelTypeIAAS)
-
-	models, err := s.State.ModelUUIDsForUser(userTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, jc.DeepEquals, []string{model.UUID()})
-}
-
-func (s *ModelUserSuite) TestModelUUIDsForUserMultiple(c *gc.C) {
-	userTag := names.NewUserTag("external@remote")
-	expected := []string{
-		s.newModelWithUser(c, userTag, state.ModelTypeIAAS).UUID(),
-		s.newModelWithUser(c, userTag, state.ModelTypeIAAS).UUID(),
-		s.newModelWithUser(c, userTag, state.ModelTypeIAAS).UUID(),
-		s.newModelWithOwner(c, userTag).UUID(),
-		s.newModelWithOwner(c, userTag).UUID(),
-	}
-
-	models, err := s.State.ModelUUIDsForUser(userTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, jc.SameContents, expected)
-}
-
-func (s *ModelUserSuite) TestModelBasicInfoForUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
-	model := s.newModelWithUser(c, user.UserTag(), state.ModelTypeIAAS)
-	model2 := s.newModelWithUser(c, user.UserTag(), state.ModelTypeCAAS)
-
-	models, err := s.State.ModelBasicInfoForUser(user.UserTag(), false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, jc.SameContents, []state.ModelAccessInfo{
-		{
-			Name:  model.Name(),
-			Type:  model.Type(),
-			UUID:  model.UUID(),
-			Owner: "test-admin",
-		}, {
-			Name:  model2.Name(),
-			Type:  model2.Type(),
-			UUID:  model2.UUID(),
-			Owner: "test-admin",
-		},
-	})
-}
-
 func (s *ModelUserSuite) TestIsControllerAdmin(c *gc.C) {
 	isAdmin, err := s.State.IsControllerAdmin(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
@@ -496,46 +395,4 @@ func (s *ModelUserSuite) TestIsControllerAdminFromOtherState(c *gc.C) {
 	isAdmin, err = otherState.IsControllerAdmin(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)
-}
-
-func (s *ModelUserSuite) newModelWithOwner(c *gc.C, owner names.UserTag) *state.Model {
-	// Don't use the factory to call MakeModel because it may at some
-	// time in the future be modified to do additional things.  Instead call
-	// the state method directly to create an model to make sure that
-	// the owner is able to access the model.
-	uuid, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	uuidStr := uuid.String()
-
-	cfg := testing.CustomModelConfig(c, testing.Attrs{
-		"name": uuidStr[:8],
-		"uuid": uuidStr,
-	})
-	model, st, err := s.Controller.NewModel(state.NoopConfigSchemaSource, state.ModelArgs{
-		Type:                    state.ModelTypeIAAS,
-		CloudName:               "dummy",
-		CloudRegion:             "dummy-region",
-		Config:                  cfg,
-		Owner:                   owner,
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	return model
-}
-
-func (s *ModelUserSuite) newModelWithUser(c *gc.C, user names.UserTag, modelType state.ModelType) *state.Model {
-	params := &factory.ModelParams{Type: modelType}
-	st := s.Factory.MakeModel(c, params)
-	defer st.Close()
-	newModel, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = newModel.AddUser(
-		state.UserAccessSpec{
-			User: user, CreatedBy: newModel.Owner(),
-			Access: permission.ReadAccess,
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	return newModel
 }

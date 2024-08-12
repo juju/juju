@@ -51,14 +51,6 @@ func (m *Model) AddUser(spec UserAccessSpec) (permission.UserAccess, error) {
 	return m.st.addUserAccess(spec, target)
 }
 
-// AddControllerUser adds a new user for the current controller to the database.
-func (st *State) AddControllerUser(spec UserAccessSpec) (permission.UserAccess, error) {
-	if err := permission.ValidateControllerAccess(spec.Access); err != nil {
-		return permission.UserAccess{}, errors.Annotate(err, "adding controller user")
-	}
-	return st.addUserAccess(spec, userAccessTarget{globalKey: controllerGlobalKey})
-}
-
 func (st *State) addUserAccess(spec UserAccessSpec, target userAccessTarget) (permission.UserAccess, error) {
 	// Ensure local user exists in state before adding them as a model user.
 	if spec.User.IsLocal() {
