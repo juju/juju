@@ -57,7 +57,8 @@ jobs:
           libdqlite-dev \
           libsqlite3-dev \
           sqlite3
-        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.54.2
+        go install golang.org/x/vuln/cmd/govulncheck@latest
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.59.1
         sudo curl -sSfL https://github.com/mvdan/sh/releases/download/v3.7.0/shfmt_v3.7.0_linux_$(go env GOARCH) -o /usr/bin/shfmt
         sudo chmod +x /usr/bin/shfmt
     
@@ -65,19 +66,16 @@ jobs:
       run: go mod download
 
     - name: "Static Analysis: Copyright"
-      if: steps.filter.outputs.static-analysis == 'true' || steps.filter.outputs.go == 'true'
       run: |
         STATIC_ANALYSIS_JOB=test_copyright make static-analysis
       shell: bash
 
     - name: "Static Analysis: Shell Check"
-      if: steps.filter.outputs.static-analysis == 'true' || steps.filter.outputs.sh == 'true'
       run: |
         STATIC_ANALYSIS_JOB=test_static_analysis_shell make static-analysis
       shell: bash
 
     - name: "Static Analysis: Go Check"
-      if: steps.filter.outputs.static-analysis == 'true' || steps.filter.outputs.go == 'true'
       run: |
         # Explicitly set GOROOT to avoid golangci-lint/issues/3107
         export "GOROOT=$(go env GOROOT)"
@@ -90,7 +88,6 @@ jobs:
         CGO_LDFLAGS_ALLOW: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
 
     - name: "Static Analysis: Python Check"
-      if: steps.filter.outputs.static-analysis == 'true' || steps.filter.outputs.python == 'true'
       run: |
         STATIC_ANALYSIS_JOB=test_static_analysis_python make static-analysis
       shell: bash
