@@ -26,6 +26,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing/factory"
@@ -101,6 +102,7 @@ type charmsMockSuite struct {
 	machine2     *mocks.MockMachine
 
 	modelConfigService *MockModelConfigService
+	applicationService *MockApplicationService
 }
 
 var _ = gc.Suite(&charmsMockSuite{})
@@ -259,6 +261,13 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 			return nil, nil
 		},
 	)
+
+	s.applicationService.EXPECT().SetCharm(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, args domaincharm.SetCharmArgs) (corecharm.ID, []string, error) {
+		c.Assert(args.Charm.Meta(), gc.Equals, expMeta)
+		c.Assert(args.Charm.Manifest(), gc.Equals, expManifest)
+		c.Assert(args.Charm.Config(), gc.Equals, expConfig)
+		return corecharm.ID(""), nil, nil
+	})
 
 	api := s.api(c)
 
@@ -494,6 +503,7 @@ func (s *charmsMockSuite) api(c *gc.C) *charms.API {
 		s.authorizer,
 		s.state,
 		s.modelConfigService,
+		s.applicationService,
 		names.NewModelTag("deadbeef-abcd-4fd2-967d-db9663db7bea"),
 		s.repoFactory,
 		loggertesting.WrapCheckLog(c),
@@ -522,6 +532,7 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.machine2 = mocks.NewMockMachine(ctrl)
 
 	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
 
 	return ctrl
 }
