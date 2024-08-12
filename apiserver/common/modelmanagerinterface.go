@@ -33,8 +33,6 @@ type ModelManagerBackend interface {
 	BlockGetter
 
 	ModelUUID() string
-	ModelSummariesForUser(user names.UserTag, isSupersser bool) ([]state.ModelSummary, error)
-	IsControllerAdmin(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 	Model() (Model, error)
 	AllModelUUIDs() ([]string, error)
@@ -46,7 +44,6 @@ type ModelManagerBackend interface {
 		map[string]any,
 		*environscloudspec.CloudRegionSpec,
 	) (map[string]any, error)
-	ControllerModelUUID() string
 	ControllerModelTag() names.ModelTag
 	IsController() bool
 	ControllerNodes() ([]ControllerNode, error)
@@ -59,10 +56,6 @@ type ModelManagerBackend interface {
 	Unit(name string) (*state.Unit, error)
 	Name() string
 	ModelTag() names.ModelTag
-	ModelConfig(context.Context) (*config.Config, error)
-	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
-	RemoveUserAccess(names.UserTag, names.Tag) error
-	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
 	AllMachines() (machines []Machine, err error)
 	AllApplications() (applications []Application, err error)
 	AllFilesystems() ([]state.Filesystem, error)
@@ -70,7 +63,6 @@ type ModelManagerBackend interface {
 	ControllerTag() names.ControllerTag
 	Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
 	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
-	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
 	ConstraintsBySpaceName(string) ([]*state.Constraints, error)
 
 	LatestMigration() (state.ModelMigration, error)
