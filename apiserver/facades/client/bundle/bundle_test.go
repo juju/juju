@@ -46,7 +46,6 @@ func (s *bundleSuite) setUpMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *bundleSuite) SetUpTest(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
 
 	s.BaseSuite.SetUpTest(c)
 	s.auth = &apiservertesting.FakeAuthorizer{
@@ -55,7 +54,6 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 
 	s.st = newMockState()
 	s.modelTag = names.NewModelTag("some-uuid")
-	s.facade = s.makeAPI(c)
 }
 
 func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv8 {
@@ -88,6 +86,9 @@ func (s *bundleSuite) assertGetSpaces(c *gc.C, spaces ...network.SpaceInfo) {
 }
 
 func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	args := params.BundleChangesParams{
 		BundleDataYAML: ":",
 	}
@@ -97,6 +98,9 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *gc.C) {
 }
 
 func (s *bundleSuite) TestGetChangesMapArgsBundleVerificationErrors(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -120,6 +124,9 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleVerificationErrors(c *gc.C) {
 }
 
 func (s *bundleSuite) TestGetChangesMapArgsBundleConstraintsError(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -138,6 +145,9 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleConstraintsError(c *gc.C) {
 }
 
 func (s *bundleSuite) TestGetChangesMapArgsBundleStorageError(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -157,6 +167,9 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleStorageError(c *gc.C) {
 }
 
 func (s *bundleSuite) TestGetChangesMapArgsBundleDevicesError(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -176,6 +189,9 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleDevicesError(c *gc.C) {
 }
 
 func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -256,6 +272,9 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
 }
 
 func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -291,6 +310,9 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *gc.C) {
 }
 
 func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             bundle: kubernetes
@@ -371,6 +393,9 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 }
 
 func (s *bundleSuite) TestGetChangesMapArgsBundleEndpointBindingsSuccess(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -403,6 +428,9 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleEndpointBindingsSuccess(c *gc.C
 }
 
 func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -476,6 +504,9 @@ func minimalStatusArgs() description.StatusArgs {
 }
 
 func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -513,6 +544,9 @@ applications:
 }
 
 func (s *bundleSuite) TestExportBundleWithApplicationResources(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -565,6 +599,9 @@ applications:
 }
 
 func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -622,6 +659,9 @@ applications:
 }
 
 func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -665,6 +705,9 @@ applications:
 }
 
 func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -751,6 +794,9 @@ applications:
 }
 
 func (s *bundleSuite) TestExportBundleWithApplicationCharmConfig(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -961,6 +1007,9 @@ applications:
 }
 
 func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -1088,6 +1137,9 @@ func (s *bundleSuite) newModel(modelType string, app1 string, app2 string) descr
 }
 
 func (s *bundleSuite) TestExportBundleModelWithSettingsRelations(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	model := s.newModel("iaas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
@@ -1123,6 +1175,9 @@ relations:
 }
 
 func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	model := s.newModel("iaas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 	app := model.AddApplication(description.ApplicationArgs{
@@ -1192,6 +1247,9 @@ func (s *bundleSuite) addSubordinateEndpoints(rel description.Relation, app stri
 }
 
 func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	model := s.newModel("iaas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
@@ -1247,6 +1305,9 @@ relations:
 }
 
 func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -1339,6 +1400,9 @@ func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff strin
 }
 
 func (s *bundleSuite) TestExportBundleNoEndpointBindingsPrinted(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	s.setupExportBundleEndpointBindingsPrinted("0", "0")
 
 	s.assertGetSpaces(c)
@@ -1363,6 +1427,9 @@ applications:
 }
 
 func (s *bundleSuite) TestExportBundleEndpointBindingsPrinted(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	s.setupExportBundleEndpointBindingsPrinted("0", "1")
 
 	s.assertGetSpaces(c)
@@ -1393,6 +1460,9 @@ applications:
 }
 
 func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -1458,6 +1528,9 @@ func (s *bundleSuite) addMinimalMachineWithConstraints(model description.Model, 
 }
 
 func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	model := s.newModel("iaas", "mediawiki", "mysql")
 
 	s.addMinimalMachineWithConstraints(model, "0")
@@ -1515,6 +1588,9 @@ func (s *bundleSuite) addMinimalMachineWithAnnotations(model description.Model, 
 }
 
 func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	model := s.newModel("iaas", "wordpress", "mysql")
 
 	s.addMinimalMachineWithAnnotations(model, "0")
@@ -1558,6 +1634,9 @@ relations:
 }
 
 func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -1637,6 +1716,9 @@ machines:
 }
 
 func (s *bundleSuite) TestMixedSeries(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config: coretesting.FakeConfig().Merge(map[string]interface{}{
 			"default-base": "ubuntu@20.04",
@@ -1700,6 +1782,9 @@ machines:
 }
 
 func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config: coretesting.FakeConfig().Merge(map[string]interface{}{
 			"default-base": "ubuntu@20.04",
@@ -1768,6 +1853,9 @@ machines:
 }
 
 func (s *bundleSuite) TestExportKubernetesBundle(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	model := s.newModel("caas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
@@ -1795,6 +1883,9 @@ relations:
 }
 
 func (s *bundleSuite) TestExportCharmhubBundle(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	model := s.newModel("iaas", "ch:wordpress", "ch:mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
@@ -1832,6 +1923,9 @@ relations:
 }
 
 func (s *bundleSuite) TestExportLocalBundle(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	model := s.newModel("iaas", "local:wordpress", "local:mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
@@ -1867,6 +1961,9 @@ relations:
 }
 
 func (s *bundleSuite) TestExportLocalBundleWithSeries(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	model := s.newModel("iaas", "local:focal/wordpress", "local:mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
@@ -1902,6 +1999,9 @@ relations:
 }
 
 func (s *bundleSuite) TestExportBundleWithExposedEndpointSettings(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.facade = s.makeAPI(c)
+
 	specs := []struct {
 		descr            string
 		exposed          bool
