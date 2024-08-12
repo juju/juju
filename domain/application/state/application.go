@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -975,4 +976,66 @@ WHERE u.name = $coreUnit.name
 		return errors.Trace(err)
 	})
 	return errors.Annotatef(err, "removing unit %q", unitName)
+}
+
+// GetCharmByApplicationName returns the charm for the specified application
+// name.
+// This method should be used sparingly, as it is not efficient. It should
+// be only used when you need the whole charm, otherwise use the more specific
+// methods.
+//
+// If the application does not exist, an error satisfying
+// [applicationerrors.ApplicationNotFoundError] is returned.
+// If the charm for the application does not exist, an error satisfying
+// [applicationerrors.CharmNotFoundError] is returned.
+func (st *ApplicationState) GetCharmByApplicationName(ctx context.Context, name string) (charm.Charm, error) {
+	db, err := st.DB()
+	if err != nil {
+		return charm.Charm{}, errors.Trace(err)
+	}
+
+	query, err := st.Prepare(`
+SELECT charm_uuid AS &charmUUID.*
+FROM application
+WHERE name = $applicationName.name
+`, charmUUID{}, applicationName{})
+	if err != nil {
+		return charm.Charm{}, fmt.Errorf("preparing query for application %q: %w", name, err)
+	}
+
+	var charm charm.Charm
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var charmUUID charmUUID
+		if err := tx.Query(ctx, query, applicationName{Name: name}).Get(&charmUUID); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return fmt.Errorf("application %s: %w", name, applicationerrors.ApplicationNotFound)
+			}
+			return fmt.Errorf("querying charm for application %q: %w", name, err)
+		}
+
+		// If the charmUUID is empty, then something went wrong with adding an
+		// application.
+		if charmUUID.UUID == "" {
+			// Do not return a CharmNotFound error here. The application is in
+			// a broken state. There isn't anything we can do to fix it here.
+			// This will require manual intervention.
+			return fmt.Errorf("application is missing charm")
+		}
+
+		// Now get the charm by the UUID, but if it doesn't exist, return an
+		// error.
+		ident := charmID(charmUUID)
+		charm, err = st.getCharm(ctx, tx, ident)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return fmt.Errorf("application %s: %w", name, applicationerrors.CharmNotFound)
+			}
+			return fmt.Errorf("getting charm for application %q: %w", name, err)
+		}
+		return nil
+	}); err != nil {
+		return charm, errors.Trace(err)
+	}
+
+	return charm, nil
 }

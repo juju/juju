@@ -20,6 +20,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -416,7 +417,7 @@ func (s *applicationServiceSuite) TestCreateApplicationWithNoCharmName(c *gc.C) 
 	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
 func (s *applicationServiceSuite) TestCreateApplicationWithNoApplicationOrCharmName(c *gc.C) {
@@ -588,4 +589,26 @@ func (s *applicationServiceSuite) TestRegisterCAASUnitMissingPasswordHash(c *gc.
 	p.PasswordHash = nil
 	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
 	c.Assert(err, gc.ErrorMatches, "password hash not valid")
+}
+
+func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetCharmByApplicationName(gomock.Any(), "foo").Return(domaincharm.Charm{
+		Metadata: domaincharm.Metadata{
+			Name: "foo",
+
+			// RunAs becomes mandatory when being persisted. Empty string is not
+			// allowed.
+			RunAs: "default",
+		},
+	}, nil)
+
+	metadata, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(metadata.Meta(), gc.DeepEquals, &internalcharm.Meta{
+		Name: "foo",
+
+		// Notice that the RunAs field becomes empty string when being returned.
+	})
 }

@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -28,7 +29,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -122,7 +123,25 @@ type ApplicationState interface {
 	// GetApplicationUnitLife returns the life values for the specified units of the given application.
 	// The supplied ids may belong to a different application; the application name is used to filter.
 	GetApplicationUnitLife(ctx context.Context, appName string, unitIDs ...string) (map[string]life.Life, error)
+
+	// GetCharmByApplicationName returns the charm for the specified application
+	// name.
+	// If the application does not exist, an error satisfying
+	// [applicationerrors.ApplicationNotFoundError] is returned.
+	// If the charm for the application does not exist, an error satisfying
+	// [applicationerrors.CharmNotFoundError] is returned.
+	GetCharmByApplicationName(context.Context, string) (domaincharm.Charm, error)
 }
+
+const (
+	// applicationSnippet is a non-compiled regexp that can be composed with
+	// other snippets to form a valid application regexp.
+	applicationSnippet = "(?:[a-z][a-z0-9]*(?:-[a-z0-9]*[a-z][a-z0-9]*)*)"
+)
+
+var (
+	validApplication = regexp.MustCompile("^" + applicationSnippet + "$")
+)
 
 // ApplicationService provides the API for working with applications.
 type ApplicationService struct {
@@ -156,7 +175,7 @@ func NewApplicationService(st ApplicationState, registry storage.ProviderRegistr
 func (s *ApplicationService) CreateApplication(
 	ctx context.Context,
 	name string,
-	charm charm.Charm,
+	charm internalcharm.Charm,
 	origin corecharm.Origin,
 	args AddApplicationArgs,
 	units ...AddUnitArg,
@@ -165,9 +184,9 @@ func (s *ApplicationService) CreateApplication(
 	meta := charm.Meta()
 	if meta == nil {
 		return "", applicationerrors.CharmMetadataNotValid
-	} else if name == "" && meta.Name == "" {
+	} else if !isValidApplication(name) && !isValidCharm(meta.Name) {
 		return "", applicationerrors.ApplicationNameNotValid
-	} else if meta.Name == "" {
+	} else if !isValidCharm(meta.Name) {
 		return "", applicationerrors.CharmNameNotValid
 	}
 
@@ -461,9 +480,63 @@ func (s *ApplicationService) UpdateApplicationCharm(ctx context.Context, name st
 	return nil
 }
 
+// GetCharmByApplicationName returns the charm for the specified application
+// name.
+// If the application does not exist, an error satisfying
+// [applicationerrors.ApplicationNotFoundError] is returned.
+// If the charm for the application does not exist, an error satisfying
+// [applicationerrors.CharmNotFoundError] is returned.
+// If the application name is not valid, an error satisfying
+// [applicationerrors.ApplicationNameNotValid] is returned.
+func (s *ApplicationService) GetCharmByApplicationName(ctx context.Context, name string) (internalcharm.Charm, error) {
+	if !isValidApplication(name) {
+		return nil, applicationerrors.ApplicationNameNotValid
+	}
+
+	charm, err := s.st.GetCharmByApplicationName(ctx, name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// The charm needs to be decoded into the internalcharm.Charm type.
+
+	metadata, err := decodeMetadata(charm.Metadata)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	manifest, err := decodeManifest(charm.Manifest)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	actions, err := decodeActions(charm.Actions)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	config, err := decodeConfig(charm.Config)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	lxdProfile, err := decodeLXDProfile(charm.LXDProfile)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return internalcharm.NewCharmBase(
+		&metadata,
+		&manifest,
+		&config,
+		&actions,
+		&lxdProfile,
+	), nil
+}
+
 // addDefaultStorageDirectives fills in default values, replacing any empty/missing values
 // in the specified directives.
-func (s *ApplicationService) addDefaultStorageDirectives(ctx context.Context, modelType coremodel.ModelType, allDirectives map[string]storage.Directive, charmMeta *charm.Meta) error {
+func (s *ApplicationService) addDefaultStorageDirectives(ctx context.Context, modelType coremodel.ModelType, allDirectives map[string]storage.Directive, charmMeta *internalcharm.Meta) error {
 	defaults, err := s.st.StorageDefaults(ctx)
 	if err != nil {
 		return errors.Annotate(err, "getting storage defaults")
@@ -471,7 +544,7 @@ func (s *ApplicationService) addDefaultStorageDirectives(ctx context.Context, mo
 	return domainstorage.StorageDirectivesWithDefaults(charmMeta.Storage, modelType, defaults, allDirectives)
 }
 
-func (s *ApplicationService) validateStorageDirectives(ctx context.Context, modelType coremodel.ModelType, allDirectives map[string]storage.Directive, charm charm.Charm) error {
+func (s *ApplicationService) validateStorageDirectives(ctx context.Context, modelType coremodel.ModelType, allDirectives map[string]storage.Directive, charm internalcharm.Charm) error {
 	validator, err := domainstorage.NewStorageDirectivesValidator(modelType, s.registry, s.st)
 	if err != nil {
 		return errors.Trace(err)
@@ -726,4 +799,9 @@ func (s *WatchableApplicationService) WatchApplicationScale(ctx context.Context,
 		return nil, nil
 	}
 	return s.watcherFactory.NewValueMapperWatcher("application_scale", appID.String(), mask, mapper)
+}
+
+// isValidApplication returns whether name is a valid application name.
+func isValidApplication(name string) bool {
+	return validApplication.MatchString(name)
 }

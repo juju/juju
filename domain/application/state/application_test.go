@@ -10,12 +10,14 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/charm"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -845,4 +847,131 @@ func (s *applicationStateSuite) TestStorageDefaults(c *gc.C) {
 		DefaultBlockSource:      ptr("ebs-fast"),
 		DefaultFilesystemSource: ptr("elastic-fs"),
 	})
+}
+
+func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationName(c *gc.C) {
+	st := NewApplicationState(&commonStateBase{StateBase: domain.NewStateBase(s.TxnRunnerFactory())}, loggertesting.WrapCheckLog(c))
+
+	expectedMetadata := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+	}
+	expectedManifest := charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Track: "latest",
+					Risk:  charm.RiskEdge,
+				},
+				Architectures: []string{"amd64", "arm64"},
+			},
+		},
+	}
+	expectedActions := charm.Actions{
+		Actions: map[string]charm.Action{
+			"action1": {
+				Description:    "description",
+				Parallel:       true,
+				ExecutionGroup: "group",
+				Params:         []byte(`{}`),
+			},
+		},
+	}
+	expectedConfig := charm.Config{
+		Options: map[string]charm.Option{
+			"option1": {
+				Type:        "string",
+				Description: "description",
+				Default:     "default",
+			},
+		},
+	}
+	expectedLXDProfile := []byte("[{}]")
+
+	_, err := st.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
+		Charm: charm.Charm{
+			Metadata:   expectedMetadata,
+			Manifest:   expectedManifest,
+			Actions:    expectedActions,
+			Config:     expectedConfig,
+			LXDProfile: expectedLXDProfile,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, charm.Charm{
+		Metadata:   expectedMetadata,
+		Manifest:   expectedManifest,
+		Actions:    expectedActions,
+		Config:     expectedConfig,
+		LXDProfile: expectedLXDProfile,
+	})
+}
+
+func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalidName(c *gc.C) {
+	st := NewApplicationState(&commonStateBase{StateBase: domain.NewStateBase(s.TxnRunnerFactory())}, loggertesting.WrapCheckLog(c))
+
+	expectedMetadata := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+	}
+	expectedManifest := charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Track: "latest",
+					Risk:  charm.RiskEdge,
+				},
+				Architectures: []string{"amd64", "arm64"},
+			},
+		},
+	}
+	expectedActions := charm.Actions{
+		Actions: map[string]charm.Action{
+			"action1": {
+				Description:    "description",
+				Parallel:       true,
+				ExecutionGroup: "group",
+				Params:         []byte(`{}`),
+			},
+		},
+	}
+	expectedConfig := charm.Config{
+		Options: map[string]charm.Option{
+			"option1": {
+				Type:        "string",
+				Description: "description",
+				Default:     "default",
+			},
+		},
+	}
+	expectedLXDProfile := []byte("[{}]")
+
+	_, err := st.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
+		Charm: charm.Charm{
+			Metadata:   expectedMetadata,
+			Manifest:   expectedManifest,
+			Actions:    expectedActions,
+			Config:     expectedConfig,
+			LXDProfile: expectedLXDProfile,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.GetCharmByApplicationName(context.Background(), "bar")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
