@@ -12,10 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 )
 
@@ -397,46 +395,4 @@ func (s *ModelUserSuite) TestIsControllerAdminFromOtherState(c *gc.C) {
 	isAdmin, err = otherState.IsControllerAdmin(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)
-}
-
-func (s *ModelUserSuite) newModelWithOwner(c *gc.C, owner names.UserTag) *state.Model {
-	// Don't use the factory to call MakeModel because it may at some
-	// time in the future be modified to do additional things.  Instead call
-	// the state method directly to create an model to make sure that
-	// the owner is able to access the model.
-	uuid, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	uuidStr := uuid.String()
-
-	cfg := testing.CustomModelConfig(c, testing.Attrs{
-		"name": uuidStr[:8],
-		"uuid": uuidStr,
-	})
-	model, st, err := s.Controller.NewModel(state.NoopConfigSchemaSource, state.ModelArgs{
-		Type:                    state.ModelTypeIAAS,
-		CloudName:               "dummy",
-		CloudRegion:             "dummy-region",
-		Config:                  cfg,
-		Owner:                   owner,
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	return model
-}
-
-func (s *ModelUserSuite) newModelWithUser(c *gc.C, user names.UserTag, modelType state.ModelType) *state.Model {
-	params := &factory.ModelParams{Type: modelType}
-	st := s.Factory.MakeModel(c, params)
-	defer st.Close()
-	newModel, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = newModel.AddUser(
-		state.UserAccessSpec{
-			User: user, CreatedBy: newModel.Owner(),
-			Access: permission.ReadAccess,
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	return newModel
 }
