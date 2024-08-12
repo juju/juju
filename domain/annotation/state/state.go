@@ -51,7 +51,7 @@ func (st *State) GetAnnotations(ctx context.Context, id annotations.ID) (map[str
 	return st.getAnnotationsForID(ctx, id, getAnnotationsStmt, annotationUUIDParam)
 }
 
-// getAnnotationsForModel retrieves all annotations aassociated with the given
+// getAnnotationsForModel retrieves all annotations associated with the given
 // model id from the database.
 // If no annotations are found, an empty map is returned.
 // This method is specialized to Models as opposed to the other Kinds because we
@@ -82,7 +82,7 @@ func (st *State) getAnnotationsForModel(ctx context.Context, id annotations.ID, 
 	return annotations, nil
 }
 
-// getAnnotationsForID retrieves all annotations aassociated with the given id
+// getAnnotationsForID retrieves all annotations associated with the given id
 // from the database.
 // If no annotations are found, an empty map is returned.
 // This is separate from the getAnnotationsForModel because for non-model ID
