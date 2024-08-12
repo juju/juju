@@ -1,15 +1,17 @@
-# Third party Go clients
+# How to create and use Go clients for Juju
 
-This describes an approach to allow third party Go codebases to drive Juju.  At
-a high level it works like this.
+This document shows how to create a Go client for Juju.
 
-1. Create a connector instance, telling it how to connect to a Juju controller
-   and how to provide authentication credentials.
-2. Use this connector instance to obtain a connection instance.
-3. Get a facade client from the connection.
-4. Use the facade client to make one or more requests.
+Contents: 
 
-## The `Connector` interface
+* Create a `Connector`
+* Make a connection
+* Get an API client and make requests
+
+## Create a `Connector`
+
+Create a connector instance, telling it how to connect to a Juju controller
+and how to provide authentication credentials.
 
 The `github.com/juju/juju/api/connector` package defines a `Connector`
 interface.
@@ -21,18 +23,19 @@ type Connector interface {
 ```
 
 Its only purpose is to create instances of `api.Connection` that can later be
-used to talk to a given Juju controller with a given set of credentials.  There
-are currently two ways to obtain a `Connector` instance.
+used to talk to a given Juju controller with a given set of credentials. There
+are currently two ways to obtain a `Connector` instance: use the SimpleConnector
+or ClientStoreConnector
 
-### `SimpleConnector`
+### Create a `Connector` using`SimpleConnector`
 
-If one knows the how to contact a controller, and some juju user credentials
-(e.g. username and password) it is possible to obtain a connector like this.
+Given controller configuration (controller addresses and ca certificate) and Juju
+user credentials (username and password) it is possible to obtain a connector like this:
 
-```golang
+```go
 import "github.com/juju/juju/api/connector"
 ```
-```golang
+```go
 connr, err := connector.NewSimple(connector.SimpleConfig{
     ControllerAddresses: []string{"10.225.205.241:17070"},
     CaCert: "...",
@@ -41,64 +44,98 @@ connr, err := connector.NewSimple(connector.SimpleConfig{
 })
 ```
 
-There can be an error if the config is not valid (e.g. no controller address
-specified).
-
-### `ClientStoreConnector`
+### Create a `Connector` using `ClientStoreConnector`
 
 If a client store is available on the filesystem, it is possible to use it to
 configure the connector.
 
-```golang
+The NewClientStore will try to find a client store at the location specified by
+the JUJU_DATA environment variable which defaults to `~/.local/share/juju`. It is
+also possible to pass in a custom value(see `clientstoreconnector.go` for details).
+
+```go
 import "github.com/juju/juju/api/connector"
 ```
-```golang
+```go
 connr, err := connector.NewClientStore(connector.ClientStoreConfig{
-    ControllerName: "overlord",
+	ControllerName: "overlord",
 })
+if err != nil {
+	log.Fatalf("Error getting new Juju connector: %s", err)
+}
 ```
 
-The above will try to find a client store in the default location.  It is also
-possible to pass in a custom value (see `clientstoreconnector.go` for details).
+## Make a connection
 
-## Making requests
+Once we have a connector, make a connection. The connection can be used by multiple
+API clients before being closed. It is essential to close the connection when finished
+using.
 
-Once we have a connector, it's easy to make requests.
+```go
+import "log"
+```
+```go
+// Get a connection
+conn, err := connr.Connect()
+if err != nil {
+	log.Fatalf("Error opening connection: %s", err)
+}
+defer func(){ _ = conn.Close() }()
+```
 
-```golang
+## Get an API client and make requests
+
+Connections can be used to get a Juju API facade client. The client is then used to make
+api calls. One connection can be used by multiple API clients.
+
+```go
 import (
-    "encoding/json"
-	"github.com/juju/juju/api/connector"
-	"github.com/juju/juju/api/client/client"
+	"fmt"
+	
+	"github.com/juju/juju/api/client/modelmanager"
 )
 ```
-```golang
-    // Get a connection
-	conn, err := connr.Connect()
-	if err != nil {
-		log.Fatalf("Error opening connection: %s", err)
-	}
-    defer conn.Close()
+```go
+// Get a model manager facade client.
+client := modelmanager.NewClient(conn)
 
-    // Get a Client facade client
-	client := apiclient.NewClient(conn)
+// Find model info for the controller's models.
+info, err := client.ListModels("admin")
+if err != nil {
+	log.Fatalf("Error requesting model info: %s", err)
+}
 
-    // Call the Status endpoint of the client facade
-    status, err := client.Status(nil)
-    if err != nil {
-        log.Fatalf("Error requesting status: %s", err)
-    }
-
-    // Print to stdout.
-    b, err := json.MarshalIndent(status, "", "  ")
-	if err != nil {
-		log.Fatalf("Error marshalling response: %s", err)
-	}
-	fmt.Printf("%s\n", b)
+// Print a list of all model names.
+names := make([]string, len(info))
+for i, model := range info {
+	names[i] = model.Name
+}
+// Print to stdout.
+fmt.Printf("%s\n", strings.Join(names, ", "))
 ```
 
-## Points to address
+### Available Juju client APIs
 
-- When to reuse a connection, when to create a new one?
-- How to find the useful endpoints?
+The Juju client APIs are located in `api/client` directory.
+
+- action: Everything to do with actions: run, get output, get status. 
+- annotations: Get and set annotations for a Juju entity. Annotations exist for charms, machines,
+               units, models, storage and applications.
+- application: Everything to do with applications: deploy, refresh, scale.
+- applicationoffers: Everything to do with creating and managing cross model relations.
+- client: Get status of a Juju model.
+- cloud: Everything to do with clouds and cloud credentials.
+- highavailability: Enable HA for the Juju controller.
+- keymanager: Everything to do with ssh keys for users.
+- machinemanager: Add and remove Juju machines
+- modelconfig: Manage model config, constraints, and user secrets.
+- modelmanager: Everything to do with creating and destroying model.s
+- resources: Add new resources to an application, get details of current resources.
+- secretbackends: Everything to do with secret backends.
+- secrets: Everything to do with user secrets.
+- spaces: Manage network spaces for your model.
+- storage: Manage and list storage.
+- subnets: List subnets
+- usermanager: Manage users, permissions are granted/revoke in specific facades.
+
 
