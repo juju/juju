@@ -960,7 +960,8 @@ WHERE  model_uuid = $SecretBackendReference.model_uuid
 	return refCount, nil
 }
 
-// UpdateSecretBackendReference updates the reference to the secret backend for the given secret revision.
+// UpdateSecretBackendReference updates the reference to the secret backend for the given secret revision, returning an error
+// satisfying [secretbackenderrors.RefCountNotFound] if no existing refcount was found.
 // It returns a rollback function which can be used to revert the changes.
 func (s *State) UpdateSecretBackendReference(
 	ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID uuid.UUID,

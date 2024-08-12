@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/lease"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/modelmigration"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -48,7 +49,8 @@ func (s *importSuite) TestSetup(c *gc.C) {
 
 	// We don't currently need the model DB, so for this instance we can just
 	// pass nil.
-	err := op.Setup(modelmigration.NewScope(nil, nil, nil))
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := op.Setup(modelmigration.NewScope(modelUUID, nil, nil, nil))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

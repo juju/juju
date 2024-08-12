@@ -3702,9 +3702,6 @@ func (st State) ChangeSecretBackend(
 	ctx context.Context, revisionID uuid.UUID,
 	valueRef *coresecrets.ValueRef, data coresecrets.SecretData,
 ) (err error) {
-	defer func() {
-		st.logger.Criticalf("ChangeSecretBackend(%s, %#v, %#v) -> %#v", revisionID, valueRef, data, err)
-	}()
 	if valueRef != nil && len(data) > 0 {
 		return errors.New("both valueRef and data cannot be set")
 	}

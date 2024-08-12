@@ -190,7 +190,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		loggertesting.WrapCheckLog(c),
 		modelmigrationtesting.IgnoredSetupOperation(importOp),
 	)
-	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
+	err = coordinator.Perform(context.Background(), modelmigration.NewScope(modelUUID, nil, nil, nil), model)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(activated, jc.IsTrue)
 }
@@ -274,7 +274,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		loggertesting.WrapCheckLog(c),
 		modelmigrationtesting.IgnoredSetupOperation(importOp),
 	)
-	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
+	err = coordinator.Perform(context.Background(), modelmigration.NewScope(modelUUID, nil, nil, nil), model)
 	c.Check(err, gc.ErrorMatches, `.*boom.*`)
 
 	// TODO (stickupkid): This is incorrect until the read-only model is
@@ -354,7 +354,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 		loggertesting.WrapCheckLog(c),
 		modelmigrationtesting.IgnoredSetupOperation(importOp),
 	)
-	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
+	err = coordinator.Perform(context.Background(), modelmigration.NewScope(modelUUID, nil, nil, nil), model)
 	c.Check(err, gc.ErrorMatches, `.*boom.*`)
 
 	// TODO (stickupkid): This is incorrect until the read-only model is
@@ -434,7 +434,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 		loggertesting.WrapCheckLog(c),
 		modelmigrationtesting.IgnoredSetupOperation(importOp),
 	)
-	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
+	err = coordinator.Perform(context.Background(), modelmigration.NewScope(modelUUID, nil, nil, nil), model)
 	c.Check(err, gc.ErrorMatches, `.*boom.*`)
 
 	// TODO (stickupkid): This is incorrect until the read-only model is
