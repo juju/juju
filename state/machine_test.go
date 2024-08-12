@@ -892,6 +892,32 @@ func (s *MachineSuite) TestMachineCharmProfiles(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	saved = all.CharmProfiles(s.machine.Id())
 	c.Assert(saved, jc.SameContents, profiles)
+
+	// set to nil
+	err = s.machine.SetCharmProfiles(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	saved, err = s.machine.CharmProfiles()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(saved, gc.HasLen, 0)
+
+	all, err = s.Model.AllInstanceData()
+	c.Assert(err, jc.ErrorIsNil)
+	saved = all.CharmProfiles(s.machine.Id())
+	c.Assert(saved, gc.HasLen, 0)
+
+	// set back to non-nil
+	err = s.machine.SetCharmProfiles(profiles)
+	c.Assert(err, jc.ErrorIsNil)
+
+	saved, err = s.machine.CharmProfiles()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(saved, jc.SameContents, profiles)
+
+	all, err = s.Model.AllInstanceData()
+	c.Assert(err, jc.ErrorIsNil)
+	saved = all.CharmProfiles(s.machine.Id())
+	c.Assert(saved, jc.SameContents, profiles)
 }
 
 func (s *MachineSuite) TestMachineAvailabilityZone(c *gc.C) {

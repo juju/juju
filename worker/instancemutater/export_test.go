@@ -63,6 +63,6 @@ func GatherProfileData(m *MutaterMachine, info *instancemutater.UnitProfileInfo)
 	return m.gatherProfileData(info)
 }
 
-func VerifyCurrentProfiles(m *MutaterMachine, instId string, expectedProfiles []string) (bool, error) {
+func VerifyCurrentProfiles(m *MutaterMachine, instId string, expectedProfiles []string) (bool, []string, error) {
 	return m.verifyCurrentProfiles(instId, expectedProfiles)
 }
