@@ -18,21 +18,18 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
-	envcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 )
 
 // BaseAPI provides various boilerplate methods used by the facade business logic.
 type BaseAPI struct {
-	Authorizer                  facade.Authorizer
-	GetApplicationOffers        func(interface{}) jujucrossmodel.ApplicationOffers
-	ControllerModel             Backend
-	StatePool                   StatePool
-	modelService                ModelService
-	getEnviron                  environFromModelFunc
-	getControllerInfo           func(context.Context) (apiAddrs []string, caCert string, _ error)
-	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
-	logger                      corelogger.Logger
+	Authorizer           facade.Authorizer
+	GetApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers
+	ControllerModel      Backend
+	StatePool            StatePool
+	modelService         ModelService
+	getControllerInfo    func(context.Context) (apiAddrs []string, caCert string, _ error)
+	logger               corelogger.Logger
 }
 
 // checkAdmin ensures that the specified in user is a model or controller admin.
