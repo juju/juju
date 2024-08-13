@@ -162,6 +162,9 @@ type ApiServerSuite struct {
 	// ConfigSchemaSourceGetter is used to provide the config schema for the model.
 	// DEPRECATED: This will be removed in the future.
 	ConfigSchemaSourceGetter func(*gc.C) environsconfig.ConfigSchemaSourceGetter
+
+	// providerFactory is the fake provider factory dependency for testing.
+	providerFactory fakeProviderFactory
 }
 
 type noopRegisterer struct {
@@ -353,7 +356,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	}
 	s.ObjectStoreGetter = cfg.ObjectStoreGetter
 
-	cfg.ProviderFactory = &fakeProviderFactory{}
+	cfg.ProviderFactory = &s.providerFactory
 
 	// Set up auth handler.
 	factory := s.ControllerServiceFactory(c)
@@ -798,8 +801,21 @@ func (f *fakePresence) AgentStatus(agent string) (presence.Status, error) {
 	return presence.Alive, nil
 }
 
-type fakeProviderFactory struct{}
+// fakeProviderFactory is a provider factory implementation that allows
+// defining fake values for testing using ApiServerSuite.SetProviderReturn.
+type fakeProviderFactory struct {
+	provider providertracker.Provider
+	err      error
+}
 
-func (*fakeProviderFactory) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
-	return nil, nil
+// ProviderForModel implements providertracker.ProviderFactory.
+func (f *fakeProviderFactory) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
+	return f.provider, f.err
+}
+
+// SetProviderReturn defines the values that should be returned from the
+// provider factory.
+func (s *ApiServerSuite) SetProviderReturn(provider providertracker.Provider, err error) {
+	s.providerFactory.provider = provider
+	s.providerFactory.err = err
 }

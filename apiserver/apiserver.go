@@ -52,6 +52,7 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/resources"
 	coretrace "github.com/juju/juju/core/trace"
+	"github.com/juju/juju/environs"
 	internallogger "github.com/juju/juju/internal/logger"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/resource"
@@ -890,7 +891,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		objectStore:   httpCtxt.objectStoreForRequest,
 	}
 	backupHandler := &backupHandler{ctxt: httpCtxt}
-	registerHandler := &registerUserHandler{ctxt: httpCtxt}
+	registerHandler := &registerUserHandler{
+		ctxt: httpCtxt,
+		providerGetter: providertracker.ProviderRunner[environs.ConnectorInfo](
+			srv.shared.providerFactory, srv.shared.controllerModelID.String()),
+	}
 
 	// HTTP handler for application offer macaroon authentication.
 	addOfferAuthHandlers(srv.offerAuthCtxt, srv.mux)
