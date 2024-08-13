@@ -1,10 +1,11 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package machinemanager_test
+package machinemanager
 
 import (
-	"context"
+	context "context"
+	"fmt"
 
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -13,11 +14,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
-	"github.com/juju/juju/apiserver/facades/client/machinemanager"
-	"github.com/juju/juju/core/instance"
+	instance "github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs"
+	config "github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
@@ -29,10 +31,11 @@ type machineConfigSuite struct {
 	store        *MockObjectStore
 	cloudService *commonmocks.MockCloudService
 	credService  *commonmocks.MockCredentialService
-	model        *MockModel
 
 	controllerConfigService *MockControllerConfigService
 	keyUpdaterService       *MockKeyUpdaterService
+	modelConfigService      *MockModelConfigService
+	bootstrapEnviron        *MockBootstrapEnviron
 }
 
 var _ = gc.Suite(&machineConfigSuite{})
@@ -47,10 +50,8 @@ func (s *machineConfigSuite) setup(c *gc.C) *gomock.Controller {
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
 	s.store = NewMockObjectStore(ctrl)
 	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
-
-	s.model = NewMockModel(ctrl)
-	s.model.EXPECT().UUID().Return("uuid").AnyTimes()
-	s.model.EXPECT().ModelTag().Return(coretesting.ModelTag).AnyTimes()
+	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.bootstrapEnviron = NewMockBootstrapEnviron(ctrl)
 
 	return ctrl
 }
@@ -59,12 +60,15 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.st.EXPECT().Model().Return(s.model, nil)
-	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
+	cfg, err := config.New(config.NoDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"agent-version":            "2.6.6",
 		"enable-os-upgrade":        true,
 		"enable-os-refresh-update": true,
-	})))
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(
+		cfg, nil,
+	)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
 
 	machine0 := NewMockMachine(ctrl)
@@ -94,19 +98,26 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1",
 	}, nil)
 
-	services := machinemanager.InstanceConfigServices{
+	services := InstanceConfigServices{
 		ControllerConfigService: s.controllerConfigService,
 		CloudService:            s.cloudService,
 		CredentialService:       s.credService,
 		ObjectStore:             s.store,
 		KeyUpdaterService:       s.keyUpdaterService,
+		ModelConfigService:      s.modelConfigService,
 	}
 
-	icfg, err := machinemanager.InstanceConfig(context.Background(), s.ctrlSt, s.st, services, "0", "nonce", "")
+	modelID := modeltesting.GenModelUUID(c)
+
+	providerGetter := func(_ context.Context) (environs.BootstrapEnviron, error) {
+		return s.bootstrapEnviron, nil
+	}
+
+	icfg, err := InstanceConfig(context.Background(), modelID, providerGetter, s.ctrlSt, s.st, services, "0", "nonce", "")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(icfg.APIInfo.Addrs, gc.DeepEquals, []string{"1.2.3.4:1"})
 	c.Check(icfg.ToolsList().URLs(), gc.DeepEquals, map[version.Binary][]string{
-		icfg.AgentVersion(): {"https://1.2.3.4:1/model/uuid/tools/2.6.6-ubuntu-amd64"},
+		icfg.AgentVersion(): {fmt.Sprintf("https://1.2.3.4:1/model/%s/tools/2.6.6-ubuntu-amd64", modelID.String())},
 	})
 	c.Check(icfg.AuthorizedKeys, gc.Equals, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1")
 }
