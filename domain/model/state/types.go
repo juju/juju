@@ -67,6 +67,17 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 	if err != nil {
 		return coremodel.Model{}, fmt.Errorf("parsing model %q agent version %q: %w", m.UUID, agentVersion, err)
 	}
+	ownerName, err := user.NewName(m.OwnerName)
+	if err != nil {
+		return coremodel.Model{}, errors.Trace(err)
+	}
+	var credOwnerName user.Name
+	if m.CredentialOwnerName != "" {
+		credOwnerName, err = user.NewName(m.CredentialOwnerName)
+		if err != nil {
+			return coremodel.Model{}, errors.Trace(err)
+		}
+	}
 	return coremodel.Model{
 		Name:         m.Name,
 		Life:         corelife.Value(m.Life),
@@ -79,10 +90,10 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 		Credential: credential.Key{
 			Name:  m.CredentialName,
 			Cloud: m.CredentialCloudName,
-			Owner: m.CredentialOwnerName,
+			Owner: credOwnerName,
 		},
 		Owner:     user.UUID(m.OwnerUUID),
-		OwnerName: m.OwnerName,
+		OwnerName: ownerName,
 	}, nil
 }
 
@@ -101,7 +112,7 @@ type dbModelSummary struct {
 	// Type is the model type (e.g. IAAS or CAAS).
 	Type string `db:"model_type"`
 	// OwnerName is the tag of the user that owns the model.
-	Owner string `db:"owner_name"`
+	OwnerName string `db:"owner_name"`
 	// Life is the current lifecycle state of the model.
 	Life string `db:"life"`
 
@@ -153,6 +164,17 @@ func (m dbModelSummary) decodeModelSummary(controllerInfo dbController) (coremod
 			)
 		}
 	}
+	ownerName, err := user.NewName(m.OwnerName)
+	if err != nil {
+		return coremodel.ModelSummary{}, errors.Trace(err)
+	}
+	var credOwnerName user.Name
+	if m.CloudCredentialOwnerName != "" {
+		credOwnerName, err = user.NewName(m.CloudCredentialOwnerName)
+		if err != nil {
+			return coremodel.ModelSummary{}, errors.Trace(err)
+		}
+	}
 	return coremodel.ModelSummary{
 		Name:        m.Name,
 		UUID:        coremodel.UUID(m.UUID),
@@ -162,12 +184,12 @@ func (m dbModelSummary) decodeModelSummary(controllerInfo dbController) (coremod
 		CloudRegion: m.CloudRegion,
 		CloudCredentialKey: credential.Key{
 			Cloud: m.CloudCredentialCloudName,
-			Owner: m.CloudCredentialOwnerName,
+			Owner: credOwnerName,
 			Name:  m.CloudCredentialName,
 		},
 		ControllerUUID: controllerInfo.UUID,
 		IsController:   m.UUID == controllerInfo.ModelUUID,
-		OwnerName:      m.Owner,
+		OwnerName:      ownerName,
 		Life:           corelife.Value(m.Life),
 		AgentVersion:   agentVersion,
 	}, nil

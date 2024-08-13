@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/user"
 )
 
 // UserModelSummary holds information about a model and a users access on it.
@@ -57,7 +58,7 @@ type ModelSummary struct {
 	IsController bool
 
 	// OwnerName is the tag of the user that owns the model.
-	OwnerName string
+	OwnerName user.Name
 
 	// Life is the current lifecycle state of the model.
 	Life life.Value

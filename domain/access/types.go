@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 )
 
 // UpdatePermissionArgs are necessary arguments to run
@@ -25,18 +26,18 @@ type UpdatePermissionArgs struct {
 	External *bool
 	// ApiUser is the user requesting the change, they must have
 	// permission to do it as well.
-	ApiUser string
+	ApiUser user.Name
 	// What type of change to access is needed, grant or revoke?
 	Change permission.AccessChange
 	// Subject is the subject of the permission, e.g. user.
-	Subject string
+	Subject user.Name
 }
 
 func (args UpdatePermissionArgs) Validate() error {
-	if args.ApiUser == "" {
-		return errors.Trace(errors.NotValidf("empty api user"))
+	if args.ApiUser.IsZero() {
+		return errors.Trace(errors.NotValidf("apiUser name is zero"))
 	}
-	if args.Subject == "" {
+	if args.Subject.IsZero() {
 		return errors.Trace(errors.NotValidf("empty subject"))
 	}
 	if args.AddUser && (args.External == nil) {
@@ -61,7 +62,7 @@ type CredentialOwnerModelAccess struct {
 // ModelUserInfo contains information about a user of a model.
 type ModelUserInfo struct {
 	// Name is the username of the user.
-	Name string
+	Name user.Name
 	// DisplayName is a user-friendly name representation of the users name.
 	DisplayName string
 	// Access represents the level of model access this user has.

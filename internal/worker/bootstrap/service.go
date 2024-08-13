@@ -99,5 +99,5 @@ type UserService interface {
 	AddUser(ctx context.Context, arg userservice.AddUserArg) (user.UUID, []byte, error)
 
 	// GetUserByName will return the user with the given name.
-	GetUserByName(ctx context.Context, name string) (user.User, error)
+	GetUserByName(ctx context.Context, name user.Name) (user.User, error)
 }

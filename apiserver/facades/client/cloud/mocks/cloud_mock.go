@@ -16,6 +16,7 @@ import (
 	cloud "github.com/juju/juju/cloud"
 	credential "github.com/juju/juju/core/credential"
 	permission "github.com/juju/juju/core/permission"
+	user "github.com/juju/juju/core/user"
 	watcher "github.com/juju/juju/core/watcher"
 	access "github.com/juju/juju/domain/access"
 	service "github.com/juju/juju/domain/credential/service"
@@ -46,7 +47,7 @@ func (m *MockCredentialService) EXPECT() *MockCredentialServiceMockRecorder {
 }
 
 // AllCloudCredentialsForOwner mocks base method.
-func (m *MockCredentialService) AllCloudCredentialsForOwner(arg0 context.Context, arg1 string) (map[credential.Key]cloud.Credential, error) {
+func (m *MockCredentialService) AllCloudCredentialsForOwner(arg0 context.Context, arg1 user.Name) (map[credential.Key]cloud.Credential, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllCloudCredentialsForOwner", arg0, arg1)
 	ret0, _ := ret[0].(map[credential.Key]cloud.Credential)
@@ -73,13 +74,13 @@ func (c *MockCredentialServiceAllCloudCredentialsForOwnerCall) Return(arg0 map[c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCredentialServiceAllCloudCredentialsForOwnerCall) Do(f func(context.Context, string) (map[credential.Key]cloud.Credential, error)) *MockCredentialServiceAllCloudCredentialsForOwnerCall {
+func (c *MockCredentialServiceAllCloudCredentialsForOwnerCall) Do(f func(context.Context, user.Name) (map[credential.Key]cloud.Credential, error)) *MockCredentialServiceAllCloudCredentialsForOwnerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCredentialServiceAllCloudCredentialsForOwnerCall) DoAndReturn(f func(context.Context, string) (map[credential.Key]cloud.Credential, error)) *MockCredentialServiceAllCloudCredentialsForOwnerCall {
+func (c *MockCredentialServiceAllCloudCredentialsForOwnerCall) DoAndReturn(f func(context.Context, user.Name) (map[credential.Key]cloud.Credential, error)) *MockCredentialServiceAllCloudCredentialsForOwnerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -201,7 +202,7 @@ func (c *MockCredentialServiceCloudCredentialCall) DoAndReturn(f func(context.Co
 }
 
 // CloudCredentialsForOwner mocks base method.
-func (m *MockCredentialService) CloudCredentialsForOwner(arg0 context.Context, arg1, arg2 string) (map[string]cloud.Credential, error) {
+func (m *MockCredentialService) CloudCredentialsForOwner(arg0 context.Context, arg1 user.Name, arg2 string) (map[string]cloud.Credential, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudCredentialsForOwner", arg0, arg1, arg2)
 	ret0, _ := ret[0].(map[string]cloud.Credential)
@@ -228,13 +229,13 @@ func (c *MockCredentialServiceCloudCredentialsForOwnerCall) Return(arg0 map[stri
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCredentialServiceCloudCredentialsForOwnerCall) Do(f func(context.Context, string, string) (map[string]cloud.Credential, error)) *MockCredentialServiceCloudCredentialsForOwnerCall {
+func (c *MockCredentialServiceCloudCredentialsForOwnerCall) Do(f func(context.Context, user.Name, string) (map[string]cloud.Credential, error)) *MockCredentialServiceCloudCredentialsForOwnerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCredentialServiceCloudCredentialsForOwnerCall) DoAndReturn(f func(context.Context, string, string) (map[string]cloud.Credential, error)) *MockCredentialServiceCloudCredentialsForOwnerCall {
+func (c *MockCredentialServiceCloudCredentialsForOwnerCall) DoAndReturn(f func(context.Context, user.Name, string) (map[string]cloud.Credential, error)) *MockCredentialServiceCloudCredentialsForOwnerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -417,7 +418,7 @@ func (c *MockCloudServiceCloudCall) DoAndReturn(f func(context.Context, string) 
 }
 
 // CreateCloud mocks base method.
-func (m *MockCloudService) CreateCloud(arg0 context.Context, arg1 string, arg2 cloud.Cloud) error {
+func (m *MockCloudService) CreateCloud(arg0 context.Context, arg1 user.Name, arg2 cloud.Cloud) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateCloud", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -443,13 +444,13 @@ func (c *MockCloudServiceCreateCloudCall) Return(arg0 error) *MockCloudServiceCr
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCloudServiceCreateCloudCall) Do(f func(context.Context, string, cloud.Cloud) error) *MockCloudServiceCreateCloudCall {
+func (c *MockCloudServiceCreateCloudCall) Do(f func(context.Context, user.Name, cloud.Cloud) error) *MockCloudServiceCreateCloudCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCloudServiceCreateCloudCall) DoAndReturn(f func(context.Context, string, cloud.Cloud) error) *MockCloudServiceCreateCloudCall {
+func (c *MockCloudServiceCreateCloudCall) DoAndReturn(f func(context.Context, user.Name, cloud.Cloud) error) *MockCloudServiceCreateCloudCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -671,7 +672,7 @@ func (c *MockCloudAccessServiceCreatePermissionCall) DoAndReturn(f func(context.
 }
 
 // ReadAllAccessForUserAndObjectType mocks base method.
-func (m *MockCloudAccessService) ReadAllAccessForUserAndObjectType(arg0 context.Context, arg1 string, arg2 permission.ObjectType) ([]permission.UserAccess, error) {
+func (m *MockCloudAccessService) ReadAllAccessForUserAndObjectType(arg0 context.Context, arg1 user.Name, arg2 permission.ObjectType) ([]permission.UserAccess, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadAllAccessForUserAndObjectType", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]permission.UserAccess)
@@ -698,13 +699,13 @@ func (c *MockCloudAccessServiceReadAllAccessForUserAndObjectTypeCall) Return(arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCloudAccessServiceReadAllAccessForUserAndObjectTypeCall) Do(f func(context.Context, string, permission.ObjectType) ([]permission.UserAccess, error)) *MockCloudAccessServiceReadAllAccessForUserAndObjectTypeCall {
+func (c *MockCloudAccessServiceReadAllAccessForUserAndObjectTypeCall) Do(f func(context.Context, user.Name, permission.ObjectType) ([]permission.UserAccess, error)) *MockCloudAccessServiceReadAllAccessForUserAndObjectTypeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCloudAccessServiceReadAllAccessForUserAndObjectTypeCall) DoAndReturn(f func(context.Context, string, permission.ObjectType) ([]permission.UserAccess, error)) *MockCloudAccessServiceReadAllAccessForUserAndObjectTypeCall {
+func (c *MockCloudAccessServiceReadAllAccessForUserAndObjectTypeCall) DoAndReturn(f func(context.Context, user.Name, permission.ObjectType) ([]permission.UserAccess, error)) *MockCloudAccessServiceReadAllAccessForUserAndObjectTypeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -749,7 +750,7 @@ func (c *MockCloudAccessServiceReadAllUserAccessForTargetCall) DoAndReturn(f fun
 }
 
 // ReadUserAccessLevelForTarget mocks base method.
-func (m *MockCloudAccessService) ReadUserAccessLevelForTarget(arg0 context.Context, arg1 string, arg2 permission.ID) (permission.Access, error) {
+func (m *MockCloudAccessService) ReadUserAccessLevelForTarget(arg0 context.Context, arg1 user.Name, arg2 permission.ID) (permission.Access, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadUserAccessLevelForTarget", arg0, arg1, arg2)
 	ret0, _ := ret[0].(permission.Access)
@@ -776,13 +777,13 @@ func (c *MockCloudAccessServiceReadUserAccessLevelForTargetCall) Return(arg0 per
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCloudAccessServiceReadUserAccessLevelForTargetCall) Do(f func(context.Context, string, permission.ID) (permission.Access, error)) *MockCloudAccessServiceReadUserAccessLevelForTargetCall {
+func (c *MockCloudAccessServiceReadUserAccessLevelForTargetCall) Do(f func(context.Context, user.Name, permission.ID) (permission.Access, error)) *MockCloudAccessServiceReadUserAccessLevelForTargetCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCloudAccessServiceReadUserAccessLevelForTargetCall) DoAndReturn(f func(context.Context, string, permission.ID) (permission.Access, error)) *MockCloudAccessServiceReadUserAccessLevelForTargetCall {
+func (c *MockCloudAccessServiceReadUserAccessLevelForTargetCall) DoAndReturn(f func(context.Context, user.Name, permission.ID) (permission.Access, error)) *MockCloudAccessServiceReadUserAccessLevelForTargetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

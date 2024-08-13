@@ -11,6 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 )
 
@@ -25,11 +26,12 @@ func (p *PermissionDelegator) SubjectPermissions(
 	ctx context.Context, userName string, target permission.ID,
 ) (permission.Access, error) {
 
-	if !names.IsValidUser(userName) {
-		return permission.NoAccess, errors.Errorf("%s is not a valid user", userName)
+	name, err := user.NewName(userName)
+	if err != nil {
+		return permission.NoAccess, errors.Trace(err)
 	}
 
-	access, err := p.AccessService.ReadUserAccessLevelForTargetAddingMissingUser(ctx, userName, target)
+	access, err := p.AccessService.ReadUserAccessLevelForTargetAddingMissingUser(ctx, name, target)
 	if errors.Is(err, accesserrors.AccessNotFound) {
 		return permission.NoAccess, accesserrors.PermissionNotFound
 	} else if err != nil {

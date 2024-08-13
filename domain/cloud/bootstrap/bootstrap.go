@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/cloud/state"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	internaldatabase "github.com/juju/juju/internal/database"
@@ -19,7 +20,7 @@ import (
 )
 
 // InsertCloud inserts the initial cloud during bootstrap.
-func InsertCloud(ownerName string, cloud cloud.Cloud) internaldatabase.BootstrapOpt {
+func InsertCloud(ownerName user.Name, cloud cloud.Cloud) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		cloudUUID, err := uuid.NewUUID()
 		if err != nil {

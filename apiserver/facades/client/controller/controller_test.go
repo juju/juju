@@ -32,6 +32,8 @@ import (
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/domain/access"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
@@ -1013,7 +1015,7 @@ func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 
 func (s *accessSuite) TestModifyControllerAccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	userName := "test-user"
+	userName := usertesting.GenNewName(c, "test-user")
 
 	external := false
 	updateArgs := access.UpdatePermissionArgs{
@@ -1026,14 +1028,14 @@ func (s *accessSuite) TestModifyControllerAccess(c *gc.C) {
 		},
 		AddUser:  true,
 		External: &external,
-		ApiUser:  "test-admin",
+		ApiUser:  usertesting.GenNewName(c, "test-admin"),
 		Change:   permission.Grant,
 		Subject:  userName,
 	}
 	s.accessService.EXPECT().UpdatePermission(gomock.Any(), updateArgs).Return(nil)
 
 	args := params.ModifyControllerAccessRequest{Changes: []params.ModifyControllerAccess{{
-		UserTag: names.NewUserTag(userName).String(),
+		UserTag: names.NewUserTag(userName.Name()).String(),
 		Action:  params.GrantControllerAccess,
 		Access:  string(permission.SuperuserAccess),
 	}}}
@@ -1046,8 +1048,8 @@ func (s *accessSuite) TestModifyControllerAccess(c *gc.C) {
 func (s *accessSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	userName := "test-user"
-	userTag := names.NewUserTag(userName)
+	userTag := names.NewUserTag("test-user")
+	userName := user.NameFromTag(userTag)
 	differentUser := "different-test-user"
 
 	target := permission.AccessSpec{
@@ -1101,7 +1103,7 @@ func (s *accessSuite) TestAllModels(c *gc.C) {
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "no-access", Owner: remoteUserTag}).Close()
 
-	s.accessService.EXPECT().LastModelLogin(gomock.Any(), "test-admin", gomock.Any()).Times(4)
+	s.accessService.EXPECT().LastModelLogin(gomock.Any(), usertesting.GenNewName(c, "test-admin"), gomock.Any()).Times(4)
 
 	response, err := s.controllerAPI(c).AllModels(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)

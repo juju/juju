@@ -56,7 +56,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	err = accessState.AddUser(
 		context.Background(), userID,
 		coreuser.AdminUserName,
-		coreuser.AdminUserName,
+		coreuser.AdminUserName.Name(),
 		false,
 		userID,
 		permission.AccessSpec{

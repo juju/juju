@@ -18,6 +18,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coressh "github.com/juju/juju/core/ssh"
+	"github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	keymanagererrors "github.com/juju/juju/domain/keymanager/errors"
 	"github.com/juju/juju/rpc/params"
@@ -31,7 +32,7 @@ type KeyManagerAPI struct {
 	controllerUUID    string
 	authorizer        facade.Authorizer
 	check             BlockChecker
-	authedUser        names.Tag
+	authedUser        names.UserTag
 }
 
 func (api *KeyManagerAPI) checkCanRead(ctx context.Context) error {
@@ -90,20 +91,8 @@ func (api *KeyManagerAPI) ListKeys(
 
 	results := make([]params.StringsResult, 0, len(arg.Entities.Entities))
 	for range arg.Entities.Entities {
-		if api.authedUser.Kind() != names.UserTagKind {
-			results = append(results, params.StringsResult{
-				Error: apiservererrors.ParamsErrorf(
-					params.CodeTagKindNotSupported,
-					"authorised user %q unsupported, can only accept tags of kind %q",
-					api.authedUser, names.UserTagKind,
-				),
-			})
-			continue
-		}
-
-		user, err := api.userService.GetUserByName(ctx, api.authedUser.Id())
-		switch {
-		case errors.Is(err, accesserrors.UserNameNotValid):
+		authedUserName, err := user.NewName(api.authedUser.Id())
+		if err != nil {
 			results = append(results, params.StringsResult{
 				Error: apiservererrors.ParamsErrorf(
 					params.CodeUserInvalidName,
@@ -112,7 +101,10 @@ func (api *KeyManagerAPI) ListKeys(
 				),
 			})
 			continue
-		case errors.Is(err, accesserrors.UserNotFound):
+		}
+
+		user, err := api.userService.GetUserByName(ctx, authedUserName)
+		if errors.Is(err, accesserrors.UserNotFound) {
 			// We are only checking for the authenticated user here and not the
 			// user that has been passed in by params. This is because the juju
 			// client currently only supplies admin.
@@ -124,7 +116,7 @@ func (api *KeyManagerAPI) ListKeys(
 				),
 			})
 			continue
-		case err != nil:
+		} else if err != nil {
 			return params.StringsResults{}, fmt.Errorf(
 				"cannot get user for %q: %w",
 				api.authedUser.String(), err,
@@ -194,34 +186,8 @@ func (api *KeyManagerAPI) AddKeys(
 		return params.ErrorResults{}, nil
 	}
 
-	if api.authedUser.Kind() != names.UserTagKind {
-		return params.ErrorResults{
-			Results: []params.ErrorResult{
-				{
-					Error: apiservererrors.ParamsErrorf(
-						params.CodeTagKindNotSupported,
-						"authorised user %q unsupported, can only accept users of kind %q",
-						api.authedUser, names.UserTagKind,
-					),
-				},
-			},
-		}, nil
-	}
-
-	user, err := api.userService.GetUserByName(ctx, api.authedUser.Id())
+	user, err := api.userService.GetUserByName(ctx, user.NameFromTag(api.authedUser))
 	switch {
-	case errors.Is(err, accesserrors.UserNameNotValid):
-		return params.ErrorResults{
-			Results: []params.ErrorResult{
-				{
-					Error: apiservererrors.ParamsErrorf(
-						params.CodeUserInvalidName,
-						"invalid user name: %q",
-						arg.User,
-					),
-				},
-			},
-		}, nil
 	case errors.Is(err, accesserrors.UserNotFound):
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
@@ -310,27 +276,12 @@ func (api *KeyManagerAPI) ImportKeys(ctx context.Context, arg params.ModifyUserS
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	if api.authedUser.Kind() != names.UserTagKind {
-		return params.ErrorResults{
-			Results: []params.ErrorResult{
-				{
-					Error: apiservererrors.ParamsErrorf(
-						params.CodeTagKindNotSupported,
-						"authorised user %q unsupported, can only accept users of kind %q",
-						api.authedUser, names.UserTagKind,
-					),
-				},
-			},
-		}, nil
-	}
-
 	if len(arg.Keys) == 0 {
 		return params.ErrorResults{}, nil
 	}
 
-	user, err := api.userService.GetUserByName(ctx, arg.User)
-	switch {
-	case errors.Is(err, accesserrors.UserNameNotValid):
+	name, err := user.NewName(arg.User)
+	if err != nil {
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
 				{
@@ -342,6 +293,10 @@ func (api *KeyManagerAPI) ImportKeys(ctx context.Context, arg params.ModifyUserS
 				},
 			},
 		}, nil
+	}
+
+	user, err := api.userService.GetUserByName(ctx, name)
+	switch {
 	case errors.Is(err, accesserrors.UserNotFound):
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
@@ -437,38 +392,12 @@ func (api *KeyManagerAPI) DeleteKeys(ctx context.Context, arg params.ModifyUserS
 		return params.ErrorResults{}, err
 	}
 
-	if api.authedUser.Kind() != names.UserTagKind {
-		return params.ErrorResults{
-			Results: []params.ErrorResult{
-				{
-					Error: apiservererrors.ParamsErrorf(
-						params.CodeTagKindNotSupported,
-						"authorised user %q unsupported, can only accept users of kind %q",
-						api.authedUser, names.UserTagKind,
-					),
-				},
-			},
-		}, nil
-	}
-
 	if len(arg.Keys) == 0 {
 		return params.ErrorResults{}, nil
 	}
 
-	user, err := api.userService.GetUserByName(ctx, api.authedUser.Id())
+	user, err := api.userService.GetUserByName(ctx, user.NameFromTag(api.authedUser))
 	switch {
-	case errors.Is(err, accesserrors.UserNameNotValid):
-		return params.ErrorResults{
-			Results: []params.ErrorResult{
-				{
-					Error: apiservererrors.ParamsErrorf(
-						params.CodeUserInvalidName,
-						"invalid user name: %q",
-						arg.User,
-					),
-				},
-			},
-		}, nil
 	case errors.Is(err, accesserrors.UserNotFound):
 		return params.ErrorResults{
 			Results: []params.ErrorResult{

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	modelmigrationtesting "github.com/juju/juju/core/modelmigration/testing"
 	coreuser "github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
@@ -98,7 +99,7 @@ func (i *importSuite) TestModelMetadataInvalid(c *gc.C) {
 // the owner does not exist we get back a [usererrors.NotFound] error.
 func (i *importSuite) TestModelOwnerNoExist(c *gc.C) {
 	defer i.setupMocks(c).Finish()
-	i.userService.EXPECT().GetUserByName(gomock.Any(), "tlm").Return(coreuser.User{}, usererrors.UserNotFound)
+	i.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "tlm")).Return(coreuser.User{}, usererrors.UserNotFound)
 
 	importOp := importOperation{
 		modelService: i.modelService,
@@ -124,7 +125,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer i.setupMocks(c).Finish()
-	i.userService.EXPECT().GetUserByName(gomock.Any(), "tlm").Return(
+	i.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "tlm")).Return(
 		coreuser.User{
 			UUID: userUUID,
 		},
@@ -139,7 +140,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 			CloudRegion:  "region1",
 			Credential: credential.Key{
 				Name:  "my-credential",
-				Owner: "tlm",
+				Owner: usertesting.GenNewName(c, "tlm"),
 				Cloud: "AWS",
 			},
 			Name:  "test-model",
@@ -200,7 +201,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer i.setupMocks(c).Finish()
-	i.userService.EXPECT().GetUserByName(gomock.Any(), "tlm").Return(
+	i.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "tlm")).Return(
 		coreuser.User{
 			UUID: userUUID,
 		},
@@ -215,7 +216,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 			CloudRegion:  "region1",
 			Credential: credential.Key{
 				Name:  "my-credential",
-				Owner: "tlm",
+				Owner: usertesting.GenNewName(c, "tlm"),
 				Cloud: "AWS",
 			},
 			Name:  "test-model",
@@ -287,7 +288,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer i.setupMocks(c).Finish()
-	i.userService.EXPECT().GetUserByName(gomock.Any(), "tlm").Return(
+	i.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "tlm")).Return(
 		coreuser.User{
 			UUID: userUUID,
 		},
@@ -302,7 +303,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 			CloudRegion:  "region1",
 			Credential: credential.Key{
 				Name:  "my-credential",
-				Owner: "tlm",
+				Owner: usertesting.GenNewName(c, "tlm"),
 				Cloud: "AWS",
 			},
 			Name:  "test-model",
@@ -367,7 +368,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer i.setupMocks(c).Finish()
-	i.userService.EXPECT().GetUserByName(gomock.Any(), "tlm").Return(
+	i.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "tlm")).Return(
 		coreuser.User{
 			UUID: userUUID,
 		},
@@ -388,7 +389,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 			CloudRegion:  "region1",
 			Credential: credential.Key{
 				Name:  "my-credential",
-				Owner: "tlm",
+				Owner: usertesting.GenNewName(c, "tlm"),
 				Cloud: "AWS",
 			},
 			Name:  "test-model",

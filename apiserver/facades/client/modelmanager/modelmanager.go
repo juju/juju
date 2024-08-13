@@ -26,6 +26,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
@@ -233,7 +234,7 @@ func (m *ModelManagerAPI) checkAddModelPermission(ctx context.Context, cloud str
 		ObjectType: permission.Cloud,
 		Key:        cloud,
 	}
-	perm, err := m.accessService.ReadUserAccessLevelForTarget(ctx, userTag.Id(), target)
+	perm, err := m.accessService.ReadUserAccessLevelForTarget(ctx, user.NameFromTag(userTag), target)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return false, errors.Trace(err)
 	}
@@ -307,7 +308,7 @@ func (m *ModelManagerAPI) createModelNew(
 		return coremodel.UUID(""), errors.Annotatef(apiservererrors.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
 	}
 
-	user, err := m.accessService.GetUserByName(ctx, ownerTag.Id())
+	user, err := m.accessService.GetUserByName(ctx, user.NameFromTag(ownerTag))
 	if err != nil {
 		// TODO handle error properly
 		return coremodel.UUID(""), errors.Trace(err)
@@ -841,7 +842,7 @@ func (m *ModelManagerAPI) listAllModelSummaries(ctx context.Context) (params.Mod
 // summaries for all the models known to the user.
 func (m *ModelManagerAPI) listModelSummariesForUser(ctx context.Context, tag names.UserTag) (params.ModelSummaryResults, error) {
 	result := params.ModelSummaryResults{}
-	modelInfos, err := m.modelService.ListModelSummariesForUser(ctx, tag.Id())
+	modelInfos, err := m.modelService.ListModelSummariesForUser(ctx, user.NameFromTag(tag))
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -886,12 +887,7 @@ func (m *ModelManagerAPI) makeModelSummary(ctx context.Context, mi coremodel.Mod
 		)
 	}
 	cloudTag := names.NewCloudTag(mi.CloudName)
-	if !names.IsValidUser(mi.OwnerName) {
-		return nil, apiservererrors.ServerError(
-			fmt.Errorf("invalid model owner user name %q", mi.OwnerName),
-		)
-	}
-	userTag := names.NewUserTag(mi.OwnerName)
+	userTag := names.NewUserTag(mi.OwnerName.Name())
 
 	// TODO(aflynn): 07-08-24 Move this check into the function on model domain
 	// once the state is in domain.
@@ -969,10 +965,10 @@ func (m *ModelManagerAPI) fillInStatusBasedOnCloudCredentialValidity(ctx context
 // has access to in the current server.  Controller admins (superuser)
 // can list models for any user.  Other users
 // can only ask about their own models.
-func (m *ModelManagerAPI) ListModels(ctx context.Context, user params.Entity) (params.UserModelList, error) {
+func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Entity) (params.UserModelList, error) {
 	result := params.UserModelList{}
 
-	userTag, err := names.ParseUserTag(user.Tag)
+	userTag, err := names.ParseUserTag(userEntity.Tag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -982,7 +978,7 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, user params.Entity) (p
 		return result, errors.Trace(err)
 	}
 
-	ctrlUser, err := m.accessService.GetUserByName(ctx, userTag.Id())
+	ctrlUser, err := m.accessService.GetUserByName(ctx, user.NameFromTag(userTag))
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -1001,15 +997,8 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, user params.Entity) (p
 	}
 
 	for _, mi := range models {
-		var ownerTag names.UserTag
-		if names.IsValidUser(mi.OwnerName) {
-			ownerTag = names.NewUserTag(mi.OwnerName)
-		} else {
-			logger.Warningf("for model %v, got an invalid owner: %q", mi.UUID, mi.Owner)
-		}
-
 		var lastConnection *time.Time
-		lc, err := m.accessService.LastModelLogin(ctx, userTag.Id(), mi.UUID)
+		lc, err := m.accessService.LastModelLogin(ctx, user.NameFromTag(userTag), mi.UUID)
 		if errors.Is(err, accesserrors.UserNeverAccessedModel) {
 			lastConnection = nil
 		} else if errors.Is(err, modelerrors.NotFound) {
@@ -1026,7 +1015,7 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, user params.Entity) (p
 				Name:     mi.Name,
 				UUID:     mi.UUID.String(),
 				Type:     string(mi.ModelType),
-				OwnerTag: ownerTag.String(),
+				OwnerTag: names.NewUserTag(mi.OwnerName.Name()).String(),
 			},
 			LastConnection: lastConnection,
 		})
@@ -1363,9 +1352,9 @@ func (m *ModelManagerAPI) ModifyModelAccess(ctx context.Context, args params.Mod
 			},
 			AddUser:  true,
 			External: &external,
-			ApiUser:  m.apiUser.Id(),
+			ApiUser:  user.NameFromTag(m.apiUser),
 			Change:   permission.AccessChange(arg.Action),
-			Subject:  targetUserTag.Id(),
+			Subject:  user.NameFromTag(targetUserTag),
 		})
 
 		result.Results[i].Error = apiservererrors.ServerError(err)

@@ -203,7 +203,7 @@ func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (coremodel.Mo
 // search criteria an error satisfying [modelerrors.NotFound] will be returned.
 func (s *State) GetModelByName(
 	ctx context.Context,
-	username string,
+	username user.Name,
 	modelName string,
 ) (coremodel.Model, error) {
 	db, err := s.DB()
@@ -238,12 +238,13 @@ AND owner_name = ?
 		credName     sql.NullString
 		credOwner    sql.NullString
 		credCloud    sql.NullString
+		modelOwner   string
 		model        coremodel.Model
 		modelIdStr   string
 	)
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, q, modelName, username)
+		row := tx.QueryRowContext(ctx, q, modelName, username.Name())
 
 		err := row.Scan(
 			&modelIdStr,
@@ -253,7 +254,7 @@ AND owner_name = ?
 			&cloudRegion,
 			&modelType,
 			&userUUID,
-			&model.OwnerName,
+			&modelOwner,
 			&credCloud,
 			&credOwner,
 			&credName,
@@ -291,13 +292,24 @@ AND owner_name = ?
 		)
 	}
 
+	var credOwnerName user.Name
+	if credOwner.Valid {
+		credOwnerName, err = user.NewName(credOwner.String)
+		if err != nil {
+			return coremodel.Model{}, errors.Trace(err)
+		}
+	}
+	model.OwnerName, err = user.NewName(modelOwner)
+	if err != nil {
+		return coremodel.Model{}, errors.Trace(err)
+	}
 	model.CloudRegion = cloudRegion.String
 	model.ModelType = coremodel.ModelType(modelType)
 	model.Owner = user.UUID(userUUID)
 	model.Credential = credential.Key{
 		Name:  credName.String,
 		Cloud: credCloud.String,
-		Owner: credOwner.String,
+		Owner: credOwnerName,
 	}
 	model.UUID = coremodel.UUID(modelIdStr)
 
@@ -819,11 +831,13 @@ FROM v_model
 
 		var (
 			// cloudRegion could be null
-			cloudRegion sql.NullString
-			modelType   string
-			userUUID    string
-			credKey     credential.Key
-			model       coremodel.Model
+			cloudRegion    sql.NullString
+			modelType      string
+			userUUID       string
+			credKey        credential.Key
+			model          coremodel.Model
+			modelOwnerName string
+			credOwnerName  string
 		)
 
 		for rows.Next() {
@@ -834,9 +848,9 @@ FROM v_model
 				&cloudRegion,
 				&modelType,
 				&userUUID,
-				&model.OwnerName,
+				&modelOwnerName,
 				&credKey.Name,
-				&credKey.Owner,
+				&credOwnerName,
 				&credKey.Cloud,
 				&model.Life,
 			)
@@ -844,6 +858,16 @@ FROM v_model
 				return err
 			}
 
+			if credOwnerName != "" {
+				credKey.Owner, err = user.NewName(credOwnerName)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			}
+			model.OwnerName, err = user.NewName(modelOwnerName)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			model.CloudRegion = cloudRegion.String
 			model.ModelType = coremodel.ModelType(modelType)
 			model.Owner = user.UUID(userUUID)
@@ -936,11 +960,13 @@ OR uuid IN (SELECT grant_on
 
 		var (
 			// cloudRegion could be null
-			cloudRegion sql.NullString
-			modelType   string
-			userUUID    string
-			credKey     credential.Key
-			model       coremodel.Model
+			cloudRegion    sql.NullString
+			modelType      string
+			userUUID       string
+			credKey        credential.Key
+			model          coremodel.Model
+			modelOwnerName string
+			credOwnerName  string
 		)
 
 		for rows.Next() {
@@ -951,16 +977,25 @@ OR uuid IN (SELECT grant_on
 				&cloudRegion,
 				&modelType,
 				&userUUID,
-				&model.OwnerName,
+				&modelOwnerName,
 				&credKey.Name,
-				&credKey.Owner,
+				&credOwnerName,
 				&credKey.Cloud,
 				&model.Life,
 			)
 			if err != nil {
 				return err
 			}
-
+			if credOwnerName != "" {
+				credKey.Owner, err = user.NewName(credOwnerName)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			}
+			model.OwnerName, err = user.NewName(modelOwnerName)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			model.CloudRegion = cloudRegion.String
 			model.ModelType = coremodel.ModelType(modelType)
 			model.Owner = user.UUID(userUUID)
@@ -984,7 +1019,7 @@ OR uuid IN (SELECT grant_on
 // unit count and cpu core count, model status as well as migration status. This
 // information has not yet been migrated over to the relational database. Once
 // it has, it needs to be included here.
-func (s *State) ListModelSummariesForUser(ctx context.Context, userName string) ([]coremodel.UserModelSummary, error) {
+func (s *State) ListModelSummariesForUser(ctx context.Context, userName user.Name) ([]coremodel.UserModelSummary, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1002,7 +1037,7 @@ LEFT JOIN model_last_login mll ON m.uuid = mll.model_uuid AND mll.user_uuid = u.
 WHERE     u.removed = false
 AND       u.name = $dbUserName.name
 `
-	name := dbUserName{Name: userName}
+	name := dbUserName{Name: userName.Name()}
 	modelStmt, err := s.Prepare(q, name, dbModelSummary{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing get model summary for user statement")
@@ -1122,7 +1157,7 @@ FROM controller
 func (s *State) ModelCloudNameAndCredential(
 	ctx context.Context,
 	modelName string,
-	modelOwnerName string,
+	modelOwnerName user.Name,
 ) (string, credential.Key, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -1140,12 +1175,13 @@ AND owner_name = ?
 `
 
 	var (
-		cloudName     string
-		credentialKey credential.Key
+		cloudName       string
+		credentialKey   credential.Key
+		credentialOwner string
 	)
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, stmt, modelName, modelOwnerName)
-		err := row.Scan(&cloudName, &credentialKey.Name, &credentialKey.Owner, &credentialKey.Cloud)
+		row := tx.QueryRowContext(ctx, stmt, modelName, modelOwnerName.Name())
+		err := row.Scan(&cloudName, &credentialKey.Name, &credentialOwner, &credentialKey.Cloud)
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("%w for name %q and owner %q",
 				modelerrors.NotFound, modelName, modelOwnerName,
@@ -1160,6 +1196,14 @@ AND owner_name = ?
 	})
 	if err != nil {
 		return "", credential.Key{}, errors.Trace(err)
+	}
+
+	if credentialOwner != "" {
+		ownerName, err := user.NewName(credentialOwner)
+		if err != nil {
+			return "", credential.Key{}, errors.Annotate(err, "credential owner")
+		}
+		credentialKey.Owner = ownerName
 	}
 
 	return cloudName, credentialKey, nil
@@ -1489,7 +1533,7 @@ AND cloud_uuid = ?
 `
 
 	var cloudCredUUID, cloudUUID string
-	err := tx.QueryRowContext(ctx, cloudCredUUIDStmt, key.Cloud, key.Owner, key.Name).
+	err := tx.QueryRowContext(ctx, cloudCredUUIDStmt, key.Cloud, key.Owner.Name(), key.Name).
 		Scan(&cloudCredUUID, &cloudUUID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf(

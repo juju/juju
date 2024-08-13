@@ -76,7 +76,7 @@ type ReadOnlyModelServiceFunc = func(coremodel.UUID) ReadOnlyModelService
 type UserService interface {
 	// GetUserByName will find active users specified by the user name and
 	// return the associated user object.
-	GetUserByName(context.Context, string) (coreuser.User, error)
+	GetUserByName(context.Context, coreuser.Name) (coreuser.User, error)
 }
 
 // ControllerConfigService defines the controller config service used for model
@@ -119,7 +119,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 		return modelservice.NewModelService(
 			id,
 			modelstate.NewState(scope.ControllerDB()),
-			modelstate.NewModelState(scope.ModelDB()),
+			modelstate.NewModelState(scope.ModelDB(), i.logger),
 		)
 	}
 	i.userService = accessservice.NewService(accessstate.NewState(scope.ControllerDB(), i.logger))
@@ -142,7 +142,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return fmt.Errorf("importing model during migration %w", errors.NotValid)
 	}
 
-	user, err := i.userService.GetUserByName(ctx, model.Owner().Name())
+	user, err := i.userService.GetUserByName(ctx, coreuser.NameFromTag(model.Owner()))
 	if errors.Is(err, accesserrors.UserNotFound) {
 		return fmt.Errorf("cannot import model %q with uuid %q, %w for name %q",
 			modelName, modelID, accesserrors.UserNotFound, model.Owner().Name(),
@@ -159,7 +159,12 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	if model.CloudCredential() != nil {
 		cred.Name = model.CloudCredential().Name()
 		cred.Cloud = model.CloudCredential().Cloud()
-		cred.Owner = model.CloudCredential().Owner()
+		cred.Owner, err = coreuser.NewName(model.CloudCredential().Owner())
+		if err != nil {
+			return fmt.Errorf(
+				"cannot import model %q with uuid %q: model cloud credential owner: %w",
+				modelName, modelID, err)
+		}
 	}
 
 	// TODO: handle this magic in juju/description, preferably sending the agent-version

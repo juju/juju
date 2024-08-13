@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -225,7 +226,7 @@ func (a *Authenticator) checkCreds(
 		// For now we'll leave it as is, but we should fix this.
 		userTag := entity.Tag().(names.UserTag)
 
-		err = a.authContext.accessService.UpdateLastModelLogin(ctx, userTag.Id(), coremodel.UUID(modelUUID))
+		err = a.authContext.accessService.UpdateLastModelLogin(ctx, user.NameFromTag(userTag), coremodel.UUID(modelUUID))
 		if err != nil {
 			logger.Warningf("updating last login time for %v, %v", userTag, err)
 		}

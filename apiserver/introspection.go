@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -46,7 +47,7 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 
 	accessService := h.ctx.srv.shared.serviceFactoryGetter.FactoryForModel(h.ctx.srv.shared.controllerModelID).Access()
 
-	userPermission := func(ctx context.Context, userName string, target permission.ID) (permission.Access, error) {
+	userPermission := func(ctx context.Context, userName coreuser.Name, target permission.ID) (permission.Access, error) {
 		if objectType := target.ObjectType; !(objectType == permission.Controller || objectType == permission.Model) {
 			return "", errors.NotValidf("%q as a target", target.ObjectType)
 		}

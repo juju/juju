@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/testing/factory"
@@ -110,7 +111,7 @@ func (s *rateLimitSuite) infoForNewUser(c *gc.C, info *api.Info, name string) *a
 
 	userTag := names.NewUserTag(name)
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
-		Name:        userTag.Name(),
+		Name:        user.NameFromTag(userTag),
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("hunter2")),
 		Permission: permission.AccessSpec{
@@ -131,7 +132,7 @@ func (s *rateLimitSuite) infoForNewUser(c *gc.C, info *api.Info, name string) *a
 			},
 			Access: permission.AdminAccess,
 		},
-		User: userTag.Name(),
+		User: user.NameFromTag(userTag),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

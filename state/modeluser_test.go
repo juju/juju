@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
+	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/state"
@@ -45,7 +46,7 @@ func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 
 	c.Assert(modelUser.UserID, gc.Equals, fmt.Sprintf("%s:validusername", s.modelTag.Id()))
 	c.Assert(modelUser.Object, gc.Equals, s.modelTag)
-	c.Assert(modelUser.UserName, gc.Equals, "validusername")
+	c.Assert(modelUser.UserName, gc.Equals, usertesting.GenNewName(c, "validusername"))
 	c.Assert(modelUser.DisplayName, gc.Equals, user.DisplayName())
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
 	c.Assert(modelUser.CreatedBy.Id(), gc.Equals, "createdby")
@@ -58,7 +59,7 @@ func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserID, gc.Equals, fmt.Sprintf("%s:validusername", s.modelTag.Id()))
 	c.Assert(modelUser.Object, gc.Equals, s.modelTag)
-	c.Assert(modelUser.UserName, gc.Equals, "validusername")
+	c.Assert(modelUser.UserName, gc.Equals, usertesting.GenNewName(c, "validusername"))
 	c.Assert(modelUser.DisplayName, gc.Equals, user.DisplayName())
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
 	c.Assert(modelUser.CreatedBy.Id(), gc.Equals, "createdby")
@@ -83,14 +84,14 @@ func (s *ModelUserSuite) TestAddReadOnlyModelUser(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(modelUser.UserName, gc.Equals, "validusername")
+	c.Assert(modelUser.UserName, gc.Equals, usertesting.GenNewName(c, "validusername"))
 	c.Assert(modelUser.DisplayName, gc.Equals, user.DisplayName())
 	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
 
 	// Make sure that it is set when we read the user out.
 	modelUser, err = s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName, gc.Equals, "validusername")
+	c.Assert(modelUser.UserName, gc.Equals, usertesting.GenNewName(c, "validusername"))
 	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
 }
 
@@ -109,14 +110,14 @@ func (s *ModelUserSuite) TestAddReadWriteModelUser(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(modelUser.UserName, gc.Equals, "validusername")
+	c.Assert(modelUser.UserName, gc.Equals, usertesting.GenNewName(c, "validusername"))
 	c.Assert(modelUser.DisplayName, gc.Equals, user.DisplayName())
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
 
 	// Make sure that it is set when we read the user out.
 	modelUser, err = s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName, gc.Equals, "validusername")
+	c.Assert(modelUser.UserName, gc.Equals, usertesting.GenNewName(c, "validusername"))
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
 }
 
@@ -135,14 +136,14 @@ func (s *ModelUserSuite) TestAddAdminModelUser(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(modelUser.UserName, gc.Equals, "validusername")
+	c.Assert(modelUser.UserName, gc.Equals, usertesting.GenNewName(c, "validusername"))
 	c.Assert(modelUser.DisplayName, gc.Equals, user.DisplayName())
 	c.Assert(modelUser.Access, gc.Equals, permission.AdminAccess)
 
 	// Make sure that it is set when we read the user out.
 	modelUser, err = s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName, gc.Equals, "validusername")
+	c.Assert(modelUser.UserName, gc.Equals, usertesting.GenNewName(c, "validusername"))
 	c.Assert(modelUser.Access, gc.Equals, permission.AdminAccess)
 }
 
@@ -197,7 +198,7 @@ func (s *ModelUserSuite) TestCaseUserNameVsId(c *gc.C) {
 			Access:    permission.ReadAccess,
 		})
 	c.Assert(err, gc.IsNil)
-	c.Assert(user.UserName, gc.Equals, "Bob@RandomProvider")
+	c.Assert(user.UserName, gc.Equals, usertesting.GenNewName(c, "Bob@RandomProvider"))
 	c.Assert(user.UserID, gc.Equals, state.DocID(s.State, "bob@randomprovider"))
 }
 

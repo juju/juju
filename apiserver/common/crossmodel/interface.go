@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 )
@@ -308,5 +309,5 @@ type AccessService interface {
 	// for the given user on the given target.
 	// If the access level of a user cannot be found then
 	// accesserrors.AccessNotFound is returned.
-	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
+	ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target permission.ID) (permission.Access, error)
 }

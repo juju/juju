@@ -9,7 +9,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/permission"
@@ -26,10 +25,10 @@ import (
 //
 // If the username passed to this function is invalid an error satisfying
 // [github.com/juju/juju/domain/access/errors.UsernameNotValid] is returned.
-func AddUserWithPassword(name string, password auth.Password, access permission.AccessSpec) (user.UUID, internaldatabase.BootstrapOpt) {
+func AddUserWithPassword(name user.Name, password auth.Password, access permission.AccessSpec) (user.UUID, internaldatabase.BootstrapOpt) {
 	defer password.Destroy()
 
-	if !names.IsValidUser(name) {
+	if name.IsZero() {
 		return "", bootstrapErr(errors.Annotatef(usererrors.UserNameNotValid, "%q", name))
 	}
 
@@ -59,7 +58,7 @@ func AddUserWithPassword(name string, password auth.Password, access permission.
 			if err = state.AddUserWithPassword(
 				ctx, tx,
 				uuid,
-				name, name,
+				name, name.Name(),
 				uuid,
 				access,
 				pwHash, salt,

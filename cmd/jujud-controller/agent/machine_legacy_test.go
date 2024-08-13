@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
@@ -322,7 +323,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *g
 	ctx := context.Background()
 	key := credential.Key{
 		Cloud: "dummy",
-		Owner: "admin",
+		Owner: user.AdminUserName,
 		Name:  "another",
 	}
 	serviceFactory := s.ControllerServiceFactory(c)

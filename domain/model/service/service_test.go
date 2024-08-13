@@ -50,8 +50,8 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 		clouds:             map[string]dummyStateCloud{},
 		models:             map[coremodel.UUID]coremodel.Model{},
 		nonActivatedModels: map[coremodel.UUID]coremodel.Model{},
-		users: map[user.UUID]string{
-			s.userUUID: "admin",
+		users: map[user.UUID]user.Name{
+			s.userUUID: user.AdminUserName,
 		},
 		secretBackends: []string{
 			jujusecrets.BackendName,
@@ -82,7 +82,7 @@ func (s *serviceSuite) TestControllerModelNameChange(c *gc.C) {
 // consider the business logic in this package and if changing this well known
 // value is handled correctly for both legacy and future Juju versions!!!
 func (s *serviceSuite) TestControllerModelOwnerUsername(c *gc.C) {
-	c.Assert(coremodel.ControllerModelOwnerUsername, gc.Equals, "admin")
+	c.Assert(coremodel.ControllerModelOwnerUsername, gc.Equals, usertesting.GenNewName(c, "admin"))
 }
 
 func (s *serviceSuite) TestCreateModelInvalidArgs(c *gc.C) {
@@ -95,7 +95,7 @@ func (s *serviceSuite) TestModelCreation(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "test-user"),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{
@@ -136,7 +136,7 @@ func (s *serviceSuite) TestModelCreationSecretBackendNotFound(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{
@@ -222,7 +222,7 @@ func (s *serviceSuite) TestModelCreationNoCloudCredential(c *gc.C) {
 		Credential: credential.Key{
 			Cloud: "aws",
 			Name:  "foo",
-			Owner: s.userUUID.String(),
+			Owner: usertesting.GenNewName(c, "owner"),
 		},
 		Owner: s.userUUID,
 		Name:  "my-awesome-model",
@@ -262,7 +262,7 @@ func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *gc.C) {
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
 	err := svc.UpdateCredential(context.Background(), id, credential.Key{
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 		Name:  "foo",
 		Cloud: "aws",
 	})
@@ -272,7 +272,7 @@ func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *gc.C) {
 func (s *serviceSuite) TestUpdateModelCredential(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 		Name:  "foobar",
 	}
 
@@ -300,12 +300,12 @@ func (s *serviceSuite) TestUpdateModelCredential(c *gc.C) {
 func (s *serviceSuite) TestUpdateModelCredentialReplace(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 		Name:  "foobar",
 	}
 	cred2 := credential.Key{
 		Cloud: "aws",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 		Name:  "foobar2",
 	}
 
@@ -335,7 +335,7 @@ func (s *serviceSuite) TestUpdateModelCredentialReplace(c *gc.C) {
 func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 		Name:  "foobar",
 	}
 
@@ -363,12 +363,12 @@ func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *gc.C) {
 func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 		Name:  "foobar",
 	}
 	cred2 := credential.Key{
 		Cloud: "kubernetes",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 		Name:  "foobar2",
 	}
 
@@ -403,12 +403,12 @@ func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *gc.C) {
 func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 		Name:  "foobar",
 	}
 	cred2 := credential.Key{
 		Cloud: "aws",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 		Name:  "foobar2",
 	}
 
@@ -438,7 +438,7 @@ func (s *serviceSuite) TestDeleteModel(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{
@@ -489,7 +489,7 @@ func (s *serviceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{
@@ -522,7 +522,7 @@ func (s *serviceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{
@@ -564,7 +564,7 @@ func (s *serviceSuite) TestListAllModels(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{
@@ -574,7 +574,7 @@ func (s *serviceSuite) TestListAllModels(c *gc.C) {
 	}
 
 	usr1 := usertesting.GenUserUUID(c)
-	s.state.users[usr1] = "tlm"
+	s.state.users[usr1] = usertesting.GenNewName(c, "tlm")
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
 	id1, activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
@@ -615,7 +615,7 @@ func (s *serviceSuite) TestListAllModels(c *gc.C) {
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
 			Owner:        s.userUUID,
-			OwnerName:    "admin",
+			OwnerName:    usertesting.GenNewName(c, "admin"),
 			Credential:   cred,
 			Life:         life.Alive,
 		},
@@ -627,7 +627,7 @@ func (s *serviceSuite) TestListAllModels(c *gc.C) {
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
 			Owner:        usr1,
-			OwnerName:    "tlm",
+			OwnerName:    usertesting.GenNewName(c, "tlm"),
 			Credential:   cred,
 			Life:         life.Alive,
 		},
@@ -648,7 +648,7 @@ func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{
@@ -658,7 +658,7 @@ func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
 	}
 
 	usr1 := usertesting.GenUserUUID(c)
-	s.state.users[usr1] = "tlm"
+	s.state.users[usr1] = usertesting.GenNewName(c, "tlm")
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
 	id1, activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
@@ -699,7 +699,7 @@ func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
 			Owner:        usr1,
-			OwnerName:    "tlm",
+			OwnerName:    usertesting.GenNewName(c, "tlm"),
 			Credential:   cred,
 			Life:         life.Alive,
 		},
@@ -711,7 +711,7 @@ func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
 			Owner:        usr1,
-			OwnerName:    "tlm",
+			OwnerName:    usertesting.GenNewName(c, "tlm"),
 			Credential:   cred,
 			Life:         life.Alive,
 		},
@@ -725,7 +725,7 @@ func (s *serviceSuite) TestImportModelWithMissingAgentVersion(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{
@@ -758,7 +758,7 @@ func (s *serviceSuite) TestImportModel(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
-		Owner: s.userUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{
@@ -806,7 +806,7 @@ func (s *serviceSuite) TestControllerModel(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
-		Owner: adminUUID.String(),
+		Owner: usertesting.GenNewName(c, "owner"),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{
@@ -858,7 +858,7 @@ func (s *serviceSuite) TestListAllModelSummaries(c *gc.C) {
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
-			OwnerName:    "admin",
+			OwnerName:    usertesting.GenNewName(c, "admin"),
 			Life:         life.Alive,
 		},
 		uuid2: {
@@ -868,7 +868,7 @@ func (s *serviceSuite) TestListAllModelSummaries(c *gc.C) {
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
-			OwnerName:    "tlm",
+			OwnerName:    usertesting.GenNewName(c, "tlm"),
 			Life:         life.Alive,
 		},
 	}
@@ -882,7 +882,7 @@ func (s *serviceSuite) TestListAllModelSummaries(c *gc.C) {
 		CloudName:      "aws",
 		CloudRegion:    "myregion",
 		ModelType:      coremodel.IAAS,
-		OwnerName:      "admin",
+		OwnerName:      usertesting.GenNewName(c, "admin"),
 		Life:           life.Alive,
 		ControllerUUID: jujutesting.ControllerTag.Id(),
 		IsController:   true,
@@ -893,7 +893,7 @@ func (s *serviceSuite) TestListAllModelSummaries(c *gc.C) {
 		CloudName:      "aws",
 		CloudRegion:    "myregion",
 		ModelType:      coremodel.IAAS,
-		OwnerName:      "tlm",
+		OwnerName:      usertesting.GenNewName(c, "tlm"),
 		Life:           life.Alive,
 		ControllerUUID: jujutesting.ControllerTag.Id(),
 		IsController:   false,
@@ -918,12 +918,12 @@ func (s *serviceSuite) TestListModelSummariesForUser(c *gc.C) {
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
-			OwnerName:    "admin",
+			OwnerName:    usertesting.GenNewName(c, "admin"),
 			Life:         life.Alive,
 		},
 	}
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	models, err := svc.ListModelSummariesForUser(context.Background(), "admin")
+	models, err := svc.ListModelSummariesForUser(context.Background(), usertesting.GenNewName(c, "admin"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(models, gc.DeepEquals, []coremodel.UserModelSummary{{
 		UserAccess: permission.AdminAccess,
@@ -934,7 +934,7 @@ func (s *serviceSuite) TestListModelSummariesForUser(c *gc.C) {
 			CloudName:      "aws",
 			CloudRegion:    "myregion",
 			ModelType:      coremodel.IAAS,
-			OwnerName:      "admin",
+			OwnerName:      usertesting.GenNewName(c, "admin"),
 			Life:           life.Alive,
 			ControllerUUID: jujutesting.ControllerTag.Id(),
 			IsController:   true,

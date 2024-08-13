@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
+	usertesting "github.com/juju/juju/core/user/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -77,7 +78,7 @@ func (s *importSuite) TestImport(c *gc.C) {
 		},
 	)
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"hello": "world"})
-	key := credential.Key{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	key := credential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
 	s.service.EXPECT().CloudCredential(gomock.All(), key).Times(1).Return(cloud.Credential{}, errors.NotFound)
 	s.service.EXPECT().UpdateCloudCredential(gomock.Any(), key, cred).Times(1)
 
@@ -101,7 +102,7 @@ func (s *importSuite) TestImportExistingMatches(c *gc.C) {
 		},
 	)
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"hello": "world"})
-	key := credential.Key{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	key := credential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
 	s.service.EXPECT().CloudCredential(gomock.All(), key).Times(1).Return(cred, nil)
 
 	op := s.newImportOperation()
@@ -124,7 +125,7 @@ func (s *importSuite) TestImportExistingAuthTypeMisMatch(c *gc.C) {
 		},
 	)
 	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"hello": "world"})
-	key := credential.Key{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	key := credential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
 	s.service.EXPECT().CloudCredential(gomock.All(), key).Times(1).Return(cred, nil)
 
 	op := s.newImportOperation()
@@ -147,7 +148,7 @@ func (s *importSuite) TestImportExistingAttributesMisMatch(c *gc.C) {
 		},
 	)
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"goodbye": "world"})
-	key := credential.Key{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	key := credential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
 	s.service.EXPECT().CloudCredential(gomock.All(), key).Times(1).Return(cred, nil)
 
 	op := s.newImportOperation()

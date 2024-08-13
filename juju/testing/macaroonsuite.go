@@ -13,7 +13,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakerytest"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
@@ -21,6 +20,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
 )
 
@@ -81,8 +82,8 @@ func (s *MacaroonSuite) DischargerLocation() string {
 // AddModelUser is a convenience function that adds an external
 // user to the current model.
 // It will panic if the user is local.
-func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
-	if names.NewUserTag(username).IsLocal() {
+func (s *MacaroonSuite) AddModelUser(c *gc.C, username user.Name) {
+	if username.IsLocal() {
 		panic("cannot use MacaroonSuite.AddModelUser to add a local name")
 	}
 
@@ -93,7 +94,7 @@ func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
 		Change:   permission.Grant,
 		External: &external,
 		AddUser:  true,
-		ApiUser:  "admin",
+		ApiUser:  usertesting.GenNewName(c, "admin"),
 		AccessSpec: permission.AccessSpec{
 			Target: permission.ID{
 				ObjectType: permission.Model,
@@ -107,7 +108,7 @@ func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
 
 // AddControllerUser is a convenience function that adds
 // a controller user with the specified access.
-func (s *MacaroonSuite) AddControllerUser(c *gc.C, username string, accessLevel permission.Access) {
+func (s *MacaroonSuite) AddControllerUser(c *gc.C, username user.Name, accessLevel permission.Access) {
 	accessService := s.ControllerServiceFactory(c).Access()
 	perm := permission.AccessSpec{
 		Access: accessLevel,
@@ -123,7 +124,7 @@ func (s *MacaroonSuite) AddControllerUser(c *gc.C, username string, accessLevel 
 		Change:     permission.Grant,
 		External:   &external,
 		AddUser:    true,
-		ApiUser:    "admin",
+		ApiUser:    usertesting.GenNewName(c, "admin"),
 		AccessSpec: perm,
 	})
 

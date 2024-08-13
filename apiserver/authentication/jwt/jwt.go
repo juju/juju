@@ -113,7 +113,7 @@ func (p *PermissionDelegator) SubjectPermissions(
 	userName string,
 	target permission.ID,
 ) (a permission.Access, err error) {
-	if userName == permission.EveryoneTagName {
+	if userName == permission.EveryoneUserName.Name() {
 		// JWT auth process does not support everyone@external.
 		// The everyone@external will be never included in the JWT token at least for now.
 		return permission.NoAccess, nil

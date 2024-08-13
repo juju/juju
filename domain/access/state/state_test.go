@@ -14,6 +14,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	corepermission "github.com/juju/juju/core/permission"
+	coreusertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -44,8 +45,10 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 
 func (s *stateSuite) TestGetModelUsers(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	adminName := coreusertesting.GenNewName(c, "admin")
+	bobName := coreusertesting.GenNewName(c, "bob")
 	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
-		User: "admin",
+		User: adminName,
 		AccessSpec: corepermission.AccessSpec{
 			Target: corepermission.ID{
 				Key:        s.modelUUID.String(),
@@ -56,7 +59,7 @@ func (s *stateSuite) TestGetModelUsers(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
-		User: "bob",
+		User: bobName,
 		AccessSpec: corepermission.AccessSpec{
 			Target: corepermission.ID{
 				Key:        s.modelUUID.String(),
@@ -69,37 +72,39 @@ func (s *stateSuite) TestGetModelUsers(c *gc.C) {
 
 	expected := []access.ModelUserInfo{
 		{
-			Name:           "admin",
-			DisplayName:    "admin",
+			Name:           adminName,
+			DisplayName:    adminName.Name(),
 			Access:         corepermission.AdminAccess,
 			LastModelLogin: time.Time{},
 		},
 		{
-			Name:           "bob",
-			DisplayName:    "bob",
+			Name:           bobName,
+			DisplayName:    bobName.Name(),
 			Access:         corepermission.ReadAccess,
 			LastModelLogin: time.Time{},
 		},
 		{
-			Name:           "test-model",
+			Name:           coreusertesting.GenNewName(c, "test-usertest-model"),
 			DisplayName:    "test-usertest-model",
 			Access:         corepermission.AdminAccess,
 			LastModelLogin: time.Time{},
 		},
 	}
 
-	modelUsers, err := st.GetModelUsers(context.Background(), "admin", s.modelUUID)
+	modelUsers, err := st.GetModelUsers(context.Background(), adminName, s.modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Slice(modelUsers, func(i, j int) bool {
-		return modelUsers[i].Name < modelUsers[j].Name
+		return modelUsers[i].Name.Name() < modelUsers[j].Name.Name()
 	})
 	c.Assert(modelUsers, gc.DeepEquals, expected)
 }
 
 func (s *stateSuite) TestGetModelUsersNonAdmin(c *gc.C) {
+	adminName := coreusertesting.GenNewName(c, "admin")
+	bobName := coreusertesting.GenNewName(c, "bob")
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
-		User: "admin",
+		User: adminName,
 		AccessSpec: corepermission.AccessSpec{
 			Target: corepermission.ID{
 				Key:        s.modelUUID.String(),
@@ -110,7 +115,7 @@ func (s *stateSuite) TestGetModelUsersNonAdmin(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
-		User: "bob",
+		User: bobName,
 		AccessSpec: corepermission.AccessSpec{
 			Target: corepermission.ID{
 				Key:        s.modelUUID.String(),
@@ -123,29 +128,32 @@ func (s *stateSuite) TestGetModelUsersNonAdmin(c *gc.C) {
 
 	expected := []access.ModelUserInfo{
 		{
-			Name:           "bob",
+			Name:           bobName,
 			DisplayName:    "bob",
 			Access:         corepermission.ReadAccess,
 			LastModelLogin: time.Time{},
 		},
 	}
 
-	modelUsers, err := st.GetModelUsers(context.Background(), "bob", s.modelUUID)
+	modelUsers, err := st.GetModelUsers(context.Background(), bobName, s.modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Slice(modelUsers, func(i, j int) bool {
-		return modelUsers[i].Name < modelUsers[j].Name
+		return modelUsers[i].Name.Name() < modelUsers[j].Name.Name()
 	})
 	c.Assert(modelUsers, gc.DeepEquals, expected)
 }
 
 func (s *stateSuite) TestGetModelUsersExternalUsers(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	s.ensureUser(c, "666", "everyone@external", "42", true)
-	s.ensureUser(c, "777", "jim@external", "42", true)
-	s.ensureUser(c, "888", "john@external", "42", true)
+	everyoneName := corepermission.EveryoneUserName
+	jimName := coreusertesting.GenNewName(c, "jim@external")
+	johnName := coreusertesting.GenNewName(c, "john@external")
+	s.ensureUser(c, "666", everyoneName.Name(), "42", true)
+	s.ensureUser(c, "777", jimName.Name(), "42", true)
+	s.ensureUser(c, "888", johnName.Name(), "42", true)
 
 	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
-		User: "everyone@external",
+		User: everyoneName,
 		AccessSpec: corepermission.AccessSpec{
 			Target: corepermission.ID{
 				Key:        s.modelUUID.String(),
@@ -158,29 +166,29 @@ func (s *stateSuite) TestGetModelUsersExternalUsers(c *gc.C) {
 
 	expected := []access.ModelUserInfo{
 		{
-			Name:           "jim@external",
-			DisplayName:    "jim@external",
+			Name:           jimName,
+			DisplayName:    jimName.Name(),
 			Access:         corepermission.AdminAccess,
 			LastModelLogin: time.Time{},
 		},
 		{
-			Name:           "john@external",
-			DisplayName:    "john@external",
+			Name:           johnName,
+			DisplayName:    johnName.Name(),
 			Access:         corepermission.AdminAccess,
 			LastModelLogin: time.Time{},
 		},
 		{
-			Name:           "test-model",
+			Name:           coreusertesting.GenNewName(c, "test-usertest-model"),
 			DisplayName:    "test-usertest-model",
 			Access:         corepermission.AdminAccess,
 			LastModelLogin: time.Time{},
 		},
 	}
 
-	modelUsers, err := st.GetModelUsers(context.Background(), "test-model", s.modelUUID)
+	modelUsers, err := st.GetModelUsers(context.Background(), coreusertesting.GenNewName(c, "test-usertest-model"), s.modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Slice(modelUsers, func(i, j int) bool {
-		return modelUsers[i].Name < modelUsers[j].Name
+		return modelUsers[i].Name.Name() < modelUsers[j].Name.Name()
 	})
 	c.Assert(modelUsers, gc.DeepEquals, expected)
 }
@@ -188,14 +196,14 @@ func (s *stateSuite) TestGetModelUsersExternalUsers(c *gc.C) {
 func (s *stateSuite) TestGetModelUsersNoPermissions(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, err := st.GetModelUsers(context.Background(), "bob", s.modelUUID)
+	_, err := st.GetModelUsers(context.Background(), coreusertesting.GenNewName(c, "bob"), s.modelUUID)
 	c.Assert(err, jc.ErrorIs, accesserrors.PermissionNotValid)
 }
 
 func (s *stateSuite) TestGetModelUsersModelNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, err := st.GetModelUsers(context.Background(), "admin", "bad-uuid")
+	_, err := st.GetModelUsers(context.Background(), coreusertesting.GenNewName(c, "admin"), "bad-uuid")
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 

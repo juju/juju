@@ -6,6 +6,7 @@ package state
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	corepermission "github.com/juju/juju/core/permission"
@@ -54,17 +55,28 @@ type dbUser struct {
 }
 
 // toCoreUser converts the state user to a core user.
-func (u dbUser) toCoreUser() coreuser.User {
+func (u dbUser) toCoreUser() (coreuser.User, error) {
+	name, err := coreuser.NewName(u.Name)
+	if err != nil {
+		return coreuser.User{}, errors.Annotate(err, "user name from db")
+	}
+	var creatorName coreuser.Name
+	if u.CreatorName != "" {
+		creatorName, err = coreuser.NewName(u.CreatorName)
+		if err != nil {
+			return coreuser.User{}, errors.Annotate(err, "creator name from db")
+		}
+	}
 	return coreuser.User{
 		UUID:        coreuser.UUID(u.UUID),
-		Name:        u.Name,
+		Name:        name,
 		DisplayName: u.DisplayName,
 		CreatorUUID: coreuser.UUID(u.CreatorUUID),
-		CreatorName: u.CreatorName,
+		CreatorName: creatorName,
 		CreatedAt:   u.CreatedAt,
 		LastLogin:   u.LastLogin,
 		Disabled:    u.Disabled,
-	}
+	}, nil
 }
 
 // dbActivationKey represents an activation key in the state layer with the
@@ -101,15 +113,20 @@ type dbPermissionUser struct {
 // toCoreUserAccess converts the state user to a core permission UserAccess.
 // Additional detail regarding the permission is required to be added
 // after.
-func (u dbPermissionUser) toCoreUserAccess() corepermission.UserAccess {
+func (u dbPermissionUser) toCoreUserAccess() (corepermission.UserAccess, error) {
+	name, err := coreuser.NewName(u.Name)
+	if err != nil {
+		return corepermission.UserAccess{}, errors.Trace(err)
+	}
+
 	return corepermission.UserAccess{
 		UserID:      u.UUID,
 		UserTag:     names.NewUserTag(u.Name),
 		DisplayName: u.DisplayName,
-		UserName:    u.Name,
+		UserName:    name,
 		CreatedBy:   names.NewUserTag(u.CreatorName),
 		DateCreated: u.CreatedAt,
-	}
+	}, nil
 }
 
 // dbPermission represents a permission in the system.
@@ -134,15 +151,19 @@ type dbPermission struct {
 
 // toUserAccess combines a dbPermission with a user to create
 // a core permission UserAccess.
-func (r dbPermission) toUserAccess(u dbPermissionUser) corepermission.UserAccess {
-	userAccess := u.toCoreUserAccess()
+func (r dbPermission) toUserAccess(u dbPermissionUser) (corepermission.UserAccess, error) {
+	userAccess, err := u.toCoreUserAccess()
+	if err != nil {
+		return corepermission.UserAccess{}, errors.Trace(err)
+	}
+
 	userAccess.PermissionID = r.UUID
 	userAccess.Object = objectTag(corepermission.ID{
 		ObjectType: corepermission.ObjectType(r.ObjectType),
 		Key:        r.GrantOn,
 	})
 	userAccess.Access = corepermission.Access(r.AccessType)
-	return userAccess
+	return userAccess, nil
 }
 
 // userName is used to pass a user's name as an argument to SQL.
@@ -208,11 +229,16 @@ type dbModelUserInfo struct {
 
 // toModelUserInfo converts the result from the DB to the type
 // access.ModelUserInfo.
-func (info *dbModelUserInfo) toModelUserInfo() access.ModelUserInfo {
+func (info *dbModelUserInfo) toModelUserInfo() (access.ModelUserInfo, error) {
+	name, err := coreuser.NewName(info.Name)
+	if err != nil {
+		return access.ModelUserInfo{}, errors.Trace(err)
+	}
+
 	return access.ModelUserInfo{
-		Name:           info.Name,
+		Name:           name,
 		DisplayName:    info.DisplayName,
 		LastModelLogin: info.LastModelLogin,
 		Access:         corepermission.Access(info.AccessType),
-	}
+	}, nil
 }

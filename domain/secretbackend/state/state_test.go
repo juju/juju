@@ -19,6 +19,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/version"
 	userstate "github.com/juju/juju/domain/access/state"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
@@ -115,13 +116,13 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 	// owner.
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	userName := "test-user"
+	userName := usertesting.GenNewName(c, "test-user")
 	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = userState.AddUser(
 		context.Background(),
 		userUUID,
 		userName,
-		userName,
+		userName.Name(),
 		false,
 		userUUID,
 		// TODO (stickupkid): This should be AdminAccess, but we don't have
@@ -162,7 +163,7 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 	_, err = credSt.UpsertCloudCredential(
 		context.Background(), corecredential.Key{
 			Cloud: "my-cloud",
-			Owner: "test-user",
+			Owner: usertesting.GenNewName(c, "test-user"),
 			Name:  "foobar",
 		},
 		cred,
@@ -181,7 +182,7 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 			CloudRegion:  "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Name:          name,

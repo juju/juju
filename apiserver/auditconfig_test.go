@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
@@ -230,7 +231,7 @@ func (s *auditConfigSuite) createModelAdminUser(c *gc.C, userTag names.UserTag, 
 	accessService := s.ControllerServiceFactory(c).Access()
 
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
-		Name:        userTag.Name(),
+		Name:        user.NameFromTag(userTag),
 		DisplayName: userTag.Name(),
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(password)),
@@ -252,7 +253,7 @@ func (s *auditConfigSuite) createModelAdminUser(c *gc.C, userTag names.UserTag, 
 			},
 			Access: permission.AdminAccess,
 		},
-		User: userTag.Name(),
+		User: user.NameFromTag(userTag),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
