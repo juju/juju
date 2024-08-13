@@ -1,9 +1,9 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package annotation provides a way to attach key-value pairs to known
-// object types. The current implementation is limited to the following
-// object types:
+// Package annotation provides a way to attach key-value pairs to object types.
+//
+// The current implementation is limited to the following object types:
 //
 //   - Applications
 //   - Charms
