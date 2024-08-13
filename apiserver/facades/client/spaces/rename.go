@@ -11,6 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/network"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -40,7 +41,7 @@ func (api *API) RenameSpace(ctx context.Context, args params.RenameSpacesParams)
 			continue
 		}
 		toSpace, err := api.networkService.SpaceByName(ctx, toTag.Id())
-		if err != nil && !errors.Is(err, errors.NotFound) {
+		if err != nil && !errors.Is(err, networkerrors.SpaceNotFound) {
 			newErr := errors.Annotatef(err, "retrieving space %q", toTag.Id())
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
 			continue
