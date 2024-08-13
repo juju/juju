@@ -22,6 +22,7 @@ type backupHandler struct {
 	ctxt httpContext
 }
 
+// ServeHTTP implements [http.Handler].
 func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
