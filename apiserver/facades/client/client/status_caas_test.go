@@ -4,6 +4,8 @@
 package client_test
 
 import (
+	"context"
+
 	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -63,7 +65,7 @@ func (s *CAASStatusSuite) TestStatusOperatorNotReady(c *gc.C) {
 	conn := s.OpenModelAPI(c, s.model.UUID())
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
 
-	status, err := client.Status(nil)
+	status, err := client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Applications, gc.HasLen, 1)
 	clearSinceTimes(status)
@@ -87,7 +89,7 @@ func (s *CAASStatusSuite) TestStatusCloudContainerSet(c *gc.C) {
 	err = s.app.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, err := client.Status(nil)
+	status, err := client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Applications, gc.HasLen, 1)
 	clearSinceTimes(status)
@@ -142,7 +144,7 @@ func (s *CAASStatusSuite) TestStatusWorkloadVersionSetByCharm(c *gc.C) {
 	c.Assert(u, gc.HasLen, 1)
 	err = u[0].SetWorkloadVersion("666")
 	c.Assert(err, jc.ErrorIsNil)
-	status, err := client.Status(nil)
+	status, err := client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Applications, gc.HasLen, 1)
 	app := status.Applications[s.app.Name()]

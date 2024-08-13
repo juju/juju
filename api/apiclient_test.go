@@ -300,7 +300,7 @@ func (s *apiclientSuite) TestVerifyCA(c *gc.C) {
 func (s *apiclientSuite) TestOpen(c *gc.C) {
 	info := s.APIInfo()
 
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn.Addr(), gc.Equals, info.Addrs[0])
 	modelTag, ok := conn.ModelTag()
@@ -317,7 +317,7 @@ func (s *apiclientSuite) TestOpen(c *gc.C) {
 func (s *apiclientSuite) TestOpenCookieURLUsesSNIHost(c *gc.C) {
 	info := s.APIInfo()
 	info.SNIHostName = "somehost"
-	st, err := api.Open(info, api.DialOpts{})
+	st, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -328,7 +328,7 @@ func (s *apiclientSuite) TestOpenCookieURLDefaultsToAddress(c *gc.C) {
 	info := s.APIInfo()
 	info.ControllerUUID = ""
 
-	st, err := api.Open(info, api.DialOpts{})
+	st, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -346,7 +346,7 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 
 	// We start by ensuring we have an invalid tag, and Open should fail.
 	info.ModelTag = names.NewModelTag("0b501e7e-cafe-f00d-ba1d-b1a570c0e199")
-	_, err := api.Open(info, api.DialOpts{})
+	_, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown model: "0b501e7e-cafe-f00d-ba1d-b1a570c0e199"`,
 		Code:    "model not found",
@@ -355,7 +355,7 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 
 	// Now set it to the right tag, and we should succeed.
 	info.ModelTag = jtesting.ModelTag
-	st, err := api.Open(info, api.DialOpts{})
+	st, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 }
@@ -371,7 +371,7 @@ func (s *apiclientSuite) TestServerRoot(c *gc.C) {
 		ControllerUUID: jtesting.ControllerTag.Id(),
 		ModelTag:       jtesting.ModelTag,
 	}
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	url := api.ServerRoot(conn)
 	c.Assert(url, gc.Matches, "https://127.0.0.1:[0-9]+")
@@ -408,7 +408,7 @@ func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *gc.C) {
 	const dialAddressInterval = 50 * time.Millisecond
 	go func() {
 		defer close(openDone)
-		conn, err := api.Open(&api.Info{
+		conn, err := api.Open(context.Background(), &api.Info{
 			Addrs: []string{
 				"place1.example:1234",
 				"place2.example:1234",
@@ -683,7 +683,7 @@ func (s *apiclientSuite) testOpenDialError(c *gc.C, t dialTest) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		conn, err := api.Open(t.apiInfo, api.DialOpts{
+		conn, err := api.Open(context.Background(), t.apiInfo, api.DialOpts{
 			DialWebsocket:  fakeDialer,
 			IPAddrResolver: seqResolver(t.apiInfo.Addrs...),
 			Clock:          &fakeClock{},
@@ -734,7 +734,7 @@ func (s *apiclientSuite) TestOpenWithNoCACert(c *gc.C) {
 	// The api server was only listening on IPv4, but localhost resolved to both
 	// IPv4 and IPv6. The IPv4 didn't retry, but the IPv6 one did, because it was
 	// retrying the dial. The parallel try doesn't have a fatal error type yet.
-	_, err := api.Open(info, api.DialOpts{
+	_, err := api.Open(context.Background(), info, api.DialOpts{
 		Timeout:    2 * time.Second,
 		RetryDelay: 200 * time.Millisecond,
 	})
@@ -758,7 +758,7 @@ func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {
 	})
 	defer srv.Close()
 
-	_, err := api.Open(&api.Info{
+	_, err := api.Open(context.Background(), &api.Info{
 		Addrs:    srv.Addrs,
 		CACert:   jtesting.CACert,
 		ModelTag: names.NewModelTag("beef1beef1-0000-0000-000011112222"),
@@ -784,7 +784,7 @@ func (s *apiclientSuite) TestOpenCachesDNS(c *gc.C) {
 		return fakeConn{}, nil
 	}
 	dnsCache := make(dnsCacheMap)
-	conn, err := api.Open(&api.Info{
+	conn, err := api.Open(context.Background(), &api.Info{
 		Addrs: []string{
 			"place1.example:1234",
 		},
@@ -808,7 +808,7 @@ func (s *apiclientSuite) TestDNSCacheUsed(c *gc.C) {
 		dialed = ipAddr
 		return fakeConn{}, nil
 	}
-	conn, err := api.Open(&api.Info{
+	conn, err := api.Open(context.Background(), &api.Info{
 		Addrs: []string{
 			"place1.example:1234",
 		},
@@ -838,7 +838,7 @@ func (s *apiclientSuite) TestNumericAddressIsNotAddedToCache(c *gc.C) {
 		return fakeConn{}, nil
 	}
 	dnsCache := make(dnsCacheMap)
-	conn, err := api.Open(&api.Info{
+	conn, err := api.Open(context.Background(), &api.Info{
 		Addrs: []string{
 			"0.1.2.3:1234",
 		},
@@ -876,7 +876,7 @@ func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *gc.C) {
 	}
 	openc := make(chan openResult)
 	go func() {
-		conn, err := api.Open(&api.Info{
+		conn, err := api.Open(context.Background(), &api.Info{
 			Addrs: []string{
 				"place1.example:1234",
 			},
@@ -939,7 +939,7 @@ func (s *apiclientSuite) TestOpenTimesOutOnLogin(c *gc.C) {
 	clk := testclock.NewClock(time.Now())
 	done := make(chan error, 1)
 	go func() {
-		_, err := api.Open(&api.Info{
+		_, err := api.Open(context.Background(), &api.Info{
 			Addrs:    srv.Addrs,
 			CACert:   jtesting.CACert,
 			ModelTag: names.NewModelTag("beef1beef1-0000-0000-000011112222"),
@@ -980,7 +980,7 @@ func (s *apiclientSuite) TestOpenTimeoutAffectsDial(c *gc.C) {
 	clk := testclock.NewClock(time.Now())
 	done := make(chan error, 1)
 	go func() {
-		_, err := api.Open(&api.Info{
+		_, err := api.Open(context.Background(), &api.Info{
 			Addrs:     []string{"127.0.0.1:1234"},
 			CACert:    jtesting.CACert,
 			ModelTag:  names.NewModelTag("beef1beef1-0000-0000-000011112222"),
@@ -1020,7 +1020,7 @@ func (s *apiclientSuite) TestOpenDialTimeoutAffectsDial(c *gc.C) {
 	clk := testclock.NewClock(time.Now())
 	done := make(chan error, 1)
 	go func() {
-		_, err := api.Open(&api.Info{
+		_, err := api.Open(context.Background(), &api.Info{
 			Addrs:     []string{"127.0.0.1:1234"},
 			CACert:    jtesting.CACert,
 			ModelTag:  names.NewModelTag("beef1beef1-0000-0000-000011112222"),
@@ -1063,7 +1063,7 @@ func (s *apiclientSuite) TestOpenDialTimeoutDoesNotAffectLogin(c *gc.C) {
 	clk := testclock.NewClock(time.Now())
 	done := make(chan error, 1)
 	go func() {
-		_, err := api.Open(&api.Info{
+		_, err := api.Open(context.Background(), &api.Info{
 			Addrs:    srv.Addrs,
 			CACert:   jtesting.CACert,
 			ModelTag: names.NewModelTag("beef1beef1-0000-0000-000011112222"),
@@ -1113,7 +1113,7 @@ func (s *apiclientSuite) TestWithUnresolvableAddr(c *gc.C) {
 		c.Errorf("dial was called but should not have been")
 		return nil, errors.Errorf("cannot dial")
 	}
-	conn, err := api.Open(&api.Info{
+	conn, err := api.Open(context.Background(), &api.Info{
 		Addrs: []string{
 			"nowhere.example:1234",
 		},
@@ -1139,7 +1139,7 @@ func (s *apiclientSuite) TestWithUnresolvableAddrAfterCacheFallback(c *gc.C) {
 	dnsCache := dnsCacheMap{
 		"place1.example": {"0.1.1.1"},
 	}
-	conn, err := api.Open(&api.Info{
+	conn, err := api.Open(context.Background(), &api.Info{
 		Addrs: []string{
 			"place1.example:1234",
 		},
@@ -1256,7 +1256,7 @@ func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *gc.C) {
 
 func (s *apiclientSuite) TestConnectStreamRequiresSlashPathPrefix(c *gc.C) {
 	info := s.APIInfo()
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 
@@ -1270,7 +1270,7 @@ func (s *apiclientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
 		return nil, fmt.Errorf("bad connection")
 	})
 	info := s.APIInfo()
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	reader, err := conn.ConnectStream(context.Background(), "/", nil)
@@ -1283,7 +1283,7 @@ func (s *apiclientSuite) TestConnectStreamErrorNoData(c *gc.C) {
 		return api.NewFakeStreamReader(&bytes.Buffer{}), nil
 	})
 	info := s.APIInfo()
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	reader, err := conn.ConnectStream(context.Background(), "/", nil)
@@ -1296,7 +1296,7 @@ func (s *apiclientSuite) TestConnectStreamErrorBadData(c *gc.C) {
 		return api.NewFakeStreamReader(strings.NewReader("junk\n")), nil
 	})
 	info := s.APIInfo()
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	reader, err := conn.ConnectStream(context.Background(), "/", nil)
@@ -1310,7 +1310,7 @@ func (s *apiclientSuite) TestConnectStreamErrorReadError(c *gc.C) {
 		return api.NewFakeStreamReader(&badReader{err}), nil
 	})
 	info := s.APIInfo()
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	reader, err := conn.ConnectStream(context.Background(), "/", nil)
@@ -1330,7 +1330,7 @@ func (r *badReader) Read(p []byte) (n int, err error) {
 
 func (s *apiclientSuite) TestConnectControllerStreamRejectsRelativePaths(c *gc.C) {
 	info := s.APIInfo()
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	reader, err := conn.ConnectControllerStream(context.Background(), "foo", nil, nil)
@@ -1340,7 +1340,7 @@ func (s *apiclientSuite) TestConnectControllerStreamRejectsRelativePaths(c *gc.C
 
 func (s *apiclientSuite) TestConnectControllerStreamRejectsModelPaths(c *gc.C) {
 	info := s.APIInfo()
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	reader, err := conn.ConnectControllerStream(context.Background(), "/model/foo", nil, nil)
 	c.Assert(err, gc.ErrorMatches, `path "/model/foo" is model-specific`)
@@ -1355,7 +1355,7 @@ func (s *apiclientSuite) TestConnectControllerStreamAppliesHeaders(c *gc.C) {
 	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
 	info := s.APIInfo()
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	_, err = conn.ConnectControllerStream(context.Background(), "/something", nil, headers)
@@ -1371,7 +1371,7 @@ func (s *apiclientSuite) TestConnectStreamWithoutLogin(c *gc.C) {
 	info.Tag = nil
 	info.Password = ""
 	info.SkipLogin = true
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	_, err = conn.ConnectStream(context.Background(), "/path", nil)
@@ -1416,11 +1416,11 @@ func (s *apiclientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	}
 
 	info := s.APIInfo()
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	_, err = client.WatchDebugLog(params)
+	_, err = client.WatchDebugLog(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	connectURL, err := url.Parse(catcher.Location())
@@ -1432,14 +1432,14 @@ func (s *apiclientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 
 func (s *apiclientSuite) TestWatchDebugLogConnected(c *gc.C) {
 	info := s.APIInfo()
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	cl := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
 	// Use the no tail option so we don't try to start a tailing cursor
 	// on the oplog when there is no oplog configured in mongo as the tests
 	// don't set up mongo in replicaset mode.
-	messages, err := cl.WatchDebugLog(common.DebugLogParams{NoTail: true})
+	messages, err := cl.WatchDebugLog(context.Background(), common.DebugLogParams{NoTail: true})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(messages, gc.NotNil)
 }
@@ -1448,7 +1448,7 @@ func (s *apiclientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	catcher := api.UrlCatcher{}
 	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 	info := s.APIInfo()
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	_, err = conn.ConnectStream(context.Background(), "/path", nil)
@@ -1461,13 +1461,13 @@ func (s *apiclientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 func (s *apiclientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 	info := s.APIInfo()
 	// Passing in the correct model UUID should work
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 
 	// Passing in an unknown model UUID should fail with a known error
 	info.ModelTag = names.NewModelTag("1eaf1e55-70ad-face-b007-70ad57001999")
-	conn, err = api.Open(info, api.DialOpts{})
+	conn, err = api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown model: "1eaf1e55-70ad-face-b007-70ad57001999"`,
 		Code:    "model not found",
@@ -1478,7 +1478,7 @@ func (s *apiclientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 
 func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
 	info := s.APIInfo()
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	c.Assert(conn.PublicDNSName(), gc.Equals, "somewhere.example.com")

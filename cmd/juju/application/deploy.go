@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -45,7 +46,7 @@ import (
 
 // SpacesAPI defines the necessary API methods needed for listing spaces.
 type SpacesAPI interface {
-	ListSpaces() ([]apiparams.Space, error)
+	ListSpaces(ctx context.Context) ([]apiparams.Space, error)
 }
 
 type CharmsAPI interface {
@@ -81,7 +82,7 @@ func (a *deployAPIAdaptor) ModelUUID() (string, bool) {
 	return tag.Id(), ok
 }
 
-func (a *deployAPIAdaptor) Deploy(args application.DeployArgs) error {
+func (a *deployAPIAdaptor) Deploy(ctx context.Context, args application.DeployArgs) error {
 	for i, p := range args.Placement {
 		if p.Scope == "model-uuid" {
 			p.Scope = a.applicationClient.ModelUUID()
@@ -89,31 +90,31 @@ func (a *deployAPIAdaptor) Deploy(args application.DeployArgs) error {
 		args.Placement[i] = p
 	}
 
-	return errors.Trace(a.applicationClient.Deploy(args))
+	return errors.Trace(a.applicationClient.Deploy(ctx, args))
 }
 
-func (a *deployAPIAdaptor) SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error) {
-	return a.annotationsClient.Set(annotations)
+func (a *deployAPIAdaptor) SetAnnotation(ctx context.Context, annotations map[string]map[string]string) ([]apiparams.ErrorResult, error) {
+	return a.annotationsClient.Set(ctx, annotations)
 }
 
-func (a *deployAPIAdaptor) GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error) {
-	return a.annotationsClient.Get(tags)
+func (a *deployAPIAdaptor) GetAnnotations(ctx context.Context, tags []string) ([]apiparams.AnnotationsGetResult, error) {
+	return a.annotationsClient.Get(ctx, tags)
 }
 
-func (a *deployAPIAdaptor) GetModelConstraints() (constraints.Value, error) {
-	return a.modelConfigClient.GetModelConstraints()
+func (a *deployAPIAdaptor) GetModelConstraints(ctx context.Context) (constraints.Value, error) {
+	return a.modelConfigClient.GetModelConstraints(ctx)
 }
 
-func (a *deployAPIAdaptor) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
-	return a.charmsClient.AddCharm(curl, origin, force)
+func (a *deployAPIAdaptor) AddCharm(ctx context.Context, curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
+	return a.charmsClient.AddCharm(ctx, curl, origin, force)
 }
 
 type modelGetter interface {
-	ModelGet() (map[string]interface{}, error)
+	ModelGet(ctx context.Context) (map[string]interface{}, error)
 }
 
-func agentVersion(c modelGetter) (version.Number, error) {
-	attrs, err := c.ModelGet()
+func agentVersion(ctx context.Context, c modelGetter) (version.Number, error) {
+	attrs, err := c.ModelGet(ctx)
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}
@@ -128,16 +129,16 @@ func agentVersion(c modelGetter) (version.Number, error) {
 	return agentVersion, nil
 }
 
-func (a *deployAPIAdaptor) AddLocalCharm(url *charm.URL, c charm.Charm, b bool) (*charm.URL, error) {
-	agentVersion, err := agentVersion(a.modelConfigClient)
+func (a *deployAPIAdaptor) AddLocalCharm(ctx context.Context, url *charm.URL, c charm.Charm, b bool) (*charm.URL, error) {
+	agentVersion, err := agentVersion(ctx, a.modelConfigClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return a.localCharmsClient.AddLocalCharm(url, c, b, agentVersion)
 }
 
-func (a *deployAPIAdaptor) Status(opts *apiclient.StatusArgs) (*apiparams.FullStatus, error) {
-	return a.legacyClient.Status(opts)
+func (a *deployAPIAdaptor) Status(ctx context.Context, opts *apiclient.StatusArgs) (*apiparams.FullStatus, error) {
+	return a.legacyClient.Status(ctx, opts)
 }
 
 // NewDeployCommand returns a command to deploy applications.
@@ -153,13 +154,13 @@ func newDeployCommand() *DeployCommand {
 	deployCmd.NewCharmsAPI = func(api base.APICallCloser) CharmsAPI {
 		return apicharms.NewClient(api)
 	}
-	deployCmd.NewDownloadClient = func() (store.DownloadBundleClient, error) {
-		apiRoot, err := deployCmd.newAPIRoot()
+	deployCmd.NewDownloadClient = func(ctx context.Context) (store.DownloadBundleClient, error) {
+		apiRoot, err := deployCmd.newAPIRoot(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		modelConfigClient := deployCmd.NewModelConfigAPI(apiRoot)
-		charmHubURL, err := deployCmd.getCharmHubURL(modelConfigClient)
+		charmHubURL, err := deployCmd.getCharmHubURL(ctx, modelConfigClient)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -169,12 +170,12 @@ func newDeployCommand() *DeployCommand {
 			Logger: logger,
 		})
 	}
-	deployCmd.NewDeployAPI = func() (deployer.DeployerAPI, error) {
-		apiRoot, err := deployCmd.newAPIRoot()
+	deployCmd.NewDeployAPI = func(ctx context.Context) (deployer.DeployerAPI, error) {
+		apiRoot, err := deployCmd.newAPIRoot(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		controllerAPIRoot, err := deployCmd.newControllerAPIRoot()
+		controllerAPIRoot, err := deployCmd.newControllerAPIRoot(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -195,8 +196,8 @@ func newDeployCommand() *DeployCommand {
 			spacesClient:         spaces.NewAPI(apiRoot),
 		}, nil
 	}
-	deployCmd.NewConsumeDetailsAPI = func(url *charm.OfferURL) (deployer.ConsumeDetails, error) {
-		root, err := deployCmd.CommandBase.NewAPIRoot(deployCmd.ClientStore(), url.Source, "")
+	deployCmd.NewConsumeDetailsAPI = func(ctx context.Context, url *charm.OfferURL) (deployer.ConsumeDetails, error) {
+		root, err := deployCmd.CommandBase.NewAPIRoot(ctx, deployCmd.ClientStore(), url.Source, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -208,10 +209,10 @@ func newDeployCommand() *DeployCommand {
 	}
 	return deployCmd
 }
-func (c *DeployCommand) newAPIRoot() (api.Connection, error) {
+func (c *DeployCommand) newAPIRoot(ctx context.Context) (api.Connection, error) {
 	if c.apiRoot == nil {
 		var err error
-		c.apiRoot, err = c.NewAPIRoot()
+		c.apiRoot, err = c.NewAPIRoot(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -219,10 +220,10 @@ func (c *DeployCommand) newAPIRoot() (api.Connection, error) {
 	return c.apiRoot, nil
 }
 
-func (c *DeployCommand) newControllerAPIRoot() (api.Connection, error) {
+func (c *DeployCommand) newControllerAPIRoot(ctx context.Context) (api.Connection, error) {
 	if c.controllerAPIRoot == nil {
 		var err error
-		c.controllerAPIRoot, err = c.NewControllerAPIRoot()
+		c.controllerAPIRoot, err = c.NewControllerAPIRoot(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -301,10 +302,10 @@ type DeployCommand struct {
 	BundleMachines map[string]string
 
 	// NewDeployAPI stores a function which returns a new deploy client.
-	NewDeployAPI func() (deployer.DeployerAPI, error)
+	NewDeployAPI func(ctx context.Context) (deployer.DeployerAPI, error)
 
 	// NewDownloadClient stores a function for getting a charm/bundle.
-	NewDownloadClient func() (store.DownloadBundleClient, error)
+	NewDownloadClient func(ctx context.Context) (store.DownloadBundleClient, error)
 
 	// NewModelConfigAPI stores a function which returns a new model config
 	// client. This is used to get the model config.
@@ -321,7 +322,7 @@ type DeployCommand struct {
 
 	// NewConsumeDetailsAPI stores a function which will return a new API
 	// for consume details API using the url as the source.
-	NewConsumeDetailsAPI func(url *charm.OfferURL) (deployer.ConsumeDetails, error)
+	NewConsumeDetailsAPI func(ctx context.Context, url *charm.OfferURL) (deployer.ConsumeDetails, error)
 
 	// DeployResources stores a function which deploys charm resources.
 	DeployResources deployer.DeployResourcesFunc
@@ -655,7 +656,7 @@ func (c *DeployCommand) Init(args []string) error {
 	// a bundle does not require a channel, today you cannot refresh/upgrade
 	// a bundle, only the components. These flags will be verified in the
 	// GetDeployer instead.
-	if err := c.validateStorageByModelType(); err != nil {
+	if err := c.validateStorageByModelType(context.Background()); err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
@@ -692,7 +693,7 @@ func (c *DeployCommand) Init(args []string) error {
 	if err := c.UnitCommandBase.Init(args); err != nil {
 		return err
 	}
-	if err := c.validatePlacementByModelType(); err != nil {
+	if err := c.validatePlacementByModelType(context.Background()); err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
@@ -713,8 +714,8 @@ func (c *DeployCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *DeployCommand) validateStorageByModelType() error {
-	modelType, err := c.ModelType()
+func (c *DeployCommand) validateStorageByModelType(ctx context.Context) error {
+	modelType, err := c.ModelType(ctx)
 	if err != nil {
 		return err
 	}
@@ -727,8 +728,8 @@ func (c *DeployCommand) validateStorageByModelType() error {
 	return nil
 }
 
-func (c *DeployCommand) validatePlacementByModelType() error {
-	modelType, err := c.ModelType()
+func (c *DeployCommand) validatePlacementByModelType(ctx context.Context) error {
+	modelType, err := c.ModelType(ctx)
 	if err != nil {
 		return err
 	}
@@ -784,10 +785,10 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.unknownModel {
-		if err := c.validateStorageByModelType(); err != nil {
+		if err := c.validateStorageByModelType(ctx); err != nil {
 			return errors.Trace(err)
 		}
-		if err := c.validatePlacementByModelType(); err != nil {
+		if err := c.validatePlacementByModelType(ctx); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -795,7 +796,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	deployAPI, err := c.NewDeployAPI()
+	deployAPI, err := c.NewDeployAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -808,16 +809,16 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		}
 	}()
 
-	if c.ModelConstraints, err = deployAPI.GetModelConstraints(); err != nil {
+	if c.ModelConstraints, err = deployAPI.GetModelConstraints(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := c.parseBindFlag(deployAPI); err != nil {
+	if err := c.parseBindFlag(ctx, deployAPI); err != nil {
 		return errors.Trace(err)
 	}
 
-	downloadClientFn := func() (store.DownloadBundleClient, error) {
-		return c.NewDownloadClient()
+	downloadClientFn := func(ctx context.Context) (store.DownloadBundleClient, error) {
+		return c.NewDownloadClient(ctx)
 	}
 
 	charmAPIClient := c.NewCharmsAPI(c.apiRoot)
@@ -832,13 +833,13 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	return block.ProcessBlockedError(deploy.PrepareAndDeploy(ctx, deployAPI, charmAdaptor), block.BlockChange)
 }
 
-func (c *DeployCommand) parseBindFlag(api SpacesAPI) error {
+func (c *DeployCommand) parseBindFlag(ctx context.Context, api SpacesAPI) error {
 	if c.BindToSpaces == "" {
 		return nil
 	}
 
 	// Fetch known spaces from server
-	knownSpaces, err := api.ListSpaces()
+	knownSpaces, err := api.ListSpaces(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -896,8 +897,8 @@ func (c *DeployCommand) getDeployerFactory(base corebase.Base, defaultCharmSchem
 	return c.NewDeployerFactory(dep), cfg
 }
 
-func (c *DeployCommand) getCharmHubURL(modelConfigClient ModelConfigGetter) (string, error) {
-	attrs, err := modelConfigClient.ModelGet()
+func (c *DeployCommand) getCharmHubURL(ctx context.Context, modelConfigClient ModelConfigGetter) (string, error) {
+	attrs, err := modelConfigClient.ModelGet(ctx)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

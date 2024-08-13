@@ -33,8 +33,8 @@ type ControllerAPI interface {
 // NewDashboardCommand creates and returns a new dashboard command.
 func NewDashboardCommand() cmd.Command {
 	d := &dashboardCommand{}
-	d.newAPIFunc = func() (ControllerAPI, bool, error) {
-		return d.newControllerAPI()
+	d.newAPIFunc = func(ctx context.Context) (ControllerAPI, bool, error) {
+		return d.newControllerAPI(ctx)
 	}
 	d.embeddedSSHCmd = ssh.NewSSHCommand(nil, nil, ssh.DefaultSSHRetryStrategy, ssh.DefaultSSHPublicKeyRetryStrategy)
 	d.signalCh = make(chan os.Signal)
@@ -48,7 +48,7 @@ type dashboardCommand struct {
 	hideCreds bool
 	browser   bool
 
-	newAPIFunc func() (ControllerAPI, bool, error)
+	newAPIFunc func(ctx context.Context) (ControllerAPI, bool, error)
 
 	port           int
 	embeddedSSHCmd cmd.Command
@@ -58,8 +58,8 @@ type dashboardCommand struct {
 type urlCallBack func(url string)
 type connectionRunner func(ctx context.Context, callBack urlCallBack) error
 
-func (c *dashboardCommand) newControllerAPI() (ControllerAPI, bool, error) {
-	root, err := c.NewControllerAPIRoot()
+func (c *dashboardCommand) newControllerAPI(ctx context.Context) (ControllerAPI, bool, error) {
+	root, err := c.NewControllerAPIRoot(ctx)
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
@@ -117,7 +117,7 @@ func (c *dashboardCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements the cmd.Command interface.
 func (c *dashboardCommand) Run(ctx *cmd.Context) error {
-	api, _, err := c.newAPIFunc()
+	api, _, err := c.newAPIFunc(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

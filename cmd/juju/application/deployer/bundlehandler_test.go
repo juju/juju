@@ -358,12 +358,13 @@ relations:
 func (s *BundleDeployRepositorySuite) expectK8sCharm(curl *charm.URL, rev int) *charm.URL {
 	// Called from resolveCharmsAndEndpoints & resolveCharmChannelAndRevision && addCharm
 	s.bundleResolver.EXPECT().ResolveCharm(
+		gomock.Any(),
 		curl,
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		false,
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
+		func(ctx context.Context, curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
 			curl = curl.WithRevision(rev).WithArchitecture("amd64")
 			origin.Base = corebase.MakeDefaultBase("ubuntu", "20.04")
 			origin.Revision = &rev
@@ -373,11 +374,12 @@ func (s *BundleDeployRepositorySuite) expectK8sCharm(curl *charm.URL, rev int) *
 
 	fullCurl := curl.WithRevision(rev).WithArchitecture("amd64")
 	s.deployerAPI.EXPECT().AddCharm(
+		gomock.Any(),
 		fullCurl,
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		false,
 	).DoAndReturn(
-		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
+		func(ctx context.Context, _ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
 			return origin, nil
 		})
 
@@ -446,12 +448,13 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevis
 func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, rev int) *charm.URL {
 	// Called from resolveCharmsAndEndpoints & resolveCharmChannelAndRevision && addCharm
 	s.bundleResolver.EXPECT().ResolveCharm(
+		gomock.Any(),
 		curl,
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		false,
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
+		func(ctx context.Context, curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
 			curl = curl.WithRevision(rev)
 			curl = curl.WithArchitecture("amd64")
 			origin.Base = corebase.MakeDefaultBase("ubuntu", "20.04")
@@ -462,11 +465,12 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, 
 
 	fullCurl := curl.WithRevision(rev).WithArchitecture("amd64")
 	s.deployerAPI.EXPECT().AddCharm(
+		gomock.Any(),
 		fullCurl,
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		false,
 	).DoAndReturn(
-		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
+		func(ctx context.Context, _ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
 			return origin, nil
 		})
 
@@ -605,23 +609,25 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 func (s *BundleDeployRepositorySuite) expectCharmhubK8sCharm(curl *charm.URL) *charm.URL {
 	// Called from resolveCharmsAndEndpoints & resolveCharmChannelAndRevision && addCharm
 	s.bundleResolver.EXPECT().ResolveCharm(
+		gomock.Any(),
 		curl,
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		false,
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
+		func(ctx context.Context, curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
 			origin.Type = "charm"
 			base := corebase.MakeDefaultBase("ubuntu", "20.04")
 			return curl, origin, []corebase.Base{base}, nil
 		}).Times(3)
 
 	s.deployerAPI.EXPECT().AddCharm(
+		gomock.Any(),
 		curl,
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		false,
 	).DoAndReturn(
-		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
+		func(ctx context.Context, _ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
 			origin.Base = corebase.MakeDefaultBase("ubuntu", "22.04")
 			return origin, nil
 		})
@@ -1151,7 +1157,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMachineAttributes(c *gc.C)
 	results := []params.AddMachinesResult{
 		{Machine: "0"},
 	}
-	s.deployerAPI.EXPECT().AddMachines(args).Return(results, nil)
+	s.deployerAPI.EXPECT().AddMachines(gomock.Any(), args).Return(results, nil)
 	s.expectAddMachine("1", "22.04")
 	s.expectDeploy()
 	s.expectAddOneUnit("django", "0", "0")
@@ -1563,7 +1569,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotationsChanges(c *gc.C
 }
 
 func (s *BundleDeployRepositorySuite) expectSetAnnotation(entity string, annotations map[string]string) {
-	s.deployerAPI.EXPECT().SetAnnotation(map[string]map[string]string{entity: annotations}).Return(nil, nil)
+	s.deployerAPI.EXPECT().SetAnnotation(gomock.Any(), map[string]map[string]string{entity: annotations}).Return(nil, nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectGetAnnotations(args []string, annotations []map[string]string) {
@@ -1571,12 +1577,12 @@ func (s *BundleDeployRepositorySuite) expectGetAnnotations(args []string, annota
 	for i, tag := range args {
 		results[i] = params.AnnotationsGetResult{EntityTag: tag, Annotations: annotations[i]}
 	}
-	s.deployerAPI.EXPECT().GetAnnotations(args).Return(results, nil)
+	s.deployerAPI.EXPECT().GetAnnotations(gomock.Any(), args).Return(results, nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectGetAnnotationsEmpty() {
-	s.deployerAPI.EXPECT().GetAnnotations(gomock.Any()).DoAndReturn(
-		func(tags []string) ([]params.AnnotationsGetResult, error) {
+	s.deployerAPI.EXPECT().GetAnnotations(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, tags []string) ([]params.AnnotationsGetResult, error) {
 			results := make([]params.AnnotationsGetResult, len(tags))
 			for i, tag := range tags {
 				results[i] = params.AnnotationsGetResult{EntityTag: tag, Annotations: map[string]string{}}
@@ -1952,7 +1958,7 @@ func (s *BundleDeployRepositorySuite) TestApplicationsForMachineChange(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	h := makeBundleHandler(charm.CharmHub, bundleData, spec)
-	err = h.getChanges()
+	err = h.getChanges(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var count int
@@ -2187,19 +2193,19 @@ func (s *BundleDeployRepositorySuite) expectEmptyModelToStart(c *gc.C) {
 func (s *BundleDeployRepositorySuite) expectEmptyModelRepresentation() {
 	// BuildModelRepresentation is tested in bundle pkg.
 	// Setup as if an empty model
-	s.deployerAPI.EXPECT().GetAnnotations(gomock.Any()).Return(nil, nil)
+	s.deployerAPI.EXPECT().GetAnnotations(gomock.Any(), gomock.Any()).Return(nil, nil)
 	s.expectEmptyModelRepresentationNotAnnotations()
 }
 
 func (s *BundleDeployRepositorySuite) expectEmptyModelRepresentationNotAnnotations() {
-	s.deployerAPI.EXPECT().GetConstraints(gomock.Any()).Return(nil, nil)
-	s.deployerAPI.EXPECT().GetConfig(gomock.Any()).Return(nil, nil)
-	s.deployerAPI.EXPECT().Sequences().Return(nil, errors.NotSupportedf("sequences for test"))
+	s.deployerAPI.EXPECT().GetConstraints(gomock.Any(), gomock.Any()).Return(nil, nil)
+	s.deployerAPI.EXPECT().GetConfig(gomock.Any(), gomock.Any()).Return(nil, nil)
+	s.deployerAPI.EXPECT().Sequences(gomock.Any()).Return(nil, errors.NotSupportedf("sequences for test"))
 }
 
 func (s *BundleDeployRepositorySuite) expectDeployerAPIEmptyStatus() {
 	status := &params.FullStatus{}
-	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
+	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundle() {
@@ -2241,7 +2247,7 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundle() {
 		},
 		ControllerTimestamp: nil,
 	}
-	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
+	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoBundle() {
@@ -2265,7 +2271,7 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoBundle() {
 		Relations:           nil,
 		ControllerTimestamp: nil,
 	}
-	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
+	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoMemBundle() {
@@ -2300,7 +2306,7 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoMemBundle() {
 		Relations:           nil,
 		ControllerTimestamp: nil,
 	}
-	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
+	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjango2Units() {
@@ -2327,24 +2333,25 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjango2Units() {
 		Relations:           nil,
 		ControllerTimestamp: nil,
 	}
-	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
+	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectDeployerAPIModelGet(c *gc.C) {
 	cfg, err := config.New(true, minimalModelConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil).AnyTimes()
+	s.deployerAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg.AllAttrs(), nil).AnyTimes()
 }
 
 func (s *BundleDeployRepositorySuite) expectResolveCharmWithBases(bases []string, err error) {
 	b := transform.Slice(bases, corebase.MustParseBaseFromString)
 	s.bundleResolver.EXPECT().ResolveCharm(
+		gomock.Any(),
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		false,
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
+		func(ctx context.Context, curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
 			return curl, origin, b, err
 		}).AnyTimes()
 }
@@ -2355,17 +2362,18 @@ func (s *BundleDeployRepositorySuite) expectResolveCharm(err error) {
 
 func (s *BundleDeployRepositorySuite) expectAddCharm(force bool) {
 	s.deployerAPI.EXPECT().AddCharm(
+		gomock.Any(),
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		force,
 	).DoAndReturn(
-		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
+		func(ctx context.Context, _ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
 			return origin, nil
 		})
 }
 
 func (s *BundleDeployRepositorySuite) expectAddLocalCharm(curl *charm.URL, force bool) {
-	s.deployerAPI.EXPECT().AddLocalCharm(gomock.AssignableToTypeOf(&charm.URL{}), charmInterfaceMatcher{}, force).Return(curl, nil)
+	s.deployerAPI.EXPECT().AddLocalCharm(gomock.Any(), gomock.AssignableToTypeOf(&charm.URL{}), charmInterfaceMatcher{}, force).Return(curl, nil)
 }
 
 type charmInterfaceMatcher struct{}
@@ -2384,8 +2392,8 @@ func (s *BundleDeployRepositorySuite) expectCharmInfo(name string, info *apichar
 }
 
 func (s *BundleDeployRepositorySuite) expectDeploy() {
-	s.deployerAPI.EXPECT().Deploy(gomock.AssignableToTypeOf(application.DeployArgs{})).DoAndReturn(
-		func(args application.DeployArgs) error {
+	s.deployerAPI.EXPECT().Deploy(gomock.Any(), gomock.AssignableToTypeOf(application.DeployArgs{})).DoAndReturn(
+		func(ctx context.Context, args application.DeployArgs) error {
 			// Save the args to do a verification of later.
 			// Matching up args with expected is non-trival here,
 			// so do it later.
@@ -2395,7 +2403,7 @@ func (s *BundleDeployRepositorySuite) expectDeploy() {
 }
 
 func (s *BundleDeployRepositorySuite) expectExpose(app string) {
-	s.deployerAPI.EXPECT().Expose(app, gomock.Any()).Return(nil)
+	s.deployerAPI.EXPECT().Expose(gomock.Any(), app, gomock.Any()).Return(nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectAddMachine(machine, channel string) {
@@ -2419,11 +2427,11 @@ func (s *BundleDeployRepositorySuite) expectAddContainer(parent, machine, channe
 	results := []params.AddMachinesResult{
 		{Machine: machine},
 	}
-	s.deployerAPI.EXPECT().AddMachines(args).Return(results, nil)
+	s.deployerAPI.EXPECT().AddMachines(gomock.Any(), args).Return(results, nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectAddRelation(endpoints []string) {
-	s.deployerAPI.EXPECT().AddRelation(endpoints, nil).Return(nil, nil)
+	s.deployerAPI.EXPECT().AddRelation(gomock.Any(), endpoints, nil).Return(nil, nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectLocalCharm(ch *charm.CharmDir, curl *charm.URL, err error) {
@@ -2443,26 +2451,26 @@ func (s *BundleDeployRepositorySuite) expectAddOneUnit(name, directive, unit str
 		NumUnits:        1,
 		Placement:       placement,
 	}
-	s.deployerAPI.EXPECT().AddUnits(args).Return([]string{name + "/" + unit}, nil)
+	s.deployerAPI.EXPECT().AddUnits(gomock.Any(), args).Return([]string{name + "/" + unit}, nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectSetConfig(c *gc.C, appName string, options map[string]interface{}) {
 	cfg, err := yaml.Marshal(map[string]map[string]interface{}{appName: options})
 	c.Assert(err, jc.ErrorIsNil)
-	s.deployerAPI.EXPECT().SetConfig(appName, string(cfg), gomock.Any())
+	s.deployerAPI.EXPECT().SetConfig(gomock.Any(), appName, string(cfg), gomock.Any())
 }
 
 func (s *BundleDeployRepositorySuite) expectSetConstraints(name string, cons string) {
 	parsedCons, _ := constraints.Parse(cons)
-	s.deployerAPI.EXPECT().SetConstraints(name, parsedCons).Return(nil)
+	s.deployerAPI.EXPECT().SetConstraints(gomock.Any(), name, parsedCons).Return(nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectSetCharm(c *gc.C, name string) {
-	s.deployerAPI.EXPECT().SetCharm(setCharmConfigMatcher{name: name, c: c})
+	s.deployerAPI.EXPECT().SetCharm(gomock.Any(), setCharmConfigMatcher{name: name, c: c})
 }
 
 func (s *BundleDeployRepositorySuite) expectStatus(status params.FullStatus) {
-	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(&status, nil).AnyTimes()
+	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(&status, nil).AnyTimes()
 }
 
 type setCharmConfigMatcher struct {
@@ -2616,10 +2624,10 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *gc.C)
 	resolvedOrigin := origin
 	resolvedOrigin.Revision = &rev
 
-	resolver.EXPECT().ResolveCharm(charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
+	resolver.EXPECT().ResolveCharm(gomock.Any(), charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
 
 	base := corebase.MustParseBaseFromString("ubuntu@20.04")
-	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), base, charmChannel, arch, -1)
+	channel, rev, err := handler.resolveCharmChannelAndRevision(context.Background(), charmURL.String(), base, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
 	c.Assert(rev, gc.Equals, rev)
@@ -2647,10 +2655,10 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *g
 	}
 	resolvedOrigin := origin
 
-	resolver.EXPECT().ResolveCharm(charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
+	resolver.EXPECT().ResolveCharm(gomock.Any(), charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
 
 	base := corebase.MustParseBaseFromString("ubuntu@20.04")
-	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), base, charmChannel, arch, -1)
+	channel, rev, err := handler.resolveCharmChannelAndRevision(context.Background(), charmURL.String(), base, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
 	c.Assert(rev, gc.Equals, -1)
@@ -2667,7 +2675,7 @@ func (s *BundleHandlerResolverSuite) TestResolveLocalCharm(c *gc.C) {
 	charmChannel := "stable"
 	arch := "amd64"
 
-	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmBase, charmChannel, arch, -1)
+	channel, rev, err := handler.resolveCharmChannelAndRevision(context.Background(), charmURL.String(), charmBase, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
 	c.Assert(rev, gc.Equals, -1)
@@ -2690,7 +2698,7 @@ func (s *BundleHandlerMakeModelSuite) TestEmptyModel(c *gc.C) {
 		defaultCharmSchema: charm.CharmHub,
 	}
 
-	err := handler.makeModel(false, nil)
+	err := handler.makeModel(context.Background(), false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2704,7 +2712,7 @@ func (s *BundleHandlerMakeModelSuite) TestEmptyModelOldController(c *gc.C) {
 		defaultCharmSchema: charm.CharmHub,
 	}
 
-	err := handler.makeModel(false, nil)
+	err := handler.makeModel(context.Background(), false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2721,7 +2729,7 @@ func (s *BundleHandlerMakeModelSuite) TestModelOldController(c *gc.C) {
 		unitStatus:         make(map[string]string),
 	}
 
-	err := handler.makeModel(false, nil)
+	err := handler.makeModel(context.Background(), false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	app := handler.model.GetApplication("mysql")
 	c.Assert(app.Base.Channel.Track, gc.Equals, "18.04")
@@ -2746,21 +2754,21 @@ func (s *BundleHandlerMakeModelSuite) expectEmptyModelToStart(c *gc.C) {
 func (s *BundleHandlerMakeModelSuite) expectEmptyModelRepresentation() {
 	// BuildModelRepresentation is tested in bundle pkg.
 	// Setup as if an empty model
-	s.deployerAPI.EXPECT().GetAnnotations(gomock.Any()).Return(nil, nil)
-	s.deployerAPI.EXPECT().GetConstraints(gomock.Any()).Return(nil, nil)
-	s.deployerAPI.EXPECT().GetConfig(gomock.Any()).Return(nil, nil)
-	s.deployerAPI.EXPECT().Sequences().Return(nil, errors.NotSupportedf("sequences for test"))
+	s.deployerAPI.EXPECT().GetAnnotations(gomock.Any(), gomock.Any()).Return(nil, nil)
+	s.deployerAPI.EXPECT().GetConstraints(gomock.Any(), gomock.Any()).Return(nil, nil)
+	s.deployerAPI.EXPECT().GetConfig(gomock.Any(), gomock.Any()).Return(nil, nil)
+	s.deployerAPI.EXPECT().Sequences(gomock.Any()).Return(nil, errors.NotSupportedf("sequences for test"))
 }
 
 func (s *BundleHandlerMakeModelSuite) expectDeployerAPIEmptyStatus() {
 	status := &params.FullStatus{}
-	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil).AnyTimes()
+	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil).AnyTimes()
 }
 
 func (s *BundleHandlerMakeModelSuite) expectDeployerAPIModelGet(c *gc.C) {
 	cfg, err := config.New(true, minimalModelConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil).AnyTimes()
+	s.deployerAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg.AllAttrs(), nil).AnyTimes()
 }
 
 func (s *BundleHandlerMakeModelSuite) expectDeployerAPIStatusWordpressBundle() {
@@ -2800,5 +2808,5 @@ func (s *BundleHandlerMakeModelSuite) expectDeployerAPIStatusWordpressBundle() {
 		},
 		ControllerTimestamp: nil,
 	}
-	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
+	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil)
 }

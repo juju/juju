@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -119,7 +120,7 @@ type addCredentialCommand struct {
 
 	// These attributes are used when adding credentials to a controller.
 	remoteCloudFound  bool
-	credentialAPIFunc func() (CredentialAPI, error)
+	credentialAPIFunc func(ctx context.Context) (CredentialAPI, error)
 }
 
 // NewAddCredentialCommand returns a command to add credential information.
@@ -589,8 +590,8 @@ func (c *addCredentialCommand) promptFieldValue(p *interact.Pollster, attr jujuc
 	}
 }
 
-func (c *addCredentialCommand) credentialsAPI() (CredentialAPI, error) {
-	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
+func (c *addCredentialCommand) credentialsAPI(ctx context.Context) (CredentialAPI, error) {
+	root, err := c.NewAPIRoot(ctx, c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -598,13 +599,13 @@ func (c *addCredentialCommand) credentialsAPI() (CredentialAPI, error) {
 }
 
 func (c *addCredentialCommand) maybeRemoteCloud(ctxt *cmd.Context) error {
-	client, err := c.credentialAPIFunc()
+	client, err := c.credentialAPIFunc(ctxt)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 	// Get user clouds from the controller
-	remoteUserClouds, err := client.Clouds()
+	remoteUserClouds, err := client.Clouds(ctxt)
 	if err != nil {
 		return err
 	}
@@ -637,12 +638,12 @@ func (c *addCredentialCommand) addRemoteCredentials(ctxt *cmd.Context, all map[s
 	if len(verified) == 0 {
 		return erred
 	}
-	client, err := c.credentialAPIFunc()
+	client, err := c.credentialAPIFunc(ctxt)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	results, err := client.AddCloudsCredentials(verified)
+	results, err := client.AddCloudsCredentials(ctxt, verified)
 	if err != nil {
 		logger.Errorf("%v", err)
 		ctxt.Warningf("Could not upload credentials to controller %q", c.ControllerName)

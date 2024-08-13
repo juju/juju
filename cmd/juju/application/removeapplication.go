@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -128,29 +129,29 @@ func (c *removeApplicationCommand) Init(args []string) error {
 
 type RemoveApplicationAPI interface {
 	Close() error
-	ScaleApplication(application.ScaleApplicationParams) (params.ScaleApplicationResult, error)
-	DestroyApplications(application.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error)
-	DestroyUnits(application.DestroyUnitsParams) ([]params.DestroyUnitResult, error)
+	ScaleApplication(context.Context, application.ScaleApplicationParams) (params.ScaleApplicationResult, error)
+	DestroyApplications(context.Context, application.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error)
+	DestroyUnits(context.Context, application.DestroyUnitsParams) ([]params.DestroyUnitResult, error)
 	ModelUUID() string
 	BestAPIVersion() int
 }
 
-func (c *removeApplicationCommand) getAPI() (RemoveApplicationAPI, error) {
+func (c *removeApplicationCommand) getAPI(ctx context.Context) (RemoveApplicationAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return application.NewClient(root), nil
 }
 
-func (c *removeApplicationCommand) getModelConfigAPI() (ModelConfigClient, error) {
+func (c *removeApplicationCommand) getModelConfigAPI(ctx context.Context) (ModelConfigClient, error) {
 	if c.modelConfigApi != nil {
 		return c.modelConfigApi, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -164,13 +165,13 @@ func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
 		maxWait = &zeroSec
 	}
 
-	client, err := c.getAPI()
+	client, err := c.getAPI(ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	modelConfigClient, err := c.getModelConfigAPI()
+	modelConfigClient, err := c.getModelConfigAPI(ctx)
 	if err != nil {
 		return err
 	}
@@ -180,7 +181,7 @@ func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
 		return c.performDryRun(ctx, client)
 	}
 
-	needsConfirmation := c.NeedsConfirmation(modelConfigClient)
+	needsConfirmation := c.NeedsConfirmation(ctx, modelConfigClient)
 	if needsConfirmation {
 		err := c.performDryRun(ctx, client)
 		if err == errDryRunNotSupportedByController {
@@ -193,7 +194,7 @@ func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
+	results, err := client.DestroyApplications(ctx, application.DestroyApplicationsParams{
 		Applications:   c.ApplicationNames,
 		DestroyStorage: c.DestroyStorage,
 		Force:          c.Force,
@@ -219,7 +220,7 @@ func (c *removeApplicationCommand) performDryRun(
 	if client.BestAPIVersion() < 16 {
 		return errDryRunNotSupportedByController
 	}
-	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
+	results, err := client.DestroyApplications(ctx, application.DestroyApplicationsParams{
 		Applications:   c.ApplicationNames,
 		DestroyStorage: c.DestroyStorage,
 		DryRun:         true,

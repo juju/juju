@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"context"
 	"regexp"
 	"time"
 
@@ -47,7 +48,7 @@ func (f *fakeModelMgrAPIClient) Close() error {
 	return nil
 }
 
-func (f *fakeModelMgrAPIClient) ListModels(user string) ([]base.UserModel, error) {
+func (f *fakeModelMgrAPIClient) ListModels(ctx context.Context, user string) ([]base.UserModel, error) {
 	f.MethodCall(f, "ListModels", user)
 	if f.err != nil {
 		return nil, f.err
@@ -55,7 +56,7 @@ func (f *fakeModelMgrAPIClient) ListModels(user string) ([]base.UserModel, error
 	return f.convertInfosToUserModels(), nil
 }
 
-func (f *fakeModelMgrAPIClient) AllModels() ([]base.UserModel, error) {
+func (f *fakeModelMgrAPIClient) AllModels(ctx context.Context) ([]base.UserModel, error) {
 	f.MethodCall(f, "AllModels")
 	if f.err != nil {
 		return nil, f.err
@@ -63,7 +64,7 @@ func (f *fakeModelMgrAPIClient) AllModels() ([]base.UserModel, error) {
 	return f.convertInfosToUserModels(), nil
 }
 
-func (f *fakeModelMgrAPIClient) ListModelSummaries(user string, all bool) ([]base.UserModelSummary, error) {
+func (f *fakeModelMgrAPIClient) ListModelSummaries(ctx context.Context, user string, all bool) ([]base.UserModelSummary, error) {
 	f.MethodCall(f, "ListModelSummaries", user, all)
 	if f.err != nil {
 		return nil, f.err
@@ -145,7 +146,7 @@ func (f *fakeModelMgrAPIClient) ListModelSummaries(user string, all bool) ([]bas
 	return results, nil
 }
 
-func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, error) {
+func (f *fakeModelMgrAPIClient) ModelInfo(ctx context.Context, tags []names.ModelTag) ([]params.ModelInfoResult, error) {
 	f.MethodCall(f, "ModelInfo", tags)
 	if f.infos != nil {
 		return f.infos, nil

@@ -110,7 +110,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 		// Validate space and/or zone, if given to display a nicer error
 		// message.
 		// Get the list of subnets, filtering them as requested.
-		subnets, err := api.ListSubnets(c.spaceTag, c.ZoneName)
+		subnets, err := api.ListSubnets(ctx, c.spaceTag, c.ZoneName)
 		if err != nil {
 			return errors.Annotate(err, "cannot list subnets")
 		}

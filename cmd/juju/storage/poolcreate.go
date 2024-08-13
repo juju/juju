@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -19,7 +20,7 @@ import (
 // PoolCreateAPI defines the API methods that pool create command uses.
 type PoolCreateAPI interface {
 	Close() error
-	CreatePool(pname, ptype string, pconfig map[string]interface{}) error
+	CreatePool(ctx context.Context, pname, ptype string, pconfig map[string]interface{}) error
 }
 
 const poolCreateCommandDoc = `
@@ -55,8 +56,8 @@ const poolCreateCommandExamples = `
 // NewPoolCreateCommand returns a command that creates or defines a storage pool
 func NewPoolCreateCommand() cmd.Command {
 	cmd := &poolCreateCommand{}
-	cmd.newAPIFunc = func() (PoolCreateAPI, error) {
-		return cmd.NewStorageAPI()
+	cmd.newAPIFunc = func(ctx context.Context) (PoolCreateAPI, error) {
+		return cmd.NewStorageAPI(ctx)
 	}
 	return modelcmd.Wrap(cmd)
 }
@@ -64,7 +65,7 @@ func NewPoolCreateCommand() cmd.Command {
 // poolCreateCommand lists storage pools.
 type poolCreateCommand struct {
 	PoolCommandBase
-	newAPIFunc func() (PoolCreateAPI, error)
+	newAPIFunc func(ctx context.Context) (PoolCreateAPI, error)
 	poolName   string
 	// TODO(anastasiamac 2015-01-29) type will need to become optional
 	// if type is unspecified, use the environment's default provider type
@@ -74,7 +75,7 @@ type poolCreateCommand struct {
 
 // Init implements Command.Init.
 func (c *poolCreateCommand) Init(args []string) (err error) {
-	modelType, err := c.ModelType()
+	modelType, err := c.ModelType(context.TODO())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -139,10 +140,10 @@ func (c *poolCreateCommand) Info() *cmd.Info {
 
 // Run implements Command.Run.
 func (c *poolCreateCommand) Run(ctx *cmd.Context) (err error) {
-	api, err := c.newAPIFunc()
+	api, err := c.newAPIFunc(ctx)
 	if err != nil {
 		return err
 	}
 	defer api.Close()
-	return api.CreatePool(c.poolName, c.provider, c.attrs)
+	return api.CreatePool(ctx, c.poolName, c.provider, c.attrs)
 }

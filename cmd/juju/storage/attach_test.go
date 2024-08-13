@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	"context"
 	"regexp"
 
 	"github.com/juju/cmd/v4"
@@ -91,7 +92,7 @@ type fakeEntityAttacher struct {
 	results []params.ErrorResult
 }
 
-func (f *fakeEntityAttacher) new() (storage.EntityAttacherCloser, error) {
+func (f *fakeEntityAttacher) new(ctx context.Context) (storage.EntityAttacherCloser, error) {
 	f.MethodCall(f, "NewEntityAttacherCloser")
 	return f, f.NextErr()
 }
@@ -101,7 +102,7 @@ func (f *fakeEntityAttacher) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeEntityAttacher) Attach(unitId string, storageIds []string) ([]params.ErrorResult, error) {
+func (f *fakeEntityAttacher) Attach(ctx context.Context, unitId string, storageIds []string) ([]params.ErrorResult, error) {
 	f.MethodCall(f, "Attach", unitId, storageIds)
 	return f.results, f.NextErr()
 }

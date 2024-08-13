@@ -123,7 +123,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	info.Password = password
 	info.Nonce = "fake_nonce"
 
-	ipv4Conn, err := api.Open(info, fastDialOpts)
+	ipv4Conn, err := api.Open(context.Background(), info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer ipv4Conn.Close()
 	c.Assert(ipv4Conn.Addr(), gc.Equals, net.JoinHostPort("localhost", portString))
@@ -135,7 +135,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	info.Addrs = []string{net.JoinHostPort("::1", portString)}
-	ipv6Conn, err := api.Open(info, fastDialOpts)
+	ipv6Conn, err := api.Open(context.Background(), info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer ipv6Conn.Close()
 	c.Assert(ipv6Conn.Addr(), gc.Equals, net.JoinHostPort("::1", portString))
@@ -165,19 +165,19 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "invalid-nonce"
-	st, err := api.Open(info, fastDialOpts)
+	st, err := api.Open(context.Background(), info, fastDialOpts)
 	assertNotProvisioned(err)
 	c.Assert(st, gc.IsNil)
 
 	// Try with empty nonce as well.
 	info.Nonce = ""
-	st, err = api.Open(info, fastDialOpts)
+	st, err = api.Open(context.Background(), info, fastDialOpts)
 	assertNotProvisioned(err)
 	c.Assert(st, gc.IsNil)
 
 	// Finally, with the correct one succeeds.
 	info.Nonce = "fake_nonce"
-	st, err = api.Open(info, fastDialOpts)
+	st, err = api.Open(context.Background(), info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
 	st.Close()
@@ -192,7 +192,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	// Try connecting, it will fail.
 	info.Tag = stm1.Tag()
 	info.Nonce = ""
-	st, err = api.Open(info, fastDialOpts)
+	st, err = api.Open(context.Background(), info, fastDialOpts)
 	assertNotProvisioned(err)
 	c.Assert(st, gc.IsNil)
 }

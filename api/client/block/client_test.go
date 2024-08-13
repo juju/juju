@@ -4,6 +4,8 @@
 package block_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -36,7 +38,7 @@ func (s *blockMockSuite) TestSwitchBlockOn(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SwitchBlockOn", args, result).SetArg(3, results).Return(nil)
 
 	blockClient := block.NewClientFromCaller(mockFacadeCaller)
-	err := blockClient.SwitchBlockOn(blockType, msg)
+	err := blockClient.SwitchBlockOn(context.Background(), blockType, msg)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -59,7 +61,7 @@ func (s *blockMockSuite) TestSwitchBlockOnError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SwitchBlockOn", args, result).SetArg(3, results).Return(nil)
 
 	blockClient := block.NewClientFromCaller(mockFacadeCaller)
-	err := blockClient.SwitchBlockOn("", "")
+	err := blockClient.SwitchBlockOn(context.Background(), "", "")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, errmsg)
 }
 
@@ -80,7 +82,7 @@ func (s *blockMockSuite) TestSwitchBlockOff(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SwitchBlockOff", args, result).SetArg(3, results).Return(nil)
 
 	blockClient := block.NewClientFromCaller(mockFacadeCaller)
-	err := blockClient.SwitchBlockOff(blockType)
+	err := blockClient.SwitchBlockOff(context.Background(), blockType)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -102,7 +104,7 @@ func (s *blockMockSuite) TestSwitchBlockOffError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SwitchBlockOff", args, result).SetArg(3, results).Return(nil)
 
 	blockClient := block.NewClientFromCaller(mockFacadeCaller)
-	err := blockClient.SwitchBlockOff("")
+	err := blockClient.SwitchBlockOff(context.Background(), "")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, errmsg)
 }
 
@@ -130,7 +132,7 @@ func (s *blockMockSuite) TestList(c *gc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "List", nil, result).SetArg(3, results).Return(nil)
 	blockClient := block.NewClientFromCaller(mockFacadeCaller)
-	found, err := blockClient.List()
+	found, err := blockClient.List(context.Background())
 	c.Assert(errors.Cause(err), gc.ErrorMatches, errmsg)
 	c.Assert(found, gc.HasLen, 1)
 }

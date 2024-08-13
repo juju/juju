@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/v4"
@@ -40,7 +41,7 @@ func (s *addImageSuite) SetUpTest(c *gc.C) {
 		s.data = append(s.data, metadata...)
 		return nil
 	}
-	s.PatchValue(&getImageMetadataAddAPI, func(c *addImageMetadataCommand) (MetadataAddAPI, error) {
+	s.PatchValue(&getImageMetadataAddAPI, func(c *addImageMetadataCommand, ctx context.Context) (MetadataAddAPI, error) {
 		return s.mockAPI, nil
 	})
 }
@@ -192,6 +193,6 @@ func (s mockAddAPI) Close() error {
 	return nil
 }
 
-func (s mockAddAPI) Save(metadata []params.CloudImageMetadata) error {
+func (s mockAddAPI) Save(ctx context.Context, metadata []params.CloudImageMetadata) error {
 	return s.add(metadata)
 }

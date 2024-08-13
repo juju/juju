@@ -4,6 +4,7 @@
 package crossmodel
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -22,15 +23,15 @@ import (
 // NewRemoveOfferCommand returns a command used to remove a specified offer.
 func NewRemoveOfferCommand() cmd.Command {
 	removeCmd := &removeCommand{}
-	removeCmd.newAPIFunc = func(controllerName string) (RemoveAPI, error) {
-		return removeCmd.NewApplicationOffersAPI(controllerName)
+	removeCmd.newAPIFunc = func(ctx context.Context, controllerName string) (RemoveAPI, error) {
+		return removeCmd.NewApplicationOffersAPI(ctx, controllerName)
 	}
 	return modelcmd.WrapController(removeCmd)
 }
 
 type removeCommand struct {
 	modelcmd.ControllerCommandBase
-	newAPIFunc  func(string) (RemoveAPI, error)
+	newAPIFunc  func(context.Context, string) (RemoveAPI, error)
 	offers      []string
 	offerSource string
 
@@ -90,12 +91,12 @@ func (c *removeCommand) Init(args []string) error {
 // RemoveAPI defines the API methods that the remove offer command uses.
 type RemoveAPI interface {
 	Close() error
-	DestroyOffers(force bool, offerURLs ...string) error
+	DestroyOffers(ctx context.Context, force bool, offerURLs ...string) error
 }
 
 // NewApplicationOffersAPI returns an application offers api.
-func (c *removeCommand) NewApplicationOffersAPI(controllerName string) (*applicationoffers.Client, error) {
-	root, err := c.CommandBase.NewAPIRoot(c.ClientStore(), controllerName, "")
+func (c *removeCommand) NewApplicationOffersAPI(ctx context.Context, controllerName string) (*applicationoffers.Client, error) {
+	root, err := c.CommandBase.NewAPIRoot(ctx, c.ClientStore(), controllerName, "")
 	if err != nil {
 		return nil, err
 	}
@@ -157,13 +158,13 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	api, err := c.newAPIFunc(c.offerSource)
+	api, err := c.newAPIFunc(ctx, c.offerSource)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer api.Close()
 
-	err = api.DestroyOffers(c.force, c.offers...)
+	err = api.DestroyOffers(ctx, c.force, c.offers...)
 	return block.ProcessBlockedError(err, block.BlockRemove)
 }
 

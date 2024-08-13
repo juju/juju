@@ -4,6 +4,7 @@
 package bundlechanges
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -33,7 +34,7 @@ type resolver struct {
 
 // handleApplications populates the change set with "addCharm"/"addApplication" records.
 // This function also handles adding application annotations.
-func (r *resolver) handleApplications() (map[string]string, error) {
+func (r *resolver) handleApplications(ctx context.Context) (map[string]string, error) {
 	add := r.changes.add
 	applications := r.bundle.Applications
 	existing := r.model
@@ -94,7 +95,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 			// The case of upgrade charmhub charm with by channel... need the correct revision,
 			// or we will not have an addCharmChange corresponding to the upgradeCharmChange.
 			if r.charmResolver != nil {
-				_, rev, err := r.charmResolver(application.Charm, computedBase, channel, arch, revision)
+				_, rev, err := r.charmResolver(ctx, application.Charm, computedBase, channel, arch, revision)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -179,7 +180,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 			}
 		} else {
 			// Look for changes.
-			if ok, err := r.allowCharmUpgrade(existingApp, application, arch); err != nil {
+			if ok, err := r.allowCharmUpgrade(ctx, existingApp, application, arch); err != nil {
 				return nil, errors.Trace(err)
 			} else if ok {
 				charmOrChange := application.Charm
@@ -274,7 +275,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 	return addedApplications, nil
 }
 
-func (r *resolver) allowCharmUpgrade(existingApp *Application, bundleApp *charm.ApplicationSpec, bundleArch string) (bool, error) {
+func (r *resolver) allowCharmUpgrade(ctx context.Context, existingApp *Application, bundleApp *charm.ApplicationSpec, bundleArch string) (bool, error) {
 	// This covers most of v1 charm URL changes, everything else below is to
 	// support channels. Charmstore charms allow channels, but bundles were not
 	// aware of them, with the introduction of Charmhub charms, then we do need
@@ -320,7 +321,7 @@ func (r *resolver) allowCharmUpgrade(existingApp *Application, bundleApp *charm.
 				return false, errors.Trace(err)
 			}
 		}
-		resolvedChan, resolvedRev, err = r.charmResolver(bundleApp.Charm, base, bundleApp.Channel, bundleArch, rev)
+		resolvedChan, resolvedRev, err = r.charmResolver(ctx, bundleApp.Charm, base, bundleApp.Channel, bundleArch, rev)
 		if err != nil {
 			return false, errors.Trace(err)
 		}

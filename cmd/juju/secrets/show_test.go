@@ -63,7 +63,7 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 
 	expire := testing.NonZeroTime().UTC()
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{
+	s.secretsAPI.EXPECT().ListSecrets(gomock.Any(), false, coresecrets.Filter{
 		URI: uri,
 	}).Return(
 		[]apisecrets.SecretDetails{{
@@ -112,7 +112,7 @@ func (s *ShowSuite) TestShowByName(c *gc.C) {
 
 	expire := testing.NonZeroTime().UTC()
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{
+	s.secretsAPI.EXPECT().ListSecrets(gomock.Any(), false, coresecrets.Filter{
 		Label: ptr("my-secret"),
 	}).Return(
 		[]apisecrets.SecretDetails{{
@@ -149,7 +149,7 @@ func (s *ShowSuite) TestShowReveal(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().ListSecrets(true, coresecrets.Filter{
+	s.secretsAPI.EXPECT().ListSecrets(gomock.Any(), true, coresecrets.Filter{
 		URI: uri,
 	}).Return(
 		[]apisecrets.SecretDetails{{
@@ -187,7 +187,7 @@ func (s *ShowSuite) TestShowRevisions(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{
+	s.secretsAPI.EXPECT().ListSecrets(gomock.Any(), false, coresecrets.Filter{
 		URI: uri,
 	}).Return(
 		[]apisecrets.SecretDetails{{

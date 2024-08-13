@@ -4,6 +4,8 @@
 package user_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
@@ -84,12 +86,12 @@ func (m *mockDisenableUserAPI) Close() error {
 	return nil
 }
 
-func (m *mockDisenableUserAPI) EnableUser(username string) error {
+func (m *mockDisenableUserAPI) EnableUser(ctx context.Context, username string) error {
 	m.enable = username
 	return nil
 }
 
-func (m *mockDisenableUserAPI) DisableUser(username string) error {
+func (m *mockDisenableUserAPI) DisableUser(ctx context.Context, username string) error {
 	m.disable = username
 	return nil
 }

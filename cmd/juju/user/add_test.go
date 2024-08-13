@@ -4,6 +4,7 @@
 package user_test
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -127,7 +128,7 @@ func (s *UserAddCommandSuite) TestUserRegistrationString(c *gc.C) {
 
 type mockModelAPI struct{}
 
-func (m *mockModelAPI) ListModels(user string) ([]base.UserModel, error) {
+func (m *mockModelAPI) ListModels(ctx context.Context, user string) ([]base.UserModel, error) {
 	return []base.UserModel{{Name: "model", UUID: "modeluuid", Owner: "current-user"}}, nil
 }
 
@@ -169,7 +170,7 @@ type mockAddUserAPI struct {
 	password    string
 }
 
-func (m *mockAddUserAPI) AddUser(username, displayname, password string) (names.UserTag, []byte, error) {
+func (m *mockAddUserAPI) AddUser(ctx context.Context, username, displayname, password string) (names.UserTag, []byte, error) {
 	if m.blocked {
 		return names.UserTag{}, nil, apiservererrors.OperationBlockedError("the operation has been blocked")
 	}

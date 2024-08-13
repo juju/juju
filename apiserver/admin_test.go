@@ -107,7 +107,7 @@ func (s *loginSuite) openModelAPIWithoutLogin(c *gc.C, modelUUID string) api.Con
 	info.Password = ""
 	info.Macaroons = nil
 	info.SkipLogin = true
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	return conn
 }
@@ -208,7 +208,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 		Code:    "unauthorized access",
 	})
 
-	_, err = apiclient.NewClient(st, loggertesting.WrapCheckLog(c)).Status(nil)
+	_, err = apiclient.NewClient(st, loggertesting.WrapCheckLog(c)).Status(context.Background(), nil)
 	c.Assert(err, gc.NotNil)
 	c.Check(errors.Is(err, errors.NotImplemented), jc.IsTrue)
 	c.Check(strings.Contains(err.Error(), `unknown facade type "Client"`), jc.IsTrue)
@@ -247,7 +247,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 		Code:    "unauthorized access",
 	})
 
-	_, err = apiclient.NewClient(st, loggertesting.WrapCheckLog(c)).Status(nil)
+	_, err = apiclient.NewClient(st, loggertesting.WrapCheckLog(c)).Status(context.Background(), nil)
 	c.Assert(err, gc.NotNil)
 	c.Check(errors.Is(err, errors.NotImplemented), jc.IsTrue)
 	c.Check(strings.Contains(err.Error(), `unknown facade type "Client"`), jc.IsTrue)
@@ -313,7 +313,7 @@ func (s *loginSuite) TestLoginAddressesForAgents(c *gc.C) {
 func (s *loginSuite) loginHostPorts(
 	c *gc.C, info *api.Info,
 ) (connectedAddr string, hostPorts []network.MachineHostPorts) {
-	st, err := api.Open(info, fastDialOpts)
+	st, err := api.Open(context.Background(), info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	return st.Addr(), st.APIHostPorts()
@@ -496,7 +496,7 @@ func (s *loginSuite) TestNonModelUserLoginFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info.Password = "dummy-password"
 	info.Tag = user.UserTag()
-	_, err = api.Open(info, fastDialOpts)
+	_, err = api.Open(context.Background(), info, fastDialOpts)
 	assertInvalidEntityPassword(c, err)
 }
 
@@ -524,7 +524,7 @@ func (s *loginSuite) TestMachineLoginDuringMaintenance(c *gc.C) {
 	s.WithUpgrading = true
 	info := s.ControllerModelApiInfo()
 	machine := s.infoForNewMachine(c, info)
-	_, err := api.Open(machine, fastDialOpts)
+	_, err := api.Open(context.Background(), machine, fastDialOpts)
 	c.Assert(err, gc.ErrorMatches, `login for machine \d+ blocked because upgrade is in progress`)
 }
 
@@ -541,7 +541,7 @@ func (s *loginSuite) TestControllerMachineLoginDuringMaintenance(c *gc.C) {
 	info.Password = pass
 	info.Nonce = "nonce"
 
-	st, err := api.Open(info, fastDialOpts)
+	st, err := api.Open(context.Background(), info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st.Close(), jc.ErrorIsNil)
 }
@@ -554,7 +554,7 @@ func (s *loginSuite) TestControllerAgentLoginDuringMaintenance(c *gc.C) {
 	info.Tag = node.Tag()
 	info.Password = pass
 
-	st, err := api.Open(info, fastDialOpts)
+	st, err := api.Open(context.Background(), info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st.Close(), jc.ErrorIsNil)
 }
@@ -602,7 +602,7 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	// error when we actually try to login.
 	info.Tag = modelOwner.Tag()
 	info.Password = "secret"
-	_, err = api.Open(info, fastDialOpts)
+	_, err = api.Open(context.Background(), info, fastDialOpts)
 	redirErr, ok := errors.Cause(err).(*api.RedirectError)
 	c.Assert(ok, gc.Equals, true)
 
@@ -617,13 +617,13 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	// that had NO access to the model before it got migrated. The server
 	// should return a not-authorized error when attempting to log in.
 	info.Tag = names.NewUserTag("some-other-user")
-	_, err = api.Open(info, fastDialOpts)
+	_, err = api.Open(context.Background(), info, fastDialOpts)
 	c.Assert(params.ErrCode(errors.Cause(err)), gc.Equals, params.CodeUnauthorized)
 
 	// Attempt to open an API connection to the migrated model as the
 	// anonymous user; this should also be allowed on account of CMRs.
 	info.Tag = names.NewUserTag(api.AnonymousUsername)
-	_, err = api.Open(info, fastDialOpts)
+	_, err = api.Open(context.Background(), info, fastDialOpts)
 	_, ok = errors.Cause(err).(*api.RedirectError)
 	c.Assert(ok, gc.Equals, true)
 }
@@ -702,7 +702,7 @@ func (s *loginSuite) TestNonExistentModel(c *gc.C) {
 func (s *loginSuite) TestInvalidModel(c *gc.C) {
 	info := s.ControllerModelApiInfo()
 	info.ModelTag = names.NewModelTag("rubbish")
-	st, err := api.Open(info, fastDialOpts)
+	st, err := api.Open(context.Background(), info, fastDialOpts)
 	c.Assert(err, gc.ErrorMatches, `unable to connect to API: invalid model UUID "rubbish" \(Bad Request\)`)
 	c.Assert(st, gc.IsNil)
 }
@@ -830,7 +830,7 @@ func (s *loginSuite) TestOtherModelFromController(c *gc.C) {
 	info.Password = ""
 	info.Macaroons = nil
 	info.SkipLogin = true
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = conn.Login(context.Background(), machine.Tag(), pass, "nonce", nil)
@@ -985,7 +985,7 @@ func (s *loginSuite) assertRemoteModel(c *gc.C, conn api.Connection, expected na
 	err := m.State().SetModelConstraints(expectedCons)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cons, err := client.GetModelConstraints()
+	cons, err := client.GetModelConstraints(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, expectedCons)
 }
@@ -1027,7 +1027,7 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	info.Tag = names.NewUserTag("bobbrown")
 	info.Password = "password"
 
-	apiState, err := api.Open(info, api.DialOpts{})
+	apiState, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = apiState.Close() }()
 
@@ -1093,7 +1093,7 @@ func (s *migrationSuite) TestImportingModel(c *gc.C) {
 	// Users should be able to log in but RPC requests should fail.
 	userConn := s.OpenControllerModelAPI(c)
 	defer userConn.Close()
-	_, err = apiclient.NewClient(userConn, loggertesting.WrapCheckLog(c)).Status(nil)
+	_, err = apiclient.NewClient(userConn, loggertesting.WrapCheckLog(c)).Status(context.Background(), nil)
 	c.Check(err, gc.ErrorMatches, "migration in progress, model is importing")
 
 	// Machines should be able to use the API.
@@ -1113,11 +1113,11 @@ func (s *migrationSuite) TestExportingModel(c *gc.C) {
 	defer userConn.Close()
 
 	// Status is fine.
-	_, err = apiclient.NewClient(userConn, loggertesting.WrapCheckLog(c)).Status(nil)
+	_, err = apiclient.NewClient(userConn, loggertesting.WrapCheckLog(c)).Status(context.Background(), nil)
 	c.Check(err, jc.ErrorIsNil)
 
 	// Modifying commands like destroy machines are not.
-	_, err = machineclient.NewClient(userConn).DestroyMachinesWithParams(false, false, false, nil, "42")
+	_, err = machineclient.NewClient(userConn).DestroyMachinesWithParams(context.Background(), false, false, false, nil, "42")
 	c.Check(err, gc.ErrorMatches, "model migration in progress")
 }
 
@@ -1130,14 +1130,14 @@ var _ = gc.Suite(&loginV3Suite{})
 func (s *loginV3Suite) TestClientLoginToModel(c *gc.C) {
 	apiState := s.OpenControllerModelAPI(c)
 	client := modelconfig.NewClient(apiState)
-	_, err := client.GetModelConstraints()
+	_, err := client.GetModelConstraints(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *loginV3Suite) TestClientLoginToController(c *gc.C) {
 	apiState := s.OpenControllerAPI(c)
 	client := machineclient.NewClient(apiState)
-	_, err := client.RetryProvisioning(false, names.NewMachineTag("machine-0"))
+	_, err := client.RetryProvisioning(context.Background(), false, names.NewMachineTag("machine-0"))
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `facade "MachineManager" not supported for controller API connection`,
 		Code:    "not supported",
@@ -1185,7 +1185,7 @@ func (s *loginV3Suite) TestClientLoginToRootOldClient(c *gc.C) {
 	info.Password = ""
 	info.Macaroons = nil
 	info.SkipLogin = true
-	apiState, err := api.Open(info, api.DialOpts{})
+	apiState, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = apiState.APICall(context.Background(), "Admin", 2, "", "Login", struct{}{}, nil)

@@ -4,6 +4,7 @@
 package bundlechanges_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -193,11 +194,12 @@ func (s *changesSuite) TestBundleURLAnnotationSet(c *gc.C) {
 	err = data.Verify(nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Retrieve the changes, and convert them to a sequence of records.
-	changes, err := bundlechanges.FromData(bundlechanges.ChangesConfig{
-		Bundle:    data,
-		BundleURL: "ch:bundle/blog",
-		Logger:    loggertesting.WrapCheckLog(c),
-	})
+	changes, err := bundlechanges.FromData(context.Background(),
+		bundlechanges.ChangesConfig{
+			Bundle:    data,
+			BundleURL: "ch:bundle/blog",
+			Logger:    loggertesting.WrapCheckLog(c),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	records := make([]record, len(changes))
 	for i, change := range changes {
@@ -2682,11 +2684,11 @@ func (s *changesSuite) assertParseDataWithModel(c *gc.C, model *bundlechanges.Mo
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Retrieve the changes, and convert them to a sequence of records.
-	changes, err := bundlechanges.FromData(bundlechanges.ChangesConfig{
+	changes, err := bundlechanges.FromData(context.Background(), bundlechanges.ChangesConfig{
 		Model:  model,
 		Bundle: data,
 		Logger: loggertesting.WrapCheckLog(c),
-		CharmResolver: func(charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
+		CharmResolver: func(ctx context.Context, charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
 			if charm == "ch:apache2" {
 				return "stable", 26, nil
 			}
@@ -2728,7 +2730,7 @@ func (s *changesSuite) assertParseDataWithDevices(c *gc.C, content string, expec
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Retrieve the changes, and convert them to a sequence of records.
-	changes, err := bundlechanges.FromData(bundlechanges.ChangesConfig{
+	changes, err := bundlechanges.FromData(context.Background(), bundlechanges.ChangesConfig{
 		Bundle: data,
 		Logger: loggertesting.WrapCheckLog(c),
 	})
@@ -3027,7 +3029,7 @@ applications:
 		"override expose settings for endpoint dmz of django and allow access from space public and CIDR 13.37.0.0/16",
 		"scale django to 2 units",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", 4, nil
 	})
 }
@@ -3069,7 +3071,7 @@ applications:
 		"override expose settings for endpoint www of django and allow access from CIDRs 13.37.0.0/16,192.168.0.0/16",
 		"scale django to 2 units",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", 4, nil
 	})
 }
@@ -3107,7 +3109,7 @@ applications:
 		"expose all endpoints of django and allow access from CIDRs 13.37.0.0/16,192.168.0.0/16",
 		"scale django to 2 units",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", 4, nil
 	})
 }
@@ -3193,7 +3195,7 @@ func (s *changesSuite) TestCharmUpgradeWithCharmhubCharmAndExistingChannel(c *gc
 		"upload charm django from charm-hub from channel stable",
 		"upgrade django from charm-hub using charm django from channel stable",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", 42, nil
 	})
 }
@@ -3227,7 +3229,7 @@ func (s *changesSuite) TestAppExistsWithLessUnits(c *gc.C) {
 	expectedChanges := []string{
 		"add unit django/1 to new machine 1",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", 4, nil
 	})
 }
@@ -3261,7 +3263,7 @@ func (s *changesSuite) TestAppExistsWithDifferentScale(c *gc.C) {
 	expectedChanges := []string{
 		"scale django to 2 units",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", 4, nil
 	})
 }
@@ -3299,7 +3301,7 @@ func (s *changesSuite) TestNewMachineNumberHigherUnitHigher(c *gc.C) {
 	expectedChanges := []string{
 		"add unit django/2 to new machine 3",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", 4, nil
 	})
 }
@@ -3336,7 +3338,7 @@ func (s *changesSuite) TestAppWithDifferentConstraints(c *gc.C) {
 	expectedChanges := []string{
 		`set constraints for django to "cpu-cores=4 cpu-power=42 image-id=ubuntu-bf2"`,
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", 4, nil
 	})
 }
@@ -3400,7 +3402,7 @@ func (s *changesSuite) TestExistingAppsWithArchConstraints(c *gc.C) {
 		"upload charm django from charm-hub with revision 4 with architecture=s390x",
 		"deploy application django-two from charm-hub with stable using django",
 	}
-	s.checkBundleImpl(c, bundleContent, existingModel, expectedChanges, "", constraintParser, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleImpl(c, bundleContent, existingModel, expectedChanges, "", constraintParser, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", 4, nil
 	})
 }
@@ -3446,7 +3448,7 @@ func (s *changesSuite) TestExistingAppsWithoutArchConstraints(c *gc.C) {
 		"upload charm django from charm-hub with revision 4 with architecture=s390x",
 		"deploy application django-two from charm-hub with stable using django",
 	}
-	s.checkBundleImpl(c, bundleContent, existingModel, expectedChanges, "", constraintParser, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleImpl(c, bundleContent, existingModel, expectedChanges, "", constraintParser, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", 4, nil
 	})
 }
@@ -3540,7 +3542,7 @@ func (s *changesSuite) TestAppExistsWithEnoughUnits(c *gc.C) {
 		},
 	}
 	expectedChanges := []string{}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", 4, nil
 	})
 }
@@ -3585,7 +3587,7 @@ func (s *changesSuite) TestAppExistsWithChangedOptionsAndAnnotations(c *gc.C) {
 		"set application options for django",
 		"set annotations for django",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", 4, nil
 	})
 }
@@ -3759,7 +3761,7 @@ func (s *changesSuite) TestApplicationPlacementSomeExisting(c *gc.C) {
 		"add unit nginx/3 to new machine 4 to satisfy [django]",
 		"add unit nginx/4 to new machine 5 to satisfy [django]",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(_ context.Context, charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
 		if charm == "ch:django" {
 			return "stable", 4, nil
 		}
@@ -3817,7 +3819,7 @@ func (s *changesSuite) TestApplicationPlacementSomeColocated(c *gc.C) {
 		"add unit nginx/3 to existing machine 3 to satisfy [django]",
 		"add unit nginx/4 to new machine 5 to satisfy [django]",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(ctx context.Context, charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
 		if charm == "ch:django" {
 			return "stable", 4, nil
 		}
@@ -3911,7 +3913,7 @@ func (s *changesSuite) TestUnitDeployedDefinedMachine(c *gc.C) {
 		"add unit keystone/1 to 1/lxd/0 to satisfy [lxd:mysql]",
 		"add unit keystone/2 to 2/lxd/1 to satisfy [lxd:mysql]",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", -1, nil
 	})
 }
@@ -3956,7 +3958,7 @@ func (s *changesSuite) TestLXDContainerSequence(c *gc.C) {
 		"deploy application keystone from charm-hub",
 		"add unit keystone/0 to 0/lxd/2 to satisfy [lxd:mysql]",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", -1, nil
 	})
 }
@@ -4019,7 +4021,7 @@ func (s *changesSuite) TestMachineMapToExistingMachineSomeDeployed(c *gc.C) {
 		"add unit keystone/1 to 3/lxd/0 to satisfy [lxd:mysql]",
 		"add unit keystone/2 to 2/lxd/2 to satisfy [lxd:mysql]",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(ctx context.Context, charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
 		if charm == "ch:mysql" {
 			return "stable", 32, nil
 		}
@@ -4064,7 +4066,7 @@ func (s *changesSuite) TestSettingAnnotationsForExistingMachine(c *gc.C) {
 	expectedChanges := []string{
 		"set annotations for existing machine 2",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", -1, nil
 	})
 }
@@ -4160,7 +4162,7 @@ func (s *changesSuite) TestSiblingContainersSomeDeployed(c *gc.C) {
 		"add unit keystone/3 to 1/lxd/2 to satisfy [lxd:mysql]",
 		"add unit keystone/4 to new machine 3",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(ctx context.Context, charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
 		if charm == "ch:mysql" {
 			return "stable", 32, nil
 		}
@@ -4468,7 +4470,7 @@ func (s *changesSuite) TestAddUnitToExistingApp(c *gc.C) {
 	expectedChanges := []string{
 		"add unit mediawiki/1 to new machine 2",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(ctx context.Context, charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
 		if charm == "ch:mediawiki" {
 			return "stable", 10, nil
 		}
@@ -4543,7 +4545,7 @@ func (s *changesSuite) TestAddMissingUnitToNotLastPlacement(c *gc.C) {
 		"add new machine 3 (bundle machine 0)",
 		"add unit foo/3 to new machine 3",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", 5, nil
 	})
 }
@@ -4589,7 +4591,7 @@ func (s *changesSuite) TestAddMissingUnitToNotLastPlacementExisting(c *gc.C) {
 	expectedChanges := []string{
 		"add unit foo/3 to existing machine 0",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, corebase.Base, string, string, int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(context.Context, string, corebase.Base, string, string, int) (string, int, error) {
 		return "stable", 5, nil
 	})
 }
@@ -4677,7 +4679,7 @@ func (s *changesSuite) TestFromJujuMassiveUnitColocation(c *gc.C) {
 		"deploy application node from charm-hub on ubuntu@16.04/stable with stable using django",
 		"add unit node/0 to 0/lxd/0 to satisfy [lxd:memcached]",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(ctx context.Context, charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
 		if charm == "ch:django" {
 			return "stable", 42, nil
 		}
@@ -4735,7 +4737,7 @@ func (s *changesSuite) TestInconsistentMappingError(c *gc.C) {
 			"3": "3",
 		},
 	}
-	s.checkBundleImpl(c, bundleContent, existingModel, nil, `bundle and machine mapping are inconsistent: need an explicit entry mapping bundle machine "0", perhaps to one of model machines \["2", "3"\] - the target should host \[memcached\]`, nil, func(charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
+	s.checkBundleImpl(c, bundleContent, existingModel, nil, `bundle and machine mapping are inconsistent: need an explicit entry mapping bundle machine "0", perhaps to one of model machines \["2", "3"\] - the target should host \[memcached\]`, nil, func(ctx context.Context, charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
 		if charm == "ch:mem" {
 			return "stable", 47, nil
 		}
@@ -4787,7 +4789,7 @@ func (s *changesSuite) TestConsistentMapping(c *gc.C) {
 		},
 	}
 	// Now that we have a consistent mapping, no changes are needed.
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, nil, func(charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, nil, func(ctx context.Context, charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
 		if charm == "ch:mem" {
 			return "stable", 47, nil
 		}
@@ -4838,7 +4840,7 @@ func (s *changesSuite) TestContainerHosts(c *gc.C) {
 		"add lxd container 2/lxd/0 on new machine 2",
 		"add unit memcached/2 to 2/lxd/0",
 	}
-	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
+	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(ctx context.Context, charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
 		if charm == "ch:mem" {
 			return "stable", 47, nil
 		}
@@ -4884,7 +4886,7 @@ func (s *changesSuite) TestSingleTarget(c *gc.C) {
 			"2": "2",
 		},
 	}
-	s.checkBundleImpl(c, bundleContent, existingModel, nil, `bundle and machine mapping are inconsistent: need an explicit entry mapping bundle machine "0", perhaps to unreferenced model machine "2" - the target should host \[memcached\]`, nil, func(charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
+	s.checkBundleImpl(c, bundleContent, existingModel, nil, `bundle and machine mapping are inconsistent: need an explicit entry mapping bundle machine "0", perhaps to unreferenced model machine "2" - the target should host \[memcached\]`, nil, func(ctx context.Context, charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
 		if charm == "ch:mem" {
 			return "stable", 47, nil
 		}
@@ -4946,7 +4948,7 @@ func (s *changesSuite) TestMultipleApplications(c *gc.C) {
 			"2": "2",
 		},
 	}
-	s.checkBundleImpl(c, bundleContent, existingModel, nil, `bundle and machine mapping are inconsistent: need an explicit entry mapping bundle machine "0", perhaps to unreferenced model machine "2" - the target should host \[memcached, prometheus\]`, nil, func(charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
+	s.checkBundleImpl(c, bundleContent, existingModel, nil, `bundle and machine mapping are inconsistent: need an explicit entry mapping bundle machine "0", perhaps to unreferenced model machine "2" - the target should host \[memcached, prometheus\]`, nil, func(ctx context.Context, charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
 		if charm == "ch:mem" {
 			return "stable", 47, nil
 		}
@@ -5015,7 +5017,7 @@ func (s *changesSuite) TestNoApplications(c *gc.C) {
 	// In this case we can't find any applications for bundle machine
 	// 0 because the applications don't refer to it with simple
 	// placement..
-	s.checkBundleImpl(c, bundleContent, existingModel, nil, `bundle and machine mapping are inconsistent: need an explicit entry mapping bundle machine "0", perhaps to unreferenced model machine "2"`, nil, func(charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
+	s.checkBundleImpl(c, bundleContent, existingModel, nil, `bundle and machine mapping are inconsistent: need an explicit entry mapping bundle machine "0", perhaps to unreferenced model machine "2"`, nil, func(ctx context.Context, charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
 		if charm == "ch:mem" {
 			return "stable", 47, nil
 		}
@@ -5063,7 +5065,7 @@ func (s *changesSuite) TestNoPossibleTargets(c *gc.C) {
 		},
 	}
 	// There *are* two units, but they're both on machine one.
-	s.checkBundleImpl(c, bundleContent, existingModel, nil, `bundle and machine mapping are inconsistent: need an explicit entry mapping bundle machine "0" - the target should host \[memcached\]`, nil, func(charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
+	s.checkBundleImpl(c, bundleContent, existingModel, nil, `bundle and machine mapping are inconsistent: need an explicit entry mapping bundle machine "0" - the target should host \[memcached\]`, nil, func(ctx context.Context, charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
 		if charm == "ch:mem" {
 			return "stable", 47, nil
 		}
@@ -5135,7 +5137,7 @@ func (s *changesSuite) checkBundleImpl(c *gc.C,
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Retrieve the changes, and convert them to a sequence of records.
-	changes, err := bundlechanges.FromData(bundlechanges.ChangesConfig{
+	changes, err := bundlechanges.FromData(context.Background(), bundlechanges.ChangesConfig{
 		Bundle:           data,
 		Model:            existingModel,
 		Logger:           loggertesting.WrapCheckLog(c),

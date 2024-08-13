@@ -4,6 +4,8 @@
 package secretbackends
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -18,7 +20,7 @@ type showSecretBackendCommand struct {
 	modelcmd.ControllerCommandBase
 	out cmd.Output
 
-	ShowSecretBackendsAPIFunc func() (ShowSecretBackendsAPI, error)
+	ShowSecretBackendsAPIFunc func(ctx context.Context) (ShowSecretBackendsAPI, error)
 	backendName               string
 	revealSecrets             bool
 }
@@ -34,7 +36,7 @@ const showSecretBackendsExamples = `
 
 // ShowSecretBackendsAPI is the secrets client API.
 type ShowSecretBackendsAPI interface {
-	ListSecretBackends([]string, bool) ([]secretbackends.SecretBackend, error)
+	ListSecretBackends(context.Context, []string, bool) ([]secretbackends.SecretBackend, error)
 	Close() error
 }
 
@@ -46,8 +48,8 @@ func NewShowSecretBackendCommand() cmd.Command {
 	return modelcmd.WrapController(c)
 }
 
-func (c *showSecretBackendCommand) secretBackendsAPI() (ShowSecretBackendsAPI, error) {
-	root, err := c.NewAPIRoot()
+func (c *showSecretBackendCommand) secretBackendsAPI(ctx context.Context) (ShowSecretBackendsAPI, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -89,13 +91,13 @@ func (c *showSecretBackendCommand) Init(args []string) error {
 
 // Run implements cmd.Run.
 func (c *showSecretBackendCommand) Run(ctxt *cmd.Context) error {
-	api, err := c.ShowSecretBackendsAPIFunc()
+	api, err := c.ShowSecretBackendsAPIFunc(ctxt)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer api.Close()
 
-	result, err := api.ListSecretBackends([]string{c.backendName}, c.revealSecrets)
+	result, err := api.ListSecretBackends(ctxt, []string{c.backendName}, c.revealSecrets)
 	if err != nil {
 		return errors.Trace(err)
 	}

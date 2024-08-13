@@ -133,22 +133,22 @@ func (c *upgradeControllerCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *upgradeControllerCommand) getModelUpgraderAPI() (ModelUpgraderAPI, error) {
+func (c *upgradeControllerCommand) getModelUpgraderAPI(ctx context.Context) (ModelUpgraderAPI, error) {
 	if c.modelUpgraderAPI != nil {
 		return c.modelUpgraderAPI, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return modelupgrader.NewClient(root), nil
 }
 
-func (c *upgradeControllerCommand) getModelConfigAPI() (ModelConfigAPI, error) {
+func (c *upgradeControllerCommand) getModelConfigAPI(ctx context.Context) (ModelConfigAPI, error) {
 	if c.modelConfigAPI != nil {
 		return c.modelConfigAPI, nil
 	}
-	api, err := c.NewAPIRoot()
+	api, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -323,19 +323,19 @@ func (c *upgradeControllerCommand) upgradeController(
 		}
 	}()
 
-	modelUpgrader, err := c.getModelUpgraderAPI()
+	modelUpgrader, err := c.getModelUpgraderAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer modelUpgrader.Close()
 
-	modelConfigClient, err := c.getModelConfigAPI()
+	modelConfigClient, err := c.getModelConfigAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer modelConfigClient.Close()
 
-	attrs, err := modelConfigClient.ModelGet()
+	attrs, err := modelConfigClient.ModelGet(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -404,6 +404,7 @@ func (c *upgradeControllerCommand) notifyControllerUpgrade(
 ) (chosenVersion version.Number, err error) {
 	modelTag := names.NewModelTag(c.controllerModelDetails.ModelUUID)
 	if chosenVersion, err = modelUpgrader.UpgradeModel(
+		ctx,
 		modelTag.Id(), targetVersion, c.AgentStream, c.IgnoreAgentVersions, dryRun,
 	); err != nil {
 		if params.IsCodeUpgradeInProgress(err) {

@@ -4,6 +4,7 @@
 package secrets
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -22,13 +23,13 @@ type grantSecretCommand struct {
 	name      string
 	apps      []string
 
-	secretsAPIFunc func() (GrantRevokeSecretsAPI, error)
+	secretsAPIFunc func(ctx context.Context) (GrantRevokeSecretsAPI, error)
 }
 
 // GrantRevokeSecretsAPI is the secrets client API.
 type GrantRevokeSecretsAPI interface {
-	GrantSecret(*secrets.URI, string, []string) ([]error, error)
-	RevokeSecret(*secrets.URI, string, []string) ([]error, error)
+	GrantSecret(context.Context, *secrets.URI, string, []string) ([]error, error)
+	RevokeSecret(context.Context, *secrets.URI, string, []string) ([]error, error)
 	Close() error
 }
 
@@ -39,8 +40,8 @@ func NewGrantSecretCommand() cmd.Command {
 	return modelcmd.Wrap(c)
 }
 
-func (c *grantSecretCommand) secretsAPI() (GrantRevokeSecretsAPI, error) {
-	root, err := c.NewAPIRoot()
+func (c *grantSecretCommand) secretsAPI(ctx context.Context) (GrantRevokeSecretsAPI, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -84,12 +85,12 @@ func (c *grantSecretCommand) Init(args []string) error {
 
 // Run implements cmd.Command.
 func (c *grantSecretCommand) Run(ctx *cmd.Context) error {
-	secretsAPI, err := c.secretsAPIFunc()
+	secretsAPI, err := c.secretsAPIFunc(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer secretsAPI.Close()
-	return processGrantRevokeErrors(secretsAPI.GrantSecret(c.secretURI, c.name, c.apps))
+	return processGrantRevokeErrors(secretsAPI.GrantSecret(ctx, c.secretURI, c.name, c.apps))
 }
 
 func processGrantRevokeErrors(errs []error, err error) error {
@@ -119,7 +120,7 @@ type revokeSecretCommand struct {
 	name      string
 	apps      []string
 
-	secretsAPIFunc func() (GrantRevokeSecretsAPI, error)
+	secretsAPIFunc func(ctx context.Context) (GrantRevokeSecretsAPI, error)
 }
 
 // NewRevokeSecretCommand returns a command to revoke view access of a secret to applications.
@@ -129,8 +130,8 @@ func NewRevokeSecretCommand() cmd.Command {
 	return modelcmd.Wrap(c)
 }
 
-func (c *revokeSecretCommand) secretsAPI() (GrantRevokeSecretsAPI, error) {
-	root, err := c.NewAPIRoot()
+func (c *revokeSecretCommand) secretsAPI(ctx context.Context) (GrantRevokeSecretsAPI, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -174,10 +175,10 @@ func (c *revokeSecretCommand) Init(args []string) error {
 
 // Run implements cmd.Command.
 func (c *revokeSecretCommand) Run(ctx *cmd.Context) error {
-	secretsAPI, err := c.secretsAPIFunc()
+	secretsAPI, err := c.secretsAPIFunc(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer secretsAPI.Close()
-	return processGrantRevokeErrors(secretsAPI.RevokeSecret(c.secretURI, c.name, c.apps))
+	return processGrantRevokeErrors(secretsAPI.RevokeSecret(ctx, c.secretURI, c.name, c.apps))
 }

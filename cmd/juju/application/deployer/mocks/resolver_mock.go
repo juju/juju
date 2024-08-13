@@ -82,9 +82,9 @@ func (c *MockResolverGetBundleCall) DoAndReturn(f func(context.Context, *charm0.
 }
 
 // ResolveBundleURL mocks base method.
-func (m *MockResolver) ResolveBundleURL(arg0 *charm0.URL, arg1 charm.Origin) (*charm0.URL, charm.Origin, error) {
+func (m *MockResolver) ResolveBundleURL(arg0 context.Context, arg1 *charm0.URL, arg2 charm.Origin) (*charm0.URL, charm.Origin, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResolveBundleURL", arg0, arg1)
+	ret := m.ctrl.Call(m, "ResolveBundleURL", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*charm0.URL)
 	ret1, _ := ret[1].(charm.Origin)
 	ret2, _ := ret[2].(error)
@@ -92,9 +92,9 @@ func (m *MockResolver) ResolveBundleURL(arg0 *charm0.URL, arg1 charm.Origin) (*c
 }
 
 // ResolveBundleURL indicates an expected call of ResolveBundleURL.
-func (mr *MockResolverMockRecorder) ResolveBundleURL(arg0, arg1 any) *MockResolverResolveBundleURLCall {
+func (mr *MockResolverMockRecorder) ResolveBundleURL(arg0, arg1, arg2 any) *MockResolverResolveBundleURLCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveBundleURL", reflect.TypeOf((*MockResolver)(nil).ResolveBundleURL), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveBundleURL", reflect.TypeOf((*MockResolver)(nil).ResolveBundleURL), arg0, arg1, arg2)
 	return &MockResolverResolveBundleURLCall{Call: call}
 }
 
@@ -110,21 +110,21 @@ func (c *MockResolverResolveBundleURLCall) Return(arg0 *charm0.URL, arg1 charm.O
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResolverResolveBundleURLCall) Do(f func(*charm0.URL, charm.Origin) (*charm0.URL, charm.Origin, error)) *MockResolverResolveBundleURLCall {
+func (c *MockResolverResolveBundleURLCall) Do(f func(context.Context, *charm0.URL, charm.Origin) (*charm0.URL, charm.Origin, error)) *MockResolverResolveBundleURLCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResolverResolveBundleURLCall) DoAndReturn(f func(*charm0.URL, charm.Origin) (*charm0.URL, charm.Origin, error)) *MockResolverResolveBundleURLCall {
+func (c *MockResolverResolveBundleURLCall) DoAndReturn(f func(context.Context, *charm0.URL, charm.Origin) (*charm0.URL, charm.Origin, error)) *MockResolverResolveBundleURLCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ResolveCharm mocks base method.
-func (m *MockResolver) ResolveCharm(arg0 *charm0.URL, arg1 charm.Origin, arg2 bool) (*charm0.URL, charm.Origin, []base.Base, error) {
+func (m *MockResolver) ResolveCharm(arg0 context.Context, arg1 *charm0.URL, arg2 charm.Origin, arg3 bool) (*charm0.URL, charm.Origin, []base.Base, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResolveCharm", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ResolveCharm", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*charm0.URL)
 	ret1, _ := ret[1].(charm.Origin)
 	ret2, _ := ret[2].([]base.Base)
@@ -133,9 +133,9 @@ func (m *MockResolver) ResolveCharm(arg0 *charm0.URL, arg1 charm.Origin, arg2 bo
 }
 
 // ResolveCharm indicates an expected call of ResolveCharm.
-func (mr *MockResolverMockRecorder) ResolveCharm(arg0, arg1, arg2 any) *MockResolverResolveCharmCall {
+func (mr *MockResolverMockRecorder) ResolveCharm(arg0, arg1, arg2, arg3 any) *MockResolverResolveCharmCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveCharm", reflect.TypeOf((*MockResolver)(nil).ResolveCharm), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveCharm", reflect.TypeOf((*MockResolver)(nil).ResolveCharm), arg0, arg1, arg2, arg3)
 	return &MockResolverResolveCharmCall{Call: call}
 }
 
@@ -151,13 +151,13 @@ func (c *MockResolverResolveCharmCall) Return(arg0 *charm0.URL, arg1 charm.Origi
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResolverResolveCharmCall) Do(f func(*charm0.URL, charm.Origin, bool) (*charm0.URL, charm.Origin, []base.Base, error)) *MockResolverResolveCharmCall {
+func (c *MockResolverResolveCharmCall) Do(f func(context.Context, *charm0.URL, charm.Origin, bool) (*charm0.URL, charm.Origin, []base.Base, error)) *MockResolverResolveCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResolverResolveCharmCall) DoAndReturn(f func(*charm0.URL, charm.Origin, bool) (*charm0.URL, charm.Origin, []base.Base, error)) *MockResolverResolveCharmCall {
+func (c *MockResolverResolveCharmCall) DoAndReturn(f func(context.Context, *charm0.URL, charm.Origin, bool) (*charm0.URL, charm.Origin, []base.Base, error)) *MockResolverResolveCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

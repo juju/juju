@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -36,8 +37,8 @@ func NewBindCommand() cmd.Command {
 // ApplicationBindClient defines a subset of the application facade that deals with
 // querying and updating application bindings.
 type ApplicationBindClient interface {
-	Get(string) (*params.ApplicationGetResults, error)
-	MergeBindings(req params.ApplicationMergeBindingsArgs) error
+	Get(context.Context, string) (*params.ApplicationGetResults, error)
+	MergeBindings(ctx context.Context, req params.ApplicationMergeBindingsArgs) error
 }
 
 // Bind is responsible for changing the bindings for an application.
@@ -114,13 +115,13 @@ func (c *bindCommand) Init(args []string) error {
 // Run connects to the specified environment and applies the requested binding
 // changes.
 func (c *bindCommand) Run(ctx *cmd.Context) error {
-	apiRoot, err := c.NewAPIRoot()
+	apiRoot, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer func() { _ = apiRoot.Close() }()
 
-	if err = c.parseBindExpression(apiRoot); err != nil && errors.Is(err, errors.NotSupported) {
+	if err = c.parseBindExpression(ctx, apiRoot); err != nil && errors.Is(err, errors.NotSupported) {
 		ctx.Infof("Spaces not supported by this model's cloud, nothing to do.")
 		return nil
 	} else if err != nil {
@@ -132,7 +133,7 @@ func (c *bindCommand) Run(ctx *cmd.Context) error {
 	}
 
 	applicationClient := c.NewApplicationClient(apiRoot)
-	applicationInfo, err := applicationClient.Get(c.ApplicationName)
+	applicationInfo, err := applicationClient.Get(ctx, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -157,7 +158,7 @@ func (c *bindCommand) Run(ctx *cmd.Context) error {
 	var bindingsChangelog []string
 	c.Bindings, bindingsChangelog = mergeBindings(curCharmEndpoints, curBindings, c.Bindings, appDefaultSpace)
 
-	err = applicationClient.MergeBindings(params.ApplicationMergeBindingsArgs{
+	err = applicationClient.MergeBindings(ctx, params.ApplicationMergeBindingsArgs{
 		Args: []params.ApplicationMergeBindings{
 			{
 				ApplicationTag: names.NewApplicationTag(c.ApplicationName).String(),
@@ -190,13 +191,13 @@ func (c *bindCommand) validateEndpointNames(newCharmEndpoints set.Strings, oldEn
 	return nil
 }
 
-func (c *bindCommand) parseBindExpression(apiRoot base.APICallCloser) error {
+func (c *bindCommand) parseBindExpression(ctx context.Context, apiRoot base.APICallCloser) error {
 	if c.BindExpression == "" {
 		return nil
 	}
 
 	// Fetch known spaces from server
-	knownSpaces, err := c.NewSpacesClient(apiRoot).ListSpaces()
+	knownSpaces, err := c.NewSpacesClient(apiRoot).ListSpaces(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

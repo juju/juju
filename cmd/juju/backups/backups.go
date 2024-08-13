@@ -25,7 +25,7 @@ import (
 type APIClient interface {
 	io.Closer
 	// Create sends an RPC request to create a new backup.
-	Create(notes string, noDownload bool) (*params.BackupsMetadataResult, error)
+	Create(nctx context.Context, otes string, noDownload bool) (*params.BackupsMetadataResult, error)
 	// Download pulls the backup archive file.
 	Download(ctx context.Context, filename string) (io.ReadCloser, error)
 }
@@ -40,13 +40,13 @@ type CommandBase struct {
 }
 
 // NewAPIClient returns a client for the backups api endpoint.
-func (c *CommandBase) NewAPIClient() (APIClient, error) {
-	return newAPIClient(c)
+func (c *CommandBase) NewAPIClient(ctx context.Context) (APIClient, error) {
+	return newAPIClient(ctx, c)
 }
 
 // NewGetAPI returns a client for the backups api endpoint.
-func (c *CommandBase) NewGetAPI() (APIClient, error) {
-	return getAPI(c)
+func (c *CommandBase) NewGetAPI(ctx context.Context) (APIClient, error) {
+	return getAPI(ctx, c)
 }
 
 // SetFlags implements Command.SetFlags.
@@ -71,16 +71,16 @@ func (c *CommandBase) Init(args []string) error {
 	return nil
 }
 
-func (c *CommandBase) validateIaasController(cmdName string) error {
+func (c *CommandBase) validateIaasController(ctx context.Context, cmdName string) error {
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return common.ValidateIaasController(c.CommandBase, cmdName, controllerName, c.ClientStore())
+	return common.ValidateIaasController(ctx, c.CommandBase, cmdName, controllerName, c.ClientStore())
 }
 
-var newAPIClient = func(c *CommandBase) (APIClient, error) {
-	root, err := c.NewAPIRoot()
+var newAPIClient = func(ctx context.Context, c *CommandBase) (APIClient, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -88,8 +88,8 @@ var newAPIClient = func(c *CommandBase) (APIClient, error) {
 }
 
 // GetAPI returns a client and the api version of the controller
-var getAPI = func(c *CommandBase) (APIClient, error) {
-	root, err := c.NewAPIRoot()
+var getAPI = func(ctx context.Context, c *CommandBase) (APIClient, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

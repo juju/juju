@@ -4,6 +4,7 @@
 package resource
 
 import (
+	"context"
 	"sort"
 
 	"github.com/juju/cmd/v4"
@@ -20,7 +21,7 @@ import (
 // ListClient has the API client methods needed by ListCommand.
 type ListClient interface {
 	// ListResources returns info about resources for applications in the model.
-	ListResources(applications []string) ([]coreresources.ApplicationResources, error)
+	ListResources(ctx context.Context, applications []string) ([]coreresources.ApplicationResources, error)
 	// Close closes the connection.
 	Close() error
 }
@@ -29,7 +30,7 @@ type ListClient interface {
 type ListCommand struct {
 	modelcmd.ModelCommandBase
 
-	newClient func() (ListClient, error)
+	newClient func(ctx context.Context) (ListClient, error)
 
 	details bool
 	out     cmd.Output
@@ -40,8 +41,8 @@ type ListCommand struct {
 // by a charm.
 func NewListCommand() modelcmd.ModelCommand {
 	c := &ListCommand{}
-	c.newClient = func() (ListClient, error) {
-		apiRoot, err := c.NewAPIRoot()
+	c.newClient = func(ctx context.Context) (ListClient, error) {
+		apiRoot, err := c.NewAPIRoot(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -112,7 +113,7 @@ func (c *ListCommand) Init(args []string) error {
 
 // Run implements cmd.Command.Run.
 func (c *ListCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := c.newClient()
+	apiclient, err := c.newClient(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -130,7 +131,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 		unit = c.target
 	}
 
-	vals, err := apiclient.ListResources([]string{application})
+	vals, err := apiclient.ListResources(ctx, []string{application})
 	if err != nil {
 		return errors.Trace(err)
 	}

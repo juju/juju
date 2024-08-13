@@ -247,7 +247,7 @@ func (s *utilsResourceSuite) assertGetUpgradeResources(
 	}
 
 	expected, errString := getExpectedMeta(newCharmURL, cliResources, resourcesInController, resourcesInMetadata)
-	s.resourceFacade.EXPECT().ListResources([]string{"snappass-test"}).Return(resourcesInController, nil)
+	s.resourceFacade.EXPECT().ListResources(gomock.Any(), []string{"snappass-test"}).Return(resourcesInController, nil)
 	charmID := application.CharmID{
 		URL:    newCharmURL.String(),
 		Origin: apicharm.Origin{Source: schemaToOriginSource(newCharmURL.Schema)},
@@ -402,7 +402,7 @@ func (s *utilsResourceSuite) expectListResources(redis, snappass, testfile int) 
 			},
 		},
 	}
-	s.resourceFacade.EXPECT().ListResources([]string{"snappass-test"}).Return(resourcesInController, nil)
+	s.resourceFacade.EXPECT().ListResources(gomock.Any(), []string{"snappass-test"}).Return(resourcesInController, nil)
 
 }
 

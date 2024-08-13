@@ -4,6 +4,7 @@
 package model_test
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -216,11 +217,11 @@ type fakeModelGrantRevokeAPI struct {
 
 func (f *fakeModelGrantRevokeAPI) Close() error { return nil }
 
-func (f *fakeModelGrantRevokeAPI) GrantModel(user, access string, modelUUIDs ...string) error {
+func (f *fakeModelGrantRevokeAPI) GrantModel(ctx context.Context, user, access string, modelUUIDs ...string) error {
 	return f.fake(user, access, modelUUIDs...)
 }
 
-func (f *fakeModelGrantRevokeAPI) RevokeModel(user, access string, modelUUIDs ...string) error {
+func (f *fakeModelGrantRevokeAPI) RevokeModel(ctx context.Context, user, access string, modelUUIDs ...string) error {
 	return f.fake(user, access, modelUUIDs...)
 }
 
@@ -240,11 +241,11 @@ type fakeOffersGrantRevokeAPI struct {
 
 func (f *fakeOffersGrantRevokeAPI) Close() error { return nil }
 
-func (f *fakeOffersGrantRevokeAPI) GrantOffer(user, access string, offerURLs ...string) error {
+func (f *fakeOffersGrantRevokeAPI) GrantOffer(ctx context.Context, user, access string, offerURLs ...string) error {
 	return f.fake(user, access, offerURLs...)
 }
 
-func (f *fakeOffersGrantRevokeAPI) RevokeOffer(user, access string, offerURLs ...string) error {
+func (f *fakeOffersGrantRevokeAPI) RevokeOffer(ctx context.Context, user, access string, offerURLs ...string) error {
 	return f.fake(user, access, offerURLs...)
 }
 

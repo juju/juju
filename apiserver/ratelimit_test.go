@@ -46,24 +46,24 @@ func (s *rateLimitSuite) TestRateLimitAgents(c *gc.C) {
 	info := s.ControllerModelApiInfo()
 	// First agent connection is fine.
 	machine1 := s.infoForNewMachine(c, info)
-	conn1, err := api.Open(machine1, fastDialOpts)
+	conn1, err := api.Open(context.Background(), machine1, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn1.Close()
 
 	// Second machine in the same minute gets told to go away and try again.
 	machine2 := s.infoForNewMachine(c, info)
-	_, err = api.Open(machine2, fastDialOpts)
+	_, err = api.Open(context.Background(), machine2, fastDialOpts)
 	c.Assert(err, gc.ErrorMatches, `try again \(try again\)`)
 
 	// If we wait a minute and try again, it is fine.
 	s.Clock.Advance(time.Minute)
-	conn2, err := api.Open(machine2, fastDialOpts)
+	conn2, err := api.Open(context.Background(), machine2, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn2.Close()
 
 	// And the next one is limited.
 	machine3 := s.infoForNewMachine(c, info)
-	_, err = api.Open(machine3, fastDialOpts)
+	_, err = api.Open(context.Background(), machine3, fastDialOpts)
 	c.Assert(err, gc.ErrorMatches, `try again \(try again\)`)
 }
 
@@ -72,18 +72,18 @@ func (s *rateLimitSuite) TestRateLimitNotApplicableToUsers(c *gc.C) {
 
 	// First agent connection is fine.
 	machine1 := s.infoForNewMachine(c, info)
-	conn1, err := api.Open(machine1, fastDialOpts)
+	conn1, err := api.Open(context.Background(), machine1, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn1.Close()
 
 	// User connections are fine.
 	user := s.infoForNewUser(c, info, "fredrikthordendal")
-	conn2, err := api.Open(user, fastDialOpts)
+	conn2, err := api.Open(context.Background(), user, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn2.Close()
 
 	user2 := s.infoForNewUser(c, info, "jenskidman")
-	conn3, err := api.Open(user2, fastDialOpts)
+	conn3, err := api.Open(context.Background(), user2, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn3.Close()
 }

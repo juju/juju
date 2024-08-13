@@ -156,7 +156,7 @@ type destroyControllerAPI interface {
 
 type modelConfigAPI interface {
 	Close() error
-	ModelGet() (map[string]interface{}, error)
+	ModelGet(ctx context.Context) (map[string]interface{}, error)
 }
 
 // Info implements Command.Info.
@@ -242,13 +242,13 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 
 	// Attempt to connect to the API.  If we can't, fail the destroy.  Users will
 	// need to use the controller kill command if we can't connect.
-	api, err := c.getControllerAPI()
+	api, err := c.getControllerAPI(ctx)
 	if err != nil {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"), ctx, nil)
 	}
 	defer func() { _ = api.Close() }()
 
-	controllerModelConfigAPI, err := c.getControllerModelConfigAPI()
+	controllerModelConfigAPI, err := c.getControllerModelConfigAPI(ctx)
 	if err != nil {
 		return fmt.Errorf("cannot connect to model config API: %w", err)
 	}
@@ -548,7 +548,7 @@ type destroyCommandBase struct {
 	environsDestroy func(string, environs.ControllerDestroyer, envcontext.ProviderCallContext, jujuclient.ControllerStore) error
 }
 
-func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
+func (c *destroyCommandBase) getControllerAPI(ctx context.Context) (destroyControllerAPI, error) {
 	// Note that some tests set c.api to a non-nil value
 	// even when c.apierr is non-nil, hence the separate test.
 	if c.apierr != nil {
@@ -557,18 +557,18 @@ func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return controllerapi.NewClient(root), nil
 }
 
-func (c *destroyCommandBase) getControllerModelConfigAPI() (modelConfigAPI, error) {
+func (c *destroyCommandBase) getControllerModelConfigAPI(ctx context.Context) (modelConfigAPI, error) {
 	if c.controllerModelConfigAPI != nil {
 		return c.controllerModelConfigAPI, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -677,7 +677,7 @@ func (c *destroyCommandBase) getControllerEnvironFromAPI(
 			"unable to get bootstrap information from client store or API",
 		)
 	}
-	attrs, err := controllerModelConfigAPI.ModelGet()
+	attrs, err := controllerModelConfigAPI.ModelGet(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model config from API")
 	}

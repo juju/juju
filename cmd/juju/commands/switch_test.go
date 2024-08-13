@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"context"
 	"errors"
 	"os"
 
@@ -39,7 +40,7 @@ func (s *SwitchSimpleSuite) SetUpTest(c *gc.C) {
 	s.onRefresh = nil
 }
 
-func (s *SwitchSimpleSuite) refreshModels(store jujuclient.ClientStore, controllerName string) error {
+func (s *SwitchSimpleSuite) refreshModels(ctx context.Context, store jujuclient.ClientStore, controllerName string) error {
 	s.MethodCall(s, "RefreshModels", store, controllerName)
 	if s.onRefresh != nil {
 		s.onRefresh()

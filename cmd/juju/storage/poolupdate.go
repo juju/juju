@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4/keyvalues"
@@ -19,7 +21,7 @@ const (
 // PoolUpdateAPI defines the API methods that the storage commands use.
 type PoolUpdateAPI interface {
 	Close() error
-	UpdatePool(name, provider string, attr map[string]interface{}) error
+	UpdatePool(ctx context.Context, name, provider string, attr map[string]interface{}) error
 }
 
 const poolUpdateCommandDoc = `
@@ -39,8 +41,8 @@ Update which provider the pool is for:
 // NewPoolUpdateCommand returns a command that replaces the named storage pools' attributes.
 func NewPoolUpdateCommand() cmd.Command {
 	cmd := &poolUpdateCommand{}
-	cmd.newAPIFunc = func() (PoolUpdateAPI, error) {
-		return cmd.NewStorageAPI()
+	cmd.newAPIFunc = func(ctx context.Context) (PoolUpdateAPI, error) {
+		return cmd.NewStorageAPI(ctx)
 	}
 	return modelcmd.Wrap(cmd)
 }
@@ -48,7 +50,7 @@ func NewPoolUpdateCommand() cmd.Command {
 // poolUpdateCommand updates a storage pool configuration attributes.
 type poolUpdateCommand struct {
 	PoolCommandBase
-	newAPIFunc  func() (PoolUpdateAPI, error)
+	newAPIFunc  func(ctx context.Context) (PoolUpdateAPI, error)
 	poolName    string
 	configAttrs map[string]interface{}
 	provider    string
@@ -96,12 +98,12 @@ func (c *poolUpdateCommand) Info() *cmd.Info {
 
 // Run implements Command.Run.
 func (c *poolUpdateCommand) Run(ctx *cmd.Context) (err error) {
-	api, err := c.newAPIFunc()
+	api, err := c.newAPIFunc(ctx)
 	if err != nil {
 		return err
 	}
 	defer api.Close()
-	err = api.UpdatePool(c.poolName, c.provider, c.configAttrs)
+	err = api.UpdatePool(ctx, c.poolName, c.provider, c.configAttrs)
 	if err != nil {
 		return err
 	}

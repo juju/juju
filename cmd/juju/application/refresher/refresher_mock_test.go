@@ -10,6 +10,7 @@
 package refresher
 
 import (
+	context "context"
 	reflect "reflect"
 
 	charm "github.com/juju/juju/api/common/charm"
@@ -42,18 +43,18 @@ func (m *MockRefresherFactory) EXPECT() *MockRefresherFactoryMockRecorder {
 }
 
 // Run mocks base method.
-func (m *MockRefresherFactory) Run(arg0 RefresherConfig) (*CharmID, error) {
+func (m *MockRefresherFactory) Run(arg0 context.Context, arg1 RefresherConfig) (*CharmID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Run", arg0)
+	ret := m.ctrl.Call(m, "Run", arg0, arg1)
 	ret0, _ := ret[0].(*CharmID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Run indicates an expected call of Run.
-func (mr *MockRefresherFactoryMockRecorder) Run(arg0 any) *MockRefresherFactoryRunCall {
+func (mr *MockRefresherFactoryMockRecorder) Run(arg0, arg1 any) *MockRefresherFactoryRunCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockRefresherFactory)(nil).Run), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockRefresherFactory)(nil).Run), arg0, arg1)
 	return &MockRefresherFactoryRunCall{Call: call}
 }
 
@@ -69,13 +70,13 @@ func (c *MockRefresherFactoryRunCall) Return(arg0 *CharmID, arg1 error) *MockRef
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRefresherFactoryRunCall) Do(f func(RefresherConfig) (*CharmID, error)) *MockRefresherFactoryRunCall {
+func (c *MockRefresherFactoryRunCall) Do(f func(context.Context, RefresherConfig) (*CharmID, error)) *MockRefresherFactoryRunCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRefresherFactoryRunCall) DoAndReturn(f func(RefresherConfig) (*CharmID, error)) *MockRefresherFactoryRunCall {
+func (c *MockRefresherFactoryRunCall) DoAndReturn(f func(context.Context, RefresherConfig) (*CharmID, error)) *MockRefresherFactoryRunCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -104,18 +105,18 @@ func (m *MockRefresher) EXPECT() *MockRefresherMockRecorder {
 }
 
 // Allowed mocks base method.
-func (m *MockRefresher) Allowed(arg0 RefresherConfig) (bool, error) {
+func (m *MockRefresher) Allowed(arg0 context.Context, arg1 RefresherConfig) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Allowed", arg0)
+	ret := m.ctrl.Call(m, "Allowed", arg0, arg1)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Allowed indicates an expected call of Allowed.
-func (mr *MockRefresherMockRecorder) Allowed(arg0 any) *MockRefresherAllowedCall {
+func (mr *MockRefresherMockRecorder) Allowed(arg0, arg1 any) *MockRefresherAllowedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Allowed", reflect.TypeOf((*MockRefresher)(nil).Allowed), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Allowed", reflect.TypeOf((*MockRefresher)(nil).Allowed), arg0, arg1)
 	return &MockRefresherAllowedCall{Call: call}
 }
 
@@ -131,30 +132,30 @@ func (c *MockRefresherAllowedCall) Return(arg0 bool, arg1 error) *MockRefresherA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRefresherAllowedCall) Do(f func(RefresherConfig) (bool, error)) *MockRefresherAllowedCall {
+func (c *MockRefresherAllowedCall) Do(f func(context.Context, RefresherConfig) (bool, error)) *MockRefresherAllowedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRefresherAllowedCall) DoAndReturn(f func(RefresherConfig) (bool, error)) *MockRefresherAllowedCall {
+func (c *MockRefresherAllowedCall) DoAndReturn(f func(context.Context, RefresherConfig) (bool, error)) *MockRefresherAllowedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Refresh mocks base method.
-func (m *MockRefresher) Refresh() (*CharmID, error) {
+func (m *MockRefresher) Refresh(arg0 context.Context) (*CharmID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Refresh")
+	ret := m.ctrl.Call(m, "Refresh", arg0)
 	ret0, _ := ret[0].(*CharmID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Refresh indicates an expected call of Refresh.
-func (mr *MockRefresherMockRecorder) Refresh() *MockRefresherRefreshCall {
+func (mr *MockRefresherMockRecorder) Refresh(arg0 any) *MockRefresherRefreshCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockRefresher)(nil).Refresh))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockRefresher)(nil).Refresh), arg0)
 	return &MockRefresherRefreshCall{Call: call}
 }
 
@@ -170,13 +171,13 @@ func (c *MockRefresherRefreshCall) Return(arg0 *CharmID, arg1 error) *MockRefres
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRefresherRefreshCall) Do(f func() (*CharmID, error)) *MockRefresherRefreshCall {
+func (c *MockRefresherRefreshCall) Do(f func(context.Context) (*CharmID, error)) *MockRefresherRefreshCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRefresherRefreshCall) DoAndReturn(f func() (*CharmID, error)) *MockRefresherRefreshCall {
+func (c *MockRefresherRefreshCall) DoAndReturn(f func(context.Context) (*CharmID, error)) *MockRefresherRefreshCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -243,9 +244,9 @@ func (m *MockCharmResolver) EXPECT() *MockCharmResolverMockRecorder {
 }
 
 // ResolveCharm mocks base method.
-func (m *MockCharmResolver) ResolveCharm(arg0 *charm0.URL, arg1 charm.Origin, arg2 bool) (*charm0.URL, charm.Origin, []base.Base, error) {
+func (m *MockCharmResolver) ResolveCharm(arg0 context.Context, arg1 *charm0.URL, arg2 charm.Origin, arg3 bool) (*charm0.URL, charm.Origin, []base.Base, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResolveCharm", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ResolveCharm", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*charm0.URL)
 	ret1, _ := ret[1].(charm.Origin)
 	ret2, _ := ret[2].([]base.Base)
@@ -254,9 +255,9 @@ func (m *MockCharmResolver) ResolveCharm(arg0 *charm0.URL, arg1 charm.Origin, ar
 }
 
 // ResolveCharm indicates an expected call of ResolveCharm.
-func (mr *MockCharmResolverMockRecorder) ResolveCharm(arg0, arg1, arg2 any) *MockCharmResolverResolveCharmCall {
+func (mr *MockCharmResolverMockRecorder) ResolveCharm(arg0, arg1, arg2, arg3 any) *MockCharmResolverResolveCharmCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveCharm", reflect.TypeOf((*MockCharmResolver)(nil).ResolveCharm), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveCharm", reflect.TypeOf((*MockCharmResolver)(nil).ResolveCharm), arg0, arg1, arg2, arg3)
 	return &MockCharmResolverResolveCharmCall{Call: call}
 }
 
@@ -272,13 +273,13 @@ func (c *MockCharmResolverResolveCharmCall) Return(arg0 *charm0.URL, arg1 charm.
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmResolverResolveCharmCall) Do(f func(*charm0.URL, charm.Origin, bool) (*charm0.URL, charm.Origin, []base.Base, error)) *MockCharmResolverResolveCharmCall {
+func (c *MockCharmResolverResolveCharmCall) Do(f func(context.Context, *charm0.URL, charm.Origin, bool) (*charm0.URL, charm.Origin, []base.Base, error)) *MockCharmResolverResolveCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmResolverResolveCharmCall) DoAndReturn(f func(*charm0.URL, charm.Origin, bool) (*charm0.URL, charm.Origin, []base.Base, error)) *MockCharmResolverResolveCharmCall {
+func (c *MockCharmResolverResolveCharmCall) DoAndReturn(f func(context.Context, *charm0.URL, charm.Origin, bool) (*charm0.URL, charm.Origin, []base.Base, error)) *MockCharmResolverResolveCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

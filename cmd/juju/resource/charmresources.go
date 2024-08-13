@@ -26,7 +26,7 @@ type ResourceLister interface {
 
 // CharmResourceLister lists the resource of a charm.
 type CharmResourceLister interface {
-	ListCharmResources(curl string, origin apicharm.Origin) ([]charmresource.Resource, error)
+	ListCharmResources(ctx context.Context, curl string, origin apicharm.Origin) ([]charmresource.Resource, error)
 }
 
 // CharmID represents the charm identifier.
@@ -39,17 +39,17 @@ type CharmID struct {
 }
 
 // APIRoot defines a way to create a new API root.
-type APIRoot = func() (api.Connection, error)
+type APIRoot = func(ctx context.Context) (api.Connection, error)
 
 // ResourceListerDependencies defines the dependencies to create a store
 // dependant resource lister.
 type ResourceListerDependencies interface {
-	NewAPIRoot() (api.Connection, error)
+	NewAPIRoot(ctx context.Context) (api.Connection, error)
 }
 
 // CreateResourceListener defines a factory function to create a resource
 // lister.
-type CreateResourceListener = func(string, ResourceListerDependencies) (ResourceLister, error)
+type CreateResourceListener = func(context.Context, string, ResourceListerDependencies) (ResourceLister, error)
 
 // CharmResourcesCommand implements the "juju charm-resources" command.
 type CharmResourcesCommand struct {
@@ -72,7 +72,7 @@ func NewCharmResourcesCommand() modelcmd.ModelCommand {
 func NewCharmResourcesCommandWithClient(client ResourceLister) modelcmd.ModelCommand {
 	c := CharmResourcesCommand{
 		baseCharmResourcesCommand{
-			CreateResourceListerFn: func(schema string, deps ResourceListerDependencies) (ResourceLister, error) {
+			CreateResourceListerFn: func(ctx context.Context, schema string, deps ResourceListerDependencies) (ResourceLister, error) {
 				return client, nil
 			},
 		},
@@ -172,7 +172,7 @@ func (c *baseCharmResourcesCommand) baseRun(ctx *cmd.Context) error {
 		channel = charm.MakePermissiveChannel("", c.channel, "")
 	}
 
-	resourceLister, err := c.CreateResourceListerFn(charmURL.Schema, c)
+	resourceLister, err := c.CreateResourceListerFn(ctx, charmURL.Schema, c)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -237,7 +237,7 @@ func resolveCharm(raw string) (*charm.URL, error) {
 	return charmURL, nil
 }
 
-func defaultResourceLister(schema string, deps ResourceListerDependencies) (ResourceLister, error) {
+func defaultResourceLister(ctx context.Context, schema string, deps ResourceListerDependencies) (ResourceLister, error) {
 	return &CharmhubResourceLister{
 		APIRootFn: deps.NewAPIRoot,
 	}, nil
@@ -259,7 +259,7 @@ func (c *CharmhubResourceLister) ListResources(ctx context.Context, ids []CharmI
 		track = &id.Channel.Track
 	}
 
-	apiRoot, err := c.APIRootFn()
+	apiRoot, err := c.APIRootFn(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

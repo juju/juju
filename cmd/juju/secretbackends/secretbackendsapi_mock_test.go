@@ -79,18 +79,18 @@ func (c *MockListSecretBackendsAPICloseCall) DoAndReturn(f func() error) *MockLi
 }
 
 // ListSecretBackends mocks base method.
-func (m *MockListSecretBackendsAPI) ListSecretBackends(arg0 []string, arg1 bool) ([]secretbackends.SecretBackend, error) {
+func (m *MockListSecretBackendsAPI) ListSecretBackends(arg0 context.Context, arg1 []string, arg2 bool) ([]secretbackends.SecretBackend, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListSecretBackends", arg0, arg1)
+	ret := m.ctrl.Call(m, "ListSecretBackends", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]secretbackends.SecretBackend)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListSecretBackends indicates an expected call of ListSecretBackends.
-func (mr *MockListSecretBackendsAPIMockRecorder) ListSecretBackends(arg0, arg1 any) *MockListSecretBackendsAPIListSecretBackendsCall {
+func (mr *MockListSecretBackendsAPIMockRecorder) ListSecretBackends(arg0, arg1, arg2 any) *MockListSecretBackendsAPIListSecretBackendsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecretBackends", reflect.TypeOf((*MockListSecretBackendsAPI)(nil).ListSecretBackends), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecretBackends", reflect.TypeOf((*MockListSecretBackendsAPI)(nil).ListSecretBackends), arg0, arg1, arg2)
 	return &MockListSecretBackendsAPIListSecretBackendsCall{Call: call}
 }
 
@@ -106,13 +106,13 @@ func (c *MockListSecretBackendsAPIListSecretBackendsCall) Return(arg0 []secretba
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockListSecretBackendsAPIListSecretBackendsCall) Do(f func([]string, bool) ([]secretbackends.SecretBackend, error)) *MockListSecretBackendsAPIListSecretBackendsCall {
+func (c *MockListSecretBackendsAPIListSecretBackendsCall) Do(f func(context.Context, []string, bool) ([]secretbackends.SecretBackend, error)) *MockListSecretBackendsAPIListSecretBackendsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockListSecretBackendsAPIListSecretBackendsCall) DoAndReturn(f func([]string, bool) ([]secretbackends.SecretBackend, error)) *MockListSecretBackendsAPIListSecretBackendsCall {
+func (c *MockListSecretBackendsAPIListSecretBackendsCall) DoAndReturn(f func(context.Context, []string, bool) ([]secretbackends.SecretBackend, error)) *MockListSecretBackendsAPIListSecretBackendsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -141,17 +141,17 @@ func (m *MockAddSecretBackendsAPI) EXPECT() *MockAddSecretBackendsAPIMockRecorde
 }
 
 // AddSecretBackend mocks base method.
-func (m *MockAddSecretBackendsAPI) AddSecretBackend(arg0 secretbackends.CreateSecretBackend) error {
+func (m *MockAddSecretBackendsAPI) AddSecretBackend(arg0 context.Context, arg1 secretbackends.CreateSecretBackend) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddSecretBackend", arg0)
+	ret := m.ctrl.Call(m, "AddSecretBackend", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddSecretBackend indicates an expected call of AddSecretBackend.
-func (mr *MockAddSecretBackendsAPIMockRecorder) AddSecretBackend(arg0 any) *MockAddSecretBackendsAPIAddSecretBackendCall {
+func (mr *MockAddSecretBackendsAPIMockRecorder) AddSecretBackend(arg0, arg1 any) *MockAddSecretBackendsAPIAddSecretBackendCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSecretBackend", reflect.TypeOf((*MockAddSecretBackendsAPI)(nil).AddSecretBackend), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSecretBackend", reflect.TypeOf((*MockAddSecretBackendsAPI)(nil).AddSecretBackend), arg0, arg1)
 	return &MockAddSecretBackendsAPIAddSecretBackendCall{Call: call}
 }
 
@@ -167,13 +167,13 @@ func (c *MockAddSecretBackendsAPIAddSecretBackendCall) Return(arg0 error) *MockA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAddSecretBackendsAPIAddSecretBackendCall) Do(f func(secretbackends.CreateSecretBackend) error) *MockAddSecretBackendsAPIAddSecretBackendCall {
+func (c *MockAddSecretBackendsAPIAddSecretBackendCall) Do(f func(context.Context, secretbackends.CreateSecretBackend) error) *MockAddSecretBackendsAPIAddSecretBackendCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAddSecretBackendsAPIAddSecretBackendCall) DoAndReturn(f func(secretbackends.CreateSecretBackend) error) *MockAddSecretBackendsAPIAddSecretBackendCall {
+func (c *MockAddSecretBackendsAPIAddSecretBackendCall) DoAndReturn(f func(context.Context, secretbackends.CreateSecretBackend) error) *MockAddSecretBackendsAPIAddSecretBackendCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -278,17 +278,17 @@ func (c *MockRemoveSecretBackendsAPICloseCall) DoAndReturn(f func() error) *Mock
 }
 
 // RemoveSecretBackend mocks base method.
-func (m *MockRemoveSecretBackendsAPI) RemoveSecretBackend(arg0 string, arg1 bool) error {
+func (m *MockRemoveSecretBackendsAPI) RemoveSecretBackend(arg0 context.Context, arg1 string, arg2 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveSecretBackend", arg0, arg1)
+	ret := m.ctrl.Call(m, "RemoveSecretBackend", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveSecretBackend indicates an expected call of RemoveSecretBackend.
-func (mr *MockRemoveSecretBackendsAPIMockRecorder) RemoveSecretBackend(arg0, arg1 any) *MockRemoveSecretBackendsAPIRemoveSecretBackendCall {
+func (mr *MockRemoveSecretBackendsAPIMockRecorder) RemoveSecretBackend(arg0, arg1, arg2 any) *MockRemoveSecretBackendsAPIRemoveSecretBackendCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecretBackend", reflect.TypeOf((*MockRemoveSecretBackendsAPI)(nil).RemoveSecretBackend), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecretBackend", reflect.TypeOf((*MockRemoveSecretBackendsAPI)(nil).RemoveSecretBackend), arg0, arg1, arg2)
 	return &MockRemoveSecretBackendsAPIRemoveSecretBackendCall{Call: call}
 }
 
@@ -304,13 +304,13 @@ func (c *MockRemoveSecretBackendsAPIRemoveSecretBackendCall) Return(arg0 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoveSecretBackendsAPIRemoveSecretBackendCall) Do(f func(string, bool) error) *MockRemoveSecretBackendsAPIRemoveSecretBackendCall {
+func (c *MockRemoveSecretBackendsAPIRemoveSecretBackendCall) Do(f func(context.Context, string, bool) error) *MockRemoveSecretBackendsAPIRemoveSecretBackendCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoveSecretBackendsAPIRemoveSecretBackendCall) DoAndReturn(f func(string, bool) error) *MockRemoveSecretBackendsAPIRemoveSecretBackendCall {
+func (c *MockRemoveSecretBackendsAPIRemoveSecretBackendCall) DoAndReturn(f func(context.Context, string, bool) error) *MockRemoveSecretBackendsAPIRemoveSecretBackendCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -377,17 +377,17 @@ func (c *MockUpdateSecretBackendsAPICloseCall) DoAndReturn(f func() error) *Mock
 }
 
 // UpdateSecretBackend mocks base method.
-func (m *MockUpdateSecretBackendsAPI) UpdateSecretBackend(arg0 secretbackends.UpdateSecretBackend, arg1 bool) error {
+func (m *MockUpdateSecretBackendsAPI) UpdateSecretBackend(arg0 context.Context, arg1 secretbackends.UpdateSecretBackend, arg2 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateSecretBackend", arg0, arg1)
+	ret := m.ctrl.Call(m, "UpdateSecretBackend", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateSecretBackend indicates an expected call of UpdateSecretBackend.
-func (mr *MockUpdateSecretBackendsAPIMockRecorder) UpdateSecretBackend(arg0, arg1 any) *MockUpdateSecretBackendsAPIUpdateSecretBackendCall {
+func (mr *MockUpdateSecretBackendsAPIMockRecorder) UpdateSecretBackend(arg0, arg1, arg2 any) *MockUpdateSecretBackendsAPIUpdateSecretBackendCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecretBackend", reflect.TypeOf((*MockUpdateSecretBackendsAPI)(nil).UpdateSecretBackend), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecretBackend", reflect.TypeOf((*MockUpdateSecretBackendsAPI)(nil).UpdateSecretBackend), arg0, arg1, arg2)
 	return &MockUpdateSecretBackendsAPIUpdateSecretBackendCall{Call: call}
 }
 
@@ -403,13 +403,13 @@ func (c *MockUpdateSecretBackendsAPIUpdateSecretBackendCall) Return(arg0 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUpdateSecretBackendsAPIUpdateSecretBackendCall) Do(f func(secretbackends.UpdateSecretBackend, bool) error) *MockUpdateSecretBackendsAPIUpdateSecretBackendCall {
+func (c *MockUpdateSecretBackendsAPIUpdateSecretBackendCall) Do(f func(context.Context, secretbackends.UpdateSecretBackend, bool) error) *MockUpdateSecretBackendsAPIUpdateSecretBackendCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUpdateSecretBackendsAPIUpdateSecretBackendCall) DoAndReturn(f func(secretbackends.UpdateSecretBackend, bool) error) *MockUpdateSecretBackendsAPIUpdateSecretBackendCall {
+func (c *MockUpdateSecretBackendsAPIUpdateSecretBackendCall) DoAndReturn(f func(context.Context, secretbackends.UpdateSecretBackend, bool) error) *MockUpdateSecretBackendsAPIUpdateSecretBackendCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

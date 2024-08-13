@@ -5,6 +5,7 @@ package application
 
 import (
 	"bytes"
+	"context"
 	"time"
 
 	"github.com/juju/cmd/v4"
@@ -66,7 +67,7 @@ func (s *removeApplicationSuite) runWithContext(ctx *cmd.Context, args ...string
 func (s *removeApplicationSuite) TestRemoveApplication(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+	s.mockApi.EXPECT().DestroyApplications(gomock.Any(), apiapplication.DestroyApplicationsParams{
 		Applications: []string{"real-app"},
 	}).Return([]params.DestroyApplicationResult{{
 		Info: &params.DestroyApplicationInfo{},
@@ -83,9 +84,9 @@ func (s *removeApplicationSuite) TestRemoveApplicationWithRequiresPromptModeAbse
 	defer s.setup(c).Finish()
 
 	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: ""})
-	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
+	s.mockModelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 
-	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+	s.mockApi.EXPECT().DestroyApplications(gomock.Any(), apiapplication.DestroyApplicationsParams{
 		Applications: []string{"real-app"},
 	}).Return([]params.DestroyApplicationResult{{
 		Info: &params.DestroyApplicationInfo{},
@@ -101,7 +102,7 @@ func (s *removeApplicationSuite) TestRemoveApplicationWithRequiresPromptModeAbse
 func (s *removeApplicationSuite) TestRemoveApplicationForce(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+	s.mockApi.EXPECT().DestroyApplications(gomock.Any(), apiapplication.DestroyApplicationsParams{
 		Applications: []string{"real-app"},
 		Force:        true,
 	}).Return([]params.DestroyApplicationResult{{
@@ -118,7 +119,7 @@ func (s *removeApplicationSuite) TestRemoveApplicationForce(c *gc.C) {
 func (s *removeApplicationSuite) TestRemoveApplicationDryRun(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+	s.mockApi.EXPECT().DestroyApplications(gomock.Any(), apiapplication.DestroyApplicationsParams{
 		Applications: []string{"real-app"},
 		DryRun:       true,
 	}).Return([]params.DestroyApplicationResult{{
@@ -150,15 +151,15 @@ func (s *removeApplicationSuite) TestRemoveApplicationPrompt(c *gc.C) {
 	ctx.Stdin = &stdin
 
 	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
-	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
+	s.mockModelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 
-	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+	s.mockApi.EXPECT().DestroyApplications(gomock.Any(), apiapplication.DestroyApplicationsParams{
 		Applications: []string{"real-app"},
 		DryRun:       true,
 	}).Return([]params.DestroyApplicationResult{{
 		Info: &params.DestroyApplicationInfo{},
 	}}, nil)
-	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+	s.mockApi.EXPECT().DestroyApplications(gomock.Any(), apiapplication.DestroyApplicationsParams{
 		Applications: []string{"real-app"},
 	}).Return([]params.DestroyApplicationResult{{
 		Info: &params.DestroyApplicationInfo{},
@@ -178,8 +179,8 @@ func (s *removeApplicationSuite) TestRemoveApplicationPrompt(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `(?s)will remove application real-app.*`)
 }
 
-func setupRace(raceyApplications []string) func(args apiapplication.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error) {
-	return func(args apiapplication.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error) {
+func setupRace(raceyApplications []string) func(ctx context.Context, args apiapplication.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error) {
+	return func(ctx context.Context, args apiapplication.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error) {
 		results := make([]params.DestroyApplicationResult, len(args.Applications))
 		for i, app := range args.Applications {
 			results[i].Info = &params.DestroyApplicationInfo{}
@@ -197,7 +198,7 @@ func setupRace(raceyApplications []string) func(args apiapplication.DestroyAppli
 func (s *removeApplicationSuite) TestHandlingNotSupportedDoesNotAffectBaseCase(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+	s.mockApi.EXPECT().DestroyApplications(gomock.Any(), apiapplication.DestroyApplicationsParams{
 		Applications: []string{"real-app"},
 	}).DoAndReturn(setupRace([]string{"do-not-remove"}))
 
@@ -211,7 +212,7 @@ func (s *removeApplicationSuite) TestHandlingNotSupportedDoesNotAffectBaseCase(c
 func (s *removeApplicationSuite) TestHandlingNotSupported(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+	s.mockApi.EXPECT().DestroyApplications(gomock.Any(), apiapplication.DestroyApplicationsParams{
 		Applications: []string{"do-not-remove"},
 	}).DoAndReturn(setupRace([]string{"do-not-remove"}))
 
@@ -227,7 +228,7 @@ ERROR removing application do-not-remove failed: another user was updating appli
 func (s *removeApplicationSuite) TestHandlingNotSupportedMultipleApps(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+	s.mockApi.EXPECT().DestroyApplications(gomock.Any(), apiapplication.DestroyApplicationsParams{
 		Applications: []string{"real-app", "do-not-remove", "another"},
 	}).DoAndReturn(setupRace([]string{"do-not-remove"}))
 
@@ -246,7 +247,7 @@ ERROR removing application do-not-remove failed: another user was updating appli
 func (s *removeApplicationSuite) TestDetachStorage(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+	s.mockApi.EXPECT().DestroyApplications(gomock.Any(), apiapplication.DestroyApplicationsParams{
 		Applications: []string{"storage-app"},
 	}).Return([]params.DestroyApplicationResult{{
 		Info: &params.DestroyApplicationInfo{
@@ -270,7 +271,7 @@ will remove application storage-app
 func (s *removeApplicationSuite) TestDestroyStorage(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+	s.mockApi.EXPECT().DestroyApplications(gomock.Any(), apiapplication.DestroyApplicationsParams{
 		Applications:   []string{"storage-app"},
 		DestroyStorage: true,
 	}).Return([]params.DestroyApplicationResult{{
@@ -295,7 +296,7 @@ will remove application storage-app
 func (s *removeApplicationSuite) TestFailure(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+	s.mockApi.EXPECT().DestroyApplications(gomock.Any(), apiapplication.DestroyApplicationsParams{
 		Applications: []string{"gargleblaster"},
 	}).Return([]params.DestroyApplicationResult{{
 		Error: &params.Error{

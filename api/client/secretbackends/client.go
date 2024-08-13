@@ -49,13 +49,13 @@ type SecretBackend struct {
 var notSupported = errors.NotSupportedf("secret backends on this juju version")
 
 // ListSecretBackends lists the specified secret backends, or all available if no names are provided.
-func (api *Client) ListSecretBackends(names []string, reveal bool) ([]SecretBackend, error) {
+func (api *Client) ListSecretBackends(ctx context.Context, names []string, reveal bool) ([]SecretBackend, error) {
 	if api.BestAPIVersion() < 1 {
 		return nil, notSupported
 	}
 
 	var response params.ListSecretBackendsResults
-	err := api.facade.FacadeCall(context.TODO(), "ListSecretBackends", params.ListSecretBackendsArgs{Names: names, Reveal: reveal}, &response)
+	err := api.facade.FacadeCall(ctx, "ListSecretBackends", params.ListSecretBackendsArgs{Names: names, Reveal: reveal}, &response)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -91,7 +91,7 @@ type CreateSecretBackend struct {
 }
 
 // AddSecretBackend adds the specified secret backend.
-func (api *Client) AddSecretBackend(backend CreateSecretBackend) error {
+func (api *Client) AddSecretBackend(ctx context.Context, backend CreateSecretBackend) error {
 	if api.BestAPIVersion() < 1 {
 		return notSupported
 	}
@@ -108,7 +108,7 @@ func (api *Client) AddSecretBackend(backend CreateSecretBackend) error {
 			},
 		}},
 	}
-	err := api.facade.FacadeCall(context.TODO(), "AddSecretBackends", args, &results)
+	err := api.facade.FacadeCall(ctx, "AddSecretBackends", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -125,7 +125,7 @@ type UpdateSecretBackend struct {
 }
 
 // UpdateSecretBackend updates the specified secret backend.
-func (api *Client) UpdateSecretBackend(arg UpdateSecretBackend, force bool) error {
+func (api *Client) UpdateSecretBackend(ctx context.Context, arg UpdateSecretBackend, force bool) error {
 	if api.BestAPIVersion() < 1 {
 		return notSupported
 	}
@@ -141,7 +141,7 @@ func (api *Client) UpdateSecretBackend(arg UpdateSecretBackend, force bool) erro
 			Force:               force,
 		}},
 	}
-	err := api.facade.FacadeCall(context.TODO(), "UpdateSecretBackends", args, &results)
+	err := api.facade.FacadeCall(ctx, "UpdateSecretBackends", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -149,7 +149,7 @@ func (api *Client) UpdateSecretBackend(arg UpdateSecretBackend, force bool) erro
 }
 
 // RemoveSecretBackend removes the specified secret backend.
-func (api *Client) RemoveSecretBackend(name string, force bool) error {
+func (api *Client) RemoveSecretBackend(ctx context.Context, name string, force bool) error {
 	if api.BestAPIVersion() < 1 {
 		return notSupported
 	}
@@ -161,7 +161,7 @@ func (api *Client) RemoveSecretBackend(name string, force bool) error {
 			Force: force,
 		}},
 	}
-	err := api.facade.FacadeCall(context.TODO(), "RemoveSecretBackends", args, &results)
+	err := api.facade.FacadeCall(ctx, "RemoveSecretBackends", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

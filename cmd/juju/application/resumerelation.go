@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -33,8 +34,8 @@ const resumeHelpExamples = `
 // NewResumeRelationCommand returns a command to resume a relation.
 func NewResumeRelationCommand() cmd.Command {
 	cmd := &resumeRelationCommand{}
-	cmd.newAPIFunc = func() (SetRelationSuspendedAPI, error) {
-		root, err := cmd.NewAPIRoot()
+	cmd.newAPIFunc = func(ctx context.Context) (SetRelationSuspendedAPI, error) {
+		root, err := cmd.NewAPIRoot(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -47,7 +48,7 @@ func NewResumeRelationCommand() cmd.Command {
 type resumeRelationCommand struct {
 	modelcmd.ModelCommandBase
 	relationIds []int
-	newAPIFunc  func() (SetRelationSuspendedAPI, error)
+	newAPIFunc  func(ctx context.Context) (SetRelationSuspendedAPI, error)
 }
 
 func (c *resumeRelationCommand) Info() *cmd.Info {
@@ -80,12 +81,12 @@ func (c *resumeRelationCommand) Init(args []string) (err error) {
 	return nil
 }
 
-func (c *resumeRelationCommand) Run(_ *cmd.Context) error {
-	client, err := c.newAPIFunc()
+func (c *resumeRelationCommand) Run(ctx *cmd.Context) error {
+	client, err := c.newAPIFunc(ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	err = client.SetRelationSuspended(c.relationIds, false, "")
+	err = client.SetRelationSuspended(ctx, c.relationIds, false, "")
 	return block.ProcessBlockedError(err, block.BlockChange)
 }

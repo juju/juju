@@ -35,7 +35,7 @@ type updatePublicCloudsCommand struct {
 	publicSigningKey string
 	publicCloudURL   string
 
-	addCloudAPIFunc func() (updatePublicCloudAPI, error)
+	addCloudAPIFunc func(ctx context.Context) (updatePublicCloudAPI, error)
 }
 
 var updatePublicCloudsDoc = `
@@ -219,13 +219,13 @@ func updateClientCopy(publishedClouds map[string]jujucloud.Cloud) (string, error
 }
 
 func (c *updatePublicCloudsCommand) updateControllerCopy(ctxt *cmd.Context, publishedClouds map[string]jujucloud.Cloud) error {
-	api, err := c.addCloudAPIFunc()
+	api, err := c.addCloudAPIFunc(ctxt)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer api.Close()
 
-	allClouds, err := api.Clouds()
+	allClouds, err := api.Clouds(ctxt)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -242,7 +242,7 @@ func (c *updatePublicCloudsCommand) updateControllerCopy(ctxt *cmd.Context, publ
 		}
 		oldCopies[cloudName] = currentCopy
 		newCopies[cloudName] = updatedCopy
-		if err := api.UpdateCloud(updatedCopy); err != nil {
+		if err := api.UpdateCloud(ctxt, updatedCopy); err != nil {
 			fmt.Fprintln(ctxt.Stderr, fmt.Sprintf("ERROR updating public cloud data on controller %q: %v", c.ControllerName, err))
 			continue
 		}
@@ -259,11 +259,11 @@ func (c *updatePublicCloudsCommand) updateControllerCopy(ctxt *cmd.Context, publ
 
 type updatePublicCloudAPI interface {
 	updateCloudAPI
-	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
+	Clouds(ctx context.Context) (map[names.CloudTag]jujucloud.Cloud, error)
 }
 
-func (c *updatePublicCloudsCommand) cloudAPI() (updatePublicCloudAPI, error) {
-	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
+func (c *updatePublicCloudsCommand) cloudAPI(ctx context.Context) (updatePublicCloudAPI, error) {
+	root, err := c.NewAPIRoot(ctx, c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

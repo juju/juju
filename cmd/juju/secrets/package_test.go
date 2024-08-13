@@ -4,6 +4,7 @@
 package secrets
 
 import (
+	"context"
 	stdtesting "testing"
 
 	gc "gopkg.in/check.v1"
@@ -20,7 +21,7 @@ func TestPackage(t *stdtesting.T) {
 // NewAddCommandForTest returns a secrets command for testing.
 func NewAddCommandForTest(store jujuclient.ClientStore, api AddSecretsAPI) *addSecretCommand {
 	c := &addSecretCommand{
-		secretsAPIFunc: func() (AddSecretsAPI, error) { return api, nil },
+		secretsAPIFunc: func(ctx context.Context) (AddSecretsAPI, error) { return api, nil },
 	}
 	c.SetClientStore(store)
 	return c
@@ -29,7 +30,7 @@ func NewAddCommandForTest(store jujuclient.ClientStore, api AddSecretsAPI) *addS
 // NewUpdateCommandForTest returns a secrets command for testing.
 func NewUpdateCommandForTest(store jujuclient.ClientStore, api UpdateSecretsAPI) *updateSecretCommand {
 	c := &updateSecretCommand{
-		secretsAPIFunc: func() (UpdateSecretsAPI, error) { return api, nil },
+		secretsAPIFunc: func(ctx context.Context) (UpdateSecretsAPI, error) { return api, nil },
 	}
 	c.SetClientStore(store)
 	return c
@@ -38,7 +39,7 @@ func NewUpdateCommandForTest(store jujuclient.ClientStore, api UpdateSecretsAPI)
 // NewRemoveCommandForTest returns a secrets command for testing.
 func NewRemoveCommandForTest(store jujuclient.ClientStore, api RemoveSecretsAPI) *removeSecretCommand {
 	c := &removeSecretCommand{
-		secretsAPIFunc: func() (RemoveSecretsAPI, error) { return api, nil },
+		secretsAPIFunc: func(ctx context.Context) (RemoveSecretsAPI, error) { return api, nil },
 	}
 	c.SetClientStore(store)
 	return c
@@ -47,7 +48,7 @@ func NewRemoveCommandForTest(store jujuclient.ClientStore, api RemoveSecretsAPI)
 // NewGrantCommandForTest returns a secrets command for testing.
 func NewGrantCommandForTest(store jujuclient.ClientStore, api GrantRevokeSecretsAPI) *grantSecretCommand {
 	c := &grantSecretCommand{
-		secretsAPIFunc: func() (GrantRevokeSecretsAPI, error) { return api, nil },
+		secretsAPIFunc: func(ctx context.Context) (GrantRevokeSecretsAPI, error) { return api, nil },
 	}
 	c.SetClientStore(store)
 	return c
@@ -56,7 +57,7 @@ func NewGrantCommandForTest(store jujuclient.ClientStore, api GrantRevokeSecrets
 // NewRevokeCommandForTest returns a secrets command for testing.
 func NewRevokeCommandForTest(store jujuclient.ClientStore, api GrantRevokeSecretsAPI) *revokeSecretCommand {
 	c := &revokeSecretCommand{
-		secretsAPIFunc: func() (GrantRevokeSecretsAPI, error) { return api, nil },
+		secretsAPIFunc: func(ctx context.Context) (GrantRevokeSecretsAPI, error) { return api, nil },
 	}
 	c.SetClientStore(store)
 	return c
@@ -65,7 +66,7 @@ func NewRevokeCommandForTest(store jujuclient.ClientStore, api GrantRevokeSecret
 // NewListCommandForTest returns a secrets command for testing.
 func NewListCommandForTest(store jujuclient.ClientStore, listSecretsAPI ListSecretsAPI) *listSecretsCommand {
 	c := &listSecretsCommand{
-		listSecretsAPIFunc: func() (ListSecretsAPI, error) { return listSecretsAPI, nil },
+		listSecretsAPIFunc: func(ctx context.Context) (ListSecretsAPI, error) { return listSecretsAPI, nil },
 	}
 	c.SetClientStore(store)
 	return c
@@ -74,7 +75,7 @@ func NewListCommandForTest(store jujuclient.ClientStore, listSecretsAPI ListSecr
 // NewShowCommandForTest returns a list-secrets command for testing.
 func NewShowCommandForTest(store jujuclient.ClientStore, listSecretsAPI ListSecretsAPI) *showSecretsCommand {
 	c := &showSecretsCommand{
-		listSecretsAPIFunc: func() (ListSecretsAPI, error) { return listSecretsAPI, nil },
+		listSecretsAPIFunc: func(ctx context.Context) (ListSecretsAPI, error) { return listSecretsAPI, nil },
 	}
 	c.SetClientStore(store)
 	return c

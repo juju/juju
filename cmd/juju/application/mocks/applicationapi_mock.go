@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	application "github.com/juju/juju/api/client/application"
@@ -79,18 +80,18 @@ func (c *MockApplicationAPICloseCall) DoAndReturn(f func() error) *MockApplicati
 }
 
 // Get mocks base method.
-func (m *MockApplicationAPI) Get(arg0 string) (*params.ApplicationGetResults, error) {
+func (m *MockApplicationAPI) Get(arg0 context.Context, arg1 string) (*params.ApplicationGetResults, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", arg0)
+	ret := m.ctrl.Call(m, "Get", arg0, arg1)
 	ret0, _ := ret[0].(*params.ApplicationGetResults)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get.
-func (mr *MockApplicationAPIMockRecorder) Get(arg0 any) *MockApplicationAPIGetCall {
+func (mr *MockApplicationAPIMockRecorder) Get(arg0, arg1 any) *MockApplicationAPIGetCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockApplicationAPI)(nil).Get), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockApplicationAPI)(nil).Get), arg0, arg1)
 	return &MockApplicationAPIGetCall{Call: call}
 }
 
@@ -106,29 +107,29 @@ func (c *MockApplicationAPIGetCall) Return(arg0 *params.ApplicationGetResults, a
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationAPIGetCall) Do(f func(string) (*params.ApplicationGetResults, error)) *MockApplicationAPIGetCall {
+func (c *MockApplicationAPIGetCall) Do(f func(context.Context, string) (*params.ApplicationGetResults, error)) *MockApplicationAPIGetCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationAPIGetCall) DoAndReturn(f func(string) (*params.ApplicationGetResults, error)) *MockApplicationAPIGetCall {
+func (c *MockApplicationAPIGetCall) DoAndReturn(f func(context.Context, string) (*params.ApplicationGetResults, error)) *MockApplicationAPIGetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetConfig mocks base method.
-func (m *MockApplicationAPI) SetConfig(arg0, arg1 string, arg2 map[string]string) error {
+func (m *MockApplicationAPI) SetConfig(arg0 context.Context, arg1, arg2 string, arg3 map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetConfig", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetConfig", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetConfig indicates an expected call of SetConfig.
-func (mr *MockApplicationAPIMockRecorder) SetConfig(arg0, arg1, arg2 any) *MockApplicationAPISetConfigCall {
+func (mr *MockApplicationAPIMockRecorder) SetConfig(arg0, arg1, arg2, arg3 any) *MockApplicationAPISetConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConfig", reflect.TypeOf((*MockApplicationAPI)(nil).SetConfig), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConfig", reflect.TypeOf((*MockApplicationAPI)(nil).SetConfig), arg0, arg1, arg2, arg3)
 	return &MockApplicationAPISetConfigCall{Call: call}
 }
 
@@ -144,29 +145,29 @@ func (c *MockApplicationAPISetConfigCall) Return(arg0 error) *MockApplicationAPI
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationAPISetConfigCall) Do(f func(string, string, map[string]string) error) *MockApplicationAPISetConfigCall {
+func (c *MockApplicationAPISetConfigCall) Do(f func(context.Context, string, string, map[string]string) error) *MockApplicationAPISetConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationAPISetConfigCall) DoAndReturn(f func(string, string, map[string]string) error) *MockApplicationAPISetConfigCall {
+func (c *MockApplicationAPISetConfigCall) DoAndReturn(f func(context.Context, string, string, map[string]string) error) *MockApplicationAPISetConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // UnsetApplicationConfig mocks base method.
-func (m *MockApplicationAPI) UnsetApplicationConfig(arg0 string, arg1 []string) error {
+func (m *MockApplicationAPI) UnsetApplicationConfig(arg0 context.Context, arg1 string, arg2 []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnsetApplicationConfig", arg0, arg1)
+	ret := m.ctrl.Call(m, "UnsetApplicationConfig", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UnsetApplicationConfig indicates an expected call of UnsetApplicationConfig.
-func (mr *MockApplicationAPIMockRecorder) UnsetApplicationConfig(arg0, arg1 any) *MockApplicationAPIUnsetApplicationConfigCall {
+func (mr *MockApplicationAPIMockRecorder) UnsetApplicationConfig(arg0, arg1, arg2 any) *MockApplicationAPIUnsetApplicationConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnsetApplicationConfig", reflect.TypeOf((*MockApplicationAPI)(nil).UnsetApplicationConfig), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnsetApplicationConfig", reflect.TypeOf((*MockApplicationAPI)(nil).UnsetApplicationConfig), arg0, arg1, arg2)
 	return &MockApplicationAPIUnsetApplicationConfigCall{Call: call}
 }
 
@@ -182,13 +183,13 @@ func (c *MockApplicationAPIUnsetApplicationConfigCall) Return(arg0 error) *MockA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationAPIUnsetApplicationConfigCall) Do(f func(string, []string) error) *MockApplicationAPIUnsetApplicationConfigCall {
+func (c *MockApplicationAPIUnsetApplicationConfigCall) Do(f func(context.Context, string, []string) error) *MockApplicationAPIUnsetApplicationConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationAPIUnsetApplicationConfigCall) DoAndReturn(f func(string, []string) error) *MockApplicationAPIUnsetApplicationConfigCall {
+func (c *MockApplicationAPIUnsetApplicationConfigCall) DoAndReturn(f func(context.Context, string, []string) error) *MockApplicationAPIUnsetApplicationConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -293,18 +294,18 @@ func (c *MockRemoveApplicationAPICloseCall) DoAndReturn(f func() error) *MockRem
 }
 
 // DestroyApplications mocks base method.
-func (m *MockRemoveApplicationAPI) DestroyApplications(arg0 application.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error) {
+func (m *MockRemoveApplicationAPI) DestroyApplications(arg0 context.Context, arg1 application.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestroyApplications", arg0)
+	ret := m.ctrl.Call(m, "DestroyApplications", arg0, arg1)
 	ret0, _ := ret[0].([]params.DestroyApplicationResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DestroyApplications indicates an expected call of DestroyApplications.
-func (mr *MockRemoveApplicationAPIMockRecorder) DestroyApplications(arg0 any) *MockRemoveApplicationAPIDestroyApplicationsCall {
+func (mr *MockRemoveApplicationAPIMockRecorder) DestroyApplications(arg0, arg1 any) *MockRemoveApplicationAPIDestroyApplicationsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyApplications", reflect.TypeOf((*MockRemoveApplicationAPI)(nil).DestroyApplications), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyApplications", reflect.TypeOf((*MockRemoveApplicationAPI)(nil).DestroyApplications), arg0, arg1)
 	return &MockRemoveApplicationAPIDestroyApplicationsCall{Call: call}
 }
 
@@ -320,30 +321,30 @@ func (c *MockRemoveApplicationAPIDestroyApplicationsCall) Return(arg0 []params.D
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoveApplicationAPIDestroyApplicationsCall) Do(f func(application.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error)) *MockRemoveApplicationAPIDestroyApplicationsCall {
+func (c *MockRemoveApplicationAPIDestroyApplicationsCall) Do(f func(context.Context, application.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error)) *MockRemoveApplicationAPIDestroyApplicationsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoveApplicationAPIDestroyApplicationsCall) DoAndReturn(f func(application.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error)) *MockRemoveApplicationAPIDestroyApplicationsCall {
+func (c *MockRemoveApplicationAPIDestroyApplicationsCall) DoAndReturn(f func(context.Context, application.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error)) *MockRemoveApplicationAPIDestroyApplicationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DestroyUnits mocks base method.
-func (m *MockRemoveApplicationAPI) DestroyUnits(arg0 application.DestroyUnitsParams) ([]params.DestroyUnitResult, error) {
+func (m *MockRemoveApplicationAPI) DestroyUnits(arg0 context.Context, arg1 application.DestroyUnitsParams) ([]params.DestroyUnitResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestroyUnits", arg0)
+	ret := m.ctrl.Call(m, "DestroyUnits", arg0, arg1)
 	ret0, _ := ret[0].([]params.DestroyUnitResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DestroyUnits indicates an expected call of DestroyUnits.
-func (mr *MockRemoveApplicationAPIMockRecorder) DestroyUnits(arg0 any) *MockRemoveApplicationAPIDestroyUnitsCall {
+func (mr *MockRemoveApplicationAPIMockRecorder) DestroyUnits(arg0, arg1 any) *MockRemoveApplicationAPIDestroyUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyUnits", reflect.TypeOf((*MockRemoveApplicationAPI)(nil).DestroyUnits), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyUnits", reflect.TypeOf((*MockRemoveApplicationAPI)(nil).DestroyUnits), arg0, arg1)
 	return &MockRemoveApplicationAPIDestroyUnitsCall{Call: call}
 }
 
@@ -359,13 +360,13 @@ func (c *MockRemoveApplicationAPIDestroyUnitsCall) Return(arg0 []params.DestroyU
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoveApplicationAPIDestroyUnitsCall) Do(f func(application.DestroyUnitsParams) ([]params.DestroyUnitResult, error)) *MockRemoveApplicationAPIDestroyUnitsCall {
+func (c *MockRemoveApplicationAPIDestroyUnitsCall) Do(f func(context.Context, application.DestroyUnitsParams) ([]params.DestroyUnitResult, error)) *MockRemoveApplicationAPIDestroyUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoveApplicationAPIDestroyUnitsCall) DoAndReturn(f func(application.DestroyUnitsParams) ([]params.DestroyUnitResult, error)) *MockRemoveApplicationAPIDestroyUnitsCall {
+func (c *MockRemoveApplicationAPIDestroyUnitsCall) DoAndReturn(f func(context.Context, application.DestroyUnitsParams) ([]params.DestroyUnitResult, error)) *MockRemoveApplicationAPIDestroyUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -409,18 +410,18 @@ func (c *MockRemoveApplicationAPIModelUUIDCall) DoAndReturn(f func() string) *Mo
 }
 
 // ScaleApplication mocks base method.
-func (m *MockRemoveApplicationAPI) ScaleApplication(arg0 application.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
+func (m *MockRemoveApplicationAPI) ScaleApplication(arg0 context.Context, arg1 application.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ScaleApplication", arg0)
+	ret := m.ctrl.Call(m, "ScaleApplication", arg0, arg1)
 	ret0, _ := ret[0].(params.ScaleApplicationResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ScaleApplication indicates an expected call of ScaleApplication.
-func (mr *MockRemoveApplicationAPIMockRecorder) ScaleApplication(arg0 any) *MockRemoveApplicationAPIScaleApplicationCall {
+func (mr *MockRemoveApplicationAPIMockRecorder) ScaleApplication(arg0, arg1 any) *MockRemoveApplicationAPIScaleApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ScaleApplication", reflect.TypeOf((*MockRemoveApplicationAPI)(nil).ScaleApplication), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ScaleApplication", reflect.TypeOf((*MockRemoveApplicationAPI)(nil).ScaleApplication), arg0, arg1)
 	return &MockRemoveApplicationAPIScaleApplicationCall{Call: call}
 }
 
@@ -436,13 +437,13 @@ func (c *MockRemoveApplicationAPIScaleApplicationCall) Return(arg0 params.ScaleA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoveApplicationAPIScaleApplicationCall) Do(f func(application.ScaleApplicationParams) (params.ScaleApplicationResult, error)) *MockRemoveApplicationAPIScaleApplicationCall {
+func (c *MockRemoveApplicationAPIScaleApplicationCall) Do(f func(context.Context, application.ScaleApplicationParams) (params.ScaleApplicationResult, error)) *MockRemoveApplicationAPIScaleApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoveApplicationAPIScaleApplicationCall) DoAndReturn(f func(application.ScaleApplicationParams) (params.ScaleApplicationResult, error)) *MockRemoveApplicationAPIScaleApplicationCall {
+func (c *MockRemoveApplicationAPIScaleApplicationCall) DoAndReturn(f func(context.Context, application.ScaleApplicationParams) (params.ScaleApplicationResult, error)) *MockRemoveApplicationAPIScaleApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

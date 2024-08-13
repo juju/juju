@@ -4,6 +4,7 @@
 package model_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/cmd/v4"
@@ -149,7 +150,7 @@ func (s *ShowCommandSuite) TestShowWithPartModelUUID(c *gc.C) {
 
 func (s *ShowCommandSuite) TestShowUnknownCallsRefresh(c *gc.C) {
 	called := false
-	refresh := func(jujuclient.ClientStore, string) error {
+	refresh := func(context.Context, jujuclient.ClientStore, string) error {
 		called = true
 		return nil
 	}
@@ -686,7 +687,7 @@ func addMigrationStatusStatus(existingInfo *params.ModelInfo) {
 	}
 }
 
-func noOpRefresh(_ jujuclient.ClientStore, _ string) error {
+func noOpRefresh(_ context.Context, _ jujuclient.ClientStore, _ string) error {
 	return nil
 }
 
@@ -704,7 +705,7 @@ func (f *fakeModelShowClient) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeModelShowClient) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, error) {
+func (f *fakeModelShowClient) ModelInfo(ctx context.Context, tags []names.ModelTag) ([]params.ModelInfoResult, error) {
 	f.MethodCall(f, "ModelInfo", tags)
 	if f.infos != nil {
 		return f.infos, nil

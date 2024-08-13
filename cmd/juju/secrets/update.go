@@ -4,6 +4,8 @@
 package secrets
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -19,7 +21,7 @@ type updateSecretCommand struct {
 	modelcmd.ModelCommandBase
 
 	SecretUpsertContentCommand
-	secretsAPIFunc func() (UpdateSecretsAPI, error)
+	secretsAPIFunc func(ctx context.Context) (UpdateSecretsAPI, error)
 
 	secretURI *secrets.URI
 	autoPrune common.AutoBoolValue
@@ -31,6 +33,7 @@ type updateSecretCommand struct {
 // UpdateSecretsAPI is the secrets client API.
 type UpdateSecretsAPI interface {
 	UpdateSecret(
+		ctx context.Context,
 		uri *secrets.URI, name string, autoPrune *bool,
 		newName, description string, data map[string]string,
 	) error
@@ -44,8 +47,8 @@ func NewUpdateSecretCommand() cmd.Command {
 	return modelcmd.Wrap(c)
 }
 
-func (c *updateSecretCommand) secretsAPI() (UpdateSecretsAPI, error) {
-	root, err := c.NewAPIRoot()
+func (c *updateSecretCommand) secretsAPI(ctx context.Context) (UpdateSecretsAPI, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -110,10 +113,10 @@ func (c *updateSecretCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements cmd.Command.
 func (c *updateSecretCommand) Run(ctx *cmd.Context) error {
-	secretsAPI, err := c.secretsAPIFunc()
+	secretsAPI, err := c.secretsAPIFunc(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer func() { _ = secretsAPI.Close() }()
-	return secretsAPI.UpdateSecret(c.secretURI, c.name, c.autoPrune.Get(), c.newName, c.Description, c.Data)
+	return secretsAPI.UpdateSecret(ctx, c.secretURI, c.name, c.autoPrune.Get(), c.newName, c.Description, c.Data)
 }

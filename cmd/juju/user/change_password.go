@@ -5,6 +5,7 @@ package user
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -57,7 +58,7 @@ func NewChangePasswordCommand() cmd.Command {
 // changePasswordCommand changes the password for a user.
 type changePasswordCommand struct {
 	modelcmd.ControllerCommandBase
-	newAPIConnection func(juju.NewAPIConnectionParams) (api.Connection, error)
+	newAPIConnection func(context.Context, juju.NewAPIConnectionParams) (api.Connection, error)
 	api              ChangePasswordAPI
 
 	// Input arguments
@@ -105,8 +106,8 @@ func (c *changePasswordCommand) Init(args []string) error {
 // ChangePasswordAPI defines the usermanager API methods that the change
 // password command uses.
 type ChangePasswordAPI interface {
-	SetPassword(username, password string) error
-	ResetPassword(username string) ([]byte, error)
+	SetPassword(ctx context.Context, username, password string) error
+	ResetPassword(ctx context.Context, username string) ([]byte, error)
 	Close() error
 }
 
@@ -116,7 +117,7 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	if c.api == nil {
-		api, err := c.NewUserManagerAPIClient()
+		api, err := c.NewUserManagerAPIClient(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -182,7 +183,7 @@ func (c *changePasswordCommand) ensureControllerName() error {
 }
 
 func (c *changePasswordCommand) resetUserPassword(ctx *cmd.Context) error {
-	key, err := c.api.ResetPassword(c.userTag.Id())
+	key, err := c.api.ResetPassword(ctx, c.userTag.Id())
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
@@ -219,7 +220,7 @@ func (c *changePasswordCommand) updateUserPassword(ctx *cmd.Context) error {
 		return errors.Errorf("password cannot be empty")
 	}
 
-	if err := c.api.SetPassword(c.userTag.Id(), newPassword); err != nil {
+	if err := c.api.SetPassword(ctx, c.userTag.Id(), newPassword); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	if c.accountDetails == nil {
@@ -229,7 +230,7 @@ func (c *changePasswordCommand) updateUserPassword(ctx *cmd.Context) error {
 			// Log back in with macaroon authentication, so we can
 			// discard the password without having to log back in
 			// immediately.
-			if err := c.recordMacaroon(newPassword); err != nil {
+			if err := c.recordMacaroon(ctx, newPassword); err != nil {
 				return errors.Annotate(err, "recording macaroon")
 			}
 			// Wipe the password from disk. In the event of an
@@ -246,7 +247,7 @@ func (c *changePasswordCommand) updateUserPassword(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *changePasswordCommand) recordMacaroon(password string) error {
+func (c *changePasswordCommand) recordMacaroon(ctx context.Context, password string) error {
 	accountDetails := &jujuclient.AccountDetails{User: c.accountDetails.User}
 	args, err := c.NewAPIConnectionParams(
 		c.ClientStore(), c.controllerName, "", accountDetails,
@@ -260,7 +261,7 @@ func (c *changePasswordCommand) recordMacaroon(password string) error {
 		}),
 		httpbakery.WebBrowserInteractor{},
 	}
-	api, err := c.newAPIConnection(args)
+	api, err := c.newAPIConnection(ctx, args)
 	if err != nil {
 		return errors.Annotate(err, "connecting to API")
 	}

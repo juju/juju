@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4/cmdtesting"
@@ -104,15 +105,15 @@ func (s mockAddAPI) Close() error {
 	return s.NextErr()
 }
 
-func (s mockAddAPI) AddRelation(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
+func (s mockAddAPI) AddRelation(ctx context.Context, endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
 	s.MethodCall(s, "AddRelation", endpoints, viaCIDRs)
 	return s.addRelationFunc(endpoints, viaCIDRs)
 }
 
-func (mockAddAPI) Consume(crossmodel.ConsumeApplicationArgs) (string, error) {
+func (mockAddAPI) Consume(context.Context, crossmodel.ConsumeApplicationArgs) (string, error) {
 	return "", errors.New("unexpected method call: Consume")
 }
 
-func (mockAddAPI) GetConsumeDetails(string) (params.ConsumeOfferDetails, error) {
+func (mockAddAPI) GetConsumeDetails(context.Context, string) (params.ConsumeOfferDetails, error) {
 	return params.ConsumeOfferDetails{}, errors.New("unexpected method call: GetConsumeDetails")
 }

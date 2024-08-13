@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"context"
 	"os"
 	"strings"
 
@@ -46,7 +47,7 @@ func (s *showSuite) TestShowBadArgs(c *gc.C) {
 func (s *showSuite) assertShowLocal(c *gc.C, expectedOutput string) {
 	command := cloud.NewShowCloudCommandForTest(
 		s.store,
-		func() (cloud.ShowCloudAPI, error) {
+		func(ctx context.Context) (cloud.ShowCloudAPI, error) {
 			c.Fail()
 			return s.api, nil
 		})
@@ -107,7 +108,7 @@ func (s *showSuite) TestShowKubernetes(c *gc.C) {
 	}
 	command := cloud.NewShowCloudCommandForTest(
 		s.store,
-		func() (cloud.ShowCloudAPI, error) {
+		func(ctx context.Context) (cloud.ShowCloudAPI, error) {
 			return s.api, nil
 		})
 	ctx, err := cmdtesting.RunCommand(c, command, "--controller", "mycontroller", "beehive")
@@ -154,7 +155,7 @@ func (s *showSuite) TestShowControllerCloudNoLocal(c *gc.C) {
 	s.setupRemoteCloud("beehive")
 	command := cloud.NewShowCloudCommandForTest(
 		s.store,
-		func() (cloud.ShowCloudAPI, error) {
+		func(ctx context.Context) (cloud.ShowCloudAPI, error) {
 			return s.api, nil
 		})
 	ctx, err := cmdtesting.RunCommand(c, command, "beehive", "-c", "mycontroller")
@@ -184,7 +185,7 @@ func (s *showSuite) TestShowControllerAndLocalCloud(c *gc.C) {
 	s.setupRemoteCloud("aws-china")
 	command := cloud.NewShowCloudCommandForTest(
 		s.store,
-		func() (cloud.ShowCloudAPI, error) {
+		func(ctx context.Context) (cloud.ShowCloudAPI, error) {
 			return s.api, nil
 		})
 	ctx, err := cmdtesting.RunCommand(c, command, "aws-china")
@@ -407,12 +408,12 @@ func (api *fakeShowCloudAPI) Close() error {
 	return api.NextErr()
 }
 
-func (api *fakeShowCloudAPI) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
+func (api *fakeShowCloudAPI) Cloud(ctx context.Context, tag names.CloudTag) (jujucloud.Cloud, error) {
 	api.AddCall("Cloud", tag)
 	return api.cloud, api.NextErr()
 }
 
-func (api *fakeShowCloudAPI) CloudInfo(tags []names.CloudTag) ([]cloudapi.CloudInfo, error) {
+func (api *fakeShowCloudAPI) CloudInfo(ctx context.Context, tags []names.CloudTag) ([]cloudapi.CloudInfo, error) {
 	api.AddCall("CloudInfo", tags)
 	return []cloudapi.CloudInfo{{
 		Cloud: api.cloud,

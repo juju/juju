@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/v4"
@@ -30,7 +31,7 @@ type removeCredentialCommand struct {
 	// These attributes are used when removing a controller credential.
 	remoteCloudFound  bool
 	localCloudFound   bool
-	credentialAPIFunc func() (RemoveCredentialAPI, error)
+	credentialAPIFunc func(ctx context.Context) (RemoveCredentialAPI, error)
 
 	// Force determines whether the remove will be forced on the controller side.
 	Force bool
@@ -39,9 +40,9 @@ type removeCredentialCommand struct {
 // RemoveCredentialAPI defines api Cloud facade that can remove a remote credential.
 type RemoveCredentialAPI interface {
 	// Clouds returns all remote clouds that the currently logged-in user can access.
-	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
+	Clouds(ctx context.Context) (map[names.CloudTag]jujucloud.Cloud, error)
 	// RevokeCredential removes remote credential.
-	RevokeCredential(tag names.CloudCredentialTag, force bool) error
+	RevokeCredential(ctx context.Context, tag names.CloudCredentialTag, force bool) error
 	// Close closes api client.
 	Close() error
 }
@@ -109,8 +110,8 @@ func (c *removeCredentialCommand) Info() *cmd.Info {
 	})
 }
 
-func (c *removeCredentialCommand) credentialsAPI() (RemoveCredentialAPI, error) {
-	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
+func (c *removeCredentialCommand) credentialsAPI(ctx context.Context) (RemoveCredentialAPI, error) {
+	root, err := c.NewAPIRoot(ctx, c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -141,7 +142,7 @@ func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {
 	var client RemoveCredentialAPI
 	if c.ControllerName != "" {
 		var err error
-		client, err = c.credentialAPIFunc()
+		client, err = c.credentialAPIFunc(ctxt)
 		if err != nil {
 			return err
 		}
@@ -197,7 +198,7 @@ func (c *removeCredentialCommand) maybeLocalCloud(ctxt *cmd.Context) error {
 
 func (c *removeCredentialCommand) maybeRemoteCloud(ctxt *cmd.Context, client RemoveCredentialAPI) error {
 	// Get user clouds from the controller
-	remoteUserClouds, err := client.Clouds()
+	remoteUserClouds, err := client.Clouds(ctxt)
 	if err != nil {
 		return err
 	}
@@ -223,7 +224,7 @@ func (c *removeCredentialCommand) removeFromController(ctxt *cmd.Context, client
 		ctxt.Warningf("Could not remove controller credential %v for user %v on cloud %v: %v", c.credential, accountDetails.User, c.cloud, errors.NotValidf("cloud credential ID %q", id))
 		return cmd.ErrSilent
 	}
-	if err := client.RevokeCredential(names.NewCloudCredentialTag(id), c.Force); err != nil {
+	if err := client.RevokeCredential(ctxt, names.NewCloudCredentialTag(id), c.Force); err != nil {
 		return errors.Annotate(err, "could not remove remote credential")
 	}
 	ctxt.Infof("Credential %q for cloud %q removed from the controller %q.", c.credential, c.cloud, c.ControllerName)

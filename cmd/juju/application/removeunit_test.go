@@ -69,7 +69,7 @@ func (s *RemoveUnitSuite) runWithContext(ctx *cmd.Context, args ...string) chan 
 func (s *RemoveUnitSuite) TestRemoveUnit(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
+	s.mockApi.EXPECT().DestroyUnits(gomock.Any(), apiapplication.DestroyUnitsParams{
 		Units: []string{"unit/0", "unit/1", "unit/2"},
 	}).Return([]params.DestroyUnitResult{{
 		Info: &params.DestroyUnitInfo{DetachedStorage: []params.Entity{{Tag: "storage-data-0"}}},
@@ -98,7 +98,7 @@ ERROR removing unit unit/2 failed: doink
 func (s *RemoveUnitSuite) TestRemoveUnitDestroyStorage(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
+	s.mockApi.EXPECT().DestroyUnits(gomock.Any(), apiapplication.DestroyUnitsParams{
 		Units:          []string{"unit/0", "unit/1", "unit/2"},
 		DestroyStorage: true,
 	}).Return([]params.DestroyUnitResult{{
@@ -133,7 +133,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitNoWaitWithoutForce(c *gc.C) {
 func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
+	s.mockApi.EXPECT().DestroyUnits(gomock.Any(), apiapplication.DestroyUnitsParams{
 		Units: []string{"some-unit-name/0"},
 	}).Return(nil, apiservererrors.OperationBlockedError("TestBlockRemoveUnit"))
 
@@ -145,7 +145,7 @@ func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {
 func (s *RemoveUnitSuite) TestRemoveUnitDryRun(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
+	s.mockApi.EXPECT().DestroyUnits(gomock.Any(), apiapplication.DestroyUnitsParams{
 		Units:  []string{"unit/0", "unit/1"},
 		DryRun: true,
 	}).Return([]params.DestroyUnitResult{{
@@ -182,15 +182,15 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPrompt(c *gc.C) {
 	ctx.Stdin = &stdin
 
 	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
-	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
+	s.mockModelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 
-	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
+	s.mockApi.EXPECT().DestroyUnits(gomock.Any(), apiapplication.DestroyUnitsParams{
 		Units:  []string{"unit/0"},
 		DryRun: true,
 	}).Return([]params.DestroyUnitResult{{
 		Info: &params.DestroyUnitInfo{},
 	}}, nil)
-	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
+	s.mockApi.EXPECT().DestroyUnits(gomock.Any(), apiapplication.DestroyUnitsParams{
 		Units: []string{"unit/0"},
 	}).Return([]params.DestroyUnitResult{{
 		Info: &params.DestroyUnitInfo{},
@@ -220,9 +220,9 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPromptOldFacade(c *gc.C) {
 	ctx.Stdin = &stdin
 
 	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
-	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
+	s.mockModelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 
-	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
+	s.mockApi.EXPECT().DestroyUnits(gomock.Any(), apiapplication.DestroyUnitsParams{
 		Units: []string{"unit/0"},
 	}).Return([]params.DestroyUnitResult{{
 		Info: &params.DestroyUnitInfo{},
@@ -251,7 +251,7 @@ func (s *RemoveUnitSuite) TestCAASRemoveUnit(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.setCaasModel()
-	s.mockApi.EXPECT().ScaleApplication(apiapplication.ScaleApplicationParams{
+	s.mockApi.EXPECT().ScaleApplication(gomock.Any(), apiapplication.ScaleApplicationParams{
 		ApplicationName: "some-application-name",
 		ScaleChange:     -2,
 	}).Return(params.ScaleApplicationResult{
@@ -271,7 +271,7 @@ func (s *RemoveUnitSuite) TestCAASRemoveUnitNotSupported(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.setCaasModel()
-	s.mockApi.EXPECT().ScaleApplication(apiapplication.ScaleApplicationParams{
+	s.mockApi.EXPECT().ScaleApplication(gomock.Any(), apiapplication.ScaleApplicationParams{
 		ApplicationName: "some-application-name",
 		ScaleChange:     -2,
 	}).Return(params.ScaleApplicationResult{}, apiservererrors.ServerError(errors.NotSupportedf(`scale a "daemon" charm`)))

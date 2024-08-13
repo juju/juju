@@ -45,7 +45,7 @@ func (s *addSuite) TestAddDataFromArg(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().CreateSecret("my-secret", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(uri.String(), nil)
+	s.secretsAPI.EXPECT().CreateSecret(gomock.Any(), "my-secret", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(uri.String(), nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewAddCommandForTest(s.store, s.secretsAPI), "my-secret", "foo=bar", "--info", "this is a secret.")
@@ -58,7 +58,7 @@ func (s *addSuite) TestAddDataFromFile(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().CreateSecret("my-secret", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(uri.String(), nil)
+	s.secretsAPI.EXPECT().CreateSecret(gomock.Any(), "my-secret", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(uri.String(), nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	dir := c.MkDir()

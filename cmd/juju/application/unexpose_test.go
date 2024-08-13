@@ -37,7 +37,7 @@ func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 	defer ctrl.Finish()
 
 	api := mocks.NewMockApplicationExposeAPI(ctrl)
-	api.EXPECT().Unexpose("some-application-name", []string(nil)).Return(nil)
+	api.EXPECT().Unexpose(gomock.Any(), "some-application-name", []string(nil)).Return(nil)
 	api.EXPECT().Close().Return(nil)
 
 	err := runUnexpose(c, api, "some-application-name")
@@ -49,7 +49,7 @@ func (s *UnexposeSuite) TestUnexposeEndpoints(c *gc.C) {
 	defer ctrl.Finish()
 
 	api := mocks.NewMockApplicationExposeAPI(ctrl)
-	api.EXPECT().Unexpose("some-application-name", []string{"ep1", "ep2"}).Return(nil)
+	api.EXPECT().Unexpose(gomock.Any(), "some-application-name", []string{"ep1", "ep2"}).Return(nil)
 	api.EXPECT().Close().Return(nil)
 
 	err := runUnexpose(c, api, "some-application-name", "--endpoints", "ep1,ep2")
@@ -61,7 +61,7 @@ func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
 	defer ctrl.Finish()
 
 	api := mocks.NewMockApplicationExposeAPI(ctrl)
-	api.EXPECT().Unexpose("some-application-name", []string(nil)).Return(apiservererrors.OperationBlockedError("unexpose"))
+	api.EXPECT().Unexpose(gomock.Any(), "some-application-name", []string(nil)).Return(apiservererrors.OperationBlockedError("unexpose"))
 	api.EXPECT().Close().Return(nil)
 
 	err := runUnexpose(c, api, "some-application-name")

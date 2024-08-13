@@ -4,6 +4,7 @@
 package action_test
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -71,7 +72,7 @@ func (s *BaseActionSuite) SetUpTest(c *gc.C) {
 
 func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
 	return jujutesting.PatchValue(action.NewActionAPIClient,
-		func(c *action.ActionCommandBase) (action.APIClient, error) {
+		func(ctx context.Context, c *action.ActionCommandBase) (action.APIClient, error) {
 			return client, nil
 		},
 	)
@@ -159,7 +160,7 @@ func (c *fakeAPIClient) Close() error {
 	return nil
 }
 
-func (c *fakeAPIClient) EnqueueOperation(args []actionapi.Action) (actionapi.EnqueuedActions, error) {
+func (c *fakeAPIClient) EnqueueOperation(ctx context.Context, args []actionapi.Action) (actionapi.EnqueuedActions, error) {
 	c.enqueuedActions = args
 	actions := make([]actionapi.ActionResult, len(c.actionResults))
 	for i, a := range c.actionResults {
@@ -173,11 +174,11 @@ func (c *fakeAPIClient) EnqueueOperation(args []actionapi.Action) (actionapi.Enq
 		Actions:     actions}, c.apiErr
 }
 
-func (c *fakeAPIClient) Cancel(_ []string) ([]actionapi.ActionResult, error) {
+func (c *fakeAPIClient) Cancel(ctx context.Context, _ []string) ([]actionapi.ActionResult, error) {
 	return c.actionResults, c.apiErr
 }
 
-func (c *fakeAPIClient) ApplicationCharmActions(_ string) (map[string]actionapi.ActionSpec, error) {
+func (c *fakeAPIClient) ApplicationCharmActions(ctx context.Context, _ string) (map[string]actionapi.ActionSpec, error) {
 	return c.charmActions, c.apiErr
 }
 
@@ -198,7 +199,7 @@ func (c *fakeAPIClient) getActionResults(actionIDs []string) []actionapi.ActionR
 	return result
 }
 
-func (c *fakeAPIClient) Actions(actionIDs []string) ([]actionapi.ActionResult, error) {
+func (c *fakeAPIClient) Actions(ctx context.Context, actionIDs []string) ([]actionapi.ActionResult, error) {
 	// If the test supplies a delay time too long, we'll return an error
 	// to prevent the test hanging.  If the given wait is up, then return
 	// the results; otherwise, return a pending status.
@@ -235,16 +236,16 @@ func (c *fakeAPIClient) Actions(actionIDs []string) ([]actionapi.ActionResult, e
 	}
 }
 
-func (c *fakeAPIClient) WatchActionProgress(_ string) (watcher.StringsWatcher, error) {
+func (c *fakeAPIClient) WatchActionProgress(ctx context.Context, _ string) (watcher.StringsWatcher, error) {
 	return watchertest.NewMockStringsWatcher(c.logMessageCh), nil
 }
 
-func (c *fakeAPIClient) ListOperations(args actionapi.OperationQueryArgs) (actionapi.Operations, error) {
+func (c *fakeAPIClient) ListOperations(ctx context.Context, args actionapi.OperationQueryArgs) (actionapi.Operations, error) {
 	c.operationQueryArgs = args
 	return c.operationResults, c.apiErr
 }
 
-func (c *fakeAPIClient) Operation(id string) (actionapi.Operation, error) {
+func (c *fakeAPIClient) Operation(ctx context.Context, id string) (actionapi.Operation, error) {
 	// If the test supplies a delay time too long, we'll return an error
 	// to prevent the test hanging.  If the given wait is up, then return
 	// the results; otherwise, return a pending status.
@@ -309,7 +310,7 @@ func (c *fakeAPIClient) resultForUnit(unitName string) (actionapi.ActionResult, 
 	return actionapi.ActionResult{}, false
 }
 
-func (c *fakeAPIClient) RunOnAllMachines(_ string, _ time.Duration) (actionapi.EnqueuedActions, error) {
+func (c *fakeAPIClient) RunOnAllMachines(ctx context.Context, _ string, _ time.Duration) (actionapi.EnqueuedActions, error) {
 	var result actionapi.EnqueuedActions
 
 	if c.block {
@@ -336,7 +337,7 @@ func (c *fakeAPIClient) RunOnAllMachines(_ string, _ time.Duration) (actionapi.E
 	return result, nil
 }
 
-func (c *fakeAPIClient) Run(runParams actionapi.RunParams) (actionapi.EnqueuedActions, error) {
+func (c *fakeAPIClient) Run(ctx context.Context, runParams actionapi.RunParams) (actionapi.EnqueuedActions, error) {
 	var result actionapi.EnqueuedActions
 
 	c.execParams = &runParams

@@ -4,6 +4,8 @@
 package cloud
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 
 	jujucloud "github.com/juju/juju/cloud"
@@ -32,7 +34,7 @@ var (
 func NewAddCloudCommandForTest(
 	cloudMetadataStore CloudMetadataStore,
 	store jujuclient.ClientStore,
-	cloudAPI func() (AddCloudAPI, error),
+	cloudAPI func(ctx context.Context) (AddCloudAPI, error),
 ) *AddCloudCommand {
 	return &AddCloudCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
@@ -44,21 +46,21 @@ func NewAddCloudCommandForTest(
 	}
 }
 
-func NewListCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func() (ListCloudsAPI, error)) *listCloudsCommand {
+func NewListCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(ctx context.Context) (ListCloudsAPI, error)) *listCloudsCommand {
 	return &listCloudsCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store, ReadOnly: true},
 		listCloudsAPIFunc:         cloudAPI,
 	}
 }
 
-func NewShowCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func() (showCloudAPI, error)) *showCloudCommand {
+func NewShowCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(ctx context.Context) (showCloudAPI, error)) *showCloudCommand {
 	return &showCloudCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store, ReadOnly: true},
 		showCloudAPIFunc:          cloudAPI,
 	}
 }
 
-func NewRemoveCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func() (RemoveCloudAPI, error)) *removeCloudCommand {
+func NewRemoveCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(ctx context.Context) (RemoveCloudAPI, error)) *removeCloudCommand {
 	return &removeCloudCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
 		removeCloudAPIFunc:        cloudAPI,
@@ -68,7 +70,7 @@ func NewRemoveCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func() 
 func NewUpdatePublicCloudsCommandForTest(store jujuclient.ClientStore, api updatePublicCloudAPI, publicCloudURL string) *updatePublicCloudsCommand {
 	return &updatePublicCloudsCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
-		addCloudAPIFunc:           func() (updatePublicCloudAPI, error) { return api, nil },
+		addCloudAPIFunc:           func(ctx context.Context) (updatePublicCloudAPI, error) { return api, nil },
 		// TODO(wallyworld) - move testing key elsewhere
 		publicSigningKey: sstesting.SignedMetadataPublicKey,
 		publicCloudURL:   publicCloudURL,
@@ -78,7 +80,7 @@ func NewUpdatePublicCloudsCommandForTest(store jujuclient.ClientStore, api updat
 func NewUpdateCloudCommandForTest(
 	cloudMetadataStore CloudMetadataStore,
 	store jujuclient.ClientStore,
-	cloudAPI func() (UpdateCloudAPI, error),
+	cloudAPI func(ctx context.Context) (UpdateCloudAPI, error),
 ) *updateCloudCommand {
 	return &updateCloudCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
@@ -91,7 +93,7 @@ func NewListCredentialsCommandForTest(
 	testStore jujuclient.ClientStore,
 	personalCloudsFunc func() (map[string]jujucloud.Cloud, error),
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error),
-	apiF func() (ListCredentialsAPI, error),
+	apiF func(ctx context.Context) (ListCredentialsAPI, error),
 ) *listCredentialsCommand {
 	return &listCredentialsCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
@@ -109,7 +111,7 @@ func NewDetectCredentialsCommandForTest(
 	registeredProvidersFunc func() []string,
 	allCloudsFunc func(*cmd.Context) (map[string]jujucloud.Cloud, error),
 	cloudsByNameFunc func(string) (*jujucloud.Cloud, error),
-	f func() (CredentialAPI, error),
+	f func(ctx context.Context) (CredentialAPI, error),
 ) *detectCredentialsCommand {
 	command := &detectCredentialsCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: testStore},
@@ -131,7 +133,7 @@ func NewDetectCredentialsCommandForTest(
 func NewAddCredentialCommandForTest(
 	testStore jujuclient.ClientStore,
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error),
-	f func() (CredentialAPI, error),
+	f func(ctx context.Context) (CredentialAPI, error),
 ) *AddCredentialCommand {
 	return &addCredentialCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: testStore},
@@ -142,7 +144,7 @@ func NewAddCredentialCommandForTest(
 
 func NewRemoveCredentialCommandForTest(testStore jujuclient.ClientStore,
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error),
-	f func() (RemoveCredentialAPI, error),
+	f func(ctx context.Context) (RemoveCredentialAPI, error),
 ) *removeCredentialCommand {
 	return &removeCredentialCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: testStore},
@@ -166,7 +168,7 @@ func NewSetDefaultRegionCommandForTest(testStore jujuclient.CredentialStore) *se
 func NewUpdateCredentialCommandForTest(testStore jujuclient.ClientStore, api CredentialAPI) cmd.Command {
 	command := &updateCredentialCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: testStore},
-		updateCredentialAPIFunc: func() (CredentialAPI, error) {
+		updateCredentialAPIFunc: func(ctx context.Context) (CredentialAPI, error) {
 			return api, nil
 		},
 	}
@@ -176,7 +178,7 @@ func NewUpdateCredentialCommandForTest(testStore jujuclient.ClientStore, api Cre
 func NewShowCredentialCommandForTest(testStore jujuclient.ClientStore, api CredentialContentAPI) cmd.Command {
 	command := &showCredentialCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: testStore, ReadOnly: true},
-		newAPIFunc: func() (CredentialContentAPI, error) {
+		newAPIFunc: func(ctx context.Context) (CredentialContentAPI, error) {
 			return api, nil
 		},
 	}
@@ -197,7 +199,7 @@ func AddLoadedCredentialForTest(
 	addLoadedCredential(all, cloudName, discovered)
 }
 
-func NewListRegionsCommandForTest(store jujuclient.ClientStore, cloudAPI func() (CloudRegionsAPI, error)) *listRegionsCommand {
+func NewListRegionsCommandForTest(store jujuclient.ClientStore, cloudAPI func(ctx context.Context) (CloudRegionsAPI, error)) *listRegionsCommand {
 	return &listRegionsCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store, ReadOnly: true},
 		cloudAPIFunc:              cloudAPI,

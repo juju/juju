@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -39,7 +40,7 @@ type deployBundle struct {
 	defaultCharmSchema charm.Schema
 
 	resolver             Resolver
-	newConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
+	newConsumeDetailsAPI func(ctx context.Context, url *charm.OfferURL) (ConsumeDetails, error)
 	deployResources      DeployResourcesFunc
 	charmReader          CharmReader
 
@@ -68,7 +69,7 @@ func (d *deployBundle) deploy(
 	}
 
 	var err error
-	if d.targetModelName, _, err = d.model.ModelDetails(); err != nil {
+	if d.targetModelName, _, err = d.model.ModelDetails(ctx); err != nil {
 		return errors.Annotatef(err, "could not retrieve model name")
 	}
 
@@ -199,10 +200,10 @@ func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAP
 		if url.Source == "" {
 			url.Source = d.controllerName
 		}
-		return d.newConsumeDetailsAPI(url)
+		return d.newConsumeDetailsAPI(ctx, url)
 	}
 
-	knownSpaces, err := apiRoot.ListSpaces()
+	knownSpaces, err := apiRoot.ListSpaces(ctx)
 	if err != nil && !errors.Is(err, errors.NotSupported) {
 		return bundleDeploySpec{}, errors.Trace(err)
 	}
@@ -212,7 +213,7 @@ func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAP
 		knownSpaceNames.Add(space.Name)
 	}
 
-	modelType, err := d.model.ModelType()
+	modelType, err := d.model.ModelType(ctx)
 	if err != nil {
 		return bundleDeploySpec{}, errors.Trace(err)
 	}

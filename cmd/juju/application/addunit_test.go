@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4/cmdtesting"
@@ -47,7 +48,7 @@ func (f *fakeApplicationAddUnitAPI) ModelUUID() string {
 	return "fake-uuid"
 }
 
-func (f *fakeApplicationAddUnitAPI) AddUnits(args apiapplication.AddUnitsParams) ([]string, error) {
+func (f *fakeApplicationAddUnitAPI) AddUnits(ctx context.Context, args apiapplication.AddUnitsParams) ([]string, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -61,7 +62,7 @@ func (f *fakeApplicationAddUnitAPI) AddUnits(args apiapplication.AddUnitsParams)
 	return nil, nil
 }
 
-func (f *fakeApplicationAddUnitAPI) ScaleApplication(args apiapplication.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
+func (f *fakeApplicationAddUnitAPI) ScaleApplication(ctx context.Context, args apiapplication.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
 	if f.err != nil {
 		return params.ScaleApplicationResult{}, f.err
 	}
@@ -72,7 +73,7 @@ func (f *fakeApplicationAddUnitAPI) ScaleApplication(args apiapplication.ScaleAp
 	return params.ScaleApplicationResult{}, nil
 }
 
-func (f *fakeApplicationAddUnitAPI) ModelGet() (map[string]interface{}, error) {
+func (f *fakeApplicationAddUnitAPI) ModelGet(ctx context.Context) (map[string]interface{}, error) {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": f.envType,
 		"name": "dummy",
@@ -277,7 +278,7 @@ func (s *AddUnitSuite) TestCAASAddUnitNotSupported(c *gc.C) {
 }
 func (s *AddUnitSuite) TestUnknownModelCallsRefresh(c *gc.C) {
 	called := false
-	refresh := func(jujuclient.ClientStore, string) error {
+	refresh := func(context.Context, jujuclient.ClientStore, string) error {
 		called = true
 		return nil
 	}

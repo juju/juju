@@ -106,13 +106,13 @@ func (c *listCommand) Init(args []string) error {
 // Run grabs the Actions spec from the api.  It then sets up a sensible
 // output format for the map.
 func (c *listCommand) Run(ctx *cmd.Context) error {
-	api, err := c.NewActionAPIClient()
+	api, err := c.NewActionAPIClient(ctx)
 	if err != nil {
 		return err
 	}
 	defer api.Close()
 
-	actions, err := api.ApplicationCharmActions(c.appName)
+	actions, err := api.ApplicationCharmActions(ctx, c.appName)
 	if err != nil {
 		return err
 	}

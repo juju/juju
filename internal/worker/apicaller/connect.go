@@ -49,13 +49,13 @@ var (
 )
 
 // OnlyConnect logs into the API using the supplied agent's credentials.
-func OnlyConnect(_ context.Context, a agent.Agent, apiOpen api.OpenFunc, logger logger.Logger) (api.Connection, error) {
+func OnlyConnect(ctx context.Context, a agent.Agent, apiOpen api.OpenFunc, logger logger.Logger) (api.Connection, error) {
 	agentConfig := a.CurrentConfig()
 	info, ok := agentConfig.APIInfo()
 	if !ok {
 		return nil, errors.New("API info not available")
 	}
-	conn, _, err := connectFallback(apiOpen, info, agentConfig.OldPassword(), logger)
+	conn, _, err := connectFallback(ctx, apiOpen, info, agentConfig.OldPassword(), logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -82,6 +82,7 @@ func OnlyConnect(_ context.Context, a agent.Agent, apiOpen api.OpenFunc, logger 
 // until it's managed to log in, and any suicide-cutoff point we pick here
 // will be objectively bad in some circumstances.)
 func connectFallback(
+	ctx context.Context,
 	apiOpen api.OpenFunc, info *api.Info,
 	fallbackPassword string,
 	logger logger.Logger,
@@ -93,7 +94,7 @@ func connectFallback(
 	// atom in a func currently seems to be less treacherous
 	// than the alternatives.
 	var tryConnect = func() {
-		conn, err = apiOpen(info, api.DialOpts{
+		conn, err = apiOpen(ctx, info, api.DialOpts{
 			// The DialTimeout is for connecting to the underlying
 			// socket. We use three seconds because it should be fast
 			// but it is possible to add a manual machine to a distant
@@ -215,7 +216,7 @@ func ScaryConnect(ctx context.Context, a agent.Agent, apiOpen api.OpenFunc, logg
 	}()
 
 	// Start connection...
-	conn, usedOldPassword, err := connectFallback(apiOpen, info, oldPassword, logger)
+	conn, usedOldPassword, err := connectFallback(ctx, apiOpen, info, oldPassword, logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -304,12 +305,12 @@ func changePassword(ctx context.Context, oldPassword string, a agent.Agent, faca
 
 // NewExternalControllerConnectionFunc returns a function returning an
 // api connection to a controller with the specified api info.
-type NewExternalControllerConnectionFunc func(*api.Info) (api.Connection, error)
+type NewExternalControllerConnectionFunc func(context.Context, *api.Info) (api.Connection, error)
 
 // NewExternalControllerConnection returns an api connection to a controller
 // with the specified api info.
-func NewExternalControllerConnection(apiInfo *api.Info) (api.Connection, error) {
-	return api.Open(apiInfo, api.DialOpts{
+func NewExternalControllerConnection(ctx context.Context, apiInfo *api.Info) (api.Connection, error) {
+	return api.Open(ctx, apiInfo, api.DialOpts{
 		Timeout:    2 * time.Second,
 		RetryDelay: 500 * time.Millisecond,
 	})

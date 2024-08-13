@@ -133,7 +133,7 @@ func (f *fakeModelConfigAPI) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeModelConfigAPI) ModelGet() (map[string]interface{}, error) {
+func (f *fakeModelConfigAPI) ModelGet(ctx context.Context) (map[string]interface{}, error) {
 	f.MethodCall(f, "ModelGet")
 	if err := f.NextErr(); err != nil {
 		return nil, err

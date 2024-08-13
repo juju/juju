@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"regexp"
 	"strings"
 
@@ -188,7 +189,7 @@ func (c *addUnitCommand) Init(args []string) error {
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return err
 	}
-	if err := c.validateArgsByModelType(); err != nil {
+	if err := c.validateArgsByModelType(context.TODO()); err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
@@ -198,8 +199,8 @@ func (c *addUnitCommand) Init(args []string) error {
 	return c.UnitCommandBase.Init(args)
 }
 
-func (c *addUnitCommand) validateArgsByModelType() error {
-	modelType, err := c.ModelType()
+func (c *addUnitCommand) validateArgsByModelType(ctx context.Context) error {
+	modelType, err := c.ModelType(ctx)
 	if err != nil {
 		return err
 	}
@@ -216,15 +217,15 @@ func (c *addUnitCommand) validateArgsByModelType() error {
 type applicationAddUnitAPI interface {
 	Close() error
 	ModelUUID() string
-	AddUnits(application.AddUnitsParams) ([]string, error)
-	ScaleApplication(application.ScaleApplicationParams) (params.ScaleApplicationResult, error)
+	AddUnits(context.Context, application.AddUnitsParams) ([]string, error)
+	ScaleApplication(context.Context, application.ScaleApplicationParams) (params.ScaleApplicationResult, error)
 }
 
-func (c *addUnitCommand) getAPI() (applicationAddUnitAPI, error) {
+func (c *addUnitCommand) getAPI(ctx context.Context) (applicationAddUnitAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -234,25 +235,25 @@ func (c *addUnitCommand) getAPI() (applicationAddUnitAPI, error) {
 // Run connects to the environment specified on the command line
 // and calls AddUnits for the given application.
 func (c *addUnitCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := c.getAPI()
+	apiclient, err := c.getAPI(ctx)
 	if err != nil {
 		return err
 	}
 	defer apiclient.Close()
 
 	if c.unknownModel {
-		if err := c.validateArgsByModelType(); err != nil {
+		if err := c.validateArgsByModelType(ctx); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
-	modelType, err := c.ModelType()
+	modelType, err := c.ModelType(ctx)
 	if err != nil {
 		return err
 	}
 
 	if modelType == model.CAAS {
-		_, err = apiclient.ScaleApplication(application.ScaleApplicationParams{
+		_, err = apiclient.ScaleApplication(ctx, application.ScaleApplicationParams{
 			ApplicationName: c.ApplicationName,
 			ScaleChange:     c.NumUnits,
 		})
@@ -274,7 +275,7 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 		}
 		c.Placement[i] = p
 	}
-	_, err = apiclient.AddUnits(application.AddUnitsParams{
+	_, err = apiclient.AddUnits(ctx, application.AddUnitsParams{
 		ApplicationName: c.ApplicationName,
 		NumUnits:        c.NumUnits,
 		Placement:       c.Placement,

@@ -4,6 +4,7 @@
 package externalcontrollerupdater_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -61,7 +62,7 @@ func (s *ExternalControllerUpdaterSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Time{})
 
 	s.stub.ResetCalls()
-	s.newWatcher = func(apiInfo *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
+	s.newWatcher = func(ctx context.Context, apiInfo *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
 		s.stub.AddCall("NextExternalControllerWatcherClient", apiInfo)
 		if err := s.stub.NextErr(); err != nil {
 			return nil, err
@@ -108,29 +109,29 @@ func (s *ExternalControllerUpdaterSuite) assertWatchExternalControllersStart(c *
 	}
 
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"NextExternalControllerWatcherClient",
-		[]interface{}{&api.Info{
+		FuncName: "NextExternalControllerWatcherClient",
+		Args: []interface{}{&api.Info{
 			Addrs:  s.updater.info.Addrs,
 			CACert: s.updater.info.CACert,
 			Tag:    names.NewUserTag("jujuanonymous"),
 		}},
 	}, {
-		"NextExternalControllerWatcherClient",
-		[]interface{}{&api.Info{
+		FuncName: "NextExternalControllerWatcherClient",
+		Args: []interface{}{&api.Info{
 			Addrs:  s.watcher.info.Addrs,
 			CACert: s.updater.info.CACert, // only addresses are updated
 			Tag:    names.NewUserTag("jujuanonymous"),
 		}},
 	}})
 	s.updater.Stub.CheckCalls(c, []testing.StubCall{{
-		"WatchExternalControllers",
-		[]interface{}{},
+		FuncName: "WatchExternalControllers",
+		Args:     []interface{}{},
 	}, {
-		"ExternalControllerInfo",
-		[]interface{}{coretesting.ControllerTag.Id()},
+		FuncName: "ExternalControllerInfo",
+		Args:     []interface{}{coretesting.ControllerTag.Id()},
 	}, {
-		"SetExternalControllerInfo",
-		[]interface{}{crossmodel.ControllerInfo{
+		FuncName: "SetExternalControllerInfo",
+		Args: []interface{}{crossmodel.ControllerInfo{
 			ControllerTag: s.updater.info.ControllerTag,
 			Alias:         s.updater.info.Alias,
 			Addrs:         s.watcher.info.Addrs, // new addrs
@@ -228,15 +229,15 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersErrorsConta
 
 	workertest.CleanKill(c, w)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"NextExternalControllerWatcherClient",
-		[]interface{}{&api.Info{
+		FuncName: "NextExternalControllerWatcherClient",
+		Args: []interface{}{&api.Info{
 			Addrs:  s.updater.info.Addrs,
 			CACert: s.updater.info.CACert,
 			Tag:    names.NewUserTag("jujuanonymous"),
 		}},
 	}, {
-		"NextExternalControllerWatcherClient",
-		[]interface{}{&api.Info{
+		FuncName: "NextExternalControllerWatcherClient",
+		Args: []interface{}{&api.Info{
 			Addrs:  s.updater.info.Addrs,
 			CACert: s.updater.info.CACert,
 			Tag:    names.NewUserTag("jujuanonymous"),

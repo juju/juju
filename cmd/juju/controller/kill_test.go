@@ -5,6 +5,7 @@ package controller_test
 
 import (
 	"bytes"
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -436,7 +437,7 @@ func (s *KillSuite) TestKillCommandControllerAlias(c *gc.C) {
 }
 
 func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
-	testDialer := func(*api.Info, api.DialOpts) (api.Connection, error) {
+	testDialer := func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 	cmd := controller.NewKillCommandForTest(nil, s.store, nil,
@@ -453,7 +454,7 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 
 	stop := make(chan struct{})
 	defer close(stop)
-	testDialer := func(*api.Info, api.DialOpts) (api.Connection, error) {
+	testDialer := func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
 		<-stop
 		return nil, errors.New("kill command waited too long")
 	}

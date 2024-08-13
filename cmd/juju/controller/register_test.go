@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"context"
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
@@ -36,7 +37,7 @@ type RegisterSuite struct {
 	apiConnection            *mockAPIConnection
 	store                    *jujuclient.MemStore
 	apiOpenError             error
-	listModels               func(jujuclient.ClientStore, string, string) ([]base.UserModel, error)
+	listModels               func(context.Context, jujuclient.ClientStore, string, string) ([]base.UserModel, error)
 	listModelsControllerName string
 	listModelsUserName       string
 	server                   *httptest.Server
@@ -68,7 +69,7 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 	}
 	s.listModelsControllerName = ""
 	s.listModelsUserName = ""
-	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		s.listModelsControllerName = controllerName
 		s.listModelsUserName = userName
 		return nil, nil
@@ -105,7 +106,7 @@ func (s *RegisterSuite) TestRegisterWithProxy(c *gc.C) {
 }
 
 func (s *RegisterSuite) TestRegisterOneModel(c *gc.C) {
-	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:  "theoneandonly",
 			Owner: "carol",
@@ -134,7 +135,7 @@ Current model set to "carol/theoneandonly".
 }
 
 func (s *RegisterSuite) TestRegisterMultipleModels(c *gc.C) {
-	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:  "model1",
 			Owner: "bob",
@@ -338,7 +339,7 @@ func (s *RegisterSuite) TestControllerUUIDExists(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:  "model-name",
 			Owner: "bob",
@@ -386,7 +387,7 @@ func (s *RegisterSuite) TestProposedControllerNameExists(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:  "model-name",
 			Owner: "bob",
@@ -442,7 +443,7 @@ func (s *RegisterSuite) TestControllerUUIDExistsReplace(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:  "model-name",
 			Owner: "bob",
@@ -479,7 +480,7 @@ func (s *RegisterSuite) TestControllerUUIDExistsRenameNotAllowed(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+	s.listModels = func(ctx context.Context, _ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:  "model-name",
 			Owner: "bob",
@@ -774,7 +775,7 @@ func (srv *mockServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *RegisterSuite) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+func (s *RegisterSuite) apiOpen(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 	if s.apiOpenError != nil {
 		return nil, s.apiOpenError
 	}

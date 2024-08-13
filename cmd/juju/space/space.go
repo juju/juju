@@ -4,6 +4,7 @@
 package space
 
 import (
+	"context"
 	"io"
 	"net"
 
@@ -24,12 +25,12 @@ import (
 // subcommands.
 type SpaceAPI interface {
 	// ListSpaces returns all Juju network spaces and their subnets.
-	ListSpaces() ([]params.Space, error)
+	ListSpaces(ctx context.Context) ([]params.Space, error)
 
 	// AddSpace adds a new Juju network space, associating the
 	// specified subnets with it (optional; can be empty), setting the
 	// space and subnets access to public or private.
-	AddSpace(name string, subnetIds []string, public bool) error
+	AddSpace(ctx context.Context, name string, subnetIds []string, public bool) error
 
 	// TODO(dimitern): All of the following api methods should take
 	// names.SpaceTag instead of name, the only exceptions are
@@ -38,26 +39,26 @@ type SpaceAPI interface {
 
 	// RemoveSpace removes an existing Juju network space, transferring
 	// any associated subnets to the default space.
-	RemoveSpace(name string, force bool, dryRun bool) (params.RemoveSpaceResult, error)
+	RemoveSpace(ctx context.Context, name string, force bool, dryRun bool) (params.RemoveSpaceResult, error)
 
 	// RenameSpace changes the name of the space.
-	RenameSpace(name, newName string) error
+	RenameSpace(ctx context.Context, name, newName string) error
 
 	// ReloadSpaces fetches spaces and subnets from substrate
-	ReloadSpaces() error
+	ReloadSpaces(ctx context.Context) error
 
 	// ShowSpace fetches space information.
-	ShowSpace(name string) (params.ShowSpaceResult, error)
+	ShowSpace(ctx context.Context, name string) (params.ShowSpaceResult, error)
 
 	// MoveSubnets ensures that the input subnets are in the input space.
-	MoveSubnets(names.SpaceTag, []names.SubnetTag, bool) (params.MoveSubnetsResult, error)
+	MoveSubnets(context.Context, names.SpaceTag, []names.SubnetTag, bool) (params.MoveSubnetsResult, error)
 }
 
 // SubnetAPI defines the necessary API methods needed by the subnet subcommands.
 type SubnetAPI interface {
 
 	// SubnetsByCIDR returns the collection of subnets matching each CIDR in the input.
-	SubnetsByCIDR([]string) ([]params.SubnetsResult, error)
+	SubnetsByCIDR(context.Context, []string) ([]params.SubnetsResult, error)
 }
 
 // API defines the contract for requesting the API facades.
@@ -152,54 +153,54 @@ func (m *APIShim) Close() error {
 // AddSpace adds a new Juju network space, associating the
 // specified subnets with it (optional; can be empty), setting the
 // space and subnets access to public or private.
-func (m *APIShim) AddSpace(name string, subnetIds []string, public bool) error {
-	return m.spaceAPI.CreateSpace(name, subnetIds, public)
+func (m *APIShim) AddSpace(ctx context.Context, name string, subnetIds []string, public bool) error {
+	return m.spaceAPI.CreateSpace(ctx, name, subnetIds, public)
 }
 
 // ListSpaces returns all Juju network spaces and their subnets.
-func (m *APIShim) ListSpaces() ([]params.Space, error) {
-	return m.spaceAPI.ListSpaces()
+func (m *APIShim) ListSpaces(ctx context.Context) ([]params.Space, error) {
+	return m.spaceAPI.ListSpaces(ctx)
 }
 
 // ReloadSpaces fetches spaces and subnets from substrate
-func (m *APIShim) ReloadSpaces() error {
-	return m.spaceAPI.ReloadSpaces()
+func (m *APIShim) ReloadSpaces(ctx context.Context) error {
+	return m.spaceAPI.ReloadSpaces(ctx)
 }
 
 // RemoveSpace removes an existing Juju network space, transferring
 // any associated subnets to the default space.
-func (m *APIShim) RemoveSpace(name string, force bool, dryRun bool) (params.RemoveSpaceResult, error) {
-	return m.spaceAPI.RemoveSpace(name, force, dryRun)
+func (m *APIShim) RemoveSpace(ctx context.Context, name string, force bool, dryRun bool) (params.RemoveSpaceResult, error) {
+	return m.spaceAPI.RemoveSpace(ctx, name, force, dryRun)
 }
 
 // RenameSpace changes the name of the space.
-func (m *APIShim) RenameSpace(oldName, newName string) error {
-	return m.spaceAPI.RenameSpace(oldName, newName)
+func (m *APIShim) RenameSpace(ctx context.Context, oldName, newName string) error {
+	return m.spaceAPI.RenameSpace(ctx, oldName, newName)
 }
 
 // ShowSpace fetches space information.
-func (m *APIShim) ShowSpace(name string) (params.ShowSpaceResult, error) {
-	return m.spaceAPI.ShowSpace(name)
+func (m *APIShim) ShowSpace(ctx context.Context, name string) (params.ShowSpaceResult, error) {
+	return m.spaceAPI.ShowSpace(ctx, name)
 }
 
 // MoveSubnets ensures that the input subnets are in the input space.
-func (m *APIShim) MoveSubnets(space names.SpaceTag, subnets []names.SubnetTag, force bool) (params.MoveSubnetsResult, error) {
-	return m.spaceAPI.MoveSubnets(space, subnets, force)
+func (m *APIShim) MoveSubnets(ctx context.Context, space names.SpaceTag, subnets []names.SubnetTag, force bool) (params.MoveSubnetsResult, error) {
+	return m.spaceAPI.MoveSubnets(ctx, space, subnets, force)
 }
 
 // SubnetsByCIDR returns the collection of subnets matching each CIDR in the input.
-func (m *APIShim) SubnetsByCIDR(cidrs []string) ([]params.SubnetsResult, error) {
-	return m.subnetAPI.SubnetsByCIDR(cidrs)
+func (m *APIShim) SubnetsByCIDR(ctx context.Context, cidrs []string) ([]params.SubnetsResult, error) {
+	return m.subnetAPI.SubnetsByCIDR(ctx, cidrs)
 }
 
 // NewAPI returns a API for the root api endpoint that the
 // environment command returns.
-func (c *SpaceCommandBase) NewAPI() (API, error) {
+func (c *SpaceCommandBase) NewAPI(ctx context.Context) (API, error) {
 	if c.api != nil {
 		// Already added.
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -216,7 +217,7 @@ func (c *SpaceCommandBase) NewAPI() (API, error) {
 type RunOnAPI func(api API, ctx *cmd.Context) error
 
 func (c *SpaceCommandBase) RunWithAPI(ctx *cmd.Context, toRun RunOnAPI) error {
-	api, err := c.NewAPI()
+	api, err := c.NewAPI(ctx)
 	if err != nil {
 		return errors.Annotate(err, "cannot connect to the API server")
 	}
@@ -227,7 +228,7 @@ func (c *SpaceCommandBase) RunWithAPI(ctx *cmd.Context, toRun RunOnAPI) error {
 type RunOnSpaceAPI func(api SpaceAPI, ctx *cmd.Context) error
 
 func (c *SpaceCommandBase) RunWithSpaceAPI(ctx *cmd.Context, toRun RunOnSpaceAPI) error {
-	api, err := c.NewAPI()
+	api, err := c.NewAPI(ctx)
 	if err != nil {
 		return errors.Annotate(err, "cannot connect to the API server")
 	}

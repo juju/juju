@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -64,7 +65,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.mockAPI.list = func(stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
 		return testData, nil
 	}
-	s.PatchValue(&getImageMetadataListAPI, func(c *listImagesCommand) (MetadataListAPI, error) {
+	s.PatchValue(&getImageMetadataListAPI, func(c *listImagesCommand, ctx context.Context) (MetadataListAPI, error) {
 		return s.mockAPI, nil
 	})
 }
@@ -277,7 +278,7 @@ func (s mockListAPI) Close() error {
 	return nil
 }
 
-func (s mockListAPI) List(stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
+func (s mockListAPI) List(ctx context.Context, stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
 	return s.list(stream, region, bases, arch, virtType, rootStorageType)
 }
 

@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -29,7 +30,7 @@ type listCredentialsSuite struct {
 	store              *jujuclient.MemStore
 	personalCloudsFunc func() (map[string]jujucloud.Cloud, error)
 	cloudByNameFunc    func(string) (*jujucloud.Cloud, error)
-	apiF               func() (cloud.ListCredentialsAPI, error)
+	apiF               func(ctx context.Context) (cloud.ListCredentialsAPI, error)
 	testAPI            *mockAPI
 }
 
@@ -122,7 +123,7 @@ func (s *listCredentialsSuite) SetUpTest(c *gc.C) {
 			return nil, nil
 		},
 	}
-	s.apiF = func() (cloud.ListCredentialsAPI, error) {
+	s.apiF = func(ctx context.Context) (cloud.ListCredentialsAPI, error) {
 		return s.testAPI, nil
 	}
 }
@@ -561,7 +562,7 @@ type mockAPI struct {
 	credentialContentsF func(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error)
 }
 
-func (m *mockAPI) CredentialContents(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error) {
+func (m *mockAPI) CredentialContents(ctx context.Context, cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error) {
 	m.AddCall("CredentialContents", cloud, credential, withSecrets)
 	return m.credentialContentsF(cloud, credential, withSecrets)
 }

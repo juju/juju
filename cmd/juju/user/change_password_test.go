@@ -4,6 +4,7 @@
 package user_test
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -35,7 +36,7 @@ func (s *ChangePasswordCommandSuite) SetUpTest(c *gc.C) {
 
 func (s *ChangePasswordCommandSuite) run(c *gc.C, stdin string, args ...string) (*cmd.Context, *juju.NewAPIConnectionParams, error) {
 	var argsOut juju.NewAPIConnectionParams
-	newAPIConnection := func(args juju.NewAPIConnectionParams) (api.Connection, error) {
+	newAPIConnection := func(ctx context.Context, args juju.NewAPIConnectionParams) (api.Connection, error) {
 		argsOut = args
 		return mockAPIConnection{}, nil
 	}
@@ -191,12 +192,12 @@ type mockChangePasswordAPI struct {
 	key []byte
 }
 
-func (m *mockChangePasswordAPI) SetPassword(username, password string) error {
+func (m *mockChangePasswordAPI) SetPassword(ctx context.Context, username, password string) error {
 	m.MethodCall(m, "SetPassword", username, password)
 	return m.NextErr()
 }
 
-func (m *mockChangePasswordAPI) ResetPassword(username string) ([]byte, error) {
+func (m *mockChangePasswordAPI) ResetPassword(ctx context.Context, username string) ([]byte, error) {
 	m.MethodCall(m, "ResetPassword", username)
 	return m.key, m.NextErr()
 }

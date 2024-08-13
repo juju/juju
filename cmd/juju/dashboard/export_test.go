@@ -4,6 +4,7 @@
 package dashboard
 
 import (
+	"context"
 	"os"
 
 	"github.com/juju/cmd/v4"
@@ -18,7 +19,7 @@ var (
 
 func NewDashboardCommandForTest(store jujuclient.ClientStore, api ControllerAPI, signalCh chan os.Signal, sshCmd cmd.Command) cmd.Command {
 	d := &dashboardCommand{
-		newAPIFunc: func() (ControllerAPI, bool, error) {
+		newAPIFunc: func(ctx context.Context) (ControllerAPI, bool, error) {
 			return api, false, nil
 		},
 		signalCh:       signalCh,

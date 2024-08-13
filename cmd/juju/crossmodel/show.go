@@ -4,6 +4,8 @@
 package crossmodel
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -46,15 +48,15 @@ type showCommand struct {
 
 	url        string
 	out        cmd.Output
-	newAPIFunc func(string) (ShowAPI, error)
+	newAPIFunc func(context.Context, string) (ShowAPI, error)
 }
 
 // NewShowOfferedEndpointCommand constructs command that
 // allows to show details of offered application's endpoint.
 func NewShowOfferedEndpointCommand() cmd.Command {
 	showCmd := &showCommand{}
-	showCmd.newAPIFunc = func(controllerName string) (ShowAPI, error) {
-		return showCmd.NewRemoteEndpointsAPI(controllerName)
+	showCmd.newAPIFunc = func(ctx context.Context, controllerName string) (ShowAPI, error) {
+		return showCmd.NewRemoteEndpointsAPI(ctx, controllerName)
 	}
 	return modelcmd.Wrap(showCmd)
 }
@@ -118,14 +120,14 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	loggedInUser := accountDetails.User
 
-	api, err := c.newAPIFunc(controllerName)
+	api, err := c.newAPIFunc(ctx, controllerName)
 	if err != nil {
 		return err
 	}
 	defer api.Close()
 
 	url.Source = ""
-	found, err := api.ApplicationOffer(url.String())
+	found, err := api.ApplicationOffer(ctx, url.String())
 	if err != nil {
 		return err
 	}
@@ -140,7 +142,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 // ShowAPI defines the API methods that cross model show command uses.
 type ShowAPI interface {
 	Close() error
-	ApplicationOffer(url string) (*crossmodel.ApplicationOfferDetails, error)
+	ApplicationOffer(ctx context.Context, url string) (*crossmodel.ApplicationOfferDetails, error)
 }
 
 type OfferUser struct {

@@ -4,6 +4,7 @@
 package api_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -104,7 +105,7 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderLogin(c *gc.C) {
 	password := jujutesting.AdminSecret
 
 	lp := api.NewLegacyLoginProvider(username, password, "", nil, nil, nil)
-	apiState, err := api.Open(&api.Info{
+	apiState, err := api.Open(context.Background(), &api.Info{
 		Addrs:          info.Addrs,
 		ControllerUUID: info.ControllerUUID,
 		CACert:         info.CACert,
@@ -137,7 +138,7 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderWithNilTag(c *gc.C) {
 	password := jujutesting.AdminSecret
 
 	lp := api.NewLegacyLoginProvider(nil, password, "", nil, nil, nil)
-	_, err := api.Open(&api.Info{
+	_, err := api.Open(context.Background(), &api.Info{
 		Addrs:          info.Addrs,
 		ControllerUUID: info.ControllerUUID,
 		CACert:         info.CACert,

@@ -198,7 +198,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *Suite) apiOpen(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
+func (s *Suite) apiOpen(ctx context.Context, info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
 	s.stub.AddCall("apiOpen", info, dialOpts)
 	if s.connectionErr != nil {
 		return nil, s.connectionErr

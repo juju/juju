@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -709,7 +710,7 @@ func (*fakeAddClient) Close() error {
 	return nil
 }
 
-func (f *fakeAddClient) CreateModel(name, owner, cloudName, cloudRegion string, cloudCredential names.CloudCredentialTag, config map[string]interface{}) (base.ModelInfo, error) {
+func (f *fakeAddClient) CreateModel(ctx context.Context, name, owner, cloudName, cloudRegion string, cloudCredential names.CloudCredentialTag, config map[string]interface{}) (base.ModelInfo, error) {
 	if f.err != nil {
 		return base.ModelInfo{}, f.err
 	}
@@ -731,14 +732,14 @@ type fakeCloudAPI struct {
 	credentials []names.CloudCredentialTag
 }
 
-func (c *fakeCloudAPI) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
+func (c *fakeCloudAPI) Clouds(ctx context.Context) (map[names.CloudTag]cloud.Cloud, error) {
 	c.MethodCall(c, "Clouds")
 	if c.clouds == nil {
 		return c.clouds, c.NextErr()
 	}
 	// Ensure the aws cloud uses the patched auth types.
 	awsTag := names.NewCloudTag("aws")
-	awsCloud, err := c.Cloud(awsTag)
+	awsCloud, err := c.Cloud(ctx, awsTag)
 	if err != nil {
 		return nil, err
 	}
@@ -746,7 +747,7 @@ func (c *fakeCloudAPI) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 	return c.clouds, c.NextErr()
 }
 
-func (c *fakeCloudAPI) Cloud(tag names.CloudTag) (cloud.Cloud, error) {
+func (c *fakeCloudAPI) Cloud(ctx context.Context, tag names.CloudTag) (cloud.Cloud, error) {
 	c.MethodCall(c, "Cloud", tag)
 	if c.cloud != nil {
 		return *c.cloud, nil
@@ -765,12 +766,12 @@ func (c *fakeCloudAPI) Cloud(tag names.CloudTag) (cloud.Cloud, error) {
 	}, c.NextErr()
 }
 
-func (c *fakeCloudAPI) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]names.CloudCredentialTag, error) {
+func (c *fakeCloudAPI) UserCredentials(ctx context.Context, user names.UserTag, cloud names.CloudTag) ([]names.CloudCredentialTag, error) {
 	c.MethodCall(c, "UserCredentials", user, cloud)
 	return c.credentials, c.NextErr()
 }
 
-func (c *fakeCloudAPI) AddCredential(tag string, credential cloud.Credential) error {
+func (c *fakeCloudAPI) AddCredential(ctx context.Context, tag string, credential cloud.Credential) error {
 	c.MethodCall(c, "AddCredential", tag, credential)
 	return c.NextErr()
 }

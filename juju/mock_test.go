@@ -4,6 +4,8 @@
 package juju_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
@@ -118,6 +120,6 @@ func (s *mockAPIConnection) ControllerAccess() string {
 	return "superuser"
 }
 
-func panicAPIOpen(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+func panicAPIOpen(ctx context.Context, apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 	panic("api.Open called unexpectedly")
 }

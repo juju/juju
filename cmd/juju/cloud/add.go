@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 	"os"
@@ -128,8 +129,8 @@ const usageAddCloudExamples = `
 
 // AddCloudAPI - Implemented by cloudapi.Client.
 type AddCloudAPI interface {
-	AddCloud(jujucloud.Cloud, bool) error
-	AddCredential(tag string, credential jujucloud.Credential) error
+	AddCloud(context.Context, jujucloud.Cloud, bool) error
+	AddCredential(ctx context.Context, tag string, credential jujucloud.Credential) error
 	Close() error
 }
 
@@ -153,7 +154,7 @@ type AddCloudCommand struct {
 
 	// These attributes are used when adding a cloud to a controller.
 	credentialName  string
-	addCloudAPIFunc func() (AddCloudAPI, error)
+	addCloudAPIFunc func(ctx context.Context) (AddCloudAPI, error)
 
 	// Force holds whether user wants to force addition of the cloud.
 	Force bool
@@ -181,8 +182,8 @@ func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 	return modelcmd.WrapBase(c)
 }
 
-func (c *AddCloudCommand) cloudAPI() (AddCloudAPI, error) {
-	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
+func (c *AddCloudCommand) cloudAPI(ctx context.Context) (AddCloudAPI, error) {
+	root, err := c.NewAPIRoot(ctx, c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -281,7 +282,7 @@ func (c *AddCloudCommand) addCredentialToController(ctx *cmd.Context, cloud juju
 	}
 	cloudCredTag := names.NewCloudCredentialTag(id)
 
-	if err := apiClient.AddCredential(cloudCredTag.String(), *cred); err != nil {
+	if err := apiClient.AddCredential(ctx, cloudCredTag.String(), *cred); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -341,12 +342,12 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 func (c *AddCloudCommand) addRemoteCloud(ctxt *cmd.Context, newCloud *jujucloud.Cloud) error {
 	// A controller has been specified so upload the cloud details
 	// plus a corresponding credential to the controller.
-	api, err := c.addCloudAPIFunc()
+	api, err := c.addCloudAPIFunc(ctxt)
 	if err != nil {
 		return err
 	}
 	defer api.Close()
-	err = api.AddCloud(*newCloud, c.Force)
+	err = api.AddCloud(ctxt, *newCloud, c.Force)
 	if err != nil {
 		if params.ErrCode(err) == params.CodeAlreadyExists {
 			ctxt.Infof("Cloud %q already exists on the controller %q.", c.Cloud, c.ControllerName)

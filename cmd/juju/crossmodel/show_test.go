@@ -4,6 +4,7 @@
 package crossmodel
 
 import (
+	"context"
 	"os"
 
 	"github.com/juju/cmd/v4"
@@ -20,7 +21,7 @@ import (
 )
 
 func newShowEndpointsCommandForTest(store jujuclient.ClientStore, api ShowAPI) cmd.Command {
-	aCmd := &showCommand{newAPIFunc: func(controllerName string) (ShowAPI, error) {
+	aCmd := &showCommand{newAPIFunc: func(ctx context.Context, controllerName string) (ShowAPI, error) {
 		return api, nil
 	}}
 	aCmd.SetClientStore(store)
@@ -184,7 +185,7 @@ func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockShowAPI) ApplicationOffer(url string) (*jujucrossmodel.ApplicationOfferDetails, error) {
+func (s mockShowAPI) ApplicationOffer(ctx context.Context, url string) (*jujucrossmodel.ApplicationOfferDetails, error) {
 	if s.msg != "" {
 		return nil, errors.New(s.msg)
 	}

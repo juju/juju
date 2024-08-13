@@ -55,7 +55,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	conn := s.OpenModelAPI(c, st.ModelUUID())
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	status, err := client.Status(nil)
+	status, err := client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.Model.Name, gc.Equals, "controller")
 	c.Check(status.Model.Type, gc.Equals, "iaas")
@@ -85,7 +85,7 @@ func (s *statusSuite) TestFullStatusUnitLeadership(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	conn := s.OpenModelAPI(c, st.ModelUUID())
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	status, err := client.Status(nil)
+	status, err := client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	app, ok := status.Applications[u.ApplicationName()]
 	c.Assert(ok, jc.IsTrue)
@@ -106,7 +106,7 @@ func (s *statusSuite) TestFullStatusUnitScaling(c *gc.C) {
 
 	conn := s.OpenModelAPI(c, st.ModelUUID())
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	_, err := client.Status(nil)
+	_, err := client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	queryCount := tracker.ReadCount()
@@ -129,7 +129,7 @@ func (s *statusSuite) TestFullStatusUnitScaling(c *gc.C) {
 
 	tracker.Reset()
 
-	_, err = client.Status(nil)
+	_, err = client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The number of queries should be the same.
@@ -147,7 +147,7 @@ func (s *statusSuite) TestFullStatusMachineScaling(c *gc.C) {
 
 	conn := s.OpenModelAPI(c, st.ModelUUID())
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	_, err := client.Status(nil)
+	_, err := client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	queryCount := tracker.ReadCount()
@@ -159,7 +159,7 @@ func (s *statusSuite) TestFullStatusMachineScaling(c *gc.C) {
 	}
 	tracker.Reset()
 
-	_, err = client.Status(nil)
+	_, err = client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The number of queries should be the same.
@@ -175,7 +175,7 @@ func (s *statusSuite) TestFullStatusInterfaceScaling(c *gc.C) {
 
 	conn := s.OpenModelAPI(c, st.ModelUUID())
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	_, err := client.Status(nil)
+	_, err := client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	queryCount := tracker.ReadCount()
@@ -206,7 +206,7 @@ func (s *statusSuite) TestFullStatusInterfaceScaling(c *gc.C) {
 
 	tracker.Reset()
 
-	_, err = client.Status(nil)
+	_, err = client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The number of queries should be the same.
@@ -249,7 +249,7 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c
 
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	status, err := client.Status(nil)
+	status, err := client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(status.Machines, gc.HasLen, 1)
@@ -271,7 +271,7 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C)
 
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	status, err := client.Status(nil)
+	status, err := client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(status.Machines, gc.HasLen, 1)
@@ -300,7 +300,7 @@ func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
 
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	status, err := client.Status(nil)
+	status, err := client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
 	appStatus, ok := status.Applications[app.Name()]
@@ -387,7 +387,7 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	status, err := client.Status(nil)
+	status, err := client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
 	unitStatus, ok := status.Applications["principal"].Units["principal/0"].Subordinates["subord/0"]
@@ -400,7 +400,7 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 	}, testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, err = client.Status(nil)
+	status, err = client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
 	unitStatus, ok = status.Applications["principal"].Units["principal/0"].Subordinates["subord/0"]
@@ -425,7 +425,7 @@ func (s *statusUnitTestSuite) checkAppVersion(c *gc.C, application *state.Applic
 ) params.ApplicationStatus {
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	status, err := client.Status(nil)
+	status, err := client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus, found := status.Applications[application.Name()]
 	c.Assert(found, jc.IsTrue)
@@ -507,12 +507,12 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	apiInfo.Tag = testing.AdminUser
 	apiInfo.Password = testing.AdminSecret
 
-	conn, err := api.Open(apiInfo, api.DialOpts{})
+	conn, err := api.Open(context.Background(), apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
 
 	checkMigStatus := func(expected string) {
-		status, err := client.Status(nil)
+		status, err := client.Status(context.Background(), nil)
 		c.Assert(err, jc.ErrorIsNil)
 		if expected != "" {
 			expected = "migrating: " + expected
@@ -596,17 +596,20 @@ func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
 	// Test status filtering with application 1: should get both relations
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	status, err := client.Status(&apiclient.StatusArgs{
-		Patterns: []string{a1.Name()},
-	})
+	status, err := client.Status(context.Background(),
+		&apiclient.StatusArgs{
+			Patterns: []string{a1.Name()},
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
 	assertApplicationRelations(c, a1.Name(), 2, status.Relations)
 
 	// test status filtering with application 3: should get 1 relation
-	status, err = client.Status(&apiclient.StatusArgs{
-		Patterns: []string{a3.Name()},
-	})
+	status, err = client.Status(
+		context.Background(),
+		&apiclient.StatusArgs{
+			Patterns: []string{a3.Name()},
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
 	assertApplicationRelations(c, a3.Name(), 1, status.Relations)
@@ -654,9 +657,11 @@ func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOr
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
 	for i := 0; i < 20; i++ {
 		c.Logf("run %d", i)
-		status, err := client.Status(&apiclient.StatusArgs{
-			Patterns: []string{applicationA.Name()},
-		})
+		status, err := client.Status(
+			context.Background(),
+			&apiclient.StatusArgs{
+				Patterns: []string{applicationA.Name()},
+			})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(status.Applications, gc.HasLen, 2)
 	}
@@ -725,9 +730,11 @@ func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDo
 	// * two applications.
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	status, err := client.Status(&apiclient.StatusArgs{
-		Patterns: []string{applicationA.Name()},
-	})
+	status, err := client.Status(
+		context.Background(),
+		&apiclient.StatusArgs{
+			Patterns: []string{applicationA.Name()},
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
 	c.Assert(status.Applications, gc.HasLen, 2)
@@ -743,7 +750,7 @@ func (s *statusUnitTestSuite) TestMachineWithNoDisplayNameHasItsEmptyDisplayName
 
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	status, err := client.Status(nil)
+	status, err := client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Machines, gc.HasLen, 1)
 	c.Assert(status.Machines[machine.Id()].DisplayName, gc.Equals, "")
@@ -759,7 +766,7 @@ func (s *statusUnitTestSuite) TestMachineWithDisplayNameHasItsDisplayNameSent(c 
 
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	status, err := client.Status(nil)
+	status, err := client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Machines, gc.HasLen, 1)
 	c.Assert(status.Machines[machine.Id()].DisplayName, gc.Equals, "snowflake")
@@ -936,7 +943,7 @@ func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmhub(c *gc.C) {
 
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	status, _ := client.Status(nil)
+	status, _ := client.Status(context.Background(), nil)
 
 	appStatus, ok := status.Applications["charmhubby"]
 	c.Assert(ok, gc.Equals, true)
@@ -948,7 +955,7 @@ func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmhub(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	// Check if CanUpgradeTo suggests the latest revision.
-	status, _ = client.Status(nil)
+	status, _ = client.Status(context.Background(), nil)
 	appStatus, ok = status.Applications["charmhubby"]
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "ch:amd64/jammy/charmhubby-42")

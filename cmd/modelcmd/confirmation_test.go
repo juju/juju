@@ -4,6 +4,8 @@
 package modelcmd_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -65,32 +67,32 @@ func (s *RemoveConfirmationCommandBaseSuite) TestSimpleFalse(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: ""})
-	s.modelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
+	s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 
 	commandBase := s.getCmdBase([]string{"--foo", "bar"})
-	c.Assert(commandBase.NeedsConfirmation(s.modelConfigAPI), jc.IsFalse)
+	c.Assert(commandBase.NeedsConfirmation(context.Background(), s.modelConfigAPI), jc.IsFalse)
 }
 
 func (s *RemoveConfirmationCommandBaseSuite) TestSimpleTrue(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
-	s.modelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
+	s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 
 	commandBase := s.getCmdBase([]string{"--foo", "bar"})
-	c.Assert(commandBase.NeedsConfirmation(s.modelConfigAPI), jc.IsTrue)
+	c.Assert(commandBase.NeedsConfirmation(context.Background(), s.modelConfigAPI), jc.IsTrue)
 }
 
 func (s *RemoveConfirmationCommandBaseSuite) TestModelGetError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.modelConfigAPI.EXPECT().ModelGet().Return(nil, errors.Errorf("doink"))
+	s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(nil, errors.Errorf("doink"))
 
 	commandBase := s.getCmdBase([]string{"--foo", "bar"})
-	c.Assert(commandBase.NeedsConfirmation(s.modelConfigAPI), jc.IsTrue)
+	c.Assert(commandBase.NeedsConfirmation(context.Background(), s.modelConfigAPI), jc.IsTrue)
 }
 
 func (s *RemoveConfirmationCommandBaseSuite) TestNoPromptFlag(c *gc.C) {
 	commandBase := s.getCmdBase([]string{"--no-prompt", "--foo", "bar"})
-	c.Assert(commandBase.NeedsConfirmation(nil), jc.IsFalse)
+	c.Assert(commandBase.NeedsConfirmation(context.Background(), nil), jc.IsFalse)
 }

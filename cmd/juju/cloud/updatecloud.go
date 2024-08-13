@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/v4"
@@ -30,7 +31,7 @@ type updateCloudCommand struct {
 	CloudFile string
 
 	// Used when updating controllers' cloud details
-	updateCloudAPIFunc func() (updateCloudAPI, error)
+	updateCloudAPIFunc func(ctx context.Context) (updateCloudAPI, error)
 }
 
 var updateCloudDoc = `
@@ -57,7 +58,7 @@ const updateCloudExamples = `
 `
 
 type updateCloudAPI interface {
-	UpdateCloud(jujucloud.Cloud) error
+	UpdateCloud(context.Context, jujucloud.Cloud) error
 	Close() error
 }
 
@@ -79,8 +80,8 @@ func newUpdateCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 	return modelcmd.WrapBase(c)
 }
 
-func (c *updateCloudCommand) updateCloudAPI() (updateCloudAPI, error) {
-	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
+func (c *updateCloudCommand) updateCloudAPI(ctx context.Context) (updateCloudAPI, error) {
+	root, err := c.NewAPIRoot(ctx, c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -165,10 +166,10 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 	}
 	if c.ControllerName != "" {
 		if c.CloudFile != "" {
-			err := c.updateController(newCloud)
+			err := c.updateController(ctxt, newCloud)
 			processErr(err, fmt.Sprintf("Cloud %q updated on controller %q using provided file.", c.Cloud, c.ControllerName))
 		} else {
-			err := c.updateControllerCacheFromLocalCache()
+			err := c.updateControllerCacheFromLocalCache(ctxt)
 			processErr(err, fmt.Sprintf("Cloud %q updated on controller %q using client cloud definition.", c.Cloud, c.ControllerName))
 		}
 	}
@@ -185,21 +186,21 @@ func (c *updateCloudCommand) isPublicCloud(cloudName string) bool {
 	return false
 }
 
-func (c *updateCloudCommand) updateControllerCacheFromLocalCache() error {
+func (c *updateCloudCommand) updateControllerCacheFromLocalCache(ctx context.Context) error {
 	newCloud, err := cloudFromLocal(c.Store, c.Cloud)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return c.updateController(newCloud)
+	return c.updateController(ctx, newCloud)
 }
 
-func (c updateCloudCommand) updateController(cloud *jujucloud.Cloud) error {
-	api, err := c.updateCloudAPIFunc()
+func (c updateCloudCommand) updateController(ctx context.Context, cloud *jujucloud.Cloud) error {
+	api, err := c.updateCloudAPIFunc(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer api.Close()
-	err = api.UpdateCloud(*cloud)
+	err = api.UpdateCloud(ctx, *cloud)
 	if err != nil {
 		return errors.Trace(err)
 	}

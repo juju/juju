@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -28,7 +29,7 @@ type listRegionsCommand struct {
 	out       cmd.Output
 	cloudName string
 
-	cloudAPIFunc func() (CloudRegionsAPI, error)
+	cloudAPIFunc func(ctx context.Context) (CloudRegionsAPI, error)
 	found        *FoundRegions
 }
 
@@ -48,7 +49,7 @@ const listRegionsExamples = `
 `
 
 type CloudRegionsAPI interface {
-	Cloud(tag names.CloudTag) (jujucloud.Cloud, error)
+	Cloud(ctx context.Context, tag names.CloudTag) (jujucloud.Cloud, error)
 	Close() error
 }
 
@@ -65,8 +66,8 @@ func NewListRegionsCommand() cmd.Command {
 	return modelcmd.WrapBase(c)
 }
 
-func (c *listRegionsCommand) cloudAPI() (CloudRegionsAPI, error) {
-	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
+func (c *listRegionsCommand) cloudAPI(ctx context.Context) (CloudRegionsAPI, error) {
+	root, err := c.NewAPIRoot(ctx, c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -154,12 +155,12 @@ func (c *listRegionsCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *listRegionsCommand) findRemoteRegions(ctxt *cmd.Context) error {
-	api, err := c.cloudAPIFunc()
+	api, err := c.cloudAPIFunc(ctxt)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer api.Close()
-	aCloud, err := api.Cloud(names.NewCloudTag(c.cloudName))
+	aCloud, err := api.Cloud(ctxt, names.NewCloudTag(c.cloudName))
 	if err != nil {
 		return errors.Annotatef(err, "on controller %q", c.ControllerName)
 	}

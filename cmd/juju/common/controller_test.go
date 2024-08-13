@@ -34,7 +34,7 @@ type controllerSuite struct {
 
 func (s *controllerSuite) SetUpTest(c *gc.C) {
 	s.mockBlockClient = &mockBlockClient{}
-	s.PatchValue(&blockAPI, func(*modelcmd.ModelCommandBase) (listBlocksAPI, error) {
+	s.PatchValue(&blockAPI, func(context.Context, *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
 		err := s.mockBlockClient.loginError
 		if err != nil {
 			s.mockBlockClient.loginError = nil
@@ -52,7 +52,7 @@ type mockBlockClient struct {
 
 var errOther = errors.New("other error")
 
-func (c *mockBlockClient) List() ([]params.Block, error) {
+func (c *mockBlockClient) List(ctx context.Context) ([]params.Block, error) {
 	c.retryCount += 1
 	if c.retryCount == 5 {
 		return nil, &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress}
@@ -151,7 +151,7 @@ func runInCommand(c *gc.C, run func(ctx *cmd.Context, base *modelcmd.ModelComman
 		run: run,
 	}
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
-	cmd.SetAPIOpen(func(*api.Info, api.DialOpts) (api.Connection, error) {
+	cmd.SetAPIOpen(func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
 		return nil, errors.New("no API available")
 	})
 

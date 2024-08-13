@@ -4,6 +4,7 @@
 package manual
 
 import (
+	"context"
 	"net"
 
 	"github.com/juju/errors"
@@ -16,8 +17,8 @@ var netLookupHost = net.LookupHost
 const ManualInstancePrefix = "manual:"
 
 // RecordMachineInState records and saves into the state machine the provisioned machine
-func RecordMachineInState(client ProvisioningClientAPI, machineParams params.AddMachineParams) (machineId string, err error) {
-	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
+func RecordMachineInState(ctx context.Context, client ProvisioningClientAPI, machineParams params.AddMachineParams) (machineId string, err error) {
+	results, err := client.AddMachines(ctx, []params.AddMachineParams{machineParams})
 	if err != nil {
 		return "", errors.Trace(err)
 	}

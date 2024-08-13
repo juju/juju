@@ -4,6 +4,7 @@
 package crossmodel
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -22,10 +23,10 @@ import (
 
 func newListEndpointsCommandForTest(store jujuclient.ClientStore, api ListAPI) cmd.Command {
 	aCmd := &listCommand{
-		newAPIFunc: func() (ListAPI, error) {
+		newAPIFunc: func(ctx context.Context) (ListAPI, error) {
 			return api, nil
 		},
-		refreshModels: func(jujuclient.ClientStore, string) error {
+		refreshModels: func(context.Context, jujuclient.ClientStore, string) error {
 			return nil
 		},
 	}
@@ -329,6 +330,6 @@ func (s mockListAPI) Close() error {
 	return nil
 }
 
-func (s mockListAPI) ListOffers(filters ...model.ApplicationOfferFilter) ([]*model.ApplicationOfferDetails, error) {
+func (s mockListAPI) ListOffers(ctx context.Context, filters ...model.ApplicationOfferFilter) ([]*model.ApplicationOfferDetails, error) {
 	return s.list(filters...)
 }

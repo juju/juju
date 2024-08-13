@@ -5,6 +5,7 @@ package machine_test
 
 import (
 	"bytes"
+	"context"
 	"time"
 
 	"github.com/juju/cmd/v4"
@@ -62,7 +63,7 @@ func (s *RemoveMachineSuite) runWithContext(ctx *cmd.Context, args ...string) ch
 	return cmdtesting.RunCommandWithContext(ctx, remove, args...)
 }
 
-func defaultDestroyMachineResult(_, _, _ bool, _ *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
+func defaultDestroyMachineResult(ctx context.Context, _, _, _ bool, _ *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	results := make([]params.DestroyMachineResult, len(machines))
 	for i := range results {
 		results[i].Info = &params.DestroyMachineInfo{MachineId: machines[i]}
@@ -144,7 +145,7 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 func (s *RemoveMachineSuite) TestRemove(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1", "2/lxd/1")
+	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, false, gomock.Any(), "1", "2/lxd/1")
 
 	_, err := s.run(c, "--no-prompt", "1", "2/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -170,7 +171,7 @@ func (s *RemoveMachineSuite) TestRemoveOutput(c *gc.C) {
 			DetachedStorage:  []params.Entity{{"storage-baz-2"}},
 		},
 	}}
-	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1", "2/lxd/1").Return(results, nil)
+	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, false, gomock.Any(), "1", "2/lxd/1").Return(results, nil)
 
 	ctx, err := s.run(c, "--no-prompt", "1", "2/lxd/1")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
@@ -190,7 +191,7 @@ will remove machine 2/lxd/1
 func (s *RemoveMachineSuite) TestRemoveKeep(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyMachinesWithParams(false, true, false, gomock.Any(), "1", "2")
+	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, true, false, gomock.Any(), "1", "2")
 
 	_, err := s.run(c, "--no-prompt", "--keep-instance", "1", "2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -199,7 +200,7 @@ func (s *RemoveMachineSuite) TestRemoveKeep(c *gc.C) {
 func (s *RemoveMachineSuite) TestRemoveOutputKeep(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyMachinesWithParams(false, true, false, gomock.Any(), "1", "2").DoAndReturn(defaultDestroyMachineResult)
+	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, true, false, gomock.Any(), "1", "2").DoAndReturn(defaultDestroyMachineResult)
 
 	ctx, err := s.run(c, "--no-prompt", "--keep-instance", "1", "2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -213,7 +214,7 @@ will remove machine 2 (but retaining cloud instance)
 func (s *RemoveMachineSuite) TestRemoveForce(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyMachinesWithParams(true, false, false, gomock.Any(), "1", "2/lxd/1")
+	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), true, false, false, gomock.Any(), "1", "2/lxd/1")
 
 	_, err := s.run(c, "--no-prompt", "--force", "1", "2/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -238,7 +239,7 @@ func (s *RemoveMachineSuite) TestRemoveWithContainers(c *gc.C) {
 			}},
 		},
 	}}
-	s.mockApi.EXPECT().DestroyMachinesWithParams(true, false, false, gomock.Any(), "1").Return(results, nil)
+	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), true, false, false, gomock.Any(), "1").Return(results, nil)
 
 	ctx, err := s.run(c, "--no-prompt", "--force", "1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -258,7 +259,7 @@ will remove machine 1/lxd/2
 func (s *RemoveMachineSuite) TestRemoveDryRun(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1", "2")
+	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, true, gomock.Any(), "1", "2")
 
 	_, err := s.run(c, "--dry-run", "1", "2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -267,7 +268,7 @@ func (s *RemoveMachineSuite) TestRemoveDryRun(c *gc.C) {
 func (s *RemoveMachineSuite) TestRemoveOutputDryRun(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1", "2").DoAndReturn(defaultDestroyMachineResult)
+	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, true, gomock.Any(), "1", "2").DoAndReturn(defaultDestroyMachineResult)
 
 	ctx, err := s.run(c, "--dry-run", "1", "2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -295,9 +296,9 @@ func (s *RemoveMachineSuite) TestRemovePromptOldFacade(c *gc.C) {
 	ctx.Stdin = &stdin
 
 	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
-	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
+	s.mockModelConfigApi.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 
-	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1", "2")
+	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, false, gomock.Any(), "1", "2")
 
 	stdin.WriteString("y")
 	errc := s.runWithContext(ctx, "1", "2")
@@ -318,9 +319,9 @@ func (s *RemoveMachineSuite) TestRemovePrompt(c *gc.C) {
 	ctx.Stdin = &stdin
 
 	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
-	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
-	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1", "2")
-	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1", "2")
+	s.mockModelConfigApi.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
+	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, true, gomock.Any(), "1", "2")
+	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, false, gomock.Any(), "1", "2")
 
 	stdin.WriteString("y")
 	errc := s.runWithContext(ctx, "1", "2")
@@ -342,7 +343,7 @@ func (s *RemoveMachineSuite) TestRemovePromptOldFacadeAborted(c *gc.C) {
 	ctx.Stdin = &stdin
 
 	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
-	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
+	s.mockModelConfigApi.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 
 	stdin.WriteString("n")
 	errc := s.runWithContext(ctx, "1", "2")
@@ -363,8 +364,8 @@ func (s *RemoveMachineSuite) TestRemovePromptAborted(c *gc.C) {
 	ctx.Stdin = &stdin
 
 	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
-	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
-	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1", "2")
+	s.mockModelConfigApi.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
+	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, true, gomock.Any(), "1", "2")
 
 	stdin.WriteString("n")
 	errc := s.runWithContext(ctx, "1", "2")
@@ -381,7 +382,7 @@ func (s *RemoveMachineSuite) TestBlockedError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	removeError := apiservererrors.OperationBlockedError("TestBlockedError")
-	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1").Return(nil, removeError)
+	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, false, gomock.Any(), "1").Return(nil, removeError)
 
 	_, err := s.run(c, "--no-prompt", "1")
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
@@ -391,7 +392,7 @@ func (s *RemoveMachineSuite) TestForceBlockedError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	removeError := apiservererrors.OperationBlockedError("TestForceBlockedError")
-	s.mockApi.EXPECT().DestroyMachinesWithParams(true, false, false, gomock.Any(), "1").Return(nil, removeError)
+	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), true, false, false, gomock.Any(), "1").Return(nil, removeError)
 
 	_, err := s.run(c, "--no-prompt", "--force", "1")
 	testing.AssertOperationWasBlocked(c, err, ".*TestForceBlockedError.*")

@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/v4"
@@ -24,7 +25,7 @@ type showCredentialCommand struct {
 
 	out cmd.Output
 
-	newAPIFunc func() (CredentialContentAPI, error)
+	newAPIFunc func(ctx context.Context) (CredentialContentAPI, error)
 
 	CloudName      string
 	CredentialName string
@@ -42,8 +43,8 @@ func NewShowCredentialCommand() cmd.Command {
 			ReadOnly: true,
 		},
 	}
-	command.newAPIFunc = func() (CredentialContentAPI, error) {
-		return command.NewCredentialAPI()
+	command.newAPIFunc = func(ctx context.Context) (CredentialContentAPI, error) {
+		return command.NewCredentialAPI(ctx)
 	}
 	return modelcmd.WrapBase(command)
 }
@@ -129,14 +130,14 @@ func (c *showCredentialCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *showCredentialCommand) remoteCredentials(ctxt *cmd.Context) ([]params.CredentialContentResult, error) {
-	client, err := c.newAPIFunc()
+	client, err := c.newAPIFunc(ctxt)
 	if err != nil {
 		return nil, err
 	}
 
 	defer client.Close()
 
-	remoteContents, err := client.CredentialContents(c.CloudName, c.CredentialName, c.ShowSecrets)
+	remoteContents, err := client.CredentialContents(ctxt, c.CloudName, c.CredentialName, c.ShowSecrets)
 	if err != nil {
 		return nil, err
 	}
@@ -182,12 +183,12 @@ func (c *showCredentialCommand) localCredentials(ctxt *cmd.Context) ([]params.Cr
 }
 
 type CredentialContentAPI interface {
-	CredentialContents(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error)
+	CredentialContents(ctx context.Context, cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error)
 	Close() error
 }
 
-func (c *showCredentialCommand) NewCredentialAPI() (CredentialContentAPI, error) {
-	api, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
+func (c *showCredentialCommand) NewCredentialAPI(ctx context.Context) (CredentialContentAPI, error) {
+	api, err := c.NewAPIRoot(ctx, c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Annotate(err, "opening API connection")
 	}

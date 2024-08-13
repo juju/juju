@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -30,7 +31,7 @@ type showCloudCommand struct {
 
 	includeConfig bool
 
-	showCloudAPIFunc func() (showCloudAPI, error)
+	showCloudAPIFunc func(ctx context.Context) (showCloudAPI, error)
 
 	configDisplayed bool
 }
@@ -57,7 +58,7 @@ const showCloudExamples = `
 `
 
 type showCloudAPI interface {
-	CloudInfo(tags []names.CloudTag) ([]cloudapi.CloudInfo, error)
+	CloudInfo(ctx context.Context, tags []names.CloudTag) ([]cloudapi.CloudInfo, error)
 	Close() error
 }
 
@@ -74,8 +75,8 @@ func NewShowCloudCommand() cmd.Command {
 	return modelcmd.WrapBase(c)
 }
 
-func (c *showCloudCommand) cloudAPI() (showCloudAPI, error) {
-	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
+func (c *showCloudCommand) cloudAPI(ctx context.Context) (showCloudAPI, error) {
+	root, err := c.NewAPIRoot(ctx, c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -136,7 +137,7 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 		localCloud, localErr = c.getLocalCloud()
 	}
 	if c.ControllerName != "" {
-		remoteCloud, remoteErr := c.getControllerCloud()
+		remoteCloud, remoteErr := c.getControllerCloud(ctxt)
 		showRemoteConfig := c.includeConfig
 		if localCloud != nil && remoteCloud != nil {
 			// It's possible that a local cloud named A is different to
@@ -250,13 +251,13 @@ func (c *showCloudCommand) displayCloud(aCloud CloudDetails, name, summary strin
 	}
 }
 
-func (c *showCloudCommand) getControllerCloud() (*CloudDetails, error) {
-	api, err := c.showCloudAPIFunc()
+func (c *showCloudCommand) getControllerCloud(ctx context.Context) (*CloudDetails, error) {
+	api, err := c.showCloudAPIFunc(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer api.Close()
-	controllerCloud, err := api.CloudInfo([]names.CloudTag{names.NewCloudTag(c.CloudName)})
+	controllerCloud, err := api.CloudInfo(ctx, []names.CloudTag{names.NewCloudTag(c.CloudName)})
 	if err != nil {
 		return nil, err
 	}

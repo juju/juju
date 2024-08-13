@@ -4,6 +4,8 @@
 package crossmodel
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -41,15 +43,15 @@ type findCommand struct {
 	interfaceName  string
 
 	out        cmd.Output
-	newAPIFunc func(string) (FindAPI, error)
+	newAPIFunc func(context.Context, string) (FindAPI, error)
 }
 
 // NewFindEndpointsCommand constructs command that
 // allows to find offered application endpoints.
 func NewFindEndpointsCommand() cmd.Command {
 	findCmd := &findCommand{}
-	findCmd.newAPIFunc = func(controllerName string) (FindAPI, error) {
-		return findCmd.NewRemoteEndpointsAPI(controllerName)
+	findCmd.newAPIFunc = func(ctx context.Context, controllerName string) (FindAPI, error) {
+		return findCmd.NewRemoteEndpointsAPI(ctx, controllerName)
 	}
 	return modelcmd.Wrap(findCmd)
 }
@@ -109,7 +111,7 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	loggedInUser := accountDetails.User
 
-	api, err := c.newAPIFunc(c.source)
+	api, err := c.newAPIFunc(ctx, c.source)
 	if err != nil {
 		return err
 	}
@@ -125,7 +127,7 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 			Interface: c.interfaceName,
 		}}
 	}
-	found, err := api.FindApplicationOffers(filter)
+	found, err := api.FindApplicationOffers(ctx, filter)
 	if err != nil {
 		return err
 	}
@@ -176,7 +178,7 @@ func (c *findCommand) validateOrSetURL() error {
 // FindAPI defines the API methods that cross model find command uses.
 type FindAPI interface {
 	Close() error
-	FindApplicationOffers(filters ...crossmodel.ApplicationOfferFilter) ([]*crossmodel.ApplicationOfferDetails, error)
+	FindApplicationOffers(ctx context.Context, filters ...crossmodel.ApplicationOfferFilter) ([]*crossmodel.ApplicationOfferDetails, error)
 }
 
 // ApplicationOfferResult defines the serialization behaviour of an application offer.

@@ -4,6 +4,7 @@
 package model
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -119,11 +120,11 @@ func (c *grantCloudCommand) Info() *cmd.Info {
 	})
 }
 
-func (c *grantCloudCommand) getCloudsAPI() (GrantCloudAPI, error) {
+func (c *grantCloudCommand) getCloudsAPI(ctx context.Context) (GrantCloudAPI, error) {
 	if c.cloudsApi != nil {
 		return c.cloudsApi, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -133,18 +134,18 @@ func (c *grantCloudCommand) getCloudsAPI() (GrantCloudAPI, error) {
 // GrantCloudAPI defines the API functions used by the grant command.
 type GrantCloudAPI interface {
 	Close() error
-	GrantCloud(user, access string, clouds ...string) error
+	GrantCloud(ctx context.Context, user, access string, clouds ...string) error
 }
 
 // Run implements cmd.Command.
 func (c *grantCloudCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getCloudsAPI()
+	client, err := c.getCloudsAPI(ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	return block.ProcessBlockedError(client.GrantCloud(c.User, c.Access, c.Clouds...), block.BlockChange)
+	return block.ProcessBlockedError(client.GrantCloud(ctx, c.User, c.Access, c.Clouds...), block.BlockChange)
 }
 
 // NewRevokeCloudCommand returns a new revoke command.
@@ -172,11 +173,11 @@ func (c *revokeCloudCommand) Info() *cmd.Info {
 	})
 }
 
-func (c *revokeCloudCommand) getCloudAPI() (RevokeCloudAPI, error) {
+func (c *revokeCloudCommand) getCloudAPI(ctx context.Context) (RevokeCloudAPI, error) {
 	if c.cloudsApi != nil {
 		return c.cloudsApi, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -186,16 +187,16 @@ func (c *revokeCloudCommand) getCloudAPI() (RevokeCloudAPI, error) {
 // RevokeCloudAPI defines the API functions used by the revoke cloud command.
 type RevokeCloudAPI interface {
 	Close() error
-	RevokeCloud(user, access string, clouds ...string) error
+	RevokeCloud(ctx context.Context, user, access string, clouds ...string) error
 }
 
 // Run implements cmd.Command.
 func (c *revokeCloudCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getCloudAPI()
+	client, err := c.getCloudAPI(ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	return block.ProcessBlockedError(client.RevokeCloud(c.User, c.Access, c.Clouds...), block.BlockChange)
+	return block.ProcessBlockedError(client.RevokeCloud(ctx, c.User, c.Access, c.Clouds...), block.BlockChange)
 }

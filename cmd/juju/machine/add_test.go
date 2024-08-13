@@ -4,6 +4,7 @@
 package machine_test
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
@@ -146,7 +147,7 @@ func (s *AddMachineSuite) TestAddMachineUnauthorizedMentionsJujuGrant(c *gc.C) {
 }
 
 func (s *AddMachineSuite) TestSSHPlacement(c *gc.C) {
-	s.PatchValue(machine.SSHProvisioner, func(args manual.ProvisionMachineArgs) (string, error) {
+	s.PatchValue(machine.SSHProvisioner, func(_ context.Context, args manual.ProvisionMachineArgs) (string, error) {
 		return "42", nil
 	})
 	context, err := s.run(c, "ssh:10.1.2.3")
@@ -155,7 +156,7 @@ func (s *AddMachineSuite) TestSSHPlacement(c *gc.C) {
 }
 
 func (s *AddMachineSuite) TestSSHPlacementError(c *gc.C) {
-	s.PatchValue(machine.SSHProvisioner, func(args manual.ProvisionMachineArgs) (string, error) {
+	s.PatchValue(machine.SSHProvisioner, func(_ context.Context, args manual.ProvisionMachineArgs) (string, error) {
 		return "", errors.New("failed to initialize warp core")
 	})
 	context, err := s.run(c, "ssh:10.1.2.3")
@@ -257,7 +258,7 @@ func (f *fakeAddMachineAPI) ModelUUID() (string, bool) {
 	return "fake-uuid", true
 }
 
-func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+func (f *fakeAddMachineAPI) AddMachines(ctx context.Context, args []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	if f.addError != nil {
 		return nil, f.addError
 	}
@@ -280,15 +281,15 @@ func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]param
 	return results, nil
 }
 
-func (f *fakeAddMachineAPI) DestroyMachinesWithParams(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
+func (f *fakeAddMachineAPI) DestroyMachinesWithParams(ctx context.Context, force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	return nil, errors.NotImplementedf("ForceDestroyMachinesWithParams")
 }
 
-func (f *fakeAddMachineAPI) ProvisioningScript(params.ProvisioningScriptParams) (script string, err error) {
+func (f *fakeAddMachineAPI) ProvisioningScript(ctx context.Context, p params.ProvisioningScriptParams) (script string, err error) {
 	return "", errors.NotImplementedf("ProvisioningScript")
 }
 
-func (f *fakeAddMachineAPI) ModelGet() (map[string]interface{}, error) {
+func (f *fakeAddMachineAPI) ModelGet(ctx context.Context) (map[string]interface{}, error) {
 	if f.addModelGetError != nil {
 		return nil, f.addModelGetError
 	}

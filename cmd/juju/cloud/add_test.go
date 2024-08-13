@@ -5,6 +5,7 @@ package cloud_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -320,18 +321,18 @@ func (api *fakeAddCloudAPI) Close() error {
 	return nil
 }
 
-func (api *fakeAddCloudAPI) AddCloud(cloud jujucloud.Cloud, force bool) error {
+func (api *fakeAddCloudAPI) AddCloud(ctx context.Context, cloud jujucloud.Cloud, force bool) error {
 	api.AddCall("AddCloud", cloud, force)
 	return api.addCloudF(cloud, force)
 }
 
-func (api *fakeAddCloudAPI) AddCredential(tag string, credential jujucloud.Credential) error {
+func (api *fakeAddCloudAPI) AddCredential(ctx context.Context, tag string, credential jujucloud.Credential) error {
 	api.AddCall("AddCredential", tag, credential)
 	return nil
 }
 
 func (s *addSuite) setupControllerCloudScenarioWithClientAndFile(c *gc.C,
-	clientF func() (cloud.AddCloudAPI, error),
+	clientF func(ctx context.Context) (cloud.AddCloudAPI, error),
 	api *fakeAddCloudAPI,
 	cloudsFileYaml string) (
 	string, *cloud.AddCloudCommand, *jujuclient.MemStore, *fakeAddCloudAPI, jujucloud.Credential, func() int,
@@ -360,7 +361,7 @@ func (s *addSuite) setupControllerCloudScenarioWithClientAndFile(c *gc.C,
 }
 
 func (s *addSuite) setupControllerCloudScenarioWithClient(c *gc.C,
-	clientF func() (cloud.AddCloudAPI, error),
+	clientF func(ctx context.Context) (cloud.AddCloudAPI, error),
 	api *fakeAddCloudAPI) (string, *cloud.AddCloudCommand, *jujuclient.MemStore, *fakeAddCloudAPI, jujucloud.Credential, func() int) {
 	return s.setupControllerCloudScenarioWithClientAndFile(c, clientF, api, garageMaasYamlFile)
 }
@@ -375,7 +376,7 @@ func (s *addSuite) setupControllerCloudScenarioWithFile(c *gc.C, cloudsFile stri
 		addCloudF: s.addCloudF,
 	}
 	return s.setupControllerCloudScenarioWithClientAndFile(c,
-		func() (cloud.AddCloudAPI, error) {
+		func(ctx context.Context) (cloud.AddCloudAPI, error) {
 			return api, nil
 		},
 		api,
@@ -474,7 +475,7 @@ func (s *addSuite) TestAddLocalNoCloudNameButManyCloudsInFile(c *gc.C) {
 }
 
 func (s *addSuite) TestAddToControllerBadController(c *gc.C) {
-	cloudFileName, command, store, _, _, _ := s.setupControllerCloudScenarioWithClient(c, func() (cloud.AddCloudAPI, error) {
+	cloudFileName, command, store, _, _, _ := s.setupControllerCloudScenarioWithClient(c, func(ctx context.Context) (cloud.AddCloudAPI, error) {
 		return nil, errors.NotFoundf("controller badcontroller")
 	}, nil)
 	store.Credentials = nil

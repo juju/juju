@@ -4,6 +4,8 @@
 package model_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
@@ -66,7 +68,7 @@ func (f *fakeDumpDBClient) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeDumpDBClient) DumpModelDB(model names.ModelTag) (map[string]interface{}, error) {
+func (f *fakeDumpDBClient) DumpModelDB(ctx context.Context, model names.ModelTag) (map[string]interface{}, error) {
 	f.MethodCall(f, "DumpModelDB", model)
 	err := f.NextErr()
 	if err != nil {

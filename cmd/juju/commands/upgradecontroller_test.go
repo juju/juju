@@ -99,7 +99,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelProvidedAgentVersionUpToDate(c 
 		"agent-version": coretesting.FakeVersionNumber.String(),
 	})
 
-	s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil)
+	s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil)
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--agent-version", coretesting.FakeVersionNumber.String())
 	c.Assert(err, jc.ErrorIsNil)
@@ -115,7 +115,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelFailedWithBuildAgentAndAgentVer
 	})
 
 	gomock.InOrder(
-		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
+		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 	)
 
 	_, err := cmdtesting.RunCommand(c, cmd,
@@ -139,8 +139,9 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersion(c *gc.C) {
 	})
 
 	gomock.InOrder(
-		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
+		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
+			gomock.Any(),
 			coretesting.ModelTag.Id(), version.MustParse("3.9.99"),
 			"", false, false,
 		).Return(version.MustParse("3.9.99"), nil),
@@ -185,8 +186,9 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionUploadLocalOffi
 	targetVersion := builtVersion.Number
 	builtVersion.Build++
 	gomock.InOrder(
-		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
+		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
+			gomock.Any(),
 			coretesting.ModelTag.Id(), targetVersion,
 			"", false, false,
 		).Return(
@@ -195,6 +197,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionUploadLocalOffi
 		),
 		s.modelUpgrader.EXPECT().UploadTools(gomock.Any(), gomock.Any(), builtVersion).Return(nil, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
+			gomock.Any(),
 			coretesting.ModelTag.Id(), builtVersion.Number,
 			"", false, false,
 		).Return(builtVersion.Number, nil),
@@ -228,8 +231,9 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionAlreadyUpToDate
 	c.Assert(agentVersion.Build, gc.Equals, 0)
 	targetVersion := coretesting.CurrentVersion()
 	gomock.InOrder(
-		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
+		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
+			gomock.Any(),
 			coretesting.ModelTag.Id(), targetVersion.ToPatch(),
 			"", false, false,
 		).Return(
@@ -269,8 +273,9 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionFailedExpectUpl
 	c.Assert(targetVersion.Compare(current) == 0, jc.IsFalse)
 
 	gomock.InOrder(
-		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
+		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
+			gomock.Any(),
 			coretesting.ModelTag.Id(), targetVersion,
 			"", false, false,
 		).Return(
@@ -303,8 +308,9 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionExpectUploadFai
 
 	targetVersion := coretesting.CurrentVersion().Number
 	gomock.InOrder(
-		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
+		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
+			gomock.Any(),
 			coretesting.ModelTag.Id(), targetVersion,
 			"", false, false,
 		).Return(
@@ -334,8 +340,9 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionDryRun(c *gc.C)
 	})
 
 	gomock.InOrder(
-		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
+		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
+			gomock.Any(),
 			coretesting.ModelTag.Id(), version.MustParse("3.9.99"),
 			"", false, true,
 		).Return(version.MustParse("3.9.99"), nil),
@@ -367,8 +374,9 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionGotBlockers(c *
 	})
 
 	gomock.InOrder(
-		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
+		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
+			gomock.Any(),
 			coretesting.ModelTag.Id(), version.MustParse("3.9.99"),
 			"", false, false,
 		).Return(version.Zero, errors.New(`
@@ -406,9 +414,10 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithBuildAgent(c *gc.C) {
 	builtVersion := coretesting.CurrentVersion()
 	builtVersion.Build++
 	gomock.InOrder(
-		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
+		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UploadTools(gomock.Any(), gomock.Any(), builtVersion).Return(nil, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
+			gomock.Any(),
 			coretesting.ModelTag.Id(), builtVersion.Number,
 			"", false, false,
 		).Return(builtVersion.Number, nil),
@@ -438,8 +447,9 @@ func (s *upgradeControllerSuite) TestUpgradeModelUpToDate(c *gc.C) {
 	})
 
 	gomock.InOrder(
-		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
+		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
+			gomock.Any(),
 			coretesting.ModelTag.Id(), version.Zero,
 			"", false, false,
 		).Return(version.Zero, errors.AlreadyExistsf("up to date")),
@@ -462,8 +472,9 @@ func (s *upgradeControllerSuite) TestUpgradeModelUpgradeToPublishedVersion(c *gc
 	})
 
 	gomock.InOrder(
-		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
+		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
+			gomock.Any(),
 			coretesting.ModelTag.Id(), version.Zero,
 			"", false, false,
 		).Return(version.MustParse("3.9.99"), nil),
@@ -492,8 +503,9 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithStream(c *gc.C) {
 	})
 
 	gomock.InOrder(
-		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
+		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
+			gomock.Any(),
 			coretesting.ModelTag.Id(), version.Zero,
 			"proposed", false, false,
 		).Return(version.MustParse("3.9.99"), nil),

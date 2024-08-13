@@ -4,6 +4,8 @@
 package machine_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
@@ -27,7 +29,7 @@ func newMachineListCommand() cmd.Command {
 
 type fakeStatusAPI struct{}
 
-func (*fakeStatusAPI) Status(args *client.StatusArgs) (*params.FullStatus, error) {
+func (*fakeStatusAPI) Status(ctx context.Context, args *client.StatusArgs) (*params.FullStatus, error) {
 	result := &params.FullStatus{
 		Model: params.ModelStatusInfo{
 			Name:    "dummyenv",

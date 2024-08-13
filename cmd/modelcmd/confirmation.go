@@ -4,6 +4,8 @@
 package modelcmd
 
 import (
+	"context"
+
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/environs/config"
@@ -25,7 +27,7 @@ func (c *DestroyConfirmationCommandBase) NeedsConfirmation() bool {
 }
 
 type ModelConfigAPI interface {
-	ModelGet() (map[string]interface{}, error)
+	ModelGet(context.Context) (map[string]interface{}, error)
 }
 
 // RemoveConfirmationCommandBase provides common attributes and methods that
@@ -40,12 +42,12 @@ func (c *RemoveConfirmationCommandBase) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // NeedsConfirmation returns indicates whether confirmation is required or not.
-func (c *RemoveConfirmationCommandBase) NeedsConfirmation(client ModelConfigAPI) bool {
+func (c *RemoveConfirmationCommandBase) NeedsConfirmation(ctx context.Context, client ModelConfigAPI) bool {
 	if c.assumeNoPrompt {
 		return false
 	}
 
-	configAttrs, err := client.ModelGet()
+	configAttrs, err := client.ModelGet(ctx)
 	if err != nil {
 		// Play it safe
 		return true

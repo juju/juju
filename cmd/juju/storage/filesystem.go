@@ -62,7 +62,7 @@ type FilesystemAttachment struct {
 // generateListFilesystemOutput returns a map filesystem IDs to filesystem info
 func generateListFilesystemsOutput(ctx *cmd.Context, api StorageListAPI, ids []string) (map[string]FilesystemInfo, error) {
 
-	results, err := api.ListFilesystems(ids)
+	results, err := api.ListFilesystems(ctx, ids)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

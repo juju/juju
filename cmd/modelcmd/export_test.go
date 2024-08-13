@@ -4,6 +4,8 @@
 package modelcmd
 
 import (
+	"context"
+
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/cmd/v4"
 
@@ -31,8 +33,8 @@ func InitContexts(c *cmd.Context, b interface {
 	b.initContexts(c)
 }
 
-func SetModelRefresh(refresh func(jujuclient.ClientStore, string) error, b interface {
-	SetModelRefresh(refresh func(jujuclient.ClientStore, string) error)
+func SetModelRefresh(refresh func(context.Context, jujuclient.ClientStore, string) error, b interface {
+	SetModelRefresh(refresh func(context.Context, jujuclient.ClientStore, string) error)
 }) {
 	b.SetModelRefresh(refresh)
 }

@@ -4,6 +4,8 @@
 package model_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
@@ -33,7 +35,7 @@ func (f *fakeDumpClient) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeDumpClient) DumpModel(model names.ModelTag, simplified bool) (map[string]interface{}, error) {
+func (f *fakeDumpClient) DumpModel(ctx context.Context, model names.ModelTag, simplified bool) (map[string]interface{}, error) {
 	f.MethodCall(f, "DumpModel", model)
 	err := f.NextErr()
 	if err != nil {

@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -52,8 +53,8 @@ type deployCharm struct {
 	trust            bool
 }
 
-func checkCharmFormat(m ModelCommand, charmInfo *apicharms.CharmInfo) error {
-	modelType, err := m.ModelType()
+func checkCharmFormat(ctx context.Context, m ModelCommand, charmInfo *apicharms.CharmInfo) error {
+	modelType, err := m.ModelType(ctx)
 	if err != nil {
 		return err
 	}
@@ -76,7 +77,7 @@ func (d *deployCharm) deploy(
 	if err != nil {
 		return err
 	}
-	if err := checkCharmFormat(d.model, charmInfo); err != nil {
+	if err := checkCharmFormat(ctx, d.model, charmInfo); err != nil {
 		return err
 	}
 
@@ -168,7 +169,7 @@ func (d *deployCharm) deploy(
 		Force:            d.force,
 	}
 
-	err = deployAPI.Deploy(args)
+	err = deployAPI.Deploy(ctx, args)
 	if err == nil {
 		return nil
 	}
@@ -283,7 +284,7 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		return errors.Trace(err)
 	}
 
-	curl, err := deployAPI.AddLocalCharm(l.curl, l.ch, l.force)
+	curl, err := deployAPI.AddLocalCharm(ctx, l.curl, l.ch, l.force)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -361,7 +362,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	charmName := c.userRequestedURL.Name
-	info, localPendingResources, errs := deployAPI.DeployFromRepository(application.DeployFromRepositoryArg{
+	info, localPendingResources, errs := deployAPI.DeployFromRepository(ctx, application.DeployFromRepositoryArg{
 		CharmName:        charmName,
 		ApplicationName:  c.applicationName,
 		AttachStorage:    c.attachStorage,

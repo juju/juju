@@ -78,6 +78,7 @@ func (s *AddSuite) TestAdd(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.addSecretBackendsAPI.EXPECT().AddSecretBackend(
+		gomock.Any(),
 		apisecretbackends.CreateSecretBackend{
 			Name:                "myvault",
 			BackendType:         "vault",
@@ -96,6 +97,7 @@ func (s *AddSuite) TestAddWithID(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.addSecretBackendsAPI.EXPECT().AddSecretBackend(
+		gomock.Any(),
 		apisecretbackends.CreateSecretBackend{
 			ID:          "backend-id",
 			Name:        "myvault",
@@ -117,6 +119,7 @@ func (s *AddSuite) TestAddFromFile(c *gc.C) {
 	err := os.WriteFile(fname, []byte("endpoint: http://vault"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addSecretBackendsAPI.EXPECT().AddSecretBackend(
+		gomock.Any(),
 		apisecretbackends.CreateSecretBackend{
 			Name:                "myvault",
 			BackendType:         "vault",

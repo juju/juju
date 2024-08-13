@@ -4,6 +4,7 @@
 package action_test
 
 import (
+	"context"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -40,7 +41,7 @@ func (s *actionSuite) TestRunOnAllMachines(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RunOnAllMachines", args, res).SetArg(3, ress).Return(nil)
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
-	result, err := client.RunOnAllMachines("pwd", time.Millisecond)
+	result, err := client.RunOnAllMachines(context.Background(), "pwd", time.Millisecond)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, action.EnqueuedActions{
 		OperationID: "1",
@@ -77,7 +78,7 @@ func (s *actionSuite) TestRun(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Run", args, res).SetArg(3, ress).Return(nil)
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
-	result, err := client.Run(action.RunParams{
+	result, err := client.Run(context.Background(), action.RunParams{
 		Commands: "pwd",
 		Timeout:  time.Millisecond,
 		Machines: []string{"0"},

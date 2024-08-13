@@ -313,7 +313,7 @@ func WithLoginProvider(lp LoginProvider) DialOption {
 }
 
 // OpenFunc is the usual form of a function that opens an API connection.
-type OpenFunc func(*Info, DialOpts) (Connection, error)
+type OpenFunc func(context.Context, *Info, DialOpts) (Connection, error)
 
 // Connection exists purely to make api-opening funcs mockable. It's just a
 // dumb copy of all the methods on api.conn; we can and should be extracting

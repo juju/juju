@@ -54,7 +54,7 @@ type ExternalControllerWatcherClient interface {
 // returns an ExternalControllerWatcherClientCloser, given an
 // *api.Info. The api.Info should be for making a controller-only
 // connection to a remote/external controller.
-type NewExternalControllerWatcherClientFunc func(*api.Info) (ExternalControllerWatcherClientCloser, error)
+type NewExternalControllerWatcherClientFunc func(context.Context, *api.Info) (ExternalControllerWatcherClientCloser, error)
 
 // New returns a new external controller updater worker.
 func New(
@@ -301,7 +301,7 @@ func (w *controllerWatcher) connectAndWatch(ctx context.Context, apiInfo *api.In
 	donec := make(chan result, 1)
 	errc := make(chan error, 1)
 	go func() {
-		client, err := w.newExternalControllerWatcherClient(apiInfo)
+		client, err := w.newExternalControllerWatcherClient(ctx, apiInfo)
 		if err != nil {
 			errc <- errors.Annotate(err, "getting external controller client")
 			return

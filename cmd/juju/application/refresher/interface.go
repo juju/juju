@@ -4,6 +4,8 @@
 package refresher
 
 import (
+	"context"
+
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -12,7 +14,7 @@ import (
 
 // RefresherFactory contains a method to get a refresher.
 type RefresherFactory interface {
-	Run(RefresherConfig) (*CharmID, error)
+	Run(context.Context, RefresherConfig) (*CharmID, error)
 }
 
 // Refresher defines the functionality of a refresher returned by the
@@ -20,10 +22,10 @@ type RefresherFactory interface {
 type Refresher interface {
 	// Allowed will attempt to check if a refresher is allowed to run a given
 	// config.
-	Allowed(RefresherConfig) (bool, error)
+	Allowed(context.Context, RefresherConfig) (bool, error)
 	// Refresh a given charm. Bundles are not supported as there is no physical
 	// representation in Juju.
-	Refresh() (*CharmID, error)
+	Refresh(ctx context.Context) (*CharmID, error)
 
 	// String returns a string description of the refresher.
 	String() string
@@ -38,7 +40,7 @@ type CharmID struct {
 // CharmResolver defines methods required to resolve charms, as required
 // by the upgrade-charm command.
 type CharmResolver interface {
-	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []base.Base, error)
+	ResolveCharm(ctx context.Context, url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []base.Base, error)
 }
 
 // CharmRepository defines methods for interaction with a charm repo.

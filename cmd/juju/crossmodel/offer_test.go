@@ -4,6 +4,8 @@
 package crossmodel
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
@@ -21,10 +23,10 @@ func newOfferCommandForTest(
 	api OfferAPI,
 ) cmd.Command {
 	aCmd := &offerCommand{
-		newAPIFunc: func() (OfferAPI, error) {
+		newAPIFunc: func(ctx context.Context) (OfferAPI, error) {
 			return api, nil
 		},
-		refreshModels: func(jujuclient.ClientStore, string) error {
+		refreshModels: func(context.Context, jujuclient.ClientStore, string) error {
 			return nil
 		},
 	}
@@ -150,7 +152,7 @@ func (s *mockOfferAPI) Close() error {
 	return nil
 }
 
-func (s *mockOfferAPI) Offer(modelUUID, application string, endpoints []string, owner, offerName, desc string) ([]params.ErrorResult, error) {
+func (s *mockOfferAPI) Offer(ctx context.Context, modelUUID, application string, endpoints []string, owner, offerName, desc string) ([]params.ErrorResult, error) {
 	if s.errCall {
 		return nil, errors.New("aborted")
 	}

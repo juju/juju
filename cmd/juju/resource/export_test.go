@@ -4,6 +4,8 @@
 package resource
 
 import (
+	"context"
+
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
@@ -31,7 +33,7 @@ var FormatApplicationResources = formatApplicationResources
 func NewCharmResourcesCommandForTest(resourceLister ResourceLister) modelcmd.ModelCommand {
 	c := CharmResourcesCommand{
 		baseCharmResourcesCommand{
-			CreateResourceListerFn: func(schema string, deps ResourceListerDependencies) (ResourceLister, error) {
+			CreateResourceListerFn: func(ctx context.Context, schema string, deps ResourceListerDependencies) (ResourceLister, error) {
 				return resourceLister, nil
 			},
 		},
@@ -40,14 +42,14 @@ func NewCharmResourcesCommandForTest(resourceLister ResourceLister) modelcmd.Mod
 	return modelcmd.Wrap(&c)
 }
 
-func NewUploadCommandForTest(newClient func() (UploadClient, error), filesystem modelcmd.Filesystem) *UploadCommand {
+func NewUploadCommandForTest(newClient func(ctx context.Context) (UploadClient, error), filesystem modelcmd.Filesystem) *UploadCommand {
 	cmd := &UploadCommand{newClient: newClient}
 	cmd.SetFilesystem(filesystem)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return cmd
 }
 
-func NewListCommandForTest(newClient func() (ListClient, error)) *ListCommand {
+func NewListCommandForTest(newClient func(ctx context.Context) (ListClient, error)) *ListCommand {
 	cmd := &ListCommand{newClient: newClient}
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return cmd

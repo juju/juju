@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -30,7 +31,7 @@ func newSwitchCommand() cmd.Command {
 
 type switchCommand struct {
 	modelcmd.CommandBase
-	RefreshModels func(jujuclient.ClientStore, string) error
+	RefreshModels func(context.Context, jujuclient.ClientStore, string) error
 
 	Store                 jujuclient.ClientStore
 	controllerOrModelName string
@@ -260,7 +261,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 		if currentControllerName == "" {
 			return errors.Trace(unknownSwitchTargetError(c.controllerOrModelName))
 		}
-		targetName, err = c.trySwitchToModel(store, currentControllerName, c.controllerOrModelName)
+		targetName, err = c.trySwitchToModel(ctx, store, currentControllerName, c.controllerOrModelName)
 		if err != nil {
 			return errors.Annotatef(err, "cannot determine if %q is a valid model", c.controllerOrModelName)
 		}
@@ -282,7 +283,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 		c.controllerName = currentControllerName
 	}
-	targetName, err = c.trySwitchToModel(store, c.controllerName, c.modelName)
+	targetName, err = c.trySwitchToModel(ctx, store, c.controllerName, c.modelName)
 	if err != nil {
 		return errors.Annotate(err, "invalid target model")
 	}
@@ -336,7 +337,7 @@ func (c *switchCommand) trySwitchToController(store jujuclient.ClientStore, cont
 	return targetName, errors.Trace(store.SetCurrentController(controller))
 }
 
-func (c *switchCommand) trySwitchToModel(store modelcmd.QualifyingClientStore, controller string, model string) (string, error) {
+func (c *switchCommand) trySwitchToModel(ctx context.Context, store modelcmd.QualifyingClientStore, controller string, model string) (string, error) {
 	if err := store.SetCurrentController(controller); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -348,7 +349,7 @@ func (c *switchCommand) trySwitchToModel(store modelcmd.QualifyingClientStore, c
 	err = store.SetCurrentModel(controller, modelName)
 	if errors.Is(err, errors.NotFound) {
 		// The model isn't known locally, so we must query the controller.
-		if err := c.RefreshModels(store, controller); err != nil {
+		if err := c.RefreshModels(ctx, store, controller); err != nil {
 			return "", errors.Annotate(err, "refreshing models cache")
 		}
 		err := store.SetCurrentModel(controller, modelName)

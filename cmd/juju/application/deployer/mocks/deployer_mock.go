@@ -201,9 +201,9 @@ func (c *MockModelCommandFilesystemCall) DoAndReturn(f func() modelcmd.Filesyste
 }
 
 // ModelDetails mocks base method.
-func (m *MockModelCommand) ModelDetails() (string, *jujuclient.ModelDetails, error) {
+func (m *MockModelCommand) ModelDetails(arg0 context.Context) (string, *jujuclient.ModelDetails, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelDetails")
+	ret := m.ctrl.Call(m, "ModelDetails", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(*jujuclient.ModelDetails)
 	ret2, _ := ret[2].(error)
@@ -211,9 +211,9 @@ func (m *MockModelCommand) ModelDetails() (string, *jujuclient.ModelDetails, err
 }
 
 // ModelDetails indicates an expected call of ModelDetails.
-func (mr *MockModelCommandMockRecorder) ModelDetails() *MockModelCommandModelDetailsCall {
+func (mr *MockModelCommandMockRecorder) ModelDetails(arg0 any) *MockModelCommandModelDetailsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelDetails", reflect.TypeOf((*MockModelCommand)(nil).ModelDetails))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelDetails", reflect.TypeOf((*MockModelCommand)(nil).ModelDetails), arg0)
 	return &MockModelCommandModelDetailsCall{Call: call}
 }
 
@@ -229,30 +229,30 @@ func (c *MockModelCommandModelDetailsCall) Return(arg0 string, arg1 *jujuclient.
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelCommandModelDetailsCall) Do(f func() (string, *jujuclient.ModelDetails, error)) *MockModelCommandModelDetailsCall {
+func (c *MockModelCommandModelDetailsCall) Do(f func(context.Context) (string, *jujuclient.ModelDetails, error)) *MockModelCommandModelDetailsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelCommandModelDetailsCall) DoAndReturn(f func() (string, *jujuclient.ModelDetails, error)) *MockModelCommandModelDetailsCall {
+func (c *MockModelCommandModelDetailsCall) DoAndReturn(f func(context.Context) (string, *jujuclient.ModelDetails, error)) *MockModelCommandModelDetailsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ModelType mocks base method.
-func (m *MockModelCommand) ModelType() (model.ModelType, error) {
+func (m *MockModelCommand) ModelType(arg0 context.Context) (model.ModelType, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelType")
+	ret := m.ctrl.Call(m, "ModelType", arg0)
 	ret0, _ := ret[0].(model.ModelType)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelType indicates an expected call of ModelType.
-func (mr *MockModelCommandMockRecorder) ModelType() *MockModelCommandModelTypeCall {
+func (mr *MockModelCommandMockRecorder) ModelType(arg0 any) *MockModelCommandModelTypeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelType", reflect.TypeOf((*MockModelCommand)(nil).ModelType))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelType", reflect.TypeOf((*MockModelCommand)(nil).ModelType), arg0)
 	return &MockModelCommandModelTypeCall{Call: call}
 }
 
@@ -268,13 +268,13 @@ func (c *MockModelCommandModelTypeCall) Return(arg0 model.ModelType, arg1 error)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelCommandModelTypeCall) Do(f func() (model.ModelType, error)) *MockModelCommandModelTypeCall {
+func (c *MockModelCommandModelTypeCall) Do(f func(context.Context) (model.ModelType, error)) *MockModelCommandModelTypeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelCommandModelTypeCall) DoAndReturn(f func() (model.ModelType, error)) *MockModelCommandModelTypeCall {
+func (c *MockModelCommandModelTypeCall) DoAndReturn(f func(context.Context) (model.ModelType, error)) *MockModelCommandModelTypeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -341,18 +341,18 @@ func (c *MockConsumeDetailsCloseCall) DoAndReturn(f func() error) *MockConsumeDe
 }
 
 // GetConsumeDetails mocks base method.
-func (m *MockConsumeDetails) GetConsumeDetails(arg0 string) (params.ConsumeOfferDetails, error) {
+func (m *MockConsumeDetails) GetConsumeDetails(arg0 context.Context, arg1 string) (params.ConsumeOfferDetails, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetConsumeDetails", arg0)
+	ret := m.ctrl.Call(m, "GetConsumeDetails", arg0, arg1)
 	ret0, _ := ret[0].(params.ConsumeOfferDetails)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetConsumeDetails indicates an expected call of GetConsumeDetails.
-func (mr *MockConsumeDetailsMockRecorder) GetConsumeDetails(arg0 any) *MockConsumeDetailsGetConsumeDetailsCall {
+func (mr *MockConsumeDetailsMockRecorder) GetConsumeDetails(arg0, arg1 any) *MockConsumeDetailsGetConsumeDetailsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConsumeDetails", reflect.TypeOf((*MockConsumeDetails)(nil).GetConsumeDetails), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConsumeDetails", reflect.TypeOf((*MockConsumeDetails)(nil).GetConsumeDetails), arg0, arg1)
 	return &MockConsumeDetailsGetConsumeDetailsCall{Call: call}
 }
 
@@ -368,13 +368,13 @@ func (c *MockConsumeDetailsGetConsumeDetailsCall) Return(arg0 params.ConsumeOffe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockConsumeDetailsGetConsumeDetailsCall) Do(f func(string) (params.ConsumeOfferDetails, error)) *MockConsumeDetailsGetConsumeDetailsCall {
+func (c *MockConsumeDetailsGetConsumeDetailsCall) Do(f func(context.Context, string) (params.ConsumeOfferDetails, error)) *MockConsumeDetailsGetConsumeDetailsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConsumeDetailsGetConsumeDetailsCall) DoAndReturn(f func(string) (params.ConsumeOfferDetails, error)) *MockConsumeDetailsGetConsumeDetailsCall {
+func (c *MockConsumeDetailsGetConsumeDetailsCall) DoAndReturn(f func(context.Context, string) (params.ConsumeOfferDetails, error)) *MockConsumeDetailsGetConsumeDetailsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -442,18 +442,18 @@ func (c *MockCharmDeployAPICharmInfoCall) DoAndReturn(f func(context.Context, st
 }
 
 // ModelGet mocks base method.
-func (m *MockCharmDeployAPI) ModelGet() (map[string]any, error) {
+func (m *MockCharmDeployAPI) ModelGet(arg0 context.Context) (map[string]any, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelGet")
+	ret := m.ctrl.Call(m, "ModelGet", arg0)
 	ret0, _ := ret[0].(map[string]any)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelGet indicates an expected call of ModelGet.
-func (mr *MockCharmDeployAPIMockRecorder) ModelGet() *MockCharmDeployAPIModelGetCall {
+func (mr *MockCharmDeployAPIMockRecorder) ModelGet(arg0 any) *MockCharmDeployAPIModelGetCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelGet", reflect.TypeOf((*MockCharmDeployAPI)(nil).ModelGet))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelGet", reflect.TypeOf((*MockCharmDeployAPI)(nil).ModelGet), arg0)
 	return &MockCharmDeployAPIModelGetCall{Call: call}
 }
 
@@ -469,13 +469,13 @@ func (c *MockCharmDeployAPIModelGetCall) Return(arg0 map[string]any, arg1 error)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmDeployAPIModelGetCall) Do(f func() (map[string]any, error)) *MockCharmDeployAPIModelGetCall {
+func (c *MockCharmDeployAPIModelGetCall) Do(f func(context.Context) (map[string]any, error)) *MockCharmDeployAPIModelGetCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmDeployAPIModelGetCall) DoAndReturn(f func() (map[string]any, error)) *MockCharmDeployAPIModelGetCall {
+func (c *MockCharmDeployAPIModelGetCall) DoAndReturn(f func(context.Context) (map[string]any, error)) *MockCharmDeployAPIModelGetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

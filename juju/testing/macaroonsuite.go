@@ -143,7 +143,7 @@ func (s *MacaroonSuite) OpenAPI(c *gc.C, info *api.Info, jar http.CookieJar) api
 	if jar != nil {
 		bakeryClient.Client.Jar = jar
 	}
-	conn, err := api.Open(info, api.DialOpts{
+	conn, err := api.Open(context.Background(), info, api.DialOpts{
 		BakeryClient: bakeryClient,
 	})
 	c.Assert(err, gc.IsNil)

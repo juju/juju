@@ -52,7 +52,7 @@ func (s *updateSuite) TestUpdateWithoutContent(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().UpdateSecret(uri, "", ptr(true), "new-name", "this is a secret.", map[string]string{}).Return(nil)
+	s.secretsAPI.EXPECT().UpdateSecret(gomock.Any(), uri, "", ptr(true), "new-name", "this is a secret.", map[string]string{}).Return(nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(
@@ -66,7 +66,7 @@ func (s *updateSuite) TestUpdateFromArg(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().UpdateSecret(uri, "", ptr(true), "new-name", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(nil)
+	s.secretsAPI.EXPECT().UpdateSecret(gomock.Any(), uri, "", ptr(true), "new-name", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(
@@ -80,7 +80,7 @@ func (s *updateSuite) TestUpdateAutoPruneFalse(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().UpdateSecret(uri, "", ptr(false), "", "", map[string]string{}).Return(nil)
+	s.secretsAPI.EXPECT().UpdateSecret(gomock.Any(), uri, "", ptr(false), "", "", map[string]string{}).Return(nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(
@@ -93,7 +93,7 @@ func (s *updateSuite) TestUpdateAutoPruneNil(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().UpdateSecret(uri, "", nil, "", "this is a secret.", map[string]string{}).Return(nil)
+	s.secretsAPI.EXPECT().UpdateSecret(gomock.Any(), uri, "", nil, "", "this is a secret.", map[string]string{}).Return(nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(
@@ -106,7 +106,7 @@ func (s *updateSuite) TestUpdateFromFile(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().UpdateSecret(uri, "", ptr(true), "new-name", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(nil)
+	s.secretsAPI.EXPECT().UpdateSecret(gomock.Any(), uri, "", ptr(true), "new-name", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	dir := c.MkDir()

@@ -4,6 +4,7 @@
 package subnet_test
 
 import (
+	"context"
 	stdtesting "testing"
 
 	"github.com/juju/cmd/v4"
@@ -168,12 +169,12 @@ func (sa *StubAPI) Close() error {
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) AddSubnet(cidr string, id network.Id, spaceTag names.SpaceTag, zones []string) error {
+func (sa *StubAPI) AddSubnet(ctx context.Context, cidr string, id network.Id, spaceTag names.SpaceTag, zones []string) error {
 	sa.MethodCall(sa, "AddSubnet", cidr, id, spaceTag, zones)
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) ListSubnets(withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error) {
+func (sa *StubAPI) ListSubnets(ctx context.Context, withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error) {
 	if withSpace == nil {
 		// Due to the way CheckCall works (using jc.DeepEquals
 		// internally), we need to pass an explicit nil here, rather

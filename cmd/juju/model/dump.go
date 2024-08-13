@@ -4,6 +4,8 @@
 package model
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -64,31 +66,31 @@ func (c *dumpCommand) Init(args []string) error {
 // DumpModelAPI specifies the used function calls of the ModelManager.
 type DumpModelAPI interface {
 	Close() error
-	DumpModel(names.ModelTag, bool) (map[string]interface{}, error)
+	DumpModel(context.Context, names.ModelTag, bool) (map[string]interface{}, error)
 }
 
-func (c *dumpCommand) getAPI() (DumpModelAPI, error) {
+func (c *dumpCommand) getAPI(ctx context.Context) (DumpModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.ModelCommandBase.NewModelManagerAPIClient()
+	return c.ModelCommandBase.NewModelManagerAPIClient(ctx)
 }
 
 // Run implements Command.
 func (c *dumpCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getAPI()
+	client, err := c.getAPI(ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	_, modelDetails, err := c.ModelCommandBase.ModelDetails()
+	_, modelDetails, err := c.ModelCommandBase.ModelDetails(ctx)
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}
 
 	modelTag := names.NewModelTag(modelDetails.ModelUUID)
-	results, err := client.DumpModel(modelTag, c.simplified)
+	results, err := client.DumpModel(ctx, modelTag, c.simplified)
 	if err != nil {
 		return err
 	}

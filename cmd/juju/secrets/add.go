@@ -4,6 +4,7 @@
 package secrets
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/v4"
@@ -19,12 +20,12 @@ type addSecretCommand struct {
 
 	SecretUpsertContentCommand
 	name           string
-	secretsAPIFunc func() (AddSecretsAPI, error)
+	secretsAPIFunc func(context.Context) (AddSecretsAPI, error)
 }
 
 // AddSecretsAPI is the secrets client API.
 type AddSecretsAPI interface {
-	CreateSecret(name, description string, data map[string]string) (string, error)
+	CreateSecret(ctx context.Context, name, description string, data map[string]string) (string, error)
 	Close() error
 }
 
@@ -35,8 +36,8 @@ func NewAddSecretCommand() cmd.Command {
 	return modelcmd.Wrap(c)
 }
 
-func (c *addSecretCommand) secretsAPI() (AddSecretsAPI, error) {
-	root, err := c.NewAPIRoot()
+func (c *addSecretCommand) secretsAPI(ctx context.Context) (AddSecretsAPI, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -98,13 +99,13 @@ func (c *addSecretCommand) Init(args []string) error {
 
 // Run implements cmd.Command.
 func (c *addSecretCommand) Run(ctx *cmd.Context) error {
-	secretsAPI, err := c.secretsAPIFunc()
+	secretsAPI, err := c.secretsAPIFunc(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer secretsAPI.Close()
 
-	uri, err := secretsAPI.CreateSecret(c.name, c.Description, c.Data)
+	uri, err := secretsAPI.CreateSecret(ctx, c.name, c.Description, c.Data)
 	if err != nil {
 		return err
 	}

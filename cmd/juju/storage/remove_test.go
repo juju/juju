@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/cmd/v4"
@@ -142,7 +143,7 @@ type fakeStorageRemover struct {
 	results []params.ErrorResult
 }
 
-func (f *fakeStorageRemover) new() (storage.StorageRemoverCloser, error) {
+func (f *fakeStorageRemover) new(ctx context.Context) (storage.StorageRemoverCloser, error) {
 	f.MethodCall(f, "NewStorageRemoverCloser")
 	return f, f.NextErr()
 }
@@ -152,7 +153,7 @@ func (f *fakeStorageRemover) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeStorageRemover) Remove(ids []string, destroyAttached, destroyStorage bool, force *bool, maxWait *time.Duration) ([]params.ErrorResult, error) {
+func (f *fakeStorageRemover) Remove(ctx context.Context, ids []string, destroyAttached, destroyStorage bool, force *bool, maxWait *time.Duration) ([]params.ErrorResult, error) {
 	f.MethodCall(f, "Remove", ids, destroyAttached, destroyStorage, force, maxWait)
 	return f.results, f.NextErr()
 }

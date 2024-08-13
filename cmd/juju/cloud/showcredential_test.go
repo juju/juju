@@ -4,6 +4,8 @@
 package cloud_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -253,7 +255,7 @@ type fakeCredentialContentAPI struct {
 	inclsecrets bool
 }
 
-func (f *fakeCredentialContentAPI) CredentialContents(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error) {
+func (f *fakeCredentialContentAPI) CredentialContents(ctx context.Context, cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error) {
 	f.AddCall("CredentialContents", cloud, credential, withSecrets)
 	f.inclsecrets = withSecrets
 	return f.contents, f.NextErr()

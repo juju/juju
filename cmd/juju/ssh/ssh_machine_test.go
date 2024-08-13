@@ -4,6 +4,7 @@
 package ssh
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -196,7 +197,7 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForHostMachineTarget(c 
 		host: "10.0.0.1",
 	}
 
-	statusGetter := func(_ *client.StatusArgs) (*params.FullStatus, error) {
+	statusGetter := func(ctx context.Context, _ *client.StatusArgs) (*params.FullStatus, error) {
 		return &params.FullStatus{
 			Machines: map[string]params.MachineStatus{
 				"0": {
@@ -208,7 +209,7 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForHostMachineTarget(c 
 		}, nil
 	}
 
-	err := new(sshMachine).maybePopulateTargetViaField(target, statusGetter)
+	err := new(sshMachine).maybePopulateTargetViaField(context.Background(), target, statusGetter)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(target.via, gc.IsNil, gc.Commentf("expected target.via not to be populated for a non-container target"))
@@ -219,7 +220,7 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForContainerMachineTarg
 		host: "252.66.6.42",
 	}
 
-	statusGetter := func(_ *client.StatusArgs) (*params.FullStatus, error) {
+	statusGetter := func(ctx context.Context, _ *client.StatusArgs) (*params.FullStatus, error) {
 		return &params.FullStatus{
 			Machines: map[string]params.MachineStatus{
 				"0": {
@@ -239,7 +240,7 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForContainerMachineTarg
 		}, nil
 	}
 
-	err := new(sshMachine).maybePopulateTargetViaField(target, statusGetter)
+	err := new(sshMachine).maybePopulateTargetViaField(context.Background(), target, statusGetter)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(target.via, gc.Not(gc.IsNil), gc.Commentf("expected target.via to be populated for container target"))
@@ -254,7 +255,7 @@ func (s *SSHMachineSuite) setHostChecker(hostChecker jujussh.ReachableChecker) {
 func (s *SSHMachineSuite) setupModel(
 	ctrl *gomock.Controller, withProxy bool,
 	machineAddresses func() []string,
-	keysForTarget func(target string) ([]string, error),
+	keysForTarget func(ctx context.Context, target string) ([]string, error),
 	targets ...string,
 ) (SSHClientAPI, *mocks.MockApplicationAPI, StatusClientAPI) {
 	applicationClient := mocks.NewMockApplicationAPI(ctrl)
@@ -296,7 +297,7 @@ func (s *SSHMachineSuite) setupModel(
 		return addr, nil
 	}
 	for _, t := range targets {
-		sshClient.EXPECT().AllAddresses(t).DoAndReturn(func(target string) ([]string, error) {
+		sshClient.EXPECT().AllAddresses(gomock.Any(), t).DoAndReturn(func(ctx context.Context, target string) ([]string, error) {
 			if target == "5" {
 				return nil, errors.NotFoundf("machine 5")
 			}
@@ -305,7 +306,7 @@ func (s *SSHMachineSuite) setupModel(
 			}
 			return getAddresses(target)
 		}).MaxTimes(5)
-		sshClient.EXPECT().PrivateAddress(t).DoAndReturn(func(target string) (string, error) {
+		sshClient.EXPECT().PrivateAddress(gomock.Any(), t).DoAndReturn(func(ctx context.Context, target string) (string, error) {
 			addr, err := getAddresses(target)
 			if err != nil || len(addr) == 0 {
 				return "", err
@@ -319,7 +320,7 @@ func (s *SSHMachineSuite) setupModel(
 		}).MaxTimes(5)
 	}
 	for _, t := range targets {
-		f := func(target string) ([]string, error) {
+		f := func(ctx context.Context, target string) ([]string, error) {
 			machine := machineTarget(target)
 			if machine != "1" {
 				return []string{
@@ -332,10 +333,10 @@ func (s *SSHMachineSuite) setupModel(
 		if keysForTarget != nil {
 			f = keysForTarget
 		}
-		sshClient.EXPECT().PublicKeys(t).DoAndReturn(f).AnyTimes()
+		sshClient.EXPECT().PublicKeys(gomock.Any(), t).DoAndReturn(f).AnyTimes()
 	}
 
-	statusClient.EXPECT().Status(nil).DoAndReturn(func(_ *client.StatusArgs) (*params.FullStatus, error) {
+	statusClient.EXPECT().Status(gomock.Any(), nil).DoAndReturn(func(ctx context.Context, _ *client.StatusArgs) (*params.FullStatus, error) {
 		machine := machineTarget(targets[0])
 		addr, err := getAddresses(machine)
 		if err != nil {
@@ -349,7 +350,7 @@ func (s *SSHMachineSuite) setupModel(
 			},
 		}, nil
 	}).MaxTimes(2)
-	sshClient.EXPECT().Proxy().Return(withProxy, nil).MaxTimes(1)
+	sshClient.EXPECT().Proxy(gomock.Any()).Return(withProxy, nil).MaxTimes(1)
 	sshClient.EXPECT().Close().Return(nil)
 	statusClient.EXPECT().Close().Return(nil)
 	// leader api attribute is assigned the application api and both may be closed.

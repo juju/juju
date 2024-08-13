@@ -39,27 +39,27 @@ type Facade struct {
 
 // PublicAddress returns the public address for the SSH target
 // provided. The target may be provided as a machine ID or unit name.
-func (facade *Facade) PublicAddress(target string) (string, error) {
-	addr, err := facade.addressCall("PublicAddress", target)
+func (facade *Facade) PublicAddress(ctx context.Context, target string) (string, error) {
+	addr, err := facade.addressCall(ctx, "PublicAddress", target)
 	return addr, errors.Trace(err)
 }
 
 // PrivateAddress returns the private address for the SSH target
 // provided. The target may be provided as a machine ID or unit name.
-func (facade *Facade) PrivateAddress(target string) (string, error) {
-	addr, err := facade.addressCall("PrivateAddress", target)
+func (facade *Facade) PrivateAddress(ctx context.Context, target string) (string, error) {
+	addr, err := facade.addressCall(ctx, "PrivateAddress", target)
 	return addr, errors.Trace(err)
 }
 
 // AllAddresses returns all addresses for the SSH target provided. The target
 // may be provided as a machine ID or unit name.
-func (facade *Facade) AllAddresses(target string) ([]string, error) {
+func (facade *Facade) AllAddresses(ctx context.Context, target string) ([]string, error) {
 	entities, err := targetToEntities(target)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var out params.SSHAddressesResults
-	err = facade.caller.FacadeCall(context.TODO(), "AllAddresses", entities, &out)
+	err = facade.caller.FacadeCall(ctx, "AllAddresses", entities, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -72,13 +72,13 @@ func (facade *Facade) AllAddresses(target string) ([]string, error) {
 	return out.Results[0].Addresses, nil
 }
 
-func (facade *Facade) addressCall(callName, target string) (string, error) {
+func (facade *Facade) addressCall(ctx context.Context, callName, target string) (string, error) {
 	entities, err := targetToEntities(target)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	var out params.SSHAddressResults
-	err = facade.caller.FacadeCall(context.TODO(), callName, entities, &out)
+	err = facade.caller.FacadeCall(ctx, callName, entities, &out)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -93,13 +93,13 @@ func (facade *Facade) addressCall(callName, target string) (string, error) {
 
 // PublicKeys returns the SSH public host keys for the SSH target
 // provided. The target may be provided as a machine ID or unit name.
-func (facade *Facade) PublicKeys(target string) ([]string, error) {
+func (facade *Facade) PublicKeys(ctx context.Context, target string) ([]string, error) {
 	entities, err := targetToEntities(target)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var out params.SSHPublicKeysResults
-	err = facade.caller.FacadeCall(context.TODO(), "PublicKeys", entities, &out)
+	err = facade.caller.FacadeCall(ctx, "PublicKeys", entities, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -114,9 +114,9 @@ func (facade *Facade) PublicKeys(target string) ([]string, error) {
 
 // Proxy returns whether SSH connections should be proxied through the
 // controller hosts for the associated model.
-func (facade *Facade) Proxy() (bool, error) {
+func (facade *Facade) Proxy(ctx context.Context) (bool, error) {
 	var out params.SSHProxyResult
-	err := facade.caller.FacadeCall(context.TODO(), "Proxy", nil, &out)
+	err := facade.caller.FacadeCall(ctx, "Proxy", nil, &out)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -151,10 +151,10 @@ func countError(count int) error {
 
 // ModelCredentialForSSH returns a cloud spec for ssh purpose.
 // This facade call is only used for k8s model.
-func (facade *Facade) ModelCredentialForSSH() (cloudspec.CloudSpec, error) {
+func (facade *Facade) ModelCredentialForSSH(ctx context.Context) (cloudspec.CloudSpec, error) {
 	var result params.CloudSpecResult
 
-	err := facade.caller.FacadeCall(context.TODO(), "ModelCredentialForSSH", nil, &result)
+	err := facade.caller.FacadeCall(ctx, "ModelCredentialForSSH", nil, &result)
 	if err != nil {
 		return cloudspec.CloudSpec{}, err
 	}

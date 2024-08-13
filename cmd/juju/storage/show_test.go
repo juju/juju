@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -142,7 +143,7 @@ func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockShowAPI) StorageDetails(tags []names.StorageTag) ([]params.StorageDetailsResult, error) {
+func (s mockShowAPI) StorageDetails(ctx context.Context, tags []names.StorageTag) ([]params.StorageDetailsResult, error) {
 	if s.noMatch {
 		return nil, nil
 	}

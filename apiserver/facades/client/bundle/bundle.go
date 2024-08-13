@@ -112,6 +112,7 @@ type validators struct {
 }
 
 func (b *BundleAPI) doGetBundleChanges(
+	ctx context.Context,
 	args params.BundleChangesParams,
 	vs validators,
 ) ([]bundlechanges.Change, []error, error) {
@@ -132,6 +133,7 @@ func (b *BundleAPI) doGetBundleChanges(
 		return nil, nil, errors.Annotate(err, "cannot verify bundle")
 	}
 	changes, err := bundlechanges.FromData(
+		ctx,
 		bundlechanges.ChangesConfig{
 			Bundle:    data,
 			BundleURL: args.BundleURL,
@@ -162,7 +164,7 @@ func (b *BundleAPI) GetChangesMapArgs(ctx context.Context, args params.BundleCha
 			return err
 		},
 	}
-	return b.doGetBundleChangesMapArgs(args, vs, func(changes []bundlechanges.Change, results *params.BundleChangesMapArgsResults) error {
+	return b.doGetBundleChangesMapArgs(ctx, args, vs, func(changes []bundlechanges.Change, results *params.BundleChangesMapArgsResults) error {
 		results.Changes = make([]*params.BundleChangesMapArgs, len(changes))
 		results.Errors = make([]string, len(changes))
 		for i, c := range changes {
@@ -183,12 +185,13 @@ func (b *BundleAPI) GetChangesMapArgs(ctx context.Context, args params.BundleCha
 }
 
 func (b *BundleAPI) doGetBundleChangesMapArgs(
+	ctx context.Context,
 	args params.BundleChangesParams,
 	vs validators,
 	postProcess func([]bundlechanges.Change, *params.BundleChangesMapArgsResults) error,
 ) (params.BundleChangesMapArgsResults, error) {
 	var results params.BundleChangesMapArgsResults
-	changes, validationErrors, err := b.doGetBundleChanges(args, vs)
+	changes, validationErrors, err := b.doGetBundleChanges(ctx, args, vs)
 	if err != nil {
 		return results, errors.Trace(err)
 	}

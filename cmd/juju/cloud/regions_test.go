@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"context"
 	"os"
 	"strings"
 
@@ -90,7 +91,7 @@ func (s *regionsSuite) setupControllerData(c *gc.C) cmd.Command {
 	}
 	return cloud.NewListRegionsCommandForTest(
 		s.store,
-		func() (cloud.CloudRegionsAPI, error) {
+		func(ctx context.Context) (cloud.CloudRegionsAPI, error) {
 			return s.api, nil
 		})
 }

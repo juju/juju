@@ -5,6 +5,7 @@ package model
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"sort"
@@ -224,7 +225,7 @@ type defaultsCommand struct {
 	configBase config.ConfigCommandBase
 	out        cmd.Output
 
-	newAPIRoot     func() (api.Connection, error)
+	newAPIRoot     func(ctx context.Context) (api.Connection, error)
 	newDefaultsAPI func(base.APICallCloser) defaultsCommandAPI
 	newCloudAPI    func(base.APICallCloser) cloudAPI
 
@@ -237,8 +238,8 @@ type defaultsCommand struct {
 // cloudAPI defines an API to be passed in for testing.
 type cloudAPI interface {
 	Close() error
-	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
-	Cloud(names.CloudTag) (jujucloud.Cloud, error)
+	Clouds(ctx context.Context) (map[names.CloudTag]jujucloud.Cloud, error)
+	Cloud(context.Context, names.CloudTag) (jujucloud.Cloud, error)
 }
 
 // defaultsCommandAPI defines an API to be used during testing.
@@ -247,15 +248,15 @@ type defaultsCommandAPI interface {
 	Close() error
 
 	// ModelDefaults returns the default config values used when creating a new model.
-	ModelDefaults(cloud string) (envconfig.ModelDefaultAttributes, error)
+	ModelDefaults(ctx context.Context, cloud string) (envconfig.ModelDefaultAttributes, error)
 
 	// SetModelDefaults sets the default config values to use
 	// when creating new models.
-	SetModelDefaults(cloud, region string, config map[string]interface{}) error
+	SetModelDefaults(ctx context.Context, cloud, region string, config map[string]interface{}) error
 
 	// UnsetModelDefaults clears the default model
 	// configuration values.
-	UnsetModelDefaults(cloud, region string, keys ...string) error
+	UnsetModelDefaults(ctx context.Context, cloud, region string, keys ...string) error
 }
 
 // Info implements part of the cmd.Command interface.
@@ -323,14 +324,14 @@ func (c *defaultsCommand) Init(args []string) error {
 
 // Run implements part of the cmd.Command interface.
 func (c *defaultsCommand) Run(ctx *cmd.Context) error {
-	root, err := c.newAPIRoot()
+	root, err := c.newAPIRoot(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	cc := c.newCloudAPI(root)
 	defer cc.Close()
-	err = c.validateCloudRegion(cc)
+	err = c.validateCloudRegion(ctx, cc)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -342,20 +343,20 @@ func (c *defaultsCommand) Run(ctx *cmd.Context) error {
 		var err error
 		switch action {
 		case config.GetOne:
-			err = c.getDefaults(client, ctx)
+			err = c.getDefaults(ctx, client)
 		case config.SetArgs:
-			err = c.setDefaults(client, c.configBase.ValsToSet)
+			err = c.setDefaults(ctx, client, c.configBase.ValsToSet)
 		case config.SetFile:
 			var attrs config.Attrs
 			attrs, err = c.configBase.ReadFile(ctx)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			err = c.setDefaults(client, attrs)
+			err = c.setDefaults(ctx, client, attrs)
 		case config.Reset:
-			err = c.resetDefaults(client)
+			err = c.resetDefaults(ctx, client)
 		default:
-			err = c.getAllDefaults(client, ctx)
+			err = c.getAllDefaults(ctx, client)
 		}
 		if err != nil {
 			return errors.Trace(err)
@@ -365,11 +366,11 @@ func (c *defaultsCommand) Run(ctx *cmd.Context) error {
 }
 
 // validateCloudRegion checks that the supplied cloud and region is valid.
-func (c *defaultsCommand) validateCloudRegion(cc cloudAPI) error {
+func (c *defaultsCommand) validateCloudRegion(ctx context.Context, cc cloudAPI) error {
 	// If cloud not specified, set to default value
 	if c.cloud == "" {
 		// Try to set cloud to default
-		cloudTag, err := c.maybeGetDefaultControllerCloud(cc)
+		cloudTag, err := c.maybeGetDefaultControllerCloud(ctx, cc)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -377,7 +378,7 @@ func (c *defaultsCommand) validateCloudRegion(cc cloudAPI) error {
 	}
 
 	// Check cloud exists
-	cloud, err := cc.Cloud(names.NewCloudTag(c.cloud))
+	cloud, err := cc.Cloud(ctx, names.NewCloudTag(c.cloud))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -411,9 +412,9 @@ Specify one of the following clouds for which to process model defaults:
     %s
 `[1:]
 
-func (c *defaultsCommand) maybeGetDefaultControllerCloud(api cloudAPI) (names.CloudTag, error) {
+func (c *defaultsCommand) maybeGetDefaultControllerCloud(ctx context.Context, api cloudAPI) (names.CloudTag, error) {
 	var cTag names.CloudTag
-	clouds, err := api.Clouds()
+	clouds, err := api.Clouds(ctx)
 	if err != nil {
 		return cTag, errors.Trace(err)
 	}
@@ -435,8 +436,8 @@ func (c *defaultsCommand) maybeGetDefaultControllerCloud(api cloudAPI) (names.Cl
 }
 
 // getDefaults writes out the value for a single default key.
-func (c *defaultsCommand) getDefaults(client defaultsCommandAPI, ctx *cmd.Context) error {
-	attrs, err := c.getFilteredDefaults(client)
+func (c *defaultsCommand) getDefaults(ctx *cmd.Context, client defaultsCommandAPI) error {
+	attrs, err := c.getFilteredDefaults(ctx, client)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -457,8 +458,8 @@ func (c *defaultsCommand) getDefaults(client defaultsCommandAPI, ctx *cmd.Contex
 
 // getAllDefaults writes out the value for a single key or the full tree of
 // defaults.
-func (c *defaultsCommand) getAllDefaults(client defaultsCommandAPI, ctx *cmd.Context) error {
-	attrs, err := c.getFilteredDefaults(client)
+func (c *defaultsCommand) getAllDefaults(ctx *cmd.Context, client defaultsCommandAPI) error {
+	attrs, err := c.getFilteredDefaults(ctx, client)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -472,8 +473,8 @@ func (c *defaultsCommand) getAllDefaults(client defaultsCommandAPI, ctx *cmd.Con
 }
 
 // getFilteredDefaults returns model defaults, filtered by region if necessary.
-func (c *defaultsCommand) getFilteredDefaults(client defaultsCommandAPI) (envconfig.ModelDefaultAttributes, error) {
-	attrs, err := client.ModelDefaults(c.cloud)
+func (c *defaultsCommand) getFilteredDefaults(ctx context.Context, client defaultsCommandAPI) (envconfig.ModelDefaultAttributes, error) {
+	attrs, err := client.ModelDefaults(ctx, c.cloud)
 	if err != nil {
 		return nil, err
 	}
@@ -504,7 +505,7 @@ func (c *defaultsCommand) getFilteredDefaults(client defaultsCommandAPI) (envcon
 }
 
 // setDefaults sets defaults as provided by key=value command-line args.
-func (c *defaultsCommand) setDefaults(client defaultsCommandAPI, attrs config.Attrs) error {
+func (c *defaultsCommand) setDefaults(ctx context.Context, client defaultsCommandAPI, attrs config.Attrs) error {
 	// Check all keys are settable
 	var keys []string
 	values := make(defaultAttrs)
@@ -524,30 +525,32 @@ func (c *defaultsCommand) setDefaults(client defaultsCommandAPI, attrs config.At
 		return errors.Trace(err)
 	}
 
-	if err := c.verifyKnownKeys(client, keys); err != nil {
+	if err := c.verifyKnownKeys(ctx, client, keys); err != nil {
 		return errors.Trace(err)
 	}
 
 	return block.ProcessBlockedError(
 		client.SetModelDefaults(
+			ctx,
 			c.cloud, c.region, coerced), block.BlockChange)
 }
 
 // resetDefaults resets the keys in resetKeys.
-func (c *defaultsCommand) resetDefaults(client defaultsCommandAPI) error {
+func (c *defaultsCommand) resetDefaults(ctx context.Context, client defaultsCommandAPI) error {
 	// ctx unused in this method.
-	if err := c.verifyKnownKeys(client, c.configBase.KeysToReset); err != nil {
+	if err := c.verifyKnownKeys(ctx, client, c.configBase.KeysToReset); err != nil {
 		return errors.Trace(err)
 	}
 	return block.ProcessBlockedError(
 		client.UnsetModelDefaults(
+			ctx,
 			c.cloud, c.region, c.configBase.KeysToReset...), block.BlockChange)
 }
 
 // verifyKnownKeys is a helper to validate the keys we are operating with
 // against the set of known attributes from the model.
-func (c *defaultsCommand) verifyKnownKeys(client defaultsCommandAPI, keys []string) error {
-	known, err := client.ModelDefaults(c.cloud)
+func (c *defaultsCommand) verifyKnownKeys(ctx context.Context, client defaultsCommandAPI, keys []string) error {
+	known, err := client.ModelDefaults(ctx, c.cloud)
 	if err != nil {
 		return errors.Trace(err)
 	}

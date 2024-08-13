@@ -20,7 +20,7 @@ import (
 type modelSecretBackendCommand struct {
 	modelcmd.ModelCommandBase
 
-	getAPIFunc func() (ModelSecretBackendAPI, error)
+	getAPIFunc func(ctx context.Context) (ModelSecretBackendAPI, error)
 
 	secretBackendName *string
 }
@@ -39,8 +39,8 @@ func NewModelSecretBackendCommand() cmd.Command {
 	return modelcmd.Wrap(c)
 }
 
-func (c *modelSecretBackendCommand) secretBackendAPI() (ModelSecretBackendAPI, error) {
-	root, err := c.NewAPIRoot()
+func (c *modelSecretBackendCommand) secretBackendAPI(ctx context.Context) (ModelSecretBackendAPI, error) {
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -97,7 +97,7 @@ func (c *modelSecretBackendCommand) Init(args []string) error {
 
 // Run implements cmd.Command.
 func (c *modelSecretBackendCommand) Run(ctx *cmd.Context) error {
-	api, err := c.getAPIFunc()
+	api, err := c.getAPIFunc(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
