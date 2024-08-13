@@ -230,6 +230,11 @@ func (s *ApplicationService) CreateApplication(
 			Branch: normalisedC.Branch,
 		}
 	}
+
+	revision := -1
+	if origin.Revision != nil {
+		revision = *origin.Revision
+	}
 	appArg := application.AddApplicationArg{
 		Charm:   ch,
 		Channel: channel,
@@ -237,6 +242,9 @@ func (s *ApplicationService) CreateApplication(
 			Channel:        origin.Platform.Channel,
 			OSTypeID:       application.MarshallOSType(ostype.OSTypeForName(origin.Platform.OS)),
 			ArchitectureID: application.MarshallArchitecture(origin.Platform.Architecture),
+		},
+		Origin: application.Origin{
+			Revision: revision,
 		},
 	}
 

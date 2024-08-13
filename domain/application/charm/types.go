@@ -80,6 +80,13 @@ type Charm struct {
 	LXDProfile []byte
 }
 
+// CharmInfo holds additional information about a charm, that is not part of
+// the charm metadata or manifest.
+type CharmInfo struct {
+	// Revision is the revision of the charm.
+	Revision int
+}
+
 // Metadata represents the metadata of a charm from the perspective of the
 // service. This is the golden source of charm metadata. If the charm changes
 // at the wire format level, we should be able to map it to this struct.
