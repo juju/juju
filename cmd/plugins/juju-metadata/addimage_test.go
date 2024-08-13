@@ -41,7 +41,7 @@ func (s *addImageSuite) SetUpTest(c *gc.C) {
 		s.data = append(s.data, metadata...)
 		return nil
 	}
-	s.PatchValue(&getImageMetadataAddAPI, func(c *addImageMetadataCommand) (MetadataAddAPI, error) {
+	s.PatchValue(&getImageMetadataAddAPI, func(c *addImageMetadataCommand, ctx context.Context) (MetadataAddAPI, error) {
 		return s.mockAPI, nil
 	})
 }
