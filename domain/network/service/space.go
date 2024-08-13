@@ -62,14 +62,16 @@ func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (networ
 	return network.Id(spaceID), nil
 }
 
-// UpdateSpace updates the space name identified by the passed uuid.
+// UpdateSpace updates the space name identified by the passed uuid. If the
+// space is not found, an error is returned matching
+// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 func (s *Service) UpdateSpace(ctx context.Context, uuid string, name string) error {
 	return errors.Trace(s.st.UpdateSpace(ctx, uuid, name))
 }
 
-// Space returns a space from state that matches the input ID.
-// An error is returned if the space does not exist or if there was a problem
-// accessing its information.
+// Space returns a space from state that matches the input ID. If the space is
+// not found, an error is returned matching
+// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 func (s *Service) Space(ctx context.Context, uuid string) (*network.SpaceInfo, error) {
 	sp, err := s.st.GetSpace(ctx, uuid)
 	if err != nil {
@@ -78,9 +80,9 @@ func (s *Service) Space(ctx context.Context, uuid string) (*network.SpaceInfo, e
 	return sp, nil
 }
 
-// SpaceByName returns a space from state that matches the input name.
-// An error is returned that satisfied errors.NotFound if the space was not found
-// or an error static any problems fetching the given space.
+// SpaceByName returns a space from state that matches the input name. If the
+// space is not found, an error is returned matching
+// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 func (s *Service) SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error) {
 	sp, err := s.st.GetSpaceByName(ctx, name)
 	if err != nil {
@@ -98,7 +100,9 @@ func (s *Service) GetAllSpaces(ctx context.Context) (network.SpaceInfos, error) 
 	return spaces, nil
 }
 
-// RemoveSpace deletes a space identified by its uuid.
+// RemoveSpace deletes a space identified by its uuid. If the space is not
+// found, an error is returned matching
+// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 func (s *Service) RemoveSpace(ctx context.Context, uuid string) error {
 	return errors.Trace(s.st.DeleteSpace(ctx, uuid))
 }

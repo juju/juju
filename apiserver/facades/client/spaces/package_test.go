@@ -15,7 +15,6 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	environmocks "github.com/juju/juju/environs/mocks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -62,19 +61,9 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	s.authorizer.EXPECT().AuthClient().Return(true)
 
-	cloudSpec := environscloudspec.CloudSpec{
-		Type:             "mock-provider",
-		Name:             "cloud-name",
-		Endpoint:         "endpoint",
-		IdentityEndpoint: "identity-endpoint",
-		StorageEndpoint:  "storage-endpoint",
-	}
-
 	s.Backing = NewMockBacking(ctrl)
 	bExp := s.Backing.EXPECT()
 	bExp.ModelTag().Return(names.NewModelTag("123"))
-	bExp.ModelConfig(gomock.Any()).Return(nil, nil).AnyTimes()
-	bExp.CloudSpec(gomock.Any()).Return(cloudSpec, nil).AnyTimes()
 
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
 	mockNetworkEnviron.EXPECT().SupportsSpaces(gomock.Any()).Return(supportSpaces, nil).AnyTimes()
@@ -93,25 +82,18 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 		Backing:                     s.Backing,
 		Check:                       s.blockChecker,
 		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
-		Resources:                   s.resource,
-		Authorizer:                  s.authorizer,
-		ControllerConfigService:     s.ControllerConfigService,
-		NetworkService:              s.NetworkService,
-		logger:                      loggertesting.WrapCheckLog(c),
+		ProviderGetter: func(ctx stdcontext.Context) (environs.NetworkingEnviron, error) {
+			return mockNetworkEnviron, nil
+		},
+		Resources:               s.resource,
+		Authorizer:              s.authorizer,
+		ControllerConfigService: s.ControllerConfigService,
+		NetworkService:          s.NetworkService,
+		logger:                  loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl, unReg
-}
-
-// SupportsSpaces is used by the legacy test suite and
-// can be removed when it is grandfathered out.
-func SupportsSpaces(backing Backing) error {
-	api := &API{
-		backing:                     backing,
-		credentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
-	}
-	return api.checkSupportsSpaces(stdcontext.Background())
 }
 
 // NewAPIWithBacking is also a legacy-only artifact,

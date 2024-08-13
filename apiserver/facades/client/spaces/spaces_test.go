@@ -23,6 +23,9 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	networkerrors "github.com/juju/juju/domain/network/errors"
+	"github.com/juju/juju/environs"
+	environmocks "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -325,7 +328,7 @@ func (s *APISuite) TestRenameSpaceErrorRename(c *gc.C) {
 	from, to := "bla", "blub"
 
 	bamErr := errors.New("bam")
-	s.expectDefaultSpace(ctrl, to, errors.NotFoundf(""))
+	s.expectDefaultSpace(ctrl, to, networkerrors.SpaceNotFound)
 	args := s.getRenameArgs(from, to)
 	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), from).Return(
 		&network.SpaceInfo{
@@ -359,7 +362,7 @@ func (s *APISuite) TestRenameSpaceSuccess(c *gc.C) {
 	defer unreg()
 	from, to := "bla", "blub"
 
-	s.expectDefaultSpace(ctrl, to, errors.NotFoundf("abc"))
+	s.expectDefaultSpace(ctrl, to, networkerrors.SpaceNotFound)
 	args := s.getRenameArgs(from, to)
 
 	fromSpace := &network.SpaceInfo{
@@ -799,6 +802,8 @@ type LegacySuite struct {
 
 	blockChecker   mockBlockChecker
 	networkService *spaces.MockNetworkService
+	environ        *environmocks.MockNetworkingEnviron
+	providerGetter func(stdcontext.Context) (environs.NetworkingEnviron, error)
 }
 
 var _ = gc.Suite(&LegacySuite{})
@@ -810,9 +815,8 @@ func (s *LegacySuite) SetUpSuite(c *gc.C) {
 
 func (s *LegacySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-
 	s.networkService = spaces.NewMockNetworkService(ctrl)
-
+	s.environ = environmocks.NewMockNetworkingEnviron(ctrl)
 	return ctrl
 }
 
@@ -822,6 +826,7 @@ func (s *LegacySuite) makeAPI(c *gc.C) {
 		Backing:                     &stubBacking{apiservertesting.BackingInstance},
 		Check:                       &s.blockChecker,
 		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
+		ProviderGetter:              s.providerGetter,
 		Resources:                   s.resources,
 		Authorizer:                  s.auth,
 		NetworkService:              s.networkService,
@@ -851,6 +856,9 @@ func (s *LegacySuite) SetUpTest(c *gc.C) {
 	}
 
 	s.blockChecker = mockBlockChecker{}
+	s.providerGetter = func(stdcontext.Context) (environs.NetworkingEnviron, error) {
+		return s.environ, nil
+	}
 }
 
 func (s *LegacySuite) TearDownTest(c *gc.C) {
@@ -900,45 +908,29 @@ func (s *LegacySuite) TestShowSpaceError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "getting environ: retrieving model config: boom")
 }
 
-func (s *LegacySuite) TestCreateSpacesModelConfigError(c *gc.C) {
+// TestCreateSpacesGetProviderError tests that if we call API.CreateSpaces but
+// the providerGetter returns an error, the facade method errors as expected.
+func (s *LegacySuite) TestCreateSpacesGetProviderError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.makeAPI(c)
 
-	apiservertesting.SharedStub.SetErrors(
-		errors.New("boom"), // Backing.ModelConfig()
-	)
+	s.providerGetter = func(stdcontext.Context) (environs.NetworkingEnviron, error) {
+		return nil, errors.NotSupportedf("networking")
+	}
+	s.makeAPI(c)
 
 	args := params.CreateSpacesParams{}
 	_, err := s.facade.CreateSpaces(stdcontext.Background(), args)
-	c.Assert(err, gc.ErrorMatches, "getting environ: retrieving model config: boom")
-}
-
-func (s *LegacySuite) TestCreateSpacesProviderOpenError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.makeAPI(c)
-
-	apiservertesting.SharedStub.SetErrors(
-		nil,                // Backing.ModelConfig()
-		nil,                // Backing.CloudSpec()
-		errors.New("boom"), // Provider.Open()
-	)
-
-	args := params.CreateSpacesParams{}
-	_, err := s.facade.CreateSpaces(stdcontext.Background(), args)
-	c.Assert(err, gc.ErrorMatches,
-		`getting environ: creating environ for model \"stub-zoned-networking-environ\" \(.*\): boom`)
+	c.Assert(err, gc.ErrorMatches, "getting networking environ for model: networking not supported")
+	var paramsErr *params.Error
+	c.Assert(errors.As(err, &paramsErr), jc.IsTrue)
+	c.Check(paramsErr.Code, gc.Equals, params.CodeNotSupported)
 }
 
 func (s *LegacySuite) TestCreateSpacesNotSupportedError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
 
-	apiservertesting.SharedStub.SetErrors(
-		nil,                            // Backing.ModelConfig()
-		nil,                            // Backing.CloudSpec()
-		nil,                            // Provider.Open()
-		errors.NotSupportedf("spaces"), // ZonedNetworkingEnviron.SupportsSpaces()
-	)
+	s.environ.EXPECT().SupportsSpaces(gomock.Any()).Return(false, errors.NotSupportedf("spaces"))
 
 	args := params.CreateSpacesParams{}
 	_, err := s.facade.CreateSpaces(stdcontext.Background(), args)
@@ -1022,6 +1014,7 @@ func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
 		},
 	}
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(retrievedSpaces, nil)
+	s.environ.EXPECT().SupportsSpaces(gomock.Any()).Return(true, nil)
 
 	result, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1030,12 +1023,13 @@ func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
 
 func (s *LegacySuite) TestListSpacesAllSpacesError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.providerGetter = func(stdcontext.Context) (environs.NetworkingEnviron, error) {
+		return nil, errors.New("environ boom")
+	}
 	s.makeAPI(c)
 
-	boom := errors.New("backing boom")
-	apiservertesting.BackingInstance.SetErrors(boom)
 	_, err := s.facade.ListSpaces(stdcontext.Background())
-	c.Assert(err, gc.ErrorMatches, "getting environ: retrieving model config: backing boom")
+	c.Assert(err, gc.ErrorMatches, "getting networking environ for model: environ boom")
 }
 
 func (s *LegacySuite) TestListSpacesSubnetsError(c *gc.C) {
@@ -1053,6 +1047,7 @@ func (s *LegacySuite) TestListSpacesSubnetsError(c *gc.C) {
 		errors.New("space2 subnets failed"), // Space.Subnets()
 	)
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
+	s.environ.EXPECT().SupportsSpaces(gomock.Any()).Return(true, nil)
 
 	results, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1078,6 +1073,8 @@ func (s *LegacySuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
 	)
 
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
+	s.environ.EXPECT().SupportsSpaces(gomock.Any()).Return(true, nil)
+
 	results, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	for i, space := range results.Results {
@@ -1093,12 +1090,8 @@ func (s *LegacySuite) TestListSpacesNotSupportedError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
 
-	apiservertesting.SharedStub.SetErrors(
-		nil,                            // Backing.ModelConfig()
-		nil,                            // Backing.CloudSpec()
-		nil,                            // Provider.Open
-		errors.NotSupportedf("spaces"), // ZonedNetworkingEnviron.supportsSpaces()
-	)
+	s.environ.EXPECT().SupportsSpaces(gomock.Any()).
+		Return(false, errors.NotSupportedf("spaces"))
 
 	_, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, gc.ErrorMatches, "spaces not supported")
@@ -1112,63 +1105,6 @@ func (s *LegacySuite) TestCreateSpacesBlocked(c *gc.C) {
 	_, err := s.facade.CreateSpaces(stdcontext.Background(), params.CreateSpacesParams{})
 	c.Assert(err, gc.ErrorMatches, "test block")
 	c.Assert(err, jc.Satisfies, params.IsCodeOperationBlocked)
-}
-
-func (s *LegacySuite) TestSupportsSpacesModelConfigError(c *gc.C) {
-	apiservertesting.SharedStub.SetErrors(
-		errors.New("boom"), // Backing.ModelConfig()
-	)
-
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance})
-	c.Assert(err, gc.ErrorMatches, "getting environ: retrieving model config: boom")
-}
-
-func (s *LegacySuite) TestSupportsSpacesEnvironNewError(c *gc.C) {
-	apiservertesting.SharedStub.SetErrors(
-		nil,                // Backing.ModelConfig()
-		nil,                // Backing.CloudSpec()
-		errors.New("boom"), // environs.New()
-	)
-
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance})
-	c.Assert(err, gc.ErrorMatches,
-		`getting environ: creating environ for model \"stub-zoned-networking-environ\" \(.*\): boom`)
-}
-
-func (s *LegacySuite) TestSupportsSpacesWithoutNetworking(c *gc.C) {
-	apiservertesting.BackingInstance.SetUp(
-		c,
-		apiservertesting.StubEnvironName,
-		apiservertesting.WithoutZones,
-		apiservertesting.WithoutSpaces,
-		apiservertesting.WithoutSubnets)
-
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance})
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
-}
-
-func (s *LegacySuite) TestSupportsSpacesWithoutSpaces(c *gc.C) {
-	apiservertesting.BackingInstance.SetUp(
-		c,
-		apiservertesting.StubNetworkingEnvironName,
-		apiservertesting.WithoutZones,
-		apiservertesting.WithoutSpaces,
-		apiservertesting.WithoutSubnets)
-
-	apiservertesting.SharedStub.SetErrors(
-		nil,                // Backing.ModelConfig()
-		nil,                // Backing.CloudSpec()
-		nil,                // environs.New()
-		errors.New("boom"), // Backing.supportsSpaces()
-	)
-
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance})
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
-}
-
-func (s *LegacySuite) TestSupportsSpaces(c *gc.C) {
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance})
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 type mockBlockChecker struct {

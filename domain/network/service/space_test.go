@@ -10,11 +10,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -137,6 +138,21 @@ func (s *spaceSuite) TestUpdateSpaceName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TestUpdateSpaceNotFound checks that if we try to call Service.UpdateSpace on
+// a space that doesn't exist, an error is returned matching
+// networkerrors.SpaceNotFound.
+func (s *spaceSuite) TestUpdateSpaceNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	spaceID := "unknown-space"
+	s.st.EXPECT().UpdateSpace(gomock.Any(), spaceID, "newname").
+		Return(fmt.Errorf("space %q: %w", spaceID, networkerrors.SpaceNotFound))
+
+	svc := NewService(s.st, loggertesting.WrapCheckLog(c))
+	err := svc.UpdateSpace(context.Background(), spaceID, "newname")
+	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
+}
+
 func (s *spaceSuite) TestRetrieveSpaceByID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -145,13 +161,16 @@ func (s *spaceSuite) TestRetrieveSpaceByID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TestRetrieveSpaceByIDNotFound checks that if we try to call Service.Space on
+// a space that doesn't exist, an error is returned matching
+// networkerrors.SpaceNotFound.
 func (s *spaceSuite) TestRetrieveSpaceByIDNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().GetSpace(gomock.Any(), "unknown-space").
-		Return(nil, errors.NotFoundf("space %q", "unknown-space"))
+		Return(nil, fmt.Errorf("space %q: %w", "unknown-space", networkerrors.SpaceNotFound))
 	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).Space(context.Background(), "unknown-space")
-	c.Assert(err, gc.ErrorMatches, "space \"unknown-space\" not found")
+	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *spaceSuite) TestRetrieveSpaceByName(c *gc.C) {
@@ -162,13 +181,16 @@ func (s *spaceSuite) TestRetrieveSpaceByName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TestRetrieveSpaceByNameNotFound checks that if we try to call
+// Service.SpaceByName on a space that doesn't exist, an error is returned
+// matching networkerrors.SpaceNotFound.
 func (s *spaceSuite) TestRetrieveSpaceByNameNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().GetSpaceByName(gomock.Any(), "unknown-space-name").
-		Return(nil, errors.NotFoundf("space with name %q", "unknown-space-name"))
+		Return(nil, fmt.Errorf("space with name %q: %w", "unknown-space-name", networkerrors.SpaceNotFound))
 	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).SpaceByName(context.Background(), "unknown-space-name")
-	c.Assert(err, gc.ErrorMatches, "space with name \"unknown-space-name\" not found")
+	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *spaceSuite) TestRetrieveAllSpaces(c *gc.C) {
@@ -185,6 +207,21 @@ func (s *spaceSuite) TestRemoveSpace(c *gc.C) {
 	s.st.EXPECT().DeleteSpace(gomock.Any(), "space0")
 	err := NewService(s.st, loggertesting.WrapCheckLog(c)).RemoveSpace(context.Background(), "space0")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestRemoveSpaceNotFound checks that if we try to call Service.RemoveSpace on
+// a space that doesn't exist, an error is returned matching
+// networkerrors.SpaceNotFound.
+func (s *spaceSuite) TestRemoveSpaceNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	spaceID := "unknown-space"
+	s.st.EXPECT().DeleteSpace(gomock.Any(), spaceID).
+		Return(fmt.Errorf("space %q: %w", spaceID, networkerrors.SpaceNotFound))
+
+	svc := NewService(s.st, loggertesting.WrapCheckLog(c))
+	err := svc.RemoveSpace(context.Background(), spaceID)
+	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *spaceSuite) TestSaveProviderSubnetsWithoutSpaceUUID(c *gc.C) {

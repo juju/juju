@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/environs"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -37,11 +38,15 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 	credentialInvalidatorGetter := credentialcommon.CredentialInvalidatorGetter(ctx)
 	check := common.NewBlockChecker(st)
 	auth := ctx.Auth()
+
+	providerGetter := facade.ProviderRunner[environs.NetworkingEnviron](ctx)
+
 	return newAPIWithBacking(apiConfig{
 		NetworkService:              ctx.ServiceFactory().Network(),
 		Backing:                     stateShim,
 		Check:                       check,
 		CredentialInvalidatorGetter: credentialInvalidatorGetter,
+		ProviderGetter:              providerGetter,
 		Resources:                   ctx.Resources(),
 		Authorizer:                  auth,
 		logger:                      ctx.Logger().Child("spaces"),
