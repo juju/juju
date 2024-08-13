@@ -37,11 +37,12 @@ type CharmRevisionUpdaterAPI struct {
 	store objectstore.ObjectStore
 	clock clock.Clock
 
-	newCharmhubClient newCharmhubClientFunc
-	logger            corelogger.Logger
+	modelConfigService ModelConfigService
+	newCharmhubClient  NewCharmhubClientFunc
+	logger             corelogger.Logger
 }
 
-type newCharmhubClientFunc func(st State) (CharmhubRefreshClient, error)
+type NewCharmhubClientFunc func(context.Context) (CharmhubRefreshClient, error)
 
 var _ CharmRevisionUpdater = (*CharmRevisionUpdaterAPI)(nil)
 
@@ -51,15 +52,17 @@ func NewCharmRevisionUpdaterAPIState(
 	state State,
 	store objectstore.ObjectStore,
 	clock clock.Clock,
-	newCharmhubClient newCharmhubClientFunc,
+	modelConfigService ModelConfigService,
+	newCharmhubClient NewCharmhubClientFunc,
 	logger corelogger.Logger,
 ) (*CharmRevisionUpdaterAPI, error) {
 	return &CharmRevisionUpdaterAPI{
-		state:             state,
-		store:             store,
-		clock:             clock,
-		newCharmhubClient: newCharmhubClient,
-		logger:            logger,
+		state:              state,
+		store:              store,
+		clock:              clock,
+		modelConfigService: modelConfigService,
+		newCharmhubClient:  newCharmhubClient,
+		logger:             logger,
 	}, nil
 }
 
@@ -122,7 +125,7 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo(ctx context.Context)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cfg, err := model.Config()
+	cfg, err := api.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -248,7 +251,7 @@ func (api *CharmRevisionUpdaterAPI) sendEmptyModelMetrics(ctx context.Context) e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	client, err := api.newCharmhubClient(api.state)
+	client, err := api.newCharmhubClient(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -330,7 +333,7 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(ctx context.Context, cfg 
 			return nil, errors.Trace(err)
 		}
 	}
-	client, err := api.newCharmhubClient(api.state)
+	client, err := api.newCharmhubClient(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
