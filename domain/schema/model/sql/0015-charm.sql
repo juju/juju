@@ -103,9 +103,9 @@ CREATE TABLE charm_origin (
 
 CREATE TABLE charm_platform (
     charm_uuid TEXT NOT NULL,
-    os_id TEXT,
+    os_id TEXT NOT NULL,
     channel TEXT,
-    architecture_id TEXT,
+    architecture_id TEXT NOT NULL,
     CONSTRAINT fk_charm_platform_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),

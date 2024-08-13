@@ -753,3 +753,9 @@ func encodeOriginSource(source charm.CharmSource) (int, error) {
 		return 0, fmt.Errorf("unsupported source type: %q", source)
 	}
 }
+
+func decodeCharmInfo(revision charmRevision) charm.CharmInfo {
+	return charm.CharmInfo{
+		Revision: revision.Revision,
+	}
+}

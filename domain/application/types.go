@@ -12,6 +12,7 @@ type AddApplicationArg struct {
 	Charm    domaincharm.Charm
 	Channel  *domaincharm.Channel
 	Platform Platform
+	Origin   Origin
 }
 
 // Platform contains parameters for an application's platform.
@@ -32,6 +33,11 @@ type ScaleState struct {
 type CloudService struct {
 	ProviderId string
 	Address    *Address
+}
+
+// Origin contains parameters for an application's origin.
+type Origin struct {
+	Revision int
 }
 
 // CloudContainer contains parameters for a unit's cloud container.

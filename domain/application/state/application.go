@@ -79,13 +79,13 @@ INSERT INTO application (*) VALUES ($applicationDetails.*)
 		return "", errors.Trace(err)
 	}
 
-	platformInfo := applicationPlatform{
-		ApplicationID:  appID.String(),
+	platformInfo := charmPlatform{
+		CharmID:        charmID.String(),
 		OSTypeID:       app.Platform.OSTypeID,
 		Channel:        app.Platform.Channel,
 		ArchitectureID: app.Platform.ArchitectureID,
 	}
-	createPlatform := `INSERT INTO application_platform (*) VALUES ($applicationPlatform.*)`
+	createPlatform := `INSERT INTO charm_platform (*) VALUES ($charmPlatform.*)`
 	createPlatformStmt, err := st.Prepare(createPlatform, platformInfo)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -97,6 +97,12 @@ INSERT INTO application (*) VALUES ($applicationDetails.*)
 	}
 	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
 	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
+	originInfo := charmOrigin{
+		CharmID:  charmID.String(),
+		Revision: app.Origin.Revision,
+	}
+	createOrigin := `INSERT INTO charm_origin (*) VALUES ($charmOrigin.*)`
+	createOriginStmt, err := st.Prepare(createOrigin, originInfo)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -139,6 +145,9 @@ INSERT INTO application (*) VALUES ($applicationDetails.*)
 		}
 		if err := tx.Query(ctx, createScaleStmt, scaleInfo).Run(); err != nil {
 			return errors.Annotatef(err, "creating scale row for application %q", name)
+		}
+		if err := tx.Query(ctx, createOriginStmt, originInfo).Run(); err != nil {
+			return errors.Annotatef(err, "creating origin row for application %q", name)
 		}
 		if createChannelStmt != nil {
 			if err := tx.Query(ctx, createChannelStmt, channelInfo).Run(); err != nil {
@@ -236,16 +245,6 @@ func (st *ApplicationState) deleteApplication(ctx context.Context, tx *sqlair.TX
 	appName := applicationName{Name: name}
 	deleteApplication := `DELETE FROM application WHERE name = $applicationName.name`
 	deleteApplicationStmt, err := st.Prepare(deleteApplication, appName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	deletePlatform := `DELETE FROM application_platform WHERE application_uuid = $applicationID.uuid`
-	deletePlatformStmt, err := st.Prepare(deletePlatform, appID)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	deleteScale := `DELETE FROM application_scale WHERE application_uuid = $applicationID.uuid`
-	deleteScaleStmt, err := st.Prepare(deleteScale, appID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -988,10 +987,10 @@ WHERE u.name = $coreUnit.name
 // [applicationerrors.ApplicationNotFoundError] is returned.
 // If the charm for the application does not exist, an error satisfying
 // [applicationerrors.CharmNotFoundError] is returned.
-func (st *ApplicationState) GetCharmByApplicationName(ctx context.Context, name string) (charm.Charm, error) {
+func (st *ApplicationState) GetCharmByApplicationName(ctx context.Context, name string) (charm.Charm, charm.CharmInfo, error) {
 	db, err := st.DB()
 	if err != nil {
-		return charm.Charm{}, errors.Trace(err)
+		return charm.Charm{}, charm.CharmInfo{}, errors.Trace(err)
 	}
 
 	query, err := st.Prepare(`
@@ -1000,10 +999,13 @@ FROM application
 WHERE name = $applicationName.name
 `, charmUUID{}, applicationName{})
 	if err != nil {
-		return charm.Charm{}, fmt.Errorf("preparing query for application %q: %w", name, err)
+		return charm.Charm{}, charm.CharmInfo{}, fmt.Errorf("preparing query for application %q: %w", name, err)
 	}
 
-	var charm charm.Charm
+	var (
+		ch     charm.Charm
+		chInfo charm.CharmInfo
+	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var charmUUID charmUUID
 		if err := tx.Query(ctx, query, applicationName{Name: name}).Get(&charmUUID); err != nil {
@@ -1025,17 +1027,25 @@ WHERE name = $applicationName.name
 		// Now get the charm by the UUID, but if it doesn't exist, return an
 		// error.
 		ident := charmID(charmUUID)
-		charm, err = st.getCharm(ctx, tx, ident)
+		ch, err = st.getCharm(ctx, tx, ident)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return fmt.Errorf("application %s: %w", name, applicationerrors.CharmNotFound)
 			}
 			return fmt.Errorf("getting charm for application %q: %w", name, err)
 		}
+
+		chInfo, err = st.getCharmInfo(ctx, tx, ident)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return fmt.Errorf("application %s: %w", name, applicationerrors.CharmNotFound)
+			}
+			return fmt.Errorf("getting charm info for application %q: %w", name, err)
+		}
 		return nil
 	}); err != nil {
-		return charm, errors.Trace(err)
+		return ch, chInfo, errors.Trace(err)
 	}
 
-	return charm, nil
+	return ch, chInfo, nil
 }

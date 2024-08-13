@@ -44,22 +44,6 @@ CREATE TABLE application_scale (
     REFERENCES application (uuid)
 );
 
-CREATE TABLE application_platform (
-    application_uuid TEXT NOT NULL PRIMARY KEY,
-    os_id TEXT NOT NULL,
-    channel TEXT NOT NULL,
-    architecture_id TEXT NOT NULL,
-    CONSTRAINT fk_application_platform_application
-    FOREIGN KEY (application_uuid)
-    REFERENCES application (uuid),
-    CONSTRAINT fk_application_platform_os
-    FOREIGN KEY (os_id)
-    REFERENCES os (id),
-    CONSTRAINT fk_application_platform_architecture
-    FOREIGN KEY (architecture_id)
-    REFERENCES architecture (id)
-);
-
 CREATE TABLE application_endpoint_space (
     application_uuid TEXT NOT NULL,
     space_uuid TEXT,
@@ -113,3 +97,24 @@ CREATE TABLE application_setting (
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid)
 );
+
+CREATE VIEW v_application_platform AS
+SELECT
+    a.uuid AS application_uuid,
+    cp.os_id AS os_id,
+    cp.channel AS channel,
+    cp.architecture_id AS architecture_id
+FROM application AS a
+LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
+LEFT JOIN charm_platform AS cp ON cp.charm_uuid = c.uuid;
+
+CREATE VIEW v_application_origin AS
+SELECT
+    a.uuid AS application_uuid,
+    co.source_id AS source_id,
+    co.id AS id,
+    co.revision AS revision,
+    co.version AS version
+FROM application AS a
+LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
+LEFT JOIN charm_origin AS co ON co.charm_uuid = c.uuid;

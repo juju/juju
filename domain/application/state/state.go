@@ -416,6 +416,32 @@ func (s *commonStateBase) setCharmManifest(ctx context.Context, tx *sqlair.TX, i
 	return nil
 }
 
+// getCharmInfo returns the charm info for the given charm ID.
+func (s *commonStateBase) getCharmInfo(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.CharmInfo, error) {
+	query := `
+SELECT &charmRevision.*
+FROM charm_origin
+WHERE charm_uuid = $charmID.uuid;
+`
+
+	stmt, err := s.Prepare(query, charmRevision{}, ident)
+	if err != nil {
+		return charm.CharmInfo{}, fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	var info charmRevision
+	if err := tx.Query(ctx, stmt, ident).Get(&info); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return charm.CharmInfo{}, applicationerrors.CharmNotFound
+		}
+		return charm.CharmInfo{}, fmt.Errorf("failed to get charm info: %w", err)
+	}
+	return decodeCharmInfo(info), nil
+}
+
+// getCharm returns the charm for the given charm ID.
+// This will delegate to the various get methods to get the charm metadata,
+// config, manifest, actions and LXD profile.
 func (s *commonStateBase) getCharm(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Charm, error) {
 	var (
 		charm charm.Charm

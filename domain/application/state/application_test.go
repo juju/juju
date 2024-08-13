@@ -850,7 +850,10 @@ func (s *applicationStateSuite) TestStorageDefaults(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationName(c *gc.C) {
-	st := NewApplicationState(&commonStateBase{StateBase: domain.NewStateBase(s.TxnRunnerFactory())}, loggertesting.WrapCheckLog(c))
+
+	origin := application.Origin{
+		Revision: 42,
+	}
 
 	expectedMetadata := charm.Metadata{
 		Name:           "ubuntu",
@@ -894,7 +897,8 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationName(c *gc.
 	}
 	expectedLXDProfile := []byte("[{}]")
 
-	_, err := st.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
+	revision := 42
+	_, err := s.state.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
 		Charm: charm.Charm{
 			Metadata:   expectedMetadata,
 			Manifest:   expectedManifest,
@@ -902,23 +906,25 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationName(c *gc.
 			Config:     expectedConfig,
 			LXDProfile: expectedLXDProfile,
 		},
+		Origin: origin,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	got, err := st.GetCharmByApplicationName(context.Background(), "foo")
+	ch, info, err := s.state.GetCharmByApplicationName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(got, gc.DeepEquals, charm.Charm{
+	c.Check(ch, gc.DeepEquals, charm.Charm{
 		Metadata:   expectedMetadata,
 		Manifest:   expectedManifest,
 		Actions:    expectedActions,
 		Config:     expectedConfig,
 		LXDProfile: expectedLXDProfile,
 	})
+	c.Check(info, gc.DeepEquals, charm.CharmInfo{
+		Revision: revision,
+	})
 }
 
 func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalidName(c *gc.C) {
-	st := NewApplicationState(&commonStateBase{StateBase: domain.NewStateBase(s.TxnRunnerFactory())}, loggertesting.WrapCheckLog(c))
-
 	expectedMetadata := charm.Metadata{
 		Name:           "ubuntu",
 		Summary:        "summary",
@@ -961,7 +967,7 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 	}
 	expectedLXDProfile := []byte("[{}]")
 
-	_, err := st.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
+	_, err := s.state.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
 		Charm: charm.Charm{
 			Metadata:   expectedMetadata,
 			Manifest:   expectedManifest,
@@ -972,6 +978,6 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.GetCharmByApplicationName(context.Background(), "bar")
+	_, _, err = s.state.GetCharmByApplicationName(context.Background(), "bar")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }

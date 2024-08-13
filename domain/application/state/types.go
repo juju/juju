@@ -33,13 +33,6 @@ type applicationDetails struct {
 	LifeID        life.Life `db:"life_id"`
 }
 
-type applicationPlatform struct {
-	ApplicationID  string                   `db:"application_uuid"`
-	OSTypeID       application.OSType       `db:"os_id"`
-	Channel        string                   `db:"channel"`
-	ArchitectureID application.Architecture `db:"architecture_id"`
-}
-
 type applicationChannel struct {
 	ApplicationID string `db:"application_uuid"`
 	Track         string `db:"track"`
@@ -115,6 +108,11 @@ type charmName struct {
 type charmNameRevision struct {
 	Name     string `db:"name"`
 	Revision int    `db:"revision"`
+}
+
+// charmRevision is used to get the revision of a charm.
+type charmRevision struct {
+	Revision int `db:"revision"`
 }
 
 // charmAvailable is used to get the available status of a charm.
@@ -471,4 +469,17 @@ type setCharmAction struct {
 // charmArchivePath is used to get the archive path of a charm.
 type charmArchivePath struct {
 	ArchivePath string `db:"archive_path"`
+}
+
+// charmOrigin is used to get the origin of a charm.
+type charmOrigin struct {
+	CharmID  string `db:"charm_uuid"`
+	Revision int    `db:"revision"`
+}
+
+type charmPlatform struct {
+	CharmID        string                   `db:"charm_uuid"`
+	OSTypeID       application.OSType       `db:"os_id"`
+	Channel        string                   `db:"channel"`
+	ArchitectureID application.Architecture `db:"architecture_id"`
 }
