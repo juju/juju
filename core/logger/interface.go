@@ -166,7 +166,7 @@ type LoggerContext interface {
 	// does not have a label that matches the provided labels, then the logger
 	// will not be configured. No labels will configure all loggers in the
 	// specification.
-	ConfigureLoggers(specification string) error
+	ConfigureLoggers(specification string, modelUUID string) error
 
 	// ResetLoggerLevels iterates through the known logging modules and sets the
 	// levels of all to UNSPECIFIED, except for <root> which is set to WARNING.

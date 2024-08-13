@@ -74,7 +74,7 @@ var _ = gc.Suite(&agentLoggingSuite{})
 
 func (*agentLoggingSuite) TestNoLoggingConfig(c *gc.C) {
 	f := &fakeLoggingConfig{}
-	context := internallogger.LoggerContext(corelogger.WARNING)
+	context := internallogger.LoggerContext(corelogger.WARNING, "")
 	initial := context.Config().String()
 
 	agentconf.SetupAgentLogging(context, f)
@@ -86,7 +86,7 @@ func (*agentLoggingSuite) TestLoggingOverride(c *gc.C) {
 	f := &fakeLoggingConfig{
 		loggingOverride: "test=INFO",
 	}
-	context := internallogger.LoggerContext(corelogger.WARNING)
+	context := internallogger.LoggerContext(corelogger.WARNING, "")
 
 	agentconf.SetupAgentLogging(context, f)
 
@@ -97,7 +97,7 @@ func (*agentLoggingSuite) TestLoggingConfig(c *gc.C) {
 	f := &fakeLoggingConfig{
 		loggingConfig: "test=INFO",
 	}
-	context := internallogger.LoggerContext(corelogger.WARNING)
+	context := internallogger.LoggerContext(corelogger.WARNING, "")
 
 	agentconf.SetupAgentLogging(context, f)
 

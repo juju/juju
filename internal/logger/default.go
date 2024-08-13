@@ -17,8 +17,10 @@ func GetLogger(name string, tags ...string) logger.Logger {
 
 // LoggerContext returns a logger factory that creates loggers.
 // Currently this is backed with loggo.
-func LoggerContext(level logger.Level) logger.LoggerContext {
-	return WrapLoggoContext(loggo.NewContext(loggo.Level(level)))
+func LoggerContext(level logger.Level, modelUUID string) logger.LoggerContext {
+	return WrapLoggoContext(loggo.NewContext(loggo.Level(level), map[string]string{
+		"model-uuid": modelUUID,
+	}))
 }
 
 // DefaultContext returns a logger factory that creates loggers.

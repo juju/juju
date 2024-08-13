@@ -991,7 +991,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		return nil, errors.Trace(err)
 	}
 
-	loggingContext := internallogger.LoggerContext(corelogger.INFO)
+	loggingContext := internallogger.LoggerContext(corelogger.INFO, cfg.ModelUUID)
 	if err := loggingContext.AddWriter("logsink", cfg.ModelLogger); err != nil {
 		logger.Errorf("unable to configure logging for model: %v", err)
 	}

@@ -314,3 +314,5 @@ require (
 )
 
 replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
+
+replace github.com/juju/loggo/v2 => /home/simon/go/src/github.com/juju/loggo

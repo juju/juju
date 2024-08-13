@@ -115,7 +115,7 @@ func (s *LoggerSuite) TestInitialState(c *gc.C) {
 	c.Assert(expected, gc.Not(gc.Equals), initial)
 
 	s.context.ResetLoggerLevels()
-	err := s.context.ConfigureLoggers(initial)
+	err := s.context.ConfigureLoggers(initial, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	loggingWorker := s.makeLogger(c)
@@ -132,7 +132,7 @@ func (s *LoggerSuite) TestConfigOverride(c *gc.C) {
 	s.config.Override = "test=TRACE"
 
 	s.context.ResetLoggerLevels()
-	err := s.context.ConfigureLoggers("<root>=DEBUG;wibble=ERROR")
+	err := s.context.ConfigureLoggers("<root>=DEBUG;wibble=ERROR", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	loggingWorker := s.makeLogger(c)

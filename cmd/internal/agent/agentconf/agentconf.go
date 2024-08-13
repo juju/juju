@@ -64,7 +64,7 @@ func SetupAgentLogging(context corelogger.LoggerContext, config agent.Config) {
 	if loggingOverride := config.Value(agent.LoggingOverride); loggingOverride != "" {
 		logger.Infof("logging override set for this agent: %q", loggingOverride)
 		context.ResetLoggerLevels()
-		err := context.ConfigureLoggers(loggingOverride)
+		err := context.ConfigureLoggers(loggingOverride, config.Model().Id())
 		if err != nil {
 			logger.Errorf("setting logging override %v", err)
 		}
@@ -73,7 +73,7 @@ func SetupAgentLogging(context corelogger.LoggerContext, config agent.Config) {
 		// There should only be valid logging configuration strings saved
 		// in the logging config section in the agent.conf file.
 		context.ResetLoggerLevels()
-		err := context.ConfigureLoggers(loggingConfig)
+		err := context.ConfigureLoggers(loggingConfig, config.Model().Id())
 		if err != nil {
 			logger.Errorf("problem setting logging config %v", err)
 		}

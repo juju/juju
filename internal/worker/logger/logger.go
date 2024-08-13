@@ -27,6 +27,7 @@ type WorkerConfig struct {
 	Context  logger.LoggerContext
 	API      LoggerAPI
 	Tag      names.Tag
+	ModelTag names.ModelTag
 	Logger   logger.Logger
 	Override string
 
@@ -43,6 +44,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("missing logger")
+	}
+	if c.ModelTag.Id() == "" {
+		return errors.NotValidf("missing model tag")
 	}
 	return nil
 }
@@ -95,12 +99,12 @@ func (l *loggerWorker) setLogging(ctx context.Context) {
 		logger.Debugf("reconfiguring logging from %q to %q", l.lastConfig, loggingConfig)
 		context := l.config.Context
 		context.ResetLoggerLevels()
-		if err := context.ConfigureLoggers(loggingConfig); err != nil {
+		if err := context.ConfigureLoggers(loggingConfig, l.config.ModelTag.Id()); err != nil {
 			// This shouldn't occur as the loggingConfig should be
 			// validated by the original Config before it gets here.
 			logger.Warningf("configure loggers failed: %v", err)
 			// Try to reset to what we had before
-			_ = context.ConfigureLoggers(l.lastConfig)
+			_ = context.ConfigureLoggers(l.lastConfig, l.config.ModelTag.Id())
 			return
 		}
 		mgo.ConfigureMgoLogging()

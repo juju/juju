@@ -116,8 +116,10 @@ func (c loggoLoggerContext) ResetLoggerLevels() {
 // does not have a label that matches the provided labels, then the logger
 // will not be configured. No labels will configure all loggers in the
 // specification.
-func (c loggoLoggerContext) ConfigureLoggers(specification string) error {
-	return c.context.ConfigureLoggers(specification)
+func (c loggoLoggerContext) ConfigureLoggers(specification string, modelUUID string) error {
+	return c.context.ConfigureLoggers(specification, map[string]string{
+		"model-uuid": modelUUID,
+	})
 }
 
 // Config returns the current configuration of the Loggers. Loggers

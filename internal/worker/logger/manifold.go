@@ -47,15 +47,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			loggerFacade := logger.NewClient(apiCaller)
-			workerConfig := WorkerConfig{
+			return NewLogger(WorkerConfig{
 				Context:  config.LoggerContext,
 				API:      loggerFacade,
 				Tag:      currentConfig.Tag(),
+				ModelTag: currentConfig.Model(),
 				Logger:   config.Logger,
 				Override: loggingOverride,
 				Callback: config.UpdateAgentFunc,
-			}
-			return NewLogger(workerConfig)
+			})
 		},
 	}
 }

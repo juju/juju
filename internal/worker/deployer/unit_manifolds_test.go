@@ -30,7 +30,7 @@ func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = deployer.UnitManifoldsConfig{
 		Agent:         struct{ agent.Agent }{},
-		LoggerContext: internallogger.LoggerContext(logger.DEBUG),
+		LoggerContext: internallogger.LoggerContext(logger.DEBUG, ""),
 	}
 }
 
