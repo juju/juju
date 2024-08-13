@@ -11,8 +11,20 @@ type charmBase struct {
 	actions    *Actions
 	lxdProfile *LXDProfile
 	manifest   *Manifest
-	revision   int
 	version    string
+	revision   int
+}
+
+// NewCharmBase creates a new charmBase with the given metadata, config,
+// actions, lxdProfile, and manifest.
+func NewCharmBase(meta *Meta, manifest *Manifest, config *Config, actions *Actions, lxdProfile *LXDProfile) Charm {
+	return &charmBase{
+		meta:       meta,
+		manifest:   manifest,
+		config:     config,
+		actions:    actions,
+		lxdProfile: lxdProfile,
+	}
 }
 
 // Revision returns the revision number for the charm
@@ -62,4 +74,11 @@ func (c *charmBase) Manifest() *Manifest {
 // The revision file in the charm directory is not modified.
 func (c *charmBase) SetRevision(revision int) {
 	c.revision = revision
+}
+
+// SetVersion changes the charm version. This affects
+// the version reported by Version and the version of the
+// charm created.
+func (c *charmBase) SetVersion(version string) {
+	c.version = version
 }
