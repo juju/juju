@@ -121,6 +121,17 @@ func (s *SubnetsSuite) setUpMocks(c *gc.C) *gomock.Controller {
 
 	s.mockNetworkService = subnets.NewMockNetworkService(ctrl)
 
+	var err error
+	s.facade, err = subnets.NewAPIWithBacking(
+		&stubBacking{apiservertesting.BackingInstance},
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
+		s.resources,
+		s.authorizer,
+		loggertesting.WrapCheckLog(c),
+		s.mockNetworkService,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.facade, gc.NotNil)
 	return ctrl
 }
 
@@ -134,8 +145,6 @@ func (s *SubnetsSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *SubnetsSuite) SetUpTest(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-
 	s.BaseSuite.SetUpTest(c)
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 
@@ -144,18 +153,6 @@ func (s *SubnetsSuite) SetUpTest(c *gc.C) {
 		Tag:        names.NewUserTag("admin"),
 		Controller: false,
 	}
-
-	var err error
-	s.facade, err = subnets.NewAPIWithBacking(
-		&stubBacking{apiservertesting.BackingInstance},
-		apiservertesting.NoopModelCredentialInvalidatorGetter,
-		s.resources,
-		s.authorizer,
-		loggertesting.WrapCheckLog(c),
-		s.mockNetworkService,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.facade, gc.NotNil)
 }
 
 func (s *SubnetsSuite) TearDownTest(c *gc.C) {
@@ -167,6 +164,7 @@ func (s *SubnetsSuite) TearDownTest(c *gc.C) {
 
 // AssertAllZonesResult makes it easier to verify AllZones results.
 func (s *SubnetsSuite) AssertAllZonesResult(c *gc.C, got params.ZoneResults, expected network.AvailabilityZones) {
+	defer s.setUpMocks(c).Finish()
 	results := make([]params.ZoneResult, len(expected))
 	for i, zone := range expected {
 		results[i].Name = zone.Name()
@@ -176,6 +174,7 @@ func (s *SubnetsSuite) AssertAllZonesResult(c *gc.C, got params.ZoneResults, exp
 }
 
 func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 	// Clients are allowed.
 	facade, err := subnets.NewAPIWithBacking(
 		&stubBacking{apiservertesting.BackingInstance},
@@ -208,6 +207,7 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 }
 
 func (s *SubnetsSuite) TestAllZonesWhenBackingAvailabilityZonesFails(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 	apiservertesting.SharedStub.SetErrors(errors.NotSupportedf("zones"))
 
 	results, err := s.facade.AllZones(stdcontext.Background())
@@ -222,6 +222,7 @@ func (s *SubnetsSuite) TestAllZonesWhenBackingAvailabilityZonesFails(c *gc.C) {
 }
 
 func (s *SubnetsSuite) TestAllZonesUsesBackingZonesWhenAvailable(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 	results, err := s.facade.AllZones(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertAllZonesResult(c, results, apiservertesting.BackingInstance.Zones)
@@ -282,6 +283,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	apiservertesting.SharedStub.SetErrors(
 		nil,                     // Backing.AvailabilityZones
@@ -310,6 +312,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndModelConfigFails(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	apiservertesting.SharedStub.SetErrors(
 		nil,                        // Backing.AvailabilityZones
@@ -331,6 +334,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndModelConfigFails(c *gc.C
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	apiservertesting.SharedStub.SetErrors(
 		nil,                        // Backing.AvailabilityZones
@@ -356,6 +360,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	// ZonedEnviron not supported
 
@@ -376,6 +381,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.
 }
 
 func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 	expected := []params.Subnet{{
 		CIDR:              "10.10.0.0/24",
 		ProviderId:        "sn-zadf00d",
@@ -441,6 +447,7 @@ func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *gc.C) {
 }
 
 func (s *SubnetsSuite) TestListSubnetsInvalidSpaceTag(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 	args := params.SubnetsFilters{SpaceTag: "invalid"}
 	s.mockNetworkService.EXPECT().GetAllSubnets(gomock.Any())
 	_, err := s.facade.ListSubnets(stdcontext.Background(), args)
@@ -448,6 +455,7 @@ func (s *SubnetsSuite) TestListSubnetsInvalidSpaceTag(c *gc.C) {
 }
 
 func (s *SubnetsSuite) TestListSubnetsAllSubnetError(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 	boom := errors.New("no subnets for you")
 	s.mockNetworkService.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, boom)
 	_, err := s.facade.ListSubnets(stdcontext.Background(), params.SubnetsFilters{})
