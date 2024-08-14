@@ -5,6 +5,7 @@ package domain
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
@@ -185,4 +186,77 @@ func (s *stateSuite) TestStateBaseRunTxCancel(c *gc.C) {
 		return err
 	})
 	c.Assert(err, jc.ErrorIs, context.Canceled)
+}
+
+func (s *stateSuite) TestStateBaseRunTxWithRun(c *gc.C) {
+	f := s.TxnRunnerFactory()
+	base := NewStateBase(f)
+	db, err := base.DB()
+	c.Assert(err, gc.IsNil)
+	c.Assert(db, gc.NotNil)
+
+	// Ensure that the Run method is called.
+
+	var called bool
+	err = base.RunTx(context.Background(), func(txCtx TxContext) error {
+		return Run(txCtx, func(ctx context.Context, tx *sqlair.TX) error {
+			called = true
+			return nil
+		})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *stateSuite) TestStateBaseRunTxWithRunPreparedStatements(c *gc.C) {
+	f := s.TxnRunnerFactory()
+	base := NewStateBase(f)
+	db, err := base.DB()
+	c.Assert(err, gc.IsNil)
+	c.Assert(db, gc.NotNil)
+
+	// Ensure that the Run method can use sqlair prepared statements.
+
+	type N struct {
+		Name string `db:"name"`
+	}
+
+	stmt, err := base.Prepare("SELECT &N.* FROM sqlite_schema WHERE name='schema'", N{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var result []N
+	err = base.RunTx(context.Background(), func(txCtx TxContext) error {
+		return Run(txCtx, func(ctx context.Context, tx *sqlair.TX) error {
+			return tx.Query(ctx, stmt).GetAll(&result)
+		})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Check(result[0].Name, gc.Equals, "schema")
+}
+
+func (s *stateSuite) TestStateBaseRunTxWithRunDoesNotLeakError(c *gc.C) {
+	f := s.TxnRunnerFactory()
+	base := NewStateBase(f)
+	db, err := base.DB()
+	c.Assert(err, gc.IsNil)
+	c.Assert(db, gc.NotNil)
+
+	// Ensure that the Run method does not leak sql.ErrNoRows.
+
+	type N struct {
+		Name string `db:"name"`
+	}
+
+	stmt, err := base.Prepare("SELECT &N.* FROM sqlite_schema WHERE name='something something something'", N{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var result N
+	err = base.RunTx(context.Background(), func(txCtx TxContext) error {
+		return Run(txCtx, func(ctx context.Context, tx *sqlair.TX) error {
+			return tx.Query(ctx, stmt).Get(&result)
+		})
+	})
+	c.Assert(err, gc.Not(jc.ErrorIs), sql.ErrNoRows)
+	c.Assert(err, gc.Not(jc.ErrorIs), sqlair.ErrNoRows)
 }

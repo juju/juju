@@ -6,6 +6,7 @@ package domain
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
 
 	"github.com/canonical/sqlair"
@@ -132,6 +133,36 @@ func (st *StateBase) RunTx(ctx context.Context, fn func(TxContext) error) error 
 
 		return fn(txCtx)
 	})
+}
+
+// Run executes the closure function using the provided TxContext as
+// the transaction context.
+// It is expected that the closure will perform state changes within the
+// transaction scope.
+// Any errors returned from the closure are coerced into a standard error
+// to prevent sqlair errors from being returned to the Service layer.
+func Run(ctx TxContext, fn func(context.Context, *sqlair.TX) error) error {
+	txCtx, ok := ctx.(*txContext)
+	if !ok {
+		// If you're seeing this error, it means that the TxContext was not
+		// created by RunTx. This is a programming error. Did you attempt to
+		// wrap the context in a custom context and pass it to Run?
+		return fmt.Errorf("programmatic error: TxContext is not a *txContext: %T", ctx)
+	}
+
+	tx := txCtx.tx()
+	if tx == nil {
+		// If you're seeing this error, it means that the TxContext was not
+		// created by RunTx. This is a programming error. Did you capture
+		// the TxContext from a RunTx closure and try to use it outside of
+		// the closure?
+		return fmt.Errorf("programmatic error: TxContext does not have a transaction")
+	}
+
+	// Execute the function with the transaction.
+	// Coerce the error to ensure that no sql or sqlair errors are returned
+	// from the function and into the Service layer.
+	return CoerceError(fn(ctx, tx))
 }
 
 // txnRunner is a wrapper around a database.TxnRunner that implements the
