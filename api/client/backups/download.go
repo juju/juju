@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/httprequest.v1"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -37,7 +38,7 @@ func (c *Client) Download(ctx context.Context, filename string) (io.ReadCloser, 
 		&resp,
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return resp.Body, nil
 }

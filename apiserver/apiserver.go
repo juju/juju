@@ -882,7 +882,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		stateAuthFunc: httpCtxt.stateForMigrationImporting,
 		objectStore:   httpCtxt.objectStoreForRequest,
 	}
-	backupHandler := &backupHandler{ctxt: httpCtxt}
 	registerHandler := &registerUserHandler{
 		ctxt: httpCtxt,
 		providerGetter: providertracker.ProviderRunner[environs.ConnectorInfo](
@@ -948,10 +947,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}, {
 		pattern: modelRoutePrefix + "/units/:unit/resources/:resource",
 		handler: unitResourcesHandler,
-	}, {
-		pattern:    modelRoutePrefix + "/backups",
-		handler:    backupHandler,
-		authorizer: controllerAdminAuthorizer,
 	}, {
 		// Legacy migration endpoint. Used by Juju 3.3 and prior
 		pattern:    "/migrate/charms",
