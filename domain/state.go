@@ -99,38 +99,38 @@ func (st *StateBase) Prepare(query string, typeSamples ...any) (*sqlair.Statemen
 	return stmt, nil
 }
 
-// Run executes the closure function within the scope of a transaction.
-// The closure is passed a DBContext that can be passed on to state
+// RunTx executes the closure function within the scope of a transaction.
+// The closure is passed a TxContext that can be passed on to state
 // functions, so that they can perform work within that same transaction.
 // The closure will be retried according to the transaction retry semantics,
 // if the transaction fails due to transient errors.
 // The closure should only be used to perform state changes and must not be used
 // to execute queries outside of the state scope.
-func (st *StateBase) Run(ctx context.Context, fn func(DBContext) error) error {
+func (st *StateBase) RunTx(ctx context.Context, fn func(TxContext) error) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Annotate(err, "getting database")
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// The dbContext is created with the transaction and passed to the
+		// The txContext is created with the transaction and passed to the
 		// closure function. This ensures that the transaction is always
 		// available to the closure. Once the transaction is complete, the
-		// transaction is removed from the dbContext. This is to prevent
+		// transaction is removed from the txContext. This is to prevent
 		// the transaction from being used outside of the transaction scope.
 		// This will prevent any references to the sqlair.TX from being held
 		// outside of the transaction scope.
 
-		// TODO (stickupkid): The dbContext can be pooled on the StateBase to
+		// TODO (stickupkid): The txContext can be pooled on the StateBase to
 		// reduce the number of allocations. Attempting to push the tx into
 		// the context would prevent that as a viable option.
-		dbCtx := &dbContext{
+		txCtx := &txContext{
 			Context: ctx,
 			t:       tx,
 		}
-		defer dbCtx.removeTx()
+		defer txCtx.removeTx()
 
-		return fn(dbCtx)
+		return fn(txCtx)
 	})
 }
 
@@ -155,20 +155,20 @@ func (r *txnRunner) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx
 	return CoerceError(r.runner.StdTxn(ctx, fn))
 }
 
-// DBContext is a typed context that provides access to the database transaction
+// TxContext is a typed context that provides access to the database transaction
 // for the duration of a transaction.
-type DBContext interface {
+type TxContext interface {
 	context.Context
 }
 
-// dbContext is the concrete implementation of the DBContext interface.
-// The dbContext ensures that a transaction is always available to during
+// txContext is the concrete implementation of the TxContext interface.
+// The txContext ensures that a transaction is always available to during
 // the execution of a transaction.
-// The dbContext stores the sqlair.TX directly on the struct to prevent the
+// The txContext stores the sqlair.TX directly on the struct to prevent the
 // need to fork the context during the transaction.
 // The mutex prevents data-races when the transaction is removed from the
 // context.
-type dbContext struct {
+type txContext struct {
 	context.Context
 
 	mu sync.Mutex
@@ -176,7 +176,7 @@ type dbContext struct {
 }
 
 // tx returns the sqlair.TX from the context.
-func (c *dbContext) tx() *sqlair.TX {
+func (c *txContext) tx() *sqlair.TX {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.t
@@ -184,7 +184,7 @@ func (c *dbContext) tx() *sqlair.TX {
 
 // removeTx removes the sqlair.TX from the context to prevent it from being
 // used outside of the transaction scope.
-func (c *dbContext) removeTx() {
+func (c *txContext) removeTx() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.t = nil
