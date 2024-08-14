@@ -4,7 +4,7 @@
 package machinemanager
 
 import (
-	context "context"
+	"context"
 	"strings"
 	"time"
 
@@ -20,18 +20,16 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	instance "github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
-	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
-	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	config "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	storage "github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -41,7 +39,7 @@ import (
 
 type AddMachineManagerSuite struct {
 	authorizer    *apiservertesting.FakeAuthorizer
-	model         coremodel.ReadOnlyModel
+	model         model.ReadOnlyModel
 	st            *MockBackend
 	storageAccess *MockStorageInterface
 	pool          *MockPool
@@ -60,7 +58,7 @@ var _ = gc.Suite(&AddMachineManagerSuite{})
 
 func (s *AddMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.model = coremodel.ReadOnlyModel{
+	s.model = model.ReadOnlyModel{
 		UUID: modeltesting.GenModelUUID(c),
 	}
 }
@@ -199,7 +197,7 @@ type DestroyMachineManagerSuite struct {
 	cloudService  *commonmocks.MockCloudService
 	credService   *commonmocks.MockCredentialService
 	api           *MachineManagerAPI
-	model         coremodel.ReadOnlyModel
+	model         model.ReadOnlyModel
 
 	controllerConfigService *MockControllerConfigService
 	machineService          *MockMachineService
@@ -213,7 +211,7 @@ func (s *DestroyMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.PatchValue(&ClassifyDetachedStorage, mockedClassifyDetachedStorage)
-	s.model = coremodel.ReadOnlyModel{
+	s.model = model.ReadOnlyModel{
 		UUID: modeltesting.GenModelUUID(c),
 	}
 }
@@ -727,7 +725,7 @@ type ProvisioningMachineManagerSuite struct {
 	cloudService *commonmocks.MockCloudService
 	credService  *commonmocks.MockCredentialService
 	api          *MachineManagerAPI
-	model        coremodel.ReadOnlyModel
+	model        model.ReadOnlyModel
 
 	controllerConfigService *MockControllerConfigService
 	machineService          *MockMachineService
@@ -746,7 +744,7 @@ func (s *ProvisioningMachineManagerSuite) SetUpTest(c *gc.C) {
 func (s *ProvisioningMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.model = coremodel.ReadOnlyModel{
+	s.model = model.ReadOnlyModel{
 		UUID: modeltesting.GenModelUUID(c),
 	}
 
@@ -847,7 +845,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
 		NetPort:      1,
 	}}}, nil).Times(2)
 	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
-		gomock.Any(), coremachine.Name("0"),
+		gomock.Any(), machine.Name("0"),
 	).Return([]string{
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1",
 	}, nil)
@@ -916,7 +914,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 	}}}, nil).Times(2)
 
 	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
-		gomock.Any(), coremachine.Name("0"),
+		gomock.Any(), machine.Name("0"),
 	).Return([]string{}, nil)
 
 	result, err := s.api.ProvisioningScript(context.Background(), params.ProvisioningScriptParams{

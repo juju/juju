@@ -8,28 +8,9 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
-
-// EnvironConfigGetterFuncs holds implements environs.EnvironConfigGetter
-// in a pluggable way.
-type EnvironConfigGetterFuncs struct {
-	ModelConfigFunc func() (*config.Config, error)
-	CloudSpecFunc   func() (environscloudspec.CloudSpec, error)
-}
-
-// ModelConfig implements EnvironConfigGetter.
-func (f EnvironConfigGetterFuncs) ModelConfig(ctx context.Context) (*config.Config, error) {
-	return f.ModelConfigFunc()
-}
-
-// CloudSpec implements environs.EnvironConfigGetter.
-func (f EnvironConfigGetterFuncs) CloudSpec(ctx context.Context) (environscloudspec.CloudSpec, error) {
-	return f.CloudSpecFunc()
-}
 
 // NewEnvironFunc is a function that returns a BootstrapEnviron instance.
 type NewEnvironFunc func(context.Context) (environs.BootstrapEnviron, error)

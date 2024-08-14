@@ -4,7 +4,7 @@
 package machinemanager
 
 import (
-	context "context"
+	"context"
 	"fmt"
 
 	"github.com/juju/names/v5"
@@ -14,12 +14,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
-	instance "github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	config "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"

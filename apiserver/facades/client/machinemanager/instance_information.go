@@ -17,8 +17,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// TODO(wallyworld) - this method is unused by juju; do we still need it?
-
 // InstanceTypes returns instance type information for the cloud and region
 // in which the current model is deployed.
 func (mm *MachineManagerAPI) InstanceTypes(ctx context.Context, cons params.ModelInstanceTypesConstraints) (params.InstanceTypesResults, error) {

@@ -44,7 +44,6 @@ type InstanceConfigServices struct {
 // InstanceConfig returns information from the model config that
 // is needed for configuring manual machines.
 // It is exposed for testing purposes.
-// TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
 func InstanceConfig(
 	ctx context.Context,
 	modelID coremodel.UUID,

@@ -4,17 +4,17 @@
 package machinemanager
 
 import (
-	context "context"
+	"context"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	constraints "github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
-	instances "github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/rpc/params"
 )
 
