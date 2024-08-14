@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/clock"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/internal/charmhub"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -35,14 +35,27 @@ func newCharmRevisionUpdaterAPI(ctx facade.ModelContext) (*CharmRevisionUpdaterA
 			err,
 		)
 	}
-	newCharmhubClient := func(st State) (CharmhubRefreshClient, error) {
+	modelConfigService := ctx.ServiceFactory().Config()
+
+	newCharmhubClient := func(stdCtx context.Context) (CharmhubRefreshClient, error) {
 		httpClient := charmhubHTTPClient
-		return common.CharmhubClient(charmhubClientStateShim{state: st}, httpClient, ctx.Logger().Child("charmrevisionupdater"))
+		config, err := modelConfigService.ModelConfig(stdCtx)
+		if err != nil {
+			return nil, fmt.Errorf("getting model config %w", err)
+		}
+		chURL, _ := config.CharmHubURL()
+		return charmhub.NewClient(charmhub.Config{
+			URL:        chURL,
+			HTTPClient: httpClient,
+			Logger:     ctx.Logger().Child("charmrevisionupdater"),
+		})
+
 	}
 	return NewCharmRevisionUpdaterAPIState(
 		StateShim{State: ctx.State()},
 		ctx.ObjectStore(),
 		clock.WallClock,
+		modelConfigService,
 		newCharmhubClient,
 		ctx.Logger().Child("charmrevisionupdater"),
 	)

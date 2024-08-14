@@ -4,10 +4,11 @@
 package charmrevisionupdater
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -37,11 +38,15 @@ type Application interface {
 type Model interface {
 	CloudName() string
 	CloudRegion() string
-	Config() (*config.Config, error)
-	IsControllerModel() bool
 	Metrics() (state.ModelMetrics, error)
 	ModelTag() names.ModelTag
 	UUID() string
+}
+
+// ModelConfigService is an interface that provides access to the
+// model configuration.
+type ModelConfigService interface {
+	ModelConfig(ctx context.Context) (*config.Config, error)
 }
 
 // StateShim takes a *state.State and implements this package's State interface.
@@ -63,13 +68,4 @@ func (s StateShim) AllApplications() ([]Application, error) {
 
 func (s StateShim) Model() (Model, error) {
 	return s.State.Model()
-}
-
-// charmhubClientStateShim takes a *state.State and implements common.ModelGetter.
-type charmhubClientStateShim struct {
-	state State
-}
-
-func (s charmhubClientStateShim) Model() (common.ConfigModel, error) {
-	return s.state.Model()
 }

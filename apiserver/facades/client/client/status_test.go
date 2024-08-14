@@ -23,6 +23,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub/transport"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -810,15 +811,23 @@ func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 		gomock.Any()).Return([]transport.RefreshResponse{
 		{Entity: transport.RefreshEntity{Revision: 42}},
 	}, nil)
-	newCharmhubClient := func(st charmrevisionupdater.State) (charmrevisionupdater.CharmhubRefreshClient, error) {
+	newCharmhubClient := func(context.Context) (charmrevisionupdater.CharmhubRefreshClient, error) {
 		return charmhubClient, nil
 	}
+	modelConfigService := mocks.NewMockModelConfigService(s.ctrl)
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name": "model",
+		"type": "type",
+		"uuid": s.DefaultModelUUID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 
-	var err error
 	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPIState(
 		state,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		clock.WallClock,
+		modelConfigService,
 		newCharmhubClient, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 }
