@@ -20,11 +20,11 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/socketlistener"
 )
@@ -40,8 +40,8 @@ const (
 	userCreator = "juju-metrics"
 )
 
-// UserService is the interface for the user service.
-type UserService interface {
+// AccessService is the interface for the access service.
+type AccessService interface {
 	// AddUser will add a new user to the database and return the UUID of the
 	// user if successful. If no password is set in the incoming argument,
 	// the user will be added with an activation key.
@@ -75,6 +75,14 @@ type UserService interface {
 	// - usererrors.UserNameNotValid: When the username supplied is not valid.
 	// - usererrors.NotFound: If no user by the given UUID exists.
 	RemoveUser(ctx context.Context, name user.Name) error
+
+	// ReadUserAccessLevelForTarget returns the user access level for the
+	// given user on the given target. A NotValid error is returned if the
+	// subject (user) string is empty, or the target is not valid. Any errors
+	// from the state layer are passed through.
+	// If the access level of a user cannot be found then
+	// [accesserrors.AccessNotFound] is returned.
+	ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target permission.ID) (permission.Access, error)
 }
 
 // PermissionService is the interface for the permission service.
@@ -86,25 +94,25 @@ type PermissionService interface {
 
 // Config represents configuration for the controlsocket worker.
 type Config struct {
-	// UserService is the user service for the model.
-	UserService UserService
-	// PermissionService is the permission service for the model.
-	PermissionService PermissionService
+	// AccessService is the user access service for the model.
+	AccessService AccessService
 	// SocketName is the socket file descriptor.
 	SocketName string
 	// NewSocketListener is the function that creates a new socket listener.
 	NewSocketListener func(socketlistener.Config) (SocketListener, error)
 	// Logger is the logger used by the worker.
 	Logger logger.Logger
+	// ControllerModelUUID is the uuid of the controller model.
+	ControllerModelUUID model.UUID
 }
 
 // Validate returns an error if config cannot drive the Worker.
 func (config Config) Validate() error {
-	if config.UserService == nil {
-		return errors.NotValidf("nil UserService")
+	if config.AccessService == nil {
+		return errors.NotValidf("nil AccessService")
 	}
-	if config.PermissionService == nil {
-		return errors.NotValidf("nil PermissionService")
+	if config.ControllerModelUUID == "" {
+		return errors.NotValidf("empty ControllerModelUUID")
 	}
 	if config.SocketName == "" {
 		return errors.NotValidf("empty SocketName")
@@ -122,11 +130,11 @@ func (config Config) Validate() error {
 type Worker struct {
 	catacomb catacomb.Catacomb
 
-	userService       UserService
-	permissionService PermissionService
-	logger            logger.Logger
+	accessService AccessService
+	logger        logger.Logger
 
-	userCreatorName user.Name
+	controllerModelUUID model.UUID
+	userCreatorName     user.Name
 }
 
 // NewWorker returns a controlsocket worker with the given config.
@@ -141,10 +149,10 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 
 	w := &Worker{
-		userService:       config.UserService,
-		permissionService: config.PermissionService,
-		logger:            config.Logger,
-		userCreatorName:   userCreatorName,
+		accessService:       config.AccessService,
+		logger:              config.Logger,
+		userCreatorName:     userCreatorName,
+		controllerModelUUID: config.ControllerModelUUID,
 	}
 	sl, err := config.NewSocketListener(socketlistener.Config{
 		Logger:           config.Logger,
@@ -221,24 +229,29 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 		return http.StatusBadRequest, err
 	}
 
-	creatorUser, err := w.userService.GetUserByName(ctx, w.userCreatorName)
+	creatorUser, err := w.accessService.GetUserByName(ctx, w.userCreatorName)
 	if err != nil {
 		return http.StatusInternalServerError, errors.Annotatef(err, "retrieving creator user %q: %v", userCreator, err)
 	}
 
-	_, _, err = w.userService.AddUser(ctx, service.AddUserArg{
+	controllerModelID := permission.ID{
+		ObjectType: permission.Model,
+		Key:        w.controllerModelUUID.String(),
+	}
+
+	_, _, err = w.accessService.AddUser(ctx, service.AddUserArg{
 		Name:        validatedName,
 		DisplayName: validatedName.Name(),
 		Password:    &password,
 		CreatorUUID: creatorUser.UUID,
+		Permission: permission.AccessSpec{
+			Target: controllerModelID,
+			Access: permission.ReadAccess,
+		},
 	})
-
-	cleanup := true
-	// Error handling here is a bit subtle.
-	switch {
-	case errors.Is(err, usererrors.UserAlreadyExists):
+	if errors.Is(err, usererrors.UserAlreadyExists) {
 		// Retrieve existing user
-		user, err := w.userService.GetUserByAuth(ctx, validatedName, password)
+		user, err := w.accessService.GetUserByAuth(ctx, validatedName, password)
 		if err != nil {
 			return http.StatusInternalServerError,
 				fmt.Errorf("retrieving existing user %q: %v", username, err)
@@ -255,35 +268,19 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 			return http.StatusConflict, errors.AlreadyExistsf("user %q (created by %q)", user.Name, user.CreatorName)
 		}
 
-	case err == nil:
-		// At this point, the operation is in a partially completed state - we've
-		// added the user, but haven't granted them the correct model permissions.
-		// If there is an error granting permissions, we should attempt to "rollback"
-		// and remove the user again.
-		defer func() {
-			if !cleanup {
-				// Operation successful - nothing to clean up
-				return
-			}
-
-			err := w.userService.RemoveUser(ctx, validatedName)
-			if err != nil {
-				// Best we can do here is log an error.
-				w.logger.Warningf("add metrics user failed, but could not clean up user %q: %v",
-					username, err)
-			}
-		}()
-
-	default:
+		accessLevel, err := w.accessService.ReadUserAccessLevelForTarget(ctx, validatedName, controllerModelID)
+		if err != nil {
+			return http.StatusInternalServerError,
+				fmt.Errorf("retrieving existing user %q: %v", username, err)
+		} else if accessLevel != permission.ReadAccess {
+			return http.StatusNotFound, fmt.Errorf(
+				"unexpected permission for user %q, expected %q, got %q",
+				user.Name, permission.ReadAccess, accessLevel,
+			)
+		}
+	} else if err != nil {
 		return http.StatusInternalServerError, errors.Annotatef(err, "creating user %q: %v", username, err)
 	}
-
-	err = w.permissionService.AddUserPermission(ctx, validatedName, permission.ReadAccess)
-	if err != nil && !errors.Is(err, errors.AlreadyExists) {
-		return http.StatusInternalServerError, errors.Annotatef(err, "adding user %q to model %q: %v", username, bootstrap.ControllerModelName, err)
-	}
-
-	cleanup = false
 	return http.StatusOK, nil
 }
 
@@ -305,7 +302,7 @@ func (w *Worker) removeMetricsUser(ctx context.Context, username string) (int, e
 	}
 
 	// We shouldn't mess with users that weren't created by us.
-	user, err := w.userService.GetUserByName(ctx, validatedName)
+	user, err := w.accessService.GetUserByName(ctx, validatedName)
 	if errors.Is(err, usererrors.UserNotFound) {
 		// succeed as no-op
 		return http.StatusOK, nil
@@ -316,7 +313,7 @@ func (w *Worker) removeMetricsUser(ctx context.Context, username string) (int, e
 		return http.StatusForbidden, errors.Forbiddenf("cannot remove user %q created by %q", user.Name, user.CreatorName)
 	}
 
-	err = w.userService.RemoveUser(ctx, validatedName)
+	err = w.accessService.RemoveUser(ctx, validatedName)
 	// Any "not found" errors should have been caught above, so fail here.
 	if err != nil {
 		return http.StatusInternalServerError, err

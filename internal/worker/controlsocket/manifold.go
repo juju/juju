@@ -7,19 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/user"
-	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/socketlistener"
-	"github.com/juju/juju/internal/worker/common"
-	workerstate "github.com/juju/juju/internal/worker/state"
-	"github.com/juju/juju/state"
 )
 
 // ManifoldConfig describes the dependencies required by the controlsocket worker.
@@ -29,16 +22,12 @@ type ManifoldConfig struct {
 	NewWorker          func(Config) (worker.Worker, error)
 	NewSocketListener  func(socketlistener.Config) (SocketListener, error)
 	SocketName         string
-
-	// TODO (stickupkid): Delete me once permissions are in place.
-	StateName string
 }
 
 // Manifold returns a Manifold that encapsulates the controlsocket worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.StateName,
 			config.ServiceFactoryName,
 		},
 		Start: config.start,
@@ -62,9 +51,6 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.SocketName == "" {
 		return errors.NotValidf("empty SocketName")
 	}
-	if cfg.StateName == "" {
-		return errors.NotValidf("empty StateName")
-	}
 	return nil
 }
 
@@ -74,42 +60,29 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		return nil, errors.Trace(err)
 	}
 
-	var stTracker workerstate.StateTracker
-	if err = getter.Get(cfg.StateName, &stTracker); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var st *state.State
-	_, st, err = stTracker.Use()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Make sure we clean up state objects if an error occurs.
-	defer func() {
-		if err != nil {
-			_ = stTracker.Done()
-		}
-	}()
-
 	var serviceFactory servicefactory.ControllerServiceFactory
 	if err = getter.Get(cfg.ServiceFactoryName, &serviceFactory); err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	controllerSerivce := serviceFactory.Controller()
+	controllerModelUUID, err := controllerSerivce.ControllerModelUUID(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var w worker.Worker
 	w, err = cfg.NewWorker(Config{
-		UserService: serviceFactory.Access(),
-		PermissionService: permissionService{
-			state: st,
-		},
-		Logger:            cfg.Logger,
-		SocketName:        cfg.SocketName,
-		NewSocketListener: cfg.NewSocketListener,
+		AccessService:       serviceFactory.Access(),
+		Logger:              cfg.Logger,
+		SocketName:          cfg.SocketName,
+		NewSocketListener:   cfg.NewSocketListener,
+		ControllerModelUUID: controllerModelUUID,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
+	return w, nil
 }
 
 // SocketListener describes a worker that listens on a unix socket.
@@ -120,38 +93,4 @@ type SocketListener interface {
 // NewSocketListener is a function that creates a new socket listener.
 func NewSocketListener(config socketlistener.Config) (SocketListener, error) {
 	return socketlistener.NewSocketListener(config)
-}
-
-// TODO (stickupkid): Delete me once permissions are in place, this is just
-// thin wrapper around the state to add user permissions.
-type permissionService struct {
-	state *state.State
-}
-
-func (p permissionService) AddUserPermission(ctx context.Context, username user.Name, access permission.Access) error {
-	model, err := p.state.Model()
-	if err != nil {
-		return errors.Annotate(err, "getting model")
-	}
-
-	// This password doesn't matter, as we don't read from the state user.
-	metricsPassword, err := password.RandomPassword()
-	if err != nil {
-		return errors.Annotatef(err, "generating random password")
-	}
-
-	_, err = p.state.AddUser(username.Name(), username.Name(), metricsPassword, userCreator)
-	if err != nil {
-		return errors.Annotate(err, "adding user")
-	}
-
-	_, err = model.AddUser(state.UserAccessSpec{
-		User:      names.NewUserTag(username.Name()),
-		CreatedBy: names.NewUserTag("controller@juju"),
-		Access:    access,
-	})
-	if err != nil {
-		return errors.Annotate(err, "adding user permission")
-	}
-	return nil
 }

@@ -847,8 +847,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:          controlsocket.NewWorker,
 			NewSocketListener:  controlsocket.NewSocketListener,
 			SocketName:         path.Join(agentConfig.DataDir(), "control.socket"),
-			// TODO (stickupkid): Remove state once we add permissions.
-			StateName: stateName,
 		})),
 
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
