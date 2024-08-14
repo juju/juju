@@ -4,6 +4,7 @@
 package instancemutater_test
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -202,7 +203,7 @@ func (s *workerEnvironSuite) TestFullWorkflow(c *gc.C) {
 	s.notifyMachineAppLXDProfile(0, 1)
 	s.expectMachineCharmProfilingInfo(0, 3)
 	s.expectLXDProfileNamesTrue()
-	s.expectSetCharmProfiles(0)
+	s.expectSetCharmProfiles(0, 3)
 	s.expectAssignLXDProfiles()
 	s.expectAliveAndSetModificationStatusIdle(0)
 	s.expectModificationStatusApplied(0)
@@ -219,6 +220,7 @@ func (s *workerEnvironSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
 	s.expectAliveAndSetModificationStatusIdle(0)
 	s.expectMachineCharmProfilingInfo(0, 2)
 	s.expectLXDProfileNamesTrue()
+	s.expectSetCharmProfiles(0, 2)
 	s.expectModificationStatusApplied(0)
 
 	s.cleanKill(c, s.workerForScenario(c))
@@ -256,6 +258,8 @@ func (s *workerEnvironSuite) TestMachineNotifyTwice(c *gc.C) {
 	s.expectMachineCharmProfilingInfo(1, 2)
 	s.expectLXDProfileNamesTrue()
 	s.expectLXDProfileNamesTrue()
+	s.expectSetCharmProfiles(0, 2)
+	s.expectSetCharmProfiles(1, 2)
 	s.expectMachineAliveStatusIdleMachineDead(0, &group)
 
 	s.cleanKill(c, s.workerForScenario(c))
@@ -516,13 +520,13 @@ func (s *workerSuite) expectAssignLXDProfiles() {
 	s.broker.EXPECT().AssignLXDProfiles("juju-23423-0", profiles, gomock.Any()).Return(profiles, nil)
 }
 
-func (s *workerSuite) expectSetCharmProfiles(machine int) {
-	s.machine[machine].EXPECT().SetCharmProfiles([]string{"default", "juju-testing", "juju-testing-one-3"})
+func (s *workerSuite) expectSetCharmProfiles(machine int, rev int) {
+	s.machine[machine].EXPECT().SetCharmProfiles([]string{fmt.Sprintf("juju-testing-one-%d", rev)})
 }
 
 func (s *workerSuite) expectRemoveAllCharmProfiles(machine int) {
 	profiles := []string{"default", "juju-testing"}
-	s.machine[machine].EXPECT().SetCharmProfiles(profiles)
+	s.machine[machine].EXPECT().SetCharmProfiles([]string{})
 	s.broker.EXPECT().AssignLXDProfiles("juju-23423-0", profiles, gomock.Any()).Return(profiles, nil)
 }
 
@@ -737,7 +741,7 @@ func (s *workerContainerSuite) expectAssignLXDProfiles() {
 }
 
 func (s *workerContainerSuite) expectContainerSetCharmProfiles() {
-	s.lxdContainer.EXPECT().SetCharmProfiles([]string{"default", "juju-testing-one-3"})
+	s.lxdContainer.EXPECT().SetCharmProfiles([]string{"juju-testing-one-3"})
 }
 
 // notifyContainers returns a suite behaviour that will cause the instance mutator

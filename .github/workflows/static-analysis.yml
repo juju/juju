@@ -37,7 +37,8 @@ jobs:
           libdqlite-dev \
           libsqlite3-dev \
           sqlite3
-        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+        go install golang.org/x/vuln/cmd/govulncheck@latest
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.59.1
         sudo curl -sSfL https://github.com/mvdan/sh/releases/download/v3.7.0/shfmt_v3.7.0_linux_$(go env GOARCH) -o /usr/bin/shfmt
         sudo chmod +x /usr/bin/shfmt
         
@@ -46,8 +47,79 @@ jobs:
     - name: Download Go Dependencies
       run: go mod download
 
-    - name: "Static Analysis"
-      run: make static-analysis
+    - name: "Static Analysis: Copyright"
+      run: |
+        STATIC_ANALYSIS_JOB=test_copyright make static-analysis
+      shell: bash
+
+    - name: "Static Analysis: Shell Check"
+      run: |
+        STATIC_ANALYSIS_JOB=test_static_analysis_shell make static-analysis
+      shell: bash
+
+    - name: "Static Analysis: Go Check"
+      run: |
+        # Explicitly set GOROOT to avoid golangci-lint/issues/3107
+        export "GOROOT=$(go env GOROOT)"
+        export "CGO_LDFLAGS=-L$(pwd)/_deps/juju-dqlite-static-lib-deps -luv -lraft -ldqlite -llz4 -lsqlite3"
+
+        STATIC_ANALYSIS_JOB=test_static_analysis_go make static-analysis
+      shell: bash
+      env:
+        CGO_ENABLED: 1
+        CGO_LDFLAGS_ALLOW: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
+
+    - name: "Static Analysis: Python Check"
+      run: |
+        STATIC_ANALYSIS_JOB=test_static_analysis_python make static-analysis
+      shell: bash
+
+  schema:
+    name: Schema
+    runs-on: [self-hosted, linux, arm64, aws, large]
+    if: github.event.pull_request.draft == false
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Check if there is anything to test
+      uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          schema:
+            - 'apiserver/facades/schema.json'
+            - 'generate/schemagen/**'
+            - '**.go'
+            - 'go.mod'
+            - '.github/workflows/static-analysis.yml'
+            - 'Makefile'
+            - 'tests/main.sh'
+            - 'tests/includes/**'
+            - 'tests/suites/static_analysis/schema.sh'
+
+    - name: Set up Go
+      if: steps.filter.outputs.schema == 'true'
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache: true
+
+    - name: Install Dependencies
+      if: steps.filter.outputs.schema == 'true'
+      run: |
+        sudo add-apt-repository ppa:dqlite/dev -y --no-update
+        sudo apt-get update
+        sudo apt-get install -y \
+          expect \
+          libdqlite-dev \
+          libsqlite3-dev \
+          sqlite3
+
+    - name: Schema Check
+      if: steps.filter.outputs.schema == 'true'
+      run: |
+        STATIC_ANALYSIS_JOB=test_schema make static-analysis
       shell: bash
 
   conventional-commits:

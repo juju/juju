@@ -113,7 +113,7 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 			if existingCreds.AuthType != creds.AuthType() {
 				return nil, nil, errors.Errorf("credential auth type mismatch: %q != %q", existingCreds.AuthType, creds.AuthType())
 			}
-			if !reflect.DeepEqual(existingCreds.Attributes, creds.Attributes()) {
+			if !credentialAttributesMatch(existingCreds.Attributes, creds.Attributes()) {
 				return nil, nil, errors.Errorf("credential attribute mismatch: %v != %v", existingCreds.Attributes, creds.Attributes())
 			}
 			if existingCreds.Revoked {
@@ -251,6 +251,13 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 
 	logger.Debugf("import success")
 	return dbModel, newSt, nil
+}
+
+func credentialAttributesMatch(a map[string]string, b map[string]string) bool {
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
+	return reflect.DeepEqual(a, b)
 }
 
 // modelConfig creates a config for the model being imported.
