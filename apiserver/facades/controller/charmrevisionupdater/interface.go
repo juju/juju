@@ -38,7 +38,6 @@ type Application interface {
 type Model interface {
 	CloudName() string
 	CloudRegion() string
-	IsControllerModel() bool
 	Metrics() (state.ModelMetrics, error)
 	ModelTag() names.ModelTag
 	UUID() string

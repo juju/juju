@@ -400,44 +400,6 @@ func (c *MockModelCloudRegionCall) DoAndReturn(f func() string) *MockModelCloudR
 	return c
 }
 
-// IsControllerModel mocks base method.
-func (m *MockModel) IsControllerModel() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsControllerModel")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsControllerModel indicates an expected call of IsControllerModel.
-func (mr *MockModelMockRecorder) IsControllerModel() *MockModelIsControllerModelCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsControllerModel", reflect.TypeOf((*MockModel)(nil).IsControllerModel))
-	return &MockModelIsControllerModelCall{Call: call}
-}
-
-// MockModelIsControllerModelCall wrap *gomock.Call
-type MockModelIsControllerModelCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelIsControllerModelCall) Return(arg0 bool) *MockModelIsControllerModelCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelIsControllerModelCall) Do(f func() bool) *MockModelIsControllerModelCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelIsControllerModelCall) DoAndReturn(f func() bool) *MockModelIsControllerModelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Metrics mocks base method.
 func (m *MockModel) Metrics() (state.ModelMetrics, error) {
 	m.ctrl.T.Helper()
