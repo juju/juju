@@ -7,14 +7,21 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
+	coredatabase "github.com/juju/juju/core/database"
+	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -48,15 +55,31 @@ type ApplicationState interface {
 	// if the application already exists.
 	CreateApplication(context.Context, string, application.AddApplicationArg, ...application.UpsertUnitArg) (coreapplication.ID, error)
 
+	// ApplicationScaleState looks up the scale state of the specified application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
+	ApplicationScaleState(context.Context, string) (application.ScaleState, error)
+
+	// UpsertCloudService updates the cloud service for the specified application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
+
 	// DeleteApplication deletes the specified application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 	// If the application still has units, as error satisfying [applicationerrors.ApplicationHasUnits]
 	// is returned.
 	DeleteApplication(context.Context, string) error
 
+	// GetApplicationID returns the ID for the named application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
+	GetApplicationID(context.Context, string) (coreapplication.ID, error)
+
 	// AddUnits adds the specified units to the application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 	AddUnits(ctx context.Context, applicationName string, args ...application.UpsertUnitArg) error
+
+	InitialWatchStatementUnitLife(appName string) (string, eventsource.NamespaceQuery)
+
+	GetUnitLife(ctx context.Context, unitIDs []string) (map[string]life.Life, error)
 }
 
 // ApplicationService provides the API for working with applications.
@@ -260,8 +283,6 @@ func (s *ApplicationService) insertCAASUnit(
 	ctx context.Context, stateOps application.StateTxOperations, appID coreapplication.ID, orderedID int, args application.UpsertUnitArg,
 ) error {
 	appScale, err := stateOps.ApplicationScaleState(ctx, appID)
-	// TODO(units) - need to wire up app scale updates
-	appScale.Scale = 99999
 	if err != nil {
 		return errors.Annotatef(err, "getting application scale state for app %q", appID)
 	}
@@ -298,6 +319,157 @@ func (s *ApplicationService) addDefaultStorageDirectives(ctx context.Context, mo
 	return domainstorage.StorageDirectivesWithDefaults(charmMeta.Storage, modelType, defaults, allDirectives)
 }
 
+// WatchableApplicationService provides the API for working with applications and the
+// ability to create watchers.
+type WatchableApplicationService struct {
+	ApplicationService
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableApplicationService returns a new service reference wrapping the input state.
+func NewWatchableApplicationService(st ApplicationState, watcherFactory WatcherFactory, registry storage.ProviderRegistry, logger logger.Logger) *WatchableApplicationService {
+	return &WatchableApplicationService{
+		ApplicationService: ApplicationService{
+			st:       st,
+			registry: registry,
+			logger:   logger,
+		},
+		watcherFactory: watcherFactory,
+	}
+}
+
+// WatchApplicationScale returns a watcher that observes changes to an application's scale.
+func (s *WatchableApplicationService) WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
+	appID, err := s.st.GetApplicationID(ctx, appName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	currentScale, err := s.GetScale(ctx, appName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	mask := changestream.Create | changestream.Update
+	mapper := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		newScale, err := s.GetScale(ctx, appName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// Only dispatch if the scale has changed.
+		if newScale != currentScale {
+			currentScale = newScale
+			return changes, nil
+		}
+		return nil, nil
+	}
+	return s.watcherFactory.NewValueMapperWatcher("application_scale", appID.String(), mask, mapper)
+}
+
+type LifeGetter func(ctx context.Context, db coredatabase.TxnRunner, ids []string) (map[string]corelife.Value, error)
+
+// lifeStringsWatcher is a watcher that watches for changes
+// to the life of a particular set of entities.
+type lifeStringsWatcher struct {
+	logger logger.Logger
+
+	// life holds the most recent known life states of interesting entities.
+	life map[string]corelife.Value
+
+	lifeGetter LifeGetter
+}
+
+func NewLifeStringsWatcher(
+	logger logger.Logger,
+	lifeGetter LifeGetter,
+) eventsource.Mapper {
+	w := &lifeStringsWatcher{
+		logger:     logger,
+		lifeGetter: lifeGetter,
+		life:       map[string]corelife.Value{},
+	}
+	return w.mapper
+}
+
+func (w *lifeStringsWatcher) mapper(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	w.logger.Criticalf("WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW")
+	events := make(map[string]changestream.ChangeEvent, len(changes))
+	for _, change := range changes {
+		events[change.Changed()] = change
+	}
+
+	w.logger.Criticalf("GOT MSGS: %+v", events)
+
+	ids := set.NewStrings()
+	// Separate ids into those thought to exist and those known to be removed.
+	latest := make(map[string]corelife.Value)
+	for _, change := range changes {
+		if change.Type() == changestream.Delete {
+			latest[change.Changed()] = corelife.Dead
+			continue
+		}
+		ids.Add(change.Changed())
+	}
+
+	// Collect life states from ids thought to exist. Any that don't actually
+	// exist are ignored (we'll hear about them in the next set of updates --
+	// all that's actually happened in that situation is that the watcher
+	// events have lagged a little behind reality).
+	newValues, err := w.lifeGetter(ctx, db, ids.Values())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	for id, l := range newValues {
+		latest[id] = l
+	}
+	// Add to ids any whose life state is known to have changed.
+	for id, newLife := range latest {
+		gone := newLife == corelife.Dead
+		oldLife, known := w.life[id]
+		switch {
+		case known && gone:
+			delete(w.life, id)
+		case !known && !gone:
+			w.life[id] = newLife
+		case known && newLife != oldLife:
+			w.life[id] = newLife
+		default:
+			delete(events, id)
+		}
+	}
+	var result []changestream.ChangeEvent
+	for _, e := range events {
+		result = append(result, e)
+	}
+	return result, nil
+}
+
+// WatchApplicationUnitLife returns a watcher that observes changes to the life of any units if an application.
+func (s *WatchableApplicationService) WatchApplicationUnitLife(ctx context.Context, appName string) (watcher.StringsWatcher, error) {
+	lifeGetter := func(ctx context.Context, db coredatabase.TxnRunner, ids []string) (map[string]corelife.Value, error) {
+		unitLife, err := s.st.GetUnitLife(ctx, ids)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result := make(map[string]corelife.Value)
+		for id, l := range unitLife {
+			switch l {
+			case life.Alive:
+				result[id] = corelife.Alive
+			case life.Dying:
+				result[id] = corelife.Dying
+			case life.Dead:
+				result[id] = corelife.Dead
+			}
+
+		}
+		return result, err
+	}
+	lifeW := NewLifeStringsWatcher(s.logger, lifeGetter)
+	table, query := s.st.InitialWatchStatementUnitLife(appName)
+
+	return s.watcherFactory.NewNamespaceMapperWatcher(table, changestream.All, query, lifeW)
+}
+
 func (s *ApplicationService) validateStorageDirectives(ctx context.Context, modelType coremodel.ModelType, allDirectives map[string]storage.Directive, charm charm.Charm) error {
 	validator, err := domainstorage.NewStorageDirectivesValidator(modelType, s.registry, s.st)
 	if err != nil {
@@ -315,4 +487,159 @@ func (s *ApplicationService) validateStorageDirectives(ctx context.Context, mode
 		}
 	}
 	return nil
+}
+
+// UpdateCloudService updates the cloud service for the specified application, returning an error
+// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+func (s *ApplicationService) UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error {
+	return s.st.UpsertCloudService(ctx, appName, providerID, sAddrs)
+}
+
+// Broker provides access to the k8s cluster to guery the scale
+// of a specified application.
+type Broker interface {
+	Application(string, caas.DeploymentType) caas.Application
+}
+
+// CAASUnitTerminating should be called by the CAASUnitTerminationWorker when
+// the agent receives a signal to exit. UnitTerminating will return how
+// the agent should shutdown.
+// We pass in a CAAS broker to get app details from the k8s cluster - we will probably
+// make it a service attribute once more use cases emerge.
+func (s *ApplicationService) CAASUnitTerminating(ctx context.Context, appName string, unitNum int, broker Broker) (bool, error) {
+	// TODO(sidecar): handle deployment other than statefulset
+	deploymentType := caas.DeploymentStateful
+	restart := true
+
+	switch deploymentType {
+	case caas.DeploymentStateful:
+		caasApp := broker.Application(appName, caas.DeploymentStateful)
+		appState, err := caasApp.State()
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		scaleInfo, err := s.st.ApplicationScaleState(ctx, appName)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		if unitNum >= scaleInfo.Scale || unitNum >= appState.DesiredReplicas {
+			restart = false
+		}
+	case caas.DeploymentStateless, caas.DeploymentDaemon:
+		// Both handled the same way.
+		restart = true
+	default:
+		return false, errors.NotSupportedf("unknown deployment type")
+	}
+	return restart, nil
+}
+
+// SetScale sets the application's desired scale value, returning an error
+// satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
+// This is used on CAAS models.
+func (s *ApplicationService) SetScale(ctx context.Context, appName string, scale int, force bool) error {
+	if scale < 0 {
+		return fmt.Errorf("application scale %d not valid%w", scale, errors.Hide(applicationerrors.ScaleChangeInvalid))
+	}
+	err := s.st.ExecuteTxnOperation(ctx, appName, false, func(ctx context.Context, stateOps application.StateTxOperations, appID coreapplication.ID) error {
+		appScale, err := stateOps.ApplicationScaleState(ctx, appID)
+		if err != nil {
+			return errors.Annotatef(err, "getting application scale state for app %q", appID)
+		}
+		s.logger.Tracef(
+			"SetScale DesiredScaleProtected %v, DesiredScale %v -> %v",
+			appScale.DesiredScaleProtected, appScale.Scale, scale,
+		)
+		if appScale.DesiredScaleProtected && !force && scale != appScale.Scale {
+			return fmt.Errorf(
+				"%w: SetScale(%d) without force while desired scale %d is not applied yet",
+				applicationerrors.ScaleChangeInvalid, scale, appScale.Scale)
+		}
+		return stateOps.SetDesiredApplicationScale(ctx, appID, scale, force)
+	})
+	return errors.Annotatef(err, "setting scale for application %q", appName)
+}
+
+// GetScale returns the desired scale of an application, returning an error
+// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+// This is used on CAAS models.
+func (s *ApplicationService) GetScale(ctx context.Context, appName string) (int, error) {
+	result, err := s.st.ApplicationScaleState(ctx, appName)
+	if err != nil {
+		return -1, errors.Annotatef(err, "getting scaling state for %q", appName)
+	}
+	return result.Scale, nil
+}
+
+// ChangeScale alters the existing scale by the provided change amount, returning the new amount.
+// It returns an error satisfying [applicationerrors.ApplicationNotFoundError] if the application
+// doesn't exist.
+// This is used on CAAS models.
+func (s *ApplicationService) ChangeScale(ctx context.Context, appName string, scaleChange int) (int, error) {
+	var newScale int
+	err := s.st.ExecuteTxnOperation(ctx, appName, false, func(ctx context.Context, stateOps application.StateTxOperations, appID coreapplication.ID) error {
+		currentScaleState, err := stateOps.ApplicationScaleState(ctx, appID)
+		if err != nil {
+			return errors.Annotatef(err, "getting current scale state for %q", appName)
+		}
+
+		newScale = currentScaleState.Scale + scaleChange
+		s.logger.Tracef("ChangeScale DesiredScale %v, scaleChange %v, newScale %v", currentScaleState.Scale, scaleChange, newScale)
+		if newScale < 0 {
+			newScale = currentScaleState.Scale
+			return fmt.Errorf(
+				"%w: cannot remove more units than currently exist", applicationerrors.ScaleChangeInvalid)
+		}
+		err = stateOps.SetDesiredApplicationScale(ctx, appID, newScale, true)
+		return errors.Annotatef(err, "changing scaling state for %q", appName)
+	})
+	return newScale, errors.Annotatef(err, "changing scale for %q", appName)
+}
+
+// SetScalingState updates the scale state of an application, returning an error
+// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+// This is used on CAAS models.
+func (s *ApplicationService) SetScalingState(ctx context.Context, appName string, scaleTarget int, scaling bool) error {
+	err := s.st.ExecuteTxnOperation(ctx, appName, true, func(ctx context.Context, stateOps application.StateTxOperations, appID coreapplication.ID) error {
+		appLife, err := stateOps.ApplicationLife(ctx, appID)
+		if err != nil {
+			return errors.Annotatef(err, "getting life for %q", appName)
+		}
+		currentScaleState, err := stateOps.ApplicationScaleState(ctx, appID)
+		if err != nil {
+			return errors.Annotatef(err, "getting current scale state for %q", appName)
+		}
+
+		var scale *int
+		if scaling {
+			switch appLife {
+			case life.Alive:
+				// if starting a scale, ensure we are scaling to the same target.
+				if !currentScaleState.Scaling && currentScaleState.Scale != scaleTarget {
+					return applicationerrors.ScalingStateInconsistent
+				}
+			case life.Dying, life.Dead:
+				// force scale to the scale target when dying/dead.
+				scale = &scaleTarget
+			}
+		}
+		err = stateOps.SetApplicationScalingState(ctx, appID, scale, scaleTarget, scaling)
+		return errors.Annotatef(err, "updating scaling state for %q", appName)
+	})
+	return errors.Annotatef(err, "setting scale for %q", appName)
+
+}
+
+// GetScalingState returns the scale state of an application, returning an error
+// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+// This is used on CAAS models.
+func (s *ApplicationService) GetScalingState(ctx context.Context, name string) (ScalingState, error) {
+	result, err := s.st.ApplicationScaleState(ctx, name)
+	if err != nil {
+		return ScalingState{}, errors.Annotatef(err, "getting scaling state for %q", name)
+	}
+	return ScalingState{
+		ScaleTarget: result.ScaleTarget,
+		Scaling:     result.Scaling,
+	}, nil
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -38,7 +39,9 @@ type CAASProvisionerSuite struct {
 
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
-	facade     *caasunitprovisioner.Facade
+
+	applicationService *MockApplicationService
+	facade             *caasunitprovisioner.Facade
 }
 
 func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
@@ -66,11 +69,19 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	}
 	s.clock = testclock.NewClock(time.Now())
 	s.PatchValue(&jujuversion.OfficialBuild, 0)
+}
 
+func (s *CAASProvisionerSuite) setUpFacade(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.applicationService = NewMockApplicationService(ctrl)
+
+	var err error
 	facade, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, nil, s.st, s.clock, loggertesting.WrapCheckLog(c))
+		s.resources, s.authorizer, nil, s.applicationService, s.st, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
+	return ctrl
 }
 
 func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
@@ -78,11 +89,13 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, nil, s.st, s.clock, loggertesting.WrapCheckLog(c))
+		s.resources, s.authorizer, nil, nil, s.st, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *CAASProvisionerSuite) TestWatchApplicationsScale(c *gc.C) {
+	defer s.setUpFacade(c).Finish()
+
 	s.scaleChanges <- struct{}{}
 
 	results, err := s.facade.WatchApplicationsScale(context.Background(), params.Entities{
@@ -104,6 +117,8 @@ func (s *CAASProvisionerSuite) TestWatchApplicationsScale(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestWatchApplicationsConfigSetingsHash(c *gc.C) {
+	defer s.setUpFacade(c).Finish()
+
 	s.settingsChanges <- []string{"hash"}
 
 	results, err := s.facade.WatchApplicationsTrustHash(context.Background(), params.Entities{
@@ -125,6 +140,10 @@ func (s *CAASProvisionerSuite) TestWatchApplicationsConfigSetingsHash(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestApplicationScale(c *gc.C) {
+	defer s.setUpFacade(c).Finish()
+
+	s.applicationService.EXPECT().GetScale(gomock.Any(), "gitlab").Return(5, nil)
+
 	results, err := s.facade.ApplicationsScale(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -141,5 +160,4 @@ func (s *CAASProvisionerSuite) TestApplicationScale(c *gc.C) {
 			},
 		}},
 	})
-	s.st.CheckCallNames(c, "Application")
 }

@@ -14,7 +14,10 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -198,6 +201,26 @@ WHERE name = $applicationName.name
 		return "", fmt.Errorf("%w: %s", applicationerrors.ApplicationIsDead, name)
 	}
 	return coreapplication.ID(appID.ID), nil
+}
+
+// GetApplicationID returns the ID for the named application, returning an error
+// satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
+func (st *ApplicationState) GetApplicationID(ctx context.Context, name string) (coreapplication.ID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	var appID coreapplication.ID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		appID, err = st.lookupApplication(ctx, tx, name, true)
+		if err != nil {
+			return fmt.Errorf("looking up application %q: %w", name, err)
+		}
+		return nil
+	})
+	return appID, errors.Annotatef(err, "getting ID for %q", name)
 }
 
 // ExecuteTxnOperation starts a txn and looks up ID of the specified application.
@@ -548,12 +571,100 @@ func (st *ApplicationState) GetStoragePoolByName(ctx context.Context, name strin
 	return storagestate.GetStoragePoolByName(ctx, db, name)
 }
 
+// UpsertCloudService updates the cloud service for the specified application, returning an error
+// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+func (st *ApplicationState) UpsertCloudService(ctx context.Context, name, providerID string, sAddrs network.SpaceAddresses) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO(units) - handle addresses
+
+	upsertCloudService := `
+INSERT INTO cloud_service (*) VALUES ($cloudService.*)
+ON CONFLICT(application_uuid) DO UPDATE
+    SET provider_id = excluded.provider_id;
+`
+
+	upsertStmt, err := st.Prepare(upsertCloudService, cloudService{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		appID, err := st.lookupApplication(ctx, tx, name, false)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		serviceInfo := cloudService{
+			ApplicationID: appID.String(),
+			ProviderID:    providerID,
+		}
+
+		err = tx.Query(ctx, upsertStmt, serviceInfo).Run()
+		return nil
+	})
+	return errors.Annotatef(err, "updating cloud service for application %q", name)
+}
+
+// ApplicationScaleState looks up the scale state of the specified application, returning an error
+// satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
+func (st *ApplicationState) ApplicationScaleState(ctx context.Context, name string) (application.ScaleState, error) {
+	db, err := st.DB()
+	if err != nil {
+		return application.ScaleState{}, errors.Trace(err)
+	}
+
+	var result application.ScaleState
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		appID, err := st.lookupApplication(ctx, tx, name, false)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		stTx := stateTxOperations{
+			ApplicationState: st,
+			tx:               tx,
+		}
+		result, err = stTx.ApplicationScaleState(ctx, appID)
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return application.ScaleState{}, errors.Annotatef(err, "getting scale state for application %q", name)
+	}
+	return result, nil
+}
+
 // stateTxOperations allows the calling service to run operations
 // in the service using a given transaction, without exposing
 // the txn to the service business logic.
 type stateTxOperations struct {
 	*ApplicationState
 	tx *sqlair.TX
+}
+
+// ApplicationLife looks up the life of the specified application, returning an error
+// satisfying [applicationerrors.ApplicationNotFoundError] if the application is not found.
+func (st stateTxOperations) ApplicationLife(ctx context.Context, appID coreapplication.ID) (life.Life, error) {
+	app := applicationID{ID: appID.String()}
+	queryApp := `
+SELECT application.life_id AS &applicationID.*
+FROM application
+WHERE uuid = $applicationID.uuid
+`
+	queryAppStmt, err := st.Prepare(queryApp, app)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
+
+	err = st.tx.Query(ctx, queryAppStmt, app).Get(&app)
+	if err != nil {
+		if !errors.Is(err, sqlair.ErrNoRows) {
+			return -1, errors.Annotatef(err, "querying life for application %q", appID)
+		}
+		return -1, fmt.Errorf("%w: %s", applicationerrors.ApplicationNotFound, appID)
+	}
+	return app.LifeID, errors.Trace(err)
 }
 
 // UpsertUnit creates or updates the specified application unit, returning an error
@@ -595,8 +706,7 @@ WHERE name = $unitDetails.name
 	return unit.LifeID, errors.Annotatef(err, "querying unit %q life", unitName)
 }
 
-// ApplicationScaleState looks up the scale state of the specified application, returning an error
-// satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
+// ApplicationScaleState looks up the scale state of the specified application.
 func (st stateTxOperations) ApplicationScaleState(ctx context.Context, appID coreapplication.ID) (application.ScaleState, error) {
 	appScale := applicationScale{ApplicationID: appID.String()}
 	queryScale := `
@@ -614,7 +724,123 @@ WHERE application_uuid = $applicationScale.application_uuid
 		if !errors.Is(err, sqlair.ErrNoRows) {
 			return application.ScaleState{}, errors.Annotatef(err, "querying application %q scale", appID)
 		}
-		return application.ScaleState{}, fmt.Errorf("%w: %s", applicationerrors.ApplicationNotFound, appID)
+		return application.ScaleState{}, nil
 	}
-	return appScale.ToScaleState(), errors.Annotatef(err, "querying application %q scale", appID)
+	return appScale.toScaleState(), errors.Annotatef(err, "querying application %q scale", appID)
+}
+
+// SetDesiredApplicationScale updates the desired scale of the specified application.
+func (st stateTxOperations) SetDesiredApplicationScale(ctx context.Context, appID coreapplication.ID, scale int, protected bool) error {
+	scaleDetails := applicationScale{
+		ApplicationID:         appID.String(),
+		Scale:                 scale,
+		DesiredScaleProtected: protected,
+	}
+	upsertApplicationScale := `
+UPDATE application_scale SET
+    scale = $applicationScale.scale,
+    desired_scale_protected = $applicationScale.desired_scale_protected
+WHERE application_uuid = $applicationScale.application_uuid
+`
+
+	upsertStmt, err := st.Prepare(upsertApplicationScale, scaleDetails)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return st.tx.Query(ctx, upsertStmt, scaleDetails).Run()
+}
+
+// SetApplicationScalingState sets the scaling details for the given caas application
+// Scale is optional and is only set if not nil.
+func (st stateTxOperations) SetApplicationScalingState(ctx context.Context, appID coreapplication.ID, scale *int, targetScale int, scaling bool) error {
+	scaleDetails := applicationScale{
+		ApplicationID: appID.String(),
+		Scaling:       scaling,
+		ScaleTarget:   targetScale,
+	}
+	var setScaleTerm string
+	if scale != nil {
+		scaleDetails.Scale = *scale
+		setScaleTerm = "scale = $applicationScale.scale,"
+	}
+
+	upsertApplicationScale := fmt.Sprintf(`
+UPDATE application_scale SET
+    %s
+    scaling = $applicationScale.scaling,
+    scale_target = $applicationScale.scale_target
+WHERE application_uuid = $applicationScale.application_uuid
+`, setScaleTerm)
+
+	upsertStmt, err := st.Prepare(upsertApplicationScale, scaleDetails)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return st.tx.Query(ctx, upsertStmt, scaleDetails).Run()
+}
+
+func (st *ApplicationState) InitialWatchStatementUnitLife(appName string) (string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
+		app := applicationName{Name: appName}
+		stmt, err := st.Prepare(`
+SELECT u.uuid AS &unitDetails.uuid
+FROM unit u
+JOIN application a ON a.uuid = u.application_uuid
+WHERE a.name = $applicationName.name
+`, app, unitDetails{})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		var result []unitDetails
+		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			err := tx.Query(ctx, stmt, app).GetAll(&result)
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return nil
+			}
+			return errors.Trace(err)
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		uuids := make([]string, len(result))
+		for i, r := range result {
+			uuids[i] = r.UnitID
+		}
+		return uuids, errors.Trace(err)
+	}
+	return "unit", queryFunc
+}
+
+type unitIDs []string
+
+func (st *ApplicationState) GetUnitLife(ctx context.Context, ids []string) (map[string]life.Life, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	lifeQuery := `
+SELECT (uuid, life_id) AS (&unitDetails.*)
+FROM unit
+WHERE uuid IN ($unitIDs[:])
+`
+
+	lifeStmt, err := st.Prepare(lifeQuery, unitDetails{}, unitIDs{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var lifes []unitDetails
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, lifeStmt, unitIDs(ids)).GetAll(&lifes)
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "querying unit life")
+	}
+	result := make(map[string]life.Life)
+	for _, u := range lifes {
+		result[u.UnitID] = u.LifeID
+	}
+	return result, nil
 }

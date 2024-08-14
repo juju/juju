@@ -71,6 +71,17 @@ func (w *WatcherC[T]) AssertNoChange() {
 	}
 }
 
+// AssertChange asserts that the watcher sends at least one change
+// before the test times out.
+func (w *WatcherC[T]) AssertChange() {
+	select {
+	case _, ok := <-w.Watcher.Changes():
+		w.c.Assert(ok, gc.Equals, true)
+	case <-time.After(testing.LongWait):
+		w.c.Fatalf("watcher did not send change")
+	}
+}
+
 // Check asserts that the watcher sends the expected changes. The assertion
 // function is called repeatedly until it returns true, or the test times out.
 func (w *WatcherC[T]) Check(assertion WatcherAssert[T]) {

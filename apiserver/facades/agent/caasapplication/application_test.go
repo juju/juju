@@ -93,7 +93,6 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 		},
 		updateOp: nil,
 	}
-	s.st.app.scale = 1
 
 	s.broker.app = &mockCAASApplication{
 		units: []caas.Unit{{
@@ -138,8 +137,6 @@ func (s *CAASApplicationSuite) TestAddUnitNotNeeded(c *gc.C) {
 		PodName: "gitlab-0",
 		PodUUID: "gitlab-uuid",
 	}
-
-	s.st.app.scale = 0
 
 	s.broker.app = &mockCAASApplication{
 		units: []caas.Unit{{
@@ -271,8 +268,6 @@ func (s *CAASApplicationSuite) TestAgentConf(c *gc.C) {
 		},
 		updateOp: nil,
 	}
-	s.st.app.scale = 1
-
 	s.broker.app = &mockCAASApplication{
 		units: []caas.Unit{{
 			Id:      "gitlab-0",
@@ -362,8 +357,6 @@ func (s *CAASApplicationSuite) TestUnitTerminatingAgentWillRestart(c *gc.C) {
 		},
 	}
 
-	s.st.app.scale = 1
-
 	s.st.units = map[string]*mockUnit{
 		"gitlab/0": {
 			life: state.Alive,
@@ -378,7 +371,8 @@ func (s *CAASApplicationSuite) TestUnitTerminatingAgentWillRestart(c *gc.C) {
 	args := params.Entity{
 		Tag: "unit-gitlab-0",
 	}
-	results, err := s.facade.UnitTerminating(context.Background(), args)
+	ctx := context.Background()
+	results, err := s.facade.UnitTerminating(ctx, args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Error, gc.IsNil)
 	c.Assert(results.WillRestart, jc.IsTrue)
@@ -392,8 +386,6 @@ func (s *CAASApplicationSuite) TestUnitTerminatingAgentDying(c *gc.C) {
 			DesiredReplicas: 0,
 		},
 	}
-
-	s.st.app.scale = 0
 
 	s.st.units = map[string]*mockUnit{
 		"gitlab/0": {

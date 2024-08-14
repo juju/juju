@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	coreconfig "github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -34,10 +33,8 @@ type mockApplication struct {
 	scaleWatcher    *statetesting.MockNotifyWatcher
 	settingsWatcher *statetesting.MockStringsWatcher
 
-	tag        names.Tag
-	scale      int
-	providerId string
-	addresses  []network.SpaceAddress
+	tag   names.Tag
+	scale int
 }
 
 func (a *mockApplication) Tag() names.Tag {
@@ -54,22 +51,6 @@ func (a *mockApplication) Life() state.Life {
 	return a.life
 }
 
-func (a *mockApplication) WatchScale() state.NotifyWatcher {
-	a.MethodCall(a, "WatchScale")
-	return a.scaleWatcher
-}
-
-func (a *mockApplication) GetScale() int {
-	a.MethodCall(a, "GetScale")
-	return a.scale
-}
-
-func (a *mockApplication) SetScale(scale int, generation int64, force bool) error {
-	a.MethodCall(a, "SetScale", scale)
-	a.scale = scale
-	return nil
-}
-
 func (a *mockApplication) WatchConfigSettingsHash() state.StringsWatcher {
 	a.MethodCall(a, "WatchConfigSettingsHash")
 	return a.settingsWatcher
@@ -78,10 +59,4 @@ func (a *mockApplication) WatchConfigSettingsHash() state.StringsWatcher {
 func (a *mockApplication) ApplicationConfig() (coreconfig.ConfigAttributes, error) {
 	a.MethodCall(a, "ApplicationConfig")
 	return coreconfig.ConfigAttributes{"foo": "bar"}, a.NextErr()
-}
-
-func (m *mockApplication) UpdateCloudService(providerId string, addresses []network.SpaceAddress) error {
-	m.providerId = providerId
-	m.addresses = addresses
-	return nil
 }

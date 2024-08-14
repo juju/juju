@@ -2109,6 +2109,7 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModel(c *gc.C) {
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().SetScale(5, int64(0), true).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	s.applicationService.EXPECT().SetScale(gomock.Any(), "postgresql", 5, true)
 
 	results, err := s.api.ScaleApplications(context.Background(), params.ScaleApplicationsParams{
 		Applications: []params.ScaleApplicationParams{{
@@ -2146,6 +2147,7 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleChange(c *gc.C) {
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().ChangeScale(5).Return(7, nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	s.applicationService.EXPECT().ChangeScale(gomock.Any(), "postgresql", 5).Return(7, nil)
 
 	results, err := s.api.ScaleApplications(context.Background(), params.ScaleApplicationsParams{
 		Applications: []params.ScaleApplicationParams{{

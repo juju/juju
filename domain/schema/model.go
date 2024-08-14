@@ -21,6 +21,8 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-cloud-instance-triggers.gen.go -package=triggers -tables=machine_cloud_instance
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/user-public-ssh-key.gen.go -package=triggers -tables=user_public_ssh_key
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/charm.gen.go -package=triggers -tables=charm
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-scale.gen.go -package=triggers -tables=application_scale
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit.gen.go -package=triggers -tables=unit
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
@@ -46,6 +48,8 @@ const (
 	tableMachineCloudInstance
 	tableUserPublicSSHKey
 	tableCharm
+	tableApplicationScale
+	tableUnit
 )
 
 // ModelDDL is used to create model databases.
@@ -101,6 +105,8 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForMachineCloudInstance("machine_uuid", tableMachineCloudInstance),
 		triggers.ChangeLogTriggersForUserPublicSshKey("id", tableUserPublicSSHKey),
 		triggers.ChangeLogTriggersForCharm("uuid", tableCharm),
+		triggers.ChangeLogTriggersForApplicationScale("application_uuid", tableApplicationScale),
+		triggers.ChangeLogTriggersForUnit("uuid", tableUnit),
 	)
 
 	// Generic triggers.

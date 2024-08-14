@@ -186,3 +186,245 @@ func (s *serviceSuite) TestRegisterCAASUnitExceedsScaleTarget(c *gc.C) {
 	err = svc.RegisterCAASUnit(context.Background(), "foo", args)
 	c.Assert(err, jc.ErrorIs, uniterrors.NotAssigned)
 }
+
+func (s *serviceSuite) TestSetScalingState(c *gc.C) {
+	svc := service.NewService(
+		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, loggertesting.WrapCheckLog(c)),
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/1"),
+	}
+	appID := s.createApplication(c, svc, "foo", u)
+
+	err := svc.SetScalingState(context.Background(), "foo", 1, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		gotScaleTarget int
+		gotScaling     bool
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT scale_target, scaling FROM application_scale WHERE application_uuid = ?", appID).
+			Scan(&gotScaleTarget, &gotScaling)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotScaleTarget, gc.Equals, 1)
+	c.Assert(gotScaling, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestSetScalingStateAlreadyScaling(c *gc.C) {
+	svc := service.NewService(
+		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, loggertesting.WrapCheckLog(c)),
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/1"),
+	}
+	appID := s.createApplication(c, svc, "foo", u)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scaling = true WHERE application_uuid = ?", appID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = svc.SetScalingState(context.Background(), "foo", 666, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		gotScaleTarget int
+		gotScaling     bool
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT scale_target, scaling FROM application_scale WHERE application_uuid = ?", appID).
+			Scan(&gotScaleTarget, &gotScaling)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotScaleTarget, gc.Equals, 666)
+	c.Assert(gotScaling, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestSetScalingStateDying(c *gc.C) {
+	svc := service.NewService(
+		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, loggertesting.WrapCheckLog(c)),
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/1"),
+	}
+	appID := s.createApplication(c, svc, "foo", u)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = 1 WHERE uuid = ?", appID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = svc.SetScalingState(context.Background(), "foo", 666, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		gotScaleTarget int
+		gotScaling     bool
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT scale_target, scaling FROM application_scale WHERE application_uuid = ?", appID).
+			Scan(&gotScaleTarget, &gotScaling)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotScaleTarget, gc.Equals, 666)
+	c.Assert(gotScaling, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestSetScalingStateInconsistent(c *gc.C) {
+	svc := service.NewService(
+		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, loggertesting.WrapCheckLog(c)),
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	s.createApplication(c, svc, "foo")
+
+	err := svc.SetScalingState(context.Background(), "foo", 666, true)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ScalingStateInconsistent)
+}
+
+func (s *serviceSuite) TestSetScale(c *gc.C) {
+	svc := service.NewService(
+		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, loggertesting.WrapCheckLog(c)),
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	appID := s.createApplication(c, svc, "foo")
+
+	err := svc.SetScale(context.Background(), "foo", 666, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		gotScale          int
+		gotScaleProtected bool
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT scale, desired_scale_protected FROM application_scale WHERE application_uuid = ?", appID).
+			Scan(&gotScale, &gotScaleProtected)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotScale, gc.Equals, 666)
+	c.Assert(gotScaleProtected, jc.IsFalse)
+}
+
+func (s *serviceSuite) TestSetScaleProtectedNoMatch(c *gc.C) {
+	svc := service.NewService(
+		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, loggertesting.WrapCheckLog(c)),
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	s.createApplication(c, svc, "foo")
+
+	err := svc.SetScale(context.Background(), "foo", 666, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = svc.SetScale(context.Background(), "foo", 667, false)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ScaleChangeInvalid)
+}
+
+func (s *serviceSuite) TestSetScaleProtectedNoMatchForce(c *gc.C) {
+	svc := service.NewService(
+		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, loggertesting.WrapCheckLog(c)),
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	appID := s.createApplication(c, svc, "foo")
+
+	err := svc.SetScale(context.Background(), "foo", 666, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = svc.SetScale(context.Background(), "foo", 667, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		gotScale          int
+		gotScaleProtected bool
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT scale, desired_scale_protected FROM application_scale WHERE application_uuid = ?", appID).
+			Scan(&gotScale, &gotScaleProtected)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotScale, gc.Equals, 667)
+	c.Assert(gotScaleProtected, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestChangeScale(c *gc.C) {
+	svc := service.NewService(
+		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, loggertesting.WrapCheckLog(c)),
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/1"),
+	}
+	appID := s.createApplication(c, svc, "foo", u)
+
+	newScale, err := svc.ChangeScale(context.Background(), "foo", 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newScale, gc.Equals, 3)
+
+	var gotScale int
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_scale WHERE application_uuid = ?", appID).Scan(&gotScale)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotScale, gc.Equals, 3)
+}
+
+func (s *serviceSuite) TestChangeScaleInvalid(c *gc.C) {
+	svc := service.NewService(
+		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, loggertesting.WrapCheckLog(c)),
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/1"),
+	}
+	s.createApplication(c, svc, "foo", u)
+
+	_, err := svc.ChangeScale(context.Background(), "foo", -2)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ScaleChangeInvalid)
+}

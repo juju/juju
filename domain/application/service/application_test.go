@@ -12,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/caas"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application"
@@ -32,6 +33,7 @@ type applicationServiceSuite struct {
 	state   *MockApplicationState
 	charm   *MockCharm
 	service *ApplicationService
+	broker  *MockBroker
 }
 
 var _ = gc.Suite(&applicationServiceSuite{})
@@ -40,6 +42,7 @@ func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockApplicationState(ctrl)
 	s.charm = NewMockCharm(ctrl)
+	s.broker = NewMockBroker(ctrl)
 	registry := storage.ChainedProviderRegistry{
 		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
@@ -510,7 +513,7 @@ func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *applicationServiceSuite) TestAddRegisterCAASUnit(c *gc.C) {
+func (s *applicationServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().ExecuteTxnOperation(gomock.Any(), "foo", false, gomock.Any()).Return(nil)
@@ -534,7 +537,7 @@ var unitParams = RegisterCAASUnitParams{
 	OrderedId:    1,
 }
 
-func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingUnitName(c *gc.C) {
+func (s *applicationServiceSuite) TestRegisterCAASUnitMissingUnitName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	p := unitParams
@@ -543,7 +546,7 @@ func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingUnitName(c *gc.C
 	c.Assert(err, gc.ErrorMatches, "missing unit name not valid")
 }
 
-func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingOrderedScale(c *gc.C) {
+func (s *applicationServiceSuite) TestRegisterCAASUnitMissingOrderedScale(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	p := unitParams
@@ -552,7 +555,7 @@ func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingOrderedScale(c *
 	c.Assert(err, gc.ErrorMatches, "registering CAAS units not supported without ordered unit IDs")
 }
 
-func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingProviderID(c *gc.C) {
+func (s *applicationServiceSuite) TestRegisterCAASUnitMissingProviderID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	p := unitParams
@@ -561,11 +564,122 @@ func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingProviderID(c *gc
 	c.Assert(err, gc.ErrorMatches, "provider id not valid")
 }
 
-func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingPasswordHash(c *gc.C) {
+func (s *applicationServiceSuite) TestRegisterCAASUnitMissingPasswordHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	p := unitParams
 	p.PasswordHash = nil
 	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
 	c.Assert(err, gc.ErrorMatches, "password hash not valid")
+}
+
+func (s *applicationServiceSuite) TestCAASUnitTerminatingUnitNumLessThanScale(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	app := NewMockApplication(ctrl)
+	app.EXPECT().State().Return(caas.ApplicationState{
+		DesiredReplicas: 6,
+	}, nil)
+	s.broker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+
+	s.state.EXPECT().ApplicationScaleState(gomock.Any(), "foo").Return(application.ScaleState{
+		Scale: 2,
+	}, nil)
+
+	willRestart, err := s.service.CAASUnitTerminating(context.Background(), "foo", 1, s.broker)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(willRestart, jc.IsTrue)
+}
+
+func (s *applicationServiceSuite) TestCAASUnitTerminatingUnitNumGreaterThanScale(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	app := NewMockApplication(ctrl)
+	app.EXPECT().State().Return(caas.ApplicationState{
+		DesiredReplicas: 6,
+	}, nil)
+	s.broker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+
+	s.state.EXPECT().ApplicationScaleState(gomock.Any(), "foo").Return(application.ScaleState{
+		Scale: 2,
+	}, nil)
+
+	willRestart, err := s.service.CAASUnitTerminating(context.Background(), "foo", 4, s.broker)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(willRestart, jc.IsFalse)
+}
+
+func (s *applicationServiceSuite) TestCAASUnitTerminatingUnitNumLessThanDesired(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	app := NewMockApplication(ctrl)
+	app.EXPECT().State().Return(caas.ApplicationState{
+		DesiredReplicas: 6,
+	}, nil)
+	s.broker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+
+	s.state.EXPECT().ApplicationScaleState(gomock.Any(), "foo").Return(application.ScaleState{
+		Scale: 6,
+	}, nil)
+
+	willRestart, err := s.service.CAASUnitTerminating(context.Background(), "foo", 3, s.broker)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(willRestart, jc.IsTrue)
+}
+
+func (s *applicationServiceSuite) TestCAASUnitTerminatingUnitNumGreaterThanDesired(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	app := NewMockApplication(ctrl)
+	app.EXPECT().State().Return(caas.ApplicationState{
+		DesiredReplicas: 2,
+	}, nil)
+	s.broker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+
+	s.state.EXPECT().ApplicationScaleState(gomock.Any(), "foo").Return(application.ScaleState{
+		Scale: 6,
+	}, nil)
+
+	willRestart, err := s.service.CAASUnitTerminating(context.Background(), "foo", 3, s.broker)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(willRestart, jc.IsFalse)
+}
+
+func (s *applicationServiceSuite) TestGetScalingState(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ApplicationScaleState(gomock.Any(), "foo").Return(application.ScaleState{
+		Scaling:     true,
+		ScaleTarget: 666,
+	}, nil)
+
+	got, err := s.service.GetScalingState(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, ScalingState{
+		Scaling:     true,
+		ScaleTarget: 666,
+	})
+}
+
+func (s *applicationServiceSuite) TestGetScale(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ApplicationScaleState(gomock.Any(), "foo").Return(application.ScaleState{
+		Scale: 666,
+	}, nil)
+
+	got, err := s.service.GetScale(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.Equals, 666)
+}
+
+func (s *applicationServiceSuite) TestSetScaleInvalid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.SetScale(context.Background(), "foo", -1, false)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ScaleChangeInvalid)
 }

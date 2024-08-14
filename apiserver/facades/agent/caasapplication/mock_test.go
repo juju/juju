@@ -130,10 +130,9 @@ func (st *mockModel) Tag() names.Tag {
 
 type mockApplication struct {
 	testing.Stub
-	life  state.Life
-	name  string
-	unit  *mockUnit
-	scale int
+	life state.Life
+	name string
+	unit *mockUnit
 }
 
 func (*mockApplication) Tag() names.Tag {
@@ -148,11 +147,6 @@ func (a *mockApplication) Life() state.Life {
 func (a *mockApplication) Name() string {
 	a.MethodCall(a, "Name")
 	return a.name
-}
-
-func (a *mockApplication) GetScale() int {
-	a.MethodCall(a, "GetScale")
-	return a.scale
 }
 
 func (a *mockApplication) UpsertCAASUnit(args state.UpsertCAASUnitParams) (caasapplication.Unit, error) {

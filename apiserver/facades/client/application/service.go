@@ -57,6 +57,12 @@ type ApplicationService interface {
 	// UpdateApplicationCharm sets a new charm for the application, validating that aspects such
 	// as storage are still viable with the new charm.
 	UpdateApplicationCharm(ctx context.Context, name string, params applicationservice.UpdateCharmParams) error
+	// SetScale sets the application's desired scale value.
+	// This is used on CAAS models.
+	SetScale(ctx context.Context, name string, scale int, force bool) error
+	// ChangeScale alters the existing scale by the provided change amount, returning the new amount.
+	// This is used on CAAS models.
+	ChangeScale(ctx context.Context, name string, scaleChange int) (int, error)
 }
 
 // ModelConfigService provides access to the model configuration.
