@@ -88,9 +88,13 @@ func (c *downloadCommand) Run(ctx *cmd.Context) error {
 	// Download the archive.
 	resultArchive, err := client.Download(c.RemoteFilename)
 	if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			ctx.Errorf("Download of backup archive files is not supported by this controller.")
+			return nil
+		}
 		return errors.Trace(err)
 	}
-	defer resultArchive.Close()
+	defer func() { _ = resultArchive.Close() }()
 
 	// Prepare the local archive.
 	filename := c.ResolveFilename()
@@ -98,7 +102,7 @@ func (c *downloadCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "while creating local archive file")
 	}
-	defer archive.Close()
+	defer func() { _ = archive.Close() }()
 
 	// Write out the archive.
 	_, err = io.Copy(archive, resultArchive)
