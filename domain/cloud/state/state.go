@@ -15,12 +15,15 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecloud "github.com/juju/juju/core/cloud"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
+	credentialstate "github.com/juju/juju/domain/credential/state"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -139,6 +142,66 @@ func (st *State) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
 		return nil
 	})
 	return result, errors.Trace(err)
+}
+
+// CloudSpec returns a cloudspec.CloudSpec for the model with the given ID.
+func (st *State) CloudSpec(ctx context.Context, modelID model.UUID) (cloudspec.CloudSpec, error) {
+	db, err := st.DB()
+	if err != nil {
+		return cloudspec.CloudSpec{}, fmt.Errorf("getting DB: %w", err)
+	}
+
+	query := `
+SELECT &cloudSpecInfo.*
+FROM v_model
+WHERE uuid = $M.model_id
+`
+
+	args := sqlair.M{
+		"model_id": modelID,
+	}
+	out := cloudSpecInfo{}
+
+	stmt, err := st.Prepare(query, args, out)
+	if err != nil {
+		return cloudspec.CloudSpec{}, fmt.Errorf("preparing statement: %w", err)
+	}
+
+	var cld cloud.Cloud
+	var cred cloud.Credential
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, args).Get(&out)
+		if err != nil {
+			return fmt.Errorf("running cloudspec query: %w", err)
+		}
+
+		// Get cloud info
+		clouds, err := LoadClouds(ctx, st, tx, out.CloudName)
+		if err != nil {
+			return fmt.Errorf("getting cloud %q: %w", out.CloudName, err)
+		}
+		if len(clouds) != 1 {
+			return fmt.Errorf("internal error: expected 1 cloud, got %d", len(clouds))
+		}
+		cld = clouds[0]
+
+		// Get credential info
+		credResult, err := credentialstate.GetCloudCredential(ctx, st, tx, out.CredentialID)
+		if err != nil {
+			return fmt.Errorf("getting credential with ID %q: %w", out.CredentialID, err)
+		}
+		credInfo := credResult.CloudCredentialInfo
+		cred = cloud.NewNamedCredential(credInfo.Label, cloud.AuthType(credInfo.AuthType), credInfo.Attributes, credInfo.Revoked)
+		cred.Invalid = credInfo.Invalid
+		cred.InvalidReason = credInfo.InvalidReason
+
+		return nil
+	})
+	if err != nil {
+		return cloudspec.CloudSpec{}, fmt.Errorf("executing transaction: %w", err)
+	}
+
+	return cloudspec.MakeCloudSpec(cld, out.RegionName, &cred)
 }
 
 // GetCloudForID returns the cloud associated with the provided id. If no cloud is

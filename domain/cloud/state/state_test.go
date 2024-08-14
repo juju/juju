@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	modelstatetesting "github.com/juju/juju/domain/model/state/testing"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/changestream/testing"
 	jujudb "github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -995,4 +996,25 @@ func (s *stateSuite) TestGetCloudForID(c *gc.C) {
 	cloud, err := st.GetCloudForID(context.Background(), id)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cloud, jc.DeepEquals, testCloud)
+}
+
+func (s *stateSuite) TestCloudSpec(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	modelID := modelstatetesting.CreateTestModel(c, s.TxnRunnerFactory(), "test")
+
+	expectedCred := cloud.NewNamedCredential(
+		"foobar",
+		"access-key",
+		map[string]string{"": ""},
+		false,
+	)
+
+	cloudSpec, err := st.CloudSpec(context.Background(), modelID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cloudSpec, jc.DeepEquals, cloudspec.CloudSpec{
+		Type:          "ec2",
+		Name:          "test",
+		SkipTLSVerify: true,
+		Credential:    &expectedCred,
+	})
 }

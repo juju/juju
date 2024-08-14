@@ -259,6 +259,6 @@ SELECT
     cca."key" AS attribute_key,
     cca.value AS attribute_value
 FROM v_cloud_credential AS cc
-INNER JOIN
+LEFT JOIN
     cloud_credential_attributes AS cca
     ON cc.uuid = cca.cloud_credential_uuid;

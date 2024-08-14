@@ -3,6 +3,8 @@
 
 package state
 
+import "github.com/juju/juju/core/credential"
+
 // These structs represent the persistent cloud entity schema in the database.
 
 // cloudType represents a single row from the cloud_type table.
@@ -208,4 +210,10 @@ type dbAddUserPermission struct {
 	// ObjectType is the type of the object for this user for the
 	// GrantOn value.
 	ObjectType string `db:"object_type"`
+}
+
+type cloudSpecInfo struct {
+	CloudName    string        `db:"cloud_name"`
+	RegionName   string        `db:"cloud_region_name"`
+	CredentialID credential.ID `db:"cloud_credential_uuid"`
 }

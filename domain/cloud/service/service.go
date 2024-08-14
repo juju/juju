@@ -10,8 +10,10 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -38,6 +40,9 @@ type State interface {
 
 	// ListClouds returns the clouds matching the optional filter.
 	ListClouds(context.Context) ([]cloud.Cloud, error)
+
+	// CloudSpec returns a cloudspec.CloudSpec for the model with the given ID.
+	CloudSpec(ctx context.Context, modelID model.UUID) (cloudspec.CloudSpec, error)
 }
 
 // Service provides the API for working with clouds.
@@ -85,6 +90,11 @@ func (s *Service) ListAll(ctx context.Context) ([]cloud.Cloud, error) {
 func (s *Service) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
 	cloud, err := s.st.Cloud(ctx, name)
 	return cloud, errors.Trace(err)
+}
+
+// CloudSpec returns a cloudspec.CloudSpec for the model with the given ID.
+func (s *Service) CloudSpec(ctx context.Context, modelID model.UUID) (cloudspec.CloudSpec, error) {
+	return s.st.CloudSpec(ctx, modelID)
 }
 
 // WatchableService defines a service for interacting with the underlying state
