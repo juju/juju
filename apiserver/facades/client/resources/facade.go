@@ -41,7 +41,7 @@ type API struct {
 	// backend is the data source for the facade.
 	backend Backend
 
-	factory func(*charm.URL) (NewCharmRepository, error)
+	factory func(context.Context, *charm.URL) (NewCharmRepository, error)
 	logger  corelogger.Logger
 }
 
@@ -55,15 +55,7 @@ func NewFacade(ctx facade.ModelContext) (*API, error) {
 
 	st := ctx.State()
 	rst := st.Resources(ctx.ObjectStore())
-
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelCfg, err := m.Config()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	modelConfigService := ctx.ServiceFactory().Config()
 
 	charmhubHTTPClient, err := ctx.HTTPClient(facade.CharmhubHTTPClient)
 	if err != nil {
@@ -74,14 +66,19 @@ func NewFacade(ctx facade.ModelContext) (*API, error) {
 	}
 
 	logger := ctx.Logger().Child("resources")
-	factory := func(curl *charm.URL) (NewCharmRepository, error) {
+	factory := func(stdCtx context.Context, curl *charm.URL) (NewCharmRepository, error) {
 		schema := curl.Schema
 		switch {
 		case charm.CharmHub.Matches(schema):
+			httpClient := charmhubHTTPClient
+			modelCfg, err := modelConfigService.ModelConfig(stdCtx)
+			if err != nil {
+				return nil, fmt.Errorf("getting model config %w", err)
+			}
 			chURL, _ := modelCfg.CharmHubURL()
 			chClient, err := charmhub.NewClient(charmhub.Config{
 				URL:        chURL,
-				HTTPClient: charmhubHTTPClient,
+				HTTPClient: httpClient,
 				Logger:     logger,
 			})
 			if err != nil {
@@ -105,7 +102,7 @@ func NewFacade(ctx facade.ModelContext) (*API, error) {
 }
 
 // NewResourcesAPI returns a new resources API facade.
-func NewResourcesAPI(backend Backend, factory func(*charm.URL) (NewCharmRepository, error), logger corelogger.Logger) (*API, error) {
+func NewResourcesAPI(backend Backend, factory func(context.Context, *charm.URL) (NewCharmRepository, error), logger corelogger.Logger) (*API, error) {
 	if backend == nil {
 		return nil, errors.Errorf("missing data backend")
 	}
@@ -199,7 +196,7 @@ func (a *API) addPendingResources(ctx context.Context, appName, chRef string, or
 			URL:    cURL,
 			Origin: origin,
 		}
-		repository, err := a.factory(id.URL)
+		repository, err := a.factory(ctx, id.URL)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
