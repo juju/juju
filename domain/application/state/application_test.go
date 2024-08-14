@@ -919,7 +919,7 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationName(c *gc.
 		Config:     expectedConfig,
 		LXDProfile: expectedLXDProfile,
 	})
-	c.Check(info, gc.DeepEquals, charm.CharmInfo{
+	c.Check(info, gc.DeepEquals, charm.CharmOrigin{
 		Revision: revision,
 	})
 }

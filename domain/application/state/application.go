@@ -987,10 +987,10 @@ WHERE u.name = $coreUnit.name
 // [applicationerrors.ApplicationNotFoundError] is returned.
 // If the charm for the application does not exist, an error satisfying
 // [applicationerrors.CharmNotFoundError] is returned.
-func (st *ApplicationState) GetCharmByApplicationName(ctx context.Context, name string) (charm.Charm, charm.CharmInfo, error) {
+func (st *ApplicationState) GetCharmByApplicationName(ctx context.Context, name string) (charm.Charm, charm.CharmOrigin, error) {
 	db, err := st.DB()
 	if err != nil {
-		return charm.Charm{}, charm.CharmInfo{}, errors.Trace(err)
+		return charm.Charm{}, charm.CharmOrigin{}, errors.Trace(err)
 	}
 
 	query, err := st.Prepare(`
@@ -999,12 +999,12 @@ FROM application
 WHERE name = $applicationName.name
 `, charmUUID{}, applicationName{})
 	if err != nil {
-		return charm.Charm{}, charm.CharmInfo{}, fmt.Errorf("preparing query for application %q: %w", name, err)
+		return charm.Charm{}, charm.CharmOrigin{}, fmt.Errorf("preparing query for application %q: %w", name, err)
 	}
 
 	var (
 		ch     charm.Charm
-		chInfo charm.CharmInfo
+		chInfo charm.CharmOrigin
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var charmUUID charmUUID
@@ -1035,7 +1035,7 @@ WHERE name = $applicationName.name
 			return fmt.Errorf("getting charm for application %q: %w", name, err)
 		}
 
-		chInfo, err = st.getCharmInfo(ctx, tx, ident)
+		chInfo, err = st.getCharmOrigin(ctx, tx, ident)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return fmt.Errorf("application %s: %w", name, applicationerrors.CharmNotFound)

@@ -754,8 +754,8 @@ func encodeOriginSource(source charm.CharmSource) (int, error) {
 	}
 }
 
-func decodeCharmInfo(revision charmRevision) charm.CharmInfo {
-	return charm.CharmInfo{
+func decodeCharmOrigin(revision charmRevision) charm.CharmOrigin {
+	return charm.CharmOrigin{
 		Revision: revision.Revision,
 	}
 }

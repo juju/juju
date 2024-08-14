@@ -416,8 +416,8 @@ func (s *commonStateBase) setCharmManifest(ctx context.Context, tx *sqlair.TX, i
 	return nil
 }
 
-// getCharmInfo returns the charm info for the given charm ID.
-func (s *commonStateBase) getCharmInfo(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.CharmInfo, error) {
+// getCharmOrigin returns the charm info for the given charm ID.
+func (s *commonStateBase) getCharmOrigin(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.CharmOrigin, error) {
 	query := `
 SELECT &charmRevision.*
 FROM charm_origin
@@ -426,17 +426,17 @@ WHERE charm_uuid = $charmID.uuid;
 
 	stmt, err := s.Prepare(query, charmRevision{}, ident)
 	if err != nil {
-		return charm.CharmInfo{}, fmt.Errorf("failed to prepare query: %w", err)
+		return charm.CharmOrigin{}, fmt.Errorf("failed to prepare query: %w", err)
 	}
 
 	var info charmRevision
 	if err := tx.Query(ctx, stmt, ident).Get(&info); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return charm.CharmInfo{}, applicationerrors.CharmNotFound
+			return charm.CharmOrigin{}, applicationerrors.CharmNotFound
 		}
-		return charm.CharmInfo{}, fmt.Errorf("failed to get charm info: %w", err)
+		return charm.CharmOrigin{}, fmt.Errorf("failed to get charm info: %w", err)
 	}
-	return decodeCharmInfo(info), nil
+	return decodeCharmOrigin(info), nil
 }
 
 // getCharm returns the charm for the given charm ID.

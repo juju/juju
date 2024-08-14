@@ -113,24 +113,27 @@ type ApplicationState interface {
 	// application doesn't exist.
 	AddUnits(ctx context.Context, applicationName string, args ...application.UpsertUnitArg) error
 
-	// UpsertCloudService updates the cloud service for the specified application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+	// UpsertCloudService updates the cloud service for the specified
+	// application, returning an error satisfying
+	// [applicationerrors.ApplicationNotFoundError] if the application doesn't
+	// exist.
 	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
 
 	// DeleteUnit deletes the specified unit.
 	DeleteUnit(ctx context.Context, unitName string) error
 
-	// GetApplicationUnitLife returns the life values for the specified units of the given application.
-	// The supplied ids may belong to a different application; the application name is used to filter.
+	// GetApplicationUnitLife returns the life values for the specified units of
+	// the given application. The supplied ids may belong to a different
+	// application; the application name is used to filter.
 	GetApplicationUnitLife(ctx context.Context, appName string, unitIDs ...string) (map[string]life.Life, error)
 
-	// GetCharmByApplicationName returns the charm for the specified application
-	// name.
+	// GetCharmByApplicationName returns the charm and the charm origin for the
+	// specified application name.
 	// If the application does not exist, an error satisfying
 	// [applicationerrors.ApplicationNotFoundError] is returned.
 	// If the charm for the application does not exist, an error satisfying
 	// [applicationerrors.CharmNotFoundError] is returned.
-	GetCharmByApplicationName(context.Context, string) (domaincharm.Charm, error)
+	GetCharmByApplicationName(context.Context, string) (domaincharm.Charm, domaincharm.CharmOrigin, error)
 }
 
 const (
@@ -496,41 +499,41 @@ func (s *ApplicationService) UpdateApplicationCharm(ctx context.Context, name st
 // [applicationerrors.CharmNotFoundError] is returned.
 // If the application name is not valid, an error satisfying
 // [applicationerrors.ApplicationNameNotValid] is returned.
-func (s *ApplicationService) GetCharmByApplicationName(ctx context.Context, name string) (internalcharm.Charm, error) {
+func (s *ApplicationService) GetCharmByApplicationName(ctx context.Context, name string) (internalcharm.Charm, domaincharm.CharmOrigin, error) {
 	if !isValidApplication(name) {
-		return nil, applicationerrors.ApplicationNameNotValid
+		return nil, domaincharm.CharmOrigin{}, applicationerrors.ApplicationNameNotValid
 	}
 
-	charm, err := s.st.GetCharmByApplicationName(ctx, name)
+	charm, origin, err := s.st.GetCharmByApplicationName(ctx, name)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, origin, errors.Trace(err)
 	}
 
 	// The charm needs to be decoded into the internalcharm.Charm type.
 
 	metadata, err := decodeMetadata(charm.Metadata)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, origin, errors.Trace(err)
 	}
 
 	manifest, err := decodeManifest(charm.Manifest)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, origin, errors.Trace(err)
 	}
 
 	actions, err := decodeActions(charm.Actions)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, origin, errors.Trace(err)
 	}
 
 	config, err := decodeConfig(charm.Config)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, origin, errors.Trace(err)
 	}
 
 	lxdProfile, err := decodeLXDProfile(charm.LXDProfile)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, origin, errors.Trace(err)
 	}
 
 	return internalcharm.NewCharmBase(
@@ -539,7 +542,7 @@ func (s *ApplicationService) GetCharmByApplicationName(ctx context.Context, name
 		&config,
 		&actions,
 		&lxdProfile,
-	), nil
+	), origin, nil
 }
 
 // addDefaultStorageDirectives fills in default values, replacing any empty/missing values
