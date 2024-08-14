@@ -110,11 +110,6 @@ type charmNameRevision struct {
 	Revision int    `db:"revision"`
 }
 
-// charmRevision is used to get the revision of a charm.
-type charmRevision struct {
-	Revision int `db:"revision"`
-}
-
 // charmAvailable is used to get the available status of a charm.
 type charmAvailable struct {
 	Available bool `db:"available"`
@@ -474,6 +469,13 @@ type charmArchivePath struct {
 // charmOrigin is used to get the origin of a charm.
 type charmOrigin struct {
 	CharmID  string `db:"charm_uuid"`
+	Source   string `db:"source"`
+	Revision int    `db:"revision"`
+}
+
+// setCharmOrigin is used to set the origin of a charm.
+type setCharmOrigin struct {
+	CharmID  string `db:"charm_uuid"`
 	Revision int    `db:"revision"`
 }
 
@@ -482,4 +484,8 @@ type charmPlatform struct {
 	OSTypeID       application.OSType       `db:"os_id"`
 	Channel        string                   `db:"channel"`
 	ArchitectureID application.Architecture `db:"architecture_id"`
+}
+
+type countResult struct {
+	Count int `db:"count"`
 }

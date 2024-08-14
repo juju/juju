@@ -86,7 +86,7 @@ func (a *CharmInfoAPI) CharmInfo(ctx context.Context, args params.CharmURL) (par
 // ApplicationService is the interface that the ApplicationCharmInfoAPI
 // requires to fetch charm information for an application.
 type ApplicationService interface {
-	GetCharmByApplicationName(context.Context, string) (charm.Charm, error)
+	GetCharmByApplicationName(context.Context, string) (charm.Charm, domaincharm.CharmOrigin, error)
 }
 
 // ApplicationCharmInfoAPI implements the ApplicationCharmInfo endpoint.
@@ -116,7 +116,7 @@ func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(ctx context.Context, args
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	ch, err := a.service.GetCharmByApplicationName(ctx, appTag.Id())
+	ch, origin, err := a.service.GetCharmByApplicationName(ctx, appTag.Id())
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return params.Charm{}, errors.NotFoundf("application %q not found", appTag.Id())
 	} else if errors.Is(err, applicationerrors.CharmNotFound) {
@@ -125,7 +125,31 @@ func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(ctx context.Context, args
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	return convertCharm("", ch), nil
+	// We now need to reconstruct the charm URL from the charm and the
+	// charm origin.
+	source, err := convertSource(origin.Source)
+	if err != nil {
+		return params.Charm{}, errors.Trace(err)
+	}
+
+	url := charm.URL{
+		Schema:   source,
+		Name:     appTag.Id(),
+		Revision: origin.Revision,
+	}
+
+	return convertCharm(url.String(), ch), nil
+}
+
+func convertSource(source domaincharm.CharmSource) (string, error) {
+	switch source {
+	case domaincharm.CharmHubSource:
+		return "ch", nil
+	case domaincharm.LocalSource:
+		return "local", nil
+	default:
+		return "", errors.Errorf("unsupported source %q", source)
+	}
 }
 
 func convertCharm(url string, ch charm.Charm) params.Charm {

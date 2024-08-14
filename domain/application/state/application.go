@@ -71,10 +71,18 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 		CharmID:       charmID.String(),
 		LifeID:        life.Alive,
 	}
-	createApplication := `
-INSERT INTO application (*) VALUES ($applicationDetails.*)
-`
+	createApplication := `INSERT INTO application (*) VALUES ($applicationDetails.*)`
 	createApplicationStmt, err := st.Prepare(createApplication, appDetails)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	scaleInfo := applicationScale{
+		ApplicationID: appID.String(),
+		Scale:         len(units),
+	}
+	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
+	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -91,17 +99,11 @@ INSERT INTO application (*) VALUES ($applicationDetails.*)
 		return "", errors.Trace(err)
 	}
 
-	scaleInfo := applicationScale{
-		ApplicationID: appID.String(),
-		Scale:         len(units),
-	}
-	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
-	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
-	originInfo := charmOrigin{
+	originInfo := setCharmOrigin{
 		CharmID:  charmID.String(),
 		Revision: app.Origin.Revision,
 	}
-	createOrigin := `INSERT INTO charm_origin (*) VALUES ($charmOrigin.*)`
+	createOrigin := `INSERT INTO charm_origin (*) VALUES ($setCharmOrigin.*)`
 	createOriginStmt, err := st.Prepare(createOrigin, originInfo)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -236,8 +238,8 @@ func (st *ApplicationState) DeleteApplication(ctx context.Context, name string) 
 func (st *ApplicationState) deleteApplication(ctx context.Context, tx *sqlair.TX, name string) error {
 
 	var appID applicationID
-	queryUnits := `SELECT count(*) AS &M.count FROM unit WHERE application_uuid = $applicationID.uuid`
-	queryUnitsStmt, err := st.Prepare(queryUnits, sqlair.M{}, appID)
+	queryUnits := `SELECT count(*) AS &countResult.count FROM unit WHERE application_uuid = $applicationID.uuid`
+	queryUnitsStmt, err := st.Prepare(queryUnits, countResult{}, appID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -248,6 +250,13 @@ func (st *ApplicationState) deleteApplication(ctx context.Context, tx *sqlair.TX
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	deleteScale := `DELETE FROM application_scale WHERE application_uuid = $applicationID.uuid`
+	deleteScaleStmt, err := st.Prepare(deleteScale, appID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	deleteChannel := `DELETE FROM application_channel WHERE application_uuid = $applicationID.uuid`
 	deleteChannelStmt, err := st.Prepare(deleteChannel, appID)
 	if err != nil {

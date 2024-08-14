@@ -85,13 +85,13 @@ ON charm_source (name);
 
 INSERT INTO charm_source VALUES
 (0, 'local'),
-(1, 'ch');
+(1, 'charmhub');
 
 CREATE TABLE charm_origin (
     charm_uuid TEXT NOT NULL,
-    source_id INT,
+    source_id INT NOT NULL DEFAULT 1,
     id TEXT,
-    revision INT,
+    revision INT NOT NULL DEFAULT -1,
     version TEXT,
     CONSTRAINT fk_charm_source_source
     FOREIGN KEY (source_id)
@@ -100,6 +100,16 @@ CREATE TABLE charm_origin (
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid)
 );
+
+CREATE VIEW v_charm_origin AS
+SELECT
+    co.charm_uuid,
+    cs.name AS source,
+    co.id,
+    co.revision,
+    co.version
+FROM charm_origin AS co
+LEFT JOIN charm_source AS cs ON co.source_id = cs.id;
 
 CREATE TABLE charm_platform (
     charm_uuid TEXT NOT NULL,

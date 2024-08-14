@@ -754,8 +754,24 @@ func encodeOriginSource(source charm.CharmSource) (int, error) {
 	}
 }
 
-func decodeCharmOrigin(revision charmRevision) charm.CharmOrigin {
+func decodeCharmOrigin(origin charmOrigin) (charm.CharmOrigin, error) {
+	source, err := decodeOriginSource(origin.Source)
+	if err != nil {
+		return charm.CharmOrigin{}, fmt.Errorf("failed to decode charm origin source: %w", err)
+	}
 	return charm.CharmOrigin{
-		Revision: revision.Revision,
+		Source:   source,
+		Revision: origin.Revision,
+	}, nil
+}
+
+func decodeOriginSource(source string) (charm.CharmSource, error) {
+	switch source {
+	case "local":
+		return charm.LocalSource, nil
+	case "charmhub":
+		return charm.CharmHubSource, nil
+	default:
+		return "", fmt.Errorf("unsupported source type: %s", source)
 	}
 }

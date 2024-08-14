@@ -41,13 +41,13 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 	}
 
 	st := ctx.State()
-	commonState := &charmscommon.StateShim{State: st}
-	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
+	serviceFactory := ctx.ServiceFactory()
+	applicationService := serviceFactory.Application(nil)
+
+	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(applicationService, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	serviceFactory := ctx.ServiceFactory()
 
 	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {

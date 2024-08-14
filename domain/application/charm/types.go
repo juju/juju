@@ -84,6 +84,8 @@ type Charm struct {
 // the charm metadata or manifest. The origin holds information for a charm
 // regarding where it came from.
 type CharmOrigin struct {
+	// Source is the source of the charm. This is either local or charmhub.
+	Source CharmSource
 	// Revision is the revision of the charm.
 	Revision int
 }

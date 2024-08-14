@@ -25,12 +25,14 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 
-	commonState := &charmscommon.StateShim{ctx.State()}
-	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
+	serviceFactory := ctx.ServiceFactory()
+	applicationService := serviceFactory.Application(nil)
+
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(applicationService, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(ctx.Auth(), applicationService, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
