@@ -207,6 +207,31 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	})
 }
 
+// TestBootstrapControllerModelAuthorizedKeys is asserting that the authorized
+// keys for the controller model are being populated as authorized keys for the
+// controller machine during bootstrap.
+func (s *bootstrapSuite) TestBootstrapControllerModelAuthorizedKeys(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	err := bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
+		s.callContext, bootstrap.BootstrapParams{
+			AdminSecret:                   "admin-secret",
+			ControllerConfig:              coretesting.FakeControllerConfig(),
+			CAPrivateKey:                  coretesting.CAKey,
+			ControllerModelAuthorizedKeys: []string{"key1"},
+			SupportedBootstrapBases:       supportedJujuBases,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+	env.args.AvailableTools = nil
+	env.args.SupportedBootstrapBases = nil
+	c.Assert(env.args, gc.DeepEquals, environs.BootstrapParams{
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		AuthorizedKeys:       []string{"key1"},
+		BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+	})
+}
+
 func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)

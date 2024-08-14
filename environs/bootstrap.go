@@ -21,6 +21,12 @@ import (
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
+	// AuthorizedKeys is the set of authorized keys to be allowed to ssh to the
+	// bootstrap instance during bootstrap. This may not be the same set of keys
+	// that are allowed after the controller takes over management of the
+	// instance.
+	AuthorizedKeys []string
+
 	// Cloud contains the name of the cloud that Juju will be
 	// bootstrapped in. Used for printing feedback during bootstrap.
 	CloudName string

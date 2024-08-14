@@ -85,11 +85,6 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	AuthorizedKeysKey: {
-		Description: "Any authorized SSH public keys for the model, as found in a ~/.ssh/authorized_keys file",
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
 	DefaultBaseKey: {
 		Description: "The default base image to use for deploying charms, will act like --base when deploying charms",
 		Type:        environschema.Tstring,

@@ -20,12 +20,26 @@ import (
 	"github.com/juju/juju/caas"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/internal/pki"
+	"github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/juju/osenv"
 )
 
 const (
 	// AdminSecretKey is the attribute key for the administrator password.
 	AdminSecretKey = "admin-secret"
+
+	// authorizedKeysDelimiter denotes the delimiter used when reading the value
+	// for [AuthorizedKeysKey] to seperate multiple ssh public keys.
+	authorizedKeysDelimiter = ';'
+
+	// AuthorizedKeysKey is the key used for supplying additional authorized
+	// keys to be allowed to the controller model during bootstrap.
+	AuthorizedKeysKey = "authorized-keys"
+
+	// AuthorizedKeysPathKey is the key used for supplying a path to an
+	// authorized key file that will be used for adding additional authorized
+	// keys to the controller model during bootstrap.
+	AuthorizedKeysPathKey = AuthorizedKeysKey + "-path"
 
 	// CACertKey is the attribute key for the controller's CA certificate.
 	CACertKey = "ca-cert"
@@ -77,9 +91,11 @@ const (
 
 // BootstrapConfigAttributes are attributes which may be defined by the
 // user at bootstrap time, but should not be present in general controller
-// config.
+// config or model config.
 var BootstrapConfigAttributes = []string{
 	AdminSecretKey,
+	AuthorizedKeysKey,
+	AuthorizedKeysPathKey,
 	CACertKey,
 	CAPrivateKeyKey,
 	BootstrapTimeoutKey,
@@ -90,59 +106,83 @@ var BootstrapConfigAttributes = []string{
 	ControllerExternalIPs,
 }
 
-// BootstrapConfigSchema defines the schema used for config items during
+// BootstrapConfigSchema returns the schema used for config items during
 // bootstrap.
-var BootstrapConfigSchema = environschema.Fields{
-	AdminSecretKey: {
-		Description: "Sets the Juju administrator password",
-		Type:        environschema.Tstring,
-	},
-	CACertKey: {
-		Description: fmt.Sprintf(
-			"Sets the bootstrapped controllers CA cert to use and issue "+
-				"certificates from, used in conjunction with %s",
-			CAPrivateKeyKey),
-		Type: environschema.Tstring,
-	},
-	CAPrivateKeyKey: {
-		Description: fmt.Sprintf(
-			"Sets the bootstrapped controllers CA cert private key to sign "+
-				"certificates with, used in conjunction with %s",
-			CACertKey),
-		Type: environschema.Tstring,
-	},
-	BootstrapTimeoutKey: {
-		Description: "Controls how long Juju will wait for a bootstrap to " +
-			"complete before considering it failed in seconds",
-		Type: environschema.Tint,
-	},
-	BootstrapRetryDelayKey: {
-		Description: "Controls the amount of time in seconds between attempts " +
-			"to connect to a bootstrap machine address",
-		Type: environschema.Tint,
-	},
-	BootstrapAddressesDelayKey: {
-		Description: "Controls the amount of time in seconds in between " +
-			"refreshing the bootstrap machine addresses",
-		Type: environschema.Tint,
-	},
-	ControllerServiceType: {
-		Description: "Controls the kubernetes service type for Juju " +
-			"controllers, see\n" +
-			"https://kubernetes.io/docs/reference/kubernetes-api/service-resources/service-v1/#ServiceSpec\n" +
-			"valid values are one of cluster, loadbalancer, external",
-		Type: environschema.Tstring,
-	},
-	ControllerExternalName: {
-		Description: "Sets the external name for a k8s controller of type " +
-			"external",
-		Type: environschema.Tstring,
-	},
-	ControllerExternalIPs: {
-		Description: "Specifies a comma separated list of external IPs for a " +
-			"k8s controller of type external",
-		Type: environschema.Tlist,
-	},
+func BootstrapConfigSchema() environschema.Fields {
+	return environschema.Fields{
+		// TODO (tlm): It is unclear why we define this schema twice in this file.
+		// Take a look at [configSchema] that repeats this information again and is
+		// what is actually used by this file. This information is purely used for
+		// display purposed in help for the bootstrap command.
+		//
+		// Ideally we can just merge these two schemas together and stop repeating
+		// ourselves.
+		AdminSecretKey: {
+			Description: "Sets the Juju administrator password",
+			Type:        environschema.Tstring,
+		},
+		AuthorizedKeysKey: {
+			Description: "Additional authorized SSH public keys for the " +
+				"initial controller model, as found in a " +
+				"~/.ssh/authorized_keys file. Multiple keys are delimited by ';'",
+			Type: environschema.Tstring,
+		},
+		AuthorizedKeysPathKey: {
+			Description: fmt.Sprintf(
+				"Additional authorized SSH public keys to be read "+
+					"from a ~/.ssh/authorized_keys file. Keys defined in this "+
+					"file are appended to those already defined in %s",
+				AuthorizedKeysKey,
+			),
+			Type: environschema.Tstring,
+		},
+		CACertKey: {
+			Description: fmt.Sprintf(
+				"Sets the bootstrapped controllers CA cert to use and issue "+
+					"certificates from, used in conjunction with %s",
+				CAPrivateKeyKey),
+			Type: environschema.Tstring,
+		},
+		CAPrivateKeyKey: {
+			Description: fmt.Sprintf(
+				"Sets the bootstrapped controllers CA cert private key to sign "+
+					"certificates with, used in conjunction with %s",
+				CACertKey),
+			Type: environschema.Tstring,
+		},
+		BootstrapTimeoutKey: {
+			Description: "Controls how long Juju will wait for a bootstrap to " +
+				"complete before considering it failed in seconds",
+			Type: environschema.Tint,
+		},
+		BootstrapRetryDelayKey: {
+			Description: "Controls the amount of time in seconds between attempts " +
+				"to connect to a bootstrap machine address",
+			Type: environschema.Tint,
+		},
+		BootstrapAddressesDelayKey: {
+			Description: "Controls the amount of time in seconds in between " +
+				"refreshing the bootstrap machine addresses",
+			Type: environschema.Tint,
+		},
+		ControllerServiceType: {
+			Description: "Controls the kubernetes service type for Juju " +
+				"controllers, see\n" +
+				"https://kubernetes.io/docs/reference/kubernetes-api/service-resources/service-v1/#ServiceSpec\n" +
+				"valid values are one of cluster, loadbalancer, external",
+			Type: environschema.Tstring,
+		},
+		ControllerExternalName: {
+			Description: "Sets the external name for a k8s controller of type " +
+				"external",
+			Type: environschema.Tstring,
+		},
+		ControllerExternalIPs: {
+			Description: "Specifies a comma separated list of external IPs for a " +
+				"k8s controller of type external",
+			Type: environschema.Tlist,
+		},
+	}
 }
 
 // IsBootstrapAttribute reports whether or not the specified
@@ -158,7 +198,10 @@ func IsBootstrapAttribute(attr string) bool {
 
 // Config contains bootstrap-specific configuration.
 type Config struct {
-	AdminSecret             string
+	AdminSecret string
+	// AuthorizedKeys is a set of additional authorized keys to be used during
+	// bootstrap.
+	AuthorizedKeys          []string
 	CACert                  string
 	CAPrivateKey            string
 	ControllerServiceType   string
@@ -288,6 +331,35 @@ func NewConfig(attrs map[string]interface{}) (Config, error) {
 		config.CAPrivateKey = caKeyPem
 	}
 
+	// If authorized keys is not returned we will just get back the zero value
+	// of a string which is safe to parse.
+	authorizedKeys, _ := attrs[AuthorizedKeysKey].(string)
+	config.AuthorizedKeys, err = ssh.SplitAuthorizedKeysByDelimiter(authorizedKeysDelimiter, authorizedKeys)
+	if err != nil {
+		return Config{}, fmt.Errorf("cannot parse and split authorized keys: %w", err)
+	}
+
+	if authorizedKeysFilePath, ok := attrs[AuthorizedKeysPathKey].(string); ok {
+		file, err := os.Open(authorizedKeysFilePath)
+		if err != nil {
+			return Config{}, fmt.Errorf(
+				"cannot open authorised key file %q: %w",
+				authorizedKeysFilePath, err,
+			)
+		}
+		defer file.Close()
+
+		keys, err := ssh.SplitAuthorizedKeysReader(file)
+		if err != nil {
+			return Config{}, fmt.Errorf(
+				"cannot split authorized key file %q: %w",
+				authorizedKeysFilePath, err,
+			)
+		}
+
+		config.AuthorizedKeys = append(config.AuthorizedKeys, keys...)
+	}
+
 	return config, config.Validate()
 }
 
@@ -320,6 +392,14 @@ func readFileAttr(attrs map[string]interface{}, key, defaultPath string) (conten
 
 var configSchema = environschema.Fields{
 	AdminSecretKey: {
+		Type:  environschema.Tstring,
+		Group: environschema.JujuGroup,
+	},
+	AuthorizedKeysKey: {
+		Type:  environschema.Tstring,
+		Group: environschema.JujuGroup,
+	},
+	AuthorizedKeysPathKey: {
 		Type:  environschema.Tstring,
 		Group: environschema.JujuGroup,
 	},
@@ -372,6 +452,8 @@ var configSchema = environschema.Fields{
 
 var configDefaults = schema.Defaults{
 	AdminSecretKey:             schema.Omit,
+	AuthorizedKeysKey:          schema.Omit,
+	AuthorizedKeysPathKey:      schema.Omit,
 	CACertKey:                  schema.Omit,
 	CACertKey + "-path":        schema.Omit,
 	CAPrivateKeyKey:            schema.Omit,

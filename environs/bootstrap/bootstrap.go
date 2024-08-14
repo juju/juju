@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4"
-	"github.com/juju/utils/v4/ssh"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api"
@@ -100,6 +99,10 @@ type BootstrapParams struct {
 	// ControllerInheritedConfig is the set of config attributes to be shared
 	// across all models in the same controller.
 	ControllerInheritedConfig map[string]interface{}
+
+	// ControllerModelAuthorizedKeys is a set of pre-allowed authorized keys
+	// for the initial controller model.
+	ControllerModelAuthorizedKeys []string
 
 	// RegionInheritedConfig holds region specific configuration attributes to
 	// be shared across all models in the same controller on a particular
@@ -309,14 +312,6 @@ func bootstrapIAAS(
 	bootstrapParams environs.BootstrapParams,
 ) error {
 	cfg := environ.Config()
-	if authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys()); len(authKeys) == 0 {
-		// Apparently this can never happen, so it's not tested. But, one day,
-		// Config will act differently (it's pretty crazy that, AFAICT, the
-		// authorized-keys are optional config settings... but it's impossible
-		// to actually *create* a config without them)... and when it does,
-		// we'll be here to catch this problem early.
-		return errors.Errorf("model configuration has no authorized-keys")
-	}
 
 	_, supportsNetworking := environs.SupportsNetworking(environ)
 	logger.Debugf("model %q supports application/machine networks: %v", cfg.Name(), supportsNetworking)
@@ -699,6 +694,9 @@ func Bootstrap(
 	}
 
 	bootstrapParams := environs.BootstrapParams{
+		// We set the authorized keys allowed to bootstrap to the controller
+		// instance during bootstrap.
+		AuthorizedKeys:             args.ControllerModelAuthorizedKeys,
 		CloudName:                  args.Cloud.Name,
 		CloudRegion:                args.CloudRegion,
 		ControllerConfig:           args.ControllerConfig,
@@ -781,6 +779,7 @@ func finalizeInstanceBootstrapConfig(
 		CAPrivateKey: args.CAPrivateKey,
 	}
 	icfg.Bootstrap.StateInitializationParams.AgentVersion = agentVersion
+	icfg.Bootstrap.StateInitializationParams.ControllerModelAuthorizedKeys = args.ControllerModelAuthorizedKeys
 	icfg.Bootstrap.ControllerModelConfig = cfg
 	icfg.Bootstrap.ControllerModelEnvironVersion = environVersion
 	icfg.Bootstrap.CustomImageMetadata = customImageMetadata
@@ -859,6 +858,7 @@ func finalizePodBootstrapConfig(
 		pcfg.AgentEnvironment[k] = v
 	}
 
+	pcfg.Bootstrap.ControllerModelAuthorizedKeys = args.ControllerModelAuthorizedKeys
 	pcfg.Bootstrap.ControllerModelConfig = cfg
 	pcfg.Bootstrap.ControllerCloud = args.Cloud
 	pcfg.Bootstrap.ControllerCloudRegion = args.CloudRegion

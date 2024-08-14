@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/sshinit"
 	internallogger "github.com/juju/juju/internal/logger"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
+	jujussh "github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
 )
@@ -145,6 +146,9 @@ func BootstrapInstance(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+
+	ak := jujussh.MakeAuthorizedKeysString(args.AuthorizedKeys)
+	instanceConfig.AuthorizedKeys = ak
 
 	envCfg := env.Config()
 	instanceConfig.EnableOSRefreshUpdate = envCfg.EnableOSRefreshUpdate()
