@@ -47,7 +47,9 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 		return nil, errors.Trace(err)
 	}
 
-	modelInfo, err := ctx.ServiceFactory().ModelInfo().GetModelInfo(stdCtx)
+	serviceFactory := ctx.ServiceFactory()
+
+	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, fmt.Errorf("getting model info: %w", err)
 	}
@@ -63,7 +65,8 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 		charmInfoAPI:       charmInfoAPI,
 		authorizer:         authorizer,
 		backendState:       newStateShim(st),
-		modelConfigService: ctx.ServiceFactory().Config(),
+		modelConfigService: serviceFactory.Config(),
+		applicationService: serviceFactory.Application(nil),
 		charmhubHTTPClient: charmhubHTTPClient,
 		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
 			return services.NewCharmRepoFactory(cfg)

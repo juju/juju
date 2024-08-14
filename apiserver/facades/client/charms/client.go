@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
+	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/rpc/params"
@@ -57,6 +58,7 @@ type API struct {
 	logger corelogger.Logger
 
 	modelConfigService ModelConfigService
+	applicationService ApplicationService
 }
 
 // CharmInfo returns information about the requested charm.
@@ -89,6 +91,7 @@ func NewCharmsAPI(
 	authorizer facade.Authorizer,
 	st charmsinterfaces.BackendState,
 	modelConfigService ModelConfigService,
+	applicationService ApplicationService,
 	modelTag names.ModelTag,
 	repoFactory corecharm.RepositoryFactory,
 	logger corelogger.Logger,
@@ -97,6 +100,7 @@ func NewCharmsAPI(
 		authorizer:         authorizer,
 		backendState:       st,
 		modelConfigService: modelConfigService,
+		applicationService: applicationService,
 		tag:                modelTag,
 		requestRecorder:    noopRequestRecorder{},
 		repoFactory:        repoFactory,
@@ -303,6 +307,9 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 	if err != nil {
 		return corecharm.Origin{}, errors.Annotatef(err, "retrieving essential metadata for charm %q", charmURL)
 	}
+	if len(essentialMeta) != 1 {
+		return corecharm.Origin{}, errors.Errorf("expected 1 metadata result, got %d", len(essentialMeta))
+	}
 	metaRes := essentialMeta[0]
 
 	_, err = a.backendState.AddCharmMetadata(state.CharmInfo{
@@ -313,7 +320,49 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 		return corecharm.Origin{}, errors.Trace(err)
 	}
 
+	schema, err := parseCharmSchema(requestedOrigin.Source)
+	if err != nil {
+		return corecharm.Origin{}, errors.Annotatef(err, "parsing schema for charm %q", args.URL)
+	}
+
+	revision, err := makeCharmRevision(metaRes.ResolvedOrigin, args.URL)
+	if err != nil {
+		return corecharm.Origin{}, errors.Annotatef(err, "making revision for charm %q", args.URL)
+	}
+
+	if _, _, err := a.applicationService.SetCharm(ctx, domaincharm.SetCharmArgs{
+		Charm:    corecharm.NewCharmInfoAdaptor(metaRes),
+		Source:   schema,
+		Revision: revision,
+		Hash:     metaRes.ResolvedOrigin.Hash,
+	}); err != nil {
+		return corecharm.Origin{}, errors.Annotatef(err, "setting charm %q", args.URL)
+	}
+
 	return metaRes.ResolvedOrigin, nil
+}
+
+func parseCharmSchema(source corecharm.Source) (charm.Schema, error) {
+	switch source {
+	case corecharm.CharmHub:
+		return charm.CharmHub, nil
+	case corecharm.Local:
+		return charm.Local, nil
+	default:
+		return "", errors.Errorf("unknown source %q", source)
+	}
+}
+
+func makeCharmRevision(origin corecharm.Origin, url string) (int, error) {
+	if origin.Revision != nil && *origin.Revision >= 0 {
+		return *origin.Revision, nil
+	}
+
+	curl, err := charm.ParseURL(url)
+	if err != nil {
+		return -1, errors.Annotatef(err, "parsing charm URL %q", url)
+	}
+	return curl.Revision, nil
 }
 
 // ResolveCharms resolves the given charm URLs with an optionally specified
