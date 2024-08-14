@@ -1,10 +1,10 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package machinemanager_test
+package machinemanager
 
 import (
-	stdcontext "context"
+	"context"
 	"strings"
 	"time"
 
@@ -19,13 +19,14 @@ import (
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -36,61 +37,13 @@ import (
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
-var _ = gc.Suite(&MachineManagerSuite{})
-
-type MachineManagerSuite struct {
-	authorizer *apiservertesting.FakeAuthorizer
-
-	controllerConfigService *MockControllerConfigService
-	machineService          *MockMachineService
-	networkService          *MockNetworkService
-}
-
-func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
-	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-}
-
-func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
-	tag := names.NewUnitTag("mysql/0")
-	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
-
-	ctrl := gomock.NewController(c)
-	s.controllerConfigService = NewMockControllerConfigService(ctrl)
-	s.machineService = NewMockMachineService(ctrl)
-	s.networkService = NewMockNetworkService(ctrl)
-
-	_, err := machinemanager.NewMachineManagerAPI(
-		s.controllerConfigService,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		machinemanager.ModelAuthorizer{
-			Authorizer: s.authorizer,
-			ModelTag:   names.ModelTag{},
-		},
-		apiservertesting.NoopModelCredentialInvalidatorGetter,
-		common.NewResources(),
-		nil,
-		loggertesting.WrapCheckLog(c),
-		s.networkService,
-	)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
-var _ = gc.Suite(&AddMachineManagerSuite{})
-
 type AddMachineManagerSuite struct {
 	authorizer    *apiservertesting.FakeAuthorizer
+	model         model.ReadOnlyModel
 	st            *MockBackend
 	storageAccess *MockStorageInterface
 	pool          *MockPool
-	api           *machinemanager.MachineManagerAPI
-	model         *MockModel
+	api           *MachineManagerAPI
 	store         *MockObjectStore
 	cloudService  *commonmocks.MockCloudService
 	credService   *commonmocks.MockCredentialService
@@ -98,17 +51,22 @@ type AddMachineManagerSuite struct {
 	controllerConfigService *MockControllerConfigService
 	machineService          *MockMachineService
 	networkService          *MockNetworkService
+	keyUpdaterService       *MockKeyUpdaterService
 }
+
+var _ = gc.Suite(&AddMachineManagerSuite{})
 
 func (s *AddMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
+	s.model = model.ReadOnlyModel{
+		UUID: modeltesting.GenModelUUID(c),
+	}
 }
 
 func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.pool = NewMockPool(ctrl)
-	s.model = NewMockModel(ctrl)
 
 	s.st = NewMockBackend(ctrl)
 	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
@@ -120,10 +78,12 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.machineService = NewMockMachineService(ctrl)
 	s.store = NewMockObjectStore(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
+	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 
-	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(
+	s.api = NewMachineManagerAPI(
+		s.model,
 		s.controllerConfigService,
+		nil, nil,
 		s.st,
 		s.cloudService,
 		s.credService,
@@ -132,7 +92,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		s.storageAccess,
 		s.pool,
-		machinemanager.ModelAuthorizer{
+		ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
 		apiservertesting.NoopModelCredentialInvalidatorGetter,
@@ -140,8 +100,9 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		loggertesting.WrapCheckLog(c),
 		s.networkService,
+		s.keyUpdaterService,
+		nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
 }
@@ -202,7 +163,7 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 	}).Return(m2, nil)
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
-	machines, err := s.api.AddMachines(stdcontext.Background(), params.AddMachines{MachineParams: apiParams})
+	machines, err := s.api.AddMachines(context.Background(), params.AddMachines{MachineParams: apiParams})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines.Machines, gc.HasLen, 2)
 }
@@ -213,7 +174,7 @@ func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
 	s.st.EXPECT().AddOneMachine(gomock.Any()).Return(nil, errors.New("boom"))
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
-	results, err := s.api.AddMachines(stdcontext.Background(), params.AddMachines{
+	results, err := s.api.AddMachines(context.Background(), params.AddMachines{
 		MachineParams: []params.AddMachineParams{{
 			Base: &params.Base{Name: "ubuntu", Channel: "22.04"},
 		}},
@@ -226,8 +187,6 @@ func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
 	})
 }
 
-var _ = gc.Suite(&DestroyMachineManagerSuite{})
-
 type DestroyMachineManagerSuite struct {
 	testing.CleanupSuite
 	authorizer    *apiservertesting.FakeAuthorizer
@@ -237,20 +196,27 @@ type DestroyMachineManagerSuite struct {
 	store         *MockObjectStore
 	cloudService  *commonmocks.MockCloudService
 	credService   *commonmocks.MockCredentialService
-	api           *machinemanager.MachineManagerAPI
+	api           *MachineManagerAPI
+	model         model.ReadOnlyModel
 
 	controllerConfigService *MockControllerConfigService
 	machineService          *MockMachineService
 	networkService          *MockNetworkService
+	keyUpdaterService       *MockKeyUpdaterService
 }
+
+var _ = gc.Suite(&DestroyMachineManagerSuite{})
 
 func (s *DestroyMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.PatchValue(&machinemanager.ClassifyDetachedStorage, mockedClassifyDetachedStorage)
+	s.PatchValue(&ClassifyDetachedStorage, mockedClassifyDetachedStorage)
+	s.model = model.ReadOnlyModel{
+		UUID: modeltesting.GenModelUUID(c),
+	}
 }
 
-func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *DestroyMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = NewMockBackend(ctrl)
@@ -261,6 +227,7 @@ func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.machineService = NewMockMachineService(ctrl)
 	s.store = NewMockObjectStore(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
+	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 
 	s.storageAccess = NewMockStorageInterface(ctrl)
 	s.storageAccess.EXPECT().VolumeAccess().Return(nil).AnyTimes()
@@ -270,9 +237,10 @@ func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
 	s.leadership = NewMockLeadership(ctrl)
 
-	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(
+	s.api = NewMachineManagerAPI(
+		s.model,
 		s.controllerConfigService,
+		nil, nil,
 		s.st,
 		s.cloudService,
 		s.credService,
@@ -281,7 +249,7 @@ func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		s.storageAccess,
 		nil,
-		machinemanager.ModelAuthorizer{
+		ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
 		nil,
@@ -289,8 +257,9 @@ func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		s.leadership,
 		loggertesting.WrapCheckLog(c),
 		s.networkService,
+		s.keyUpdaterService,
+		nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
 }
@@ -302,7 +271,7 @@ func (s *DestroyMachineManagerSuite) expectUnpinAppLeaders(id string) {
 	s.leadership.EXPECT().UnpinApplicationLeadersByName(gomock.Any(), machineTag, []string{"foo-app-1"}).Return(params.PinApplicationsResults{}, nil)
 }
 
-func (s *DestroyMachineManagerSuite) expectDestroyMachine(ctrl *gomock.Controller, units []machinemanager.Unit, containers []string, attemptDestroy, keep, force bool) *MockMachine {
+func (s *DestroyMachineManagerSuite) expectDestroyMachine(ctrl *gomock.Controller, units []Unit, containers []string, attemptDestroy, keep, force bool) *MockMachine {
 	machine := NewMockMachine(ctrl)
 	if keep {
 		machine.EXPECT().SetKeepInstance(true).Return(nil)
@@ -311,7 +280,7 @@ func (s *DestroyMachineManagerSuite) expectDestroyMachine(ctrl *gomock.Controlle
 	machine.EXPECT().Containers().Return(containers, nil)
 
 	if units == nil {
-		units = []machinemanager.Unit{
+		units = []Unit{
 			s.expectDestroyUnit(ctrl, "foo/0", true, nil),
 			s.expectDestroyUnit(ctrl, "foo/1", false, nil),
 			s.expectDestroyUnit(ctrl, "foo/2", false, nil),
@@ -365,10 +334,10 @@ func (s *DestroyMachineManagerSuite) expectDestroyStorage(ctrl *gomock.Controlle
 }
 
 func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	units := []machinemanager.Unit{
+	units := []Unit{
 		s.expectDestroyUnit(ctrl, "foo/0", false, errors.New("kaboom")),
 		s.expectDestroyUnit(ctrl, "foo/1", false, errors.New("kaboom")),
 		s.expectDestroyUnit(ctrl, "foo/2", false, errors.New("kaboom")),
@@ -377,7 +346,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	noWait := 0 * time.Second
-	results, err := s.api.DestroyMachineWithParams(stdcontext.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
 		MachineTags: []string{"machine-0"},
 		MaxWait:     &noWait,
 	})
@@ -390,10 +359,10 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval
 }
 
 func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetrieval(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	units := []machinemanager.Unit{
+	units := []Unit{
 		s.expectDestroyUnit(ctrl, "foo/0", false, nil),
 		s.expectDestroyUnit(ctrl, "foo/1", false, errors.New("kaboom")),
 		s.expectDestroyUnit(ctrl, "foo/2", false, nil),
@@ -402,7 +371,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetr
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	noWait := 0 * time.Second
-	results, err := s.api.DestroyMachineWithParams(stdcontext.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
 		MachineTags: []string{"machine-0"},
 		MaxWait:     &noWait,
 	})
@@ -415,23 +384,23 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetr
 }
 
 func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMachines(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.expectUnpinAppLeaders("1")
 
-	units0 := []machinemanager.Unit{
+	units0 := []Unit{
 		s.expectDestroyUnit(ctrl, "foo/1", false, errors.New("kaboom")),
 	}
 	machine0 := s.expectDestroyMachine(ctrl, units0, nil, false, false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	units1 := []machinemanager.Unit{}
+	units1 := []Unit{}
 	machine1 := s.expectDestroyMachine(ctrl, units1, nil, true, false, false)
 	s.st.EXPECT().Machine("1").Return(machine1, nil)
 
 	noWait := 0 * time.Second
-	results, err := s.api.DestroyMachineWithParams(stdcontext.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
 		MachineTags: []string{"machine-0", "machine-1"},
 		MaxWait:     &noWait,
 	})
@@ -448,26 +417,26 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrieva
 }
 
 func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRetrievalManyMachines(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.expectUnpinAppLeaders("0")
 	s.expectUnpinAppLeaders("1")
 
-	units0 := []machinemanager.Unit{
+	units0 := []Unit{
 		s.expectDestroyUnit(ctrl, "foo/1", false, errors.New("kaboom")),
 	}
 	machine0 := s.expectDestroyMachine(ctrl, units0, nil, true, false, true)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	units1 := []machinemanager.Unit{
+	units1 := []Unit{
 		s.expectDestroyUnit(ctrl, "bar/0", true, nil),
 	}
 	machine1 := s.expectDestroyMachine(ctrl, units1, nil, true, false, true)
 	s.st.EXPECT().Machine("1").Return(machine1, nil)
 
 	noWait := 0 * time.Second
-	results, err := s.api.DestroyMachineWithParams(stdcontext.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
 		Force:       true,
 		MachineTags: []string{"machine-0", "machine-1"},
 		MaxWait:     &noWait,
@@ -499,13 +468,13 @@ func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRet
 }
 
 func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	machine0 := s.expectDestroyMachine(ctrl, nil, nil, false, false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	results, err := s.api.DestroyMachineWithParams(stdcontext.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
 		MachineTags: []string{"machine-0"},
 		DryRun:      true,
 	})
@@ -532,7 +501,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *gc.C) {
 }
 
 func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	machine0 := s.expectDestroyMachine(ctrl, nil, []string{"0/lxd/0"}, false, false, false)
@@ -540,7 +509,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *g
 	container0 := s.expectDestroyMachine(ctrl, nil, nil, false, false, false)
 	s.st.EXPECT().Machine("0/lxd/0").Return(container0, nil)
 
-	results, err := s.api.DestroyMachineWithParams(stdcontext.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
 		MachineTags: []string{"machine-0"},
 		DryRun:      true,
 	})
@@ -582,7 +551,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *g
 }
 
 func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.expectUnpinAppLeaders("0")
@@ -591,7 +560,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	noWait := 0 * time.Second
-	results, err := s.api.DestroyMachineWithParams(stdcontext.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
 		Keep:        true,
 		Force:       true,
 		MachineTags: []string{"machine-0"},
@@ -619,7 +588,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C)
 }
 
 func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.expectUnpinAppLeaders("0")
@@ -627,7 +596,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C
 	machine0 := s.expectDestroyMachine(ctrl, nil, nil, true, true, true)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	results, err := s.api.DestroyMachineWithParams(stdcontext.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
 		Keep:        true,
 		Force:       true,
 		MachineTags: []string{"machine-0"},
@@ -655,7 +624,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C
 }
 
 func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.leadership.EXPECT().GetMachineApplicationNames(gomock.Any(), "0").Return([]string{"foo-app-1"}, nil)
@@ -663,7 +632,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *gc.C) {
 	machine0 := s.expectDestroyMachine(ctrl, nil, []string{"0/lxd/0"}, true, false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	results, err := s.api.DestroyMachineWithParams(stdcontext.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
 		Force:       false,
 		MachineTags: []string{"machine-0"},
 	})
@@ -676,7 +645,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *gc.C) {
 }
 
 func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersWithForce(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.expectUnpinAppLeaders("0")
@@ -688,7 +657,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersWithForce(c
 	container0 := s.expectDestroyMachine(ctrl, nil, nil, true, false, true)
 	s.st.EXPECT().Machine("0/lxd/0").Return(container0, nil)
 
-	results, err := s.api.DestroyMachineWithParams(stdcontext.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
 		Force:       true,
 		MachineTags: []string{"machine-0"},
 	})
@@ -729,7 +698,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersWithForce(c
 	})
 }
 
-// Alternate placing storage instaces in detached, then destroyed
+// // Alternate placing storage instaces in detached, then destroyed
 func mockedClassifyDetachedStorage(
 	_ storagecommon.VolumeAccess,
 	_ storagecommon.FilesystemAccess,
@@ -747,30 +716,37 @@ func mockedClassifyDetachedStorage(
 	return destroyed, detached, nil
 }
 
-var _ = gc.Suite(&ProvisioningMachineManagerSuite{})
-
 type ProvisioningMachineManagerSuite struct {
 	authorizer   *apiservertesting.FakeAuthorizer
 	st           *MockBackend
 	ctrlSt       *MockControllerBackend
 	pool         *MockPool
-	model        *MockModel
 	store        *MockObjectStore
 	cloudService *commonmocks.MockCloudService
 	credService  *commonmocks.MockCredentialService
-	api          *machinemanager.MachineManagerAPI
+	api          *MachineManagerAPI
+	model        model.ReadOnlyModel
 
 	controllerConfigService *MockControllerConfigService
 	machineService          *MockMachineService
 	networkService          *MockNetworkService
+	keyUpdaterService       *MockKeyUpdaterService
+	modelConfigService      *MockModelConfigService
+	bootstrapEnviron        *MockBootstrapEnviron
 }
+
+var _ = gc.Suite(&ProvisioningMachineManagerSuite{})
 
 func (s *ProvisioningMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 }
 
-func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *ProvisioningMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+
+	s.model = model.ReadOnlyModel{
+		UUID: modeltesting.GenModelUUID(c),
+	}
 
 	s.st = NewMockBackend(ctrl)
 
@@ -784,20 +760,22 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.pool = NewMockPool(ctrl)
 	s.pool.EXPECT().SystemState().Return(s.ctrlSt, nil).AnyTimes()
 
-	s.model = NewMockModel(ctrl)
-	s.model.EXPECT().UUID().Return("uuid").AnyTimes()
-	s.model.EXPECT().ModelTag().Return(coretesting.ModelTag).AnyTimes()
-	s.st.EXPECT().Model().Return(s.model, nil).AnyTimes()
-
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
-
+	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
+	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.bootstrapEnviron = NewMockBootstrapEnviron(ctrl)
 	s.store = NewMockObjectStore(ctrl)
 
-	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(
+	bootstrapProvider := func(_ context.Context) (environs.BootstrapEnviron, error) {
+		return s.bootstrapEnviron, nil
+	}
+
+	s.api = NewMachineManagerAPI(
+		s.model,
 		s.controllerConfigService,
+		bootstrapProvider, nil,
 		s.st,
 		s.cloudService,
 		s.credService,
@@ -806,7 +784,7 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		nil,
 		s.pool,
-		machinemanager.ModelAuthorizer{
+		ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
 		apiservertesting.NoopModelCredentialInvalidatorGetter,
@@ -814,8 +792,9 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		loggertesting.WrapCheckLog(c),
 		s.networkService,
+		s.keyUpdaterService,
+		s.modelConfigService,
 	)
-	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
 }
 
@@ -842,14 +821,17 @@ func (s *ProvisioningMachineManagerSuite) expectProvisioningStorageCloser(ctrl *
 }
 
 func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
+	cfg, err := config.New(config.NoDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"agent-version":            "2.6.6",
 		"enable-os-upgrade":        true,
 		"enable-os-refresh-update": true,
-	}))).Times(2)
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).Times(2)
 
 	arch := "amd64"
 	machine0 := s.expectProvisioningMachine(ctrl, &arch)
@@ -862,8 +844,13 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
 		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      1,
 	}}}, nil).Times(2)
+	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
+		gomock.Any(), machine.Name("0"),
+	).Return([]string{
+		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1",
+	}, nil)
 
-	result, err := s.api.ProvisioningScript(stdcontext.Background(), params.ProvisioningScriptParams{
+	result, err := s.api.ProvisioningScript(context.Background(), params.ProvisioningScriptParams{
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
@@ -880,18 +867,21 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
 }
 
 func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptNoArch(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
+	cfg, err := config.New(config.NoDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"agent-version":            "2.6.6",
 		"enable-os-upgrade":        false,
 		"enable-os-refresh-update": false,
-	})))
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 
 	machine0 := s.expectProvisioningMachine(ctrl, nil)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
-	_, err := s.api.ProvisioningScript(stdcontext.Background(), params.ProvisioningScriptParams{
+	_, err = s.api.ProvisioningScript(context.Background(), params.ProvisioningScriptParams{
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
@@ -899,14 +889,17 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptNoArch(c *gc.C) 
 }
 
 func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
+	cfg, err := config.New(config.NoDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"agent-version":            "2.6.6",
 		"enable-os-upgrade":        false,
 		"enable-os-refresh-update": false,
-	}))).Times(2)
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).Times(2)
 
 	arch := "amd64"
 	machine0 := s.expectProvisioningMachine(ctrl, &arch)
@@ -920,7 +913,11 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 		NetPort:      1,
 	}}}, nil).Times(2)
 
-	result, err := s.api.ProvisioningScript(stdcontext.Background(), params.ProvisioningScriptParams{
+	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
+		gomock.Any(), machine.Name("0"),
+	).Return([]string{}, nil)
+
+	result, err := s.api.ProvisioningScript(context.Background(), params.ProvisioningScriptParams{
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
@@ -952,7 +949,7 @@ func (m statusMatcher) String() string {
 }
 
 func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
@@ -966,9 +963,9 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *gc.C) {
 	}}).Return(nil)
 	machine1 := NewMockMachine(ctrl)
 	machine1.EXPECT().Id().Return("1")
-	s.st.EXPECT().AllMachines().Return([]machinemanager.Machine{machine0, machine1}, nil)
+	s.st.EXPECT().AllMachines().Return([]Machine{machine0, machine1}, nil)
 
-	results, err := s.api.RetryProvisioning(stdcontext.Background(), params.RetryProvisioningArgs{
+	results, err := s.api.RetryProvisioning(context.Background(), params.RetryProvisioningArgs{
 		Machines: []string{"machine-0"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -976,7 +973,7 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *gc.C) {
 }
 
 func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
@@ -989,9 +986,9 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *gc.C) {
 	}}).Return(nil)
 	machine1 := NewMockMachine(ctrl)
 	machine1.EXPECT().InstanceStatus().Return(status.StatusInfo{Status: "pending"}, nil)
-	s.st.EXPECT().AllMachines().Return([]machinemanager.Machine{machine0, machine1}, nil)
+	s.st.EXPECT().AllMachines().Return([]Machine{machine0, machine1}, nil)
 
-	results, err := s.api.RetryProvisioning(stdcontext.Background(), params.RetryProvisioningArgs{
+	results, err := s.api.RetryProvisioning(context.Background(), params.RetryProvisioningArgs{
 		All: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)

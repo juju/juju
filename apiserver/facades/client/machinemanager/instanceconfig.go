@@ -6,24 +6,27 @@ package machinemanager
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	corebase "github.com/juju/juju/core/base"
+	coremachine "github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 type InstanceConfigBackend interface {
-	Model() (Model, error)
 	Machine(string) (Machine, error)
 	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 }
@@ -33,25 +36,24 @@ type InstanceConfigServices struct {
 	ControllerConfigService ControllerConfigService
 	CloudService            common.CloudService
 	CredentialService       common.CredentialService
+	KeyUpdaterService       KeyUpdaterService
+	ModelConfigService      ModelConfigService
 	ObjectStore             objectstore.ObjectStore
 }
 
 // InstanceConfig returns information from the model config that
 // is needed for configuring manual machines.
 // It is exposed for testing purposes.
-// TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
 func InstanceConfig(
 	ctx context.Context,
+	modelID coremodel.UUID,
+	providerGetter providertracker.ProviderGetter[environs.BootstrapEnviron],
 	ctrlSt ControllerBackend,
 	st InstanceConfigBackend,
 	services InstanceConfigServices,
 	machineId, nonce, dataDir string,
 ) (*instancecfg.InstanceConfig, error) {
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting state model")
-	}
-	modelConfig, err := model.Config()
+	modelConfig, err := services.ModelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model config")
 	}
@@ -82,16 +84,14 @@ func InstanceConfig(
 	if !ok {
 		return nil, errors.New("no agent version set in model configuration")
 	}
-	urlGetter := common.NewToolsURLGetter(model.UUID(), ctrlSt)
-	configGetter := stateenvirons.EnvironConfigGetter{
-		Model:             model,
-		CloudService:      services.CloudService,
-		CredentialService: services.CredentialService,
-	}
-	newEnviron := func(ctx context.Context) (environs.BootstrapEnviron, error) {
-		return environs.GetEnviron(ctx, configGetter, environs.New)
-	}
-	toolsFinder := common.NewToolsFinder(services.ControllerConfigService, st, urlGetter, newEnviron, services.ObjectStore)
+	urlGetter := common.NewToolsURLGetter(modelID.String(), ctrlSt)
+	toolsFinder := common.NewToolsFinder(
+		services.ControllerConfigService,
+		st,
+		urlGetter,
+		common.NewEnvironFunc(providerGetter),
+		services.ObjectStore,
+	)
 	toolsList, err := toolsFinder.FindAgents(ctx, common.FindAgentsParams{
 		Number: agentVersion,
 		OSType: machine.Base().OS,
@@ -124,7 +124,7 @@ func InstanceConfig(
 	apiInfo := &api.Info{
 		Addrs:    apiAddrs.SortedValues(),
 		CACert:   caCert,
-		ModelTag: model.ModelTag(),
+		ModelTag: names.NewModelTag(modelID.String()),
 		Tag:      machine.Tag(),
 		Password: password,
 	}
@@ -155,5 +155,18 @@ func InstanceConfig(
 	if err != nil {
 		return nil, errors.Annotate(err, "finishing instance config")
 	}
+
+	keys, err := services.KeyUpdaterService.GetAuthorisedKeysForMachine(
+		ctx,
+		coremachine.Name(machineId),
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"cannot get authorised keys for machine %q while generating instance config: %w",
+			machineId, err,
+		)
+	}
+	icfg.AuthorizedKeys = strings.Join(keys, "\n")
+
 	return icfg, nil
 }

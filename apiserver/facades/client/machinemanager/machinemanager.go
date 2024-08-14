@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -22,11 +21,15 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/status"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
@@ -34,7 +37,6 @@ import (
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
@@ -42,6 +44,21 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 // ControllerConfigService defines a method for getting the controller config.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// KeyUpdaterService is responsible for returning information about the ssh keys
+// for a machine within a model.
+type KeyUpdaterService interface {
+	// GetAuthorisedKeysForMachine returns the authorized keys that should be
+	// allowed to access the given machine.
+	GetAuthorisedKeysForMachine(context.Context, coremachine.Name) ([]string, error)
+}
+
+// ModelConfigService is responsible for providing an accessor to the models
+// config.
+type ModelConfigService interface {
+	// ModelConfig provides the currently set model config for the model.
+	ModelConfig(context.Context) (*config.Config, error)
 }
 
 // Leadership represents a type for modifying the leadership settings of an
@@ -91,7 +108,10 @@ type NetworkService interface {
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
+	model                   coremodel.ReadOnlyModel
 	controllerConfigService ControllerConfigService
+	bootstrapProvider       providertracker.ProviderGetter[environs.BootstrapEnviron]
+	instanceTypeProvider    providertracker.ProviderGetter[environs.InstanceTypesFetcher]
 	st                      Backend
 	cloudService            common.CloudService
 	credentialService       common.CredentialService
@@ -104,73 +124,21 @@ type MachineManagerAPI struct {
 	store                   objectstore.ObjectStore
 	controllerStore         objectstore.ObjectStore
 
-	machineService MachineService
-	networkService NetworkService
+	keyUpdaterService  KeyUpdaterService
+	machineService     MachineService
+	networkService     NetworkService
+	modelConfigService ModelConfigService
 
 	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter
 	logger                      corelogger.Logger
 }
 
-// NewFacadeV11 create a new server-side MachineManager API facade. This
-// is used for facade registration.
-func NewFacadeV11(ctx facade.ModelContext) (*MachineManagerAPI, error) {
-	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	serviceFactory := ctx.ServiceFactory()
-
-	prechecker, err := stateenvirons.NewInstancePrechecker(st, serviceFactory.Cloud(), serviceFactory.Credential())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	backend := &stateShim{
-		State:     st,
-		prechcker: prechecker,
-	}
-	storageAccess, err := getStorageState(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	pool := &poolShim{ctx.StatePool()}
-
-	var leadership Leadership
-	leadership, err = common.NewLeadershipPinningFromContext(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	logger := ctx.Logger().Child("machinemanager")
-
-	controllerConfigService := serviceFactory.ControllerConfig()
-
-	return NewMachineManagerAPI(
-		controllerConfigService,
-		backend,
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
-		serviceFactory.Machine(),
-		ctx.ObjectStore(),
-		ctx.ControllerObjectStore(),
-		storageAccess,
-		pool,
-		ModelAuthorizer{
-			ModelTag:   model.ModelTag(),
-			Authorizer: ctx.Auth(),
-		},
-		credentialcommon.CredentialInvalidatorGetter(ctx),
-		ctx.Resources(),
-		leadership,
-		logger,
-		ctx.ServiceFactory().Network(),
-	)
-}
-
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
 func NewMachineManagerAPI(
+	model coremodel.ReadOnlyModel,
 	controllerConfigService ControllerConfigService,
+	bootstrapProvider providertracker.ProviderGetter[environs.BootstrapEnviron],
+	instanceTypeProvider providertracker.ProviderGetter[environs.InstanceTypesFetcher],
 	backend Backend,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
@@ -184,12 +152,13 @@ func NewMachineManagerAPI(
 	leadership Leadership,
 	logger corelogger.Logger,
 	networkService NetworkService,
-) (*MachineManagerAPI, error) {
-	if !auth.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-
+	keyUpdaterService KeyUpdaterService,
+	modelConfigService ModelConfigService,
+) *MachineManagerAPI {
 	api := &MachineManagerAPI{
+		model:                       model,
+		bootstrapProvider:           bootstrapProvider,
+		instanceTypeProvider:        instanceTypeProvider,
 		controllerConfigService:     controllerConfigService,
 		st:                          backend,
 		cloudService:                cloudService,
@@ -206,8 +175,10 @@ func NewMachineManagerAPI(
 		storageAccess:               storageAccess,
 		logger:                      logger,
 		networkService:              networkService,
+		keyUpdaterService:           keyUpdaterService,
+		modelConfigService:          modelConfigService,
 	}
-	return api, nil
+	return api
 }
 
 // AddMachines adds new machines with the supplied parameters.
@@ -266,11 +237,7 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 
 	var base corebase.Base
 	if p.Base == nil {
-		model, err := mm.st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		conf, err := model.Config()
+		conf, err := mm.modelConfigService.ModelConfig(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -285,14 +252,8 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 
 	var placementDirective string
 	if p.Placement != nil {
-		model, err := mm.st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		// For 1.21 we should support both UUID and name, and with 1.22
-		// just support UUID
-		if p.Placement.Scope != model.Name() && p.Placement.Scope != model.UUID() {
-			return nil, fmt.Errorf("invalid model name %q", p.Placement.Scope)
+		if p.Placement.Scope != mm.model.UUID.String() {
+			return nil, fmt.Errorf("invalid model id %q", p.Placement.Scope)
 		}
 		placementDirective = p.Placement.Directive
 	}
@@ -400,36 +361,43 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 		CredentialService:       mm.credentialService,
 		ControllerConfigService: mm.controllerConfigService,
 		ObjectStore:             mm.controllerStore,
+		KeyUpdaterService:       mm.keyUpdaterService,
+		ModelConfigService:      mm.modelConfigService,
 	}
 
-	icfg, err := InstanceConfig(ctx, st, mm.st, services, args.MachineId, args.Nonce, args.DataDir)
+	icfg, err := InstanceConfig(
+		ctx,
+		mm.model.UUID,
+		mm.bootstrapProvider,
+		st,
+		mm.st, services, args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, apiservererrors.ServerError(errors.Annotate(
 			err, "getting instance config",
 		))
 	}
+
 	// Until DisablePackageCommands is retired, for backwards
 	// compatibility, we must respect the client's request and
 	// override any model settings the user may have specified.
 	// If the client does specify this setting, it will only ever be
 	// true. False indicates the client doesn't care and we should use
 	// what's specified in the environment config.
-	model, err := mm.st.Model()
-	if err != nil {
-		return result, apiservererrors.ServerError(errors.Annotate(
-			err, "getting model config",
-		))
-	}
 	if args.DisablePackageCommands {
 		icfg.EnableOSRefreshUpdate = false
 		icfg.EnableOSUpgrade = false
-	} else if cfg, err := model.Config(); err != nil {
-		return result, apiservererrors.ServerError(errors.Annotate(
-			err, "getting model config",
-		))
 	} else {
-		icfg.EnableOSUpgrade = cfg.EnableOSUpgrade()
-		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
+		config, err := mm.modelConfigService.ModelConfig(ctx)
+		if err != nil {
+			mm.logger.Errorf(
+				"cannot getting model config for provisioning machine %q: %v",
+				args.MachineId, err,
+			)
+			return result, errors.New("controller failed to get model config for machine")
+		}
+
+		icfg.EnableOSUpgrade = config.EnableOSUpgrade()
+		icfg.EnableOSRefreshUpdate = config.EnableOSRefreshUpdate()
 	}
 
 	getProvisioningScript := sshprovisioner.ProvisioningScript

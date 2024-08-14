@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
@@ -36,7 +35,6 @@ type Backend interface {
 	Machine(string) (Machine, error)
 	AllMachines() ([]Machine, error)
 	Unit(string) (Unit, error)
-	Model() (Model, error)
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 	AddOneMachine(template state.MachineTemplate) (Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (Machine, error)
@@ -55,20 +53,7 @@ type ControllerBackend interface {
 }
 
 type Pool interface {
-	GetModel(string) (Model, func(), error)
 	SystemState() (ControllerBackend, error)
-}
-
-type Model interface {
-	Name() string
-	UUID() string
-	ModelTag() names.ModelTag
-	ControllerUUID() string
-	Type() state.ModelType
-	CloudCredentialTag() (names.CloudCredentialTag, bool)
-	CloudName() string
-	CloudRegion() string
-	Config() (*config.Config, error)
 }
 
 type Machine interface {
@@ -162,24 +147,12 @@ func (s stateShim) Unit(name string) (Unit, error) {
 	}, nil
 }
 
-func (s stateShim) Model() (Model, error) {
-	return s.State.Model()
-}
-
 type poolShim struct {
 	pool *state.StatePool
 }
 
 func (p *poolShim) SystemState() (ControllerBackend, error) {
 	return p.pool.SystemState()
-}
-
-func (p *poolShim) GetModel(uuid string) (Model, func(), error) {
-	m, ph, err := p.pool.GetModel(uuid)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	return m, func() { ph.Release() }, nil
 }
 
 type applicationShim struct {

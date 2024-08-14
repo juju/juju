@@ -5,69 +5,54 @@ package machinemanager
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/stateenvirons"
 )
-
-// TODO(wallyworld) - this method is unused by juju; do we still need it?
 
 // InstanceTypes returns instance type information for the cloud and region
 // in which the current model is deployed.
 func (mm *MachineManagerAPI) InstanceTypes(ctx context.Context, cons params.ModelInstanceTypesConstraints) (params.InstanceTypesResults, error) {
-	return instanceTypes(ctx, mm, environs.GetEnviron, cons)
+	invalidatorFunc, err := mm.credentialInvalidatorGetter()
+	if err != nil {
+		return params.InstanceTypesResults{}, errors.Trace(err)
+	}
+	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
+	return instanceTypes(callCtx, mm.instanceTypeProvider, cons)
 }
 
-type environGetFunc func(context.Context, environs.EnvironConfigGetter, environs.NewEnvironFunc) (environs.Environ, error)
-
+// instanceTypes reports back the results from the provider for what instance
+// types are available for given constraints.
 func instanceTypes(
-	ctx context.Context,
-	mm *MachineManagerAPI,
-	getEnviron environGetFunc,
+	ctx envcontext.ProviderCallContext,
+	providerGetter providertracker.ProviderGetter[environs.InstanceTypesFetcher],
 	cons params.ModelInstanceTypesConstraints,
 ) (params.InstanceTypesResults, error) {
-	model, err := mm.st.Model()
+	fetcher, err := providerGetter(ctx)
 	if err != nil {
-		return params.InstanceTypesResults{}, errors.Trace(err)
+		return params.InstanceTypesResults{}, fmt.Errorf(
+			"cannot get instance fetcher for getting instance types: %w", err,
+		)
 	}
 
-	cloudSpec := func() (environscloudspec.CloudSpec, error) {
-		return stateenvirons.CloudSpecForModel(ctx, model, mm.cloudService, mm.credentialService)
-	}
-	backend := common.EnvironConfigGetterFuncs{
-		CloudSpecFunc:   cloudSpec,
-		ModelConfigFunc: model.Config,
-	}
-
-	env, err := getEnviron(ctx, backend, environs.New)
-	if err != nil {
-		return params.InstanceTypesResults{}, errors.Trace(err)
-	}
 	result := make([]params.InstanceTypesResult, len(cons.Constraints))
-	// TODO(perrito666) Cache the results to avoid excessive querying of the cloud.
 	for i, c := range cons.Constraints {
 		value := constraints.Value{}
 		if c.Value != nil {
 			value = *c.Value
 		}
 		itCons := newInstanceTypeConstraints(
-			env,
+			fetcher,
 			value,
 		)
-		invalidatorFunc, err := mm.credentialInvalidatorGetter()
-		if err != nil {
-			return params.InstanceTypesResults{}, errors.Trace(err)
-		}
-		callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
-		it, err := getInstanceTypes(callCtx, itCons)
+		it, err := getInstanceTypes(ctx, itCons)
 		if err != nil {
 			it = params.InstanceTypesResult{Error: apiservererrors.ServerError(err)}
 		}
