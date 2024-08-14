@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -39,6 +40,8 @@ type ModelInfoService interface {
 type CloudService interface {
 	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
 	WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error)
+	// CloudSpec returns a cloudspec.CloudSpec for the model with the given ID.
+	CloudSpec(ctx context.Context, modelID model.UUID) (cloudspec.CloudSpec, error)
 }
 
 // CredentialService provides access to credentials.

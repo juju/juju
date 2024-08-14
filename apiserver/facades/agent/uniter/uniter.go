@@ -2005,8 +2005,35 @@ func (u *UniterAPI) CloudSpec(ctx context.Context) (params.CloudSpecResult, erro
 	if err != nil {
 		return params.CloudSpecResult{}, err
 	}
-	modelTag := names.NewModelTag(modelInfo.UUID.String())
-	return u.cloudSpecer.GetCloudSpec(ctx, modelTag), nil
+
+	// TODO: define a model-scoped cloud service so we don't have to pass in
+	//  the model ID
+	spec, err := u.cloudService.CloudSpec(ctx, modelInfo.UUID)
+	if err != nil {
+		return params.CloudSpecResult{}, fmt.Errorf("getting cloudspec for model %q: %w",
+			modelInfo.UUID, err)
+	}
+
+	var paramsCloudCredential *params.CloudCredential
+	if spec.Credential != nil && spec.Credential.AuthType() != "" {
+		paramsCloudCredential = &params.CloudCredential{
+			AuthType:   string(spec.Credential.AuthType()),
+			Attributes: spec.Credential.Attributes(),
+		}
+	}
+	result := params.CloudSpecResult{Result: &params.CloudSpec{
+		Type:              spec.Type,
+		Name:              spec.Name,
+		Region:            spec.Region,
+		Endpoint:          spec.Endpoint,
+		IdentityEndpoint:  spec.IdentityEndpoint,
+		StorageEndpoint:   spec.StorageEndpoint,
+		Credential:        paramsCloudCredential,
+		CACertificates:    spec.CACertificates,
+		SkipTLSVerify:     spec.SkipTLSVerify,
+		IsControllerCloud: spec.IsControllerCloud,
+	}}
+	return result, nil
 }
 
 // GoalStates returns information of charm units and relations.
