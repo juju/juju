@@ -149,7 +149,6 @@ define INSTALL_TARGETS
 	juju \
 	jujuc \
 	jujud \
-	jujud-controller \
 	containeragent \
 	juju-metadata
 endef
@@ -162,6 +161,7 @@ endif
 
 # We only add pebble to the list of install targets if we are building for linux
 ifeq ($(GOOS), linux)
+	INSTALL_TARGETS += jujud-controller
 	INSTALL_TARGETS += pebble
 endif
 
