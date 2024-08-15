@@ -129,7 +129,7 @@ func (st *StateBase) RunAtomic(ctx context.Context, fn func(AtomicContext) error
 			Context: ctx,
 			tx:      tx,
 		}
-		defer txCtx.clear()
+		defer txCtx.close()
 
 		return fn(txCtx)
 	})
@@ -224,7 +224,7 @@ type atomicContext struct {
 	tx *sqlair.TX
 }
 
-func (c *atomicContext) clear() {
+func (c *atomicContext) close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
