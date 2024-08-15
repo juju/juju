@@ -9,6 +9,7 @@ import (
 	"github.com/juju/os/v2/series"
 	"github.com/juju/proxy"
 
+	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/internal/container"
 )
 
@@ -20,7 +21,7 @@ type containerInitialiser struct {
 var _ container.Initialiser = (*containerInitialiser)(nil)
 
 // NewContainerInitialiser  - on anything but Linux this is a NOP
-func NewContainerInitialiser(string, string) container.Initialiser {
+func NewContainerInitialiser(string, containermanager.NetworkingMethod) container.Initialiser {
 	return &containerInitialiser{}
 }
 
