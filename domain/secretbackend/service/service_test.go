@@ -1000,7 +1000,7 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 		},
 	}, nil)
 
-	w, err := svc.WatchSecretBackendRotationChanges()
+	w, err := svc.WatchSecretBackendRotationChanges(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 	defer workertest.CleanKill(c, w)

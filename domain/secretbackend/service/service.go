@@ -786,7 +786,7 @@ func newWatchableService(
 var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
 
 // WatchSecretBackendRotationChanges returns a watcher for secret backend rotation changes.
-func (s *WatchableService) WatchSecretBackendRotationChanges() (watcher.SecretBackendRotateWatcher, error) {
+func (s *WatchableService) WatchSecretBackendRotationChanges(context.Context) (watcher.SecretBackendRotateWatcher, error) {
 	tableName, initialQ := s.st.InitialWatchStatementForSecretBackendRotationChanges()
 	w, err := s.watcherFactory.NewNamespaceWatcher(tableName, changestream.All, InitialNamespaceChanges(initialQ))
 	if err != nil {
@@ -796,7 +796,7 @@ func (s *WatchableService) WatchSecretBackendRotationChanges() (watcher.SecretBa
 }
 
 // WatchSecretBackendChanged notifies when the model secret backend has changed.
-func (s *WatchableService) WatchModelSecretBackendChanged(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchModelSecretBackendChanged(_ context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error) {
 	w, err := s.watcherFactory.NewValueWatcher("model_secret_backend", modelUUID.String(), changestream.Update)
 	if err != nil {
 		return nil, errors.Trace(err)
