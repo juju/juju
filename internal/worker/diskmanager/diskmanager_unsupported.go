@@ -8,14 +8,14 @@ package diskmanager
 import (
 	"runtime"
 
-	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/core/blockdevice"
 )
 
-var blockDeviceInUse = func(storage.BlockDevice) (bool, error) {
+var blockDeviceInUse = func(blockdevice.BlockDevice) (bool, error) {
 	panic("not supported")
 }
 
-func listBlockDevices() ([]storage.BlockDevice, error) {
+func listBlockDevices() ([]blockdevice.BlockDevice, error) {
 	// Return an empty list each time.
 	return nil, nil
 }
