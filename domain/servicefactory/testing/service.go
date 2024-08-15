@@ -12,6 +12,7 @@ import (
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
+	controllerservice "github.com/juju/juju/domain/controller/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
 	credentialservice "github.com/juju/juju/domain/credential/service"
@@ -61,6 +62,11 @@ func (s *TestingServiceFactory) AutocertCache() *autocertcacheservice.Service {
 
 // Config returns the model config service.
 func (s *TestingServiceFactory) Config() *modelconfigservice.WatchableService {
+	return nil
+}
+
+// Controller returns the controller service.
+func (s *TestingServiceFactory) Controller() *controllerservice.Service {
 	return nil
 }
 

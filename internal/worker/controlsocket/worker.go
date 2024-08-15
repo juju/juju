@@ -151,8 +151,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 	w := &Worker{
 		accessService:       config.AccessService,
 		logger:              config.Logger,
-		userCreatorName:     userCreatorName,
 		controllerModelUUID: config.ControllerModelUUID,
+		userCreatorName:     userCreatorName,
 	}
 	sl, err := config.NewSocketListener(socketlistener.Config{
 		Logger:           config.Logger,
