@@ -15,8 +15,8 @@ run_api_imports() {
 
 run_go() {
 	VER=$(golangci-lint --version | tr -s ' ' | cut -d ' ' -f 4 | cut -d '.' -f 1,2)
-	if [[ ${VER} != "1.55" ]] && [[ ${VER} != "v1.55" ]]; then
-		(echo >&2 -e '\nError: golangci-lint version does not match 1.55. Please upgrade/downgrade to the right version.')
+	if [[ ${VER} != "1.59" ]] && [[ ${VER} != "v1.59" ]]; then
+		(echo >&2 -e '\nError: golangci-lint version does not match 1.59. Please upgrade/downgrade to the right version.')
 		exit 1
 	fi
 	OUT=$(golangci-lint run -c .github/golangci-lint.config.yaml 2>&1)
@@ -42,6 +42,10 @@ run_go_tidy() {
 	fi
 }
 
+run_govulncheck() {
+	govulncheck "github.com/juju/juju/..."
+}
+
 test_static_analysis_go() {
 	if [ "$(skip 'test_static_analysis_go')" ]; then
 		echo "==> TEST SKIPPED: static go analysis"
@@ -56,5 +60,12 @@ test_static_analysis_go() {
 		run "run_api_imports"
 		run_linter "run_go"
 		run_linter "run_go_tidy"
+
+		# govulncheck static analysis
+		if which govulncheck >/dev/null 2>&1; then
+			run_linter "run_govulncheck"
+		else
+			echo "govulncheck not found, govulncheck static analysis disabled"
+		fi
 	)
 }

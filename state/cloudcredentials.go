@@ -308,17 +308,26 @@ func createCloudCredentialOp(tag names.CloudCredentialTag, cred cloud.Credential
 // updateCloudCredentialOp returns a txn.Op that will update
 // a cloud credential.
 func updateCloudCredentialOp(tag names.CloudCredentialTag, cred cloud.Credential) txn.Op {
+	sets := bson.D{
+		{"auth-type", string(cred.AuthType())},
+		{"revoked", cred.Revoked},
+		{"invalid", cred.Invalid},
+		{"invalid-reason", cred.InvalidReason},
+	}
+	attr := cred.Attributes()
+	if len(attr) == 0 {
+		// If the attributes are empty, set it to nil. This preserves
+		// the behaviour of create due to omitempty on the attributes
+		// field.
+		sets = append(sets, bson.DocElem{"attributes", nil})
+	} else {
+		sets = append(sets, bson.DocElem{"attributes", attr})
+	}
 	return txn.Op{
 		C:      cloudCredentialsC,
 		Id:     cloudCredentialDocID(tag),
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{
-			{"auth-type", string(cred.AuthType())},
-			{"attributes", cred.Attributes()},
-			{"revoked", cred.Revoked},
-			{"invalid", cred.Invalid},
-			{"invalid-reason", cred.InvalidReason},
-		}}},
+		Update: bson.D{{"$set", sets}},
 	}
 }
 
