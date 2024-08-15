@@ -765,7 +765,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	unitPortRanges, err := s.wordpressUnit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
-	c.Assert(unitPortRanges.ByEndpoint()["monitoring-port"], jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}}, gc.Commentf("unit ports where not opened for the requested endpoint"))
+	c.Assert(unitPortRanges.ByEndpoint()["monitoring-port"], jc.DeepEquals, network.PortRanges{{Protocol: "tcp", FromPort: 80, ToPort: 81}}, gc.Commentf("unit ports where not opened for the requested endpoint"))
 
 	unitState, err := s.wordpressUnit.State()
 	c.Assert(err, jc.ErrorIsNil)
