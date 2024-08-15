@@ -535,6 +535,33 @@ func (s *userServiceSuite) TestUpdateLastModelLogin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TestUpdateLastModelLogin tests a bad username for UpdateLastModelLogin.
+func (s *userServiceSuite) TestUpdateLastModelLoginBadUsername(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := s.service().UpdateLastModelLogin(context.Background(), user.Name{}, modelUUID)
+	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
+}
+
+// TestSetLastModelLogin tests the happy path for SetLastModelLogin.
+func (s *userServiceSuite) TestSetLastModelLogin(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	modelUUID := modeltesting.GenModelUUID(c)
+	lastLogin := time.Now()
+	s.state.EXPECT().UpdateLastModelLogin(gomock.Any(), coreusertesting.GenNewName(c, "name"), modelUUID, lastLogin)
+
+	err := s.service().SetLastModelLogin(context.Background(), coreusertesting.GenNewName(c, "name"), modelUUID, lastLogin)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestSetLastModelLogin tests a bad username for SetLastModelLogin.
+func (s *userServiceSuite) TestSetLastModelLoginBadUsername(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := s.service().SetLastModelLogin(context.Background(), user.Name{}, modelUUID, time.Time{})
+	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
+}
+
 // TestLastModelLogin tests the happy path for LastModelLogin.
 func (s *userServiceSuite) TestLastModelLogin(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -545,14 +572,6 @@ func (s *userServiceSuite) TestLastModelLogin(c *gc.C) {
 	lastConnection, err := s.service().LastModelLogin(context.Background(), coreusertesting.GenNewName(c, "name"), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(lastConnection, gc.Equals, t)
-}
-
-// TestUpdateLastModelLogin tests a bad username for UpdateLastModelLogin.
-func (s *userServiceSuite) TestUpdateLastModelLoginBadUsername(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
-	err := s.service().UpdateLastModelLogin(context.Background(), user.Name{}, modelUUID)
-	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
 }
 
 // TestLastModelLoginBadUUID tests a bad UUID given to LastModelLogin.

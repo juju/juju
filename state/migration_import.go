@@ -26,7 +26,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/payloads"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -149,10 +148,6 @@ func (ctrl *Controller) Import(
 	}
 	if err := restore.operations(); err != nil {
 		return nil, nil, errors.Annotate(err, "operations")
-	}
-
-	if err := restore.modelUsers(); err != nil {
-		return nil, nil, errors.Annotate(err, "modelUsers")
 	}
 	if err := restore.machines(); err != nil {
 		return nil, nil, errors.Annotate(err, "machines")
@@ -305,48 +300,6 @@ func (i *importer) sequences() error {
 
 	if err := sequences.Writeable().Insert(docs...); err != nil {
 		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (i *importer) modelUsers() error {
-	i.logger.Debugf("importing users")
-
-	// The user that was auto-added when we created the model will have
-	// the wrong DateCreated, so we remove it, and add in all the users we
-	// know about. It is also possible that the owner of the model no
-	// longer has access to the model due to changes over time.
-	if err := i.st.RemoveUserAccess(i.dbModel.Owner(), i.dbModel.ModelTag()); err != nil {
-		return errors.Trace(err)
-	}
-
-	users := i.model.Users()
-	modelUUID := i.dbModel.UUID()
-	var ops []txn.Op
-	for _, user := range users {
-		ops = append(ops, createModelUserOps(
-			modelUUID,
-			user.Name(),
-			user.CreatedBy(),
-			user.DisplayName(),
-			user.DateCreated(),
-			permission.Access(user.Access()))...,
-		)
-	}
-	if err := i.st.db().RunTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
-	// Now set their last connection times.
-	for _, user := range users {
-		i.logger.Debugf("user %s", user.Name())
-		lastConnection := user.LastConnection()
-		if lastConnection.IsZero() {
-			continue
-		}
-		err := i.dbModel.updateLastModelConnection(user.Name(), lastConnection)
-		if err != nil {
-			return errors.Trace(err)
-		}
 	}
 	return nil
 }

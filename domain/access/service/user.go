@@ -294,6 +294,22 @@ func (s *UserService) UpdateLastModelLogin(ctx context.Context, name user.Name, 
 	return nil
 }
 
+// SetLastModelLogin will set the last login time for the user to the given
+// value. The following error types are possible from this function: -
+// accesserrors.UserNameNotValid: When the username supplied is not valid. -
+// accesserrors.UserNotFound: When the user cannot be found. -
+// modelerrors.NotFound: If no model by the given modelUUID exists.
+func (s *UserService) SetLastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID, lastLogin time.Time) error {
+	if name.IsZero() {
+		return errors.Annotatef(accesserrors.UserNameNotValid, "empty username")
+	}
+
+	if err := s.st.UpdateLastModelLogin(ctx, name, modelUUID, lastLogin); err != nil {
+		return errors.Annotatef(err, "setting last login for user %q", name)
+	}
+	return nil
+}
+
 // LastModelLogin will return the last login time of the specified user.
 // The following error types are possible from this function:
 // - accesserrors.UserNameNotValid: When the username is not valid.

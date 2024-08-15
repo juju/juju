@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"time" // only uses time.Time values
 
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
@@ -24,7 +23,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/payloads"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
@@ -201,71 +199,6 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(blocks, gc.HasLen, 1)
 	c.Assert(blocks[0].Type(), gc.Equals, state.ChangeBlock)
 	c.Assert(blocks[0].Message(), gc.Equals, "locked down")
-}
-
-func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) permission.UserAccess {
-	access := permission.AdminAccess
-	if readOnly {
-		access = permission.ReadAccess
-	}
-	user, err := s.Model.AddUser(state.UserAccessSpec{
-		User:      names.NewUserTag(name),
-		CreatedBy: s.Owner,
-		Access:    access,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	if !lastConnection.IsZero() {
-		err = state.UpdateModelUserLastConnection(s.State, user, lastConnection)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	return user
-}
-
-func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser permission.UserAccess) {
-	c.Assert(newUser.UserName, gc.Equals, oldUser.UserName)
-	c.Assert(newUser.DisplayName, gc.Equals, oldUser.DisplayName)
-	c.Assert(newUser.CreatedBy, gc.Equals, oldUser.CreatedBy)
-	c.Assert(newUser.DateCreated, gc.Equals, oldUser.DateCreated)
-	c.Assert(newUser.Access, gc.Equals, newUser.Access)
-
-	connTime, err := s.Model.LastModelConnection(oldUser.UserTag)
-	if state.IsNeverConnectedError(err) {
-		_, err := s.Model.LastModelConnection(newUser.UserTag)
-		// The new user should also return an error for last connection.
-		c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		newTime, err := s.Model.LastModelConnection(newUser.UserTag)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(newTime, gc.Equals, connTime)
-	}
-}
-
-func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
-	// To be sure with this test, we create three env users, and remove
-	// the owner.
-	err := s.State.RemoveUserAccess(s.Owner, s.modelTag)
-	c.Assert(err, jc.ErrorIsNil)
-
-	lastConnection := state.NowToTheSecond(s.State)
-
-	bravo := s.newModelUser(c, "bravo@external", false, lastConnection)
-	charlie := s.newModelUser(c, "charlie@external", true, lastConnection)
-	delta := s.newModelUser(c, "delta@external", true, coretesting.ZeroTime())
-
-	newModel, newSt := s.importModel(c, s.State)
-
-	// Check the import values of the users.
-	for _, user := range []permission.UserAccess{bravo, charlie, delta} {
-		newUser, err := newSt.UserAccess(user.UserTag, newModel.Tag())
-		c.Assert(err, jc.ErrorIsNil)
-		s.AssertUserEqual(c, newUser, user)
-	}
-
-	// Also make sure that there aren't any more.
-	allUsers, err := newModel.Users()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allUsers, gc.HasLen, 3)
 }
 
 func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachine *state.Machine) {
