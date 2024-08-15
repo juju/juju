@@ -52,7 +52,7 @@ type Factory struct {
 	pool               *state.StatePool
 	st                 *state.State
 	prechecker         environs.InstancePrechecker
-	applicationService *applicationservice.Service
+	applicationService *applicationservice.WatchableService
 	controllerConfig   controller.Config
 }
 
@@ -68,7 +68,7 @@ func NewFactory(st *state.State, pool *state.StatePool, controllerConfig control
 }
 
 // WithApplicationService configures the factory to use the specified application service.
-func (f *Factory) WithApplicationService(s *applicationservice.Service) *Factory {
+func (f *Factory) WithApplicationService(s *applicationservice.WatchableService) *Factory {
 	f.applicationService = s
 	return f
 }

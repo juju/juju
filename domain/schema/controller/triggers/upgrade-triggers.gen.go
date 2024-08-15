@@ -4,22 +4,38 @@ package triggers
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/juju/core/database/schema"
 )
 
 
-// ChangeLogTriggersForUpgradeInfo generates the triggers for the 
+// ChangeLogTriggersForUpgradeInfo generates the triggers for the
 // upgrade_info table.
-func ChangeLogTriggersForUpgradeInfo(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForUpgradeInfo(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForUpgradeInfoWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForUpgradeInfoWithDiscriminator generates the triggers for the
+// upgrade_info table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForUpgradeInfoWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for UpgradeInfo
 CREATE TRIGGER trg_log_upgrade_info_insert
 AFTER INSERT ON upgrade_info FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for UpgradeInfo
@@ -30,31 +46,46 @@ WHEN
 	NEW.target_version != OLD.target_version OR
 	NEW.state_type_id != OLD.state_type_id 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for UpgradeInfo
 CREATE TRIGGER trg_log_upgrade_info_delete
 AFTER DELETE ON upgrade_info FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 
-// ChangeLogTriggersForUpgradeInfoControllerNode generates the triggers for the 
+// ChangeLogTriggersForUpgradeInfoControllerNode generates the triggers for the
 // upgrade_info_controller_node table.
-func ChangeLogTriggersForUpgradeInfoControllerNode(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForUpgradeInfoControllerNode(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForUpgradeInfoControllerNodeWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForUpgradeInfoControllerNodeWithDiscriminator generates the triggers for the
+// upgrade_info_controller_node table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForUpgradeInfoControllerNodeWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for UpgradeInfoControllerNode
 CREATE TRIGGER trg_log_upgrade_info_controller_node_insert
 AFTER INSERT ON upgrade_info_controller_node FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for UpgradeInfoControllerNode
@@ -65,17 +96,17 @@ WHEN
 	NEW.upgrade_info_uuid != OLD.upgrade_info_uuid OR
 	(NEW.node_upgrade_completed_at != OLD.node_upgrade_completed_at OR (NEW.node_upgrade_completed_at IS NOT NULL AND OLD.node_upgrade_completed_at IS NULL) OR (NEW.node_upgrade_completed_at IS NULL AND OLD.node_upgrade_completed_at IS NOT NULL)) 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for UpgradeInfoControllerNode
 CREATE TRIGGER trg_log_upgrade_info_controller_node_delete
 AFTER DELETE ON upgrade_info_controller_node FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 

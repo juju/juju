@@ -78,9 +78,10 @@ func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context) (watc
 // changeEventShim implements changestream.ChangeEvent and allows the
 // substituting of events in an implementation of eventsource.Mapper.
 type changeEventShim struct {
-	changeType changestream.ChangeType
-	namespace  string
-	changed    string
+	changeType    changestream.ChangeType
+	namespace     string
+	changed       string
+	discriminator string
 }
 
 // Type returns the type of change (create, update, delete).
@@ -99,6 +100,13 @@ func (e changeEventShim) Namespace() string {
 // that was changed.
 func (e changeEventShim) Changed() string {
 	return e.changed
+}
+
+// Discriminator returns the discriminator value of event.
+// This is expected to be an immutable column which can be
+// used to filter to event.
+func (e changeEventShim) Discriminator() string {
+	return e.discriminator
 }
 
 // uuidToNameMapper is an eventsource.Mapper that converts a slice of

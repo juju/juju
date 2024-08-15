@@ -55,7 +55,8 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	// Seed the model with an application, this will be used to allow the
 	// upserting of units.
 	serviceFactory := s.DefaultModelServiceFactory(c)
-	_, err := serviceFactory.Application(nil).CreateApplication(context.Background(), "gitlab", &stubCharm{}, corecharm.Origin{}, service.AddApplicationArgs{})
+	applicationService := serviceFactory.Application(provider.CommonStorageProviders())
+	_, err := applicationService.CreateApplication(context.Background(), "gitlab", &stubCharm{}, corecharm.Origin{}, service.AddApplicationArgs{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.st = newMockState()
@@ -66,7 +67,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 		s.authorizer,
 		s.st, s.st,
 		s.ControllerServiceFactory(c).ControllerConfig(),
-		s.DefaultModelServiceFactory(c).Application(provider.CommonStorageProviders()),
+		applicationService,
 		s.broker,
 		s.clock,
 		loggertesting.WrapCheckLog(c),

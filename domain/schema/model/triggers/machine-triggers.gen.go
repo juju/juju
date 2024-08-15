@@ -4,22 +4,38 @@ package triggers
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/juju/core/database/schema"
 )
 
 
-// ChangeLogTriggersForMachine generates the triggers for the 
+// ChangeLogTriggersForMachine generates the triggers for the
 // machine table.
-func ChangeLogTriggersForMachine(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForMachine(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForMachineWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForMachineWithDiscriminator generates the triggers for the
+// machine table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForMachineWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for Machine
 CREATE TRIGGER trg_log_machine_insert
 AFTER INSERT ON machine FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for Machine
@@ -40,17 +56,17 @@ WHEN
 	(NEW.hostname != OLD.hostname OR (NEW.hostname IS NOT NULL AND OLD.hostname IS NULL) OR (NEW.hostname IS NULL AND OLD.hostname IS NOT NULL)) OR
 	(NEW.is_controller != OLD.is_controller OR (NEW.is_controller IS NOT NULL AND OLD.is_controller IS NULL) OR (NEW.is_controller IS NULL AND OLD.is_controller IS NOT NULL)) 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for Machine
 CREATE TRIGGER trg_log_machine_delete
 AFTER DELETE ON machine FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 

@@ -302,22 +302,38 @@ package {{.Package}}
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/juju/core/database/schema"
 )
 
 {{range .Views}}
-// ChangeLogTriggersFor{{title .Name}} generates the triggers for the 
+// ChangeLogTriggersFor{{title .Name}} generates the triggers for the
 // {{.Name}} table.
-func ChangeLogTriggersFor{{title .Name}}(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersFor{{title .Name}}(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersFor{{title .Name}}WithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersFor{{title .Name}}WithDiscriminator generates the triggers for the
+// {{.Name}} table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersFor{{title .Name}}WithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(` + "`" + `
 -- insert trigger for {{title .Name}}
 CREATE TRIGGER trg_log_{{.Name}}_insert
 AFTER INSERT ON {{.Name}} FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 {{$total := len .ColumnInfos}}
 -- update trigger for {{title .Name}}
@@ -326,17 +342,17 @@ AFTER UPDATE ON {{.Name}} FOR EACH ROW
 WHEN {{range $index, $column := .ColumnInfos}}
 	{{ (generateUpdateCompare $column) }} {{if (notLast $index $total)}}OR{{end}}{{end}}
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for {{title .Name}}
 CREATE TRIGGER trg_log_{{.Name}}_delete
 AFTER DELETE ON {{.Name}} FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;` + "`" + `, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;` + "`" + `, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 {{end}}`

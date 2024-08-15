@@ -29,6 +29,11 @@ type ChangeEvent interface {
 	// the primary key of the row that was changed or the field of the change
 	// that was changed.
 	Changed() string
+
+	// Discriminator returns the discriminator value of event.
+	// This is expected to be an immutable column which can be
+	// used to filter to event.
+	Discriminator() string
 }
 
 // Term represents a set of changes that are bounded by a coalesced set.

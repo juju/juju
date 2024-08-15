@@ -4,22 +4,38 @@ package triggers
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/juju/core/database/schema"
 )
 
 
-// ChangeLogTriggersForMachineCloudInstance generates the triggers for the 
+// ChangeLogTriggersForMachineCloudInstance generates the triggers for the
 // machine_cloud_instance table.
-func ChangeLogTriggersForMachineCloudInstance(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForMachineCloudInstance(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForMachineCloudInstanceWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForMachineCloudInstanceWithDiscriminator generates the triggers for the
+// machine_cloud_instance table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForMachineCloudInstanceWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for MachineCloudInstance
 CREATE TRIGGER trg_log_machine_cloud_instance_insert
 AFTER INSERT ON machine_cloud_instance FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for MachineCloudInstance
@@ -36,17 +52,17 @@ WHEN
 	(NEW.availability_zone_uuid != OLD.availability_zone_uuid OR (NEW.availability_zone_uuid IS NOT NULL AND OLD.availability_zone_uuid IS NULL) OR (NEW.availability_zone_uuid IS NULL AND OLD.availability_zone_uuid IS NOT NULL)) OR
 	(NEW.virt_type != OLD.virt_type OR (NEW.virt_type IS NOT NULL AND OLD.virt_type IS NULL) OR (NEW.virt_type IS NULL AND OLD.virt_type IS NOT NULL)) 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for MachineCloudInstance
 CREATE TRIGGER trg_log_machine_cloud_instance_delete
 AFTER DELETE ON machine_cloud_instance FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 

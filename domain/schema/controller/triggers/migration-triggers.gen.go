@@ -4,22 +4,38 @@ package triggers
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/juju/core/database/schema"
 )
 
 
-// ChangeLogTriggersForModelMigrationMinionSync generates the triggers for the 
+// ChangeLogTriggersForModelMigrationMinionSync generates the triggers for the
 // model_migration_minion_sync table.
-func ChangeLogTriggersForModelMigrationMinionSync(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForModelMigrationMinionSync(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForModelMigrationMinionSyncWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForModelMigrationMinionSyncWithDiscriminator generates the triggers for the
+// model_migration_minion_sync table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForModelMigrationMinionSyncWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for ModelMigrationMinionSync
 CREATE TRIGGER trg_log_model_migration_minion_sync_insert
 AFTER INSERT ON model_migration_minion_sync FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for ModelMigrationMinionSync
@@ -32,31 +48,46 @@ WHEN
 	(NEW.time != OLD.time OR (NEW.time IS NOT NULL AND OLD.time IS NULL) OR (NEW.time IS NULL AND OLD.time IS NOT NULL)) OR
 	(NEW.success != OLD.success OR (NEW.success IS NOT NULL AND OLD.success IS NULL) OR (NEW.success IS NULL AND OLD.success IS NOT NULL)) 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for ModelMigrationMinionSync
 CREATE TRIGGER trg_log_model_migration_minion_sync_delete
 AFTER DELETE ON model_migration_minion_sync FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 
-// ChangeLogTriggersForModelMigrationStatus generates the triggers for the 
+// ChangeLogTriggersForModelMigrationStatus generates the triggers for the
 // model_migration_status table.
-func ChangeLogTriggersForModelMigrationStatus(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForModelMigrationStatus(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForModelMigrationStatusWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForModelMigrationStatusWithDiscriminator generates the triggers for the
+// model_migration_status table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForModelMigrationStatusWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for ModelMigrationStatus
 CREATE TRIGGER trg_log_model_migration_status_insert
 AFTER INSERT ON model_migration_status FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for ModelMigrationStatus
@@ -70,17 +101,17 @@ WHEN
 	(NEW.phase_changed_time != OLD.phase_changed_time OR (NEW.phase_changed_time IS NOT NULL AND OLD.phase_changed_time IS NULL) OR (NEW.phase_changed_time IS NULL AND OLD.phase_changed_time IS NOT NULL)) OR
 	(NEW.status != OLD.status OR (NEW.status IS NOT NULL AND OLD.status IS NULL) OR (NEW.status IS NULL AND OLD.status IS NOT NULL)) 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for ModelMigrationStatus
 CREATE TRIGGER trg_log_model_migration_status_delete
 AFTER DELETE ON model_migration_status FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 

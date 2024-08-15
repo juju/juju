@@ -105,9 +105,10 @@ func (m subscriptionOptionMatcher) String() string {
 }
 
 type changeEvent struct {
-	changeType changestream.ChangeType
-	namespace  string
-	changed    string
+	changeType    changestream.ChangeType
+	namespace     string
+	changed       string
+	discriminator string
 }
 
 func (e changeEvent) Type() changestream.ChangeType {
@@ -120,4 +121,8 @@ func (e changeEvent) Namespace() string {
 
 func (e changeEvent) Changed() string {
 	return e.changed
+}
+
+func (e changeEvent) Discriminator() string {
+	return e.discriminator
 }

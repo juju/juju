@@ -33,7 +33,7 @@ type CleanerSuite struct {
 
 	st                 *mockState
 	machineService     *machineservice.WatchableService
-	applicationService *applicationservice.Service
+	applicationService *applicationservice.WatchableService
 	unitService        *unitservice.Service
 	api                *cleaner.CleanerAPI
 	authoriser         apiservertesting.FakeAuthorizer
@@ -52,7 +52,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	var err error
 	res := common.NewResources()
 	s.machineService = machineservice.NewWatchableService(nil, nil)
-	s.applicationService = applicationservice.NewService(nil, storage.NotImplementedProviderRegistry{}, loggertesting.WrapCheckLog(c))
+	s.applicationService = applicationservice.NewWatchableService(nil, nil, storage.NotImplementedProviderRegistry{}, loggertesting.WrapCheckLog(c))
 	s.unitService = unitservice.NewService(nil)
 	s.api, err = cleaner.NewCleanerAPI(facadetest.ModelContext{
 		Resources_: res,
@@ -61,7 +61,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 			WithMachineService(func() *machineservice.WatchableService {
 				return s.machineService
 			}).
-			WithApplicationService(func() *applicationservice.Service {
+			WithApplicationService(func() *applicationservice.WatchableService {
 				return s.applicationService
 			}).
 			WithUnitService(func() *unitservice.Service {

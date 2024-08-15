@@ -73,19 +73,19 @@ func ControllerDDL() *schema.Schema {
 
 	// Changestream triggers.
 	patches = append(patches,
-		triggers.ChangeLogTriggersForCloud("uuid", tableCloud),
-		triggers.ChangeLogTriggersForCloudCredential("uuid", tableCloudCredential),
-		triggers.ChangeLogTriggersForExternalController("uuid", tableExternalController),
-		triggers.ChangeLogTriggersForControllerConfig("key", tableControllerConfig),
-		triggers.ChangeLogTriggersForControllerNode("controller_id", tableControllerNode),
-		triggers.ChangeLogTriggersForModelMigrationStatus("uuid", tableModelMigrationStatus),
-		triggers.ChangeLogTriggersForModelMigrationMinionSync("uuid", tableModelMigrationMinionSync),
-		triggers.ChangeLogTriggersForUpgradeInfo("uuid", tableUpgradeInfo),
-		triggers.ChangeLogTriggersForUpgradeInfoControllerNode("upgrade_info_uuid", tableUpgradeInfoControllerNode),
-		triggers.ChangeLogTriggersForObjectStoreMetadataPath("path", tableObjectStoreMetadata),
-		triggers.ChangeLogTriggersForSecretBackendRotation("backend_uuid", tableSecretBackendRotation),
-		triggers.ChangeLogTriggersForModelSecretBackend("model_uuid", tableModelSecretBackend),
-		triggers.ChangeLogTriggersForModel("uuid", tableModelMetadata),
+		triggers.ChangeLogTriggersForCloud(tableCloud, "uuid"),
+		triggers.ChangeLogTriggersForCloudCredential(tableCloudCredential, "uuid"),
+		triggers.ChangeLogTriggersForExternalController(tableExternalController, "uuid"),
+		triggers.ChangeLogTriggersForControllerConfig(tableControllerConfig, "key"),
+		triggers.ChangeLogTriggersForControllerNode(tableControllerNode, "controller_id"),
+		triggers.ChangeLogTriggersForModelMigrationStatus(tableModelMigrationStatus, "uuid"),
+		triggers.ChangeLogTriggersForModelMigrationMinionSync(tableModelMigrationMinionSync, "uuid"),
+		triggers.ChangeLogTriggersForUpgradeInfo(tableUpgradeInfo, "uuid"),
+		triggers.ChangeLogTriggersForUpgradeInfoControllerNode(tableUpgradeInfoControllerNode, "upgrade_info_uuid"),
+		triggers.ChangeLogTriggersForObjectStoreMetadataPath(tableObjectStoreMetadata, "path"),
+		triggers.ChangeLogTriggersForSecretBackendRotation(tableSecretBackendRotation, "backend_uuid"),
+		triggers.ChangeLogTriggersForModelSecretBackend(tableModelSecretBackend, "model_uuid"),
+		triggers.ChangeLogTriggersForModel(tableModelMetadata, "uuid"),
 	)
 
 	// Generic triggers.

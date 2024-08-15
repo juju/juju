@@ -21,6 +21,8 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-cloud-instance-triggers.gen.go -package=triggers -tables=machine_cloud_instance
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/user-public-ssh-key.gen.go -package=triggers -tables=user_public_ssh_key
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/charm.gen.go -package=triggers -tables=charm
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-scale.gen.go -package=triggers -tables=application_scale
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit.gen.go -package=triggers -tables=unit
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
@@ -46,6 +48,8 @@ const (
 	tableMachineCloudInstance
 	tableUserPublicSSHKey
 	tableCharm
+	tableApplicationScale
+	tableUnit
 )
 
 // ModelDDL is used to create model databases.
@@ -81,26 +85,28 @@ func ModelDDL() *schema.Schema {
 
 	// Changestream triggers.
 	patches = append(patches,
-		triggers.ChangeLogTriggersForBlockDevice("machine_uuid", tableBlockDeviceMachine),
-		triggers.ChangeLogTriggersForModelConfig("key", tableModelConfig),
-		triggers.ChangeLogTriggersForObjectStoreMetadataPath("path", tableModelObjectStoreMetadata),
-		triggers.ChangeLogTriggersForStorageAttachment("storage_instance_uuid", tableStorageAttachment),
-		triggers.ChangeLogTriggersForStorageFilesystem("uuid", tableFileSystem),
-		triggers.ChangeLogTriggersForStorageFilesystemAttachment("uuid", tableFileSystemAttachment),
-		triggers.ChangeLogTriggersForStorageVolume("uuid", tableVolume),
-		triggers.ChangeLogTriggersForStorageVolumeAttachment("uuid", tableVolumeAttachment),
-		triggers.ChangeLogTriggersForStorageVolumeAttachmentPlan("uuid", tableVolumeAttachmentPlan),
-		triggers.ChangeLogTriggersForSecretMetadata("secret_id", tableSecretMetadataAutoPrune),
-		triggers.ChangeLogTriggersForSecretRotation("secret_id", tableSecretRotation),
-		triggers.ChangeLogTriggersForSecretRevisionObsolete("revision_uuid", tableSecretRevisionObsolete),
-		triggers.ChangeLogTriggersForSecretRevisionExpire("revision_uuid", tableSecretRevisionExpire),
-		triggers.ChangeLogTriggersForSecretRevision("uuid", tableSecretRevision),
-		triggers.ChangeLogTriggersForSecretReference("secret_id", tableSecretReference),
-		triggers.ChangeLogTriggersForSubnet("uuid", tableSubnet),
-		triggers.ChangeLogTriggersForMachine("uuid", tableMachine),
-		triggers.ChangeLogTriggersForMachineCloudInstance("machine_uuid", tableMachineCloudInstance),
-		triggers.ChangeLogTriggersForUserPublicSshKey("id", tableUserPublicSSHKey),
-		triggers.ChangeLogTriggersForCharm("uuid", tableCharm),
+		triggers.ChangeLogTriggersForBlockDevice(tableBlockDeviceMachine, "machine_uuid"),
+		triggers.ChangeLogTriggersForModelConfig(tableModelConfig, "key"),
+		triggers.ChangeLogTriggersForObjectStoreMetadataPath(tableModelObjectStoreMetadata, "path"),
+		triggers.ChangeLogTriggersForStorageAttachment(tableStorageAttachment, "storage_instance_uuid"),
+		triggers.ChangeLogTriggersForStorageFilesystem(tableFileSystem, "uuid"),
+		triggers.ChangeLogTriggersForStorageFilesystemAttachment(tableFileSystemAttachment, "uuid"),
+		triggers.ChangeLogTriggersForStorageVolume(tableVolume, "uuid"),
+		triggers.ChangeLogTriggersForStorageVolumeAttachment(tableVolumeAttachment, "uuid"),
+		triggers.ChangeLogTriggersForStorageVolumeAttachmentPlan(tableVolumeAttachmentPlan, "uuid"),
+		triggers.ChangeLogTriggersForSecretMetadata(tableSecretMetadataAutoPrune, "secret_id"),
+		triggers.ChangeLogTriggersForSecretRotation(tableSecretRotation, "secret_id"),
+		triggers.ChangeLogTriggersForSecretRevisionObsolete(tableSecretRevisionObsolete, "revision_uuid"),
+		triggers.ChangeLogTriggersForSecretRevisionExpire(tableSecretRevisionExpire, "revision_uuid"),
+		triggers.ChangeLogTriggersForSecretRevision(tableSecretRevision, "uuid"),
+		triggers.ChangeLogTriggersForSecretReference(tableSecretReference, "secret_id"),
+		triggers.ChangeLogTriggersForSubnet(tableSubnet, "uuid"),
+		triggers.ChangeLogTriggersForMachine(tableMachine, "uuid"),
+		triggers.ChangeLogTriggersForMachineCloudInstance(tableMachineCloudInstance, "machine_uuid"),
+		triggers.ChangeLogTriggersForUserPublicSshKey(tableUserPublicSSHKey, "id"),
+		triggers.ChangeLogTriggersForCharm(tableCharm, "uuid"),
+		triggers.ChangeLogTriggersForApplicationScale(tableApplicationScale, "application_uuid"),
+		triggers.ChangeLogTriggersForUnitWithDiscriminator(tableUnit, "uuid", "application_uuid"),
 	)
 
 	// Generic triggers.

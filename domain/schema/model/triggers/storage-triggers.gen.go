@@ -4,22 +4,38 @@ package triggers
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/juju/core/database/schema"
 )
 
 
-// ChangeLogTriggersForBlockDevice generates the triggers for the 
+// ChangeLogTriggersForBlockDevice generates the triggers for the
 // block_device table.
-func ChangeLogTriggersForBlockDevice(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForBlockDevice(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForBlockDeviceWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForBlockDeviceWithDiscriminator generates the triggers for the
+// block_device table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForBlockDeviceWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for BlockDevice
 CREATE TRIGGER trg_log_block_device_insert
 AFTER INSERT ON block_device FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for BlockDevice
@@ -39,31 +55,46 @@ WHEN
 	(NEW.mount_point != OLD.mount_point OR (NEW.mount_point IS NOT NULL AND OLD.mount_point IS NULL) OR (NEW.mount_point IS NULL AND OLD.mount_point IS NOT NULL)) OR
 	(NEW.in_use != OLD.in_use OR (NEW.in_use IS NOT NULL AND OLD.in_use IS NULL) OR (NEW.in_use IS NULL AND OLD.in_use IS NOT NULL)) 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for BlockDevice
 CREATE TRIGGER trg_log_block_device_delete
 AFTER DELETE ON block_device FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 
-// ChangeLogTriggersForStorageAttachment generates the triggers for the 
+// ChangeLogTriggersForStorageAttachment generates the triggers for the
 // storage_attachment table.
-func ChangeLogTriggersForStorageAttachment(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForStorageAttachment(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForStorageAttachmentWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForStorageAttachmentWithDiscriminator generates the triggers for the
+// storage_attachment table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForStorageAttachmentWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for StorageAttachment
 CREATE TRIGGER trg_log_storage_attachment_insert
 AFTER INSERT ON storage_attachment FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for StorageAttachment
@@ -73,31 +104,46 @@ WHEN
 	NEW.unit_uuid != OLD.unit_uuid OR
 	NEW.life_id != OLD.life_id 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for StorageAttachment
 CREATE TRIGGER trg_log_storage_attachment_delete
 AFTER DELETE ON storage_attachment FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 
-// ChangeLogTriggersForStorageFilesystem generates the triggers for the 
+// ChangeLogTriggersForStorageFilesystem generates the triggers for the
 // storage_filesystem table.
-func ChangeLogTriggersForStorageFilesystem(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForStorageFilesystem(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForStorageFilesystemWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForStorageFilesystemWithDiscriminator generates the triggers for the
+// storage_filesystem table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForStorageFilesystemWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for StorageFilesystem
 CREATE TRIGGER trg_log_storage_filesystem_insert
 AFTER INSERT ON storage_filesystem FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for StorageFilesystem
@@ -110,31 +156,46 @@ WHEN
 	(NEW.size_mib != OLD.size_mib OR (NEW.size_mib IS NOT NULL AND OLD.size_mib IS NULL) OR (NEW.size_mib IS NULL AND OLD.size_mib IS NOT NULL)) OR
 	NEW.provisioning_status_id != OLD.provisioning_status_id 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for StorageFilesystem
 CREATE TRIGGER trg_log_storage_filesystem_delete
 AFTER DELETE ON storage_filesystem FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 
-// ChangeLogTriggersForStorageFilesystemAttachment generates the triggers for the 
+// ChangeLogTriggersForStorageFilesystemAttachment generates the triggers for the
 // storage_filesystem_attachment table.
-func ChangeLogTriggersForStorageFilesystemAttachment(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForStorageFilesystemAttachment(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForStorageFilesystemAttachmentWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForStorageFilesystemAttachmentWithDiscriminator generates the triggers for the
+// storage_filesystem_attachment table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForStorageFilesystemAttachmentWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for StorageFilesystemAttachment
 CREATE TRIGGER trg_log_storage_filesystem_attachment_insert
 AFTER INSERT ON storage_filesystem_attachment FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for StorageFilesystemAttachment
@@ -148,31 +209,46 @@ WHEN
 	(NEW.read_only != OLD.read_only OR (NEW.read_only IS NOT NULL AND OLD.read_only IS NULL) OR (NEW.read_only IS NULL AND OLD.read_only IS NOT NULL)) OR
 	NEW.provisioning_status_id != OLD.provisioning_status_id 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for StorageFilesystemAttachment
 CREATE TRIGGER trg_log_storage_filesystem_attachment_delete
 AFTER DELETE ON storage_filesystem_attachment FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 
-// ChangeLogTriggersForStorageVolume generates the triggers for the 
+// ChangeLogTriggersForStorageVolume generates the triggers for the
 // storage_volume table.
-func ChangeLogTriggersForStorageVolume(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForStorageVolume(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForStorageVolumeWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForStorageVolumeWithDiscriminator generates the triggers for the
+// storage_volume table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForStorageVolumeWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for StorageVolume
 CREATE TRIGGER trg_log_storage_volume_insert
 AFTER INSERT ON storage_volume FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for StorageVolume
@@ -189,31 +265,46 @@ WHEN
 	(NEW.persistent != OLD.persistent OR (NEW.persistent IS NOT NULL AND OLD.persistent IS NULL) OR (NEW.persistent IS NULL AND OLD.persistent IS NOT NULL)) OR
 	NEW.provisioning_status_id != OLD.provisioning_status_id 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for StorageVolume
 CREATE TRIGGER trg_log_storage_volume_delete
 AFTER DELETE ON storage_volume FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 
-// ChangeLogTriggersForStorageVolumeAttachment generates the triggers for the 
+// ChangeLogTriggersForStorageVolumeAttachment generates the triggers for the
 // storage_volume_attachment table.
-func ChangeLogTriggersForStorageVolumeAttachment(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForStorageVolumeAttachment(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForStorageVolumeAttachmentWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForStorageVolumeAttachmentWithDiscriminator generates the triggers for the
+// storage_volume_attachment table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForStorageVolumeAttachmentWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for StorageVolumeAttachment
 CREATE TRIGGER trg_log_storage_volume_attachment_insert
 AFTER INSERT ON storage_volume_attachment FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for StorageVolumeAttachment
@@ -227,31 +318,46 @@ WHEN
 	(NEW.read_only != OLD.read_only OR (NEW.read_only IS NOT NULL AND OLD.read_only IS NULL) OR (NEW.read_only IS NULL AND OLD.read_only IS NOT NULL)) OR
 	NEW.provisioning_status_id != OLD.provisioning_status_id 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for StorageVolumeAttachment
 CREATE TRIGGER trg_log_storage_volume_attachment_delete
 AFTER DELETE ON storage_volume_attachment FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 
-// ChangeLogTriggersForStorageVolumeAttachmentPlan generates the triggers for the 
+// ChangeLogTriggersForStorageVolumeAttachmentPlan generates the triggers for the
 // storage_volume_attachment_plan table.
-func ChangeLogTriggersForStorageVolumeAttachmentPlan(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForStorageVolumeAttachmentPlan(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForStorageVolumeAttachmentPlanWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForStorageVolumeAttachmentPlanWithDiscriminator generates the triggers for the
+// storage_volume_attachment_plan table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForStorageVolumeAttachmentPlanWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for StorageVolumeAttachmentPlan
 CREATE TRIGGER trg_log_storage_volume_attachment_plan_insert
 AFTER INSERT ON storage_volume_attachment_plan FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for StorageVolumeAttachmentPlan
@@ -265,17 +371,17 @@ WHEN
 	(NEW.block_device_uuid != OLD.block_device_uuid OR (NEW.block_device_uuid IS NOT NULL AND OLD.block_device_uuid IS NULL) OR (NEW.block_device_uuid IS NULL AND OLD.block_device_uuid IS NOT NULL)) OR
 	NEW.provisioning_status_id != OLD.provisioning_status_id 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for StorageVolumeAttachmentPlan
 CREATE TRIGGER trg_log_storage_volume_attachment_plan_delete
 AFTER DELETE ON storage_volume_attachment_plan FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 

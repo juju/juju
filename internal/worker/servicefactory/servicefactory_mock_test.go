@@ -738,10 +738,10 @@ func (c *MockModelServiceFactoryAnnotationCall) DoAndReturn(f func() *service1.S
 }
 
 // Application mocks base method.
-func (m *MockModelServiceFactory) Application(arg0 storage.ProviderRegistry) *service2.Service {
+func (m *MockModelServiceFactory) Application(arg0 storage.ProviderRegistry) *service2.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Application", arg0)
-	ret0, _ := ret[0].(*service2.Service)
+	ret0, _ := ret[0].(*service2.WatchableService)
 	return ret0
 }
 
@@ -758,19 +758,19 @@ type MockModelServiceFactoryApplicationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceFactoryApplicationCall) Return(arg0 *service2.Service) *MockModelServiceFactoryApplicationCall {
+func (c *MockModelServiceFactoryApplicationCall) Return(arg0 *service2.WatchableService) *MockModelServiceFactoryApplicationCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceFactoryApplicationCall) Do(f func(storage.ProviderRegistry) *service2.Service) *MockModelServiceFactoryApplicationCall {
+func (c *MockModelServiceFactoryApplicationCall) Do(f func(storage.ProviderRegistry) *service2.WatchableService) *MockModelServiceFactoryApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceFactoryApplicationCall) DoAndReturn(f func(storage.ProviderRegistry) *service2.Service) *MockModelServiceFactoryApplicationCall {
+func (c *MockModelServiceFactoryApplicationCall) DoAndReturn(f func(storage.ProviderRegistry) *service2.WatchableService) *MockModelServiceFactoryApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1483,10 +1483,10 @@ func (c *MockServiceFactoryAnnotationCall) DoAndReturn(f func() *service1.Servic
 }
 
 // Application mocks base method.
-func (m *MockServiceFactory) Application(arg0 storage.ProviderRegistry) *service2.Service {
+func (m *MockServiceFactory) Application(arg0 storage.ProviderRegistry) *service2.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Application", arg0)
-	ret0, _ := ret[0].(*service2.Service)
+	ret0, _ := ret[0].(*service2.WatchableService)
 	return ret0
 }
 
@@ -1503,19 +1503,19 @@ type MockServiceFactoryApplicationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryApplicationCall) Return(arg0 *service2.Service) *MockServiceFactoryApplicationCall {
+func (c *MockServiceFactoryApplicationCall) Return(arg0 *service2.WatchableService) *MockServiceFactoryApplicationCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryApplicationCall) Do(f func(storage.ProviderRegistry) *service2.Service) *MockServiceFactoryApplicationCall {
+func (c *MockServiceFactoryApplicationCall) Do(f func(storage.ProviderRegistry) *service2.WatchableService) *MockServiceFactoryApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryApplicationCall) DoAndReturn(f func(storage.ProviderRegistry) *service2.Service) *MockServiceFactoryApplicationCall {
+func (c *MockServiceFactoryApplicationCall) DoAndReturn(f func(storage.ProviderRegistry) *service2.WatchableService) *MockServiceFactoryApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

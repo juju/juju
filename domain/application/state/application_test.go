@@ -12,10 +12,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -65,6 +67,36 @@ func (s *applicationStateSuite) assertApplication(c *gc.C, name string, platform
 	if channel != nil {
 		c.Assert(gotChannel, jc.DeepEquals, *channel)
 	}
+}
+
+func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.Life, units ...application.AddUnitArg) coreapplication.ID {
+	platform := application.Platform{
+		Channel:        name,
+		OSTypeID:       application.Ubuntu,
+		ArchitectureID: application.ARM64,
+	}
+	channel := &applicationcharm.Channel{
+		Track:  "track",
+		Risk:   "risk",
+		Branch: "branch",
+	}
+	appID, err := s.state.CreateApplication(context.Background(), name, application.AddApplicationArg{
+		Platform: platform,
+		Channel:  channel,
+		Charm: applicationcharm.Charm{
+			Metadata: applicationcharm.Metadata{
+				Name: name,
+			},
+		},
+	}, units...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id=? WHERE name=?", l, name)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return appID
 }
 
 func (s *applicationStateSuite) TestCreateApplicationNoUnits(c *gc.C) {
@@ -130,33 +162,18 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestUpdateApplication(c *gc.C) {
-	platform := application.Platform{
-		Channel:        "666",
-		OSTypeID:       application.Ubuntu,
-		ArchitectureID: application.ARM64,
-	}
-	_, err := s.state.CreateApplication(context.Background(), "666", application.AddApplicationArg{
-		Platform: platform,
-		Charm: applicationcharm.Charm{
-			Metadata: applicationcharm.Metadata{
-				Name: "666",
-			},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	appID := s.createApplication(c, "foo", life.Alive)
 
 	u := application.AddUnitArg{
 		UnitName:     ptr("foo/666"),
 		PasswordHash: ptr("deadbeef"),
 	}
-	err = s.state.UpsertApplicationUnit(context.Background(), "666", u)
+	err := s.state.UpsertApplicationUnit(context.Background(), "foo", u)
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.assertApplication(c, "666", platform, nil)
 
 	var unitID, hash string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT name, password_hash FROM unit").Scan(&unitID, &hash)
+		err := tx.QueryRowContext(ctx, "SELECT name, password_hash FROM unit WHERE application_uuid=?", appID).Scan(&unitID, &hash)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -168,28 +185,9 @@ func (s *applicationStateSuite) TestUpdateApplication(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestDeleteApplication(c *gc.C) {
-	platform := application.Platform{
-		Channel:        "666",
-		OSTypeID:       application.Ubuntu,
-		ArchitectureID: application.ARM64,
-	}
-	channel := &applicationcharm.Channel{
-		Track:  "track",
-		Risk:   "risk",
-		Branch: "branch",
-	}
-	_, err := s.state.CreateApplication(context.Background(), "666", application.AddApplicationArg{
-		Platform: platform,
-		Channel:  channel,
-		Charm: applicationcharm.Charm{
-			Metadata: applicationcharm.Metadata{
-				Name: "666",
-			},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	s.createApplication(c, "foo", life.Alive)
 
-	err = s.state.DeleteApplication(context.Background(), "666")
+	err := s.state.DeleteApplication(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
@@ -198,7 +196,7 @@ func (s *applicationStateSuite) TestDeleteApplication(c *gc.C) {
 		channelCount  int
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM application WHERE name=?", "666").Scan(&appCount)
+		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM application WHERE name=?", "foo").Scan(&appCount)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -206,7 +204,7 @@ func (s *applicationStateSuite) TestDeleteApplication(c *gc.C) {
 SELECT count(*) FROM application a
 JOIN application_platform ap ON a.uuid = ap.application_uuid
 WHERE a.name=?`,
-			"666").Scan(&platformCount)
+			"foo").Scan(&platformCount)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -214,7 +212,7 @@ WHERE a.name=?`,
 SELECT count(*) FROM application a
 JOIN application_channel ac ON a.uuid = ac.application_uuid
 WHERE a.name=?`,
-			"666").Scan(&channelCount)
+			"foo").Scan(&channelCount)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -227,24 +225,11 @@ WHERE a.name=?`,
 }
 
 func (s *applicationStateSuite) TestDeleteApplicationTwice(c *gc.C) {
-	platform := application.Platform{
-		Channel:        "666",
-		OSTypeID:       application.Ubuntu,
-		ArchitectureID: application.ARM64,
-	}
-	_, err := s.state.CreateApplication(context.Background(), "666", application.AddApplicationArg{
-		Platform: platform,
-		Charm: applicationcharm.Charm{
-			Metadata: applicationcharm.Metadata{
-				Name: "666",
-			},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	s.createApplication(c, "foo", life.Alive)
 
-	err = s.state.DeleteApplication(context.Background(), "666")
+	err := s.state.DeleteApplication(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.state.DeleteApplication(context.Background(), "666")
+	err = s.state.DeleteApplication(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -252,28 +237,15 @@ func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *gc.C) {
 	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	platform := application.Platform{
-		Channel:        "666",
-		OSTypeID:       application.Ubuntu,
-		ArchitectureID: application.ARM64,
-	}
-	_, err := s.state.CreateApplication(context.Background(), "666", application.AddApplicationArg{
-		Platform: platform,
-		Charm: applicationcharm.Charm{
-			Metadata: applicationcharm.Metadata{
-				Name: "666",
-			},
-		},
-	}, u)
-	c.Assert(err, jc.ErrorIsNil)
+	s.createApplication(c, "foo", life.Alive, u)
 
-	err = s.state.DeleteApplication(context.Background(), "666")
+	err := s.state.DeleteApplication(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationHasUnits)
-	c.Assert(err, gc.ErrorMatches, `.*cannot delete application "666" as it still has 1 unit\(s\)`)
+	c.Assert(err, gc.ErrorMatches, `.*cannot delete application "foo" as it still has 1 unit\(s\)`)
 
 	var appCount int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM application WHERE name=?", "666").Scan(&appCount)
+		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM application WHERE name=?", "foo").Scan(&appCount)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -284,32 +256,17 @@ func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
-	platform := application.Platform{
-		Channel:        "666",
-		OSTypeID:       application.Ubuntu,
-		ArchitectureID: application.ARM64,
-	}
-	_, err := s.state.CreateApplication(context.Background(), "666", application.AddApplicationArg{
-		Platform: platform,
-		Charm: applicationcharm.Charm{
-			Metadata: applicationcharm.Metadata{
-				Name: "666",
-			},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	appID := s.createApplication(c, "foo", life.Alive)
 
 	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	err = s.state.AddUnits(context.Background(), "666", u)
+	err := s.state.AddUnits(context.Background(), "foo", u)
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.assertApplication(c, "666", platform, nil)
 
 	var unitID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT name FROM unit").Scan(&unitID)
+		err := tx.QueryRowContext(ctx, "SELECT name FROM unit WHERE application_uuid=?", appID).Scan(&unitID)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -323,8 +280,31 @@ func (s *applicationStateSuite) TestAddUnitsMissingApplication(c *gc.C) {
 	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	err := s.state.AddUnits(context.Background(), "666", u)
+	err := s.state.AddUnits(context.Background(), "foo", u)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestGetUnitLife(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: ptr("foo/666"),
+	}
+	u2 := application.AddUnitArg{
+		UnitName: ptr("foo/667"),
+	}
+	s.createApplication(c, "foo", life.Alive, u1, u2)
+
+	var unitID string
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/667").Scan(&unitID)
+		return errors.Trace(err)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := s.state.ApplicationUnitLife(context.Background(), "foo", []string{unitID})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, map[string]life.Life{
+		unitID: life.Alive,
+	})
 }
 
 func (s *applicationStateSuite) TestStorageDefaultsNone(c *gc.C) {

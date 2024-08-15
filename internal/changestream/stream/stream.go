@@ -456,7 +456,7 @@ const (
 	// If the namespace is later deleted, you'll no longer locate that during
 	// a select.
 	selectQuery = `
-SELECT MAX(c.id), c.edit_type_id, n.namespace, changed, created_at
+SELECT MAX(c.id), c.edit_type_id, n.namespace, changed, discriminator, created_at
 	FROM change_log c
 		JOIN change_log_edit_type t ON c.edit_type_id = t.id
 		JOIN change_log_namespace n ON c.namespace_id = n.id
@@ -470,11 +470,12 @@ SELECT MAX(c.id), c.edit_type_id, n.namespace, changed, created_at
 // struct instead of an interface. We should work out if this is a good idea
 // or not.
 type changeEvent struct {
-	id         int64
-	changeType int
-	namespace  string
-	changed    string
-	createdAt  string
+	id            int64
+	changeType    int
+	namespace     string
+	changed       string
+	discriminator string
+	createdAt     string
 }
 
 // Type returns the type of change (create, update, delete).
@@ -493,6 +494,13 @@ func (e changeEvent) Namespace() string {
 // that was changed.
 func (e changeEvent) Changed() string {
 	return e.changed
+}
+
+// Discriminator returns the discriminator value of event.
+// This is expected to be an immutable column which can be
+// used to filter to event.
+func (e changeEvent) Discriminator() string {
+	return e.discriminator
 }
 
 func (s *Stream) readChanges() ([]changeEvent, error) {
@@ -516,6 +524,7 @@ func (s *Stream) readChanges() ([]changeEvent, error) {
 				&changes[i].changeType,
 				&changes[i].namespace,
 				&changes[i].changed,
+				&changes[i].discriminator,
 				&changes[i].createdAt,
 			}
 		}

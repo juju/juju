@@ -10,14 +10,20 @@ import (
 	"github.com/juju/errors"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
@@ -48,9 +54,17 @@ type ApplicationState interface {
 	// is returned.
 	DeleteApplication(context.Context, string) error
 
+	// GetApplicationID returns the ID for the named application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
+	GetApplicationID(context.Context, string) (coreapplication.ID, error)
+
 	// AddUnits adds the specified units to the application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 	AddUnits(ctx context.Context, applicationName string, args ...application.AddUnitArg) error
+
+	InitialWatchStatementUnitLife(appName string) (string, eventsource.NamespaceQuery)
+
+	ApplicationUnitLife(ctx context.Context, appName string, unitIDs []string) (map[string]life.Life, error)
 }
 
 // ApplicationService provides the API for working with applications.
@@ -271,4 +285,39 @@ func (s *ApplicationService) validateStorageDirectives(ctx context.Context, mode
 		}
 	}
 	return nil
+}
+
+// WatchableApplicationService provides the API for working with applications and the
+// ability to create watchers.
+type WatchableApplicationService struct {
+	ApplicationService
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableApplicationService returns a new service reference wrapping the input state.
+func NewWatchableApplicationService(st ApplicationState, watcherFactory WatcherFactory, registry storage.ProviderRegistry, logger logger.Logger) *WatchableApplicationService {
+	return &WatchableApplicationService{
+		ApplicationService: ApplicationService{
+			st:       st,
+			registry: registry,
+			logger:   logger,
+		},
+		watcherFactory: watcherFactory,
+	}
+}
+
+// WatchApplicationUnitLife returns a watcher that observes changes to the life of any units if an application.
+func (s *WatchableApplicationService) WatchApplicationUnitLife(ctx context.Context, appName string) (watcher.StringsWatcher, error) {
+	lifeGetter := func(ctx context.Context, db coredatabase.TxnRunner, ids []string) (map[string]life.Life, error) {
+		return s.st.ApplicationUnitLife(ctx, appName, ids)
+	}
+	appID, err := s.st.GetApplicationID(ctx, appName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	lifeMapper := domain.LifeStringsWatcherMapperFunc(lifeGetter, appID.String())
+
+	table, query := s.st.InitialWatchStatementUnitLife(appName)
+
+	return s.watcherFactory.NewNamespaceMapperWatcher(table, changestream.All, query, lifeMapper)
 }

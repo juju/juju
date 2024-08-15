@@ -4,22 +4,38 @@ package triggers
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/juju/core/database/schema"
 )
 
 
-// ChangeLogTriggersForSecretMetadata generates the triggers for the 
+// ChangeLogTriggersForSecretMetadata generates the triggers for the
 // secret_metadata table.
-func ChangeLogTriggersForSecretMetadata(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForSecretMetadata(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForSecretMetadataWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForSecretMetadataWithDiscriminator generates the triggers for the
+// secret_metadata table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForSecretMetadataWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for SecretMetadata
 CREATE TRIGGER trg_log_secret_metadata_insert
 AFTER INSERT ON secret_metadata FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for SecretMetadata
@@ -33,31 +49,46 @@ WHEN
 	NEW.create_time != OLD.create_time OR
 	NEW.update_time != OLD.update_time 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for SecretMetadata
 CREATE TRIGGER trg_log_secret_metadata_delete
 AFTER DELETE ON secret_metadata FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 
-// ChangeLogTriggersForSecretReference generates the triggers for the 
+// ChangeLogTriggersForSecretReference generates the triggers for the
 // secret_reference table.
-func ChangeLogTriggersForSecretReference(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForSecretReference(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForSecretReferenceWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForSecretReferenceWithDiscriminator generates the triggers for the
+// secret_reference table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForSecretReferenceWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for SecretReference
 CREATE TRIGGER trg_log_secret_reference_insert
 AFTER INSERT ON secret_reference FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for SecretReference
@@ -66,31 +97,46 @@ AFTER UPDATE ON secret_reference FOR EACH ROW
 WHEN 
 	NEW.latest_revision != OLD.latest_revision 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for SecretReference
 CREATE TRIGGER trg_log_secret_reference_delete
 AFTER DELETE ON secret_reference FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 
-// ChangeLogTriggersForSecretRevision generates the triggers for the 
+// ChangeLogTriggersForSecretRevision generates the triggers for the
 // secret_revision table.
-func ChangeLogTriggersForSecretRevision(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForSecretRevision(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForSecretRevisionWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForSecretRevisionWithDiscriminator generates the triggers for the
+// secret_revision table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForSecretRevisionWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for SecretRevision
 CREATE TRIGGER trg_log_secret_revision_insert
 AFTER INSERT ON secret_revision FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for SecretRevision
@@ -101,31 +147,46 @@ WHEN
 	NEW.revision != OLD.revision OR
 	NEW.create_time != OLD.create_time 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for SecretRevision
 CREATE TRIGGER trg_log_secret_revision_delete
 AFTER DELETE ON secret_revision FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 
-// ChangeLogTriggersForSecretRevisionExpire generates the triggers for the 
+// ChangeLogTriggersForSecretRevisionExpire generates the triggers for the
 // secret_revision_expire table.
-func ChangeLogTriggersForSecretRevisionExpire(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForSecretRevisionExpire(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForSecretRevisionExpireWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForSecretRevisionExpireWithDiscriminator generates the triggers for the
+// secret_revision_expire table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForSecretRevisionExpireWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for SecretRevisionExpire
 CREATE TRIGGER trg_log_secret_revision_expire_insert
 AFTER INSERT ON secret_revision_expire FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for SecretRevisionExpire
@@ -134,31 +195,46 @@ AFTER UPDATE ON secret_revision_expire FOR EACH ROW
 WHEN 
 	NEW.expire_time != OLD.expire_time 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for SecretRevisionExpire
 CREATE TRIGGER trg_log_secret_revision_expire_delete
 AFTER DELETE ON secret_revision_expire FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 
-// ChangeLogTriggersForSecretRevisionObsolete generates the triggers for the 
+// ChangeLogTriggersForSecretRevisionObsolete generates the triggers for the
 // secret_revision_obsolete table.
-func ChangeLogTriggersForSecretRevisionObsolete(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForSecretRevisionObsolete(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForSecretRevisionObsoleteWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForSecretRevisionObsoleteWithDiscriminator generates the triggers for the
+// secret_revision_obsolete table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForSecretRevisionObsoleteWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for SecretRevisionObsolete
 CREATE TRIGGER trg_log_secret_revision_obsolete_insert
 AFTER INSERT ON secret_revision_obsolete FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for SecretRevisionObsolete
@@ -168,31 +244,46 @@ WHEN
 	NEW.obsolete != OLD.obsolete OR
 	NEW.pending_delete != OLD.pending_delete 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for SecretRevisionObsolete
 CREATE TRIGGER trg_log_secret_revision_obsolete_delete
 AFTER DELETE ON secret_revision_obsolete FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 
-// ChangeLogTriggersForSecretRotation generates the triggers for the 
+// ChangeLogTriggersForSecretRotation generates the triggers for the
 // secret_rotation table.
-func ChangeLogTriggersForSecretRotation(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForSecretRotation(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForSecretRotationWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForSecretRotationWithDiscriminator generates the triggers for the
+// secret_rotation table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForSecretRotationWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for SecretRotation
 CREATE TRIGGER trg_log_secret_rotation_insert
 AFTER INSERT ON secret_rotation FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for SecretRotation
@@ -201,17 +292,17 @@ AFTER UPDATE ON secret_rotation FOR EACH ROW
 WHEN 
 	NEW.next_rotation_time != OLD.next_rotation_time 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for SecretRotation
 CREATE TRIGGER trg_log_secret_rotation_delete
 AFTER DELETE ON secret_rotation FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 

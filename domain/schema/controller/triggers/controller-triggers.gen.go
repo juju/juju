@@ -4,22 +4,38 @@ package triggers
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/juju/core/database/schema"
 )
 
 
-// ChangeLogTriggersForControllerConfig generates the triggers for the 
+// ChangeLogTriggersForControllerConfig generates the triggers for the
 // controller_config table.
-func ChangeLogTriggersForControllerConfig(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForControllerConfig(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForControllerConfigWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForControllerConfigWithDiscriminator generates the triggers for the
+// controller_config table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForControllerConfigWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for ControllerConfig
 CREATE TRIGGER trg_log_controller_config_insert
 AFTER INSERT ON controller_config FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for ControllerConfig
@@ -28,31 +44,46 @@ AFTER UPDATE ON controller_config FOR EACH ROW
 WHEN 
 	(NEW.value != OLD.value OR (NEW.value IS NOT NULL AND OLD.value IS NULL) OR (NEW.value IS NULL AND OLD.value IS NOT NULL)) 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for ControllerConfig
 CREATE TRIGGER trg_log_controller_config_delete
 AFTER DELETE ON controller_config FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 
-// ChangeLogTriggersForControllerNode generates the triggers for the 
+// ChangeLogTriggersForControllerNode generates the triggers for the
 // controller_node table.
-func ChangeLogTriggersForControllerNode(columnName string, namespaceID int) func() schema.Patch {
+func ChangeLogTriggersForControllerNode(namespaceID int, changeColumnName string) func() schema.Patch {
+	return ChangeLogTriggersForControllerNodeWithDiscriminator(namespaceID, changeColumnName, "")
+}
+
+// ChangeLogTriggersForControllerNodeWithDiscriminator generates the triggers for the
+// controller_node table, with the value of the optional discriminator column included in the
+// change event. The discriminator column name is ignored if empty.
+func ChangeLogTriggersForControllerNodeWithDiscriminator(namespaceID int, changeColumnName, discriminatorColumnName string) func() schema.Patch {
+	changeLogColumns := []string{"changed"}
+	newColumnValues := "NEW." + changeColumnName
+	oldColumnValues := "OLD." + changeColumnName
+	if discriminatorColumnName != "" {
+		changeLogColumns = append(changeLogColumns, "discriminator")
+		newColumnValues += ", NEW." + discriminatorColumnName
+		oldColumnValues += ", OLD." + discriminatorColumnName
+	}
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 -- insert trigger for ControllerNode
 CREATE TRIGGER trg_log_controller_node_insert
 AFTER INSERT ON controller_node FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (1, %[1]d, %[2]s, DATETIME('now'));
 END;
 
 -- update trigger for ControllerNode
@@ -62,17 +93,17 @@ WHEN
 	(NEW.dqlite_node_id != OLD.dqlite_node_id OR (NEW.dqlite_node_id IS NOT NULL AND OLD.dqlite_node_id IS NULL) OR (NEW.dqlite_node_id IS NULL AND OLD.dqlite_node_id IS NOT NULL)) OR
 	(NEW.bind_address != OLD.bind_address OR (NEW.bind_address IS NOT NULL AND OLD.bind_address IS NULL) OR (NEW.bind_address IS NULL AND OLD.bind_address IS NOT NULL)) 
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (2, %[1]d, %[3]s, DATETIME('now'));
 END;
 
 -- delete trigger for ControllerNode
 CREATE TRIGGER trg_log_controller_node_delete
 AFTER DELETE ON controller_node FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
+    INSERT INTO change_log (edit_type_id, namespace_id, %[4]s, created_at)
+    VALUES (4, %[1]d, %[3]s, DATETIME('now'));
+END;`, namespaceID, newColumnValues, oldColumnValues, strings.Join(changeLogColumns, ", ")))
 	}
 }
 

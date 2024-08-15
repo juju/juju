@@ -27,6 +27,7 @@ CREATE TABLE change_log (
     edit_type_id INT NOT NULL,
     namespace_id INT NOT NULL,
     changed TEXT NOT NULL,
+    discriminator TEXT NOT NULL DEFAULT '',
     created_at DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
     CONSTRAINT fk_change_log_edit_type
     FOREIGN KEY (edit_type_id)

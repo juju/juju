@@ -6,7 +6,7 @@ package eventmultiplexer
 import (
 	"sync/atomic"
 	"testing"
-	time "time"
+	"time"
 
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
@@ -88,8 +88,8 @@ func (s *baseSuite) dispatchTerm(c *gc.C, terms chan<- changestream.Term) <-chan
 }
 
 type changeEvent struct {
-	ctype       changestream.ChangeType
-	ns, changed string
+	ctype                      changestream.ChangeType
+	ns, changed, discriminator string
 }
 
 // Type returns the type of change (create, update, delete).
@@ -108,6 +108,13 @@ func (c changeEvent) Namespace() string {
 // that was changed.
 func (c changeEvent) Changed() string {
 	return c.changed
+}
+
+// Discriminator returns the discriminator value of event.
+// This is expected to be an immutable column which can be
+// used to filter to event.
+func (c changeEvent) Discriminator() string {
+	return c.discriminator
 }
 
 type waitGroup struct {
