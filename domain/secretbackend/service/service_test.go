@@ -353,7 +353,7 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 		})
 	}
 	s.mockState.EXPECT().ListSecretBackends(gomock.Any()).Return(backends, nil)
-	s.mockState.EXPECT().ListKubernetesSecretBackends(gomock.Any()).Return(listK8sBackendResult, nil)
+	s.mockState.EXPECT().ListInUseKubernetesSecretBackends(gomock.Any()).Return(listK8sBackendResult, nil)
 	s.mockRegistry.EXPECT().Type().Return(vault.BackendType).AnyTimes()
 	if set.NewStrings(names...).Contains("myvault") || len(names) == 0 {
 		s.mockRegistry.EXPECT().NewBackend(&provider.ModelBackendConfig{

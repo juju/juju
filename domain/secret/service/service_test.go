@@ -110,10 +110,6 @@ func (t successfulToken) Check() error {
 	return nil
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *serviceSuite) TestCreateUserSecretURIs(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -145,6 +141,7 @@ func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFail
 		Label:       ptr("my secret"),
 		AutoPrune:   ptr(true),
 		Checksum:    "checksum-1234",
+		RevisionID:  ptr(s.fakeUUID.String()),
 	}
 	if isInternal {
 		params.Data = map[string]string{"foo": "bar"}
@@ -180,8 +177,8 @@ func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFail
 		s.secretsBackend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)
 	}
 
-	s.state.EXPECT().CreateUserSecret(gomock.Any(), 1, uri, s.fakeUUID, params).
-		DoAndReturn(func(context.Context, int, *coresecrets.URI, uuid.UUID, domainsecret.UpsertSecretParams) error {
+	s.state.EXPECT().CreateUserSecret(gomock.Any(), 1, uri, params).
+		DoAndReturn(func(context.Context, int, *coresecrets.URI, domainsecret.UpsertSecretParams) error {
 			if finalStepFailed {
 				return errors.New("some error")
 			}
@@ -241,6 +238,7 @@ func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFail
 		Label:       ptr("my secret"),
 		AutoPrune:   ptr(true),
 		Checksum:    "checksum-1234",
+		RevisionID:  ptr(s.fakeUUID.String()),
 	}
 	if isInternal {
 		params.Data = map[string]string{"foo": "bar"}
@@ -261,8 +259,8 @@ func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFail
 		rollbackCalled = true
 		return nil
 	}, nil)
-	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, s.fakeUUID, params).
-		DoAndReturn(func(context.Context, *coresecrets.URI, uuid.UUID, domainsecret.UpsertSecretParams) error {
+	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, params).
+		DoAndReturn(func(context.Context, *coresecrets.URI, domainsecret.UpsertSecretParams) error {
 			if finalStepFailed {
 				return errors.New("some error")
 			}
@@ -302,10 +300,11 @@ func (s *serviceSuite) TestCreateCharmUnitSecret(c *gc.C) {
 		Checksum:       "checksum-1234",
 		ExpireTime:     ptr(exipreTime),
 		NextRotateTime: ptr(rotateTime),
+		RevisionID:     ptr(s.fakeUUID.String()),
 	}
 
-	s.state.EXPECT().CreateCharmUnitSecret(gomock.Any(), 1, uri, s.fakeUUID, "mariadb/0", gomock.AssignableToTypeOf(p)).
-		DoAndReturn(func(_ context.Context, _ int, _ *coresecrets.URI, _ uuid.UUID, _ string, got domainsecret.UpsertSecretParams) error {
+	s.state.EXPECT().CreateCharmUnitSecret(gomock.Any(), 1, uri, "mariadb/0", gomock.AssignableToTypeOf(p)).
+		DoAndReturn(func(_ context.Context, _ int, _ *coresecrets.URI, _ string, got domainsecret.UpsertSecretParams) error {
 			c.Assert(got.NextRotateTime, gc.NotNil)
 			c.Assert(*got.NextRotateTime, jc.Almost, rotateTime)
 			got.NextRotateTime = nil
@@ -358,10 +357,11 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *gc.C) {
 		Checksum:       "checksum-1234",
 		ExpireTime:     ptr(exipreTime),
 		NextRotateTime: ptr(rotateTime),
+		RevisionID:     ptr(s.fakeUUID.String()),
 	}
 
-	s.state.EXPECT().CreateCharmApplicationSecret(gomock.Any(), 1, uri, s.fakeUUID, "mariadb", gomock.AssignableToTypeOf(p)).
-		DoAndReturn(func(_ context.Context, _ int, _ *coresecrets.URI, _ uuid.UUID, _ string, got domainsecret.UpsertSecretParams) error {
+	s.state.EXPECT().CreateCharmApplicationSecret(gomock.Any(), 1, uri, "mariadb", gomock.AssignableToTypeOf(p)).
+		DoAndReturn(func(_ context.Context, _ int, _ *coresecrets.URI, _ string, got domainsecret.UpsertSecretParams) error {
 			c.Assert(got.NextRotateTime, gc.NotNil)
 			c.Assert(*got.NextRotateTime, jc.Almost, rotateTime)
 			got.NextRotateTime = nil
@@ -412,6 +412,7 @@ func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *gc.C) {
 		Data:         coresecrets.SecretData{"foo": "bar"},
 		Checksum:     "checksum-1234",
 		ExpireTime:   ptr(exipreTime),
+		RevisionID:   ptr(s.fakeUUID.String()),
 	}
 
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
@@ -423,7 +424,7 @@ func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *gc.C) {
 		rollbackCalled = true
 		return nil
 	}, nil)
-	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, s.fakeUUID, p).Return(nil)
+	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, p).Return(nil)
 
 	err := s.service.UpdateCharmSecret(context.Background(), uri, UpdateCharmSecretParams{
 		LeaderToken: successfulToken{},
@@ -452,6 +453,7 @@ func (s *serviceSuite) TestUpdateCharmSecret(c *gc.C) {
 		Data:           coresecrets.SecretData{"foo": "bar"},
 		Checksum:       "checksum-1234",
 		NextRotateTime: ptr(s.clock.Now().AddDate(0, 0, 1)),
+		RevisionID:     ptr(s.fakeUUID.String()),
 	}
 
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
@@ -467,7 +469,7 @@ func (s *serviceSuite) TestUpdateCharmSecret(c *gc.C) {
 		rollbackCalled = true
 		return nil
 	}, nil)
-	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, s.fakeUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ *coresecrets.URI, _ uuid.UUID, got domainsecret.UpsertSecretParams) error {
+	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, gomock.Any()).DoAndReturn(func(_ context.Context, _ *coresecrets.URI, got domainsecret.UpsertSecretParams) error {
 		c.Assert(got.NextRotateTime, gc.NotNil)
 		c.Assert(*got.NextRotateTime, jc.Almost, *p.NextRotateTime)
 		got.NextRotateTime = nil
@@ -1101,7 +1103,7 @@ func (s *serviceSuite) TestChangeSecretBackendToExternalBackend(c *gc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID, nil)
+	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
 	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), s.fakeUUID, valueRef, nil).Return(nil)
 	rollbackCalled := false
 	s.secretBackendReferenceMutator.EXPECT().UpdateSecretBackendReference(gomock.Any(), valueRef, s.modelID, s.fakeUUID).Return(func() error {
@@ -1131,7 +1133,7 @@ func (s *serviceSuite) TestChangeSecretBackendToInternalBackend(c *gc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID, nil)
+	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
 	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), s.fakeUUID, nil, map[string]string{"foo": "bar"}).Return(nil)
 	rollbackCalled := false
 	s.secretBackendReferenceMutator.EXPECT().UpdateSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID).Return(func() error {
@@ -1161,7 +1163,7 @@ func (s *serviceSuite) TestChangeSecretBackendFailedAndRollback(c *gc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID, nil)
+	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
 	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), s.fakeUUID, nil, map[string]string{"foo": "bar"}).Return(errors.New("boom"))
 	rollbackCalled := false
 	s.secretBackendReferenceMutator.EXPECT().UpdateSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID).Return(func() error {
@@ -1212,7 +1214,7 @@ func (s *serviceSuite) TestChangeSecretBackendFailedSecretNotFound(c *gc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID, nil)
+	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
 	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), s.fakeUUID, nil, map[string]string{"foo": "bar"}).Return(secreterrors.SecretNotFound)
 	rollbackCalled := false
 	s.secretBackendReferenceMutator.EXPECT().UpdateSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID).Return(func() error {
@@ -1485,7 +1487,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretUpda
 		SubjectID:     "mariadb/0",
 		SubjectTypeID: domainsecret.SubjectUnit,
 	}).Return("manage", nil)
-	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, s.fakeUUID, domainsecret.UpsertSecretParams{
+	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, domainsecret.UpsertSecretParams{
 		RotatePolicy: ptr(domainsecret.RotateNever),
 		Label:        ptr("foo"),
 	}).Return(nil)

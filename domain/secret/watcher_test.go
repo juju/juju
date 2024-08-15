@@ -74,9 +74,10 @@ func revID(uri *coresecrets.URI, rev int) string {
 
 func createNewRevision(c *gc.C, st *state.State, uri *coresecrets.URI) {
 	sp := secret.UpsertSecretParams{
-		Data: coresecrets.SecretData{"foo-new": "bar-new"},
+		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
+		RevisionID: ptr(uuid.MustNewUUID().String()),
 	}
-	err := st.UpdateSecret(context.Background(), uri, uuid.MustNewUUID(), sp)
+	err := st.UpdateSecret(context.Background(), uri, sp)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -104,19 +105,23 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, uuid.MustNewUUID(), "mysql", sp)
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql/0", sp)
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri3 := coresecrets.NewURI()
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri3, uuid.MustNewUUID(), "mediawiki", sp)
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri3, "mediawiki", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri4 := coresecrets.NewURI()
-	err = st.CreateCharmUnitSecret(ctx, 1, uri4, uuid.MustNewUUID(), "mediawiki/0", sp)
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err = st.CreateCharmUnitSecret(ctx, 1, uri4, "mediawiki/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	watchAll, err := svc.WatchObsolete(ctx,
@@ -187,11 +192,13 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *gc.C) {
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, uuid.MustNewUUID(), "mysql", sp)
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql/0", sp)
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	watchSingleApplicaiton, err := svc.WatchObsolete(ctx,
@@ -241,11 +248,13 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, uuid.MustNewUUID(), "mysql", sp)
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql/0", sp)
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	watchSingleUnit, err := svc.WatchObsolete(ctx,
@@ -294,13 +303,15 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	uri2 := coresecrets.NewURI()
 	c.Logf("uri1: %v, uri2: %v", uri1, uri2)
 
-	err := st.CreateUserSecret(ctx, 1, uri1, uuid.MustNewUUID(), secret.UpsertSecretParams{
-		Data: data,
+	err := st.CreateUserSecret(ctx, 1, uri1, secret.UpsertSecretParams{
+		Data:       data,
+		RevisionID: ptr(uuid.MustNewUUID().String()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateUserSecret(ctx, 1, uri2, uuid.MustNewUUID(), secret.UpsertSecretParams{
-		Data:      data,
-		AutoPrune: ptr(true),
+	err = st.CreateUserSecret(ctx, 1, uri2, secret.UpsertSecretParams{
+		Data:       data,
+		AutoPrune:  ptr(true),
+		RevisionID: ptr(uuid.MustNewUUID().String()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -322,7 +333,7 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	createNewRevision(c, st, uri2)
 	wc.AssertNChanges(2)
 
-	err = st.UpdateSecret(context.Background(), uri1, uuid.MustNewUUID(), secret.UpsertSecretParams{
+	err = st.UpdateSecret(context.Background(), uri1, secret.UpsertSecretParams{
 		AutoPrune: ptr(true),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -356,11 +367,13 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, uuid.MustNewUUID(), "mysql", sp)
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql", sp)
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The consumed revision 1 is the initial revision - will be ignored.
@@ -501,12 +514,14 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, uuid.MustNewUUID(), "mysql", sp)
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 	uri1.SourceUUID = s.ModelUUID()
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mysql", sp)
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 	uri2.SourceUUID = s.ModelUUID()
 
@@ -574,11 +589,13 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, uuid.MustNewUUID(), "mysql", sp)
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
-	err = st.CreateCharmUnitSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mediawiki/0", sp)
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mediawiki/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 	createNewRevision(c, st, uri2)
 
@@ -669,8 +686,9 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 	uri2 := coresecrets.NewURI()
 	c.Logf("uri1: %v, uri2: %v", uri1, uri2)
 
-	err := st.CreateCharmUnitSecret(ctx, 1, uri2, uuid.MustNewUUID(), "mediawiki/0", secret.UpsertSecretParams{
-		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	err := st.CreateCharmUnitSecret(ctx, 1, uri2, "mediawiki/0", secret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
+		RevisionID: ptr(uuid.MustNewUUID().String()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -695,15 +713,17 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 	wc.AssertNoChange()
 
 	now := time.Now()
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri1, uuid.MustNewUUID(), "mysql", secret.UpsertSecretParams{
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", secret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		ExpireTime: ptr(now.Add(1 * time.Hour)),
+		RevisionID: ptr(uuid.MustNewUUID().String()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.UpdateSecret(context.Background(), uri2, uuid.MustNewUUID(), secret.UpsertSecretParams{
+	err = st.UpdateSecret(context.Background(), uri2, secret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
 		ExpireTime: ptr(now.Add(2 * time.Hour)),
+		RevisionID: ptr(uuid.MustNewUUID().String()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

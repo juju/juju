@@ -190,7 +190,7 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 		CurrentRevision: 666,
 	})
 
-	s.state.EXPECT().CreateCharmApplicationSecret(gomock.Any(), 0, uri, s.fakeUUID, "mysql", domainsecret.UpsertSecretParams{
+	s.state.EXPECT().CreateCharmApplicationSecret(gomock.Any(), 0, uri, "mysql", domainsecret.UpsertSecretParams{
 		RotatePolicy:   ptr(domainsecret.RotateHourly),
 		ExpireTime:     nil,
 		NextRotateTime: ptr(rotateTime),
@@ -198,12 +198,14 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 		Label:          ptr(secrets[0].Label),
 		AutoPrune:      nil,
 		Data:           map[string]string{"foo": "bar"},
+		RevisionID:     ptr(s.fakeUUID.String()),
 	})
 	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID).Return(
 		func() error { return nil }, nil,
 	)
-	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, s.fakeUUID, domainsecret.UpsertSecretParams{
+	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, domainsecret.UpsertSecretParams{
 		ExpireTime: ptr(expireTime),
+		RevisionID: ptr(s.fakeUUID.String()),
 		ValueRef: &coresecrets.ValueRef{
 			BackendID:  "backend-id",
 			RevisionID: "revision-id",
@@ -239,11 +241,12 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 		RoleID:        1,
 	})
 
-	s.state.EXPECT().CreateUserSecret(gomock.Any(), 0, uri3, s.fakeUUID, domainsecret.UpsertSecretParams{
+	s.state.EXPECT().CreateUserSecret(gomock.Any(), 0, uri3, domainsecret.UpsertSecretParams{
 		Description: ptr(secrets[1].Description),
 		AutoPrune:   ptr(secrets[1].AutoPrune),
 		Data:        map[string]string{"foo": "baz"},
 		Checksum:    "checksum-1234",
+		RevisionID:  ptr(s.fakeUUID.String()),
 	})
 	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID).Return(
 		func() error { return nil }, nil,

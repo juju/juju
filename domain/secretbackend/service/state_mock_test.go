@@ -362,19 +362,19 @@ func (c *MockStateInitialWatchStatementForSecretBackendRotationChangesCall) DoAn
 	return c
 }
 
-// ListKubernetesSecretBackends mocks base method.
-func (m *MockState) ListKubernetesSecretBackends(arg0 context.Context) ([]*secretbackend.SecretBackend, error) {
+// ListInUseKubernetesSecretBackends mocks base method.
+func (m *MockState) ListInUseKubernetesSecretBackends(arg0 context.Context) ([]*secretbackend.SecretBackend, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListKubernetesSecretBackends", arg0)
+	ret := m.ctrl.Call(m, "ListInUseKubernetesSecretBackends", arg0)
 	ret0, _ := ret[0].([]*secretbackend.SecretBackend)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListKubernetesSecretBackends indicates an expected call of ListKubernetesSecretBackends.
-func (mr *MockStateMockRecorder) ListKubernetesSecretBackends(arg0 any) *MockStateListKubernetesSecretBackendsCall {
+// ListInUseKubernetesSecretBackends indicates an expected call of ListInUseKubernetesSecretBackends.
+func (mr *MockStateMockRecorder) ListInUseKubernetesSecretBackends(arg0 any) *MockStateListKubernetesSecretBackendsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKubernetesSecretBackends", reflect.TypeOf((*MockState)(nil).ListKubernetesSecretBackends), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInUseKubernetesSecretBackends", reflect.TypeOf((*MockState)(nil).ListInUseKubernetesSecretBackends), arg0)
 	return &MockStateListKubernetesSecretBackendsCall{Call: call}
 }
 

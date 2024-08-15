@@ -134,8 +134,6 @@ type SecretBackendRow struct {
 	ConfigContent string `db:"config_content"`
 	// NumSecrets is the number of secrets stored in the secret backend.
 	NumSecrets int `db:"num_secrets"`
-	// ModelName is the name of the model.
-	ModelName string `db:"model_name"`
 }
 
 // SecretBackendRows represents a slice of SecretBackendRow.
@@ -176,6 +174,13 @@ func (rows SecretBackendRows) toSecretBackends() []*secretbackend.SecretBackend 
 		currentBackend.Config[row.ConfigName] = row.ConfigContent
 	}
 	return result
+}
+
+// SecretBackendForK8sModelRow represents a single joined result from secret_backend, secret_backend_reference and model tables.
+type SecretBackendForK8sModelRow struct {
+	SecretBackendRow
+	// ModelName is the name of the model.
+	ModelName string `db:"model_name"`
 }
 
 // SecretBackendRotationRow represents a single joined result from

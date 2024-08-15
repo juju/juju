@@ -21,17 +21,17 @@ import (
 type State interface {
 	GetModelUUID(ctx context.Context) (string, error)
 	CreateUserSecret(
-		ctx context.Context, version int, uri *secrets.URI, revisionID uuid.UUID, secret domainsecret.UpsertSecretParams,
+		ctx context.Context, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams,
 	) error
 	CreateCharmApplicationSecret(
-		ctx context.Context, version int, uri *secrets.URI, revisionID uuid.UUID, appName string, secret domainsecret.UpsertSecretParams,
+		ctx context.Context, version int, uri *secrets.URI, appName string, secret domainsecret.UpsertSecretParams,
 	) error
 	CreateCharmUnitSecret(
-		ctx context.Context, version int, uri *secrets.URI, revisionID uuid.UUID, unitName string, secret domainsecret.UpsertSecretParams,
+		ctx context.Context, version int, uri *secrets.URI, unitName string, secret domainsecret.UpsertSecretParams,
 	) error
-	UpdateSecret(ctx context.Context, uri *secrets.URI, revisionID uuid.UUID, secret domainsecret.UpsertSecretParams) error
-	DeleteSecret(ctx context.Context, uri *secrets.URI, revs []int) ([]uuid.UUID, error)
-	DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]uuid.UUID, error)
+	UpdateSecret(ctx context.Context, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
+	DeleteSecret(ctx context.Context, uri *secrets.URI, revs []int) ([]string, error)
+	DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string, error)
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetLatestRevision(ctx context.Context, uri *secrets.URI) (int, error)
 	ListExternalSecretRevisions(ctx context.Context, uri *secrets.URI, revisions ...int) ([]secrets.ValueRef, error)
@@ -65,7 +65,7 @@ type State interface {
 	SecretRotated(ctx context.Context, uri *secrets.URI, next time.Time) error
 	GetRotatePolicy(ctx context.Context, uri *secrets.URI) (secrets.RotatePolicy, error)
 	GetRotationExpiryInfo(ctx context.Context, uri *secrets.URI) (*domainsecret.RotationExpiryInfo, error)
-	GetSecretRevisionID(ctx context.Context, uri *secrets.URI, revision int) (uuid.UUID, error)
+	GetSecretRevisionID(ctx context.Context, uri *secrets.URI, revision int) (string, error)
 	ChangeSecretBackend(
 		ctx context.Context, revisionID uuid.UUID, valueRef *secrets.ValueRef, data secrets.SecretData,
 	) error

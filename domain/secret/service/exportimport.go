@@ -227,6 +227,7 @@ func (s *SecretService) importSecretRevisions(
 		if err != nil {
 			return errors.Trace(err)
 		}
+		params.RevisionID = ptr(revisionID.String())
 
 		rollBack := func() error { return nil }
 		if params.ValueRef != nil || len(params.Data) != 0 {
@@ -235,7 +236,7 @@ func (s *SecretService) importSecretRevisions(
 				return errors.Trace(err)
 			}
 		}
-		if err := s.secretState.UpdateSecret(ctx, md.URI, revisionID, params); err != nil {
+		if err := s.secretState.UpdateSecret(ctx, md.URI, params); err != nil {
 			if err := rollBack(); err != nil {
 				s.logger.Warningf("failed to roll back secret reference count: %v", err)
 			}
@@ -267,6 +268,7 @@ func (s *SecretService) createImportedSecret(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	params.RevisionID = ptr(revisionID.String())
 	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, params.ValueRef, s.modelID, revisionID)
 	if err != nil {
 		return errors.Trace(err)
@@ -280,11 +282,11 @@ func (s *SecretService) createImportedSecret(
 	}()
 	switch md.Owner.Kind {
 	case coresecrets.ModelOwner:
-		err = s.secretState.CreateUserSecret(ctx, md.Version, md.URI, revisionID, params)
+		err = s.secretState.CreateUserSecret(ctx, md.Version, md.URI, params)
 	case coresecrets.ApplicationOwner:
-		err = s.secretState.CreateCharmApplicationSecret(ctx, md.Version, md.URI, revisionID, md.Owner.ID, params)
+		err = s.secretState.CreateCharmApplicationSecret(ctx, md.Version, md.URI, md.Owner.ID, params)
 	case coresecrets.UnitOwner:
-		err = s.secretState.CreateCharmUnitSecret(ctx, md.Version, md.URI, revisionID, md.Owner.ID, params)
+		err = s.secretState.CreateCharmUnitSecret(ctx, md.Version, md.URI, md.Owner.ID, params)
 	default:
 		// Should never happen.
 		return errors.Errorf("cannot import secret %q with owner kind %q", md.URI.ID, md.Owner.Kind)

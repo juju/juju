@@ -411,7 +411,7 @@ func (s *Service) BackendSummaryInfo(ctx context.Context, reveal bool, names ...
 		})
 	}
 
-	k8sBackends, err := s.st.ListKubernetesSecretBackends(ctx)
+	k8sBackends, err := s.st.ListInUseKubernetesSecretBackends(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

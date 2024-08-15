@@ -18,10 +18,10 @@ type BackendIdentifier struct {
 
 // String returns the identifier as a string.
 func (i BackendIdentifier) String() string {
-	if i.ID != "" {
-		return i.ID
+	if i.Name != "" {
+		return i.Name
 	}
-	return i.Name
+	return i.ID
 }
 
 // CreateSecretBackendParams are used to create a secret backend.

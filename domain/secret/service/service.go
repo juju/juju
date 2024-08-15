@@ -173,6 +173,7 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 	if err != nil {
 		return errors.Trace(err)
 	}
+	p.RevisionID = ptr(revisionID.String())
 
 	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, s.modelID, revisionID)
 	if err != nil {
@@ -186,10 +187,14 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}
 	}()
 
-	if err = s.secretState.CreateUserSecret(ctx, params.Version, uri, revisionID, p); err != nil {
+	if err = s.secretState.CreateUserSecret(ctx, params.Version, uri, p); err != nil {
 		return errors.Annotatef(err, "cannot create user secret %q", uri.ID)
 	}
 	return nil
+}
+
+func ptr[T any](s T) *T {
+	return &s
 }
 
 // CreateCharmSecret creates a charm secret with the specified parameters, returning an error
@@ -224,6 +229,7 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 	if err != nil {
 		return errors.Trace(err)
 	}
+	p.RevisionID = ptr(revisionID.String())
 
 	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, s.modelID, revisionID)
 	if err != nil {
@@ -247,9 +253,9 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 			}
 			return errors.Trace(err)
 		}
-		err = s.secretState.CreateCharmApplicationSecret(ctx, params.Version, uri, revisionID, params.CharmOwner.ID, p)
+		err = s.secretState.CreateCharmApplicationSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
 	} else {
-		err = s.secretState.CreateCharmUnitSecret(ctx, params.Version, uri, revisionID, params.CharmOwner.ID, p)
+		err = s.secretState.CreateCharmUnitSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
 	}
 	if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
 		return errors.Errorf("secret with label %q is already being used", *params.Label)
@@ -319,12 +325,12 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}
 	}
 
-	revisionID, err := s.uuidGenerator()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	if p.ValueRef != nil || len(p.Data) != 0 {
+		revisionID, err := s.uuidGenerator()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		p.RevisionID = ptr(revisionID.String())
 		rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, s.modelID, revisionID)
 		if err != nil {
 			return errors.Trace(err)
@@ -338,7 +344,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}()
 	}
 
-	if err := s.secretState.UpdateSecret(ctx, uri, revisionID, p); err != nil {
+	if err := s.secretState.UpdateSecret(ctx, uri, p); err != nil {
 		return errors.Annotatef(err, "cannot update user secret %q", uri.ID)
 	}
 	return nil
@@ -383,12 +389,12 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 		}
 	}
 
-	revisionID, err := s.uuidGenerator()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	if p.ValueRef != nil || len(p.Data) != 0 {
+		revisionID, err := s.uuidGenerator()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		p.RevisionID = ptr(revisionID.String())
 		rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, s.modelID, revisionID)
 		if err != nil {
 			return errors.Trace(err)
@@ -402,7 +408,7 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 		}()
 	}
 
-	err = s.secretState.UpdateSecret(ctx, uri, revisionID, p)
+	err := s.secretState.UpdateSecret(ctx, uri, p)
 	if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
 		return errors.Errorf("secret with label %q is already being used", *params.Label)
 	}
@@ -668,7 +674,11 @@ func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.UR
 	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
 		return errors.Trace(err)
 	}
-	revisionID, err := s.secretState.GetSecretRevisionID(ctx, uri, revision)
+	revisionIDStr, err := s.secretState.GetSecretRevisionID(ctx, uri, revision)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	revisionID, err := uuid.UUIDFromString(revisionIDStr)
 	if err != nil {
 		return errors.Trace(err)
 	}

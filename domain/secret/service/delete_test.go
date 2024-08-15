@@ -29,7 +29,7 @@ func (s *serviceSuite) TestDeleteSecretInternal(c *gc.C) {
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
 	s.state.EXPECT().ListExternalSecretRevisions(gomock.Any(), uri, 666).Return([]coresecrets.ValueRef{}, nil)
-	s.state.EXPECT().DeleteSecret(gomock.Any(), uri, []int{666}).Return([]uuid.UUID{revisionID}, nil)
+	s.state.EXPECT().DeleteSecret(gomock.Any(), uri, []int{666}).Return([]string{revisionID.String()}, nil)
 	s.secretBackendReferenceMutator.EXPECT().RemoveSecretBackendReference(gomock.Any(), revisionID).Return(nil)
 
 	err = s.service.DeleteSecret(context.Background(), uri, DeleteSecretParams{
@@ -67,7 +67,7 @@ func (s *serviceSuite) TestDeleteSecretExternal(c *gc.C) {
 		BackendID:  "backend-id",
 		RevisionID: "rev-id",
 	}}, nil)
-	s.state.EXPECT().DeleteSecret(gomock.Any(), uri, []int{666}).Return([]uuid.UUID{revisionID}, nil)
+	s.state.EXPECT().DeleteSecret(gomock.Any(), uri, []int{666}).Return([]string{revisionID.String()}, nil)
 	s.secretBackendReferenceMutator.EXPECT().RemoveSecretBackendReference(gomock.Any(), revisionID).Return(nil)
 
 	err = s.service.DeleteSecret(context.Background(), uri, DeleteSecretParams{
@@ -90,7 +90,7 @@ func (s *serviceSuite) TestDeleteObsoleteUserSecretRevisions(c *gc.C) {
 	revisionID2, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.state.EXPECT().DeleteObsoleteUserSecretRevisions(gomock.Any()).Return([]uuid.UUID{revisionID1, revisionID2}, nil)
+	s.state.EXPECT().DeleteObsoleteUserSecretRevisions(gomock.Any()).Return([]string{revisionID1.String(), revisionID2.String()}, nil)
 	s.secretBackendReferenceMutator.EXPECT().RemoveSecretBackendReference(gomock.Any(), revisionID1, revisionID2).Return(nil)
 
 	err = s.service.DeleteObsoleteUserSecretRevisions(context.Background())

@@ -800,7 +800,7 @@ WHERE model_uuid = ?`[1:], modelUUID)
 	err = s.state.DeleteSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: s.vaultBackendID}, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	refCount, err := s.state.GetSecretBackendReference(context.Background(), s.vaultBackendID)
+	refCount, err := s.state.GetSecretBackendReferenceCount(context.Background(), s.vaultBackendID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(refCount, gc.Equals, 0)
 
@@ -853,8 +853,8 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 		TokenRotateInterval: &rotateInternal1,
 		NextRotateTime:      &nextRotateTime1,
 		Config: map[string]string{
-			"key1": "value1",
-			"key2": "value2",
+			"key3": "value3",
+			"key4": "value4",
 		},
 	})
 	c.Assert(err, gc.IsNil)
@@ -864,16 +864,19 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal1,
 		Config: map[string]string{
-			"key1": "value1",
-			"key2": "value2",
+			"key3": "value3",
+			"key4": "value4",
 		},
 	}, &nextRotateTime1)
 
 	modelUUID := s.createModel(c, coremodel.IAAS)
 	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-backend1")
 	c.Assert(err, gc.IsNil)
-	secrectRevisionID := uuid.MustNewUUID()
-	_, err = s.state.AddSecretBackendReference(context.Background(), &secrets.ValueRef{BackendID: backendID1}, modelUUID, secrectRevisionID)
+	secrectRevisionID1 := uuid.MustNewUUID()
+	_, err = s.state.AddSecretBackendReference(context.Background(), &secrets.ValueRef{BackendID: backendID1}, modelUUID, secrectRevisionID1)
+	c.Assert(err, gc.IsNil)
+	secrectRevisionID2 := uuid.MustNewUUID()
+	_, err = s.state.AddSecretBackendReference(context.Background(), &secrets.ValueRef{BackendID: backendID1}, modelUUID, secrectRevisionID2)
 	c.Assert(err, gc.IsNil)
 
 	backendID2 := uuid.MustNewUUID().String()
@@ -888,8 +891,8 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 		TokenRotateInterval: &rotateInternal2,
 		NextRotateTime:      &nextRotateTime2,
 		Config: map[string]string{
-			"key3": "value3",
-			"key4": "value4",
+			"key5": "value5",
+			"key6": "value6",
 		},
 	})
 	c.Assert(err, gc.IsNil)
@@ -899,8 +902,8 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 		BackendType:         "kubernetes",
 		TokenRotateInterval: &rotateInternal2,
 		Config: map[string]string{
-			"key3": "value3",
-			"key4": "value4",
+			"key5": "value5",
+			"key6": "value6",
 		},
 	}, &nextRotateTime2)
 
@@ -928,10 +931,10 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 			BackendType:         "vault",
 			TokenRotateInterval: &rotateInternal1,
 			Config: map[string]string{
-				"key1": "value1",
-				"key2": "value2",
+				"key3": "value3",
+				"key4": "value4",
 			},
-			NumSecrets: 1,
+			NumSecrets: 2,
 		},
 		{
 			ID:                  backendID2,
@@ -939,8 +942,8 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 			BackendType:         "kubernetes",
 			TokenRotateInterval: &rotateInternal2,
 			Config: map[string]string{
-				"key3": "value3",
-				"key4": "value4",
+				"key5": "value5",
+				"key6": "value6",
 			},
 		},
 	})
@@ -1261,7 +1264,7 @@ func (s *stateSuite) TestListKubernetesSecretBackends(c *gc.C) {
 	_, err = s.state.AddSecretBackendReference(context.Background(), &secrets.ValueRef{BackendID: s.kubernetesBackendID}, modelUUID, secrectRevisionID)
 	c.Assert(err, gc.IsNil)
 
-	backends, err := s.state.ListKubernetesSecretBackends(context.Background())
+	backends, err := s.state.ListInUseKubernetesSecretBackends(context.Background())
 	c.Assert(err, gc.IsNil)
 	c.Assert(backends, gc.HasLen, 1)
 	c.Assert(backends, jc.DeepEquals, []*secretbackend.SecretBackend{
@@ -1615,14 +1618,14 @@ func (s *stateSuite) TestGetSecretBackendReference(c *gc.C) {
 	_, err := s.state.AddSecretBackendReference(context.Background(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	refCount, err := s.state.GetSecretBackendReference(context.Background(), s.vaultBackendID)
+	refCount, err := s.state.GetSecretBackendReferenceCount(context.Background(), s.vaultBackendID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(refCount, gc.Equals, 1)
 }
 
 func (s *stateSuite) TestGetSecretBackendReferenceNotFound(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
-	refCount, err := s.state.GetSecretBackendReference(context.Background(), backendID)
+	refCount, err := s.state.GetSecretBackendReferenceCount(context.Background(), backendID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(refCount, gc.Equals, 0)
 }

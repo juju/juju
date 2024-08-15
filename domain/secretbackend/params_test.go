@@ -14,6 +14,17 @@ type paramsSuite struct{}
 
 var _ = gc.Suite(&paramsSuite{})
 
+func (s *paramsSuite) TestBackendIdentifierString(c *gc.C) {
+	id := BackendIdentifier{
+		ID:   "backend-id",
+		Name: "backend-name",
+	}
+	c.Check(id.String(), gc.Equals, "backend-name")
+
+	id.Name = ""
+	c.Check(id.String(), gc.Equals, "backend-id")
+}
+
 func (s *paramsSuite) TestCreateSecretBackendParamsValidate(c *gc.C) {
 	p := CreateSecretBackendParams{}
 	err := p.Validate()
