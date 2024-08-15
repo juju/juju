@@ -4,6 +4,7 @@
 package resources_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/testing"
@@ -39,7 +40,7 @@ func (s *BaseSuite) setUpTest(c *gc.C) *gomock.Controller {
 }
 
 func (s *BaseSuite) newFacade(c *gc.C) *resources.API {
-	factoryFunc := func(_ *charm.URL) (resources.NewCharmRepository, error) {
+	factoryFunc := func(context.Context, *charm.URL) (resources.NewCharmRepository, error) {
 		return s.factory, nil
 	}
 	facade, err := resources.NewResourcesAPI(s.backend, factoryFunc, loggertesting.WrapCheckLog(c))

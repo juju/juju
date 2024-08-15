@@ -4,6 +4,8 @@
 package resources_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -20,13 +22,13 @@ type FacadeSuite struct {
 
 func (s *FacadeSuite) TestNewFacadeOkay(c *gc.C) {
 	defer s.setUpTest(c).Finish()
-	_, err := resources.NewResourcesAPI(s.backend, func(*charm.URL) (resources.NewCharmRepository, error) { return s.factory, nil }, loggertesting.WrapCheckLog(c))
+	_, err := resources.NewResourcesAPI(s.backend, func(context.Context, *charm.URL) (resources.NewCharmRepository, error) { return s.factory, nil }, loggertesting.WrapCheckLog(c))
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *FacadeSuite) TestNewFacadeMissingDataStore(c *gc.C) {
 	defer s.setUpTest(c).Finish()
-	_, err := resources.NewResourcesAPI(nil, func(*charm.URL) (resources.NewCharmRepository, error) { return s.factory, nil }, loggertesting.WrapCheckLog(c))
+	_, err := resources.NewResourcesAPI(nil, func(context.Context, *charm.URL) (resources.NewCharmRepository, error) { return s.factory, nil }, loggertesting.WrapCheckLog(c))
 	c.Check(err, gc.ErrorMatches, `missing data backend`)
 }
 
