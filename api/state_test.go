@@ -223,7 +223,7 @@ func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
 }
 
 func (s *stateSuite) TestBestFacadeVersion(c *gc.C) {
-	c.Check(s.APIState.BestFacadeVersion("Client"), gc.Equals, 7)
+	c.Check(s.APIState.BestFacadeVersion("Client"), gc.Equals, 8)
 }
 
 func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {

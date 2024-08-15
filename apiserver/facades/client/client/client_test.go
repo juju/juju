@@ -82,9 +82,6 @@ func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.A
 	s.newEnviron = func() (environs.BootstrapEnviron, error) {
 		return environs.GetEnviron(stateenvirons.EnvironConfigGetter{Model: m}, environs.New)
 	}
-	client.SetNewEnviron(apiserverClient, func() (environs.BootstrapEnviron, error) {
-		return s.newEnviron()
-	})
 	return apiserverClient
 }
 
@@ -463,11 +460,16 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 	)
 
-	api, err := client.NewClient(
-		backend, nil,
-		nil, nil,
-		authorizer, nil, toolsFinder,
-		nil, nil, nil, nil, nil, nil,
+	api, err := client.NewClientV7(
+		backend,
+		nil,
+		nil,
+		authorizer,
+		nil,
+		toolsFinder,
+		nil,
+		nil,
+		nil,
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
 			return registryProvider, nil
 		},
@@ -553,11 +555,16 @@ func (s *findToolsSuite) assertFindToolsCAASReleased(c *gc.C, wantArch, expectAr
 		registryProvider.EXPECT().Close().Return(nil),
 	)
 
-	api, err := client.NewClient(
-		backend, nil,
-		nil, nil,
-		authorizer, nil, toolsFinder,
-		nil, nil, nil, nil, nil, nil,
+	api, err := client.NewClientV7(
+		backend,
+		nil,
+		nil,
+		authorizer,
+		nil,
+		toolsFinder,
+		nil,
+		nil,
+		nil,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
 			c.Assert(repo, gc.DeepEquals, docker.ImageRepoDetails{
 				Repository:    "test-account",
@@ -637,11 +644,16 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		registryProvider.EXPECT().Close().Return(nil),
 	)
 
-	api, err := client.NewClient(
-		backend, nil,
-		nil, nil,
-		authorizer, nil, toolsFinder,
-		nil, nil, nil, nil, nil, nil,
+	api, err := client.NewClientV7(
+		backend,
+		nil,
+		nil,
+		authorizer,
+		nil,
+		toolsFinder,
+		nil,
+		nil,
+		nil,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
 			c.Assert(repo, gc.DeepEquals, docker.ImageRepoDetails{
 				Repository:    "test-account",

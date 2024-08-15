@@ -3,16 +3,9 @@
 
 package client
 
-import (
-	"github.com/juju/juju/environs"
-)
-
 // Filtering exports
 var (
 	MatchPortRanges = matchPortRanges
 	MatchSubnet     = matchSubnet
+	NewFacade       = newFacadeV8
 )
-
-func SetNewEnviron(c *Client, newEnviron func() (environs.BootstrapEnviron, error)) {
-	c.newEnviron = newEnviron
-}

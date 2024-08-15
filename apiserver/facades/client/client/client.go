@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
-	"github.com/juju/juju/environs/context"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
@@ -35,45 +34,41 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.client")
 
-type API struct {
+// Client serves client-specific API methods.
+type Client struct {
 	stateAccessor   Backend
-	pool            Pool
 	storageAccessor StorageInterface
 	auth            facade.Authorizer
 	resources       facade.Resources
 	presence        facade.Presence
 
 	multiwatcherFactory multiwatcher.Factory
-
-	toolsFinder      common.ToolsFinder
-	leadershipReader leadership.Reader
-	modelCache       *cache.Model
+	leadershipReader    leadership.Reader
+	modelCache          *cache.Model
 }
 
 // TODO(wallyworld) - remove this method
 // state returns a state.State instance for this API.
 // Until all code is refactored to use interfaces, we
 // need this helper to keep older code happy.
-func (api *API) state() *state.State {
-	return api.stateAccessor.(*stateShim).State
+func (c *Client) state() *state.State {
+	return c.stateAccessor.(*stateShim).State
 }
 
-// Client serves client-specific API methods.
-type Client struct {
-	api             *API
-	newEnviron      common.NewEnvironFunc
-	check           *common.BlockChecker
-	callContext     context.ProviderCallContext
+// ClientV7 serves the (v7) client-specific API methods.
+type ClientV7 struct {
+	*Client
 	registryAPIFunc func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
+	toolsFinder     common.ToolsFinder
 }
 
 // ClientV6 serves the (v6) client-specific API methods.
 type ClientV6 struct {
-	*Client
+	*ClientV7
 }
 
 func (c *Client) checkCanRead() error {
-	err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+	err := c.auth.HasPermission(permission.SuperuserAccess, c.stateAccessor.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -82,11 +77,11 @@ func (c *Client) checkCanRead() error {
 		return nil
 	}
 
-	return c.api.auth.HasPermission(permission.ReadAccess, c.api.stateAccessor.ModelTag())
+	return c.auth.HasPermission(permission.ReadAccess, c.stateAccessor.ModelTag())
 }
 
 func (c *Client) checkCanWrite() error {
-	err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+	err := c.auth.HasPermission(permission.SuperuserAccess, c.stateAccessor.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -95,11 +90,11 @@ func (c *Client) checkCanWrite() error {
 		return nil
 	}
 
-	return c.api.auth.HasPermission(permission.WriteAccess, c.api.stateAccessor.ModelTag())
+	return c.auth.HasPermission(permission.WriteAccess, c.stateAccessor.ModelTag())
 }
 
 func (c *Client) checkIsAdmin() error {
-	err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+	err := c.auth.HasPermission(permission.SuperuserAccess, c.stateAccessor.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -108,13 +103,13 @@ func (c *Client) checkIsAdmin() error {
 		return nil
 	}
 
-	return c.api.auth.HasPermission(permission.AdminAccess, c.api.stateAccessor.ModelTag())
+	return c.auth.HasPermission(permission.AdminAccess, c.stateAccessor.ModelTag())
 }
 
-// NewFacade creates a Client facade to handle API requests.
+// NewFacadeV7 creates a ClientV7 facade to handle API requests.
 // Changes:
 // - FindTools deals with CAAS models now;
-func NewFacade(ctx facade.Context) (*Client, error) {
+func NewFacadeV7(ctx facade.Context) (*ClientV7, error) {
 	st := ctx.State()
 	resources := ctx.Resources()
 	authorizer := ctx.Auth()
@@ -136,7 +131,6 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	}
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
-	blockChecker := common.NewBlockChecker(st)
 	leadershipReader, err := ctx.LeadershipReader(modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -152,17 +146,13 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return NewClient(
+	return NewClientV7(
 		&stateShim{st, model, nil},
-		&poolShim{ctx.StatePool()},
 		storageAccessor,
 		resources,
 		authorizer,
 		presence,
 		toolsFinder,
-		newEnviron,
-		blockChecker,
-		context.CallContext(st),
 		leadershipReader,
 		modelCache,
 		factory,
@@ -170,45 +160,37 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	)
 }
 
-// NewClient creates a new instance of the Client Facade.
-func NewClient(
+// NewClientV7 creates a new instance of the ClientV7 Facade.
+func NewClientV7(
 	backend Backend,
-	pool Pool,
 	storageAccessor StorageInterface,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	presence facade.Presence,
 	toolsFinder common.ToolsFinder,
-	newEnviron common.NewEnvironFunc,
-	blockChecker *common.BlockChecker,
-	callCtx context.ProviderCallContext,
 	leadershipReader leadership.Reader,
 	modelCache *cache.Model,
 	factory multiwatcher.Factory,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
-) (*Client, error) {
+) (*ClientV7, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	client := &Client{
-		api: &API{
+
+	return &ClientV7{
+		Client: &Client{
 			stateAccessor:       backend,
-			pool:                pool,
 			storageAccessor:     storageAccessor,
 			auth:                authorizer,
 			resources:           resources,
 			presence:            presence,
-			toolsFinder:         toolsFinder,
 			leadershipReader:    leadershipReader,
 			modelCache:          modelCache,
 			multiwatcherFactory: factory,
 		},
-		newEnviron:      newEnviron,
-		check:           blockChecker,
-		callContext:     callCtx,
 		registryAPIFunc: registryAPIFunc,
-	}
-	return client, nil
+		toolsFinder:     toolsFinder,
+	}, nil
 }
 
 // WatchAll initiates a watcher for entities in the connected model.
@@ -216,17 +198,17 @@ func (c *Client) WatchAll() (params.AllWatcherId, error) {
 	if err := c.checkCanRead(); err != nil {
 		return params.AllWatcherId{}, err
 	}
-	isAdmin, err := common.HasModelAdmin(c.api.auth, c.api.stateAccessor.ControllerTag(), names.NewModelTag(c.api.state().ModelUUID()))
+	isAdmin, err := common.HasModelAdmin(c.auth, c.stateAccessor.ControllerTag(), names.NewModelTag(c.state().ModelUUID()))
 	if err != nil {
 		return params.AllWatcherId{}, errors.Trace(err)
 	}
-	modelUUID := c.api.stateAccessor.ModelUUID()
-	w := c.api.multiwatcherFactory.WatchModel(modelUUID)
+	modelUUID := c.stateAccessor.ModelUUID()
+	w := c.multiwatcherFactory.WatchModel(modelUUID)
 	if !isAdmin {
 		w = &stripApplicationOffers{w}
 	}
 	return params.AllWatcherId{
-		AllWatcherId: c.api.resources.Register(w),
+		AllWatcherId: c.resources.Register(w),
 	}, nil
 }
 
@@ -258,16 +240,16 @@ func (s *stripApplicationOffers) Next() ([]multiwatcher.Delta, error) {
 
 // FindTools returns a List containing all tools matching the given parameters.
 // TODO(juju 3.1) - remove, used by 2.9 client only
-func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
+func (c *ClientV7) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
 	if err := c.checkCanWrite(); err != nil {
 		return params.FindToolsResult{}, err
 	}
-	model, err := c.api.stateAccessor.Model()
+	model, err := c.stateAccessor.Model()
 	if err != nil {
 		return params.FindToolsResult{}, errors.Trace(err)
 	}
 
-	list, err := c.api.toolsFinder.FindAgents(common.FindAgentsParams{
+	list, err := c.toolsFinder.FindAgents(common.FindAgentsParams{
 		Number:       args.Number,
 		MajorVersion: args.MajorVersion,
 		Arch:         args.Arch,
@@ -302,9 +284,9 @@ func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult,
 	return c.toolVersionsForCAAS(args, streamsVersions, currentVersion)
 }
 
-func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersions set.Strings, current version.Number) (params.FindToolsResult, error) {
+func (c *ClientV7) toolVersionsForCAAS(args params.FindToolsParams, streamsVersions set.Strings, current version.Number) (params.FindToolsResult, error) {
 	result := params.FindToolsResult{}
-	controllerCfg, err := c.api.stateAccessor.ControllerConfig()
+	controllerCfg, err := c.stateAccessor.ControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
