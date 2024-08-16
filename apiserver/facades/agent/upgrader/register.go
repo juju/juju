@@ -18,7 +18,7 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Upgrader", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newUpgraderFacade(ctx)
+		return newUpgraderFacade(stdCtx, ctx)
 	}, reflect.TypeOf((*Upgrader)(nil)).Elem())
 }
 
@@ -29,7 +29,7 @@ func Register(registry facade.FacadeRegistry) {
 // do not depend on who is currently connected.
 
 // newUpgraderFacade provides the signature required for facade registration.
-func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
+func newUpgraderFacade(stdCtx context.Context, ctx facade.ModelContext) (Upgrader, error) {
 	auth := ctx.Auth()
 	st := ctx.State()
 	// The type of upgrader we return depends on who is asking.
@@ -46,22 +46,40 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 		return nil, errors.Trace(err)
 	}
 
+	provider, err := ctx.GetProvider(stdCtx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	ctrlSt, err := ctx.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	resources := ctx.Resources()
 	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
-	cloudService := ctx.ServiceFactory().Cloud()
-	credentialService := ctx.ServiceFactory().Credential()
 	modelAgentService := ctx.ServiceFactory().Agent()
 	switch tag.(type) {
 	case names.MachineTag, names.ControllerAgentTag, names.ApplicationTag, names.ModelTag:
-		return NewUpgraderAPI(controllerConfigGetter, ctrlSt, st, resources, auth, ctx.Logger().Child("upgrader"), cloudService, credentialService, modelAgentService, ctx.ControllerObjectStore())
+		return NewUpgraderAPI(
+			controllerConfigGetter,
+			ctrlSt, st,
+			resources, auth,
+			ctx.Logger().Child("upgrader"),
+			modelAgentService, ctx.ControllerObjectStore(),
+			provider,
+		)
 	case names.UnitTag:
 		if model.Type() == state.ModelTypeCAAS {
 			// For sidecar applications.
-			return NewUpgraderAPI(controllerConfigGetter, ctrlSt, st, resources, auth, ctx.Logger().Child("upgrader"), cloudService, credentialService, modelAgentService, ctx.ControllerObjectStore())
+			return NewUpgraderAPI(
+				controllerConfigGetter,
+				ctrlSt, st,
+				resources, auth,
+				ctx.Logger().Child("upgrader"),
+				modelAgentService,
+				ctx.ControllerObjectStore(),
+				provider,
+			)
 		}
 		return NewUnitUpgraderAPI(ctx)
 	}

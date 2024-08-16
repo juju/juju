@@ -11,18 +11,19 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("CAASApplication", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newStateFacade(ctx)
+		return newStateFacade(stdCtx, ctx)
 	}, reflect.TypeOf((*Facade)(nil)))
 }
 
 // newStateFacade provides the signature required for facade registration.
-func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
+func newStateFacade(stdCtx context.Context, ctx facade.ModelContext) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	st := ctx.State()
@@ -41,7 +42,12 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	registry := stateenvirons.NewStorageProviderRegistry(broker)
+
+	tracker, err := ctx.GetProvider(stdCtx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	registry := storage.NewChainedProviderRegistry(tracker)
 	return NewFacade(
 		resources,
 		authorizer,

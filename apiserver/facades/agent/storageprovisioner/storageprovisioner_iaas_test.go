@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -36,14 +35,14 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
 type iaasProvisionerSuite struct {
 	provisionerSuite
 
-	store objectstore.ObjectStore
+	store    objectstore.ObjectStore
+	registry *storage.MockProviderRegistry
 }
 
 var _ = gc.Suite(&iaasProvisionerSuite{})
@@ -61,17 +60,20 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID())
 }
 
+func (s *iaasProvisionerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.registry = storage.NewMockProviderRegistry(ctrl)
+	return ctrl
+}
+
 func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisioner.BlockDeviceService, watcherRegistry facade.WatcherRegistry) *storageprovisioner.StorageProvisionerAPIv4 {
 	serviceFactory := s.ControllerServiceFactory(c)
 	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), serviceFactory.Cloud(), serviceFactory.Credential())
-	c.Assert(err, jc.ErrorIsNil)
-	registry := stateenvirons.NewStorageProviderRegistry(env)
 	s.st = s.ControllerModel(c).State()
 	serviceFactoryGetter := s.ServiceFactoryGetter(c)
-	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(s.st.ModelUUID())).Storage(registry)
+	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(s.st.ModelUUID())).Storage(s.registry)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -90,7 +92,7 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 		s.DefaultModelServiceFactory(c).Machine(),
 		s.resources,
 		s.authorizer,
-		registry,
+		s.registry,
 		storageService,
 		loggertesting.WrapCheckLog(c),
 		modelInfo.UUID,
@@ -375,6 +377,8 @@ func (s *iaasProvisionerSuite) TestFilesystemAttachments(c *gc.C) {
 }
 
 func (s *iaasProvisionerSuite) TestVolumeParams(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Set custom resource-tags in model config, and check they show up in the
 	// returned volume params
 	err := s.ControllerServiceFactory(c).Config().UpdateModelConfig(
@@ -454,6 +458,8 @@ func (s *iaasProvisionerSuite) TestVolumeParams(c *gc.C) {
 }
 
 func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 
@@ -551,6 +557,9 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 }
 
 func (s *iaasProvisionerSuite) TestFilesystemParams(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	api := s.newApi(c, s.DefaultModelServiceFactory(c).BlockDevice(), nil)
+
 	// Set custom resource-tags in model config, and check they show up in the
 	// returned filesystem params
 	err := s.ControllerServiceFactory(c).Config().UpdateModelConfig(
@@ -560,7 +569,8 @@ func (s *iaasProvisionerSuite) TestFilesystemParams(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.setupFilesystems(c)
-	results, err := s.api.FilesystemParams(context.Background(), params.Entities{
+	s.registry.EXPECT().StorageProvider(gomock.Any()).Return(nil, nil).AnyTimes()
+	results, err := api.FilesystemParams(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "filesystem-0-0"}, {Tag: "filesystem-1"}, {Tag: "filesystem-42"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -594,6 +604,8 @@ func (s *iaasProvisionerSuite) TestFilesystemParams(c *gc.C) {
 }
 
 func (s *iaasProvisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setupFilesystems(c)
 
 	f, release := s.NewFactory(c, s.st.ModelUUID())
@@ -689,6 +701,8 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 }
 
 func (s *iaasProvisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 
@@ -762,6 +776,8 @@ func (s *iaasProvisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 }
 
 func (s *iaasProvisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	api := s.newApi(c, s.DefaultModelServiceFactory(c).BlockDevice(), nil)
 	s.setupFilesystems(c)
 
 	err := s.storageBackend.SetFilesystemInfo(names.NewFilesystemTag("1"), state.FilesystemInfo{
@@ -779,7 +795,8 @@ func (s *iaasProvisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.api.FilesystemAttachmentParams(context.Background(), params.MachineStorageIds{
+	s.registry.EXPECT().StorageProvider(gomock.Any()).Return(nil, nil).AnyTimes()
+	results, err := api.FilesystemAttachmentParams(context.Background(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{{
 			MachineTag:    "machine-0",
 			AttachmentTag: "filesystem-0-0",

@@ -87,9 +87,9 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	s.upgrader, err = upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, s.authorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
 		serviceFactory.Agent(),
 		s.store,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -153,9 +153,9 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 	upgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
 		serviceFactory.Agent(),
 		s.store,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
@@ -201,9 +201,9 @@ func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 	upgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
 		serviceFactory.Agent(),
 		s.store,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
@@ -244,9 +244,9 @@ func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
 	upgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
 		serviceFactory.Agent(),
 		s.store,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -286,9 +286,9 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	anUpgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
 		serviceFactory.Agent(),
 		s.store,
+		nil,
 	)
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
@@ -322,9 +322,9 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anUpgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
 		serviceFactory.Agent(),
 		s.store,
+		nil,
 	)
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
@@ -407,9 +407,9 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anUpgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
 		serviceFactory.Agent(),
 		s.store,
+		nil,
 	)
 	c.Check(err, jc.ErrorIsNil)
 	args := params.EntitiesVersion{
@@ -477,9 +477,9 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	anUpgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
 		serviceFactory.Agent(),
 		s.store,
+		nil,
 	)
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
@@ -566,9 +566,9 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 	upgraderAPI, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
 		serviceFactory.Agent(),
 		s.store,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{{Tag: s.apiMachine.Tag().String()}}}

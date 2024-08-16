@@ -36,7 +36,7 @@ type StorageService interface {
 	GetStoragePoolByName(ctx stdcontext.Context, name string) (*storage.Config, error)
 }
 
-type storageMetadataFunc func() (StorageService, storage.ProviderRegistry, error)
+type storageMetadataFunc func(stdcontext.Context) (StorageService, storage.ProviderRegistry, error)
 
 // StorageAPI implements the latest version (v6) of the Storage API.
 type StorageAPI struct {
@@ -196,7 +196,7 @@ func (a *StorageAPI) ensureStoragePoolFilter(filter params.StoragePoolFilter) pa
 }
 
 func (a *StorageAPI) listPools(ctx stdcontext.Context, filter params.StoragePoolFilter) ([]params.StoragePool, error) {
-	service, _, err := a.storageMetadata()
+	service, _, err := a.storageMetadata(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -221,7 +221,7 @@ func (a *StorageAPI) CreatePool(ctx stdcontext.Context, p params.StoragePoolArgs
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(p.Pools)),
 	}
-	service, _, err := a.storageMetadata()
+	service, _, err := a.storageMetadata(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -663,7 +663,7 @@ func (a *StorageAPI) importStorage(ctx stdcontext.Context, arg params.ImportStor
 		return nil, errors.NotValidf("pool name %q", arg.Pool)
 	}
 
-	service, registry, err := a.storageMetadata()
+	service, registry, err := a.storageMetadata(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -771,7 +771,7 @@ func (a *StorageAPI) RemovePool(ctx stdcontext.Context, p params.StoragePoolDele
 		return results, errors.Trace(err)
 	}
 
-	service, _, err := a.storageMetadata()
+	service, _, err := a.storageMetadata(ctx)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -792,7 +792,7 @@ func (a *StorageAPI) UpdatePool(ctx stdcontext.Context, p params.StoragePoolArgs
 	if err := a.checkCanWrite(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
-	service, _, err := a.storageMetadata()
+	service, _, err := a.storageMetadata(ctx)
 	if err != nil {
 		return results, errors.Trace(err)
 	}

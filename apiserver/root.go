@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
@@ -40,7 +39,6 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 type objectKey struct {
@@ -938,17 +936,13 @@ func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) (facade.H
 	return client, nil
 }
 
-var storageRegistryGetter = func(ctx *facadeContext) func() (storage.ProviderRegistry, error) {
-	return func() (storage.ProviderRegistry, error) {
-		dbModel, err := ctx.State().Model()
+var storageRegistryGetter = func(ctx *facadeContext) func(context.Context) (storage.ProviderRegistry, error) {
+	return func(stdCtx context.Context) (storage.ProviderRegistry, error) {
+		provider, err := ctx.GetProvider(stdCtx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return stateenvirons.NewStorageProviderRegistryForModel(
-			dbModel, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential(),
-			stateenvirons.GetNewEnvironFunc(environs.New),
-			stateenvirons.GetNewCAASBrokerFunc(caas.New),
-		)
+		return storage.NewChainedProviderRegistry(provider), nil
 	}
 }
 

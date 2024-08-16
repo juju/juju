@@ -27,15 +27,14 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testcharms"
 )
@@ -53,6 +52,8 @@ type applicationSuite struct {
 	networkService     *application.MockNetworkService
 	modelConfigService *application.MockModelConfigService
 	modelAgentService  *application.MockModelAgentService
+	registry           *storage.MockProviderRegistry
+	prechecker         *application.MockInstancePrechecker
 }
 
 var _ = gc.Suite(&applicationSuite{})
@@ -61,6 +62,8 @@ func (s *applicationSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.modelConfigService = application.NewMockModelConfigService(ctrl)
 	s.modelAgentService = application.NewMockModelAgentService(ctrl)
+	s.registry = storage.NewMockProviderRegistry(ctrl)
+	s.prechecker = application.NewMockInstancePrechecker(ctrl)
 
 	s.networkService = application.NewMockNetworkService(ctrl)
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(network.SpaceInfos{
@@ -96,24 +99,15 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 	blockChecker := common.NewBlockChecker(st)
 
 	serviceFactory := s.DefaultModelServiceFactory(c)
-
-	envFunc := stateenvirons.GetNewEnvironFunc(environs.New)
-	env, err := envFunc(s.ControllerModel(c), serviceFactory.Cloud(), serviceFactory.Credential())
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.InstancePrechecker = func(c *gc.C, st *state.State) environs.InstancePrechecker {
-		return env
-	}
-
 	modelInfo := model.ReadOnlyModel{
 		UUID: model.UUID(testing.ModelTag.Id()),
 		Type: model.IAAS,
 	}
-	registry := stateenvirons.NewStorageProviderRegistry(env)
+
 	serviceFactoryGetter := s.ServiceFactoryGetter(c)
-	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Storage(registry)
+	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Storage(s.registry)
 	api, err := application.NewAPIBase(
-		application.GetState(st, env),
+		application.GetState(st, s.prechecker),
 		nil,
 		s.networkService,
 		storageAccess,
@@ -127,12 +121,12 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),
-		serviceFactory.Application(registry),
+		serviceFactory.Application(s.registry),
 		nil, // leadership not used in these tests.
 		application.CharmToStateCharm,
 		application.DeployApplication,
 		storageService,
-		registry,
+		s.registry,
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ModelUUID()),
@@ -179,6 +173,7 @@ func (s *applicationSuite) TestBlockDestroyApplicationDeployPrincipal(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.makeAPI(c)
 
+	s.prechecker.EXPECT().PrecheckInstance(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	curl, bundle, cons := s.setupApplicationDeploy(c, "arch=amd64 mem=4G")
 	s.BlockDestroyModel(c, "TestBlockDestroyApplicationDeployPrincipal")
 	s.assertApplicationDeployPrincipal(c, curl, bundle, cons)
@@ -188,6 +183,7 @@ func (s *applicationSuite) TestBlockRemoveApplicationDeployPrincipal(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.makeAPI(c)
 
+	s.prechecker.EXPECT().PrecheckInstance(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	curl, bundle, cons := s.setupApplicationDeploy(c, "arch=amd64 mem=4G")
 	s.BlockRemoveObject(c, "TestBlockRemoveApplicationDeployPrincipal")
 	s.assertApplicationDeployPrincipal(c, curl, bundle, cons)
@@ -207,6 +203,7 @@ func (s *applicationSuite) TestApplicationDeploySubordinate(c *gc.C) {
 	s.makeAPI(c)
 
 	curl, ch := s.addCharmToState(c, "ch:utopic/logging-47", "logging")
+	s.prechecker.EXPECT().PrecheckInstance(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	results, err := s.applicationAPI.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl,
@@ -244,6 +241,7 @@ func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 	s.makeAPI(c)
 
 	curl, _ := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
+	s.prechecker.EXPECT().PrecheckInstance(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	results, err := s.applicationAPI.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl,
@@ -534,6 +532,8 @@ func (s *applicationSuite) TestClientAddApplicationUnits(c *gc.C) {
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
 	})
+	s.prechecker.EXPECT().PrecheckInstance(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
 	for i, t := range clientAddApplicationUnitsTests {
 		c.Logf("test %d. %s", i, t.about)
 		applicationName := t.application
@@ -638,6 +638,7 @@ func (s *applicationSuite) TestAddApplicationUnits(c *gc.C) {
 		if applicationName == "" {
 			applicationName = "dummy"
 		}
+		s.prechecker.EXPECT().PrecheckInstance(gomock.Any(), gomock.Any()).Return(errors.New("invalid placement is invalid"))
 		result, err := s.applicationAPI.AddUnits(context.Background(), params.AddApplicationUnits{
 			ApplicationName: applicationName,
 			NumUnits:        len(t.expected),
@@ -724,6 +725,8 @@ func (s *applicationSuite) TestBlockDestroyAddApplicationUnits(c *gc.C) {
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
 	})
+	s.prechecker.EXPECT().PrecheckInstance(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
 	s.BlockDestroyModel(c, "TestBlockDestroyAddApplicationUnits")
 	s.assertAddApplicationUnits(c)
 }
@@ -738,6 +741,8 @@ func (s *applicationSuite) TestBlockRemoveAddApplicationUnits(c *gc.C) {
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
 	})
+	s.prechecker.EXPECT().PrecheckInstance(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
 	s.BlockRemoveObject(c, "TestBlockRemoveAddApplicationUnits")
 	s.assertAddApplicationUnits(c)
 }

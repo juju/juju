@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
@@ -141,18 +140,12 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	isCaasModel := modelInfo.Type == coremodel.CAAS
 
-	var env storage.ProviderRegistry
-	if isCaasModel {
-		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, serviceFactory.Cloud(), serviceFactory.Credential())
-	} else {
-		env, err = environs.GetEnviron(stdCtx, configGetter, environs.New)
-	}
+	tracker, err := ctx.GetProvider(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
+	storageProviderRegistry := storage.NewChainedProviderRegistry(tracker)
 
 	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(
 		stdCtx, st, serviceFactory.Cloud(), serviceFactory.Network(), getCanModify)
@@ -204,12 +197,12 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		controllerUUID:              ctx.ControllerUUID(),
 		logger:                      ctx.Logger().Child("provisioner"),
 	}
-	if isCaasModel {
+	if modelInfo.Type == coremodel.CAAS {
 		return api, nil
 	}
 
 	newEnviron := func(ctx context.Context) (environs.BootstrapEnviron, error) {
-		return environs.GetEnviron(ctx, configGetter, environs.New)
+		return tracker, nil
 	}
 
 	api.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)

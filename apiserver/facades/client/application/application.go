@@ -43,7 +43,6 @@ import (
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -126,14 +125,13 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	stateCharm := CharmToStateCharm
 	serviceFactory := ctx.ServiceFactory()
 
-	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-		m, serviceFactory.Cloud(), serviceFactory.Credential(),
-		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New),
-	)
+	provider, err := ctx.GetProvider(stdCtx)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting storage provider registry")
+		return nil, errors.Trace(err)
 	}
+
+	registry := storage.NewChainedProviderRegistry(provider)
+
 	storagePoolGetter := serviceFactory.Storage(registry)
 
 	var caasBroker caas.Broker
@@ -150,12 +148,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		return nil, errors.Trace(err)
 	}
 
-	prechecker, err := stateenvirons.NewInstancePrechecker(ctx.State(), serviceFactory.Cloud(), serviceFactory.Credential())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	state := &stateShim{State: ctx.State(), prechecker: prechecker}
+	state := &stateShim{State: ctx.State(), prechecker: provider}
 
 	charmhubHTTPClient, err := ctx.HTTPClient(facade.CharmhubHTTPClient)
 	if err != nil {

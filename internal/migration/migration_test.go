@@ -73,7 +73,7 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	}
 	importer := migration.NewModelImporter(
 		controller, scope, s.controllerConfigService, s.serviceFactoryGetter, configSchemaSource,
-		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+		func(context.Context) (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
 		loggertesting.WrapCheckLog(c),
 	)
 	model, st, err := importer.ImportModel(context.Background(), bytes)
@@ -150,7 +150,7 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 	}
 	importer := migration.NewModelImporter(
 		controller, scope, s.controllerConfigService, s.serviceFactoryGetter, configSchemaSource,
-		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+		func(context.Context) (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
 		loggertesting.WrapCheckLog(c),
 	)
 	gotM, gotSt, err := importer.ImportModel(context.Background(), bytes)

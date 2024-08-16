@@ -392,7 +392,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			BootstrapMachineAddresses: addrs,
 			BootstrapMachineJobs:      agentConfig.Jobs(),
 			SharedSecret:              info.SharedSecret,
-			StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),
+			StorageProviderRegistry:   storage.NewChainedProviderRegistry(env),
 			MongoDialOpts:             dialOpts,
 			StateNewPolicy: stateenvirons.GetNewPolicyFunc(
 				cloudGetter{cloud: &args.ControllerCloud},
@@ -406,11 +406,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			Provider:        environs.Provider,
 			Logger:          internallogger.GetLogger("juju.agent.bootstrap"),
 			InstancePrecheckerGetter: func(st *state.State) (environs.InstancePrechecker, error) {
-				return stateenvirons.NewInstancePrechecker(
-					st,
-					cloudGetter{cloud: &args.ControllerCloud},
-					credentialGetter{cred: args.ControllerCloudCredential},
-				)
+				return bootstrapPrechecker{}, nil
 			},
 			ConfigSchemaSourceGetter: configSchemaSource,
 		})
@@ -596,4 +592,10 @@ func storeImageMetadataInState(st *state.State, env environs.BootstrapEnviron, s
 		return errors.Annotatef(err, "cannot cache image metadata")
 	}
 	return nil
+}
+
+type bootstrapPrechecker struct{}
+
+func (bootstrapPrechecker) PrecheckInstance(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error {
+	return errors.NotSupportedf("prechecking instances at bootstrap")
 }

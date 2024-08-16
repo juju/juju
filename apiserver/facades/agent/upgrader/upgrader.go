@@ -17,10 +17,10 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -56,10 +56,9 @@ func NewUpgraderAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
-	cloudService common.CloudService,
-	credentialService common.CredentialService,
 	modelAgentService ModelAgentService,
 	controllerStore objectstore.ObjectStore,
+	provider environs.BootstrapEnviron,
 ) (*UpgraderAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthApplicationAgent() && !authorizer.AuthModelAgent() && !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -72,10 +71,12 @@ func NewUpgraderAPI(
 		return nil, err
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), ctrlSt)
-	configGetter := stateenvirons.EnvironConfigGetter{
-		Model: model, CloudService: cloudService, CredentialService: credentialService}
-	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
-	toolsFinder := common.NewToolsFinder(controllerConfigGetter, st, urlGetter, newEnviron, controllerStore)
+
+	providerFunc := func(context.Context) (environs.BootstrapEnviron, error) {
+		return provider, nil
+	}
+
+	toolsFinder := common.NewToolsFinder(controllerConfigGetter, st, urlGetter, providerFunc, controllerStore)
 	return &UpgraderAPI{
 		ToolsGetter: common.NewToolsGetter(st, modelAgentService, st, urlGetter, toolsFinder, getCanReadWrite),
 		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),

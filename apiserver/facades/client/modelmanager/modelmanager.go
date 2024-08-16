@@ -37,6 +37,7 @@ import (
 	environsContext "github.com/juju/juju/environs/envcontext"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -601,7 +602,7 @@ Please choose a different model name.
 		return nil, errors.Annotatef(err, "creating namespace %q", createArgs.Name)
 	}
 
-	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)
+	storageProviderRegistry := storage.NewChainedProviderRegistry(broker)
 
 	model, st, err := m.state.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeCAAS,
@@ -649,7 +650,7 @@ func (m *ModelManagerAPI) newIAASModel(
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create environ")
 	}
-	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
+	storageProviderRegistry := storage.NewChainedProviderRegistry(env)
 
 	// NOTE: check the agent-version of the config, and if it is > the current
 	// version, it is not supported, also check existing tools, and if we don't

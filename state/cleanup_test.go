@@ -15,10 +15,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
-	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -26,12 +22,9 @@ import (
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
-	corestorage "github.com/juju/juju/internal/storage"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/state/testing"
 )
 
 type CleanupSuite struct {
@@ -1054,152 +1047,8 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 }
 
-func (s *CleanupSuite) TestCleanupCAASApplicationWithStorage(c *gc.C) {
-	s.assertCleanupCAASEntityWithStorage(c, func(st *state.State, app *state.Application) error {
-		op := app.DestroyOperation(state.NewObjectStore(c, st.ModelUUID()))
-		op.DestroyStorage = true
-		return st.ApplyOperation(op)
-	})
-}
-
-func (s *CleanupSuite) TestCleanupCAASUnitWithStorage(c *gc.C) {
-	s.assertCleanupCAASEntityWithStorage(c, func(st *state.State, app *state.Application) error {
-		units, err := app.AllUnits()
-		if err != nil {
-			return err
-		}
-		op := units[0].DestroyOperation(state.NewObjectStore(c, st.ModelUUID()))
-		op.DestroyStorage = true
-		return st.ApplyOperation(op)
-	})
-}
-
 func ptr[T any](v T) *T {
 	return &v
-}
-
-func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func(*state.State, *state.Application) error) {
-	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
-
-	s.PatchValue(&k8sprovider.NewK8sClients, k8stesting.NoopFakeK8sClients)
-	st := s.Factory.MakeCAASModel(c, nil)
-	defer st.Close()
-
-	assertCleanups := func(n int) {
-		for i := 0; i < 4; i++ {
-			err := st.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{})
-			c.Assert(err, jc.ErrorIsNil)
-		}
-		state.AssertNoCleanups(c, st)
-	}
-
-	sb, err := state.NewStorageBackend(st)
-	c.Assert(err, jc.ErrorIsNil)
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(
-		caas.New)(model,
-		&testing.MockCloudService{CloudInfo: &cloud.Cloud{Name: "caascloud", Type: "kubernetes"}},
-		&testing.MockCredentialService{Credential: ptr(cloud.NewCredential(cloud.UserPassAuthType, nil))})
-	c.Assert(err, jc.ErrorIsNil)
-	registry := stateenvirons.NewStorageProviderRegistry(broker)
-	s.policy = testing.MockPolicy{
-		GetStorageProviderRegistry: func() (corestorage.ProviderRegistry, error) {
-			return registry, nil
-		},
-	}
-
-	ch := state.AddTestingCharmForSeries(c, st, "focal", "storage-filesystem")
-	storCons := map[string]state.StorageConstraints{
-		"data": makeStorageCons("", 1024, 1),
-	}
-	application := state.AddTestingApplicationWithStorage(c, st, s.objectStore, "storage-filesystem", ch, storCons)
-	unit, err := application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(application.Refresh(), jc.ErrorIsNil)
-
-	fs, err := sb.AllFilesystems()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fs, gc.HasLen, 1)
-	fas, err := sb.UnitFilesystemAttachments(unit.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fas, gc.HasLen, 1)
-
-	vols, err := sb.AllVolumes()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vols, gc.HasLen, 1)
-
-	c.Log("provision storage")
-	err = sb.SetVolumeInfo(vols[0].VolumeTag(), state.VolumeInfo{
-		Size:     1024,
-		VolumeId: "cloud-vol-id-1234",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = sb.SetVolumeAttachmentInfo(unit.UnitTag(), vols[0].VolumeTag(), state.VolumeAttachmentInfo{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = sb.SetFilesystemInfo(fs[0].FilesystemTag(), state.FilesystemInfo{
-		Size:         1024,
-		Pool:         "",
-		FilesystemId: "cloud-fs-id-123",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = sb.SetFilesystemAttachmentInfo(unit.UnitTag(), fs[0].FilesystemTag(), state.FilesystemAttachmentInfo{
-		MountPoint: "/abc",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Log("delete op")
-	err = deleteOp(st, application)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(application.Refresh(), jc.ErrorIsNil)
-
-	c.Log("destroy app")
-	err = application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	assertCleanups(4)
-	c.Assert(application.Life(), gc.Equals, state.Dying)
-	c.Assert(unit.Refresh(), jc.ErrorIsNil)
-	c.Assert(unit.Life(), gc.Equals, state.Dying)
-	fas, err = sb.UnitFilesystemAttachments(unit.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fas, gc.HasLen, 1)
-	fs, err = sb.AllFilesystems()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fs, gc.HasLen, 1)
-	sas, err := sb.AllStorageInstances()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sas, gc.HasLen, 1)
-
-	c.Log("unit dying")
-	// RemoveStorageAttachment is called after storage-detaching hook.
-	err = sb.RemoveStorageAttachment(names.NewStorageTag("data/0"), unit.UnitTag(), false)
-	c.Assert(err, jc.ErrorIsNil)
-	assertCleanups(1)
-
-	err = unit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	sas, err = sb.AllStorageInstances()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sas, gc.HasLen, 0)
-
-	assertCleanups(1)
-	fs, err = sb.AllFilesystems()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fs, gc.HasLen, 0)
-
-	// A storage provisioner would call this.
-	err = sb.RemoveVolumeAttachment(unit.UnitTag(), vols[0].VolumeTag(), false)
-	c.Assert(err, jc.ErrorIsNil)
-	err = sb.RemoveVolume(vols[0].VolumeTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	assertCleanups(1)
-	vols, err = sb.AllVolumes()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vols, gc.HasLen, 0)
 }
 
 func (s *CleanupSuite) TestCleanupVolumeAttachments(c *gc.C) {

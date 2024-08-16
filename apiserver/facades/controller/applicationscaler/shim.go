@@ -4,12 +4,13 @@
 package applicationscaler
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // This file contains untested shims to let us wrap state in a sensible
@@ -18,14 +19,13 @@ import (
 // *trivially* correct, you would be Doing It Wrong.
 
 // newAPI provides the required signature for facade registration.
-func newAPI(ctx facade.ModelContext) (*Facade, error) {
+func newAPI(stdCtx context.Context, ctx facade.ModelContext) (*Facade, error) {
 	st := ctx.State()
-	serviceFactory := ctx.ServiceFactory()
-	prechecker, err := stateenvirons.NewInstancePrechecker(st, serviceFactory.Cloud(), serviceFactory.Credential())
+	provider, err := ctx.GetProvider(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewFacade(backendShim{st: st, prechecker: prechecker}, ctx.Resources(), ctx.Auth())
+	return NewFacade(backendShim{st: st, prechecker: provider}, ctx.Resources(), ctx.Auth())
 }
 
 // backendShim wraps a *State to implement Backend without pulling in direct

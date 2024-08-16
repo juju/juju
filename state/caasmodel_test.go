@@ -11,20 +11,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/state/testing"
 )
 
 type CAASFixture struct {
@@ -122,97 +117,6 @@ func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 	err = unit.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	assertDoesNotNeedCleanup(c, st)
-}
-
-func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
-	model, st := s.newCAASModel(c)
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(
-		model,
-		&testing.MockCloudService{CloudInfo: &cloud.Cloud{Name: "caascloud", Type: "kubernetes"}},
-		&testing.MockCredentialService{Credential: ptr(cloud.NewCredential(cloud.UserPassAuthType, nil))},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	registry := stateenvirons.NewStorageProviderRegistry(broker)
-	s.policy = testing.MockPolicy{
-		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
-			return registry, nil
-		},
-	}
-
-	sb, err := state.NewStorageBackend(st)
-	c.Assert(err, jc.ErrorIsNil)
-
-	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
-	app := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: state.AddTestingCharmForSeries(c, st, "focal", "storage-filesystem"),
-		Storage: map[string]state.StorageConstraints{
-			"data": {Count: 1, Size: 1024},
-		},
-	})
-	unit := f.MakeUnit(c, &factory.UnitParams{
-		Application: app,
-	})
-
-	si, err := sb.AllStorageInstances()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(si, gc.HasLen, 1)
-	fs, err := sb.AllFilesystems()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fs, gc.HasLen, 1)
-
-	destroyStorage := true
-	err = model.Destroy(state.DestroyModelParams{DestroyStorage: &destroyStorage})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Refresh(), jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Dying)
-
-	assertNeedsCleanup(c, st)
-	assertCleanupCount(c, st, 4)
-
-	c.Assert(app.Refresh(), jc.ErrorIsNil)
-	c.Assert(app.Life(), gc.Equals, state.Dying)
-	c.Assert(unit.Refresh(), jc.ErrorIsNil)
-	c.Assert(unit.Life(), gc.Equals, state.Dying)
-
-	// The uniter would call this when it sees it is dying.
-	err = unit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	// The deployer or the caasapplicationprovisioner would call this once the unit is Dead.
-	err = unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	assertNeedsCleanup(c, st)
-	assertCleanupCount(c, st, 2)
-
-	// The caasapplicationprovisioner would call this when the app is gone from the cloud.
-	err = app.ClearResources()
-	c.Assert(err, jc.ErrorIsNil)
-
-	assertNeedsCleanup(c, st)
-	assertCleanupCount(c, st, 2)
-
-	si, err = sb.AllStorageInstances()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(si, gc.HasLen, 0)
-	fs, err = sb.AllFilesystems()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fs, gc.HasLen, 0)
-
-	vols, err := sb.AllVolumes()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vols, gc.HasLen, 1)
-	c.Assert(vols[0].Life(), gc.Equals, state.Dying)
-	// A storage provisioner would call this.
-	err = sb.RemoveVolumeAttachment(unit.UnitTag(), vols[0].VolumeTag(), false)
-	c.Assert(err, jc.ErrorIsNil)
-	err = sb.RemoveVolume(vols[0].VolumeTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Undertaker would call this.
-	err = st.ProcessDyingModel()
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.RemoveDyingModel()
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {

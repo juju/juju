@@ -6,7 +6,6 @@ package application_test
 import (
 	"context"
 	"fmt"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -15,14 +14,12 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	storageprovider "github.com/juju/juju/internal/storage/provider"
@@ -30,7 +27,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 type getSuite struct {
@@ -57,10 +53,6 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	serviceFactory := s.DefaultModelServiceFactory(c)
-	envFunc := stateenvirons.GetNewEnvironFunc(environs.New)
-	env, err := envFunc(s.ControllerModel(c), serviceFactory.Cloud(), serviceFactory.Credential())
-	c.Assert(err, jc.ErrorIsNil)
-	registry := stateenvirons.NewStorageProviderRegistry(env)
 
 	api, err := application.NewAPIBase(
 		application.GetState(st, state.NoopInstancePrechecker{}),
@@ -81,8 +73,8 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,
-		serviceFactory.Storage(registry),
-		registry,
+		serviceFactory.Storage(nil),
+		nil,
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ControllerModelUUID()),
@@ -199,12 +191,6 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	serviceFactory := s.DefaultModelServiceFactory(c)
-	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-		mod, serviceFactory.Cloud(), serviceFactory.Credential(),
-		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New),
-	)
-	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := application.NewAPIBase(
 		application.GetState(st, state.NoopInstancePrechecker{}),
@@ -221,12 +207,12 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),
-		serviceFactory.Application(registry),
+		serviceFactory.Application(nil),
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,
-		serviceFactory.Storage(registry),
-		registry,
+		serviceFactory.Storage(nil),
+		nil,
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ControllerModelUUID()),

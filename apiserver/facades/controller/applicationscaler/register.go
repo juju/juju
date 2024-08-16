@@ -13,6 +13,6 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ApplicationScaler", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newAPI(ctx)
+		return newAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*Facade)(nil)))
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
@@ -21,10 +20,10 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
 	workerstate "github.com/juju/juju/internal/worker/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // FlagService is the interface that is used to set the value of a
@@ -226,32 +225,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			controllerModelServiceFactory := serviceFactoryGetter.FactoryForModel(controllerModel.UUID)
 
-			// TODO (stickupkid): This should be removed once we get rid of
-			// the policy and move it into the service factory.
-			prechecker, err := stateenvirons.NewInstancePrechecker(
-				systemState,
-				controllerModelServiceFactory.Cloud(),
-				controllerModelServiceFactory.Credential(),
-			)
+			tracker, err := providerFactory.ProviderForModel(ctx, controllerModel.UUID.String())
 			if err != nil {
 				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
 
-			model, err := systemState.Model()
-			if err != nil {
-				_ = stTracker.Done()
-				return nil, errors.Trace(err)
-			}
-			registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-				model, controllerServiceFactory.Cloud(), controllerServiceFactory.Credential(),
-				stateenvirons.GetNewEnvironFunc(environs.New),
-				stateenvirons.GetNewCAASBrokerFunc(caas.New),
-			)
-			if err != nil {
-				_ = stTracker.Done()
-				return nil, errors.Trace(err)
-			}
+			registry := storage.NewChainedProviderRegistry(tracker)
 
 			w, err := NewWorker(WorkerConfig{
 				Agent:                   a,
@@ -270,7 +250,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				BakeryConfigService:     controllerServiceFactory.Macaroon(),
 				SystemState: &stateShim{
 					State:      systemState,
-					prechecker: prechecker,
+					prechecker: tracker,
 				},
 				BootstrapUnlocker:       bootstrapUnlocker,
 				AgentBinaryUploader:     config.AgentBinaryUploader,

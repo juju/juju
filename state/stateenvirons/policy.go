@@ -4,7 +4,6 @@
 package stateenvirons
 
 import (
-	stdcontext "context"
 	"sync"
 
 	"github.com/juju/errors"
@@ -13,7 +12,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -58,20 +56,6 @@ func GetNewPolicyFunc(cloudService CloudService, credentialService CredentialSer
 	}
 }
 
-// NewInstancePrechecker returns a new instance prechecker that uses the
-// specified cloudService and credentialService to create the underlying
-// deployChecker.
-func NewInstancePrechecker(st *state.State, cloudService CloudService, credentialService CredentialService) (environs.InstancePrechecker, error) {
-	policy := &environStatePolicy{
-		st:                st,
-		cloudService:      cloudService,
-		credentialService: credentialService,
-		getEnviron:        GetNewEnvironFunc(environs.New),
-		getBroker:         GetNewCAASBrokerFunc(caas.New),
-	}
-	return policy.Prechecker()
-}
-
 // getDeployChecker returns the cached deployChecker instance, or creates a
 // new one if it hasn't yet been created and cached.
 func (p *environStatePolicy) getDeployChecker() (deployChecker, error) {
@@ -95,24 +79,6 @@ func (p *environStatePolicy) getDeployChecker() (deployChecker, error) {
 		p.checker, err = p.getBroker(model, p.cloudService, p.credentialService)
 	}
 	return p.checker, err
-}
-
-// Prechecker implements state.Policy.
-func (p *environStatePolicy) Prechecker() (environs.InstancePrechecker, error) {
-	return p.getDeployChecker()
-}
-
-// ConfigValidator implements state.Policy.
-func (p *environStatePolicy) ConfigValidator() (config.Validator, error) {
-	model, err := p.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cloud, err := p.cloudService.Cloud(stdcontext.Background(), model.CloudName())
-	if err != nil {
-		return nil, errors.Annotate(err, "getting cloud")
-	}
-	return environProvider(cloud.Type)
 }
 
 // ConstraintsValidator implements state.Policy.
@@ -139,7 +105,7 @@ func (p *environStatePolicy) StorageServices() (state.StoragePoolGetter, storage
 	}
 	// ProviderRegistry doesn't make any calls to fetch instance types,
 	// so it doesn't help to use getDeployChecker() here.
-	registry, err := NewStorageProviderRegistryForModel(model, p.cloudService, p.credentialService, p.getEnviron, p.getBroker)
+	registry, err := newStorageProviderRegistryForModel(model, p.cloudService, p.credentialService, p.getEnviron, p.getBroker)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -147,9 +113,9 @@ func (p *environStatePolicy) StorageServices() (state.StoragePoolGetter, storage
 	return storageService, registry, nil
 }
 
-// NewStorageProviderRegistryForModel returns a storage provider registry
+// newStorageProviderRegistryForModel returns a storage provider registry
 // for the specified model.
-func NewStorageProviderRegistryForModel(
+func newStorageProviderRegistryForModel(
 	model *state.Model,
 	cloudService CloudService,
 	credentialService CredentialService,
@@ -166,15 +132,11 @@ func NewStorageProviderRegistryForModel(
 			return nil, errors.Trace(err)
 		}
 	}
-	return NewStorageProviderRegistry(reg), nil
+	return newStorageProviderRegistry(reg), nil
 }
 
-// NewStorageProviderRegistry returns a storage.ProviderRegistry that chains
+// newStorageProviderRegistry returns a storage.ProviderRegistry that chains
 // the provided registry with the common storage providers.
-func NewStorageProviderRegistry(reg storage.ProviderRegistry) storage.ProviderRegistry {
+func newStorageProviderRegistry(reg storage.ProviderRegistry) storage.ProviderRegistry {
 	return storage.ChainedProviderRegistry{reg, provider.CommonStorageProviders()}
-}
-
-func environProvider(cloudType string) (environs.EnvironProvider, error) {
-	return environs.Provider(cloudType)
 }

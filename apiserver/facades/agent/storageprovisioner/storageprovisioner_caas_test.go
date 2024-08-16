@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/life"
@@ -25,7 +24,6 @@ import (
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -48,8 +46,6 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.st = f.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { s.st.Close() })
 	var err error
-	m, err := s.st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -58,11 +54,8 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(m, serviceFactory.Cloud(), serviceFactory.Credential())
-	c.Assert(err, jc.ErrorIsNil)
-	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	serviceFactoryGetter := s.ServiceFactoryGetter(c)
-	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(s.st.ModelUUID())).Storage(registry)
+	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(s.st.ModelUUID())).Storage(nil)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -81,7 +74,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 		s.DefaultModelServiceFactory(c).Machine(),
 		s.resources,
 		s.authorizer,
-		registry,
+		nil, // storage registry not used in this suite
 		storageService,
 		loggertesting.WrapCheckLog(c),
 		modelInfo.UUID,

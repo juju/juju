@@ -45,7 +45,7 @@ type LegacyStateExporter interface {
 	ExportPartial(cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
 }
 
-type storageRegistryGetter func() (storage.ProviderRegistry, error)
+type storageRegistryGetter func(context.Context) (storage.ProviderRegistry, error)
 
 // ModelExporter facilitates partial and full export of a model.
 type ModelExporter struct {
@@ -99,7 +99,7 @@ func (e *ModelExporter) ExportModel(ctx context.Context, leaders map[string]stri
 
 // Export serializes a model description from the database contents.
 func (e *ModelExporter) Export(ctx context.Context, model description.Model) (description.Model, error) {
-	registry, err := e.storageRegistryGetter()
+	registry, err := e.storageRegistryGetter(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -186,7 +186,7 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 	modelDefaults := serviceFactory.ModelDefaults()
 	modelDefaultsProvider := modelDefaults.ModelDefaultsProvider(modelUUID)
 
-	registry, err := i.storageRegistryGetter()
+	registry, err := i.storageRegistryGetter(ctx)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
