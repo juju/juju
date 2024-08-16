@@ -26,11 +26,10 @@ import (
 
 // NewSecretService returns a new secret service wrapping the specified state.
 func NewSecretService(
-	secretState State, secretBackendReferenceMutator SecretBackendReferenceMutator, modelID coremodel.UUID,
+	secretState State, secretBackendReferenceMutator SecretBackendReferenceMutator,
 	logger logger.Logger, adminConfigGetter BackendAdminConfigGetter,
 ) *SecretService {
 	return &SecretService{
-		modelID:                       modelID,
 		secretState:                   secretState,
 		secretBackendReferenceMutator: secretBackendReferenceMutator,
 		logger:                        logger,
@@ -60,7 +59,6 @@ type SecretService struct {
 	adminConfigGetter             BackendAdminConfigGetter
 
 	activeBackendID string
-	modelID         coremodel.UUID
 	backends        map[string]provider.SecretsBackend
 	uuidGenerator   func() (uuid.UUID, error)
 }
@@ -175,7 +173,11 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 	}
 	p.RevisionID = ptr(revisionID.String())
 
-	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, s.modelID, revisionID)
+	modelID, err := s.secretState.GetModelUUID(ctx)
+	if err != nil {
+		return errors.Annotate(err, "getting model uuid")
+	}
+	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, coremodel.UUID(modelID), revisionID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -231,7 +233,11 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 	}
 	p.RevisionID = ptr(revisionID.String())
 
-	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, s.modelID, revisionID)
+	modelID, err := s.secretState.GetModelUUID(ctx)
+	if err != nil {
+		return errors.Annotate(err, "getting model uuid")
+	}
+	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, coremodel.UUID(modelID), revisionID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -331,7 +337,12 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 			return errors.Trace(err)
 		}
 		p.RevisionID = ptr(revisionID.String())
-		rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, s.modelID, revisionID)
+
+		modelID, err := s.secretState.GetModelUUID(ctx)
+		if err != nil {
+			return errors.Annotate(err, "getting model uuid")
+		}
+		rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, coremodel.UUID(modelID), revisionID)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -395,7 +406,12 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 			return errors.Trace(err)
 		}
 		p.RevisionID = ptr(revisionID.String())
-		rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, s.modelID, revisionID)
+
+		modelID, err := s.secretState.GetModelUUID(ctx)
+		if err != nil {
+			return errors.Annotate(err, "getting model uuid")
+		}
+		rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, coremodel.UUID(modelID), revisionID)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -683,7 +699,11 @@ func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.UR
 		return errors.Trace(err)
 	}
 
-	rollBack, err := s.secretBackendReferenceMutator.UpdateSecretBackendReference(ctx, params.ValueRef, s.modelID, revisionID)
+	modelID, err := s.secretState.GetModelUUID(ctx)
+	if err != nil {
+		return errors.Annotate(err, "getting model uuid")
+	}
+	rollBack, err := s.secretBackendReferenceMutator.UpdateSecretBackendReference(ctx, params.ValueRef, coremodel.UUID(modelID), revisionID)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -372,31 +372,31 @@ func (m *MockState) ListInUseKubernetesSecretBackends(arg0 context.Context) ([]*
 }
 
 // ListInUseKubernetesSecretBackends indicates an expected call of ListInUseKubernetesSecretBackends.
-func (mr *MockStateMockRecorder) ListInUseKubernetesSecretBackends(arg0 any) *MockStateListKubernetesSecretBackendsCall {
+func (mr *MockStateMockRecorder) ListInUseKubernetesSecretBackends(arg0 any) *MockStateListInUseKubernetesSecretBackendsCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInUseKubernetesSecretBackends", reflect.TypeOf((*MockState)(nil).ListInUseKubernetesSecretBackends), arg0)
-	return &MockStateListKubernetesSecretBackendsCall{Call: call}
+	return &MockStateListInUseKubernetesSecretBackendsCall{Call: call}
 }
 
-// MockStateListKubernetesSecretBackendsCall wrap *gomock.Call
-type MockStateListKubernetesSecretBackendsCall struct {
+// MockStateListInUseKubernetesSecretBackendsCall wrap *gomock.Call
+type MockStateListInUseKubernetesSecretBackendsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateListKubernetesSecretBackendsCall) Return(arg0 []*secretbackend.SecretBackend, arg1 error) *MockStateListKubernetesSecretBackendsCall {
+func (c *MockStateListInUseKubernetesSecretBackendsCall) Return(arg0 []*secretbackend.SecretBackend, arg1 error) *MockStateListInUseKubernetesSecretBackendsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateListKubernetesSecretBackendsCall) Do(f func(context.Context) ([]*secretbackend.SecretBackend, error)) *MockStateListKubernetesSecretBackendsCall {
+func (c *MockStateListInUseKubernetesSecretBackendsCall) Do(f func(context.Context) ([]*secretbackend.SecretBackend, error)) *MockStateListInUseKubernetesSecretBackendsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateListKubernetesSecretBackendsCall) DoAndReturn(f func(context.Context) ([]*secretbackend.SecretBackend, error)) *MockStateListKubernetesSecretBackendsCall {
+func (c *MockStateListInUseKubernetesSecretBackendsCall) DoAndReturn(f func(context.Context) ([]*secretbackend.SecretBackend, error)) *MockStateListInUseKubernetesSecretBackendsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

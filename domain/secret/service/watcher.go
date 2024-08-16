@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -31,12 +30,11 @@ type WatchableService struct {
 
 // NewWatchableService returns a new watchable service wrapping the specified state.
 func NewWatchableService(
-	secretState State, secretBackendReferenceMutator SecretBackendReferenceMutator, modelID coremodel.UUID,
+	secretState State, secretBackendReferenceMutator SecretBackendReferenceMutator,
 	logger logger.Logger, watcherFactory WatcherFactory, adminConfigGetter BackendAdminConfigGetter,
 ) *WatchableService {
 	return &WatchableService{
 		SecretService: SecretService{
-			modelID:                       modelID,
 			secretState:                   secretState,
 			secretBackendReferenceMutator: secretBackendReferenceMutator,
 			logger:                        logger,

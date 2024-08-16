@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	jujuversion "github.com/juju/juju/core/version"
 	corewatcher "github.com/juju/juju/core/watcher"
@@ -88,10 +87,7 @@ func (s *watcherSuite) setupServiceAndState(c *gc.C) (*service.WatchableService,
 		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "secret_revision"),
 		logger,
 	)
-	return service.NewWatchableService(
-		st, nil, model.UUID(s.ModelUUID()), logger,
-		factory, nil,
-	), st
+	return service.NewWatchableService(st, nil, logger, factory, nil), st
 }
 
 func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {

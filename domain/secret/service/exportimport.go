@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/secret"
 )
@@ -146,10 +147,16 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 		return errors.Annotate(err, "importing remote secrets")
 	}
 
+	modelUUID, err := s.secretState.GetModelUUID(ctx)
+	if err != nil {
+		return errors.Annotate(err, "getting model uuid")
+	}
+	modelID := coremodel.UUID(modelUUID)
+
 	for _, md := range modelSecrets.Secrets {
 		revisions := modelSecrets.Revisions[md.URI.ID]
 		content := modelSecrets.Content[md.URI.ID]
-		if err := s.importSecretRevisions(ctx, md, revisions, content); err != nil {
+		if err := s.importSecretRevisions(ctx, modelID, md, revisions, content); err != nil {
 			return errors.Annotatef(err, "saving secret %q", md.URI.ID)
 		}
 		for _, sc := range modelSecrets.Consumers[md.URI.ID] {
@@ -193,7 +200,7 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 }
 
 func (s *SecretService) importSecretRevisions(
-	ctx context.Context, md *coresecrets.SecretMetadata,
+	ctx context.Context, modelID coremodel.UUID, md *coresecrets.SecretMetadata,
 	revisions []*coresecrets.SecretRevisionMetadata,
 	content map[int]coresecrets.SecretData,
 ) error {
@@ -218,7 +225,7 @@ func (s *SecretService) importSecretRevisions(
 			params.ExpireTime = md.LatestExpireTime
 		}
 		if i == 0 {
-			if err := s.createImportedSecret(ctx, md, params); err != nil {
+			if err := s.createImportedSecret(ctx, modelID, md, params); err != nil {
 				return errors.Annotatef(err, "cannot import secret %q", md.URI.ID)
 			}
 			continue
@@ -231,7 +238,7 @@ func (s *SecretService) importSecretRevisions(
 
 		rollBack := func() error { return nil }
 		if params.ValueRef != nil || len(params.Data) != 0 {
-			rollBack, err = s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, params.ValueRef, s.modelID, revisionID)
+			rollBack, err = s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, params.ValueRef, modelID, revisionID)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -247,7 +254,7 @@ func (s *SecretService) importSecretRevisions(
 }
 
 func (s *SecretService) createImportedSecret(
-	ctx context.Context, md *coresecrets.SecretMetadata, params secret.UpsertSecretParams,
+	ctx context.Context, modelID coremodel.UUID, md *coresecrets.SecretMetadata, params secret.UpsertSecretParams,
 ) (errOut error) {
 	params.NextRotateTime = md.NextRotateTime
 	if md.RotatePolicy != "" && md.RotatePolicy != coresecrets.RotateNever {
@@ -269,7 +276,8 @@ func (s *SecretService) createImportedSecret(
 		return errors.Trace(err)
 	}
 	params.RevisionID = ptr(revisionID.String())
-	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, params.ValueRef, s.modelID, revisionID)
+
+	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, params.ValueRef, modelID, revisionID)
 	if err != nil {
 		return errors.Trace(err)
 	}

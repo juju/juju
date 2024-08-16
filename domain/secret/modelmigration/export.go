@@ -52,7 +52,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	e.service = service.NewSecretService(
 		state.NewState(scope.ModelDB(), e.logger),
 		secretbackendstate.NewState(scope.ControllerDB(), e.logger),
-		scope.ModelUUID(), e.logger,
+		e.logger,
 		service.NotImplementedBackendConfigGetter)
 	return nil
 }

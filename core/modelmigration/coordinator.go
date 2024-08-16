@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
-	coremodel "github.com/juju/juju/core/model"
 )
 
 // BaseOperation is a base implementation of the Operation interface.
@@ -65,7 +64,6 @@ type Operation interface {
 // Scope is a collection of database txn runners that can be used by the
 // operations.
 type Scope struct {
-	modelUUID    coremodel.UUID
 	controllerDB database.TxnRunnerFactory
 	modelDB      database.TxnRunnerFactory
 	modelDeleter database.DBDeleter
@@ -75,18 +73,12 @@ type Scope struct {
 type ScopeForModel func(modelUUID string) Scope
 
 // NewScope creates a new scope with the given database txn runners.
-func NewScope(modelUUID coremodel.UUID, controllerDB, modelDB database.TxnRunnerFactory, modelDeleter database.DBDeleter) Scope {
+func NewScope(controllerDB, modelDB database.TxnRunnerFactory, modelDeleter database.DBDeleter) Scope {
 	return Scope{
-		modelUUID:    modelUUID,
 		controllerDB: controllerDB,
 		modelDB:      modelDB,
 		modelDeleter: modelDeleter,
 	}
-}
-
-// ModelUUID returns the UUID of the model.
-func (s Scope) ModelUUID() coremodel.UUID {
-	return s.modelUUID
 }
 
 // ControllerDB returns the database txn runner for the controller.

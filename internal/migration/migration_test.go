@@ -20,7 +20,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	coremigration "github.com/juju/juju/core/migration"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
@@ -67,8 +66,7 @@ func (s *ImportSuite) SetUpTest(c *gc.C) {
 
 func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	bytes := []byte("not a model")
-	modelUUID := modeltesting.GenModelUUID(c)
-	scope := func(string) modelmigration.Scope { return modelmigration.NewScope(modelUUID, nil, nil, nil) }
+	scope := func(string) modelmigration.Scope { return modelmigration.NewScope(nil, nil, nil) }
 	controller := &fakeImporter{}
 	configSchemaSource := func(environs.CloudService) config.ConfigSchemaSourceGetter {
 		return state.NoopConfigSchemaSource
@@ -141,13 +139,12 @@ volumes:
 version: 1
 `
 
-func (s *ImportSuite) exportImport(c *gc.C) {
+func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 	bytes := []byte(modelYaml)
 	st := &state.State{}
 	m := &state.Model{}
 	controller := &fakeImporter{st: st, m: m}
-	modelUUID := modeltesting.GenModelUUID(c)
-	scope := func(string) modelmigration.Scope { return modelmigration.NewScope(modelUUID, nil, nil, nil) }
+	scope := func(string) modelmigration.Scope { return modelmigration.NewScope(nil, nil, nil) }
 	configSchemaSource := func(environs.CloudService) config.ConfigSchemaSourceGetter {
 		return state.NoopConfigSchemaSource
 	}
@@ -166,7 +163,7 @@ func (s *ImportSuite) exportImport(c *gc.C) {
 func (s *ImportSuite) TestImportModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.exportImport(c)
+	s.exportImport(c, map[string]string{})
 }
 
 func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {

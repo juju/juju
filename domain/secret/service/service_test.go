@@ -92,7 +92,6 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.secretsBackend = NewMockSecretsBackend(ctrl)
 
 	s.service = &SecretService{
-		modelID:                       s.modelID,
 		secretState:                   s.state,
 		secretBackendReferenceMutator: s.secretBackendReferenceMutator,
 		logger:                        loggertesting.WrapCheckLog(c),
@@ -157,6 +156,7 @@ func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFail
 		return s.secretsBackend, nil
 	})
 
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
 	uri := coresecrets.NewURI()
 	rollbackCalled := false
 	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), params.ValueRef, s.modelID, s.fakeUUID).Return(
@@ -254,6 +254,7 @@ func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFail
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
 	s.state.EXPECT().GetLatestRevision(gomock.Any(), uri).Return(2, nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
 	rollbackCalled := false
 	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), params.ValueRef, s.modelID, s.fakeUUID).Return(func() error {
 		rollbackCalled = true
@@ -313,6 +314,7 @@ func (s *serviceSuite) TestCreateCharmUnitSecret(c *gc.C) {
 			c.Assert(got, jc.DeepEquals, want)
 			return nil
 		})
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
 	rollbackCalled := false
 	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID).Return(func() error {
 		rollbackCalled = true
@@ -370,6 +372,7 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *gc.C) {
 			c.Assert(got, jc.DeepEquals, want)
 			return nil
 		})
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
 	rollbackCalled := false
 	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID).Return(func() error {
 		rollbackCalled = true
@@ -419,6 +422,7 @@ func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *gc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
 	rollbackCalled := false
 	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID).Return(func() error {
 		rollbackCalled = true
@@ -464,6 +468,7 @@ func (s *serviceSuite) TestUpdateCharmSecret(c *gc.C) {
 		coresecrets.RotateNever, // No rotate policy.
 		nil)
 
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
 	rollbackCalled := false
 	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID).Return(func() error {
 		rollbackCalled = true
@@ -1105,6 +1110,7 @@ func (s *serviceSuite) TestChangeSecretBackendToExternalBackend(c *gc.C) {
 	}).Return("manage", nil)
 	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
 	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), s.fakeUUID, valueRef, nil).Return(nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
 	rollbackCalled := false
 	s.secretBackendReferenceMutator.EXPECT().UpdateSecretBackendReference(gomock.Any(), valueRef, s.modelID, s.fakeUUID).Return(func() error {
 		rollbackCalled = true
@@ -1135,6 +1141,7 @@ func (s *serviceSuite) TestChangeSecretBackendToInternalBackend(c *gc.C) {
 	}).Return("manage", nil)
 	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
 	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), s.fakeUUID, nil, map[string]string{"foo": "bar"}).Return(nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
 	rollbackCalled := false
 	s.secretBackendReferenceMutator.EXPECT().UpdateSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID).Return(func() error {
 		rollbackCalled = true
@@ -1165,6 +1172,7 @@ func (s *serviceSuite) TestChangeSecretBackendFailedAndRollback(c *gc.C) {
 	}).Return("manage", nil)
 	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
 	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), s.fakeUUID, nil, map[string]string{"foo": "bar"}).Return(errors.New("boom"))
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
 	rollbackCalled := false
 	s.secretBackendReferenceMutator.EXPECT().UpdateSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID).Return(func() error {
 		rollbackCalled = true
@@ -1216,6 +1224,7 @@ func (s *serviceSuite) TestChangeSecretBackendFailedSecretNotFound(c *gc.C) {
 	}).Return("manage", nil)
 	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
 	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), s.fakeUUID, nil, map[string]string{"foo": "bar"}).Return(secreterrors.SecretNotFound)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
 	rollbackCalled := false
 	s.secretBackendReferenceMutator.EXPECT().UpdateSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID).Return(func() error {
 		rollbackCalled = true
@@ -1591,7 +1600,7 @@ func (s *serviceSuite) TestWatchObsolete(c *gc.C) {
 		return []string{"yyy/1", "yyy/2"}, nil
 	})
 
-	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, s.modelID, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
+	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
 	w, err := svc.WatchObsolete(context.Background(),
 		CharmSecretOwner{
 			Kind: ApplicationOwner,
@@ -1652,7 +1661,7 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_revision_obsolete", changestream.Create, gomock.Any()).Return(mockObsoleteWatcher, nil)
 	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_metadata", changestream.Update, gomock.Any()).Return(mockAutoPruneWatcher, nil)
 
-	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, s.modelID, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
+	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
 	w, err := svc.WatchObsoleteUserSecretsToPrune(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
@@ -1711,7 +1720,7 @@ func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		"mysql/0", "revision-uuid-2",
 	).Return([]string{uri2.String()}, nil)
 
-	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, s.modelID, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
+	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
 	w, err := svc.WatchConsumedSecretsChanges(context.Background(), "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
@@ -1763,7 +1772,7 @@ func (s *serviceSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 		return []string{uri1.String(), uri2.String()}, nil
 	})
 
-	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, s.modelID, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
+	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
 	w, err := svc.WatchRemoteConsumedSecretsChanges(context.Background(), "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
@@ -1824,7 +1833,7 @@ func (s *serviceSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 			},
 		}, nil
 	})
-	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, s.modelID, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
+	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
 	w, err := svc.WatchSecretsRotationChanges(context.Background(),
 		CharmSecretOwner{
 			Kind: ApplicationOwner,
@@ -1906,7 +1915,7 @@ func (s *serviceSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 			},
 		}, nil
 	})
-	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, s.modelID, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
+	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
 	w, err := svc.WatchSecretRevisionsExpiryChanges(context.Background(),
 		CharmSecretOwner{
 			Kind: ApplicationOwner,

@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secret/state"
 	backendservice "github.com/juju/juju/domain/secretbackend/service"
-	backendstate "github.com/juju/juju/domain/secretbackend/state"
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 )
 
@@ -70,14 +69,13 @@ func (i *importOperation) Name() string {
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	// We must not use a watcher during migration, so it's safe to pass a
 	// nil watcher factory.
+	backendstate := secretbackendstate.NewState(scope.ControllerDB(), i.logger)
 	i.service = service.NewSecretService(
 		state.NewState(scope.ModelDB(), i.logger),
-		secretbackendstate.NewState(scope.ControllerDB(), i.logger),
-		scope.ModelUUID(), i.logger,
+		backendstate, i.logger,
 		service.NotImplementedBackendConfigGetter)
 	i.backendService = backendservice.NewService(
-		backendstate.NewState(scope.ControllerDB(), i.logger),
-		i.logger,
+		backendstate, i.logger,
 	)
 	return nil
 }
