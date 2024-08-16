@@ -993,20 +993,20 @@ func (s *HookContextSuite) TestOpenedPortRanges(c *gc.C) {
 	// OpenedPortRanges() should return the pending requests, see
 	// https://bugs.launchpad.net/juju/+bug/2008035
 	openedPorts := hookContext.OpenedPortRanges()
-	expectedOpenPorts := []network.PortRange{
+	expectedOpenPorts := network.NewPortRanges(
 		// Already present range from NewMockUnitHookContext()
-		{
+		network.PortRange{
 			FromPort: 666,
 			ToPort:   888,
 			Protocol: "tcp",
 		},
 		// Newly added but not yet flushed range
-		{
+		network.PortRange{
 			FromPort: 8080,
 			ToPort:   8080,
 			Protocol: "tcp",
 		},
-	}
+	)
 	c.Assert(openedPorts.UniquePortRanges(), gc.DeepEquals, expectedOpenPorts)
 
 	err = hookContext.Flush(stdcontext.Background(), "success", nil)

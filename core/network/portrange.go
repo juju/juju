@@ -45,14 +45,12 @@ func (grp GroupedPortRanges) MergePendingClosePortRanges(pendingCloseRanges Grou
 }
 
 // UniquePortRanges returns the unique set of PortRanges in this group.
-func (grp GroupedPortRanges) UniquePortRanges() []PortRange {
-	var allPorts []PortRange
+func (grp GroupedPortRanges) UniquePortRanges() PortRanges {
+	var res []PortRange
 	for _, portRanges := range grp {
-		allPorts = append(allPorts, portRanges...)
+		res = append(res, portRanges...)
 	}
-	uniquePortRanges := UniquePortRanges(allPorts)
-	SortPortRanges(uniquePortRanges)
-	return uniquePortRanges
+	return NewPortRanges(res...)
 }
 
 // Clone returns a copy of this port range grouping.

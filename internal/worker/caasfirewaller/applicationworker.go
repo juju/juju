@@ -158,7 +158,6 @@ func (w *applicationWorker) loop() (err error) {
 
 func toServicePorts(in network.GroupedPortRanges) []caas.ServicePort {
 	ports := in.UniquePortRanges()
-	network.SortPortRanges(ports)
 	out := make([]caas.ServicePort, len(ports))
 	for i, p := range ports {
 		out[i] = caas.ServicePort{

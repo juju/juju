@@ -41,9 +41,8 @@ func (p *unitPortRangesForMachine) ByEndpoint() network.GroupedPortRanges {
 
 // UniquePortRanges returns a slice of unique open PortRanges across all
 // endpoints.
-func (p *unitPortRangesForMachine) UniquePortRanges() []network.PortRange {
+func (p *unitPortRangesForMachine) UniquePortRanges() network.PortRanges {
 	uniquePortRanges := p.machinePortRanges.doc.UnitRanges[p.unitName].UniquePortRanges()
-	network.SortPortRanges(uniquePortRanges)
 	return uniquePortRanges
 }
 

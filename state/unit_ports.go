@@ -28,7 +28,7 @@ type UnitPortRanges interface {
 
 	// UniquePortRanges returns a slice of unique open PortRanges across
 	// all endpoints.
-	UniquePortRanges() []network.PortRange
+	UniquePortRanges() network.PortRanges
 
 	// Changes returns a ModelOperation for applying any changes that were
 	// made to the port ranges for this unit.

@@ -416,10 +416,10 @@ func (p *PortRangeSuite) TestUniquePortRangesInGroup(c *gc.C) {
 		),
 	}
 
-	exp := []network.PortRange{
+	exp := network.NewPortRanges(
 		network.MustParsePortRange("123/tcp"),
 		network.MustParsePortRange("456/tcp"),
-	}
+	)
 
 	got := in.UniquePortRanges()
 	c.Assert(got, gc.DeepEquals, exp, gc.Commentf("expected duplicate port ranges to be removed"))

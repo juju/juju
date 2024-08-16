@@ -194,9 +194,8 @@ func (p *unitPortRanges) Changes() ModelOperation {
 }
 
 // UniquePortRanges returns a slice of unique open PortRanges for the unit.
-func (p *unitPortRanges) UniquePortRanges() []network.PortRange {
+func (p *unitPortRanges) UniquePortRanges() network.PortRanges {
 	allRanges := p.apg.doc.UnitRanges[p.unitName].UniquePortRanges()
-	network.SortPortRanges(allRanges)
 	return allRanges
 }
 
