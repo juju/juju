@@ -378,7 +378,7 @@ parts:
             LZ4_CFLAGS="-I${SNAPCRAFT_STAGE}/liblz4/lib" \
             LZ4_LIBS="-L${SNAPCRAFT_STAGE}/liblz4/lib" \
             SQLITE_CFLAGS="-I${SNAPCRAFT_STAGE}/libsqlite3" \
-            ./configure --disable-shared --enable-debug --enable-build-raft
+            ./configure --disable-shared --enable-build-raft
       make
 
       mkdir -p $SNAPCRAFT_PART_INSTALL/libdqlite
