@@ -11,8 +11,6 @@ import (
 	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
 )
@@ -21,20 +19,8 @@ import (
 // Composes both application and charm state, so we can interact with both
 // from the single state, whilst also keeping the concerns separate.
 type State struct {
-	*domain.StateBase
 	*ApplicationState
 	*CharmState
-}
-
-// NewState returns a new State for interacting with the underlying state.
-func NewState(factory database.TxnRunnerFactory, logger logger.Logger) *State {
-	base := &commonStateBase{
-		StateBase: domain.NewStateBase(factory),
-	}
-	return &State{
-		ApplicationState: NewApplicationState(base, logger),
-		CharmState:       NewCharmState(base),
-	}
 }
 
 type commonStateBase struct {

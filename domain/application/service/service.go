@@ -23,10 +23,10 @@ type Service struct {
 
 // NewService returns a new Service for interacting with the underlying
 // application state.
-func NewService(st State, registry storage.ProviderRegistry, logger logger.Logger) *Service {
+func NewService(appSt ApplicationState, charmSt CharmState, registry storage.ProviderRegistry, logger logger.Logger) *Service {
 	return &Service{
-		CharmService:       NewCharmService(st, logger),
-		ApplicationService: NewApplicationService(st, registry, logger),
+		CharmService:       NewCharmService(charmSt, logger),
+		ApplicationService: NewApplicationService(appSt, registry, logger),
 	}
 }
 
@@ -39,12 +39,13 @@ type WatchableService struct {
 }
 
 // NewWatchableService returns a new service reference wrapping the input state.
-func NewWatchableService(st State, watcherFactory WatcherFactory, registry storage.ProviderRegistry, logger logger.Logger) *WatchableService {
-	watchableCharmService := NewWatchableCharmService(st, watcherFactory, logger)
+func NewWatchableService(appSt ApplicationState, charmSt CharmState, watcherFactory WatcherFactory, registry storage.ProviderRegistry, logger logger.Logger) *WatchableService {
+	watchableCharmService := NewWatchableCharmService(charmSt, watcherFactory, logger)
+	applicationService := NewApplicationService(appSt, registry, logger)
 	return &WatchableService{
 		Service: Service{
 			CharmService:       &watchableCharmService.CharmService,
-			ApplicationService: NewApplicationService(st, registry, logger),
+			ApplicationService: applicationService,
 		},
 		watchableCharmService: watchableCharmService,
 		watcherFactory:        watcherFactory,

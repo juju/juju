@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -30,9 +31,11 @@ type CharmState struct {
 }
 
 // NewCharmState creates a state to access the database.
-func NewCharmState(base *commonStateBase) *CharmState {
+func NewCharmState(factory database.TxnRunnerFactory) *CharmState {
 	return &CharmState{
-		commonStateBase: base,
+		commonStateBase: &commonStateBase{
+			StateBase: domain.NewStateBase(factory),
+		},
 	}
 }
 

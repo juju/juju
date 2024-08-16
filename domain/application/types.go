@@ -21,6 +21,13 @@ type Platform struct {
 	ArchitectureID Architecture
 }
 
+// ScaleState describes the scale status of a k8s application.
+type ScaleState struct {
+	Scaling     bool
+	Scale       int
+	ScaleTarget int
+}
+
 // CloudContainer contains parameters for a unit's cloud container.
 type CloudContainer struct {
 	ProviderId *string
@@ -37,8 +44,8 @@ type Address struct {
 	SpaceID     string
 }
 
-// AddUnitArg contains parameters for saving a unit to state.
-type AddUnitArg struct {
+// UpsertUnitArg contains parameters for adding a unit to state.
+type UpsertUnitArg struct {
 	UnitName       *string
 	PasswordHash   *string
 	CloudContainer *CloudContainer

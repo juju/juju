@@ -53,8 +53,8 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 
 func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 	logger := loggertesting.WrapCheckLog(c)
-	st := applicationstate.NewState(s.TxnRunnerFactory(), logger)
-	svc := applicationservice.NewService(st, nil, logger)
+	st := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger)
+	svc := applicationservice.NewService(st, nil, nil, logger)
 
 	unitName := fmt.Sprintf("%s/0", appName)
 	_, err := svc.CreateApplication(context.Background(),

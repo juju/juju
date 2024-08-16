@@ -58,7 +58,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	u := application.AddUnitArg{
+	u := application.UpsertUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	ch := domaincharm.Charm{
@@ -99,7 +99,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	u := application.AddUnitArg{
+	u := application.UpsertUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	ch := domaincharm.Charm{
@@ -162,7 +162,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	u := application.AddUnitArg{
+	u := application.UpsertUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	ch := domaincharm.Charm{
@@ -229,7 +229,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	u := application.AddUnitArg{
+	u := application.UpsertUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	ch := domaincharm.Charm{
@@ -292,7 +292,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	u := application.AddUnitArg{
+	u := application.UpsertUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	ch := domaincharm.Charm{
@@ -498,7 +498,7 @@ func (s *applicationServiceSuite) TestDeleteApplicationError(c *gc.C) {
 func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	u := application.AddUnitArg{
+	u := application.UpsertUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	s.state.EXPECT().AddUnits(gomock.Any(), "666", u).Return(nil)
@@ -510,48 +510,62 @@ func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *applicationServiceSuite) TestAddUpsertCAASUnit(c *gc.C) {
+func (s *applicationServiceSuite) TestAddRegisterCAASUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	u := application.AddUnitArg{
-		UnitName:     ptr("foo/666"),
-		PasswordHash: ptr("passwordhash"),
-		CloudContainer: &application.CloudContainer{
-			ProviderId: ptr("provider-id"),
-			Address: ptr(application.Address{
-				Value:       "10.6.6.6",
-				AddressType: "ipv4",
-				Scope:       "local-machine",
-				Origin:      "provider",
-				SpaceID:     "0",
-			}),
-			Ports: ptr([]string{"6666"}),
-		},
-	}
-	s.state.EXPECT().UpsertApplicationUnit(gomock.Any(), "foo", u).Return(nil)
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).Return(nil)
 
-	p := UpsertCAASUnitParams{
+	p := RegisterCAASUnitParams{
 		UnitName:     "foo/666",
 		PasswordHash: ptr("passwordhash"),
 		ProviderId:   ptr("provider-id"),
-		Address:      ptr("10.6.6.6"),
-		Ports:        ptr([]string{"6666"}),
+		OrderedScale: true,
+		OrderedId:    1,
 	}
-	err := s.service.UpsertCAASUnit(context.Background(), "foo", p)
+	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *applicationServiceSuite) TestAddUpsertCAASUnitMinimal(c *gc.C) {
+var unitParams = RegisterCAASUnitParams{
+	UnitName:     "foo/666",
+	PasswordHash: ptr("passwordhash"),
+	ProviderId:   ptr("provider-id"),
+	OrderedScale: true,
+	OrderedId:    1,
+}
+
+func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingUnitName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	u := application.AddUnitArg{
-		UnitName: ptr("foo/666"),
-	}
-	s.state.EXPECT().UpsertApplicationUnit(gomock.Any(), "foo", u).Return(nil)
+	p := unitParams
+	p.UnitName = ""
+	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
+	c.Assert(err, gc.ErrorMatches, "missing unit name not valid")
+}
 
-	p := UpsertCAASUnitParams{
-		UnitName: "foo/666",
-	}
-	err := s.service.UpsertCAASUnit(context.Background(), "foo", p)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingOrderedScale(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	p := unitParams
+	p.OrderedScale = false
+	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
+	c.Assert(err, gc.ErrorMatches, "registering CAAS units not supported without ordered unit IDs")
+}
+
+func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingProviderID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	p := unitParams
+	p.ProviderId = nil
+	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
+	c.Assert(err, gc.ErrorMatches, "provider id not valid")
+}
+
+func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingPasswordHash(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	p := unitParams
+	p.PasswordHash = nil
+	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
+	c.Assert(err, gc.ErrorMatches, "password hash not valid")
 }
