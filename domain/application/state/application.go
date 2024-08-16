@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -610,4 +611,79 @@ WHERE application_uuid = $applicationScale.application_uuid
 		return nil
 	})
 	return appScale.ToScaleState(), errors.Annotatef(err, "querying application %q scale", appID)
+}
+
+// InitialWatchStatementUnitLife returns the initial namespace query for the application unit life watcher.
+func (st *ApplicationState) InitialWatchStatementUnitLife(appName string) (string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+		app := applicationName{Name: appName}
+		stmt, err := st.Prepare(`
+SELECT u.uuid AS &unitDetails.uuid
+FROM unit u
+JOIN application a ON a.uuid = u.application_uuid
+WHERE a.name = $applicationName.name
+`, app, unitDetails{})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		var result []unitDetails
+		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			err := tx.Query(ctx, stmt, app).GetAll(&result)
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return nil
+			}
+			return errors.Trace(err)
+		})
+		if err != nil {
+			return nil, errors.Annotatef(err, "querying unit life for %q", appName)
+		}
+		uuids := make([]string, len(result))
+		for i, r := range result {
+			uuids[i] = r.UnitID
+		}
+		return uuids, errors.Trace(err)
+	}
+	return "unit", queryFunc
+}
+
+type unitIDs []string
+
+// GetApplicationUnitLife returns the life values for the specified units of the given application.
+// The supplied ids may belong to a different application; the application name is used to filter.
+func (st *ApplicationState) GetApplicationUnitLife(ctx context.Context, appName string, ids ...string) (map[string]life.Life, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	lifeQuery := `
+SELECT (u.uuid, u.life_id) AS (&unitDetails.*)
+FROM unit u
+JOIN application a ON a.uuid = u.application_uuid
+WHERE u.uuid IN ($unitIDs[:])
+AND a.name = $applicationName.name
+`
+
+	app := applicationName{Name: appName}
+	lifeStmt, err := st.Prepare(lifeQuery, app, unitDetails{}, unitIDs{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var lifes []unitDetails
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, lifeStmt, unitIDs(ids), app).GetAll(&lifes)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "querying unit life for %q", appName)
+	}
+	result := make(map[string]life.Life)
+	for _, u := range lifes {
+		result[u.UnitID] = u.LifeID
+	}
+	return result, nil
 }

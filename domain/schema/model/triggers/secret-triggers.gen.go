@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
+
 // ChangeLogTriggersForSecretMetadata generates the triggers for the
 // secret_metadata table.
 func ChangeLogTriggersForSecretMetadata(columnName string, namespaceID int) func() schema.Patch {
@@ -213,3 +214,4 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
+

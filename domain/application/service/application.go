@@ -10,11 +10,15 @@ import (
 	"github.com/juju/errors"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
@@ -49,6 +53,13 @@ type AtomicApplicationState interface {
 	// UnitLife looks up the life of the specified unit, returning an error
 	// satisfying [uniterrors.NotFound] if the unit is not found.
 	UnitLife(ctx domain.AtomicContext, unitName string) (life.Life, error)
+
+	// InitialWatchStatementUnitLife returns the initial namespace query for the application unit life watcher.
+	InitialWatchStatementUnitLife(appName string) (string, eventsource.NamespaceQuery)
+
+	// GetApplicationUnitLife returns the life values for the specified units of the given application.
+	// The supplied ids may belong to a different application; the application name is used to filter.
+	GetApplicationUnitLife(ctx context.Context, appName string, unitIDs ...string) (map[string]life.Life, error)
 }
 
 // ApplicationState describes retrieval and persistence methods for
@@ -343,4 +354,35 @@ func (s *ApplicationService) validateStorageDirectives(ctx context.Context, mode
 		}
 	}
 	return nil
+}
+
+// WatchableApplicationService provides the API for working with applications and the
+// ability to create watchers.
+type WatchableApplicationService struct {
+	ApplicationService
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableApplicationService returns a new service reference wrapping the input state.
+func NewWatchableApplicationService(st ApplicationState, watcherFactory WatcherFactory, registry storage.ProviderRegistry, logger logger.Logger) *WatchableApplicationService {
+	return &WatchableApplicationService{
+		ApplicationService: ApplicationService{
+			st:       st,
+			registry: registry,
+			logger:   logger,
+		},
+		watcherFactory: watcherFactory,
+	}
+}
+
+// WatchApplicationUnitLife returns a watcher that observes changes to the life of any units if an application.
+func (s *WatchableApplicationService) WatchApplicationUnitLife(appName string) (watcher.StringsWatcher, error) {
+	lifeGetter := func(ctx context.Context, db coredatabase.TxnRunner, ids ...string) (map[string]life.Life, error) {
+		l, err := s.st.GetApplicationUnitLife(ctx, appName, ids...)
+		return l, err
+	}
+	lifeMapper := domain.LifeStringsWatcherMapperFunc(s.logger, lifeGetter)
+
+	table, query := s.st.InitialWatchStatementUnitLife(appName)
+	return s.watcherFactory.NewNamespaceMapperWatcher(table, changestream.All, query, lifeMapper)
 }

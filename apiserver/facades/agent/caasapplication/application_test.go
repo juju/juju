@@ -56,7 +56,8 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	// upserting of units.
 	serviceFactory := s.DefaultModelServiceFactory(c)
 	unitName := "gitlab/0"
-	_, err := serviceFactory.Application(nil).CreateApplication(
+	applicationService := serviceFactory.Application(provider.CommonStorageProviders())
+	_, err := applicationService.CreateApplication(
 		context.Background(), "gitlab", &stubCharm{}, corecharm.Origin{}, service.AddApplicationArgs{}, service.AddUnitArg{
 			UnitName: &unitName,
 		})
@@ -70,7 +71,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 		s.authorizer,
 		s.st, s.st,
 		s.ControllerServiceFactory(c).ControllerConfig(),
-		s.DefaultModelServiceFactory(c).Application(provider.CommonStorageProviders()),
+		applicationService,
 		s.broker,
 		s.clock,
 		loggertesting.WrapCheckLog(c),

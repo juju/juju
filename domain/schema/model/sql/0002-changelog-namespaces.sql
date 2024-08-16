@@ -21,4 +21,5 @@ INSERT INTO change_log_namespace VALUES
 (17, 'machine_cloud_instance', 'Machine cloud instance changes based on machine UUID'),
 (18, 'machine_requires_reboot', 'Machine requires reboot changes base on machine UUID '),
 (19, 'user_public_ssh_key', 'User public ssh key changes based on id'),
-(20, 'charm', 'Charm changes based on the charm UUID');
+(20, 'charm', 'Charm changes based on the charm UUID'),
+(21, 'unit', 'Unit changes based on the unit UUID');

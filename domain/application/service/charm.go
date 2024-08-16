@@ -14,6 +14,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -30,6 +31,11 @@ var (
 type WatcherFactory interface {
 	NewUUIDsWatcher(
 		namespace string, changeMask changestream.ChangeType,
+	) (watcher.StringsWatcher, error)
+	NewNamespaceMapperWatcher(
+		namespace string, changeMask changestream.ChangeType,
+		initialStateQuery eventsource.NamespaceQuery,
+		mapper eventsource.Mapper,
 	) (watcher.StringsWatcher, error)
 }
 

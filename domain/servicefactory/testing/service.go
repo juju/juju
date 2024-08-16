@@ -40,7 +40,7 @@ import (
 // TestingServiceFactory provides access to the services required by the apiserver.
 type TestingServiceFactory struct {
 	machineServiceGetter     func() *machineservice.WatchableService
-	applicationServiceGetter func() *applicationservice.Service
+	applicationServiceGetter func() *applicationservice.WatchableService
 	unitServiceGetter        func() *unitservice.Service
 }
 
@@ -213,7 +213,7 @@ func (s *TestingServiceFactory) ModelSecretBackend() *secretbackendservice.Model
 }
 
 // Application returns the block device service.
-func (s *TestingServiceFactory) Application(storage.ProviderRegistry) *applicationservice.Service {
+func (s *TestingServiceFactory) Application(storage.ProviderRegistry) *applicationservice.WatchableService {
 	if s.applicationServiceGetter == nil {
 		return nil
 	}
@@ -222,7 +222,7 @@ func (s *TestingServiceFactory) Application(storage.ProviderRegistry) *applicati
 
 // WithApplicationService returns a service factory which gets its application service
 // using the supplied getter.
-func (s *TestingServiceFactory) WithApplicationService(getter func() *applicationservice.Service) *TestingServiceFactory {
+func (s *TestingServiceFactory) WithApplicationService(getter func() *applicationservice.WatchableService) *TestingServiceFactory {
 	s.applicationServiceGetter = getter
 	return s
 }

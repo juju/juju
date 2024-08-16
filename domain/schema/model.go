@@ -22,6 +22,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-requires-reboot-triggers.gen.go -package=triggers -tables=machine_requires_reboot
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/user-public-ssh-key.gen.go -package=triggers -tables=user_public_ssh_key
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/charm.gen.go -package=triggers -tables=charm
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit.gen.go -package=triggers -tables=unit
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
@@ -48,6 +49,7 @@ const (
 	tableMachineRequireReboot
 	tableUserPublicSSHKey
 	tableCharm
+	tableUnit
 )
 
 // ModelDDL is used to create model databases.
@@ -104,6 +106,7 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForMachineRequiresReboot("machine_uuid", tableMachineRequireReboot),
 		triggers.ChangeLogTriggersForUserPublicSshKey("id", tableUserPublicSSHKey),
 		triggers.ChangeLogTriggersForCharm("uuid", tableCharm),
+		triggers.ChangeLogTriggersForUnit("uuid", tableUnit),
 	)
 
 	// Generic triggers.
