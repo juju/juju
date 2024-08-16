@@ -422,6 +422,7 @@ func (s *Service) BackendSummaryInfo(ctx context.Context, reveal bool, names ...
 				Name:        b.Name,
 				BackendType: b.BackendType,
 				// TODO: fetch the correct config for non controller model k8s backend.
+				// https://warthogs.atlassian.net/browse/JUJU-6561
 			},
 			NumSecrets: b.NumSecrets,
 		})
