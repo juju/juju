@@ -8,8 +8,7 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
-// ChangeLogTriggersForSubnet generates the triggers for the 
+// ChangeLogTriggersForSubnet generates the triggers for the
 // subnet table.
 func ChangeLogTriggersForSubnet(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -43,4 +42,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

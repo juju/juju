@@ -8,8 +8,7 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
-// ChangeLogTriggersForObjectStoreMetadataPath generates the triggers for the 
+// ChangeLogTriggersForObjectStoreMetadataPath generates the triggers for the
 // object_store_metadata_path table.
 func ChangeLogTriggersForObjectStoreMetadataPath(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -41,4 +40,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

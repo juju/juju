@@ -8,8 +8,7 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
-// ChangeLogTriggersForCloud generates the triggers for the 
+// ChangeLogTriggersForCloud generates the triggers for the
 // cloud table.
 func ChangeLogTriggersForCloud(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -47,7 +46,7 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForCloudCredential generates the triggers for the 
+// ChangeLogTriggersForCloudCredential generates the triggers for the
 // cloud_credential table.
 func ChangeLogTriggersForCloudCredential(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -86,7 +85,7 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForExternalController generates the triggers for the 
+// ChangeLogTriggersForExternalController generates the triggers for the
 // external_controller table.
 func ChangeLogTriggersForExternalController(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -119,4 +118,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

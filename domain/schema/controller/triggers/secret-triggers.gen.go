@@ -8,8 +8,7 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
-// ChangeLogTriggersForModelSecretBackend generates the triggers for the 
+// ChangeLogTriggersForModelSecretBackend generates the triggers for the
 // model_secret_backend table.
 func ChangeLogTriggersForModelSecretBackend(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -42,7 +41,7 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForSecretBackendRotation generates the triggers for the 
+// ChangeLogTriggersForSecretBackendRotation generates the triggers for the
 // secret_backend_rotation table.
 func ChangeLogTriggersForSecretBackendRotation(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -74,4 +73,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

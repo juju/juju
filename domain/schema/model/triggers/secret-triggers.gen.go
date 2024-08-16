@@ -8,8 +8,7 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
-// ChangeLogTriggersForSecretMetadata generates the triggers for the 
+// ChangeLogTriggersForSecretMetadata generates the triggers for the
 // secret_metadata table.
 func ChangeLogTriggersForSecretMetadata(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -47,7 +46,7 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForSecretReference generates the triggers for the 
+// ChangeLogTriggersForSecretReference generates the triggers for the
 // secret_reference table.
 func ChangeLogTriggersForSecretReference(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -80,7 +79,7 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForSecretRevision generates the triggers for the 
+// ChangeLogTriggersForSecretRevision generates the triggers for the
 // secret_revision table.
 func ChangeLogTriggersForSecretRevision(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -115,7 +114,7 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForSecretRevisionExpire generates the triggers for the 
+// ChangeLogTriggersForSecretRevisionExpire generates the triggers for the
 // secret_revision_expire table.
 func ChangeLogTriggersForSecretRevisionExpire(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -148,7 +147,7 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForSecretRevisionObsolete generates the triggers for the 
+// ChangeLogTriggersForSecretRevisionObsolete generates the triggers for the
 // secret_revision_obsolete table.
 func ChangeLogTriggersForSecretRevisionObsolete(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -182,7 +181,7 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForSecretRotation generates the triggers for the 
+// ChangeLogTriggersForSecretRotation generates the triggers for the
 // secret_rotation table.
 func ChangeLogTriggersForSecretRotation(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -214,4 +213,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

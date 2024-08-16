@@ -8,8 +8,7 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
-// ChangeLogTriggersForCharm generates the triggers for the 
+// ChangeLogTriggersForCharm generates the triggers for the
 // charm table.
 func ChangeLogTriggersForCharm(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -49,4 +48,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

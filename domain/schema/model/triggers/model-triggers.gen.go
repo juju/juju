@@ -8,8 +8,7 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
-// ChangeLogTriggersForModelConfig generates the triggers for the 
+// ChangeLogTriggersForModelConfig generates the triggers for the
 // model_config table.
 func ChangeLogTriggersForModelConfig(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -41,4 +40,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

@@ -8,8 +8,7 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
-// ChangeLogTriggersForBlockDevice generates the triggers for the 
+// ChangeLogTriggersForBlockDevice generates the triggers for the
 // block_device table.
 func ChangeLogTriggersForBlockDevice(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -53,7 +52,7 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForStorageAttachment generates the triggers for the 
+// ChangeLogTriggersForStorageAttachment generates the triggers for the
 // storage_attachment table.
 func ChangeLogTriggersForStorageAttachment(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -87,7 +86,7 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForStorageFilesystem generates the triggers for the 
+// ChangeLogTriggersForStorageFilesystem generates the triggers for the
 // storage_filesystem table.
 func ChangeLogTriggersForStorageFilesystem(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -124,7 +123,7 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForStorageFilesystemAttachment generates the triggers for the 
+// ChangeLogTriggersForStorageFilesystemAttachment generates the triggers for the
 // storage_filesystem_attachment table.
 func ChangeLogTriggersForStorageFilesystemAttachment(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -162,7 +161,7 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForStorageVolume generates the triggers for the 
+// ChangeLogTriggersForStorageVolume generates the triggers for the
 // storage_volume table.
 func ChangeLogTriggersForStorageVolume(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -203,7 +202,7 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForStorageVolumeAttachment generates the triggers for the 
+// ChangeLogTriggersForStorageVolumeAttachment generates the triggers for the
 // storage_volume_attachment table.
 func ChangeLogTriggersForStorageVolumeAttachment(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -241,7 +240,7 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForStorageVolumeAttachmentPlan generates the triggers for the 
+// ChangeLogTriggersForStorageVolumeAttachmentPlan generates the triggers for the
 // storage_volume_attachment_plan table.
 func ChangeLogTriggersForStorageVolumeAttachmentPlan(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -278,4 +277,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-
