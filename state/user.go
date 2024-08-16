@@ -29,11 +29,6 @@ func userGlobalKey(userID string) string {
 	return fmt.Sprintf("%s#%s", userGlobalKeyPrefix, userID)
 }
 
-func userIDFromGlobalKey(key string) string {
-	prefix := userGlobalKeyPrefix + "#"
-	return strings.TrimPrefix(key, prefix)
-}
-
 // AddUser adds a user to the database.
 func (st *State) AddUser(name, displayName, password, creator string) (*User, error) {
 	return st.addUser(name, displayName, password, creator, nil)

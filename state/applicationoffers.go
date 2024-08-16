@@ -18,7 +18,6 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -296,22 +295,6 @@ func (op *RemoveOfferOperation) Done(err error) error {
 		if err := remoteProxyOp.Done(nil); err != nil {
 			op.AddError(errors.Errorf("error finalising removal of consuming proxy %q: %v", remoteProxyOp.app.Name(), err))
 		}
-	}
-	// Now the offer is removed, delete any user permissions.
-	userPerms, err := op.offerStore.st.GetOfferUsers(op.offer.OfferUUID)
-	if err != nil {
-		op.AddError(errors.Errorf("error removing offer permissions: %v", err))
-		return nil
-	}
-	var removeOps []txn.Op
-	for userName := range userPerms {
-		user := names.NewUserTag(userName)
-		removeOps = append(removeOps,
-			removePermissionOp(applicationOfferKey(op.offer.OfferUUID), userGlobalKey(userAccessID(user))))
-	}
-	err = op.offerStore.st.db().RunTransaction(removeOps)
-	if err != nil {
-		op.AddError(errors.Errorf("error removing offer permissions: %v", err))
 	}
 	return nil
 }
@@ -601,22 +584,6 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 	err = s.st.db().Run(buildTxn)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	// Ensure the owner has admin access to the offer.
-	offerTag := names.NewApplicationOfferTag(doc.OfferUUID)
-	owner := names.NewUserTag(offerArgs.Owner)
-	err = s.st.CreateOfferAccess(offerTag, owner, permission.AdminAccess)
-	if err != nil {
-		return nil, errors.Annotate(err, "granting admin permission to the offer owner")
-	}
-	// Add in any read access permissions.
-	for _, user := range offerArgs.HasRead {
-		readerTag := names.NewUserTag(user)
-		err = s.st.CreateOfferAccess(offerTag, readerTag, permission.ReadAccess)
-		if err != nil {
-			return nil, errors.Annotatef(err, "granting read permission to %q", user)
-		}
 	}
 	return result, nil
 }
@@ -909,20 +876,7 @@ func (s *applicationOffers) filterOffersByAllowedConsumer(
 		return in, nil
 	}
 
-	var out []applicationOfferDoc
-	for _, doc := range in {
-		offerUsers, err := s.st.GetOfferUsers(doc.OfferUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, username := range users {
-			if offerUsers[username].EqualOrGreaterOfferAccessThan(permission.ConsumeAccess) {
-				out = append(out, doc)
-				break
-			}
-		}
-	}
-	return out, nil
+	return in, nil
 }
 
 func (s *applicationOffers) makeApplicationOffer(doc applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {

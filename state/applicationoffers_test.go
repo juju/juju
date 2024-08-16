@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/testing"
@@ -98,10 +97,6 @@ func (s *applicationOffersSuite) TestRemove(c *gc.C) {
 
 	_, err = r.GetToken(names.NewApplicationTag(offer.OfferName))
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
-
-	userPerms, err := s.State.GetOfferUsers(offer.OfferUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(userPerms, gc.HasLen, 0)
 }
 
 func (s *applicationOffersSuite) TestAddApplicationOffer(c *gc.C) {
@@ -121,14 +116,6 @@ func (s *applicationOffersSuite) TestAddApplicationOffer(c *gc.C) {
 	expectedOffer, err := sd.ApplicationOffer(offer.OfferName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*offer, jc.DeepEquals, *expectedOffer)
-
-	access, err := s.State.GetOfferAccess(offer.OfferUUID, owner.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, permission.AdminAccess)
-
-	access, err = s.State.GetOfferAccess(offer.OfferUUID, names.NewUserTag("everyone@external"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
 
 func (s *applicationOffersSuite) TestAddApplicationOfferInvalidApplication(c *gc.C) {
@@ -356,35 +343,18 @@ func (s *applicationOffersSuite) TestListOffersFilterOfferNameRegexp(c *gc.C) {
 	c.Assert(offers[0], jc.DeepEquals, offer)
 }
 
+// TODO(aflynn) 22-08-24: This feature is not working because it relied on
+// GetOfferUsers in state which has been removed as part of removing permissions
+// from state. Reinstate this functionality once offers have been moved to
+// domain.
 func (s *applicationOffersSuite) TestListOffersAllowedConsumersOwner(c *gc.C) {
+	c.Skip("filter by allowed consumer disabled until offers moved to domain")
 	sd := state.NewApplicationOffers(s.State)
 	offer, owner := s.createOffer(c, "offer1", "description for offer1")
 	s.createOffer(c, "offer2", "description for offer2")
 	s.createOffer(c, "offer3", "description for offer3")
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
 		AllowedConsumers: []string{owner, "mary"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(offers), gc.Equals, 1)
-	c.Assert(offers[0], jc.DeepEquals, offer)
-}
-
-func (s *applicationOffersSuite) TestListOffersAllowedConsumers(c *gc.C) {
-	sd := state.NewApplicationOffers(s.State)
-	offer, _ := s.createOffer(c, "offer1", "description for offer1")
-	offer2, _ := s.createOffer(c, "offer2", "description for offer2")
-	s.createOffer(c, "offer3", "description for offer3")
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "mary"})
-
-	mary := names.NewUserTag("mary")
-	err := s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag(offer.OfferUUID), mary, permission.ConsumeAccess)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag(offer2.OfferUUID), mary, permission.ReadAccess)
-	c.Assert(err, jc.ErrorIsNil)
-	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
-		AllowedConsumers: []string{"mary"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(offers), gc.Equals, 1)

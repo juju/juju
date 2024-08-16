@@ -9,7 +9,6 @@ import (
 
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -56,12 +55,6 @@ type Backend interface {
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
 	OfferConnections(string) ([]OfferConnection, error)
-	User(names.UserTag) (User, error)
-
-	CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
-	UpdateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
-	RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error
-	GetOfferUsers(offerUUID string) (map[string]permission.Access, error)
 }
 
 var GetStateAccess = func(st *state.State) Backend {
@@ -74,26 +67,6 @@ var GetStateAccess = func(st *state.State) Backend {
 type stateShim struct {
 	commoncrossmodel.Backend
 	st *state.State
-}
-
-func (s stateShim) UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error) {
-	return s.st.UserPermission(subject, target)
-}
-
-func (s stateShim) CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
-	return s.st.CreateOfferAccess(offer, user, access)
-}
-
-func (s stateShim) UpdateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
-	return s.st.UpdateOfferAccess(offer, user, access)
-}
-
-func (s stateShim) RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error {
-	return s.st.RemoveOfferAccess(offer, user)
-}
-
-func (s stateShim) GetOfferUsers(offerUUID string) (map[string]permission.Access, error) {
-	return s.st.GetOfferUsers(offerUUID)
 }
 
 func (s *stateShim) Model() (Model, error) {
@@ -149,12 +122,4 @@ type OfferConnection interface {
 
 type offerConnectionShim struct {
 	*state.OfferConnection
-}
-
-func (s *stateShim) User(tag names.UserTag) (User, error) {
-	return s.st.User(tag)
-}
-
-type User interface {
-	DisplayName() string
 }

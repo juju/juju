@@ -15,7 +15,6 @@ import (
 
 	crossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	crossmodel0 "github.com/juju/juju/core/crossmodel"
-	permission "github.com/juju/juju/core/permission"
 	secrets "github.com/juju/juju/core/secrets"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
@@ -400,45 +399,6 @@ func (c *MockRemoteRelationsStateExportLocalEntityCall) Do(f func(names.Tag) (st
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockRemoteRelationsStateExportLocalEntityCall) DoAndReturn(f func(names.Tag) (string, error)) *MockRemoteRelationsStateExportLocalEntityCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetOfferAccess mocks base method.
-func (m *MockRemoteRelationsState) GetOfferAccess(arg0 string, arg1 names.UserTag) (permission.Access, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetOfferAccess", arg0, arg1)
-	ret0, _ := ret[0].(permission.Access)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetOfferAccess indicates an expected call of GetOfferAccess.
-func (mr *MockRemoteRelationsStateMockRecorder) GetOfferAccess(arg0, arg1 any) *MockRemoteRelationsStateGetOfferAccessCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOfferAccess", reflect.TypeOf((*MockRemoteRelationsState)(nil).GetOfferAccess), arg0, arg1)
-	return &MockRemoteRelationsStateGetOfferAccessCall{Call: call}
-}
-
-// MockRemoteRelationsStateGetOfferAccessCall wrap *gomock.Call
-type MockRemoteRelationsStateGetOfferAccessCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockRemoteRelationsStateGetOfferAccessCall) Return(arg0 permission.Access, arg1 error) *MockRemoteRelationsStateGetOfferAccessCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockRemoteRelationsStateGetOfferAccessCall) Do(f func(string, names.UserTag) (permission.Access, error)) *MockRemoteRelationsStateGetOfferAccessCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteRelationsStateGetOfferAccessCall) DoAndReturn(f func(string, names.UserTag) (permission.Access, error)) *MockRemoteRelationsStateGetOfferAccessCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

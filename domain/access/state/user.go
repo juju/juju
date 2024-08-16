@@ -47,6 +47,28 @@ func (st *UserState) AddUser(
 	displayName string,
 	external bool,
 	creatorUUID user.UUID,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Annotate(err, "getting DB access")
+	}
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Trace(AddUser(ctx, tx, uuid, name, displayName, external, creatorUUID))
+	})
+}
+
+// AddUserWithPermission will add a new user and a permission to the database.
+// If the user already exists, an error that satisfies
+// [accesserrors.UserAlreadyExists] will be returned. If the creator does not
+// exist, an error that satisfies [accesserrors.UserCreatorUUIDNotFound] will be
+// returned.
+func (st *UserState) AddUserWithPermission(
+	ctx context.Context,
+	uuid user.UUID,
+	name user.Name,
+	displayName string,
+	external bool,
+	creatorUUID user.UUID,
 	permission permission.AccessSpec,
 ) error {
 	db, err := st.DB()
@@ -59,10 +81,10 @@ func (st *UserState) AddUser(
 	})
 }
 
-// AddUserWithPasswordHash will add a new user to the database with the
-// provided password hash and salt. If the user already exists, an error that
-// satisfies accesserrors.UserAlreadyExists will be returned. If the creator does
-// not exist that satisfies accesserrors.UserCreatorUUIDNotFound will be returned.
+// AddUserWithPasswordHash will add a new user to the database with the provided
+// password hash and salt. If the user already exists, an error that satisfies
+// [accesserrors.UserAlreadyExists] will be returned. If the creator does not
+// exist that satisfies [accesserrors.UserCreatorUUIDNotFound] will be returned.
 func (st *UserState) AddUserWithPasswordHash(
 	ctx context.Context,
 	uuid user.UUID,
@@ -84,10 +106,10 @@ func (st *UserState) AddUserWithPasswordHash(
 }
 
 // AddUserWithActivationKey will add a new user to the database with the
-// provided activation key. If the user already exists an error that
-// satisfies accesserrors.UserAlreadyExists will be returned. if the users creator
-// does not exist an error that satisfies accesserrors.UserCreatorUUIDNotFound
-// will be returned.
+// provided activation key. If the user already exists an error that satisfies
+// [accesserrors.UserAlreadyExists] will be returned. if the users creator does
+// not exist an error that satisfies [accesserrors.UserCreatorUUIDNotFound] will
+// be returned.
 func (st *UserState) AddUserWithActivationKey(
 	ctx context.Context,
 	uuid user.UUID,

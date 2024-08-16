@@ -18,6 +18,8 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -28,8 +30,11 @@ type BaseAPI struct {
 	ControllerModel      Backend
 	StatePool            StatePool
 	modelService         ModelService
+	accessService        AccessService
 	getControllerInfo    func(context.Context) (apiAddrs []string, caCert string, _ error)
 	logger               corelogger.Logger
+	controllerUUID       string
+	modelUUID            model.UUID
 }
 
 // checkAdmin ensures that the specified in user is a model or controller admin.
@@ -75,13 +80,13 @@ func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, string, bo
 	return model, modelPath, model != nil, nil
 }
 
-func (api *BaseAPI) userDisplayName(backend Backend, userTag names.UserTag) (string, error) {
+func (api *BaseAPI) userDisplayName(ctx context.Context, userName coreuser.Name) (string, error) {
 	var displayName string
-	user, err := backend.User(userTag)
-	if err != nil && !errors.Is(err, errors.NotFound) {
+	user, err := api.accessService.GetUserByName(ctx, userName)
+	if err != nil && !errors.Is(err, accesserrors.UserNotFound) {
 		return "", errors.Trace(err)
 	} else if err == nil {
-		displayName = user.DisplayName()
+		displayName = user.DisplayName
 	}
 	return displayName, nil
 }
@@ -119,12 +124,21 @@ func (api *BaseAPI) applicationOffersFromModel(
 		return nil, err
 	}
 
+	// TODO(aflynn): re-enable filtering by allowed consumers in domain and
+	// remove this warning.
+	for _, filter := range filters {
+		if len(filter.AllowedConsumers) > 0 {
+			api.logger.Warningf("filtering by allowed consumer is disabled due to the migration of offer permissions to domain")
+			break
+		}
+	}
+
 	offers, err := api.GetApplicationOffers(backend).ListOffers(filters...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	apiUserDisplayName, err := api.userDisplayName(backend, user)
+	apiUserDisplayName, err := api.userDisplayName(ctx, coreuser.NameFromTag(user))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -135,7 +149,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		// If the user is not a model admin, they need at least read
 		// access on an offer to see it.
 		if !isAdmin {
-			if userAccess, err = api.checkOfferAccess(user, backend, appOffer.OfferUUID); err != nil {
+			if userAccess, err = api.checkOfferAccess(ctx, coreuser.NameFromTag(user), appOffer.OfferUUID); err != nil {
 				return nil, errors.Trace(err)
 			}
 			if userAccess == permission.NoAccess {
@@ -160,7 +174,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		}
 		// Only admins can see some sensitive details of the offer.
 		if isAdmin {
-			if err := api.getOfferAdminDetails(user, backend, app, &offer); err != nil {
+			if err := api.getOfferAdminDetails(ctx, user, backend, app, &offer); err != nil {
 				api.logger.Warningf("cannot get offer admin details: %v", err)
 			}
 		}
@@ -169,7 +183,13 @@ func (api *BaseAPI) applicationOffersFromModel(
 	return results, nil
 }
 
-func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, app crossmodel.Application, offer *params.ApplicationOfferAdminDetailsV5) error {
+func (api *BaseAPI) getOfferAdminDetails(
+	ctx context.Context,
+	user names.UserTag,
+	backend Backend,
+	app crossmodel.Application,
+	offer *params.ApplicationOfferAdminDetailsV5,
+) error {
 	curl, _ := app.CharmURL()
 	conns, err := backend.OfferConnections(offer.OfferUUID)
 	if err != nil {
@@ -212,23 +232,22 @@ func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, ap
 		offer.Connections = append(offer.Connections, connDetails)
 	}
 
-	offerUsers, err := backend.GetOfferUsers(offer.OfferUUID)
+	userAccesses, err := api.accessService.ReadAllUserAccessForTarget(ctx, permission.ID{
+		ObjectType: permission.Offer,
+		Key:        offer.OfferUUID,
+	})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	for userName, access := range offerUsers {
-		if userName == user.Id() {
+	for _, userAccess := range userAccesses {
+		if userAccess.UserName.Name() == user.Id() {
 			continue
 		}
-		displayName, err := api.userDisplayName(backend, names.NewUserTag(userName))
-		if err != nil {
-			return errors.Trace(err)
-		}
 		offer.Users = append(offer.Users, params.OfferUserDetails{
-			UserName:    userName,
-			DisplayName: displayName,
-			Access:      string(access),
+			UserName:    userAccess.UserName.Name(),
+			DisplayName: userAccess.DisplayName,
+			Access:      string(userAccess.Access),
 		})
 	}
 	return nil
@@ -236,9 +255,12 @@ func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, ap
 
 // checkOfferAccess returns the level of access the authenticated user has to the offer,
 // so long as it is greater than the requested perm.
-func (api *BaseAPI) checkOfferAccess(user names.UserTag, backend Backend, offerUUID string) (permission.Access, error) {
-	access, err := backend.GetOfferAccess(offerUUID, user)
-	if err != nil && !errors.Is(err, errors.NotFound) {
+func (api *BaseAPI) checkOfferAccess(ctx context.Context, user coreuser.Name, offerUUID string) (permission.Access, error) {
+	access, err := api.accessService.ReadUserAccessLevelForTarget(ctx, user, permission.ID{
+		ObjectType: permission.Offer,
+		Key:        offerUUID,
+	})
+	if err != nil && !errors.Is(err, accesserrors.AccessNotFound) {
 		return permission.NoAccess, errors.Trace(err)
 	}
 	if !access.EqualOrGreaterOfferAccessThan(permission.ReadAccess) {

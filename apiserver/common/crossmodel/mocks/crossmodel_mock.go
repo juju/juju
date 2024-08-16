@@ -696,45 +696,6 @@ func (c *MockBackendExportLocalEntityCall) DoAndReturn(f func(names.Tag) (string
 	return c
 }
 
-// GetOfferAccess mocks base method.
-func (m *MockBackend) GetOfferAccess(arg0 string, arg1 names.UserTag) (permission.Access, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetOfferAccess", arg0, arg1)
-	ret0, _ := ret[0].(permission.Access)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetOfferAccess indicates an expected call of GetOfferAccess.
-func (mr *MockBackendMockRecorder) GetOfferAccess(arg0, arg1 any) *MockBackendGetOfferAccessCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOfferAccess", reflect.TypeOf((*MockBackend)(nil).GetOfferAccess), arg0, arg1)
-	return &MockBackendGetOfferAccessCall{Call: call}
-}
-
-// MockBackendGetOfferAccessCall wrap *gomock.Call
-type MockBackendGetOfferAccessCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendGetOfferAccessCall) Return(arg0 permission.Access, arg1 error) *MockBackendGetOfferAccessCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendGetOfferAccessCall) Do(f func(string, names.UserTag) (permission.Access, error)) *MockBackendGetOfferAccessCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendGetOfferAccessCall) DoAndReturn(f func(string, names.UserTag) (permission.Access, error)) *MockBackendGetOfferAccessCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetRemoteEntity mocks base method.
 func (m *MockBackend) GetRemoteEntity(arg0 string) (names.Tag, error) {
 	m.ctrl.T.Helper()

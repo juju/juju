@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/apiserver/authentication"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
@@ -19,6 +18,9 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
+	access "github.com/juju/juju/domain/access"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -37,10 +39,13 @@ func createOffersAPI(
 	backend Backend,
 	statePool StatePool,
 	modelService ModelService,
+	accessService AccessService,
 	authorizer facade.Authorizer,
 	authContext *commoncrossmodel.AuthContext,
 	dataDir string,
 	logger corelogger.Logger,
+	controllerUUID string,
+	modelUUID model.UUID,
 ) (*OffersAPIv5, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -54,9 +59,12 @@ func createOffersAPI(
 			GetApplicationOffers: getApplicationOffers,
 			ControllerModel:      backend,
 			modelService:         modelService,
+			accessService:        accessService,
 			StatePool:            statePool,
 			getControllerInfo:    getControllerInfo,
 			logger:               logger,
+			controllerUUID:       controllerUUID,
+			modelUUID:            modelUUID,
 		},
 	}
 	return api, nil
@@ -111,7 +119,35 @@ func (api *OffersAPIv5) Offer(ctx context.Context, all params.AddApplicationOffe
 		if _, err = offerBackend.ApplicationOffer(applicationOfferParams.OfferName); err == nil {
 			_, err = offerBackend.UpdateOffer(applicationOfferParams)
 		} else {
-			_, err = offerBackend.AddOffer(applicationOfferParams)
+			var addedOffer *jujucrossmodel.ApplicationOffer
+			addedOffer, err = offerBackend.AddOffer(applicationOfferParams)
+			if err != nil {
+				result[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+
+			// TODO(aflynn50): New offer permissions are handled here as there
+			// is no cross model relations service yet. These should be handled
+			// there once its created.
+			offerTag := names.NewApplicationOfferTag(addedOffer.OfferUUID)
+			// Ensure the owner has admin access to the offer.
+			err = api.createOfferPermission(ctx, offerTag, permission.AdminAccess, owner)
+			if err != nil {
+				result[i].Error = apiservererrors.ServerError(errors.Annotate(err, "granting admin permission to the offer owner"))
+				continue
+			}
+			// Add in any read access permissions.
+			for _, readerName := range applicationOfferParams.HasRead {
+				readerTag := names.NewUserTag(readerName)
+				err = api.createOfferPermission(ctx, offerTag, permission.ReadAccess, readerTag)
+				if err != nil {
+					result[i].Error = apiservererrors.ServerError(errors.Annotatef(err, "granting read permission to %q", readerName))
+					break
+				}
+			}
+			if result[i].Error != nil {
+				continue
+			}
 		}
 		result[i].Error = apiservererrors.ServerError(err)
 	}
@@ -225,11 +261,14 @@ func (api *OffersAPIv5) modifyOneOfferAccess(ctx context.Context, user names.Use
 		if err != nil {
 			return apiservererrors.ErrPerm
 		}
-		access, err := backend.GetOfferAccess(offer.OfferUUID, user)
-		if err != nil && !errors.Is(err, errors.NotFound) {
+		accessLevel, err := api.accessService.ReadUserAccessLevelForTarget(ctx, coreuser.NameFromTag(user), permission.ID{
+			ObjectType: permission.Offer,
+			Key:        offer.OfferUUID,
+		})
+		if err != nil && !errors.Is(err, accesserrors.AccessNotFound) {
 			return errors.Trace(err)
 		} else if err == nil {
-			canModifyOffer = access == permission.AdminAccess
+			canModifyOffer = accessLevel == permission.AdminAccess
 		}
 	}
 	if !canModifyOffer {
@@ -240,75 +279,59 @@ func (api *OffersAPIv5) modifyOneOfferAccess(ctx context.Context, user names.Use
 	if err != nil {
 		return errors.Annotate(err, "could not modify offer access")
 	}
-	return api.changeOfferAccess(backend, url.ApplicationName, targetUserTag, arg.Action, offerAccess)
+	return api.changeOfferAccess(ctx, backend, url.ApplicationName, targetUserTag, arg.Action, offerAccess)
 }
 
 // changeOfferAccess performs the requested access grant or revoke action for the
 // specified user on the specified application offer.
 func (api *OffersAPIv5) changeOfferAccess(
+	ctx context.Context,
 	backend Backend,
 	offerName string,
 	targetUserTag names.UserTag,
 	action params.OfferAction,
-	access permission.Access,
+	accessLevel permission.Access,
 ) error {
+	targetUserName := coreuser.NameFromTag(targetUserTag)
+	apiUserName := coreuser.NameFromTag(api.Authorizer.GetAuthTag().(names.UserTag))
+
 	offer, err := backend.ApplicationOffer(offerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	offerTag := names.NewApplicationOfferTag(offer.OfferUUID)
+
+	var change permission.AccessChange
 	switch action {
 	case params.GrantOfferAccess:
-		return api.grantOfferAccess(backend, offerTag, targetUserTag, access)
+		change = permission.Grant
 	case params.RevokeOfferAccess:
-		return api.revokeOfferAccess(backend, offerTag, targetUserTag, access)
+		change = permission.Revoke
 	default:
 		return errors.Errorf("unknown action %q", action)
 	}
-}
 
-func (api *OffersAPIv5) grantOfferAccess(backend Backend, offerTag names.ApplicationOfferTag, targetUserTag names.UserTag, access permission.Access) error {
-	err := backend.CreateOfferAccess(offerTag, targetUserTag, access)
-	if errors.IsAlreadyExists(err) {
-		offerAccess, err := backend.GetOfferAccess(offerTag.Id(), targetUserTag)
-		if errors.IsNotFound(err) {
-			// Conflicts with prior check, must be inconsistent state.
-			err = jujutxn.ErrExcessiveContention
-		}
-		if err != nil {
-			return errors.Annotate(err, "could not look up offer access for user")
-		}
-
-		// Only set access if greater access is being granted.
-		if offerAccess.EqualOrGreaterOfferAccessThan(access) {
-			return errors.Errorf("user already has %q access or greater", access)
-		}
-		if err = backend.UpdateOfferAccess(offerTag, targetUserTag, access); err != nil {
-			return errors.Annotate(err, "could not set offer access for user")
-		}
-		return nil
+	var addUser bool
+	var external *bool
+	if ext := !targetUserName.IsLocal(); ext {
+		addUser = true
+		external = &ext
 	}
-	return errors.Annotate(err, "could not grant offer access")
-}
-
-func (api *OffersAPIv5) revokeOfferAccess(backend Backend, offerTag names.ApplicationOfferTag, targetUserTag names.UserTag, access permission.Access) error {
-	switch access {
-	case permission.ReadAccess:
-		// Revoking read access removes all access.
-		err := backend.RemoveOfferAccess(offerTag, targetUserTag)
-		return errors.Annotate(err, "could not revoke offer access")
-	case permission.ConsumeAccess:
-		// Revoking consume access sets read-only.
-		err := backend.UpdateOfferAccess(offerTag, targetUserTag, permission.ReadAccess)
-		return errors.Annotate(err, "could not set offer access to read-only")
-	case permission.AdminAccess:
-		// Revoking admin access sets read-consume.
-		err := backend.UpdateOfferAccess(offerTag, targetUserTag, permission.ConsumeAccess)
-		return errors.Annotate(err, "could not set offer access to read-consume")
-
-	default:
-		return errors.Errorf("don't know how to revoke %q access", access)
-	}
+	err = api.accessService.UpdatePermission(ctx, access.UpdatePermissionArgs{
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Offer,
+				Key:        offerTag.Id(),
+			},
+			Access: accessLevel,
+		},
+		AddUser:  addUser,
+		External: external,
+		ApiUser:  apiUserName,
+		Change:   change,
+		Subject:  targetUserName,
+	})
+	return errors.Annotatef(err, "could not %s offer access for %q", change, targetUserName)
 }
 
 // ApplicationOffers gets details about remote applications that match given URLs.
@@ -429,7 +452,8 @@ func (api *OffersAPIv5) GetConsumeDetails(ctx context.Context, args params.Consu
 }
 
 // getConsumeDetails returns the details necessary to pass to another model to
-// to allow the specified user to consume the specified offers represented by the urls.
+// allow the specified user to consume the specified offers represented by the
+// urls.
 func (api *OffersAPIv5) getConsumeDetails(ctx context.Context, user names.UserTag, urls params.OfferURLs) (params.ConsumeOfferDetailsResults, error) {
 	var consumeResults params.ConsumeOfferDetailsResults
 	results := make([]params.ConsumeOfferDetailsResult, len(urls.OfferURLs))
@@ -616,4 +640,23 @@ func (api *OffersAPIv5) DestroyOffers(ctx context.Context, args params.DestroyAp
 		result[i].Error = apiservererrors.ServerError(err)
 	}
 	return params.ErrorResults{Results: result}, nil
+}
+
+func (api *OffersAPIv5) createOfferPermission(
+	ctx context.Context,
+	offerTag names.ApplicationOfferTag,
+	accessLevel permission.Access,
+	targetUserTag names.UserTag,
+) error {
+	_, err := api.accessService.CreatePermission(ctx, permission.UserAccessSpec{
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Offer,
+				Key:        offerTag.Id(),
+			},
+			Access: accessLevel,
+		},
+		User: coreuser.NameFromTag(targetUserTag),
+	})
+	return err
 }

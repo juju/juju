@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/model"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -34,9 +35,12 @@ func makeOffersAPI(ctx context.Context, facadeContext facade.ModelContext) (*Off
 		GetStateAccess(st),
 		GetStatePool(facadeContext.StatePool()),
 		serviceFactory.Model(),
+		serviceFactory.Access(),
 		facadeContext.Auth(),
 		authContext.(*commoncrossmodel.AuthContext),
 		facadeContext.DataDir(),
 		facadeContext.Logger().Child("applicationoffers"),
+		facadeContext.ControllerUUID(),
+		model.UUID(st.ModelUUID()),
 	)
 }
