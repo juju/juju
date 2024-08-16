@@ -45,7 +45,7 @@ FROM   controller
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).Get(&uuid)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			// This should never reasonably happen
+			// This should never reasonably happen.
 			return fmt.Errorf("internal error: controller model uuid not found")
 		}
 		return err

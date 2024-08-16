@@ -76,6 +76,8 @@ func (s *PermissionService) ReadUserAccessForTarget(ctx context.Context, subject
 // created. A NotValid error is returned if the subject (user) string is empty,
 // or the target is not valid. Any errors from the state layer are passed
 // through.
+// If the access level of a user cannot be found then
+// [accesserrors.AccessNotFound] is returned.
 func (s *PermissionService) ReadUserAccessLevelForTargetAddingMissingUser(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.Access, error) {
 	if subject.IsZero() {
 		return "", errors.Trace(errors.NotValidf("empty subject"))
@@ -94,6 +96,8 @@ func (s *PermissionService) ReadUserAccessLevelForTargetAddingMissingUser(ctx co
 // given user on the given target. A NotValid error is returned if the
 // subject (user) string is empty, or the target is not valid. Any errors
 // from the state layer are passed through.
+// If the access level of a user cannot be found then
+// [accesserrors.AccessNotFound] is returned.
 func (s *PermissionService) ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.Access, error) {
 	if subject.IsZero() {
 		return "", errors.Trace(errors.NotValidf("empty subject"))

@@ -179,6 +179,7 @@ func (s *userStateSuite) TestAddUser(c *gc.C) {
 	c.Check(newUser.UUID, gc.Equals, adminUUID)
 	c.Check(newUser.Disabled, jc.IsFalse)
 	c.Check(newUser.CreatorUUID, gc.Equals, adminUUID)
+	c.Check(newUser.CreatorName, gc.Equals, user.AdminUserName)
 
 	pSt := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	newUserAccess, err := pSt.ReadUserAccessForTarget(context.Background(), usertesting.GenNewName(c, "admin"), loginAccess.Target)
@@ -297,6 +298,7 @@ func (s *userStateSuite) TestGetUser(c *gc.C) {
 	c.Check(u.Name, gc.Equals, name)
 	c.Check(u.DisplayName, gc.Equals, "admin")
 	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
+	c.Check(u.CreatorName, gc.Equals, user.AdminUserName)
 	c.Check(u.CreatedAt, gc.NotNil)
 }
 
@@ -345,6 +347,7 @@ func (s *userStateSuite) TestGetRemovedUser(c *gc.C) {
 	c.Check(u.Name, gc.Equals, userToRemoveName)
 	c.Check(u.DisplayName, gc.Equals, "userToRemove")
 	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
+	c.Check(u.CreatorName, gc.Equals, user.AdminUserName)
 	c.Check(u.CreatedAt, gc.NotNil)
 }
 
@@ -390,6 +393,7 @@ func (s *userStateSuite) TestGetUserByName(c *gc.C) {
 	c.Check(u.Name, gc.Equals, name)
 	c.Check(u.DisplayName, gc.Equals, "admin")
 	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
+	c.Check(u.CreatorName, gc.Equals, user.AdminUserName)
 	c.Check(u.CreatedAt, gc.NotNil)
 	c.Check(u.LastLogin, gc.NotNil)
 	c.Check(u.Disabled, gc.Equals, false)
@@ -483,6 +487,7 @@ func (s *userStateSuite) TestGetUserByNameMultipleUsers(c *gc.C) {
 	c.Check(u.Name, gc.Equals, name)
 	c.Check(u.DisplayName, gc.Equals, "admin2")
 	c.Check(u.CreatorUUID, gc.Equals, admin2UUID)
+	c.Check(u.CreatorName, gc.Equals, name)
 	c.Check(u.CreatedAt, gc.NotNil)
 }
 
@@ -525,6 +530,7 @@ func (s *userStateSuite) TestGetUserWithAuthInfoByName(c *gc.C) {
 	c.Check(u.Name, gc.Equals, name)
 	c.Check(u.DisplayName, gc.Equals, "admin")
 	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
+	c.Check(u.CreatorName, gc.Equals, user.AdminUserName)
 	c.Check(u.CreatedAt, gc.NotNil)
 	c.Check(u.LastLogin, gc.NotNil)
 	c.Check(u.Disabled, gc.Equals, false)
@@ -561,6 +567,7 @@ func (s *userStateSuite) TestGetUserByAuth(c *gc.C) {
 	c.Check(u.Name, gc.Equals, name)
 	c.Check(u.DisplayName, gc.Equals, "admin")
 	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
+	c.Check(u.CreatorName, gc.Equals, user.AdminUserName)
 	c.Check(u.CreatedAt, gc.NotNil)
 	c.Check(u.Disabled, jc.IsFalse)
 }
@@ -624,6 +631,7 @@ func (s *userStateSuite) TestGetUserByAuthDisabled(c *gc.C) {
 	c.Check(u.Name, gc.Equals, name)
 	c.Check(u.DisplayName, gc.Equals, "admin")
 	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
+	c.Check(u.CreatorName, gc.Equals, user.AdminUserName)
 	c.Check(u.CreatedAt, gc.NotNil)
 	c.Check(u.Disabled, jc.IsTrue)
 }

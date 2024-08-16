@@ -16,6 +16,8 @@ import (
 	autocertcachestate "github.com/juju/juju/domain/autocert/state"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
+	controllerservice "github.com/juju/juju/domain/controller/service"
+	controllerstate "github.com/juju/juju/domain/controller/state"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
@@ -59,6 +61,13 @@ func NewControllerFactory(
 		dbDeleter:    dbDeleter,
 		logger:       logger,
 	}
+}
+
+// Controller returns the controller service.
+func (s *ControllerFactory) Controller() *controllerservice.Service {
+	return controllerservice.NewService(
+		controllerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+	)
 }
 
 // ControllerConfig returns the controller configuration service.

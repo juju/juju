@@ -178,9 +178,11 @@ SELECT (u.uuid,
        u.created_by_uuid,
        u.created_at,
        u.disabled,
-       ull.last_login) AS (&dbUser.*)
+       ull.last_login) AS (&dbUser.*),
+       creator.name AS &dbUser.created_by_name
 FROM   v_user_auth u
-	   LEFT JOIN v_user_last_login ull ON u.uuid = ull.user_uuid
+       LEFT JOIN v_user_last_login ull ON u.uuid = ull.user_uuid
+       LEFT JOIN user AS creator ON u.created_by_uuid = creator.uuid
 WHERE  u.uuid = $M.uuid`
 
 		selectGetUserStmt, err := st.Prepare(getUserQuery, dbUser{}, sqlair.M{})
@@ -259,9 +261,11 @@ SELECT (u.uuid,
        u.created_by_uuid,
        u.created_at,
        u.disabled,
-       ull.last_login) AS (&dbUser.*)
+       ull.last_login) AS (&dbUser.*),
+       creator.name AS &dbUser.created_by_name
 FROM   v_user_auth u
        LEFT JOIN v_user_last_login ull ON u.uuid = ull.user_uuid
+       LEFT JOIN user AS creator ON u.created_by_uuid = creator.uuid
 WHERE  u.name = $userName.name
 AND    u.removed = false`
 
@@ -302,15 +306,16 @@ func (st *UserState) GetUserByAuth(ctx context.Context, name user.Name, password
 
 	getUserWithAuthQuery := `
 SELECT (
-		user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at,
-		user.disabled,
-		user_password.password_hash, user_password.password_salt
-		) AS (&dbUser.*)
+       user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at,
+       user.disabled,
+       user_password.password_hash, user_password.password_salt
+       ) AS (&dbUser.*),
+       creator.name AS &dbUser.created_by_name
 FROM   v_user_auth AS user
-		LEFT JOIN user_password 
-		ON        user.uuid = user_password.user_uuid
+       LEFT JOIN user AS creator ON user.created_by_uuid = creator.uuid
+       LEFT JOIN user_password ON user.uuid = user_password.user_uuid
 WHERE  user.name = $userName.name 
-AND    removed = false
+AND    user.removed = false
 	`
 
 	selectGetUserByAuthStmt, err := st.Prepare(getUserWithAuthQuery, dbUser{}, uName)

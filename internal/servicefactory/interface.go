@@ -12,6 +12,7 @@ import (
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
+	controllerservice "github.com/juju/juju/domain/controller/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
 	credentialservice "github.com/juju/juju/domain/credential/service"
@@ -38,6 +39,8 @@ import (
 // ControllerServiceFactory provides access to the services required by the
 // apiserver.
 type ControllerServiceFactory interface {
+	// Controller returns the controller service.
+	Controller() *controllerservice.Service
 	// ControllerConfig returns the controller configuration service.
 	ControllerConfig() *controllerconfigservice.WatchableService
 	// ControllerNode returns the controller node service.
