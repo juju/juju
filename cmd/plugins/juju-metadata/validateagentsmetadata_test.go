@@ -41,10 +41,10 @@ var validateInitToolsErrorTests = []struct {
 	err  string
 }{
 	{
-		args: []string{"-p", "ec2", "-t", "series", "-d", "dir"},
+		args: []string{"-p", "ec2", "-t", "linux", "-d", "dir"},
 		err:  `region required if provider type is specified`,
 	}, {
-		args: []string{"-p", "ec2", "-t", "series", "-r", "region"},
+		args: []string{"-p", "ec2", "-t", "linux", "-r", "region"},
 		err:  `metadata directory required if provider type is specified`,
 	}, {
 		args: []string{"-t", "series", "-r", "region", "--majorminor-version", "x"},
@@ -69,12 +69,12 @@ func (s *ValidateToolsMetadataSuite) TestInitErrors(c *gc.C) {
 }
 
 func (s *ValidateToolsMetadataSuite) TestInvalidProviderError(c *gc.C) {
-	_, err := runValidateAgentsMetadata(c, s.store, "-p", "foo", "-t", "series", "-r", "region", "-d", "dir")
+	_, err := runValidateAgentsMetadata(c, s.store, "-p", "foo", "-t", "linux", "-r", "region", "-d", "dir")
 	c.Check(err, gc.ErrorMatches, `no registered provider for "foo"`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
-	_, err := runValidateAgentsMetadata(c, s.store, "-p", "maas", "-t", "series", "-r", "region", "-d", "dir")
+	_, err := runValidateAgentsMetadata(c, s.store, "-p", "maas", "-t", "linux", "-r", "region", "-d", "dir")
 	c.Check(err, gc.ErrorMatches, `maas provider does not support metadata validation for agents`)
 }
 
@@ -126,7 +126,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Assert(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
+	c.Assert(strippedOut, gc.Matches, `Matching Agent Binary Versions:.*Resolve Metadata.*`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironment(c *gc.C) {
@@ -147,7 +147,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
+	c.Check(strippedOut, gc.Matches, `Matching Agent Binary Versions:.*Resolve Metadata.*`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
@@ -175,7 +175,7 @@ func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 	c.Assert(err, jc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
+	c.Check(strippedOut, gc.Matches, `Matching Agent Binary Versions:.*Resolve Metadata.*`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) {
@@ -201,7 +201,7 @@ func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
+	c.Check(strippedOut, gc.Matches, `Matching Agent Binary Versions:.*Resolve Metadata.*`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestStream(c *gc.C) {
@@ -213,7 +213,7 @@ func (s *ValidateToolsMetadataSuite) TestStream(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
+	c.Check(strippedOut, gc.Matches, `Matching Agent Binary Versions:.*Resolve Metadata.*`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestMajorVersionMatch(c *gc.C) {
@@ -225,7 +225,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorVersionMatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
+	c.Check(strippedOut, gc.Matches, `Matching Agent Binary Versions:.*Resolve Metadata.*`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
@@ -237,7 +237,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
+	c.Check(strippedOut, gc.Matches, `Matching Agent Binary Versions:.*Resolve Metadata.*`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestJustDirectory(c *gc.C) {
@@ -248,5 +248,5 @@ func (s *ValidateToolsMetadataSuite) TestJustDirectory(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
+	c.Check(strippedOut, gc.Matches, `Matching Agent Binary Versions:.*Resolve Metadata.*`)
 }

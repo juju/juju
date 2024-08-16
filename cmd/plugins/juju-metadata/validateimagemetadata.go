@@ -88,6 +88,10 @@ func (c *validateImageMetadataCommand) Info() *cmd.Info {
 		Name:    "validate-images",
 		Purpose: "validate image metadata and ensure image(s) exist for a model",
 		Doc:     validateImagesMetadataDoc,
+		SeeAlso: []string{
+			"generate-images",
+			"sign",
+		},
 	})
 }
 

@@ -53,6 +53,11 @@ func (c *deleteImageMetadataCommand) Info() *cmd.Info {
 		Name:    "delete-image",
 		Purpose: "deletes image metadata from environment",
 		Doc:     deleteImageCommandDoc,
+		SeeAlso: []string{
+			"add-image",
+			"list-images",
+			"model-config",
+		},
 	})
 }
 

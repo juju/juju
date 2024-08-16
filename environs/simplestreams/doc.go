@@ -8,5 +8,8 @@
 // file in that project for more information about the file formats.
 //
 // Users of this package provide an empty struct and a matching function to be
-// able to query and return a list of typed values for a given criteria.
+// able to query and return a list of Image or Tools typed values for a given
+// criteria.
+//
+// It's used to generate, read and validate simplestreams data used by juju.
 package simplestreams
