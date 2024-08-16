@@ -204,10 +204,10 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	// Open some ports on this unit and another one.
 	s.machinePortRanges = map[names.UnitTag]network.GroupedPortRanges{
 		s.unit.Tag(): {
-			allEndpoints: []network.PortRange{network.MustParsePortRange("100-200/tcp")},
+			allEndpoints: network.NewPortRanges(network.MustParsePortRange("100-200/tcp")),
 		},
 		names.NewUnitTag("u/1"): {
-			allEndpoints: []network.PortRange{network.MustParsePortRange("200-300/udp")},
+			allEndpoints: network.NewPortRanges(network.MustParsePortRange("200-300/udp")),
 		},
 	}
 

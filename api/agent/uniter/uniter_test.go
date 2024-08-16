@@ -80,11 +80,11 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(portRangesMap, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
 		names.NewUnitTag("mysql/0"): {
-			"":       []network.PortRange{network.MustParsePortRange("100-200/tcp")},
-			"server": []network.PortRange{network.MustParsePortRange("3306/tcp")},
+			"":       network.NewPortRanges(network.MustParsePortRange("100-200/tcp")),
+			"server": network.NewPortRanges(network.MustParsePortRange("3306/tcp")),
 		},
 		names.NewUnitTag("wordpress/0"): {
-			"monitoring-port": []network.PortRange{network.MustParsePortRange("1337/udp")},
+			"monitoring-port": network.NewPortRanges(network.MustParsePortRange("1337/udp")),
 		},
 	})
 }
@@ -128,11 +128,11 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
 		names.NewUnitTag("mysql/0"): {
-			"":       []network.PortRange{network.MustParsePortRange("100-200/tcp")},
-			"server": []network.PortRange{network.MustParsePortRange("3306/tcp")},
+			"":       network.NewPortRanges(network.MustParsePortRange("100-200/tcp")),
+			"server": network.NewPortRanges(network.MustParsePortRange("3306/tcp")),
 		},
 		names.NewUnitTag("wordpress/0"): {
-			"monitoring-port": []network.PortRange{network.MustParsePortRange("1337/udp")},
+			"monitoring-port": network.NewPortRanges(network.MustParsePortRange("1337/udp")),
 		},
 	})
 }

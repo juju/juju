@@ -137,9 +137,9 @@ func (m *Machine) OpenedMachinePortRanges(ctx context.Context) (byUnitAndCIDR ma
 				portList[i] = pr.NetworkPortRange()
 			}
 
-			byUnitAndEndpoint[unitTag][unitPortRanges.Endpoint] = append(byUnitAndEndpoint[unitTag][unitPortRanges.Endpoint], portList...)
+			byUnitAndEndpoint[unitTag][unitPortRanges.Endpoint] = append(byUnitAndEndpoint[unitTag][unitPortRanges.Endpoint], portList...).Normalise()
 			for _, cidr := range unitPortRanges.SubnetCIDRs {
-				byUnitAndCIDR[unitTag][cidr] = append(byUnitAndCIDR[unitTag][cidr], portList...)
+				byUnitAndCIDR[unitTag][cidr] = append(byUnitAndCIDR[unitTag][cidr], portList...).Normalise()
 			}
 		}
 	}

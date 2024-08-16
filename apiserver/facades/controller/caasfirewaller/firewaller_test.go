@@ -129,20 +129,16 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 
 func (s *firewallerSuite) TestGetApplicationOpenedPorts(c *gc.C) {
 	s.st.application.appPortRanges = network.GroupedPortRanges{
-		"": []network.PortRange{
-			{
-				FromPort: 80,
-				ToPort:   80,
-				Protocol: "tcp",
-			},
-		},
-		"endport-1": []network.PortRange{
-			{
-				FromPort: 8888,
-				ToPort:   8888,
-				Protocol: "tcp",
-			},
-		},
+		"": network.NewPortRanges(network.PortRange{
+			FromPort: 80,
+			ToPort:   80,
+			Protocol: "tcp",
+		}),
+		"endport-1": network.NewPortRanges(network.PortRange{
+			FromPort: 8888,
+			ToPort:   8888,
+			Protocol: "tcp",
+		}),
 	}
 
 	results, err := s.facade.GetOpenedPorts(context.Background(), params.Entity{

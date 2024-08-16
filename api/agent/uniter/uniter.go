@@ -415,9 +415,9 @@ func processOpenPortRangesByEndpointResults(results params.OpenPortRangesByEndpo
 		}
 		portRangeMap[unitTag] = make(network.GroupedPortRanges)
 		for _, group := range unitPortRanges {
-			portRangeMap[unitTag][group.Endpoint] = transform.Slice(group.PortRanges, func(pr params.PortRange) network.PortRange {
+			portRangeMap[unitTag][group.Endpoint] = network.NewPortRanges(transform.Slice(group.PortRanges, func(pr params.PortRange) network.PortRange {
 				return pr.NetworkPortRange()
-			})
+			})...)
 		}
 	}
 	return portRangeMap, nil

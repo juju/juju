@@ -58,11 +58,7 @@ func newUnitPortRangesCommit(upr *unitPortRanges, unitName string) *unitPortRang
 func (op *unitPortRangesCommit) cloneExistingUnitPortRanges() {
 	op.updatedUnitPortRanges = make(map[string]network.GroupedPortRanges)
 	for unitName, existingDoc := range op.upr.unitRanges {
-		rangesCopy := make(network.GroupedPortRanges)
-		for endpointName, portRanges := range existingDoc {
-			rangesCopy[endpointName] = append([]network.PortRange(nil), portRanges...)
-		}
-		op.updatedUnitPortRanges[unitName] = rangesCopy
+		op.updatedUnitPortRanges[unitName] = existingDoc.Clone()
 	}
 }
 
@@ -124,11 +120,13 @@ func (op *unitPortRangesCommit) addPortRanges(endpointName string, merge bool, p
 	if op.updatedUnitPortRanges[op.unitName] == nil {
 		op.updatedUnitPortRanges[op.unitName] = make(network.GroupedPortRanges)
 	}
-	if !merge {
-		op.updatedUnitPortRanges[op.unitName][endpointName] = portRanges
+	if !merge || op.updatedUnitPortRanges[op.unitName][endpointName] == nil {
+		op.updatedUnitPortRanges[op.unitName][endpointName] = network.NewPortRanges(portRanges...)
 		return
 	}
-	op.updatedUnitPortRanges[op.unitName][endpointName] = append(op.updatedUnitPortRanges[op.unitName][endpointName], portRanges...)
+	for _, portRange := range portRanges {
+		op.updatedUnitPortRanges[op.unitName][endpointName] = op.updatedUnitPortRanges[op.unitName][endpointName].Add(portRange)
+	}
 }
 
 func (op *unitPortRangesCommit) removePortRange(endpointName string, portRange network.PortRange) bool {

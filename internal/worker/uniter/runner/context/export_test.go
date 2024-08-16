@@ -120,7 +120,7 @@ func NewMockUnitHookContext(c *gc.C, mockUnit *api.MockUnit, modelType model.Mod
 		portRangeChanges: newPortRangeChangeRecorder(logger, mockUnit.Tag(), modelType, nil,
 			map[names.UnitTag]network.GroupedPortRanges{
 				mockUnit.Tag(): {
-					"": []network.PortRange{network.MustParsePortRange("666-888/tcp")},
+					"": network.NewPortRanges(network.MustParsePortRange("666-888/tcp")),
 				},
 			},
 		),

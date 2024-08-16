@@ -32,23 +32,20 @@ func (ni *NetworkInterface) AddPortRange(endpoint string, portRange network.Port
 	if ni.PortRangesByEndpoint == nil {
 		ni.PortRangesByEndpoint = make(network.GroupedPortRanges)
 	}
-	ni.PortRangesByEndpoint[endpoint] = append(ni.PortRangesByEndpoint[endpoint], portRange)
-	network.SortPortRanges(ni.PortRangesByEndpoint[endpoint])
+	if ni.PortRangesByEndpoint[endpoint] == nil {
+		ni.PortRangesByEndpoint[endpoint] = network.NewPortRanges(portRange)
+	} else {
+		ni.PortRangesByEndpoint[endpoint] = ni.PortRangesByEndpoint[endpoint].Add(portRange)
+	}
 }
 
 // RemovePortRange removes the specified port range.
 func (ni *NetworkInterface) RemovePortRange(endpoint string, portRange network.PortRange) {
-	if ni.PortRangesByEndpoint == nil {
+	if ni.PortRangesByEndpoint == nil || ni.PortRangesByEndpoint[endpoint] == nil {
 		return
 	}
 
-	for i, existingPortRange := range ni.PortRangesByEndpoint[endpoint] {
-		if existingPortRange == portRange {
-			ni.PortRangesByEndpoint[endpoint] = append(ni.PortRangesByEndpoint[endpoint][:i], ni.PortRangesByEndpoint[endpoint][i+1:]...)
-			break
-		}
-	}
-	network.SortPortRanges(ni.PortRangesByEndpoint[endpoint])
+	ni.PortRangesByEndpoint[endpoint] = ni.PortRangesByEndpoint[endpoint].Remove(portRange)
 }
 
 // ContextNetworking is a test double for jujuc.ContextNetworking.

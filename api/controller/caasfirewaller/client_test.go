@@ -100,13 +100,11 @@ func (s *firewallerSuite) TestGetOpenedPorts(c *gc.C) {
 	result, err := client.GetOpenedPorts(context.Background(), "gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, network.GroupedPortRanges{
-		"": []network.PortRange{
-			{
-				FromPort: 80,
-				ToPort:   8080,
-				Protocol: "tcp",
-			},
-		},
+		"": network.NewPortRanges(network.PortRange{
+			FromPort: 80,
+			ToPort:   8080,
+			Protocol: "tcp",
+		}),
 	})
 }
 

@@ -98,18 +98,18 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 	}()
 
 	gpr1 := network.GroupedPortRanges{
-		"": []network.PortRange{
+		"": network.NewPortRanges(
 			network.MustParsePortRange("1000/tcp"),
-		},
+		),
 	}
 
 	gpr2 := network.GroupedPortRanges{
-		"": []network.PortRange{
+		"": network.NewPortRanges(
 			network.MustParsePortRange("1000/tcp"),
-		},
-		"monitoring-port": []network.PortRange{
+		),
+		"monitoring-port": network.NewPortRanges(
 			network.MustParsePortRange("2000/udp"),
-		},
+		),
 	}
 
 	gomock.InOrder(
@@ -120,7 +120,7 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 		// initial fetch.
 		s.firewallerAPI.EXPECT().GetOpenedPorts(gomock.Any(), s.appName).Return(network.GroupedPortRanges{}, nil),
 
-		// 1st triggerred by port change event.
+		// 1st triggered by port change event.
 		s.firewallerAPI.EXPECT().GetOpenedPorts(gomock.Any(), s.appName).Return(gpr1, nil),
 		s.brokerApp.EXPECT().UpdatePorts([]caas.ServicePort{
 			{
@@ -131,10 +131,10 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 			},
 		}, false).Return(nil),
 
-		// 2nd triggerred by port change event, no UpdatePorts because no diff on the portchanges.
+		// 2nd triggered by port change event, no UpdatePorts because no diff on the portchanges.
 		s.firewallerAPI.EXPECT().GetOpenedPorts(gomock.Any(), s.appName).Return(gpr1, nil),
 
-		// 1rd triggerred by port change event.
+		// 1rd triggered by port change event.
 		s.firewallerAPI.EXPECT().GetOpenedPorts(gomock.Any(), s.appName).Return(gpr2, nil),
 		s.brokerApp.EXPECT().UpdatePorts([]caas.ServicePort{
 			{

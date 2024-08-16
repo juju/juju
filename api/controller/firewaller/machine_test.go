@@ -224,44 +224,44 @@ func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
 
 	c.Assert(byUnitAndCIDR, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
 		names.NewUnitTag("mysql/0"): {
-			"192.168.0.0/24": []network.PortRange{
+			"192.168.0.0/24": network.NewPortRanges(
 				network.MustParsePortRange("3306/tcp"),
-			},
-			"192.168.1.0/24": []network.PortRange{
+			),
+			"192.168.1.0/24": network.NewPortRanges(
 				network.MustParsePortRange("3306/tcp"),
-			},
+			),
 		},
 		names.NewUnitTag("wordpress/0"): {
-			"10.0.0.0/24": []network.PortRange{
+			"10.0.0.0/24": network.NewPortRanges(
 				network.MustParsePortRange("1337/tcp"),
-			},
-			"10.0.1.0/24": []network.PortRange{
+			),
+			"10.0.1.0/24": network.NewPortRanges(
 				network.MustParsePortRange("1337/tcp"),
-			},
-			"192.168.0.0/24": []network.PortRange{
+			),
+			"192.168.0.0/24": network.NewPortRanges(
 				network.MustParsePortRange("80/tcp"),
 				network.MustParsePortRange("1337/tcp"),
-			},
-			"192.168.1.0/24": []network.PortRange{
+			),
+			"192.168.1.0/24": network.NewPortRanges(
 				network.MustParsePortRange("80/tcp"),
 				network.MustParsePortRange("1337/tcp"),
-			},
+			),
 		},
 	})
 
 	c.Assert(byUnitAndEndpoint, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
 		names.NewUnitTag("mysql/0"): {
-			"server": []network.PortRange{
+			"server": network.NewPortRanges(
 				network.MustParsePortRange("3306/tcp"),
-			},
+			),
 		},
 		names.NewUnitTag("wordpress/0"): {
-			"website": []network.PortRange{
+			"website": network.NewPortRanges(
 				network.MustParsePortRange("80/tcp"),
-			},
-			"metrics": []network.PortRange{
+			),
+			"metrics": network.NewPortRanges(
 				network.MustParsePortRange("1337/tcp"),
-			},
+			),
 		},
 	})
 	c.Assert(calls, gc.Equals, 2)

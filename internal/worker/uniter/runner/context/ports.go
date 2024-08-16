@@ -96,7 +96,11 @@ func (r *portRangeChangeRecorder) OpenPortRange(endpointName string, portRange n
 	if r.pendingOpenRanges == nil {
 		r.pendingOpenRanges = make(network.GroupedPortRanges)
 	}
-	r.pendingOpenRanges[endpointName] = append(r.pendingOpenRanges[endpointName], portRange)
+	if r.pendingOpenRanges[endpointName] == nil {
+		r.pendingOpenRanges[endpointName] = network.NewPortRanges(portRange)
+	} else {
+		r.pendingOpenRanges[endpointName] = r.pendingOpenRanges[endpointName].Add(portRange)
+	}
 	return nil
 }
 
@@ -174,7 +178,11 @@ func (r *portRangeChangeRecorder) ClosePortRange(endpointName string, portRange 
 	if r.pendingCloseRanges == nil {
 		r.pendingCloseRanges = make(network.GroupedPortRanges)
 	}
-	r.pendingCloseRanges[endpointName] = append(r.pendingCloseRanges[endpointName], portRange)
+	if r.pendingCloseRanges[endpointName] == nil {
+		r.pendingCloseRanges[endpointName] = network.NewPortRanges(portRange)
+	} else {
+		r.pendingCloseRanges[endpointName] = r.pendingCloseRanges[endpointName].Add(portRange)
+	}
 	return nil
 }
 
@@ -239,10 +247,7 @@ func (r *portRangeChangeRecorder) PendingChanges() (network.GroupedPortRanges, n
 // pending open and close changes.
 func (r *portRangeChangeRecorder) mergeWithPendingChanges(portRanges network.GroupedPortRanges) network.GroupedPortRanges {
 
-	resultingChanges := make(network.GroupedPortRanges)
-	for group, ranges := range portRanges {
-		resultingChanges[group] = append(resultingChanges[group], ranges...)
-	}
+	resultingChanges := portRanges.Clone()
 
 	// Add the pending open changes
 	resultingChanges.MergePendingOpenPortRanges(r.pendingOpenRanges)

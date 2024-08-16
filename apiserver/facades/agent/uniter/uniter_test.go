@@ -3595,7 +3595,7 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 
 	c.Assert(portRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 80}})
 	c.Assert(portRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
-		"db": []network.PortRange{network.MustParsePortRange("80/tcp")},
+		"db": network.NewPortRanges(network.MustParsePortRange("80/tcp")),
 	})
 }
 

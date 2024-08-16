@@ -406,14 +406,14 @@ func (p *PortRangeSuite) TestUniquePortRanges(c *gc.C) {
 
 func (p *PortRangeSuite) TestUniquePortRangesInGroup(c *gc.C) {
 	in := network.GroupedPortRanges{
-		"foxtrot": []network.PortRange{
+		"foxtrot": network.NewPortRanges(
 			network.MustParsePortRange("123/tcp"),
 			network.MustParsePortRange("123/tcp"),
-		},
-		"unicorn": []network.PortRange{
+		),
+		"unicorn": network.NewPortRanges(
 			network.MustParsePortRange("123/tcp"),
 			network.MustParsePortRange("456/tcp"),
-		},
+		),
 	}
 
 	exp := []network.PortRange{
@@ -434,52 +434,52 @@ func (p *PortRangeSuite) TestGroupedPortRangesEquality(c *gc.C) {
 		{
 			descr: "equal port ranges in random order",
 			a: network.GroupedPortRanges{
-				"foo": []network.PortRange{
+				"foo": network.NewPortRanges(
 					network.MustParsePortRange("123/tcp"),
 					network.MustParsePortRange("456/tcp"),
-				},
-				"bar": []network.PortRange{
+				),
+				"bar": network.NewPortRanges(
 					network.MustParsePortRange("123/tcp"),
-				},
+				),
 			},
 			b: network.GroupedPortRanges{
-				"foo": []network.PortRange{
+				"foo": network.NewPortRanges(
 					network.MustParsePortRange("456/tcp"),
 					network.MustParsePortRange("123/tcp"),
-				},
-				"bar": []network.PortRange{
+				),
+				"bar": network.NewPortRanges(
 					network.MustParsePortRange("123/tcp"),
-				},
+				),
 			},
 			expEqual: true,
 		},
 		{
 			descr: "groups with different lengths",
 			a: network.GroupedPortRanges{
-				"foo": []network.PortRange{
+				"foo": network.NewPortRanges(
 					network.MustParsePortRange("123/tcp"),
 					network.MustParsePortRange("456/tcp"),
-				},
+				),
 			},
 			b: network.GroupedPortRanges{
-				"foo": []network.PortRange{
+				"foo": network.NewPortRanges(
 					network.MustParsePortRange("123/tcp"),
-				},
+				),
 			},
 			expEqual: false,
 		},
 		{
 			descr: "groups with same length but different keys",
 			a: network.GroupedPortRanges{
-				"foo": []network.PortRange{
+				"foo": network.NewPortRanges(
 					network.MustParsePortRange("123/tcp"),
 					network.MustParsePortRange("456/tcp"),
-				},
+				),
 			},
 			b: network.GroupedPortRanges{
-				"bar": []network.PortRange{
+				"bar": network.NewPortRanges(
 					network.MustParsePortRange("123/tcp"),
-				},
+				),
 			},
 			expEqual: false,
 		},

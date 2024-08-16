@@ -19,17 +19,17 @@ type UnitToCIDRMappingSuite struct {
 
 func (s *UnitToCIDRMappingSuite) TestBindingMapping(c *gc.C) {
 	portRangesByEndpoint := network.GroupedPortRanges{
-		"foo": []network.PortRange{
+		"foo": network.NewPortRanges(
 			network.MustParsePortRange("123/tcp"),
 			network.MustParsePortRange("456/tcp"),
-		},
-		"bar": []network.PortRange{
+		),
+		"bar": network.NewPortRanges(
 			// The descending ordering here is intentional so that
 			// we can verify that the output list entries do get
 			// sorted.
 			network.MustParsePortRange("777/tcp"),
 			network.MustParsePortRange("123/tcp"),
-		},
+		),
 	}
 	endpointBindings := map[string]string{
 		"": network.AlphaSpaceId,
@@ -74,15 +74,15 @@ func (s *UnitToCIDRMappingSuite) TestBindingMapping(c *gc.C) {
 
 func (s *UnitToCIDRMappingSuite) TestWildcardExpansion(c *gc.C) {
 	portRangesByEndpoint := network.GroupedPortRanges{
-		"": []network.PortRange{
+		"": network.NewPortRanges(
 			// These ranges should be added to the CIDRs of each
 			// bound endpoint (so, both alpha and "42").
 			network.MustParsePortRange("123/tcp"),
 			network.MustParsePortRange("456/tcp"),
-		},
-		"bar": []network.PortRange{
+		),
+		"bar": network.NewPortRanges(
 			network.MustParsePortRange("999/tcp"),
-		},
+		),
 	}
 	endpointBindings := map[string]string{
 		"":    network.AlphaSpaceId,

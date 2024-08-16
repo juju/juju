@@ -6,6 +6,7 @@ package caasfirewaller
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -94,9 +95,9 @@ func (c *Client) GetOpenedPorts(ctx context.Context, appName string) (network.Gr
 	}
 	out := make(network.GroupedPortRanges)
 	for _, pgs := range res.ApplicationPortRanges {
-		for _, pg := range pgs.PortRanges {
-			out[pgs.Endpoint] = append(out[pgs.Endpoint], pg.NetworkPortRange())
-		}
+		out[pgs.Endpoint] = network.NewPortRanges(transform.Slice(pgs.PortRanges, func(pr params.PortRange) network.PortRange {
+			return pr.NetworkPortRange()
+		})...)
 	}
 	return out, nil
 }

@@ -308,17 +308,17 @@ func (s *FirewallerSuite) TestOpenedMachinePortRanges(c *gc.C) {
 		newMockUnitPortRanges(
 			"wordpress/0",
 			network.GroupedPortRanges{
-				"": []network.PortRange{
+				"": network.NewPortRanges(
 					network.MustParsePortRange("80/tcp"),
-				},
+				),
 			},
 		),
 		newMockUnitPortRanges(
 			"mysql/0",
 			network.GroupedPortRanges{
-				"foo": []network.PortRange{
+				"foo": network.NewPortRanges(
 					network.MustParsePortRange("3306/tcp"),
-				},
+				),
 			},
 		),
 	)

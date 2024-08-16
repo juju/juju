@@ -19,67 +19,29 @@ type GroupedPortRanges map[string]PortRanges
 // MergePendingOpenPortRanges will merge this group's port ranges with the
 // provided *open* ports. If the provided range already exists in this group
 // then this method returns false and the group is not modified.
-func (grp GroupedPortRanges) MergePendingOpenPortRanges(pendingOpenRanges GroupedPortRanges) bool {
-	var modified bool
+func (grp GroupedPortRanges) MergePendingOpenPortRanges(pendingOpenRanges GroupedPortRanges) {
 	for endpointName, pendingRanges := range pendingOpenRanges {
 		for _, pendingRange := range pendingRanges {
-			if grp.rangeExistsForEndpoint(endpointName, pendingRange) {
-				// Exists, no op for opening.
-				continue
+			if grp[endpointName] == nil {
+				grp[endpointName] = NewPortRanges(pendingRange)
+			} else {
+				grp[endpointName] = grp[endpointName].Add(pendingRange)
 			}
-			grp[endpointName] = append(grp[endpointName], pendingRange)
-			modified = true
 		}
 	}
-	return modified
 }
 
 // MergePendingClosePortRanges will merge this group's port ranges with the
 // provided *closed* ports. If the provided range does not exists in this group
 // then this method returns false and the group is not modified.
-func (grp GroupedPortRanges) MergePendingClosePortRanges(pendingCloseRanges GroupedPortRanges) bool {
-	var modified bool
+func (grp GroupedPortRanges) MergePendingClosePortRanges(pendingCloseRanges GroupedPortRanges) {
 	for endpointName, pendingRanges := range pendingCloseRanges {
 		for _, pendingRange := range pendingRanges {
-			if !grp.rangeExistsForEndpoint(endpointName, pendingRange) {
-				// Not exists, no op for closing.
-				continue
+			if grp[endpointName] != nil {
+				grp[endpointName] = grp[endpointName].Remove(pendingRange)
 			}
-			modified = grp.removePortRange(endpointName, pendingRange)
 		}
 	}
-	return modified
-}
-
-func (grp GroupedPortRanges) removePortRange(endpointName string, portRange PortRange) bool {
-	var modified bool
-	existingRanges := grp[endpointName]
-	for i, v := range existingRanges {
-		if v != portRange {
-			continue
-		}
-		existingRanges = append(existingRanges[:i], existingRanges[i+1:]...)
-		if len(existingRanges) == 0 {
-			delete(grp, endpointName)
-		} else {
-			grp[endpointName] = existingRanges
-		}
-		modified = true
-	}
-	return modified
-}
-
-func (grp GroupedPortRanges) rangeExistsForEndpoint(endpointName string, portRange PortRange) bool {
-	if len(grp[endpointName]) == 0 {
-		return false
-	}
-
-	for _, existingRange := range grp[endpointName] {
-		if existingRange == portRange {
-			return true
-		}
-	}
-	return false
 }
 
 // UniquePortRanges returns the unique set of PortRanges in this group.
