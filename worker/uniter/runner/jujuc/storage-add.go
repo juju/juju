@@ -37,7 +37,7 @@ func (s *StorageAddCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "storage-add",
 		Args:    "<charm storage name>[=count] ...",
-		Purpose: "add storage instances",
+		Purpose: "Add storage instances.",
 		Doc:     StorageAddDoc,
 	})
 }

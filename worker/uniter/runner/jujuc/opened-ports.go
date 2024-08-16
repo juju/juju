@@ -31,7 +31,7 @@ func NewOpenedPortsCommand(ctx Context) (cmd.Command, error) {
 func (c *OpenedPortsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "opened-ports",
-		Purpose: "list all ports or port ranges opened by the unit",
+		Purpose: "List all ports or port ranges opened by the unit.",
 		Doc: `
 opened-ports lists all ports or port ranges opened by a unit.
 

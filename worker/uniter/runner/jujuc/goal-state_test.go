@@ -31,7 +31,7 @@ func (s *GoalStateSuite) TestHelp(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: goal-state [options]
 
 Summary:
-print the status of the charm's peers and related units
+Print the status of the charm's peers and related units.
 
 Options:
 --format  (= yaml)

@@ -33,7 +33,7 @@ func (s *JujuRebootSuite) TestInfo(c *gc.C) {
 
 	c.Assert(cmdInfo.Name, gc.Equals, "juju-reboot")
 	c.Assert(cmdInfo.Args, gc.Equals, "")
-	c.Assert(cmdInfo.Purpose, gc.Equals, "Reboot the host machine")
+	c.Assert(cmdInfo.Purpose, gc.Equals, "Reboot the host machine.")
 }
 
 func (s *JujuRebootSuite) TestSetFlags(c *gc.C) {

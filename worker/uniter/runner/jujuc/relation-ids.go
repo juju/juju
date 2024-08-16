@@ -48,7 +48,7 @@ func (c *RelationIdsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "relation-ids",
 		Args:    args,
-		Purpose: "list all relation ids for the given endpoint",
+		Purpose: "List all relation IDs for the given endpoint.",
 		Doc:     doc,
 	})
 }

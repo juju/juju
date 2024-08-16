@@ -63,7 +63,7 @@ func (c *portCommand) Run(ctx *cmd.Context) error {
 var openPortInfo = &cmd.Info{
 	Name:    "open-port",
 	Args:    portFormat,
-	Purpose: "register a request to open a port or port range",
+	Purpose: "Register a request to open a port or port range.",
 	Doc: `
 open-port registers a request to open the specified port or port range.
 
@@ -83,7 +83,7 @@ func NewOpenPortCommand(ctx Context) (cmd.Command, error) {
 var closePortInfo = &cmd.Info{
 	Name:    "close-port",
 	Args:    portFormat,
-	Purpose: "register a request to close a port or port range",
+	Purpose: "Register a request to close a port or port range.",
 	Doc: `
 close-port registers a request to close the specified port or port range.
 

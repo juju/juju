@@ -33,7 +33,7 @@ If the --include-data flag is passed, the associated data are printed also.
 	return jujucmd.Info(&cmd.Info{
 		Name:    "status-get",
 		Args:    "[--include-data] [--application]",
-		Purpose: "print status information",
+		Purpose: "Print status information.",
 		Doc:     doc,
 	})
 }

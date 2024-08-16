@@ -30,7 +30,7 @@ func (c *UnitGetCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "unit-get",
 		Args:    "<setting>",
-		Purpose: "print public-address or private-address",
+		Purpose: "Print public-address or private-address.",
 	})
 }
 

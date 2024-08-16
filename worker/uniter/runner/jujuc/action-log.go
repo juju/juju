@@ -27,7 +27,7 @@ func (c *ActionLogCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "action-log",
 		Args:    "<message>",
-		Purpose: "record a progress message for the current action",
+		Purpose: "Record a progress message for the current action.",
 	})
 }
 

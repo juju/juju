@@ -31,12 +31,13 @@ func (c *secretRemoveCommand) Info() *cmd.Info {
 Remove a secret with the specified URI.
 
 Examples:
+
     secret-remove secret:9m4e2mr0ui3e8a215n4g
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "secret-remove",
 		Args:    "<ID>",
-		Purpose: "remove a existing secret",
+		Purpose: "Remove an existing secret.",
 		Doc:     doc,
 	})
 }

@@ -55,7 +55,7 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 		"Usage: status-set [options] <maintenance | blocked | waiting | active> [message]\n" +
 		"\n" +
 		"Summary:\n" +
-		"set status information\n" +
+		"Set status information.\n" +
 		"\n" +
 		"Options:\n" +
 		"--application  (= false)\n" +

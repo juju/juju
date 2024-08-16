@@ -43,7 +43,7 @@ func (c *RelationListCommand) Info() *cmd.Info {
 	}
 	return jujucmd.Info(&cmd.Info{
 		Name:    "relation-list",
-		Purpose: "list relation units",
+		Purpose: "List relation units.",
 		Doc:     doc,
 	})
 }

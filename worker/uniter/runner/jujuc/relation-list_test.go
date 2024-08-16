@@ -148,7 +148,7 @@ func (s *RelationListSuite) TestRelationListHelp(c *gc.C) {
 Usage: relation-list [options]
 
 Summary:
-list relation units
+List relation units.
 
 Options:
 --app  (= false)
