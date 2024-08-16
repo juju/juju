@@ -1,10 +1,13 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
-
+//
+// Package main in juju-metadata provides cli commands for managing
+// image and agent binary metadata.
+//
 // Metadata plugin tools are separated into 2 categories:
 // 1. Tools that create simplestreams content related to agents and images for juju
-//    to use in the future. It's location must be provided to juju via command flags
-//    or model config.
+//    to use in the future. The location of the simple stream must be provided to
+//    juju via command flags or model config.
 //        * generate-agent-binaries
 //        * generate-image
 //        * sign

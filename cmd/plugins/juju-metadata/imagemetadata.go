@@ -93,6 +93,9 @@ may also be changed.
 Selecting an image for a specific base can be done via --base. --base can be 
 specified using the OS name and the version of the OS, separated by @. For 
 example, --base ubuntu@22.04.
+
+Valid values for --stream are released, testing, proposed and devel. The image
+stream used by Juju can be configured with 'juju model-config'.
 `
 
 func (c *imageMetadataCommand) Info() *cmd.Info {
@@ -100,6 +103,12 @@ func (c *imageMetadataCommand) Info() *cmd.Info {
 		Name:    "generate-image",
 		Purpose: "generate simplestreams image metadata",
 		Doc:     imageMetadataDoc,
+		SeeAlso: []string{
+			"bootstrap",
+			"model-config",
+			"sign",
+			"validate-images",
+		},
 	})
 }
 

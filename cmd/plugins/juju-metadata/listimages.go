@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -35,6 +34,7 @@ If no filters are supplied, all stored image metadata will be listed.
 Filtering a list of images for a set of bases can be done via --bases. A base can 
 be  specified using the OS name and the version of the OS, separated by @. For 
 example, --bases ubuntu@22.04.
+
 `
 
 // listImagesCommand returns stored image metadata.
@@ -70,6 +70,10 @@ func (c *listImagesCommand) Info() *cmd.Info {
 		Purpose: "lists cloud image metadata used when choosing an image to start",
 		Doc:     listCommandDoc,
 		Aliases: []string{"list-images"},
+		SeeAlso: []string{
+			"add-image",
+			"delete-images",
+		},
 	})
 }
 
@@ -122,11 +126,7 @@ func (c *listImagesCommand) Run(ctx *cmd.Context) (err error) {
 		return nil
 	}
 
-	info, errs := convertDetailsToInfo(found)
-	if len(errs) > 0 {
-		// display individual error
-		fmt.Fprintf(ctx.Stderr, strings.Join(errs, "\n"))
-	}
+	info := convertDetailsToInfo(found)
 
 	var output interface{}
 	switch c.out.Name() {
@@ -159,14 +159,12 @@ func (c *listImagesCommand) getImageMetadataListAPI(ctx context.Context) (Metada
 
 // convertDetailsToInfo converts cloud image metadata received from api to
 // structure native to CLI.
-// We also return a list of errors for versions we could not convert to series for user friendly read.
-func convertDetailsToInfo(details []params.CloudImageMetadata) ([]MetadataInfo, []string) {
+func convertDetailsToInfo(details []params.CloudImageMetadata) []MetadataInfo {
 	if len(details) == 0 {
-		return nil, nil
+		return nil
 	}
 
 	info := make([]MetadataInfo, len(details))
-	errs := []string{}
 	for i, one := range details {
 		info[i] = MetadataInfo{
 			Source:          one.Source,
@@ -179,7 +177,7 @@ func convertDetailsToInfo(details []params.CloudImageMetadata) ([]MetadataInfo, 
 			RootStorageType: one.RootStorageType,
 		}
 	}
-	return info, errs
+	return info
 }
 
 // metadataInfos is a convenience type enabling to sort
@@ -192,10 +190,8 @@ func (m metadataInfos) Len() int {
 }
 
 // Implements sort.Interface and sort image metadata
-// by source, series, arch and region.
+// by source, os-type, arch and region.
 // All properties are sorted in alphabetical order
-// except for series which is reversed -
-// latest series are at the beginning of the collection.
 func (m metadataInfos) Less(i, j int) bool {
 	if m[i].Source != m[j].Source {
 		// Alphabetical order here is incidentally does what we want:

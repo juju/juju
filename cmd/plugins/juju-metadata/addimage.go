@@ -12,6 +12,7 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/rpc/params"
@@ -30,6 +31,9 @@ are optional for this command but they may still be needed by your provider.
 Adding an image for a specific base can be done via --base. --base can be 
 specified using the OS name and the version of the OS, separated by @. For 
 example, --base ubuntu@22.04.
+
+Valid values for --stream are released, testing, proposed and devel. The image
+stream used by Juju can be configured with 'juju model-config'.
 `
 
 // addImageMetadataCommand stores image metadata in Juju environment.
@@ -65,6 +69,11 @@ func (c *addImageMetadataCommand) Info() *cmd.Info {
 		Name:    "add-image",
 		Purpose: "adds image metadata to model",
 		Doc:     addImageCommandDoc,
+		SeeAlso: []string{
+			"delete-image",
+			"list-images",
+			"model-config",
+		},
 	})
 }
 
@@ -74,7 +83,7 @@ func (c *addImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	f.StringVar(&c.Region, "region", "", "image cloud region")
 	f.StringVar(&c.Base, "base", "", "image base")
-	f.StringVar(&c.Arch, "arch", "amd64", "image architecture")
+	f.StringVar(&c.Arch, "arch", arch.AMD64, "image architecture")
 	f.StringVar(&c.VirtType, "virt-type", "", "image metadata virtualisation type")
 	f.StringVar(&c.RootStorageType, "storage-type", "", "image metadata root storage type")
 	f.Uint64Var(&c.RootStorageSize, "storage-size", 0, "image metadata root storage size")

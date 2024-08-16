@@ -111,6 +111,10 @@ func (c *validateAgentsMetadataCommand) Info() *cmd.Info {
 		Name:    "validate-agent-binaries",
 		Purpose: "check that compressed tar archives (.tgz) for the Juju agent binaries are available",
 		Doc:     validateAgentsMetadataDoc,
+		SeeAlso: []string{
+			"generate-images",
+			"sign",
+		},
 	})
 }
 
@@ -241,8 +245,8 @@ func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
 
 	if len(versions) > 0 {
 		metadata := map[string]interface{}{
-			"Matching Tools Versions": versions,
-			"Resolve Metadata":        *resolveInfo,
+			"Matching Agent Binary Versions": versions,
+			"Resolve Metadata":               *resolveInfo,
 		}
 		_ = c.out.Write(context, metadata)
 	} else {

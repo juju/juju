@@ -22,11 +22,11 @@ func newSignMetadataCommand() cmd.Command {
 }
 
 var signMetadataDoc = `
-sign searches for json files in the specified directory tree and inline signs
+sign searches for JSON files in the specified directory tree and inline signs
 them using the private key in the specified keyring file. For each .json file, a
-corresponding .sjson file is procduced.
+corresponding .sjson file is produced.
 
-The specified keyring file is expected to contain an amored private key. If the key
+The specified keyring file is expected to contain an armored private key. If the key
 is encrypted, then the specified passphrase is used to decrypt the key.
 `
 
@@ -43,6 +43,12 @@ func (c *signMetadataCommand) Info() *cmd.Info {
 		Name:    "sign",
 		Purpose: "sign simplestreams metadata",
 		Doc:     signMetadataDoc,
+		SeeAlso: []string{
+			"generate-agents",
+			"generate-images",
+			"validate-agents",
+			"validate-images",
+		},
 	})
 }
 

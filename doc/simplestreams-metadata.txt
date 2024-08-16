@@ -38,7 +38,7 @@ Image Metadata Contents
 =======================
 
 Image metadata uses a simplestreams content type of "image-ids".
-The product id is formed as follows:
+The product ID is formed as follows:
 "com.ubuntu.cloud:server:<series_version>:<arch>"
 eg
 "com.ubuntu.cloud:server:13.10:amd64"
@@ -46,8 +46,8 @@ eg
 Non-released images (eg beta, daily etc) have product ids like:
 "com.ubuntu.cloud.daily:server:13.10:amd64"
 
-The metadata index and product files are required to be in the following directory tree
-(relative to the URL associated with each path component):
+The metadata index and product files must be in the following directory tree (relative to the
+URL associated with each path component):
 
 <path_url>
   |-streams
@@ -59,17 +59,17 @@ The metadata index and product files are required to be in the following directo
 The index file must be called "index.(s)json" (sjson for signed). The various product files are
 named according to the Path values contained in the index file.
 
-Tools Metadata Contents
+Agent Binary Metadata Contents
 =======================
 
-Tools metadata uses a simplestreams content type of "content-download".
-The product id is formed as follows:
+Agent binary metadata uses a simplestreams content type of "content-download".
+The product ID is formed as follows:
 "com.ubuntu.juju:<os_type>:<arch>"
 eg
 "com.ubuntu.juju:linux:amd64"
 
 The metadata index and product files are required to be in the following directory tree
-(relative to the URL associated with each path component). In addition, agent binaries tarballs
+(relative to the URL associated with each path component). In addition, agent binary tarballs
 which Juju needs to download are also expected. The tarballs reside in a directory named
 after the stream to which they belong.
 
