@@ -18,7 +18,7 @@ const AppName = "juju"
 
 // Prefix is used to prefix all the lxd profile programmable profiles. If a
 // profile doesn't have the prefix, then it will be removed when ensuring the
-// the validity of the names (see LXDProfileNames)
+// the validity of the names (see FilterLXDProfileNames)
 var Prefix = fmt.Sprintf("%s-", AppName)
 
 // Name returns a serialisable name that we can use to identify profiles
@@ -27,10 +27,10 @@ func Name(modelName, appName string, revision int) string {
 	return fmt.Sprintf("%s%s-%s-%d", Prefix, modelName, appName, revision)
 }
 
-// LXDProfileNames ensures that the LXD profile names are unique yet preserve
+// FilterLXDProfileNames ensures that the LXD profile names are unique yet preserve
 // the same order as the input. It removes certain profile names from the list,
 // for example "default" profile name will be removed.
-func LXDProfileNames(names []string) []string {
+func FilterLXDProfileNames(names []string) []string {
 	// ensure that the ones we have are unique
 	unique := make(map[string]int)
 	for k, v := range names {
@@ -111,10 +111,10 @@ func MatchProfileNameByAppName(names []string, appName string) (string, error) {
 		return "", errors.BadRequestf("no application name specified")
 	}
 	var foundProfile string
-	for _, p := range LXDProfileNames(names) {
+	for _, p := range FilterLXDProfileNames(names) {
 		rev, err := ProfileRevision(p)
 		if err != nil {
-			// "Shouldn't" happen since we used LXDProfileNames...
+			// "Shouldn't" happen since we used FilterLXDProfileNames...
 			if errors.Is(err, errors.BadRequest) {
 				continue
 			}

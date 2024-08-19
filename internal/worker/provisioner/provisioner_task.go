@@ -366,7 +366,7 @@ func (task *provisionerTask) processMachinesWithTransientErrors(ctx context.Cont
 }
 
 func (task *provisionerTask) processMachines(ctx context.Context, providerContext envcontext.ProviderCallContext, ids []string) error {
-	task.logger.Tracef("processMachines(%v)", ids)
+	task.logger.Debugf("processing machines %v", ids)
 
 	// Populate the tasks maps of current instances and machines.
 	if err := task.populateMachineMaps(providerContext, ids); err != nil {
@@ -451,12 +451,14 @@ func (task *provisionerTask) populateMachineMaps(ctx envcontext.ProviderCallCont
 // once they are online will be skipped.
 func (task *provisionerTask) pendingOrDead(
 	ctx context.Context, ids []string,
-) (pending, dead []apiprovisioner.MachineProvisioner, err error) {
+) ([]apiprovisioner.MachineProvisioner, []apiprovisioner.MachineProvisioner, error) {
 	task.machinesMutex.RLock()
 	defer task.machinesMutex.RUnlock()
+
+	var pending, dead []apiprovisioner.MachineProvisioner
 	for _, id := range ids {
 		// Ignore machines that have been either queued for deferred
-		// stopping or they are currently stopping
+		// stopping or are currently stopping.
 		if _, found := task.machinesStopDeferred[id]; found {
 			task.logger.Tracef("pendingOrDead: ignoring machine %q; machine has deferred stop flag set", id)
 			continue // ignore: will be stopped once started
@@ -471,9 +473,9 @@ func (task *provisionerTask) pendingOrDead(
 			continue
 		}
 		var classification MachineClassification
-		classification, err = classifyMachine(ctx, task.logger, machine)
+		classification, err := classifyMachine(ctx, task.logger, machine)
 		if err != nil {
-			return // return the error
+			return nil, nil, err
 		}
 		switch classification {
 		case Pending:
@@ -482,9 +484,9 @@ func (task *provisionerTask) pendingOrDead(
 			dead = append(dead, machine)
 		}
 	}
-	task.logger.Tracef("pending machines: %v", pending)
-	task.logger.Tracef("dead machines: %v", dead)
-	return
+
+	task.logger.Debugf("pending: %v, dead: %v", pending, dead)
+	return pending, dead, nil
 }
 
 func (task *provisionerTask) scopedContext() (context.Context, context.CancelFunc) {
@@ -1286,6 +1288,7 @@ func (task *provisionerTask) queueStartMachines(ctx context.Context, providerCon
 	if err != nil {
 		return errors.Trace(err)
 	}
+	task.logger.Debugf("obtained provisioning info: %#v", pInfoResults)
 	pInfoMap := make(map[string]params.ProvisioningInfoResult, len(pInfoResults.Results))
 	for i, tag := range machineTags {
 		pInfoMap[tag.Id()] = pInfoResults.Results[i]
@@ -1643,7 +1646,7 @@ func (task *provisionerTask) gatherCharmLXDProfiles(
 		return nil, errors.Trace(err)
 	}
 
-	return lxdprofile.LXDProfileNames(profileNames), nil
+	return lxdprofile.FilterLXDProfileNames(profileNames), nil
 }
 
 // markMachineFailedInAZ moves the machine in zone from MachineIds to FailedMachineIds

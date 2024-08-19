@@ -67,7 +67,7 @@ func (s *connectionSuite) apiConnection() api.Connection {
 		},
 		Facades: []params.FacadeVersions{{
 			Name:     "Client",
-			Versions: []int{1, 2, 3, 4, 5, 6},
+			Versions: []int{1, 2, 3, 4, 5, 6, 7, 8},
 		}},
 	}
 
@@ -220,7 +220,7 @@ func (s *connectionSuite) TestBestFacadeVersion(c *gc.C) {
 	apiConn := s.apiConnection()
 	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(apiConn.BestFacadeVersion("Client"), gc.Equals, 6)
+	c.Check(apiConn.BestFacadeVersion("Client"), gc.Equals, 8)
 }
 
 func (s *connectionSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {

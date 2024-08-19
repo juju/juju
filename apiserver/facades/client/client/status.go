@@ -65,9 +65,9 @@ func (c *Client) applicationStatusHistory(appTag names.ApplicationTag, filter st
 		err error
 	)
 	if kind == status.KindApplication {
-		app, err = c.api.stateAccessor.Application(appTag.Name)
+		app, err = c.stateAccessor.Application(appTag.Name)
 	} else {
-		app, err = c.api.stateAccessor.RemoteApplication(appTag.Name)
+		app, err = c.stateAccessor.RemoteApplication(appTag.Name)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -82,7 +82,7 @@ func (c *Client) applicationStatusHistory(appTag names.ApplicationTag, filter st
 // unitStatusHistory returns a list of status history entries for unit agents or workloads.
 func (c *Client) unitStatusHistory(unitTag names.UnitTag, filter status.StatusHistoryFilter,
 	kind status.HistoryKind) ([]params.DetailedStatus, error) {
-	unit, err := c.api.stateAccessor.Unit(unitTag.Id())
+	unit, err := c.stateAccessor.Unit(unitTag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -116,7 +116,7 @@ func (c *Client) unitStatusHistory(unitTag names.UnitTag, filter status.StatusHi
 // machineStatusHistory returns status history for the given machine.
 func (c *Client) machineStatusHistory(machineTag names.MachineTag, filter status.StatusHistoryFilter,
 	kind status.HistoryKind) ([]params.DetailedStatus, error) {
-	machine, err := c.api.stateAccessor.Machine(machineTag.Id())
+	machine, err := c.stateAccessor.Machine(machineTag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -134,7 +134,7 @@ func (c *Client) machineStatusHistory(machineTag names.MachineTag, filter status
 
 // modelStatusHistory returns status history for the current model.
 func (c *Client) modelStatusHistory(filter status.StatusHistoryFilter) ([]params.DetailedStatus, error) {
-	m, err := c.api.stateAccessor.Model()
+	m, err := c.stateAccessor.Model()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get model")
 	}
@@ -223,52 +223,52 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	var noStatus params.FullStatus
 	var context statusContext
 
-	m, err := c.api.stateAccessor.Model()
+	m, err := c.stateAccessor.Model()
 	if err != nil {
 		return noStatus, errors.Annotate(err, "cannot get model")
 	}
-	context.presence.Presence = c.api.presence.ModelPresence(m.UUID())
+	context.presence.Presence = c.presence.ModelPresence(m.UUID())
 	cfg, err := m.Config()
 	if err != nil {
 		return noStatus, errors.Annotate(err, "cannot obtain current model config")
 	}
 	context.providerType = cfg.Type()
 
-	if context.spaceInfos, err = c.api.networkService.GetAllSpaces(ctx); err != nil {
+	if context.spaceInfos, err = c.networkService.GetAllSpaces(ctx); err != nil {
 		return noStatus, errors.Annotate(err, "cannot obtain space information")
 	}
-	if context.model, err = c.api.state().Model(); err != nil {
+	if context.model, err = c.state().Model(); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch model")
 	}
 	if context.status, err = context.model.LoadModelStatus(); err != nil {
 		return noStatus, errors.Annotate(err, "could not load model status values")
 	}
 	if context.allAppsUnitsCharmBindings, err =
-		fetchAllApplicationsAndUnits(c.api.stateAccessor, context.model, context.spaceInfos); err != nil {
+		fetchAllApplicationsAndUnits(c.stateAccessor, context.model, context.spaceInfos); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch applications and units")
 	}
 	if context.consumerRemoteApplications, err =
-		fetchConsumerRemoteApplications(c.api.stateAccessor); err != nil {
+		fetchConsumerRemoteApplications(c.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch remote applications")
 	}
 	// Only admins can see offer details.
 	if err := c.checkIsAdmin(ctx); err == nil {
 		if context.offers, err =
-			fetchOffers(c.api.stateAccessor, context.allAppsUnitsCharmBindings.applications); err != nil {
+			fetchOffers(c.stateAccessor, context.allAppsUnitsCharmBindings.applications); err != nil {
 			return noStatus, errors.Annotate(err, "could not fetch application offers")
 		}
 	}
-	if err = context.fetchMachines(c.api.stateAccessor); err != nil {
+	if err = context.fetchMachines(c.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch machines")
 	}
-	if err = context.fetchOpenPortRangesForAllMachines(c.api.stateAccessor); err != nil {
+	if err = context.fetchOpenPortRangesForAllMachines(c.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch open port ranges")
 	}
-	if context.controllerNodes, err = fetchControllerNodes(c.api.stateAccessor); err != nil {
+	if context.controllerNodes, err = fetchControllerNodes(c.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch controller nodes")
 	}
 	if len(context.controllerNodes) > 1 {
-		if primaryHAMachine, err := c.api.stateAccessor.HAPrimaryMachine(); err != nil {
+		if primaryHAMachine, err := c.stateAccessor.HAPrimaryMachine(); err != nil {
 			// We do not want to return any errors here as they are all
 			// non-fatal for this call since we can still
 			// get FullStatus including machine info even if we could not get HA Primary determined.
@@ -280,19 +280,19 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		}
 	}
 	// These may be empty when machines have not finished deployment.
-	subnetInfos, err := c.api.networkService.GetAllSubnets(ctx)
+	subnetInfos, err := c.networkService.GetAllSubnets(ctx)
 	if err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch subnets")
 	}
 	if context.ipAddresses, context.spaces, context.linkLayerDevices, err =
-		fetchNetworkInterfaces(c.api.stateAccessor, subnetInfos, context.spaceInfos); err != nil {
+		fetchNetworkInterfaces(c.stateAccessor, subnetInfos, context.spaceInfos); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch IP addresses and link layer devices")
 	}
-	if context.relations, context.relationsById, err = fetchRelations(c.api.stateAccessor); err != nil {
+	if context.relations, context.relationsById, err = fetchRelations(c.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch relations")
 	}
 	if len(context.allAppsUnitsCharmBindings.applications) > 0 {
-		if context.leaders, err = c.api.leadershipReader.Leaders(); err != nil {
+		if context.leaders, err = c.leadershipReader.Leaders(); err != nil {
 			// Leader information is additive for status.
 			// Given that it comes from Dqlite, which may be subject to
 			// reconfiguration when mutating the control plane, we would
@@ -301,20 +301,20 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 			context.leaders = make(map[string]string)
 		}
 	}
-	if context.controllerTimestamp, err = c.api.stateAccessor.ControllerTimestamp(); err != nil {
+	if context.controllerTimestamp, err = c.stateAccessor.ControllerTimestamp(); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch controller timestamp")
 	}
 
 	if args.IncludeStorage {
-		context.storageInstances, err = c.api.storageAccessor.AllStorageInstances()
+		context.storageInstances, err = c.storageAccessor.AllStorageInstances()
 		if err != nil {
 			return noStatus, errors.Annotate(err, "cannot list all storage instances")
 		}
-		context.filesystems, err = c.api.storageAccessor.AllFilesystems()
+		context.filesystems, err = c.storageAccessor.AllFilesystems()
 		if err != nil {
 			return noStatus, errors.Annotate(err, "cannot list all filesystems")
 		}
-		context.volumes, err = c.api.storageAccessor.AllVolumes()
+		context.volumes, err = c.storageAccessor.AllVolumes()
 		if err != nil {
 			return noStatus, errors.Annotate(err, "cannot list all volumes")
 		}
@@ -520,15 +520,15 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	var filesystemDetails []params.FilesystemDetails
 	var volumeDetails []params.VolumeDetails
 	if args.IncludeStorage {
-		storageDetails, err = context.processStorage(ctx, c.api.storageAccessor, c.api.blockDeviceService)
+		storageDetails, err = context.processStorage(ctx, c.storageAccessor, c.blockDeviceService)
 		if err != nil {
 			return noStatus, errors.Annotate(err, "cannot process storage instances")
 		}
-		filesystemDetails, err = context.processFilesystems(ctx, c.api.storageAccessor, c.api.blockDeviceService)
+		filesystemDetails, err = context.processFilesystems(ctx, c.storageAccessor, c.blockDeviceService)
 		if err != nil {
 			return noStatus, errors.Annotate(err, "cannot process filesystems")
 		}
-		volumeDetails, err = context.processVolumes(ctx, c.api.storageAccessor, c.api.blockDeviceService)
+		volumeDetails, err = context.processVolumes(ctx, c.storageAccessor, c.blockDeviceService)
 		if err != nil {
 			return noStatus, errors.Annotate(err, "cannot process volumes")
 		}
@@ -569,7 +569,7 @@ func resolveLeaderUnits(patterns []string, leaders map[string]string) []string {
 func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 	var info params.ModelStatusInfo
 
-	m, err := c.api.stateAccessor.Model()
+	m, err := c.stateAccessor.Model()
 	if err != nil {
 		return info, errors.Annotate(err, "cannot get model")
 	}
