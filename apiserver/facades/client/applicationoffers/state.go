@@ -9,7 +9,6 @@ import (
 
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 )
@@ -115,12 +114,6 @@ var GetApplicationOffers = func(backend interface{}) crossmodel.ApplicationOffer
 		return state.NewApplicationOffers(st.st)
 	}
 	return nil
-}
-
-type Space interface {
-	Name() string
-	NetworkSpace() (network.SpaceInfo, error)
-	ProviderId() network.Id
 }
 
 type Model interface {

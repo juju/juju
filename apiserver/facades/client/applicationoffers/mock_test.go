@@ -21,11 +21,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -79,25 +76,6 @@ func (m *stubApplicationOffers) ApplicationOffer(name string) (*jujucrossmodel.A
 func (m *stubApplicationOffers) ApplicationOfferForUUID(uuid string) (*jujucrossmodel.ApplicationOffer, error) {
 	m.AddCall(offerCallUUID)
 	panic("not implemented")
-}
-
-type mockEnviron struct {
-	environs.NetworkingEnviron
-
-	stub      jtesting.Stub
-	spaceInfo *environs.ProviderSpaceInfo
-}
-
-func (e *mockEnviron) ProviderSpaceInfo(ctx envcontext.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
-	e.stub.MethodCall(e, "ProviderSpaceInfo", space)
-	spaceName := corenetwork.AlphaSpaceName
-	if space != nil {
-		spaceName = string(space.Name)
-	}
-	if e.spaceInfo == nil || spaceName != string(e.spaceInfo.Name) {
-		return nil, errors.NotFoundf("space %q", spaceName)
-	}
-	return e.spaceInfo, e.stub.NextErr()
 }
 
 type mockModel struct {
@@ -182,28 +160,6 @@ func (b *mockBindings) MapWithSpaceNames(network.SpaceInfos) (map[string]string,
 	return b.bMap, nil
 }
 
-type mockSpace struct {
-	name       string
-	providerId network.Id
-	subnets    network.SubnetInfos
-}
-
-func (m *mockSpace) Name() string {
-	return m.name
-}
-
-func (m *mockSpace) NetworkSpace() (network.SpaceInfo, error) {
-	return corenetwork.SpaceInfo{
-		Name:       corenetwork.SpaceName(m.name),
-		ProviderId: m.providerId,
-		Subnets:    m.subnets,
-	}, nil
-}
-
-func (m *mockSpace) ProviderId() network.Id {
-	return m.providerId
-}
-
 type mockRelation struct {
 	crossmodel.Relation
 	id       int
@@ -286,7 +242,6 @@ type mockState struct {
 	users             map[string]applicationoffers.User
 	applications      map[string]crossmodel.Application
 	applicationOffers map[string]jujucrossmodel.ApplicationOffer
-	spaces            map[string]applicationoffers.Space
 	relations         map[string]crossmodel.Relation
 	connections       []applicationoffers.OfferConnection
 	accessPerms       map[offerAccess]permission.Access
@@ -315,14 +270,6 @@ func (m *mockState) ApplicationOffer(name string) (*jujucrossmodel.ApplicationOf
 		return nil, errors.NotFoundf("application offer %q", name)
 	}
 	return &offer, nil
-}
-
-func (m *mockState) SpaceByName(name string) (applicationoffers.Space, error) {
-	space, ok := m.spaces[name]
-	if !ok {
-		return nil, errors.NotFoundf("space %q", name)
-	}
-	return space, nil
 }
 
 func (m *mockState) Model() (applicationoffers.Model, error) {

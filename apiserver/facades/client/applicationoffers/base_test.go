@@ -15,9 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -37,7 +35,6 @@ type baseSuite struct {
 
 	mockState         *mockState
 	mockStatePool     *mockStatePool
-	env               *mockEnviron
 	bakery            *mockBakeryService
 	authContext       *crossmodel.AuthContext
 	applicationOffers *stubApplicationOffers
@@ -51,13 +48,11 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 		AdminTag: names.NewUserTag("admin"),
 	}
 
-	s.env = &mockEnviron{}
 	s.mockState = &mockState{
 		modelUUID:         coretesting.ModelTag.Id(),
 		users:             make(map[string]applicationoffers.User),
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
 		accessPerms:       make(map[offerAccess]permission.Access),
-		spaces:            make(map[string]applicationoffers.Space),
 		relations:         make(map[string]crossmodel.Relation),
 		relationNetworks:  &mockRelationNetworks{},
 	}
@@ -160,24 +155,6 @@ func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string,
 			modelUUID:   coretesting.ModelTag.Id(),
 			relationKey: "hosted-db2:db wordpress:db",
 			relationId:  1,
-		},
-	}
-	s.mockState.spaces["myspace"] = &mockSpace{
-		name:       "myspace",
-		providerId: "juju-space-myspace",
-		subnets: network.SubnetInfos{
-			{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", AvailabilityZones: []string{"az1"}},
-		},
-	}
-	s.env.spaceInfo = &environs.ProviderSpaceInfo{
-		SpaceInfo: network.SpaceInfo{
-			Name:       "myspace",
-			ProviderId: "juju-space-myspace",
-			Subnets: []network.SubnetInfo{{
-				CIDR:              "4.3.2.0/24",
-				ProviderId:        "juju-subnet-1",
-				AvailabilityZones: []string{"az1"},
-			}},
 		},
 	}
 }

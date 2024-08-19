@@ -22,9 +22,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -66,13 +64,10 @@ func (s *applicationOffersSuite) setupAPI(c *gc.C) {
 	getApplicationOffers := func(interface{}) jujucrossmodel.ApplicationOffers {
 		return s.applicationOffers
 	}
-	getEnviron := func(ctx context.Context, modelUUID string) (environs.Environ, error) {
-		return s.env, nil
-	}
 	api, err := applicationoffers.CreateOffersAPI(
-		getApplicationOffers, getEnviron, getFakeControllerInfo,
+		getApplicationOffers, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.mockModelService,
-		s.authorizer, s.authContext, apiservertesting.NoopModelCredentialInvalidatorGetter,
+		s.authorizer, s.authContext,
 		c.MkDir(), loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -101,25 +96,6 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]crossmodel.Application{
 		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
-	}
-	s.mockState.spaces["myspace"] = &mockSpace{
-		name:       "myspace",
-		providerId: "juju-space-myspace",
-		subnets: network.SubnetInfos{
-			{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", AvailabilityZones: []string{"az1"}},
-		},
-	}
-	s.env.spaceInfo = &environs.ProviderSpaceInfo{
-		SpaceInfo: network.SpaceInfo{
-			ID:         "1",
-			Name:       "myspace",
-			ProviderId: "juju-space-myspace",
-			Subnets: []network.SubnetInfo{{
-				CIDR:              "4.3.2.0/24",
-				ProviderId:        "juju-subnet-1",
-				AvailabilityZones: []string{"az1"},
-			}},
-		},
 	}
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 
@@ -333,10 +309,6 @@ func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedE
 		expectedOfferDetails,
 	})
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
-	if s.mockState.model.modelType == state.ModelTypeCAAS {
-		s.env.stub.CheckNoCalls(c)
-		return
-	}
 }
 
 func (s *applicationOffersSuite) TestList(c *gc.C) {
@@ -444,16 +416,6 @@ func (s *applicationOffersSuite) assertShow(c *gc.C, url, offerUUID string, expe
 	if len(expected) > 0 {
 		return
 	}
-	s.env.stub.CheckCallNames(c, "ProviderSpaceInfo")
-	s.env.stub.CheckCall(c, 0, "ProviderSpaceInfo", &network.SpaceInfo{
-		Name:       "myspace",
-		ProviderId: "juju-space-myspace",
-		Subnets: []network.SubnetInfo{{
-			CIDR:              "4.3.2.0/24",
-			ProviderId:        "juju-subnet-1",
-			AvailabilityZones: []string{"az1"},
-		}},
-	})
 }
 
 func (s *applicationOffersSuite) TestShow(c *gc.C) {
@@ -665,25 +627,6 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 
 	s.mockState.model = fakeModel
 	s.mockState.allmodels = []applicationoffers.Model{fakeModel, anotherModel}
-	s.mockState.spaces["myspace"] = &mockSpace{
-		name:       "myspace",
-		providerId: "juju-space-myspace",
-		subnets: network.SubnetInfos{
-			{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", AvailabilityZones: []string{"az1"}},
-		},
-	}
-	s.env.spaceInfo = &environs.ProviderSpaceInfo{
-		SpaceInfo: network.SpaceInfo{
-			ID:         "1",
-			Name:       "myspace",
-			ProviderId: "juju-space-myspace",
-			Subnets: []network.SubnetInfo{{
-				CIDR:              "4.3.2.0/24",
-				ProviderId:        "juju-subnet-1",
-				AvailabilityZones: []string{"az1"},
-			}},
-		},
-	}
 
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
@@ -694,19 +637,11 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 		modelUUID:   "uuid2",
 		users:       make(map[string]applicationoffers.User),
 		accessPerms: make(map[offerAccess]permission.Access),
-		spaces:      make(map[string]applicationoffers.Space),
 		model:       anotherModel,
 	}
 	anotherState.applications = map[string]crossmodel.Application{
 		"testagain": &mockApplication{
 			charm: ch, curl: "ch:mysql-2", bindings: map[string]string{"db2": "anotherspace"}},
-	}
-	anotherState.spaces["anotherspace"] = &mockSpace{
-		name:       "anotherspace",
-		providerId: "juju-space-myspace",
-		subnets: network.SubnetInfos{
-			{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", AvailabilityZones: []string{"az1"}},
-		},
 	}
 	anotherState.users[user.Name()] = &mockUser{user.Name()}
 	_ = anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-testagain-uuid"), user, permission.ConsumeAccess)
@@ -939,25 +874,6 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		owner:     "fred@external",
 		modelType: state.ModelTypeIAAS,
 	}
-	s.mockState.spaces["myspace"] = &mockSpace{
-		name:       "myspace",
-		providerId: "juju-space-myspace",
-		subnets: network.SubnetInfos{
-			{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", AvailabilityZones: []string{"az1"}},
-		},
-	}
-	s.env.spaceInfo = &environs.ProviderSpaceInfo{
-		SpaceInfo: network.SpaceInfo{
-			ID:         "1",
-			Name:       "myspace",
-			ProviderId: "juju-space-myspace",
-			Subnets: []network.SubnetInfo{{
-				CIDR:              "4.3.2.0/24",
-				ProviderId:        "juju-subnet-1",
-				AvailabilityZones: []string{"az1"},
-			}},
-		},
-	}
 
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
@@ -968,7 +884,6 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		modelUUID:   "uuid2",
 		users:       make(map[string]applicationoffers.User),
 		accessPerms: make(map[offerAccess]permission.Access),
-		spaces:      make(map[string]applicationoffers.Space),
 	}
 	s.mockStatePool.st["uuid2"] = anotherState
 	anotherState.applications = map[string]crossmodel.Application{
@@ -986,13 +901,6 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 			bindings: map[string]string{
 				"postgresql": "anotherspace",
 			},
-		},
-	}
-	anotherState.spaces["anotherspace"] = &mockSpace{
-		name:       "anotherspace",
-		providerId: "juju-space-anotherspace",
-		subnets: network.SubnetInfos{
-			{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", AvailabilityZones: []string{"az1"}},
 		},
 	}
 	anotherState.model = &mockModel{
@@ -1183,14 +1091,11 @@ func (s *consumeSuite) setupAPI(c *gc.C) {
 	getApplicationOffers := func(st interface{}) jujucrossmodel.ApplicationOffers {
 		return &mockApplicationOffers{st: st.(*mockState)}
 	}
-	getEnviron := func(ctx context.Context, modelUUID string) (environs.Environ, error) {
-		return s.env, nil
-	}
 	api, err := applicationoffers.CreateOffersAPI(
-		getApplicationOffers, getEnviron, getFakeControllerInfo,
+		getApplicationOffers, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.mockModelService,
 		s.authorizer, s.authContext,
-		apiservertesting.NoopModelCredentialInvalidatorGetter, c.MkDir(),
+		c.MkDir(),
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1369,9 +1274,6 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	delete(st.applications["mysql"].(*mockApplication).bindings, "database")
 
 	// Add a default endpoint for the application.
-	st.spaces["default-endpoint"] = &mockSpace{
-		name: "default-endpoint",
-	}
 	st.applications["mysql"].(*mockApplication).bindings[""] = "default-endpoint"
 
 	apiUser := names.NewUserTag("someone")
@@ -1419,7 +1321,6 @@ func (s *consumeSuite) setupOffer() string {
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
 		users:             make(map[string]applicationoffers.User),
 		accessPerms:       make(map[offerAccess]permission.Access),
-		spaces:            make(map[string]applicationoffers.Space),
 		relations:         make(map[string]crossmodel.Relation),
 	}
 	s.mockStatePool.st[modelUUID] = st
@@ -1440,25 +1341,6 @@ func (s *consumeSuite) setupOffer() string {
 			{Relation: charm.Relation{Name: "juju-info", Role: "provider", Interface: "juju-info", Limit: 0, Scope: "global"}},
 			{Relation: charm.Relation{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},
 			{Relation: charm.Relation{Name: "server-admin", Role: "provider", Interface: "mysql-root", Limit: 0, Scope: "global"}}},
-	}
-	st.spaces["myspace"] = &mockSpace{
-		name:       "myspace",
-		providerId: "juju-space-myspace",
-		subnets: network.SubnetInfos{
-			{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", AvailabilityZones: []string{"az1"}},
-		},
-	}
-	s.env.spaceInfo = &environs.ProviderSpaceInfo{
-		SpaceInfo: network.SpaceInfo{
-			ID:         "1",
-			Name:       "myspace",
-			ProviderId: "juju-space-myspace",
-			Subnets: []network.SubnetInfo{{
-				CIDR:              "4.3.2.0/24",
-				ProviderId:        "juju-subnet-1",
-				AvailabilityZones: []string{"az1"},
-			}},
-		},
 	}
 	return anOffer.OfferUUID
 }

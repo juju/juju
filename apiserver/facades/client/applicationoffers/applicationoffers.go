@@ -19,12 +19,8 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs"
-	envcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 )
-
-type environFromModelFunc func(context.Context, string) (environs.Environ, error)
 
 // OffersAPIv5 implements the cross model interface and is the concrete
 // implementation of the api end point.
@@ -37,14 +33,12 @@ type OffersAPIv5 struct {
 // createAPI returns a new application offers OffersAPI facade.
 func createOffersAPI(
 	getApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers,
-	getEnviron environFromModelFunc,
 	getControllerInfo func(context.Context) ([]string, string, error),
 	backend Backend,
 	statePool StatePool,
 	modelService ModelService,
 	authorizer facade.Authorizer,
 	authContext *commoncrossmodel.AuthContext,
-	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	dataDir string,
 	logger corelogger.Logger,
 ) (*OffersAPIv5, error) {
@@ -56,15 +50,13 @@ func createOffersAPI(
 		dataDir:     dataDir,
 		authContext: authContext,
 		BaseAPI: BaseAPI{
-			Authorizer:                  authorizer,
-			GetApplicationOffers:        getApplicationOffers,
-			ControllerModel:             backend,
-			modelService:                modelService,
-			credentialInvalidatorGetter: credentialInvalidatorGetter,
-			StatePool:                   statePool,
-			getEnviron:                  getEnviron,
-			getControllerInfo:           getControllerInfo,
-			logger:                      logger,
+			Authorizer:           authorizer,
+			GetApplicationOffers: getApplicationOffers,
+			ControllerModel:      backend,
+			modelService:         modelService,
+			StatePool:            statePool,
+			getControllerInfo:    getControllerInfo,
+			logger:               logger,
 		},
 	}
 	return api, nil
