@@ -586,7 +586,7 @@ func (s *stateSuite) TestGetMachineParentUUIDSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the parent UUID of the machine.
-	parentUUID, err := s.state.GetMachineParentUUID(context.Background(), "667")
+	parentUUID, err := s.state.GetMachineParentUUID(context.Background(), "456")
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(parentUUID, gc.Equals, "123")
 }
@@ -604,7 +604,7 @@ func (s *stateSuite) TestGetMachineParentUUIDNoParent(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "123")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.state.GetMachineParentUUID(context.Background(), "666")
+	_, err = s.state.GetMachineParentUUID(context.Background(), "123")
 	c.Assert(err, jc.ErrorIs, machineerrors.MachineHasNoParent)
 }
 

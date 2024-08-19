@@ -609,17 +609,16 @@ func (st *State) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 // GetMachineParentUUID returns the parent UUID of the specified machine.
 // It returns a MachineNotFound if the machine does not exist.
 // It returns a MachineHasNoParent if the machine has no parent.
-func (st *State) GetMachineParentUUID(ctx context.Context, mName machine.Name) (string, error) {
+func (st *State) GetMachineParentUUID(ctx context.Context, uuid string) (string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	// Prepare query for machine UUID.
-	machineNameParam := machineName{Name: mName}
-	machineUUIDoutput := machineUUID{}
-	query := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $machineName.name`
-	queryStmt, err := st.Prepare(query, machineNameParam, machineUUIDoutput)
+	// Prepare query for checking that the machine exists.
+	currentMachineUUID := machineUUID{UUID: uuid}
+	query := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE uuid = $machineUUID.uuid`
+	queryStmt, err := st.Prepare(query, currentMachineUUID)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -630,35 +629,36 @@ func (st *State) GetMachineParentUUID(ctx context.Context, mName machine.Name) (
 	parentQuery := `
 SELECT parent_uuid AS &machineParent.parent_uuid
 FROM machine_parent WHERE machine_uuid = $machineUUID.uuid`
-	parentQueryStmt, err := st.Prepare(parentQuery, machineUUIDoutput, parentUUIDParam)
+	parentQueryStmt, err := st.Prepare(parentQuery, currentMachineUUID, parentUUIDParam)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query for the machine UUID.
-		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&machineUUIDoutput)
+		outUUID := machineUUID{} // This value doesn't really matter, it is just a way to check existence
+		err := tx.Query(ctx, queryStmt, currentMachineUUID).Get(&outUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(machineerrors.MachineNotFound, "machine %q", mName)
+			return errors.Annotatef(machineerrors.MachineNotFound, "machine %q", uuid)
 		}
 		if err != nil {
-			return errors.Annotatef(err, "querying UUID for machine %q", mName)
+			return errors.Annotatef(err, "checking existence of machine %q", uuid)
 		}
 
 		// Query for the parent UUID.
-		err = tx.Query(ctx, parentQueryStmt, machineUUIDoutput).Get(&parentUUIDParam)
+		err = tx.Query(ctx, parentQueryStmt, currentMachineUUID).Get(&parentUUIDParam)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(machineerrors.MachineHasNoParent, "machine %q", mName)
+			return errors.Annotatef(machineerrors.MachineHasNoParent, "machine %q", uuid)
 		}
 		if err != nil {
-			return errors.Annotatef(err, "querying parent UUID for machine %q", mName)
+			return errors.Annotatef(err, "querying parent UUID for machine %q", uuid)
 		}
 
 		parentUUID = parentUUIDParam.ParentUUID
 
 		return nil
 	})
-	return parentUUID, errors.Annotatef(err, "getting parent UUID for machine %q", mName)
+	return parentUUID, errors.Annotatef(err, "getting parent UUID for machine %q", uuid)
 }
 
 // MarkMachineForRemoval marks the specified machine for removal.
