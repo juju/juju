@@ -110,6 +110,10 @@ type apiHandler struct {
 	// prove the rule.
 	modelUUID model.UUID
 
+	// controllerOnlyLogin defines if the client was logged in using the
+	// controller only routes.
+	controllerOnlyLogin bool
+
 	// connectionID is shared between the API observer (including API
 	// requests and responses in the agent log) and the audit logger.
 	connectionID uint64
@@ -189,6 +193,7 @@ func newAPIHandler(
 		shared:                srv.shared,
 		rpcConn:               rpcConn,
 		modelUUID:             modelUUID,
+		controllerOnlyLogin:   controllerOnlyLogin,
 		connectionID:          connectionID,
 		serverHost:            serverHost,
 	}

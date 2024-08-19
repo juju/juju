@@ -224,7 +224,7 @@ type authResult struct {
 
 func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*authResult, error) {
 	result := &authResult{
-		controllerOnlyLogin: a.root.modelUUID == "",
+		controllerOnlyLogin: a.root.controllerOnlyLogin,
 		userLogin:           true,
 	}
 
