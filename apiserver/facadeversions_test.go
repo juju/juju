@@ -64,8 +64,8 @@ func (s *facadeVersionSuite) TestClientSupport(c *gc.C) {
 	}{
 		{
 			facadeName:       "Client",
-			summary:          "Ensure that the Client facade supports 3.x for status requests",
-			apiClientVersion: []int{6},
+			summary:          "Ensure that the Client facade supports 3.6+ for status requests",
+			apiClientVersion: []int{8},
 		},
 		{
 			facadeName:       "ModelManager",

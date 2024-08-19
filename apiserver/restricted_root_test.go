@@ -23,21 +23,24 @@ var _ = gc.Suite(&restrictedRootSuite{})
 func (r *restrictedRootSuite) SetUpTest(c *gc.C) {
 	r.BaseSuite.SetUpTest(c)
 	r.root = apiserver.TestingRestrictedRoot(func(facade, method string) error {
-		if facade == "Client" && method == "FullStatus" {
-			return errors.New("blam")
-		}
 		return nil
 	})
 }
 
 func (r *restrictedRootSuite) TestAllowedMethod(c *gc.C) {
-	caller, err := r.root.FindMethod("Client", 6, "WatchAll")
+	caller, err := r.root.FindMethod("Client", 8, "FullStatus")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(caller, gc.NotNil)
 }
 
 func (r *restrictedRootSuite) TestDisallowedMethod(c *gc.C) {
-	caller, err := r.root.FindMethod("Client", 6, "FullStatus")
+	r.root = apiserver.TestingRestrictedRoot(func(facade, method string) error {
+		if facade == "Client" && method == "FullStatus" {
+			return errors.New("blam")
+		}
+		return nil
+	})
+	caller, err := r.root.FindMethod("Client", 8, "FullStatus")
 	c.Assert(err, gc.ErrorMatches, "blam")
 	c.Assert(caller, gc.IsNil)
 }
@@ -55,7 +58,7 @@ func (r *restrictedRootSuite) TestNonExistentFacade(c *gc.C) {
 }
 
 func (r *restrictedRootSuite) TestNonExistentMethod(c *gc.C) {
-	caller, err := r.root.FindMethod("Client", 6, "Bar")
-	c.Assert(err, gc.ErrorMatches, `unknown method "Bar" at version 6 for facade type "Client"`)
+	caller, err := r.root.FindMethod("Client", 8, "Bar")
+	c.Assert(err, gc.ErrorMatches, `unknown method "Bar" at version 8 for facade type "Client"`)
 	c.Assert(caller, gc.IsNil)
 }
