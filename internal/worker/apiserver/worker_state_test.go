@@ -84,7 +84,7 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		nil,
 	)
 	s.modelService.EXPECT().ControllerModel(gomock.Any()).Return(model.Model{
-		UUID: s.controllerModelID,
+		UUID: s.controllerModelUUID,
 	}, nil)
 	w, err := apiserver.NewWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -149,6 +149,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		ObjectStoreGetter:          s.objectStoreGetter,
 		ProviderFactory:            s.providerFactory,
 		ControllerUUID:             s.controllerUUID,
-		ControllerModelID:          s.controllerModelID,
+		ControllerModelUUID:        s.controllerModelUUID,
 	})
 }

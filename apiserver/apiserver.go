@@ -148,8 +148,8 @@ type ServerConfig struct {
 	// ControllerUUID is the controller unique identifier.
 	ControllerUUID string
 
-	// ControllerModelID is the ID for the controller model.
-	ControllerModelID model.UUID
+	// ControllerModelUUID is the ID for the controller model.
+	ControllerModelUUID model.UUID
 
 	// LocalMacaroonAuthenticator is the request authenticator used for verifying
 	// local user macaroons.
@@ -261,8 +261,8 @@ func (c ServerConfig) Validate() error {
 	if c.ControllerUUID == "" {
 		return errors.NotValidf("missing ControllerUUID")
 	}
-	if c.ControllerModelID == "" {
-		return errors.NotValidf("missing ControllerModelID")
+	if c.ControllerModelUUID == "" {
+		return errors.NotValidf("missing ControllerModelUUID")
 	}
 	if c.LocalMacaroonAuthenticator == nil {
 		return errors.NotValidf("missing local macaroon authenticator")
@@ -341,7 +341,7 @@ func NewServer(ctx context.Context, cfg ServerConfig) (*Server, error) {
 const readyTimeout = time.Second * 30
 
 func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
-	controllerServiceFactory := cfg.ServiceFactoryGetter.FactoryForModel(cfg.ControllerModelID)
+	controllerServiceFactory := cfg.ServiceFactoryGetter.FactoryForModel(cfg.ControllerModelUUID)
 	controllerConfigService := controllerServiceFactory.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
@@ -362,7 +362,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		presence:              cfg.Presence,
 		leaseManager:          cfg.LeaseManager,
 		controllerUUID:        cfg.ControllerUUID,
-		controllerModelID:     cfg.ControllerModelID,
+		controllerModelUUID:   cfg.ControllerModelUUID,
 		controllerConfig:      controllerConfig,
 		logger:                internallogger.GetLogger("juju.apiserver"),
 		charmhubHTTPClient:    cfg.CharmhubHTTPClient,
@@ -885,7 +885,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	registerHandler := &registerUserHandler{
 		ctxt: httpCtxt,
 		providerGetter: providertracker.ProviderRunner[environs.ConnectorInfo](
-			srv.shared.providerFactory, srv.shared.controllerModelID.String()),
+			srv.shared.providerFactory, srv.shared.controllerModelUUID.String()),
 	}
 
 	// HTTP handler for application offer macaroon authentication.
@@ -1112,7 +1112,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		// resolve the modelUUID to the controller model.
 		resolvedModelUUID := model.UUID(modelUUID)
 		if controllerOnlyLogin {
-			resolvedModelUUID = srv.shared.controllerModelID
+			resolvedModelUUID = srv.shared.controllerModelUUID
 		}
 
 		// Put the modelUUID into the context for the request. This will

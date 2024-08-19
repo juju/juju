@@ -25,7 +25,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/controller"
-	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -150,7 +150,7 @@ func (a *Authenticator) Authenticate(req *http.Request) (authentication.AuthInfo
 		}
 	}
 
-	info, err := a.AuthenticateLoginRequest(req.Context(), req.Host, modelUUID, authParams)
+	info, err := a.AuthenticateLoginRequest(req.Context(), req.Host, model.UUID(modelUUID), authParams)
 	return info, errors.Trace(err)
 }
 
@@ -158,7 +158,7 @@ func (a *Authenticator) Authenticate(req *http.Request) (authentication.AuthInfo
 func (a *Authenticator) AuthenticateLoginRequest(
 	ctx context.Context,
 	serverHost string,
-	modelUUID string,
+	modelUUID model.UUID,
 	authParams authentication.AuthParams,
 ) (_ authentication.AuthInfo, err error) {
 	defer func() {
@@ -167,7 +167,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 		}
 	}()
 
-	st, err := a.statePool.Get(modelUUID)
+	st, err := a.statePool.Get(modelUUID.String())
 	if err != nil {
 		return authentication.AuthInfo{}, errors.Trace(err)
 	}
@@ -205,7 +205,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 
 func (a *Authenticator) checkCreds(
 	ctx context.Context,
-	modelUUID string,
+	modelUUID model.UUID,
 	authParams authentication.AuthParams,
 	authenticator authentication.EntityAuthenticator,
 ) (authentication.AuthInfo, error) {
@@ -226,7 +226,7 @@ func (a *Authenticator) checkCreds(
 		// For now we'll leave it as is, but we should fix this.
 		userTag := entity.Tag().(names.UserTag)
 
-		err = a.authContext.accessService.UpdateLastModelLogin(ctx, user.NameFromTag(userTag), coremodel.UUID(modelUUID))
+		err = a.authContext.accessService.UpdateLastModelLogin(ctx, user.NameFromTag(userTag), modelUUID)
 		if err != nil {
 			logger.Warningf("updating last login time for %v, %v", userTag, err)
 		}

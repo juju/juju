@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/pinger"
@@ -257,7 +258,7 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 	// a redirect error.
 	modelUUID := a.root.modelUUID
 	if a.root.model != nil {
-		modelUUID = a.root.model.UUID()
+		modelUUID = model.UUID(a.root.model.UUID())
 	}
 	if err := a.maybeEmitRedirectError(modelUUID, result.tag); err != nil {
 		return nil, errors.Trace(err)
@@ -348,13 +349,13 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 	return result, nil
 }
 
-func (a *admin) maybeEmitRedirectError(modelUUID string, authTag names.Tag) error {
+func (a *admin) maybeEmitRedirectError(modelUUID model.UUID, authTag names.Tag) error {
 	userTag, ok := authTag.(names.UserTag)
 	if !ok {
 		return nil
 	}
 
-	st, err := a.root.shared.statePool.Get(modelUUID)
+	st, err := a.root.shared.statePool.Get(modelUUID.String())
 	if err != nil {
 		return errors.Trace(err)
 	}

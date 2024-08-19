@@ -126,7 +126,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 		Resources_:      s.resources,
 		ServiceFactory_: s.serviceFactory,
 		Logger_:         loggertesting.WrapCheckLog(c),
-		ControllerID_:   coretesting.ControllerTag.Id(),
+		ControllerUUID_: coretesting.ControllerTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.provisioner = provisionerAPI

@@ -162,6 +162,11 @@ type ModelContext interface {
 	// ControllerUUID returns the controller's unique identifier.
 	ControllerUUID() string
 
+	// ModelUUID returns the model's unique identifier. All facade requests
+	// are in the scope of a model. There are some exceptions to the rule, but
+	// they are exceptions that prove the rule.
+	ModelUUID() model.UUID
+
 	// RequestRecorder defines a metrics collector for outbound requests.
 	RequestRecorder() RequestRecorder
 

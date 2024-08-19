@@ -852,7 +852,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 		Resources_:      s.resources,
 		ServiceFactory_: serviceFactory,
 		Logger_:         loggertesting.WrapCheckLog(c),
-		ControllerID_:   coretesting.ControllerTag.Id(),
+		ControllerUUID_: coretesting.ControllerTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)

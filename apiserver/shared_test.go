@@ -59,7 +59,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		dataDir:               c.MkDir(),
 		logDir:                c.MkDir(),
 		controllerUUID:        testing.ControllerTag.Id(),
-		controllerModelID:     model.UUID(testing.ModelTag.Id()),
+		controllerModelUUID:   model.UUID(testing.ModelTag.Id()),
 		sshImporterHTTPClient: &http.Client{},
 	}
 }

@@ -103,11 +103,12 @@ type apiHandler struct {
 	// connection.
 	authInfo authentication.AuthInfo
 
-	// An empty modelUUID means that the user has logged in through the
-	// root of the API server rather than the /model/:model-uuid/api
-	// path, logins processed with v2 or later will only offer the
-	// user manager and model manager api endpoints from here.
-	modelUUID string
+	// modelUUID is the UUID of the model that the client is connected to.
+	// All facades for a given context will be scoped to the model UUID.
+	// Facade methods should only scoped to the model UUID they are operating
+	// on. There are some exceptions to this rule, but they are exceptions that
+	// prove the rule.
+	modelUUID model.UUID
 
 	// connectionID is shared between the API observer (including API
 	// requests and responses in the agent log) and the audit logger.
@@ -187,7 +188,7 @@ func newAPIHandler(
 		watcherRegistry:       registry,
 		shared:                srv.shared,
 		rpcConn:               rpcConn,
-		modelUUID:             modelUUID.String(),
+		modelUUID:             modelUUID,
 		connectionID:          connectionID,
 		serverHost:            serverHost,
 	}
@@ -289,6 +290,11 @@ func (r *apiHandler) ProviderFactory() facade.ModelProviderFactory {
 	return r.providerFactory
 }
 
+// ModelUUID returns the UUID of the model that the API is operating on.
+func (r *apiHandler) ModelUUID() model.UUID {
+	return r.modelUUID
+}
+
 // CloseConn closes the underlying connection.
 func (r *apiHandler) CloseConn() error {
 	return r.rpcConn.Close()
@@ -366,7 +372,7 @@ func (r *apiHandler) GetAuthTag() names.Tag {
 // directly to the root of the API instead of a model endpoint, but
 // that method is deprecated.
 func (r *apiHandler) ConnectedModel() string {
-	return r.modelUUID
+	return r.modelUUID.String()
 }
 
 // HasPermission is responsible for reporting if the logged in user is
@@ -471,6 +477,8 @@ type apiRootHandler interface {
 	// ProviderFactory returns the provider factory for this model. This should
 	// be used sparingly in facade code.
 	ProviderFactory() facade.ModelProviderFactory
+	// ModelUUID returns the UUID of the model that the API is operating on.
+	ModelUUID() model.UUID
 }
 
 // apiRoot implements basic method dispatching to the facade registry.
@@ -491,6 +499,13 @@ type apiRoot struct {
 	objectMutex           sync.RWMutex
 	objectCache           map[objectKey]reflect.Value
 	requestRecorder       facade.RequestRecorder
+
+	// modelUUID is the UUID of the model that the client is connected to.
+	// All facades for a given context will be scoped to the model UUID.
+	// Facade methods should only scoped to the model UUID they are operating
+	// on. There are some exceptions to this rule, but they are exceptions that
+	// prove the rule.
+	modelUUID model.UUID
 
 	// providerFactory returns a provider for the current model. This should be
 	// used sparingly in facade code.
@@ -525,6 +540,7 @@ func newAPIRoot(
 		objectCache:           make(map[objectKey]reflect.Value),
 		requestRecorder:       requestRecorder,
 		providerFactory:       root.ProviderFactory(),
+		modelUUID:             root.ModelUUID(),
 	}, nil
 }
 
@@ -811,6 +827,11 @@ func (ctx *facadeContext) ControllerUUID() string {
 	return ctx.r.shared.controllerUUID
 }
 
+// ModelUUID returns the model unique identifier.
+func (ctx *facadeContext) ModelUUID() model.UUID {
+	return ctx.r.modelUUID
+}
+
 // ID is part of the facade.ModelContext interface.
 func (ctx *facadeContext) ID() string {
 	return ctx.key.objId
@@ -825,7 +846,7 @@ func (ctx *facadeContext) RequestRecorder() facade.RequestRecorder {
 func (ctx *facadeContext) LeadershipChecker() (leadership.Checker, error) {
 	checker, err := ctx.r.shared.leaseManager.Checker(
 		lease.ApplicationLeadershipNamespace,
-		ctx.State().ModelUUID(),
+		ctx.ModelUUID().String(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -837,7 +858,7 @@ func (ctx *facadeContext) LeadershipChecker() (leadership.Checker, error) {
 func (ctx *facadeContext) SingularClaimer() (lease.Claimer, error) {
 	return ctx.r.shared.leaseManager.Claimer(
 		lease.SingularControllerNamespace,
-		ctx.State().ModelUUID(),
+		ctx.ModelUUID().String(),
 	)
 }
 
@@ -845,7 +866,7 @@ func (ctx *facadeContext) SingularClaimer() (lease.Claimer, error) {
 func (ctx *facadeContext) LeadershipClaimer() (leadership.Claimer, error) {
 	claimer, err := ctx.r.shared.leaseManager.Claimer(
 		lease.ApplicationLeadershipNamespace,
-		ctx.State().ModelUUID(),
+		ctx.ModelUUID().String(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -857,7 +878,7 @@ func (ctx *facadeContext) LeadershipClaimer() (leadership.Claimer, error) {
 func (ctx *facadeContext) LeadershipRevoker() (leadership.Revoker, error) {
 	revoker, err := ctx.r.shared.leaseManager.Revoker(
 		lease.ApplicationLeadershipNamespace,
-		ctx.State().ModelUUID(),
+		ctx.ModelUUID().String(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -870,7 +891,7 @@ func (ctx *facadeContext) LeadershipRevoker() (leadership.Revoker, error) {
 func (ctx *facadeContext) LeadershipPinner() (leadership.Pinner, error) {
 	pinner, err := ctx.r.shared.leaseManager.Pinner(
 		lease.ApplicationLeadershipNamespace,
-		ctx.State().ModelUUID(),
+		ctx.ModelUUID().String(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -884,7 +905,7 @@ func (ctx *facadeContext) LeadershipPinner() (leadership.Pinner, error) {
 func (ctx *facadeContext) LeadershipReader() (leadership.Reader, error) {
 	reader, err := ctx.r.shared.leaseManager.Reader(
 		lease.ApplicationLeadershipNamespace,
-		ctx.State().ModelUUID(),
+		ctx.ModelUUID().String(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -941,7 +962,7 @@ var storageRegistryGetter = func(ctx *facadeContext) func() (storage.ProviderReg
 func (ctx *facadeContext) ModelExporter(backend facade.LegacyStateExporter) facade.ModelExporter {
 	return migration.NewModelExporter(
 		backend,
-		ctx.migrationScope(ctx.State().ModelUUID()),
+		ctx.migrationScope(ctx.ModelUUID().String()),
 		storageRegistryGetter(ctx),
 		ctx.Logger(),
 	)

@@ -55,7 +55,7 @@ type workerFixture struct {
 	serviceFactoryGetter    servicefactory.ServiceFactoryGetter
 	providerFactory         *fakeProviderFactory
 	controllerUUID          string
-	controllerModelID       model.UUID
+	controllerModelUUID     model.UUID
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -79,7 +79,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.serviceFactoryGetter = &stubServiceFactoryGetter{}
 	s.providerFactory = &fakeProviderFactory{}
 	s.controllerUUID = coretesting.ControllerTag.Id()
-	s.controllerModelID = modeltesting.GenModelUUID(c)
+	s.controllerModelUUID = modeltesting.GenModelUUID(c)
 	s.stub.ResetCalls()
 
 	s.config = apiserver.Config{

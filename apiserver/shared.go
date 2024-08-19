@@ -84,8 +84,8 @@ type sharedServerContext struct {
 	controllerConfig jujucontroller.Config
 	features         set.Strings
 
-	// controllerModelID is the ID of the controller model.
-	controllerModelID model.UUID
+	// controllerModelUUID is the UUID of the controller model.
+	controllerModelUUID model.UUID
 
 	machineTag names.Tag
 	dataDir    string
@@ -95,15 +95,15 @@ type sharedServerContext struct {
 }
 
 type sharedServerConfig struct {
-	statePool          *state.StatePool
-	centralHub         SharedHub
-	presence           presence.Recorder
-	leaseManager       lease.Manager
-	controllerUUID     string
-	controllerModelID  model.UUID
-	controllerConfig   jujucontroller.Config
-	logger             corelogger.Logger
-	charmhubHTTPClient facade.HTTPClient
+	statePool           *state.StatePool
+	centralHub          SharedHub
+	presence            presence.Recorder
+	leaseManager        lease.Manager
+	controllerUUID      string
+	controllerModelUUID model.UUID
+	controllerConfig    jujucontroller.Config
+	logger              corelogger.Logger
+	charmhubHTTPClient  facade.HTTPClient
 
 	// sshImporterHTTPClient is the http client used for ssh public key import
 	// operations.
@@ -180,7 +180,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		leaseManager:          config.leaseManager,
 		logger:                config.logger,
 		controllerUUID:        config.controllerUUID,
-		controllerModelID:     config.controllerModelID,
+		controllerModelUUID:   config.controllerModelUUID,
 		controllerConfig:      config.controllerConfig,
 		charmhubHTTPClient:    config.charmhubHTTPClient,
 		sshImporterHTTPClient: config.sshImporterHTTPClient,

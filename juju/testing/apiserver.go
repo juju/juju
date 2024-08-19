@@ -366,7 +366,16 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	c.Assert(err, jc.ErrorIsNil)
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(systemState, nil)
 
-	authenticator, err := stateauthenticator.NewAuthenticator(context.Background(), cfg.StatePool, string(cfg.ControllerModelID), factory.ControllerConfig(), factory.Access(), factory.Macaroon(), agentAuthFactory, cfg.Clock)
+	authenticator, err := stateauthenticator.NewAuthenticator(
+		context.Background(),
+		cfg.StatePool,
+		string(cfg.ControllerModelUUID),
+		factory.ControllerConfig(),
+		factory.Access(),
+		factory.Macaroon(),
+		agentAuthFactory,
+		cfg.Clock,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.LocalMacaroonAuthenticator = authenticator
 	err = authenticator.AddHandlers(s.mux)
@@ -680,7 +689,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		LocalMacaroonAuthenticator: &mockAuthenticator{},
 		GetAuditConfig:             func() auditlog.Config { return auditlog.Config{} },
 		ControllerUUID:             coretesting.ControllerTag.Id(),
-		ControllerModelID:          coremodel.UUID(coretesting.ModelTag.Id()),
+		ControllerModelUUID:        coremodel.UUID(coretesting.ModelTag.Id()),
 	}
 }
 
