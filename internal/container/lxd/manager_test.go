@@ -91,7 +91,6 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 	err = instancecfg.PopulateInstanceConfig(
 		icfg,
 		"lxd",
-		"",
 		false,
 		instancecfg.ProxyConfiguration{},
 		false,
