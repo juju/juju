@@ -32,14 +32,14 @@ func ptr[T any](v T) *T {
 
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
-	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
+	applicationSt := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
 	_, err := applicationSt.CreateApplication(context.Background(), "app", application.AddApplicationArg{
 		Charm: charm.Charm{
 			Metadata: charm.Metadata{
 				Name: "app",
 			},
 		},
-	}, application.AddUnitArg{UnitName: ptr("app/0")})
+	}, application.UpsertUnitArg{UnitName: ptr("app/0")})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {

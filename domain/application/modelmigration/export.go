@@ -63,7 +63,8 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	// TODO (stickupkid): The storage.ProviderRegistry should be passed in
 	// so that we can create the appropriate storage instances.
 	e.service = service.NewService(
-		state.NewState(scope.ModelDB(), e.logger),
+		state.NewApplicationState(scope.ModelDB(), e.logger),
+		state.NewCharmState(scope.ModelDB()),
 		nil,
 		e.logger,
 	)
