@@ -9,13 +9,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
 
 type WatchableService struct {
@@ -37,6 +40,12 @@ type WatcherFactory interface {
 		initialStateQuery eventsource.NamespaceQuery,
 		mapper eventsource.Mapper,
 	) (watcher.StringsWatcher, error)
+
+	// NewNamespaceNotifyMapperWatcher returns a new namespace notify watcher
+	// for events based on the input change mask and mapper.
+	NewNamespaceNotifyMapperWatcher(
+		namespace string, changeMask changestream.ChangeType, mapper eventsource.Mapper,
+	) (watcher.NotifyWatcher, error)
 }
 
 // NewWatchableService returns a new service reference wrapping the input state.
@@ -73,6 +82,40 @@ func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context) (watc
 		changestream.All,
 		eventsource.InitialNamespaceChanges(stmt),
 	)
+}
+
+// WatchMachineReboot returns a NotifyWatcher that is subscribed to
+// the changes in the machine_requires_reboot table in the model.
+// It raises an event whenever the machine uuid or its parent is added to the reboot table.
+func (s *WatchableService) WatchMachineReboot(ctx context.Context, uuid string) (watcher.NotifyWatcher, error) {
+	uuids, err := s.machineToCareForReboot(ctx, uuid)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	machines := set.NewStrings(uuids...)
+	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
+		"machine_requires_reboot",
+		changestream.Create,
+		func(ctx context.Context, runner database.TxnRunner, events []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+			filteredEvents := make([]changestream.ChangeEvent, 0, len(events))
+			for _, event := range events {
+				if machines.Contains(event.Changed()) {
+					filteredEvents = append(filteredEvents, event)
+				}
+			}
+			return filteredEvents, nil
+		})
+}
+
+func (s *WatchableService) machineToCareForReboot(ctx context.Context, uuid string) ([]string, error) {
+	parentUUID, err := s.st.GetMachineParentUUID(ctx, uuid)
+	if err != nil && !errors.Is(err, machineerrors.MachineHasNoParent) {
+		return nil, errors.Trace(err)
+	}
+	if errors.Is(err, machineerrors.MachineHasNoParent) {
+		return []string{uuid}, nil
+	}
+	return []string{uuid, parentUUID}, nil
 }
 
 // changeEventShim implements changestream.ChangeEvent and allows the
