@@ -11,24 +11,25 @@ run_bootstrap_authorized_keys_loaded() {
 	mkdir -p "${SUB_TEST_DIR}"
 	log_file="${SUB_TEST_DIR}/bootstrap.log"
 
-    # Setup a temporary sudo user ssh directory for Juju to read from
+	# Setup a temporary sudo user ssh directory for Juju to read from
 	ssh_dir="${SUB_TEST_DIR}/.ssh"
 	mkdir -p "$ssh_dir"
 
-    # Setup a sudo juju home directory
+	# Setup a sudo juju home directory
 	juju_home_dir="${SUB_TEST_DIR}/.local/share/juju"
 
-    # Make a default key pair in the user ssh directory.
+	# Make a default key pair in the user ssh directory.
 	default_key_file="${ssh_dir}/id_ed25519"
 	default_key_file_pub="${default_key_file}.pub"
-    ssh-keygen -t ed25519 -f "$default_key_file" -C "isgreat@juju.is" -P ""
+	ssh-keygen -t ed25519 -f "$default_key_file" -C "isgreat@juju.is" -P ""
 
 	extra_key_file="${SUB_TEST_DIR}/bootstrap_key"
 	extra_key_file_pub="${extra_key_file}.pub"
-    ssh-keygen -t ed25519 -f "$extra_key_file" -C "isgreat@juju.is" -P ""
+	ssh-keygen -t ed25519 -f "$extra_key_file" -C "isgreat@juju.is" -P ""
 
 	HOME="${SUB_TEST_DIR}"
-	export BOOTSTRAP_ADDITIONAL_ARGS="--config 'authorized-keys=$(cat ${extra_key_file_pub})'"
+	bootstrap_additional_args=(--config "'authorized-keys=$(cat ${extra_key_file_pub})'")
+	export BOOTSTRAP_ADDITIONAL_ARGS="${bootstrap_additional_args[*]}"
 	export BOOTSTRAP_REUSE=false
 	bootstrap "authorized-keys-default" "$log_file"
 	juju switch controller
@@ -59,18 +60,17 @@ run_bootstrap_authorized_keys_default() {
 	mkdir -p "${SUB_TEST_DIR}"
 	log_file="${SUB_TEST_DIR}/bootstrap.log"
 
-    # Setup a temporary sudo user ssh directory for Juju to read from
+	# Setup a temporary sudo user ssh directory for Juju to read from
 	ssh_dir="${SUB_TEST_DIR}/.ssh"
 	mkdir -p "$ssh_dir"
 
-    # Setup a sudo juju home directory
+	# Setup a sudo juju home directory
 	juju_home_dir="${SUB_TEST_DIR}/.local/share/juju"
 
-    # Make a default key pair in the user ssh directory.
+	# Make a default key pair in the user ssh directory.
 	default_key_file="${ssh_dir}/id_ed25519"
 	default_key_file_pub="${default_key_file}.pub"
-    ssh-keygen -t ed25519 -f "$default_key_file" -C "isgreat@juju.is" -P ""
-
+	ssh-keygen -t ed25519 -f "$default_key_file" -C "isgreat@juju.is" -P ""
 
 	HOME="${SUB_TEST_DIR}"
 	export BOOTSTRAP_REUSE=false
