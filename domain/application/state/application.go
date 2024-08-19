@@ -205,26 +205,6 @@ WHERE name = $applicationName.name
 	return coreapplication.ID(appID.ID), nil
 }
 
-// GetApplicationID returns the ID for the named application, returning an error
-// satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
-func (st *ApplicationState) GetApplicationID(ctx context.Context, name string) (coreapplication.ID, error) {
-	db, err := st.DB()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	var appID coreapplication.ID
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		appID, err = st.lookupApplication(ctx, tx, name, false)
-		if err != nil {
-			return fmt.Errorf("looking up application %q: %w", name, err)
-		}
-		return nil
-	})
-	return appID, errors.Annotatef(err, "getting ID for %q", name)
-}
-
 // DeleteApplication deletes the specified application, returning an error
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 // If the application still has units, as error satisfying [applicationerrors.ApplicationHasUnits]
@@ -543,6 +523,21 @@ func (st *ApplicationState) GetStoragePoolByName(ctx context.Context, name strin
 		return domainstorage.StoragePoolDetails{}, errors.Trace(err)
 	}
 	return storagestate.GetStoragePoolByName(ctx, db, name)
+}
+
+// GetApplicationID returns the ID for the named application, returning an error
+// satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
+func (st *ApplicationState) GetApplicationID(ctx domain.AtomicContext, name string) (coreapplication.ID, error) {
+	var appID coreapplication.ID
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		appID, err = st.lookupApplication(ctx, tx, name, false)
+		if err != nil {
+			return fmt.Errorf("looking up application %q: %w", name, err)
+		}
+		return nil
+	})
+	return appID, errors.Annotatef(err, "getting ID for %q", name)
 }
 
 // UpsertUnit creates or updates the specified application unit, returning an error

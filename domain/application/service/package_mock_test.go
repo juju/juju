@@ -217,7 +217,7 @@ func (c *MockApplicationStateDeleteApplicationCall) DoAndReturn(f func(context.C
 }
 
 // GetApplicationID mocks base method.
-func (m *MockApplicationState) GetApplicationID(arg0 context.Context, arg1 string) (application.ID, error) {
+func (m *MockApplicationState) GetApplicationID(arg0 domain.AtomicContext, arg1 string) (application.ID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationID", arg0, arg1)
 	ret0, _ := ret[0].(application.ID)
@@ -244,13 +244,13 @@ func (c *MockApplicationStateGetApplicationIDCall) Return(arg0 application.ID, a
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateGetApplicationIDCall) Do(f func(context.Context, string) (application.ID, error)) *MockApplicationStateGetApplicationIDCall {
+func (c *MockApplicationStateGetApplicationIDCall) Do(f func(domain.AtomicContext, string) (application.ID, error)) *MockApplicationStateGetApplicationIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateGetApplicationIDCall) DoAndReturn(f func(context.Context, string) (application.ID, error)) *MockApplicationStateGetApplicationIDCall {
+func (c *MockApplicationStateGetApplicationIDCall) DoAndReturn(f func(domain.AtomicContext, string) (application.ID, error)) *MockApplicationStateGetApplicationIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
