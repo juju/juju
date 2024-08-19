@@ -158,6 +158,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servi
 		nil,
 		nil,
 		model.UUID(st.ModelUUID()),
+		false,
 		6543,
 		"testing.invalid:1234",
 	)

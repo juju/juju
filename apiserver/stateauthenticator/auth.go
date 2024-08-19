@@ -127,8 +127,8 @@ func (a *Authenticator) AddHandlers(mux *apiserverhttp.Mux) error {
 
 // Authenticate is part of the httpcontext.Authenticator interface.
 func (a *Authenticator) Authenticate(req *http.Request) (authentication.AuthInfo, error) {
-	modelUUID := httpcontext.RequestModelUUID(req)
-	if modelUUID == "" {
+	modelUUID, valid := httpcontext.RequestModelUUID(req)
+	if !valid {
 		return authentication.AuthInfo{}, errors.New("model UUID not found")
 	}
 

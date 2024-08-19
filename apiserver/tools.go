@@ -323,7 +323,10 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 
 	logger.Debugf("request to upload agent binaries: %s", toolsVersion)
 	toolsVersions := []version.Binary{toolsVersion}
-	serverRoot := h.getServerRoot(r, query, st)
+	serverRoot, err := h.getServerRoot(r, query, st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	store, err := h.ctxt.controllerObjectStoreForRequest(r)
 	if err != nil {
@@ -333,9 +336,12 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 	return h.handleUpload(r.Context(), r.Body, toolsVersions, serverRoot, st, store)
 }
 
-func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st *state.State) string {
-	modelUUID := httpcontext.RequestModelUUID(r)
-	return fmt.Sprintf("https://%s/model/%s", r.Host, modelUUID)
+func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st *state.State) (string, error) {
+	modelUUID, valid := httpcontext.RequestModelUUID(r)
+	if !valid {
+		return "", errors.BadRequestf("invalid model UUID")
+	}
+	return fmt.Sprintf("https://%s/model/%s", r.Host, modelUUID), nil
 }
 
 // handleUpload uploads the tools data from the reader to env storage as the specified version.

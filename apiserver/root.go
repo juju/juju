@@ -119,6 +119,10 @@ type apiHandler struct {
 
 	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
 	resources *common.Resources
+
+	// controllerOnlyLogin is true if the client is using controller
+	// routes. Ultimately, this just indicates that no model UUID was specified
+	// in the request query (:modeluuid).
 }
 
 var _ = (*apiHandler)(nil)
@@ -144,7 +148,8 @@ func newAPIHandler(
 	objectStore objectstore.ObjectStore,
 	objectStoreGetter objectstore.ObjectStoreGetter,
 	controllerObjectStore objectstore.ObjectStore,
-	modelID model.UUID,
+	modelUUID model.UUID,
+	controllerOnlyLogin bool,
 	connectionID uint64,
 	serverHost string,
 ) (*apiHandler, error) {
@@ -182,7 +187,7 @@ func newAPIHandler(
 		watcherRegistry:       registry,
 		shared:                srv.shared,
 		rpcConn:               rpcConn,
-		modelUUID:             modelID.String(),
+		modelUUID:             modelUUID.String(),
 		connectionID:          connectionID,
 		serverHost:            serverHost,
 	}

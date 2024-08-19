@@ -19,10 +19,12 @@ import (
 
 type ModelHandlersSuite struct {
 	testing.IsolationSuite
-	impliedHandler *httpcontext.ImpliedModelHandler
-	queryHandler   *httpcontext.QueryModelHandler
-	bucketHandler  *httpcontext.BucketModelHandler
-	server         *httptest.Server
+
+	controllerModelHandler *httpcontext.ControllerModelHandler
+	queryHandler           *httpcontext.QueryModelHandler
+	bucketHandler          *httpcontext.BucketModelHandler
+
+	server *httptest.Server
 }
 
 var _ = gc.Suite(&ModelHandlersSuite{})
@@ -30,11 +32,12 @@ var _ = gc.Suite(&ModelHandlersSuite{})
 func (s *ModelHandlersSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, httpcontext.RequestModelUUID(r))
+		modelUUID, _ := httpcontext.RequestModelUUID(r)
+		io.WriteString(w, modelUUID)
 	})
-	s.impliedHandler = &httpcontext.ImpliedModelHandler{
-		Handler:   h,
-		ModelUUID: coretesting.ModelTag.Id(),
+	s.controllerModelHandler = &httpcontext.ControllerModelHandler{
+		Handler:             h,
+		ControllerModelUUID: coretesting.ModelTag.Id(),
 	}
 	s.queryHandler = &httpcontext.QueryModelHandler{
 		Handler: h,
@@ -46,18 +49,19 @@ func (s *ModelHandlersSuite) SetUpTest(c *gc.C) {
 	}
 	mux := apiserverhttp.NewMux()
 	mux.AddHandler("GET", "/query", s.queryHandler)
-	mux.AddHandler("GET", "/implied", s.impliedHandler)
+	mux.AddHandler("GET", "/controller", s.controllerModelHandler)
 	mux.AddHandler("GET", "/model-:modeluuid/charms/:object", s.bucketHandler)
 	s.server = httptest.NewServer(mux)
 }
 
 func (s *ModelHandlersSuite) TestRequestModelUUIDNoContext(c *gc.C) {
-	uuid := httpcontext.RequestModelUUID(&http.Request{})
+	uuid, valid := httpcontext.RequestModelUUID(&http.Request{})
 	c.Assert(uuid, gc.Equals, "")
+	c.Assert(valid, jc.IsFalse)
 }
 
-func (s *ModelHandlersSuite) TestImplied(c *gc.C) {
-	resp, err := s.server.Client().Get(s.server.URL + "/implied")
+func (s *ModelHandlersSuite) TestControllerUUID(c *gc.C) {
+	resp, err := s.server.Client().Get(s.server.URL + "/controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 	defer resp.Body.Close()

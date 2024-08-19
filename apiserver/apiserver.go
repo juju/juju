@@ -728,9 +728,9 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 					Query:   ":modeluuid",
 				}
 			} else {
-				h = &httpcontext.ImpliedModelHandler{
-					Handler:   h,
-					ModelUUID: controllerModelUUID,
+				h = &httpcontext.ControllerModelHandler{
+					Handler:             h,
+					ControllerModelUUID: controllerModelUUID,
 				}
 			}
 		}
@@ -1102,12 +1102,30 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	defer apiObserver.Leave()
 
 	websocket.Serve(w, req, func(conn *websocket.Conn) {
-		modelUUID := httpcontext.RequestModelUUID(req)
+		modelUUID, modelOnlyLogin := httpcontext.RequestModelUUID(req)
+
+		// If the modelUUID wasn't present in the request, then this is
+		// considered a controller-only login.
+		controllerOnlyLogin := !modelOnlyLogin
+
+		// If the request is for the controller model, then we need to
+		// resolve the modelUUID to the controller model.
+		resolvedModelUUID := model.UUID(modelUUID)
+		if controllerOnlyLogin {
+			resolvedModelUUID = srv.shared.controllerModelID
+		}
+
+		// Put the modelUUID into the context for the request. This will
+		// allow the peeling of the modelUUID from the request to be
+		// deferred to the facade methods.
+		ctx := model.WithContextModelUUID(req.Context(), resolvedModelUUID)
+
 		logger.Tracef("got a request for model %q", modelUUID)
 		if err := srv.serveConn(
-			srv.tomb.Context(req.Context()),
+			srv.tomb.Context(ctx),
 			conn,
-			model.UUID(modelUUID),
+			resolvedModelUUID,
+			controllerOnlyLogin,
 			connectionID,
 			apiObserver,
 			req.Host,
@@ -1120,7 +1138,8 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 func (srv *Server) serveConn(
 	ctx context.Context,
 	wsConn *websocket.Conn,
-	modelID model.UUID,
+	modelUUID model.UUID,
+	controllerOnlyLogin bool,
 	connectionID uint64,
 	apiObserver observer.Observer,
 	host string,
@@ -1129,29 +1148,19 @@ func (srv *Server) serveConn(
 	recorderFactory := observer.NewRecorderFactory(apiObserver, nil, observer.NoCaptureArgs)
 	conn := rpc.NewConn(codec, recorderFactory)
 
-	// Note that we don't overwrite modelUUID here because
-	// newAPIHandler treats an empty modelUUID as signifying
-	// the API version used.
-	resolvedModelID := modelID
-	if resolvedModelID == "" {
-		resolvedModelID = srv.shared.controllerModelID
-	}
-
-	ctx = model.WithContextModelUUID(ctx, resolvedModelID)
-
 	tracer, err := srv.shared.tracerGetter.GetTracer(
 		ctx,
-		coretrace.Namespace("apiserver", resolvedModelID.String()),
+		coretrace.Namespace("apiserver", modelUUID.String()),
 	)
 	if err != nil {
-		logger.Infof("failed to get tracer for model %q: %v", resolvedModelID, err)
+		logger.Infof("failed to get tracer for model %q: %v", modelUUID, err)
 		tracer = coretrace.NoopTracer{}
 	}
 
 	// Grab the object store for the model.
-	objectStore, err := srv.shared.objectStoreGetter.GetObjectStore(ctx, resolvedModelID.String())
+	objectStore, err := srv.shared.objectStoreGetter.GetObjectStore(ctx, modelUUID.String())
 	if err != nil {
-		return errors.Annotatef(err, "getting object store for model %q", resolvedModelID)
+		return errors.Annotatef(err, "getting object store for model %q", modelUUID)
 	}
 
 	// Grab the object store for the controller, this is primarily used for
@@ -1161,11 +1170,11 @@ func (srv *Server) serveConn(
 		return errors.Annotatef(err, "getting controller object store")
 	}
 
-	serviceFactory := srv.shared.serviceFactoryGetter.FactoryForModel(resolvedModelID)
-	modelProviderFactory := facade.NewModelProviderFactory(resolvedModelID, srv.shared.providerFactory)
+	serviceFactory := srv.shared.serviceFactoryGetter.FactoryForModel(modelUUID)
+	modelProviderFactory := facade.NewModelProviderFactory(modelUUID, srv.shared.providerFactory)
 
 	var handler *apiHandler
-	st, err := srv.shared.statePool.Get(resolvedModelID.String())
+	st, err := srv.shared.statePool.Get(modelUUID.String())
 	if err == nil {
 		defer st.Release()
 		handler, err = newAPIHandler(
@@ -1180,13 +1189,14 @@ func (srv *Server) serveConn(
 			objectStore,
 			srv.shared.objectStoreGetter,
 			controllerObjectStore,
-			modelID,
+			modelUUID,
+			controllerOnlyLogin,
 			connectionID,
 			host,
 		)
 	}
 	if errors.Is(err, errors.NotFound) {
-		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, resolvedModelID)
+		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
 	}
 
 	if err != nil {

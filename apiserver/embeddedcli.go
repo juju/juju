@@ -70,7 +70,11 @@ func (h *embeddedCLIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		ticker := time.NewTicker(websocket.PingPeriod)
 		defer ticker.Stop()
 
-		modelUUID := httpcontext.RequestModelUUID(req)
+		modelUUID, valid := httpcontext.RequestModelUUID(req)
+		if !valid {
+			h.logger.Errorf("invalid model UUID")
+			return
+		}
 		commandCh := h.receiveCommands(socket)
 		for {
 			select {
