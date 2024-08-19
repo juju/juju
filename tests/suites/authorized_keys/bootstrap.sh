@@ -28,8 +28,8 @@ run_bootstrap_authorized_keys_loaded() {
     ssh-keygen -t ed25519 -f "$extra_key_file" -C "isgreat@juju.is" -P ""
 
 	HOME="${SUB_TEST_DIR}"
-	BOOTSTRAP_ADDITIONAL_ARGS="--config 'authorized-keys=$(cat ${extra_key_file_pub})'"
-	BOOTSTRAP_REUSE=false
+	export BOOTSTRAP_ADDITIONAL_ARGS="--config 'authorized-keys=$(cat ${extra_key_file_pub})'"
+	export BOOTSTRAP_REUSE=false
 	bootstrap "authorized-keys-default" "$log_file"
 	juju switch controller
 
@@ -73,6 +73,7 @@ run_bootstrap_authorized_keys_default() {
 
 
 	HOME="${SUB_TEST_DIR}"
+	export BOOTSTRAP_REUSE=false
 	bootstrap "authorized-keys-default" "$log_file"
 	juju switch controller
 
