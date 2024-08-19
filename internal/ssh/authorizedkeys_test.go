@@ -32,7 +32,7 @@ func (*authorizedKeysSuite) TestGetCommonUserPublicKeys(c *gc.C) {
 	}{
 		{
 			Name:        "test_unknown_files_ignored",
-			Description: "test that unknown files encounted in the filesystem are ignored from the final result",
+			Description: "test that unknown files encountered in the filesystem are ignored from the final result",
 			FS: fstest.MapFS{
 				"id_ed25519.pub": &fstest.MapFile{
 					Data: []byte("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is"),

@@ -275,9 +275,9 @@ juju_bootstrap() {
 	pre_bootstrap
 
 	command="juju bootstrap ${base} ${cloud_region} ${name} --model-default mode= ${BOOTSTRAP_ADDITIONAL_ARGS}"
-	# keep $@ here, otherwise hit SC2124
-	# We re-run the command through the bash interprutter here to avoid some
-	# weird shell expansion behaviour when using --config.
+	# We run the command through the bash interpreter here to avoid some
+	# weird shell expansion behaviour when using --config and other arguments
+	# with white space.
 	bash -c "exec ${command} $*" 2>&1 | OUTPUT "${output}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 

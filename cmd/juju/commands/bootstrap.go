@@ -167,11 +167,11 @@ other controllers for cross-model (cross-controller, actually) relations to work
 If a storage pool is specified using --storage-pool, this will be created
 in the controller model.
 
-By default the bootstrap command will add the users ssh public keys as
-authorized for ssh onto the controller machine and also the controller model.
+By default the bootstrap command will add the user's ssh public keys as
+authorized keys for ssh onto the controller machine and controller model.
 Bootstrap will read common public keys from the users .ssh directory and also
 create a default ssh key pair in the juju home directory. These keys will be
-added and authorized during bootstrap.
+added as authorized keys during bootstrap.
 
 Authorized keys can be set by using --config authorized-keys and or
 --config authorized-keys-path.

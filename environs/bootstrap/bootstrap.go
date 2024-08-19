@@ -694,7 +694,7 @@ func Bootstrap(
 	}
 
 	bootstrapParams := environs.BootstrapParams{
-		// We set the authorized keys allowed to bootstrap to the controller
+		// We set the authorized keys that are allowed to ssh to the controller
 		// instance during bootstrap.
 		AuthorizedKeys:             args.ControllerModelAuthorizedKeys,
 		CloudName:                  args.Cloud.Name,
