@@ -25,10 +25,14 @@ var _ = gc.Suite(&authorizedKeysSuite{})
 // expected public keys.
 func (*authorizedKeysSuite) TestGetCommonUserPublicKeys(c *gc.C) {
 	tests := []struct {
-		FS       fstest.MapFS
-		Expected []string
+		Name        string
+		Description string
+		FS          fstest.MapFS
+		Expected    []string
 	}{
 		{
+			Name:        "test_unknown_files_ignored",
+			Description: "test that unknown files encounted in the filesystem are ignored from the final result",
 			FS: fstest.MapFS{
 				"id_ed25519.pub": &fstest.MapFile{
 					Data: []byte("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is"),
@@ -49,6 +53,8 @@ func (*authorizedKeysSuite) TestGetCommonUserPublicKeys(c *gc.C) {
 			},
 		},
 		{
+			Name:        "test_happy_path",
+			Description: "test the happy path of common public keys and where there is one file and no other anomalies to deal with",
 			FS: fstest.MapFS{
 				"id_ecdsa.pub": &fstest.MapFile{
 					Data: []byte("ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBG00bYFLb/sxPcmVRMg8NXZK/ldefElAkC9wD41vABdHZiSRvp+2y9BMNVYzE/FnzKObHtSvGRX65YQgRn7k5p0= juju@example.com"),
@@ -60,6 +66,8 @@ func (*authorizedKeysSuite) TestGetCommonUserPublicKeys(c *gc.C) {
 			},
 		},
 		{
+			Name:        "test_no_valid_files",
+			Description: "test that if there are no valid files to read no public keys are returned",
 			FS: fstest.MapFS{
 				"dump.txt": &fstest.MapFile{
 					Data: []byte("some data"),
@@ -72,7 +80,7 @@ func (*authorizedKeysSuite) TestGetCommonUserPublicKeys(c *gc.C) {
 
 	for i, test := range tests {
 		keys, err := GetCommonUserPublicKeys(context.Background(), test.FS)
-		c.Assert(err, jc.ErrorIsNil, gc.Commentf("unexpected error for test %d", i))
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf("unexpected error for test %d %q", i, test.Name))
 		slices.Sort(test.Expected)
 		slices.Sort(keys)
 		c.Assert(keys, gc.DeepEquals, test.Expected)
@@ -84,10 +92,14 @@ func (*authorizedKeysSuite) TestGetCommonUserPublicKeys(c *gc.C) {
 // a slice.
 func (*authorizedKeysSuite) TestGetFileSystemPublicKeys(c *gc.C) {
 	tests := []struct {
-		FS       fstest.MapFS
-		Expected []string
+		Description string
+		Name        string
+		FS          fstest.MapFS
+		Expected    []string
 	}{
 		{
+			Name:        "test_non_pub_files_ignored",
+			Description: "test that any files not ending in .pub are ignored",
 			FS: fstest.MapFS{
 				"1.pub": &fstest.MapFile{
 					Data: []byte("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is"),
@@ -108,6 +120,8 @@ func (*authorizedKeysSuite) TestGetFileSystemPublicKeys(c *gc.C) {
 			},
 		},
 		{
+			Name:        "test_no_valid_files",
+			Description: "test that if no valid public key files are found no results are returned",
 			FS: fstest.MapFS{
 				"dump.txt": &fstest.MapFile{
 					Data: []byte("some data"),
