@@ -230,14 +230,6 @@ func (s *stateShim) Charm(name string) (bootstrap.Charm, error) {
 	return &charmShim{Charm: c}, nil
 }
 
-func (s *stateShim) Model() (bootstrap.Model, error) {
-	m, err := s.State.Model()
-	if err != nil {
-		return nil, err
-	}
-	return &modelShim{Model: m}, nil
-}
-
 func (s *stateShim) Unit(tag string) (bootstrap.Unit, error) {
 	u, err := s.State.Unit(tag)
 	if err != nil {
@@ -268,10 +260,6 @@ type applicationShim struct {
 
 type charmShim struct {
 	*state.Charm
-}
-
-type modelShim struct {
-	*state.Model
 }
 
 type unitShim struct {
