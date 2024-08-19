@@ -29,7 +29,7 @@ type PublicKey struct {
 }
 
 const (
-	// publicKeyFileSuffix is the suffix Juju expectes public ssh keys to have.
+	// publicKeyFileSuffix is the suffix Juju expects public ssh keys to have.
 	publicKeyFileSuffix = ".pub"
 
 	// directoryUserLocalSSH is the directory name inside of a users home

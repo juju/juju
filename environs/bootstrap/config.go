@@ -29,7 +29,7 @@ const (
 	AdminSecretKey = "admin-secret"
 
 	// authorizedKeysDelimiter denotes the delimiter used when reading the value
-	// for [AuthorizedKeysKey] to seperate multiple ssh public keys.
+	// for [AuthorizedKeysKey] to separate multiple ssh public keys.
 	authorizedKeysDelimiter = ';'
 
 	// AuthorizedKeysKey is the key used for supplying additional authorized
