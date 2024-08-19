@@ -16,10 +16,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/client/storage"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -66,59 +64,10 @@ func (c *Client) Status(ctx context.Context, args *StatusArgs) (*params.FullStat
 	if args == nil {
 		args = &StatusArgs{}
 	}
-	if c.BestAPIVersion() <= 6 {
-		return c.statusV6(ctx, args.Patterns, args.IncludeStorage)
-	}
 	var result params.FullStatus
 	p := params.StatusParams{Patterns: args.Patterns, IncludeStorage: args.IncludeStorage}
 	if err := c.facade.FacadeCall(ctx, "FullStatus", p, &result); err != nil {
 		return nil, err
-	}
-	return &result, nil
-}
-
-func (c *Client) statusV6(ctx context.Context, patterns []string, includeStorage bool) (*params.FullStatus, error) {
-	var result params.FullStatus
-	p := params.StatusParams{Patterns: patterns}
-	if err := c.facade.FacadeCall(ctx, "FullStatus", p, &result); err != nil {
-		return nil, err
-	}
-	// Older servers don't fill out model type, but
-	// we know a missing type is an "iaas" model.
-	if result.Model.Type == "" {
-		result.Model.Type = model.IAAS.String()
-	}
-	if includeStorage {
-		storageClient := storage.NewClient(c.conn)
-		storageDetails, err := storageClient.ListStorageDetails(ctx)
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot list storage details")
-		}
-		result.Storage = storageDetails
-
-		filesystemResult, err := storageClient.ListFilesystems(ctx, nil)
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot list filesystem details")
-		}
-		if len(filesystemResult) != 1 {
-			return nil, errors.Errorf("cannot list filesystem details: expected one result got %d", len(filesystemResult))
-		}
-		if err := filesystemResult[0].Error; err != nil {
-			return nil, errors.Annotatef(err, "cannot list filesystem details")
-		}
-		result.Filesystems = filesystemResult[0].Result
-
-		volumeResult, err := storageClient.ListVolumes(ctx, nil)
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot list volume details")
-		}
-		if len(volumeResult) != 1 {
-			return nil, errors.Errorf("cannot list volume details: expected one result got %d", len(volumeResult))
-		}
-		if err := volumeResult[0].Error; err != nil {
-			return nil, errors.Annotatef(err, "cannot list volume details")
-		}
-		result.Volumes = volumeResult[0].Result
 	}
 	return &result, nil
 }

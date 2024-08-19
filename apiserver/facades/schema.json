@@ -11277,7 +11277,7 @@
     {
         "Name": "Client",
         "Description": "Client serves client-specific API methods.",
-        "Version": 7,
+        "Version": 8,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -11287,18 +11287,6 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "FindTools": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/FindToolsParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/FindToolsResult"
-                        }
-                    },
-                    "description": "FindTools returns a List containing all tools matching the given parameters.\nTODO(juju 3.1) - remove, used by 2.9 client only"
-                },
                 "FullStatus": {
                     "type": "object",
                     "properties": {
@@ -11322,30 +11310,9 @@
                         }
                     },
                     "description": "StatusHistory returns a slice of past statuses for several entities."
-                },
-                "WatchAll": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/AllWatcherId"
-                        }
-                    },
-                    "description": "WatchAll initiates a watcher for entities in the connected model."
                 }
             },
             "definitions": {
-                "AllWatcherId": {
-                    "type": "object",
-                    "properties": {
-                        "watcher-id": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "watcher-id"
-                    ]
-                },
                 "ApplicationOfferStatus": {
                     "type": "object",
                     "properties": {
@@ -11505,46 +11472,6 @@
                     "required": [
                         "name",
                         "channel"
-                    ]
-                },
-                "Binary": {
-                    "type": "object",
-                    "properties": {
-                        "Arch": {
-                            "type": "string"
-                        },
-                        "Build": {
-                            "type": "integer"
-                        },
-                        "Major": {
-                            "type": "integer"
-                        },
-                        "Minor": {
-                            "type": "integer"
-                        },
-                        "Number": {
-                            "$ref": "#/definitions/Number"
-                        },
-                        "Patch": {
-                            "type": "integer"
-                        },
-                        "Release": {
-                            "type": "string"
-                        },
-                        "Tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "Major",
-                        "Minor",
-                        "Tag",
-                        "Patch",
-                        "Build",
-                        "Number",
-                        "Release",
-                        "Arch"
                     ]
                 },
                 "BranchStatus": {
@@ -11814,52 +11741,6 @@
                         "filesystem-id",
                         "pool",
                         "size"
-                    ]
-                },
-                "FindToolsParams": {
-                    "type": "object",
-                    "properties": {
-                        "agentstream": {
-                            "type": "string"
-                        },
-                        "arch": {
-                            "type": "string"
-                        },
-                        "major": {
-                            "type": "integer"
-                        },
-                        "number": {
-                            "$ref": "#/definitions/Number"
-                        },
-                        "os-type": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "number",
-                        "major",
-                        "arch",
-                        "os-type",
-                        "agentstream"
-                    ]
-                },
-                "FindToolsResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "list": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Tools"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "list"
                     ]
                 },
                 "FullStatus": {
@@ -12172,34 +12053,6 @@
                         "is-up"
                     ]
                 },
-                "Number": {
-                    "type": "object",
-                    "properties": {
-                        "Build": {
-                            "type": "integer"
-                        },
-                        "Major": {
-                            "type": "integer"
-                        },
-                        "Minor": {
-                            "type": "integer"
-                        },
-                        "Patch": {
-                            "type": "integer"
-                        },
-                        "Tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "Major",
-                        "Minor",
-                        "Tag",
-                        "Patch",
-                        "Build"
-                    ]
-                },
                 "RelationStatus": {
                     "type": "object",
                     "properties": {
@@ -12483,29 +12336,6 @@
                         "kind",
                         "status",
                         "persistent"
-                    ]
-                },
-                "Tools": {
-                    "type": "object",
-                    "properties": {
-                        "sha256": {
-                            "type": "string"
-                        },
-                        "size": {
-                            "type": "integer"
-                        },
-                        "url": {
-                            "type": "string"
-                        },
-                        "version": {
-                            "$ref": "#/definitions/Binary"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "version",
-                        "url",
-                        "size"
                     ]
                 },
                 "UnitStatus": {

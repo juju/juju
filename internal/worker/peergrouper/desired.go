@@ -207,8 +207,8 @@ func (p *peerGroupChanges) initNewReplicaSet() map[string]*replicaset.Member {
 // desiredPeerGroup returns a new Mongo peer-group calculated from the input
 // peerGroupInfo.
 // Returned are the new members indexed by node ID, and a map indicating
-// which controller nodes are set as voters in the new new peer-group.
-// If the new peer-group is does not differ from that indicated by the input
+// which controller nodes are set as voters in the new peer-group.
+// If the new peer-group does not differ from that indicated by the input
 // peerGroupInfo, a nil member map is returned along with the correct voters
 // map.
 // An error is returned if:

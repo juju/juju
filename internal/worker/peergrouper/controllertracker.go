@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/network"
+	corestatus "github.com/juju/juju/core/status"
 )
 
 // controllerTracker is a worker which reports changes of interest to
@@ -200,8 +201,8 @@ func (c *controllerTracker) hasNodeChanged() (bool, error) {
 		}
 		return false, errors.Trace(err)
 	}
-	// hasVote doesn't count towards a node change but
-	// we still want to record the latest value.
+	// hasVote doesn't count towards a node change,
+	// but we still want to record the latest value.
 	c.hasVote = c.node.HasVote()
 
 	changed := false
@@ -210,4 +211,13 @@ func (c *controllerTracker) hasNodeChanged() (bool, error) {
 		changed = true
 	}
 	return changed, nil
+}
+
+func (c *controllerTracker) hostPendingProvisioning() (bool, error) {
+	status, err := c.host.Status()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	return status.Status == corestatus.Pending, nil
 }

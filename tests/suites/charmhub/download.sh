@@ -15,6 +15,23 @@ run_charmhub_download() {
 	destroy_model "${name}"
 }
 
+run_charmhub_download_with_resources() {
+	echo
+	name="charmhub-download-with-resources"
+
+	file="${TEST_DIR}/${name}.log"
+
+	ensure "${name}" "${file}"
+
+	output=$(juju download juju-qa-test-resources --resources --filepath="${TEST_DIR}/juju-qa-test-resources.charm" 2>&1 || true)
+	check_contains "${output}" 'Fetching charm "juju-qa-test-resources"'
+
+	$(echo "${output}" | grep "juju deploy") juju-qa-test-resources
+	wait_for "${MODEL_ARCH:-amd64}-linux" "$(workload_status juju-qa-test-resources 0).message"
+
+	destroy_model "${name}"
+}
+
 run_charmstore_download() {
 	echo
 	name="test-charmstore-download"
@@ -45,7 +62,7 @@ run_unknown_download() {
 
 test_charmhub_download() {
 	if [ "$(skip 'test_charmhub_download')" ]; then
-		echo "==> TEST SKIPPED: Charmhub download"
+		echo "==> TEST SKIPPED: charmhub download"
 		return
 	fi
 
@@ -55,6 +72,7 @@ test_charmhub_download() {
 		cd .. || exit
 
 		run "run_charmhub_download"
+		run "run_charmhub_download_with_resources"
 		run "run_charmstore_download"
 		run "run_unknown_download"
 	)

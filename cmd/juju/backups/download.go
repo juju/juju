@@ -89,7 +89,7 @@ func (c *downloadCommand) Run(ctx *cmd.Context) error {
 	resultArchive, err := client.Download(ctx, c.RemoteFilename)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
-			ctx.Infof("Download of backup archive files is not supported by this controller.")
+			ctx.Errorf("Download of backup archive files is not supported by this controller.")
 			return nil
 		}
 		return errors.Trace(err)

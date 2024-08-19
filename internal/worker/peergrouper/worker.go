@@ -67,6 +67,7 @@ type ControllerHost interface {
 	Id() string
 	Life() state.Life
 	Watch() state.NotifyWatcher
+	Status() (status.StatusInfo, error)
 	SetStatus(status.StatusInfo) error
 	Refresh() error
 	Addresses() network.SpaceAddresses
@@ -790,7 +791,26 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 	if logger.IsLevelEnabled(corelogger.TRACE) {
 		logger.Tracef("read peer group info: %# v\n%# v", pretty.Formatter(sts), pretty.Formatter(members))
 	}
-	return newPeerGroupInfo(w.controllerTrackers, sts.Members, members, w.config.MongoPort)
+
+	// If any of the trackers are for hosts still pending provisioning,
+	// we disregard them. We still have trackers watching them all for changes,
+	// so once they are provisioned, we will wake up and re-assess the
+	// potential replica-set.
+	trackers := make(map[string]*controllerTracker)
+	for id, tracker := range w.controllerTrackers {
+		pending, err := tracker.hostPendingProvisioning()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if pending {
+			logger.Infof("disregarding host pending provisioning: %q", tracker.Id())
+			continue
+		}
+
+		trackers[id] = tracker
+	}
+	return newPeerGroupInfo(trackers, sts.Members, members, w.config.MongoPort)
 }
 
 // setHasVote sets the HasVote status of all the given nodes to hasVote.
