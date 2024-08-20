@@ -15,26 +15,26 @@ likely with your cloud provider or configuration - see the guides [here](https:/
 
 Otherwise, we need to connect to the machine and look at the logs to find out what's gone wrong.
 
-**Contents:**
+<!-- TOC -->
 
-- [Connect to the machine](#heading--connect-to-the-machine)
-    - [Via ssh](#heading--via-ssh)
-    - [Via the cloud provider](#heading--via-the-cloud-provider)
-        - [LXC / LXD](#heading--lxc--lxd)
-        - [Kubernetes](#heading--kubernetes)
-- [Examine the logs](#heading--examine-the-logs)
+* [Connect to the machine](#connect-to-the-machine)
+    * [Via ssh](#via-ssh)
+    * [Via the cloud provider](#via-the-cloud-provider)
+        * [LXC / LXD](#lxc--lxd)
+        * [Kubernetes](#kubernetes)
+* [Examine the logs](#examine-the-logs)
 
-<a href="#heading--connect-to-the-machine"><h2 id="heading--connect-to-the-machine">Connect to the machine</h2></a>
+<!-- TOC -->
 
-<a href="#heading--via-ssh"><h3 id="heading--via-ssh">Via ssh</h3></a>
+# Connect to the machine
+
+## Via ssh
 
 The easiest way to connect to the machine is via ssh. We can do this ***if*** Juju has been successfully able to connect
 to your controller. In this case, you will see the line
 
 ```
-
 Connected to [ip-address]
-
 ```
 
 in your `juju bootstrap` output.
@@ -42,9 +42,7 @@ in your `juju bootstrap` output.
 A common type of failure here is when the terminal hangs on the line
 
 ```
-
 Running machine configuration script...
-
 ```
 
 The machine configuration should take less than 10 minutes - any longer than this is a sign that something has gone
@@ -54,9 +52,7 @@ Luckily, the machine is already reachable at this step, so we can directly `ssh`
 Copy the IP address that Juju connected to above, and run
 
 ```
-
 ssh ubuntu@[ip-address] -i [juju-data-dir]/ssh/juju_id_rsa
-
 ```
 
 Here, `[juju-data-dir]` defaults to `~/.local/share/juju`, but if you've set the `JUJU_DATA` environment variable, it
@@ -65,70 +61,58 @@ will be equal to that instead.
 See [here](https://juju.is/docs/olm/accessing-individual-machines-with-ssh) for a more in-depth guide on using SSH to
 connect to a machine.
 
-<a href="#heading--via-the-cloud-provider"><h3 id="heading--via-the-cloud-provider">Via the cloud provider</h3></a>
+## Via the cloud provider
 
 If Juju wasn't able to connect to your machine's IP address, then `ssh` probably won't be able to either. With this type
 of failure, you'll often see your terminal hang after the step
 
 ```
-
 Attempting to connect to [ip-address]:[port]
-
 ```
 
 In this case, we will need to go through the cloud provider to connect to the machine. The process here depends on what
 cloud you're using.
 
-<a href="#heading--lxc--lxd"><h4 id="heading--lxc--lxd">LXC / LXD</h4></a>
+### LXC / LXD
 
 In the `juju bootstrap` output, you should see a line like
 
 ```
-
 Launching controller instance(s) on localhost/localhost...
-
 ```
 
 which will be followed by the LXD container name (in the form `juju-XXXXXX-0`). We can use the `lxc` command line tool
 to get a shell inside the machine. Copy the container name, then run
 
 ```
-
 lxc exec [container-name] bash
-
 ```
 
 Now, we should have a shell inside the machine, and can use the steps below to search the logs.
 
-<a href="#heading--kubernetes"><h4 id="heading--kubernetes">Kubernetes</h4></a>
+### Kubernetes
 
 In the `juju bootstrap` output, you should see a line like
 
 ```
-
 Creating k8s resources for controller [namespace]
-
 ```
 
 where `[namespace]` is something like `controller-foobar`. Inside this namespace, Juju will have created a pod called
 `controller-0` - we want to access the `api-server` container in this pod. To do this, we use `kubectl`:
 
 ```
-
 kubectl exec controller-0 -itc api-server -n [namespace] -- bash
-
 ```
 
 (If using MicroK8s, call this command via `microk8s kubectl`).
 
-<a href="#heading--examine-the-logs"><h2 id="heading--examine-the-logs">Examine the logs</h2></a>
+# Examine the logs
 
 Once we have a shell inside the machine, we can
 
 ```
-
 ls /var/log
-
 ```
 
 which will show you all the available logs. Which log to look at depends on the type of failure, but generally speaking,
@@ -137,17 +121,13 @@ which will show you all the available logs. Which log to look at depends on the 
 Some good tools for examining logs are
 
 ```
-
 less [log-file]
-
 ```
 
 which will let you scroll through the log file, and
 
 ```
-
 tail -f [log-file]
-
 ```
 
 which will track updates to the log file.

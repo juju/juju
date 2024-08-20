@@ -1,19 +1,22 @@
-> See also: [Unit testing](/t/7204)
+> See also: [Unit testing](/doc/dev/references/testing/unit-testing/index.md)
 
 This document demonstrates how to write a unit test for Juju.
 
-**Contents:**
+<!-- TOC -->
 
-- [Prepare for the test](#heading--prepare-for-the-test)
-    - [Create `package_test.go`](#heading--create-package-test-go)
-    - [Create `<code-filename>_test.go`](#heading--create-code-filename-test-go)
-    - [Import `gocheck`](#heading--import-gocheck)
-    - [Add a unit test suite](#heading--add-a-unit-test-suite)
-- [Write the test](#heading--write-the-test)
-- [Run the test](#heading--run-the-test)
+* [Prepare for the test](#prepare-for-the-test)
+  * [Create `package_test.go`](#create-package_testgo)
+  * [Create](#create)
+  * [Import `gocheck`](#import-gocheck)
+  * [Add a unit test suite](#add-a-unit-test-suite)
+* [Write the test](#write-the-test)
+* [Run the test](#run-the-test)
 
-<a href="#heading--prepare-for-the-test"><h2 id="heading--prepare-for-the-test">Prepare for the test</h2></a>
-<a href="#heading--create-package-test-go"><h3 id="heading--create-package-test-go">Create `package_test.go`</h3></a>
+<!-- TOC -->
+
+# Prepare for the test
+
+## Create `package_test.go`
 
 [note type=caution]
 This step is necessary only if this file doesn't already exist.
@@ -54,13 +57,14 @@ to run old-style `JujuConnSuite` tests, which test against a running instance of
 These tests are deprecated and are actively being removed. No more should be added.
 [/note]
 
-<a href="#heading--create-code-filename-test-go"><h3 id="heading--create-code-filename-test-go">Create
-`<code-filename>_test.go`</h3></a>
+## Create
+
+`
 
 In the code directory, for each file that you want to test (say, a source code file called `magic1.go`), create a
 `<code-filename>_test.go`  (e.g. `magic1_test.go`).
 
-<a href="#heading--import-gocheck"><h3 id="heading--import-gocheck">Import `gocheck`</h3></a>
+## Import `gocheck`
 > See also:  [`gocheck`]( https://labix.org/gocheck)
 
 In `magic1_test.go`, import the `gocheck` package as `gc`:
@@ -75,12 +79,13 @@ gc "gopkg.in/check.v1"
 `gc` is the usual alias for [gocheck](https://labix.org/gocheck) across all the Juju repositories.
 [/note]
 
-<a href="#heading--add-a-unit-test-suite"><h3 id="heading--add-a-unit-test-suite">Add a unit test suite</h3></a>
-> See also: [Unit test suite](/t/7209)
+## Add a unit test suite
+
+> See also: [Unit test suite](/doc/dev/references/testing/unit-testing/unit-test-suite.md)
 
 Also in `magic1_test.go`, add a unit test suite.
 
-> See more: [How to create a unit test suite](/t/7242)
+> See more: [How to create a unit test suite](create-unit-test-suite.md)
 
 Once the test suite structure has been created, it needs to be registered with `gc` or the tests will not run. You can
 do by passing a pointer to an instance of our suite to the `gc.Suite` function.
@@ -91,8 +96,11 @@ type magicSuite struct{}
 var _ = gc.Suite(&magicSuite{})
 ```
 
-<a href="#heading--write-the-test"><h2 id="heading--write-the-test">Write the test</h2></a>
-> See also: [Checkers](/t/7211)
+# Write the test
+
+[Checker]: /doc/dev/references/testing/unit-testing/checker.md
+
+> See also: [Checker]
 
 In `magic1_test.go`, below the test suite, start adding your unit test functions.
 
@@ -107,7 +115,7 @@ return a + b
 }
 ```
 
-Then, in your `magic1_test.go` file you can write a test for it as follows (where `gc.Equals` is a [Checker](/t/7211)):
+Then, in your `magic1_test.go` file you can write a test for it as follows (where `gc.Equals` is a [Checker]):
 
 ```go
 // GIVEN a equals 5 AND b equals 3
@@ -123,7 +131,7 @@ c.Assert(res, gc.Equals, 8)
 }
 ```
 
-<a href="#heading--run-the-test"><h2 id="heading--run-the-test">Run the test</h2></a>
+# Run the test
 
 Finally, to run the test, do:
 

@@ -4,5 +4,5 @@ shown that the existing tests suffice. Either way, before requesting a review, y
 test coverage and that the new code / refactoring didn't break anything.
 
 > See more:
-> - [Unit testing](/t/7204)
-> - [Integration testing](/t/7205)
+> - [Unit testing](unit-testing/index.md)
+> - [Integration testing](integration-testing/index.md)

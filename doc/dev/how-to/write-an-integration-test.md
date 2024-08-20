@@ -1,4 +1,4 @@
-> See also: [Integration testing](/t/7205)
+> See also: [Integration testing](/doc/dev/references/testing/integration-testing/index.md)
 
 This document demonstrates how to write an integration test for `juju`.
 
@@ -10,7 +10,7 @@ In this directory, create a subdirectory named after the integration test suite 
 In your test suite directory, create a file called `task.sh`. This file typically includes a skip block, a line where
 you set verbosity, a block where you check dependencies, then a bootstrapping block, a test-listing block, and a
 tear-down block. An example is given below. Note: The various blocks are created using
-multiple [test includes](/t/7206) (e.g., `destroy-controller`).
+multiple [test includes](/doc/dev/references/testing/integration-testing/test-includes.md) (e.g., `destroy-controller`).
 
 ```bash
 test_examples() {
@@ -85,11 +85,11 @@ test_example() {
 }
 ```
 
-When you are done with your test file, navigate to https://github.com/juju/juju/tree/develop/tests, open the `main.sh`
-file (which is the entrypoint to your integration testing overall) and add your test suite name to the [
-`TEST_NAMES` variable](https://github.com/juju/juju/blob/6a378dfee8c0b109b5e71b035d5acf1da940f1cd/tests/main.sh#L40).
+When you are done with your test file, navigate to [test folder](/tests), open the `main.sh`
+file (which is the entrypoint to your integration testing overall) and add your test suite name to the
+[`TEST_NAMES` variable](https://github.com/juju/juju/blob/main/tests/main.sh#L42).
 
-Finally, run your integration test, following the instructions at https://github.com/juju/juju/tree/develop/tests .
+Finally, run your integration test, following the instructions in the [test folder](/tests) .
 Essentially, what you need to do is as below:
 
 ```bash

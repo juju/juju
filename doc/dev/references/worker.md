@@ -2,187 +2,181 @@
 
 > See first: [Juju | Worker](https://juju.is/docs/juju/worker)
 
-In Juju, a **worker** is any type that implements [the worker interface](/t/11723).
+In Juju, a **worker** is any type that implements [the worker interface](worker-interface.md).
 
-Examples of workers include [the dependency engine](/t/11668#heading--newengine), instances run by the dependency
-engine (the typical usage of the term "worker"), and [watchers](/t/).
+Examples of workers include [the dependency engine](dependency-package.md#newengine), instances run by the dependency
+engine (the typical usage of the term "worker"),
+and [watchers](). <!-- TODO: this link was broken in original doc in discourse -->
 
-Note: A Juju [agent](/t/11679) runs one or more workers at the same time in parallel. A worker may run / be run by
+Note: A Juju [agent](agent.md) runs one or more workers at the same time in parallel. A worker may run / be run by
 another worker.
 
 <!--
 In Juju, a **worker** is, in its simplest form, a goroutine. Almost always, it watches for events and performs or dispatches work based on those events. (This is the essence of an agent-based system.) We never proactively emit events to workers – they’re just always watching and responding to changes (perform tasks based on the declared Juju status; the workers responsible for a unit / the uniter they watch state and then fire hooks to the charm).**
 -->
 
-**Contents:**
-
-- [List of workers run by the dependency engine](#heading--list-of-workers-run-by-the-dependency-engine)
-
-<a href="#heading--list-of-workers-run-by-the-dependency-engine"><h2 id="heading--list-of-workers-run-by-the-dependency-engine">
-List of workers run by the dependency engine</h2></a>
+# List of workers run by the dependency engine
 
 In Juju, the term "worker" is most commonly used to denote types whose instances are run by the dependency engine. These
 types are defined by the worker packages listeds below.
 
-[note type=information]
-The most important workers to know about are: the [`uniter`](#heading--uniter), the [`deployer`](#heading--deployer),
-the [`provisioner`](#heading--provisioner), and the [
-`caasapplicationprovisioner`](#heading--caasapplicationprovisioner), the [`charmdownloader`](#heading--charmdownloader),
-and the [`undertaker`](#heading--undertaker).
-[/note]
 
-- [`actionpruner`](#heading--actionpruner)
-- [`agent`](#heading--agent)
-- [`agentconfigupdater`](#heading--agentconfigupdater)
-- [`apiaddressupdater`](#heading--apiaddressupdater)
-- [`apicaller`](#heading--apicaller)
-- [`apiconfigwatcher`](#heading--apiconfigwatcher)
-- [`apiserver`](#heading--apiserver)
-- [`apiservercertwatcher`](#heading--apiservercertwatcher)
-- [`applicationscaler`](#heading--applicationscaler)
-- [`auditconfigupdater`](#heading--auditconfigupdater)
-- [`authenticationworker`](#heading--authenticationworker)
-- [`caasadmission`](#heading--caasadmission)
-- [`caasapplicationprovisioner`](#heading--caasapplicationprovisioner)
-- [`caasbroker`](#heading--caasbroker)
-- [`caasenvironupgrader`](#heading--caasenvironupgrader)
-- [`caasfirewaller`](#heading--caasfirewaller)
-- [`caasfirewallersidecar`](#heading--caasfirewallersidecar)
-- [`caasmodelconfigmanager`](#heading--caasmodelconfigmanager)
-- [`caasmodeloperator`](#heading--caasmodeloperator)
-- [`caasoperator`](#heading--caasoperator)
-- [`caasoperatorprovisioner`](#heading--caasoperatorprovisioner)
-- [`caasprober`](#heading--caasprober)
-- [`caasrbacmapper`](#heading--caasrbacmapper)
-- [`caasunitprovisioner`](#heading--caasunitprovisioner)
-- [`caasunitsmanager`](#heading--caasunitsmanager)
-- [`caasunitterminationworker`](#heading--caasunitterminationworker)
-- [`caasupgrader`](#heading--caasupgrader)
-- [`centralhub`](#heading--centralhub)
-- [`certupdater`](#heading--certupdater)
-- [`changestream`](#heading--changestream)
-- [`charmdownloader`](#heading--charmdownloader)
-- [`charmrevision`](#heading--charmrevision)
-- [`cleaner`](#heading--cleaner)
-- [`common`](#heading--common)
-- [`containerbroker`](#heading--containerbroker)
-- [`controllerport`](#heading--controllerport)
-- [`credentialvalidator`](#heading--credentialvalidator)
-- [`dbaccessor`](#heading--dbaccessor)
-- [`deployer`](#heading--deployer)
-- [`diskmanager`](#heading--diskmanager)
-- [`environ`](#heading--environ)
-- [`environupgrader`](#heading--environupgrader)
-- [`externalcontrollerupdater`](#heading--externalcontrollerupdater)
-- [`fanconfigurer`](#heading--fanconfigurer)
-- [`filenotifywatcher`](#heading--filenotifywatcher)
-- [`firewaller`](#heading--firewaller)
-- [`fortress`](#heading--fortress)
-- [`gate`](#heading--gate)
-- [`hostkeyreporter`](#heading--hostkeyreporter)
-- [`httpserver`](#heading--httpserver)
-- [`httpserverargs`](#heading--httpserverargs)
-- [`identityfilewriter`](#heading--identityfilewriter)
-- [`instancemutater`](#heading--instancemutater)
-- [`instancepoller`](#heading--instancepoller)
-- [`introspection`](#heading--introspection)
-- [`leadership`](#heading--leadership)
-- [`lease`](#heading--lease)
-- [`leaseexpiry`](#heading--leaseexpiry)
-- [`lifeflag`](#heading--lifeflag)
-- [`logforwarder`](#heading--logforwarder)
-- [`logger`](#heading--logger)
-- [`logsender`](#heading--logsender)
-- [`machineactions`](#heading--machineactions)
-- [`machiner`](#heading--machiner)
-- [`machineundertaker`](#heading--machineundertaker)
-- [`meterstatus`](#heading--meterstatus)
-- [`metrics`](#heading--metrics)
-- [`metricworker`](#heading--metricworker)
-- [`migrationflag`](#heading--migrationflag)
-- [`migrationmaster`](#heading--migrationmaster)
-- [`migrationminion`](#heading--migrationminion)
-- [`minunitsworker`](#heading--minunitsworker)
-- [`mocks`](#heading--mocks)
-- [`modelcache`](#heading--modelcache)
-- [`modelworkermanager`](#heading--modelworkermanager)
-- [`multiwatcher`](#heading--multiwatcher)
-- [`muxhttpserver`](#heading--muxhttpserver)
-- [`peergrouper`](#heading--peergrouper)
-- [`presence`](#heading--presence)
-- [`provisioner`](#heading--provisioner)
-- [`proxyupdater`](#heading--proxyupdater)
-- [`pruner`](#heading--pruner)
-- [`pubsub`](#heading--pubsub)
-- [`querylogger`](#heading--querylogger)
-- [`reboot`](#heading--reboot)
-- [`remoterelations`](#heading--remoterelations)
-- [`retrystrategy`](#heading--retrystrategy)
-- [`s3caller`](#heading--s3caller)
-- [`secretbackendrotate`](#heading--secretbackendrotate)
-- [`secretdrainworker`](#heading--secretdrainworker)
-- [`secretexpire`](#heading--secretexpire)
-- [`secretrotate`](#heading--secretrotate)
-- [`simplesignalhandler`](#heading--simplesignalhandler)
-- [`singular`](#heading--singular)
-- [`state`](#heading--state)
-- [`stateconfigwatcher`](#heading--stateconfigwatcher)
-- [`stateconverter`](#heading--stateconverter)
-- [`statushistorypruner`](#heading--statushistorypruner)
-- [`storageprovisioner`](#heading--storageprovisioner)
-- [`syslogger`](#heading--syslogger)
-- [`terminationworker`](#heading--terminationworker)
-- [`toolsversionchecker`](#heading--toolsversionchecker)
-- [`undertaker`](#heading--undertaker)
-- [`unitassigner`](#heading--unitassigner)
-- [`uniter`](#heading--uniter)
-- [`upgradedatabase`](#heading--upgradedatabase)
-- [`upgrader`](#heading--upgrader)
-- [`upgradeseries`](#heading--upgradeseries)
-- [`upgradesteps`](#heading--upgradesteps)
+> The most important workers to know about are: the [`uniter`](#uniter), the [`deployer`](#deployer),
+> the [`provisioner`](#provisioner), and the [
+`caasapplicationprovisioner`](#caasapplicationprovisioner), the [`charmdownloader`](#charmdownloader),
+> and the [`undertaker`](#undertaker).
 
-<a href="#heading--actionpruner"><h2 id="heading--actionpruner">`actionpruner`</h2></a>
+* [`actionpruner`](#actionpruner)
+* [`agent`](#agent)
+* [`agentconfigupdater`](#agentconfigupdater)
+* [`apiaddressupdater`](#apiaddressupdater)
+* [`apicaller`](#apicaller)
+* [`apiconfigwatcher`](#apiconfigwatcher)
+* [`apiserver`](#apiserver)
+* [`apiservercertwatcher`](#apiservercertwatcher)
+* [`applicationscaler`](#applicationscaler)
+* [`auditconfigupdater`](#auditconfigupdater)
+* [`authenticationworker`](#authenticationworker)
+* [`caasadmission`](#caasadmission)
+* [`caasapplicationprovisioner`](#caasapplicationprovisioner)
+* [`caasbroker`](#caasbroker)
+* [`caasenvironupgrader`](#caasenvironupgrader)
+* [`caasfirewaller`](#caasfirewaller)
+* [`caasfirewallersidecar`](#caasfirewallersidecar)
+* [`caasmodelconfigmanager`](#caasmodelconfigmanager)
+* [`caasmodeloperator`](#caasmodeloperator)
+* [`caasoperator`](#caasoperator)
+* [`caasoperatorprovisioner`](#caasoperatorprovisioner)
+* [`caasprober`](#caasprober)
+* [`caasrbacmapper`](#caasrbacmapper)
+* [`caasunitprovisioner`](#caasunitprovisioner)
+* [`caasunitsmanager`](#caasunitsmanager)
+* [`caasunitterminationworker`](#caasunitterminationworker)
+* [`caasupgrader`](#caasupgrader)
+* [`centralhub`](#centralhub)
+* [`certupdater`](#certupdater)
+* [`changestream`](#changestream)
+* [`charmdownloader`](#charmdownloader)
+* [`charmrevision`](#charmrevision)
+* [`cleaner`](#cleaner)
+* [`common`](#common)
+* [`containerbroker`](#containerbroker)
+* [`controllerport`](#controllerport)
+* [`credentialvalidator`](#credentialvalidator)
+* [`dbaccessor`](#dbaccessor)
+* [`deployer`](#deployer)
+* [`diskmanager`](#diskmanager)
+* [`environ`](#environ)
+* [`environupgrader`](#environupgrader)
+* [`externalcontrollerupdater`](#externalcontrollerupdater)
+* [`fanconfigurer`](#fanconfigurer)
+* [`filenotifywatcher`](#filenotifywatcher)
+* [`firewaller`](#firewaller)
+* [`fortress`](#fortress)
+* [`gate`](#gate)
+* [`hostkeyreporter`](#hostkeyreporter)
+* [`httpserver`](#httpserver)
+* [`httpserverargs`](#httpserverargs)
+* [`identityfilewriter`](#identityfilewriter)
+* [`instancemutater`](#instancemutater)
+* [`instancepoller`](#instancepoller)
+* [`introspection`](#introspection)
+* [`leadership`](#leadership)
+* [`lease`](#lease)
+* [`leaseexpiry`](#leaseexpiry)
+* [`lifeflag`](#lifeflag)
+* [`logforwarder`](#logforwarder)
+* [`logger`](#logger)
+* [`logsender`](#logsender)
+* [`machineactions`](#machineactions)
+* [`machiner`](#machiner)
+* [`machineundertaker`](#machineundertaker)
+* [`meterstatus`](#meterstatus)
+* [`metrics`](#metrics)
+* [`metricworker`](#metricworker)
+* [`migrationflag`](#migrationflag)
+* [`migrationmaster`](#migrationmaster)
+* [`migrationminion`](#migrationminion)
+* [`minunitsworker`](#minunitsworker)
+* [`mocks`](#mocks)
+* [`modelcache`](#modelcache)
+* [`modelworkermanager`](#modelworkermanager)
+* [`multiwatcher`](#multiwatcher)
+* [`muxhttpserver`](#muxhttpserver)
+* [`peergrouper`](#peergrouper)
+* [`presence`](#presence)
+* [`provisioner`](#provisioner)
+* [`proxyupdater`](#proxyupdater)
+* [`pruner`](#pruner)
+* [`pubsub`](#pubsub)
+* [`querylogger`](#querylogger)
+* [`reboot`](#reboot)
+* [`remoterelations`](#remoterelations)
+* [`retrystrategy`](#retrystrategy)
+* [`s3caller`](#s3caller)
+* [`secretbackendrotate`](#secretbackendrotate)
+* [`secretdrainworker`](#secretdrainworker)
+* [`secretexpire`](#secretexpire)
+* [`secretrotate`](#secretrotate)
+* [`simplesignalhandler`](#simplesignalhandler)
+* [`singular`](#singular)
+* [`state`](#state)
+* [`stateconfigwatcher`](#stateconfigwatcher)
+* [`stateconverter`](#stateconverter)
+* [`statushistorypruner`](#statushistorypruner)
+* [`storageprovisioner`](#storageprovisioner)
+* [`syslogger`](#syslogger)
+* [`terminationworker`](#terminationworker)
+* [`toolsversionchecker`](#toolsversionchecker)
+* [`undertaker`](#undertaker)
+* [`unitassigner`](#unitassigner)
+* [`uniter`](#uniter)
+* [`upgradedatabase`](#upgradedatabase)
+* [`upgrader`](#upgrader)
+* [`upgradeseries`](#upgradeseries)
+* [`upgradesteps`](#upgradesteps)
+
+## `actionpruner`
 > See more: [`juju/worker/actionpruner`](https://github.com/juju/juju/tree/3.3/worker/actionpruner)
 
-<a href="#heading--agent"><h2 id="heading--agent">`agent`</h2></a>
+## `agent`
 > See more: [`juju/worker/agent`](https://github.com/juju/juju/tree/3.3/worker/agent)
 
-<a href="#heading--agentconfigupdater"><h2 id="heading--agentconfigupdater">`agentconfigupdater`</h2></a>
+## `agentconfigupdater`
 > See more: [`juju/worker/agentconfigupdater`](https://github.com/juju/juju/tree/3.3/worker/agentconfigupdater)
 
-<a href="#heading--apiaddressupdater"><h2 id="heading--apiaddressupdater">`apiaddressupdater`</h2></a>
+## `apiaddressupdater`
 
 The `apiaddressupdater` worker watches and stores the controllers' addresses.
 
 > See more: [`juju/worker/apiaddressupdater`](https://github.com/juju/juju/tree/3.3/worker/apiaddressupdater)
 
-<a href="#heading--apicaller"><h2 id="heading--apicaller">`apicaller`</h2></a>
+## `apicaller`
 > See more: [`juju/worker/apicaller`](https://github.com/juju/juju/tree/3.3/worker/apicaller)
 
-<a href="#heading--apiconfigwatcher"><h2 id="heading--apiconfigwatcher">`apiconfigwatcher`</h2></a>
+## `apiconfigwatcher`
 
 > See more: [`juju/worker/apiconfigwatcher`](https://github.com/juju/juju/tree/3.3/worker/apiconfigwatcher)
 
-<a href="#heading--apiserver"><h2 id="heading--apiserver">`apiserver`</h2></a>
+## `apiserver`
 > See more: [`juju/worker/apiserver`](https://github.com/juju/juju/tree/3.3/worker/apiserver)
 
-<a href="#heading--apiservercertwatcher"><h2 id="heading--apiservercertwatcher">`apiservercertwatcher`</h2></a>
+## `apiservercertwatcher`
 > See more: [`juju/worker/apiservercertwatcher`](https://github.com/juju/juju/tree/3.3/worker/apiservercertwatcher)
 
-<a href="#heading--applicationscaler"><h2 id="heading--applicationscaler">`applicationscaler`</h2></a>
+## `applicationscaler`
 > See more: [`juju/worker/applicationscaler`](https://github.com/juju/juju/tree/3.3/worker/applicationscaler)
 
-<a href="#heading--auditconfigupdater"><h2 id="heading--auditconfigupdater">`auditconfigupdater`</h2></a>
+## `auditconfigupdater`
 > See more: [`juju/worker/auditconfigupdater`](https://github.com/juju/juju/tree/3.3/worker/auditconfigupdater)
 
-<a href="#heading--authenticationworker"><h2 id="heading--authenticationworker">`authenticationworker`</h2></a>
+## `authenticationworker`
 > See more: [`juju/worker/authenticationworker`](https://github.com/juju/juju/tree/3.3/worker/authenticationworker)
 
-<a href="#heading--caasadmission"><h2 id="heading--caasadmission">`caasadmission`</h2></a>
+## `caasadmission`
 > See more: [`juju/worker/caasadmission`](https://github.com/juju/juju/tree/3.3/worker/caasadmission)
 
-<a href="#heading--caasapplicationprovisioner"><h2 id="heading--caasapplicationprovisioner">
-`caasapplicationprovisioner`</h2></a>
+## `caasapplicationprovisioner`
 
 The `caasapplicationprovisioner` worker is actually two workers:
 
@@ -195,64 +189,63 @@ The `caasapplicationprovisioner` worker is actually two workers:
 > See more: [
 `juju/worker/caasapplicationprovisioner`](https://github.com/juju/juju/tree/3.3/worker/caasapplicationprovisioner)
 
-<a href="#heading--caasbroker"><h2 id="heading--caasbroker">`caasbroker`</h2></a>
+## `caasbroker`
 > See more: [`juju/worker/caasbroker`](https://github.com/juju/juju/tree/3.3/worker/caasbroker)
 
-<a href="#heading--caasenvironupgrader"><h2 id="heading--caasenvironupgrader">`caasenvironupgrader`</h2></a>
+## `caasenvironupgrader`
 > See more: [`juju/worker/caasenvironupgrader`](https://github.com/juju/juju/tree/3.3/worker/caasenvironupgrader)
 
-<a href="#heading--caasfirewaller"><h2 id="heading--caasfirewaller">`caasfirewaller`</h2></a>
+## `caasfirewaller`
 > See more: [`juju/worker/caasfirewaller`](https://github.com/juju/juju/tree/3.3/worker/caasfirewaller)
 
-<a href="#heading--caasfirewallersidecar"><h2 id="heading--caasfirewallersidecar">`caasfirewallersidecar`</h2></a>
+## `caasfirewallersidecar`
 > See more: [`juju/worker/caasfirewallersidecar`](https://github.com/juju/juju/tree/3.3/worker/caasfirewallersidecar)
 
-<a href="#heading--caasmodelconfigmanager"><h2 id="heading--caasmodelconfigmanager">`caasmodelconfigmanager`</h2></a>
+## `caasmodelconfigmanager`
 > See more: [`juju/worker/caasmodelconfigmanager`](https://github.com/juju/juju/tree/3.3/worker/caasmodelconfigmanager)
 
-<a href="#heading--caasmodeloperator"><h2 id="heading--caasmodeloperator">`caasmodeloperator`</h2></a>
+## `caasmodeloperator`
 > See more: [`juju/worker/caasmodeloperator`](https://github.com/juju/juju/tree/3.3/worker/caasmodeloperator)
 
-<a href="#heading--caasoperator"><h2 id="heading--caasoperator">`caasoperator`</h2></a>
+## `caasoperator`
 > See more: [`juju/worker/caasoperator`](https://github.com/juju/juju/tree/3.3/worker/caasoperator)
 
-<a href="#heading--caasoperatorprovisioner"><h2 id="heading--caasoperatorprovisioner">`caasoperatorprovisioner`</h2></a>
+## `caasoperatorprovisioner`
 > See more: [
 `juju/worker/caasoperatorprovisioner`](https://github.com/juju/juju/tree/3.3/worker/caasoperatorprovisioner)
 
-<a href="#heading--caasprober"><h2 id="heading--caasprober">`caasprober`</h2></a>
+## `caasprober`
 > See more: [`juju/worker/caasprober`](https://github.com/juju/juju/tree/3.3/worker/caasprober)
 
-<a href="#heading--caasrbacmapper"><h2 id="heading--caasrbacmapper">`caasrbacmapper`</h2></a>
+## `caasrbacmapper`
 > See more: [`juju/worker/caasrbacmapper`](https://github.com/juju/juju/tree/3.3/worker/caasrbacmapper)
 
-<a href="#heading--caasunitprovisioner"><h2 id="heading--caasunitprovisioner">`caasunitprovisioner`</h2></a>
+## `caasunitprovisioner`
 > See more: [`juju/worker/caasunitprovisioner`](https://github.com/juju/juju/tree/3.3/worker/caasunitprovisioner)
 
-<a href="#heading--caasunitsmanager"><h2 id="heading--caasunitsmanager">`caasunitsmanager`</h2></a>
+## `caasunitsmanager`
 > See more: [`juju/worker/caasunitsmanager`](https://github.com/juju/juju/tree/3.3/worker/caasunitsmanager)
 
-<a href="#heading--caasunitterminationworker"><h2 id="heading--caasunitterminationworker">
-`caasunitterminationworker`</h2></a>
+## `caasunitterminationworker`
 > See more: [
 `juju/worker/caasunitterminationworker`](https://github.com/juju/juju/tree/3.3/worker/caasunitterminationworker)
 
-<a href="#heading--caasupgrader"><h2 id="heading--caasupgrader">`caasupgrader`</h2></a>
+## `caasupgrader`
 > See more: [`juju/worker/caasupgrader`](https://github.com/juju/juju/tree/3.3/worker/caasupgrader)
 
-<a href="#heading--centralhub"><h2 id="heading--centralhub">`centralhub`</h2></a>
+## `centralhub`
 > See more: [`juju/worker/centralhub`](https://github.com/juju/juju/tree/3.3/worker/centralhub)
 
-<a href="#heading--certupdater"><h2 id="heading--certupdater">`certupdater`</h2></a>
+## `certupdater`
 > See more: [`juju/worker/certupdater`](https://github.com/juju/juju/tree/3.3/worker/certupdater)
 
-<a href="#heading--changestream"><h2 id="heading--changestream">`changestream`</h2></a>
+## `changestream`
 > See more: [`juju/worker/changestream`](https://github.com/juju/juju/tree/3.3/worker/changestream)
 
-<a href="#heading--charmdownloader"><h2 id="heading--charmdownloader">`charmdownloader`</h2></a>
+## `charmdownloader`
 > See more: [`juju/worker/charmdownloader`](https://github.com/juju/juju/tree/3.3/worker/charmdownloader)
 
-<a href="#heading--charmrevision"><h2 id="heading--charmrevision">`charmrevision`</h2></a>
+## `charmrevision`
 
 The charm revision updater worker is responsible for polling Charmhub every 24 hours to check if there are new revisions
 available of any repository charm deployed in the model. If so, it will put a document in the Juju database, so that the
@@ -263,16 +256,16 @@ This worker doesn't contain much business logic - most of the work is delegated 
 
 > See more: [`juju/worker/charmrevision`](https://github.com/juju/juju/tree/3.3/worker/charmrevision)
 
-<a href="#heading--cleaner"><h2 id="heading--cleaner">`cleaner`</h2></a>
+## `cleaner`
 
 The `cleaner` worker handles database clean-up events.
 
 > See more: [`juju/worker/cleaner`](https://github.com/juju/juju/tree/3.3/worker/cleaner)
 
-<a href="#heading--common"><h2 id="heading--common">`common`</h2></a>
+## `common`
 > See more: [`juju/worker/common`](https://github.com/juju/juju/tree/3.3/worker/common)
 
-<a href="#heading--containerbroker"><h2 id="heading--containerbroker">`containerbroker`</h2></a>
+## `containerbroker`
 
 The `containerbroker` worker's sole responsibility is to manage the lifecycle of an instance-broker.
 Configuration of the instance-broker relies on talking to the provisioner to ensure that we correctly configure the
@@ -282,19 +275,19 @@ The instance-broker is created for LXD types only -- any other container types c
 
 > See more: [`juju/worker/containerbroker`](https://github.com/juju/juju/tree/3.3/worker/containerbroker)
 
-<a href="#heading--controllerport"><h2 id="heading--controllerport">`controllerport`</h2></a>
+## `controllerport`
 > See more: [`juju/worker/controllerport`](https://github.com/juju/juju/tree/3.3/worker/controllerport)
 
-<a href="#heading--credentialvalidator"><h2 id="heading--credentialvalidator">`credentialvalidator`</h2></a>
+## `credentialvalidator`
 > See more: [`juju/worker/credentialvalidator`](https://github.com/juju/juju/tree/3.3/worker/credentialvalidator)
 
-<a href="#heading--dbaccessor"><h2 id="heading--dbaccessor">`dbaccessor`</h2></a>
+## `dbaccessor`
 > See more: [`juju/worker/dbaccessor`](https://github.com/juju/juju/tree/3.3/worker/dbaccessor)
 
-<a href="#heading--deployer"><h2 id="heading--deployer">`deployer`</h2></a>
+## `deployer`
 > See more: [`juju/worker/deployer`](https://github.com/juju/juju/tree/3.3/worker/deployer)
 
-<a href="#heading--diskmanager"><h2 id="heading--diskmanager">`diskmanager`</h2></a>
+## `diskmanager`
 
 The `diskmanager` worker periodically lists block devices on the machine it runs on.
 
@@ -303,31 +296,30 @@ This worker will be run on all Juju-managed machines (one per machine agent).
 
 > See more: [`juju/worker/diskmanager`](https://github.com/juju/juju/tree/3.3/worker/diskmanager)
 
-<a href="#heading--environ"><h2 id="heading--environ">`environ`</h2></a>
+## `environ`
 > See more: [`juju/worker/environ`](https://github.com/juju/juju/tree/3.3/worker/environ)
 
-<a href="#heading--environupgrader"><h2 id="heading--environupgrader">`environupgrader`</h2></a>
+## `environupgrader`
 > See more: [`juju/worker/environupgrader`](https://github.com/juju/juju/tree/3.3/worker/environupgrader)
 
-<a href="#heading--externalcontrollerupdater"><h2 id="heading--externalcontrollerupdater">
-`externalcontrollerupdater`</h2></a>
+## `externalcontrollerupdater`
 > See more: [
 `juju/worker/externalcontrollerupdater`](https://github.com/juju/juju/tree/3.3/worker/externalcontrollerupdater)
 
-<a href="#heading--fanconfigurer"><h2 id="heading--fanconfigurer">`fanconfigurer`</h2></a>
+## `fanconfigurer`
 > See more: [`juju/worker/fanconfigurer`](https://github.com/juju/juju/tree/3.3/worker/fanconfigurer)
 
-<a href="#heading--filenotifywatcher"><h2 id="heading--filenotifywatcher">`filenotifywatcher`</h2></a>
+## `filenotifywatcher`
 > See more: [`juju/worker/filenotifywatcher`](https://github.com/juju/juju/tree/3.3/worker/filenotifywatcher)
 
-<a href="#heading--firewaller"><h2 id="heading--firewaller">`firewaller`</h2></a>
+## `firewaller`
 
 The `firewaller` worker modifies provider networks when a user exposes/de-exposes applications, or when a unit
 closes/opens ports.
 
 > See more: [`juju/worker/firewaller`](https://github.com/juju/juju/tree/3.3/worker/firewaller)
 
-<a href="#heading--fortress"><h2 id="heading--fortress">`fortress`</h2></a>
+## `fortress`
 
 The `fortress` worker implements a convenient metaphor for an RWLock.
 
@@ -345,26 +337,26 @@ hooks and charm upgrades cannot be allowed to tread on one another's toes.
 
 > See more: [`juju/worker/fortress`](https://github.com/juju/juju/tree/3.3/worker/fortress)
 
-<a href="#heading--gate"><h2 id="heading--gate">`gate`</h2></a>
+## `gate`
 
 The `gate` worker provides a mechanism by which independent workers can wait for one another to finish a task, without
 introducing explicit dependencies between those workers.
 
 > See more: [`juju/worker/gate`](https://github.com/juju/juju/tree/3.3/worker/gate)
 
-<a href="#heading--hostkeyreporter"><h2 id="heading--hostkeyreporter">`hostkeyreporter`</h2></a>
+## `hostkeyreporter`
 > See more: [`juju/worker/hostkeyreporter`](https://github.com/juju/juju/tree/3.3/worker/hostkeyreporter)
 
-<a href="#heading--httpserver"><h2 id="heading--httpserver">`httpserver`</h2></a>
+## `httpserver`
 > See more: [`juju/worker/httpserver`](https://github.com/juju/juju/tree/3.3/worker/httpserver)
 
-<a href="#heading--httpserverargs"><h2 id="heading--httpserverargs">`httpserverargs`</h2></a>
+## `httpserverargs`
 > See more: [`juju/worker/httpserverargs`](https://github.com/juju/juju/tree/3.3/worker/httpserverargs)
 
-<a href="#heading--identityfilewriter"><h2 id="heading--identityfilewriter">`identityfilewriter`</h2></a>
+## `identityfilewriter`
 > See more: [`juju/worker/identityfilewriter`](https://github.com/juju/juju/tree/3.3/worker/identityfilewriter)
 
-<a href="#heading--instancemutater"><h2 id="heading--instancemutater">`instancemutater`</h2></a>
+## `instancemutater`
 
 Package `instancemutater` defines workers that compare the list of lxd profiles
 applied to a machine with the list of expected profiles based on the
@@ -445,19 +437,19 @@ provisioner worker as well.
 
 > See more: [`juju/worker/instancemutater`](https://github.com/juju/juju/tree/3.3/worker/instancemutater)
 
-<a href="#heading--instancepoller"><h2 id="heading--instancepoller">`instancepoller`</h2></a>
+## `instancepoller`
 
 The `instancepoller` worker updates network addresses and any related information for providers.
 
 > See more: [`juju/worker/instancepoller`](https://github.com/juju/juju/tree/3.3/worker/instancepoller)
 
-<a href="#heading--introspection"><h2 id="heading--introspection">`introspection`</h2></a>
+## `introspection`
 > See more: [`juju/worker/introspection`](https://github.com/juju/juju/tree/3.3/worker/introspection)
 
-<a href="#heading--leadership"><h2 id="heading--leadership">`leadership`</h2></a>
+## `leadership`
 > See more: [`juju/worker/leadership`](https://github.com/juju/juju/tree/3.3/worker/leadership)
 
-<a href="#heading--lease"><h2 id="heading--lease">`lease`</h2></a>
+## `lease`
 
 Package `lease`, also known as "the manager", manages the leases used by individual Juju workers.
 
@@ -472,60 +464,60 @@ the upgrade has completed. The overall effect is that the application unit does 
 
 > See more: [`juju/worker/lease`](https://github.com/juju/juju/tree/3.3/worker/lease)
 
-<a href="#heading--leaseexpiry"><h2 id="heading--leaseexpiry">`leaseexpiry`</h2></a>
+## `leaseexpiry`
 > See more: [`juju/worker/leaseexpiry`](https://github.com/juju/juju/tree/3.3/worker/leaseexpiry)
 
-<a href="#heading--lifeflag"><h2 id="heading--lifeflag">`lifeflag`</h2></a>
+## `lifeflag`
 > See more: [`juju/worker/lifeflag`](https://github.com/juju/juju/tree/3.3/worker/lifeflag)
 
-<a href="#heading--logforwarder"><h2 id="heading--logforwarder">`logforwarder`</h2></a>
+## `logforwarder`
 > See more: [`juju/worker/logforwarder`](https://github.com/juju/juju/tree/3.3/worker/logforwarder)
 
-<a href="#heading--logger"><h2 id="heading--logger">`logger`</h2></a>
+## `logger`
 > See more: [`juju/worker/logger`](https://github.com/juju/juju/tree/3.3/worker/logger)
 
 The `logger` worker watches the local logger configuration and reconfigures it when needed.
 
-<a href="#heading--logsender"><h2 id="heading--logsender">`logsender`</h2></a>
+## `logsender`
 > See more: [`juju/worker/logsender`](https://github.com/juju/juju/tree/3.3/worker/logsender)
 
-<a href="#heading--machineactions"><h2 id="heading--machineactions">`machineactions`</h2></a>
+## `machineactions`
 > See more: [`juju/worker/machineactions`](https://github.com/juju/juju/tree/3.3/worker/machineactions)
 
-<a href="#heading--machiner"><h2 id="heading--machiner">`machiner`</h2></a>
+## `machiner`
 
 The `machiner` worker terminates the agent when the machine has a fatal error.
 
 > See more: [`juju/worker/machiner`](https://github.com/juju/juju/tree/3.3/worker/machiner)
 
-<a href="#heading--machineundertaker"><h2 id="heading--machineundertaker">`machineundertaker`</h2></a>
+## `machineundertaker`
 > See more: [`juju/worker/machineundertaker`](https://github.com/juju/juju/tree/3.3/worker/machineundertaker)
 
-<a href="#heading--meterstatus"><h2 id="heading--meterstatus">`meterstatus`</h2></a>
+## `meterstatus`
 
 The `meterstatus` worker executes the meter-status-changed hook periodically.
 
 > See more: [`juju/worker/meterstatus`](https://github.com/juju/juju/tree/3.3/worker/meterstatus)
 
-<a href="#heading--metrics"><h2 id="heading--metrics">`metrics`</h2></a>
+## `metrics`
 > See more: [`juju/worker/metrics`](https://github.com/juju/juju/tree/3.3/worker/metrics)
 
-<a href="#heading--metricworker"><h2 id="heading--metricworker">`metricworker`</h2></a>
+## `metricworker`
 > See more: [`juju/worker/metricworker`](https://github.com/juju/juju/tree/3.3/worker/metricworker)
 
-<a href="#heading--migrationflag"><h2 id="heading--migrationflag">`migrationflag`</h2></a>
+## `migrationflag`
 > See more: [`juju/worker/migrationflag`](https://github.com/juju/juju/tree/3.3/worker/migrationflag)
 
-<a href="#heading--migrationmaster"><h2 id="heading--migrationmaster">`migrationmaster`</h2></a>
+## `migrationmaster`
 > See more: [`juju/worker/migrationmaster`](https://github.com/juju/juju/tree/3.3/worker/migrationmaster)
 
-<a href="#heading--migrationminion"><h2 id="heading--migrationminion">`migrationminion`</h2></a>
+## `migrationminion`
 > See more: [`juju/worker/migrationminion`](https://github.com/juju/juju/tree/3.3/worker/migrationminion)
 
-<a href="#heading--minunitsworker"><h2 id="heading--minunitsworker">`minunitsworker`</h2></a>
+## `minunitsworker`
 > See more: [`juju/worker/minunitsworker`](https://github.com/juju/juju/tree/3.3/worker/minunitsworker)
 
-<a href="#heading--mocks"><h2 id="heading--mocks">`mocks`</h2></a>
+## `mocks`
 
 The `mocks` worker contains common worker mocks.
 
@@ -533,13 +525,13 @@ Run `go generate` to regenerate the mock interfaces.
 
 > See more: [`juju/worker/mocks`](https://github.com/juju/juju/tree/3.3/worker/mocks)
 
-<a href="#heading--modelcache"><h2 id="heading--modelcache">`modelcache`</h2></a>
+## `modelcache`
 > See more: [`juju/worker/modelcache`](https://github.com/juju/juju/tree/3.3/worker/modelcache)
 
-<a href="#heading--modelworkermanager"><h2 id="heading--modelworkermanager">`modelworkermanager`</h2></a>
+## `modelworkermanager`
 > See more: [`juju/worker/modelworkermanager`](https://github.com/juju/juju/tree/3.3/worker/modelworkermanager)
 
-<a href="#heading--multiwatcher"><h2 id="heading--multiwatcher">`multiwatcher`</h2></a>
+## `multiwatcher`
 
 The `multiwatcher` worker provides watchers that watch the entire model.
 
@@ -552,19 +544,19 @@ changes over time.
 
 > See more: [`juju/worker/multiwatcher`](https://github.com/juju/juju/tree/3.3/worker/multiwatcher)
 
-<a href="#heading--muxhttpserver"><h2 id="heading--muxhttpserver">`muxhttpserver`</h2></a>
+## `muxhttpserver`
 > See more: [`juju/worker/muxhttpserver`](https://github.com/juju/juju/tree/3.3/worker/muxhttpserver)
 
-<a href="#heading--peergrouper"><h2 id="heading--peergrouper">`peergrouper`</h2></a>
+## `peergrouper`
 
 The `peergrouper` worker maintains the MongoDB replica set.
 
 > See more: [`juju/worker/peergrouper`](https://github.com/juju/juju/tree/3.3/worker/peergrouper)
 
-<a href="#heading--presence"><h2 id="heading--presence">`presence`</h2></a>
+## `presence`
 > See more: [`juju/worker/presence`](https://github.com/juju/juju/tree/3.3/worker/presence)
 
-<a href="#heading--provisioner"><h2 id="heading--provisioner">`provisioner`</h2></a>
+## `provisioner`
 
 The `provisioner` worker watches LXC and KVM instances, and provisions and decommissions them when needed.
 
@@ -572,22 +564,22 @@ The `provisioner` worker watches LXC and KVM instances, and provisions and decom
 
 > See more: [`juju/worker/provisioner`](https://github.com/juju/juju/tree/3.3/worker/provisioner)
 
-<a href="#heading--proxyupdater"><h2 id="heading--proxyupdater">`proxyupdater`</h2></a>
+## `proxyupdater`
 > See more: [`juju/worker/proxyupdater`](https://github.com/juju/juju/tree/3.3/worker/proxyupdater)
 
-<a href="#heading--pruner"><h2 id="heading--pruner">`pruner`</h2></a>
+## `pruner`
 > See more: [`juju/worker/pruner`](https://github.com/juju/juju/tree/3.3/worker/pruner)
 
-<a href="#heading--pubsub"><h2 id="heading--pubsub">`pubsub`</h2></a>
+## `pubsub`
 > See more: [`juju/worker/pubsub`](https://github.com/juju/juju/tree/3.3/worker/pubsub)
 
-<a href="#heading--querylogger"><h2 id="heading--querylogger">`querylogger`</h2></a>
+## `querylogger`
 > See more: [`juju/worker/querylogger`](https://github.com/juju/juju/tree/3.3/worker/querylogger)
 
-<a href="#heading--reboot"><h2 id="heading--reboot">`reboot`</h2></a>
+## `reboot`
 > See more: [`juju/worker/reboot`](https://github.com/juju/juju/tree/3.3/worker/reboot)
 
-<a href="#heading--remoterelations"><h2 id="heading--remoterelations">`remoterelations`</h2></a>
+## `remoterelations`
 
 Package `remoterelations` defines workers which manage the operation of cross model relations.
 
@@ -604,60 +596,60 @@ the consuming model.
 
 > See more: [`juju/worker/remoterelations`](https://github.com/juju/juju/tree/3.3/worker/remoterelations)
 
-<a href="#heading--retrystrategy"><h2 id="heading--retrystrategy">`retrystrategy`</h2></a>
+## `retrystrategy`
 > See more: [`juju/worker/retrystrategy`](https://github.com/juju/juju/tree/3.3/worker/retrystrategy)
 
-<a href="#heading--s3caller"><h2 id="heading--s3caller">`s3caller`</h2></a>
+## `s3caller`
 > See more: [`juju/worker/s3caller`](https://github.com/juju/juju/tree/3.3/worker/s3caller)
 
-<a href="#heading--secretbackendrotate"><h2 id="heading--secretbackendrotate">`secretbackendrotate`</h2></a>
+## `secretbackendrotate`
 
 The `secretbackendrotate` worker tracks and rotates a secret backend token.
 
 > See more: [`juju/worker/secretbackendrotate`](https://github.com/juju/juju/tree/3.3/worker/secretbackendrotate)
 
-<a href="#heading--secretdrainworker"><h2 id="heading--secretdrainworker">`secretdrainworker`</h2></a>
+## `secretdrainworker`
 
 The `secretdrainworker` runs on the agent and drains secrets to the new active backend when the model changes secret
 backends.
 
 > See more: [`juju/worker/secretdrainworker`](https://github.com/juju/juju/tree/3.3/worker/secretdrainworker)
 
-<a href="#heading--secretexpire"><h2 id="heading--secretexpire">`secretexpire`</h2></a>
+## `secretexpire`
 
 The `secretexpire` worker tracks and notifies when a secret revision should expire.
 
 > See more: [`juju/worker/secretexpire`](https://github.com/juju/juju/tree/3.3/worker/secretexpire)
 
-<a href="#heading--secretrotate"><h2 id="heading--secretrotate">`secretrotate`</h2></a>
+## `secretrotate`
 
 The `secretrotate` worker tracks a secret and notifies when it should be rotated.
 
 > See more: [`juju/worker/secretrotate`](https://github.com/juju/juju/tree/3.3/worker/secretrotate)
 
-<a href="#heading--simplesignalhandler"><h2 id="heading--simplesignalhandler">`simplesignalhandler`</h2></a>
+## `simplesignalhandler`
 
 The `simplesignalhandler` worker responds to OS signals and returns a pre-defined error from this worker when the signal
 is received.
 
 > See more: [`juju/worker/simplesignalhandler`](https://github.com/juju/juju/tree/3.3/worker/simplesignalhandler)
 
-<a href="#heading--singular"><h2 id="heading--singular">`singular`</h2></a>
+## `singular`
 > See more: [`juju/worker/singular`](https://github.com/juju/juju/tree/3.3/worker/singular)
 
-<a href="#heading--state"><h2 id="heading--state">`state`</h2></a>
+## `state`
 > See more: [`juju/worker/state`](https://github.com/juju/juju/tree/3.3/worker/state)
 
-<a href="#heading--stateconfigwatcher"><h2 id="heading--stateconfigwatcher">`stateconfigwatcher`</h2></a>
+## `stateconfigwatcher`
 > See more: [`juju/worker/stateconfigwatcher`](https://github.com/juju/juju/tree/3.3/worker/stateconfigwatcher)
 
-<a href="#heading--stateconverter"><h2 id="heading--stateconverter">`stateconverter`</h2></a>
+## `stateconverter`
 > See more: [`juju/worker/stateconverter`](https://github.com/juju/juju/tree/3.3/worker/stateconverter)
 
-<a href="#heading--statushistorypruner"><h2 id="heading--statushistorypruner">`statushistorypruner`</h2></a>
+## `statushistorypruner`
 > See more: [`juju/worker/statushistorypruner`](https://github.com/juju/juju/tree/3.3/worker/statushistorypruner)
 
-<a href="#heading--storageprovisioner"><h2 id="heading--storageprovisioner">`storageprovisioner`</h2></a>
+## `storageprovisioner`
 
 The `storageprovisioner` worker manages the provisioning and deprovisioning of storage volumes and filesystems,attaching
 them to and detaching them from machines.
@@ -678,25 +670,25 @@ The `storageprovisioner` worker consists of the following major components:
 
 > See more: [`juju/worker/storageprovisioner`](https://github.com/juju/juju/tree/3.3/worker/storageprovisioner)
 
-<a href="#heading--syslogger"><h2 id="heading--syslogger">`syslogger`</h2></a>
+## `syslogger`
 > See more: [`juju/worker/syslogger`](https://github.com/juju/juju/tree/3.3/worker/syslogger)
 
-<a href="#heading--terminationworker"><h2 id="heading--terminationworker">`terminationworker`</h2></a>
+## `terminationworker`
 
 The `terminationworker` stops the agent when it has been signalled to do so.
 
 > See more: [`juju/worker/terminationworker`](https://github.com/juju/juju/tree/3.3/worker/terminationworker)
 
-<a href="#heading--toolsversionchecker"><h2 id="heading--toolsversionchecker">`toolsversionchecker`</h2></a>
+## `toolsversionchecker`
 > See more: [`juju/worker/toolsversionchecker`](https://github.com/juju/juju/tree/3.3/worker/toolsversionchecker)
 
-<a href="#heading--undertaker"><h2 id="heading--undertaker">`undertaker`</h2></a>
+## `undertaker`
 > See more: [`juju/worker/undertaker`](https://github.com/juju/juju/tree/3.3/worker/undertaker)
 
-<a href="#heading--unitassigner"><h2 id="heading--unitassigner">`unitassigner`</h2></a>
+## `unitassigner`
 > See more: [`juju/worker/unitassigner`](https://github.com/juju/juju/tree/3.3/worker/unitassigner)
 
-<a href="#heading--uniter"><h2 id="heading--uniter">`uniter`</h2></a>
+## `uniter`
 
 The `uniter` worker implements the capabilities of the unit agent, for example running a charm's hooks in response to
 model events. The uniter worker sets up the various components which make that happen and then runs the top level event
@@ -716,10 +708,10 @@ A unit worker is often simply referred to as a *uniter*.
 
 > See more: [`juju/worker/uniter`](https://github.com/juju/juju/tree/3.3/worker/uniter)
 
-<a href="#heading--upgradedatabase"><h2 id="heading--upgradedatabase">`upgradedatabase`</h2></a>
+## `upgradedatabase`
 > See more: [`juju/worker/upgradedatabase`](https://github.com/juju/juju/tree/3.3/worker/upgradedatabase)
 
-<a href="#heading--upgrader"><h2 id="heading--upgrader">`upgrader`</h2></a>
+## `upgrader`
 
 The `upgrader` worker schedules upgrades of the agent's binary, i.e. it upgrades the agent itself.
 
@@ -727,10 +719,10 @@ The `upgrader` worker schedules upgrades of the agent's binary, i.e. it upgrades
 
 > See more: [`juju/worker/upgrader`](https://github.com/juju/juju/tree/3.3/worker/upgrader)
 
-<a href="#heading--upgradeseries"><h2 id="heading--upgradeseries">`upgradeseries`</h2></a>
+## `upgradeseries`
 > See more: [`juju/worker/upgradeseries`](https://github.com/juju/juju/tree/3.3/worker/upgradeseries)
 
-<a href="#heading--upgradesteps"><h2 id="heading--upgradesteps">`upgradesteps`</h2></a>
+## `upgradesteps`
 > See more: [`juju/worker/upgradesteps`](https://github.com/juju/juju/tree/3.3/worker/upgradesteps)
 
 

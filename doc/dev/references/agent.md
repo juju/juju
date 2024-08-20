@@ -1,19 +1,23 @@
 > See first: [Juju | Agent](https://juju.is/docs/juju/agent)
 
 In Juju, an **agent** is any process that runs a dependency engine ([
-`dependency.NewEngine`](/t/11668#heading--newengine)) to start and manage [workers](/t/6561) for a particular domain
+`dependency.NewEngine`](dependency-package#newengine)) to start and manage [workers](worker.md) for a particular domain
 entity in a particular deployment environment.
 
-**Contents:**
+<!-- TOC -->
 
-- [List of agents](#heading--list-of-agents)
+* [List of agents](#list-of-agents)
 
-<a href="#heading--list-of-agents"><h2 id="heading--list-of-agents">List of agents</h2></a>
+<!-- TOC -->
+
+# List of agents
 
 While Juju agents can be counted based on the number of files in the codebase that invoke `dependency.NewEngine`, the
-type of process that they represent depends on the specific [`jujud`](/t/11674) / [`containeragent`](/t/11677)
+type of process that they represent depends on the specific [`jujud`](/cmd/jujud/doc.go) / [
+`containeragent`](binary-containeragent.md)
 agent-creating command that they invoke, and the workers that they bring up depend on the specific manifold
-declaration (files conventionally called `*manifolds.go` that invoke [`dependency.Manifolds`](11668#heading--manifolds))
+declaration (files conventionally called `*manifolds.go` that invoke [
+`dependency.Manifolds`](dependency-package.md#manifolds))
 that is used to configure the dependency engine. Thus, starting from the list of files that invoke a dependency engine,
 and factoring in these variations, one can distinguish the following agents:
 
@@ -22,7 +26,10 @@ You can think of the list of agents based on invocations of `dependency.NewEngin
 the list of agents arising from the various splits defined in those files as the 'logical agents'.
 [/note]
 
-- [cmd/jujud/agent/machine.go](https://github.com/juju/juju/blob/7a9eb97bee51d965f8e07f684b1f8929ab18d1f4/cmd/jujud/agent/machine.go) <br>
+<!-- TODO: There is a lot of relative link to possible outdated version of code. Maybe we should review it to make it more 
+relative to the code (and maybe move it into some doc.go or go documentation anyway -->
+
+- [cmd/jujud/agent/machine.go](/cmd/jujud/agent/machine.go) <br>
   Uses [`jujud/main.go` >
   `NewMachineAgentCmd`](https://github.com/juju/juju/blob/7a9eb97bee51d965f8e07f684b1f8929ab18d1f4/cmd/jujud/main.go#L275)
   with [cmd/jujud/agent/machine/manifolds.go](https://github.com/juju/juju/blob/7a9eb97bee51d965f8e07f684b1f8929ab18d1f4/cmd/jujud/agent/machine/manifolds.go#L980)

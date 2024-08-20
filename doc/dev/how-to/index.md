@@ -1,8 +1,8 @@
 How-to guides for Juju developers
 
-- [Merge forward](/t/10805)
-- [Debug bootstrap/machine failures](/t/6835)
-- [Create a new Mongo DB collection](/t/6863)
-- [Write a unit test](/t/7207)
-    - [Create a unit test suite](/t/7242)
-- [Write an integration test](/t/7210)
+- [Merge forward](merge-forward.md)
+- [Debug bootstrap/machine failures](debug-bootstrap-machine-failures.md)
+- [Create a new Mongo DB collection](create-new-mongo-db-collection.md)
+- [Write a unit test](write-a-unit-test.md)
+  - [Create a unit test suite](create-unit-test-suite.md)
+- [Write an integration test](write-an-integration-test.md)

@@ -1,6 +1,6 @@
-> <small> [Testing](/t/7203) > [Integration testing](/t/7205) > Test `includes`</small>
+> *[Testing](../index.md) > [Integration testing](index.md) > Test `includes`*
 >
-> Source: https://github.com/juju/juju/tree/develop/tests/includes
+> Source: https://github.com/juju/juju/tree/main/tests/includes
 
 In Juju, test **includes** are special `bash` util functions designed to help in creating effective integration test
 suites for `juju`. This document gives the complete list (STILL UNDER CONSTRUCTION) along with quick descriptions.

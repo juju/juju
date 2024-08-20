@@ -1,4 +1,4 @@
-> <small> [Testing](/t/7203) > [Unit testing](/t/7204) > Checker</small>
+> *[Testing](../index.md) > [Unit testing](index.md) > Checker*
 
 A **checker** is a core concept of `gocheck` and will feel familiar to anyone who has used the python
 testtools.Assertions are made on the gocheck.C methods.

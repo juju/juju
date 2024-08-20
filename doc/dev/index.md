@@ -1,28 +1,38 @@
-<!--
+<!-- TODO: Assess this dead documentation (moved from discourse, maybe just remove or use it to reformat)
 || If you want to... | visit... |
 |-|--|--|
 || manage charmed applications | [Juju docs](https://juju.is/docs/olm) |
 || create charmed applications | [Charm SDK docs](https://juju.is/docs/sdk) |
 | :point_right: | learn how Juju works under the hood | [Juju developer docs](https://juju.is/docs/dev) |
-
 -->
+
+<!-- Links -->
+
+[Juju documentation]: https://juju.is/docs/olm
+
+[Charm SDK documentation]: https://juju.is/docs/sdk
+
+[How-to guides]: how-to
+
+[References]:  references
 
 <!-- Learn how Juju works under the hood! -->
 
 This documentation is aimed at Juju developers or Juju users who would like to see what's under the hood.
-It is not intended to stand on its own but merely to supplement the [Juju documentation](https://juju.is/docs/olm) and
-the [Charm SDK documentation](https://juju.is/docs/sdk). Note also that many of our Juju developer docs are still just
-on [GitHub](https://github.com/juju/juju/tree/3.3/doc).
+It is not intended to stand on its own but merely to supplement the [Juju documentation] and
+the [Charm SDK documentation]. Note also that many of our Juju developer docs are still just
+on [GitHub](https://github.com/juju/juju/tree/3.6/doc). <!-- TODO: This link and references may be not that useful since we are migrating this doc to Github :) -->
+
 
 
 -----------------------------
 
 ## In this documentation
 
-|                   |                                                                                             |
-|-------------------|---------------------------------------------------------------------------------------------|
-|                   | [How-to guides](/t/6825) </br> Step-by-step guides covering key operations and common tasks |
-|                   | [Reference](/t/6824) </br> Technical information - specifications, APIs, architecture       |
+|                   |                                                                                    |
+|-------------------|------------------------------------------------------------------------------------|
+|                   | [How-to guides] </br> Step-by-step guides covering key operations and common tasks |
+|                   | [References] </br> Technical information - specifications, APIs, architecture      |
 
 ## Project and community
 
@@ -39,19 +49,14 @@ constructive feedback.
   or [GitHub](https://github.com/juju/docs/issues) (for docs)
 * Contribute to the documentation
   on [Discourse](https://discourse.charmhub.io/t/documentation-guidelines-for-contributors/1245)
-* Contribute to the code on [GitHub ](https://github.com/juju/juju/blob/develop/CONTRIBUTING.md)
+* Contribute to the code on [GitHub](https://github.com/juju/juju/blob/develop/CONTRIBUTING.md)
 * Visit the [Juju careers page](https://juju.is/careers)
 
-<!--
-
-[How-to guides](/t/6825) </br> Step-by-step guides covering key operations and common tasks 
-
-[Reference](/t/6824) </br> Technical information - specifications, APIs, architecture       
--->
-
+<!-- TODO: this tab was platform specific with discourse.
 ## Navigation
 
 [details=Navigation]
+
 | Level | Path | Navlink |
 |-------|----------------------------------------|---------------------------------------------------|
 | 1 | | [Dev documentation](/t/6669)                      |

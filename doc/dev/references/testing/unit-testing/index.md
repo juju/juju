@@ -1,6 +1,6 @@
-> <small> [Testing](/t/7203) > Unit testing</small>
+> *[Testing](../index.md) > Unit testing*
 >
-> See also: [How to write a unit test](/t/7207)
+> See also: [How to write a unit test](/doc/dev/how-to/write-a-unit-test.md)
 
 Unit testing `juju` currently involves the [`gocheck` package]( https://labix.org/gocheck) and the `go test` CLI
 command.
@@ -39,6 +39,6 @@ github.com/juju/juju/provider/magic:
 <!-- to provide a checkers and assert methods for the test writers.**-->
 
 > See more:
-> - [Unit test suite](/t/7209)
-    >     - [Util suite](/t/7241)
-> - [Checker](/t/7211)
+> - [Unit test suite](unit-test-suite.md)
+    >     - [Util suite](util-suite)
+> - [Checker](checker.md)

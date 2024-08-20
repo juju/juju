@@ -3,11 +3,11 @@
 https://github.com/juju/testing
 - 
 -->
-> <small> [Testing](/t/7203) > [Unit testing](/t/7204) > Util suite</small>
+> *[Testing](../index.md) > [Unit testing](index.md) > Util suite*
 
 
 A **util suite** is a struct which provides specific setup and teardown behavior as well as useful variables and
-functions to write [unit test](/t/7209) suites with.
+functions to write [unit test](unit-test-suite.md) suites with.
 
 There are several util suites, among which:
 

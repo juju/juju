@@ -1,4 +1,4 @@
-> See also: [Unit test suite](/t/7209)
+> See also: [Unit test suite](/doc/dev/references/testing/unit-testing/unit-test-suite.md)
 
 To create a new unit test suite, you can do something like:
 

@@ -1,21 +1,22 @@
 Sometimes developers need to store some new entities in Juju DB. This document provides key points for adding a new
 collection to MongoDB.
 
-**Contents:**
+<!-- TOC -->
 
-- [Define a new collection in Juju DB](#heading--define-a-new-collection-in-juju-db)
-- [Define a new entity collection structure](#heading--define-a-new-entity-collection-structure)
-- [Develop an API to manipulate collection entities](#heading--develop-an-api-to-manipulate-collection-entities)
-    - [Add a new doc](#heading--add-a-new-doc)
-    - [Remove a new doc](#heading--remove-a-new-doc)
+* [Define a new collection in Juju DB](#define-a-new-collection-in-juju-db)
+* [Define a new entity collection structure](#define-a-new-entity-collection-structure)
+* [Develop an API to manipulate collection entities](#develop-an-api-to-manipulate-collection-entities)
+  * [Add a new doc](#add-a-new-doc)
+  * [Remove a new doc](#remove-a-new-doc)
 
-<a href="#heading--define-a-new-collection-in-juju-db"><h2 id="heading--define-a-new-collection-in-juju-db">Define a new
-collection in Juju DB</h2></a>
+<!-- TOC -->
+
+# Define a new collection in Juju DB
 
 All collections are represented in the package `state`. This package enables reading, observing, and changing the state
 stored in MongoDB of a whole model managed by juju.
 
-A developer can define a new collection in:  https://github.com/juju/juju/blob/develop/state/allcollections.go
+A developer can define a new collection in:  https://github.com/juju/juju/blob/main/state/allcollections.go
 
 Example of a new collection definition:
 
@@ -32,8 +33,7 @@ newEntitiesC = "newEntities"
 
 ```
 
-<a href="#heading--define-a-new-entity-collection-structure"><h2 id="heading--define-a-new-entity-collection-structure">
-Define a new entity collection structure</h2></a>
+# Define a new entity collection structure
 
 Create a golang file in the state subfolder: `state/new_entites.go`
 
@@ -86,13 +86,12 @@ type newEntityDoc struct {
 
 ```
 
-<a href="#heading--develop-an-api-to-manipulate-collection-entities"><h2 id="heading--develop-an-api-to-manipulate-collection-entities">
-Develop an API to manipulate collection entities</h2></a>
+# Develop an API to manipulate collection entities
 
 You then need to implement methods that will help you interact with new collection docs. Let’s define some simple CRUD
 methods for ‘new entity’.
 
-<a href="#heading--add-a-new-doc"><h3 id="heading--add-a-new-doc">Add a new doc</h3></a>
+## Add a new doc
 
 Here is an example of a way to add a new doc to a MongoDB collocation:
 
@@ -148,7 +147,7 @@ func (ne *newEntityPersistence) AddNewEntity(args params.AddNewEntityParams) (*N
 
 ```
 
-<a href="#heading--remove-a-new-doc"><h3 id="heading--remove-a-new-doc">Remove a new doc</h3></a>
+## Remove a new doc
 
 Here is an example of a way to remove a new doc from a MongoDB collocation:
 
