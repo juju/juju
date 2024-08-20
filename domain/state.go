@@ -126,8 +126,8 @@ func (st *StateBase) RunAtomic(ctx context.Context, fn func(AtomicContext) error
 		// to reduce the number of allocations. Attempting to push the tx into
 		// the context would prevent that as a viable option.
 		txCtx := &atomicContext{
-			Context: ctx,
-			tx:      tx,
+			ctx: ctx,
+			tx:  tx,
 		}
 		defer txCtx.close()
 
@@ -155,7 +155,7 @@ type AtomicStateBase interface {
 // are coerced into a standard error to prevent sqlair errors from being
 // returned to the Service layer.
 func Run(ctx AtomicContext, fn func(context.Context, *sqlair.TX) error) error {
-	txCtx, ok := ctx.(*atomicContext)
+	atomic, ok := ctx.(*atomicContext)
 	if !ok {
 		// If you're seeing this error, it means that the atomicContext was not
 		// created by RunAtomic. This is a programming error. Did you attempt to
@@ -167,10 +167,10 @@ func Run(ctx AtomicContext, fn func(context.Context, *sqlair.TX) error) error {
 	// This is to prevent the transaction from being removed from the context
 	// or the service layer from attempting to use the transaction outside of
 	// the transaction scope.
-	txCtx.mu.Lock()
-	defer txCtx.mu.Unlock()
+	atomic.mu.Lock()
+	defer atomic.mu.Unlock()
 
-	tx := txCtx.tx
+	tx := atomic.txn()
 	if tx == nil {
 		// If you're seeing this error, it means that the AtomicContext was not
 		// created by RunAtomic. This is a programming error. Did you capture
@@ -182,7 +182,7 @@ func Run(ctx AtomicContext, fn func(context.Context, *sqlair.TX) error) error {
 	// Execute the function with the transaction.
 	// Coerce the error to ensure that no sql or sqlair errors are returned
 	// from the function and into the Service layer.
-	return CoerceError(fn(ctx, tx))
+	return CoerceError(fn(atomic.ctx, tx))
 }
 
 // txnRunner is a wrapper around a database.TxnRunner that implements the
@@ -208,7 +208,8 @@ func (r *txnRunner) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx
 // AtomicContext is a typed context that provides access to the database transaction
 // for the duration of a transaction.
 type AtomicContext interface {
-	context.Context
+	// Context returns the context that the transaction was created with.
+	Context() context.Context
 }
 
 // atomicContext is the concrete implementation of the AtomicContext interface.
@@ -218,12 +219,26 @@ type AtomicContext interface {
 // transaction. The mutex prevents data-races when the transaction is removed
 // from the context.
 type atomicContext struct {
-	context.Context
+	ctx context.Context
 
 	mu sync.Mutex
 	tx *sqlair.TX
 }
 
+// Context returns the context that the transaction was created with.
+func (c *atomicContext) Context() context.Context {
+	return c.ctx
+}
+
+// txn returns the transaction stored on the atomicContext.
+// This is used to run transactions within the context of the atomicContext.
+func (c *atomicContext) txn() *sqlair.TX {
+	return c.tx
+}
+
+// close removes the transaction from the atomicContext.
+// This prevents the transaction from being used outside of the transaction
+// scope.
 func (c *atomicContext) close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()

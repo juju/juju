@@ -168,7 +168,7 @@ func (s *stateSuite) TestStateBaseRunAtomicContextValue(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(dbCtx, gc.NotNil)
-	c.Check(dbCtx.Value(key), gc.Equals, "hello")
+	c.Check(dbCtx.Context().Value(key), gc.Equals, "hello")
 }
 
 func (s *stateSuite) TestStateBaseRunAtomicCancel(c *gc.C) {

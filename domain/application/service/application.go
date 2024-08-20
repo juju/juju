@@ -26,47 +26,60 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
-// ApplicationState describes retrieval and persistence methods for
-// applications.
-type ApplicationState interface {
+// AtomicApplicationState describes retrieval and persistence methods for
+// applications that require atomic transactions.
+type AtomicApplicationState interface {
 	domain.AtomicStateBase
-	// StorageDefaults returns the default storage sources for a model.
-	StorageDefaults(ctx context.Context) (domainstorage.StorageDefaults, error)
 
-	// GetStoragePoolByName returns the storage pool with the specified name, returning an error
-	// satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
-	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error)
+	// GetApplicationID returns the ID for the named application, returning an
+	// error satisfying [applicationerrors.ApplicationNotFound] if the
+	// application is not found.
+	GetApplicationID(ctx domain.AtomicContext, name string) (coreapplication.ID, error)
 
-	// CreateApplication creates an application, whilst inserting a charm into the
-	// database, returning an error satisfying [applicationerrors.ApplicationAle\readyExists]
-	// if the application already exists.
-	CreateApplication(context.Context, string, application.AddApplicationArg, ...application.UpsertUnitArg) (coreapplication.ID, error)
-
-	// DeleteApplication deletes the specified application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-	// If the application still has units, as error satisfying [applicationerrors.ApplicationHasUnits]
-	// is returned.
-	DeleteApplication(context.Context, string) error
-
-	// AddUnits adds the specified units to the application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-	AddUnits(ctx context.Context, applicationName string, args ...application.UpsertUnitArg) error
-
-	// GetApplicationID returns the ID for the named application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
-	GetApplicationID(ctx context.Context, name string) (coreapplication.ID, error)
-
-	// UpsertUnit creates or updates the specified application unit, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+	// UpsertUnit creates or updates the specified application unit, returning
+	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// application doesn't exist.
 	UpsertUnit(domain.AtomicContext, coreapplication.ID, application.UpsertUnitArg) error
 
-	// ApplicationScaleState looks up the scale state of the specified application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
+	// ApplicationScaleState looks up the scale state of the specified
+	// application, returning an error satisfying
+	// [applicationerrors.ApplicationNotFound] if the application is not found.
 	ApplicationScaleState(domain.AtomicContext, coreapplication.ID) (application.ScaleState, error)
 
 	// UnitLife looks up the life of the specified unit, returning an error
 	// satisfying [uniterrors.NotFound] if the unit is not found.
 	UnitLife(ctx domain.AtomicContext, unitName string) (life.Life, error)
+}
+
+// ApplicationState describes retrieval and persistence methods for
+// applications.
+type ApplicationState interface {
+	AtomicApplicationState
+
+	// StorageDefaults returns the default storage sources for a model.
+	StorageDefaults(ctx context.Context) (domainstorage.StorageDefaults, error)
+
+	// GetStoragePoolByName returns the storage pool with the specified name,
+	// returning an error satisfying [storageerrors.PoolNotFoundError] if it
+	// doesn't exist.
+	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error)
+
+	// CreateApplication creates an application, whilst inserting a charm into
+	// the database, returning an error satisfying
+	// [applicationerrors.ApplicationAlreadyExists] if the application already
+	// exists.
+	CreateApplication(context.Context, string, application.AddApplicationArg, ...application.UpsertUnitArg) (coreapplication.ID, error)
+
+	// DeleteApplication deletes the specified application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// application doesn't exist. If the application still has units, as error
+	// satisfying [applicationerrors.ApplicationHasUnits] is returned.
+	DeleteApplication(context.Context, string) error
+
+	// AddUnits adds the specified units to the application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// application doesn't exist.
+	AddUnits(ctx context.Context, applicationName string, args ...application.UpsertUnitArg) error
 }
 
 // ApplicationService provides the API for working with applications.
@@ -80,8 +93,9 @@ type ApplicationService struct {
 
 // NewApplicationService returns a new service reference wrapping the input state.
 func NewApplicationService(st ApplicationState, registry storage.ProviderRegistry, logger logger.Logger) *ApplicationService {
-	// Some uses of application service don't need to supply a storage registry, eg cleaner facade.
-	// In such cases it'd wasteful to create one as an environ instance would be needed.
+	// Some uses of application service don't need to supply a storage registry,
+	// eg cleaner facade. In such cases it'd wasteful to create one as an
+	// environ instance would be needed.
 	if registry == nil {
 		registry = storage.NotImplementedProviderRegistry{}
 	}
@@ -95,7 +109,7 @@ func NewApplicationService(st ApplicationState, registry storage.ProviderRegistr
 }
 
 // CreateApplication creates the specified application and units if required,
-// returning an error satisfying [applicationerrors.ApplicationAle\readyExists]
+// returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
 // if the application already exists.
 func (s *ApplicationService) CreateApplication(
 	ctx context.Context,
@@ -271,7 +285,7 @@ func (s *ApplicationService) RegisterCAASUnit(ctx context.Context, appName strin
 }
 
 func (s *ApplicationService) insertCAASUnit(
-	ctx context.Context, appID coreapplication.ID, orderedID int, args application.UpsertUnitArg,
+	ctx domain.AtomicContext, appID coreapplication.ID, orderedID int, args application.UpsertUnitArg,
 ) error {
 	appScale, err := s.st.ApplicationScaleState(ctx, appID)
 	// TODO(units) - need to wire up app scale updates
