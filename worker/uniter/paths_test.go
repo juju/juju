@@ -100,7 +100,7 @@ func (s *PathsSuite) TestOther(c *gc.C) {
 	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
 
 	localRunSocket := sockets.Socket{Network: "unix", Address: relAgent("run.socket")}
-	localJujucSocket := sockets.Socket{Network: "unix", Address: "@" + relAgent("agent.socket")}
+	localJujucSocket := sockets.Socket{Network: "unix", Address: relAgent("agent.socket")}
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
@@ -135,7 +135,7 @@ func (s *PathsSuite) TestTCPRemote(c *gc.C) {
 	relData := relPathFunc(dataDir)
 	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
 	localRunSocket := sockets.Socket{Network: "unix", Address: relAgent("run.socket")}
-	localJujucSocket := sockets.Socket{Network: "unix", Address: "@" + relAgent("agent.socket")}
+	localJujucSocket := sockets.Socket{Network: "unix", Address: relAgent("agent.socket")}
 	remoteRunServerSocket := sockets.Socket{Network: "tcp", Address: ":30666", TLSConfig: socketConfig.TLSConfig}
 	remoteRunClientSocket := sockets.Socket{Network: "tcp", Address: "127.0.0.1:30666", TLSConfig: socketConfig.TLSConfig}
 	remoteJujucServerSocket := sockets.Socket{Network: "tcp", Address: ":30323", TLSConfig: socketConfig.TLSConfig}
@@ -170,7 +170,7 @@ func (s *PathsSuite) TestWorkerPaths(c *gc.C) {
 	relData := relPathFunc(dataDir)
 	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
 	localRunSocket := sockets.Socket{Network: "unix", Address: relAgent(worker + "-run.socket")}
-	localJujucSocket := sockets.Socket{Network: "unix", Address: "@" + relAgent(worker+"-agent.socket")}
+	localJujucSocket := sockets.Socket{Network: "unix", Address: relAgent(worker + "-agent.socket")}
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
