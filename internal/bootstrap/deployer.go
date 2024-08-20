@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
@@ -126,14 +125,6 @@ type Charm interface {
 	Config() *charm.Config
 	Revision() int
 	URL() string
-}
-
-// Model is the interface that is used to get information about a model.
-type Model interface {
-	Config() (*config.Config, error)
-	CloudCredentialTag() (names.CloudCredentialTag, bool)
-	CloudRegion() string
-	CloudName() string
 }
 
 // Unit is the interface that is used to get information about a

@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,ControllerCharmDeployer,HTTPClient,CloudService,CloudServiceGetter,OperationApplier,Machine,MachineGetter,StateBackend,Application,Charm,Unit,Model,CharmUploader,ApplicationService,ModelConfigService
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,ControllerCharmDeployer,HTTPClient,CloudService,CloudServiceGetter,OperationApplier,Machine,MachineGetter,StateBackend,Application,Charm,Unit,CharmUploader,ApplicationService,ModelConfigService
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination charm_mock_test.go github.com/juju/juju/core/charm Repository
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination downloader_mock_test.go github.com/juju/juju/apiserver/facades/client/charms/interfaces Downloader
@@ -37,7 +37,6 @@ type baseSuite struct {
 	httpClient         *MockHTTPClient
 	objectStore        *MockObjectStore
 	unit               *MockUnit
-	model              *MockModel
 	application        *MockApplication
 	stateBackend       *MockStateBackend
 	applicationService *MockApplicationService
@@ -59,7 +58,6 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.objectStore = NewMockObjectStore(ctrl)
 
 	s.unit = NewMockUnit(ctrl)
-	s.model = NewMockModel(ctrl)
 	s.application = NewMockApplication(ctrl)
 	s.stateBackend = NewMockStateBackend(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
