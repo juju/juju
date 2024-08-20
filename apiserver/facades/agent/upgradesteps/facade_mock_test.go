@@ -445,44 +445,6 @@ func (c *MockAuthorizerAuthUnitAgentCall) DoAndReturn(f func() bool) *MockAuthor
 	return c
 }
 
-// ConnectedModel mocks base method.
-func (m *MockAuthorizer) ConnectedModel() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConnectedModel")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// ConnectedModel indicates an expected call of ConnectedModel.
-func (mr *MockAuthorizerMockRecorder) ConnectedModel() *MockAuthorizerConnectedModelCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectedModel", reflect.TypeOf((*MockAuthorizer)(nil).ConnectedModel))
-	return &MockAuthorizerConnectedModelCall{Call: call}
-}
-
-// MockAuthorizerConnectedModelCall wrap *gomock.Call
-type MockAuthorizerConnectedModelCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockAuthorizerConnectedModelCall) Return(arg0 string) *MockAuthorizerConnectedModelCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockAuthorizerConnectedModelCall) Do(f func() string) *MockAuthorizerConnectedModelCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAuthorizerConnectedModelCall) DoAndReturn(f func() string) *MockAuthorizerConnectedModelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // EntityHasPermission mocks base method.
 func (m *MockAuthorizer) EntityHasPermission(arg0 context.Context, arg1 names.Tag, arg2 permission.Access, arg3 names.Tag) error {
 	m.ctrl.T.Helper()
