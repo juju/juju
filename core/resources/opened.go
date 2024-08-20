@@ -4,6 +4,7 @@
 package resources
 
 import (
+	"context"
 	"io"
 
 	"github.com/juju/errors"
@@ -32,5 +33,5 @@ func (o Opened) Close() error {
 type Opener interface {
 	// OpenResource returns an opened resource with a reader that will
 	// stream the resource content.
-	OpenResource(name string) (Opened, error)
+	OpenResource(ctx context.Context, name string) (Opened, error)
 }

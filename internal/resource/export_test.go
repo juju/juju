@@ -13,13 +13,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func NewCSRetryClientForTest(client ResourceGetter) *ResourceRetryClient {
-	retryClient := newRetryClient(client)
-	// Reduce retry delay for test.
-	retryClient.retryArgs.Delay = 1 * time.Millisecond
-	return retryClient
-}
-
 func NewCharmHubClientForTest(cl CharmHub, logger corelogger.Logger) *CharmHubClient {
 	return &CharmHubClient{
 		client: cl,
@@ -40,18 +33,18 @@ func NewResourceOpenerForTest(
 	appName string,
 	charmURL *charm.URL,
 	charmOrigin state.CharmOrigin,
-	resourceClient ResourceGetter,
+	resourceClientGetter resourceClientGetterFunc,
 	resourceDownloadLimiter ResourceDownloadLock,
 ) *ResourceOpener {
 	return &ResourceOpener{
-		modelUUID:      "uuid",
-		resourceCache:  res,
-		user:           tag,
-		unitName:       unitName,
-		appName:        appName,
-		charmURL:       charmURL,
-		charmOrigin:    charmOrigin,
-		resourceClient: resourceClient,
+		modelUUID:            "uuid",
+		resourceCache:        res,
+		user:                 tag,
+		unitName:             unitName,
+		appName:              appName,
+		charmURL:             charmURL,
+		charmOrigin:          charmOrigin,
+		resourceClientGetter: resourceClientGetter,
 		resourceDownloadLimiterFunc: func() ResourceDownloadLock {
 			return resourceDownloadLimiter
 		},

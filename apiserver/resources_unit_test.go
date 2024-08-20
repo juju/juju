@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -141,7 +142,7 @@ type stubResourceOpener struct {
 	ReturnOpenResource resources.Opened
 }
 
-func (s *stubResourceOpener) OpenResource(name string) (resources.Opened, error) {
+func (s *stubResourceOpener) OpenResource(_ context.Context, name string) (resources.Opened, error) {
 	s.AddCall("OpenResource", name)
 	if err := s.NextErr(); err != nil {
 		return resources.Opened{}, err
