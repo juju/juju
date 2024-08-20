@@ -9,15 +9,11 @@ INSERT INTO protocol VALUES
 (2, 'udp');
 
 CREATE TABLE port_range (
+    uuid TEXT PRIMARY KEY,
     unit_endpoint_uuid TEXT NOT NULL,
     protocol_id INT NOT NULL,
     from_port INT,
     to_port INT,
-    -- We disallow overlapping port ranges, however this cannot
-    -- reasonably be enforced in the schema. Including the from_port
-    -- in the primary key is as far as we go here. Non-overlapping
-    -- ranges must be enforced in the service/state layer.
-    PRIMARY KEY (unit_endpoint_uuid, protocol_id, from_port),
     CONSTRAINT fk_port_range_protocol
     FOREIGN KEY (protocol_id)
     REFERENCES protocol (id),
@@ -25,6 +21,12 @@ CREATE TABLE port_range (
     FOREIGN KEY (unit_endpoint_uuid)
     REFERENCES unit_endpoint (uuid)
 );
+
+-- We disallow overlapping port ranges, however this cannot reasonably
+-- be enforced in the schema. Including the from_port in the uniqueness
+-- constraint is as far as we go here. Non-overlapping ranges must be
+-- enforced in the service/state layer.
+CREATE UNIQUE INDEX idx_port_range_endpoint_port_range ON port_range (unit_endpoint_uuid, protocol_id, from_port);
 
 CREATE TABLE unit_endpoint (
     uuid TEXT PRIMARY KEY,
