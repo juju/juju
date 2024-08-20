@@ -281,6 +281,7 @@ func (s *stateSuite) TestCreateUserSecretWithContent(c *gc.C) {
 		Description: ptr("my secretMetadata"),
 		Label:       ptr("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
+		Checksum:    "checksum-1234",
 		AutoPrune:   ptr(true),
 	}
 	uri := coresecrets.NewURI()
@@ -341,6 +342,7 @@ func (s *stateSuite) TestCreateUserSecretWithValueReference(c *gc.C) {
 		Description: ptr("my secretMetadata"),
 		Label:       ptr("my label"),
 		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
+		Checksum:    "checksum-1234",
 		AutoPrune:   ptr(true),
 	}
 	uri := coresecrets.NewURI()
@@ -419,11 +421,13 @@ func (s *stateSuite) TestListSecrets(c *gc.C) {
 		Description: ptr("my secretMetadata"),
 		Label:       ptr("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
+		Checksum:    "checksum-1234",
 		AutoPrune:   ptr(true),
 	}, {
 		Description: ptr("my secretMetadata2"),
 		Label:       ptr("my label2"),
 		Data:        coresecrets.SecretData{"foo": "bar2"},
+		Checksum:    "checksum-1234",
 		AutoPrune:   ptr(true),
 	}}
 	uri := []*coresecrets.URI{
@@ -445,6 +449,7 @@ func (s *stateSuite) TestListSecrets(c *gc.C) {
 
 	for i, md := range secrets {
 		c.Assert(md.Version, gc.Equals, 1)
+		c.Assert(md.LatestRevisionChecksum, gc.Equals, sp[i].Checksum)
 		c.Assert(md.Label, gc.Equals, value(sp[i].Label))
 		c.Assert(md.Description, gc.Equals, value(sp[i].Description))
 		c.Assert(md.LatestRevision, gc.Equals, 1)
@@ -763,6 +768,7 @@ func (s *stateSuite) TestCreateCharmUserSecretWithContent(c *gc.C) {
 		Description: ptr("my secretMetadata"),
 		Label:       ptr("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
+		Checksum:    "checksum-1234",
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
@@ -848,6 +854,7 @@ func (s *stateSuite) TestCreateCharmUnitSecretLabelAlreadyExistsForApplication(c
 		Description: ptr("my secretMetadata"),
 		Label:       ptr("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
+		Checksum:    "checksum-1234",
 	}
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
@@ -938,6 +945,7 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *gc.C) {
 		Description: ptr("my secretMetadata"),
 		Label:       ptr("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
+		Checksum:    "checksum-1234",
 	}, {
 		Description: ptr("my secretMetadata2"),
 		Label:       ptr("my label2"),
@@ -945,6 +953,7 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *gc.C) {
 			BackendID:  "backend-id",
 			RevisionID: "revision-id",
 		},
+		Checksum: "checksum-5678",
 	}}
 	uri := []*coresecrets.URI{
 		coresecrets.NewURI(),
@@ -967,6 +976,7 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *gc.C) {
 
 	md := secrets[0]
 	c.Assert(md.Version, gc.Equals, 1)
+	c.Assert(md.LatestRevisionChecksum, gc.Equals, sp[1].Checksum)
 	c.Assert(md.Label, gc.Equals, value(sp[1].Label))
 	c.Assert(md.Description, gc.Equals, value(sp[1].Description))
 	c.Assert(md.LatestRevision, gc.Equals, 1)
@@ -1776,14 +1786,20 @@ func (s *stateSuite) TestUpdateCharmUnitSecretLabelAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 }
 
+func fillDataForUpsertSecretParams(c *gc.C, p *domainsecret.UpsertSecretParams, data coresecrets.SecretData) {
+	checksum, err := coresecrets.NewSecretValue(data).Checksum()
+	c.Assert(err, jc.ErrorIsNil)
+	p.Data = data
+	p.Checksum = checksum
+}
+
 func (s *stateSuite) TestUpdateSecretContent(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
 	s.setupUnits(c, "mysql")
 
-	sp := domainsecret.UpsertSecretParams{
-		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
-	}
+	sp := domainsecret.UpsertSecretParams{}
+	fillDataForUpsertSecretParams(c, &sp, coresecrets.SecretData{"foo": "bar", "hello": "world"})
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
 	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
@@ -1792,9 +1808,15 @@ func (s *stateSuite) TestUpdateSecretContent(c *gc.C) {
 	expireTime := time.Now().Add(2 * time.Hour)
 	sp2 := domainsecret.UpsertSecretParams{
 		ExpireTime: &expireTime,
-		Data:       coresecrets.SecretData{"foo2": "bar2", "hello": "world"},
 	}
+	fillDataForUpsertSecretParams(c, &sp2, coresecrets.SecretData{"foo2": "bar2", "hello": "world"})
 	err = st.UpdateSecret(context.Background(), uri, sp2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sp3 := domainsecret.UpsertSecretParams{}
+	// No content change, no new revision created.
+	fillDataForUpsertSecretParams(c, &sp3, coresecrets.SecretData{"foo2": "bar2", "hello": "world"})
+	err = st.UpdateSecret(context.Background(), uri, sp3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, revs, err := st.ListSecrets(ctx, uri, ptr(2), domainsecret.NilLabels)

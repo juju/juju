@@ -145,6 +145,7 @@ func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFail
 		Description: ptr("a secret"),
 		Label:       ptr("my secret"),
 		AutoPrune:   ptr(true),
+		Checksum:    "checksum-1234",
 	}
 	if isInternal {
 		params.Data = map[string]string{"foo": "bar"}
@@ -169,6 +170,7 @@ func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFail
 			Label:       ptr("my secret"),
 			Data:        map[string]string{"foo": "bar"},
 			AutoPrune:   ptr(true),
+			Checksum:    "checksum-1234",
 		},
 		Version: 1,
 	})
@@ -216,6 +218,7 @@ func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFail
 		Description: ptr("a secret"),
 		Label:       ptr("my secret"),
 		AutoPrune:   ptr(true),
+		Checksum:    "checksum-1234",
 	}
 	if isInternal {
 		params.Data = map[string]string{"foo": "bar"}
@@ -247,6 +250,7 @@ func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFail
 		Description: ptr("a secret"),
 		Label:       ptr("my secret"),
 		Data:        map[string]string{"foo": "bar"},
+		Checksum:    "checksum-1234",
 		AutoPrune:   ptr(true),
 	})
 	if finalStepFailed {
@@ -267,6 +271,7 @@ func (s *serviceSuite) TestCreateCharmUnitSecret(c *gc.C) {
 		Description:    ptr("a secret"),
 		Label:          ptr("my secret"),
 		Data:           coresecrets.SecretData{"foo": "bar"},
+		Checksum:       "checksum-1234",
 		ExpireTime:     ptr(exipreTime),
 		NextRotateTime: ptr(rotateTime),
 	}
@@ -292,6 +297,7 @@ func (s *serviceSuite) TestCreateCharmUnitSecret(c *gc.C) {
 			Description:  ptr("a secret"),
 			Label:        ptr("my secret"),
 			Data:         map[string]string{"foo": "bar"},
+			Checksum:     "checksum-1234",
 			ExpireTime:   ptr(exipreTime),
 			RotatePolicy: ptr(coresecrets.RotateHourly),
 		},
@@ -315,6 +321,7 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *gc.C) {
 		Description:    ptr("a secret"),
 		Label:          ptr("my secret"),
 		Data:           coresecrets.SecretData{"foo": "bar"},
+		Checksum:       "checksum-1234",
 		ExpireTime:     ptr(exipreTime),
 		NextRotateTime: ptr(rotateTime),
 	}
@@ -340,6 +347,7 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *gc.C) {
 			Description:  ptr("a secret"),
 			Label:        ptr("my secret"),
 			Data:         map[string]string{"foo": "bar"},
+			Checksum:     "checksum-1234",
 			ExpireTime:   ptr(exipreTime),
 			RotatePolicy: ptr(coresecrets.RotateHourly),
 		},
@@ -362,6 +370,7 @@ func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *gc.C) {
 		Description:  ptr("a secret"),
 		Label:        ptr("my secret"),
 		Data:         coresecrets.SecretData{"foo": "bar"},
+		Checksum:     "checksum-1234",
 		ExpireTime:   ptr(exipreTime),
 	}
 
@@ -380,6 +389,7 @@ func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *gc.C) {
 		Description: ptr("a secret"),
 		Label:       ptr("my secret"),
 		Data:        map[string]string{"foo": "bar"},
+		Checksum:    "checksum-1234",
 		ExpireTime:  ptr(exipreTime),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -394,6 +404,7 @@ func (s *serviceSuite) TestUpdateCharmSecret(c *gc.C) {
 		Description:    ptr("a secret"),
 		Label:          ptr("my secret"),
 		Data:           coresecrets.SecretData{"foo": "bar"},
+		Checksum:       "checksum-1234",
 		NextRotateTime: ptr(time.Now().AddDate(0, 0, 1)),
 	}
 
@@ -423,6 +434,7 @@ func (s *serviceSuite) TestUpdateCharmSecret(c *gc.C) {
 		Description:  ptr("a secret"),
 		Label:        ptr("my secret"),
 		Data:         map[string]string{"foo": "bar"},
+		Checksum:     "checksum-1234",
 		RotatePolicy: ptr(coresecrets.RotateDaily),
 	})
 	c.Assert(err, jc.ErrorIsNil)

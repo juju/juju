@@ -30,6 +30,7 @@ type UpdateCharmSecretParams struct {
 	Params       map[string]interface{}
 	Data         secrets.SecretData
 	ValueRef     *secrets.ValueRef
+	Checksum     string
 }
 
 // CreateUserSecretParams are used to create a user secret.

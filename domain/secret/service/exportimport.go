@@ -201,6 +201,9 @@ func (s *SecretService) importSecretRevisions(
 		params := secret.UpsertSecretParams{
 			ValueRef: rev.ValueRef,
 		}
+		if i == len(revisions)-1 {
+			params.Checksum = md.LatestRevisionChecksum
+		}
 		if rev.ValueRef == nil {
 			if data, ok := content[rev.Revision]; ok {
 				params.Data = data

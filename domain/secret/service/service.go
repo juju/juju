@@ -227,6 +227,7 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 		Description: params.Description,
 		Label:       params.Label,
 		AutoPrune:   params.AutoPrune,
+		Checksum:    params.Checksum,
 	}
 	// Take a copy as we may set it to nil below
 	// if the content is saved to a backend.
@@ -281,6 +282,7 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 		Description: params.Description,
 		Label:       params.Label,
 		ValueRef:    params.ValueRef,
+		Checksum:    params.Checksum,
 	}
 	if len(params.Data) > 0 {
 		p.Data = make(map[string]string)
@@ -331,6 +333,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		Description: params.Description,
 		Label:       params.Label,
 		AutoPrune:   params.AutoPrune,
+		Checksum:    params.Checksum,
 	}
 	// Take a copy as we may set it to nil below
 	// if the content is saved to a backend.
@@ -398,6 +401,7 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 		Label:       params.Label,
 		ValueRef:    params.ValueRef,
 		ExpireTime:  params.ExpireTime,
+		Checksum:    params.Checksum,
 	}
 	rotatePolicy := domainsecret.MarshallRotatePolicy(params.RotatePolicy)
 	p.RotatePolicy = &rotatePolicy
