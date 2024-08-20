@@ -49,6 +49,7 @@ import (
 	"github.com/juju/juju/internal/provider/azure"
 	"github.com/juju/juju/internal/provider/azure/internal/armtemplates"
 	"github.com/juju/juju/internal/provider/azure/internal/azuretesting"
+	"github.com/juju/juju/internal/ssh"
 	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
@@ -231,6 +232,14 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		s.invalidatedCredential = true
 		return nil
 	})
+}
+
+func (s *environSuite) authorizedKeyString(c *gc.C) string {
+	authKeys := make([]string, 0, len(s.sshPublicKeys))
+	for _, key := range s.sshPublicKeys {
+		authKeys = append(authKeys, *key.KeyData)
+	}
+	return ssh.MakeAuthorizedKeysString(authKeys)
 }
 
 func (s *environSuite) TearDownTest(c *gc.C) {
@@ -508,6 +517,7 @@ func makeStartInstanceParams(c *gc.C, controllerUUID string, base corebase.Base)
 		machineTag.Id(), "yanonce", imagemetadata.ReleasedStream,
 		base, apiInfo,
 	)
+
 	c.Assert(err, jc.ErrorIsNil)
 	icfg.ControllerConfig = controller.Config{}
 	icfg.Tags = map[string]string{
@@ -601,6 +611,7 @@ func (s *environSuite) assertStartInstance(
 		s.vmTags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
 		args.InstanceConfig.Tags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
 	}
+	args.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
 	diskEncryptionSetName := ""
 	vaultName := ""
 	vaultKeyName := ""
@@ -707,12 +718,14 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
-	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+	_, err = env.StartInstance(s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.linuxOsProfile.LinuxConfiguration.SSH.PublicKeys = []*armcompute.SSHPublicKey{{
 		Path:    to.Ptr("/home/ubuntu/.ssh/authorized_keys"),
-		KeyData: to.Ptr("public"),
+		KeyData: to.Ptr(testing.FakeAuthKeys),
 	}}
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		imageReference: &jammyImageReference,
@@ -803,6 +816,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	s.requests = nil
 	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.InstanceConfig.Tags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
 
 	_, err := env.StartInstance(s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -826,6 +840,7 @@ func (s *environSuite) TestStartInstanceWithSpaceConstraints(c *gc.C) {
 		{"/path/to/subnet1": nil},
 		{"/path/to/subnet2": nil},
 	}
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
 
 	_, err := env.StartInstance(s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -846,6 +861,7 @@ func (s *environSuite) TestStartInstanceWithInvalidPlacement(c *gc.C) {
 	s.requests = nil
 	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.Placement = "foo"
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
 
 	_, err := env.StartInstance(s.callCtx, params)
 	c.Assert(err, gc.ErrorMatches, `creating virtual machine "juju-06f00d-0": unknown placement directive: foo`)
@@ -884,6 +900,7 @@ func (s *environSuite) TestStartInstanceWithPlacementNoSpacesConstraint(c *gc.C)
 	s.requests = nil
 	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.Placement = "subnet=subnet2"
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
 
 	_, err := env.StartInstance(s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -925,6 +942,7 @@ func (s *environSuite) TestStartInstanceWithPlacement(c *gc.C) {
 		{"/path/to/subnet2": nil},
 	}
 	params.Placement = "subnet=subnet2"
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
 
 	_, err := env.StartInstance(s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1427,11 +1445,17 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	ctx := envtesting.BootstrapTestContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
+	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
+	for _, key := range s.sshPublicKeys {
+		authorizedKeys = append(authorizedKeys, *key.KeyData)
+	}
+
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
 	s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
+			AuthorizedKeys:          authorizedKeys,
 			ControllerConfig:        testing.FakeControllerConfig(),
 			AvailableTools:          makeToolsList("ubuntu"),
 			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
@@ -1461,11 +1485,17 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 	ctx := envtesting.BootstrapTestContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
+	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
+	for _, key := range s.sshPublicKeys {
+		authorizedKeys = append(authorizedKeys, *key.KeyData)
+	}
+
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
 	s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
+			AuthorizedKeys:          authorizedKeys,
 			ControllerConfig:        testing.FakeControllerConfig(),
 			AvailableTools:          makeToolsList("ubuntu"),
 			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
@@ -1494,12 +1524,18 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 	ctx := envtesting.BootstrapTestContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender, testing.Attrs{"network": "mynetwork"})
 
+	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
+	for _, key := range s.sshPublicKeys {
+		authorizedKeys = append(authorizedKeys, *key.KeyData)
+	}
+
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
 	s.sender = append(s.sender, s.startInstanceSenders(
 		startInstanceSenderParams{bootstrap: true, existingNetwork: "mynetwork"})...)
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
+			AuthorizedKeys:          authorizedKeys,
 			ControllerConfig:        testing.FakeControllerConfig(),
 			AvailableTools:          makeToolsList("ubuntu"),
 			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
@@ -1531,12 +1567,18 @@ func (s *environSuite) TestBootstrapUserSpecifiedManagedIdentity(c *gc.C) {
 	ctx := envtesting.BootstrapTestContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
+	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
+	for _, key := range s.sshPublicKeys {
+		authorizedKeys = append(authorizedKeys, *key.KeyData)
+	}
+
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
 	s.sender = append(s.sender, s.startInstanceSenders(
 		startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
+			AuthorizedKeys:          authorizedKeys,
 			ControllerConfig:        testing.FakeControllerConfig(),
 			AvailableTools:          makeToolsList("ubuntu"),
 			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
@@ -1567,6 +1609,11 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	ctx := envtesting.BootstrapTestContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
+	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
+	for _, key := range s.sshPublicKeys {
+		authorizedKeys = append(authorizedKeys, *key.KeyData)
+	}
+
 	s.createSenderWithUnauthorisedStatusCode(c)
 	s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
@@ -1574,6 +1621,7 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
 	_, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
+			AuthorizedKeys:          authorizedKeys,
 			ControllerConfig:        testing.FakeControllerConfig(),
 			AvailableTools:          makeToolsList("ubuntu"),
 			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
@@ -1594,16 +1642,22 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	ctx := envtesting.BootstrapTestContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
+	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
+	for _, key := range s.sshPublicKeys {
+		authorizedKeys = append(authorizedKeys, *key.KeyData)
+	}
+
 	s.sender = append(s.sender, s.resourceSKUsSender())
 	s.sender = append(s.sender, s.initResourceGroupSenders(resourceGroupName)...)
 	s.sender = append(s.sender, s.startInstanceSendersNoSizes()...)
 	s.requests = nil
 	err := bootstrap.Bootstrap(
 		ctx, env, s.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig: testing.FakeControllerConfig(),
-			AdminSecret:      jujutesting.AdminSecret,
-			CAPrivateKey:     testing.CAKey,
-			BootstrapBase:    corebase.MustParseBaseFromString("ubuntu@22.04"),
+			ControllerModelAuthorizedKeys: authorizedKeys,
+			ControllerConfig:              testing.FakeControllerConfig(),
+			AdminSecret:                   jujutesting.AdminSecret,
+			CAPrivateKey:                  testing.CAKey,
+			BootstrapBase:                 corebase.MustParseBaseFromString("ubuntu@22.04"),
 			BuildAgentTarball: func(
 				build bool, _ string, _ func(version.Number) version.Number,
 			) (*sync.BuiltAgent, error) {
@@ -1645,16 +1699,22 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 	ctx := envtesting.BootstrapTestContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender, testing.Attrs{"resource-group-name": "foo"})
 
+	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
+	for _, key := range s.sshPublicKeys {
+		authorizedKeys = append(authorizedKeys, *key.KeyData)
+	}
+
 	s.sender = append(s.sender, s.resourceSKUsSender())
 	s.sender = append(s.sender, s.initResourceGroupSenders("foo")...)
 	s.sender = append(s.sender, s.startInstanceSendersNoSizes()...)
 	s.requests = nil
 	err := bootstrap.Bootstrap(
 		ctx, env, s.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig: testing.FakeControllerConfig(),
-			AdminSecret:      jujutesting.AdminSecret,
-			CAPrivateKey:     testing.CAKey,
-			BootstrapBase:    corebase.MustParseBaseFromString("ubuntu@22.04"),
+			ControllerModelAuthorizedKeys: authorizedKeys,
+			ControllerConfig:              testing.FakeControllerConfig(),
+			AdminSecret:                   jujutesting.AdminSecret,
+			CAPrivateKey:                  testing.CAKey,
+			BootstrapBase:                 corebase.MustParseBaseFromString("ubuntu@22.04"),
 			BuildAgentTarball: func(
 				build bool, _ string, _ func(version.Number) version.Number,
 			) (*sync.BuiltAgent, error) {
@@ -1703,8 +1763,15 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	config := testing.FakeControllerConfig()
 	config["api-port"] = 443
 	config["autocert-dns-name"] = "example.com"
+
+	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
+	for _, key := range s.sshPublicKeys {
+		authorizedKeys = append(authorizedKeys, *key.KeyData)
+	}
+
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
+			AuthorizedKeys:          authorizedKeys,
 			ControllerConfig:        config,
 			AvailableTools:          makeToolsList("ubuntu"),
 			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
