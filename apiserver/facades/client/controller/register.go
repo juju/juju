@@ -15,14 +15,6 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Controller", 11, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		api, err := makeControllerAPIv11(stdCtx, ctx)
-		if err != nil {
-			return nil, fmt.Errorf("creating Controller facade v11: %w", err)
-		}
-		return api, nil
-	}, reflect.TypeOf((*ControllerAPIv11)(nil)))
-
 	registry.MustRegister("Controller", 12, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		api, err := makeControllerAPI(stdCtx, ctx)
 		if err != nil {
@@ -32,9 +24,8 @@ func Register(registry facade.FacadeRegistry) {
 	}, reflect.TypeOf((*ControllerAPI)(nil)))
 }
 
-// newControllerAPIv11 creates a new ControllerAPIv11
+// makeControllerAPI creates a new ControllerAPI.
 func makeControllerAPI(stdCtx context.Context, ctx facade.ModelContext) (*ControllerAPI, error) {
-
 	var (
 		st             = ctx.State()
 		authorizer     = ctx.Auth()
@@ -69,16 +60,4 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Contro
 		ctx.ObjectStore(),
 		leadership,
 	)
-}
-
-// makeControllerAPIv11 creates a new ControllerAPIv11
-func makeControllerAPIv11(stdCtx context.Context, ctx facade.ModelContext) (*ControllerAPIv11, error) {
-	controllerAPI, err := makeControllerAPI(stdCtx, ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ControllerAPIv11{
-		ControllerAPI: controllerAPI,
-	}, nil
 }

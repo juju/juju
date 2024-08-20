@@ -259,41 +259,6 @@ func (s *controllerSuite) TestListBlockedModelsNoBlocks(c *gc.C) {
 	c.Assert(list.Models, gc.HasLen, 0)
 }
 
-func (s *controllerSuite) TestModelConfig(c *gc.C) {
-	controller, err := controller.NewControllerAPIv11(context.Background(), s.context)
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg, err := controller.ModelConfig(stdcontext.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Config["name"], jc.DeepEquals, params.ConfigValue{Value: "controller"})
-}
-
-func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "test"})
-	defer func() { _ = st.Close() }()
-
-	authorizer := &apiservertesting.FakeAuthorizer{
-		Tag:      s.Owner,
-		AdminTag: s.Owner,
-	}
-	controller, err := controller.NewControllerAPIv11(
-		context.Background(),
-		facadetest.ModelContext{
-			State_:          st,
-			StatePool_:      s.StatePool,
-			Resources_:      common.NewResources(),
-			Auth_:           authorizer,
-			ServiceFactory_: s.ControllerServiceFactory(c),
-			Logger_:         loggertesting.WrapCheckLog(c),
-		})
-
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := controller.ModelConfig(stdcontext.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Config["name"], jc.DeepEquals, params.ConfigValue{Value: "controller"})
-}
-
 func (s *controllerSuite) TestControllerConfig(c *gc.C) {
 	cfg, err := s.controller.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -313,7 +278,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 	defer func() { _ = st.Close() }()
 
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.Owner}
-	controller, err := controller.NewControllerAPIv11(
+	controller, err := controller.LatestAPI(
 		context.Background(),
 		facadetest.ModelContext{
 			State_:          st,
@@ -691,7 +656,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPIv11(
+	endpoint, err := controller.LatestAPI(
 		context.Background(),
 		facadetest.ModelContext{
 			State_:          s.State,

@@ -48,7 +48,7 @@ var facadeVersions = facades.FacadeVersions{
 	"Cleaner":                      {2},
 	"Client":                       {8},
 	"Cloud":                        {7},
-	"Controller":                   {11, 12},
+	"Controller":                   {12},
 	"CredentialManager":            {1},
 	"CredentialValidator":          {2},
 	"CrossController":              {1},
