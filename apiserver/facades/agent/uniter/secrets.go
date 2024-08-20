@@ -114,6 +114,7 @@ func fromUpsertParams(p params.UpsertSecretArg, accessor secretservice.SecretAcc
 		Params:       p.Params,
 		Data:         p.Content.Data,
 		ValueRef:     valueRef,
+		Checksum:     p.Content.Checksum,
 	}
 }
 
