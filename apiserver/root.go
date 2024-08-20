@@ -110,8 +110,9 @@ type apiHandler struct {
 	// prove the rule.
 	modelUUID model.UUID
 
-	// controllerOnlyLogin defines if the client was logged in using the
-	// controller only routes.
+	// controllerOnlyLogin is true if the client is using controller
+	// routes. Ultimately, this just indicates that no model UUID was specified
+	// in the request query (:modeluuid).
 	controllerOnlyLogin bool
 
 	// connectionID is shared between the API observer (including API
@@ -124,10 +125,6 @@ type apiHandler struct {
 
 	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
 	resources *common.Resources
-
-	// controllerOnlyLogin is true if the client is using controller
-	// routes. Ultimately, this just indicates that no model UUID was specified
-	// in the request query (:modeluuid).
 }
 
 var _ = (*apiHandler)(nil)
@@ -370,14 +367,6 @@ func (r *apiHandler) GetAuthTag() names.Tag {
 		return nil
 	}
 	return r.authInfo.Entity.Tag()
-}
-
-// ConnectedModel returns the UUID of the model authenticated
-// against. It's possible for it to be empty if the login was made
-// directly to the root of the API instead of a model endpoint, but
-// that method is deprecated.
-func (r *apiHandler) ConnectedModel() string {
-	return r.modelUUID.String()
 }
 
 // HasPermission is responsible for reporting if the logged in user is
