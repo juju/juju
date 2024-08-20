@@ -27,7 +27,9 @@ func NewModelStatusAPI(facade base.FacadeCaller) *ModelStatusAPI {
 	return &ModelStatusAPI{facade}
 }
 
-// ModelStatus returns a status summary for each model tag passed in.
+// ModelStatus returns a status summary for each model tag passed in. If a
+// given model is not found, the corresponding ModelStatus.Error field will
+// contain an error matching errors.NotFound.
 func (c *ModelStatusAPI) ModelStatus(ctx context.Context, tags ...names.ModelTag) ([]base.ModelStatus, error) {
 	result := params.ModelStatusResults{}
 	models := make([]params.Entity, len(tags))
@@ -50,8 +52,7 @@ func (c *ModelStatusAPI) processModelStatusResults(rs []params.ModelStatus) ([]b
 	results := make([]base.ModelStatus, len(rs))
 	for i, r := range rs {
 		if r.Error != nil {
-			// cope with typed error
-			results[i].Error = errors.Trace(r.Error)
+			results[i].Error = params.TranslateWellKnownError(r.Error)
 			continue
 		}
 		aModel, err := names.ParseModelTag(r.ModelTag)

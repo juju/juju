@@ -112,10 +112,6 @@ type ControllerAPI struct {
 	controllerTag names.ControllerTag
 }
 
-type ControllerAPIv11 struct {
-	*ControllerAPI
-}
-
 // LatestAPI is used for testing purposes to create the latest
 // controller API.
 var LatestAPI = makeControllerAPI
@@ -500,40 +496,6 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 	// Sort the resulting sequence by model name, then owner.
 	sort.Sort(orderedBlockInfo(results.Models))
 	return results, nil
-}
-
-// ModelConfig returns the model config for the controller model.
-//
-// Deprecated: this facade method will be removed in 4.0 when this facade is
-// converted to a multi-model facade. Please use the ModelConfig facade's
-// ModelGet method instead:
-// [github.com/juju/juju/apiserver/facades/client/modelconfig.ModelConfigAPI.ModelGet]
-func (c *ControllerAPIv11) ModelConfig(ctx context.Context) (params.ModelConfigResults, error) {
-	result := params.ModelConfigResults{}
-	if err := c.checkIsSuperUser(ctx); err != nil {
-		return result, errors.Trace(err)
-	}
-
-	controllerState, err := c.statePool.SystemState()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	controllerModel, err := controllerState.Model()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	cfg, err := controllerModel.Config()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	result.Config = make(map[string]params.ConfigValue)
-	for name, val := range cfg.AllAttrs() {
-		result.Config[name] = params.ConfigValue{
-			Value: val,
-		}
-	}
-	return result, nil
 }
 
 // HostedModelConfigs returns all the information that the client needs in

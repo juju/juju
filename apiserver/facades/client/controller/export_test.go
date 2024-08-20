@@ -32,7 +32,3 @@ func SetPrecheckResult(p patcher, err error) {
 		return err
 	})
 }
-
-var (
-	NewControllerAPIv11 = makeControllerAPIv11
-)
