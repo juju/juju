@@ -65,7 +65,7 @@ func (s *charmStateSuite) TestSetCharmGetCharmIDByRevision(c *gc.C) {
 	}, setStateArgs())
 	c.Assert(err, jc.ErrorIsNil)
 
-	charmID, err := st.GetCharmIDByRevision(context.Background(), "foo", 1)
+	charmID, err := st.GetCharmIDByRevision(context.Background(), "foo", 42)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(charmID, gc.Equals, id)
 }
@@ -1104,14 +1104,18 @@ func (s *charmStateSuite) TestSetCharmThenGetCharm(c *gc.C) {
 	}, setStateArgs())
 	c.Assert(err, jc.ErrorIsNil)
 
-	got, err := st.GetCharm(context.Background(), id)
+	gotCharm, gotOrigin, err := st.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(got, gc.DeepEquals, charm.Charm{
+	c.Check(gotCharm, gc.DeepEquals, charm.Charm{
 		Metadata:   expectedMetadata,
 		Manifest:   expectedManifest,
 		Actions:    expectedActions,
 		Config:     expectedConfig,
 		LXDProfile: expectedLXDProfile,
+	})
+	c.Check(gotOrigin, gc.DeepEquals, charm.CharmOrigin{
+		Source:   charm.LocalSource,
+		Revision: 42,
 	})
 }
 
@@ -2224,7 +2228,7 @@ func assertCharmManifest(c *gc.C, manifest charm.Manifest, expected func() charm
 func setStateArgs() charm.SetStateArgs {
 	return charm.SetStateArgs{
 		Source:      charm.LocalSource,
-		Revision:    1,
+		Revision:    42,
 		Hash:        "hash",
 		ArchivePath: "archive",
 		Version:     "deadbeef",

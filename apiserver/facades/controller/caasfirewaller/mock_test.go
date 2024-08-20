@@ -7,11 +7,9 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 
-	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -73,7 +71,6 @@ type mockApplication struct {
 	exposed      bool
 	watcher      state.NotifyWatcher
 
-	charm         mockCharm
 	appPortRanges network.GroupedPortRanges
 }
 
@@ -100,60 +97,4 @@ func (a *mockApplication) Watch() state.NotifyWatcher {
 func (a *mockApplication) OpenedPortRanges() (network.GroupedPortRanges, error) {
 	a.MethodCall(a, "OpenedPortRanges")
 	return a.appPortRanges, nil
-}
-
-func (a *mockApplication) Charm() (charmscommon.Charm, bool, error) {
-	a.MethodCall(a, "Charm")
-	return &a.charm, false, nil
-}
-
-type mockCharm struct {
-	testing.Stub
-	charmscommon.Charm // Override only the methods the tests use
-	meta               *charm.Meta
-	manifest           *charm.Manifest
-	url                string
-}
-
-func (s *mockCharm) Meta() *charm.Meta {
-	s.MethodCall(s, "Meta")
-	return s.meta
-}
-
-func (s *mockCharm) Manifest() *charm.Manifest {
-	s.MethodCall(s, "Manifest")
-	return s.manifest
-}
-
-func (s *mockCharm) URL() string {
-	s.MethodCall(s, "URL")
-	return s.url
-}
-
-type mockCommonStateShim struct {
-	*mockState
-}
-
-func (s *mockCommonStateShim) Model() (charmscommon.Model, error) {
-	return s.mockState.Model()
-}
-
-func (s *mockCommonStateShim) Charm(curl string) (charmscommon.Charm, error) {
-	return s.mockState.Charm(curl)
-}
-
-func (s *mockCommonStateShim) Application(id string) (charmscommon.Application, error) {
-	app, err := s.mockState.Application(id)
-	if err != nil {
-		return nil, err
-	}
-	return &mockCommonApplicationShim{app}, nil
-}
-
-type mockCommonApplicationShim struct {
-	caasfirewaller.Application
-}
-
-func (a *mockCommonApplicationShim) Charm() (st charmscommon.Charm, force bool, err error) {
-	return a.Application.Charm()
 }

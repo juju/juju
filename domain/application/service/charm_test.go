@@ -173,14 +173,21 @@ func (s *charmServiceSuite) TestGetCharm(c *gc.C) {
 			// allowed.
 			RunAs: "default",
 		},
+	}, domaincharm.CharmOrigin{
+		Source:   domaincharm.LocalSource,
+		Revision: 42,
 	}, nil)
 
-	metadata, err := s.service.GetCharm(context.Background(), id)
+	metadata, origin, err := s.service.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(metadata.Meta(), gc.DeepEquals, &internalcharm.Meta{
 		Name: "foo",
 
 		// Notice that the RunAs field becomes empty string when being returned.
+	})
+	c.Check(origin, gc.Equals, domaincharm.CharmOrigin{
+		Source:   domaincharm.LocalSource,
+		Revision: 42,
 	})
 }
 
@@ -189,16 +196,16 @@ func (s *charmServiceSuite) TestGetCharmCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{}, applicationerrors.CharmNotFound)
+	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{}, domaincharm.CharmOrigin{}, applicationerrors.CharmNotFound)
 
-	_, err := s.service.GetCharm(context.Background(), id)
+	_, _, err := s.service.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmServiceSuite) TestGetCharmInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetCharm(context.Background(), "")
+	_, _, err := s.service.GetCharm(context.Background(), "")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 

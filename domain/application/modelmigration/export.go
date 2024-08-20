@@ -40,7 +40,7 @@ type ExportService interface {
 	// GetCharm returns the charm metadata for the given charm ID.
 	// It returns an error.CharmNotFound if the charm can not be found by the
 	// ID.
-	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, error)
+	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmOrigin, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -106,7 +106,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			return fmt.Errorf("cannot get charm ID for %q: %v", app.CharmURL(), err)
 		}
 
-		charm, err := e.service.GetCharm(ctx, charmID)
+		charm, _, err := e.service.GetCharm(ctx, charmID)
 		if err != nil {
 			return fmt.Errorf("cannot get charm %q: %v", charmID, err)
 		}

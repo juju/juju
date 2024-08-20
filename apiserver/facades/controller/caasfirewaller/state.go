@@ -6,7 +6,6 @@ package caasfirewaller
 import (
 	"github.com/juju/names/v5"
 
-	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
@@ -28,7 +27,6 @@ type Application interface {
 	IsExposed() bool
 	ApplicationConfig() (config.ConfigAttributes, error)
 	Watch() state.NotifyWatcher
-	Charm() (ch charmscommon.Charm, force bool, err error)
 	OpenedPortRanges() (network.GroupedPortRanges, error)
 }
 
@@ -46,10 +44,6 @@ func (s *stateShim) Application(id string) (Application, error) {
 
 type applicationShim struct {
 	*state.Application
-}
-
-func (a *applicationShim) Charm() (charmscommon.Charm, bool, error) {
-	return a.Application.Charm()
 }
 
 func (a *applicationShim) OpenedPortRanges() (network.GroupedPortRanges, error) {

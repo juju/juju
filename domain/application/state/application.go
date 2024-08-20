@@ -461,12 +461,12 @@ WHERE net_node_uuid = $cloudContainer.net_node_uuid
 	if newProviderId != "" {
 		newContainerInfo.ProviderID = newProviderId
 	}
-	if cc.Address != nil {
-		// TODO(units) - handle addresses
-	}
-	if cc.Ports != nil {
-		// TODO(units) - handle ports
-	}
+	// if cc.Address != nil {
+	//   TODO(units) - handle addresses
+	// }
+	// if cc.Ports != nil {
+	//   TODO(units) - handle ports
+	// }
 	// Currently, we only update container attributes but that might change.
 	if reflect.DeepEqual(newContainerInfo, existingContainerInfo) {
 		return nil

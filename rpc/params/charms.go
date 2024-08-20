@@ -146,8 +146,10 @@ type CharmActions struct {
 
 // CharmActionSpec mirrors charm.ActionSpec.
 type CharmActionSpec struct {
-	Description string                 `json:"description"`
-	Params      map[string]interface{} `json:"params"`
+	Description    string                 `json:"description"`
+	Parallel       bool                   `json:"parallel,omitempty"`
+	Params         map[string]interface{} `json:"params"`
+	ExecutionGroup string                 `json:"execution-group,omitempty"`
 }
 
 // CharmMetric mirrors charm.Metric.

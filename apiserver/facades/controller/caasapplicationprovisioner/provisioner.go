@@ -103,19 +103,22 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 	controllerConfigService := serviceFactory.ControllerConfig()
 	modelConfigService := serviceFactory.Config()
 	modelInfoService := serviceFactory.ModelInfo()
-	storageService := serviceFactory.Storage(registry)
+
 	applicationService := serviceFactory.Application(registry)
+	storageService := serviceFactory.Storage(registry)
+
 	sb, err := state.NewStorageBackend(ctx.State())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	commonState := &charmscommon.StateShim{st}
-	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
+	modelTag := names.NewModelTag(ctx.ModelUUID().String())
+
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(modelTag, applicationService, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(modelTag, applicationService, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

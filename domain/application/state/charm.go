@@ -513,27 +513,34 @@ func (s *CharmState) GetCharmActions(ctx context.Context, id corecharm.ID) (char
 
 // GetCharm returns the charm using the charm ID.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, error) {
+func (s *CharmState) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, charm.CharmOrigin, error) {
 	db, err := s.DB()
 	if err != nil {
-		return charm.Charm{}, errors.Trace(err)
+		return charm.Charm{}, charm.CharmOrigin{}, errors.Trace(err)
 	}
 
 	ident := charmID{UUID: id.String()}
 
-	var charm charm.Charm
+	var (
+		ch     charm.Charm
+		origin charm.CharmOrigin
+	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		charm, err = s.getCharm(ctx, tx, ident)
+		ch, err = s.getCharm(ctx, tx, ident)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		origin, err = s.getCharmOrigin(ctx, tx, ident)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return nil
 	}); err != nil {
-		return charm, fmt.Errorf("failed to get charm: %w", err)
+		return ch, origin, fmt.Errorf("failed to get charm: %w", err)
 	}
 
-	return charm, nil
+	return ch, origin, nil
 }
 
 // SetCharm persists the charm metadata, actions, config and manifest to

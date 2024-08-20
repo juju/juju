@@ -428,6 +428,9 @@ func (s *exportSuite) expectMinimalCharm() {
 	meta := &internalcharm.Meta{
 		Name: "prometheus",
 	}
-	charm := internalcharm.NewCharmBase(meta, nil, nil, nil, nil)
-	s.exportService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("deadbeef")).Return(charm, nil)
+	ch := internalcharm.NewCharmBase(meta, nil, nil, nil, nil)
+	origin := charm.CharmOrigin{
+		Revision: 1,
+	}
+	s.exportService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("deadbeef")).Return(ch, origin, nil)
 }

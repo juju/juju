@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
-	domaincharm "github.com/juju/juju/domain/application/charm"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
@@ -22,8 +22,8 @@ import (
 // CharmService is the interface that the CharmInfoAPI requires to fetch charm
 // information.
 type CharmService interface {
-	GetCharmID(ctx context.Context, args domaincharm.GetCharmArgs) (corecharm.ID, error)
-	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, error)
+	GetCharmID(ctx context.Context, args applicationcharm.GetCharmArgs) (corecharm.ID, error)
+	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmOrigin, error)
 }
 
 // CharmInfoAPI implements the charms interface and is the concrete
@@ -42,8 +42,9 @@ func checkCanRead(ctx context.Context, authorizer facade.Authorizer, modelTag na
 }
 
 // NewCharmInfoAPI provides the signature required for facade registration.
-func NewCharmInfoAPI(service CharmService, authorizer facade.Authorizer) (*CharmInfoAPI, error) {
+func NewCharmInfoAPI(modelTag names.ModelTag, service CharmService, authorizer facade.Authorizer) (*CharmInfoAPI, error) {
 	return &CharmInfoAPI{
+		modelTag:   modelTag,
 		authorizer: authorizer,
 		service:    service,
 	}, nil
@@ -65,7 +66,7 @@ func (a *CharmInfoAPI) CharmInfo(ctx context.Context, args params.CharmURL) (par
 
 	// Get the charm ID, the charm ID is the unique UUID for the charm. All
 	// operations on the charm are done using the charm ID.
-	id, err := a.service.GetCharmID(ctx, domaincharm.GetCharmArgs{
+	id, err := a.service.GetCharmID(ctx, applicationcharm.GetCharmArgs{
 		Name:     url.Name,
 		Revision: ptr(url.Revision),
 	})
@@ -75,18 +76,18 @@ func (a *CharmInfoAPI) CharmInfo(ctx context.Context, args params.CharmURL) (par
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	aCharm, err := a.service.GetCharm(ctx, id)
+	aCharm, aOrigin, err := a.service.GetCharm(ctx, id)
 	if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
-	info := convertCharm(args.URL, aCharm)
-	return info, nil
+
+	return convertCharm(aCharm.Meta().Name, aCharm, aOrigin)
 }
 
 // ApplicationService is the interface that the ApplicationCharmInfoAPI
 // requires to fetch charm information for an application.
 type ApplicationService interface {
-	GetCharmByApplicationName(context.Context, string) (charm.Charm, domaincharm.CharmOrigin, error)
+	GetCharmByApplicationName(context.Context, string) (charm.Charm, applicationcharm.CharmOrigin, error)
 }
 
 // ApplicationCharmInfoAPI implements the ApplicationCharmInfo endpoint.
@@ -116,46 +117,47 @@ func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(ctx context.Context, args
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	ch, origin, err := a.service.GetCharmByApplicationName(ctx, appTag.Id())
+	// Application name is used to fetch the charm information.
+	appName := appTag.Id()
+
+	ch, origin, err := a.service.GetCharmByApplicationName(ctx, appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return params.Charm{}, errors.NotFoundf("application %q not found", appTag.Id())
+		return params.Charm{}, errors.NotFoundf("application %q not found", appName)
 	} else if errors.Is(err, applicationerrors.CharmNotFound) {
-		return params.Charm{}, errors.NotFoundf("charm for application %q not found", appTag.Id())
+		return params.Charm{}, errors.NotFoundf("charm for application %q not found", appName)
 	} else if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	// We now need to reconstruct the charm URL from the charm and the
-	// charm origin.
-	source, err := convertSource(origin.Source)
-	if err != nil {
-		return params.Charm{}, errors.Trace(err)
-	}
-
-	url := charm.URL{
-		Schema:   source,
-		Name:     appTag.Id(),
-		Revision: origin.Revision,
-	}
-
-	return convertCharm(url.String(), ch), nil
+	return convertCharm(appName, ch, origin)
 }
 
-func convertSource(source domaincharm.CharmSource) (string, error) {
+func convertSource(source applicationcharm.CharmSource) (string, error) {
 	switch source {
-	case domaincharm.CharmHubSource:
+	case applicationcharm.CharmHubSource:
 		return "ch", nil
-	case domaincharm.LocalSource:
+	case applicationcharm.LocalSource:
 		return "local", nil
 	default:
 		return "", errors.Errorf("unsupported source %q", source)
 	}
 }
 
-func convertCharm(url string, ch charm.Charm) params.Charm {
+func convertCharm(name string, ch charm.Charm, origin applicationcharm.CharmOrigin) (params.Charm, error) {
+	schema, err := convertSource(origin.Source)
+	if err != nil {
+		return params.Charm{}, errors.Trace(err)
+	}
+
+	url := charm.URL{
+		Schema:   schema,
+		Name:     name,
+		Revision: origin.Revision,
+	}
+
 	result := params.Charm{
-		Revision: ch.Revision(),
-		URL:      url,
+		Revision: origin.Revision,
+		URL:      url.String(),
 		Config:   params.ToCharmOptionMap(ch.Config()),
 		Meta:     convertCharmMeta(ch.Meta()),
 		Actions:  convertCharmActions(ch.Actions()),
@@ -164,7 +166,7 @@ func convertCharm(url string, ch charm.Charm) params.Charm {
 
 	profiler, ok := ch.(charm.LXDProfiler)
 	if !ok {
-		return result
+		return result, nil
 	}
 
 	profile := profiler.LXDProfile()
@@ -172,7 +174,7 @@ func convertCharm(url string, ch charm.Charm) params.Charm {
 		result.LXDProfile = convertCharmLXDProfile(profile)
 	}
 
-	return result
+	return result, nil
 }
 
 func convertCharmMeta(meta *charm.Meta) *params.CharmMeta {
@@ -321,8 +323,10 @@ func convertCharmActionSpecMap(specs map[string]charm.ActionSpec) map[string]par
 
 func convertCharmActionSpec(spec charm.ActionSpec) params.CharmActionSpec {
 	return params.CharmActionSpec{
-		Description: spec.Description,
-		Params:      spec.Params,
+		Description:    spec.Description,
+		Params:         spec.Params,
+		Parallel:       spec.Parallel,
+		ExecutionGroup: spec.ExecutionGroup,
 	}
 }
 

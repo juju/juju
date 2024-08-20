@@ -20,7 +20,6 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/charm"
-	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -628,7 +627,7 @@ func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
 
 	metadata, origin, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(metadata.Meta(), gc.DeepEquals, &internalcharm.Meta{
+	c.Check(metadata.Meta(), gc.DeepEquals, &charm.Meta{
 		Name: "foo",
 
 		// Notice that the RunAs field becomes empty string when being returned.
