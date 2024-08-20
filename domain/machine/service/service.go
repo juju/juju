@@ -111,8 +111,7 @@ type State interface {
 	// GetMachineParentUUID returns the parent UUID of the specified machine.
 	// It returns a MachineNotFound if the machine does not exist.
 	// It returns a MachineHasNoParent if the machine has no parent.
-	// It returns a GrandParentNotAllowed if the machine's parent has a parent.
-	GetMachineParentUUID(ctx context.Context, machineName coremachine.Name) (string, error)
+	GetMachineParentUUID(ctx context.Context, machineUUID string) (string, error)
 
 	// ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
 	ShouldRebootOrShutdown(ctx context.Context, uuid string) (machine.RebootAction, error)
@@ -317,10 +316,10 @@ func (s *Service) IsMachineRebootRequired(ctx context.Context, uuid string) (boo
 // It returns a MachineNotFound if the machine does not exist.
 // It returns a MachineHasNoParent if the machine has no parent.
 // It returns a GrandParentNotAllowed if the machine's parent has a parent.
-func (s *Service) GetMachineParentUUID(ctx context.Context, machineName coremachine.Name) (string, error) {
-	parentUUID, err := s.st.GetMachineParentUUID(ctx, machineName)
+func (s *Service) GetMachineParentUUID(ctx context.Context, machineUUID string) (string, error) {
+	parentUUID, err := s.st.GetMachineParentUUID(ctx, machineUUID)
 	if err != nil {
-		return "", errors.Annotatef(err, "retrieving parent UUID for machine %q", machineName)
+		return "", errors.Annotatef(err, "retrieving parent UUID for machine %q", machineUUID)
 	}
 	return parentUUID, nil
 }

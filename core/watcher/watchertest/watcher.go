@@ -39,7 +39,7 @@ func StringSliceAssert[T string](expect ...T) WatcherAssert[[]T] {
 			received = append(received, change...)
 		}
 		if len(received) >= len(expect) {
-			c.Assert(expect, jc.SameContents, expect)
+			c.Assert(received, jc.SameContents, expect)
 			return true
 		}
 		return false

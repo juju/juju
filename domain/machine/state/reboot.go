@@ -147,23 +147,15 @@ func (st *State) ShouldRebootOrShutdown(ctx context.Context, uuid string) (machi
 			return errors.Trace(err)
 		}
 		if err == nil {
-			// Grandparent are not supported. If you get there, possible cause
-			// are:
-			//
-			// - db corruption => need investigation, some parent machine have a
-			// parent themselves.
-			//
-			// - design change => new requirements imply that machine can have
-			// grandparent.
+			// Grandparent are not supported. If you get there, possible cause are:
+			// - db corruption => need investigation, some parent machine have a parent themselves.
+			// - design change => new requirements imply that machine can have grandparent.
 			//
 			// In this later case you will need to update above code to fetch
-			// all grandparent is
-			//
-			// the chain, and check them for reboot. Moreover, be careful of
-			// loophole: if we
-			//
-			// accept grandparent in the actual representation in DQLite, we may
+			// all grandparent is the chain, and check them for reboot. Moreover, be careful of
+			// loophole: if we accept grandparent in the actual representation in DQLite, we may
 			// have cycle.
+			// Moreover, reboot watcher statement and implementation may need to be updated.
 			return errors.Annotatef(machineerrors.GrandParentNotSupported, "found  %q parent of %q parent of %q", grandParentMachine.UUID, parentMachine.UUID, uuid)
 		}
 

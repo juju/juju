@@ -531,9 +531,9 @@ func (s *serviceSuite) TestIsMachineRebootError(c *gc.C) {
 func (s *serviceSuite) TestGetMachineParentUUIDSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), cmachine.Name("666")).Return("123", nil)
+	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), "666").Return("123", nil)
 
-	parentUUID, err := NewService(s.state).GetMachineParentUUID(context.Background(), cmachine.Name("666"))
+	parentUUID, err := NewService(s.state).GetMachineParentUUID(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(parentUUID, gc.Equals, "123")
 }
@@ -544,9 +544,9 @@ func (s *serviceSuite) TestGetMachineParentUUIDError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), cmachine.Name("666")).Return("", rErr)
+	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), "666").Return("", rErr)
 
-	parentUUID, err := NewService(s.state).GetMachineParentUUID(context.Background(), cmachine.Name("666"))
+	parentUUID, err := NewService(s.state).GetMachineParentUUID(context.Background(), "666")
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Check(parentUUID, gc.Equals, "")
 }
@@ -557,9 +557,9 @@ func (s *serviceSuite) TestGetMachineParentUUIDError(c *gc.C) {
 func (s *serviceSuite) TestGetMachineParentUUIDNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), cmachine.Name("666")).Return("", errors.NotFound)
+	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), "666").Return("", errors.NotFound)
 
-	parentUUID, err := NewService(s.state).GetMachineParentUUID(context.Background(), cmachine.Name("666"))
+	parentUUID, err := NewService(s.state).GetMachineParentUUID(context.Background(), "666")
 	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Check(parentUUID, gc.Equals, "")
 }
@@ -571,9 +571,9 @@ func (s *serviceSuite) TestGetMachineParentUUIDNotFound(c *gc.C) {
 func (s *serviceSuite) TestGetMachineParentUUIDMachineHasNoParent(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), cmachine.Name("666")).Return("", machineerrors.MachineHasNoParent)
+	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), "666").Return("", machineerrors.MachineHasNoParent)
 
-	parentUUID, err := NewService(s.state).GetMachineParentUUID(context.Background(), cmachine.Name("666"))
+	parentUUID, err := NewService(s.state).GetMachineParentUUID(context.Background(), "666")
 	c.Check(err, jc.ErrorIs, machineerrors.MachineHasNoParent)
 	c.Check(parentUUID, gc.Equals, "")
 }

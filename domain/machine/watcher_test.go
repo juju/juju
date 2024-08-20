@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
-	life "github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/machine/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
@@ -134,6 +134,55 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *gc.C) {
 
 	// Assert the changes.
 	watcherC.AssertChange(machineUUID)
+}
+
+// TestWatchMachineForReboot tests the functionality of watching machines for reboot.
+// It creates a machine hierarchy with a parent, a child (which will be watched), and a control child.
+// Then it creates a watcher for the child and performs the following assertions:
+// - The watcher is not notified when a sibling is asked for reboot.
+// - The watcher is notified when the child is directly asked for reboot.
+// - The watcher is notified when the parent is required for reboot.
+// The tests are run using the watchertest harness.
+func (s *watcherSuite) TestWatchMachineForReboot(c *gc.C) {
+	// Create machine hierarchy to reboot from parent, with a child (which will be watched) and a control child
+	parentUUID, err := s.svc.CreateMachine(context.Background(), "parent")
+	c.Assert(err, gc.IsNil)
+	childUUID, err := s.svc.CreateMachineWithParent(context.Background(), "child", "parent")
+	c.Assert(err, jc.ErrorIsNil)
+	controlUUID, err := s.svc.CreateMachineWithParent(context.Background(), "control", "parent")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create watcher for child
+	watcher, err := s.svc.WatchMachineReboot(context.Background(), childUUID)
+	c.Assert(err, gc.IsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Ensure that the watcher is not notified when a sibling is asked for reboot
+	harness.AddTest(func(c *gc.C) {
+		err := s.svc.RequireMachineReboot(context.Background(), controlUUID)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	// Ensure that the watcher is notified when the child is directly asked for reboot
+	harness.AddTest(func(c *gc.C) {
+		err := s.svc.RequireMachineReboot(context.Background(), childUUID)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.Check(watchertest.SliceAssert(struct{}{}))
+	})
+
+	// Ensure that the watcher is notified when the parent is required for reboot
+	harness.AddTest(func(c *gc.C) {
+		err := s.svc.RequireMachineReboot(context.Background(), parentUUID)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.Check(watchertest.SliceAssert(struct{}{}))
+	})
+
+	harness.Run(c)
 }
 
 func uintptr(u uint64) *uint64 {
