@@ -101,20 +101,20 @@ CREATE TABLE application_setting (
 CREATE VIEW v_application_platform AS
 SELECT
     a.uuid AS application_uuid,
-    cp.os_id AS os_id,
-    cp.channel AS channel,
-    cp.architecture_id AS architecture_id
+    cp.os_id,
+    cp.channel,
+    cp.architecture_id
 FROM application AS a
 LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
-LEFT JOIN charm_platform AS cp ON cp.charm_uuid = c.uuid;
+LEFT JOIN charm_platform AS cp ON c.uuid = cp.charm_uuid;
 
 CREATE VIEW v_application_origin AS
 SELECT
     a.uuid AS application_uuid,
-    co.source_id AS source_id,
-    co.id AS id,
-    co.revision AS revision,
-    co.version AS version
+    co.source_id,
+    co.id,
+    co.revision,
+    co.version
 FROM application AS a
 LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
-LEFT JOIN charm_origin AS co ON co.charm_uuid = c.uuid;
+LEFT JOIN charm_origin AS co ON c.uuid = co.charm_uuid;
