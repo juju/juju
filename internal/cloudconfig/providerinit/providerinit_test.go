@@ -40,7 +40,6 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	userTag := names.NewLocalUserTag("not-touched")
 
 	expectedMcfg := &instancecfg.InstanceConfig{
-		AuthorizedKeys: "we-are-the-keys",
 		AgentEnvironment: map[string]string{
 			agent.ProviderType:  "dummy",
 			agent.ContainerType: "",
@@ -68,7 +67,6 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 
 	// Test when updates/upgrades are set to false.
 	cfg, err = config.New(config.NoDefaults, testing.FakeConfig().Merge(testing.Attrs{
-		"authorized-keys":          "we-are-the-keys",
 		"enable-os-refresh-update": false,
 		"enable-os-upgrade":        false,
 	}))
@@ -84,7 +82,6 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 	userTag := names.NewLocalUserTag("not-touched")
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"authorized-keys":           "we-are-the-keys",
 		"ssl-hostname-verification": false,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -95,7 +92,6 @@ func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 	err = instancecfg.FinishInstanceConfig(icfg, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(icfg, jc.DeepEquals, &instancecfg.InstanceConfig{
-		AuthorizedKeys: "we-are-the-keys",
 		AgentEnvironment: map[string]string{
 			agent.ProviderType:  "dummy",
 			agent.ContainerType: "",
