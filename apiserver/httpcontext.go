@@ -35,7 +35,10 @@ type httpContext struct {
 // using for the model implicit in the given request
 // without checking any authentication information.
 func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state.PooledState, error) {
-	modelUUID := httpcontext.RequestModelUUID(r)
+	modelUUID, valid := httpcontext.RequestModelUUID(r)
+	if !valid {
+		return nil, errors.Trace(apiservererrors.ErrPerm)
+	}
 	st, err := ctxt.statePool().Get(modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -47,7 +50,10 @@ func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state
 // appropriate for using for the model implicit in the given request
 // without checking any authentication information.
 func (ctxt *httpContext) objectStoreForRequest(r *http.Request) (objectstore.ObjectStore, error) {
-	modelUUID := httpcontext.RequestModelUUID(r)
+	modelUUID, valid := httpcontext.RequestModelUUID(r)
+	if !valid {
+		return nil, errors.Trace(apiservererrors.ErrPerm)
+	}
 	return ctxt.srv.shared.objectStoreGetter.GetObjectStore(r.Context(), modelUUID)
 }
 

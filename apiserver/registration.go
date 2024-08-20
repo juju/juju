@@ -53,7 +53,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	// TODO (stickupkid): Remove this nonsense, we should be able to get the
 	// service factory from the handler.
 	var serviceFactory servicefactory.ControllerServiceFactory
-	serviceFactory = h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(h.ctxt.srv.shared.controllerModelID)
+	serviceFactory = h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(h.ctxt.srv.shared.controllerModelUUID)
 	userTag, response, err := h.processPost(
 		req,
 		st.State,

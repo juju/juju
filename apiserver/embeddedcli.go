@@ -70,7 +70,11 @@ func (h *embeddedCLIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		ticker := time.NewTicker(websocket.PingPeriod)
 		defer ticker.Stop()
 
-		modelUUID := httpcontext.RequestModelUUID(req)
+		modelUUID, valid := httpcontext.RequestModelUUID(req)
+		if !valid {
+			h.logger.Errorf("invalid model UUID")
+			return
+		}
 		commandCh := h.receiveCommands(socket)
 		for {
 			select {
@@ -160,7 +164,7 @@ func (h *embeddedCLIHandler) runEmbeddedCommands(
 	// TODO (stickupkid): This is actually terrible. We should refactor
 	// this out, so we can just pass an interface the handler, that hides
 	// all of this nonsense.
-	controllerServiceFactory := h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(h.ctxt.srv.shared.controllerModelID)
+	controllerServiceFactory := h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(h.ctxt.srv.shared.controllerModelUUID)
 	controllerConfigService := controllerServiceFactory.ControllerConfig()
 
 	// Make a pipe to stream the stdout/stderr of the commands.

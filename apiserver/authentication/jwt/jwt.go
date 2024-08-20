@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 )
 
@@ -84,7 +85,8 @@ func (j *JWTAuthenticator) Authenticate(req *http.Request) (authentication.AuthI
 // AuthenticateLoginRequest implements LoginAuthenticator
 func (j *JWTAuthenticator) AuthenticateLoginRequest(
 	ctx context.Context,
-	_, _ string,
+	_ string,
+	_ model.UUID,
 	authParams authentication.AuthParams,
 ) (authentication.AuthInfo, error) {
 	if authParams.Token == "" {

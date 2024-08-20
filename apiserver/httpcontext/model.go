@@ -11,24 +11,24 @@ import (
 	"github.com/juju/names/v5"
 )
 
-// ImpliedModelHandler is an http.Handler that associates requests that
-// it handles with a specified model UUID. The model UUID can then be
-// extracted using the RequestModel function in this package.
-type ImpliedModelHandler struct {
+// ControllerModelHandler is an http.Handler that associates requests that
+// it handles with a specified controller model UUID. The controller model UUID
+// can then be extracted using the RequestModelUUID function in this package.
+type ControllerModelHandler struct {
 	http.Handler
-	ModelUUID string
+	ControllerModelUUID string
 }
 
 // ServeHTTP is part of the http.Handler interface.
-func (h *ImpliedModelHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	ctx := context.WithValue(req.Context(), modelKey{}, h.ModelUUID)
+func (h *ControllerModelHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	ctx := context.WithValue(req.Context(), modelKey{}, h.ControllerModelUUID)
 	req = req.WithContext(ctx)
 	h.Handler.ServeHTTP(w, req)
 }
 
 // QueryModelHandler is an http.Handler that associates requests that
 // it handles with a model UUID extracted from a specified query parameter.
-// The model UUID can then be extracted using the RequestModel function
+// The model UUID can then be extracted using the RequestModelUUID function
 // in this package.
 type QueryModelHandler struct {
 	http.Handler
@@ -44,7 +44,7 @@ func (h *QueryModelHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 // BucketModelHandler is an http.Handler that associates requests that
 // it handles with a model UUID extracted from a specified query parameter that
 // must be the objects storage :bucket which is formatted 'model-{modelUUID}'.
-// The model UUID can then be extracted using the RequestModel function
+// The model UUID can then be extracted using the RequestModelUUID function
 // in this package.
 type BucketModelHandler struct {
 	http.Handler
@@ -75,12 +75,13 @@ func validateModelAndServe(handler http.Handler, modelUUID string, w http.Respon
 type modelKey struct{}
 
 // RequestModelUUID returns the model UUID associated with this request
-// if there is one, or the empty string otherwise. No attempt is made
-// to validate the model UUID; QueryModelHandler does this, and
-// ImpliedModelHandler should always be supplied with a valid UUID.
-func RequestModelUUID(req *http.Request) string {
+// if there is one, or returns false if no valid model UUID is passed. No
+// attempt is made to validate the model UUID; QueryModelHandler and
+// BucketModelHandler does this, and ControllerModelHandler should always be
+// supplied with a valid UUID.
+func RequestModelUUID(req *http.Request) (string, bool) {
 	if value := req.Context().Value(modelKey{}); value != nil {
-		return value.(string)
+		return value.(string), true
 	}
-	return ""
+	return "", false
 }

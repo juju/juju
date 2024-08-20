@@ -90,6 +90,10 @@ func (testingAPIRootHandler) ProviderFactory() facade.ModelProviderFactory {
 	return nil
 }
 
+func (testingAPIRootHandler) ModelUUID() model.UUID {
+	return ""
+}
+
 // Deprecated: Resources are deprecated. Use WatcherRegistry instead.
 func (testingAPIRootHandler) Resources() *common.Resources {
 	return common.NewResources()
@@ -158,6 +162,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servi
 		nil,
 		nil,
 		model.UUID(st.ModelUUID()),
+		false,
 		6543,
 		"testing.invalid:1234",
 	)

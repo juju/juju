@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/servicefactory"
@@ -30,7 +31,8 @@ type ModelContext struct {
 	State_           *state.State
 	StatePool_       *state.StatePool
 	ID_              string
-	ControllerID_    string
+	ControllerUUID_  string
+	ModelUUID_       model.UUID
 	RequestRecorder_ facade.RequestRecorder
 
 	LeadershipClaimer_     leadership.Claimer
@@ -111,7 +113,12 @@ func (c ModelContext) StatePool() *state.StatePool {
 
 // ControllerUUID returns the controller unique identifier.
 func (c ModelContext) ControllerUUID() string {
-	return c.ControllerID_
+	return c.ControllerUUID_
+}
+
+// ModelUUID returns the model unique identifier.
+func (c ModelContext) ModelUUID() model.UUID {
+	return c.ModelUUID_
 }
 
 // ID is part of the facade.ModelContext interface.

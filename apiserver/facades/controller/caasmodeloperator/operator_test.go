@@ -21,12 +21,12 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	coretesting "github.com/juju/juju/internal/testing"
+	internaltesting "github.com/juju/juju/internal/testing"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
 type ModelOperatorSuite struct {
-	coretesting.BaseSuite
+	internaltesting.BaseSuite
 
 	authorizer              *apiservertesting.FakeAuthorizer
 	api                     *API
@@ -128,7 +128,7 @@ func (m *ModelOperatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	api, err := NewAPI(m.authorizer, m.resources, m.state, m.state,
 		m.controllerConfigService, m.modelConfigService,
-		loggertesting.WrapCheckLog(c), model.UUID(m.authorizer.ModelUUID))
+		loggertesting.WrapCheckLog(c), model.UUID(internaltesting.ModelTag.Id()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	m.api = api

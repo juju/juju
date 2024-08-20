@@ -17,6 +17,7 @@ import (
 	leadership "github.com/juju/juju/core/leadership"
 	lease "github.com/juju/juju/core/lease"
 	logger "github.com/juju/juju/core/logger"
+	model "github.com/juju/juju/core/model"
 	objectstore "github.com/juju/juju/core/objectstore"
 	providertracker "github.com/juju/juju/core/providertracker"
 	servicefactory "github.com/juju/juju/internal/servicefactory"
@@ -771,6 +772,44 @@ func (c *MockModelContextModelImporterCall) Do(f func() facade.ModelImporter) *M
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelContextModelImporterCall) DoAndReturn(f func() facade.ModelImporter) *MockModelContextModelImporterCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ModelUUID mocks base method.
+func (m *MockModelContext) ModelUUID() model.UUID {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelUUID")
+	ret0, _ := ret[0].(model.UUID)
+	return ret0
+}
+
+// ModelUUID indicates an expected call of ModelUUID.
+func (mr *MockModelContextMockRecorder) ModelUUID() *MockModelContextModelUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockModelContext)(nil).ModelUUID))
+	return &MockModelContextModelUUIDCall{Call: call}
+}
+
+// MockModelContextModelUUIDCall wrap *gomock.Call
+type MockModelContextModelUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelContextModelUUIDCall) Return(arg0 model.UUID) *MockModelContextModelUUIDCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelContextModelUUIDCall) Do(f func() model.UUID) *MockModelContextModelUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelContextModelUUIDCall) DoAndReturn(f func() model.UUID) *MockModelContextModelUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

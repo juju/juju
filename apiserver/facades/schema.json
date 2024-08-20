@@ -22291,7 +22291,10 @@
         "Description": "API implements the API facade used by the machine undertaker.",
         "Version": 1,
         "AvailableTo": [
-            "controller-machine-agent"
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
+            "model-user"
         ],
         "Schema": {
             "type": "object",

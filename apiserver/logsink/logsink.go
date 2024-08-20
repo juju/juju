@@ -178,7 +178,7 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// If the modelUUID from the request is empty, fallback to the one in
 	// the logsink handler (controller UUID)
 	resolvedModelUUID := h.modelUUID
-	if modelUUID := httpcontext.RequestModelUUID(req); modelUUID != "" {
+	if modelUUID, valid := httpcontext.RequestModelUUID(req); valid {
 		resolvedModelUUID = modelUUID
 	}
 

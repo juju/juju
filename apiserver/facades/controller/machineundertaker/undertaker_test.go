@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/machineundertaker"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -36,6 +38,7 @@ const (
 func (*undertakerSuite) TestRequiresModelManager(c *gc.C) {
 	backend := &mockBackend{}
 	_, err := machineundertaker.NewAPI(
+		model.UUID(internaltesting.ModelTag.Id()),
 		backend,
 		nil,
 		apiservertesting.FakeAuthorizer{Controller: false},
@@ -43,6 +46,7 @@ func (*undertakerSuite) TestRequiresModelManager(c *gc.C) {
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	_, err = machineundertaker.NewAPI(
+		model.UUID(internaltesting.ModelTag.Id()),
 		backend,
 		nil,
 		apiservertesting.FakeAuthorizer{Controller: true},
@@ -232,11 +236,11 @@ func makeAPI(c *gc.C, modelUUID string) (*mockBackend, *mockMachineRemover, *com
 	machineRemover := &mockMachineRemover{stub: &testing.Stub{}}
 	res := common.NewResources()
 	api, err := machineundertaker.NewAPI(
+		model.UUID(modelUUID),
 		backend,
 		res,
 		apiservertesting.FakeAuthorizer{
 			Controller: true,
-			ModelUUID:  modelUUID,
 		},
 		machineRemover,
 	)

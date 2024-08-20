@@ -19,7 +19,6 @@ import (
 type FakeAuthorizer struct {
 	Tag           names.Tag
 	Controller    bool
-	ModelUUID     string
 	AdminTag      names.UserTag
 	HasConsumeTag names.UserTag
 	HasWriteTag   names.UserTag
@@ -134,12 +133,6 @@ func nameBasedHasPermission(name string, operation permission.Access, target nam
 		return false
 	}
 	return operation == perm && targetTag.String() == target.String()
-}
-
-// ConnectedModel returns the UUID of the model the current client is
-// connected to.
-func (fa FakeAuthorizer) ConnectedModel() string {
-	return fa.ModelUUID
 }
 
 // EntityHasPermission returns true if the passed entity is admin or has a name equal to

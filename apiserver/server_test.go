@@ -391,19 +391,6 @@ func (s *serverSuite) TestAPIHandlerTeardownOtherModel(c *gc.C) {
 	s.checkAPIHandlerTeardown(c, otherState)
 }
 
-func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	otherState := f.MakeModel(c, nil)
-	defer otherState.Close()
-
-	serviceFactory := s.ControllerServiceFactory(c)
-
-	handler, _ := apiserver.TestingAPIHandler(c, s.StatePool(), otherState, serviceFactory)
-	defer handler.Kill()
-	c.Check(handler.ConnectedModel(), gc.Equals, otherState.ModelUUID())
-}
-
 func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	// We need to skip this until we get off the state backed object store.
 	// As the object store is a dependency of the apiserver, it is no longer

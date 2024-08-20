@@ -12,6 +12,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
@@ -33,7 +34,13 @@ type machineRemover interface {
 // NewAPI implements the API used by the machine undertaker worker to
 // find out what provider-level resources need to be cleaned up when a
 // machine goes away.
-func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer, machineRemover machineRemover) (*API, error) {
+func NewAPI(
+	modelUUID model.UUID,
+	backend Backend,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	machineRemover machineRemover,
+) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
 	}
@@ -41,8 +48,8 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 	api := &API{
 		backend:   backend,
 		resources: resources,
-		canManageModel: func(modelUUID string) bool {
-			return modelUUID == authorizer.ConnectedModel()
+		canManageModel: func(requestedModelUUID string) bool {
+			return modelUUID.String() == requestedModelUUID
 		},
 		machineRemover: machineRemover,
 	}

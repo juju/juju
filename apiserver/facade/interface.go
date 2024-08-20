@@ -162,6 +162,11 @@ type ModelContext interface {
 	// ControllerUUID returns the controller's unique identifier.
 	ControllerUUID() string
 
+	// ModelUUID returns the model's unique identifier. All facade requests
+	// are in the scope of a model. There are some exceptions to the rule, but
+	// they are exceptions that prove the rule.
+	ModelUUID() model.UUID
+
 	// RequestRecorder defines a metrics collector for outbound requests.
 	RequestRecorder() RequestRecorder
 
@@ -292,10 +297,6 @@ type Authorizer interface {
 	// EntityHasPermission reports whether the given access is allowed for the given
 	// target by the given entity.
 	EntityHasPermission(ctx context.Context, entity names.Tag, operation permission.Access, target names.Tag) error
-
-	// ConnectedModel returns the UUID of the model to which the API
-	// connection was made.
-	ConnectedModel() string
 }
 
 // Presence represents the current known state of API connections from agents

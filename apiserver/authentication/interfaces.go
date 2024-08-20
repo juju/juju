@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 )
@@ -110,7 +111,7 @@ type LoginAuthenticator interface {
 	AuthenticateLoginRequest(
 		ctx context.Context,
 		serverHost string,
-		modelUUID string,
+		modelUUID model.UUID,
 		authParams AuthParams,
 	) (AuthInfo, error)
 }
