@@ -44,7 +44,7 @@ func NewApplicationState(factory database.TxnRunnerFactory, logger logger.Logger
 }
 
 // CreateApplication creates an application, whilst inserting a charm into the
-// database, returning an error satisfying [applicationerrors.ApplicationAle\readyExists]
+// database, returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
 // if the application already exists.
 func (st *ApplicationState) CreateApplication(ctx context.Context, name string, app application.AddApplicationArg, units ...application.UpsertUnitArg) (coreapplication.ID, error) {
 	db, err := st.DB()

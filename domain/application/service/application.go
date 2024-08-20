@@ -66,7 +66,7 @@ type ApplicationState interface {
 
 	// CreateApplication creates an application, whilst inserting a charm into
 	// the database, returning an error satisfying
-	// [applicationerrors.ApplicationAle\readyExists] if the application already
+	// [applicationerrors.ApplicationAlreadyExists] if the application already
 	// exists.
 	CreateApplication(context.Context, string, application.AddApplicationArg, ...application.UpsertUnitArg) (coreapplication.ID, error)
 
@@ -109,7 +109,7 @@ func NewApplicationService(st ApplicationState, registry storage.ProviderRegistr
 }
 
 // CreateApplication creates the specified application and units if required,
-// returning an error satisfying [applicationerrors.ApplicationAle\readyExists]
+// returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
 // if the application already exists.
 func (s *ApplicationService) CreateApplication(
 	ctx context.Context,
