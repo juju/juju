@@ -317,10 +317,9 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(bootstrapConfig.Cloud, gc.Equals, "dummy")
 	c.Assert(bootstrapConfig.Credential, gc.Equals, "")
 	expected := map[string]interface{}{
-		"name":            bootstrap.ControllerModelName,
-		"type":            "dummy",
-		"default-base":    "ubuntu@22.04",
-		"authorized-keys": "public auth key\n",
+		"name":         bootstrap.ControllerModelName,
+		"type":         "dummy",
+		"default-base": "ubuntu@22.04",
 		// Dummy provider defaults
 		"broken":   "",
 		"secret":   "pork",

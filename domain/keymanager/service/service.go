@@ -79,7 +79,6 @@ var (
 	// reservedPublicKeyComments is the set of comments that can not be
 	// removed or added by a user.
 	reservedPublicKeyComments = set.NewStrings(
-		"juju-client-key",
 		config.JujuSystemKey,
 	)
 )

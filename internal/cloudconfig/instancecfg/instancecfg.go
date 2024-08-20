@@ -19,7 +19,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4/shell"
-	"github.com/juju/utils/v4/ssh"
 	"github.com/juju/version/v2"
 	"gopkg.in/yaml.v2"
 
@@ -824,7 +823,6 @@ func NewBootstrapInstanceConfig(
 	if err != nil {
 		return nil, err
 	}
-	icfg.AuthorizedKeys = config.SystemSSHKeys()
 	icfg.PublicImageSigningKey = publicImageSigningKey
 	icfg.ControllerConfig = make(map[string]interface{})
 	for k, v := range config {
@@ -905,7 +903,7 @@ func proxyConfigurationFromEnv(cfg *config.Config) ProxyConfiguration {
 // provisioner in the ContainerConfig structure. Those values are then used to
 // call this function.
 func PopulateInstanceConfig(icfg *InstanceConfig,
-	providerType, authorizedKeys string,
+	providerType string,
 	sslHostnameVerification bool,
 	proxyCfg ProxyConfiguration,
 	enableOSRefreshUpdates bool,
@@ -913,8 +911,6 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	cloudInitUserData map[string]interface{},
 	profiles []string,
 ) error {
-	systemSSHKeys := icfg.ControllerConfig.SystemSSHKeys()
-	icfg.AuthorizedKeys = ssh.ConcatAuthorisedKeys(systemSSHKeys, authorizedKeys)
 	if icfg.AgentEnvironment == nil {
 		icfg.AgentEnvironment = make(map[string]string)
 	}
@@ -956,7 +952,6 @@ func FinishInstanceConfig(
 	if err := PopulateInstanceConfig(
 		icfg,
 		cfg.Type(),
-		cfg.AuthorizedKeys(),
 		cfg.SSLHostnameVerification(),
 		proxyConfigurationFromEnv(cfg),
 		cfg.EnableOSRefreshUpdate(),

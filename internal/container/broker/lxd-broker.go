@@ -112,7 +112,6 @@ func (broker *lxdBroker) StartInstance(ctx envcontext.ProviderCallContext, args 
 	if err := instancecfg.PopulateInstanceConfig(
 		args.InstanceConfig,
 		config.ProviderType,
-		config.AuthorizedKeys,
 		config.SSLHostnameVerification,
 		proxyConfigurationFromContainerCfg(config),
 		config.EnableOSRefreshUpdate,

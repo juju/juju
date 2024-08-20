@@ -635,10 +635,5 @@ func (c *addModelCommand) getConfigValues(ctx *cmd.Context) (map[string]interfac
 	if !ok {
 		return nil, errors.New("params must contain a YAML map with string keys")
 	}
-	if err := common.FinalizeAuthorizedKeys(ctx, attrs); err != nil {
-		if errors.Cause(err) != common.ErrNoAuthorizedKeys {
-			return nil, errors.Trace(err)
-		}
-	}
 	return attrs, nil
 }

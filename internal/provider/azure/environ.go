@@ -50,6 +50,7 @@ import (
 	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
 	"github.com/juju/juju/internal/provider/azure/internal/tracing"
 	"github.com/juju/juju/internal/provider/common"
+	"github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/internal/tools"
 )
 
@@ -1146,10 +1147,18 @@ func newOSProfile(
 		authorizedKeys = public
 	}
 
-	publicKeys := []*armcompute.SSHPublicKey{{
-		Path:    to.Ptr("/home/ubuntu/.ssh/authorized_keys"),
-		KeyData: to.Ptr(authorizedKeys),
-	}}
+	keys, err := ssh.SplitAuthorizedKeys(authorizedKeys)
+	if err != nil {
+		return nil, fmt.Errorf("splitting authorized keys from instance config: %w", err)
+	}
+	publicKeys := make([]*armcompute.SSHPublicKey, 0, len(keys))
+	for _, key := range keys {
+		publicKeys = append(publicKeys, &armcompute.SSHPublicKey{
+			Path:    to.Ptr("/home/ubuntu/.ssh/authorized_keys"),
+			KeyData: to.Ptr(key),
+		})
+	}
+
 	osProfile.AdminUsername = to.Ptr("ubuntu")
 	osProfile.LinuxConfiguration = &armcompute.LinuxConfiguration{
 		DisablePasswordAuthentication: to.Ptr(true),

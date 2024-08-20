@@ -99,7 +99,6 @@ func (s *PrepareSuite) assertPrepare(c *gc.C, skipVerify bool) {
 			"firewall-mode":             "instance",
 			"ssl-hostname-verification": true,
 			"logging-config":            "<root>=INFO",
-			"authorized-keys":           testing.FakeAuthKeys,
 			"type":                      "dummy",
 			"name":                      "erewhemos",
 			"somebool":                  false,

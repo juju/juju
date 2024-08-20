@@ -11,7 +11,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
@@ -34,6 +33,7 @@ import (
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/network/containerizer"
+	"github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -390,19 +390,15 @@ func (api *ProvisionerAPI) ContainerConfig(ctx context.Context) (params.Containe
 	}
 
 	// Add authorised keys to container config
-	authorisedKeys, err := api.keyUpdaterService.GetInitialAuthorisedKeysForContainer(ctx)
+	containerKeys, err := api.keyUpdaterService.GetInitialAuthorisedKeysForContainer(ctx)
 	if err != nil {
 		return params.ContainerConfig{}, fmt.Errorf("cannot get authorised keys for container config: %w", err)
 	}
-
-	var concatenatedKeys string
-	for _, key := range authorisedKeys {
-		concatenatedKeys = ssh.ConcatAuthorisedKeys(concatenatedKeys, key)
-	}
+	authorizedKeys := ssh.MakeAuthorizedKeysString(containerKeys)
 
 	return params.ContainerConfig{
 		ProviderType:               containerConfig.ProviderType,
-		AuthorizedKeys:             concatenatedKeys,
+		AuthorizedKeys:             authorizedKeys,
 		SSLHostnameVerification:    containerConfig.SSLHostnameVerification,
 		LegacyProxy:                containerConfig.LegacyProxy,
 		JujuProxy:                  containerConfig.JujuProxy,

@@ -50,6 +50,7 @@ var (
 	// disallowedModelConfigAttrs is the set of config attributes that should
 	// not be allowed to appear in model config.
 	disallowedModelConfigAttrs = [...]string{
+		AuthorizedKeysKey,
 		AgentVersionKey,
 		AdminSecretKey,
 		CAPrivateKeyKey,

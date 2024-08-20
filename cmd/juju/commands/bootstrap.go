@@ -53,6 +53,7 @@ import (
 	_ "github.com/juju/juju/internal/provider/all" // Import all the providers for bootstrap.
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
 	"github.com/juju/juju/internal/proxy"
+	"github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju"
@@ -165,6 +166,15 @@ other controllers for cross-model (cross-controller, actually) relations to work
 
 If a storage pool is specified using --storage-pool, this will be created
 in the controller model.
+
+By default the bootstrap command will add the user's ssh public keys as
+authorized keys for ssh onto the controller machine and controller model.
+Bootstrap will read common public keys from the users .ssh directory and also
+create a default ssh key pair in the juju home directory. These keys will be
+added as authorized keys during bootstrap.
+
+Authorized keys can be set by using --config authorized-keys and or
+--config authorized-keys-path.
 `
 
 var usageBootstrapConfigTxt = `
@@ -330,8 +340,8 @@ func (c *bootstrapCommand) configDetails() ConfigCategoryKeys {
 		categoryKeys.ControllerKeys = controllerCgf
 	}
 
-	categoryKeys.BootstrapKeys = make(map[string]common.PrintConfigSchema, len(bootstrap.BootstrapConfigSchema))
-	for key, attr := range bootstrap.BootstrapConfigSchema {
+	categoryKeys.BootstrapKeys = make(map[string]common.PrintConfigSchema, len(bootstrap.BootstrapConfigSchema()))
+	for key, attr := range bootstrap.BootstrapConfigSchema() {
 		categoryKeys.BootstrapKeys[key] = common.PrintConfigSchema{
 			Description: attr.Description,
 			Type:        string(attr.Type),
@@ -850,29 +860,30 @@ to create a new model to deploy %sworkloads.
 	logger.Tracef("supported bootstrap bases %v", supportedBootstrapBases)
 
 	bootstrapParams := bootstrap.BootstrapParams{
-		ControllerName:            c.controllerName,
-		BootstrapBase:             bootstrapBase,
-		SupportedBootstrapBases:   supportedBootstrapBases,
-		BootstrapImage:            c.BootstrapImage,
-		Placement:                 c.Placement,
-		BuildAgent:                c.BuildAgent,
-		BuildAgentTarball:         sync.BuildAgentTarball,
-		AgentVersion:              c.AgentVersion,
-		Cloud:                     cloud,
-		CloudRegion:               region.Name,
-		ControllerConfig:          bootstrapCfg.controller,
-		ControllerInheritedConfig: bootstrapCfg.inheritedControllerAttrs,
-		RegionInheritedConfig:     cloud.RegionConfig,
-		AdminSecret:               bootstrapCfg.bootstrap.AdminSecret,
-		CAPrivateKey:              bootstrapCfg.bootstrap.CAPrivateKey,
-		ControllerServiceType:     bootstrapCfg.bootstrap.ControllerServiceType,
-		ControllerExternalName:    bootstrapCfg.bootstrap.ControllerExternalName,
-		ControllerExternalIPs:     append([]string(nil), bootstrapCfg.bootstrap.ControllerExternalIPs...),
-		JujuDbSnapPath:            c.JujuDbSnapPath,
-		JujuDbSnapAssertionsPath:  c.JujuDbSnapAssertionsPath,
-		StoragePools:              bootstrapCfg.storagePools,
-		ControllerCharmPath:       c.ControllerCharmPath,
-		ControllerCharmChannel:    c.ControllerCharmChannel,
+		ControllerName:                c.controllerName,
+		BootstrapBase:                 bootstrapBase,
+		SupportedBootstrapBases:       supportedBootstrapBases,
+		BootstrapImage:                c.BootstrapImage,
+		Placement:                     c.Placement,
+		BuildAgent:                    c.BuildAgent,
+		BuildAgentTarball:             sync.BuildAgentTarball,
+		AgentVersion:                  c.AgentVersion,
+		Cloud:                         cloud,
+		CloudRegion:                   region.Name,
+		ControllerConfig:              bootstrapCfg.controller,
+		ControllerInheritedConfig:     bootstrapCfg.inheritedControllerAttrs,
+		ControllerModelAuthorizedKeys: bootstrapCfg.bootstrap.AuthorizedKeys,
+		RegionInheritedConfig:         cloud.RegionConfig,
+		AdminSecret:                   bootstrapCfg.bootstrap.AdminSecret,
+		CAPrivateKey:                  bootstrapCfg.bootstrap.CAPrivateKey,
+		ControllerServiceType:         bootstrapCfg.bootstrap.ControllerServiceType,
+		ControllerExternalName:        bootstrapCfg.bootstrap.ControllerExternalName,
+		ControllerExternalIPs:         append([]string(nil), bootstrapCfg.bootstrap.ControllerExternalIPs...),
+		JujuDbSnapPath:                c.JujuDbSnapPath,
+		JujuDbSnapAssertionsPath:      c.JujuDbSnapAssertionsPath,
+		StoragePools:                  bootstrapCfg.storagePools,
+		ControllerCharmPath:           c.ControllerCharmPath,
+		ControllerCharmChannel:        c.ControllerCharmChannel,
 		DialOpts: environs.BootstrapDialOpts{
 			Timeout:        bootstrapCfg.bootstrap.BootstrapTimeout,
 			RetryDelay:     bootstrapCfg.bootstrap.BootstrapRetryDelay,
@@ -1357,6 +1368,8 @@ func (c *bootstrapCommand) credentialsAndRegionName(
 	return creds, regionName, nil
 }
 
+// bootstrapConfigs is a deconstructed representation of all of the config
+// options supplied by a user at bootstrap time into their various buckets.
 type bootstrapConfigs struct {
 	bootstrapModel           map[string]interface{}
 	controller               controller.Config
@@ -1535,6 +1548,23 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		return bootstrapConfigs{}, errors.Annotate(err, "constructing bootstrap config")
 	}
 
+	// If the user has not specified any additional authorized keys at bootstrap
+	// time we will try and add their default keys.
+	if len(bootstrapConfig.AuthorizedKeys) == 0 {
+		userDefaultKeys, err := ssh.GetCommonUserPublicKeys(ctx, ssh.LocalUserSSHFileSystem())
+		if err != nil {
+			return bootstrapConfigs{}, errors.Annotate(err, "reading user ssh keys")
+		}
+		bootstrapConfig.AuthorizedKeys = append(bootstrapConfig.AuthorizedKeys, userDefaultKeys...)
+	}
+
+	// We need to slurp up all of the Juju SSH Keys in the Juju directory.
+	jujuSSHKeys, err := ssh.GetFileSystemPublicKeys(ctx, osenv.JujuXDGDataSSHFS())
+	if err != nil {
+		return bootstrapConfigs{}, errors.Annotate(err, "reading juju home ssh keys")
+	}
+	bootstrapConfig.AuthorizedKeys = append(bootstrapConfig.AuthorizedKeys, jujuSSHKeys...)
+
 	// Pre-process controller attributes.
 	if _, ok := controllerConfigAttrs[controller.CAASOperatorImagePath]; ok {
 		return bootstrapConfigs{}, fmt.Errorf("%q is no longer supported controller configuration",
@@ -1568,10 +1598,6 @@ func (c *bootstrapCommand) bootstrapConfigs(
 			// obtain autocert certificates without listening on port 443.
 			controllerConfig[controller.APIPort] = 443
 		}
-	}
-
-	if err := common.FinalizeAuthorizedKeys(ctx, bootstrapModelConfig); err != nil {
-		return bootstrapConfigs{}, errors.Annotate(err, "finalizing authorized-keys")
 	}
 
 	logger.Debugf("preparing controller with config: %v", bootstrapModelConfig)

@@ -87,7 +87,6 @@ func FakeConfig() Attrs {
 		"type":                      "dummy",
 		"name":                      "testmodel",
 		"uuid":                      ModelTag.Id(),
-		"authorized-keys":           FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"ssl-hostname-verification": true,
 		"development":               false,

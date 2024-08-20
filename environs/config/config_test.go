@@ -52,7 +52,6 @@ var sampleConfig = testing.Attrs{
 	"type":                       "my-type",
 	"name":                       "my-name",
 	"uuid":                       testing.ModelTag.Id(),
-	"authorized-keys":            testing.FakeAuthKeys,
 	"firewall-mode":              config.FwInstance,
 	"unknown":                    "my-unknown",
 	"ssl-hostname-verification":  true,
@@ -139,12 +138,6 @@ var configTests = []configTest{
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"logging-config": "juju=INFO",
-		}),
-	}, {
-		about:       "Explicit authorized-keys",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"authorized-keys": testing.FakeAuthKeys,
 		}),
 	}, {
 		about:       "Specified agent version",
@@ -447,7 +440,6 @@ var configTests = []configTest{
 			"name":                       "sample",
 			"development":                false,
 			"ssl-hostname-verification":  true,
-			"authorized-keys":            "ssh-rsa mykeys rog@rog-x220\n",
 			"region":                     "us-east-1",
 			"default-series":             "focal",
 			"default-base":               "ubuntu@20.04",
@@ -694,9 +686,6 @@ func (test configTest) check(c *gc.C) {
 		c.Check(cfg.DefaultSpace(), gc.Equals, m)
 	}
 
-	keys, _ := test.attrs["authorized-keys"].(string)
-	c.Check(cfg.AuthorizedKeys(), gc.Equals, keys)
-
 	if v, ok := test.attrs["ssl-hostname-verification"]; ok {
 		c.Check(cfg.SSLHostnameVerification(), gc.Equals, v)
 	}
@@ -817,7 +806,6 @@ func (s *ConfigSuite) TestAllAttrs(c *gc.C) {
 		"type":                       "my-type",
 		"name":                       "my-name",
 		"uuid":                       "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9",
-		"authorized-keys":            testing.FakeAuthKeys,
 		"firewall-mode":              config.FwInstance,
 		"unknown":                    "my-unknown",
 		"ssl-hostname-verification":  true,

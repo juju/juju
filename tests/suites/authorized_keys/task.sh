@@ -15,6 +15,7 @@ test_authorized_keys() {
 
 	test_user_ssh_keys
 	test_machine_ssh
+	test_bootstrap_authorized_keys
 
 	destroy_controller "authorizedkeys"
 }
