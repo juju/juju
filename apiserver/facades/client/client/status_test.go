@@ -5,6 +5,7 @@ package client_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -22,7 +23,11 @@ import (
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/version"
+	domainmodel "github.com/juju/juju/domain/model"
+	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub/transport"
@@ -501,6 +506,18 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	defer state2.Close()
 
 	model2, err := state2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Double-write model information to dqlite.
+	// Add the model to the model database.
+	err = s.ModelTxnRunner(c, model2.UUID()).StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return modelstate.CreateReadOnlyModel(ctx, domainmodel.ReadOnlyModelCreationArgs{
+			UUID:         coremodel.UUID(model2.UUID()),
+			Name:         model2.Name(),
+			Cloud:        "dummy",
+			AgentVersion: version.Current,
+		}, tx)
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get API connection to hosted model.

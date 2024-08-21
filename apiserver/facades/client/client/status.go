@@ -5,6 +5,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -223,16 +224,12 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	var noStatus params.FullStatus
 	var context statusContext
 
-	m, err := c.stateAccessor.Model()
+	modelInfo, err := c.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
-		return noStatus, errors.Annotate(err, "cannot get model")
+		return noStatus, fmt.Errorf("getting model info: %w", err)
 	}
-	context.presence.Presence = c.presence.ModelPresence(m.UUID())
-	cfg, err := m.Config()
-	if err != nil {
-		return noStatus, errors.Annotate(err, "cannot obtain current model config")
-	}
-	context.providerType = cfg.Type()
+	context.presence.Presence = c.presence.ModelPresence(modelInfo.UUID.String())
+	context.providerType = modelInfo.CloudType
 
 	if context.spaceInfos, err = c.networkService.GetAllSpaces(ctx); err != nil {
 		return noStatus, errors.Annotate(err, "cannot obtain space information")
@@ -511,7 +508,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		context.volumes = matchedVolumes
 	}
 
-	modelStatus, err := c.modelStatus()
+	modelStatus, err := c.modelStatus(ctx)
 	if err != nil {
 		return noStatus, errors.Annotate(err, "cannot determine model status")
 	}
@@ -564,32 +561,30 @@ func resolveLeaderUnits(patterns []string, leaders map[string]string) []string {
 	return patterns
 }
 
-// newToolsVersionAvailable will return a string representing a tools
-// version only if the latest check is newer than current tools.
-func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
+// modelStatus returns the status of the current model.
+func (c *Client) modelStatus(ctx context.Context) (params.ModelStatusInfo, error) {
 	var info params.ModelStatusInfo
+
+	modelInfo, err := c.modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return info, fmt.Errorf("getting model info: %w", err)
+	}
+	info.Name = modelInfo.Name
+	info.Type = modelInfo.Type.String()
+	info.CloudTag = names.NewCloudTag(modelInfo.Cloud).String()
+	info.CloudRegion = modelInfo.CloudRegion
+
+	currentVersion := modelInfo.AgentVersion
+	info.Version = currentVersion.String()
 
 	m, err := c.stateAccessor.Model()
 	if err != nil {
 		return info, errors.Annotate(err, "cannot get model")
 	}
-	info.Name = m.Name()
-	info.Type = string(m.Type())
-	info.CloudTag = names.NewCloudTag(m.CloudName()).String()
-	info.CloudRegion = m.CloudRegion()
-
-	cfg, err := m.Config()
-	if err != nil {
-		return params.ModelStatusInfo{}, errors.Annotate(err, "cannot obtain current model config")
-	}
 
 	latestVersion := m.LatestToolsVersion()
-	current, ok := cfg.AgentVersion()
-	if ok {
-		info.Version = current.String()
-		if current.Compare(latestVersion) < 0 {
-			info.AvailableVersion = latestVersion.String()
-		}
+	if currentVersion.Compare(latestVersion) < 0 {
+		info.AvailableVersion = latestVersion.String()
 	}
 
 	aStatus, err := m.Status()

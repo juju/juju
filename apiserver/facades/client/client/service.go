@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/blockdevice"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 )
 
@@ -22,4 +23,10 @@ type NetworkService interface {
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 	// GetAllSubnets returns all the subnets for the model.
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+}
+
+// ModelInfoService provides access to information about the model.
+type ModelInfoService interface {
+	// GetModelInfo returns information about the current model.
+	GetModelInfo(context.Context) (model.ReadOnlyModel, error)
 }
