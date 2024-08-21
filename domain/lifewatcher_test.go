@@ -39,7 +39,7 @@ func (c changeEvent) Changed() string {
 
 var _ = gc.Suite(&lifeWatcherSuite{})
 
-func (s *lifeWatcherSuite) lifeGetter(ctx context.Context, db coredatabase.TxnRunner, ids ...string) (map[string]life.Life, error) {
+func (s *lifeWatcherSuite) lifeGetter(ctx context.Context, db coredatabase.TxnRunner, ids []string) (map[string]life.Life, error) {
 	result := make(map[string]life.Life)
 	for _, id := range ids {
 		if l, ok := s.dbLifeValues[id]; ok {

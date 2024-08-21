@@ -142,7 +142,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	s.createApplication(c, &svc.Service, "foo")
 	s.createApplication(c, &svc.Service, "bar")
 
-	var id1, id2 string
+	var unitID1, unitID2 string
 	setup := func(c *gc.C) {
 		u1 := service.AddUnitArg{
 			UnitName: ptr("foo/666"),
@@ -167,10 +167,10 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/666").Scan(&id1); err != nil {
+			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/666").Scan(&unitID1); err != nil {
 				return errors.Trace(err)
 			}
-			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/667").Scan(&id2); err != nil {
+			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/667").Scan(&unitID2); err != nil {
 				return errors.Trace(err)
 			}
 			return nil
@@ -184,7 +184,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
 	harness.AddTest(func(c *gc.C) {
 		setup(c)
-		// Remove non app unit first up.
+		// Update non app unit first up.
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "bar/668"); err != nil {
 				return errors.Trace(err)
@@ -193,9 +193,9 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		// First update after creating the units.
+		// Initial event after creating the units.
 		w.Check(
-			watchertest.StringSliceAssert[string](id1, id2),
+			watchertest.StringSliceAssert[string](unitID1, unitID2),
 		)
 	})
 	harness.AddTest(func(c *gc.C) {
@@ -208,7 +208,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](id1),
+			watchertest.StringSliceAssert[string](unitID1),
 		)
 	})
 	harness.AddTest(func(c *gc.C) {
@@ -221,7 +221,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](id1),
+			watchertest.StringSliceAssert[string](unitID1),
 		)
 	})
 	harness.AddTest(func(c *gc.C) {
@@ -271,7 +271,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](id2),
+			watchertest.StringSliceAssert[string](unitID2),
 		)
 	})
 	harness.AddTest(func(c *gc.C) {
@@ -286,7 +286,18 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
-
+	harness.AddTest(func(c *gc.C) {
+		// Deleting different app unit with no app units remaining - no change.
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit WHERE name=?", "bar/667"); err != nil {
+				return errors.Trace(err)
+			}
+			return nil
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
 	harness.Run(c)
 }
 

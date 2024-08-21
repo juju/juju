@@ -377,9 +377,8 @@ func NewWatchableApplicationService(st ApplicationState, watcherFactory WatcherF
 
 // WatchApplicationUnitLife returns a watcher that observes changes to the life of any units if an application.
 func (s *WatchableApplicationService) WatchApplicationUnitLife(appName string) (watcher.StringsWatcher, error) {
-	lifeGetter := func(ctx context.Context, db coredatabase.TxnRunner, ids ...string) (map[string]life.Life, error) {
-		l, err := s.st.GetApplicationUnitLife(ctx, appName, ids...)
-		return l, err
+	lifeGetter := func(ctx context.Context, db coredatabase.TxnRunner, ids []string) (map[string]life.Life, error) {
+		return s.st.GetApplicationUnitLife(ctx, appName, ids...)
 	}
 	lifeMapper := domain.LifeStringsWatcherMapperFunc(s.logger, lifeGetter)
 

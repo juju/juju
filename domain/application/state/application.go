@@ -635,13 +635,13 @@ WHERE a.name = $applicationName.name
 			return errors.Trace(err)
 		})
 		if err != nil {
-			return nil, errors.Annotatef(err, "querying unit life for %q", appName)
+			return nil, errors.Annotatef(err, "querying unit IDs for %q", appName)
 		}
 		uuids := make([]string, len(result))
 		for i, r := range result {
 			uuids[i] = r.UnitID
 		}
-		return uuids, errors.Trace(err)
+		return uuids, nil
 	}
 	return "unit", queryFunc
 }
