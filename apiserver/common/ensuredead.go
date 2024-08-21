@@ -15,15 +15,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// MachineService defines the methods that the facade assumes from the Machine
-// service.
-type MachineService interface {
-	// EnsureDeadMachine sets the provided machine's life status to Dead.
-	// No error is returned if the provided machine doesn't exist, just nothing
-	// gets updated.
-	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
-}
-
 // DeadEnsurer implements a common EnsureDead method for use by
 // various facades.
 type DeadEnsurer struct {
