@@ -106,7 +106,7 @@ func (s *statusGetSuite) TestHelp(c *gc.C) {
 		"Usage: status-get [options] [--include-data] [--application]\n" +
 		"\n" +
 		"Summary:\n" +
-		"print status information\n" +
+		"Print status information.\n" +
 		"\n" +
 		"Options:\n" +
 		"--application  (= false)\n" +

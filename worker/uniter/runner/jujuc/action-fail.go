@@ -32,7 +32,7 @@ problem with the action.
 	return jujucmd.Info(&cmd.Info{
 		Name:    "action-fail",
 		Args:    "[\"<failure message>\"]",
-		Purpose: "set action fail status with message",
+		Purpose: "Set action fail status with message.",
 		Doc:     doc,
 	})
 }

@@ -32,7 +32,7 @@ func (s *AddMetricSuite) TestHelp(c *gc.C) {
 Usage: add-metric [options] key1=value1 [key2=value2 ...]
 
 Summary:
-add metrics
+Add metrics.
 
 Options:
 -l, --labels (= "")

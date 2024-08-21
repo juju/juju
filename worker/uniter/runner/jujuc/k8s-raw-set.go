@@ -32,7 +32,7 @@ The spec applies to all units for the application.
 	return jujucmd.Info(&cmd.Info{
 		Name:    "k8s-raw-set",
 		Args:    "--file <core spec file>",
-		Purpose: "set k8s raw spec information",
+		Purpose: "Set k8s raw spec information.",
 		Doc:     doc,
 	})
 }

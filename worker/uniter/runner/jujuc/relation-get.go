@@ -64,7 +64,7 @@ leader.
 	return jujucmd.Info(&cmd.Info{
 		Name:    "relation-get",
 		Args:    args,
-		Purpose: "get relation settings",
+		Purpose: "Get relation settings.",
 		Doc:     doc,
 	})
 }

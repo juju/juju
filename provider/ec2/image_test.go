@@ -220,7 +220,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 			test.storage)
 		stor := test.storage
 		if len(stor) == 0 {
-			stor = []string{ssdStorage, ebsStorage}
+			stor = []string{ssdStorage, ebsStorage, ssdGP3Storage}
 		}
 		// We need to filter the image metadata to the test's
 		// arches and series; the provisioner and bootstrap

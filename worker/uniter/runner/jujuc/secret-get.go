@@ -43,6 +43,7 @@ return the same revision next time unless --peek or --refresh is used.
 Either the ID or label can be used to identify the secret.
 
 Examples
+
     secret-get secret:9m4e2mr0ui3e8a215n4g
     secret-get secret:9m4e2mr0ui3e8a215n4g token
     secret-get secret:9m4e2mr0ui3e8a215n4g token#base64
@@ -54,7 +55,7 @@ Examples
 	return jujucmd.Info(&cmd.Info{
 		Name:    "secret-get",
 		Args:    "<ID> [key[#base64]]",
-		Purpose: "get the content of a secret",
+		Purpose: "Get the content of a secret.",
 		Doc:     doc,
 	})
 }

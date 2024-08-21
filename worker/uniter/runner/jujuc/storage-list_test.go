@@ -108,7 +108,7 @@ func (s *storageListSuite) TestHelp(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: storage-list [options] [<storage-name>]
 
 Summary:
-list storage attached to the unit
+List storage attached to the unit.
 
 Options:
 --format  (= smart)

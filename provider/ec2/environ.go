@@ -530,8 +530,9 @@ func (e *environ) Region() (simplestreams.CloudSpec, error) {
 }
 
 const (
-	ebsStorage = "ebs"
-	ssdStorage = "ssd"
+	ebsStorage    = "ebs"
+	ssdGP3Storage = "ssd-gp3"
+	ssdStorage    = "ssd"
 )
 
 // DistributeInstances implements the state.InstanceDistributor policy.
@@ -639,7 +640,7 @@ func (e *environ) StartInstance(
 			Base:        args.InstanceConfig.Base,
 			Arch:        arch,
 			Constraints: args.Constraints,
-			Storage:     []string{ssdStorage, ebsStorage},
+			Storage:     []string{ssdStorage, ebsStorage, ssdGP3Storage},
 		},
 	)
 	if err != nil {
