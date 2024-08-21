@@ -9,11 +9,18 @@ import (
 	"net/url"
 
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/environs/config"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/state"
 )
+
+// ModelConfigService provides access to the model configuration.
+type ModelConfigService interface {
+	// ModelConfig returns the current config for the model.
+	ModelConfig(context.Context) (*config.Config, error)
+}
 
 // Resources represents the methods used by the resource opener from state.Resources.
 type Resources interface {

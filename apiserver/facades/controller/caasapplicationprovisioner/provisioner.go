@@ -118,7 +118,12 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 	}
 
 	newResourceOpener := func(appName string) (resources.Opener, error) {
-		return resource.NewResourceOpenerForApplication(st, ctx.ObjectStore(), appName)
+		args := resource.ResourceOpenerArgs{
+			State:              st,
+			ModelConfigService: modelConfigService,
+			Store:              ctx.ObjectStore(),
+		}
+		return resource.NewResourceOpenerForApplication(args, appName)
 	}
 
 	systemState, err := ctx.StatePool().SystemState()
@@ -721,7 +726,7 @@ func (a *API) ApplicationOCIResources(ctx context.Context, args params.Entities)
 			res.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		resources, err := a.newResourceOpener(app.Name())
+		resourceClient, err := a.newResourceOpener(app.Name())
 		if err != nil {
 			res.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -733,7 +738,7 @@ func (a *API) ApplicationOCIResources(ctx context.Context, args params.Entities)
 			if v.Type != charmresource.TypeContainerImage {
 				continue
 			}
-			reader, err := resources.OpenResource(v.Name)
+			reader, err := resourceClient.OpenResource(ctx, v.Name)
 			if err != nil {
 				res.Results[i].Error = apiservererrors.ServerError(err)
 				break

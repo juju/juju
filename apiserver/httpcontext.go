@@ -18,9 +18,11 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/stateauthenticator"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -63,6 +65,16 @@ func (ctxt *httpContext) controllerObjectStoreForRequest(r *http.Request) (objec
 		return nil, errors.Trace(err)
 	}
 	return ctxt.srv.shared.objectStoreGetter.GetObjectStore(r.Context(), st.ControllerModelUUID())
+}
+
+// serviceFactoryForRequest returns a service factory for a
+// given request.
+func (ctxt *httpContext) serviceFactoryForRequest(r *http.Request) (servicefactory.ServiceFactory, error) {
+	modelUUID, valid := httpcontext.RequestModelUUID(r)
+	if !valid {
+		return nil, errors.Trace(apiservererrors.ErrPerm)
+	}
+	return ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(model.UUID(modelUUID)), nil
 }
 
 // statePool returns the StatePool for this controller.

@@ -14,44 +14,33 @@ import (
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
-	"github.com/juju/juju/state"
 )
 
 type charmHubOpener struct {
-	st chClientState
+	modelConfigService ModelConfigService
 }
 
-func newCharmHubOpener(st chClientState) *charmHubOpener {
-	return &charmHubOpener{st}
+func newCharmHubOpener(modelConfigService ModelConfigService) resourceClientGetterFunc {
+	ch := &charmHubOpener{modelConfigService: modelConfigService}
+	return ch.NewClient
 }
 
-func (ch *charmHubOpener) NewClient() (*ResourceRetryClient, error) {
-	client, err := newCharmHubClient(ch.st)
+func (ch *charmHubOpener) NewClient(ctx context.Context) (*ResourceRetryClient, error) {
+	config, err := ch.modelConfigService.ModelConfig(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	charmhubURL, _ := config.CharmHubURL()
+	client, err := newCharmHubClient(charmhubURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return newRetryClient(client), nil
 }
 
-// chClientState represents a state which can provide a model to create a
-// CharmHub client.
-type chClientState interface {
-	Model() (*state.Model, error)
-}
-
-func newCharmHubClient(st chClientState) (ResourceGetter, error) {
-	m, err := st.Model()
-	if err != nil {
-		return &CharmHubClient{}, errors.Trace(err)
-	}
-	modelCfg, err := m.Config()
-	if err != nil {
-		return &CharmHubClient{}, errors.Trace(err)
-	}
-
-	chURL, _ := modelCfg.CharmHubURL()
+func newCharmHubClient(charmhubURL string) (ResourceGetter, error) {
 	chClient, err := charmhub.NewClient(charmhub.Config{
-		URL:    chURL,
+		URL:    charmhubURL,
 		Logger: logger,
 	})
 	if err != nil {

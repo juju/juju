@@ -638,7 +638,7 @@ type mockResourceOpener struct {
 	resources *mockResources
 }
 
-func (ro *mockResourceOpener) OpenResource(name string) (resources.Opened, error) {
+func (ro *mockResourceOpener) OpenResource(_ context.Context, name string) (resources.Opened, error) {
 	ro.MethodCall(ro, "OpenResource", name)
 	r, rio, err := ro.resources.OpenResource(ro.appName, name)
 	if err != nil {

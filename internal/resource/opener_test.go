@@ -5,6 +5,7 @@ package resource_test
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"sync"
 	"time"
@@ -60,7 +61,7 @@ func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 		Resource:   res.Resource,
 	}, nil)
 
-	opened, err := s.newOpener(0).OpenResource("wal-e")
+	opened, err := s.newOpener(0).OpenResource(context.TODO(), "wal-e")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(opened.Resource, gc.DeepEquals, res)
 	c.Assert(opened.Close(), jc.ErrorIsNil)
@@ -101,7 +102,7 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 		go func() {
 			defer finished.Done()
 			start.Done()
-			opened, err := s.newOpener(maxConcurrentRequests).OpenResource("wal-e")
+			opened, err := s.newOpener(maxConcurrentRequests).OpenResource(context.TODO(), "wal-e")
 			c.Assert(err, jc.ErrorIsNil)
 			c.Check(opened.Resource, gc.DeepEquals, res)
 			c.Assert(opened.Close(), jc.ErrorIsNil)
@@ -145,7 +146,7 @@ func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
 		Resource:   res.Resource,
 	}, nil)
 
-	opened, err := s.newOpener(0).OpenResource("wal-e")
+	opened, err := s.newOpener(0).OpenResource(context.TODO(), "wal-e")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opened.Resource, gc.DeepEquals, res)
 	err = opened.Close()
@@ -227,7 +228,7 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 	s.limiter.EXPECT().Acquire("uuid:postgresql")
 	s.limiter.EXPECT().Release("uuid:postgresql")
 
-	opened, err := s.newOpener(-1).OpenResource("wal-e")
+	opened, err := s.newOpener(-1).OpenResource(context.TODO(), "wal-e")
 	c.Assert(err, gc.ErrorMatches, "failed after retrying: boom")
 	c.Check(opened, gc.NotNil)
 	c.Check(opened.Resource, gc.DeepEquals, resources.Resource{})
@@ -240,6 +241,9 @@ func (s *OpenerSuite) newOpener(maxRequests int) *resource.ResourceOpener {
 	if maxRequests < 0 {
 		limiter = s.limiter
 	}
+	resourceFunc := func(ctx context.Context) (*resource.ResourceRetryClient, error) {
+		return resource.NewResourceRetryClientForTest(s.resourceGetter), nil
+	}
 	return resource.NewResourceOpenerForTest(
 		s.resources,
 		tag,
@@ -247,7 +251,7 @@ func (s *OpenerSuite) newOpener(maxRequests int) *resource.ResourceOpener {
 		s.appName,
 		s.charmURL,
 		s.charmOrigin,
-		resource.NewResourceRetryClientForTest(s.resourceGetter),
+		resourceFunc,
 		limiter,
 	)
 }

@@ -4,6 +4,7 @@
 package resource
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -18,15 +19,24 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// ResourceOpenerArgs are common arguments for the 2
+// types of ResourceOpeners: for unit and for application.
+type ResourceOpenerArgs struct {
+	State              *state.State
+	ModelConfigService ModelConfigService
+	Store              objectstore.ObjectStore
+}
+
 // NewResourceOpener returns a new resource.Opener for the given unit.
 //
 // The caller owns the State provided. It is the caller's
 // responsibility to close it.
 func NewResourceOpener(
-	st *state.State, store objectstore.ObjectStore,
-	resourceDownloadLimiterFunc func() ResourceDownloadLock, unitName string,
+	args ResourceOpenerArgs,
+	resourceDownloadLimiterFunc func() ResourceDownloadLock,
+	unitName string,
 ) (opener resources.Opener, err error) {
-	return newInternalResourceOpener(st, store, resourceDownloadLimiterFunc, unitName, "")
+	return newInternalResourceOpener(args, resourceDownloadLimiterFunc, unitName, "")
 }
 
 // NewResourceOpenerForApplication returns a new resource.Opener for the given app.
@@ -34,10 +44,10 @@ func NewResourceOpener(
 // The caller owns the State provided. It is the caller's
 // responsibility to close it.
 func NewResourceOpenerForApplication(
-	st *state.State, store objectstore.ObjectStore,
+	args ResourceOpenerArgs,
 	applicationName string,
 ) (opener resources.Opener, err error) {
-	return newInternalResourceOpener(st, store, func() ResourceDownloadLock {
+	return newInternalResourceOpener(args, func() ResourceDownloadLock {
 		return noopDownloadResourceLocker{}
 	}, "", applicationName)
 }
@@ -53,14 +63,16 @@ func (noopDownloadResourceLocker) Acquire(string) {}
 // Release releases the lock for the given application.
 func (noopDownloadResourceLocker) Release(appName string) {}
 
+type resourceClientGetterFunc func(ctx context.Context) (*ResourceRetryClient, error)
+
 func newInternalResourceOpener(
-	st *state.State, store objectstore.ObjectStore,
+	args ResourceOpenerArgs,
 	resourceDownloadLimiterFunc func() ResourceDownloadLock,
-	unitName string, appName string,
+	unitName, appName string,
 ) (opener resources.Opener, err error) {
 	var unit *state.Unit
 	if unitName != "" {
-		unit, err = st.Unit(unitName)
+		unit, err = args.State.Unit(unitName)
 		if err != nil {
 			return nil, errors.Annotate(err, "loading unit")
 		}
@@ -72,13 +84,9 @@ func newInternalResourceOpener(
 		}
 		appName = unit.ApplicationName()
 	}
-	application, err := st.Application(appName)
+	application, err := args.State.Application(appName)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	var resourceClientGetter interface {
-		NewClient() (*ResourceRetryClient, error)
 	}
 
 	var chURLStr *string
@@ -94,19 +102,16 @@ func newInternalResourceOpener(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	var clientGetter resourceClientGetterFunc
 	switch {
 	case charm.CharmHub.Matches(charmURL.Schema):
-		resourceClientGetter = newCharmHubOpener(st)
+		clientGetter = newCharmHubOpener(args.ModelConfigService)
 	default:
 		// Use the nop opener that performs no store side requests. Instead it
 		// will resort to using the state package only. Any thing else will call
 		// a not-found error.
-		resourceClientGetter = newNopOpener()
-	}
-
-	resourceClient, err := resourceClientGetter.NewClient()
-	if err != nil {
-		return nil, errors.Trace(err)
+		clientGetter = newNopOpener()
 	}
 
 	var userID names.Tag
@@ -117,9 +122,9 @@ func newInternalResourceOpener(
 	}
 
 	return &ResourceOpener{
-		resourceCache:               st.Resources(store),
-		modelUUID:                   st.ModelUUID(),
-		resourceClient:              resourceClient,
+		resourceCache:               args.State.Resources(args.Store),
+		modelUUID:                   args.State.ModelUUID(),
+		resourceClientGetter:        clientGetter,
 		user:                        userID,
 		charmURL:                    charmURL,
 		charmOrigin:                 *application.CharmOrigin(),
@@ -141,12 +146,12 @@ type ResourceOpener struct {
 	appName       string
 	unitName      string
 
-	resourceClient              ResourceGetter
+	resourceClientGetter        resourceClientGetterFunc
 	resourceDownloadLimiterFunc func() ResourceDownloadLock
 }
 
 // OpenResource implements server.ResourceOpener.
-func (ro *ResourceOpener) OpenResource(name string) (o resources.Opened, err error) {
+func (ro *ResourceOpener) OpenResource(ctx context.Context, name string) (o resources.Opened, err error) {
 	if ro.appName == "" {
 		return resources.Opened{}, errors.Errorf("missing application")
 	}
@@ -158,7 +163,7 @@ func (ro *ResourceOpener) OpenResource(name string) (o resources.Opened, err err
 	done := func() {
 		limiter.Release(appKey)
 	}
-	res, reader, err := ro.getResource(name, done)
+	res, reader, err := ro.getResource(ctx, name, done)
 	if err != nil {
 		return resources.Opened{}, errors.Trace(err)
 	}
@@ -181,7 +186,7 @@ var resourceMutex = kmutex.New()
 // If only the resource's details are in the cache (but not the actual
 // file) then the file is read from charmhub. In that case the
 // cache is updated to contain the file too.
-func (ro ResourceOpener) getResource(resName string, done func()) (_ resources.Resource, rdr io.ReadCloser, err error) {
+func (ro ResourceOpener) getResource(ctx context.Context, resName string, done func()) (_ resources.Resource, rdr io.ReadCloser, err error) {
 	defer func() {
 		if err == nil {
 			rdr = &resourceAccess{
@@ -220,7 +225,9 @@ func (ro ResourceOpener) getResource(resName string, done func()) (_ resources.R
 		Name:     res.Name,
 		Revision: res.Revision,
 	}
-	data, err := ro.resourceClient.GetResource(req)
+
+	client, err := ro.resourceClientGetter(ctx)
+	data, err := client.GetResource(req)
 	// (anastasiamac 2017-05-25) This might not work all the time
 	// as the error types may be lost after call to some clients, for example http.
 	// But for these cases, the next block will bubble an un-annotated error up.
@@ -340,12 +347,13 @@ type nopOpener struct{}
 
 // newNopOpener creates a new nopOpener that creates a new resourceClient. The new
 // nopClient performs no operations for getting resources.
-func newNopOpener() *nopOpener {
-	return &nopOpener{}
+func newNopOpener() resourceClientGetterFunc {
+	no := &nopOpener{}
+	return no.NewClient
 }
 
 // NewClient opens a new charmhub resourceClient.
-func (o *nopOpener) NewClient() (*ResourceRetryClient, error) {
+func (o *nopOpener) NewClient(context.Context) (*ResourceRetryClient, error) {
 	return newRetryClient(nopClient{}), nil
 }
 

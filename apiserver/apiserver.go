@@ -846,7 +846,17 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
-			opener, err := resource.NewResourceOpener(st.State, store, srv.getResourceDownloadLimiter, tag.Id())
+			serviceFactory, err := httpCtxt.serviceFactoryForRequest(req)
+			if err != nil {
+				return nil, nil, errors.Trace(errors.Annotate(err, "cannot get service factory for unit resource request"))
+			}
+
+			args := resource.ResourceOpenerArgs{
+				State:              st.State,
+				ModelConfigService: serviceFactory.Config(),
+				Store:              store,
+			}
+			opener, err := resource.NewResourceOpener(args, srv.getResourceDownloadLimiter, tag.Id())
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
