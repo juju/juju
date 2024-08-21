@@ -201,7 +201,7 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 		RevisionID:     ptr(s.fakeUUID.String()),
 	})
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
-	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID).Return(
+	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(
 		func() error { return nil }, nil,
 	)
 	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, domainsecret.UpsertSecretParams{
@@ -216,7 +216,7 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), &coresecrets.ValueRef{
 		BackendID:  "backend-id",
 		RevisionID: "revision-id",
-	}, s.modelID, s.fakeUUID).Return(
+	}, s.modelID, s.fakeUUID.String()).Return(
 		func() error { return nil }, nil,
 	)
 	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, "mysql/0", &coresecrets.SecretConsumerMetadata{
@@ -249,7 +249,7 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 		Checksum:    "checksum-1234",
 		RevisionID:  ptr(s.fakeUUID.String()),
 	})
-	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID).Return(
+	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(
 		func() error { return nil }, nil,
 	)
 

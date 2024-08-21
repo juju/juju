@@ -177,7 +177,7 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 	if err != nil {
 		return errors.Annotate(err, "getting model uuid")
 	}
-	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, coremodel.UUID(modelID), revisionID)
+	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, coremodel.UUID(modelID), revisionID.String())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -237,7 +237,7 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 	if err != nil {
 		return errors.Annotate(err, "getting model uuid")
 	}
-	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, coremodel.UUID(modelID), revisionID)
+	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, coremodel.UUID(modelID), revisionID.String())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -342,7 +342,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		if err != nil {
 			return errors.Annotate(err, "getting model uuid")
 		}
-		rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, coremodel.UUID(modelID), revisionID)
+		rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, coremodel.UUID(modelID), revisionID.String())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -411,7 +411,7 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 		if err != nil {
 			return errors.Annotate(err, "getting model uuid")
 		}
-		rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, coremodel.UUID(modelID), revisionID)
+		rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, p.ValueRef, coremodel.UUID(modelID), revisionID.String())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -703,7 +703,7 @@ func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.UR
 	if err != nil {
 		return errors.Annotate(err, "getting model uuid")
 	}
-	rollBack, err := s.secretBackendReferenceMutator.UpdateSecretBackendReference(ctx, params.ValueRef, coremodel.UUID(modelID), revisionID)
+	rollBack, err := s.secretBackendReferenceMutator.UpdateSecretBackendReference(ctx, params.ValueRef, coremodel.UUID(modelID), revisionID.String())
 	if err != nil {
 		return errors.Trace(err)
 	}

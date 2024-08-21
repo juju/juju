@@ -119,11 +119,11 @@ type State interface {
 // SecretBackendReferenceMutator describes methods for interacting with the secret backend state.
 type SecretBackendReferenceMutator interface {
 	// AddSecretBackendReference adds a reference to the secret backend for the given secret revision.
-	AddSecretBackendReference(ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID uuid.UUID) (func() error, error)
+	AddSecretBackendReference(ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string) (func() error, error)
 	// RemoveSecretBackendReference removes the reference to the secret backend for the given secret revision.
-	RemoveSecretBackendReference(ctx context.Context, revisionIDs ...uuid.UUID) error
+	RemoveSecretBackendReference(ctx context.Context, revisionIDs ...string) error
 	// UpdateSecretBackendReference updates the reference to the secret backend for the given secret revision.
-	UpdateSecretBackendReference(ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID uuid.UUID) (func() error, error)
+	UpdateSecretBackendReference(ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string) (func() error, error)
 }
 
 // WatcherFactory describes methods for creating watchers.

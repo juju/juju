@@ -13,20 +13,13 @@ import (
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/secrets/provider"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // DeleteObsoleteUserSecretRevisions deletes any obsolete user secret revisions that are marked as auto-prune.
 func (s *SecretService) DeleteObsoleteUserSecretRevisions(ctx context.Context) error {
-	deletedRevisionIDStrs, err := s.secretState.DeleteObsoleteUserSecretRevisions(ctx)
+	deletedRevisionIDs, err := s.secretState.DeleteObsoleteUserSecretRevisions(ctx)
 	if err != nil {
 		return errors.Trace(err)
-	}
-	deletedRevisionIDs := make([]uuid.UUID, len(deletedRevisionIDStrs))
-	for i, s := range deletedRevisionIDStrs {
-		if deletedRevisionIDs[i], err = uuid.UUIDFromString(s); err != nil {
-			return errors.Trace(err)
-		}
 	}
 	err = s.secretBackendReferenceMutator.RemoveSecretBackendReference(ctx, deletedRevisionIDs...)
 	return errors.Trace(err)
@@ -45,15 +38,9 @@ func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, para
 		return errors.Trace(err)
 	}
 
-	deletedRevisionIDStrs, err := s.secretState.DeleteSecret(ctx, uri, params.Revisions)
+	deletedRevisionIDs, err := s.secretState.DeleteSecret(ctx, uri, params.Revisions)
 	if err != nil {
 		return errors.Trace(err)
-	}
-	deletedRevisionIDs := make([]uuid.UUID, len(deletedRevisionIDStrs))
-	for i, s := range deletedRevisionIDStrs {
-		if deletedRevisionIDs[i], err = uuid.UUIDFromString(s); err != nil {
-			return errors.Trace(err)
-		}
 	}
 	err = s.secretBackendReferenceMutator.RemoveSecretBackendReference(ctx, deletedRevisionIDs...)
 	return errors.Trace(err)

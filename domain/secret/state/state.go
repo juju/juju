@@ -113,10 +113,7 @@ func (st State) CreateUserSecret(
 		}
 		return nil
 	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 // checkSecretUserLabelExists returns an error if a user
@@ -325,10 +322,7 @@ func (st State) UpdateSecret(
 		}
 		return nil
 	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 // checkUnitSecretLabelExists returns function which checks if a
@@ -2839,7 +2833,7 @@ AND    (subject_type_id = $secretAccessorType.unit_type_id AND subject_id IN ($u
 	return revisionResult, nil
 }
 
-// GetSecretRevisionID returns the revision UUID for the specified secret URI and version,
+// GetSecretRevisionID returns the revision UUID for the specified secret URI and revision,
 // or an error satisfying [secreterrors.SecretRevisionNotFound] if the revision is not found.
 func (s *State) GetSecretRevisionID(ctx context.Context, uri *coresecrets.URI, revision int) (string, error) {
 	db, err := s.DB()
@@ -2847,7 +2841,7 @@ func (s *State) GetSecretRevisionID(ctx context.Context, uri *coresecrets.URI, r
 		return "", errors.Trace(err)
 	}
 
-	input := secretRevision{
+	secretRev := secretRevision{
 		SecretID: uri.ID,
 		Revision: revision,
 	}
@@ -2855,12 +2849,12 @@ func (s *State) GetSecretRevisionID(ctx context.Context, uri *coresecrets.URI, r
 SELECT uuid AS &secretRevision.uuid
 FROM   secret_revision
 WHERE  secret_id = $secretRevision.secret_id
-    AND    revision = $secretRevision.revision`, input)
+    AND    revision = $secretRevision.revision`, secretRev)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, input).Get(&input)
+		err := tx.Query(ctx, stmt, secretRev).Get(&secretRev)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("%w: %s/%d", secreterrors.SecretRevisionNotFound, uri, revision)
 		}
@@ -2869,7 +2863,7 @@ WHERE  secret_id = $secretRevision.secret_id
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return input.ID, nil
+	return secretRev.ID, nil
 }
 
 type dbrevisionUUIDs []revisionUUID
