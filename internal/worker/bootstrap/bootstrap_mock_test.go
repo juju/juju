@@ -1262,6 +1262,44 @@ func (m *MockUserService) EXPECT() *MockUserServiceMockRecorder {
 	return m.recorder
 }
 
+// AddExternalUser mocks base method.
+func (m *MockUserService) AddExternalUser(arg0 context.Context, arg1 user.Name, arg2 string, arg3 user.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddExternalUser", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddExternalUser indicates an expected call of AddExternalUser.
+func (mr *MockUserServiceMockRecorder) AddExternalUser(arg0, arg1, arg2, arg3 any) *MockUserServiceAddExternalUserCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddExternalUser", reflect.TypeOf((*MockUserService)(nil).AddExternalUser), arg0, arg1, arg2, arg3)
+	return &MockUserServiceAddExternalUserCall{Call: call}
+}
+
+// MockUserServiceAddExternalUserCall wrap *gomock.Call
+type MockUserServiceAddExternalUserCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockUserServiceAddExternalUserCall) Return(arg0 error) *MockUserServiceAddExternalUserCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockUserServiceAddExternalUserCall) Do(f func(context.Context, user.Name, string, user.UUID) error) *MockUserServiceAddExternalUserCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockUserServiceAddExternalUserCall) DoAndReturn(f func(context.Context, user.Name, string, user.UUID) error) *MockUserServiceAddExternalUserCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AddUser mocks base method.
 func (m *MockUserService) AddUser(arg0 context.Context, arg1 service.AddUserArg) (user.UUID, []byte, error) {
 	m.ctrl.T.Helper()

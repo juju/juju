@@ -36,10 +36,11 @@ func NewUserState(factory database.TxnRunnerFactory) *UserState {
 	}
 }
 
-// AddUser will add a new user to the database. If the user already exists,
-// an error that satisfies accesserrors.AlreadyExists will be returned. If the
-// creator does not exist, an error that satisfies
-// accesserrors.UserCreatorUUIDNotFound will be returned.
+// AddUser adds a new user to the database and enables the user.
+// If the user already exists an error that satisfies
+// [accesserrors.UserAlreadyExists] will be returned. If the creator does not
+// exist an error that satisfies [accesserrors.UserCreatorUUIDNotFound] will
+// be returned.
 func (st *UserState) AddUser(
 	ctx context.Context,
 	uuid user.UUID,

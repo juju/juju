@@ -718,6 +718,8 @@ WHERE   name = $M.grant_on
 `
 	case corepermission.Offer:
 		return nil
+	default:
+		return errors.NotValidf("object type %q", target.ObjectType)
 	}
 
 	targetExistsStmt, err := sqlair.Prepare(targetExists, sqlair.M{})

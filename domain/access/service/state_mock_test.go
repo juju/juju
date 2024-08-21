@@ -48,17 +48,17 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AddUser mocks base method.
-func (m *MockState) AddUser(arg0 context.Context, arg1 user.UUID, arg2 user.Name, arg3 string, arg4 bool, arg5 user.UUID, arg6 permission.AccessSpec) error {
+func (m *MockState) AddUser(arg0 context.Context, arg1 user.UUID, arg2 user.Name, arg3 string, arg4 bool, arg5 user.UUID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddUser", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	ret := m.ctrl.Call(m, "AddUser", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddUser indicates an expected call of AddUser.
-func (mr *MockStateMockRecorder) AddUser(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *MockStateAddUserCall {
+func (mr *MockStateMockRecorder) AddUser(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockStateAddUserCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUser", reflect.TypeOf((*MockState)(nil).AddUser), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUser", reflect.TypeOf((*MockState)(nil).AddUser), arg0, arg1, arg2, arg3, arg4, arg5)
 	return &MockStateAddUserCall{Call: call}
 }
 
@@ -74,13 +74,13 @@ func (c *MockStateAddUserCall) Return(arg0 error) *MockStateAddUserCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAddUserCall) Do(f func(context.Context, user.UUID, user.Name, string, bool, user.UUID, permission.AccessSpec) error) *MockStateAddUserCall {
+func (c *MockStateAddUserCall) Do(f func(context.Context, user.UUID, user.Name, string, bool, user.UUID) error) *MockStateAddUserCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddUserCall) DoAndReturn(f func(context.Context, user.UUID, user.Name, string, bool, user.UUID, permission.AccessSpec) error) *MockStateAddUserCall {
+func (c *MockStateAddUserCall) DoAndReturn(f func(context.Context, user.UUID, user.Name, string, bool, user.UUID) error) *MockStateAddUserCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -187,6 +187,35 @@ func (s *userServiceSuite) TestAddUserWithPermissionInvalid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, usererrors.PermissionNotValid)
 }
 
+func (s *userServiceSuite) TestAddExternalUser(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	name := coreusertesting.GenNewName(c, "fred@external")
+	creatorUUID := newUUID(c)
+	s.state.EXPECT().AddUser(
+		gomock.Any(),
+		gomock.Any(),
+		name,
+		name.Name(),
+		true,
+		creatorUUID,
+	)
+
+	err := s.service().AddExternalUser(
+		context.Background(),
+		name,
+		name.Name(),
+		creatorUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *userServiceSuite) TestAddExternalUserLocal(c *gc.C) {
+	creatorUUID := newUUID(c)
+	name := coreusertesting.GenNewName(c, "fred")
+	err := s.service().AddExternalUser(context.Background(), name, name.Name(), creatorUUID)
+	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
+}
+
 // TestRemoveUser is testing the happy path for removing a user.
 func (s *userServiceSuite) TestRemoveUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()

@@ -119,7 +119,7 @@ func (s *UserService) GetUserByAuth(
 // the user will be added with an activation key.
 // The following error types are possible from this function:
 //   - accesserrors.UserNameNotValid: When the username supplied is not valid.
-//   - accesserrors.AlreadyExists: If a user with the supplied name already exists.
+//   - accesserrors.UserAlreadyExists: If a user with the supplied name already exists.
 //   - accesserrors.CreatorUUIDNotFound: If a creator has been supplied for the user
 //     and the creator does not exist.
 //   - auth.ErrPasswordNotValid: If the password supplied is not valid.
@@ -190,6 +190,26 @@ func (s *UserService) addUserWithActivationKey(ctx context.Context, arg AddUserA
 		return nil, errors.Trace(err)
 	}
 	return key, nil
+}
+
+// AddExternalUser adds a new external user to the database and does not set a
+// password or activation key.
+// The following error types are possible from this function:
+//   - accesserrors.UserNameNotValid: When the username supplied is not valid.
+//   - accesserrors.UserAlreadyExists: If a user with the supplied name already exists.
+//   - accesserrors.CreatorUUIDNotFound: If the creator supplied for the user
+//     does not exist.
+func (s *UserService) AddExternalUser(ctx context.Context, name user.Name, displayName string, creatorUUID user.UUID) error {
+	if name.IsLocal() {
+		return errors.Annotatef(accesserrors.UserNameNotValid, "cannot use add external user method to add local user")
+	}
+
+	uuid, err := user.NewUUID()
+	if err != nil {
+		return errors.Annotate(err, "generating user UUID")
+	}
+	err = s.st.AddUser(ctx, uuid, name, displayName, true, creatorUUID)
+	return err
 }
 
 // RemoveUser marks the user as removed and removes any credentials or

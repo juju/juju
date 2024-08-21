@@ -54,7 +54,7 @@ func (s *modelConfigSuite) SetUpTest(c *gc.C) {
 	userID, err := coreuser.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	accessState := accessstate.NewState(s.ControllerSuite.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = accessState.AddUser(
+	err = accessState.AddUserWithPermission(
 		context.Background(), userID,
 		coreuser.AdminUserName,
 		coreuser.AdminUserName.Name(),

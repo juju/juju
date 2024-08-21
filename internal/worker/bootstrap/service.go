@@ -98,6 +98,17 @@ type UserService interface {
 	// the user will be added with an activation key.
 	AddUser(ctx context.Context, arg userservice.AddUserArg) (user.UUID, []byte, error)
 
+	// AddExternalUser adds a new external user to the database and does not set a
+	// password or activation key.
+	// The following error types are possible from this function:
+	//   - accesserrors.UserNameNotValid: When the username supplied is not
+	//     valid.
+	//   - accesserrors.UserAlreadyExists: If a user with the supplied name
+	//     already exists.
+	//   - accesserrors.CreatorUUIDNotFound: If the creator supplied for the
+	//     user does not exist.
+	AddExternalUser(ctx context.Context, name user.Name, displayName string, creatorUUID user.UUID) error
+
 	// GetUserByName will return the user with the given name.
 	GetUserByName(ctx context.Context, name user.Name) (user.User, error)
 }

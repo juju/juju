@@ -119,7 +119,7 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 	c.Assert(err, jc.ErrorIsNil)
 	userName := usertesting.GenNewName(c, "test-user")
 	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = userState.AddUser(
+	err = userState.AddUserWithPermission(
 		context.Background(),
 		userUUID,
 		userName,

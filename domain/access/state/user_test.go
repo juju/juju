@@ -164,9 +164,83 @@ func (s *userStateSuite) TestAddUser(c *gc.C) {
 	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	loginAccess := s.controllerLoginAccess()
 	name := usertesting.GenNewName(c, "admin")
 	err = st.AddUser(
+		context.Background(), adminUUID,
+		name, "admin", false,
+		adminUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newUser, err := st.GetUser(context.Background(), adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(newUser.Name, gc.Equals, name)
+	c.Check(newUser.UUID, gc.Equals, adminUUID)
+	c.Check(newUser.Disabled, jc.IsFalse)
+	c.Check(newUser.CreatorUUID, gc.Equals, adminUUID)
+}
+
+// TestAddUserAlreadyExists asserts that we get an error when we try to add a
+// user that already exists.
+func (s *userStateSuite) TestAddUserAlreadyExists(c *gc.C) {
+	st := NewUserState(s.TxnRunnerFactory())
+
+	// Add admin user.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	name := usertesting.GenNewName(c, "admin")
+	err = st.AddUser(
+		context.Background(), adminUUID,
+		name, "admin", false,
+		adminUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Try and add admin user again.
+	adminCloneUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddUser(
+		context.Background(), adminCloneUUID,
+		name, "admin", false,
+		adminCloneUUID,
+	)
+	c.Assert(err, jc.ErrorIs, usererrors.UserAlreadyExists)
+}
+
+// TestAddUserCreatorNotFound asserts that we get an error when we try
+// to add a user that has a creator that does not exist.
+func (s *userStateSuite) TestAddUserCreatorNotFound(c *gc.C) {
+	st := NewUserState(s.TxnRunnerFactory())
+
+	// Add admin user.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Try and add admin user with a creator that does not exist.
+	nonExistingUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	name := usertesting.GenNewName(c, "admin")
+	err = st.AddUser(
+		context.Background(), adminUUID,
+		name, "admin", false,
+		nonExistingUUID,
+	)
+	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
+}
+
+// TestAddUserWithPermission asserts a new user is added, enabled, and has
+// the provided permission.
+func (s *userStateSuite) TestAddUserWithPermission(c *gc.C) {
+	st := NewUserState(s.TxnRunnerFactory())
+
+	// Add admin user.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	loginAccess := s.controllerLoginAccess()
+	name := usertesting.GenNewName(c, "admin")
+	err = st.AddUserWithPermission(
 		context.Background(), adminUUID,
 		name, "admin", false,
 		adminUUID, loginAccess,
@@ -189,61 +263,9 @@ func (s *userStateSuite) TestAddUser(c *gc.C) {
 	c.Check(newUserAccess.Object.Id(), gc.Equals, loginAccess.Target.Key)
 }
 
-// TestAddUserAlreadyExists asserts that we get an error when we try to add a
-// user that already exists.
-func (s *userStateSuite) TestAddUserAlreadyExists(c *gc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
-
-	// Add admin user.
-	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-
-	name := usertesting.GenNewName(c, "admin")
-	err = st.AddUser(
-		context.Background(), adminUUID,
-		name, "admin", false,
-		adminUUID,
-		s.controllerLoginAccess(),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Try and add admin user again.
-	adminCloneUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddUser(
-		context.Background(), adminCloneUUID,
-		name, "admin", false,
-		adminCloneUUID,
-		s.controllerLoginAccess(),
-	)
-	c.Assert(err, jc.ErrorIs, usererrors.UserAlreadyExists)
-}
-
-// TestAddUserCreatorNotFound asserts that we get an error when we try
-// to add a user that has a creator that does not exist.
-func (s *userStateSuite) TestAddUserCreatorNotFound(c *gc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
-
-	// Add admin user.
-	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Try and add admin user with a creator that does not exist.
-	nonExistingUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	name := usertesting.GenNewName(c, "admin")
-	err = st.AddUser(
-		context.Background(), adminUUID,
-		name, "admin", false,
-		nonExistingUUID,
-		s.controllerLoginAccess(),
-	)
-	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
-}
-
-// TestAddUserWithInvalidPermissions asserts that we can't add a user to the
+// TestAddUserWithPermissionInvalid asserts that we can't add a user to the
 // database.
-func (s *userStateSuite) TestAddUserWithInvalidPermissions(c *gc.C) {
+func (s *userStateSuite) TestAddUserWithPermissionInvalid(c *gc.C) {
 	st := NewUserState(s.TxnRunnerFactory())
 
 	// Add admin user.
@@ -311,7 +333,7 @@ func (s *userStateSuite) TestGetRemovedUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	adminName := usertesting.GenNewName(c, "admin")
-	err = st.AddUser(
+	err = st.AddUserWithPermission(
 		context.Background(), adminUUID,
 		adminName, "admin", false,
 		adminUUID,
@@ -408,7 +430,7 @@ func (s *userStateSuite) TestGetRemovedUserByName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	adminName := usertesting.GenNewName(c, "admin")
-	err = st.AddUser(
+	err = st.AddUserWithPermission(
 		context.Background(), adminUUID,
 		adminName, "admin",
 		false,
@@ -422,7 +444,7 @@ func (s *userStateSuite) TestGetRemovedUserByName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	userToRemoveName := usertesting.GenNewName(c, "userToRemove")
-	err = st.AddUser(
+	err = st.AddUserWithPermission(
 		context.Background(), userToRemoveUUID,
 		userToRemoveName, "userToRemove",
 		false,
@@ -450,7 +472,7 @@ func (s *userStateSuite) TestGetUserByNameMultipleUsers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "admin")
-	err = st.AddUser(
+	err = st.AddUserWithPermission(
 		context.Background(), adminUUID,
 		name, "admin",
 		false,
@@ -685,7 +707,7 @@ func (s *userStateSuite) TestRemoveUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	adminName := usertesting.GenNewName(c, "admin")
-	err = st.AddUser(
+	err = st.AddUserWithPermission(
 		context.Background(), adminUUID,
 		adminName, "admin",
 		false,
@@ -699,7 +721,7 @@ func (s *userStateSuite) TestRemoveUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	userToRemoveName := usertesting.GenNewName(c, "userToRemove")
-	err = st.AddUser(
+	err = st.AddUserWithPermission(
 		context.Background(), userToRemoveUUID,
 		userToRemoveName, "userToRemove",
 		false,
@@ -1082,7 +1104,7 @@ func (s *userStateSuite) TestGetActivationKeyNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "admin")
-	err = st.AddUser(
+	err = st.AddUserWithPermission(
 		context.Background(), adminUUID,
 		name, "admin",
 		false,
@@ -1274,7 +1296,7 @@ func (s *userStateSuite) TestGetUserUUIDByName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	name := usertesting.GenNewName(c, "dnuof")
-	err = st.AddUser(
+	err = st.AddUserWithPermission(
 		context.Background(),
 		uuid,
 		name, "",
@@ -1408,7 +1430,6 @@ func (s *userStateSuite) TestLastModelLoginModelUserNeverAccessedModel(c *gc.C) 
 }
 
 func (s *userStateSuite) addTestUser(c *gc.C, st *UserState, name string) (user.Name, user.UUID) {
-	// Add admin user with activation key.
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 

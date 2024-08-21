@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	usererrors "github.com/juju/juju/domain/access/errors"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	userservice "github.com/juju/juju/domain/access/service"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -291,7 +291,7 @@ func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {
 	if err != nil {
 		return errors.Annotatef(err, "generating metrics password")
 	}
-	password := auth.NewPassword(pass)
+	metricsPassword := auth.NewPassword(pass)
 
 	metricsName, err := user.NewName("juju-metrics")
 	if err != nil {
@@ -300,7 +300,7 @@ func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {
 	_, _, err = w.cfg.UserService.AddUser(ctx, userservice.AddUserArg{
 		Name:        metricsName,
 		DisplayName: "Juju Metrics",
-		Password:    &password,
+		Password:    &metricsPassword,
 		CreatorUUID: adminUser.UUID,
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
@@ -310,10 +310,20 @@ func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {
 			},
 		},
 	})
-	// User already exists, we don't need to do anything in this scenario.
-	if errors.Is(err, usererrors.UserAlreadyExists) {
+	if errors.Is(err, accesserrors.UserAlreadyExists) {
 		return nil
 	}
+
+	err = w.cfg.UserService.AddExternalUser(
+		ctx,
+		permission.EveryoneUserName,
+		"",
+		adminUser.UUID,
+	)
+	if errors.Is(err, accesserrors.UserAlreadyExists) {
+		return nil
+	}
+
 	return errors.Annotatef(err, "inserting initial users")
 }
 

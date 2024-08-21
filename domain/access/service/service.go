@@ -45,7 +45,6 @@ type UserState interface {
 		displayName string,
 		external bool,
 		creatorUUID user.UUID,
-		permission permission.AccessSpec,
 	) error
 
 	// AddUserWithPasswordHash will add a new user to the database with the

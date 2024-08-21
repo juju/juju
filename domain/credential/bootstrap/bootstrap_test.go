@@ -40,7 +40,7 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = userState.AddUser(
+	err = userState.AddUserWithPermission(
 		context.Background(), userUUID,
 		usertesting.GenNewName(c, "fred"),
 		"test user",
