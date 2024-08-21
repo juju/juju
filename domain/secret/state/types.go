@@ -61,7 +61,7 @@ type secretInfo struct {
 	Description            string    `db:"description"`
 	RotatePolicy           string    `db:"policy"`
 	AutoPrune              bool      `db:"auto_prune"`
-	LatestRevisionCheckSum string    `db:"latest_revision_checksum"`
+	LatestRevisionChecksum string    `db:"latest_revision_checksum"`
 	CreateTime             time.Time `db:"create_time"`
 	UpdateTime             time.Time `db:"update_time"`
 
@@ -248,7 +248,7 @@ func (rows secretInfos) toSecretMetadata(secretOwners []secretOwner) ([]*coresec
 			CreateTime:             row.CreateTime,
 			UpdateTime:             row.UpdateTime,
 			LatestRevision:         row.LatestRevision,
-			LatestRevisionChecksum: row.LatestRevisionCheckSum,
+			LatestRevisionChecksum: row.LatestRevisionChecksum,
 			AutoPrune:              row.AutoPrune,
 			RotatePolicy:           coresecrets.RotatePolicy(row.RotatePolicy),
 		}

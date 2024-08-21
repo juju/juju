@@ -1793,6 +1793,32 @@ func fillDataForUpsertSecretParams(c *gc.C, p *domainsecret.UpsertSecretParams, 
 	p.Checksum = checksum
 }
 
+func (s *stateSuite) TestUpdateSecretContentNoOpsIfNoContentChange(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{}
+	fillDataForUpsertSecretParams(c, &sp, coresecrets.SecretData{"foo": "bar", "hello": "world"})
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.UpdateSecret(context.Background(), uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	md, revs, err := st.ListSecrets(ctx, uri, ptr(1), domainsecret.NilLabels)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md, gc.HasLen, 1)
+	c.Assert(md[0].LatestRevision, gc.Equals, 1)
+
+	c.Assert(revs, gc.HasLen, 1)
+	c.Assert(revs[0], gc.HasLen, 1)
+	rev := revs[0][0]
+	c.Assert(rev.Revision, gc.Equals, 1)
+}
+
 func (s *stateSuite) TestUpdateSecretContent(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
@@ -1811,12 +1837,6 @@ func (s *stateSuite) TestUpdateSecretContent(c *gc.C) {
 	}
 	fillDataForUpsertSecretParams(c, &sp2, coresecrets.SecretData{"foo2": "bar2", "hello": "world"})
 	err = st.UpdateSecret(context.Background(), uri, sp2)
-	c.Assert(err, jc.ErrorIsNil)
-
-	sp3 := domainsecret.UpsertSecretParams{}
-	// No content change, no new revision created.
-	fillDataForUpsertSecretParams(c, &sp3, coresecrets.SecretData{"foo2": "bar2", "hello": "world"})
-	err = st.UpdateSecret(context.Background(), uri, sp3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, revs, err := st.ListSecrets(ctx, uri, ptr(2), domainsecret.NilLabels)
