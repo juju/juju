@@ -21,6 +21,7 @@ bootstrap: 10132
 cancel-task: 10053
 change-user-password: 10118
 charm-resources: 10099
+cloud/ec2: 15279
 clouds: 10182
 collect-metrics: 10085
 config: 10139
