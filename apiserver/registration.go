@@ -41,7 +41,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		}
 		return
 	}
-	st, err := h.ctxt.stateForRequestUnauthenticated(req)
+	st, err := h.ctxt.stateForRequestUnauthenticated(req.Context())
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)

@@ -34,10 +34,10 @@ type httpContext struct {
 }
 
 // stateForRequestUnauthenticated returns a state instance appropriate for
-// using for the model implicit in the given request
+// using for the model implicit in the given context supplied from a request
 // without checking any authentication information.
-func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state.PooledState, error) {
-	modelUUID, valid := httpcontext.RequestModelUUID(r)
+func (ctxt *httpContext) stateForRequestUnauthenticated(ctx context.Context) (*state.PooledState, error) {
+	modelUUID, valid := httpcontext.RequestModelUUID(ctx)
 	if !valid {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
 	}
@@ -48,29 +48,33 @@ func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state
 	return st, nil
 }
 
-// objectStoreForRequest returns an object store instance
-// appropriate for using for the model implicit in the given request
-// without checking any authentication information.
-func (ctxt *httpContext) objectStoreForRequest(r *http.Request) (objectstore.ObjectStore, error) {
-	modelUUID, valid := httpcontext.RequestModelUUID(r)
+// objectStoreForRequest returns an object store instance appropriate
+// for using for the model implicit in the given context supplied from
+// a request without checking any authentication information.
+func (ctxt *httpContext) objectStoreForRequest(ctx context.Context) (objectstore.ObjectStore, error) {
+	modelUUID, valid := httpcontext.RequestModelUUID(ctx)
 	if !valid {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
 	}
-	return ctxt.srv.shared.objectStoreGetter.GetObjectStore(r.Context(), modelUUID)
+	return ctxt.srv.shared.objectStoreGetter.GetObjectStore(ctx, modelUUID)
 }
 
-func (ctxt *httpContext) controllerObjectStoreForRequest(r *http.Request) (objectstore.ObjectStore, error) {
+// controllerObjectStoreForRequest returns an object store instance
+// appropriate for using for the controller model without checking
+// any authentication information.
+func (ctxt *httpContext) controllerObjectStoreForRequest(ctx context.Context) (objectstore.ObjectStore, error) {
 	st, err := ctxt.statePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return ctxt.srv.shared.objectStoreGetter.GetObjectStore(r.Context(), st.ControllerModelUUID())
+	return ctxt.srv.shared.objectStoreGetter.GetObjectStore(ctx, st.ControllerModelUUID())
 }
 
-// serviceFactoryForRequest returns a service factory for a
-// given request.
-func (ctxt *httpContext) serviceFactoryForRequest(r *http.Request) (servicefactory.ServiceFactory, error) {
-	modelUUID, valid := httpcontext.RequestModelUUID(r)
+// serviceFactoryForRequest returns a service factory appropriate for using
+// for the model implicit in the given context supplied from a request without
+// checking any authentication information.
+func (ctxt *httpContext) serviceFactoryForRequest(ctx context.Context) (servicefactory.ServiceFactory, error) {
+	modelUUID, valid := httpcontext.RequestModelUUID(ctx)
 	if !valid {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
 	}
@@ -94,7 +98,7 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
 	if !ok {
 		return nil, nil, apiservererrors.ErrPerm
 	}
-	st, err := ctxt.stateForRequestUnauthenticated(r)
+	st, err := ctxt.stateForRequestUnauthenticated(r.Context())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

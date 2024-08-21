@@ -79,8 +79,11 @@ type modelKey struct{}
 // attempt is made to validate the model UUID; QueryModelHandler and
 // BucketModelHandler does this, and ControllerModelHandler should always be
 // supplied with a valid UUID.
-func RequestModelUUID(req *http.Request) (string, bool) {
-	if value := req.Context().Value(modelKey{}); value != nil {
+func RequestModelUUID(ctx context.Context) (string, bool) {
+	if ctx == nil {
+		return "", false
+	}
+	if value := ctx.Value(modelKey{}); value != nil {
 		return value.(string), true
 	}
 	return "", false

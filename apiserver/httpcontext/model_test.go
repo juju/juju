@@ -32,7 +32,7 @@ var _ = gc.Suite(&ModelHandlersSuite{})
 func (s *ModelHandlersSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		modelUUID, _ := httpcontext.RequestModelUUID(r)
+		modelUUID, _ := httpcontext.RequestModelUUID(r.Context())
 		io.WriteString(w, modelUUID)
 	})
 	s.controllerModelHandler = &httpcontext.ControllerModelHandler{
@@ -55,7 +55,8 @@ func (s *ModelHandlersSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ModelHandlersSuite) TestRequestModelUUIDNoContext(c *gc.C) {
-	uuid, valid := httpcontext.RequestModelUUID(&http.Request{})
+	r := &http.Request{}
+	uuid, valid := httpcontext.RequestModelUUID(r.Context())
 	c.Assert(uuid, gc.Equals, "")
 	c.Assert(valid, jc.IsFalse)
 }

@@ -110,7 +110,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		st, err := h.ctxt.stateForRequestUnauthenticated(req)
+		st, err := h.ctxt.stateForRequestUnauthenticated(req.Context())
 		if err != nil {
 			socket.sendError(err)
 			return

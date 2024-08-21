@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -60,7 +61,7 @@ func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
 	s.recorder = httptest.NewRecorder()
 	s.handler = &apiserver.ResourcesHandler{
 		StateAuthFunc:     s.authState,
-		ChangeAllowedFunc: func(*http.Request) error { return nil },
+		ChangeAllowedFunc: func(context.Context) error { return nil },
 	}
 }
 
@@ -142,7 +143,7 @@ func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *gc.C) {
 	s.backend.ReturnSetResource = res
 
 	expectedError := apiservererrors.OperationBlockedError("test block")
-	s.handler.ChangeAllowedFunc = func(*http.Request) error {
+	s.handler.ChangeAllowedFunc = func(context.Context) error {
 		return expectedError
 	}
 
