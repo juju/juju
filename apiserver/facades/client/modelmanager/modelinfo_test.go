@@ -795,8 +795,6 @@ type mockState struct {
 	block           state.BlockType
 	migration       *mockMigration
 	modelConfig     *config.Config
-
-	modelDetailsForUser func() ([]state.ModelSummary, error)
 }
 
 type fakeModelDescription struct {
@@ -981,11 +979,6 @@ func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (permission
 		return user, nil
 	}
 	return permission.UserAccess{}, st.NextErr()
-}
-
-func (st *mockState) ModelSummariesForUser(user names.UserTag, isSuperuser bool) ([]state.ModelSummary, error) {
-	st.MethodCall(st, "ModelSummariesForUser", user, isSuperuser)
-	return st.modelDetailsForUser()
 }
 
 func (st *mockState) RemoveUserAccess(subject names.UserTag, target names.Tag) error {
@@ -1288,21 +1281,6 @@ func (m *mockModel) MigrationMode() state.MigrationMode {
 func (m *mockModel) AddUser(spec state.UserAccessSpec) (permission.UserAccess, error) {
 	m.MethodCall(m, "AddUser", spec)
 	return permission.UserAccess{}, m.NextErr()
-}
-
-func (m *mockModel) getModelDetails() state.ModelSummary {
-	cred, _ := m.CloudCredentialTag()
-	return state.ModelSummary{
-		Name:               m.Name(),
-		UUID:               m.UUID(),
-		Type:               m.Type(),
-		Life:               m.Life(),
-		Owner:              m.Owner().Id(),
-		ControllerUUID:     m.ControllerUUID(),
-		CloudTag:           m.CloudName(),
-		CloudRegion:        m.CloudRegion(),
-		CloudCredentialTag: cred.String(),
-	}
 }
 
 func (m *mockModel) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {

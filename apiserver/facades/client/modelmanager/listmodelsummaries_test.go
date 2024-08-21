@@ -70,9 +70,6 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 	s.st = &mockState{
 		model: s.createModel(c, s.adminUser),
 	}
-	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
-		return []state.ModelSummary{s.st.model.getModelDetails()}, s.st.NextErr()
-	}
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: s.adminUser,
