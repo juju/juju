@@ -468,6 +468,45 @@ func (c *MockStateGetMachineStatusCall) DoAndReturn(f func(context.Context, mach
 	return c
 }
 
+// GetMachineUUID mocks base method.
+func (m *MockState) GetMachineUUID(arg0 context.Context, arg1 machine.Name) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineUUID", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineUUID indicates an expected call of GetMachineUUID.
+func (mr *MockStateMockRecorder) GetMachineUUID(arg0, arg1 any) *MockStateGetMachineUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineUUID", reflect.TypeOf((*MockState)(nil).GetMachineUUID), arg0, arg1)
+	return &MockStateGetMachineUUIDCall{Call: call}
+}
+
+// MockStateGetMachineUUIDCall wrap *gomock.Call
+type MockStateGetMachineUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineUUIDCall) Return(arg0 string, arg1 error) *MockStateGetMachineUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineUUIDCall) Do(f func(context.Context, machine.Name) (string, error)) *MockStateGetMachineUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineUUIDCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockStateGetMachineUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // HardwareCharacteristics mocks base method.
 func (m *MockState) HardwareCharacteristics(arg0 context.Context, arg1 string) (*instance.HardwareCharacteristics, error) {
 	m.ctrl.T.Helper()

@@ -123,6 +123,10 @@ type State interface {
 	// GetAllMachineRemovals returns the UUIDs of all of the machines that need
 	// to be removed but need provider-level cleanup.
 	GetAllMachineRemovals(context.Context) ([]string, error)
+
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	// It returns a MachineNotFound if the machine does not exist.
+	GetMachineUUID(context.Context, coremachine.Name) (string, error)
 }
 
 // Service provides the API for working with machines.
@@ -344,4 +348,10 @@ func (s *Service) GetAllMachineRemovals(ctx context.Context) ([]string, error) {
 		return nil, errors.Annotate(err, "retrieving all machines marked to be removed")
 	}
 	return removals, nil
+}
+
+// GetMachineUUID returns the UUID of a machine identified by its name.
+// It returns a MachineNotFound if the machine does not exist.
+func (s *Service) GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error) {
+	return s.st.GetMachineUUID(ctx, name)
 }

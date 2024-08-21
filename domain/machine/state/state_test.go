@@ -699,3 +699,20 @@ func (s *stateSuite) TestGetSomeMachineRemovals(c *gc.C) {
 	c.Assert(machines[0], gc.Equals, "123")
 	c.Assert(machines[1], gc.Equals, "125")
 }
+
+// TestGetMachineUUIDNotFound asserts that a NotFound error is returned
+// when the machine is not found.
+func (s *stateSuite) TestGetMachineUUIDNotFound(c *gc.C) {
+	_, err := s.state.GetMachineUUID(context.Background(), "none")
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestGetMachineUUID asserts that the uuid is returned from a machine name
+func (s *stateSuite) TestGetMachineUUID(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "rage", "", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	name, err := s.state.GetMachineUUID(context.Background(), "rage")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, "123")
+}
