@@ -324,43 +324,69 @@ AND     u.removed = false
 	return corepermission.NoAccess, fmt.Errorf("%w for %q on %q", accesserrors.AccessNotFound, subject, target.Key)
 }
 
-// ReadUserAccessLevelForTargetAddingMissingUser returns the user access level for
-// the given user on the given target. If the user is external and does not yet
-// exist, it is created. An accesserrors.AccessNotFound error is returned if no
-// access can be found for this user, and (only in the case of external users),
-// the everyone@external user.
-func (st *PermissionState) ReadUserAccessLevelForTargetAddingMissingUser(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.Access, error) {
-	userAccess, err := st.ReadUserAccessLevelForTarget(ctx, subject, target)
-	if err == nil {
-		return userAccess, nil
-	} else if !(errors.Is(err, accesserrors.AccessNotFound) && !subject.IsLocal()) {
-		// If there is an access not found error and the user is external,
-		// continue. Otherwise, return the error.
-		return userAccess, errors.Trace(err)
+// EnsureExternalUserIfAuthorized checks if an external user is missing from the
+// database and has permissions on an object. If they do then they will be
+// added. This ensures that juju has a record of external users that have
+// inherited their permissions from everyone@external.
+func (st *PermissionState) EnsureExternalUserIfAuthorized(
+	ctx context.Context,
+	subject user.Name,
+	target corepermission.ID,
+) error {
+	if subject.IsLocal() {
+		return nil
 	}
+
 	db, err := st.DB()
 	if err != nil {
-		return userAccess, errors.Trace(err)
+		return errors.Trace(err)
 	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		everyoneExternal, err := st.findUserByName(ctx, tx, corepermission.EveryoneUserName)
-		if errors.Is(err, accesserrors.UserNotFound) || errors.Is(err, accesserrors.UserAuthenticationDisabled) {
-			return fmt.Errorf("%w for %q on %q", accesserrors.AccessNotFound, subject, target.Key)
+		_, err := st.findUserByName(ctx, tx, subject)
+		if err == nil {
+			return nil
+		} else if !errors.Is(err, accesserrors.UserNotFound) {
+			return fmt.Errorf("getting user %q", subject)
 		}
-		userUUID, err := user.NewUUID()
+		// We have a UserNotFound error. Check if everyone@external has permissions
+		// on the target.
+		baseExternalPerms, err := st.baseExternalAccessForTarget(ctx, tx, target)
 		if err != nil {
-			return errors.Annotate(err, "generating user UUID")
+			return errors.Annotatef(err, "getting everyone@external access")
 		}
-		err = AddUser(ctx, tx, userUUID, subject, subject.Name(), true, user.UUID(everyoneExternal.UUID))
+		if corepermission.Access(baseExternalPerms.AccessType) == corepermission.NoAccess {
+			return nil
+		}
+		err = st.addExternalUser(ctx, tx, subject)
 		if err != nil {
-			return errors.Annotatef(err, "adding exteranl user %q", subject)
+			return errors.Trace(err)
 		}
 		return nil
 	})
 	if err != nil {
-		return userAccess, errors.Trace(err)
+		return errors.Annotatef(err, "adding external user %q if missing", subject)
 	}
-	return st.ReadUserAccessLevelForTarget(ctx, corepermission.EveryoneUserName, target)
+	return nil
+}
+
+// addExternalUser adds an external user to the database with everyone@external
+// as its creator.
+func (st *PermissionState) addExternalUser(ctx context.Context, tx *sqlair.TX, subject user.Name) error {
+	// Get the UUID of everyone@external to use as the creator.
+	everyoneExternal, err := st.findUserByName(ctx, tx, corepermission.EveryoneUserName)
+	if errors.Is(err, accesserrors.UserNotFound) || errors.Is(err, accesserrors.UserAuthenticationDisabled) {
+		return errors.Annotatef(accesserrors.UserNotFound, "%q", corepermission.EveryoneUserName)
+	}
+	userUUID, err := user.NewUUID()
+	if err != nil {
+		return errors.Annotate(err, "generating user UUID")
+	}
+	err = AddUser(ctx, tx, userUUID, subject, subject.Name(), true, user.UUID(everyoneExternal.UUID))
+	if err != nil {
+		return errors.Annotatef(err, "adding exteranl user %q", subject)
+	}
+	return nil
 }
 
 // ReadAllUserAccessForUser returns a slice of the user access the given

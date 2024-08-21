@@ -71,25 +71,22 @@ func (s *PermissionService) ReadUserAccessForTarget(ctx context.Context, subject
 	return userAccess, errors.Trace(err)
 }
 
-// ReadUserAccessLevelForTargetAddingMissingUser returns the user access level for
-// the given user on the given target. If the user does not exist, it is
-// created. A NotValid error is returned if the subject (user) string is empty,
-// or the target is not valid. Any errors from the state layer are passed
-// through.
-// If the access level of a user cannot be found then
-// [accesserrors.AccessNotFound] is returned.
-func (s *PermissionService) ReadUserAccessLevelForTargetAddingMissingUser(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.Access, error) {
+// EnsureExternalUserIfAuthorized checks if an external user is missing from the
+// database and has permissions on an object. If they do then they will be
+// added. This ensures that juju has a record of external users that have
+// inherited their permissions from everyone@external.
+func (s *PermissionService) EnsureExternalUserIfAuthorized(ctx context.Context, subject user.Name, target corepermission.ID) error {
 	if subject.IsZero() {
-		return "", errors.Trace(errors.NotValidf("empty subject"))
+		return errors.Trace(errors.NotValidf("empty subject"))
 	}
 	if err := target.Validate(); err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
-	accessLevel, err := s.st.ReadUserAccessLevelForTargetAddingMissingUser(ctx, subject, target)
+	err := s.st.EnsureExternalUserIfAuthorized(ctx, subject, target)
 	if errors.Is(err, accesserrors.UserNotFound) {
-		return accessLevel, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	return accessLevel, errors.Trace(err)
+	return errors.Trace(err)
 }
 
 // ReadUserAccessLevelForTarget returns the user access level for the
