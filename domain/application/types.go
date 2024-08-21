@@ -12,7 +12,7 @@ type AddApplicationArg struct {
 	Charm    domaincharm.Charm
 	Channel  *domaincharm.Channel
 	Platform Platform
-	Origin   Origin
+	Origin   domaincharm.CharmOrigin
 }
 
 // Platform contains parameters for an application's platform.

@@ -224,31 +224,20 @@ func (s *ApplicationService) CreateApplication(
 		return "", fmt.Errorf("encode charm: %w", err)
 	}
 
-	var channel *domaincharm.Channel
-	if origin.Channel != nil {
-		normalisedC := origin.Channel.Normalize()
-		channel = &domaincharm.Channel{
-			Track:  normalisedC.Track,
-			Risk:   domaincharm.ChannelRisk(normalisedC.Risk),
-			Branch: normalisedC.Branch,
-		}
+	originArg, channelArg, err := encodeCharmOrigin(origin)
+	if err != nil {
+		return "", fmt.Errorf("encode charm origin: %w", err)
 	}
 
-	revision := -1
-	if origin.Revision != nil {
-		revision = *origin.Revision
-	}
 	appArg := application.AddApplicationArg{
 		Charm:   ch,
-		Channel: channel,
+		Channel: channelArg,
 		Platform: application.Platform{
 			Channel:        origin.Platform.Channel,
 			OSTypeID:       application.MarshallOSType(ostype.OSTypeForName(origin.Platform.OS)),
 			ArchitectureID: application.MarshallArchitecture(origin.Platform.Architecture),
 		},
-		Origin: application.Origin{
-			Revision: revision,
-		},
+		Origin: originArg,
 	}
 
 	unitArgs := make([]application.UpsertUnitArg, len(units))

@@ -75,7 +75,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	app := application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platform,
-		Origin: application.Origin{
+		Origin: domaincharm.CharmOrigin{
 			Revision: 42,
 		},
 	}
@@ -130,7 +130,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 	app := application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platform,
-		Origin: application.Origin{
+		Origin: domaincharm.CharmOrigin{
 			Revision: 42,
 		},
 	}
@@ -197,7 +197,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 	app := application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platform,
-		Origin: application.Origin{
+		Origin: domaincharm.CharmOrigin{
 			Revision: 42,
 		},
 	}
@@ -268,7 +268,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	app := application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platform,
-		Origin: application.Origin{
+		Origin: domaincharm.CharmOrigin{
 			Revision: 42,
 		},
 	}
@@ -335,7 +335,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 	app := application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platform,
-		Origin: application.Origin{
+		Origin: domaincharm.CharmOrigin{
 			Revision: 42,
 		},
 	}

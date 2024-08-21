@@ -101,6 +101,7 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 
 	originInfo := setCharmOrigin{
 		CharmID:  charmID.String(),
+		SourceID: encodeCharmOriginSource(app.Origin.Source),
 		Revision: app.Origin.Revision,
 	}
 	createOrigin := `INSERT INTO charm_origin (*) VALUES ($setCharmOrigin.*)`
@@ -1057,4 +1058,17 @@ WHERE name = $applicationName.name
 	}
 
 	return ch, chInfo, nil
+}
+
+func encodeCharmOriginSource(source charm.CharmSource) int {
+	// This should have been validated multiple times at the service layer, so
+	// we don't need to revalidate it here.
+
+	// The default will be charmhub for now, as we need to pick something.
+	switch source {
+	case charm.LocalSource:
+		return 0
+	default:
+		return 1
+	}
 }

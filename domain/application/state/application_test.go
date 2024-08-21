@@ -45,7 +45,7 @@ func (s *applicationStateSuite) assertApplication(
 	name string,
 	platform application.Platform,
 	scale application.ScaleState,
-	origin application.Origin,
+	origin charm.CharmOrigin,
 	channel *charm.Channel,
 ) {
 	var (
@@ -53,7 +53,7 @@ func (s *applicationStateSuite) assertApplication(
 		gotUUID     string
 		gotPlatform application.Platform
 		gotScale    application.ScaleState
-		gotOrigin   application.Origin
+		gotOrigin   charm.CharmOrigin
 		gotChannel  charm.Channel
 	)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -71,8 +71,8 @@ func (s *applicationStateSuite) assertApplication(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		err = tx.QueryRowContext(ctx, "SELECT revision FROM v_application_origin WHERE application_uuid=?", gotUUID).
-			Scan(&gotOrigin.Revision)
+		err = tx.QueryRowContext(ctx, "SELECT source_name, revision FROM v_application_origin WHERE application_uuid=?", gotUUID).
+			Scan(&gotOrigin.Source, &gotOrigin.Revision)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -129,7 +129,8 @@ func (s *applicationStateSuite) TestCreateApplicationNoUnits(c *gc.C) {
 		OSTypeID:       application.Ubuntu,
 		ArchitectureID: application.ARM64,
 	}
-	origin := application.Origin{
+	origin := charm.CharmOrigin{
+		Source:   charm.CharmHubSource,
 		Revision: 42,
 	}
 	channel := &charm.Channel{
@@ -161,7 +162,8 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 		OSTypeID:       application.Ubuntu,
 		ArchitectureID: application.ARM64,
 	}
-	origin := application.Origin{
+	origin := charm.CharmOrigin{
+		Source:   charm.LocalSource,
 		Revision: 42,
 	}
 	channel := &charm.Channel{
@@ -879,7 +881,7 @@ func (s *applicationStateSuite) TestStorageDefaults(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationName(c *gc.C) {
-	origin := application.Origin{
+	origin := charm.CharmOrigin{
 		Revision: 42,
 	}
 

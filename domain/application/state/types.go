@@ -476,6 +476,7 @@ type charmOrigin struct {
 // setCharmOrigin is used to set the origin of a charm.
 type setCharmOrigin struct {
 	CharmID  string `db:"charm_uuid"`
+	SourceID int    `db:"source_id"`
 	Revision int    `db:"revision"`
 }
 

@@ -112,9 +112,11 @@ CREATE VIEW v_application_origin AS
 SELECT
     a.uuid AS application_uuid,
     co.source_id,
+    cs.name AS source_name,
     co.id,
     co.revision,
     co.version
 FROM application AS a
 LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
-LEFT JOIN charm_origin AS co ON c.uuid = co.charm_uuid;
+LEFT JOIN charm_origin AS co ON c.uuid = co.charm_uuid
+LEFT JOIN charm_source AS cs ON co.source_id = cs.id;
