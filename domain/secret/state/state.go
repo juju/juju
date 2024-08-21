@@ -391,7 +391,7 @@ func (st State) createSecret(
 	checkExists checkExistsFunc,
 ) error {
 	if len(secret.Data) == 0 && secret.ValueRef == nil {
-		return errors.Errorf("cannot create a secret without content")
+		return errors.Errorf("cannot create a secret %q without content", uri)
 	}
 	if secret.Label != nil && *secret.Label != "" {
 		if err := checkExists(ctx, tx, *secret.Label); err != nil {
@@ -479,6 +479,7 @@ SELECT
        auto_prune AS &secretInfo.auto_prune,
        rp.policy AS &secretInfo.policy,
        MAX(sr.revision) AS &secretInfo.latest_revision,
+       sm.latest_revision_checksum AS &secretInfo.latest_revision_checksum,
        sr.uuid AS &secretInfo.latest_revision_uuid,
        (so.owner_kind,
         so.owner_id,
@@ -596,7 +597,10 @@ GROUP BY sm.secret_id`
 	}
 
 	var dbRevision *secretRevision
-	if len(secret.Data) != 0 || secret.ValueRef != nil {
+	shouldCreateNewRevision := (len(secret.Data) > 0 || secret.ValueRef != nil) && (secret.Checksum != existing.LatestRevisionChecksum ||
+		// migrated charm-owned secrets from old models.
+		secret.Checksum == "" && existing.LatestRevisionChecksum == "")
+	if shouldCreateNewRevision {
 		revisionUUID, err := uuid.NewUUID()
 		if err != nil {
 			return errors.Trace(err)
@@ -623,13 +627,13 @@ GROUP BY sm.secret_id`
 
 	}
 
-	if len(secret.Data) > 0 {
+	if len(secret.Data) > 0 && shouldCreateNewRevision {
 		if err := st.updateSecretContent(ctx, tx, dbRevision.ID, secret.Data); err != nil {
 			return errors.Annotatef(err, "updating content for secret %q", uri)
 		}
 	}
 
-	if secret.ValueRef != nil {
+	if secret.ValueRef != nil && shouldCreateNewRevision {
 		if err := st.upsertSecretValueRef(ctx, tx, dbRevision.ID, secret.ValueRef); err != nil {
 			return errors.Annotatef(err, "updating backend value reference for secret %q", uri)
 		}
@@ -637,12 +641,6 @@ GROUP BY sm.secret_id`
 
 	if err := st.markObsoleteRevisions(ctx, tx, uri); err != nil {
 		return errors.Annotatef(err, "marking obsolete revisions for secret %q", uri)
-	}
-
-	if dbSecret.AutoPrune {
-		if err := st.pruneUnusedRevisions(ctx, tx, uri); err != nil {
-			return errors.Annotatef(err, "deleting unused revisions for secret %q", uri)
-		}
 	}
 	return nil
 }
@@ -746,38 +744,6 @@ func (st State) upsertSecretLabel(
 	return nil
 }
 
-func (st State) pruneUnusedRevisions(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI) error {
-	// TODO(secrets)
-	return nil
-	//var md *secrets.SecretMetadata
-	//if !md.AutoPrune {
-	//	return md, nil
-	//}
-	//// If the secret was updated, we need to delete the old unused secret revisions.
-	//revsToDelete, err := s.ListUnusedSecretRevisions(ctx, uri)
-	//if err != nil {
-	//	return nil, errors.Trace(err)
-	//}
-	//var revisions []int
-	//for _, rev := range revsToDelete {
-	//	if rev == md.LatestRevision {
-	//		// We don't want to delete the latest revision.
-	//		continue
-	//	}
-	//	revisions = append(revisions, rev)
-	//}
-	//if len(revisions) == 0 {
-	//	return md, nil
-	//}
-	//err = s.DeleteUserSecret(ctx, uri, revisions, func(uri *secrets.URI) error { return nil })
-	//if err != nil {
-	//	// We don't want to fail the update if we can't prune the unused secret revisions because they will be picked up later
-	//	// when the secret has any new obsolete revisions.
-	//	s.logger.Warningf("failed to prune unused secret revisions for %q: %v", uri, err)
-	//}
-	//return md, nil
-}
-
 func updateSecretMetadataFromParams(p domainsecret.UpsertSecretParams, md *secretMetadata) {
 	if p.Description != nil {
 		md.Description = *p.Description
@@ -788,6 +754,7 @@ func updateSecretMetadataFromParams(p domainsecret.UpsertSecretParams, md *secre
 	if p.RotatePolicy != nil {
 		md.RotatePolicyID = int(*p.RotatePolicy)
 	}
+	md.LatestRevisionChecksum = p.Checksum
 }
 
 func (st State) upsertSecret(ctx context.Context, tx *sqlair.TX, dbSecret secretMetadata) error {
@@ -799,6 +766,7 @@ ON CONFLICT(secret_id) DO UPDATE SET
     description=excluded.description,
     rotate_policy_id=excluded.rotate_policy_id,
     auto_prune=excluded.auto_prune,
+    latest_revision_checksum=excluded.latest_revision_checksum,
     update_time=excluded.update_time
 `
 
@@ -1250,6 +1218,7 @@ SELECT sm.secret_id AS &secretInfo.secret_id,
        sm.version AS &secretInfo.version,
        sm.description AS &secretInfo.description,
        sm.auto_prune AS &secretInfo.auto_prune,
+       sm.latest_revision_checksum AS &secretInfo.latest_revision_checksum,
        sm.create_time AS &secretInfo.create_time,
        sm.update_time AS &secretInfo.update_time,
        rp.policy AS &secretInfo.policy,
@@ -1386,6 +1355,7 @@ SELECT sm.secret_id AS &secretInfo.secret_id,
        rp.policy AS &secretInfo.policy,
        sro.next_rotation_time AS &secretInfo.next_rotation_time,
        sre.expire_time AS &secretInfo.latest_expire_time,
+       sm.latest_revision_checksum AS &secretInfo.latest_revision_checksum,
        sm.create_time AS &secretInfo.create_time,
        sm.update_time AS &secretInfo.update_time,
        MAX(sr.revision) AS &secretInfo.latest_revision,

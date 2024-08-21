@@ -22,7 +22,8 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	secrets := []*coresecrets.SecretMetadata{{
-		URI: uri,
+		URI:                    uri,
+		LatestRevisionChecksum: "checksum-1234",
 	}}
 	revisions := [][]*coresecrets.SecretRevisionMetadata{{{
 		Revision: 1,
@@ -152,7 +153,7 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 		Description:            "my secret",
 		Label:                  "a secret",
 		RotatePolicy:           "hourly",
-		LatestRevisionChecksum: "",
+		LatestRevisionChecksum: "checksum-1234",
 		LatestExpireTime:       ptr(expireTime),
 		NextRotateTime:         ptr(rotateTime),
 	}, {
@@ -163,20 +164,28 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 			ID:   testing.ModelTag.Id(),
 		},
 		Description:            "a secret",
-		LatestRevisionChecksum: "",
+		LatestRevisionChecksum: "checksum-1234",
 		AutoPrune:              true,
 	}}
-	revisions := [][]*coresecrets.SecretRevisionMetadata{{{
-		Revision: 1,
-	}, {
-		Revision: 2,
-		ValueRef: &coresecrets.ValueRef{
-			BackendID:  "backend-id",
-			RevisionID: "revision-id",
+	revisions := [][]*coresecrets.SecretRevisionMetadata{
+		{
+			{
+				Revision: 1,
+			},
+			{
+				Revision: 2,
+				ValueRef: &coresecrets.ValueRef{
+					BackendID:  "backend-id",
+					RevisionID: "revision-id",
+				},
+			},
 		},
-	}}, {{
-		Revision: 5,
-	}}}
+		{
+			{
+				Revision: 5,
+			},
+		},
+	}
 
 	s.state = NewMockState(ctrl)
 
@@ -201,6 +210,7 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 			BackendID:  "backend-id",
 			RevisionID: "revision-id",
 		},
+		Checksum: "checksum-1234",
 	})
 	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, "mysql/0", &coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
@@ -229,6 +239,7 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 		Description: ptr(secrets[1].Description),
 		AutoPrune:   ptr(secrets[1].AutoPrune),
 		Data:        map[string]string{"foo": "baz"},
+		Checksum:    "checksum-1234",
 	})
 
 	toImport := &SecretExport{

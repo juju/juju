@@ -37,6 +37,7 @@ type UpsertSecretParams struct {
 
 	Data     secrets.SecretData
 	ValueRef *secrets.ValueRef
+	Checksum string
 }
 
 // HasUpdate returns true if at least one attribute to update is not nil.

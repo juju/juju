@@ -40,6 +40,7 @@ CREATE TABLE secret_metadata (
     description TEXT,
     rotate_policy_id INT NOT NULL,
     auto_prune BOOLEAN NOT NULL DEFAULT (FALSE),
+    latest_revision_checksum TEXT,
     create_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
     update_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
     CONSTRAINT fk_secret_id

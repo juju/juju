@@ -44,24 +44,26 @@ type secretRef struct {
 }
 
 type secretMetadata struct {
-	ID             string    `db:"secret_id"`
-	Version        int       `db:"version"`
-	Description    string    `db:"description"`
-	AutoPrune      bool      `db:"auto_prune"`
-	RotatePolicyID int       `db:"rotate_policy_id"`
-	CreateTime     time.Time `db:"create_time"`
-	UpdateTime     time.Time `db:"update_time"`
+	ID                     string    `db:"secret_id"`
+	Version                int       `db:"version"`
+	Description            string    `db:"description"`
+	AutoPrune              bool      `db:"auto_prune"`
+	RotatePolicyID         int       `db:"rotate_policy_id"`
+	CreateTime             time.Time `db:"create_time"`
+	UpdateTime             time.Time `db:"update_time"`
+	LatestRevisionChecksum string    `db:"latest_revision_checksum"`
 }
 
 // secretInfo is used because sqlair doesn't seem to like struct embedding.
 type secretInfo struct {
-	ID           string    `db:"secret_id"`
-	Version      int       `db:"version"`
-	Description  string    `db:"description"`
-	RotatePolicy string    `db:"policy"`
-	AutoPrune    bool      `db:"auto_prune"`
-	CreateTime   time.Time `db:"create_time"`
-	UpdateTime   time.Time `db:"update_time"`
+	ID                     string    `db:"secret_id"`
+	Version                int       `db:"version"`
+	Description            string    `db:"description"`
+	RotatePolicy           string    `db:"policy"`
+	AutoPrune              bool      `db:"auto_prune"`
+	LatestRevisionChecksum string    `db:"latest_revision_checksum"`
+	CreateTime             time.Time `db:"create_time"`
+	UpdateTime             time.Time `db:"update_time"`
 
 	NextRotateTime     time.Time `db:"next_rotation_time"`
 	LatestExpireTime   time.Time `db:"latest_expire_time"`
@@ -243,11 +245,12 @@ func (rows secretInfos) toSecretMetadata(secretOwners []secretOwner) ([]*coresec
 				Kind: coresecrets.OwnerKind(secretOwners[i].OwnerKind),
 				ID:   secretOwners[i].OwnerID,
 			},
-			CreateTime:     row.CreateTime,
-			UpdateTime:     row.UpdateTime,
-			LatestRevision: row.LatestRevision,
-			AutoPrune:      row.AutoPrune,
-			RotatePolicy:   coresecrets.RotatePolicy(row.RotatePolicy),
+			CreateTime:             row.CreateTime,
+			UpdateTime:             row.UpdateTime,
+			LatestRevision:         row.LatestRevision,
+			LatestRevisionChecksum: row.LatestRevisionChecksum,
+			AutoPrune:              row.AutoPrune,
+			RotatePolicy:           coresecrets.RotatePolicy(row.RotatePolicy),
 		}
 		if tm := row.NextRotateTime; !tm.IsZero() {
 			result[i].NextRotateTime = &tm

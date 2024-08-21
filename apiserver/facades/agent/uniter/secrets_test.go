@@ -78,6 +78,10 @@ func (s *UniterSecretsSuite) expectAuthUnitAgent() {
 func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	data := map[string]string{"foo": "bar"}
+	checksum, err := coresecrets.NewSecretValue(data).Checksum()
+	c.Assert(err, jc.ErrorIsNil)
+
 	p := secretservice.CreateCharmSecretParams{
 		Version:    secrets.Version,
 		CharmOwner: secretservice.CharmSecretOwner{Kind: secretservice.ApplicationOwner, ID: "mariadb"},
@@ -88,7 +92,8 @@ func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *gc.C) {
 			Description:  ptr("my secret"),
 			Label:        ptr("foobar"),
 			Params:       map[string]interface{}{"param": 1},
-			Data:         map[string]string{"foo": "bar"},
+			Data:         data,
+			Checksum:     checksum,
 		},
 	}
 	var gotURI *coresecrets.URI
@@ -109,14 +114,14 @@ func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *gc.C) {
 				Description:  ptr("my secret"),
 				Label:        ptr("foobar"),
 				Params:       map[string]interface{}{"param": 1},
-				Content:      params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
+				Content:      params.SecretContentParams{Data: data, Checksum: checksum},
 			},
 		}, {
 			UpsertSecretArg: params.UpsertSecretArg{},
 		}, {
 			OwnerTag: "application-mysql",
 			UpsertSecretArg: params.UpsertSecretArg{
-				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
+				Content: params.SecretContentParams{Data: data},
 			},
 		}},
 	})
@@ -169,6 +174,10 @@ func (s *UniterSecretsSuite) TestCreateCharmSecretDuplicateLabel(c *gc.C) {
 func (s *UniterSecretsSuite) TestUpdateSecrets(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	data := map[string]string{"foo": "bar"}
+	checksum, err := coresecrets.NewSecretValue(data).Checksum()
+	c.Assert(err, jc.ErrorIsNil)
+
 	p := secretservice.UpdateCharmSecretParams{
 		LeaderToken: s.token,
 		Accessor: secretservice.SecretAccessor{
@@ -180,7 +189,8 @@ func (s *UniterSecretsSuite) TestUpdateSecrets(c *gc.C) {
 		Description:  ptr("my secret"),
 		Label:        ptr("foobar"),
 		Params:       map[string]interface{}{"param": 1},
-		Data:         map[string]string{"foo": "bar"},
+		Data:         data,
+		Checksum:     checksum,
 	}
 	pWithBackendId := p
 	p.ValueRef = &coresecrets.ValueRef{
@@ -188,6 +198,7 @@ func (s *UniterSecretsSuite) TestUpdateSecrets(c *gc.C) {
 		RevisionID: "rev-id",
 	}
 	p.Data = nil
+	p.Checksum = ""
 	uri := coresecrets.NewURI()
 	expectURI := *uri
 	s.secretService.EXPECT().UpdateCharmSecret(gomock.Any(), &expectURI, p).Return(nil)
@@ -203,7 +214,7 @@ func (s *UniterSecretsSuite) TestUpdateSecrets(c *gc.C) {
 				Description:  ptr("my secret"),
 				Label:        ptr("foobar"),
 				Params:       map[string]interface{}{"param": 1},
-				Content:      params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
+				Content:      params.SecretContentParams{Data: data, Checksum: checksum},
 			},
 		}, {
 			URI: uri.String(),

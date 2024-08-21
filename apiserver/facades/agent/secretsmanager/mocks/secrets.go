@@ -609,44 +609,6 @@ func (c *MockSecretServiceChangeSecretBackendCall) DoAndReturn(f func(context.Co
 	return c
 }
 
-// CreateCharmSecret mocks base method.
-func (m *MockSecretService) CreateCharmSecret(arg0 context.Context, arg1 *secrets.URI, arg2 service.CreateCharmSecretParams) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateCharmSecret", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CreateCharmSecret indicates an expected call of CreateCharmSecret.
-func (mr *MockSecretServiceMockRecorder) CreateCharmSecret(arg0, arg1, arg2 any) *MockSecretServiceCreateCharmSecretCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCharmSecret", reflect.TypeOf((*MockSecretService)(nil).CreateCharmSecret), arg0, arg1, arg2)
-	return &MockSecretServiceCreateCharmSecretCall{Call: call}
-}
-
-// MockSecretServiceCreateCharmSecretCall wrap *gomock.Call
-type MockSecretServiceCreateCharmSecretCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSecretServiceCreateCharmSecretCall) Return(arg0 error) *MockSecretServiceCreateCharmSecretCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSecretServiceCreateCharmSecretCall) Do(f func(context.Context, *secrets.URI, service.CreateCharmSecretParams) error) *MockSecretServiceCreateCharmSecretCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretServiceCreateCharmSecretCall) DoAndReturn(f func(context.Context, *secrets.URI, service.CreateCharmSecretParams) error) *MockSecretServiceCreateCharmSecretCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // CreateSecretURIs mocks base method.
 func (m *MockSecretService) CreateSecretURIs(ctx context.Context, count int) ([]*secrets.URI, error) {
 	m.ctrl.T.Helper()
@@ -682,44 +644,6 @@ func (c *MockSecretServiceCreateSecretURIsCall) Do(f func(context.Context, int) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockSecretServiceCreateSecretURIsCall) DoAndReturn(f func(context.Context, int) ([]*secrets.URI, error)) *MockSecretServiceCreateSecretURIsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// DeleteSecret mocks base method.
-func (m *MockSecretService) DeleteSecret(arg0 context.Context, arg1 *secrets.URI, arg2 service.DeleteSecretParams) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteSecret", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteSecret indicates an expected call of DeleteSecret.
-func (mr *MockSecretServiceMockRecorder) DeleteSecret(arg0, arg1, arg2 any) *MockSecretServiceDeleteSecretCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecret", reflect.TypeOf((*MockSecretService)(nil).DeleteSecret), arg0, arg1, arg2)
-	return &MockSecretServiceDeleteSecretCall{Call: call}
-}
-
-// MockSecretServiceDeleteSecretCall wrap *gomock.Call
-type MockSecretServiceDeleteSecretCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSecretServiceDeleteSecretCall) Return(arg0 error) *MockSecretServiceDeleteSecretCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSecretServiceDeleteSecretCall) Do(f func(context.Context, *secrets.URI, service.DeleteSecretParams) error) *MockSecretServiceDeleteSecretCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretServiceDeleteSecretCall) DoAndReturn(f func(context.Context, *secrets.URI, service.DeleteSecretParams) error) *MockSecretServiceDeleteSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -928,44 +852,6 @@ func (c *MockSecretServiceProcessCharmSecretConsumerLabelCall) Do(f func(context
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockSecretServiceProcessCharmSecretConsumerLabelCall) DoAndReturn(f func(context.Context, string, *secrets.URI, string, leadership.Token) (*secrets.URI, *string, error)) *MockSecretServiceProcessCharmSecretConsumerLabelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// UpdateCharmSecret mocks base method.
-func (m *MockSecretService) UpdateCharmSecret(arg0 context.Context, arg1 *secrets.URI, arg2 service.UpdateCharmSecretParams) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateCharmSecret", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateCharmSecret indicates an expected call of UpdateCharmSecret.
-func (mr *MockSecretServiceMockRecorder) UpdateCharmSecret(arg0, arg1, arg2 any) *MockSecretServiceUpdateCharmSecretCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCharmSecret", reflect.TypeOf((*MockSecretService)(nil).UpdateCharmSecret), arg0, arg1, arg2)
-	return &MockSecretServiceUpdateCharmSecretCall{Call: call}
-}
-
-// MockSecretServiceUpdateCharmSecretCall wrap *gomock.Call
-type MockSecretServiceUpdateCharmSecretCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSecretServiceUpdateCharmSecretCall) Return(arg0 error) *MockSecretServiceUpdateCharmSecretCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSecretServiceUpdateCharmSecretCall) Do(f func(context.Context, *secrets.URI, service.UpdateCharmSecretParams) error) *MockSecretServiceUpdateCharmSecretCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretServiceUpdateCharmSecretCall) DoAndReturn(f func(context.Context, *secrets.URI, service.UpdateCharmSecretParams) error) *MockSecretServiceUpdateCharmSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
