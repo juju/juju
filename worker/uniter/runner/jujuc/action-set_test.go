@@ -152,7 +152,7 @@ func (s *ActionSetSuite) TestHelp(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-set <key>=<value> [<key>=<value> ...]
 
 Summary:
-set action results
+Set action results.
 
 Details:
 action-set adds the given values to the results map of the Action. This map
@@ -162,20 +162,21 @@ hyphens and periods.  The following special keys are reserved for internal use:
 "stdout", "stdout-encoding", "stderr", "stderr-encoding".
 
 Example usage:
- action-set outfile.size=10G
- action-set foo.bar=2
- action-set foo.baz.val=3
- action-set foo.bar.zab=4
- action-set foo.baz=1
 
- will yield:
+    action-set outfile.size=10G
+    action-set foo.bar=2
+    action-set foo.baz.val=3
+    action-set foo.bar.zab=4
+    action-set foo.baz=1
 
- outfile:
-   size: "10G"
- foo:
-   bar:
-     zab: "4"
-   baz: "1"
+will yield:
+
+    outfile:
+      size: "10G"
+    foo:
+      bar:
+        zab: "4"
+      baz: "1"
 `)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }

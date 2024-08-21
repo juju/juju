@@ -33,7 +33,7 @@ func (c ResourceGetCmd) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "resource-get",
 		Args:    "<resource name>",
-		Purpose: "get the path to the locally cached resource file",
+		Purpose: "Get the path to the locally cached resource file.",
 		Doc: `
 "resource-get" is used while a hook is running to get the local path
 to the file for the identified resource. This file is an fs-local copy,

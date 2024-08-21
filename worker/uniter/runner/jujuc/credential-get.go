@@ -31,7 +31,7 @@ credential-get returns the cloud specification used by the unit's model.
 	return jujucmd.Info(&cmd.Info{
 		Name:    "credential-get",
 		Args:    "",
-		Purpose: "access cloud credentials",
+		Purpose: "Access cloud credentials.",
 		Doc:     doc,
 	})
 }

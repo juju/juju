@@ -32,7 +32,7 @@ there is no such guarantee.
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "is-leader",
-		Purpose: "print application leadership status",
+		Purpose: "Print application leadership status.",
 		Doc:     doc,
 	})
 }

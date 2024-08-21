@@ -32,16 +32,13 @@ func (c *StateGetCommand) Info() *cmd.Info {
 	doc := `
 state-get prints the value of the server side state specified by key.
 If no key is given, or if the key is "-", all keys and values will be printed.
-
-See also:
-    state-delete
-    state-set
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "state-get",
 		Args:    "[<key>]",
-		Purpose: "print server-side-state value",
+		Purpose: "Print server-side-state value.",
 		Doc:     doc,
+		SeeAlso: []string{"state-delete", "state-set"},
 	})
 }
 

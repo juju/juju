@@ -55,6 +55,7 @@ the binding, as well as the ingress address for the binding. If defined, any
 egress subnets are also returned.
 If one of the following flags are specified, just that value is returned.
 If more than one flag is specified, a map of values is returned.
+
     --bind-address: the address the local unit should listen on to serve connections, as well
                     as the address that should be advertised to its peers.
     --ingress-address: the address the local unit should advertise as being used for incoming connections.
@@ -63,7 +64,7 @@ If more than one flag is specified, a map of values is returned.
 	return jujucmd.Info(&cmd.Info{
 		Name:    "network-get",
 		Args:    args,
-		Purpose: "get network config",
+		Purpose: "Get network config.",
 		Doc:     doc,
 	})
 }

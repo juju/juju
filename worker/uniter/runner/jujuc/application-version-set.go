@@ -36,7 +36,7 @@ output for the application.
 	return jujucmd.Info(&cmd.Info{
 		Name:    "application-version-set",
 		Args:    "<new-version>",
-		Purpose: "specify which version of the application is deployed",
+		Purpose: "Specify which version of the application is deployed.",
 		Doc:     doc,
 	})
 }

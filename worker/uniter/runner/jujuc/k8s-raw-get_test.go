@@ -46,7 +46,7 @@ func (s *rawK8sSpecGetSuite) TestHelp(c *gc.C) {
 Usage: k8s-raw-get
 
 Summary:
-get k8s raw spec information
+Get k8s raw spec information.
 
 Details:
 Gets configuration data used to set up k8s resources.
