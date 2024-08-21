@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/juju/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 )
@@ -70,11 +69,14 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName: "my-controller",
 			Charm:           ch,
-			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -92,11 +94,14 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -120,11 +125,14 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -133,7 +141,8 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 	c.Assert(f.args.Name, gc.Equals, "bob")
 	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
 	c.Assert(f.args.CharmOrigin, jc.DeepEquals, &state.CharmOrigin{
-		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04"}})
+		Source:   "local",
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"}})
 }
 
 func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
@@ -149,12 +158,14 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName:  "bob",
 			Charm:            wordpressCharm,
 			EndpointBindings: nil,
-			CharmOrigin:      corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"}},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -225,7 +236,7 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
@@ -233,7 +244,10 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 				"":   publicSpaceId,
 				"db": dbSpaceId,
 			},
-			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -281,7 +295,7 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
@@ -291,7 +305,10 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 				"db-client": dbSpaceId,
 				"admin-api": internalSpaceId,
 			},
-			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -324,15 +341,18 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			EndpointBindings: map[string]string{
 				"": "public",
 			},
-			Resources:   map[string]string{"foo": "bar"},
-			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			Resources: map[string]string{"foo": "bar"},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -354,7 +374,7 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -362,7 +382,10 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 				"title":       "banana cupcakes",
 				"skill-level": 9901,
 			},
-			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -385,14 +408,17 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			CharmConfig: charm.Settings{
 				"skill-level": 99.01,
 			},
-			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -428,12 +454,15 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName:   "bob",
 			Charm:             s.charm,
 			ApplicationConfig: cfg,
-			CharmOrigin:       corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -460,12 +489,15 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			Constraints:     applicationCons,
-			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -486,13 +518,16 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			Constraints:     applicationCons,
 			NumUnits:        2,
-			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -517,14 +552,17 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			Constraints:     applicationCons,
 			NumUnits:        1,
 			Placement:       []*instance.Placement{instance.MustParsePlacement("0")},
-			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -551,14 +589,17 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			Constraints:     applicationCons,
 			NumUnits:        1,
 			Placement:       []*instance.Placement{instance.MustParsePlacement(fmt.Sprintf("%s:0", instance.LXD))},
-			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -590,14 +631,17 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			Constraints:     applicationCons,
 			NumUnits:        4,
 			Placement:       placement,
-			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -633,12 +677,15 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName: "assume-metal",
 			Charm:           charm,
 			NumUnits:        1,
-			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -668,13 +715,16 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName: "assume-metal",
 			Charm:           charm,
 			NumUnits:        1,
 			Force:           true, // bypass assumes checks
-			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -695,14 +745,17 @@ func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			Constraints:     applicationCons,
 			NumUnits:        3,
 			Placement:       placement,
-			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+			CharmOrigin: corecharm.Origin{
+				Source:   corecharm.Local,
+				Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04", Architecture: "amd64"},
+			},
 		},
 		loggertesting.WrapCheckLog(c),
 	)

@@ -116,6 +116,7 @@ func (s *stubCharm) Revision() int {
 func (s *watcherSuite) createApplication(c *gc.C, svc *service.Service, name string, units ...service.AddUnitArg) coreapplication.ID {
 	ctx := context.Background()
 	appID, err := svc.CreateApplication(ctx, name, &stubCharm{}, corecharm.Origin{
+		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{
 			Channel:      "24.04",
 			OS:           "ubuntu",
