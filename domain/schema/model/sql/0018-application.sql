@@ -114,4 +114,3 @@ CREATE TABLE application_channel (
     REFERENCES application (uuid),
     PRIMARY KEY (application_uuid, track, risk, branch)
 );
-
