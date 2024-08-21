@@ -23,16 +23,6 @@ CREATE TABLE application (
 CREATE UNIQUE INDEX idx_application_name
 ON application (name);
 
-CREATE TABLE application_channel (
-    application_uuid TEXT NOT NULL PRIMARY KEY,
-    track TEXT NOT NULL,
-    risk TEXT NOT NULL,
-    branch TEXT,
-    CONSTRAINT fk_application_channel_application
-    FOREIGN KEY (application_uuid)
-    REFERENCES application (uuid)
-);
-
 -- Application scale is currently only targeting k8s applications.
 CREATE TABLE application_scale (
     application_uuid TEXT NOT NULL PRIMARY KEY,
@@ -115,8 +105,12 @@ SELECT
     cs.name AS source_name,
     co.id,
     co.revision,
-    co.version
+    co.version,
+    cc.track,
+    cc.risk,
+    cc.branch
 FROM application AS a
 LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
 LEFT JOIN charm_origin AS co ON c.uuid = co.charm_uuid
-LEFT JOIN charm_source AS cs ON co.source_id = cs.id;
+LEFT JOIN charm_source AS cs ON co.source_id = cs.id
+LEFT OUTER JOIN charm_channel AS cc ON c.uuid = cc.charm_uuid;

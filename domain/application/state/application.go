@@ -112,16 +112,16 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 
 	var (
 		createChannelStmt *sqlair.Statement
-		channelInfo       applicationChannel
+		channelInfo       setCharmChannel
 	)
-	if app.Channel != nil {
-		channelInfo = applicationChannel{
-			ApplicationID: appID.String(),
-			Track:         app.Channel.Track,
-			Risk:          string(app.Channel.Risk),
-			Branch:        app.Channel.Branch,
+	if ch := app.Origin.Channel; ch != nil {
+		channelInfo = setCharmChannel{
+			CharmID: charmID.String(),
+			Track:   ch.Track,
+			Risk:    string(ch.Risk),
+			Branch:  ch.Branch,
 		}
-		createChannel := `INSERT INTO application_channel (*) VALUES ($applicationChannel.*)`
+		createChannel := `INSERT INTO charm_channel (*) VALUES ($setCharmChannel.*)`
 		if createChannelStmt, err = st.Prepare(createChannel, channelInfo); err != nil {
 			return "", errors.Trace(err)
 		}

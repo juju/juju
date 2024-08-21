@@ -76,6 +76,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 		Charm:    ch,
 		Platform: platform,
 		Origin: domaincharm.CharmOrigin{
+			Source:   domaincharm.CharmHubSource,
 			Revision: 42,
 		},
 	}
@@ -92,6 +93,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 		UnitName: ptr("foo/666"),
 	}
 	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
 	}, AddApplicationArgs{}, a)
@@ -131,6 +133,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 		Charm:    ch,
 		Platform: platform,
 		Origin: domaincharm.CharmOrigin{
+			Source:   domaincharm.LocalSource,
 			Revision: 42,
 		},
 	}
@@ -159,6 +162,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 		UnitName: ptr("foo/666"),
 	}
 	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Source:   corecharm.Local,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
 	}, AddApplicationArgs{}, a)
@@ -198,6 +202,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 		Charm:    ch,
 		Platform: platform,
 		Origin: domaincharm.CharmOrigin{
+			Source:   domaincharm.CharmHubSource,
 			Revision: 42,
 		},
 	}
@@ -226,6 +231,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 		UnitName: ptr("foo/666"),
 	}
 	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
 	}, AddApplicationArgs{
@@ -269,6 +275,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 		Charm:    ch,
 		Platform: platform,
 		Origin: domaincharm.CharmOrigin{
+			Source:   domaincharm.CharmHubSource,
 			Revision: 42,
 		},
 	}
@@ -297,6 +304,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 		UnitName: ptr("foo/666"),
 	}
 	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
 	}, AddApplicationArgs{}, a)
@@ -336,6 +344,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 		Charm:    ch,
 		Platform: platform,
 		Origin: domaincharm.CharmOrigin{
+			Source:   domaincharm.CharmHubSource,
 			Revision: 42,
 		},
 	}
@@ -364,6 +373,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 		UnitName: ptr("foo/666"),
 	}
 	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
 	}, AddApplicationArgs{
@@ -489,6 +499,7 @@ func (s *applicationServiceSuite) TestCreateApplicationError(c *gc.C) {
 	}).AnyTimes()
 
 	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{})
 	c.Check(err, jc.ErrorIs, rErr)

@@ -10,7 +10,6 @@ import (
 // AddApplicationArg contains parameters for saving an application to state.
 type AddApplicationArg struct {
 	Charm    domaincharm.Charm
-	Channel  *domaincharm.Channel
 	Platform Platform
 	Origin   domaincharm.CharmOrigin
 }

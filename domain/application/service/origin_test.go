@@ -20,10 +20,9 @@ type originSuite struct {
 var _ = gc.Suite(&originSuite{})
 
 var originTestCases = [...]struct {
-	name          string
-	input         corecharm.Origin
-	outputOrigin  domaincharm.CharmOrigin
-	outputChannel *domaincharm.Channel
+	name   string
+	input  corecharm.Origin
+	output domaincharm.CharmOrigin
 }{
 	{
 
@@ -31,7 +30,7 @@ var originTestCases = [...]struct {
 		input: corecharm.Origin{
 			Source: corecharm.Local,
 		},
-		outputOrigin: domaincharm.CharmOrigin{
+		output: domaincharm.CharmOrigin{
 			Source:   domaincharm.LocalSource,
 			Revision: -1,
 		},
@@ -43,12 +42,12 @@ var originTestCases = [...]struct {
 			Source:  corecharm.Local,
 			Channel: &internalcharm.Channel{},
 		},
-		outputOrigin: domaincharm.CharmOrigin{
+		output: domaincharm.CharmOrigin{
 			Source:   domaincharm.LocalSource,
 			Revision: -1,
-		},
-		outputChannel: &domaincharm.Channel{
-			Risk: "stable",
+			Channel: &domaincharm.Channel{
+				Risk: "stable",
+			},
 		},
 	},
 	{
@@ -58,14 +57,14 @@ var originTestCases = [...]struct {
 			Channel:  &internalcharm.Channel{Track: "track", Risk: "stable", Branch: "branch"},
 			Revision: ptr(42),
 		},
-		outputOrigin: domaincharm.CharmOrigin{
+		output: domaincharm.CharmOrigin{
 			Source:   domaincharm.CharmHubSource,
 			Revision: 42,
-		},
-		outputChannel: &domaincharm.Channel{
-			Track:  "track",
-			Risk:   "stable",
-			Branch: "branch",
+			Channel: &domaincharm.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
+			},
 		},
 	},
 }
@@ -75,10 +74,9 @@ func (s *originSuite) TestConvertOrigin(c *gc.C) {
 		c.Logf("Running test case %q", tc.name)
 
 		// Ensure that the conversion is idempotent.
-		resultOrigin, resultChannel, err := encodeCharmOrigin(tc.input)
+		resultOrigin, err := encodeCharmOrigin(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(resultOrigin, jc.DeepEquals, tc.outputOrigin)
-		c.Check(resultChannel, jc.DeepEquals, tc.outputChannel)
+		c.Check(resultOrigin, jc.DeepEquals, tc.output)
 	}
 }
 
@@ -87,6 +85,6 @@ func (s *originSuite) TestEmptyOrigin(c *gc.C) {
 	// the source should be. We could default to charmhub, but we'd be
 	// wrong 50% of the time.
 
-	_, _, err := encodeCharmOrigin(corecharm.Origin{})
+	_, err := encodeCharmOrigin(corecharm.Origin{})
 	c.Assert(err, gc.ErrorMatches, "unknown source.*")
 }

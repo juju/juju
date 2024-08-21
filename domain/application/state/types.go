@@ -33,13 +33,6 @@ type applicationDetails struct {
 	LifeID        life.Life `db:"life_id"`
 }
 
-type applicationChannel struct {
-	ApplicationID string `db:"application_uuid"`
-	Track         string `db:"track"`
-	Risk          string `db:"risk"`
-	Branch        string `db:"branch"`
-}
-
 type applicationScale struct {
 	ApplicationID string `db:"application_uuid"`
 	Scaling       bool   `db:"scaling"`
@@ -485,6 +478,13 @@ type charmPlatform struct {
 	OSTypeID       application.OSType       `db:"os_id"`
 	Channel        string                   `db:"channel"`
 	ArchitectureID application.Architecture `db:"architecture_id"`
+}
+
+type setCharmChannel struct {
+	CharmID string `db:"charm_uuid"`
+	Track   string `db:"track"`
+	Risk    string `db:"risk"`
+	Branch  string `db:"branch"`
 }
 
 type countResult struct {

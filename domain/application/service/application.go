@@ -224,14 +224,13 @@ func (s *ApplicationService) CreateApplication(
 		return "", fmt.Errorf("encode charm: %w", err)
 	}
 
-	originArg, channelArg, err := encodeCharmOrigin(origin)
+	originArg, err := encodeCharmOrigin(origin)
 	if err != nil {
 		return "", fmt.Errorf("encode charm origin: %w", err)
 	}
 
 	appArg := application.AddApplicationArg{
-		Charm:   ch,
-		Channel: channelArg,
+		Charm: ch,
 		Platform: application.Platform{
 			Channel:        origin.Platform.Channel,
 			OSTypeID:       application.MarshallOSType(ostype.OSTypeForName(origin.Platform.OS)),

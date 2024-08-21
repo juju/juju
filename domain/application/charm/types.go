@@ -88,6 +88,8 @@ type CharmOrigin struct {
 	Source CharmSource
 	// Revision is the revision of the charm.
 	Revision int
+	// Channel is the channel of the charm.
+	Channel *Channel
 }
 
 // Metadata represents the metadata of a charm from the perspective of the
