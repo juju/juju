@@ -746,3 +746,34 @@ func (st *State) GetAllMachineRemovals(ctx context.Context) ([]string, error) {
 
 	return machineUUIDs, nil
 }
+
+// GetMachineUUID returns the UUID of a machine identified by its name.
+// It returns a MachineNotFound if the machine does not exist.
+func (st *State) GetMachineUUID(ctx context.Context, name machine.Name) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	// Prepare query for checking that the machine exists.
+	var uuid machineUUID
+	currentMachineName := machineName{Name: name}
+	query := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE name = $machineName.name`
+	queryStmt, err := st.Prepare(query, uuid, currentMachineName)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Query for the machine UUID.
+		err := tx.Query(ctx, queryStmt, currentMachineName).Get(&uuid)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(machineerrors.MachineNotFound, "machine %q", name)
+		}
+		if err != nil {
+			return errors.Annotatef(err, "querying uuid for machine %q", name)
+		}
+		return nil
+	})
+	return uuid.UUID, errors.Annotatef(err, "getting UUID for machine %q", name)
+}
