@@ -98,9 +98,7 @@ var _ = gc.Suite(&magicSuite{})
 
 # Write the test
 
-[Checker]: /doc/dev/references/testing/unit-testing/checker.md
-
-> See also: [Checker]
+> See also: [Checker](/doc/dev/references/testing/unit-testing/checker.md)
 
 In `magic1_test.go`, below the test suite, start adding your unit test functions.
 
@@ -115,7 +113,7 @@ return a + b
 }
 ```
 
-Then, in your `magic1_test.go` file you can write a test for it as follows (where `gc.Equals` is a [Checker]):
+Then, in your `magic1_test.go` file you can write a test for it as follows (where `gc.Equals` is a [Checker](/doc/dev/references/testing/unit-testing/checker.md)):
 
 ```go
 // GIVEN a equals 5 AND b equals 3

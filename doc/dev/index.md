@@ -6,21 +6,11 @@
 | :point_right: | learn how Juju works under the hood | [Juju developer docs](https://juju.is/docs/dev) |
 -->
 
-<!-- Links -->
-
-[Juju documentation]: https://juju.is/docs/olm
-
-[Charm SDK documentation]: https://juju.is/docs/sdk
-
-[How-to guides]: how-to
-
-[References]:  references
-
 <!-- Learn how Juju works under the hood! -->
 
 This documentation is aimed at Juju developers or Juju users who would like to see what's under the hood.
-It is not intended to stand on its own but merely to supplement the [Juju documentation] and
-the [Charm SDK documentation]. Note also that many of our Juju developer docs are still just
+It is not intended to stand on its own but merely to supplement the [Juju documentation](https://juju.is/docs/olm) and
+the [Charm SDK documentation](https://juju.is/docs/sdk. Note also that many of our Juju developer docs are still just
 on [GitHub](https://github.com/juju/juju/tree/3.6/doc). <!-- TODO: This link and references may be not that useful since we are migrating this doc to Github :) -->
 
 
@@ -29,10 +19,10 @@ on [GitHub](https://github.com/juju/juju/tree/3.6/doc). <!-- TODO: This link and
 
 ## In this documentation
 
-|                   |                                                                                    |
-|-------------------|------------------------------------------------------------------------------------|
-|                   | [How-to guides] </br> Step-by-step guides covering key operations and common tasks |
-|                   | [References] </br> Technical information - specifications, APIs, architecture      |
+|                   |                                                                                            |
+|-------------------|--------------------------------------------------------------------------------------------|
+|                   | [How-to guides](how-to) </br> Step-by-step guides covering key operations and common tasks |
+|                   | [References](references) </br> Technical information - specifications, APIs, architecture  |
 
 ## Project and community
 

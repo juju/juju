@@ -2,21 +2,15 @@
 >
 > See also: [How to write a integration test](/doc/dev/how-to/write-an-integration-test.md)
 
-[test folder]: /tests
-
-[test suites]: /tests/suites
-
-[test includes]: /tests/includes
-
 Integration testing `juju` currently relies on a series of custom-made `bash` scripts. All these scripts live
-in [test folder]. This directory includes two subdirectories, one containing
-integration [test suites] and the
-other [test includes]. Both are tools that can help you create
+in [test folder](/tests). This directory includes two subdirectories, one containing
+integration [test suites](/tests/suites) and the
+other [test includes](/tests/includes). Both are tools that can help you create
 integration tests.
 
 A typical integration testing package consists of:
 
-- A `<suite name>` directory in the [test suites] directory.
+- A `<suite name>` directory in the [test suites](/tests/suites) directory.
 - Inside this directory, a main script for the integration test suite, `task.sh`. This is the entrypoint to your
   integration test suite.
 - In the same directory, a separate `<test name>.sh` file for every test.
