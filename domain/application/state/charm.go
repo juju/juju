@@ -59,7 +59,7 @@ SELECT &charmID.*
 FROM charm
 INNER JOIN charm_origin
 ON charm.uuid = charm_origin.charm_uuid
-WHERE charm.name = $charmNameRevision.name
+WHERE charm_origin.name = $charmNameRevision.name
 AND charm_origin.revision = $charmNameRevision.revision;
 `
 	stmt, err := s.Prepare(query, ident, args)
@@ -572,7 +572,7 @@ func (s *CharmState) SetCharm(ctx context.Context, charm charm.Charm, charmArgs 
 			return errors.Trace(err)
 		}
 
-		if err := s.setCharmInitialOrigin(ctx, tx, id, charmArgs.Source, charmArgs.Revision, charmArgs.Version); err != nil {
+		if err := s.setCharmInitialOrigin(ctx, tx, id, charm.Metadata.Name, charmArgs.Source, charmArgs.Revision, charmArgs.Version); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -725,6 +725,7 @@ func (s *CharmState) setCharmHash(ctx context.Context, tx *sqlair.TX, id corecha
 
 func (s *CharmState) setCharmInitialOrigin(
 	ctx context.Context, tx *sqlair.TX, id corecharm.ID,
+	name string,
 	source charm.CharmSource, revision int, version string) error {
 	ident := charmID{UUID: id.String()}
 
@@ -733,14 +734,15 @@ func (s *CharmState) setCharmInitialOrigin(
 		return fmt.Errorf("failed to encode charm origin source: %w", err)
 	}
 
-	args := setCharmSourceRevisionVersion{
+	args := setCharmNameSourceRevisionVersion{
 		CharmUUID: ident.UUID,
+		Name:      name,
 		SourceID:  encodedOriginSource,
 		Revision:  revision,
 		Version:   version,
 	}
 
-	query := `INSERT INTO charm_origin (*) VALUES ($setCharmSourceRevisionVersion.*);`
+	query := `INSERT INTO charm_origin (*) VALUES ($setCharmNameSourceRevisionVersion.*);`
 	stmt, err := s.Prepare(query, args)
 	if err != nil {
 		return fmt.Errorf("failed to prepare query: %w", err)

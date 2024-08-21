@@ -14,7 +14,10 @@ INSERT INTO charm_run_as_kind VALUES
 
 CREATE TABLE charm (
     uuid TEXT NOT NULL PRIMARY KEY,
-    name TEXT,
+    -- name represents the original name of the charm. This is what is stored
+    -- in the charm metadata.yaml file. To access the charm via the natural
+    -- key (charm url), we need to use the charm_origin table.
+    name TEXT NOT NULL,
     description TEXT,
     summary TEXT,
     subordinate BOOLEAN DEFAULT FALSE,
@@ -78,6 +81,14 @@ INSERT INTO charm_source VALUES
 
 CREATE TABLE charm_origin (
     charm_uuid TEXT NOT NULL,
+    -- name is the name of the charm that was originally supplied.
+    -- The charm name can be different from the actual charm name in the
+    -- metadata.
+    -- This can happen if the charm was uploaded to charmhub with a different
+    -- name than the charm name in the metadata.
+    -- To query the charm using the name and the revision that was supplied
+    -- by the natural key (charm url), we need to use this field.
+    name TEXT NOT NULL,
     source_id INT NOT NULL DEFAULT 1,
     id TEXT,
     revision INT NOT NULL DEFAULT -1,

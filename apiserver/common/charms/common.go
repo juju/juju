@@ -72,7 +72,7 @@ func (a *CharmInfoAPI) CharmInfo(ctx context.Context, args params.CharmURL) (par
 		Revision: ptr(url.Revision),
 	})
 	if errors.Is(err, applicationerrors.CharmNotFound) {
-		return params.Charm{}, errors.NotFoundf("charm %q not found", args.URL)
+		return params.Charm{}, errors.NotFoundf("charm %q", args.URL)
 	} else if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}

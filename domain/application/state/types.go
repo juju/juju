@@ -144,10 +144,11 @@ type setCharmHash struct {
 	Hash       string `db:"hash"`
 }
 
-// setCharmSourceRevisionVersion is used to set the source, revision and
-// version of a charm.
-type setCharmSourceRevisionVersion struct {
+// setCharmNameSourceRevisionVersion is used to set the name, source, revision
+// and version of a charm.
+type setCharmNameSourceRevisionVersion struct {
 	CharmUUID string `db:"charm_uuid"`
+	Name      string `db:"name"`
 	SourceID  int    `db:"source_id"`
 	Revision  int    `db:"revision"`
 	Version   string `db:"version"`
@@ -487,6 +488,7 @@ type charmOrigin struct {
 // setCharmOrigin is used to set the origin of a charm.
 type setCharmOrigin struct {
 	CharmID  string `db:"charm_uuid"`
+	Name     string `db:"name"`
 	SourceID int    `db:"source_id"`
 	Revision int    `db:"revision"`
 }

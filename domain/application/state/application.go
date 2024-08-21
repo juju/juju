@@ -100,7 +100,14 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 	}
 
 	originInfo := setCharmOrigin{
-		CharmID:  charmID.String(),
+		CharmID: charmID.String(),
+		// Set the Name on charm origin to the application name. This is
+		// because the charm metadata.yaml can differ from the charm name
+		// that was used to create the application.
+		// This can happen if the charmhub charm name is different from the
+		// charm name in the metadata.yaml. This isn't supposed to happen, but
+		// it can.
+		Name:     name,
 		SourceID: encodeCharmOriginSource(app.Origin.Source),
 		Revision: app.Origin.Revision,
 	}
