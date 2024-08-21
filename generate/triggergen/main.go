@@ -307,7 +307,7 @@ import (
 )
 
 {{range .Views}}
-// ChangeLogTriggersFor{{title .Name}} generates the triggers for the 
+// ChangeLogTriggersFor{{title .Name}} generates the triggers for the
 // {{.Name}} table.
 func ChangeLogTriggersFor{{title .Name}}(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {

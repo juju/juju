@@ -1,0 +1,102 @@
+// Copyright 2023 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package domain
+
+import (
+	"context"
+
+	"github.com/juju/collections/set"
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/domain/life"
+)
+
+// LifeGetter is a function which looks up life values of the entities with the specified IDs.
+type LifeGetter func(ctx context.Context, db coredatabase.TxnRunner, ids []string) (map[string]life.Life, error)
+
+// LifeStringsWatcherMapperFunc returns a namespace watcher mapper function which emits
+// events when the life of an entity changes. The supplied lifeGetter func is used to
+// retrieve a map of life values, keyed on IDs which must match those supplied by the
+// source event stream.
+// The source event stream may supply ids the caller is not interested in. These are
+// filtered out after loading the current values from state.
+func LifeStringsWatcherMapperFunc(logger logger.Logger, lifeGetter LifeGetter) eventsource.Mapper {
+	knownLife := make(map[string]life.Life)
+
+	return func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) (_ []changestream.ChangeEvent, err error) {
+		defer func() {
+			logger.Errorf("running life watcher mapper func: %v", err)
+		}()
+
+		events := make(map[string]changestream.ChangeEvent, len(changes))
+
+		// Extract the ids of the changed entities.
+		ids := set.NewStrings()
+		for _, change := range changes {
+			events[change.Changed()] = change
+			ids.Add(change.Changed())
+		}
+		logger.Debugf("got changes for ids: %v", ids.Values())
+
+		// First record any deleted entities and remove from the
+		// set of ids we are interested in looking up the life for.
+		latest := make(map[string]life.Life)
+		for _, change := range events {
+			if change.Type() == changestream.Delete {
+				latest[change.Changed()] = life.Dead
+				ids.Remove(change.Changed())
+				continue
+			}
+		}
+
+		// Separate ids into those thought to exist and those known to be removed.
+		// Gather the latest life values of the ids.
+		currentValues, err := lifeGetter(ctx, db, ids.Values())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// We queried the ids that were not removed. The result contains
+		// only those we're interested in, so any extra needs to be
+		// removed from subsequent processing.
+		unknownIDs := set.NewStrings(ids.Values()...)
+		for id, l := range currentValues {
+			unknownIDs.Remove(id)
+			latest[id] = l
+		}
+		logger.Debugf("ignoring unknown ids %v", unknownIDs.Values())
+
+		for _, id := range unknownIDs.Values() {
+			delete(latest, id)
+			delete(events, id)
+		}
+
+		logger.Debugf("processing latest life values for %v", latest)
+
+		// Add to ids any whose life state is known to have changed.
+		for id, newLife := range latest {
+			gone := newLife == life.Dead
+			oldLife, known := knownLife[id]
+			switch {
+			case known && gone:
+				delete(knownLife, id)
+			case !known && !gone:
+				knownLife[id] = newLife
+			case known && newLife != oldLife:
+				knownLife[id] = newLife
+			default:
+				delete(events, id)
+			}
+		}
+		var result []changestream.ChangeEvent
+		for _, e := range events {
+			result = append(result, e)
+		}
+		return result, nil
+	}
+}

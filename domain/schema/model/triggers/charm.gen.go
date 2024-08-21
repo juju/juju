@@ -9,7 +9,7 @@ import (
 )
 
 
-// ChangeLogTriggersForCharm generates the triggers for the 
+// ChangeLogTriggersForCharm generates the triggers for the
 // charm table.
 func ChangeLogTriggersForCharm(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {

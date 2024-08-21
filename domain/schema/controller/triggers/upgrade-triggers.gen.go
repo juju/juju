@@ -9,7 +9,7 @@ import (
 )
 
 
-// ChangeLogTriggersForUpgradeInfo generates the triggers for the 
+// ChangeLogTriggersForUpgradeInfo generates the triggers for the
 // upgrade_info table.
 func ChangeLogTriggersForUpgradeInfo(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -44,7 +44,7 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForUpgradeInfoControllerNode generates the triggers for the 
+// ChangeLogTriggersForUpgradeInfoControllerNode generates the triggers for the
 // upgrade_info_controller_node table.
 func ChangeLogTriggersForUpgradeInfoControllerNode(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {

@@ -9,7 +9,7 @@ import (
 )
 
 
-// ChangeLogTriggersForModel generates the triggers for the 
+// ChangeLogTriggersForModel generates the triggers for the
 // model table.
 func ChangeLogTriggersForModel(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {

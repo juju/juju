@@ -4,6 +4,8 @@
 package service
 
 import (
+	"context"
+
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/storage"
@@ -34,25 +36,30 @@ func NewService(appSt ApplicationState, charmSt CharmState, registry storage.Pro
 // ability to create watchers.
 type WatchableService struct {
 	Service
-	watchableCharmService *WatchableCharmService
-	watcherFactory        WatcherFactory
+	watchableCharmService       *WatchableCharmService
+	watchableApplicationService *WatchableApplicationService
 }
 
 // NewWatchableService returns a new service reference wrapping the input state.
 func NewWatchableService(appSt ApplicationState, charmSt CharmState, watcherFactory WatcherFactory, registry storage.ProviderRegistry, logger logger.Logger) *WatchableService {
 	watchableCharmService := NewWatchableCharmService(charmSt, watcherFactory, logger)
-	applicationService := NewApplicationService(appSt, registry, logger)
+	watchableApplicationService := NewWatchableApplicationService(appSt, watcherFactory, registry, logger)
 	return &WatchableService{
 		Service: Service{
 			CharmService:       &watchableCharmService.CharmService,
-			ApplicationService: applicationService,
+			ApplicationService: &watchableApplicationService.ApplicationService,
 		},
-		watchableCharmService: watchableCharmService,
-		watcherFactory:        watcherFactory,
+		watchableCharmService:       watchableCharmService,
+		watchableApplicationService: watchableApplicationService,
 	}
 }
 
 // WatchCharms returns a watcher that observes changes to charms.
 func (s *WatchableService) WatchCharms() (watcher.StringsWatcher, error) {
 	return s.watchableCharmService.WatchCharms()
+}
+
+// WatchApplicationUnitLife returns a watcher that observes changes to the life of any units if an application.
+func (s *WatchableService) WatchApplicationUnitLife(_ context.Context, appName string) (watcher.StringsWatcher, error) {
+	return s.watchableApplicationService.WatchApplicationUnitLife(appName)
 }

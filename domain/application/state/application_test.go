@@ -302,7 +302,7 @@ func (s *applicationStateSuite) TestDeleteApplication(c *gc.C) {
 		channelCount  int
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM application WHERE name=?", "666").Scan(&appCount)
+		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM application WHERE name=?", "foo").Scan(&appCount)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -310,7 +310,7 @@ func (s *applicationStateSuite) TestDeleteApplication(c *gc.C) {
 SELECT count(*) FROM application a
 JOIN application_platform ap ON a.uuid = ap.application_uuid
 WHERE a.name=?`,
-			"666").Scan(&platformCount)
+			"foo").Scan(&platformCount)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -326,7 +326,7 @@ WHERE a.name=?`,
 SELECT count(*) FROM application a
 JOIN application_channel ac ON a.uuid = ac.application_uuid
 WHERE a.name=?`,
-			"666").Scan(&channelCount)
+			"foo").Scan(&channelCount)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -380,7 +380,7 @@ func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
-	s.createApplication(c, "foo", life.Alive)
+	appID := s.createApplication(c, "foo", life.Alive)
 
 	u := application.UpsertUnitArg{
 		UnitName: ptr("foo/666"),
@@ -390,7 +390,7 @@ func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
 
 	var unitID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT name FROM unit").Scan(&unitID)
+		err := tx.QueryRowContext(ctx, "SELECT name FROM unit WHERE application_uuid=?", appID).Scan(&unitID)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -416,6 +416,86 @@ func (s *applicationStateSuite) TestAddUnitsMissingApplication(c *gc.C) {
 	}
 	err := s.state.AddUnits(context.Background(), "foo", u)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestGetApplicationUnitLife(c *gc.C) {
+	u1 := application.UpsertUnitArg{
+		UnitName: ptr("foo/666"),
+	}
+	u2 := application.UpsertUnitArg{
+		UnitName: ptr("foo/667"),
+	}
+	u3 := application.UpsertUnitArg{
+		UnitName: ptr("bar/667"),
+	}
+	s.createApplication(c, "foo", life.Alive, u1, u2)
+	s.createApplication(c, "bar", life.Alive, u3)
+
+	var unitID1, unitID2, unitID3 string
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name=?", "foo/666"); err != nil {
+			return errors.Trace(err)
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/666").Scan(&unitID1); err != nil {
+			return errors.Trace(err)
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/667").Scan(&unitID2); err != nil {
+			return errors.Trace(err)
+		}
+		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "bar/667").Scan(&unitID3)
+		return errors.Trace(err)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := s.state.GetApplicationUnitLife(context.Background(), "foo", unitID2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, map[string]life.Life{
+		unitID2: life.Alive,
+	})
+
+	got, err = s.state.GetApplicationUnitLife(context.Background(), "foo", unitID1, unitID2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, map[string]life.Life{
+		unitID1: life.Dead,
+		unitID2: life.Alive,
+	})
+
+	got, err = s.state.GetApplicationUnitLife(context.Background(), "foo", unitID2, unitID3)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, map[string]life.Life{
+		unitID2: life.Alive,
+	})
+
+	got, err = s.state.GetApplicationUnitLife(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.HasLen, 0)
+}
+
+func (s *applicationStateSuite) TestInitialWatchStatementUnitLife(c *gc.C) {
+	u1 := application.UpsertUnitArg{
+		UnitName: ptr("foo/666"),
+	}
+	u2 := application.UpsertUnitArg{
+		UnitName: ptr("foo/667"),
+	}
+	s.createApplication(c, "foo", life.Alive, u1, u2)
+
+	var unitID1, unitID2 string
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/666").Scan(&unitID1); err != nil {
+			return errors.Trace(err)
+		}
+		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/667").Scan(&unitID2)
+		return errors.Trace(err)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	table, queryFunc := s.state.InitialWatchStatementUnitLife("foo")
+	c.Assert(table, gc.Equals, "unit")
+
+	result, err := queryFunc(context.Background(), s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.SameContents, []string{unitID1, unitID2})
 }
 
 func (s *applicationStateSuite) TestStorageDefaultsNone(c *gc.C) {

@@ -9,7 +9,7 @@ import (
 )
 
 
-// ChangeLogTriggersForMachine generates the triggers for the 
+// ChangeLogTriggersForMachine generates the triggers for the
 // machine table.
 func ChangeLogTriggersForMachine(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {

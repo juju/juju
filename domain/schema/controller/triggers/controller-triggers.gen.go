@@ -9,7 +9,7 @@ import (
 )
 
 
-// ChangeLogTriggersForControllerConfig generates the triggers for the 
+// ChangeLogTriggersForControllerConfig generates the triggers for the
 // controller_config table.
 func ChangeLogTriggersForControllerConfig(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
@@ -42,7 +42,7 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForControllerNode generates the triggers for the 
+// ChangeLogTriggersForControllerNode generates the triggers for the
 // controller_node table.
 func ChangeLogTriggersForControllerNode(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {

@@ -9,7 +9,7 @@ import (
 )
 
 
-// ChangeLogTriggersForMachineRequiresReboot generates the triggers for the 
+// ChangeLogTriggersForMachineRequiresReboot generates the triggers for the
 // machine_requires_reboot table.
 func ChangeLogTriggersForMachineRequiresReboot(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
