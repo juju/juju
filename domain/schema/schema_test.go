@@ -307,7 +307,6 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"ip_address_provider",
 		"ip_address_space",
 		"ip_address_subnet",
-		"ip_address_gateway",
 
 		// Unit
 		"unit",

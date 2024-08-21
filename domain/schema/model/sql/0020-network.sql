@@ -116,7 +116,7 @@ INSERT INTO ip_address_config_type VALUES
 CREATE TABLE ip_address (
     uuid TEXT NOT NULL PRIMARY KEY,
     -- The value of the configured IP address.
-    -- e.g. 192.168.1.2 or 2001:db8::/64.
+    -- e.g. 192.168.1.2 or 2001:db8::1.
     address_value TEXT NOT NULL,
     type_id INT NOT NULL,
     origin_id INT NOT NULL,
@@ -168,18 +168,4 @@ CREATE TABLE ip_address_subnet (
     FOREIGN KEY (ip_address_uuid)
     REFERENCES ip_address (uuid),
     PRIMARY KEY (subnet_uuid, ip_address_uuid)
-);
-
-CREATE TABLE ip_address_gateway (
-    ip_address_uuid TEXT NOT NULL,
-    -- The IP address of the gateway this IP address's
-    -- device uses.
-    gateway_address TEXT NOT NULL,
-    -- True if that device/subnet is the default gateway
-    -- of the node.
-    is_default_gateway BOOLEAN DEFAULT FALSE,
-    CONSTRAINT fk_ip_address_subnet_ip_address_uuid
-    FOREIGN KEY (ip_address_uuid)
-    REFERENCES ip_address (uuid),
-    PRIMARY KEY (ip_address_uuid, gateway_address)
 );
