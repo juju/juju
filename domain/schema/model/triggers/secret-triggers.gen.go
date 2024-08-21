@@ -30,6 +30,7 @@ WHEN
 	(NEW.description != OLD.description OR (NEW.description IS NOT NULL AND OLD.description IS NULL) OR (NEW.description IS NULL AND OLD.description IS NOT NULL)) OR
 	NEW.rotate_policy_id != OLD.rotate_policy_id OR
 	NEW.auto_prune != OLD.auto_prune OR
+	(NEW.latest_revision_checksum != OLD.latest_revision_checksum OR (NEW.latest_revision_checksum IS NOT NULL AND OLD.latest_revision_checksum IS NULL) OR (NEW.latest_revision_checksum IS NULL AND OLD.latest_revision_checksum IS NOT NULL)) OR
 	NEW.create_time != OLD.create_time OR
 	NEW.update_time != OLD.update_time 
 BEGIN
