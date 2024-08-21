@@ -5,6 +5,7 @@ package controller_test
 
 import (
 	"context"
+	"github.com/juju/juju/apiserver/facades/controller/controller"
 	"time"
 
 	"github.com/juju/errors"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facade/facadetest"
-	"github.com/juju/juju/apiserver/facades/client/controller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"

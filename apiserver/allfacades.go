@@ -44,10 +44,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/backups"           // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/block"             // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/bundle"
-	"github.com/juju/juju/apiserver/facades/client/charms"     // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/client"     // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/cloud"      // ModelUser Read
-	"github.com/juju/juju/apiserver/facades/client/controller" // ModelUser Admin (although some methods check for read only)
+	"github.com/juju/juju/apiserver/facades/client/charms" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/client" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/cloud"  // ModelUser Read
 	"github.com/juju/juju/apiserver/facades/client/credentialmanager"
 	"github.com/juju/juju/apiserver/facades/client/highavailability" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
@@ -78,6 +77,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/charmdownloader"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
+	"github.com/juju/juju/apiserver/facades/controller/controller"
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets"
