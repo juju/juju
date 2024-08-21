@@ -290,11 +290,24 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"net_node",
 		"cloud_service",
 		"cloud_container",
+		"cloud_container_port",
+		"cloud_container_ip_address",
 		"machine_cloud_instance",
 		"machine_cloud_instance_status",
 		"machine_cloud_instance_status_data",
 		"machine_lxd_profile",
 		"instance_tag",
+
+		// IP address
+		"ip_address_type",
+		"ip_address_origin",
+		"ip_address_scope",
+		"ip_address_config_type",
+		"ip_address",
+		"ip_address_provider",
+		"ip_address_space",
+		"ip_address_subnet",
+		"ip_address_gateway",
 
 		// Unit
 		"unit",
