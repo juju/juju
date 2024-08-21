@@ -21,6 +21,20 @@ type applicationID struct {
 	LifeID life.Life `db:"life_id"`
 }
 
+type applicationChannel struct {
+	ApplicationID string `db:"application_uuid"`
+	Track         string `db:"track"`
+	Risk          string `db:"risk"`
+	Branch        string `db:"branch"`
+}
+
+type applicationPlatform struct {
+	ApplicationID  string `db:"application_uuid"`
+	OSTypeID       int    `db:"os_id"`
+	Channel        string `db:"channel"`
+	ArchitectureID int    `db:"architecture_id"`
+}
+
 // applicationName is used to get the name of an application.
 type applicationName struct {
 	Name string `db:"name"`
@@ -78,6 +92,10 @@ type cloudContainer struct {
 type cloudService struct {
 	ApplicationID string `db:"application_uuid"`
 	ProviderID    string `db:"provider_id"`
+}
+
+type applicationCharmUUID struct {
+	CharmUUID string `db:"charm_uuid"`
 }
 
 // These structs represent the persistent charm schema in the database.
@@ -473,20 +491,13 @@ type setCharmOrigin struct {
 	Revision int    `db:"revision"`
 }
 
-type charmPlatform struct {
-	CharmID        string                   `db:"charm_uuid"`
-	OSTypeID       application.OSType       `db:"os_id"`
-	Channel        string                   `db:"channel"`
-	ArchitectureID application.Architecture `db:"architecture_id"`
-}
-
-type setCharmChannel struct {
-	CharmID string `db:"charm_uuid"`
-	Track   string `db:"track"`
-	Risk    string `db:"risk"`
-	Branch  string `db:"branch"`
-}
-
 type countResult struct {
 	Count int `db:"count"`
+}
+
+type charmPlatform struct {
+	CharmID        string `db:"charm_uuid"`
+	OSTypeID       int    `db:"os_id"`
+	Channel        string `db:"channel"`
+	ArchitectureID int    `db:"architecture_id"`
 }

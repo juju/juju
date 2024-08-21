@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
@@ -133,7 +132,7 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFoundError] is returned.
 	// If the charm for the application does not exist, an error satisfying
 	// [applicationerrors.CharmNotFoundError] is returned.
-	GetCharmByApplicationName(context.Context, string) (domaincharm.Charm, domaincharm.CharmOrigin, error)
+	GetCharmByApplicationName(context.Context, string) (domaincharm.Charm, domaincharm.CharmOrigin, application.Platform, error)
 }
 
 const (
@@ -224,19 +223,16 @@ func (s *ApplicationService) CreateApplication(
 		return "", fmt.Errorf("encode charm: %w", err)
 	}
 
-	originArg, err := encodeCharmOrigin(origin)
+	originArg, channelArg, platformArg, err := encodeCharmOrigin(origin)
 	if err != nil {
 		return "", fmt.Errorf("encode charm origin: %w", err)
 	}
 
 	appArg := application.AddApplicationArg{
-		Charm: ch,
-		Platform: application.Platform{
-			Channel:        origin.Platform.Channel,
-			OSTypeID:       application.MarshallOSType(ostype.OSTypeForName(origin.Platform.OS)),
-			ArchitectureID: application.MarshallArchitecture(origin.Platform.Architecture),
-		},
-		Origin: originArg,
+		Charm:    ch,
+		Platform: platformArg,
+		Origin:   originArg,
+		Channel:  channelArg,
 	}
 
 	unitArgs := make([]application.UpsertUnitArg, len(units))
@@ -487,41 +483,46 @@ func (s *ApplicationService) UpdateApplicationCharm(ctx context.Context, name st
 // [applicationerrors.CharmNotFoundError] is returned.
 // If the application name is not valid, an error satisfying
 // [applicationerrors.ApplicationNameNotValid] is returned.
-func (s *ApplicationService) GetCharmByApplicationName(ctx context.Context, name string) (internalcharm.Charm, domaincharm.CharmOrigin, error) {
+func (s *ApplicationService) GetCharmByApplicationName(ctx context.Context, name string) (
+	internalcharm.Charm,
+	domaincharm.CharmOrigin,
+	application.Platform,
+	error,
+) {
 	if !isValidApplication(name) {
-		return nil, domaincharm.CharmOrigin{}, applicationerrors.ApplicationNameNotValid
+		return nil, domaincharm.CharmOrigin{}, application.Platform{}, applicationerrors.ApplicationNameNotValid
 	}
 
-	charm, origin, err := s.st.GetCharmByApplicationName(ctx, name)
+	charm, origin, platform, err := s.st.GetCharmByApplicationName(ctx, name)
 	if err != nil {
-		return nil, origin, errors.Trace(err)
+		return nil, origin, platform, errors.Trace(err)
 	}
 
 	// The charm needs to be decoded into the internalcharm.Charm type.
 
 	metadata, err := decodeMetadata(charm.Metadata)
 	if err != nil {
-		return nil, origin, errors.Trace(err)
+		return nil, origin, platform, errors.Trace(err)
 	}
 
 	manifest, err := decodeManifest(charm.Manifest)
 	if err != nil {
-		return nil, origin, errors.Trace(err)
+		return nil, origin, platform, errors.Trace(err)
 	}
 
 	actions, err := decodeActions(charm.Actions)
 	if err != nil {
-		return nil, origin, errors.Trace(err)
+		return nil, origin, platform, errors.Trace(err)
 	}
 
 	config, err := decodeConfig(charm.Config)
 	if err != nil {
-		return nil, origin, errors.Trace(err)
+		return nil, origin, platform, errors.Trace(err)
 	}
 
 	lxdProfile, err := decodeLXDProfile(charm.LXDProfile)
 	if err != nil {
-		return nil, origin, errors.Trace(err)
+		return nil, origin, platform, errors.Trace(err)
 	}
 
 	return internalcharm.NewCharmBase(
@@ -530,7 +531,7 @@ func (s *ApplicationService) GetCharmByApplicationName(ctx context.Context, name
 		&config,
 		&actions,
 		&lxdProfile,
-	), origin, nil
+	), origin, platform, nil
 }
 
 // addDefaultStorageDirectives fills in default values, replacing any empty/missing values

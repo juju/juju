@@ -88,29 +88,30 @@ CREATE TABLE application_setting (
     REFERENCES application (uuid)
 );
 
-CREATE VIEW v_application_platform AS
-SELECT
-    a.uuid AS application_uuid,
-    cp.os_id,
-    cp.channel,
-    cp.architecture_id
-FROM application AS a
-LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
-LEFT JOIN charm_platform AS cp ON c.uuid = cp.charm_uuid;
+CREATE TABLE application_platform (
+    application_uuid TEXT NOT NULL,
+    os_id TEXT NOT NULL,
+    channel TEXT,
+    architecture_id TEXT NOT NULL,
+    CONSTRAINT fk_application_platform_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_application_platform_os
+    FOREIGN KEY (os_id)
+    REFERENCES os (id),
+    CONSTRAINT fk_application_platform_architecture
+    FOREIGN KEY (architecture_id)
+    REFERENCES architecture (id)
+);
 
-CREATE VIEW v_application_origin AS
-SELECT
-    a.uuid AS application_uuid,
-    co.source_id,
-    cs.name AS source_name,
-    co.id,
-    co.revision,
-    co.version,
-    cc.track,
-    cc.risk,
-    cc.branch
-FROM application AS a
-LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
-LEFT JOIN charm_origin AS co ON c.uuid = co.charm_uuid
-LEFT JOIN charm_source AS cs ON co.source_id = cs.id
-LEFT OUTER JOIN charm_channel AS cc ON c.uuid = cc.charm_uuid;
+CREATE TABLE application_channel (
+    application_uuid TEXT NOT NULL,
+    track TEXT,
+    risk TEXT,
+    branch TEXT,
+    CONSTRAINT fk_application_origin_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid),
+    PRIMARY KEY (application_uuid, track, risk, branch)
+);
+

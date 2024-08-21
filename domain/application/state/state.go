@@ -416,27 +416,46 @@ func (s *commonStateBase) setCharmManifest(ctx context.Context, tx *sqlair.TX, i
 	return nil
 }
 
-// getCharmOrigin returns the charm info for the given charm ID.
+// getCharmOrigin returns the charm origin for the given charm ID.
 func (s *commonStateBase) getCharmOrigin(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.CharmOrigin, error) {
-	query := `
+	originQuery := `
 SELECT &charmOrigin.*
 FROM v_charm_origin
 WHERE charm_uuid = $charmID.uuid;
 `
+	platformQuery := `
+SELECT &charmPlatform.*
+FROM charm_platform
+WHERE charm_uuid = $charmID.uuid;
+`
 
-	stmt, err := s.Prepare(query, charmOrigin{}, ident)
+	originStmt, err := s.Prepare(originQuery, charmOrigin{}, ident)
+	if err != nil {
+		return charm.CharmOrigin{}, fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	platformStmt, err := s.Prepare(platformQuery, charmPlatform{}, ident)
 	if err != nil {
 		return charm.CharmOrigin{}, fmt.Errorf("failed to prepare query: %w", err)
 	}
 
 	var origin charmOrigin
-	if err := tx.Query(ctx, stmt, ident).Get(&origin); err != nil {
+	if err := tx.Query(ctx, originStmt, ident).Get(&origin); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return charm.CharmOrigin{}, applicationerrors.CharmNotFound
 		}
 		return charm.CharmOrigin{}, fmt.Errorf("failed to get charm origin: %w", err)
 	}
-	return decodeCharmOrigin(origin)
+
+	var platform charmPlatform
+	if err := tx.Query(ctx, platformStmt, ident).Get(&platform); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return charm.CharmOrigin{}, applicationerrors.CharmNotFound
+		}
+		return charm.CharmOrigin{}, fmt.Errorf("failed to get charm platform: %w", err)
+	}
+
+	return decodeCharmOrigin(origin, platform)
 }
 
 // getCharm returns the charm for the given charm ID.

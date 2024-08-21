@@ -114,13 +114,18 @@ func (s *exportSuite) TestExport(c *gc.C) {
 	origin := applicationcharm.CharmOrigin{
 		Source:   applicationcharm.CharmHubSource,
 		Revision: 42,
+		Platform: applicationcharm.Platform{
+			OSType:       applicationcharm.Ubuntu,
+			Architecture: applicationcharm.AMD64,
+			Channel:      "22.04",
+		},
 	}
 
-	result, err := convertCharm("foo", charmBase, origin)
+	result, err := convertCharm("foo", charmBase, origin, origin.Platform)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, params.Charm{
 		Revision: 42,
-		URL:      "ch:foo-42",
+		URL:      "ch:amd64/foo-42",
 		Config: map[string]params.CharmOption{
 			"foo": {Type: "string", Description: "bar", Default: "baz"},
 		},

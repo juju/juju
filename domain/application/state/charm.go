@@ -576,6 +576,10 @@ func (s *CharmState) SetCharm(ctx context.Context, charm charm.Charm, charmArgs 
 			return errors.Trace(err)
 		}
 
+		if err := s.setCharmPlatform(ctx, tx, id, charmArgs.Platform); err != nil {
+			return errors.Trace(err)
+		}
+
 		return nil
 	}); err != nil {
 		return "", fmt.Errorf("failed to set charm: %w", err)
@@ -587,7 +591,6 @@ func (s *CharmState) SetCharm(ctx context.Context, charm charm.Charm, charmArgs 
 var tablesToDeleteFrom = []string{
 	"charm_action",
 	"charm_category",
-	"charm_channel",
 	"charm_config",
 	"charm_container_mount",
 	"charm_container",
@@ -750,6 +753,65 @@ func (s *CharmState) setCharmInitialOrigin(
 	return nil
 }
 
+func (s *CharmState) setCharmPlatform(ctx context.Context, tx *sqlair.TX, id corecharm.ID, platform charm.Platform) error {
+	ident := charmID{UUID: id.String()}
+
+	ostypeID, err := encodeOSType(platform.OSType)
+	if err != nil {
+		return fmt.Errorf("failed to encode os type: %w", err)
+	}
+
+	architectureID, err := encodeArchitecture(platform.Architecture)
+	if err != nil {
+		return fmt.Errorf("failed to encode architecture: %w", err)
+	}
+
+	args := charmPlatform{
+		CharmID:        ident.UUID,
+		OSTypeID:       ostypeID,
+		ArchitectureID: architectureID,
+		Channel:        platform.Channel,
+	}
+
+	query := `INSERT INTO charm_platform (*) VALUES ($charmPlatform.*);`
+	stmt, err := s.Prepare(query, args)
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, args).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm platform: %w", err)
+	}
+
+	return nil
+}
+
+func encodeOSType(os charm.OSType) (int, error) {
+	switch os {
+	case charm.Ubuntu:
+		return 0, nil
+	default:
+		return 0, fmt.Errorf("unsupported os type: %q", os)
+	}
+}
+
+func encodeArchitecture(a charm.Architecture) (int, error) {
+	switch a {
+	case charm.AMD64:
+		return 0, nil
+	case charm.ARM64:
+		return 1, nil
+	case charm.PPC64EL:
+		return 2, nil
+	case charm.S390X:
+		return 3, nil
+	case charm.RISV64:
+		return 4, nil
+	default:
+		return 0, fmt.Errorf("unsupported architecture: %q", a)
+	}
+}
+
 func encodeOriginSource(source charm.CharmSource) (int, error) {
 	switch source {
 	case charm.LocalSource:
@@ -761,14 +823,21 @@ func encodeOriginSource(source charm.CharmSource) (int, error) {
 	}
 }
 
-func decodeCharmOrigin(origin charmOrigin) (charm.CharmOrigin, error) {
+func decodeCharmOrigin(origin charmOrigin, platform charmPlatform) (charm.CharmOrigin, error) {
 	source, err := decodeOriginSource(origin.Source)
 	if err != nil {
 		return charm.CharmOrigin{}, fmt.Errorf("failed to decode charm origin source: %w", err)
 	}
+
+	p, err := decodeCharmPlatform(platform)
+	if err != nil {
+		return charm.CharmOrigin{}, fmt.Errorf("failed to decode platform: %w", err)
+	}
+
 	return charm.CharmOrigin{
 		Source:   source,
 		Revision: origin.Revision,
+		Platform: p,
 	}, nil
 }
 
@@ -781,4 +850,35 @@ func decodeOriginSource(source string) (charm.CharmSource, error) {
 	default:
 		return "", fmt.Errorf("unsupported source type: %s", source)
 	}
+}
+
+func encodeCharmOriginSource(source charm.CharmSource) int {
+	// This should have been validated multiple times at the service layer, so
+	// we don't need to revalidate it here.
+
+	// The default will be charmhub for now, as we need to pick something.
+	switch source {
+	case charm.LocalSource:
+		return 0
+	default:
+		return 1
+	}
+}
+
+func decodeCharmPlatform(platform charmPlatform) (charm.Platform, error) {
+	osType, err := decodeOSType(platform.OSTypeID)
+	if err != nil {
+		return charm.Platform{}, fmt.Errorf("failed to decode os type: %w", err)
+	}
+
+	arch, err := decodeArchitecture(platform.ArchitectureID)
+	if err != nil {
+		return charm.Platform{}, fmt.Errorf("failed to decode architecture: %w", err)
+	}
+
+	return charm.Platform{
+		Channel:      platform.Channel,
+		OSType:       osType,
+		Architecture: arch,
+	}, nil
 }

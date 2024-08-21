@@ -66,7 +66,7 @@ func (s *charmInfoSuite) TestCharmInfo(c *gc.C) {
 	charmInfo, err := api.CharmInfo(context.Background(), params.CharmURL{URL: "foo-1"})
 	c.Assert(err, gc.IsNil)
 
-	c.Check(charmInfo.URL, gc.Equals, "ch:foo-1")
+	c.Check(charmInfo.URL, gc.Equals, "ch:amd64/foo-1")
 	c.Check(charmInfo.Meta, gc.DeepEquals, &params.CharmMeta{Name: "foo", MinJujuVersion: "0.0.0"})
 	c.Check(charmInfo.Manifest, gc.DeepEquals, &params.CharmManifest{Bases: []params.CharmBase{{Name: "ubuntu", Channel: "22.04/stable"}}})
 	c.Check(charmInfo.Config, gc.DeepEquals, map[string]params.CharmOption{"foo": {Type: "string"}})
@@ -95,7 +95,7 @@ func (s *charmInfoSuite) TestCharmInfoMinimal(c *gc.C) {
 	charmInfo, err := api.CharmInfo(context.Background(), params.CharmURL{URL: "foo-1"})
 	c.Assert(err, gc.IsNil)
 
-	c.Check(charmInfo.URL, gc.Equals, "ch:foo-1")
+	c.Check(charmInfo.URL, gc.Equals, "ch:amd64/foo-1")
 	c.Check(charmInfo.Meta, gc.DeepEquals, &params.CharmMeta{Name: "foo", MinJujuVersion: "0.0.0"})
 	c.Check(charmInfo.Manifest, gc.IsNil)
 	c.Check(charmInfo.Config, gc.IsNil)

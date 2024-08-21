@@ -87,13 +87,13 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 		return "", errors.Trace(err)
 	}
 
-	platformInfo := charmPlatform{
-		CharmID:        charmID.String(),
-		OSTypeID:       app.Platform.OSTypeID,
+	platformInfo := applicationPlatform{
+		ApplicationID:  appID.String(),
+		OSTypeID:       int(app.Platform.OSType),
 		Channel:        app.Platform.Channel,
-		ArchitectureID: app.Platform.ArchitectureID,
+		ArchitectureID: int(app.Platform.Architecture),
 	}
-	createPlatform := `INSERT INTO charm_platform (*) VALUES ($charmPlatform.*)`
+	createPlatform := `INSERT INTO application_platform (*) VALUES ($applicationPlatform.*)`
 	createPlatformStmt, err := st.Prepare(createPlatform, platformInfo)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -110,18 +110,30 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 		return "", errors.Trace(err)
 	}
 
+	charmPlatformInfo := charmPlatform{
+		CharmID:        charmID.String(),
+		OSTypeID:       int(app.Platform.OSType),
+		Channel:        app.Platform.Channel,
+		ArchitectureID: int(app.Platform.Architecture),
+	}
+	createCharmPlatform := `INSERT INTO charm_platform (*) VALUES ($charmPlatform.*)`
+	createCharmPlatformStmt, err := st.Prepare(createCharmPlatform, charmPlatformInfo)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
 	var (
 		createChannelStmt *sqlair.Statement
-		channelInfo       setCharmChannel
+		channelInfo       applicationChannel
 	)
-	if ch := app.Origin.Channel; ch != nil {
-		channelInfo = setCharmChannel{
-			CharmID: charmID.String(),
-			Track:   ch.Track,
-			Risk:    string(ch.Risk),
-			Branch:  ch.Branch,
+	if ch := app.Channel; ch != nil {
+		channelInfo = applicationChannel{
+			ApplicationID: appID.String(),
+			Track:         ch.Track,
+			Risk:          string(ch.Risk),
+			Branch:        ch.Branch,
 		}
-		createChannel := `INSERT INTO charm_channel (*) VALUES ($setCharmChannel.*)`
+		createChannel := `INSERT INTO application_channel (*) VALUES ($applicationChannel.*)`
 		if createChannelStmt, err = st.Prepare(createChannel, channelInfo); err != nil {
 			return "", errors.Trace(err)
 		}
@@ -151,6 +163,9 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 		}
 		if err := tx.Query(ctx, createOriginStmt, originInfo).Run(); err != nil {
 			return errors.Annotatef(err, "creating origin row for application %q", name)
+		}
+		if err := tx.Query(ctx, createCharmPlatformStmt, charmPlatformInfo).Run(); err != nil {
+			return errors.Annotatef(err, "creating charm platform row for application %q", name)
 		}
 		if createChannelStmt != nil {
 			if err := tx.Query(ctx, createChannelStmt, channelInfo).Run(); err != nil {
@@ -997,37 +1012,45 @@ WHERE u.name = $coreUnit.name
 // [applicationerrors.ApplicationNotFoundError] is returned.
 // If the charm for the application does not exist, an error satisfying
 // [applicationerrors.CharmNotFoundError] is returned.
-func (st *ApplicationState) GetCharmByApplicationName(ctx context.Context, name string) (charm.Charm, charm.CharmOrigin, error) {
+func (st *ApplicationState) GetCharmByApplicationName(ctx context.Context, name string) (charm.Charm, charm.CharmOrigin, application.Platform, error) {
 	db, err := st.DB()
 	if err != nil {
-		return charm.Charm{}, charm.CharmOrigin{}, errors.Trace(err)
+		return charm.Charm{}, charm.CharmOrigin{}, application.Platform{}, errors.Trace(err)
 	}
 
 	query, err := st.Prepare(`
-SELECT charm_uuid AS &charmUUID.*
+SELECT &applicationCharmUUID.*
 FROM application
-WHERE name = $applicationName.name
-`, charmUUID{}, applicationName{})
+WHERE uuid = $applicationID.uuid
+`, applicationCharmUUID{}, applicationID{})
 	if err != nil {
-		return charm.Charm{}, charm.CharmOrigin{}, fmt.Errorf("preparing query for application %q: %w", name, err)
+		return charm.Charm{}, charm.CharmOrigin{}, application.Platform{}, fmt.Errorf("preparing query for application %q: %w", name, err)
 	}
 
 	var (
-		ch     charm.Charm
-		chInfo charm.CharmOrigin
+		ch          charm.Charm
+		chOrigin    charm.CharmOrigin
+		appPlatform application.Platform
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var charmUUID charmUUID
-		if err := tx.Query(ctx, query, applicationName{Name: name}).Get(&charmUUID); err != nil {
+		appID, err := st.lookupApplication(ctx, tx, name, false)
+		if err != nil {
+			return fmt.Errorf("looking up application %q: %w", name, err)
+		}
+
+		appIdent := applicationID{ID: appID.String()}
+
+		var charmIdent applicationCharmUUID
+		if err := tx.Query(ctx, query, appIdent).Get(&charmIdent); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return fmt.Errorf("application %s: %w", name, applicationerrors.ApplicationNotFound)
 			}
-			return fmt.Errorf("querying charm for application %q: %w", name, err)
+			return fmt.Errorf("getting charm for application %q: %w", name, err)
 		}
 
 		// If the charmUUID is empty, then something went wrong with adding an
 		// application.
-		if charmUUID.UUID == "" {
+		if charmIdent.CharmUUID == "" {
 			// Do not return a CharmNotFound error here. The application is in
 			// a broken state. There isn't anything we can do to fix it here.
 			// This will require manual intervention.
@@ -1036,8 +1059,8 @@ WHERE name = $applicationName.name
 
 		// Now get the charm by the UUID, but if it doesn't exist, return an
 		// error.
-		ident := charmID(charmUUID)
-		ch, err = st.getCharm(ctx, tx, ident)
+		chIdent := charmID{UUID: charmIdent.CharmUUID}
+		ch, err = st.getCharm(ctx, tx, chIdent)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return fmt.Errorf("application %s: %w", name, applicationerrors.CharmNotFound)
@@ -1045,30 +1068,92 @@ WHERE name = $applicationName.name
 			return fmt.Errorf("getting charm for application %q: %w", name, err)
 		}
 
-		chInfo, err = st.getCharmOrigin(ctx, tx, ident)
+		chOrigin, err = st.getCharmOrigin(ctx, tx, chIdent)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return fmt.Errorf("application %s: %w", name, applicationerrors.CharmNotFound)
 			}
-			return fmt.Errorf("getting charm info for application %q: %w", name, err)
+			return fmt.Errorf("getting charm origin for application %q: %w", name, err)
+		}
+
+		appPlatform, err = st.getPlatform(ctx, tx, appIdent)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return fmt.Errorf("application %s: %w", name, applicationerrors.InvalidApplicationState)
+			}
+			return fmt.Errorf("getting charm platform for application %q: %w", name, err)
 		}
 		return nil
 	}); err != nil {
-		return ch, chInfo, errors.Trace(err)
+		return ch, chOrigin, appPlatform, errors.Trace(err)
 	}
 
-	return ch, chInfo, nil
+	return ch, chOrigin, appPlatform, nil
 }
 
-func encodeCharmOriginSource(source charm.CharmSource) int {
-	// This should have been validated multiple times at the service layer, so
-	// we don't need to revalidate it here.
+// getPlatform returns the application platform for the given charm ID.
+func (s *ApplicationState) getPlatform(ctx context.Context, tx *sqlair.TX, ident applicationID) (application.Platform, error) {
+	query := `
+SELECT &applicationPlatform.*
+FROM application_platform
+WHERE application_uuid = $applicationID.uuid;
+`
 
-	// The default will be charmhub for now, as we need to pick something.
-	switch source {
-	case charm.LocalSource:
-		return 0
+	stmt, err := s.Prepare(query, applicationPlatform{}, ident)
+	if err != nil {
+		return application.Platform{}, fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	var platform applicationPlatform
+	if err := tx.Query(ctx, stmt, ident).Get(&platform); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return application.Platform{}, applicationerrors.CharmNotFound
+		}
+		return application.Platform{}, fmt.Errorf("failed to get application platform: %w", err)
+	}
+	return decodePlatform(platform)
+}
+
+func decodePlatform(platform applicationPlatform) (application.Platform, error) {
+	osType, err := decodeOSType(platform.OSTypeID)
+	if err != nil {
+		return application.Platform{}, fmt.Errorf("failed to decode os type: %w", err)
+	}
+
+	arch, err := decodeArchitecture(platform.ArchitectureID)
+	if err != nil {
+		return application.Platform{}, fmt.Errorf("failed to decode architecture: %w", err)
+	}
+
+	return application.Platform{
+		Channel:      platform.Channel,
+		OSType:       osType,
+		Architecture: arch,
+	}, nil
+}
+
+func decodeOSType(osType int) (application.OSType, error) {
+	switch osType {
+	case 0:
+		return charm.Ubuntu, nil
 	default:
-		return 1
+		return -1, fmt.Errorf("unsupported os type: %d", osType)
+	}
+}
+
+func decodeArchitecture(arch int) (application.Architecture, error) {
+	switch arch {
+	case 0:
+		return charm.AMD64, nil
+	case 1:
+		return charm.ARM64, nil
+	case 2:
+		return charm.PPC64EL, nil
+	case 3:
+		return charm.S390X, nil
+	case 4:
+		return charm.RISV64, nil
+	default:
+		return -1, fmt.Errorf("unsupported architecture: %d", arch)
 	}
 }

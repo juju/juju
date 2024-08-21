@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
@@ -81,13 +82,13 @@ func (a *CharmInfoAPI) CharmInfo(ctx context.Context, args params.CharmURL) (par
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	return convertCharm(aCharm.Meta().Name, aCharm, aOrigin)
+	return convertCharm(aCharm.Meta().Name, aCharm, aOrigin, aOrigin.Platform)
 }
 
 // ApplicationService is the interface that the ApplicationCharmInfoAPI
 // requires to fetch charm information for an application.
 type ApplicationService interface {
-	GetCharmByApplicationName(context.Context, string) (charm.Charm, applicationcharm.CharmOrigin, error)
+	GetCharmByApplicationName(context.Context, string) (charm.Charm, applicationcharm.CharmOrigin, application.Platform, error)
 }
 
 // ApplicationCharmInfoAPI implements the ApplicationCharmInfo endpoint.
@@ -120,7 +121,7 @@ func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(ctx context.Context, args
 	// Application name is used to fetch the charm information.
 	appName := appTag.Id()
 
-	ch, origin, err := a.service.GetCharmByApplicationName(ctx, appName)
+	ch, origin, platform, err := a.service.GetCharmByApplicationName(ctx, appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return params.Charm{}, errors.NotFoundf("application %q not found", appName)
 	} else if errors.Is(err, applicationerrors.CharmNotFound) {
@@ -129,7 +130,7 @@ func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(ctx context.Context, args
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	return convertCharm(appName, ch, origin)
+	return convertCharm(appName, ch, origin, platform)
 }
 
 func convertSource(source applicationcharm.CharmSource) (string, error) {
@@ -143,16 +144,43 @@ func convertSource(source applicationcharm.CharmSource) (string, error) {
 	}
 }
 
-func convertCharm(name string, ch charm.Charm, origin applicationcharm.CharmOrigin) (params.Charm, error) {
+func convertApplication(arch application.Architecture) (string, error) {
+	switch arch {
+	case applicationcharm.AMD64:
+		return "amd64", nil
+	case applicationcharm.ARM64:
+		return "arm64", nil
+	case applicationcharm.PPC64EL:
+		return "ppc64el", nil
+	case applicationcharm.S390X:
+		return "s390x", nil
+	case applicationcharm.RISV64:
+		return "riscv64", nil
+	default:
+		return "", errors.Errorf("unsupported architecture %q", arch)
+	}
+}
+
+func convertCharm(
+	name string, ch charm.Charm,
+	origin applicationcharm.CharmOrigin,
+	platform applicationcharm.Platform,
+) (params.Charm, error) {
 	schema, err := convertSource(origin.Source)
 	if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
 
+	architecture, err := convertApplication(platform.Architecture)
+	if err != nil {
+		return params.Charm{}, errors.Trace(err)
+	}
+
 	url := charm.URL{
-		Schema:   schema,
-		Name:     name,
-		Revision: origin.Revision,
+		Schema:       schema,
+		Name:         name,
+		Revision:     origin.Revision,
+		Architecture: architecture,
 	}
 
 	result := params.Charm{

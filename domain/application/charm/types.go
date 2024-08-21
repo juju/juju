@@ -60,6 +60,8 @@ type SetStateArgs struct {
 	ArchivePath string
 	// Version is the optional charm version.
 	Version string
+	// Platform is the platform of the charm.
+	Platform Platform
 }
 
 // Charm represents a charm from the perspective of the service. This is the
@@ -88,8 +90,33 @@ type CharmOrigin struct {
 	Source CharmSource
 	// Revision is the revision of the charm.
 	Revision int
-	// Channel is the channel of the charm.
-	Channel *Channel
+	// Platform is the platform of the charm.
+	Platform Platform
+}
+
+// OSType represents the type of an application's OS.
+type OSType int
+
+const (
+	Ubuntu OSType = iota
+)
+
+// Architecture represents an application's architecture.
+type Architecture int
+
+const (
+	AMD64 Architecture = iota
+	ARM64
+	PPC64EL
+	S390X
+	RISV64
+)
+
+// Platform contains parameters for an application's platform.
+type Platform struct {
+	Channel      string
+	OSType       OSType
+	Architecture Architecture
 }
 
 // Metadata represents the metadata of a charm from the perspective of the

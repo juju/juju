@@ -68,9 +68,9 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 		},
 	}
 	platform := application.Platform{
-		Channel:        "24.04",
-		OSTypeID:       application.Ubuntu,
-		ArchitectureID: application.ARM64,
+		Channel:      "24.04",
+		OSType:       domaincharm.Ubuntu,
+		Architecture: domaincharm.ARM64,
 	}
 	app := application.AddApplicationArg{
 		Charm:    ch,
@@ -125,9 +125,9 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 		},
 	}
 	platform := application.Platform{
-		Channel:        "24.04",
-		OSTypeID:       application.Ubuntu,
-		ArchitectureID: application.ARM64,
+		Channel:      "24.04",
+		OSType:       domaincharm.Ubuntu,
+		Architecture: domaincharm.ARM64,
 	}
 	app := application.AddApplicationArg{
 		Charm:    ch,
@@ -194,9 +194,9 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 		},
 	}
 	platform := application.Platform{
-		Channel:        "24.04",
-		OSTypeID:       application.Ubuntu,
-		ArchitectureID: application.ARM64,
+		Channel:      "24.04",
+		OSType:       domaincharm.Ubuntu,
+		Architecture: domaincharm.ARM64,
 	}
 	app := application.AddApplicationArg{
 		Charm:    ch,
@@ -267,9 +267,9 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 		},
 	}
 	platform := application.Platform{
-		Channel:        "24.04",
-		OSTypeID:       application.Ubuntu,
-		ArchitectureID: application.ARM64,
+		Channel:      "24.04",
+		OSType:       domaincharm.Ubuntu,
+		Architecture: domaincharm.ARM64,
 	}
 	app := application.AddApplicationArg{
 		Charm:    ch,
@@ -336,9 +336,9 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 		},
 	}
 	platform := application.Platform{
-		Channel:        "24.04",
-		OSTypeID:       application.Ubuntu,
-		ArchitectureID: application.ARM64,
+		Channel:      "24.04",
+		OSType:       domaincharm.Ubuntu,
+		Architecture: domaincharm.ARM64,
 	}
 	app := application.AddApplicationArg{
 		Charm:    ch,
@@ -634,9 +634,12 @@ func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
 		},
 	}, domaincharm.CharmOrigin{
 		Revision: 42,
+	}, application.Platform{
+		OSType:       domaincharm.Ubuntu,
+		Architecture: domaincharm.AMD64,
 	}, nil)
 
-	metadata, origin, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
+	metadata, origin, platform, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(metadata.Meta(), gc.DeepEquals, &charm.Meta{
 		Name: "foo",
@@ -645,5 +648,9 @@ func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
 	})
 	c.Check(origin, gc.DeepEquals, domaincharm.CharmOrigin{
 		Revision: 42,
+	})
+	c.Check(platform, gc.DeepEquals, application.Platform{
+		OSType:       domaincharm.Ubuntu,
+		Architecture: domaincharm.AMD64,
 	})
 }

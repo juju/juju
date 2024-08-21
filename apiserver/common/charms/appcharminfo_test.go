@@ -54,8 +54,9 @@ func (s *appCharmInfoSuite) TestApplicationCharmInfo(c *gc.C) {
 
 	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
 	charmOrigin := charm.CharmOrigin{Source: charm.CharmHubSource, Revision: 1}
+	appPlatform := charm.Platform{OSType: charm.Ubuntu, Architecture: charm.AMD64}
 
-	s.appService.EXPECT().GetCharmByApplicationName(gomock.Any(), "fuu").Return(charmBase, charmOrigin, nil)
+	s.appService.EXPECT().GetCharmByApplicationName(gomock.Any(), "fuu").Return(charmBase, charmOrigin, appPlatform, nil)
 
 	// Make the ApplicationCharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(internaltesting.ModelTag, s.appService, s.authorizer)
@@ -67,7 +68,7 @@ func (s *appCharmInfoSuite) TestApplicationCharmInfo(c *gc.C) {
 	// only used as the fallback. This test ensures that the application
 	// name is returned.
 
-	c.Check(charmInfo.URL, gc.Equals, "ch:fuu-1")
+	c.Check(charmInfo.URL, gc.Equals, "ch:amd64/fuu-1")
 	c.Check(charmInfo.Meta, gc.DeepEquals, &params.CharmMeta{Name: "foo", MinJujuVersion: "0.0.0"})
 	c.Check(charmInfo.Manifest, gc.DeepEquals, &params.CharmManifest{Bases: []params.CharmBase{{Name: "ubuntu", Channel: "22.04/stable"}}})
 	c.Check(charmInfo.Config, gc.DeepEquals, map[string]params.CharmOption{"foo": {Type: "string"}})
@@ -84,8 +85,9 @@ func (s *appCharmInfoSuite) TestApplicationCharmInfoMinimal(c *gc.C) {
 
 	charmBase := internalcharm.NewCharmBase(metadata, nil, nil, nil, nil)
 	charmOrigin := charm.CharmOrigin{Source: charm.CharmHubSource, Revision: 1}
+	appPlatform := charm.Platform{OSType: charm.Ubuntu, Architecture: charm.AMD64}
 
-	s.appService.EXPECT().GetCharmByApplicationName(gomock.Any(), "fuu").Return(charmBase, charmOrigin, nil)
+	s.appService.EXPECT().GetCharmByApplicationName(gomock.Any(), "fuu").Return(charmBase, charmOrigin, appPlatform, nil)
 
 	// Make the ApplicationCharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(internaltesting.ModelTag, s.appService, s.authorizer)
@@ -93,7 +95,7 @@ func (s *appCharmInfoSuite) TestApplicationCharmInfoMinimal(c *gc.C) {
 	charmInfo, err := api.ApplicationCharmInfo(context.Background(), params.Entity{Tag: names.NewApplicationTag("fuu").String()})
 	c.Assert(err, gc.IsNil)
 
-	c.Check(charmInfo.URL, gc.Equals, "ch:fuu-1")
+	c.Check(charmInfo.URL, gc.Equals, "ch:amd64/fuu-1")
 	c.Check(charmInfo.Meta, gc.DeepEquals, &params.CharmMeta{Name: "foo", MinJujuVersion: "0.0.0"})
 	c.Check(charmInfo.Manifest, gc.IsNil)
 	c.Check(charmInfo.Config, gc.IsNil)

@@ -47,17 +47,6 @@ SELECT
 FROM charm AS c
 LEFT JOIN charm_run_as_kind AS crak ON c.run_as_id = crak.id;
 
-CREATE TABLE charm_channel (
-    charm_uuid TEXT NOT NULL,
-    track TEXT NOT NULL,
-    risk TEXT NOT NULL,
-    branch TEXT,
-    CONSTRAINT fk_charm_channel_charm
-    FOREIGN KEY (charm_uuid)
-    REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid)
-);
-
 -- The charm_state table exists to store the availability of a charm. The
 -- fact that the charm is in the database indicates that it's a placeholder.
 -- Updating the available flag to true indicates that the charm is now
