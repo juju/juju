@@ -82,40 +82,40 @@ func (c *MockStateAllMachineNamesCall) DoAndReturn(f func(context.Context) ([]ma
 	return c
 }
 
-// CancelMachineReboot mocks base method.
-func (m *MockState) CancelMachineReboot(arg0 context.Context, arg1 string) error {
+// ClearMachineReboot mocks base method.
+func (m *MockState) ClearMachineReboot(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CancelMachineReboot", arg0, arg1)
+	ret := m.ctrl.Call(m, "ClearMachineReboot", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CancelMachineReboot indicates an expected call of CancelMachineReboot.
-func (mr *MockStateMockRecorder) CancelMachineReboot(arg0, arg1 any) *MockStateCancelMachineRebootCall {
+// ClearMachineReboot indicates an expected call of ClearMachineReboot.
+func (mr *MockStateMockRecorder) ClearMachineReboot(arg0, arg1 any) *MockStateClearMachineRebootCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelMachineReboot", reflect.TypeOf((*MockState)(nil).CancelMachineReboot), arg0, arg1)
-	return &MockStateCancelMachineRebootCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearMachineReboot", reflect.TypeOf((*MockState)(nil).ClearMachineReboot), arg0, arg1)
+	return &MockStateClearMachineRebootCall{Call: call}
 }
 
-// MockStateCancelMachineRebootCall wrap *gomock.Call
-type MockStateCancelMachineRebootCall struct {
+// MockStateClearMachineRebootCall wrap *gomock.Call
+type MockStateClearMachineRebootCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateCancelMachineRebootCall) Return(arg0 error) *MockStateCancelMachineRebootCall {
+func (c *MockStateClearMachineRebootCall) Return(arg0 error) *MockStateClearMachineRebootCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCancelMachineRebootCall) Do(f func(context.Context, string) error) *MockStateCancelMachineRebootCall {
+func (c *MockStateClearMachineRebootCall) Do(f func(context.Context, string) error) *MockStateClearMachineRebootCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCancelMachineRebootCall) DoAndReturn(f func(context.Context, string) error) *MockStateCancelMachineRebootCall {
+func (c *MockStateClearMachineRebootCall) DoAndReturn(f func(context.Context, string) error) *MockStateClearMachineRebootCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

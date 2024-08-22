@@ -471,26 +471,26 @@ func (s *serviceSuite) TestRequireMachineRebootError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `requiring a machine reboot for machine with uuid "u-u-i-d": boom`)
 }
 
-func (s *serviceSuite) TestCancelMachineRebootSuccess(c *gc.C) {
+func (s *serviceSuite) TestClearMachineRebootSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CancelMachineReboot(gomock.Any(), "u-u-i-d").Return(nil)
+	s.state.EXPECT().ClearMachineReboot(gomock.Any(), "u-u-i-d").Return(nil)
 
-	err := NewService(s.state).CancelMachineReboot(context.Background(), "u-u-i-d")
+	err := NewService(s.state).ClearMachineReboot(context.Background(), "u-u-i-d")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// TestCancelMachineRebootError asserts that an error coming from the state layer is
+// TestClearMachineRebootError asserts that an error coming from the state layer is
 // preserved, passed over to the service layer to be maintained there.
-func (s *serviceSuite) TestCancelMachineRebootError(c *gc.C) {
+func (s *serviceSuite) TestClearMachineRebootError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().CancelMachineReboot(gomock.Any(), "u-u-i-d").Return(rErr)
+	s.state.EXPECT().ClearMachineReboot(gomock.Any(), "u-u-i-d").Return(rErr)
 
-	err := NewService(s.state).CancelMachineReboot(context.Background(), "u-u-i-d")
+	err := NewService(s.state).ClearMachineReboot(context.Background(), "u-u-i-d")
 	c.Check(err, jc.ErrorIs, rErr)
-	c.Assert(err, gc.ErrorMatches, `cancelling a machine reboot for machine with uuid "u-u-i-d": boom`)
+	c.Assert(err, gc.ErrorMatches, `clear machine reboot flag for machine with uuid "u-u-i-d": boom`)
 }
 
 func (s *serviceSuite) TestIsMachineRebootSuccessMachineNeedReboot(c *gc.C) {

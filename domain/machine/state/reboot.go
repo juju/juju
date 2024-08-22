@@ -42,12 +42,12 @@ func (st *State) RequireMachineReboot(ctx context.Context, uuid string) error {
 	return errors.Annotatef(err, "requiring reboot of machine %q", uuid)
 }
 
-// CancelMachineReboot cancels the reboot of the machine referenced by its UUID
-// if it has previously been required.
+// ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot
+// has previously been required.
 //
 // It basically removes the uuid from the "machine_requires_reboot" table if
 // present. This function is idempotent.
-func (st *State) CancelMachineReboot(ctx context.Context, uuid string) error {
+func (st *State) ClearMachineReboot(ctx context.Context, uuid string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
