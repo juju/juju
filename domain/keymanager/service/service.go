@@ -12,9 +12,9 @@ import (
 	"github.com/juju/juju/core/model"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/domain/controller"
 	"github.com/juju/juju/domain/keymanager"
 	keyerrors "github.com/juju/juju/domain/keymanager/errors"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/ssh"
 	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
@@ -84,6 +84,12 @@ type State interface {
 	// - [modelerrors.NotFound] - If the model does not exist.
 	GetPublicKeysForUser(context.Context, model.UUID, user.UUID) ([]coressh.PublicKey, error)
 
+	// GetAllUsersPublicKeys returns all of the public keys that are in a model
+	// and their respective username. This is useful for building a view during
+	// model migration. The following errors can be expected:
+	// - [modelerrors.NotFound] - When no model exists for the uuid.
+	GetAllUsersPublicKeys(context.Context, model.UUID) (map[user.Name][]string, error)
+
 	// DeletePublicKeysForUser is responsible for removing the keys from the
 	// users list of public keys on the given model. keyIds represent one of the
 	// keys fingerprint, public key data or comment.
@@ -97,7 +103,7 @@ var (
 	// reservedPublicKeyComments is the set of comments that can not be
 	// removed or added by a user.
 	reservedPublicKeyComments = set.NewStrings(
-		config.JujuSystemKey,
+		controller.ControllerSSHKeyComment,
 	)
 )
 
@@ -207,6 +213,17 @@ func (s *Service) DeleteKeysForUser(
 	}
 
 	return s.st.DeletePublicKeysForUser(ctx, s.modelUUID, userUUID, targets)
+}
+
+// GetAllUserPublicKeys returns all of the public keys in the model for each
+// user grouped by [user.Name].
+// The following errors can be expected:
+// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
+// not exist.
+func (s *Service) GetAllUsersPublicKeys(
+	ctx context.Context,
+) (map[user.Name][]string, error) {
+	return s.st.GetAllUsersPublicKeys(ctx, s.modelUUID)
 }
 
 // ImportPublicKeysForUser will import all of the public keys available for a

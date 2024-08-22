@@ -382,8 +382,8 @@ ON CONFLICT DO NOTHING
 
 // GetAllUsersPublicKeys returns all of the public keys that are in a model and
 // their respective username. This is useful for building a view during model
-// migration. If no model exists for the provider uuid an error satisfying
-// [modelerrors.NotFound] is returned.
+// migration. The following errors can be expected:
+// - [modelerrors.NotFound] - When no model exists for the uuid.
 func (s *State) GetAllUsersPublicKeys(
 	ctx context.Context,
 	modelUUID model.UUID,
