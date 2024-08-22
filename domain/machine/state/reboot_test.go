@@ -86,7 +86,7 @@ func (s *stateSuite) TestCancelMachineReboot(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Call the function under test
-	err = s.state.CancelMachineReboot(context.Background(), "u-u-i-d")
+	err = s.state.ClearMachineReboot(context.Background(), "u-u-i-d")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify: Check if the machine needs reboot
@@ -103,9 +103,9 @@ func (s *stateSuite) TestCancelMachineRebootIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Call the function under test, twice (idempotency)
-	err = s.state.CancelMachineReboot(context.Background(), "u-u-i-d")
+	err = s.state.ClearMachineReboot(context.Background(), "u-u-i-d")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.state.CancelMachineReboot(context.Background(), "u-u-i-d")
+	err = s.state.ClearMachineReboot(context.Background(), "u-u-i-d")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify: Check if the machine needs reboot
@@ -126,7 +126,7 @@ func (s *stateSuite) TestCancelMachineRebootSeveralMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Call the function under test
-	err = s.state.CancelMachineReboot(context.Background(), "a-l-i-ve")
+	err = s.state.ClearMachineReboot(context.Background(), "a-l-i-ve")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify: Check which machine needs reboot

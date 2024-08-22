@@ -101,8 +101,8 @@ type State interface {
 	// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
 	RequireMachineReboot(ctx context.Context, uuid string) error
 
-	// CancelMachineReboot cancels the reboot of the machine referenced by its UUID if it has previously been required.
-	CancelMachineReboot(ctx context.Context, uuid string) error
+	// ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot has previously been required.
+	ClearMachineReboot(ctx context.Context, uuid string) error
 
 	// IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
 	IsMachineRebootRequired(ctx context.Context, uuid string) (bool, error)
@@ -304,9 +304,9 @@ func (s *Service) RequireMachineReboot(ctx context.Context, uuid string) error {
 	return errors.Annotatef(s.st.RequireMachineReboot(ctx, uuid), "requiring a machine reboot for machine with uuid %q", uuid)
 }
 
-// CancelMachineReboot cancels the reboot of the machine referenced by its UUID if it has previously been required.
-func (s *Service) CancelMachineReboot(ctx context.Context, uuid string) error {
-	return errors.Annotatef(s.st.CancelMachineReboot(ctx, uuid), "cancelling a machine reboot for machine with uuid %q", uuid)
+// ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot has previously been required.
+func (s *Service) ClearMachineReboot(ctx context.Context, uuid string) error {
+	return errors.Annotatef(s.st.ClearMachineReboot(ctx, uuid), "clear machine reboot flag for machine with uuid %q", uuid)
 }
 
 // IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
