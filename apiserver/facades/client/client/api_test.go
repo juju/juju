@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	usertesting "github.com/juju/juju/core/user/testing"
+	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/auth"
@@ -105,7 +106,7 @@ var scenarioStatus = &params.FullStatus{
 		Type:        "iaas",
 		CloudTag:    "cloud-" + testing.DefaultCloud.Name,
 		CloudRegion: testing.DefaultCloudRegion,
-		Version:     "2.0.0",
+		Version:     version.Current.String(),
 		ModelStatus: params.DetailedStatus{
 			Status: "available",
 		},

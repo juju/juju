@@ -163,6 +163,7 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	controllerArgs := modeldomain.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        s.CloudName,
+		CloudRegion:  "dummy-region",
 		Credential:   s.CredentialKey,
 		Name:         coremodel.ControllerModelName,
 		Owner:        s.AdminUserUUID,
