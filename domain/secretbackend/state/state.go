@@ -432,12 +432,10 @@ func (s *State) ListSecretBackendsForModel(ctx context.Context, modelUUID coremo
 	if !includeEmpty {
 		inputArgs = append(inputArgs, SecretBackendReference{ModelID: modelUUID})
 		inUseCondition = fmt.Sprintf(`
-WHERE EXISTS (
-    SELECT 1
-    FROM secret_backend_reference
-    WHERE secret_backend_uuid = b.uuid AND model_uuid = $SecretBackendReference.model_uuid
-) OR b.name = '%s' OR b.name = '%s'`, kubernetes.BackendName, juju.BackendName)
+    LEFT JOIN secret_backend_reference sbr ON b.uuid = sbr.secret_backend_uuid
+WHERE sbr.model_uuid = $SecretBackendReference.model_uuid OR b.name = '%s' OR b.name = '%s'`[1:], kubernetes.BackendName, juju.BackendName)
 	}
+
 	q := fmt.Sprintf(`
 SELECT
     b.uuid                  AS &SecretBackendRow.uuid,

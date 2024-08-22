@@ -1939,7 +1939,9 @@ func (s *stateSuite) TestUpdateSecretContentNoOpsIfNoContentChange(c *gc.C) {
 
 	s.setupUnits(c, "mysql")
 
-	sp := domainsecret.UpsertSecretParams{}
+	sp := domainsecret.UpsertSecretParams{
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+	}
 	fillDataForUpsertSecretParams(c, &sp, coresecrets.SecretData{"foo": "bar", "hello": "world"})
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
