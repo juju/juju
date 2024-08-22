@@ -23,6 +23,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/user-public-ssh-key.gen.go -package=triggers -tables=user_public_ssh_key
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/charm.gen.go -package=triggers -tables=charm
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit.gen.go -package=triggers -tables=unit
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-scale.gen.go -package=triggers -tables=application_scale
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
@@ -50,6 +51,7 @@ const (
 	tableUserPublicSSHKey
 	tableCharm
 	tableUnit
+	tableApplicationScale
 )
 
 // ModelDDL is used to create model databases.
@@ -107,6 +109,7 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForUserPublicSshKey("id", tableUserPublicSSHKey),
 		triggers.ChangeLogTriggersForCharm("uuid", tableCharm),
 		triggers.ChangeLogTriggersForUnit("uuid", tableUnit),
+		triggers.ChangeLogTriggersForApplicationScale("application_uuid", tableApplicationScale),
 	)
 
 	// Generic triggers.

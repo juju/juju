@@ -9926,9 +9926,6 @@
                         "application-tag": {
                             "type": "string"
                         },
-                        "generation": {
-                            "type": "integer"
-                        },
                         "provider-id": {
                             "type": "string"
                         },

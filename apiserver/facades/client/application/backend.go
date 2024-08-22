@@ -98,7 +98,6 @@ type Application interface {
 	SetMinUnits(int) error
 	UpdateCharmConfig(charm.Settings) error
 	UpdateApplicationConfig(coreconfig.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
-	SetScale(int, int64, bool) error
 	ChangeScale(int) (int, error)
 	AgentTools() (*tools.Tools, error)
 	MergeBindings(*state.Bindings, bool) error

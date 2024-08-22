@@ -25,6 +25,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/domain/application/service"
 	envconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -51,6 +52,7 @@ type CAASApplicationProvisionerSuite struct {
 	controllerConfigService *MockControllerConfigService
 	modelConfigService      *MockModelConfigService
 	modelInfoService        *MockModelInfoService
+	applicationService      *MockApplicationService
 	registry                *mockStorageRegistry
 	store                   *mockObjectStore
 }
@@ -86,6 +88,7 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.modelInfoService = NewMockModelInfoService(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
 
 	newResourceOpener := func(appName string) (jujuresource.Opener, error) {
 		return &mockResourceOpener{appName: appName, resources: s.st.resource}, nil
@@ -99,6 +102,7 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *gc.C) *gomock.Controller {
 		s.controllerConfigService,
 		s.modelConfigService,
 		s.modelInfoService,
+		s.applicationService,
 		s.registry,
 		s.store,
 		s.clock,
@@ -122,6 +126,7 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
 		s.controllerConfigService,
 		s.modelConfigService,
 		s.modelInfoService,
+		s.applicationService,
 		s.registry,
 		s.store,
 		s.clock,
@@ -140,7 +145,6 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 			url:  "ch:gitlab",
 		},
 		charmModifiedVersion: 10,
-		scale:                3,
 		config: config.ConfigAttributes{
 			"trust": true,
 		},
@@ -152,6 +156,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 		UUID: model.UUID(coretesting.ModelTag.Id()),
 	}
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)
+	s.applicationService.EXPECT().GetApplicationScale(gomock.Any(), "gitlab").Return(3, nil)
 
 	result, err := s.api.ProvisioningInfo(context.Background(), params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -710,14 +715,11 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningState(c *gc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
-	s.st.app = &mockApplication{
-		life:              state.Alive,
-		provisioningState: nil,
-	}
-
-	result, err := s.api.ProvisioningState(context.Background(), params.Entity{Tag: "application-gitlab"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.ProvisioningState, gc.IsNil)
+	s.applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "gitlab", 10, true)
+	s.applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "gitlab").Return(service.ScalingState{
+		Scaling:     true,
+		ScaleTarget: 10,
+	}, nil)
 
 	setResult, err := s.api.SetProvisioningState(context.Background(), params.CAASApplicationProvisioningStateArg{
 		Application: params.Entity{Tag: "application-gitlab"},
@@ -729,14 +731,12 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(setResult.Error, gc.IsNil)
 
-	result, err = s.api.ProvisioningState(context.Background(), params.Entity{Tag: "application-gitlab"})
+	result, err := s.api.ProvisioningState(context.Background(), params.Entity{Tag: "application-gitlab"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.ProvisioningState, jc.DeepEquals, &params.CAASApplicationProvisioningState{
 		Scaling:     true,
 		ScaleTarget: 10,
 	})
-
-	s.st.app.Stub.CheckCallNames(c, "ProvisioningState", "SetProvisioningState", "ProvisioningState")
 }
 
 func (s *CAASApplicationProvisionerSuite) TestProvisionerConfig(c *gc.C) {

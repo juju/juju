@@ -2250,44 +2250,6 @@ func (c *MockApplicationSetMinUnitsCall) DoAndReturn(f func(int) error) *MockApp
 	return c
 }
 
-// SetScale mocks base method.
-func (m *MockApplication) SetScale(arg0 int, arg1 int64, arg2 bool) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetScale", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetScale indicates an expected call of SetScale.
-func (mr *MockApplicationMockRecorder) SetScale(arg0, arg1, arg2 any) *MockApplicationSetScaleCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetScale", reflect.TypeOf((*MockApplication)(nil).SetScale), arg0, arg1, arg2)
-	return &MockApplicationSetScaleCall{Call: call}
-}
-
-// MockApplicationSetScaleCall wrap *gomock.Call
-type MockApplicationSetScaleCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationSetScaleCall) Return(arg0 error) *MockApplicationSetScaleCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationSetScaleCall) Do(f func(int, int64, bool) error) *MockApplicationSetScaleCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationSetScaleCall) DoAndReturn(f func(int, int64, bool) error) *MockApplicationSetScaleCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // UnsetExposeSettings mocks base method.
 func (m *MockApplication) UnsetExposeSettings(arg0 []string) error {
 	m.ctrl.T.Helper()

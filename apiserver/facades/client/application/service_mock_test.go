@@ -154,6 +154,45 @@ func (c *MockApplicationServiceAddUnitsCall) DoAndReturn(f func(context.Context,
 	return c
 }
 
+// ChangeApplicationScale mocks base method.
+func (m *MockApplicationService) ChangeApplicationScale(arg0 context.Context, arg1 string, arg2 int) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ChangeApplicationScale", arg0, arg1, arg2)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ChangeApplicationScale indicates an expected call of ChangeApplicationScale.
+func (mr *MockApplicationServiceMockRecorder) ChangeApplicationScale(arg0, arg1, arg2 any) *MockApplicationServiceChangeApplicationScaleCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeApplicationScale", reflect.TypeOf((*MockApplicationService)(nil).ChangeApplicationScale), arg0, arg1, arg2)
+	return &MockApplicationServiceChangeApplicationScaleCall{Call: call}
+}
+
+// MockApplicationServiceChangeApplicationScaleCall wrap *gomock.Call
+type MockApplicationServiceChangeApplicationScaleCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceChangeApplicationScaleCall) Return(arg0 int, arg1 error) *MockApplicationServiceChangeApplicationScaleCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceChangeApplicationScaleCall) Do(f func(context.Context, string, int) (int, error)) *MockApplicationServiceChangeApplicationScaleCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceChangeApplicationScaleCall) DoAndReturn(f func(context.Context, string, int) (int, error)) *MockApplicationServiceChangeApplicationScaleCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CreateApplication mocks base method.
 func (m *MockApplicationService) CreateApplication(arg0 context.Context, arg1 string, arg2 charm0.Charm, arg3 charm.Origin, arg4 service.AddApplicationArgs, arg5 ...service.AddUnitArg) (application.ID, error) {
 	m.ctrl.T.Helper()
@@ -194,6 +233,44 @@ func (c *MockApplicationServiceCreateApplicationCall) Do(f func(context.Context,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceCreateApplicationCall) DoAndReturn(f func(context.Context, string, charm0.Charm, charm.Origin, service.AddApplicationArgs, ...service.AddUnitArg) (application.ID, error)) *MockApplicationServiceCreateApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetApplicationScale mocks base method.
+func (m *MockApplicationService) SetApplicationScale(arg0 context.Context, arg1 string, arg2 int, arg3 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetApplicationScale", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetApplicationScale indicates an expected call of SetApplicationScale.
+func (mr *MockApplicationServiceMockRecorder) SetApplicationScale(arg0, arg1, arg2, arg3 any) *MockApplicationServiceSetApplicationScaleCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationScale", reflect.TypeOf((*MockApplicationService)(nil).SetApplicationScale), arg0, arg1, arg2, arg3)
+	return &MockApplicationServiceSetApplicationScaleCall{Call: call}
+}
+
+// MockApplicationServiceSetApplicationScaleCall wrap *gomock.Call
+type MockApplicationServiceSetApplicationScaleCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceSetApplicationScaleCall) Return(arg0 error) *MockApplicationServiceSetApplicationScaleCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceSetApplicationScaleCall) Do(f func(context.Context, string, int, bool) error) *MockApplicationServiceSetApplicationScaleCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceSetApplicationScaleCall) DoAndReturn(f func(context.Context, string, int, bool) error) *MockApplicationServiceSetApplicationScaleCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

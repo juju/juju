@@ -1690,22 +1690,16 @@ func (api *APIBase) ScaleApplications(ctx context.Context, args params.ScaleAppl
 			return nil, errors.Trace(err)
 		}
 		name := appTag.Id()
-		app, err := api.backend.Application(name)
-		if errors.Is(err, errors.NotFound) {
-			return nil, errors.Errorf("application %q does not exist", name)
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
 
 		var info params.ScaleApplicationInfo
 		if arg.ScaleChange != 0 {
-			newScale, err := app.ChangeScale(arg.ScaleChange)
+			newScale, err := api.applicationService.ChangeApplicationScale(ctx, name, arg.ScaleChange)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			info.Scale = newScale
 		} else {
-			if err := app.SetScale(arg.Scale, 0, true); err != nil {
+			if err := api.applicationService.SetApplicationScale(ctx, name, arg.Scale, true); err != nil {
 				return nil, errors.Trace(err)
 			}
 			info.Scale = arg.Scale

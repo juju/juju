@@ -63,3 +63,8 @@ func (s *WatchableService) WatchCharms() (watcher.StringsWatcher, error) {
 func (s *WatchableService) WatchApplicationUnitLife(_ context.Context, appName string) (watcher.StringsWatcher, error) {
 	return s.watchableApplicationService.WatchApplicationUnitLife(appName)
 }
+
+// WatchApplicationScale returns a watcher that observes changes to an application's scale.
+func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
+	return s.watchableApplicationService.WatchApplicationScale(ctx, appName)
+}

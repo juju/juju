@@ -660,9 +660,6 @@ func ensureScale(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if ps == nil {
-		ps = &params.CAASApplicationProvisioningState{}
-	}
 
 	logger.Debugf("updating application %q scale to %d", appName, desiredScale)
 	if !ps.Scaling || appLife != life.Alive {

@@ -12,11 +12,13 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	coreapplication "github.com/juju/juju/core/application"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/watcher"
+	statewatcher "github.com/juju/juju/state/watcher"
 )
 
 // NetworkService is the interface that is used to interact with the
@@ -26,19 +28,32 @@ type NetworkService interface {
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 
+// ApplicationService is used to interact with the application service.
+type ApplicationService interface {
+	GetApplicationScale(ctx context.Context, appName string) (int, error)
+	SetApplicationScale(ctx context.Context, appName string, scale int, force bool) error
+	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
+	WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error)
+}
+
 type Facade struct {
-	networkService NetworkService
-	resources      facade.Resources
-	state          CAASUnitProvisionerState
-	clock          clock.Clock
-	logger         corelogger.Logger
+	watcherRegistry facade.WatcherRegistry
+
+	networkService     NetworkService
+	applicationService ApplicationService
+	resources          facade.Resources
+	state              CAASUnitProvisionerState
+	clock              clock.Clock
+	logger             corelogger.Logger
 }
 
 // NewFacade returns a new CAAS unit provisioner Facade facade.
 func NewFacade(
+	watcherRegistry facade.WatcherRegistry,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	networkService NetworkService,
+	applicationService ApplicationService,
 	st CAASUnitProvisionerState,
 	clock clock.Clock,
 	logger corelogger.Logger,
@@ -47,11 +62,13 @@ func NewFacade(
 		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
-		networkService: networkService,
-		resources:      resources,
-		state:          st,
-		clock:          clock,
-		logger:         logger,
+		watcherRegistry:    watcherRegistry,
+		networkService:     networkService,
+		applicationService: applicationService,
+		resources:          resources,
+		state:              st,
+		clock:              clock,
+		logger:             logger,
 	}, nil
 }
 
@@ -62,7 +79,7 @@ func (f *Facade) WatchApplicationsScale(ctx context.Context, args params.Entitie
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		id, err := f.watchApplicationScale(arg.Tag)
+		id, err := f.watchApplicationScale(ctx, arg.Tag)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -72,20 +89,17 @@ func (f *Facade) WatchApplicationsScale(ctx context.Context, args params.Entitie
 	return results, nil
 }
 
-func (f *Facade) watchApplicationScale(tagString string) (string, error) {
+func (f *Facade) watchApplicationScale(ctx context.Context, tagString string) (string, error) {
 	tag, err := names.ParseApplicationTag(tagString)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	app, err := f.state.Application(tag.Id())
+	w, err := f.applicationService.WatchApplicationScale(ctx, tag.Id())
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	w := app.WatchScale()
-	if _, ok := <-w.Changes(); ok {
-		return f.resources.Register(w), nil
-	}
-	return "", watcher.EnsureErr(w)
+	notifyWatcherId, _, err := internal.EnsureRegisterWatcher(ctx, f.watcherRegistry, w)
+	return notifyWatcherId, errors.Trace(err)
 }
 
 func (f *Facade) ApplicationsScale(ctx context.Context, args params.Entities) (params.IntResults, error) {
@@ -93,7 +107,7 @@ func (f *Facade) ApplicationsScale(ctx context.Context, args params.Entities) (p
 		Results: make([]params.IntResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		scale, err := f.applicationScale(arg.Tag)
+		scale, err := f.applicationScale(ctx, arg.Tag)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -104,16 +118,16 @@ func (f *Facade) ApplicationsScale(ctx context.Context, args params.Entities) (p
 	return results, nil
 }
 
-func (f *Facade) applicationScale(tagString string) (int, error) {
+func (f *Facade) applicationScale(ctx context.Context, tagString string) (int, error) {
 	appTag, err := names.ParseApplicationTag(tagString)
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
-	app, err := f.state.Application(appTag.Id())
+	scale, err := f.applicationService.GetApplicationScale(ctx, appTag.Id())
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
-	return app.GetScale(), nil
+	return scale, nil
 }
 
 // ApplicationsTrust returns the trust status for specified applications in this model.
@@ -183,7 +197,7 @@ func (f *Facade) watchApplicationTrustHash(tagString string) (string, error) {
 	if _, ok := <-w.Changes(); ok {
 		return f.resources.Register(w), nil
 	}
-	return "", watcher.EnsureErr(w)
+	return "", statewatcher.EnsureErr(w)
 }
 
 // UpdateApplicationsService updates the Juju data model to reflect the given
@@ -205,12 +219,6 @@ func (f *Facade) UpdateApplicationsService(ctx context.Context, args params.Upda
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		app, err := f.state.Application(appTag.Id())
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
 		pas := params.ToProviderAddresses(appUpdate.Addresses...)
 		sAddrs, err := pas.ToSpaceAddresses(allSpaces)
 		if err != nil {
@@ -218,15 +226,12 @@ func (f *Facade) UpdateApplicationsService(ctx context.Context, args params.Upda
 			continue
 		}
 
-		if err := app.UpdateCloudService(appUpdate.ProviderId, sAddrs); err != nil {
+		appName := appTag.Id()
+		if err := f.applicationService.UpdateCloudService(ctx, appName, appUpdate.ProviderId, sAddrs); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 		if appUpdate.Scale != nil {
-			var generation int64
-			if appUpdate.Generation != nil {
-				generation = *appUpdate.Generation
-			}
-			if err := app.SetScale(*appUpdate.Scale, generation, false); err != nil {
+			if err := f.applicationService.SetApplicationScale(ctx, appName, *appUpdate.Scale, false); err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 			}
 		}

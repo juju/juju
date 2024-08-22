@@ -35,7 +35,8 @@ type ControllerConfigService interface {
 
 // ApplicationService instances implement an application service.
 type ApplicationService interface {
-	RegisterCAASUnit(ctx context.Context, name string, unit applicationservice.RegisterCAASUnitParams) error
+	RegisterCAASUnit(ctx context.Context, appName string, unit applicationservice.RegisterCAASUnitParams) error
+	CAASUnitTerminating(ctx context.Context, appName string, unitNum int, broker applicationservice.Broker) (bool, error)
 }
 
 // Facade defines the API methods on the CAASApplication facade.
@@ -59,7 +60,7 @@ func NewFacade(
 	ctrlSt ControllerState,
 	st State,
 	controllerConfigService ControllerConfigService,
-	applicationSaver ApplicationService,
+	applicationService ApplicationService,
 	broker Broker,
 	clock clock.Clock,
 	logger logger.Logger,
@@ -77,7 +78,7 @@ func NewFacade(
 		ctrlSt:                  ctrlSt,
 		state:                   st,
 		controllerConfigService: controllerConfigService,
-		applicationService:      applicationSaver,
+		applicationService:      applicationService,
 		model:                   model,
 		clock:                   clock,
 		broker:                  broker,
@@ -93,6 +94,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	}
 
 	errResp := func(err error) (params.CAASUnitIntroductionResult, error) {
+		f.logger.Warningf("error introducing k8s pod %q: %v", args.PodName, err)
 		return params.CAASUnitIntroductionResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 
@@ -174,11 +176,12 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	passwordHash := password.AgentPasswordHash(pass)
 	upsert.PasswordHash = &passwordHash
 
-	unit, err := application.UpsertCAASUnit(upsert)
+	// TODO(units) - remove dual write to state
+	_, err = application.UpsertCAASUnit(upsert)
 	if err != nil {
 		return errResp(err)
 	}
-	// Dual write CAAS unit to dqlite.
+
 	if err := f.applicationService.RegisterCAASUnit(ctx, application.Name(), applicationservice.RegisterCAASUnitParams{
 		UnitName:     *upsert.UnitName,
 		ProviderId:   upsert.ProviderId,
@@ -219,7 +222,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 				DataDir: dataDir,
 				LogDir:  logDir,
 			},
-			Tag:               unit.Tag(),
+			Tag:               names.NewUnitTag(*upsert.UnitName),
 			Controller:        f.model.ControllerTag(),
 			Model:             f.model.Tag().(names.ModelTag),
 			APIAddresses:      addrs,
@@ -238,7 +241,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 
 	res := params.CAASUnitIntroductionResult{
 		Result: &params.CAASUnitIntroduction{
-			UnitName:  unit.Tag().Id(),
+			UnitName:  *upsert.UnitName,
 			AgentConf: agentConfBytes,
 		},
 	}
@@ -266,6 +269,7 @@ func (f *Facade) UnitTerminating(ctx context.Context, args params.Entity) (param
 		return params.CAASUnitTerminationResult{}, apiservererrors.ErrPerm
 	}
 
+	// TODO(units): should be in service but we don't keep life up to date yet
 	unit, err := f.state.Unit(unitTag.Id())
 	if err != nil {
 		return errResp(err)
@@ -274,33 +278,10 @@ func (f *Facade) UnitTerminating(ctx context.Context, args params.Entity) (param
 		return params.CAASUnitTerminationResult{WillRestart: false}, nil
 	}
 
-	// TODO(sidecar): handle deployment other than statefulset
-	deploymentType := caas.DeploymentStateful
-	restart := true
-
-	switch deploymentType {
-	case caas.DeploymentStateful:
-		application, err := f.state.Application(unit.ApplicationName())
-		if err != nil {
-			return errResp(err)
-		}
-		caasApp := f.broker.Application(unit.ApplicationName(), caas.DeploymentStateful)
-		appState, err := caasApp.State()
-		if err != nil {
-			return errResp(err)
-		}
-		n := unitTag.Number()
-		if n >= application.GetScale() || n >= appState.DesiredReplicas {
-			restart = false
-		}
-	case caas.DeploymentStateless, caas.DeploymentDaemon:
-		// Both handled the same way.
-		restart = true
-	default:
-		return errResp(errors.NotSupportedf("unknown deployment type"))
+	appName, _ := names.UnitApplication(unitTag.Id())
+	willRestart, err := f.applicationService.CAASUnitTerminating(ctx, appName, unitTag.Number(), f.broker)
+	if err != nil {
+		return errResp(err)
 	}
-
-	return params.CAASUnitTerminationResult{
-		WillRestart: restart,
-	}, nil
+	return params.CAASUnitTerminationResult{WillRestart: willRestart}, nil
 }

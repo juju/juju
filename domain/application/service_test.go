@@ -9,20 +9,26 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/storage/provider"
 )
 
 type serviceSuite struct {
 	testing.ModelSuite
+
+	svc *service.Service
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -31,9 +37,21 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
+func (s *serviceSuite) SetUpTest(c *gc.C) {
+	s.ModelSuite.SetUpTest(c)
+	s.svc = service.NewService(
+		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+			loggertesting.WrapCheckLog(c),
+		),
+		state.NewCharmState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }),
+		provider.CommonStorageProviders(),
+		loggertesting.WrapCheckLog(c),
+	)
+}
+
 func (s *serviceSuite) createApplication(c *gc.C, svc *service.Service, name string, units ...service.AddUnitArg) coreapplication.ID {
 	ctx := context.Background()
-	appID, err := svc.CreateApplication(ctx, name, &stubCharm{}, corecharm.Origin{
+	appID, err := s.svc.CreateApplication(ctx, name, &stubCharm{}, corecharm.Origin{
 		Platform: corecharm.Platform{
 			Channel:      "24.04",
 			OS:           "ubuntu",
@@ -60,19 +78,10 @@ func (s *serviceSuite) assertCAASUnit(c *gc.C, name, passwordHash string) {
 }
 
 func (s *serviceSuite) TestReplaceCAASUnit(c *gc.C) {
-	svc := service.NewService(
-		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
-			loggertesting.WrapCheckLog(c),
-		),
-		state.NewCharmState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }),
-		nil,
-		loggertesting.WrapCheckLog(c),
-	)
-
 	u := service.AddUnitArg{
 		UnitName: ptr("foo/1"),
 	}
-	s.createApplication(c, svc, "foo", u)
+	s.createApplication(c, s.svc, "foo", u)
 
 	args := service.RegisterCAASUnitParams{
 		UnitName:     "foo/1",
@@ -81,25 +90,16 @@ func (s *serviceSuite) TestReplaceCAASUnit(c *gc.C) {
 		OrderedScale: true,
 		OrderedId:    1,
 	}
-	err := svc.RegisterCAASUnit(context.Background(), "foo", args)
+	err := s.svc.RegisterCAASUnit(context.Background(), "foo", args)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCAASUnit(c, "foo/1", "passwordhash")
 }
 
 func (s *serviceSuite) TestReplaceDeadCAASUnit(c *gc.C) {
-	svc := service.NewService(
-		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
-			loggertesting.WrapCheckLog(c),
-		),
-		state.NewCharmState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }),
-		nil,
-		loggertesting.WrapCheckLog(c),
-	)
-
 	u := service.AddUnitArg{
 		UnitName: ptr("foo/1"),
 	}
-	s.createApplication(c, svc, "foo", u)
+	s.createApplication(c, s.svc, "foo", u)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name = ?", u.UnitName)
@@ -114,21 +114,12 @@ func (s *serviceSuite) TestReplaceDeadCAASUnit(c *gc.C) {
 		OrderedScale: true,
 		OrderedId:    1,
 	}
-	err = svc.RegisterCAASUnit(context.Background(), "foo", args)
+	err = s.svc.RegisterCAASUnit(context.Background(), "foo", args)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationIsDead)
 }
 
 func (s *serviceSuite) TestNewCAASUnit(c *gc.C) {
-	svc := service.NewService(
-		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
-			loggertesting.WrapCheckLog(c),
-		),
-		state.NewCharmState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }),
-		nil,
-		loggertesting.WrapCheckLog(c),
-	)
-
-	appID := s.createApplication(c, svc, "foo")
+	appID := s.createApplication(c, s.svc, "foo")
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scale = 2 WHERE application_uuid = ?", appID)
@@ -143,46 +134,27 @@ func (s *serviceSuite) TestNewCAASUnit(c *gc.C) {
 		OrderedScale: true,
 		OrderedId:    1,
 	}
-	err = svc.RegisterCAASUnit(context.Background(), "foo", args)
+	err = s.svc.RegisterCAASUnit(context.Background(), "foo", args)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCAASUnit(c, "foo/1", "passwordhash")
 }
 
 func (s *serviceSuite) TestRegisterCAASUnitExceedsScale(c *gc.C) {
-	c.Skip("scale not wired up yet")
-	svc := service.NewService(
-		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
-			loggertesting.WrapCheckLog(c),
-		),
-		state.NewCharmState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }),
-		nil,
-		loggertesting.WrapCheckLog(c),
-	)
-
-	s.createApplication(c, svc, "foo")
+	s.createApplication(c, s.svc, "foo")
 
 	args := service.RegisterCAASUnitParams{
 		UnitName:     "foo/1",
 		PasswordHash: ptr("passwordhash"),
 		ProviderId:   ptr("provider-id"),
 		OrderedScale: true,
-		OrderedId:    1,
+		OrderedId:    666,
 	}
-	err := svc.RegisterCAASUnit(context.Background(), "foo", args)
+	err := s.svc.RegisterCAASUnit(context.Background(), "foo", args)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotAssigned)
 }
 
 func (s *serviceSuite) TestRegisterCAASUnitExceedsScaleTarget(c *gc.C) {
-	svc := service.NewService(
-		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
-			loggertesting.WrapCheckLog(c),
-		),
-		state.NewCharmState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }),
-		nil,
-		loggertesting.WrapCheckLog(c),
-	)
-
-	appID := s.createApplication(c, svc, "foo")
+	appID := s.createApplication(c, s.svc, "foo")
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scale = 3, scale_target = 1, scaling = true WHERE application_uuid = ?", appID)
@@ -197,6 +169,329 @@ func (s *serviceSuite) TestRegisterCAASUnitExceedsScaleTarget(c *gc.C) {
 		OrderedScale: true,
 		OrderedId:    2,
 	}
-	err = svc.RegisterCAASUnit(context.Background(), "foo", args)
+	err = s.svc.RegisterCAASUnit(context.Background(), "foo", args)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotAssigned)
+}
+
+func (s *serviceSuite) TestSetScalingState(c *gc.C) {
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/1"),
+	}
+	appID := s.createApplication(c, s.svc, "foo", u)
+
+	err := s.svc.SetApplicationScalingState(context.Background(), "foo", 1, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		gotScaleTarget int
+		gotScaling     bool
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT scale_target, scaling FROM application_scale WHERE application_uuid = ?", appID).
+			Scan(&gotScaleTarget, &gotScaling)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotScaleTarget, gc.Equals, 1)
+	c.Assert(gotScaling, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestSetScalingStateAlreadyScaling(c *gc.C) {
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/1"),
+	}
+	appID := s.createApplication(c, s.svc, "foo", u)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scaling = true WHERE application_uuid = ?", appID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.svc.SetApplicationScalingState(context.Background(), "foo", 666, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		gotScaleTarget int
+		gotScaling     bool
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT scale_target, scaling FROM application_scale WHERE application_uuid = ?", appID).
+			Scan(&gotScaleTarget, &gotScaling)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotScaleTarget, gc.Equals, 666)
+	c.Assert(gotScaling, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestSetScalingStateDying(c *gc.C) {
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/1"),
+	}
+	appID := s.createApplication(c, s.svc, "foo", u)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = 1 WHERE uuid = ?", appID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.svc.SetApplicationScalingState(context.Background(), "foo", 666, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		gotScaleTarget int
+		gotScaling     bool
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT scale_target, scaling FROM application_scale WHERE application_uuid = ?", appID).
+			Scan(&gotScaleTarget, &gotScaling)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotScaleTarget, gc.Equals, 666)
+	c.Assert(gotScaling, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestSetScalingStateInconsistent(c *gc.C) {
+	s.createApplication(c, s.svc, "foo")
+
+	err := s.svc.SetApplicationScalingState(context.Background(), "foo", 666, true)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ScalingStateInconsistent)
+}
+
+func (s *serviceSuite) TestGetScalingState(c *gc.C) {
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/1"),
+	}
+	appID := s.createApplication(c, s.svc, "foo", u)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scaling = true WHERE application_uuid = ?", appID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.svc.SetApplicationScalingState(context.Background(), "foo", 666, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := s.svc.GetApplicationScalingState(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, service.ScalingState{
+		Scaling:     true,
+		ScaleTarget: 666,
+	})
+}
+
+func (s *serviceSuite) TestSetScale(c *gc.C) {
+	appID := s.createApplication(c, s.svc, "foo")
+
+	err := s.svc.SetApplicationScale(context.Background(), "foo", 666, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		gotScale          int
+		gotScaleProtected bool
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT scale, desired_scale_protected FROM application_scale WHERE application_uuid = ?", appID).
+			Scan(&gotScale, &gotScaleProtected)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotScale, gc.Equals, 666)
+	c.Assert(gotScaleProtected, jc.IsFalse)
+}
+
+func (s *serviceSuite) TestSetScaleProtectedNoMatch(c *gc.C) {
+	s.createApplication(c, s.svc, "foo")
+
+	err := s.svc.SetApplicationScale(context.Background(), "foo", 666, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.svc.SetApplicationScale(context.Background(), "foo", 667, false)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ScaleChangeInvalid)
+}
+
+func (s *serviceSuite) TestSetScaleProtectedNoMatchForce(c *gc.C) {
+	appID := s.createApplication(c, s.svc, "foo")
+
+	err := s.svc.SetApplicationScale(context.Background(), "foo", 666, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.svc.SetApplicationScale(context.Background(), "foo", 667, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		gotScale          int
+		gotScaleProtected bool
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT scale, desired_scale_protected FROM application_scale WHERE application_uuid = ?", appID).
+			Scan(&gotScale, &gotScaleProtected)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotScale, gc.Equals, 667)
+	c.Assert(gotScaleProtected, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestGetScale(c *gc.C) {
+	s.createApplication(c, s.svc, "foo")
+
+	err := s.svc.SetApplicationScale(context.Background(), "foo", 666, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := s.svc.GetApplicationScale(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.Equals, 666)
+}
+
+func (s *serviceSuite) TestChangeScale(c *gc.C) {
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/1"),
+	}
+	appID := s.createApplication(c, s.svc, "foo", u)
+
+	newScale, err := s.svc.ChangeApplicationScale(context.Background(), "foo", 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newScale, gc.Equals, 3)
+
+	var gotScale int
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_scale WHERE application_uuid = ?", appID).Scan(&gotScale)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotScale, gc.Equals, 3)
+}
+
+func (s *serviceSuite) TestChangeScaleInvalid(c *gc.C) {
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/1"),
+	}
+	s.createApplication(c, s.svc, "foo", u)
+
+	_, err := s.svc.ChangeApplicationScale(context.Background(), "foo", -2)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ScaleChangeInvalid)
+}
+
+func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanScale(c *gc.C) {
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/0"),
+	}
+	u2 := service.AddUnitArg{
+		UnitName: ptr("foo/1"),
+	}
+	s.createApplication(c, s.svc, "foo", u, u2)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := application.NewMockApplication(ctrl)
+	app.EXPECT().State().Return(caas.ApplicationState{
+		DesiredReplicas: 6,
+	}, nil)
+	broker := application.NewMockBroker(ctrl)
+	broker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo", 1, broker)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(willRestart, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanScale(c *gc.C) {
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/0"),
+	}
+	s.createApplication(c, s.svc, "foo", u)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := application.NewMockApplication(ctrl)
+	app.EXPECT().State().Return(caas.ApplicationState{
+		DesiredReplicas: 6,
+	}, nil)
+	broker := application.NewMockBroker(ctrl)
+	broker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo", 666, broker)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(willRestart, jc.IsFalse)
+}
+
+func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanDesired(c *gc.C) {
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/0"),
+	}
+	u2 := service.AddUnitArg{
+		UnitName: ptr("foo/1"),
+	}
+	u3 := service.AddUnitArg{
+		UnitName: ptr("foo/2"),
+	}
+	s.createApplication(c, s.svc, "foo", u, u2, u3)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := application.NewMockApplication(ctrl)
+	app.EXPECT().State().Return(caas.ApplicationState{
+		DesiredReplicas: 6,
+	}, nil)
+	broker := application.NewMockBroker(ctrl)
+	broker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	err := s.svc.SetApplicationScalingState(context.Background(), "foo", 6, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo", 2, broker)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(willRestart, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanDesired(c *gc.C) {
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/0"),
+	}
+	u2 := service.AddUnitArg{
+		UnitName: ptr("foo/1"),
+	}
+	u3 := service.AddUnitArg{
+		UnitName: ptr("foo/2"),
+	}
+	s.createApplication(c, s.svc, "foo", u, u2, u3)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := application.NewMockApplication(ctrl)
+	app.EXPECT().State().Return(caas.ApplicationState{
+		DesiredReplicas: 1,
+	}, nil)
+	broker := application.NewMockBroker(ctrl)
+	broker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	err := s.svc.SetApplicationScalingState(context.Background(), "foo", 6, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo", 2, broker)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(willRestart, jc.IsFalse)
 }

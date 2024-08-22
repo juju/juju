@@ -22,4 +22,5 @@ INSERT INTO change_log_namespace VALUES
 (18, 'machine_requires_reboot', 'Machine requires reboot changes base on machine UUID '),
 (19, 'user_public_ssh_key', 'User public ssh key changes based on id'),
 (20, 'charm', 'Charm changes based on the charm UUID'),
-(21, 'unit', 'Unit changes based on the unit UUID');
+(21, 'unit', 'Unit changes based on the unit UUID'),
+(22, 'application_scale', 'Application scale changes based on the application UUID');

@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -76,6 +77,7 @@ type API struct {
 	controllerConfigService ControllerConfigService
 	modelConfigService      ModelConfigService
 	modelInfoService        ModelInfoService
+	applicationService      ApplicationService
 	registry                storage.ProviderRegistry
 	clock                   clock.Clock
 	logger                  corelogger.Logger
@@ -102,6 +104,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 	modelConfigService := serviceFactory.Config()
 	modelInfoService := serviceFactory.ModelInfo()
 	storageService := serviceFactory.Storage(registry)
+	applicationService := serviceFactory.Application(registry)
 	sb, err := state.NewStorageBackend(ctx.State())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -141,6 +144,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 		controllerConfigService,
 		modelConfigService,
 		modelInfoService,
+		applicationService,
 		registry,
 		ctx.ObjectStore(),
 		clock.WallClock,
@@ -196,6 +200,7 @@ func NewCAASApplicationProvisionerAPI(
 	controllerConfigService ControllerConfigService,
 	modelConfigService ModelConfigService,
 	modelInfoService ModelInfoService,
+	applicationService ApplicationService,
 	registry storage.ProviderRegistry,
 	store objectstore.ObjectStore,
 	clock clock.Clock,
@@ -217,6 +222,7 @@ func NewCAASApplicationProvisionerAPI(
 		controllerConfigService: controllerConfigService,
 		modelConfigService:      modelConfigService,
 		modelInfoService:        modelInfoService,
+		applicationService:      applicationService,
 		registry:                registry,
 		clock:                   clock,
 		logger:                  logger,
@@ -409,6 +415,10 @@ func (a *API) provisioningInfo(ctx context.Context, appName names.ApplicationTag
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting application config")
 	}
+	scale, err := a.applicationService.GetApplicationScale(ctx, appName.Id())
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting application scale")
+	}
 	base := app.Base()
 	imageRepoDetails, err := docker.NewImageRepoDetails(cfg.CAASImageRepo())
 	if err != nil {
@@ -427,7 +437,7 @@ func (a *API) provisioningInfo(ctx context.Context, appName names.ApplicationTag
 		CharmModifiedVersion: app.CharmModifiedVersion(),
 		CharmURL:             *charmURL,
 		Trust:                appConfig.GetBool(coreapplication.TrustConfigOptionName, false),
-		Scale:                app.GetScale(),
+		Scale:                scale,
 	}, nil
 }
 
@@ -1417,14 +1427,9 @@ func (a *API) ProvisioningState(ctx context.Context, args params.Entity) (params
 		return result, nil
 	}
 
-	app, err := a.state.Application(appTag.Id())
+	ps, err := a.applicationService.GetApplicationScalingState(ctx, appTag.Id())
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	ps := app.ProvisioningState()
-	if ps == nil {
 		return result, nil
 	}
 
@@ -1445,18 +1450,8 @@ func (a *API) SetProvisioningState(ctx context.Context, args params.CAASApplicat
 		return result, nil
 	}
 
-	app, err := a.state.Application(appTag.Id())
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	ps := state.ApplicationProvisioningState{
-		Scaling:     args.ProvisioningState.Scaling,
-		ScaleTarget: args.ProvisioningState.ScaleTarget,
-	}
-	err = app.SetProvisioningState(ps)
-	if errors.Is(err, stateerrors.ProvisioningStateInconsistent) {
+	err = a.applicationService.SetApplicationScalingState(ctx, appTag.Id(), args.ProvisioningState.ScaleTarget, args.ProvisioningState.Scaling)
+	if errors.Is(err, applicationerrors.ScalingStateInconsistent) {
 		result.Error = apiservererrors.ServerError(apiservererrors.ErrTryAgain)
 		return result, nil
 	} else if err != nil {
