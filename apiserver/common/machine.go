@@ -4,29 +4,18 @@
 package common
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-// MachineService defines the methods that the facade assumes from the Machine
-// service.
-type MachineService interface {
-	// EnsureDeadMachine sets the provided machine's life status to Dead.
-	// No error is returned if the provided machine doesn't exist, just nothing
-	// gets updated.
-	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
-}
 
 // StateJobs translates a slice of multiwatcher jobs to their equivalents in state.
 func StateJobs(jobs []model.MachineJob) ([]state.MachineJob, error) {

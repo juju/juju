@@ -15,19 +15,28 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// EnsureDeadMachineService defines the methods that the facade assumes from the Machine
+// service supporting EnsureDead methods
+type EnsureDeadMachineService interface {
+	// EnsureDeadMachine sets the provided machine's life status to Dead.
+	// No error is returned if the provided machine doesn't exist, just nothing
+	// gets updated.
+	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
+}
+
 // DeadEnsurer implements a common EnsureDead method for use by
 // various facades.
 type DeadEnsurer struct {
 	st             state.EntityFinder
 	afterDead      func(names.Tag)
 	getCanModify   GetAuthFunc
-	machineService MachineService
+	machineService EnsureDeadMachineService
 }
 
 // NewDeadEnsurer returns a new DeadEnsurer. The GetAuthFunc will be
 // used on each invocation of EnsureDead to determine current
 // permissions.
-func NewDeadEnsurer(st state.EntityFinder, afterDead func(names.Tag), getCanModify GetAuthFunc, machineService MachineService) *DeadEnsurer {
+func NewDeadEnsurer(st state.EntityFinder, afterDead func(names.Tag), getCanModify GetAuthFunc, machineService EnsureDeadMachineService) *DeadEnsurer {
 	return &DeadEnsurer{
 		st:             st,
 		afterDead:      afterDead,
