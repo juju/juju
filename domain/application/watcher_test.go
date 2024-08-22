@@ -314,38 +314,42 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *gc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 
-	u1 := service.AddUnitArg{
-		UnitName: ptr("foo/666"),
-	}
-	u2 := service.AddUnitArg{
-		UnitName: ptr("foo/667"),
-	}
-	u3 := service.AddUnitArg{
-		UnitName: ptr("bar/666"),
-	}
-	s.createApplication(c, &svc.Service, "foo", u1, u2)
-	s.createApplication(c, &svc.Service, "bar", u3)
+	var unitID1, unitID2 string
+	setup := func(c *gc.C) {
+		u1 := service.AddUnitArg{
+			UnitName: ptr("foo/666"),
+		}
+		u2 := service.AddUnitArg{
+			UnitName: ptr("foo/667"),
+		}
+		u3 := service.AddUnitArg{
+			UnitName: ptr("bar/666"),
+		}
+		s.createApplication(c, &svc.Service, "foo", u1, u2)
+		s.createApplication(c, &svc.Service, "bar", u3)
 
-	var id1, id2 string
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/666").Scan(&id1); err != nil {
-			return errors.Trace(err)
-		}
-		if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/667").Scan(&id2); err != nil {
-			return errors.Trace(err)
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/666").Scan(&unitID1); err != nil {
+				return errors.Trace(err)
+			}
+			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/667").Scan(&unitID2); err != nil {
+				return errors.Trace(err)
+			}
+			return nil
+		})
+		c.Assert(err, jc.ErrorIsNil)
+
+	}
 
 	watcher, err := svc.WatchApplicationUnitLife(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
 	harness.AddTest(func(c *gc.C) {
+		setup(c)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](id1, id2),
+			watchertest.StringSliceAssert[string](unitID1, unitID2),
 		)
 	})
 
