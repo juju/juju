@@ -23,7 +23,8 @@ ON model_authorized_keys (user_public_ssh_key_id);
 CREATE VIEW v_model_authorized_keys AS
 SELECT
     mak.model_uuid,
-    upsk.public_key
+    upsk.public_key,
+    upsk.user_uuid
 FROM model_authorized_keys AS mak
 INNER JOIN user_public_ssh_key AS upsk ON mak.user_public_ssh_key_id = upsk.id
 INNER JOIN user AS u ON upsk.user_uuid = u.uuid

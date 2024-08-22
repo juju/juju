@@ -380,12 +380,79 @@ ON CONFLICT DO NOTHING
 	return err
 }
 
-// GetPublicKeysForUser is responsible for returning all of the public
-// keys for the user uuid on a model. If the user does not exist no error is
-// returned.
-// The following errors can be expected:
-// - [accesserrors.UserNotFound] if the user does not exist.
-// - [modelerrors.NotFound] if the model does not exist.
+// GetAllUsersPublicKeys returns all of the public keys that are in a model and
+// their respective username. This is useful for building a view during model
+// migration. If no model exists for the provider uuid an error satisfying
+// [modelerrors.NotFound] is returned.
+func (s *State) GetAllUsersPublicKeys(
+	ctx context.Context,
+	modelUUID model.UUID,
+) (map[user.Name][]string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, err
+	}
+
+	modelUUIDVal := modelUUIDValue{UUID: modelUUID.String()}
+
+	stmt, err := s.Prepare(`
+SELECT (u.name, mak.public_key) AS (&userPublicKey.*)
+FROM v_model_authorized_keys AS mak
+INNER JOIN user AS u ON u.uuid = mak.user_uuid
+WHERE mak.model_uuid = $modelUUIDValue.model_uuid
+`, modelUUIDVal, userPublicKey{})
+
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing select statement for getting all users keys from model %q: %w",
+			modelUUID, err,
+		)
+	}
+	usersKeys := []userPublicKey{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := s.checkModelExists(ctx, modelUUID, tx)
+		if err != nil {
+			return errors.Errorf(
+				"checking model %q exists when getting all users public keys: %w",
+				modelUUID, err,
+			)
+		}
+
+		err = tx.Query(ctx, stmt, modelUUIDVal).GetAll(&usersKeys)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"getting all users public keys for model %q: %w", modelUUID, err,
+			)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	rval := map[user.Name][]string{}
+	for _, userKey := range usersKeys {
+		userName, err := user.NewName(userKey.UserName)
+		if err != nil {
+			return nil, errors.Errorf(
+				"making user name from value %q when getting all users public keys for model %q: %w",
+				userKey.UserName, modelUUID, err,
+			)
+		}
+
+		if _, exists := rval[userName]; !exists {
+			rval[userName] = []string{}
+		}
+
+		rval[userName] = append(rval[userName], userKey.PublicKey)
+	}
+
+	return rval, nil
+}
+
+// GetPublicKeysForUser is responsible for returning all of the public keys for
+// the user id in this model. If the user does not exist no error is returned.
 func (s *State) GetPublicKeysForUser(
 	ctx context.Context,
 	modelUUID model.UUID,
