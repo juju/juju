@@ -62,6 +62,20 @@ func (s *UserService) GetUser(
 	return usr, nil
 }
 
+// GetUsernamesForIds is responsible for returning all of the [user.Name] for
+// each of the [user.UUID] passed to this function. Should one of the user id's
+// not exist then the whole call fails with a accesserrors.UserNotFound error
+// returned.
+func (s *UserService) GetUsernamesForIds(
+	ctx context.Context,
+	userIds ...user.UUID,
+) (map[user.UUID]user.Name, error) {
+	if len(userIds) == 0 {
+		return map[user.UUID]user.Name{}, nil
+	}
+	return s.st.GetUsernamesForIds(ctx, userIds)
+}
+
 // GetUserByName will find and return the user associated with name. If there is no
 // user for the user name then an error that satisfies accesserrors.NotFound will
 // be returned. If supplied with an invalid user name then an error that satisfies
