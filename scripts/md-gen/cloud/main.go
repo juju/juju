@@ -8,27 +8,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/provider/all" // Import all the providers
 )
-
-// providerNames maps the internal Juju provider name to a "nice"
-// human-readable title.
-var providerNames = map[string]string{
-	"azure":      "Microsoft Azure",
-	"ec2":        "Amazon EC2",
-	"equinix":    "Equinix Metal",
-	"gce":        "Google GCE",
-	"kubernetes": "Kubernetes",
-	"lxd":        "LXD",
-	"maas":       "MAAS",
-	"manual":     "Manual",
-	"oci":        "Oracle OCI",
-	"openstack":  "OpenStack",
-	"vsphere":    "VMware vSphere",
-}
 
 func main() {
 	docsDir := mustEnv("DOCS_DIR")
@@ -41,6 +28,36 @@ func main() {
 		check(err)
 		(&providerInfo{name: providerName}).print(file)
 		check(file.Close())
+	}
+
+	// Write index
+	file, err := os.Create(filepath.Join(cloudDocsDir, "index.md"))
+	check(err)
+	writeIndex(file)
+	check(file.Close())
+}
+
+func writeIndex(w io.Writer) {
+	// Load Discourse topic IDs yaml file
+	topicIDsPath := mustEnv("TOPIC_IDS")
+	topicIDsFile, err := os.Open(topicIDsPath)
+	check(err)
+	var topicIDs map[string]string
+	err = yaml.NewDecoder(topicIDsFile).Decode(&topicIDs)
+	check(err)
+
+	linkForProvider := func(providerName string) string {
+		if topicID, ok := topicIDs["cloud/"+providerName]; ok {
+			return "/t/" + topicID
+		}
+		panic(fmt.Sprintf("no topic ID for provider %q", providerName))
+	}
+
+	providers := environs.RegisteredProviders()
+	sort.Strings(providers)
+
+	for _, provider := range providers {
+		fprintf(w, "- [%s](%s)\n", niceName(provider), linkForProvider(provider))
 	}
 }
 
@@ -55,10 +72,7 @@ type providerInfo struct {
 // print prints the information doc about the given provider to the given
 // io.Writer.
 func (p *providerInfo) print(w io.Writer) {
-	p.niceName = p.name
-	if niceName, ok := providerNames[p.name]; ok {
-		p.niceName = niceName
-	}
+	p.niceName = niceName(p.name)
 
 	var err error
 	p.provider, err = environs.Provider(p.name)
@@ -123,6 +137,30 @@ func (p *providerInfo) maybePrintProviderSpecificConfig(w io.Writer) {
 		fprintf(w, "| mandatory | %t |\n", info.Mandatory)
 		fprintf(w, "\n")
 	}
+}
+
+// providerNames maps the internal Juju provider name to a "nice"
+// human-readable title.
+var providerNames = map[string]string{
+	"azure":      "Microsoft Azure",
+	"ec2":        "Amazon EC2",
+	"equinix":    "Equinix Metal",
+	"gce":        "Google GCE",
+	"kubernetes": "Kubernetes",
+	"lxd":        "LXD",
+	"maas":       "MAAS",
+	"manual":     "Manual",
+	"oci":        "Oracle OCI",
+	"openstack":  "OpenStack",
+	"vsphere":    "VMware vSphere",
+}
+
+// niceName tries to return a human-readable provider name
+func niceName(provider string) string {
+	if nice, ok := providerNames[provider]; ok {
+		return nice
+	}
+	return provider
 }
 
 // UTILITY FUNCTIONS
