@@ -67,7 +67,7 @@ func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	d := common.NewDeadEnsurer(st, afterDead, getCanModify, mocks.NewMockMachineService(ctrl))
+	d := common.NewDeadEnsurer(st, afterDead, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
 	entities := params.Entities{[]params.Entity{
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"}, {"unit-x-5"},
 	}}
@@ -92,7 +92,7 @@ func (*deadEnsurerSuite) TestEnsureDeadError(c *gc.C) {
 	}
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	d := common.NewDeadEnsurer(&fakeState{}, nil, getCanModify, mocks.NewMockMachineService(ctrl))
+	d := common.NewDeadEnsurer(&fakeState{}, nil, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
 	_, err := d.EnsureDead(context.Background(), params.Entities{[]params.Entity{{"x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
@@ -103,7 +103,7 @@ func (*removeSuite) TestEnsureDeadNoArgsNoError(c *gc.C) {
 	}
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	d := common.NewDeadEnsurer(&fakeState{}, nil, getCanModify, mocks.NewMockMachineService(ctrl))
+	d := common.NewDeadEnsurer(&fakeState{}, nil, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
 	result, err := d.EnsureDead(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
