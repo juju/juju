@@ -376,6 +376,79 @@ AND    user.removed = false
 	return coreUser, errors.Trace(err)
 }
 
+// GetUsernamesForIds is responsible for returning all of the usernames
+// associated with a set of user id's. If one or more of the user ids doesn't
+// exist the first not found user will be reported back as a
+// [accesserrors.UserNotFound] error.
+func (st *UserState) GetUsernamesForIds(
+	ctx context.Context,
+	ids []user.UUID,
+) (map[user.UUID]user.Name, error) {
+	if len(ids) == 0 {
+		return map[user.UUID]user.Name{}, nil
+	}
+
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting DB access")
+	}
+
+	args := make(sqlair.S, 0, len(ids))
+	for _, id := range ids {
+		args = append(args, id)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT (uuid, name) AS (&userIdentifier.*)
+FROM v_user_auth
+WHERE uuid IN ($S[:])
+`, args, userIdentifier{})
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot prepare usernames for ids query")
+	}
+
+	results := []userIdentifier{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, args).GetAll(&results)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("cannot get user names for provided id's: %w", err)
+	}
+
+	rval := make(map[user.UUID]user.Name, len(results))
+	for _, res := range results {
+		name, err := user.NewName(res.Name)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"cannot create user name for user %q when getting username for id: %w",
+				res.Name, err,
+			)
+		}
+
+		rval[user.UUID(res.UUID)] = name
+	}
+
+	// If the length of the input does not match the output a user does not
+	// exist and we need to go BOOM!
+	if len(ids) != len(rval) {
+		for _, userId := range ids {
+			if _, exists := rval[userId]; !exists {
+				return nil, fmt.Errorf(
+					"cannot get user name for user with id %q, %w",
+					userId, accesserrors.UserNotFound,
+				)
+			}
+		}
+	}
+
+	return rval, nil
+}
+
 // RemoveUser marks the user as removed. This obviates the ability of a user
 // to function, but keeps the user retaining provenance, i.e. auditing.
 // RemoveUser will also remove any credentials and activation codes for the

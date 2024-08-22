@@ -175,6 +175,17 @@ type userUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// userIdentifier represents the unique information for a user that is used to
+// identify them. This is useful when wanting to make a mapping between user
+// name and id.
+type userIdentifier struct {
+	// UUID holds the unique id for the given user.
+	UUID string `db:"uuid"`
+
+	// Name is the unique user name.
+	Name string `db:"name"`
+}
+
 // permInOut is a struct to replace sqlair.M with permission
 // SQL that contains a user name, grant_on and access both
 // input and output.
