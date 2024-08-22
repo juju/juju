@@ -43,7 +43,7 @@ func (s *RelationSetSuite) TestHelp(c *gc.C) {
 Usage: relation-set [options] key=value [key=value ...]
 
 Summary:
-set relation settings
+Set relation settings.
 
 Options:
 --app  (= false)

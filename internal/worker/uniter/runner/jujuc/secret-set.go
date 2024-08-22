@@ -34,6 +34,7 @@ prior to being stored.
 To just update selected metadata like rotate policy, do not specify any secret value.
 
 Examples:
+
     secret-set secret:9m4e2mr0ui3e8a215n4g token=34ae35facd4
     secret-set secret:9m4e2mr0ui3e8a215n4g key#base64 AA==
     secret-set secret:9m4e2mr0ui3e8a215n4g --rotate monthly token=s3cret 
@@ -52,7 +53,7 @@ Examples:
 	return jujucmd.Info(&cmd.Info{
 		Name:    "secret-set",
 		Args:    "<ID> [key[#base64]=value...]",
-		Purpose: "update an existing secret",
+		Purpose: "Update an existing secret.",
 		Doc:     doc,
 	})
 }

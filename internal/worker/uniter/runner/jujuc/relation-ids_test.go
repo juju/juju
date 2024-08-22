@@ -129,7 +129,7 @@ func (s *RelationIdsSuite) TestHelp(c *gc.C) {
 Usage: %s
 
 Summary:
-list all relation ids for the given endpoint
+List all relation IDs for the given endpoint.
 
 Options:
 --format  (= smart)

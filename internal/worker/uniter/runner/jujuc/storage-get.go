@@ -41,7 +41,7 @@ When no <key> is supplied, all keys values are printed.
 	return jujucmd.Info(&cmd.Info{
 		Name:    "storage-get",
 		Args:    "[<key>]",
-		Purpose: "print information for storage instance with specified id",
+		Purpose: "Print information for the storage instance with the specified ID.",
 		Doc:     doc,
 	})
 }

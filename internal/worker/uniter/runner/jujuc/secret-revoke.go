@@ -47,6 +47,7 @@ access is revoked, unless a uni is specified, in which
 case just that unit's access is revoked.'
 
 Examples:
+
     secret-revoke secret:9m4e2mr0ui3e8a215n4g
     secret-revoke secret:9m4e2mr0ui3e8a215n4g --relation 1
     secret-revoke secret:9m4e2mr0ui3e8a215n4g --app mediawiki
@@ -55,7 +56,7 @@ Examples:
 	return jujucmd.Info(&cmd.Info{
 		Name:    "secret-revoke",
 		Args:    "<ID>",
-		Purpose: "revoke access to a secret",
+		Purpose: "Revoke access to a secret.",
 		Doc:     doc,
 	})
 }

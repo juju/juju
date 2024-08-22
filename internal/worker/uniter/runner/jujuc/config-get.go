@@ -34,7 +34,7 @@ reported as null. <key> and --all are mutually exclusive.
 	return jujucmd.Info(&cmd.Info{
 		Name:    "config-get",
 		Args:    "[<key>]",
-		Purpose: "print application configuration",
+		Purpose: "Print application configuration.",
 		Doc:     doc,
 	})
 }

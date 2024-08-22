@@ -35,7 +35,7 @@ is given, or if the key is "-", all keys and values will be printed.
 	return jujucmd.Info(&cmd.Info{
 		Name:    "leader-get",
 		Args:    "[<key>]",
-		Purpose: "print application leadership settings",
+		Purpose: "Print application leadership settings.",
 		Doc:     doc,
 	})
 }

@@ -38,7 +38,7 @@ func (c PayloadRegisterCmd) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "payload-register",
 		Args:    "<type> <class> <id> [tags...]",
-		Purpose: "register a charm payload with juju",
+		Purpose: "Register a charm payload with Juju.",
 		Doc: `
 "payload-register" is used while a hook is running to let Juju know that a
 payload has been started. The information used to start the payload must be

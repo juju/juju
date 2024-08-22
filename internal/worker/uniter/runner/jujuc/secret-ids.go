@@ -33,11 +33,12 @@ func (c *secretIdsCommand) Info() *cmd.Info {
 Returns the secret ids for secrets owned by the application.
 
 Examples:
+
     secret-ids
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "secret-ids",
-		Purpose: "print secret ids",
+		Purpose: "Print secret IDs.",
 		Doc:     doc,
 	})
 }

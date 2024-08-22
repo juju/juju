@@ -94,7 +94,7 @@ func (s *PortsSuite) TestHelp(c *gc.C) {
 Usage: open-port <port>[/<protocol>] or <from>-<to>[/<protocol>] or icmp
 
 Summary:
-register a request to open a port or port range
+Register a request to open a port or port range.
 
 Details:
 open-port registers a request to open the specified port or port range.
@@ -110,7 +110,7 @@ open request to a comma-delimited list of application endpoints.
 Usage: close-port <port>[/<protocol>] or <from>-<to>[/<protocol>] or icmp
 
 Summary:
-register a request to close a port or port range
+Register a request to close a port or port range.
 
 Details:
 close-port registers a request to close the specified port or port range.

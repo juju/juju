@@ -31,14 +31,14 @@ func (s *stateDeleteSuite) TestHelp(c *gc.C) {
 Usage: state-delete <key>
 
 Summary:
-delete server-side-state key value pair
+Delete server-side-state key value pairs.
 
 Details:
 state-delete deletes the value of the server side state specified by key.
 
 See also:
-    state-get
-    state-set
+ - state-get
+ - state-set
 `[1:]
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, expectedHelp)
 }

@@ -107,7 +107,7 @@ func (s *OpenedPortsSuite) TestHelp(c *gc.C) {
 Usage: opened-ports
 
 Summary:
-list all ports or port ranges opened by the unit
+List all ports or port ranges opened by the unit.
 
 Details:
 opened-ports lists all ports or port ranges opened by a unit.

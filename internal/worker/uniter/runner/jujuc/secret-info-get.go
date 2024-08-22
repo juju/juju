@@ -35,13 +35,14 @@ Get the metadata of a secret with a given secret ID.
 Either the ID or label can be used to identify the secret.
 
 Examples
+
     secret-info-get secret:9m4e2mr0ui3e8a215n4g
     secret-info-get --label db-password
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "secret-info-get",
 		Args:    "<ID>",
-		Purpose: "get a secret's metadata info",
+		Purpose: "Get a secret's metadata info.",
 		Doc:     doc,
 	})
 }

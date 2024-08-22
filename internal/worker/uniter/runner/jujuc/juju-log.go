@@ -42,7 +42,7 @@ func (c *JujuLogCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "juju-log",
 		Args:    "<message>",
-		Purpose: "write a message to the juju log",
+		Purpose: "Write a message to the juju log.",
 	})
 }
 

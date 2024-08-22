@@ -44,20 +44,17 @@ means <stdin>.
 The following fixed size limits apply:
 - Length of stored keys cannot exceed %d bytes.
 - Length of stored values cannot exceed %d bytes.
-
-See also:
-    state-delete
-    state-get
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "state-set",
 		Args:    "key=value [key=value ...]",
-		Purpose: "set server-side-state values",
+		Purpose: "Set server-side-state values.",
 		Doc: fmt.Sprintf(
 			doc,
 			quota.MaxCharmStateKeySize,
 			quota.MaxCharmStateValueSize,
 		),
+		SeeAlso: []string{"state-delete", "state-get"},
 	})
 }
 

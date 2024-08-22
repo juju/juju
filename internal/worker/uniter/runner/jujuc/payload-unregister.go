@@ -29,7 +29,7 @@ func (c PayloadUnregisterCmd) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "payload-unregister",
 		Args:    "<class> <id>",
-		Purpose: "stop tracking a payload",
+		Purpose: "Stop tracking a payload.",
 		Doc: `
 "payload-unregister" is used while a hook is running to let Juju know
 that a payload has been manually stopped. The <class> and <id> provided

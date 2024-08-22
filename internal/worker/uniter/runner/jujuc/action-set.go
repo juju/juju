@@ -42,25 +42,26 @@ hyphens and periods.  The following special keys are reserved for internal use:
 %s.
 
 Example usage:
- action-set outfile.size=10G
- action-set foo.bar=2
- action-set foo.baz.val=3
- action-set foo.bar.zab=4
- action-set foo.baz=1
 
- will yield:
+    action-set outfile.size=10G
+    action-set foo.bar=2
+    action-set foo.baz.val=3
+    action-set foo.bar.zab=4
+    action-set foo.baz=1
 
- outfile:
-   size: "10G"
- foo:
-   bar:
-     zab: "4"
-   baz: "1"
+will yield:
+
+    outfile:
+      size: "10G"
+    foo:
+      bar:
+        zab: "4"
+      baz: "1"
 `, reservedText)
 	return jujucmd.Info(&cmd.Info{
 		Name:    "action-set",
 		Args:    "<key>=<value> [<key>=<value> ...]",
-		Purpose: "set action results",
+		Purpose: "Set action results.",
 		Doc:     doc,
 	})
 }

@@ -33,7 +33,7 @@ func (s *stateSetSuite) TestHelp(c *gc.C) {
 Usage: state-set [options] key=value [key=value ...]
 
 Summary:
-set server-side-state values
+Set server-side-state values.
 
 Options:
 --file  (= )
@@ -54,8 +54,8 @@ The following fixed size limits apply:
 - Length of stored values cannot exceed 65536 bytes.
 
 See also:
-    state-delete
-    state-get
+ - state-delete
+ - state-get
 `[1:]
 
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, expectedHelp)
