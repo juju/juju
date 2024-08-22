@@ -39,10 +39,10 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
+	controllerdomain "github.com/juju/juju/domain/controller"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -484,7 +484,7 @@ func ensureKeys(
 	// Generate a private SSH key for the controllers, and add
 	// the public key to the environment config. We'll add the
 	// private key to StateServingInfo below.
-	privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
+	privateKey, publicKey, err := sshGenerateKey(controllerdomain.ControllerSSHKeyComment)
 	if err != nil {
 		return errors.Annotate(err, "failed to generate system key")
 	}
