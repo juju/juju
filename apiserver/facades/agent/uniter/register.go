@@ -128,7 +128,7 @@ func newUniterAPIWithServices(
 		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrApplication),
 		APIAddresser:               common.NewAPIAddresser(systemState, resources),
 		MongoModelWatcher:          common.NewMongoModelWatcher(m, resources),
-		RebootRequester:            common.NewRebootRequester(st, accessMachine),
+		RebootRequester:            common.NewRebootRequester(machineService, accessMachine),
 		UnitStateAPI:               common.NewExternalUnitStateAPI(controllerConfigService, st, resources, authorizer, accessUnit, logger),
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
 		lxdProfileAPI:              NewExternalLXDProfileAPIv2(st, resources, authorizer, accessUnit, logger, modelInfoService),

@@ -50,6 +50,7 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 		nil,
 		nil,
 		nil,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.ModelWatcherTest = commontesting.NewModelWatcherTest(

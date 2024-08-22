@@ -29728,7 +29728,7 @@
     },
     {
         "Name": "Reboot",
-        "Description": "RebootAPI provides access to the Upgrader API facade.",
+      "Description": "RebootAPI provides access to the Reboot API facade.",
         "Version": 2,
         "AvailableTo": [
             "controller-machine-agent",
@@ -29780,7 +29780,7 @@
                             "$ref": "#/definitions/NotifyWatchResult"
                         }
                     },
-                    "description": "WatchForRebootEvent starts a watcher to track if there is a new\nreboot request on the machines ID or any of its parents (in case we are a container)."
+                  "description": "WatchForRebootEvent starts a watcher to track if there is a new\nreboot request for a specific machine ID or its parent (in case we are a container)."
                 }
             },
             "definitions": {

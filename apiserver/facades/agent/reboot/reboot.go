@@ -13,27 +13,36 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/domain/machine/service"
 )
 
-// RebootAPI provides access to the Upgrader API facade.
+// RebootAPI provides access to the Reboot API facade.
 type RebootAPI struct {
 	*common.RebootActionGetter
 	// The ability for a machine to reboot itself is not yet used.
 	*common.RebootRequester
 	*common.RebootFlagClearer
-
-	auth      facade.Authorizer
-	st        *state.State
-	machine   *state.Machine
-	resources facade.Resources
+	*common.MachineWatcher
 }
 
-// NewRebootAPI creates a new server-side RebootAPI facade.
-func NewRebootAPI(ctx facade.ModelContext) (*RebootAPI, error) {
-	auth := ctx.Auth()
+// NewRebootApiFromModelContext creates a new server-side RebootAPI facade.
+func NewRebootApiFromModelContext(ctx facade.ModelContext) (*RebootAPI, error) {
+	return NewRebootAPI(
+		ctx.Auth(),
+		ctx.WatcherRegistry(),
+		ctx.ServiceFactory().Machine())
+}
+
+// NewRebootAPI creates a new instance of the RebootAPI by initializing the various components needed for reboot functionality.
+//   - [facade.Authorizer] to authorize the machine agent,
+//   - [facade.WatcherRegistry] to register and manage watchers,
+//   - [github.com/juju/juju/domain/machine/service.WatchableService] for interacting with machine-related data and operations.
+func NewRebootAPI(
+	auth facade.Authorizer,
+	watcherRegistry facade.WatcherRegistry,
+	machineService *service.WatchableService,
+) (*RebootAPI, error) {
 	if !auth.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -42,47 +51,28 @@ func NewRebootAPI(ctx facade.ModelContext) (*RebootAPI, error) {
 	if !ok {
 		return nil, errors.Errorf("Expected names.MachineTag, got %T", auth.GetAuthTag())
 	}
-	st := ctx.State()
-	machine, err := st.Machine(tag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	canAccess := func() (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
 	}
 
-	return &RebootAPI{
-		RebootActionGetter: common.NewRebootActionGetter(st, canAccess),
-		RebootRequester:    common.NewRebootRequester(st, canAccess),
-		RebootFlagClearer:  common.NewRebootFlagClearer(st, canAccess),
-		st:                 st,
-		machine:            machine,
-		resources:          ctx.Resources(),
-		auth:               auth,
-	}, nil
-}
-
-// WatchForRebootEvent starts a watcher to track if there is a new
-// reboot request on the machines ID or any of its parents (in case we are a container).
-func (r *RebootAPI) WatchForRebootEvent(ctx context.Context) (params.NotifyWatchResult, error) {
-	var err error = apiservererrors.ErrPerm
-	var watch state.NotifyWatcher
-	var result params.NotifyWatchResult
-
-	if r.auth.AuthOwner(r.machine.Tag()) {
-		watch = r.machine.WatchForRebootEvent()
-		err = nil
-		// Consume the initial event. Technically, API
-		// calls to Watch 'transmit' the initial event
-		// in the Watch response. But NotifyWatchers
-		// have no state to transmit.
-		if _, ok := <-watch.Changes(); ok {
-			result.NotifyWatcherId = r.resources.Register(watch)
-		} else {
-			err = watcher.EnsureErr(watch)
-		}
+	// TODO: ask to simon or joe if we should introduce a kind of function GetMachineUUIDFromTag in domain to avoid the check below
+	if tag.Kind() != names.MachineTagKind {
+		return nil, errors.Errorf("%q should be a %s", tag, names.MachineTagKind)
 	}
-	result.Error = apiservererrors.ServerError(err)
-	return result, nil
+
+	uuid := func(ctx context.Context) (string, error) {
+		uuid, err := machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+		if err != nil {
+			return "", errors.Annotatef(err, "find machine uuid for machine %q", tag.Id())
+		}
+		return uuid, nil
+	}
+
+	return &RebootAPI{
+		RebootActionGetter: common.NewRebootActionGetter(machineService, canAccess),
+		RebootRequester:    common.NewRebootRequester(machineService, canAccess),
+		RebootFlagClearer:  common.NewRebootFlagClearer(machineService, canAccess),
+		MachineWatcher:     common.NewMachineRebootWatcher(machineService, watcherRegistry, uuid),
+	}, nil
 }
