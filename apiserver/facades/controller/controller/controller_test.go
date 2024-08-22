@@ -7,8 +7,6 @@ import (
 	"context"
 	stdcontext "context"
 	"encoding/json"
-	controller2 "github.com/juju/juju/apiserver/facades/controller/controller"
-	"github.com/juju/juju/apiserver/facades/controller/controller/mocks"
 	"regexp"
 	"time"
 
@@ -27,6 +25,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
+	"github.com/juju/juju/apiserver/facades/controller/controller"
+	"github.com/juju/juju/apiserver/facades/controller/controller/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
@@ -58,7 +58,7 @@ type controllerSuite struct {
 
 	controllerConfigAttrs map[string]any
 
-	controller       *controller2.ControllerAPI
+	controller       *controller.ControllerAPI
 	resources        *common.Resources
 	watcherRegistry  facade.WatcherRegistry
 	authorizer       apiservertesting.FakeAuthorizer
@@ -120,7 +120,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		Logger_:           loggertesting.WrapCheckLog(c),
 		LeadershipReader_: s.leadershipReader,
 	}
-	controller, err := controller2.LatestAPI(context.Background(), s.context)
+	controller, err := controller.LatestAPI(context.Background(), s.context)
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
 
@@ -136,7 +136,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUnitTag("mysql/0"),
 	}
-	endPoint, err := controller2.LatestAPI(context.Background(), facadetest.ModelContext{
+	endPoint, err := controller.LatestAPI(context.Background(), facadetest.ModelContext{
 		State_:          s.State,
 		Resources_:      s.resources,
 		Auth_:           anAuthoriser,
@@ -278,7 +278,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 	defer func() { _ = st.Close() }()
 
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.Owner}
-	controller, err := controller2.LatestAPI(
+	controller, err := controller.LatestAPI(
 		context.Background(),
 		facadetest.ModelContext{
 			State_:          st,
@@ -340,7 +340,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	macsJSON, err := json.Marshal([]macaroon.Slice{{mac}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	controller2.SetPrecheckResult(s, nil)
+	controller.SetPrecheckResult(s, nil)
 
 	// Kick off migrations
 	args := params.InitiateMigrationArgs{
@@ -434,7 +434,7 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *gc.C) {
 func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer func() { _ = st.Close() }()
-	controller2.SetPrecheckResult(s, nil)
+	controller.SetPrecheckResult(s, nil)
 
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -499,7 +499,7 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	controller2.SetPrecheckResult(s, errors.New("boom"))
+	controller.SetPrecheckResult(s, errors.New("boom"))
 
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -656,7 +656,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller2.LatestAPI(
+	endpoint, err := controller.LatestAPI(
 		context.Background(),
 		facadetest.ModelContext{
 			State_:          s.State,
@@ -839,7 +839,7 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewLocalUserTag("bob"),
 	}
-	endPoint, err := controller2.LatestAPI(
+	endPoint, err := controller.LatestAPI(
 		context.Background(),
 		facadetest.ModelContext{
 			State_:          s.State,
@@ -953,8 +953,8 @@ func (s *accessSuite) TearDownTest(c *gc.C) {
 	s.StateSuite.TearDownTest(c)
 }
 
-func (s *accessSuite) controllerAPI(c *gc.C) *controller2.ControllerAPI {
-	api, err := controller2.NewControllerAPI(
+func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
+	api, err := controller.NewControllerAPI(
 		context.Background(),
 		s.State,
 		s.StatePool,

@@ -77,7 +77,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/charmdownloader"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
-	"github.com/juju/juju/apiserver/facades/controller/controller"
+	"github.com/juju/juju/apiserver/facades/controller/controller" // ModelUser Admin (although some methods check for read only)
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets"
