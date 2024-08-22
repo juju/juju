@@ -299,11 +299,13 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"instance_tag",
 
 		// IP address
+		"network_address",
+		"ip_address",
+		"fqdn_address",
 		"ip_address_type",
 		"ip_address_origin",
 		"ip_address_scope",
 		"ip_address_config_type",
-		"ip_address",
 		"ip_address_provider",
 		"ip_address_space",
 		"ip_address_subnet",
@@ -473,6 +475,7 @@ func (s *schemaSuite) TestModelViews(c *gc.C) {
 		"v_charm_url",
 		"v_secret_permission",
 		"v_space_subnet",
+		"v_address",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
 }

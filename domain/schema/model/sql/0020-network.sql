@@ -113,29 +113,69 @@ INSERT INTO ip_address_config_type VALUES
 (3, 'manual'),
 (4, 'loopback');
 
-CREATE TABLE ip_address (
+CREATE TABLE network_address (
     uuid TEXT NOT NULL PRIMARY KEY,
-    -- The value of the configured IP address.
-    -- e.g. 192.168.1.2 or 2001:db8::1.
-    address_value TEXT NOT NULL,
-    type_id INT NOT NULL,
     origin_id INT NOT NULL,
-    config_type_id INT NOT NULL,
     scope_id INT NOT NULL,
 
-    CONSTRAINT fk_ip_address_type
-    FOREIGN KEY (type_id)
-    REFERENCES ip_address_type (id),
     CONSTRAINT fk_ip_address_origin
     FOREIGN KEY (origin_id)
     REFERENCES ip_address_origin (id),
     CONSTRAINT fk_ip_address_scope
     FOREIGN KEY (scope_id)
-    REFERENCES ip_address_scope (id),
+    REFERENCES ip_address_scope (id)
+);
+
+CREATE TABLE ip_address (
+    address_uuid TEXT NOT NULL PRIMARY KEY,
+    -- The value of the configured IP address.
+    -- e.g. 192.168.1.2 or 2001:db8::1.
+    address_value TEXT NOT NULL,
+    type_id INT NOT NULL,
+    config_type_id INT NOT NULL,
+
+    CONSTRAINT chk_address_type
+    CHECK (type_id != 0),
+    CONSTRAINT fk_ip_address_address_uuid
+    FOREIGN KEY (address_uuid)
+    REFERENCES network_address (uuid),
+    CONSTRAINT fk_ip_address_type
+    FOREIGN KEY (type_id)
+    REFERENCES ip_address_type (id),
     CONSTRAINT fk_ip_address_config_type
     FOREIGN KEY (config_type_id)
     REFERENCES ip_address_config_type (id)
 );
+
+CREATE TABLE fqdn_address (
+    address_uuid TEXT NOT NULL PRIMARY KEY,
+    hostname TEXT NOT NULL,
+
+    CONSTRAINT fk_fqdn_address_address_uuid
+    FOREIGN KEY (address_uuid)
+    REFERENCES network_address (uuid)
+);
+
+CREATE VIEW v_address AS
+SELECT
+    ipa.address_value,
+    na.type_id,
+    na.config_type_id,
+    na.origin_id,
+    na.scope_id
+FROM ip_address AS ipa
+INNER JOIN network_address AS na ON ipa.address_uuid = na.uuid
+UNION
+SELECT
+    fa.hostname AS address_value,
+    -- FQDN address type is always "hostname".
+    0 AS type_id,
+    -- FQDN address config type is always "manual".
+    3 AS config_type_id,
+    na.origin_id,
+    na.scope_id
+FROM fqdn_address AS fa
+INNER JOIN network_address AS na ON fa.address_uuid = na.uuid;
 
 CREATE TABLE ip_address_provider (
     -- a provider-specific ID of the IP address.
