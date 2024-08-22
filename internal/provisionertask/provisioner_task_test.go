@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner_test
+package provisionertask_test
 
 import (
 	"context"
@@ -28,6 +28,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
+	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -47,6 +48,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	providermocks "github.com/juju/juju/internal/provider/common/mocks"
+	"github.com/juju/juju/internal/provisionertask"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
@@ -191,7 +193,10 @@ func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *gc.C) {
 		config.HarvestAll,
 		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
-		provisioner.NewRetryStrategy(0*time.Second, 1),
+		provisionertask.RetryStrategy{
+			RetryDelay: 0 * time.Second,
+			RetryCount: 1,
+		},
 		numProvisionWorkersForTesting,
 	)
 
@@ -289,7 +294,7 @@ func (s *ProvisionerTaskSuite) TestSetUpToStartMachine(c *gc.C) {
 			ProvisioningNetworkTopology: params.ProvisioningNetworkTopology{},
 		},
 	}
-	startInstanceParams, err := provisioner.SetupToStartMachine(task, m0, &vers, res)
+	startInstanceParams, err := provisionertask.SetupToStartMachine(task, m0, &vers, res)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(startInstanceParams.InstanceConfig, gc.NotNil)
 	c.Assert(startInstanceParams.InstanceConfig.APIInfo, gc.NotNil)
@@ -971,7 +976,7 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *gc.C
 
 	// After the first change, there is only one AZ in the tracker.
 	syncStep()
-	azm := provisioner.GetCopyAvailabilityZoneMachines(task)
+	azm := provisionertask.GetCopyAvailabilityZoneMachines(task)
 	c.Assert(azm, gc.HasLen, 1)
 	c.Assert(azm[0].ZoneName, gc.Equals, "az1")
 
@@ -980,7 +985,7 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *gc.C
 
 	// After the second change, we see all 3 AZs.
 	syncStep()
-	azm = provisioner.GetCopyAvailabilityZoneMachines(task)
+	azm = provisionertask.GetCopyAvailabilityZoneMachines(task)
 	c.Assert(azm, gc.HasLen, 3)
 	c.Assert([]string{azm[0].ZoneName, azm[1].ZoneName, azm[2].ZoneName}, jc.SameContents, []string{"az1", "az2", "az3"})
 
@@ -991,7 +996,7 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *gc.C
 	// in the prior step. This means one will be removed from tracking,
 	// but the one we deployed to will not be deleted.
 	syncStep()
-	azm = provisioner.GetCopyAvailabilityZoneMachines(task)
+	azm = provisionertask.GetCopyAvailabilityZoneMachines(task)
 	c.Assert(azm, gc.HasLen, 2)
 
 	workertest.CleanKill(c, task)
@@ -1092,7 +1097,10 @@ func (s *ProvisionerTaskSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
 		config.HarvestAll,
 		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
-		provisioner.NewRetryStrategy(10*time.Second, 1),
+		provisionertask.RetryStrategy{
+			RetryDelay: 10 * time.Second,
+			RetryCount: 1,
+		},
 		numProvisionWorkersForTesting,
 	)
 
@@ -1420,12 +1428,15 @@ func (s *ProvisionerTaskSuite) newProvisionerTask(
 	distributionGroupFinder provisioner.DistributionGroupFinder,
 	toolsFinder provisioner.ToolsFinder,
 	numProvisionWorkers int,
-) provisioner.ProvisionerTask {
+) provisionertask.ProvisionerTask {
 	return s.newProvisionerTaskWithRetry(c,
 		harvestingMethod,
 		distributionGroupFinder,
 		toolsFinder,
-		provisioner.NewRetryStrategy(0*time.Second, 0),
+		provisionertask.RetryStrategy{
+			RetryDelay: 0 * time.Second,
+			RetryCount: 0,
+		},
 		numProvisionWorkers,
 	)
 }
@@ -1435,10 +1446,10 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 	harvestingMethod config.HarvestMode,
 	distributionGroupFinder provisioner.DistributionGroupFinder,
 	toolsFinder provisioner.ToolsFinder,
-	retryStrategy provisioner.RetryStrategy,
+	retryStrategy provisionertask.RetryStrategy,
 	numProvisionWorkers int,
-) provisioner.ProvisionerTask {
-	w, err := provisioner.NewProvisionerTask(provisioner.TaskConfig{
+) provisionertask.ProvisionerTask {
+	w, err := provisionertask.NewProvisionerTask(provisionertask.TaskConfig{
 		ControllerUUID:             coretesting.ControllerTag.Id(),
 		HostTag:                    names.NewMachineTag("0"),
 		Logger:                     loggertesting.WrapCheckLog(c),
@@ -1465,7 +1476,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBroker(
 	distributionGroups map[names.MachineTag][]string,
 	numProvisionWorkers int,
 	harvestingMethod config.HarvestMode,
-) provisioner.ProvisionerTask {
+) provisionertask.ProvisionerTask {
 	return s.newProvisionerTaskWithBrokerAndEventCb(c, broker, distributionGroups, numProvisionWorkers, harvestingMethod, nil)
 }
 
@@ -1476,24 +1487,27 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
 	numProvisionWorkers int,
 	harvestingMethod config.HarvestMode,
 	evtCb func(string),
-) provisioner.ProvisionerTask {
-	task, err := provisioner.NewProvisionerTask(provisioner.TaskConfig{
-		ControllerUUID:             coretesting.ControllerTag.Id(),
-		HostTag:                    names.NewMachineTag("0"),
-		Logger:                     loggertesting.WrapCheckLog(c),
-		HarvestMode:                harvestingMethod,
-		ControllerAPI:              s.controllerAPI,
-		MachinesAPI:                s.machinesAPI,
-		DistributionGroupFinder:    &mockDistributionGroupFinder{groups: distributionGroups},
-		ToolsFinder:                mockToolsFinder{},
-		MachineWatcher:             s.modelMachinesWatcher,
-		RetryWatcher:               s.machineErrorRetryWatcher,
-		Broker:                     broker,
-		ImageStream:                imagemetadata.ReleasedStream,
-		RetryStartInstanceStrategy: provisioner.NewRetryStrategy(0*time.Second, 0),
-		CloudCallContextFunc:       func(_ context.Context) envcontext.ProviderCallContext { return s.callCtx },
-		NumProvisionWorkers:        numProvisionWorkers,
-		EventProcessedCb:           evtCb,
+) provisionertask.ProvisionerTask {
+	task, err := provisionertask.NewProvisionerTask(provisionertask.TaskConfig{
+		ControllerUUID:          coretesting.ControllerTag.Id(),
+		HostTag:                 names.NewMachineTag("0"),
+		Logger:                  loggertesting.WrapCheckLog(c),
+		HarvestMode:             harvestingMethod,
+		ControllerAPI:           s.controllerAPI,
+		MachinesAPI:             s.machinesAPI,
+		DistributionGroupFinder: &mockDistributionGroupFinder{groups: distributionGroups},
+		ToolsFinder:             mockToolsFinder{},
+		MachineWatcher:          s.modelMachinesWatcher,
+		RetryWatcher:            s.machineErrorRetryWatcher,
+		Broker:                  broker,
+		ImageStream:             imagemetadata.ReleasedStream,
+		RetryStartInstanceStrategy: provisionertask.RetryStrategy{
+			RetryDelay: 0 * time.Second,
+			RetryCount: 0,
+		},
+		CloudCallContextFunc: func(_ context.Context) envcontext.ProviderCallContext { return s.callCtx },
+		NumProvisionWorkers:  numProvisionWorkers,
+		EventProcessedCb:     evtCb,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return task
@@ -1546,6 +1560,63 @@ func (s *ProvisionerTaskSuite) expectProvisioningInfo(machines ...*testMachine) 
 
 	s.machinesAPI.EXPECT().ProvisioningInfo(gomock.Any(), tags).Return(
 		params.ProvisioningInfoResults{Results: piResults}, nil).AnyTimes()
+}
+
+type MachineClassifySuite struct {
+}
+
+var _ = gc.Suite(&MachineClassifySuite{})
+
+type machineClassificationTest struct {
+	description    string
+	life           life.Value
+	status         status.Status
+	idErr          string
+	ensureDeadErr  string
+	expectErrCode  string
+	expectErrFmt   string
+	statusErr      string
+	classification provisionertask.MachineClassification
+}
+
+var machineClassificationTestsNoMaintenance = machineClassificationTest{
+	description:    "Machine doesn't need maintaining",
+	life:           life.Alive,
+	status:         status.Started,
+	classification: provisionertask.None,
+}
+
+func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
+	test := func(t machineClassificationTest, id string) {
+		// Run a sub-test from the test table
+		s2e := func(s string) error {
+			// Little helper to turn a non-empty string into a useful error for "ErrorMatches"
+			if s != "" {
+				return &params.Error{Code: s}
+			}
+			return nil
+		}
+
+		c.Logf("%s: %s", id, t.description)
+		machine := testMachine{
+			life:          t.life,
+			instStatus:    t.status,
+			machineStatus: t.status,
+			id:            id,
+			idErr:         s2e(t.idErr),
+			ensureDeadErr: s2e(t.ensureDeadErr),
+			statusErr:     s2e(t.statusErr),
+		}
+		classification, err := provisionertask.ClassifyMachine(context.Background(), loggertesting.WrapCheckLog(c), &machine)
+		if err != nil {
+			c.Assert(err, gc.ErrorMatches, fmt.Sprintf(t.expectErrFmt, machine.Id()))
+		} else {
+			c.Assert(err, gc.Equals, s2e(t.expectErrCode))
+		}
+		c.Assert(classification, gc.Equals, t.classification)
+	}
+
+	test(machineClassificationTestsNoMaintenance, "0")
 }
 
 type testInstanceBroker struct {
@@ -1944,4 +2015,48 @@ func newStartInstanceParamsMatcher(
 		matchers = make(map[string]func(environs.StartInstanceParams) bool)
 	}
 	return &startInstanceParamsMatcher{matchers: matchers}
+}
+
+type mockDistributionGroupFinder struct {
+	groups map[names.MachineTag][]string
+}
+
+func (mock *mockDistributionGroupFinder) DistributionGroupByMachineId(
+	ctx context.Context,
+	tags ...names.MachineTag,
+) ([]apiprovisioner.DistributionGroupResult, error) {
+	result := make([]apiprovisioner.DistributionGroupResult, len(tags))
+	if len(mock.groups) == 0 {
+		for i := range tags {
+			result[i] = apiprovisioner.DistributionGroupResult{MachineIds: []string{}}
+		}
+	} else {
+		for i, tag := range tags {
+			if dg, ok := mock.groups[tag]; ok {
+				result[i] = apiprovisioner.DistributionGroupResult{MachineIds: dg}
+			} else {
+				result[i] = apiprovisioner.DistributionGroupResult{
+					MachineIds: []string{}, Err: &params.Error{Code: params.CodeNotFound, Message: "Fail"}}
+			}
+		}
+	}
+	return result, nil
+}
+
+type mockToolsFinder struct {
+}
+
+func (f mockToolsFinder) FindTools(ctx context.Context, number version.Number, os string, a string) (tools.List, error) {
+	if number.Compare(version.MustParse("6.6.6")) == 0 {
+		return nil, tools.ErrNoMatches
+	}
+	v, err := version.ParseBinary(fmt.Sprintf("%s-%s-%s", number, os, arch.HostArch()))
+	if err != nil {
+		return nil, err
+	}
+	if a == "" {
+		return nil, errors.New("missing arch")
+	}
+	v.Arch = a
+	return tools.List{&tools.Tools{Version: v}}, nil
 }

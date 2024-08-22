@@ -25,6 +25,12 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// ContainerProvisionerAPI describes methods for provisioning a container.
+type ContainerProvisionerAPI interface {
+	ContainerManagerConfigGetter
+	broker.APICalls
+}
+
 // ContainerSetup sets up the machine to be able to create containers
 // and start a suitable provisioner. Work is triggered by the
 // ContainerSetupAndProvisioner.

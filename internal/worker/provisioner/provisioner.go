@@ -10,17 +10,22 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/provisionertask"
+	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/worker/common"
+	"github.com/juju/juju/rpc/params"
 )
 
 // Ensure our structs implement the required Provisioner interface.
@@ -37,6 +42,45 @@ type Provisioner interface {
 	worker.Worker
 	getMachineWatcher(context.Context) (watcher.StringsWatcher, error)
 	getRetryWatcher(context.Context) (watcher.NotifyWatcher, error)
+}
+
+// ControllerAPI describes API methods for querying a controller.
+type ControllerAPI interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+	CACert(context.Context) (string, error)
+	ModelUUID(context.Context) (string, error)
+	ModelConfig(context.Context) (*config.Config, error)
+	WatchForModelConfigChanges(context.Context) (watcher.NotifyWatcher, error)
+	APIAddresses(context.Context) ([]string, error)
+}
+
+// MachinesAPI describes API methods required to access machine provisioning info.
+type MachinesAPI interface {
+	Machines(context.Context, ...names.MachineTag) ([]apiprovisioner.MachineResult, error)
+	MachinesWithTransientErrors(context.Context) ([]apiprovisioner.MachineStatusResult, error)
+	WatchMachineErrorRetry(context.Context) (watcher.NotifyWatcher, error)
+	WatchModelMachines(context.Context) (watcher.StringsWatcher, error)
+	ProvisioningInfo(_ context.Context, machineTags []names.MachineTag) (params.ProvisioningInfoResults, error)
+}
+
+// Environ describes the methods for provisioning instances.
+type Environ interface {
+	environs.InstanceBroker
+	environs.ConfigSetter
+}
+
+// ToolsFinder is an interface used for finding tools to run on
+// provisioned instances.
+type ToolsFinder interface {
+	// FindTools returns a list of tools matching the specified
+	// version, os, and architecture. If arch is empty, the
+	// implementation is expected to use a well documented default.
+	FindTools(ctx context.Context, version version.Number, os string, arch string) (coretools.List, error)
+}
+
+// DistributionGroupFinder provides access to machine distribution groups.
+type DistributionGroupFinder interface {
+	DistributionGroupByMachineId(context.Context, ...names.MachineTag) ([]apiprovisioner.DistributionGroupResult, error)
 }
 
 // environProvisioner represents a running provisioning worker for machine nodes
@@ -68,24 +112,6 @@ type provisioner struct {
 	toolsFinder             ToolsFinder
 	catacomb                catacomb.Catacomb
 	callContextFunc         common.CloudCallContextFunc
-}
-
-// RetryStrategy defines the retry behavior when encountering a retryable
-// error during provisioning.
-//
-// TODO(katco): 2016-08-09: lp:1611427
-type RetryStrategy struct {
-	retryDelay time.Duration
-	retryCount int
-}
-
-// NewRetryStrategy returns a new retry strategy with the specified delay and
-// count for use with retryable provisioning errors.
-func NewRetryStrategy(delay time.Duration, count int) RetryStrategy {
-	return RetryStrategy{
-		retryDelay: delay,
-		retryCount: count,
-	}
 }
 
 // configObserver is implemented so that tests can see when the environment
@@ -122,7 +148,7 @@ func (p *provisioner) Wait() error {
 }
 
 // getStartTask creates a new worker for the provisioner,
-func (p *provisioner) getStartTask(ctx context.Context, harvestMode config.HarvestMode, workerCount int) (ProvisionerTask, error) {
+func (p *provisioner) getStartTask(ctx context.Context, harvestMode config.HarvestMode, workerCount int) (provisionertask.ProvisionerTask, error) {
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
 	machineWatcher, err := p.getMachineWatcher(ctx)
@@ -148,22 +174,25 @@ func (p *provisioner) getStartTask(ctx context.Context, harvestMode config.Harve
 		return nil, errors.Annotate(err, "could not retrieve the controller config.")
 	}
 
-	task, err := NewProvisionerTask(TaskConfig{
-		ControllerUUID:             controllerCfg.ControllerUUID(),
-		HostTag:                    hostTag,
-		Logger:                     p.logger,
-		HarvestMode:                harvestMode,
-		ControllerAPI:              p.controllerAPI,
-		MachinesAPI:                p.machinesAPI,
-		DistributionGroupFinder:    p.distributionGroupFinder,
-		ToolsFinder:                p.toolsFinder,
-		MachineWatcher:             machineWatcher,
-		RetryWatcher:               retryWatcher,
-		Broker:                     p.broker,
-		ImageStream:                modelCfg.ImageStream(),
-		RetryStartInstanceStrategy: RetryStrategy{retryDelay: retryStrategyDelay, retryCount: retryStrategyCount},
-		CloudCallContextFunc:       p.callContextFunc,
-		NumProvisionWorkers:        workerCount, // event callback is currently only being used by tests
+	task, err := provisionertask.NewProvisionerTask(provisionertask.TaskConfig{
+		ControllerUUID:          controllerCfg.ControllerUUID(),
+		HostTag:                 hostTag,
+		Logger:                  p.logger,
+		HarvestMode:             harvestMode,
+		ControllerAPI:           p.controllerAPI,
+		MachinesAPI:             p.machinesAPI,
+		DistributionGroupFinder: p.distributionGroupFinder,
+		ToolsFinder:             p.toolsFinder,
+		MachineWatcher:          machineWatcher,
+		RetryWatcher:            retryWatcher,
+		Broker:                  p.broker,
+		ImageStream:             modelCfg.ImageStream(),
+		RetryStartInstanceStrategy: provisionertask.RetryStrategy{
+			RetryDelay: retryStrategyDelay,
+			RetryCount: retryStrategyCount,
+		},
+		CloudCallContextFunc: p.callContextFunc,
+		NumProvisionWorkers:  workerCount, // event callback is currently only being used by tests
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
