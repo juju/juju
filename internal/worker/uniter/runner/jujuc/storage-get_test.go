@@ -71,7 +71,7 @@ func (s *storageGetSuite) TestHelp(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: storage-get [options] [<key>]
 
 Summary:
-print information for storage instance with specified id
+Print information for the storage instance with the specified ID.
 
 Options:
 --format  (= smart)

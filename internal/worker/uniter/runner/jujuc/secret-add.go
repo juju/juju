@@ -59,6 +59,7 @@ leader can manage it. Use "--owner unit" to create a secret owned by the
 specific unit which created it.
 
 Examples:
+
     secret-add token=34ae35facd4
     secret-add key#base64=AA==
     secret-add key#file=/path/to/file another-key=s3cret
@@ -76,7 +77,7 @@ Examples:
 	return jujucmd.Info(&cmd.Info{
 		Name:    "secret-add",
 		Args:    "[key[#base64|#file]=value...]",
-		Purpose: "add a new secret",
+		Purpose: "Add a new secret.",
 		Doc:     doc,
 	})
 }

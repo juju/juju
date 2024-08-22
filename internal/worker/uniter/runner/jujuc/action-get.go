@@ -36,7 +36,7 @@ map as needed.
 	return jujucmd.Info(&cmd.Info{
 		Name:    "action-get",
 		Args:    "[<key>[.<key>.<key>...]]",
-		Purpose: "get action parameters",
+		Purpose: "Get action parameters.",
 		Doc:     doc,
 	})
 }

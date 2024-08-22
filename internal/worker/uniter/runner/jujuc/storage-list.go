@@ -38,7 +38,7 @@ instances for that named storage will be returned.
 	return jujucmd.Info(&cmd.Info{
 		Name:    "storage-list",
 		Args:    "[<storage-name>]",
-		Purpose: "list storage attached to the unit",
+		Purpose: "List storage attached to the unit.",
 		Doc:     doc,
 	})
 }

@@ -28,7 +28,7 @@ description: |
 
 confinement: strict
 grade: devel
-base: core20
+base: core24
 
 apps:
   juju:
@@ -72,76 +72,60 @@ parts:
     plugin: dump
     source: snap/local
 
-  musl:
-    source: https://musl.libc.org/releases/musl-1.2.4.tar.gz
-    source-type: tar
-    plugin: autotools
-    build-packages:
-      - gcc
-      - automake
-      - wget
-    override-build: |
-      set -ex
-
-      CUSTOM_CFLAGS=""
-      MACHINE_TYPE=$(uname -m)
-      if [ "${MACHINE_TYPE}" = "ppc64le" ]; then
-        MACHINE_TYPE="powerpc64le"
-        CUSTOM_CFLAGS="-mlong-double-64"
-      fi
-
-      ./configure CFLAGS="${CUSTOM_CFLAGS}"
-      make install
-
-      ln -s /usr/include/${MACHINE_TYPE}-linux-gnu/asm /usr/local/musl/include/asm
-      ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic
-      ln -s /usr/include/linux /usr/local/musl/include/linux
-
   musl-compat:
     source: https://github.com/juju/musl-compat.git
     source-type: git
     source-depth: 1
     plugin: nil
+    build-packages:
+      - musl-tools
     override-build: |
       set -ex
 
-      if [ ! -L /usr/local/musl/include/sys/queue.h ]; then
-        ln -s $(pwd)/include/sys/queue.h /usr/local/musl/include/sys/queue.h
+      MACHINE_TYPE="$(gcc -dumpmachine | awk -F'-' '{print $1}')"
+      if [ "${MACHINE_TYPE}" = "powerpc64le" ]; then
+      cat <<EOM | tee -a "/usr/lib/powerpc64le-linux-musl/musl-gcc.specs"
+      %rename cpp_options x_cpp_options
+
+      *cpp_options:
+      -mlong-double-64 %(x_cpp_options)
+
+      %rename cc1 x_cc1
+
+      *cc1:
+      -mlong-double-64 %(x_cc1)
+
+      EOM
       fi
+      ln -s $(pwd)/include/sys/queue.h /usr/include/${MACHINE_TYPE}-linux-musl/sys/queue.h || true
+      ln -s /usr/include/${MACHINE_TYPE}-linux-gnu/asm /usr/include/${MACHINE_TYPE}-linux-musl/asm || true
+      ln -s /usr/include/asm-generic /usr/include/${MACHINE_TYPE}-linux-musl/asm-generic || true
+      ln -s /usr/include/linux /usr/include/${MACHINE_TYPE}-linux-musl/linux || true
 
   libtirpc:
     after:
-      - musl
       - musl-compat
-    source: https://salsa.debian.org/debian/libtirpc.git
-    source-tag: upstream/1.3.3
+    source: https://git.launchpad.net/ubuntu/+source/libtirpc
+    source-branch: applied/ubuntu/noble
     source-type: git
     source-depth: 1
-    plugin: autotools
+    plugin: nil
     build-packages:
+      - musl-tools
       - automake
       - make
     override-build: |
       set -ex
 
-      CUSTOM_CFLAGS=""
-      if [ "$(uname -m)" = "ppc64le" ]; then
-        CUSTOM_CFLAGS="-mlong-double-64"
-      fi
-
-      export PATH=/usr/local/musl/bin:$PATH
-      export CC=musl-gcc
+      export CC="musl-gcc"
+      export PKG_CONFIG_PATH="${CRAFT_STAGE}/snap-linux-musl/lib/pkgconfig"
 
       chmod +x autogen.sh
+      autoupdate
       ./autogen.sh
-      ./configure --disable-shared --disable-gssapi CFLAGS="${CUSTOM_CFLAGS}"
-      make
-
-      mkdir -p $SNAPCRAFT_PART_INSTALL/libtirpc
-      cp -r $SNAPCRAFT_PART_BUILD/tirpc $SNAPCRAFT_PART_INSTALL/libtirpc/tirpc
-      cp -r $SNAPCRAFT_PART_BUILD/src $SNAPCRAFT_PART_INSTALL/libtirpc/src
-    stage:
-    - -*.*
+      ./configure --disable-shared --disable-gssapi --prefix "${CRAFT_STAGE}/snap-linux-musl"
+      
+      make install
 
   libnsl:
     after:
@@ -150,148 +134,88 @@ parts:
     source-tag: v2.0.0
     source-type: git
     source-depth: 1
-    plugin: autotools
+    plugin: nil
     build-packages:
+      - musl-tools
       - automake
       - make
     override-build: |
       set -ex
 
-      CUSTOM_CFLAGS=""
-      if [ "$(uname -m)" = "ppc64le" ]; then
-        CUSTOM_CFLAGS="-mlong-double-64"
-      fi
-
-      export PATH=/usr/local/musl/bin:$PATH
-      export CC=musl-gcc
+      export CC="musl-gcc"
+      export PKG_CONFIG_PATH="${CRAFT_STAGE}/snap-linux-musl/lib/pkgconfig"
 
       ./autogen.sh
       autoreconf -i
       autoconf
 
-      CFLAGS="-I${SNAPCRAFT_STAGE}/libtirpc/tirpc ${CUSTOM_CFLAGS}" \
-            LDFLAGS="-L${SNAPCRAFT_STAGE}/libtirpc/src" \
-            TIRPC_CFLAGS="-I${SNAPCRAFT_STAGE}/libtirpc/tirpc" \
-            TIRPC_LIBS="-L${SNAPCRAFT_STAGE}/libtirpc/src" \
-            ./configure --disable-shared
-
-      mkdir -p $SNAPCRAFT_PART_INSTALL/libnsl
-      cp -r $SNAPCRAFT_PART_BUILD/src $SNAPCRAFT_PART_INSTALL/libnsl/src
-    stage:
-    - -*.*
+      ./configure --disable-shared --prefix "${CRAFT_STAGE}/snap-linux-musl"
+      
+      make install
 
   libuv:
     after:
-      - musl
       - musl-compat
-    source: https://github.com/libuv/libuv.git
-    source-tag: v1.46.0
+    source: https://git.launchpad.net/ubuntu/+source/libuv1
+    source-branch: applied/ubuntu/noble
     source-type: git
     source-depth: 1
-    plugin: autotools
+    plugin: nil
     build-packages:
+      - musl-tools
       - automake
       - make
     override-build: |
       set -ex
 
-      CUSTOM_CFLAGS=""
-      if [ "$(uname -m)" = "ppc64le" ]; then
-        CUSTOM_CFLAGS="-mlong-double-64"
-      fi
-
-      export PATH=/usr/local/musl/bin:$PATH
-      export CC=musl-gcc
-
-      # For some reason, we need the .so files as well. We should investigate
-      # why that's required for linking.
+      export CC="musl-gcc"
+      export PKG_CONFIG_PATH="${CRAFT_STAGE}/snap-linux-musl/lib/pkgconfig"
 
       ./autogen.sh
+      ./configure --disable-shared --prefix "${CRAFT_STAGE}/snap-linux-musl"
 
-      CFLAGS="${CUSTOM_CFLAGS}" \
-        ./configure
-      make
-
-      mkdir -p $SNAPCRAFT_PART_INSTALL/libuv
-      cp -r $SNAPCRAFT_PART_BUILD/include $SNAPCRAFT_PART_INSTALL/libuv/include
-      cp -r $SNAPCRAFT_PART_BUILD/.libs $SNAPCRAFT_PART_INSTALL/libuv/.libs
-
-      mkdir -p $SNAPCRAFT_PART_INSTALL/libs
-      cp -r $SNAPCRAFT_PART_BUILD/.libs/* $SNAPCRAFT_PART_INSTALL/libs
-    stage:
-    - -*.*
+      make install
 
   libsqlite3:
     after:
-      - musl
       - musl-compat
-    source: https://github.com/sqlite/sqlite.git
-    source-tag: version-3.43.1
+    source: https://git.launchpad.net/ubuntu/+source/sqlite3
+    source-branch: applied/ubuntu/noble
     source-type: git
     source-depth: 1
-    plugin: autotools
+    plugin: nil
     build-packages:
+      - musl-tools
       - automake
       - make
     override-build: |
       set -ex
 
-      export PATH=/usr/local/musl/bin:$PATH
-      export CC=musl-gcc
+      export CC="musl-gcc"
+      export PKG_CONFIG_PATH="${CRAFT_STAGE}/snap-linux-musl/lib/pkgconfig"
 
-      CUSTOM_CFLAGS=""
-      if [ "$(uname -m)" = "ppc64le" ]; then
-        CUSTOM_CFLAGS="-mlong-double-64"
-      fi
-
-      CFLAGS="${CUSTOM_CFLAGS}" \
-        ./configure --disable-shared
-      make CFLAGS="${CUSTOM_CFLAGS}"
-
-      mkdir -p $SNAPCRAFT_PART_INSTALL/libsqlite3
-      cp -r $SNAPCRAFT_PART_BUILD/*.* $SNAPCRAFT_PART_INSTALL/libsqlite3
-
-      mkdir -p $SNAPCRAFT_PART_INSTALL/libs
-      cp -r $SNAPCRAFT_PART_BUILD/.libs/*.a $SNAPCRAFT_PART_INSTALL/libs
-
-      mkdir -p $SNAPCRAFT_PART_INSTALL/libs/include
-      cp -r $SNAPCRAFT_PART_BUILD/*.h $SNAPCRAFT_PART_INSTALL/libs/include
-    stage:
-    - -*.*
+      ./configure --disable-shared --prefix "${CRAFT_STAGE}/snap-linux-musl"
+      make install
 
   liblz4:
     after:
-      - musl
       - musl-compat
-    source: https://github.com/lz4/lz4.git
-    source-tag: v1.9.4
+    source: https://git.launchpad.net/ubuntu/+source/lz4
+    source-branch: applied/ubuntu/noble
     source-type: git
     source-depth: 1
-    plugin: make
+    plugin: nil
     build-packages:
+      - musl-tools
       - make
     override-build: |
       set -ex
 
-      export PATH=/usr/local/musl/bin:$PATH
-      export CC=musl-gcc
+      export CC="musl-gcc"
+      export PKG_CONFIG_PATH="${CRAFT_STAGE}/snap-linux-musl/lib/pkgconfig"
 
-      CUSTOM_CFLAGS=""
-      if [ "$(uname -m)" = "ppc64le" ]; then
-        CUSTOM_CFLAGS="-mlong-double-64"
-      fi
-
-      CFLAGS="${CUSTOM_CFLAGS}" \
-        make lib
-
-      mkdir -p $SNAPCRAFT_PART_INSTALL/liblz4
-      cp -r $SNAPCRAFT_PART_BUILD/lib $SNAPCRAFT_PART_INSTALL/liblz4/lib
-
-      mkdir -p $SNAPCRAFT_PART_INSTALL/libs
-      cp -r $SNAPCRAFT_PART_BUILD/lib/*.a $SNAPCRAFT_PART_INSTALL/libs
-      cp -r $SNAPCRAFT_PART_BUILD/lib/*.so* $SNAPCRAFT_PART_INSTALL/libs
-    stage:
-    - -*.*
+      cd lib
+      make install PREFIX="${CRAFT_STAGE}/snap-linux-musl" BUILD_SHARED=no BUILD_STATIC=yes
 
   libdqlite:
     after:
@@ -303,13 +227,13 @@ parts:
     source-tag: v1.16.7
     source-type: git
     source-depth: 1
-    plugin: autotools
+    plugin: nil
     build-packages:
+      - musl-tools
       - automake
       - autopoint
       - gettext
       - libtool
-      - libsqlite3-dev
       - make
       - pkg-config
       - tcl
@@ -317,99 +241,60 @@ parts:
     override-build: |
       set -ex
 
-      export PATH=/usr/local/musl/bin:$PATH
-      export CC=musl-gcc
-
-      CUSTOM_CFLAGS=""
-      if [ "$(uname -m)" = "ppc64le" ]; then
-        CUSTOM_CFLAGS="-mlong-double-64"
-      fi
+      export CC="musl-gcc"
+      export PKG_CONFIG_PATH="${CRAFT_STAGE}/snap-linux-musl/lib/pkgconfig"
 
       autoreconf -i
-      CFLAGS="-I${SNAPCRAFT_STAGE}/libsqlite3 -I${SNAPCRAFT_STAGE}/libuv/include -I${SNAPCRAFT_STAGE}/liblz4/lib -I/usr/local/musl/include -Werror=implicit-function-declaration ${CUSTOM_CFLAGS}" \
-            LDFLAGS="-L${SNAPCRAFT_STAGE}/libuv/.libs -L${SNAPCRAFT_STAGE}/liblz4/lib -L${SNAPCRAFT_STAGE}/libnsl/src" \
-            UV_CFLAGS="-I${SNAPCRAFT_STAGE}/libuv/include" \
-            UV_LIBS="-L${SNAPCRAFT_STAGE}/libuv/.libs" \
-            LZ4_CFLAGS="-I${SNAPCRAFT_STAGE}/liblz4/lib" \
-            LZ4_LIBS="-L${SNAPCRAFT_STAGE}/liblz4/lib" \
-            SQLITE_CFLAGS="-I${SNAPCRAFT_STAGE}/libsqlite3" \
-            ./configure --disable-shared --enable-build-raft
-      make
+      ./configure --disable-shared --enable-build-raft --prefix "${CRAFT_STAGE}/snap-linux-musl"
 
-      mkdir -p $SNAPCRAFT_PART_INSTALL/libdqlite
-      cp -r $SNAPCRAFT_PART_BUILD/.libs $SNAPCRAFT_PART_INSTALL/libdqlite/.libs
-
-      mkdir -p $SNAPCRAFT_PART_INSTALL/libs
-      cp -r $SNAPCRAFT_PART_BUILD/.libs/*.a $SNAPCRAFT_PART_INSTALL/libs
-
-      mkdir -p $SNAPCRAFT_PART_INSTALL/libs/include
-      cp -r $SNAPCRAFT_PART_BUILD/include/* $SNAPCRAFT_PART_INSTALL/libs/include
-    stage:
-    - -*.*
+      make install
 
   jujud:
     after:
       - libdqlite
-    plugin: juju-go
-    go-channel: 1.22/stable
+    plugin: nil
     source: .
-    go-packages:
-      - github.com/juju/juju/cmd/jujud-controller
-    go-external-strings:
-      github.com/juju/juju/core/version.GitCommit: ""
-      github.com/juju/juju/core/version.GitTreeState: ""
-      github.com/juju/juju/core/version.build: ""
-    go-static: true
-    go-strip: true
-    go-buildtags: ["libsqlite3", "dqlite", "notest"]
-    go-cgo-enabled: "1"
-    go-cgo-cc: "musl-gcc"
-    go-cgo-cflags: "-I/usr/local/musl/include"
-    go-cgo-ldflags: "-luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576"
-    go-cgo-ldflags-allow: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
+    build-snaps:
+      - go/1.22/stable
+    build-packages:
+      - musl-tools
     override-build: |
-      snapcraftctl build
+      set -ex
+
+      # TODO: use make plugin.
+      export CC=musl-gcc
+      export PKG_CONFIG_PATH="${CRAFT_STAGE}/snap-linux-musl/lib/pkgconfig"
+      export PACKAGES="libuv dqlite liblz4 sqlite3"
+      export GOBIN="${CRAFT_PART_INSTALL}/bin"
+      export CGO_ENABLED=1
+      export CGO_CFLAGS="$(pkg-config --cflags ${PACKAGES})"
+      export CGO_LDFLAGS="$(pkg-config --libs ${PACKAGES}) -Wl,-z,stack-size=1048576"
+      export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
+      export GO_LDFLAGS='-s -w -extldflags "-static" -linkmode "external" -X github.com/juju/juju/version.GitCommit= -X github.com/juju/juju/version.GitTreeState= -X github.com/juju/juju/version.build='
+      go mod download
+      go install -tags libsqlite3,dqlite -ldflags "${GO_LDFLAGS}" github.com/juju/juju/cmd/jujud-controller 
       mv ${SNAPCRAFT_PART_INSTALL}/bin/jujud-controller ${SNAPCRAFT_PART_INSTALL}/bin/jujud
 
   juju:
     after:
       - jujud
-    plugin: juju-go
-    go-channel: 1.22/stable
-    # The source can be your local tree or github
-    # source: https://github.com/juju/juju.git
-    # If you pull a remote, set source-depth to 1 to make the fetch shorter
-    # source-depth: 1
-    # source: file:///full/file/path
-    # By default, reuse existing tree
+    plugin: nil
     source: .
-    # TODO(wallyworld) - uncomment source-type once LP:1860526 is fixed.
-    #source-type: git
-    # You can grab a specific tag, commit, or branch
-    # source-tag: juju-2.0.2
-    # source-commit: a83896d913d7e43c960e441c1e41612116d92d46
-    # source-branch: develop
-    # apply patches before building
-    go-packages:
-      - github.com/juju/juju/cmd/juju
-      - github.com/juju/juju/cmd/jujuc
-      - github.com/juju/juju/cmd/plugins/juju-metadata
-    go-external-strings:
-      github.com/juju/juju/core/version.GitCommit: ""
-      github.com/juju/juju/core/version.GitTreeState: ""
-      github.com/juju/juju/core/version.build: ""
-    go-static: true
-    go-strip: true
-    go-buildtags: ["notest"]
+    build-snaps:
+      - go/1.22/stable
     override-build: |
-      snapcraftctl build
+      set -ex
 
-      mkdir -p ${SNAPCRAFT_PART_INSTALL}/bash_completions
-      cp -a etc/bash_completion.d/juju* ${SNAPCRAFT_PART_INSTALL}/bash_completions/.
-      # If you are releasing a build with public streams, copy in the agent directly
-      # If needed, grab the agent from streams
-      # curl http://streams.canonical.com/juju/tools/agent/$SNAPCRAFT_PROJECT_VERSION/juju-$SNAPCRAFT_PROJECT_VERSION-ubuntu-amd64.tgz | tar xz -C ${SNAPCRAFT_PART_INSTALL}/bin/
-      jujud=${SNAPCRAFT_STAGE}/bin/jujud
+      # TODO: use make plugin.
+      export GOBIN="${CRAFT_PART_INSTALL}/bin"
+      export CGO_ENABLED=0
+      export GO_LDFLAGS='-s -w -extldflags "-static" -X github.com/juju/juju/version.GitCommit= -X github.com/juju/juju/version.GitTreeState= -X github.com/juju/juju/version.build='
+      go mod download
+      go install -ldflags "${GO_LDFLAGS}" github.com/juju/juju/cmd/juju github.com/juju/juju/cmd/jujuc github.com/juju/juju/cmd/plugins/juju-metadata
+
+      mkdir -p ${CRAFT_PART_INSTALL}/bash_completions
+      cp -a etc/bash_completion.d/juju* ${CRAFT_PART_INSTALL}/bash_completions/.
+      jujud=${CRAFT_STAGE}/bin/jujud
       version=$($jujud version)
       hash=$(sha256sum $jujud | cut -d " " -f 1)
       cat > jujud-versions.yaml <<EOF
@@ -417,22 +302,9 @@ parts:
         - version: $version
           sha256: $hash
       EOF
-      cp -a jujud-versions.yaml ${SNAPCRAFT_PART_INSTALL}/bin
+      cp -a jujud-versions.yaml ${CRAFT_PART_INSTALL}/bin
     stage-packages:
       - openssh-client
-
-  dqlite-cleanup:
-    # This ensures that we clean up the dqlite clean up files.
-    after:
-      - juju
-    plugin: nil
-    source: .
-    override-prime: |
-      snapcraftctl prime
-
-      # This forces the removal of the *.a files. We require them for compiling
-      # but not for runtime linking.
-      rm -rf $SNAPCRAFT_PRIME/lib*
 
 hooks:
   connect-plug-peers: {}

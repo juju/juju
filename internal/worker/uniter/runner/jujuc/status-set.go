@@ -35,7 +35,7 @@ status and message are the same as what's already set.
 	return jujucmd.Info(&cmd.Info{
 		Name:    "status-set",
 		Args:    "<maintenance | blocked | waiting | active> [message]",
-		Purpose: "set status information",
+		Purpose: "Set status information.",
 		Doc:     doc,
 	})
 }

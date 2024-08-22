@@ -33,7 +33,7 @@ without arguments, or if called by a unit that is not currently application lead
 	return jujucmd.Info(&cmd.Info{
 		Name:    "leader-set",
 		Args:    "<key>=<value> [...]",
-		Purpose: "write application leadership settings",
+		Purpose: "Write application leadership settings.",
 		Doc:     doc,
 	})
 }

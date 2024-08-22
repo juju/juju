@@ -31,7 +31,7 @@ func (c PayloadStatusSetCmd) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "payload-status-set",
 		Args:    "<class> <id> <status>",
-		Purpose: "update the status of a payload",
+		Purpose: "Update the status of a payload.",
 		Doc: `
 "payload-status-set" is used to update the current status of a registered payload.
 The <class> and <id> provided must match a payload that has been previously

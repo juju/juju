@@ -46,6 +46,12 @@ jobs:
         run: |
           go run ./scripts/md-gen/controller-config
 
+      - name: Generate hook tool docs
+        env:
+          DOCS_DIR: ${{ steps.gen.outputs.dir }}
+        run: |
+          go run ./scripts/md-gen/hook-tools
+
       - name: Add version notice to generated docs
         env:
           DOCS_DIR: ${{ steps.gen.outputs.dir }}

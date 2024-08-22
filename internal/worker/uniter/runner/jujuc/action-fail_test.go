@@ -108,7 +108,7 @@ func (s *ActionFailSuite) TestHelp(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-fail ["<failure message>"]
 
 Summary:
-set action fail status with message
+Set action fail status with message.
 
 Details:
 action-fail sets the fail state of the action with a given error message.  Using
