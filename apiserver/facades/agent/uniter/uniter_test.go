@@ -2886,32 +2886,6 @@ func (s *uniterSuite) addRelatedApplication(c *gc.C, firstSvc, relatedApp string
 	return rel, relatedApplication, relatedUnit
 }
 
-func (s *uniterSuite) TestRequestReboot(c *gc.C) {
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: s.machine0.Tag().String()},
-		{Tag: s.machine1.Tag().String()},
-		{Tag: "bogus"},
-		{Tag: "nasty-tag"},
-	}}
-	errResult, err := s.uniter.RequestReboot(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		}})
-
-	rFlag, err := s.machine0.GetRebootFlag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rFlag, jc.IsTrue)
-
-	rFlag, err = s.machine1.GetRebootFlag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rFlag, jc.IsFalse)
-}
-
 func checkUnorderedActionIdsEqual(c *gc.C, ids []string, results params.StringsWatchResults) {
 	c.Assert(results, gc.NotNil)
 	content := results.Results

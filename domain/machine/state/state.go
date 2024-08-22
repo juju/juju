@@ -755,7 +755,6 @@ func (st *State) GetMachineUUID(ctx context.Context, name machine.Name) (string,
 		return "", errors.Trace(err)
 	}
 
-	// Prepare query for checking that the machine exists.
 	var uuid machineUUID
 	currentMachineName := machineName{Name: name}
 	query := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE name = $machineName.name`

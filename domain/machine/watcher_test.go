@@ -182,6 +182,30 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *gc.C) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
 
+	// Ensure that the watcher is not notified when a sibling is cleared from reboot
+	harness.AddTest(func(c *gc.C) {
+		err := s.svc.ClearMachineReboot(context.Background(), controlUUID)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	// Ensure that the watcher is notified when the child is directly cleared from reboot
+	harness.AddTest(func(c *gc.C) {
+		err := s.svc.ClearMachineReboot(context.Background(), childUUID)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.Check(watchertest.SliceAssert(struct{}{}))
+	})
+
+	// Ensure that the watcher is notified when the parent is cleared from reboot
+	harness.AddTest(func(c *gc.C) {
+		err := s.svc.ClearMachineReboot(context.Background(), parentUUID)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.Check(watchertest.SliceAssert(struct{}{}))
+	})
+
 	harness.Run(c)
 }
 
