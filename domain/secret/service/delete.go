@@ -21,8 +21,11 @@ func (s *SecretService) DeleteObsoleteUserSecretRevisions(ctx context.Context) e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = s.secretBackendReferenceMutator.RemoveSecretBackendReference(ctx, deletedRevisionIDs...)
-	return errors.Trace(err)
+	if err = s.secretBackendReferenceMutator.RemoveSecretBackendReference(ctx, deletedRevisionIDs...); err != nil {
+		// We don't want to error out if we can't remove the backend reference.
+		s.logger.Errorf("failed to remove secret backend reference for deleted obsolete user secret revisions: %v", err)
+	}
+	return nil
 }
 
 // DeleteSecret removes the specified secret.
@@ -42,8 +45,11 @@ func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, para
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = s.secretBackendReferenceMutator.RemoveSecretBackendReference(ctx, deletedRevisionIDs...)
-	return errors.Trace(err)
+	if err = s.secretBackendReferenceMutator.RemoveSecretBackendReference(ctx, deletedRevisionIDs...); err != nil {
+		// We don't want to error out if we can't remove the backend reference.
+		s.logger.Errorf("failed to remove secret backend reference for deleted secret revisions %v: %v", deletedRevisionIDs, err)
+	}
+	return nil
 }
 
 func (s *SecretService) removeFromExternal(ctx context.Context, uri *secrets.URI, accessor SecretAccessor, revisions ...int) error {
