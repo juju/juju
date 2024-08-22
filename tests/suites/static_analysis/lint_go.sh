@@ -15,8 +15,8 @@ run_api_imports() {
 
 run_go() {
 	VER=$(golangci-lint --version | tr -s ' ' | cut -d ' ' -f 4 | cut -d '.' -f 1,2)
-	if [[ ${VER} != "1.59" ]] && [[ ${VER} != "v1.59" ]]; then
-		(echo >&2 -e '\nError: golangci-lint version does not match 1.59. Please upgrade/downgrade to the right version.')
+	if [[ ${VER} != "1.60" ]] && [[ ${VER} != "v1.60" ]]; then
+		(echo >&2 -e '\nError: golangci-lint version does not match 1.60. Please upgrade/downgrade to the right version.')
 		exit 1
 	fi
 	OUT=$(golangci-lint run -c .github/golangci-lint.config.yaml 2>&1)
@@ -78,7 +78,7 @@ test_static_analysis_go() {
 
 		cd .. || exit
 
-		run "run_api_imports"
+		run_linter "run_api_imports"
 		run_linter "run_go"
 		run_linter "run_go_tidy"
 		run_linter "run_go_fanout"

@@ -343,7 +343,7 @@ func (c *killCommand) WaitForModels(ctx *cmd.Context, api destroyControllerAPI, 
 		}
 		ctx.Infof("%s%s", fmtCtrStatus(envStatus.Controller), warning)
 		for _, modelStatus := range envStatus.Models {
-			ctx.Verbosef(fmtModelStatus(modelStatus))
+			ctx.Verbosef("%s", fmtModelStatus(modelStatus))
 		}
 	}
 	if hasUnreclaimedResources(envStatus) {

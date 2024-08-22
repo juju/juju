@@ -294,7 +294,7 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 		infoErr := errors.Errorf(`
 
 Use 'juju status --relations' to view the current relations.`)
-		return errors.Annotatef(infoErr, splitError)
+		return errors.Annotatef(infoErr, "%s", splitError)
 	}
 	if err != nil {
 		if offerTerminatedRegexp.MatchString(err.Error()) {

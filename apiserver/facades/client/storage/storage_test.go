@@ -105,7 +105,7 @@ func (s *storageSuite) TestStorageListError(c *gc.C) {
 	msg := "list test error"
 	s.storageAccessor.allStorageInstances = func() ([]state.StorageInstance, error) {
 		s.stub.AddCall(allStorageInstancesCall)
-		return []state.StorageInstance{}, errors.Errorf(msg)
+		return []state.StorageInstance{}, errors.Errorf("%s", msg)
 	}
 
 	found, err := s.api.ListStorageDetails(
@@ -125,7 +125,7 @@ func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 	s.storageAccessor.storageInstance = func(sTag names.StorageTag) (state.StorageInstance, error) {
 		s.stub.AddCall(storageInstanceCall)
 		c.Assert(sTag, jc.DeepEquals, s.storageTag)
-		return nil, errors.Errorf(msg)
+		return nil, errors.Errorf("%s", msg)
 	}
 
 	found, err := s.api.ListStorageDetails(
@@ -197,7 +197,7 @@ func (s *storageSuite) TestStorageListFilesystemError(c *gc.C) {
 	s.storageAccessor.storageInstanceFilesystem = func(sTag names.StorageTag) (state.Filesystem, error) {
 		s.stub.AddCall(storageInstanceFilesystemCall)
 		c.Assert(sTag, jc.DeepEquals, s.storageTag)
-		return nil, errors.Errorf(msg)
+		return nil, errors.Errorf("%s", msg)
 	}
 
 	found, err := s.api.ListStorageDetails(

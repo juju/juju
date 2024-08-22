@@ -151,7 +151,7 @@ func (d *deployCharm) deploy(
 		appConfig = nil
 	}
 
-	ctx.Infof(d.formatDeployingText(applicationName, charmName))
+	ctx.Infof("%s", d.formatDeployingText(applicationName, charmName))
 	args := applicationapi.DeployArgs{
 		CharmID:          id,
 		CharmOrigin:      id.Origin,
@@ -180,7 +180,7 @@ func (d *deployCharm) deploy(
 deploy application using an alias name:
     juju deploy <application> <alias>
 or use remove-application to remove the existing one and try again.`,
-		), err.Error())
+		), "%s", err.Error())
 	}
 	return errors.Trace(err)
 }
@@ -247,7 +247,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 
-	ctx.Infof(formatLocatedText(d.userCharmURL, commoncharm.Origin{}))
+	ctx.Infof("%s", formatLocatedText(d.userCharmURL, commoncharm.Origin{}))
 	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
 	origin, err := utils.MakeOrigin(charm.Local, userCharmURL.Revision, charm.Channel{}, platform)
 	if err != nil {
@@ -296,7 +296,7 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		return errors.Trace(err)
 	}
 
-	ctx.Infof(formatLocatedText(curl, origin))
+	ctx.Infof("%s", formatLocatedText(curl, origin))
 	l.id = application.CharmID{
 		URL:    curl.String(),
 		Origin: origin,
@@ -397,7 +397,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 			info.Name, uploadErr)
 	}
 
-	ctx.Infof(formatDeployedText(c.dryRun, charmName, info))
+	ctx.Infof("%s", formatDeployedText(c.dryRun, charmName, info))
 	return nil
 }
 

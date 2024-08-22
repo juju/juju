@@ -698,13 +698,13 @@ func (v *deployFromRepositoryValidator) deducePlatform(ctx context.Context, arg 
 	if placementPlatform.String() == platform.String() {
 		return *placementPlatform, usedModelDefaultBase, nil
 	}
-	var msg string
+
 	if usedModelDefaultBase {
-		msg = fmt.Sprintf("base from placements, %q, does not match model default base %q", placementPlatform.String(), platform.String())
+		err = fmt.Errorf("base from placements, %q, does not match model default base %q", placementPlatform.String(), platform.String())
 	} else {
-		msg = fmt.Sprintf("base from placements, %q, does not match requested base %q", placementPlatform.String(), platform.String())
+		err = fmt.Errorf("base from placements, %q, does not match requested base %q", placementPlatform.String(), platform.String())
 	}
-	return corecharm.Platform{}, usedModelDefaultBase, fmt.Errorf(msg)
+	return corecharm.Platform{}, usedModelDefaultBase, err
 
 }
 
@@ -807,7 +807,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 			if usedModelDefaultBase {
 				msg += " Used the default-base."
 			}
-			return corecharm.ResolvedDataForDeploy{}, errors.Errorf(msg)
+			return corecharm.ResolvedDataForDeploy{}, errors.Errorf("%s", msg)
 		}
 	} else if resolveErr != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(resolveErr)
@@ -867,7 +867,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 		if usedModelDefaultBase {
 			msg += " Used the default-base."
 		}
-		return corecharm.ResolvedDataForDeploy{}, errors.Errorf(msg)
+		return corecharm.ResolvedDataForDeploy{}, errors.Errorf("%s", msg)
 	} else if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}

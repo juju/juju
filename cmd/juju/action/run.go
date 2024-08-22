@@ -23,7 +23,7 @@ func NewRunCommand() cmd.Command {
 	return modelcmd.Wrap(&runCommand{
 		runCommandBase: runCommandBase{
 			logMessageHandler: func(ctx *cmd.Context, msg string) {
-				ctx.Infof(msg)
+				ctx.Infof("%s", msg)
 			},
 			clock: clock.WallClock,
 		},

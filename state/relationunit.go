@@ -105,7 +105,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 			if alive, err := isAliveWithSession(relations, relationDocID); err != nil {
 				return nil, errors.Trace(err)
 			} else if !alive {
-				return nil, errors.Annotate(stateerrors.ErrCannotEnterScope, prefix+"relation is no longer alive")
+				return nil, errors.Annotatef(stateerrors.ErrCannotEnterScope, "%srelation is no longer alive", prefix)
 			}
 			if ru.isLocalUnit {
 				units, uCloser := db.GetCollection(unitsC)
@@ -113,7 +113,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 				if alive, err := isAliveWithSession(units, ru.unitName); err != nil {
 					return nil, errors.Trace(err)
 				} else if !alive {
-					return nil, errors.Annotate(stateerrors.ErrCannotEnterScope, prefix+"unit is no longer alive")
+					return nil, errors.Annotatef(stateerrors.ErrCannotEnterScope, "%sunit is no longer alive", prefix)
 
 				}
 
@@ -123,7 +123,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 					if alive, err := isAliveWithSession(units, existingSubName); err != nil {
 						return nil, errors.Trace(err)
 					} else if !alive {
-						return nil, errors.Annotatef(stateerrors.ErrCannotEnterScopeYet, prefix+"subordinate %v is no longer alive", existingSubName)
+						return nil, errors.Annotatef(stateerrors.ErrCannotEnterScopeYet, "%ssubordinate %v is no longer alive", prefix, existingSubName)
 					}
 				}
 			}
@@ -135,7 +135,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 			if changed, err := settingsChanged(); err != nil {
 				return nil, errors.Trace(err)
 			} else if changed {
-				return nil, fmt.Errorf(prefix + "concurrent settings change detected")
+				return nil, fmt.Errorf("%sconcurrent settings change detected", prefix)
 			}
 		}
 

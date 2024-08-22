@@ -320,7 +320,7 @@ func (w *Worker) doQUIESCE(ctx context.Context, status coremigration.MigrationSt
 	// short-circuits the long timeout in the case of an agent being
 	// down.
 	if err := w.prechecks(ctx, status); err != nil {
-		w.setErrorStatus(ctx, err.Error())
+		w.setErrorStatus(ctx, "%s", err.Error())
 		return coremigration.ABORT, nil
 	}
 
@@ -334,7 +334,7 @@ func (w *Worker) doQUIESCE(ctx context.Context, status coremigration.MigrationSt
 
 	// Now that the model is stable, run the prechecks again.
 	if err := w.prechecks(ctx, status); err != nil {
-		w.setErrorStatus(ctx, err.Error())
+		w.setErrorStatus(ctx, "%s", err.Error())
 		return coremigration.ABORT, nil
 	}
 
@@ -377,7 +377,7 @@ func (w *Worker) prechecks(ctx context.Context, status coremigration.MigrationSt
 			return errors.Annotate(err, "cannot get local model info")
 		}
 		if len(localRelatedModels) > 0 {
-			return errors.Errorf(incompatibleTargetMessage)
+			return errors.Errorf("%s", incompatibleTargetMessage)
 		}
 	}
 	err = targetClient.Prechecks(ctx, model)

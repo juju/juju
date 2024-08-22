@@ -369,7 +369,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints(ctx context.Context) error {
 			origin = origin.WithBase(nil)
 		}
 
-		h.ctx.Infof(formatLocatedText(ch, origin))
+		h.ctx.Infof("%s", formatLocatedText(ch, origin))
 		if origin.Type == "bundle" {
 			return errors.Errorf("expected charm, got bundle %q", ch.Name)
 		}

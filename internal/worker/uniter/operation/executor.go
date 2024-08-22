@@ -175,7 +175,7 @@ func (x *executor) do(ctx context.Context, op Operation, step executorStep) (err
 			x.logger.Errorf("after %s for %s: %v", message, x.unitName, writeErr)
 		}
 	}
-	return errors.Annotatef(firstErr, message)
+	return errors.Annotatef(firstErr, "%s", message)
 }
 
 func (x *executor) writeState(ctx context.Context, newState State) error {
