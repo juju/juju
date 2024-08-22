@@ -10,6 +10,7 @@ import (
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
 	credential "github.com/juju/juju/domain/credential/modelmigration"
 	externalcontroller "github.com/juju/juju/domain/externalcontroller/modelmigration"
+	keymanager "github.com/juju/juju/domain/keymanager/modelmigration"
 	machine "github.com/juju/juju/domain/machine/modelmigration"
 	modelconfig "github.com/juju/juju/domain/modelconfig/modelmigration"
 	network "github.com/juju/juju/domain/network/modelmigration"
@@ -28,6 +29,7 @@ func ExportOperations(
 ) {
 	modelconfig.RegisterExport(coordinator)
 	access.RegisterExport(coordinator, logger.Child("access"))
+	keymanager.RegisterExport(coordinator)
 	credential.RegisterExport(coordinator, logger.Child("credential"))
 	network.RegisterExport(coordinator, logger.Child("network"))
 	externalcontroller.RegisterExport(coordinator)
