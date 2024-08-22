@@ -57,7 +57,9 @@ func (s *serviceSuite) createApplication(c *gc.C, name string, units ...service.
 			OS:           "ubuntu",
 			Architecture: "amd64",
 		},
-	}, service.AddApplicationArgs{}, units...)
+	}, service.AddApplicationArgs{
+		ReferenceName: name,
+	}, units...)
 	c.Assert(err, jc.ErrorIsNil)
 	return appID
 }

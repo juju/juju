@@ -11,6 +11,18 @@ import (
 
 // AddApplicationArgs contains arguments for adding an application to the model.
 type AddApplicationArgs struct {
+	// ReferenceName is the given name of the charm that is stored in the
+	// persistent storage. The proxy name should either be the application
+	// name or the charm metadata name.
+	//
+	// The name of a charm can differ from the charm name stored in the metadata
+	// in the cases where the application name is selected by the user.
+	// In order to select that charm again via the name, we need to use the
+	// proxy name to locate it. You can't go via the application and select it
+	// via the application name, as no application might be referencing it at
+	// that specific revision. The only way to then locate the charm directly
+	// via the name is use the proxy name.
+	ReferenceName string
 	// Storage contains the application's storage directives.
 	Storage map[string]storage.Directive
 }

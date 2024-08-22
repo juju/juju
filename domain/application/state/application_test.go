@@ -992,8 +992,9 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 	}
 
 	expectedMetadata := charm.Metadata{
-		Name:  "ubuntu",
-		RunAs: charm.RunAsRoot,
+		Name:    "ubuntu",
+		RunAs:   charm.RunAsRoot,
+		Assumes: []byte{},
 	}
 	expectedManifest := charm.Manifest{
 		Bases: []charm.Base{
@@ -1047,10 +1048,11 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 	ch, origin, _, err := s.state.GetCharmByApplicationName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ch, gc.DeepEquals, charm.Charm{
-		Metadata: expectedMetadata,
-		Manifest: expectedManifest,
-		Actions:  expectedActions,
-		Config:   expectedConfig,
+		Metadata:   expectedMetadata,
+		Manifest:   expectedManifest,
+		Actions:    expectedActions,
+		Config:     expectedConfig,
+		LXDProfile: []byte{},
 	})
 	c.Check(origin, gc.DeepEquals, charm.CharmOrigin{
 		Source:   charm.CharmHubSource,
@@ -1184,13 +1186,13 @@ func (s *applicationStateSuite) assertApplication(
 
 func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.Life, units ...application.UpsertUnitArg) coreapplication.ID {
 	platform := application.Platform{
-		Channel:      name,
+		Channel:      "22.04/stable",
 		OSType:       charm.Ubuntu,
 		Architecture: charm.ARM64,
 	}
 	channel := &application.Channel{
 		Track:  "track",
-		Risk:   "risk",
+		Risk:   "stable",
 		Branch: "branch",
 	}
 	appID, err := s.state.CreateApplication(context.Background(), name, application.AddApplicationArg{
@@ -1202,8 +1204,9 @@ func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.L
 			},
 		},
 		Origin: charm.CharmOrigin{
-			Source:   charm.CharmHubSource,
-			Revision: 42,
+			ReferenceName: name,
+			Source:        charm.CharmHubSource,
+			Revision:      42,
 		},
 	}, units...)
 	c.Assert(err, jc.ErrorIsNil)

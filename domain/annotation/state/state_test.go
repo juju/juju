@@ -296,16 +296,18 @@ func (s *stateSuite) ensureAnnotation(c *gc.C, id, uuid, key, value string) {
 	if id == "model" {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, `
-				INSERT INTO annotation_model (key, value)
-				VALUES (?, ?)`, key, value)
+INSERT INTO annotation_model (key, value)
+VALUES (?, ?)
+				`, key, value)
 			return err
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, fmt.Sprintf(`
-				INSERT INTO annotation_%[1]s (uuid, key, value)
-				VALUES (?, ?, ?)`, id), uuid, key, value)
+INSERT INTO annotation_%[1]s (uuid, key, value)
+VALUES (?, ?, ?)
+				`, id), uuid, key, value)
 			return err
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -349,8 +351,9 @@ func (s *stateSuite) ensureUnit(c *gc.C, unitName, uuid string) {
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-		INSERT INTO unit (uuid, name, application_uuid, net_node_uuid, life_id)
-		VALUES (?, ?, ?, ?, ?)`, uuid, unitName, "123", "321", "0")
+INSERT INTO unit (uuid, name, application_uuid, net_node_uuid, life_id)
+VALUES (?, ?, ?, ?, ?)
+`, uuid, unitName, "123", "321", "0")
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -370,7 +373,10 @@ func (s *stateSuite) ensureCharm(c *gc.C, url, uuid string) {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name) VALUES (?, ?)`, uuid, parts.Name); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO charm_origin (charm_uuid, source_id, revision) VALUES (?, ?, ?)`, uuid, source, parts.Revision); err != nil {
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO charm_origin (charm_uuid, source_id, reference_name, revision) 
+VALUES (?, ?, ?, ?)
+`, uuid, source, parts.Name, parts.Revision); err != nil {
 			return err
 		}
 		return nil
@@ -382,8 +388,9 @@ func (s *stateSuite) ensureCharm(c *gc.C, url, uuid string) {
 func (s *stateSuite) ensureStorage(c *gc.C, name, uuid string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-		INSERT INTO storage_instance (uuid, storage_kind_id, storage_pool, name, life_id)
-		VALUES (?, ?, ?, ?, ?)`, uuid, "0", "loop", name, "0")
+INSERT INTO storage_instance (uuid, storage_kind_id, storage_pool, name, life_id)
+VALUES (?, ?, ?, ?, ?)
+		`, uuid, "0", "loop", name, "0")
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

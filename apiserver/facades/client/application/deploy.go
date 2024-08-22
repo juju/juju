@@ -156,9 +156,18 @@ func DeployApplication(
 
 	// Dual write storage directives to dqlite.
 	if err == nil {
+		chURL, err := charm.ParseURL(args.Charm.URL())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		_, err = applicationService.CreateApplication(ctx, args.ApplicationName, args.Charm, args.CharmOrigin, applicationservice.AddApplicationArgs{
-			Storage: args.Storage,
+			ReferenceName: chURL.Name,
+			Storage:       args.Storage,
 		}, unitArgs...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	return app, errors.Trace(err)
 }

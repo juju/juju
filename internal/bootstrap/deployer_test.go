@@ -275,7 +275,9 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 				Channel:      "22.04",
 			},
 		},
-		applicationservice.AddApplicationArgs{},
+		applicationservice.AddApplicationArgs{
+			ReferenceName: bootstrap.ControllerApplicationName,
+		},
 		applicationservice.AddUnitArg{UnitName: &unitName},
 	)
 

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/internal/charm"
 )
 
-func encodeCharmOrigin(origin corecharm.Origin) (domaincharm.CharmOrigin, *application.Channel, application.Platform, error) {
+func encodeCharmOrigin(origin corecharm.Origin, name string) (domaincharm.CharmOrigin, *application.Channel, application.Platform, error) {
 	source, err := encodeCharmOriginSource(origin.Source)
 	if err != nil {
 		return domaincharm.CharmOrigin{}, nil, application.Platform{}, errors.Trace(err)
@@ -36,8 +36,9 @@ func encodeCharmOrigin(origin corecharm.Origin) (domaincharm.CharmOrigin, *appli
 	}
 
 	return domaincharm.CharmOrigin{
-		Source:   source,
-		Revision: revision,
+		ReferenceName: name,
+		Source:        source,
+		Revision:      revision,
 	}, channel, platform, nil
 
 }

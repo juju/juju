@@ -68,7 +68,9 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 				Architecture: "amd64",
 			},
 		},
-		applicationservice.AddApplicationArgs{},
+		applicationservice.AddApplicationArgs{
+			ReferenceName: appName,
+		},
 		applicationservice.AddUnitArg{UnitName: &unitName},
 	)
 	c.Assert(err, jc.ErrorIsNil)

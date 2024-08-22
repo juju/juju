@@ -38,6 +38,18 @@ type SetCharmArgs struct {
 	Charm internalcharm.Charm
 	// Source is the source of the charm.
 	Source internalcharm.Schema
+	// ReferenceName is the given name of the charm that is stored in the
+	// persistent storage. The proxy name should either be the application name
+	// or the charm metadata name.
+	//
+	// The name of a charm can differ from the charm name stored in the metadata
+	// in the cases where the application name is selected by the user. In order
+	// to select that charm again via the name, we need to use the proxy name to
+	// locate it. You can't go via the application and select it via the
+	// application name, as no application might be referencing it at that
+	// specific revision. The only way to then locate the charm directly via the
+	// name is use the proxy name.
+	ReferenceName string
 	// Revision is the revision of the charm.
 	Revision int
 	// Hash is the hash of the charm.
@@ -52,6 +64,18 @@ type SetCharmArgs struct {
 type SetStateArgs struct {
 	// Source is the source of the charm.
 	Source CharmSource
+	// ReferenceName is the given name of the charm that is stored in the
+	// persistent storage. The proxy name should either be the application name
+	// or the charm metadata name.
+	//
+	// The name of a charm can differ from the charm name stored in the metadata
+	// in the cases where the application name is selected by the user. In order
+	// to select that charm again via the name, we need to use the proxy name to
+	// locate it. You can't go via the application and select it via the
+	// application name, as no application might be referencing it at that
+	// specific revision. The only way to then locate the charm directly via the
+	// name is use the proxy name.
+	ReferenceName string
 	// Revision is the revision of the charm.
 	Revision int
 	// Hash is the hash of the charm.
@@ -86,6 +110,18 @@ type Charm struct {
 // the charm metadata or manifest. The origin holds information for a charm
 // regarding where it came from.
 type CharmOrigin struct {
+	// ReferenceName is the given name of the charm that is stored in the
+	// persistent storage. The proxy name should either be the application name
+	// or the charm metadata name.
+	//
+	// The name of a charm can differ from the charm name stored in the metadata
+	// in the cases where the application name is selected by the user. In order
+	// to select that charm again via the name, we need to use the proxy name to
+	// locate it. You can't go via the application and select it via the
+	// application name, as no application might be referencing it at that
+	// specific revision. The only way to then locate the charm directly via the
+	// name is use the proxy name.
+	ReferenceName string
 	// Source is the source of the charm. This is either local or charmhub.
 	Source CharmSource
 	// Revision is the revision of the charm.

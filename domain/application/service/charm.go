@@ -130,7 +130,7 @@ func NewCharmService(st CharmState, logger logger.Logger) *CharmService {
 // This can also be used as a cheap way to see if a charm exists without
 // needing to load the charm metadata.
 func (s *CharmService) GetCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error) {
-	if !isValidCharm(args.Name) {
+	if !isValidCharmName(args.Name) {
 		return "", applicationerrors.CharmNameNotValid
 	}
 
@@ -421,11 +421,12 @@ func (s *CharmService) SetCharm(ctx context.Context, args charm.SetCharmArgs) (c
 	}
 
 	charmID, err := s.st.SetCharm(ctx, ch, charm.SetStateArgs{
-		Source:      source,
-		Revision:    args.Revision,
-		Hash:        args.Hash,
-		ArchivePath: args.ArchivePath,
-		Version:     args.Version,
+		Source:        source,
+		ReferenceName: args.ReferenceName,
+		Revision:      args.Revision,
+		Hash:          args.Hash,
+		ArchivePath:   args.ArchivePath,
+		Version:       args.Version,
 	})
 	if err != nil {
 		return "", warnings, errors.Trace(err)
@@ -521,7 +522,7 @@ func encodeCharmSource(source internalcharm.Schema) (charm.CharmSource, error) {
 	}
 }
 
-// isValidCharm returns whether name is a valid charm name.
-func isValidCharm(name string) bool {
+// isValidCharmName returns whether name is a valid charm name.
+func isValidCharmName(name string) bool {
 	return charmNameRegExp.MatchString(name)
 }

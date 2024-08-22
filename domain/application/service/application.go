@@ -182,16 +182,23 @@ func (s *ApplicationService) CreateApplication(
 	args AddApplicationArgs,
 	units ...AddUnitArg,
 ) (coreapplication.ID, error) {
+	if !isValidApplicationName(name) {
+		return "", applicationerrors.ApplicationNameNotValid
+	}
+
 	// Validate that we have a valid charm and name.
 	meta := charm.Meta()
 	if meta == nil {
 		return "", applicationerrors.CharmMetadataNotValid
-	} else if !isValidApplication(name) && !isValidCharm(meta.Name) {
-		return "", applicationerrors.ApplicationNameNotValid
-	} else if !isValidCharm(meta.Name) {
-		return "", applicationerrors.CharmNameNotValid
 	}
 
+	if !isValidCharmName(meta.Name) {
+		return "", applicationerrors.CharmNameNotValid
+	} else if !isValidReferenceName(args.ReferenceName) {
+		return "", fmt.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
+	}
+
+	// Validate the origin of the charm.
 	if err := origin.Validate(); err != nil {
 		return "", fmt.Errorf("%w: %v", applicationerrors.CharmOriginNotValid, err)
 	}
@@ -199,6 +206,9 @@ func (s *ApplicationService) CreateApplication(
 	// We know that the charm name is valid, so we can use it as the application
 	// name if that is not provided.
 	if name == "" {
+		// Annoyingly this should be the reference name, but that's not
+		// true in the previous code. To keep compatibility, we'll use the
+		// charm name.
 		name = meta.Name
 	}
 
@@ -223,7 +233,7 @@ func (s *ApplicationService) CreateApplication(
 		return "", fmt.Errorf("encode charm: %w", err)
 	}
 
-	originArg, channelArg, platformArg, err := encodeCharmOrigin(origin)
+	originArg, channelArg, platformArg, err := encodeCharmOrigin(origin, args.ReferenceName)
 	if err != nil {
 		return "", fmt.Errorf("encode charm origin: %w", err)
 	}
@@ -489,7 +499,7 @@ func (s *ApplicationService) GetCharmByApplicationName(ctx context.Context, name
 	application.Platform,
 	error,
 ) {
-	if !isValidApplication(name) {
+	if !isValidApplicationName(name) {
 		return nil, domaincharm.CharmOrigin{}, application.Platform{}, applicationerrors.ApplicationNameNotValid
 	}
 
@@ -801,7 +811,14 @@ func (s *WatchableApplicationService) WatchApplicationScale(ctx context.Context,
 	return s.watcherFactory.NewValueMapperWatcher("application_scale", appID.String(), mask, mapper)
 }
 
-// isValidApplication returns whether name is a valid application name.
-func isValidApplication(name string) bool {
+// isValidApplicationName returns whether name is a valid application name.
+func isValidApplicationName(name string) bool {
 	return validApplication.MatchString(name)
+}
+
+// isValidReferenceName returns whether name is a valid reference name.
+// This ensures that the reference name is both a valid application name
+// and a valid charm name.
+func isValidReferenceName(name string) bool {
+	return isValidApplicationName(name) && isValidCharmName(name)
 }

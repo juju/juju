@@ -35,7 +35,7 @@ func (s *charmStateSuite) TestGetCharmIDByRevision(c *gc.C) {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name) VALUES (?, 'foo')`, id.String())
 		c.Assert(err, jc.ErrorIsNil)
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_origin (charm_uuid, revision) VALUES (?, 1)`, id.String())
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm_origin (reference_name, charm_uuid, revision) VALUES (?, ?, 1)`, "foo", id.String())
 		c.Assert(err, jc.ErrorIsNil)
 
 		return nil
@@ -62,7 +62,7 @@ func (s *charmStateSuite) TestSetCharmGetCharmIDByRevision(c *gc.C) {
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata: expected,
-	}, setStateArgs())
+	}, setStateArgs("foo"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	charmID, err := st.GetCharmIDByRevision(context.Background(), "foo", 42)
@@ -135,7 +135,7 @@ func (s *charmStateSuite) TestIsSubordinateCharmWithSubordinateCharm(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, subordinate) VALUES (?, true)`, id.String())
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name, subordinate) VALUES (?, 'ubuntu', true)`, id.String())
 		c.Assert(err, jc.ErrorIsNil)
 		return nil
 	})
@@ -152,7 +152,7 @@ func (s *charmStateSuite) TestIsSubordinateCharmWithNoSubordinateCharm(c *gc.C) 
 	id := charmtesting.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, subordinate) VALUES (?, false)`, id.String())
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name, subordinate) VALUES (?, 'ubuntu', false)`, id.String())
 		c.Assert(err, jc.ErrorIsNil)
 		return nil
 	})
@@ -201,7 +201,7 @@ func (s *charmStateSuite) TestSupportsContainersWithNoContainers(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, subordinate) VALUES (?, 'ubuntu')`, id.String())
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name, subordinate) VALUES (?, 'ubuntu', false)`, id.String())
 		c.Assert(err, jc.ErrorIsNil)
 		return nil
 	})
@@ -247,7 +247,7 @@ func (s *charmStateSuite) TestIsCharmAvailableWithNotAvailable(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, subordinate) VALUES (?, 'ubuntu')`, id.String())
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name) VALUES (?, 'ubuntu')`, id.String())
 		c.Assert(err, jc.ErrorIsNil)
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, id.String())
@@ -1037,7 +1037,7 @@ func (s *charmStateSuite) TestSetCharmTwice(c *gc.C) {
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1046,7 +1046,7 @@ func (s *charmStateSuite) TestSetCharmTwice(c *gc.C) {
 
 	_, err = st.SetCharm(context.Background(), charm.Charm{
 		Metadata: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmAlreadyExists)
 }
 
@@ -1101,7 +1101,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharm(c *gc.C) {
 		Actions:    expectedActions,
 		Config:     expectedConfig,
 		LXDProfile: expectedLXDProfile,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	gotCharm, gotOrigin, err := st.GetCharm(context.Background(), id)
@@ -1114,8 +1114,85 @@ func (s *charmStateSuite) TestSetCharmThenGetCharm(c *gc.C) {
 		LXDProfile: expectedLXDProfile,
 	})
 	c.Check(gotOrigin, gc.DeepEquals, charm.CharmOrigin{
-		Source:   charm.LocalSource,
-		Revision: 42,
+		ReferenceName: "ubuntu",
+		Source:        charm.LocalSource,
+		Revision:      42,
+	})
+}
+
+func (s *charmStateSuite) TestSetCharmThenGetCharmWithDifferentReferenceName(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	// Notice that the charm name is "foo" but the reference name is "baz".
+	// This means that you can only look up the charm by its reference name.
+
+	expectedMetadata := charm.Metadata{
+		Name:           "foo",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+	}
+	expectedManifest := charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Track: "latest",
+					Risk:  charm.RiskEdge,
+				},
+				Architectures: []string{"amd64", "arm64"},
+			},
+		},
+	}
+	expectedActions := charm.Actions{
+		Actions: map[string]charm.Action{
+			"action1": {
+				Description:    "description",
+				Parallel:       true,
+				ExecutionGroup: "group",
+				Params:         []byte(`{}`),
+			},
+		},
+	}
+	expectedConfig := charm.Config{
+		Options: map[string]charm.Option{
+			"option1": {
+				Type:        "string",
+				Description: "description",
+				Default:     "default",
+			},
+		},
+	}
+	expectedLXDProfile := []byte("[{}]")
+
+	_, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata:   expectedMetadata,
+		Manifest:   expectedManifest,
+		Actions:    expectedActions,
+		Config:     expectedConfig,
+		LXDProfile: expectedLXDProfile,
+	}, setStateArgs("baz"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	id, err := st.GetCharmIDByRevision(context.Background(), "baz", 42)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotCharm, gotOrigin, err := st.GetCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gotCharm, gc.DeepEquals, charm.Charm{
+		Metadata:   expectedMetadata,
+		Manifest:   expectedManifest,
+		Actions:    expectedActions,
+		Config:     expectedConfig,
+		LXDProfile: expectedLXDProfile,
+	})
+	c.Check(gotOrigin, gc.DeepEquals, charm.CharmOrigin{
+		ReferenceName: "baz",
+		Source:        charm.LocalSource,
+		Revision:      42,
 	})
 }
 
@@ -1178,7 +1255,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadata(c *gc.C) {
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1209,7 +1286,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithTagsAndCategories(
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1239,7 +1316,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithTerms(c *gc.C) {
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1298,7 +1375,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithRelations(c *gc.C)
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1335,7 +1412,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithExtraBindings(c *g
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1388,7 +1465,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithNoPrope
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1443,7 +1520,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithPropert
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1489,7 +1566,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithDevices(c *gc.C) {
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1528,7 +1605,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithPayloadClasses(c *
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1571,7 +1648,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithResources(c *gc.C)
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1610,7 +1687,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithNoMo
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1669,7 +1746,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithMoun
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1797,7 +1874,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmManifest(c *gc.C) {
 			Name: "ubuntu",
 		},
 		Manifest: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmManifest(context.Background(), id)
@@ -1975,7 +2052,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmConfig(c *gc.C) {
 			Name: "ubuntu",
 		},
 		Config: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmConfig(context.Background(), id)
@@ -2093,7 +2170,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmActions(c *gc.C) {
 			Name: "ubuntu",
 		},
 		Actions: expected,
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmActions(context.Background(), id)
@@ -2144,7 +2221,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmArchivePath(c *gc.C) {
 		Metadata: charm.Metadata{
 			Name: "ubuntu",
 		},
-	}, setStateArgs())
+	}, setStateArgs("ubuntu"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmArchivePath(context.Background(), id)
@@ -2225,12 +2302,13 @@ func assertCharmManifest(c *gc.C, manifest charm.Manifest, expected func() charm
 	c.Check(manifest, gc.DeepEquals, expected())
 }
 
-func setStateArgs() charm.SetStateArgs {
+func setStateArgs(name string) charm.SetStateArgs {
 	return charm.SetStateArgs{
-		Source:      charm.LocalSource,
-		Revision:    42,
-		Hash:        "hash",
-		ArchivePath: "archive",
-		Version:     "deadbeef",
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: name,
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
 	}
 }

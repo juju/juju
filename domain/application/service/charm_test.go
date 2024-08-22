@@ -369,14 +369,16 @@ func (s *charmServiceSuite) TestSetCharm(c *gc.C) {
 			RunAs: "default",
 		},
 	}, domaincharm.SetStateArgs{
-		Source:   domaincharm.LocalSource,
-		Revision: 1,
+		ReferenceName: "baz",
+		Source:        domaincharm.LocalSource,
+		Revision:      1,
 	}).Return(id, nil)
 
 	got, warnings, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
-		Charm:    s.charm,
-		Source:   internalcharm.Local,
-		Revision: 1,
+		Charm:         s.charm,
+		Source:        internalcharm.Local,
+		ReferenceName: "baz",
+		Revision:      1,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(warnings, gc.HasLen, 0)
@@ -404,9 +406,10 @@ func (s *charmServiceSuite) TestSetCharmInvalidSource(c *gc.C) {
 	})
 
 	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
-		Charm:    s.charm,
-		Source:   "charmstore",
-		Revision: 1,
+		Charm:         s.charm,
+		Source:        "charmstore",
+		ReferenceName: "foo",
+		Revision:      1,
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmSourceNotValid)
 }

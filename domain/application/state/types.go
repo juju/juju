@@ -121,6 +121,13 @@ type charmNameRevision struct {
 	Revision int    `db:"revision"`
 }
 
+// charmReferenceNameRevision is used to pass the reference name and revision to
+// the query.
+type charmReferenceNameRevision struct {
+	ReferenceName string `db:"reference_name"`
+	Revision      int    `db:"revision"`
+}
+
 // charmAvailable is used to get the available status of a charm.
 type charmAvailable struct {
 	Available bool `db:"available"`
@@ -144,14 +151,14 @@ type setCharmHash struct {
 	Hash       string `db:"hash"`
 }
 
-// setCharmNameSourceRevisionVersion is used to set the name, source, revision
+// setInitialCharmOrigin is used to set the reference_name, source, revision
 // and version of a charm.
-type setCharmNameSourceRevisionVersion struct {
-	CharmUUID string `db:"charm_uuid"`
-	Name      string `db:"name"`
-	SourceID  int    `db:"source_id"`
-	Revision  int    `db:"revision"`
-	Version   string `db:"version"`
+type setInitialCharmOrigin struct {
+	CharmUUID     string `db:"charm_uuid"`
+	ReferenceName string `db:"reference_name"`
+	SourceID      int    `db:"source_id"`
+	Revision      int    `db:"revision"`
+	Version       string `db:"version"`
 }
 
 // charmMetadata is used to get the metadata of a charm.
@@ -480,17 +487,18 @@ type charmArchivePath struct {
 
 // charmOrigin is used to get the origin of a charm.
 type charmOrigin struct {
-	CharmID  string `db:"charm_uuid"`
-	Source   string `db:"source"`
-	Revision int    `db:"revision"`
+	CharmID       string `db:"charm_uuid"`
+	ReferenceName string `db:"reference_name"`
+	Source        string `db:"source"`
+	Revision      int    `db:"revision"`
 }
 
 // setCharmOrigin is used to set the origin of a charm.
 type setCharmOrigin struct {
-	CharmID  string `db:"charm_uuid"`
-	Name     string `db:"name"`
-	SourceID int    `db:"source_id"`
-	Revision int    `db:"revision"`
+	CharmID       string `db:"charm_uuid"`
+	ReferenceName string `db:"reference_name"`
+	SourceID      int    `db:"source_id"`
+	Revision      int    `db:"revision"`
 }
 
 type countResult struct {

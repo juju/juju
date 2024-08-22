@@ -38,8 +38,9 @@ var originTestCases = [...]struct {
 			},
 		},
 		outputOrigin: domaincharm.CharmOrigin{
-			Source:   domaincharm.LocalSource,
-			Revision: -1,
+			ReferenceName: "foo",
+			Source:        domaincharm.LocalSource,
+			Revision:      -1,
 		},
 		outputPlatform: application.Platform{
 			OSType: domaincharm.Ubuntu,
@@ -57,8 +58,9 @@ var originTestCases = [...]struct {
 			},
 		},
 		outputOrigin: domaincharm.CharmOrigin{
-			Source:   domaincharm.LocalSource,
-			Revision: -1,
+			ReferenceName: "foo",
+			Source:        domaincharm.LocalSource,
+			Revision:      -1,
 		},
 		outputChannel: &application.Channel{
 			Risk: "stable",
@@ -80,8 +82,9 @@ var originTestCases = [...]struct {
 			},
 		},
 		outputOrigin: domaincharm.CharmOrigin{
-			Source:   domaincharm.CharmHubSource,
-			Revision: 42,
+			ReferenceName: "foo",
+			Source:        domaincharm.CharmHubSource,
+			Revision:      42,
 		},
 		outputChannel: &application.Channel{
 			Track:  "track",
@@ -101,7 +104,7 @@ func (s *originSuite) TestConvertOrigin(c *gc.C) {
 		c.Logf("Running test case %q", tc.name)
 
 		// Ensure that the conversion is idempotent.
-		resultOrigin, resultChannel, resultPlatform, err := encodeCharmOrigin(tc.input)
+		resultOrigin, resultChannel, resultPlatform, err := encodeCharmOrigin(tc.input, "foo")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(resultOrigin, jc.DeepEquals, tc.outputOrigin)
 		c.Check(resultChannel, jc.DeepEquals, tc.outputChannel)
@@ -114,6 +117,6 @@ func (s *originSuite) TestEmptyOrigin(c *gc.C) {
 	// the source should be. We could default to charmhub, but we'd be
 	// wrong 50% of the time.
 
-	_, _, _, err := encodeCharmOrigin(corecharm.Origin{})
+	_, _, _, err := encodeCharmOrigin(corecharm.Origin{}, "foo")
 	c.Assert(err, gc.ErrorMatches, "unknown source.*")
 }

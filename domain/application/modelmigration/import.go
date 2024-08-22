@@ -101,6 +101,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			unitArgs = append(unitArgs, arg)
 		}
 
+		chURL, err := internalcharm.ParseURL(app.CharmURL())
+		if err != nil {
+			return fmt.Errorf("parse charm URL %q: %w", app.CharmURL(), err)
+		}
+
 		charm, err := i.importCharm(ctx, charmData{
 			Metadata: app.CharmMetadata(),
 			Manifest: app.CharmManifest(),
@@ -117,7 +122,9 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		}
 
 		_, err = i.service.CreateApplication(
-			ctx, app.Name(), charm, *origin, service.AddApplicationArgs{}, unitArgs...,
+			ctx, app.Name(), charm, *origin, service.AddApplicationArgs{
+				ReferenceName: chURL.Name,
+			}, unitArgs...,
 		)
 		if err != nil {
 			return fmt.Errorf(

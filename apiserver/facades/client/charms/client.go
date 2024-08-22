@@ -331,10 +331,11 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 	}
 
 	if _, _, err := a.applicationService.SetCharm(ctx, domaincharm.SetCharmArgs{
-		Charm:    corecharm.NewCharmInfoAdaptor(metaRes),
-		Source:   schema,
-		Revision: revision,
-		Hash:     metaRes.ResolvedOrigin.Hash,
+		Charm:         corecharm.NewCharmInfoAdaptor(metaRes),
+		Source:        schema,
+		ReferenceName: charmURL.Name,
+		Revision:      revision,
+		Hash:          metaRes.ResolvedOrigin.Hash,
 	}); err != nil {
 		return corecharm.Origin{}, errors.Annotatef(err, "setting charm %q", args.URL)
 	}

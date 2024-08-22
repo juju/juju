@@ -26,7 +26,7 @@ END;
 CREATE TRIGGER trg_log_charm_update
 AFTER UPDATE ON charm FOR EACH ROW
 WHEN 
-	(NEW.name != OLD.name OR (NEW.name IS NOT NULL AND OLD.name IS NULL) OR (NEW.name IS NULL AND OLD.name IS NOT NULL)) OR
+	NEW.name != OLD.name OR
 	(NEW.description != OLD.description OR (NEW.description IS NOT NULL AND OLD.description IS NULL) OR (NEW.description IS NULL AND OLD.description IS NOT NULL)) OR
 	(NEW.summary != OLD.summary OR (NEW.summary IS NOT NULL AND OLD.summary IS NULL) OR (NEW.summary IS NULL AND OLD.summary IS NOT NULL)) OR
 	(NEW.subordinate != OLD.subordinate OR (NEW.subordinate IS NOT NULL AND OLD.subordinate IS NULL) OR (NEW.subordinate IS NULL AND OLD.subordinate IS NOT NULL)) OR

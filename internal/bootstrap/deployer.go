@@ -393,7 +393,9 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 	_, err = b.applicationService.CreateApplication(ctx,
 		bootstrap.ControllerApplicationName,
 		ch, origin,
-		applicationservice.AddApplicationArgs{},
+		applicationservice.AddApplicationArgs{
+			ReferenceName: bootstrap.ControllerApplicationName,
+		},
 		applicationservice.AddUnitArg{UnitName: &unitName},
 	)
 	if err != nil {

@@ -111,7 +111,9 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 				Channel:      "24.04",
 			},
 		},
-		service.AddApplicationArgs{},
+		service.AddApplicationArgs{
+			ReferenceName: "prometheus",
+		},
 		[]service.AddUnitArg{{
 			UnitName:     ptr("prometheus/0"),
 			PasswordHash: ptr("passwordhash"),

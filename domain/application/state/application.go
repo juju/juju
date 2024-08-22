@@ -107,9 +107,9 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 		// This can happen if the charmhub charm name is different from the
 		// charm name in the metadata.yaml. This isn't supposed to happen, but
 		// it can.
-		Name:     name,
-		SourceID: encodeCharmOriginSource(app.Origin.Source),
-		Revision: app.Origin.Revision,
+		ReferenceName: app.Origin.ReferenceName,
+		SourceID:      encodeCharmOriginSource(app.Origin.Source),
+		Revision:      app.Origin.Revision,
 	}
 	createOrigin := `INSERT INTO charm_origin (*) VALUES ($setCharmOrigin.*)`
 	createOriginStmt, err := st.Prepare(createOrigin, originInfo)

@@ -1193,7 +1193,8 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 			Channel:      "22.04",
 		},
 	}, applicationservice.AddApplicationArgs{
-		Storage: nil,
+		ReferenceName: "testme",
+		Storage:       nil,
 	}, applicationservice.AddUnitArg{UnitName: ptr("metadata-name/0")})
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI(c)
 
@@ -1336,7 +1337,8 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 			Channel:      "22.04",
 		},
 	}, applicationservice.AddApplicationArgs{
-		Storage: nil,
+		ReferenceName: "testme",
+		Storage:       nil,
 	}, applicationservice.AddUnitArg{UnitName: ptr("metadata-name/0")})
 
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI(c)
