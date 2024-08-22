@@ -12,7 +12,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -114,7 +113,7 @@ type State interface {
 	GetMachineParentUUID(ctx context.Context, machineUUID string) (string, error)
 
 	// ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
-	ShouldRebootOrShutdown(ctx context.Context, uuid string) (machine.RebootAction, error)
+	ShouldRebootOrShutdown(ctx context.Context, uuid string) (coremachine.RebootAction, error)
 
 	// MarkMachineForRemoval marks the given machine for removal.
 	// It returns a MachineNotFound error if the machine does not exist.
@@ -329,7 +328,7 @@ func (s *Service) GetMachineParentUUID(ctx context.Context, machineUUID string) 
 }
 
 // ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
-func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid string) (machine.RebootAction, error) {
+func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid string) (coremachine.RebootAction, error) {
 	rebootRequired, err := s.st.ShouldRebootOrShutdown(ctx, uuid)
 	return rebootRequired, errors.Annotatef(err, "getting if the machine with uuid %q need to reboot or shutdown", uuid)
 }

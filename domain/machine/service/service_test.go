@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/status"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
 
@@ -583,11 +582,11 @@ func (s *serviceSuite) TestGetMachineParentUUIDMachineHasNoParent(c *gc.C) {
 func (s *serviceSuite) TestMachineShouldRebootOrShutdownDoNothing(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().ShouldRebootOrShutdown(gomock.Any(), "u-u-i-d").Return(machine.ShouldDoNothing, nil)
+	s.state.EXPECT().ShouldRebootOrShutdown(gomock.Any(), "u-u-i-d").Return(cmachine.ShouldDoNothing, nil)
 
 	needReboot, err := NewService(s.state).ShouldRebootOrShutdown(context.Background(), "u-u-i-d")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(needReboot, gc.Equals, machine.ShouldDoNothing)
+	c.Assert(needReboot, gc.Equals, cmachine.ShouldDoNothing)
 }
 
 // TestMachineShouldRebootOrShutdownReboot asserts that the reboot action is
@@ -595,11 +594,11 @@ func (s *serviceSuite) TestMachineShouldRebootOrShutdownDoNothing(c *gc.C) {
 func (s *serviceSuite) TestMachineShouldRebootOrShutdownReboot(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().ShouldRebootOrShutdown(gomock.Any(), "u-u-i-d").Return(machine.ShouldReboot, nil)
+	s.state.EXPECT().ShouldRebootOrShutdown(gomock.Any(), "u-u-i-d").Return(cmachine.ShouldReboot, nil)
 
 	needReboot, err := NewService(s.state).ShouldRebootOrShutdown(context.Background(), "u-u-i-d")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(needReboot, gc.Equals, machine.ShouldReboot)
+	c.Assert(needReboot, gc.Equals, cmachine.ShouldReboot)
 }
 
 // TestMachineShouldRebootOrShutdownShutdown asserts that the reboot action is
@@ -607,11 +606,11 @@ func (s *serviceSuite) TestMachineShouldRebootOrShutdownReboot(c *gc.C) {
 func (s *serviceSuite) TestMachineShouldRebootOrShutdownShutdown(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().ShouldRebootOrShutdown(gomock.Any(), "u-u-i-d").Return(machine.ShouldShutdown, nil)
+	s.state.EXPECT().ShouldRebootOrShutdown(gomock.Any(), "u-u-i-d").Return(cmachine.ShouldShutdown, nil)
 
 	needReboot, err := NewService(s.state).ShouldRebootOrShutdown(context.Background(), "u-u-i-d")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(needReboot, gc.Equals, machine.ShouldShutdown)
+	c.Assert(needReboot, gc.Equals, cmachine.ShouldShutdown)
 }
 
 // TestMachineShouldRebootOrShutdownError asserts that if the state layer
@@ -621,7 +620,7 @@ func (s *serviceSuite) TestMachineShouldRebootOrShutdownError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().ShouldRebootOrShutdown(gomock.Any(), "u-u-i-d").Return(machine.ShouldDoNothing, rErr)
+	s.state.EXPECT().ShouldRebootOrShutdown(gomock.Any(), "u-u-i-d").Return(cmachine.ShouldDoNothing, rErr)
 
 	_, err := NewService(s.state).ShouldRebootOrShutdown(context.Background(), "u-u-i-d")
 	c.Check(err, jc.ErrorIs, rErr)
