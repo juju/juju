@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/url"
@@ -22,7 +23,7 @@ import (
 type resourcesMigrationUploadHandler struct {
 	ctxt          httpContext
 	stateAuthFunc func(*http.Request) (*state.PooledState, error)
-	objectStore   func(*http.Request) (objectstore.ObjectStore, error)
+	objectStore   func(context.Context) (objectstore.ObjectStore, error)
 }
 
 func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +38,7 @@ func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *ht
 	}
 	defer st.Release()
 
-	store, err := h.objectStore(r)
+	store, err := h.objectStore(r.Context())
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)

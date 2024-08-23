@@ -74,14 +74,14 @@ func validateModelAndServe(handler http.Handler, modelUUID string, w http.Respon
 
 type modelKey struct{}
 
-// RequestModelUUID returns the model UUID associated with this request
-// if there is one, or returns false if no valid model UUID is passed. No
-// attempt is made to validate the model UUID; QueryModelHandler and
-// BucketModelHandler does this, and ControllerModelHandler should always be
-// supplied with a valid UUID.
-func RequestModelUUID(req *http.Request) (string, bool) {
-	if value := req.Context().Value(modelKey{}); value != nil {
-		return value.(string), true
+// RequestModelUUID returns the model UUID associated with the given context
+// provided from an httpRequest. No attempt is made to validate the model UUID;
+// QueryModelHandler and BucketModelHandler does this, and ControllerModelHandler
+// should always be supplied with a valid UUID.
+func RequestModelUUID(ctx context.Context) (string, bool) {
+	if value := ctx.Value(modelKey{}); value != nil {
+		val, ok := value.(string)
+		return val, ok
 	}
 	return "", false
 }

@@ -77,7 +77,7 @@ func newToolsDownloadHandler(httpCtxt httpContext) *toolsDownloadHandler {
 }
 
 func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	st, err := h.ctxt.stateForRequestUnauthenticated(r)
+	st, err := h.ctxt.stateForRequestUnauthenticated(r.Context())
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)
@@ -151,7 +151,7 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 	}
 	logger.Debugf("request for agent binaries: %s", vers)
 
-	store, err := h.ctxt.controllerObjectStoreForRequest(r)
+	store, err := h.ctxt.controllerObjectStoreForRequest(r.Context())
 	if err != nil {
 		return nil, 0, errors.Trace(err)
 	}
@@ -328,7 +328,7 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 		return nil, errors.Trace(err)
 	}
 
-	store, err := h.ctxt.controllerObjectStoreForRequest(r)
+	store, err := h.ctxt.controllerObjectStoreForRequest(r.Context())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -337,7 +337,7 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 }
 
 func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st *state.State) (string, error) {
-	modelUUID, valid := httpcontext.RequestModelUUID(r)
+	modelUUID, valid := httpcontext.RequestModelUUID(r.Context())
 	if !valid {
 		return "", errors.BadRequestf("invalid model UUID")
 	}

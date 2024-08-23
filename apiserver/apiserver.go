@@ -809,22 +809,22 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 				return nil, nil, nil, errors.Trace(err)
 			}
 
-			store, err := httpCtxt.objectStoreForRequest(req)
+			store, err := httpCtxt.objectStoreForRequest(req.Context())
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
 			}
 			rst := st.Resources(store)
 			return rst, st, entity.Tag(), nil
 		},
-		ChangeAllowedFunc: func(req *http.Request) error {
-			st, err := httpCtxt.stateForRequestUnauthenticated(req)
+		ChangeAllowedFunc: func(ctx context.Context) error {
+			st, err := httpCtxt.stateForRequestUnauthenticated(ctx)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			defer st.Release()
 
 			blockChecker := common.NewBlockChecker(st)
-			if err := blockChecker.ChangeAllowed(req.Context()); err != nil {
+			if err := blockChecker.ChangeAllowed(ctx); err != nil {
 				return errors.Trace(err)
 			}
 			return nil
@@ -836,7 +836,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
-			store, err := httpCtxt.objectStoreForRequest(req)
+			store, err := httpCtxt.objectStoreForRequest(req.Context())
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
@@ -846,7 +846,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
-			serviceFactory, err := httpCtxt.serviceFactoryForRequest(req)
+			serviceFactory, err := httpCtxt.serviceFactoryForRequest(req.Context())
 			if err != nil {
 				return nil, nil, errors.Trace(errors.Annotate(err, "cannot get service factory for unit resource request"))
 			}
@@ -1112,7 +1112,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	defer apiObserver.Leave()
 
 	websocket.Serve(w, req, func(conn *websocket.Conn) {
-		modelUUID, modelOnlyLogin := httpcontext.RequestModelUUID(req)
+		modelUUID, modelOnlyLogin := httpcontext.RequestModelUUID(req.Context())
 
 		// If the modelUUID wasn't present in the request, then this is
 		// considered a controller-only login.
