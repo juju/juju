@@ -37,19 +37,13 @@ type WatcherSuite struct {
 	rotateSecretWatcherEvent   chan string
 	expireRevisionWatcherEvent chan string
 
-	applicationWatcher   *mockNotifyWatcher
-	runningStatusWatcher *mockNotifyWatcher
-	running              *remotestate.ContainerRunningStatus
+	applicationWatcher *mockNotifyWatcher
 
 	workloadEventChannel chan string
 	shutdownChannel      chan bool
 }
 
 type WatcherSuiteIAAS struct {
-	WatcherSuite
-}
-
-type WatcherSuiteCAAS struct {
 	WatcherSuite
 }
 
@@ -63,9 +57,6 @@ type WatcherSuiteSidecarCharmModVer struct {
 
 var _ = gc.Suite(&WatcherSuiteIAAS{
 	WatcherSuite{modelType: model.IAAS},
-})
-var _ = gc.Suite(&WatcherSuiteCAAS{
-	WatcherSuite{modelType: model.CAAS},
 })
 
 var _ = gc.Suite(&WatcherSuiteSidecar{
@@ -150,24 +141,6 @@ func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
 	s.watcher = w
 }
 
-func (s *WatcherSuiteCAAS) SetUpTest(c *gc.C) {
-	s.WatcherSuite.SetUpTest(c)
-	s.runningStatusWatcher = newMockNotifyWatcher()
-	s.uniterClient.unit.application.applicationWatcher = newMockNotifyWatcher()
-	s.applicationWatcher = s.uniterClient.unit.application.applicationWatcher
-
-	cfg := s.setupWatcherConfig(c)
-	cfg.ContainerRunningStatusChannel = s.runningStatusWatcher.Changes()
-	cfg.ContainerRunningStatusFunc = func(providerID string) (*remotestate.ContainerRunningStatus, error) {
-		return s.running, nil
-	}
-
-	w, err := remotestate.NewWatcher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.watcher = w
-}
-
 func (s *WatcherSuiteSidecar) SetUpTest(c *gc.C) {
 	s.WatcherSuite.SetUpTest(c)
 
@@ -244,18 +217,6 @@ func (s *WatcherSuiteIAAS) TestInitialSnapshot(c *gc.C) {
 		Relations:               map[int]remotestate.RelationSnapshot{},
 		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
 		ActionChanged:           map[string]int{},
-		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
-		ObsoleteSecretRevisions: map[string][]int{},
-	})
-}
-
-func (s *WatcherSuiteCAAS) TestInitialSnapshot(c *gc.C) {
-	snap := s.watcher.Snapshot()
-	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Relations:               map[int]remotestate.RelationSnapshot{},
-		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
-		ActionChanged:           map[string]int{},
-		ActionsBlocked:          true,
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
 	})
@@ -358,104 +319,6 @@ func (s *WatcherSuiteSidecar) TestSnapshot(c *gc.C) {
 		AddressesHash:           "addresseshash",
 		LeaderSettingsVersion:   1,
 		Leader:                  true,
-		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
-		ObsoleteSecretRevisions: map[string][]int{},
-	})
-}
-
-func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
-	s.signalAll()
-	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-
-	snap := s.watcher.Snapshot()
-	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                    s.uniterClient.unit.life,
-		Relations:               map[int]remotestate.RelationSnapshot{},
-		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
-		CharmModifiedVersion:    s.uniterClient.unit.application.charmModifiedVersion,
-		CharmURL:                s.uniterClient.unit.application.curl,
-		ForceCharmUpgrade:       s.uniterClient.unit.application.forceUpgrade,
-		ResolvedMode:            s.uniterClient.unit.resolved,
-		ConfigHash:              "confighash",
-		TrustHash:               "trusthash",
-		AddressesHash:           "addresseshash",
-		LeaderSettingsVersion:   1,
-		Leader:                  true,
-		ActionsBlocked:          true,
-		ActionChanged:           map[string]int{},
-		ContainerRunningStatus:  nil,
-		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
-		ObsoleteSecretRevisions: map[string][]int{},
-	})
-
-	t := time.Now()
-	s.uniterClient.unit.providerID = "provider-id"
-	s.running = &remotestate.ContainerRunningStatus{
-		Initialising:     true,
-		InitialisingTime: t,
-		PodName:          "wow",
-		Running:          false,
-	}
-	select {
-	case s.runningStatusWatcher.changes <- struct{}{}:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timeout waiting to post running status change")
-	}
-	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-
-	snap = s.watcher.Snapshot()
-	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                    s.uniterClient.unit.life,
-		Relations:               map[int]remotestate.RelationSnapshot{},
-		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
-		CharmModifiedVersion:    s.uniterClient.unit.application.charmModifiedVersion,
-		CharmURL:                s.uniterClient.unit.application.curl,
-		ForceCharmUpgrade:       s.uniterClient.unit.application.forceUpgrade,
-		ResolvedMode:            s.uniterClient.unit.resolved,
-		ConfigHash:              "confighash",
-		TrustHash:               "trusthash",
-		AddressesHash:           "addresseshash",
-		LeaderSettingsVersion:   1,
-		Leader:                  true,
-		ActionsBlocked:          true,
-		ActionChanged:           map[string]int{},
-		ProviderID:              s.uniterClient.unit.providerID,
-		ContainerRunningStatus:  s.running,
-		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
-		ObsoleteSecretRevisions: map[string][]int{},
-	})
-
-	s.running = &remotestate.ContainerRunningStatus{
-		Initialising:     false,
-		InitialisingTime: t,
-		PodName:          "wow",
-		Running:          true,
-	}
-	select {
-	case s.runningStatusWatcher.changes <- struct{}{}:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timeout waiting to post running status change")
-	}
-	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-
-	snap = s.watcher.Snapshot()
-	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                    s.uniterClient.unit.life,
-		Relations:               map[int]remotestate.RelationSnapshot{},
-		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
-		CharmModifiedVersion:    s.uniterClient.unit.application.charmModifiedVersion,
-		CharmURL:                s.uniterClient.unit.application.curl,
-		ForceCharmUpgrade:       s.uniterClient.unit.application.forceUpgrade,
-		ResolvedMode:            s.uniterClient.unit.resolved,
-		ConfigHash:              "confighash",
-		TrustHash:               "trusthash",
-		AddressesHash:           "addresseshash",
-		LeaderSettingsVersion:   1,
-		Leader:                  true,
-		ActionsBlocked:          false,
-		ActionChanged:           map[string]int{},
-		ProviderID:              s.uniterClient.unit.providerID,
-		ContainerRunningStatus:  s.running,
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
 	})

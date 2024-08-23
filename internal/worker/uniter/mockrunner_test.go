@@ -36,17 +36,15 @@ func (r *mockRunner) ranActions() []actionData {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	result := make([]actionData, len(r.ranActions_))
-	for i, a := range r.ranActions_ {
-		result[i] = a
-	}
+	copy(result, r.ranActions_)
 	return result
 }
 
 // RunCommands exists to satisfy the Runner interface.
-func (r *mockRunner) RunCommands(_ stdcontext.Context, commands string, runLocation runner.RunLocation) (*utilexec.ExecResponse, error) {
+func (r *mockRunner) RunCommands(_ stdcontext.Context, commands string) (*utilexec.ExecResponse, error) {
 	result := &utilexec.ExecResponse{
 		Code:   0,
-		Stdout: []byte(fmt.Sprintf("%s on %s", commands, runLocation)),
+		Stdout: []byte(commands),
 	}
 	return result, nil
 }

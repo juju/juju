@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/charm"
 	"github.com/juju/juju/internal/worker/uniter/hook"
-	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/runner"
 	"github.com/juju/juju/rpc/params"
 )
@@ -71,19 +70,6 @@ func (f *factory) NewInstall(charmURL string) (Operation, error) {
 // NewUpgrade is part of the Factory interface.
 func (f *factory) NewUpgrade(charmURL string) (Operation, error) {
 	return f.newDeploy(Upgrade, charmURL, false, false)
-}
-
-// NewRemoteInit is part of the Factory interface.
-func (f *factory) NewRemoteInit(runningStatus remotestate.ContainerRunningStatus) (Operation, error) {
-	return &remoteInit{
-		callbacks:     f.config.Callbacks,
-		abort:         f.config.Abort,
-		runningStatus: runningStatus,
-	}, nil
-}
-
-func (f *factory) NewSkipRemoteInit(retry bool) (Operation, error) {
-	return &skipRemoteInit{retry}, nil
 }
 
 // NewRevertUpgrade is part of the Factory interface.

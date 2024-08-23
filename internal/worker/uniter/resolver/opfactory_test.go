@@ -155,26 +155,6 @@ func (s *ResolverOpFactorySuite) testUpgrade(
 	c.Assert(f.LocalState.Conflicted, jc.IsFalse)
 }
 
-func (s *ResolverOpFactorySuite) TestRemoteInit(c *gc.C) {
-	f := resolver.NewResolverOpFactory(s.opFactory)
-	f.LocalState.OutdatedRemoteCharm = true
-	op, err := f.NewRemoteInit(remotestate.ContainerRunningStatus{})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = op.Commit(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.LocalState.OutdatedRemoteCharm, jc.IsFalse)
-}
-
-func (s *ResolverOpFactorySuite) TestSkipRemoteInit(c *gc.C) {
-	f := resolver.NewResolverOpFactory(s.opFactory)
-	f.LocalState.OutdatedRemoteCharm = true
-	op, err := f.NewSkipRemoteInit(false)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = op.Commit(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.LocalState.OutdatedRemoteCharm, jc.IsTrue)
-}
-
 func (s *ResolverOpFactorySuite) TestNewUpgradeError(c *gc.C) {
 	curl := "ch:trusty/mysql"
 	s.opFactory.SetErrors(

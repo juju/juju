@@ -992,7 +992,7 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 		MachineLock:          processLock,
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer(),
 		NewOperationExecutor: operationExecutor,
-		NewProcessRunner: func(context runnercontext.Context, paths runnercontext.Paths, remoteExecutor runner.ExecFunc, options ...runner.Option) runner.Runner {
+		NewProcessRunner: func(context runnercontext.Context, paths runnercontext.Paths, options ...runner.Option) runner.Runner {
 			ctx.runner.stdContext = context
 			return ctx.runner
 		},
@@ -1924,7 +1924,7 @@ func (cmds runCommands) step(c *gc.C, ctx *testContext) {
 	result, err := ctx.uniter.RunCommands(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Code, gc.Equals, 0)
-	c.Check(string(result.Stdout), gc.Equals, "test on workload")
+	c.Check(string(result.Stdout), gc.Equals, "test")
 	c.Check(string(result.Stderr), gc.Equals, "")
 }
 

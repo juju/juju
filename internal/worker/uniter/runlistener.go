@@ -9,24 +9,16 @@ package uniter
 import (
 	"net"
 	"net/rpc"
-	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4/exec"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
-	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/agent"
-	agentconfig "github.com/juju/juju/agent/config"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/runcommands"
-	"github.com/juju/juju/internal/worker/uniter/runner"
 	"github.com/juju/juju/juju/sockets"
 )
 
@@ -48,11 +40,6 @@ type RunCommandsArgs struct {
 	ForceRemoteUnit bool
 	// UnitName is the unit for which the command is being run.
 	UnitName string
-	// Token is the unit token when run under CAAS environments for auth.
-	Token string
-	// Operator is true when the command should be run on the operator.
-	// This only affects k8s workload charms.
-	Operator bool
 }
 
 // A CommandRunner is something that will actually execute the commands and
@@ -180,24 +167,6 @@ func (r *RunListener) RunCommands(args RunCommandsArgs) (results *exec.ExecRespo
 		return nil, errors.Errorf("no runner is registered for unit %v", args.UnitName)
 	}
 
-	if r.requiresAuth {
-		// TODO: Cache unit password
-		baseDir := agent.Dir(agentconfig.DataDir, names.NewUnitTag(args.UnitName))
-		infoFilePath := filepath.Join(baseDir, caas.OperatorClientInfoCacheFile)
-		d, err := os.ReadFile(infoFilePath)
-		if err != nil {
-			return nil, errors.Annotatef(err, "reading %s", infoFilePath)
-		}
-		op := caas.OperatorClientInfo{}
-		err = yaml.Unmarshal(d, &op)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if args.Token != op.Token {
-			return nil, errors.Forbiddenf("unit token mismatch")
-		}
-	}
-
 	return runner.RunCommands(args)
 }
 
@@ -302,17 +271,13 @@ func NewChannelCommandRunner(cfg ChannelCommandRunnerConfig) (*ChannelCommandRun
 // arguments in a runcommands.Commands, and then sending the returned
 // ID to a channel and waiting for a response callback.
 func (c *ChannelCommandRunner) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
-	runLocation := runner.Workload
-	if args.Operator {
-		runLocation = runner.Operator
-	}
+
 	operationArgs := operation.CommandArgs{
 		Commands:       args.Commands,
 		RelationId:     args.RelationId,
 		RemoteUnitName: args.RemoteUnitName,
 		// TODO(jam): 2019-10-24 Include RemoteAppName
 		ForceRemoteUnit: args.ForceRemoteUnit,
-		RunLocation:     runLocation,
 	}
 	if err := operationArgs.Validate(); err != nil {
 		return nil, errors.Trace(err)

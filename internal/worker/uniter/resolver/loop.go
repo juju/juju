@@ -81,7 +81,7 @@ func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 		rf.RemoteState = cfg.Watcher.Snapshot()
 		rf.LocalState.State = cfg.Executor.State()
 
-		if localState.HookWasShutdown && rf.RemoteState.ContainerRunningStatus != nil {
+		if localState.HookWasShutdown {
 			agentShutdown := rf.RemoteState.Shutdown
 			if !agentShutdown {
 				agentShutdown = maybeAgentShutdown(cfg)

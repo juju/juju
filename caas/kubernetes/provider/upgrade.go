@@ -5,21 +5,17 @@ package provider
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
-	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appstyped "k8s.io/client-go/kubernetes/typed/apps/v1"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sannotations "github.com/juju/juju/core/annotations"
-	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 )
 
@@ -95,11 +91,8 @@ func upgradeDeployment(
 
 func upgradeOperatorOrControllerStatefulSet(
 	ctx context.Context,
-	appName string,
 	name string,
-	isOperator bool,
 	imagePath string,
-	baseImagePath string,
 	vers version.Number,
 	legacyLabels bool,
 	broker appstyped.StatefulSetInterface,
@@ -124,13 +117,6 @@ func upgradeOperatorOrControllerStatefulSet(
 		return errors.Annotatef(err, "statefulset %q", name)
 	}
 	ss.Spec.Template.Spec.Containers = newContainers
-
-	if isOperator {
-		err := patchOperatorToCharmBase(ss, appName, imagePath, baseImagePath)
-		if err != nil {
-			return errors.Annotatef(err, "unable to patch operator to charm base")
-		}
-	}
 
 	// update juju-version annotation.
 	// TODO(caas): consider how to upgrade to current annotations format safely.
@@ -184,70 +170,4 @@ func findJujudContainer(containers []core.Container) (int, bool) {
 		}
 	}
 	return -1, false
-}
-
-func patchOperatorToCharmBase(ss *apps.StatefulSet, appName string, imagePath string, baseImagePath string) error {
-	for _, container := range ss.Spec.Template.Spec.InitContainers {
-		if container.Name == operatorInitContainerName {
-			// Already patched.
-			return nil
-		}
-	}
-
-	ss.Spec.Template.Spec.InitContainers = append(ss.Spec.Template.Spec.InitContainers, core.Container{
-		Name:            operatorInitContainerName,
-		ImagePullPolicy: core.PullIfNotPresent,
-		Image:           imagePath,
-		Command: []string{
-			"/bin/sh",
-		},
-		Args: []string{
-			"-c",
-			fmt.Sprintf(
-				caas.JujudCopySh,
-				"/opt/juju",
-				"",
-			),
-		},
-		VolumeMounts: []core.VolumeMount{{
-			Name:      "juju-bins",
-			MountPath: "/opt/juju",
-		}},
-	})
-
-	ss.Spec.Template.Spec.Volumes = append(ss.Spec.Template.Spec.Volumes, core.Volume{
-		Name: "juju-bins",
-		VolumeSource: core.VolumeSource{
-			EmptyDir: &core.EmptyDirVolumeSource{},
-		},
-	})
-
-	for i, container := range ss.Spec.Template.Spec.Containers {
-		if !podcfg.IsJujuOCIImage(container.Image) {
-			continue
-		}
-
-		jujudCmd := fmt.Sprintf("exec $JUJU_TOOLS_DIR/jujud caasoperator --application-name=%s --debug", appName)
-		jujuDataDir := paths.DataDir(paths.OSUnixLike)
-		container.Image = baseImagePath
-		container.Args = []string{
-			"-c",
-			fmt.Sprintf(
-				caas.JujudStartUpAltSh,
-				jujuDataDir,
-				"tools",
-				"/opt/juju",
-				jujudCmd,
-			),
-		}
-		container.VolumeMounts = append(container.VolumeMounts, core.VolumeMount{
-			Name:      "juju-bins",
-			MountPath: "/opt/juju",
-		})
-
-		ss.Spec.Template.Spec.Containers[i] = container
-		break
-	}
-
-	return nil
 }

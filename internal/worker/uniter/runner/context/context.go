@@ -6,7 +6,6 @@ package context
 import (
 	"context"
 	"fmt"
-	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -47,7 +45,6 @@ type Context interface {
 	HookVars(
 		ctx context.Context,
 		paths Paths,
-		remote bool,
 		env Environmenter) ([]string, error)
 	ActionData() (*ActionData, error)
 	SetProcess(process HookProcess)
@@ -78,12 +75,12 @@ type Paths interface {
 	// GetJujucServerSocket returns the path to the socket used by the hook tools
 	// to communicate back to the executing uniter process. It might be a
 	// filesystem path, or it might be abstract.
-	GetJujucServerSocket(remote bool) sockets.Socket
+	GetJujucServerSocket() sockets.Socket
 
 	// GetJujucClientSocket returns the path to the socket used by the hook tools
 	// to communicate back to the executing uniter process. It might be a
 	// filesystem path, or it might be abstract.
-	GetJujucClientSocket(remote bool) sockets.Socket
+	GetJujucClientSocket() sockets.Socket
 
 	// GetMetricsSpoolDir returns the path to a metrics spool dir, used
 	// to store metrics recorded during a single hook run.
@@ -1304,7 +1301,6 @@ func (c *HookContext) ActionData() (*ActionData, error) {
 func (c *HookContext) HookVars(
 	ctx context.Context,
 	paths Paths,
-	remote bool,
 	env Environmenter,
 ) ([]string, error) {
 	vars := c.legacyProxySettings.AsEnvironmentValues()
@@ -1317,8 +1313,8 @@ func (c *HookContext) HookVars(
 		"JUJU_CHARM_DIR="+paths.GetCharmDir(),
 		"JUJU_CONTEXT_ID="+c.id,
 		"JUJU_HOOK_NAME="+c.hookName,
-		"JUJU_AGENT_SOCKET_ADDRESS="+paths.GetJujucClientSocket(remote).Address,
-		"JUJU_AGENT_SOCKET_NETWORK="+paths.GetJujucClientSocket(remote).Network,
+		"JUJU_AGENT_SOCKET_ADDRESS="+paths.GetJujucClientSocket().Address,
+		"JUJU_AGENT_SOCKET_NETWORK="+paths.GetJujucClientSocket().Network,
 		"JUJU_UNIT_NAME="+c.unitName,
 		"JUJU_MODEL_UUID="+c.uuid,
 		"JUJU_MODEL_NAME="+c.modelName,
@@ -1335,11 +1331,6 @@ func (c *HookContext) HookVars(
 		"JUJU_CHARM_FTP_PROXY="+c.jujuProxySettings.Ftp,
 		"JUJU_CHARM_NO_PROXY="+c.jujuProxySettings.NoProxy,
 	)
-	if remote {
-		vars = append(vars,
-			"JUJU_AGENT_CA_CERT="+path.Join(paths.GetBaseDir(), caas.CACertFile),
-		)
-	}
 	if r, err := c.HookRelation(); err == nil {
 		vars = append(vars,
 			"JUJU_RELATION="+r.Name(),

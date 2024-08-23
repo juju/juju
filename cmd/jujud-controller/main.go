@@ -161,7 +161,6 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 		Dir:         dir,
 		CommandName: commandName,
 		Args:        args[1:],
-		Token:       os.Getenv("JUJU_AGENT_TOKEN"),
 	}
 	socket, err := getSocket()
 	if err != nil {
@@ -257,7 +256,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		return &jujudWriter{target: target}
 	}
 
-	jujud.Register(jujudagentcmd.NewCAASUnitInitCommand())
 	jujud.Register(jujudagentcmd.NewModelCommand(bufferedLogger))
 	jujud.Register(agentcmd.NewBootstrapCommand())
 

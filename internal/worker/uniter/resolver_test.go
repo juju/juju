@@ -120,7 +120,6 @@ func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, reboot
 		ModelType:           modelType,
 		OptionalResolvers: []resolver.Resolver{
 			s.firstOptionalResolver,
-			container.NewRemoteContainerInitResolver(),
 			container.NewWorkloadHookResolver(logger, s.workloadEvents, nil),
 			s.lastOptionalResolver,
 		},

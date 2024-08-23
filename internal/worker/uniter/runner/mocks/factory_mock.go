@@ -262,18 +262,18 @@ func (c *MockRunnerRunActionCall) DoAndReturn(f func(context.Context, string) (r
 }
 
 // RunCommands mocks base method.
-func (m *MockRunner) RunCommands(arg0 context.Context, arg1 string, arg2 runner.RunLocation) (*exec.ExecResponse, error) {
+func (m *MockRunner) RunCommands(arg0 context.Context, arg1 string) (*exec.ExecResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunCommands", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "RunCommands", arg0, arg1)
 	ret0, _ := ret[0].(*exec.ExecResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RunCommands indicates an expected call of RunCommands.
-func (mr *MockRunnerMockRecorder) RunCommands(arg0, arg1, arg2 any) *MockRunnerRunCommandsCall {
+func (mr *MockRunnerMockRecorder) RunCommands(arg0, arg1 any) *MockRunnerRunCommandsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunCommands", reflect.TypeOf((*MockRunner)(nil).RunCommands), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunCommands", reflect.TypeOf((*MockRunner)(nil).RunCommands), arg0, arg1)
 	return &MockRunnerRunCommandsCall{Call: call}
 }
 
@@ -289,13 +289,13 @@ func (c *MockRunnerRunCommandsCall) Return(arg0 *exec.ExecResponse, arg1 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRunnerRunCommandsCall) Do(f func(context.Context, string, runner.RunLocation) (*exec.ExecResponse, error)) *MockRunnerRunCommandsCall {
+func (c *MockRunnerRunCommandsCall) Do(f func(context.Context, string) (*exec.ExecResponse, error)) *MockRunnerRunCommandsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRunnerRunCommandsCall) DoAndReturn(f func(context.Context, string, runner.RunLocation) (*exec.ExecResponse, error)) *MockRunnerRunCommandsCall {
+func (c *MockRunnerRunCommandsCall) DoAndReturn(f func(context.Context, string) (*exec.ExecResponse, error)) *MockRunnerRunCommandsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

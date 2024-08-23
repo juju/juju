@@ -4,8 +4,6 @@
 package run
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,11 +17,9 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/exec"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/config"
-	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/machinelock"
 	jujuos "github.com/juju/juju/core/os"
@@ -48,7 +44,6 @@ type RunCommand struct {
 	relationId            string
 	remoteUnitName        string
 	remoteApplicationName string
-	operator              bool
 }
 
 const runCommandDoc = `
@@ -104,7 +99,6 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.relationId, "relation", "", "")
 	f.StringVar(&c.remoteUnitName, "remote-unit", "", "run the commands for a specific remote unit in a relation context on a unit")
 	f.StringVar(&c.remoteApplicationName, "remote-app", "", "run the commands for a specific remote application in a relation context on a unit")
-	f.BoolVar(&c.operator, "operator", false, "run the commands on the operator instead of the workload. Only supported on k8s workload charms")
 	f.BoolVar(&c.forceRemoteUnit, "force-remote-unit", false, "run the commands for a specific relation context, bypassing the remote unit check")
 	f.StringVar(&c.unitName, "u", "-", "explicit unit-name, all other arguments are commands. if -u is passed an empty string, unit-name is inferred from state")
 }
@@ -231,37 +225,9 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	return utils.NewRcPassthroughError(result.Code)
 }
 
-func (c *RunCommand) getSocket(op *caas.OperatorClientInfo) (sockets.Socket, error) {
-	if op == nil {
-		paths := uniter.NewPaths(config.DataDir, c.unit, nil)
-		return paths.Runtime.LocalJujuExecSocket.Client, nil
-	}
-
-	baseDir := agent.Dir(config.DataDir, c.unit)
-	caCertFile := filepath.Join(baseDir, caas.CACertFile)
-	caCert, err := os.ReadFile(caCertFile)
-	if err != nil {
-		return sockets.Socket{}, errors.Annotatef(err, "reading %s", caCertFile)
-	}
-	rootCAs := x509.NewCertPool()
-	if ok := rootCAs.AppendCertsFromPEM(caCert); ok == false {
-		return sockets.Socket{}, errors.Errorf("invalid ca certificate")
-	}
-
-	application, err := names.UnitApplication(c.unit.Id())
-	if err != nil {
-		return sockets.Socket{}, errors.Trace(err)
-	}
-
-	socketConfig := &uniter.SocketConfig{
-		ServiceAddress: op.ServiceAddress,
-		TLSConfig: &tls.Config{
-			RootCAs:    rootCAs,
-			ServerName: application,
-		},
-	}
-	paths := uniter.NewPaths(config.DataDir, c.unit, socketConfig)
-	return paths.Runtime.RemoteJujuExecSocket.Client, nil
+func (c *RunCommand) getSocket() (sockets.Socket, error) {
+	paths := uniter.NewPaths(config.DataDir, c.unit, nil)
+	return paths.Runtime.LocalJujuExecSocket.Client, nil
 }
 
 func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
@@ -288,23 +254,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 		return nil, errors.Errorf("remote app: %s, provided without a relation", c.remoteApplicationName)
 	}
 
-	// juju-exec on k8s uses an operator yaml file
-	infoFilePath := filepath.Join(unitDir, caas.OperatorClientInfoFile)
-	infoFileBytes, err := os.ReadFile(infoFilePath)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, errors.Annotatef(err, "reading %s", infoFilePath)
-	}
-	var operatorClientInfo *caas.OperatorClientInfo
-	if infoFileBytes != nil {
-		op := caas.OperatorClientInfo{}
-		err = yaml.Unmarshal(infoFileBytes, &op)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		operatorClientInfo = &op
-	}
-
-	socket, err := c.getSocket(operatorClientInfo)
+	socket, err := c.getSocket()
 	if err != nil {
 		return nil, errors.Annotate(err, "configuring juju run socket")
 	}
@@ -322,10 +272,6 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 		RemoteUnitName:        c.remoteUnitName,
 		RemoteApplicationName: c.remoteApplicationName,
 		ForceRemoteUnit:       c.forceRemoteUnit,
-		Operator:              c.operator,
-	}
-	if operatorClientInfo != nil {
-		args.Token = operatorClientInfo.Token
 	}
 	err = client.Call(uniter.JujuExecEndpoint, args, &result)
 	return &result, errors.Trace(err)

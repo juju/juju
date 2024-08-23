@@ -159,7 +159,6 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 		Dir:         dir,
 		CommandName: commandName,
 		Args:        args[1:],
-		Token:       os.Getenv("JUJU_AGENT_TOKEN"),
 	}
 	socket, err := getSocket()
 	if err != nil {
@@ -255,7 +254,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		return &jujudWriter{target: target}
 	}
 
-	jujud.Register(agentcmd.NewCAASUnitInitCommand())
 	jujud.Register(agentcmd.NewModelCommand(bufferedLogger))
 
 	// TODO(katco-): AgentConf type is doing too much. The

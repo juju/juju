@@ -74,16 +74,6 @@ func (f *mockOpFactory) NewFailAction(id string) (operation.Operation, error) {
 	return f.op, f.NextErr()
 }
 
-func (f *mockOpFactory) NewRemoteInit(runningStatus remotestate.ContainerRunningStatus) (operation.Operation, error) {
-	f.MethodCall(f, "NewRemoteInit", runningStatus)
-	return f.op, f.NextErr()
-}
-
-func (f *mockOpFactory) NewSkipRemoteInit(retry bool) (operation.Operation, error) {
-	f.MethodCall(f, "NewSkipRemoteInit", retry)
-	return f.op, f.NextErr()
-}
-
 type mockOpExecutor struct {
 	operation.Executor
 	testing.Stub
