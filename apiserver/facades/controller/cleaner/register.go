@@ -32,7 +32,6 @@ func newCleanerAPI(ctx facade.ModelContext) (*CleanerAPI, error) {
 		objectStore:    ctx.ObjectStore(),
 		machineRemover: serviceFactory.Machine(),
 		// For removing applications, we don't need a storage registry.
-		appRemover:  serviceFactory.Application(nil),
-		unitRemover: serviceFactory.Unit(),
+		appService: serviceFactory.Application(nil),
 	}, nil
 }

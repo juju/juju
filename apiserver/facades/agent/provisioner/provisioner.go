@@ -165,7 +165,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 	urlGetter := common.NewToolsURLGetter(string(modelInfo.UUID), systemState)
 
-	unitRemover := ctx.ServiceFactory().Unit()
+	unitRemover := ctx.ServiceFactory().Application(nil)
 
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{

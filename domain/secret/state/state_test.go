@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/domain/schema/testing"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
-	uniterrors "github.com/juju/juju/domain/unit/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -801,7 +800,7 @@ func (s *stateSuite) TestCreateCharmUnitSecretNotFound(c *gc.C) {
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
 	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
-	c.Assert(err, jc.ErrorIs, uniterrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestCreateCharmApplicationSecretLabelAlreadyExists(c *gc.C) {
@@ -1342,7 +1341,7 @@ func (s *stateSuite) TestSaveSecretConsumerUnitNotExists(c *gc.C) {
 	}
 
 	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
-	c.Assert(err, jc.ErrorIs, uniterrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestSaveSecretConsumerDifferentModel(c *gc.C) {
@@ -1515,7 +1514,7 @@ func (s *stateSuite) TestGetSecretConsumerUnitNotExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, err = st.GetSecretConsumer(ctx, uri, "mysql/0")
-	c.Assert(err, jc.ErrorIs, uniterrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestGetUserSecretURIByLabel(c *gc.C) {
@@ -1580,7 +1579,7 @@ func (s *stateSuite) TestGetURIByConsumerLabelUnitNotExists(c *gc.C) {
 	s.setupUnits(c, "mysql")
 
 	_, err := st.GetURIByConsumerLabel(context.Background(), "my label", "mysql/2")
-	c.Assert(err, jc.ErrorIs, uniterrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestUpdateSecretNotFound(c *gc.C) {
@@ -2598,7 +2597,7 @@ func (s *stateSuite) TestGrantUnitNotFound(c *gc.C) {
 		RoleID:        domainsecret.RoleView,
 	}
 	err = st.GrantAccess(ctx, uri, p)
-	c.Assert(err, jc.ErrorIs, uniterrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestGrantApplicationNotFound(c *gc.C) {
@@ -2650,7 +2649,7 @@ func (s *stateSuite) TestGrantScopeNotFound(c *gc.C) {
 		RoleID:        domainsecret.RoleView,
 	}
 	err = st.GrantAccess(ctx, uri, p)
-	c.Assert(err, jc.ErrorIs, uniterrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestGetAccessNoGrant(c *gc.C) {

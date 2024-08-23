@@ -20,7 +20,6 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
-	unitservice "github.com/juju/juju/domain/unit/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -34,7 +33,6 @@ type CleanerSuite struct {
 	st                 *mockState
 	machineService     *machineservice.WatchableService
 	applicationService *applicationservice.WatchableService
-	unitService        *unitservice.Service
 	api                *cleaner.CleanerAPI
 	authoriser         apiservertesting.FakeAuthorizer
 }
@@ -53,7 +51,6 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	res := common.NewResources()
 	s.machineService = machineservice.NewWatchableService(nil, nil)
 	s.applicationService = applicationservice.NewWatchableService(nil, nil, nil, storage.NotImplementedProviderRegistry{}, loggertesting.WrapCheckLog(c))
-	s.unitService = unitservice.NewService(nil)
 	s.api, err = cleaner.NewCleanerAPI(facadetest.ModelContext{
 		Resources_: res,
 		Auth_:      s.authoriser,
@@ -63,9 +60,6 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 			}).
 			WithApplicationService(func() *applicationservice.WatchableService {
 				return s.applicationService
-			}).
-			WithUnitService(func() *unitservice.Service {
-				return s.unitService
 			}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -105,7 +99,7 @@ func (s *CleanerSuite) TestCleanupSuccess(c *gc.C) {
 	s.st.CheckCallNames(c, "Cleanup")
 	s.st.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Cleanup",
-		Args:     []any{s.machineService, s.applicationService, s.unitService},
+		Args:     []any{s.machineService, s.applicationService},
 	}})
 }
 
@@ -159,7 +153,7 @@ func (st *mockState) WatchCleanups() state.NotifyWatcher {
 	return w
 }
 
-func (st *mockState) Cleanup(_ context.Context, _ objectstore.ObjectStore, mr state.MachineRemover, ar state.ApplicationRemover, ur state.UnitRemover) error {
-	st.MethodCall(st, "Cleanup", mr, ar, ur)
+func (st *mockState) Cleanup(_ context.Context, _ objectstore.ObjectStore, mr state.MachineRemover, ar state.ApplicationService) error {
+	st.MethodCall(st, "Cleanup", mr, ar)
 	return st.NextErr()
 }

@@ -31,7 +31,6 @@ import (
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
-	unitservice "github.com/juju/juju/domain/unit/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/storage"
@@ -41,7 +40,6 @@ import (
 type TestingServiceFactory struct {
 	machineServiceGetter     func() *machineservice.WatchableService
 	applicationServiceGetter func() *applicationservice.WatchableService
-	unitServiceGetter        func() *unitservice.Service
 }
 
 // NewTestingServiceFactory returns a new registry which uses the provided controllerDB
@@ -224,22 +222,6 @@ func (s *TestingServiceFactory) Application(storage.ProviderRegistry) *applicati
 // using the supplied getter.
 func (s *TestingServiceFactory) WithApplicationService(getter func() *applicationservice.WatchableService) *TestingServiceFactory {
 	s.applicationServiceGetter = getter
-	return s
-}
-
-// Unit returns the block device service.
-func (s *TestingServiceFactory) Unit() *unitservice.Service {
-	if s.unitServiceGetter == nil {
-		return nil
-	}
-	return s.unitServiceGetter()
-
-}
-
-// WithUnitService returns a service factory which gets its unit service
-// using the supplied getter.
-func (s *TestingServiceFactory) WithUnitService(getter func() *unitservice.Service) *TestingServiceFactory {
-	s.unitServiceGetter = getter
 	return s
 }
 

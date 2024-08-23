@@ -50,7 +50,7 @@ func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
 		serviceFactory.Machine(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
-		serviceFactory.Unit(),
+		serviceFactory.Application(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := uniterAPI.CloudSpec(context.Background())
@@ -83,7 +83,7 @@ func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
 		serviceFactory.Machine(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
-		serviceFactory.Unit(),
+		serviceFactory.Application(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	uniter.SetNewContainerBrokerFunc(uniterAPI, func(context.Context, environs.OpenParams) (caas.Broker, error) {

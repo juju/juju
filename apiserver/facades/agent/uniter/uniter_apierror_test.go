@@ -61,7 +61,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 		serviceFactory.Machine(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
-		serviceFactory.Unit(),
+		serviceFactory.Application(nil),
 	)
 	c.Assert(err, gc.ErrorMatches, "kaboom")
 }

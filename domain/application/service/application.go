@@ -25,7 +25,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
-	uniterrors "github.com/juju/juju/domain/unit/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
@@ -51,7 +50,7 @@ type AtomicApplicationState interface {
 	ApplicationScaleState(domain.AtomicContext, coreapplication.ID) (application.ScaleState, error)
 
 	// UnitLife looks up the life of the specified unit, returning an error
-	// satisfying [uniterrors.NotFound] if the unit is not found.
+	// satisfying [applicationerrors.UnitNotFound] if the unit is not found.
 	UnitLife(ctx domain.AtomicContext, unitName string) (life.Life, error)
 
 	// InitialWatchStatementUnitLife returns the initial namespace query for the application unit life watcher.
@@ -91,6 +90,9 @@ type ApplicationState interface {
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the
 	// application doesn't exist.
 	AddUnits(ctx context.Context, applicationName string, args ...application.UpsertUnitArg) error
+
+	// DeleteUnit deletes the specified unit.
+	DeleteUnit(ctx context.Context, unitName string) error
 }
 
 // ApplicationService provides the API for working with applications.
@@ -241,6 +243,12 @@ func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ..
 	return errors.Annotatef(err, "adding units to application %q", name)
 }
 
+// DeleteUnit deletes the specified unit.
+func (s *ApplicationService) DeleteUnit(ctx context.Context, unitName string) error {
+	err := s.st.DeleteUnit(ctx, unitName)
+	return errors.Annotatef(err, "deleting unit %q", unitName)
+}
+
 // RegisterCAASUnit creates or updates the specified application unit in a caas model,
 // returning an error satisfying [applicationerrors.ApplicationNotFoundError]
 // if the application doesn't exist. If the application life is Dead, an error
@@ -284,7 +292,7 @@ func (s *ApplicationService) RegisterCAASUnit(ctx context.Context, appName strin
 			return errors.Trace(err)
 		}
 		unitLife, err := s.st.UnitLife(ctx, args.UnitName)
-		if errors.Is(err, uniterrors.NotFound) {
+		if errors.Is(err, applicationerrors.UnitNotFound) {
 			return s.insertCAASUnit(ctx, appID, args.OrderedId, unitArg)
 		}
 		if unitLife == life.Dead {
@@ -306,7 +314,7 @@ func (s *ApplicationService) insertCAASUnit(
 	}
 	if orderedID >= appScale.Scale ||
 		(appScale.Scaling && orderedID >= appScale.ScaleTarget) {
-		return fmt.Errorf("unrequired unit %s is not assigned%w", *args.UnitName, errors.Hide(uniterrors.NotAssigned))
+		return fmt.Errorf("unrequired unit %s is not assigned%w", *args.UnitName, errors.Hide(applicationerrors.UnitNotAssigned))
 	}
 	return s.st.UpsertUnit(ctx, appID, args)
 }

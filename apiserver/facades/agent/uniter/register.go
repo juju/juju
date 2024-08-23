@@ -47,7 +47,7 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 		serviceFactory.Machine(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
-		serviceFactory.Unit(),
+		serviceFactory.Application(nil),
 	)
 }
 

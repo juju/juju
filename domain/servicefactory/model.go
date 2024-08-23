@@ -41,8 +41,6 @@ import (
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storagestate "github.com/juju/juju/domain/storage/state"
-	unitservice "github.com/juju/juju/domain/unit/service"
-	unitstate "github.com/juju/juju/domain/unit/state"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
 )
@@ -175,15 +173,6 @@ func (s *ModelFactory) KeyUpdater() *keyupdaterservice.WatchableService {
 		),
 		keyupdaterstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		domain.NewWatcherFactory(s.modelDB, s.logger.Child("keyupdater")),
-	)
-}
-
-// Unit returns the model's unit service.
-func (s *ModelFactory) Unit() *unitservice.Service {
-	return unitservice.NewService(
-		unitstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB),
-			s.logger.Child("unit"),
-		),
 	)
 }
 
