@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"github.com/juju/juju/core/user"
 
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
@@ -16,6 +17,9 @@ import (
 type State interface {
 	// GetModelAgentVersion returns the agent version for the specified model.
 	GetModelAgentVersion(ctx context.Context, modelID model.UUID) (version.Number, error)
+	// AgentVersionForModelName returns the agent version for the model with the
+	// given name and owner.
+	AgentVersionForModelName(ctx context.Context, user user.Name, modelName string) (version.Number, error)
 }
 
 // Service is a modelagent service which can be used to get the running Juju
@@ -39,6 +43,13 @@ func (s *Service) GetModelAgentVersion(ctx context.Context, modelID model.UUID) 
 		return version.Zero, errors.Annotate(err, "validating model ID")
 	}
 	return s.st.GetModelAgentVersion(ctx, modelID)
+}
+
+// ControllerAgentVersion returns the agent version for the controller model.
+// If the controller model cannot be found, an error satisfying
+// [github.com/juju/juju/domain/model/errors.NotFound] will be returned.
+func (s *Service) ControllerAgentVersion(ctx context.Context) (version.Number, error) {
+	return s.st.AgentVersionForModelName(ctx, model.ControllerModelOwnerUsername, model.ControllerModelName)
 }
 
 // ModelService is a modelagent service which can be used to get the running

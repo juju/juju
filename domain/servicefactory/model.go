@@ -227,8 +227,8 @@ func (s *ModelFactory) ModelSecretBackend() *secretbackendservice.ModelSecretBac
 	)
 }
 
-// Agent returns the model's agent service.
-func (s *ModelFactory) Agent() *modelagentservice.ModelService {
+// ModelAgent returns the model's agent service.
+func (s *ModelFactory) ModelAgent() *modelagentservice.ModelService {
 	return modelagentservice.NewModelService(
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.modelUUID,

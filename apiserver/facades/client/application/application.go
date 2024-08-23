@@ -203,7 +203,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		model,
 		modelInfo,
 		serviceFactory.Config(),
-		serviceFactory.Agent(),
+		serviceFactory.ModelAgent(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),
