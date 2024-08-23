@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	model "github.com/juju/juju/core/model"
+	user "github.com/juju/juju/core/user"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -42,7 +43,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AgentVersionForModelName mocks base method.
-func (m *MockState) AgentVersionForModelName(arg0 context.Context, arg1, arg2 string) (version.Number, error) {
+func (m *MockState) AgentVersionForModelName(arg0 context.Context, arg1 user.Name, arg2 string) (version.Number, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AgentVersionForModelName", arg0, arg1, arg2)
 	ret0, _ := ret[0].(version.Number)
@@ -69,13 +70,13 @@ func (c *MockStateAgentVersionForModelNameCall) Return(arg0 version.Number, arg1
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAgentVersionForModelNameCall) Do(f func(context.Context, string, string) (version.Number, error)) *MockStateAgentVersionForModelNameCall {
+func (c *MockStateAgentVersionForModelNameCall) Do(f func(context.Context, user.Name, string) (version.Number, error)) *MockStateAgentVersionForModelNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAgentVersionForModelNameCall) DoAndReturn(f func(context.Context, string, string) (version.Number, error)) *MockStateAgentVersionForModelNameCall {
+func (c *MockStateAgentVersionForModelNameCall) DoAndReturn(f func(context.Context, user.Name, string) (version.Number, error)) *MockStateAgentVersionForModelNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

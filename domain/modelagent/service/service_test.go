@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/juju/juju/core/user"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -78,7 +79,7 @@ func (s *suite) TestControllerAgentVersion(c *gc.C) {
 
 	expectedVersion, err := version.Parse("4.21.65")
 	c.Assert(err, jc.ErrorIsNil)
-	s.state.EXPECT().AgentVersionForModelName(gomock.Any(), "admin", "controller").
+	s.state.EXPECT().AgentVersionForModelName(gomock.Any(), user.AdminUserName, "controller").
 		Return(expectedVersion, nil)
 
 	svc := NewService(s.state)

@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"context"
+	"github.com/juju/juju/core/user"
 
 	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
@@ -73,11 +74,12 @@ func (s *stateSuite) TestAgentVersionForModelNameSuccess(c *gc.C) {
 
 	txnRunner := s.TxnRunnerFactory()
 	state := modelagentstate.NewState(txnRunner)
-	modelID := modelstatetesting.CreateTestModelWithConfig(c, txnRunner, "mymodel",
-		modelstatetesting.TestModelConfig{Owner: "bob"})
+	modelID := modelstatetesting.CreateTestModel(c, txnRunner, "mymodel")
 	s.setAgentVersion(c, modelID, expectedVersion.String())
 
-	obtainedVersion, err := state.AgentVersionForModelName(context.Background(), "bob", "mymodel")
+	userName, err := user.NewName("test-usermymodel")
+	c.Assert(err, jc.ErrorIsNil)
+	obtainedVersion, err := state.AgentVersionForModelName(context.Background(), userName, "mymodel")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(obtainedVersion, jc.DeepEquals, expectedVersion)
 }
@@ -88,7 +90,9 @@ func (s *stateSuite) TestAgentVersionForModelNameNotFound(c *gc.C) {
 	txnRunner := s.TxnRunnerFactory()
 	state := modelagentstate.NewState(txnRunner)
 
-	_, err := state.AgentVersionForModelName(context.Background(), "bob", "mymodel")
+	userName, err := user.NewName("test-usermymodel")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = state.AgentVersionForModelName(context.Background(), userName, "mymodel")
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -98,11 +102,12 @@ func (s *stateSuite) TestAgentVersionForModelNameNotFound(c *gc.C) {
 func (s *stateSuite) TestAgentVersionForModelNameCantParseVersion(c *gc.C) {
 	txnRunner := s.TxnRunnerFactory()
 	state := modelagentstate.NewState(txnRunner)
-	modelID := modelstatetesting.CreateTestModelWithConfig(c, txnRunner, "mymodel",
-		modelstatetesting.TestModelConfig{Owner: "bob"})
+	modelID := modelstatetesting.CreateTestModel(c, txnRunner, "mymodel")
 	s.setAgentVersion(c, modelID, "invalid-version")
 
-	_, err := state.AgentVersionForModelName(context.Background(), "bob", "mymodel")
+	userName, err := user.NewName("test-usermymodel")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = state.AgentVersionForModelName(context.Background(), userName, "mymodel")
 	c.Check(err, gc.ErrorMatches, `cannot parse agent version "invalid-version".*`)
 }
 
