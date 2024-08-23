@@ -46,27 +46,6 @@ func (r *actionsResolver) NextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (op operation.Operation, err error) {
-	// During CAAS unit initialization action operations are
-	// deferred until the unit is running. If the remote charm needs
-	// updating, hold off on action running.
-	if remoteState.ActionsBlocked || localState.OutdatedRemoteCharm {
-		r.logger.Debugf("actions are blocked=%v; outdated remote charm=%v - have pending actions: %v", remoteState.ActionsBlocked, localState.OutdatedRemoteCharm, remoteState.ActionsPending)
-		if localState.ActionId == nil {
-			r.logger.Debugf("actions are blocked, no in flight actions")
-			return nil, resolver.ErrNoOperation
-		}
-		// If we were somehow running an action during remote container changes/restart
-		// we need to fail it and move on.
-		r.logger.Infof("incomplete action %v is blocked", *localState.ActionId)
-		if localState.Kind == operation.RunAction {
-			if localState.Hook != nil {
-				r.logger.Infof("recommitting prior %q hook", localState.Hook.Kind)
-				return opFactory.NewSkipHook(*localState.Hook)
-			}
-			return opFactory.NewFailAction(*localState.ActionId)
-		}
-		return nil, resolver.ErrNoOperation
-	}
 	// If there are no operation left to be run, then we cannot return the
 	// error signaling such here, we must first check to see if an action is
 	// already running (that has been interrupted) before we declare that

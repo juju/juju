@@ -60,11 +60,11 @@ func (p RealPaths) GetBaseDir() string {
 	return p.base
 }
 
-func (p RealPaths) GetJujucClientSocket(remote bool) sockets.Socket {
+func (p RealPaths) GetJujucClientSocket() sockets.Socket {
 	return p.socket
 }
 
-func (p RealPaths) GetJujucServerSocket(remote bool) sockets.Socket {
+func (p RealPaths) GetJujucServerSocket() sockets.Socket {
 	return p.socket
 }
 

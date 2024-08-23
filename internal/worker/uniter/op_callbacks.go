@@ -10,12 +10,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker/uniter/charm"
 	"github.com/juju/juju/internal/worker/uniter/hook"
-	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/rpc/params"
 )
@@ -148,18 +146,6 @@ func (opc *operationCallbacks) SetCurrentCharm(ctx stdcontext.Context, charmURL 
 // SetExecutingStatus is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) SetExecutingStatus(ctx stdcontext.Context, message string) error {
 	return setAgentStatus(ctx, opc.u, status.Executing, message, nil)
-}
-
-// RemoteInit is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error {
-	if opc.u.modelType != model.CAAS || opc.u.sidecar {
-		// Non CAAS model or sidecar CAAS model do not have remote init process.
-		return nil
-	}
-	if opc.u.remoteInitFunc == nil {
-		return nil
-	}
-	return opc.u.remoteInitFunc(runningStatus, abort)
 }
 
 // SetSecretRotated is part of the operation.Callbacks interface.

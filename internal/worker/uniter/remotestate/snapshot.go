@@ -81,10 +81,6 @@ type Snapshot struct {
 	// integer to signify changes in the Action's remote state.
 	ActionChanged map[string]int
 
-	// ActionsBlocked is true on CAAS when actions cannot be run due to
-	// pod initialization.
-	ActionsBlocked bool
-
 	// Commands is the list of IDs of commands to be
 	// executed by this unit.
 	Commands []string
@@ -107,10 +103,6 @@ type Snapshot struct {
 	// DeletedSecrets is a list of deleted secret
 	// URIs owned by this unit.
 	DeletedSecrets []string
-
-	// ContainerRunningStatus is set on CAAS models
-	// for remote init/upgrade of charm.
-	ContainerRunningStatus *ContainerRunningStatus
 
 	// LXDProfileName is the name of the lxd profile applied to the unit's
 	// machine for the current charm version.

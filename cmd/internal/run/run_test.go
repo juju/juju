@@ -55,7 +55,6 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		remoteUnit      string
 		remoteApp       string
 		forceRemoteUnit bool
-		operator        bool
 	}{{
 		title:    "no args",
 		errMatch: "missing unit-name",
@@ -152,13 +151,6 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		remoteApp:       "app",
 		forceRemoteUnit: false,
 	}, {
-		title:      "unit id converted to tag",
-		args:       []string{"--operator", "foo/1", "command"},
-		unit:       names.NewUnitTag("foo/1"),
-		commands:   "command",
-		relationId: "",
-		operator:   true,
-	}, {
 		title:           "execute not in a context with unit",
 		args:            []string{"--no-context", "-u", "foo/1"},
 		commands:        "command",
@@ -180,7 +172,6 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 			c.Assert(runCommand.remoteUnitName, gc.Equals, test.remoteUnit)
 			c.Assert(runCommand.remoteApplicationName, gc.Equals, test.remoteApp)
 			c.Assert(runCommand.forceRemoteUnit, gc.Equals, test.forceRemoteUnit)
-			c.Assert(runCommand.operator, gc.Equals, test.operator)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.errMatch)
 		}

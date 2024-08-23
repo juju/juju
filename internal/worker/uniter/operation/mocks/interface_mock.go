@@ -568,45 +568,6 @@ func (c *MockFactoryNewNoOpSecretsRemovedCall) DoAndReturn(f func([]string) (ope
 	return c
 }
 
-// NewRemoteInit mocks base method.
-func (m *MockFactory) NewRemoteInit(arg0 remotestate.ContainerRunningStatus) (operation.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewRemoteInit", arg0)
-	ret0, _ := ret[0].(operation.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// NewRemoteInit indicates an expected call of NewRemoteInit.
-func (mr *MockFactoryMockRecorder) NewRemoteInit(arg0 any) *MockFactoryNewRemoteInitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewRemoteInit", reflect.TypeOf((*MockFactory)(nil).NewRemoteInit), arg0)
-	return &MockFactoryNewRemoteInitCall{Call: call}
-}
-
-// MockFactoryNewRemoteInitCall wrap *gomock.Call
-type MockFactoryNewRemoteInitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockFactoryNewRemoteInitCall) Return(arg0 operation.Operation, arg1 error) *MockFactoryNewRemoteInitCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockFactoryNewRemoteInitCall) Do(f func(remotestate.ContainerRunningStatus) (operation.Operation, error)) *MockFactoryNewRemoteInitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFactoryNewRemoteInitCall) DoAndReturn(f func(remotestate.ContainerRunningStatus) (operation.Operation, error)) *MockFactoryNewRemoteInitCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // NewResignLeadership mocks base method.
 func (m *MockFactory) NewResignLeadership() (operation.Operation, error) {
 	m.ctrl.T.Helper()
@@ -798,45 +759,6 @@ func (c *MockFactoryNewSkipHookCall) Do(f func(hook.Info) (operation.Operation, 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockFactoryNewSkipHookCall) DoAndReturn(f func(hook.Info) (operation.Operation, error)) *MockFactoryNewSkipHookCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// NewSkipRemoteInit mocks base method.
-func (m *MockFactory) NewSkipRemoteInit(arg0 bool) (operation.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewSkipRemoteInit", arg0)
-	ret0, _ := ret[0].(operation.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// NewSkipRemoteInit indicates an expected call of NewSkipRemoteInit.
-func (mr *MockFactoryMockRecorder) NewSkipRemoteInit(arg0 any) *MockFactoryNewSkipRemoteInitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewSkipRemoteInit", reflect.TypeOf((*MockFactory)(nil).NewSkipRemoteInit), arg0)
-	return &MockFactoryNewSkipRemoteInitCall{Call: call}
-}
-
-// MockFactoryNewSkipRemoteInitCall wrap *gomock.Call
-type MockFactoryNewSkipRemoteInitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockFactoryNewSkipRemoteInitCall) Return(arg0 operation.Operation, arg1 error) *MockFactoryNewSkipRemoteInitCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockFactoryNewSkipRemoteInitCall) Do(f func(bool) (operation.Operation, error)) *MockFactoryNewSkipRemoteInitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFactoryNewSkipRemoteInitCall) DoAndReturn(f func(bool) (operation.Operation, error)) *MockFactoryNewSkipRemoteInitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1164,44 +1086,6 @@ func (c *MockCallbacksPrepareHookCall) Do(f func(context.Context, hook.Info) (st
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCallbacksPrepareHookCall) DoAndReturn(f func(context.Context, hook.Info) (string, error)) *MockCallbacksPrepareHookCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// RemoteInit mocks base method.
-func (m *MockCallbacks) RemoteInit(arg0 remotestate.ContainerRunningStatus, arg1 <-chan struct{}) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoteInit", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoteInit indicates an expected call of RemoteInit.
-func (mr *MockCallbacksMockRecorder) RemoteInit(arg0, arg1 any) *MockCallbacksRemoteInitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteInit", reflect.TypeOf((*MockCallbacks)(nil).RemoteInit), arg0, arg1)
-	return &MockCallbacksRemoteInitCall{Call: call}
-}
-
-// MockCallbacksRemoteInitCall wrap *gomock.Call
-type MockCallbacksRemoteInitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCallbacksRemoteInitCall) Return(arg0 error) *MockCallbacksRemoteInitCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCallbacksRemoteInitCall) Do(f func(remotestate.ContainerRunningStatus, <-chan struct{}) error) *MockCallbacksRemoteInitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCallbacksRemoteInitCall) DoAndReturn(f func(remotestate.ContainerRunningStatus, <-chan struct{}) error) *MockCallbacksRemoteInitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/charm"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
-	"github.com/juju/juju/internal/worker/uniter/runner"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 )
 
@@ -101,12 +100,6 @@ type Factory interface {
 	// NewUpgrade creates an upgrade operation for the supplied charm.
 	NewUpgrade(charmURL string) (Operation, error)
 
-	// NewRemoteInit inits the remote charm on CAAS pod.
-	NewRemoteInit(runningStatus remotestate.ContainerRunningStatus) (Operation, error)
-
-	// NewSkipRemoteInit skips a remote-init operation.
-	NewSkipRemoteInit(retry bool) (Operation, error)
-
 	// NewRevertUpgrade creates an operation to clear the unit's resolved flag,
 	// and execute an upgrade to the supplied charm that is careful to excise
 	// remnants of a previously failed upgrade to a different charm.
@@ -159,8 +152,6 @@ type CommandArgs struct {
 	// TODO(jam): 2019-10-24 Include RemoteAppName
 	// ForceRemoteUnit skips unit inference and existence validation.
 	ForceRemoteUnit bool
-	// RunLocation describes where the command must run.
-	RunLocation runner.RunLocation
 }
 
 // Validate the command arguments.
@@ -228,9 +219,6 @@ type Callbacks interface {
 	// SecretsRemoved updates the unit secret state when
 	// secrets are removed.
 	SecretsRemoved(ctx stdcontext.Context, uris []string) error
-
-	// RemoteInit copies the charm to the remote instance. CAAS only.
-	RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error
 }
 
 // StorageUpdater is an interface used for updating local knowledge of storage

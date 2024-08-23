@@ -940,18 +940,18 @@ func (c *MockContextHookStorageCall) DoAndReturn(f func(context.Context) (jujuc.
 }
 
 // HookVars mocks base method.
-func (m *MockContext) HookVars(arg0 context.Context, arg1 context0.Paths, arg2 bool, arg3 context0.Environmenter) ([]string, error) {
+func (m *MockContext) HookVars(arg0 context.Context, arg1 context0.Paths, arg2 context0.Environmenter) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HookVars", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "HookVars", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // HookVars indicates an expected call of HookVars.
-func (mr *MockContextMockRecorder) HookVars(arg0, arg1, arg2, arg3 any) *MockContextHookVarsCall {
+func (mr *MockContextMockRecorder) HookVars(arg0, arg1, arg2 any) *MockContextHookVarsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HookVars", reflect.TypeOf((*MockContext)(nil).HookVars), arg0, arg1, arg2, arg3)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HookVars", reflect.TypeOf((*MockContext)(nil).HookVars), arg0, arg1, arg2)
 	return &MockContextHookVarsCall{Call: call}
 }
 
@@ -967,13 +967,13 @@ func (c *MockContextHookVarsCall) Return(arg0 []string, arg1 error) *MockContext
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContextHookVarsCall) Do(f func(context.Context, context0.Paths, bool, context0.Environmenter) ([]string, error)) *MockContextHookVarsCall {
+func (c *MockContextHookVarsCall) Do(f func(context.Context, context0.Paths, context0.Environmenter) ([]string, error)) *MockContextHookVarsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextHookVarsCall) DoAndReturn(f func(context.Context, context0.Paths, bool, context0.Environmenter) ([]string, error)) *MockContextHookVarsCall {
+func (c *MockContextHookVarsCall) DoAndReturn(f func(context.Context, context0.Paths, context0.Environmenter) ([]string, error)) *MockContextHookVarsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

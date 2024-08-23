@@ -43,19 +43,17 @@ type RemoteStateWatcher struct {
 	enforcedCharmModifiedVersion int
 	logger                       logger.Logger
 
-	relations                     map[names.RelationTag]*wrappedRelationUnitsWatcher
-	relationUnitsChanges          chan relationUnitsChange
-	storageAttachmentWatchers     map[names.StorageTag]*storageAttachmentWatcher
-	storageAttachmentChanges      chan storageAttachmentChange
-	leadershipTracker             leadership.Tracker
-	updateStatusChannel           UpdateStatusTimerFunc
-	commandChannel                <-chan string
-	retryHookChannel              watcher.NotifyChannel
-	containerRunningStatusChannel watcher.NotifyChannel
-	containerRunningStatusFunc    ContainerRunningStatusFunc
-	canApplyCharmProfile          bool
-	workloadEventChannel          <-chan string
-	shutdownChannel               <-chan bool
+	relations                 map[names.RelationTag]*wrappedRelationUnitsWatcher
+	relationUnitsChanges      chan relationUnitsChange
+	storageAttachmentWatchers map[names.StorageTag]*storageAttachmentWatcher
+	storageAttachmentChanges  chan storageAttachmentChange
+	leadershipTracker         leadership.Tracker
+	updateStatusChannel       UpdateStatusTimerFunc
+	commandChannel            <-chan string
+	retryHookChannel          watcher.NotifyChannel
+	canApplyCharmProfile      bool
+	workloadEventChannel      <-chan string
+	shutdownChannel           <-chan bool
 
 	secretsClient api.SecretsWatcher
 
@@ -77,52 +75,31 @@ type RemoteStateWatcher struct {
 	current Snapshot
 }
 
-// ContainerRunningStatus is used on CAAS models to upgrade charms/block actions.
-type ContainerRunningStatus struct {
-	PodName          string
-	Initialising     bool
-	InitialisingTime time.Time
-	Running          bool
-}
-
-// ContainerRunningStatusFunc is used by the RemoteStateWatcher in a CAAS
-// model to determine if the unit is running and ready to execute actions.
-type ContainerRunningStatusFunc func(providerID string) (*ContainerRunningStatus, error)
-
 // WatcherConfig holds configuration parameters for the
 // remote state watcher.
 type WatcherConfig struct {
-	UniterClient                  UniterClient
-	LeadershipTracker             leadership.Tracker
-	SecretRotateWatcherFunc       SecretTriggerWatcherFunc
-	SecretExpiryWatcherFunc       SecretTriggerWatcherFunc
-	SecretsClient                 api.SecretsWatcher
-	UpdateStatusChannel           UpdateStatusTimerFunc
-	CommandChannel                <-chan string
-	RetryHookChannel              watcher.NotifyChannel
-	ContainerRunningStatusChannel watcher.NotifyChannel
-	ContainerRunningStatusFunc    ContainerRunningStatusFunc
-	UnitTag                       names.UnitTag
-	ModelType                     model.ModelType
-	Sidecar                       bool
-	EnforcedCharmModifiedVersion  int
-	Logger                        logger.Logger
-	CanApplyCharmProfile          bool
-	WorkloadEventChannel          <-chan string
-	InitialWorkloadEventIDs       []string
-	ShutdownChannel               <-chan bool
+	UniterClient                 UniterClient
+	LeadershipTracker            leadership.Tracker
+	SecretRotateWatcherFunc      SecretTriggerWatcherFunc
+	SecretExpiryWatcherFunc      SecretTriggerWatcherFunc
+	SecretsClient                api.SecretsWatcher
+	UpdateStatusChannel          UpdateStatusTimerFunc
+	CommandChannel               <-chan string
+	RetryHookChannel             watcher.NotifyChannel
+	UnitTag                      names.UnitTag
+	ModelType                    model.ModelType
+	Sidecar                      bool
+	EnforcedCharmModifiedVersion int
+	Logger                       logger.Logger
+	CanApplyCharmProfile         bool
+	WorkloadEventChannel         <-chan string
+	InitialWorkloadEventIDs      []string
+	ShutdownChannel              <-chan bool
 }
 
 func (w WatcherConfig) validate() error {
 	if w.ModelType == model.IAAS && w.Sidecar {
 		return errors.NewNotValid(nil, fmt.Sprintf("sidecar mode is only for %q model", model.CAAS))
-	}
-
-	if w.ModelType == model.CAAS && !w.Sidecar {
-		if w.ContainerRunningStatusChannel != nil &&
-			w.ContainerRunningStatusFunc == nil {
-			return errors.NotValidf("watcher config for CAAS model with nil container running status func")
-		}
 	}
 	if w.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -137,23 +114,21 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		return nil, errors.Trace(err)
 	}
 	w := &RemoteStateWatcher{
-		client:                        config.UniterClient,
-		relations:                     make(map[names.RelationTag]*wrappedRelationUnitsWatcher),
-		relationUnitsChanges:          make(chan relationUnitsChange),
-		storageAttachmentWatchers:     make(map[names.StorageTag]*storageAttachmentWatcher),
-		storageAttachmentChanges:      make(chan storageAttachmentChange),
-		leadershipTracker:             config.LeadershipTracker,
-		secretRotateWatcherFunc:       config.SecretRotateWatcherFunc,
-		secretExpiryWatcherFunc:       config.SecretExpiryWatcherFunc,
-		secretsClient:                 config.SecretsClient,
-		updateStatusChannel:           config.UpdateStatusChannel,
-		commandChannel:                config.CommandChannel,
-		retryHookChannel:              config.RetryHookChannel,
-		containerRunningStatusChannel: config.ContainerRunningStatusChannel,
-		containerRunningStatusFunc:    config.ContainerRunningStatusFunc,
-		modelType:                     config.ModelType,
-		logger:                        config.Logger,
-		canApplyCharmProfile:          config.CanApplyCharmProfile,
+		client:                    config.UniterClient,
+		relations:                 make(map[names.RelationTag]*wrappedRelationUnitsWatcher),
+		relationUnitsChanges:      make(chan relationUnitsChange),
+		storageAttachmentWatchers: make(map[names.StorageTag]*storageAttachmentWatcher),
+		storageAttachmentChanges:  make(chan storageAttachmentChange),
+		leadershipTracker:         config.LeadershipTracker,
+		secretRotateWatcherFunc:   config.SecretRotateWatcherFunc,
+		secretExpiryWatcherFunc:   config.SecretExpiryWatcherFunc,
+		secretsClient:             config.SecretsClient,
+		updateStatusChannel:       config.UpdateStatusChannel,
+		commandChannel:            config.CommandChannel,
+		retryHookChannel:          config.RetryHookChannel,
+		modelType:                 config.ModelType,
+		logger:                    config.Logger,
+		canApplyCharmProfile:      config.CanApplyCharmProfile,
 		// Note: it is important that the out channel be buffered!
 		// The remote state watcher will perform a non-blocking send
 		// on the channel to wake up the observer. It is non-blocking
@@ -162,7 +137,6 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		current: Snapshot{
 			Relations:               make(map[int]RelationSnapshot),
 			Storage:                 make(map[names.StorageTag]StorageSnapshot),
-			ActionsBlocked:          config.ContainerRunningStatusChannel != nil,
 			ActionChanged:           make(map[string]int),
 			WorkloadEvents:          config.InitialWorkloadEventIDs,
 			ConsumedSecretInfo:      make(map[string]secrets.SecretRevisionInfo),
@@ -347,19 +321,7 @@ func (w *RemoteStateWatcher) setUp(ctx context.Context, unitTag names.UnitTag) (
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if w.containerRunningStatusFunc != nil {
-		providerID := w.unit.ProviderID()
-		if providerID != "" {
-			running, err := w.containerRunningStatusFunc(providerID)
-			if err != nil && !errors.Is(err, errors.NotFound) {
-				return errors.Trace(err)
-			}
-			if running != nil {
-				w.containerRunningStatus(*running)
-			}
-		}
-	}
-	w.logger.Debugf("starting remote state watcher, actions for %s; blocked=%v", w.unit.Tag(), w.current.ActionsBlocked)
+	w.logger.Debugf("starting remote state watcher, actions for %s", w.unit.Tag())
 	return nil
 }
 
@@ -599,29 +561,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenInstanceDataChange)
-
-		case _, ok := <-w.containerRunningStatusChannel:
-			w.logger.Debugf("got running status change for %s", w.unit.Tag().Id())
-			if !ok {
-				return errors.New("running status watcher closed")
-			}
-			if w.current.ProviderID == "" {
-				if err := w.unitChanged(ctx); err != nil {
-					return errors.Trace(err)
-				}
-				if w.current.ProviderID == "" {
-					// This shouldn't happen.
-					w.logger.Warningf("we should already be assigned a provider id for %s but got an empty id", w.unit.Tag().Id())
-					return nil
-				}
-			}
-			runningStatus, err := w.containerRunningStatusFunc(w.current.ProviderID)
-			if err != nil && !errors.Is(err, errors.NotFound) {
-				return errors.Annotatef(err, "getting container running status for %q", unitTag.String())
-			}
-			if runningStatus != nil {
-				w.containerRunningStatus(*runningStatus)
-			}
 
 		case hashes, ok := <-charmConfigw.Changes():
 			w.logger.Debugf("got config change for %s: ok=%t, hashes=%v", w.unit.Tag().Id(), ok, hashes)
@@ -1234,14 +1173,6 @@ func (w *RemoteStateWatcher) actionsChanged(actions []string) {
 			w.current.ActionChanged[action] = 0
 		}
 	}
-}
-
-func (w *RemoteStateWatcher) containerRunningStatus(runningStatus ContainerRunningStatus) {
-	w.mu.Lock()
-	w.logger.Debugf("running status update for %s(provider-id=%s): %+v", w.unit.Tag(), w.current.ProviderID, runningStatus)
-	w.current.ActionsBlocked = !runningStatus.Running
-	w.current.ContainerRunningStatus = &runningStatus
-	w.mu.Unlock()
 }
 
 // storageChanged responds to unit storage changes.

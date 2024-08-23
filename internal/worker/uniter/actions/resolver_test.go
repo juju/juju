@@ -85,23 +85,6 @@ func (s *actionsSuite) TestNextAction(c *gc.C) {
 	c.Assert(op, jc.DeepEquals, mockOp("actionB"))
 }
 
-func (s *actionsSuite) TestNextActionBlocked(c *gc.C) {
-	actionResolver := s.newResolver(c)
-	localState := resolver.LocalState{
-		State: operation.State{
-			Kind: operation.Continue,
-		},
-		CompletedActions: map[string]struct{}{"actionA": {}},
-	}
-	remoteState := remotestate.Snapshot{
-		ActionsPending: []string{"actionA", "actionB"},
-		ActionsBlocked: true,
-	}
-	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, gc.DeepEquals, resolver.ErrNoOperation)
-	c.Assert(op, gc.IsNil)
-}
-
 func (s *actionsSuite) TestNextActionNotAvailable(c *gc.C) {
 	actionResolver := s.newResolver(c)
 	localState := resolver.LocalState{
@@ -116,65 +99,6 @@ func (s *actionsSuite) TestNextActionNotAvailable(c *gc.C) {
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{err: charmrunner.ErrActionNotAvailable})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op, jc.DeepEquals, mockFailAction("actionB"))
-}
-
-func (s *actionsSuite) TestNextActionBlockedRemoteInit(c *gc.C) {
-	actionResolver := s.newResolver(c)
-	localState := resolver.LocalState{
-		State: operation.State{
-			Kind: operation.Continue,
-		},
-		CompletedActions:    map[string]struct{}{"actionA": {}},
-		OutdatedRemoteCharm: true,
-	}
-	remoteState := remotestate.Snapshot{
-		ActionsPending: []string{"actionA", "actionB"},
-		ActionsBlocked: false,
-	}
-	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, gc.DeepEquals, resolver.ErrNoOperation)
-	c.Assert(op, gc.IsNil)
-}
-
-func (s *actionsSuite) TestNextActionBlockedRemoteInitInProgress(c *gc.C) {
-	actionResolver := s.newResolver(c)
-	actionId := "actionB"
-	localState := resolver.LocalState{
-		State: operation.State{
-			Kind:     operation.RunAction,
-			ActionId: &actionId,
-		},
-		CompletedActions:    map[string]struct{}{"actionA": {}},
-		OutdatedRemoteCharm: true,
-	}
-	remoteState := remotestate.Snapshot{
-		ActionsPending: []string{"actionA", "actionB"},
-		ActionsBlocked: false,
-	}
-	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, gc.DeepEquals, mockFailAction("actionB"))
-}
-
-func (s *actionsSuite) TestNextActionBlockedRemoteInitSkipHook(c *gc.C) {
-	actionResolver := s.newResolver(c)
-	actionId := "actionBad"
-	localState := resolver.LocalState{
-		State: operation.State{
-			Kind:     operation.RunAction,
-			ActionId: &actionId,
-			Hook:     &hook.Info{Kind: "test"},
-		},
-		CompletedActions:    map[string]struct{}{"actionA": {}},
-		OutdatedRemoteCharm: false,
-	}
-	remoteState := remotestate.Snapshot{
-		ActionsPending: []string{"actionA", "actionB"},
-		ActionsBlocked: true,
-	}
-	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, gc.DeepEquals, mockSkipHook(*localState.Hook))
 }
 
 func (s *actionsSuite) TestActionStateKindRunAction(c *gc.C) {

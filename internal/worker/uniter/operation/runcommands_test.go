@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/uniter/operation"
-	"github.com/juju/juju/internal/worker/uniter/runner"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 )
 
@@ -105,7 +104,6 @@ func (s *RunCommandsSuite) TestExecuteRebootErrors(c *gc.C) {
 		c.Assert(newState, gc.IsNil)
 		c.Assert(err, gc.Equals, operation.ErrNeedsReboot)
 		c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
-		c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotRunLocation, gc.Equals, runner.Workload)
 		c.Assert(*sendResponse.gotResponse, gc.DeepEquals, &utilexec.ExecResponse{Code: 101})
 		c.Assert(*sendResponse.gotErr, jc.ErrorIsNil)
 	}
@@ -127,7 +125,6 @@ func (s *RunCommandsSuite) TestExecuteOtherError(c *gc.C) {
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "sneh")
 	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
-	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotRunLocation, gc.Equals, runner.Workload)
 	c.Assert(*sendResponse.gotResponse, gc.IsNil)
 	c.Assert(*sendResponse.gotErr, gc.ErrorMatches, "sneh")
 }
@@ -150,7 +147,6 @@ func (s *RunCommandsSuite) TestExecuteConsumeOtherError(c *gc.C) {
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
-	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotRunLocation, gc.Equals, runner.Workload)
 	c.Assert(*sendResponse.gotResponse, gc.IsNil)
 	c.Assert(*sendResponse.gotErr, gc.ErrorMatches, "sneh")
 }
@@ -171,30 +167,6 @@ func (s *RunCommandsSuite) TestExecuteSuccess(c *gc.C) {
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
-	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotRunLocation, gc.Equals, runner.Workload)
-	c.Assert(*sendResponse.gotResponse, gc.DeepEquals, &utilexec.ExecResponse{Code: 222})
-	c.Assert(*sendResponse.gotErr, jc.ErrorIsNil)
-}
-
-func (s *RunCommandsSuite) TestExecuteSuccessOperator(c *gc.C) {
-	runnerFactory := NewRunCommandsRunnerFactory(
-		&utilexec.ExecResponse{Code: 222}, nil,
-	)
-	callbacks := &RunCommandsCallbacks{}
-	factory := newOpFactory(c, runnerFactory, callbacks)
-	sendResponse := &MockSendResponse{}
-	commandArgs := someCommandArgs
-	commandArgs.RunLocation = runner.Operator
-	op, err := factory.NewCommands(commandArgs, sendResponse.Call)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = op.Prepare(stdcontext.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	newState, err := op.Execute(stdcontext.Background(), operation.State{})
-	c.Assert(newState, gc.IsNil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
-	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotRunLocation, gc.Equals, runner.Operator)
 	c.Assert(*sendResponse.gotResponse, gc.DeepEquals, &utilexec.ExecResponse{Code: 222})
 	c.Assert(*sendResponse.gotErr, jc.ErrorIsNil)
 }

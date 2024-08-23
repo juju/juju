@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
-	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/juju/sockets"
 )
 
@@ -56,18 +55,12 @@ func (paths Paths) GetResourcesDir() string {
 }
 
 // GetJujucClientSocket exists to satisfy the context.Paths interface.
-func (paths Paths) GetJujucClientSocket(remote bool) sockets.Socket {
-	if remote {
-		return paths.Runtime.RemoteJujucServerSocket.Client
-	}
+func (paths Paths) GetJujucClientSocket() sockets.Socket {
 	return paths.Runtime.LocalJujucServerSocket.Client
 }
 
 // GetJujucServerSocket exists to satisfy the context.Paths interface.
-func (paths Paths) GetJujucServerSocket(remote bool) sockets.Socket {
-	if remote {
-		return paths.Runtime.RemoteJujucServerSocket.Server
-	}
+func (paths Paths) GetJujucServerSocket() sockets.Socket {
 	return paths.Runtime.LocalJujucServerSocket.Server
 }
 
@@ -75,8 +68,6 @@ func (paths Paths) GetJujucServerSocket(remote bool) sockets.Socket {
 func (paths Paths) GetMetricsSpoolDir() string {
 	return paths.State.MetricsSpoolDir
 }
-
-const jujucServerSocketPort = 30000
 
 // SocketPair is a server+client pair of socket descriptors.
 type SocketPair struct {
@@ -90,16 +81,9 @@ type RuntimePaths struct {
 	// active.
 	LocalJujuExecSocket SocketPair
 
-	// RemoteJujuExecSocket listens for remote juju-exec invocations.
-	RemoteJujuExecSocket SocketPair
-
 	// JujucServerSocket listens for jujuc invocations, and is only
 	// active when supporting a jujuc execution context.
 	LocalJujucServerSocket SocketPair
-
-	// RemoteJujucServerSocket listens for remote jujuc invocations, and is only
-	// active when supporting a jujuc execution context.
-	RemoteJujucServerSocket SocketPair
 }
 
 // StatePaths represents the set of paths that hold persistent local state for
@@ -149,48 +133,12 @@ func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string, socket
 	join := filepath.Join
 	stateDir := join(baseDir, "state")
 
-	var newSocket func(name string) SocketPair
-	if socketConfig != nil {
-		newSocket = func(name string) SocketPair {
-			var port int
-			var address string
-			switch name {
-			case "agent":
-				port = jujucServerSocketPort + unitTag.Number()
-				address = socketConfig.OperatorAddress
-			case "run":
-				port = caasconstants.JujuExecServerSocketPort
-				address = socketConfig.ServiceAddress
-			default:
-				return SocketPair{}
-			}
-			return SocketPair{
-				Client: sockets.Socket{
-					Network:   "tcp",
-					Address:   fmt.Sprintf("%s:%d", address, port),
-					TLSConfig: socketConfig.TLSConfig,
-				},
-				Server: sockets.Socket{
-					Network:   "tcp",
-					Address:   fmt.Sprintf(":%d", port),
-					TLSConfig: socketConfig.TLSConfig,
-				},
-			}
-		}
-	} else {
-		newSocket = func(name string) SocketPair {
-			return SocketPair{}
-		}
-	}
-
 	toolsDir := tools.ToolsDir(dataDir, unitTag.String())
 	return Paths{
 		ToolsDir: filepath.FromSlash(toolsDir),
 		Runtime: RuntimePaths{
-			RemoteJujuExecSocket:    newSocket("run"),
-			RemoteJujucServerSocket: newSocket("agent"),
-			LocalJujuExecSocket:     newUnixSocket(baseDir, unitTag, worker, "run", false),
-			LocalJujucServerSocket:  newUnixSocket(baseDir, unitTag, worker, "agent", true),
+			LocalJujuExecSocket:    newUnixSocket(baseDir, unitTag, worker, "run", false),
+			LocalJujucServerSocket: newUnixSocket(baseDir, unitTag, worker, "agent", true),
 		},
 		State: StatePaths{
 			BaseDir:         baseDir,

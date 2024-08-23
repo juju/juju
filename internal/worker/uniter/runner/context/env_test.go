@@ -228,7 +228,7 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 	//ctx, contextVars := s.getContext(false, state, unit)
 	hookContext, contextVars := s.getHookContext(c, false, state, unit)
 	paths, pathsVars := s.getPaths()
-	actualVars, err := hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
+	actualVars, err := hookContext.HookVars(stdcontext.Background(), paths, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
 
@@ -238,7 +238,7 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 	workloadVars := s.setWorkload(hookContext)
 	noticeVars := s.setNotice(hookContext)
 	checkVars := s.setCheck(hookContext)
-	actualVars, err = hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
+	actualVars, err = hookContext.HookVars(stdcontext.Background(), paths, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars, workloadVars, noticeVars, checkVars)
 }

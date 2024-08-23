@@ -348,17 +348,11 @@ func (MockEnvPaths) GetBaseDir() string {
 	return "path-to-base"
 }
 
-func (MockEnvPaths) GetJujucClientSocket(remote bool) sockets.Socket {
-	if remote {
-		return sockets.Socket{Network: "tcp", Address: "127.0.0.1:32000"}
-	}
+func (MockEnvPaths) GetJujucClientSocket() sockets.Socket {
 	return sockets.Socket{Network: "unix", Address: "path-to-jujuc.socket"}
 }
 
-func (MockEnvPaths) GetJujucServerSocket(remote bool) sockets.Socket {
-	if remote {
-		return sockets.Socket{Network: "tcp", Address: "127.0.0.1:32000"}
-	}
+func (MockEnvPaths) GetJujucServerSocket() sockets.Socket {
 	return sockets.Socket{Network: "unix", Address: "path-to-jujuc.socket"}
 }
 
