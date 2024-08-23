@@ -534,17 +534,17 @@ func (c *MockApplicationStateSetApplicationScalingStateCall) DoAndReturn(f func(
 }
 
 // SetDesiredApplicationScale mocks base method.
-func (m *MockApplicationState) SetDesiredApplicationScale(arg0 domain.AtomicContext, arg1 application.ID, arg2 int, arg3 bool) error {
+func (m *MockApplicationState) SetDesiredApplicationScale(arg0 domain.AtomicContext, arg1 application.ID, arg2 int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetDesiredApplicationScale", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "SetDesiredApplicationScale", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetDesiredApplicationScale indicates an expected call of SetDesiredApplicationScale.
-func (mr *MockApplicationStateMockRecorder) SetDesiredApplicationScale(arg0, arg1, arg2, arg3 any) *MockApplicationStateSetDesiredApplicationScaleCall {
+func (mr *MockApplicationStateMockRecorder) SetDesiredApplicationScale(arg0, arg1, arg2 any) *MockApplicationStateSetDesiredApplicationScaleCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDesiredApplicationScale", reflect.TypeOf((*MockApplicationState)(nil).SetDesiredApplicationScale), arg0, arg1, arg2, arg3)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDesiredApplicationScale", reflect.TypeOf((*MockApplicationState)(nil).SetDesiredApplicationScale), arg0, arg1, arg2)
 	return &MockApplicationStateSetDesiredApplicationScaleCall{Call: call}
 }
 
@@ -560,13 +560,13 @@ func (c *MockApplicationStateSetDesiredApplicationScaleCall) Return(arg0 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateSetDesiredApplicationScaleCall) Do(f func(domain.AtomicContext, application.ID, int, bool) error) *MockApplicationStateSetDesiredApplicationScaleCall {
+func (c *MockApplicationStateSetDesiredApplicationScaleCall) Do(f func(domain.AtomicContext, application.ID, int) error) *MockApplicationStateSetDesiredApplicationScaleCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateSetDesiredApplicationScaleCall) DoAndReturn(f func(domain.AtomicContext, application.ID, int, bool) error) *MockApplicationStateSetDesiredApplicationScaleCall {
+func (c *MockApplicationStateSetDesiredApplicationScaleCall) DoAndReturn(f func(domain.AtomicContext, application.ID, int) error) *MockApplicationStateSetDesiredApplicationScaleCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -695,16 +695,13 @@ WHERE name = $applicationName.name
 }
 
 // SetDesiredApplicationScale updates the desired scale of the specified application.
-func (st *ApplicationState) SetDesiredApplicationScale(ctx domain.AtomicContext, appID coreapplication.ID, scale int, protected bool) error {
+func (st *ApplicationState) SetDesiredApplicationScale(ctx domain.AtomicContext, appID coreapplication.ID, scale int) error {
 	scaleDetails := applicationScale{
-		ApplicationID:         appID.String(),
-		Scale:                 scale,
-		DesiredScaleProtected: protected,
+		ApplicationID: appID.String(),
+		Scale:         scale,
 	}
 	upsertApplicationScale := `
-UPDATE application_scale SET
-    scale = $applicationScale.scale,
-    desired_scale_protected = $applicationScale.desired_scale_protected
+UPDATE application_scale SET scale = $applicationScale.scale
 WHERE application_uuid = $applicationScale.application_uuid
 `
 

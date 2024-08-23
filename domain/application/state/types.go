@@ -48,19 +48,17 @@ type applicationChannel struct {
 }
 
 type applicationScale struct {
-	ApplicationID         string `db:"application_uuid"`
-	Scaling               bool   `db:"scaling"`
-	Scale                 int    `db:"scale"`
-	ScaleTarget           int    `db:"scale_target"`
-	DesiredScaleProtected bool   `db:"desired_scale_protected"`
+	ApplicationID string `db:"application_uuid"`
+	Scaling       bool   `db:"scaling"`
+	Scale         int    `db:"scale"`
+	ScaleTarget   int    `db:"scale_target"`
 }
 
 func (as applicationScale) toScaleState() application.ScaleState {
 	return application.ScaleState{
-		Scaling:               as.Scaling,
-		Scale:                 as.Scale,
-		ScaleTarget:           as.ScaleTarget,
-		DesiredScaleProtected: as.DesiredScaleProtected,
+		Scaling:     as.Scaling,
+		Scale:       as.Scale,
+		ScaleTarget: as.ScaleTarget,
 	}
 }
 

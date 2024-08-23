@@ -238,17 +238,17 @@ func (c *MockApplicationServiceCreateApplicationCall) DoAndReturn(f func(context
 }
 
 // SetApplicationScale mocks base method.
-func (m *MockApplicationService) SetApplicationScale(arg0 context.Context, arg1 string, arg2 int, arg3 bool) error {
+func (m *MockApplicationService) SetApplicationScale(arg0 context.Context, arg1 string, arg2 int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetApplicationScale", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "SetApplicationScale", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetApplicationScale indicates an expected call of SetApplicationScale.
-func (mr *MockApplicationServiceMockRecorder) SetApplicationScale(arg0, arg1, arg2, arg3 any) *MockApplicationServiceSetApplicationScaleCall {
+func (mr *MockApplicationServiceMockRecorder) SetApplicationScale(arg0, arg1, arg2 any) *MockApplicationServiceSetApplicationScaleCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationScale", reflect.TypeOf((*MockApplicationService)(nil).SetApplicationScale), arg0, arg1, arg2, arg3)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationScale", reflect.TypeOf((*MockApplicationService)(nil).SetApplicationScale), arg0, arg1, arg2)
 	return &MockApplicationServiceSetApplicationScaleCall{Call: call}
 }
 
@@ -264,13 +264,13 @@ func (c *MockApplicationServiceSetApplicationScaleCall) Return(arg0 error) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceSetApplicationScaleCall) Do(f func(context.Context, string, int, bool) error) *MockApplicationServiceSetApplicationScaleCall {
+func (c *MockApplicationServiceSetApplicationScaleCall) Do(f func(context.Context, string, int) error) *MockApplicationServiceSetApplicationScaleCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceSetApplicationScaleCall) DoAndReturn(f func(context.Context, string, int, bool) error) *MockApplicationServiceSetApplicationScaleCall {
+func (c *MockApplicationServiceSetApplicationScaleCall) DoAndReturn(f func(context.Context, string, int) error) *MockApplicationServiceSetApplicationScaleCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -1699,7 +1699,7 @@ func (api *APIBase) ScaleApplications(ctx context.Context, args params.ScaleAppl
 			}
 			info.Scale = newScale
 		} else {
-			if err := api.applicationService.SetApplicationScale(ctx, name, arg.Scale, true); err != nil {
+			if err := api.applicationService.SetApplicationScale(ctx, name, arg.Scale); err != nil {
 				return nil, errors.Trace(err)
 			}
 			info.Scale = arg.Scale

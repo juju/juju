@@ -31,7 +31,7 @@ type NetworkService interface {
 // ApplicationService is used to interact with the application service.
 type ApplicationService interface {
 	GetApplicationScale(ctx context.Context, appName string) (int, error)
-	SetApplicationScale(ctx context.Context, appName string, scale int, force bool) error
+	SetApplicationScale(ctx context.Context, appName string, scale int) error
 	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
 	WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error)
 }
@@ -231,7 +231,7 @@ func (f *Facade) UpdateApplicationsService(ctx context.Context, args params.Upda
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 		if appUpdate.Scale != nil {
-			if err := f.applicationService.SetApplicationScale(ctx, appName, *appUpdate.Scale, false); err != nil {
+			if err := f.applicationService.SetApplicationScale(ctx, appName, *appUpdate.Scale); err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 			}
 		}

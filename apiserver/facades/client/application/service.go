@@ -59,7 +59,7 @@ type ApplicationService interface {
 	UpdateApplicationCharm(ctx context.Context, name string, params applicationservice.UpdateCharmParams) error
 	// SetApplicationScale sets the application's desired scale value.
 	// This is used on CAAS models.
-	SetApplicationScale(ctx context.Context, name string, scale int, force bool) error
+	SetApplicationScale(ctx context.Context, name string, scale int) error
 	// ChangeApplicationScale alters the existing scale by the provided change amount, returning the new amount.
 	// This is used on CAAS models.
 	ChangeApplicationScale(ctx context.Context, name string, scaleChange int) (int, error)

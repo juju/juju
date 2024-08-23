@@ -364,32 +364,18 @@ func (s *applicationStateSuite) TestSetDesiredApplicationScale(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 
 	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetDesiredApplicationScale(ctx, appID, 666, true)
+		return s.state.SetDesiredApplicationScale(ctx, appID, 666)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkResult := func(want application.ScaleState) {
-		var got application.ScaleState
-		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-			err := tx.QueryRowContext(ctx, "SELECT scale, desired_scale_protected FROM application_scale WHERE application_uuid=?", appID).
-				Scan(&got.Scale, &got.DesiredScaleProtected)
-			return errors.Trace(err)
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(got, jc.DeepEquals, want)
-	}
-	checkResult(application.ScaleState{
-		Scale:                 666,
-		DesiredScaleProtected: true,
-	})
-
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetDesiredApplicationScale(ctx, appID, 668, false)
+	var gotScale int
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_scale WHERE application_uuid=?", appID).
+			Scan(&gotScale)
+		return errors.Trace(err)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	checkResult(application.ScaleState{
-		Scale: 668,
-	})
+	c.Assert(gotScale, jc.DeepEquals, 666)
 }
 
 func (s *applicationStateSuite) TestSetApplicationScalingState(c *gc.C) {
@@ -400,7 +386,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingState(c *gc.C) {
 
 	// Set up the initial scale value.
 	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetDesiredApplicationScale(ctx, appID, 666, false)
+		return s.state.SetDesiredApplicationScale(ctx, appID, 666)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

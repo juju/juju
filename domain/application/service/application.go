@@ -63,7 +63,7 @@ type AtomicApplicationState interface {
 	SetApplicationScalingState(ctx domain.AtomicContext, appID coreapplication.ID, scale *int, targetScale int, scaling bool) error
 
 	// SetDesiredApplicationScale updates the desired scale of the specified application.
-	SetDesiredApplicationScale(ctx domain.AtomicContext, appID coreapplication.ID, scale int, protected bool) error
+	SetDesiredApplicationScale(ctx domain.AtomicContext, appID coreapplication.ID, scale int) error
 
 	// UnitLife looks up the life of the specified unit, returning an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit is not found.
@@ -434,7 +434,7 @@ func (s *ApplicationService) CAASUnitTerminating(ctx context.Context, appName st
 // SetApplicationScale sets the application's desired scale value, returning an error
 // satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
 // This is used on CAAS models.
-func (s *ApplicationService) SetApplicationScale(ctx context.Context, appName string, scale int, force bool) error {
+func (s *ApplicationService) SetApplicationScale(ctx context.Context, appName string, scale int) error {
 	if scale < 0 {
 		return fmt.Errorf("application scale %d not valid%w", scale, errors.Hide(applicationerrors.ScaleChangeInvalid))
 	}
@@ -448,15 +448,9 @@ func (s *ApplicationService) SetApplicationScale(ctx context.Context, appName st
 			return errors.Annotatef(err, "getting application scale state for app %q", appID)
 		}
 		s.logger.Tracef(
-			"SetScale DesiredScaleProtected %v, DesiredScale %v -> %v",
-			appScale.DesiredScaleProtected, appScale.Scale, scale,
+			"SetScale DesiredScale %v -> %v", appScale.Scale, scale,
 		)
-		if appScale.DesiredScaleProtected && !force && scale != appScale.Scale {
-			return fmt.Errorf(
-				"%w: SetScale(%d) without force while desired scale %d is not applied yet",
-				applicationerrors.ScaleChangeInvalid, scale, appScale.Scale)
-		}
-		return s.st.SetDesiredApplicationScale(ctx, appID, scale, force)
+		return s.st.SetDesiredApplicationScale(ctx, appID, scale)
 	})
 	return errors.Annotatef(err, "setting scale for application %q", appName)
 }
@@ -510,7 +504,7 @@ func (s *ApplicationService) ChangeApplicationScale(ctx context.Context, appName
 			return fmt.Errorf(
 				"%w: cannot remove more units than currently exist", applicationerrors.ScaleChangeInvalid)
 		}
-		err = s.st.SetDesiredApplicationScale(ctx, appID, newScale, true)
+		err = s.st.SetDesiredApplicationScale(ctx, appID, newScale)
 		return errors.Annotatef(err, "changing scaling state for %q", appName)
 	})
 	return newScale, errors.Annotatef(err, "changing scale for %q", appName)

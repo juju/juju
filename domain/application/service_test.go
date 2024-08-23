@@ -296,16 +296,13 @@ func (s *serviceSuite) TestGetScalingState(c *gc.C) {
 func (s *serviceSuite) TestSetScale(c *gc.C) {
 	appID := s.createApplication(c, s.svc, "foo")
 
-	err := s.svc.SetApplicationScale(context.Background(), "foo", 666, false)
+	err := s.svc.SetApplicationScale(context.Background(), "foo", 666)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var (
-		gotScale          int
-		gotScaleProtected bool
-	)
+	var gotScale int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT scale, desired_scale_protected FROM application_scale WHERE application_uuid = ?", appID).
-			Scan(&gotScale, &gotScaleProtected)
+		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_scale WHERE application_uuid = ?", appID).
+			Scan(&gotScale)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -313,49 +310,12 @@ func (s *serviceSuite) TestSetScale(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotScale, gc.Equals, 666)
-	c.Assert(gotScaleProtected, jc.IsFalse)
-}
-
-func (s *serviceSuite) TestSetScaleProtectedNoMatch(c *gc.C) {
-	s.createApplication(c, s.svc, "foo")
-
-	err := s.svc.SetApplicationScale(context.Background(), "foo", 666, true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.svc.SetApplicationScale(context.Background(), "foo", 667, false)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ScaleChangeInvalid)
-}
-
-func (s *serviceSuite) TestSetScaleProtectedNoMatchForce(c *gc.C) {
-	appID := s.createApplication(c, s.svc, "foo")
-
-	err := s.svc.SetApplicationScale(context.Background(), "foo", 666, true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.svc.SetApplicationScale(context.Background(), "foo", 667, true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var (
-		gotScale          int
-		gotScaleProtected bool
-	)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT scale, desired_scale_protected FROM application_scale WHERE application_uuid = ?", appID).
-			Scan(&gotScale, &gotScaleProtected)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotScale, gc.Equals, 667)
-	c.Assert(gotScaleProtected, jc.IsTrue)
 }
 
 func (s *serviceSuite) TestGetScale(c *gc.C) {
 	s.createApplication(c, s.svc, "foo")
 
-	err := s.svc.SetApplicationScale(context.Background(), "foo", 666, false)
+	err := s.svc.SetApplicationScale(context.Background(), "foo", 666)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := s.svc.GetApplicationScale(context.Background(), "foo")

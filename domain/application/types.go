@@ -23,10 +23,9 @@ type Platform struct {
 
 // ScaleState describes the scale status of a k8s application.
 type ScaleState struct {
-	Scaling               bool
-	Scale                 int
-	ScaleTarget           int
-	DesiredScaleProtected bool
+	Scaling     bool
+	Scale       int
+	ScaleTarget int
 }
 
 // CloudService contains parameters for an application's cloud service.

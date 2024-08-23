@@ -378,28 +378,28 @@ func (s *watcherSuite) TestWatchApplicationScale(c *gc.C) {
 	harness := watchertest.NewHarness[struct{}](s, watchertest.NewWatcherC[struct{}](c, watcher))
 	harness.AddTest(func(c *gc.C) {
 		// First update after creating the app.
-		err = svc.SetApplicationScale(ctx, "foo", 2, false)
+		err = svc.SetApplicationScale(ctx, "foo", 2)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 	harness.AddTest(func(c *gc.C) {
 		// Update same value.
-		err = svc.SetApplicationScale(ctx, "foo", 2, false)
+		err = svc.SetApplicationScale(ctx, "foo", 2)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 	harness.AddTest(func(c *gc.C) {
 		// Update new value.
-		err = svc.SetApplicationScale(ctx, "foo", 3, false)
+		err = svc.SetApplicationScale(ctx, "foo", 3)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 	harness.AddTest(func(c *gc.C) {
 		// Different app.
-		err = svc.SetApplicationScale(ctx, "bar", 2, false)
+		err = svc.SetApplicationScale(ctx, "bar", 2)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
