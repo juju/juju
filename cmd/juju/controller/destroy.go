@@ -367,9 +367,9 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		ctx.Infof("Waiting for model resources to be reclaimed")
 		// wait for 2 seconds to let empty hosted models changed from alive to dying.
 		for ; hasUnreclaimedResources(modelStatus); modelStatus = updateStatus(2 * time.Second) {
-			ctx.Infof(fmtCtrStatus(modelStatus.Controller))
+			ctx.Infof("%s", fmtCtrStatus(modelStatus.Controller))
 			for _, model := range modelStatus.Models {
-				ctx.Verbosef(fmtModelStatus(model))
+				ctx.Verbosef("%s", fmtModelStatus(model))
 			}
 		}
 		ctx.Infof("All models reclaimed, cleaning up controller machines")
@@ -498,7 +498,7 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 				logger.Errorf("Unable to list models: %s", err)
 				return cmd.ErrSilent
 			}
-			ctx.Infof(out.String())
+			ctx.Infof("%s", out.String())
 		}
 		return cmd.ErrSilent
 	}

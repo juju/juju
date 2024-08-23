@@ -57,7 +57,6 @@ linters:
     - ineffassign
     - misspell
     - unconvert
-    - exportloopref
     - unused
     - sqlclosecheck
     - revive

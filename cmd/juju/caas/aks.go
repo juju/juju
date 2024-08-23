@@ -32,9 +32,8 @@ func (a *aks) cloud() string {
 func (a *aks) ensureExecutable() error {
 	cmd := []string{"which", "az"}
 	err := collapseRunError(runCommand(a, cmd, ""))
-	errAnnotationMessage := "az not found. Please 'apt install az' (see: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-apt?view=azure-cli-latest), login, and try again"
 	if err != nil {
-		return errors.Errorf(errAnnotationMessage)
+		return errors.Errorf("az not found. Please 'apt install az' (see: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-apt?view=azure-cli-latest), login, and try again")
 	}
 
 	// check that we are logged in, there is no way to provide login details to a separate command.

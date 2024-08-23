@@ -1479,7 +1479,7 @@ func (c *stubConnection) APICall(ctx context.Context, objType string, _ int, _, 
 			results := response.(*params.ErrorResults)
 			for _, msg := range c.machineErrs {
 				results.Results = append(results.Results, params.ErrorResult{
-					Error: apiservererrors.ServerError(errors.Errorf(msg)),
+					Error: apiservererrors.ServerError(errors.Errorf("%s", msg)),
 				})
 			}
 			return c.checkMachineErr

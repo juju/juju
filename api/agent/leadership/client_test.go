@@ -127,7 +127,7 @@ func (s *ClientSuite) TestClaimLeadershipFacadeCallError(c *gc.C) {
 	numStubCalls := 0
 	apiCaller := s.apiCaller(c, func(_ string, _, _ interface{}) error {
 		numStubCalls++
-		return errors.Errorf(errMsg)
+		return errors.Errorf("%s", errMsg)
 	})
 
 	client := leadership.NewClient(apiCaller)
@@ -184,7 +184,7 @@ func (s *ClientSuite) TestBlockUntilLeadershipReleasedFacadeCallError(c *gc.C) {
 	numStubCalls := 0
 	apiCaller := s.apiCaller(c, func(_ string, _, _ interface{}) error {
 		numStubCalls++
-		return errors.Errorf(errMsg)
+		return errors.Errorf("%s", errMsg)
 	})
 
 	client := leadership.NewClient(apiCaller)

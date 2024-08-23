@@ -51,12 +51,12 @@ that Go versions are not incremented during a release cycle. Check the `go.mod`
 file at the root of the project for the targeted version of Go, as this is
 authoritative.
 
-For example, the following indicates that Go 1.22 is targeted:
+For example, the following indicates that Go 1.23 is targeted:
 
 ```
 module github.com/juju/juju
 
-go 1.22
+go 1.23
 ```
 
 ### Official distribution

@@ -81,7 +81,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 		var testData liveTestData
 		liveURLs, err := getLiveURLs()
 		if err != nil {
-			t.Fatalf(err.Error())
+			t.Fatalf("%s", err.Error())
 		}
 		if testData, ok = liveURLs[*vendor]; !ok {
 			keys := reflect.ValueOf(liveURLs).MapKeys()

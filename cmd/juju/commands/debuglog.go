@@ -559,7 +559,7 @@ func (c *debugLogCommand) writeText(w io.Writer, v interface{}) error {
 		fmt.Fprintf(w, "%s: ", r.ModelUUID)
 	}
 	fmt.Fprintf(w, "%s: %s ", r.Entity, ts)
-	SeverityColor[r.Level].Fprintf(c.tw, r.Level.String())
+	SeverityColor[r.Level].Fprintf(c.tw, "%s", r.Level.String())
 	fmt.Fprintf(w, " %s ", r.Module)
 	if c.location {
 		loggocolor.LocationColor.Fprintf(c.tw, "%s ", r.Location)

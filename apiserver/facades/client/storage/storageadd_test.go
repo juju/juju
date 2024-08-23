@@ -92,7 +92,7 @@ func (s *storageAddSuite) TestStorageAddUnitStateError(c *gc.C) {
 	msg := "add test directive error"
 	s.storageAccessor.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
 		s.stub.AddCall(addStorageForUnitCall)
-		return nil, errors.Errorf(msg)
+		return nil, errors.Errorf("%s", msg)
 	}
 
 	args := params.StorageAddParams{
@@ -122,7 +122,7 @@ func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *gc.C) {
 	s.storageAccessor.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
 		s.stub.AddCall(addStorageForUnitCall)
 		if name == "" {
-			return nil, errors.Errorf(msg)
+			return nil, errors.Errorf("%s", msg)
 		}
 		return nil, nil
 	}

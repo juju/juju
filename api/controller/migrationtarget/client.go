@@ -295,7 +295,7 @@ func (c *Client) CheckMachines(ctx context.Context, modelUUID string) ([]error, 
 	}
 	var results []error
 	for _, res := range result.Results {
-		results = append(results, errors.Errorf(res.Error.Message))
+		results = append(results, errors.Errorf("%s", res.Error.Message))
 	}
 	return results, nil
 }

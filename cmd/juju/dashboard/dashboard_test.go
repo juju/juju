@@ -5,7 +5,6 @@ package dashboard_test
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"os"
 	"strings"
@@ -135,9 +134,9 @@ func (s *dashboardSuite) TestDashboardSuccessNoBrowser(c *gc.C) {
 	// There is no need to patch the browser open function here.
 	out, err := s.run(c, "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.Contains, fmt.Sprintf(`
+	c.Assert(out, jc.Contains, `
 Dashboard for controller "kontroll" is enabled at:
-  http://10.1.1.1:6767`[1:]))
+  http://10.1.1.1:6767`[1:])
 }
 
 func (s *dashboardSuite) TestDashboardSuccessBrowserNotFound(c *gc.C) {

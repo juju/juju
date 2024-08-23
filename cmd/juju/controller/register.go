@@ -694,7 +694,7 @@ func (c *registerCommand) promptControllerName(suggestedName string, stderr io.W
 			}
 			setMsg = fmt.Sprintf("Enter a name for this controller [%s%s]: ", replace, suggestedName)
 		}
-		fmt.Fprintf(stderr, setMsg)
+		fmt.Fprintf(stderr, "%s", setMsg)
 		name, err := c.readLine(stdin)
 		if err != nil {
 			return "", errors.Trace(err)

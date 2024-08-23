@@ -154,7 +154,7 @@ func (p *Pollster) Enter(valueName string) (string, error) {
 func (p *Pollster) EnterPassword(valueName string) (string, error) {
 	if f, ok := p.in.(*os.File); ok && terminal.IsTerminal(int(f.Fd())) {
 		defer fmt.Fprint(p.out, "\n\n")
-		if _, err := fmt.Fprintf(p.out, "Enter "+valueName+": "); err != nil {
+		if _, err := fmt.Fprintf(p.out, "Enter %s: ", valueName); err != nil {
 			return "", errors.Trace(err)
 		}
 		value, err := terminal.ReadPassword(int(f.Fd()))

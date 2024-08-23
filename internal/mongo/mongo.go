@@ -341,7 +341,7 @@ func ensureMongoServiceRunning(ctx context.Context, svc MongoSnapService) error 
 			if err != nil {
 				// If the service is not installed, then we should attempt
 				// to install it.
-				return errors.Annotatef(ErrMongoServiceNotInstalled, err.Error())
+				return errors.Annotatef(ErrMongoServiceNotInstalled, "%s", err.Error())
 			}
 			if running {
 				return nil

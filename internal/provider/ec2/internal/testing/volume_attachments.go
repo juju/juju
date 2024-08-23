@@ -28,7 +28,7 @@ func (srv *Server) AttachVolume(ctx context.Context, in *ec2.AttachVolumeInput, 
 		return nil, err
 	}
 	if vol.State != "available" {
-		return nil, apiError(" IncorrectState", "cannot attach volume that is not available: %v", volId)
+		return nil, apiError("IncorrectState", "cannot attach volume that is not available: %v", volId)
 	}
 	attachment.VolumeId = in.VolumeId
 
