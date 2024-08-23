@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/juju/juju/core/user"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 )

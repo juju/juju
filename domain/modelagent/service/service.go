@@ -5,12 +5,12 @@ package service
 
 import (
 	"context"
-	"github.com/juju/juju/core/user"
 
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/user"
 )
 
 // State provides the state methods needed by the modelagent service.

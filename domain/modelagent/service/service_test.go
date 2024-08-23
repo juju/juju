@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/juju/juju/core/user"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -15,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/user"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 )
 

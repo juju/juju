@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"context"
-	"github.com/juju/juju/core/user"
 
 	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelstatetesting "github.com/juju/juju/domain/model/state/testing"
