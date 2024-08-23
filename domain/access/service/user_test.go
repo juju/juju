@@ -529,7 +529,7 @@ func FuzzGetUser(f *testing.F) {
 func (s *userServiceSuite) TestUpdateLastModelLogin(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.state.EXPECT().UpdateLastModelLogin(gomock.Any(), coreusertesting.GenNewName(c, "name"), modelUUID)
+	s.state.EXPECT().UpdateLastModelLogin(gomock.Any(), coreusertesting.GenNewName(c, "name"), modelUUID, gomock.Any())
 
 	err := s.service().UpdateLastModelLogin(context.Background(), coreusertesting.GenNewName(c, "name"), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)

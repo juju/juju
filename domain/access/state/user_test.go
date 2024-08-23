@@ -1313,9 +1313,10 @@ func (s *userStateSuite) TestUpdateLastModelLogin(c *gc.C) {
 	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-update-last-login-model")
 	st := NewUserState(s.TxnRunnerFactory())
 	name, adminUUID := s.addTestUser(c, st, "admin")
+	loginTime := time.Now()
 
 	// Update last login.
-	err := st.UpdateLastModelLogin(context.Background(), name, modelUUID)
+	err := st.UpdateLastModelLogin(context.Background(), name, modelUUID, loginTime)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the last login was updated correctly.
@@ -1334,7 +1335,7 @@ WHERE user_uuid = ?
 	err = row.Scan(&dbUserUUID, &dbModelUUID, &lastLogin)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(lastLogin, gc.NotNil)
+	c.Assert(lastLogin.UTC(), gc.Equals, loginTime.Round(time.Second).UTC())
 	c.Assert(dbUserUUID, gc.Equals, string(adminUUID))
 	c.Assert(dbModelUUID, gc.Equals, string(modelUUID))
 }
@@ -1346,7 +1347,7 @@ func (s *userStateSuite) TestUpdateLastModelLoginModelNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Update last login.
-	err = st.UpdateLastModelLogin(context.Background(), name, badModelUUID)
+	err = st.UpdateLastModelLogin(context.Background(), name, badModelUUID, time.Time{})
 	c.Assert(err, gc.ErrorMatches, ".*model not found.*")
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
@@ -1356,27 +1357,32 @@ func (s *userStateSuite) TestLastModelLogin(c *gc.C) {
 	st := NewUserState(s.TxnRunnerFactory())
 	username1, _ := s.addTestUser(c, st, "user1")
 	username2, _ := s.addTestUser(c, st, "user2")
+	expectedTime1 := time.Now()
+	expectedTime2 := expectedTime1.Add(time.Minute)
 
 	// Simulate two logins to the model.
-	err := st.UpdateLastModelLogin(context.Background(), username1, modelUUID)
+	err := st.UpdateLastModelLogin(context.Background(), username1, modelUUID, expectedTime1)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpdateLastModelLogin(context.Background(), username2, modelUUID)
+	err = st.UpdateLastModelLogin(context.Background(), username2, modelUUID, expectedTime2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check user2 was the last to login.
+	// Check login times.
 	time1, err := st.LastModelLogin(context.Background(), username1, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(time1.UTC(), gc.Equals, expectedTime1.Round(time.Second).UTC())
 	time2, err := st.LastModelLogin(context.Background(), username2, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(time1.Before(time2), jc.IsTrue, gc.Commentf("time1 is after time2 (%s is after %s)", time1, time2))
+	c.Check(time2.UTC(), gc.Equals, expectedTime2.Round(time.Second).UTC())
+
 	// Simulate a new login from user1
-	err = st.UpdateLastModelLogin(context.Background(), username1, modelUUID)
+	expectedTime3 := expectedTime2.Add(time.Minute)
+	err = st.UpdateLastModelLogin(context.Background(), username1, modelUUID, expectedTime3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the time for user1 was updated.
-	time1, err = st.LastModelLogin(context.Background(), username1, modelUUID)
+	time3, err := st.LastModelLogin(context.Background(), username1, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(time2.Before(time1), jc.IsTrue)
+	c.Check(time3, gc.Equals, expectedTime3.Round(time.Second).UTC())
 }
 
 func (s *userStateSuite) TestLastModelLoginModelNotFound(c *gc.C) {

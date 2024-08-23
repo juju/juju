@@ -136,7 +136,7 @@ type UserState interface {
 	// - accesserrors.UserNameNotValid: When the username is not valid.
 	// - accesserrors.UserNotFound: When the user cannot be found.
 	// - modelerrors.NotFound: If no model by the given modelUUID exists.
-	UpdateLastModelLogin(context.Context, user.Name, coremodel.UUID) error
+	UpdateLastModelLogin(context.Context, user.Name, coremodel.UUID, time.Time) error
 
 	// LastModelLogin will return the last login time of the specified user.
 	// The following error types are possible from this function:

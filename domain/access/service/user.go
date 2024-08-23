@@ -288,7 +288,7 @@ func (s *UserService) UpdateLastModelLogin(ctx context.Context, name user.Name, 
 		return errors.Annotatef(accesserrors.UserNameNotValid, "empty username")
 	}
 
-	if err := s.st.UpdateLastModelLogin(ctx, name, modelUUID); err != nil {
+	if err := s.st.UpdateLastModelLogin(ctx, name, modelUUID, time.Now()); err != nil {
 		return errors.Annotatef(err, "updating last login for user %q", name)
 	}
 	return nil
