@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/schema/testing"
-	uniterrors "github.com/juju/juju/domain/unit/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -170,7 +169,7 @@ func (s *serviceSuite) TestRegisterCAASUnitExceedsScale(c *gc.C) {
 		OrderedId:    1,
 	}
 	err := svc.RegisterCAASUnit(context.Background(), "foo", args)
-	c.Assert(err, jc.ErrorIs, uniterrors.NotAssigned)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotAssigned)
 }
 
 func (s *serviceSuite) TestRegisterCAASUnitExceedsScaleTarget(c *gc.C) {
@@ -199,5 +198,5 @@ func (s *serviceSuite) TestRegisterCAASUnitExceedsScaleTarget(c *gc.C) {
 		OrderedId:    2,
 	}
 	err = svc.RegisterCAASUnit(context.Background(), "foo", args)
-	c.Assert(err, jc.ErrorIs, uniterrors.NotAssigned)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotAssigned)
 }

@@ -217,6 +217,44 @@ func (c *MockApplicationStateDeleteApplicationCall) DoAndReturn(f func(context.C
 	return c
 }
 
+// DeleteUnit mocks base method.
+func (m *MockApplicationState) DeleteUnit(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteUnit", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteUnit indicates an expected call of DeleteUnit.
+func (mr *MockApplicationStateMockRecorder) DeleteUnit(arg0, arg1 any) *MockApplicationStateDeleteUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUnit", reflect.TypeOf((*MockApplicationState)(nil).DeleteUnit), arg0, arg1)
+	return &MockApplicationStateDeleteUnitCall{Call: call}
+}
+
+// MockApplicationStateDeleteUnitCall wrap *gomock.Call
+type MockApplicationStateDeleteUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationStateDeleteUnitCall) Return(arg0 error) *MockApplicationStateDeleteUnitCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationStateDeleteUnitCall) Do(f func(context.Context, string) error) *MockApplicationStateDeleteUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationStateDeleteUnitCall) DoAndReturn(f func(context.Context, string) error) *MockApplicationStateDeleteUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationID mocks base method.
 func (m *MockApplicationState) GetApplicationID(arg0 domain.AtomicContext, arg1 string) (application.ID, error) {
 	m.ctrl.T.Helper()

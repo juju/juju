@@ -22,7 +22,6 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
-	uniterrors "github.com/juju/juju/domain/unit/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -255,7 +254,7 @@ FROM (
 // CreateCharmUnitSecret creates a secret onwed by the specified unit,
 // returning an error satisfying [secreterrors.SecretAlreadyExists] if a secret
 // owned by the same unit with the same label already exists.
-// It also returns an error satisfying [uniterrors.NotFound] if
+// It also returns an error satisfying [applicationerrors.UnitNotFound] if
 // the unit does not exist.
 func (st State) CreateCharmUnitSecret(
 	ctx context.Context, version int, uri *coresecrets.URI, unitName string, secret domainsecret.UpsertSecretParams,
@@ -291,7 +290,7 @@ func (st State) CreateCharmUnitSecret(
 		err = tx.Query(ctx, selectUnitUUIDStmt, unit{Name: unitName}).Get(&result)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(uniterrors.NotFound))
+				return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
 			} else {
 				return errors.Annotatef(err, "looking up unit UUID for %q", unitName)
 			}
@@ -1589,7 +1588,7 @@ WHERE  mso.label = $M.label
 // GetURIByConsumerLabel looks up the secret URI using the label previously
 // registered by the specified unit,returning an error satisfying
 // [secreterrors.SecretNotFound] if there's no corresponding URI.
-// If the unit does not exist, an error satisfying [uniterrors.NotFound]
+// If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound]
 // is returned.
 func (st State) GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*coresecrets.URI, error) {
 	if label == "" {
@@ -1626,7 +1625,7 @@ AND    suc.unit_uuid = $secretUnitConsumer.unit_uuid
 		err = tx.Query(ctx, selectUnitUUIDStmt, unit{Name: unitName}).Get(&result)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(uniterrors.NotFound))
+				return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
 			} else {
 				return errors.Annotatef(err, "looking up unit UUID for %q", unitName)
 			}
@@ -1863,7 +1862,7 @@ FROM (SELECT * FROM local UNION SELECT * FROM remote)`
 
 // GetSecretConsumer returns the secret consumer info for the specified unit
 // and secret, along withthe latest revision for the secret.
-// If the unit does not exist, an error satisfying [uniterrors.NotFound] is
+// If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound] is
 // returned.If the secret does not exist, an error satisfying
 // [secreterrors.SecretNotFound] is returned.
 // If there's not currently a consumer record for the secret, the latest
@@ -1931,7 +1930,7 @@ WHERE  ref.secret_id = $secretRef.secret_id`
 		err = tx.Query(ctx, selectUnitUUIDStmt, unit{Name: unitName}).Get(&result)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(uniterrors.NotFound))
+				return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
 			} else {
 				return errors.Annotatef(err, "looking up unit UUID for %q", unitName)
 			}
@@ -1974,7 +1973,7 @@ WHERE  ref.secret_id = $secretRef.secret_id`
 }
 
 // SaveSecretConsumer saves the consumer metadata for the given secret and unit.
-// If the unit does not exist, an error satisfying [uniterrors.NotFound] is returned.
+// If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound] is returned.
 // If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
 func (st State) SaveSecretConsumer(
 	ctx context.Context, uri *coresecrets.URI, unitName string, md *coresecrets.SecretConsumerMetadata,
@@ -2056,7 +2055,7 @@ ON CONFLICT DO NOTHING`
 		err = tx.Query(ctx, selectUnitUUIDStmt, sqlair.M{"name": unitName}).Get(&result)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(uniterrors.NotFound))
+				return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
 			} else {
 				return errors.Annotatef(err, "looking up unit UUID for %q", unitName)
 			}
@@ -2443,7 +2442,7 @@ func (st State) lookupSubjectUUID(
 	switch subjectTypeID {
 	case domainsecret.SubjectUnit:
 		selectSubjectUUID = selectUnitUUID
-		subjectNotFoundError = uniterrors.NotFound
+		subjectNotFoundError = applicationerrors.UnitNotFound
 	case domainsecret.SubjectApplication:
 		selectSubjectUUID = selectApplicationUUID
 		subjectNotFoundError = applicationerrors.ApplicationNotFound
@@ -2488,7 +2487,7 @@ func (st State) lookupScopeUUID(
 	switch scopeTypeID {
 	case domainsecret.ScopeUnit:
 		selectScopeUUID = selectUnitUUID
-		scopeNotFoundError = uniterrors.NotFound
+		scopeNotFoundError = applicationerrors.UnitNotFound
 	case domainsecret.ScopeApplication:
 		selectScopeUUID = selectApplicationUUID
 		scopeNotFoundError = applicationerrors.ApplicationNotFound

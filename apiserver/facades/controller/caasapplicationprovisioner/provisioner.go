@@ -159,7 +159,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 		common.AuthFuncForTagKind(names.UnitTagKind),
 	)
 
-	unitRemover := ctx.ServiceFactory().Unit()
+	unitRemover := ctx.ServiceFactory().Application(nil)
 
 	apiGroup := &APIGroup{
 		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),

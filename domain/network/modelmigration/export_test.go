@@ -7,12 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/description/v8"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/unit/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 

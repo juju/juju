@@ -510,7 +510,27 @@ func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *applicationServiceSuite) TestAddRegisterCAASUnit(c *gc.C) {
+func (s *applicationServiceSuite) TestDeleteUnitSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().DeleteUnit(gomock.Any(), "foo/666").Return(nil)
+
+	err := s.service.DeleteUnit(context.Background(), "foo/666")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestDeleteUnitError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().DeleteUnit(gomock.Any(), "foo/666").Return(rErr)
+
+	err := s.service.DeleteUnit(context.Background(), "foo/666")
+	c.Check(err, jc.ErrorIs, rErr)
+	c.Assert(err, gc.ErrorMatches, `deleting unit "foo/666": boom`)
+}
+
+func (s *applicationServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).Return(nil)

@@ -31,6 +31,14 @@ const (
 	// not valid.
 	ApplicationNameNotValid = errors.ConstError("application name not valid")
 
+	// UnitNotFound describes an error that occurs when the unit being operated on
+	// does not exist.
+	UnitNotFound = errors.ConstError("unit not found")
+
+	// UnitNotAssigned describes an error that occurs when the unit being operated on
+	// is not assigned.
+	UnitNotAssigned = errors.ConstError("unit not assigned")
+
 	// ApplicationDyingOrDead describes an error where resource query fails because the
 	// application is dying or dead.
 	ApplicationDyingOrDead = errors.ConstError("application dying or dead")

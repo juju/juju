@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
-	uniterrors "github.com/juju/juju/domain/unit/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -260,7 +259,31 @@ func (s *applicationStateSuite) TestUnitLifeNotFound(c *gc.C) {
 		_, err := s.state.UnitLife(ctx, "foo/666")
 		return err
 	})
-	c.Assert(err, jc.ErrorIs, uniterrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
+	u1 := application.UpsertUnitArg{
+		UnitName: ptr("foo/666"),
+	}
+	u2 := application.UpsertUnitArg{
+		UnitName: ptr("foo/667"),
+	}
+	s.createApplication(c, "foo", life.Alive, u1, u2)
+
+	err := s.state.DeleteUnit(context.Background(), "foo/666")
+	c.Assert(err, jc.ErrorIsNil)
+
+	var unitCount int
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name=?", "foo/666").Scan(&unitCount)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitCount, gc.Equals, 0)
 }
 
 func (s *applicationStateSuite) TestApplicationScaleState(c *gc.C) {

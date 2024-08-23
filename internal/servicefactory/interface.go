@@ -31,7 +31,6 @@ import (
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
-	unitservice "github.com/juju/juju/domain/unit/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	"github.com/juju/juju/internal/storage"
 )
@@ -89,11 +88,9 @@ type ModelServiceFactory interface {
 	BlockDevice() *blockdeviceservice.WatchableService
 	// Application returns the application service.
 	Application(registry storage.ProviderRegistry) *applicationservice.WatchableService
-	// Unit returns the machine service.
-	Unit() *unitservice.Service
 	// KeyManager returns the key manager service.
 	KeyManager() *keymanagerservice.Service
-	// KeyManager returns they manager service that is capable of importing keys
+	// KeyManagerWithImporter returns they manager service that is capable of importing keys
 	// from an external source.
 	KeyManagerWithImporter(keymanagerservice.PublicKeyImporter) *keymanagerservice.ImporterService
 	// KeyUpdater returns the key updater service.

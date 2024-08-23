@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagestate "github.com/juju/juju/domain/storage/state"
-	uniterrors "github.com/juju/juju/domain/unit/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -313,7 +312,7 @@ func (st *ApplicationState) getUnit(ctx context.Context, tx *sqlair.TX, unitName
 	}
 	err = tx.Query(ctx, getUnitStmt, unit).Get(&unit)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return nil, fmt.Errorf("unit %q not found%w", unitName, errors.Hide(uniterrors.NotFound))
+		return nil, fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
 	}
 	if err != nil {
 		return nil, fmt.Errorf("querying unit %q: %w", unitName, err)
@@ -474,6 +473,58 @@ ON CONFLICT(net_node_uuid) DO UPDATE
 	return errors.Annotatef(err, "updating cloud container for unit %q", unitName)
 }
 
+// DeleteUnit deletes the specified unit.
+func (st *ApplicationState) DeleteUnit(ctx context.Context, unitName string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	unitIDParam := sqlair.M{"name": unitName}
+
+	queryUnit := `SELECT uuid as &M.uuid FROM unit WHERE name = $M.name`
+	queryUnitStmt, err := st.Prepare(queryUnit, sqlair.M{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	deleteUnit := `DELETE FROM unit WHERE name = $M.name`
+	deleteUnitStmt, err := st.Prepare(deleteUnit, sqlair.M{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	deleteNode := `
+DELETE FROM net_node WHERE uuid IN
+(SELECT net_node_uuid FROM unit WHERE name = $M.name)
+`
+	deleteNodeStmt, err := st.Prepare(deleteNode, sqlair.M{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result := sqlair.M{}
+		err = tx.Query(ctx, queryUnitStmt, unitIDParam).Get(result)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(err, "looking up UUID for unit %q", unitName)
+		}
+		// Unit already deleted is a no op.
+		if len(result) == 0 {
+			return nil
+		}
+		if err := tx.Query(ctx, deleteUnitStmt, unitIDParam).Run(); err != nil {
+			return errors.Annotatef(err, "deleting unit %q", unitName)
+		}
+		if err := tx.Query(ctx, deleteNodeStmt, unitIDParam).Run(); err != nil {
+			return errors.Annotatef(err, "deleting net node for unit  %q", unitName)
+		}
+
+		return nil
+	})
+	return errors.Annotatef(err, "deleting unit %q", unitName)
+}
+
 // StorageDefaults returns the default storage sources for a model.
 func (st *ApplicationState) StorageDefaults(ctx context.Context) (domainstorage.StorageDefaults, error) {
 	rval := domainstorage.StorageDefaults{}
@@ -549,7 +600,7 @@ func (st *ApplicationState) UpsertUnit(
 	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		unit, err := st.getUnit(ctx, tx, *args.UnitName)
 		if err != nil {
-			if errors.Is(err, uniterrors.NotFound) {
+			if errors.Is(err, applicationerrors.UnitNotFound) {
 				return st.insertUnit(ctx, tx, appID, args)
 			}
 			return errors.Trace(err)
@@ -560,7 +611,7 @@ func (st *ApplicationState) UpsertUnit(
 }
 
 // UnitLife looks up the life of the specified unit, returning an error
-// satisfying [uniterrors.NotFound] if the unit is not found.
+// satisfying [applicationerrors.UnitNotFound] if the unit is not found.
 func (st *ApplicationState) UnitLife(ctx domain.AtomicContext, unitName string) (life.Life, error) {
 	unit := unitDetails{Name: unitName}
 	queryUnit := `
@@ -579,7 +630,7 @@ WHERE name = $unitDetails.name
 			if !errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Annotatef(err, "querying unit %q life", unitName)
 			}
-			return fmt.Errorf("%w: %s", uniterrors.NotFound, unitName)
+			return fmt.Errorf("%w: %s", applicationerrors.UnitNotFound, unitName)
 		}
 		return nil
 	})
