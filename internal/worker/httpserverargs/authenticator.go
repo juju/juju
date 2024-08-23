@@ -42,12 +42,18 @@ type AccessService interface {
 	// given name on the given model.
 	UpdateLastModelLogin(ctx context.Context, name coreuser.Name, modelUUID coremodel.UUID) error
 
-	// ReadUserAccessLevelForTargetAddingMissingUser returns the user access level for
-	// the given user on the given target. If the user is external and does not yet
-	// exist, it is created. An accesserrors.AccessNotFound error is returned if no
-	// access can be found for this user, and (only in the case of external users),
-	// the everyone@external user.
-	ReadUserAccessLevelForTargetAddingMissingUser(ctx context.Context, subject coreuser.Name, target permission.ID) (permission.Access, error)
+	// EnsureExternalUserIfAuthorized checks if an external user is missing from the
+	// database and has permissions on an object. If they do then they will be
+	// added. This ensures that juju has a record of external users that have
+	// inherited their permissions from everyone@external.
+	EnsureExternalUserIfAuthorized(ctx context.Context, subject coreuser.Name, target permission.ID) error
+
+	// ReadUserAccessLevelForTarget returns the user access level for the given
+	// user on the given target. A NotValid error is returned if the subject
+	// (user) string is empty, or the target is not valid. Any errors from the
+	// state layer are passed through. If the access level of a user cannot be
+	// found then [accesserrors.AccessNotFound] is returned.
+	ReadUserAccessLevelForTarget(ctx context.Context, subject coreuser.Name, target permission.ID) (permission.Access, error)
 }
 
 type MacaroonService interface {

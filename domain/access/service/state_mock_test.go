@@ -353,6 +353,44 @@ func (c *MockStateEnableUserAuthenticationCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// EnsureExternalUserIfAuthorized mocks base method.
+func (m *MockState) EnsureExternalUserIfAuthorized(arg0 context.Context, arg1 user.Name, arg2 permission.ID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureExternalUserIfAuthorized", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureExternalUserIfAuthorized indicates an expected call of EnsureExternalUserIfAuthorized.
+func (mr *MockStateMockRecorder) EnsureExternalUserIfAuthorized(arg0, arg1, arg2 any) *MockStateEnsureExternalUserIfAuthorizedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureExternalUserIfAuthorized", reflect.TypeOf((*MockState)(nil).EnsureExternalUserIfAuthorized), arg0, arg1, arg2)
+	return &MockStateEnsureExternalUserIfAuthorizedCall{Call: call}
+}
+
+// MockStateEnsureExternalUserIfAuthorizedCall wrap *gomock.Call
+type MockStateEnsureExternalUserIfAuthorizedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateEnsureExternalUserIfAuthorizedCall) Return(arg0 error) *MockStateEnsureExternalUserIfAuthorizedCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateEnsureExternalUserIfAuthorizedCall) Do(f func(context.Context, user.Name, permission.ID) error) *MockStateEnsureExternalUserIfAuthorizedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateEnsureExternalUserIfAuthorizedCall) DoAndReturn(f func(context.Context, user.Name, permission.ID) error) *MockStateEnsureExternalUserIfAuthorizedCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetActivationKey mocks base method.
 func (m *MockState) GetActivationKey(arg0 context.Context, arg1 user.Name) ([]byte, error) {
 	m.ctrl.T.Helper()
@@ -817,45 +855,6 @@ func (c *MockStateReadUserAccessLevelForTargetCall) Do(f func(context.Context, u
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateReadUserAccessLevelForTargetCall) DoAndReturn(f func(context.Context, user.Name, permission.ID) (permission.Access, error)) *MockStateReadUserAccessLevelForTargetCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ReadUserAccessLevelForTargetAddingMissingUser mocks base method.
-func (m *MockState) ReadUserAccessLevelForTargetAddingMissingUser(arg0 context.Context, arg1 user.Name, arg2 permission.ID) (permission.Access, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadUserAccessLevelForTargetAddingMissingUser", arg0, arg1, arg2)
-	ret0, _ := ret[0].(permission.Access)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ReadUserAccessLevelForTargetAddingMissingUser indicates an expected call of ReadUserAccessLevelForTargetAddingMissingUser.
-func (mr *MockStateMockRecorder) ReadUserAccessLevelForTargetAddingMissingUser(arg0, arg1, arg2 any) *MockStateReadUserAccessLevelForTargetAddingMissingUserCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadUserAccessLevelForTargetAddingMissingUser", reflect.TypeOf((*MockState)(nil).ReadUserAccessLevelForTargetAddingMissingUser), arg0, arg1, arg2)
-	return &MockStateReadUserAccessLevelForTargetAddingMissingUserCall{Call: call}
-}
-
-// MockStateReadUserAccessLevelForTargetAddingMissingUserCall wrap *gomock.Call
-type MockStateReadUserAccessLevelForTargetAddingMissingUserCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateReadUserAccessLevelForTargetAddingMissingUserCall) Return(arg0 permission.Access, arg1 error) *MockStateReadUserAccessLevelForTargetAddingMissingUserCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateReadUserAccessLevelForTargetAddingMissingUserCall) Do(f func(context.Context, user.Name, permission.ID) (permission.Access, error)) *MockStateReadUserAccessLevelForTargetAddingMissingUserCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateReadUserAccessLevelForTargetAddingMissingUserCall) DoAndReturn(f func(context.Context, user.Name, permission.ID) (permission.Access, error)) *MockStateReadUserAccessLevelForTargetAddingMissingUserCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

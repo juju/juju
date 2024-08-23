@@ -499,21 +499,7 @@ func (s *permissionStateSuite) TestReadUserAccessLevelForTargetExternalUser(c *g
 	c.Assert(accessLevel, gc.DeepEquals, corepermission.SuperuserAccess)
 }
 
-func (s *permissionStateSuite) TestReadUserAccessLevelForTargetAddingMissingUserNoAccess(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-
-	jimUserName := usertesting.GenNewName(c, "jim@juju")
-	s.ensureUser(c, "666", "everyone@external", "42", true)
-
-	target := corepermission.ID{
-		Key:        s.controllerUUID,
-		ObjectType: corepermission.Controller,
-	}
-	_, err := st.ReadUserAccessLevelForTargetAddingMissingUser(context.Background(), jimUserName, target)
-	c.Assert(err, jc.ErrorIs, accesserrors.AccessNotFound)
-}
-
-func (s *permissionStateSuite) TestReadUserAccessLevelForTargetAddingMissingUser(c *gc.C) {
+func (s *permissionStateSuite) TestEnsureExternalUserIfAuthorized(c *gc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	jimUserName := usertesting.GenNewName(c, "jim@juju")
@@ -533,9 +519,8 @@ func (s *permissionStateSuite) TestReadUserAccessLevelForTargetAddingMissingUser
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	accessType, err := st.ReadUserAccessLevelForTargetAddingMissingUser(context.Background(), jimUserName, target)
+	err = st.EnsureExternalUserIfAuthorized(context.Background(), jimUserName, target)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(accessType, gc.Equals, corepermission.LoginAccess)
 
 	userSt := NewUserState(s.TxnRunnerFactory())
 	// Check that jim has now been added as a user with no permissions.
@@ -547,9 +532,9 @@ func (s *permissionStateSuite) TestReadUserAccessLevelForTargetAddingMissingUser
 	c.Check(jim.CreatorUUID, gc.Not(gc.Equals), "")
 }
 
-// TestReadUserAccessLevelForTargetAddingMissingUserNoNewUser checks that it does
-// not add a new user if one already exists.
-func (s *permissionStateSuite) TestReadUserAccessLevelForTargetAddingMissingUserNoNewUser(c *gc.C) {
+// TestEnsureExternalUserIfAuthorizedNoNewUser checks that no error is returned if the user
+// already exists.
+func (s *permissionStateSuite) TestEnsureExternalUserIfAuthorizedNoNewUser(c *gc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	jimUserName := usertesting.GenNewName(c, "jim@juju")
@@ -560,34 +545,30 @@ func (s *permissionStateSuite) TestReadUserAccessLevelForTargetAddingMissingUser
 		Key:        s.controllerUUID,
 		ObjectType: corepermission.Controller,
 	}
-	// Add jims permissions.
-	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
-		User: jimUserName,
-		AccessSpec: corepermission.AccessSpec{
-			Target: target,
-			Access: corepermission.LoginAccess,
-		},
-	})
+
+	err := st.EnsureExternalUserIfAuthorized(context.Background(), jimUserName, target)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestEnsureExternalUserIfAuthorized checks that no error is returned if the
+// user does not exist and does not have access.
+func (s *permissionStateSuite) TestEnsureExternalUserIfAuthorizedNoAccess(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	jimUserName := usertesting.GenNewName(c, "jim@juju")
+	s.ensureUser(c, "666", "everyone@external", "42", true)
+
+	target := corepermission.ID{
+		Key:        s.controllerUUID,
+		ObjectType: corepermission.Controller,
+	}
+	err := st.EnsureExternalUserIfAuthorized(context.Background(), jimUserName, target)
 	c.Assert(err, jc.ErrorIsNil)
 
-	accessType, err := st.ReadUserAccessLevelForTargetAddingMissingUser(context.Background(), jimUserName, target)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(accessType, gc.Equals, corepermission.LoginAccess)
-
-	// Add everyone@external's permissions.
-	_, err = st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
-		User: corepermission.EveryoneUserName,
-		AccessSpec: corepermission.AccessSpec{
-			Target: target,
-			Access: corepermission.SuperuserAccess,
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that Jim gets everyone@external level of access given to everyone@external.
-	accessLevel, err := st.ReadUserAccessLevelForTarget(context.Background(), jimUserName, target)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(accessLevel, gc.Equals, corepermission.SuperuserAccess)
+	// Check the user has not been added.
+	userSt := NewUserState(s.TxnRunnerFactory())
+	_, err = userSt.GetUserByName(context.Background(), jimUserName)
+	c.Assert(err, jc.ErrorIs, accesserrors.UserNotFound)
 }
 
 func (s *permissionStateSuite) TestReadAllUserAccessForUser(c *gc.C) {
