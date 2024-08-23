@@ -99,6 +99,12 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 		return "", errors.Trace(err)
 	}
 
+	var (
+		referenceName = app.Origin.ReferenceName
+		revision      = app.Origin.Revision
+		charmName     = app.Charm.Metadata.Name
+	)
+
 	originInfo := setCharmOrigin{
 		CharmID: charmID.String(),
 		// Set the Name on charm origin to the application name. This is
@@ -107,9 +113,9 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 		// This can happen if the charmhub charm name is different from the
 		// charm name in the metadata.yaml. This isn't supposed to happen, but
 		// it can.
-		ReferenceName: app.Origin.ReferenceName,
+		ReferenceName: referenceName,
 		SourceID:      encodeCharmOriginSource(app.Origin.Source),
-		Revision:      app.Origin.Revision,
+		Revision:      revision,
 	}
 	createOrigin := `INSERT INTO charm_origin (*) VALUES ($setCharmOrigin.*)`
 	createOriginStmt, err := st.Prepare(createOrigin, originInfo)
@@ -152,14 +158,42 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 			return fmt.Errorf("checking if application %q exists: %w", name, err)
 		}
 
-		// Insert the charm.
-		if err := st.setCharm(ctx, tx, charmID, app.Charm, ""); err != nil {
-			return errors.Annotate(err, "setting charm")
+		shouldInsertCharm := true
+
+		// Check if the charm already exists.
+		existingCharmID, err := st.checkChamReferenceExists(ctx, tx, referenceName, revision)
+		if err != nil && !errors.Is(err, applicationerrors.CharmAlreadyExists) {
+			return fmt.Errorf("checking if charm %q exists: %w", charmName, err)
+		} else if errors.Is(err, applicationerrors.CharmAlreadyExists) {
+			// We already have an existing charm, in this case we just want
+			// to point the application to the existing charm.
+			appDetails.CharmID = existingCharmID.String()
+
+			shouldInsertCharm = false
+		}
+
+		if shouldInsertCharm {
+			// Only insert the charm if it doesn't already exist.
+			// This includes the origin and platform.
+			//
+			// TODO (stickupkid): What happens to the charm_platform if the
+			// architecture is different? We might want to record multiple
+			// platforms for a charm, or just remove the charm_platform table
+			// altogether. We can do a reverse lookup from the application
+			// to the installed charm architecture.
+			if err := st.setCharm(ctx, tx, charmID, app.Charm, ""); err != nil {
+				return errors.Annotate(err, "setting charm")
+			}
+			if err := tx.Query(ctx, createOriginStmt, originInfo).Run(); err != nil {
+				return errors.Annotatef(err, "creating origin row for application %q", name)
+			}
+			if err := tx.Query(ctx, createCharmPlatformStmt, charmPlatformInfo).Run(); err != nil {
+				return errors.Annotatef(err, "creating charm platform row for application %q", name)
+			}
 		}
 
 		// If the application doesn't exist, create it.
-		err := tx.Query(ctx, createApplicationStmt, appDetails).Run()
-		if err != nil {
+		if err := tx.Query(ctx, createApplicationStmt, appDetails).Run(); err != nil {
 			return errors.Annotatef(err, "creating row for application %q", name)
 		}
 		if err := tx.Query(ctx, createPlatformStmt, platformInfo).Run(); err != nil {
@@ -167,12 +201,6 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 		}
 		if err := tx.Query(ctx, createScaleStmt, scaleInfo).Run(); err != nil {
 			return errors.Annotatef(err, "creating scale row for application %q", name)
-		}
-		if err := tx.Query(ctx, createOriginStmt, originInfo).Run(); err != nil {
-			return errors.Annotatef(err, "creating origin row for application %q", name)
-		}
-		if err := tx.Query(ctx, createCharmPlatformStmt, charmPlatformInfo).Run(); err != nil {
-			return errors.Annotatef(err, "creating charm platform row for application %q", name)
 		}
 		if createChannelStmt != nil {
 			if err := tx.Query(ctx, createChannelStmt, channelInfo).Run(); err != nil {
@@ -259,7 +287,6 @@ func (st *ApplicationState) DeleteApplication(ctx context.Context, name string) 
 }
 
 func (st *ApplicationState) deleteApplication(ctx context.Context, tx *sqlair.TX, name string) error {
-
 	var appID applicationID
 	queryUnits := `SELECT count(*) AS &countResult.count FROM unit WHERE application_uuid = $applicationID.uuid`
 	queryUnitsStmt, err := st.Prepare(queryUnits, countResult{}, appID)
@@ -270,6 +297,12 @@ func (st *ApplicationState) deleteApplication(ctx context.Context, tx *sqlair.TX
 	appName := applicationName{Name: name}
 	deleteApplication := `DELETE FROM application WHERE name = $applicationName.name`
 	deleteApplicationStmt, err := st.Prepare(deleteApplication, appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	deletePlatform := `DELETE FROM application_platform WHERE application_uuid = $applicationID.uuid`
+	deletePlatformStmt, err := st.Prepare(deletePlatform, appID)
 	if err != nil {
 		return errors.Trace(err)
 	}

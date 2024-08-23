@@ -560,7 +560,7 @@ func (s *CharmState) SetCharm(ctx context.Context, charm charm.Charm, charmArgs 
 		// Check the charm doesn't already exist, if it does, return an already
 		// exists error. Also doing this early, prevents the moving straight
 		// to a write transaction.
-		if err := s.checkSetCharmExists(ctx, tx, id, charm.Metadata.Name, charmArgs.Revision); err != nil {
+		if _, err := s.checkChamReferenceExists(ctx, tx, charmArgs.ReferenceName, charmArgs.Revision); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -674,32 +674,6 @@ func (s *CharmState) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 	}
 
 	return nil
-}
-
-func (s *CharmState) checkSetCharmExists(ctx context.Context, tx *sqlair.TX, id corecharm.ID, name string, revision int) error {
-	selectQuery := `
-SELECT charm.uuid AS &charmID.*
-FROM charm
-LEFT JOIN charm_origin ON charm.uuid = charm_origin.charm_uuid
-WHERE charm.name = $charmNameRevision.name AND charm_origin.revision = $charmNameRevision.revision
-
-	`
-	var result charmID
-	selectStmt, err := s.Prepare(selectQuery, result, charmNameRevision{})
-	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
-	}
-	if err := tx.Query(ctx, selectStmt, charmNameRevision{
-		Name:     name,
-		Revision: revision,
-	}).Get(&result); err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		}
-		return fmt.Errorf("failed to check charm exists: %w", err)
-	}
-
-	return applicationerrors.CharmAlreadyExists
 }
 
 func (s *CharmState) setCharmHash(ctx context.Context, tx *sqlair.TX, id corecharm.ID, hash string) error {

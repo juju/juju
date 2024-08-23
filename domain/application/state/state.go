@@ -28,6 +28,40 @@ type commonStateBase struct {
 	*domain.StateBase
 }
 
+func (s *commonStateBase) checkChamReferenceExists(ctx context.Context, tx *sqlair.TX, referenceName string, revision int) (corecharm.ID, error) {
+	selectQuery := `
+SELECT &charmIDName.*
+FROM charm
+LEFT JOIN charm_origin
+WHERE charm.uuid = charm_origin.charm_uuid
+AND charm_origin.reference_name = $charmReferenceNameRevision.reference_name 
+AND charm_origin.revision = $charmReferenceNameRevision.revision
+	`
+	ref := charmReferenceNameRevision{
+		ReferenceName: referenceName,
+		Revision:      revision,
+	}
+
+	var result charmIDName
+	selectStmt, err := s.Prepare(selectQuery, result, ref)
+	if err != nil {
+		return "", fmt.Errorf("failed to prepare query: %w", err)
+	}
+	if err := tx.Query(ctx, selectStmt, ref).Get(&result); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to check charm exists: %w", err)
+	}
+
+	id, err := corecharm.ParseID(result.UUID)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse charm ID: %w", err)
+	}
+
+	return id, applicationerrors.CharmAlreadyExists
+}
+
 func (s *commonStateBase) setCharm(ctx context.Context, tx *sqlair.TX, id corecharm.ID, charm charm.Charm, archivePath string) error {
 	if err := s.setCharmMetadata(ctx, tx, id, charm.Metadata, charm.LXDProfile, archivePath); err != nil {
 		return errors.Trace(err)

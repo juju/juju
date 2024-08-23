@@ -85,22 +85,23 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 		Branch: "branch",
 	}
 	origin := charm.CharmOrigin{
-		Source:   charm.LocalSource,
-		Revision: 42,
+		ReferenceName: "foo",
+		Source:        charm.LocalSource,
+		Revision:      42,
 	}
-	_, err := s.state.CreateApplication(context.Background(), "666", application.AddApplicationArg{
+	_, err := s.state.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
 		Platform: platform,
 		Channel:  channel,
 		Origin:   origin,
 		Charm: charm.Charm{
 			Metadata: charm.Metadata{
-				Name: "666",
+				Name: "foo",
 			},
 		},
 	}, u)
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
-	s.assertApplication(c, "666", platform, channel, scale, origin)
+	s.assertApplication(c, "foo", platform, channel, scale, origin)
 
 	var unitID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -112,6 +113,50 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitID, gc.Equals, "foo/666")
+}
+
+func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
+	platform := application.Platform{
+		Channel:      "666",
+		OSType:       charm.Ubuntu,
+		Architecture: charm.ARM64,
+	}
+	channel := &application.Channel{
+		Track:  "track",
+		Risk:   "stable",
+		Branch: "branch",
+	}
+	origin := charm.CharmOrigin{
+		Source:   charm.LocalSource,
+		Revision: 42,
+	}
+	_, err := s.state.CreateApplication(context.Background(), "foo1", application.AddApplicationArg{
+		Platform: platform,
+		Channel:  channel,
+		Origin:   origin,
+		Charm: charm.Charm{
+			Metadata: charm.Metadata{
+				Name: "foo",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.CreateApplication(context.Background(), "foo2", application.AddApplicationArg{
+		Platform: platform,
+		Channel:  channel,
+		Origin:   origin,
+		Charm: charm.Charm{
+			Metadata: charm.Metadata{
+				Name: "foo",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	scale := application.ScaleState{}
+	s.assertApplication(c, "foo1", platform, channel, scale, origin)
+	s.assertApplication(c, "foo2", platform, channel, scale, origin)
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithoutChannel(c *gc.C) {
@@ -1141,7 +1186,7 @@ func (s *applicationStateSuite) assertApplication(
 		gotOrigin    charm.CharmOrigin
 	)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT uuid, charm_uuid, name FROM application").Scan(&gotUUID, &gotCharmUUID, &gotName)
+		err := tx.QueryRowContext(ctx, "SELECT uuid, charm_uuid, name FROM application WHERE name=?", name).Scan(&gotUUID, &gotCharmUUID, &gotName)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1160,8 +1205,8 @@ func (s *applicationStateSuite) assertApplication(
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return errors.Trace(err)
 		}
-		err = tx.QueryRowContext(ctx, "SELECT source, revision FROM v_charm_origin WHERE charm_uuid=?", gotCharmUUID).
-			Scan(&gotOrigin.Source, &gotOrigin.Revision)
+		err = tx.QueryRowContext(ctx, "SELECT source, reference_name, revision FROM v_charm_origin WHERE charm_uuid=?", gotCharmUUID).
+			Scan(&gotOrigin.Source, &gotOrigin.ReferenceName, &gotOrigin.Revision)
 		if err != nil {
 			return errors.Trace(err)
 		}

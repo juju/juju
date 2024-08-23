@@ -28,6 +28,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	domaincharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/rpc/params"
@@ -336,7 +337,7 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 		ReferenceName: charmURL.Name,
 		Revision:      revision,
 		Hash:          metaRes.ResolvedOrigin.Hash,
-	}); err != nil {
+	}); err != nil && !errors.Is(err, applicationerrors.CharmAlreadyExists) {
 		return corecharm.Origin{}, errors.Annotatef(err, "setting charm %q", args.URL)
 	}
 
