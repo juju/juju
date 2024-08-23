@@ -28,6 +28,7 @@ var (
 // UpsertSecretParams are used to upsert a secret.
 // Only non-nil values are used.
 type UpsertSecretParams struct {
+	RevisionID     *string
 	RotatePolicy   *RotatePolicy
 	ExpireTime     *time.Time
 	NextRotateTime *time.Time

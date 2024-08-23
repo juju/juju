@@ -657,6 +657,7 @@ func (s *State) Delete(
 	}
 
 	deleteSecretBackend := `DELETE FROM model_secret_backend WHERE model_uuid = ?`
+	deleteSecretBackendRefCount := `DELETE FROM secret_backend_reference WHERE model_uuid = ?`
 	deleteModelAgent := `DELETE FROM model_agent WHERE model_uuid = ?`
 	deletePermissionStmt := `DELETE FROM permission WHERE grant_on = ?;`
 	deleteModelLogin := `DELETE FROM model_last_login WHERE model_uuid = ?`
@@ -668,12 +669,17 @@ func (s *State) Delete(
 
 		_, err := tx.ExecContext(ctx, deleteSecretBackend, uuid)
 		if err != nil {
-			return fmt.Errorf("delete model %q secret backend: %w", uuid, err)
+			return fmt.Errorf("deleting secret backends for model %q: %w", uuid, err)
+		}
+
+		_, err = tx.ExecContext(ctx, deleteSecretBackendRefCount, uuid)
+		if err != nil {
+			return fmt.Errorf("deleting secret backend reference count for model %q: %w", uuid, err)
 		}
 
 		_, err = tx.ExecContext(ctx, deleteModelAgent, uuid)
 		if err != nil {
-			return fmt.Errorf("delete model %q agent: %w", uuid, err)
+			return fmt.Errorf("deleting agent for model %q: %w", uuid, err)
 		}
 
 		_, err = tx.ExecContext(ctx, deletePermissionStmt, uuid)
@@ -688,7 +694,7 @@ func (s *State) Delete(
 
 		res, err := tx.ExecContext(ctx, deleteModel, uuid)
 		if err != nil {
-			return fmt.Errorf("deleting model %q metadata: %w", uuid, err)
+			return fmt.Errorf("deleting metadata for model %q: %w", uuid, err)
 		}
 
 		if num, err := res.RowsAffected(); err != nil {

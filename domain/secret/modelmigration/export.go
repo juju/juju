@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secret/state"
+	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 )
 
 // RegisterExport registers the export operations with the given coordinator.
@@ -50,6 +51,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	// nil watcher factory.
 	e.service = service.NewSecretService(
 		state.NewState(scope.ModelDB(), e.logger),
+		secretbackendstate.NewState(scope.ControllerDB(), e.logger),
 		e.logger,
 		service.NotImplementedBackendConfigGetter)
 	return nil

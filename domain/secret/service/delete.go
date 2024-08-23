@@ -17,7 +17,15 @@ import (
 
 // DeleteObsoleteUserSecretRevisions deletes any obsolete user secret revisions that are marked as auto-prune.
 func (s *SecretService) DeleteObsoleteUserSecretRevisions(ctx context.Context) error {
-	return s.st.DeleteObsoleteUserSecretRevisions(ctx)
+	deletedRevisionIDs, err := s.secretState.DeleteObsoleteUserSecretRevisions(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err = s.secretBackendReferenceMutator.RemoveSecretBackendReference(ctx, deletedRevisionIDs...); err != nil {
+		// We don't want to error out if we can't remove the backend reference.
+		s.logger.Errorf("failed to remove secret backend reference for deleted obsolete user secret revisions: %v", err)
+	}
+	return nil
 }
 
 // DeleteSecret removes the specified secret.
@@ -33,12 +41,20 @@ func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, para
 		return errors.Trace(err)
 	}
 
-	return s.st.DeleteSecret(ctx, uri, params.Revisions)
+	deletedRevisionIDs, err := s.secretState.DeleteSecret(ctx, uri, params.Revisions)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err = s.secretBackendReferenceMutator.RemoveSecretBackendReference(ctx, deletedRevisionIDs...); err != nil {
+		// We don't want to error out if we can't remove the backend reference.
+		s.logger.Errorf("failed to remove secret backend reference for deleted secret revisions %v: %v", deletedRevisionIDs, err)
+	}
+	return nil
 }
 
 func (s *SecretService) removeFromExternal(ctx context.Context, uri *secrets.URI, accessor SecretAccessor, revisions ...int) error {
 	externalRevs := make(map[string]provider.SecretRevisions)
-	revs, err := s.st.ListExternalSecretRevisions(ctx, uri, revisions...)
+	revs, err := s.secretState.ListExternalSecretRevisions(ctx, uri, revisions...)
 	if err != nil {
 		return errors.Trace(err)
 	}

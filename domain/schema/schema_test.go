@@ -180,6 +180,7 @@ func (s *schemaSuite) TestControllerTables(c *gc.C) {
 		"secret_backend_config",
 		"secret_backend_rotation",
 		"secret_backend_type",
+		"secret_backend_reference",
 		"model_secret_backend",
 
 		// macaroon bakery

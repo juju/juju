@@ -362,6 +362,45 @@ func (c *MockStateInitialWatchStatementForSecretBackendRotationChangesCall) DoAn
 	return c
 }
 
+// ListInUseKubernetesSecretBackends mocks base method.
+func (m *MockState) ListInUseKubernetesSecretBackends(arg0 context.Context) ([]*secretbackend.SecretBackend, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListInUseKubernetesSecretBackends", arg0)
+	ret0, _ := ret[0].([]*secretbackend.SecretBackend)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListInUseKubernetesSecretBackends indicates an expected call of ListInUseKubernetesSecretBackends.
+func (mr *MockStateMockRecorder) ListInUseKubernetesSecretBackends(arg0 any) *MockStateListInUseKubernetesSecretBackendsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInUseKubernetesSecretBackends", reflect.TypeOf((*MockState)(nil).ListInUseKubernetesSecretBackends), arg0)
+	return &MockStateListInUseKubernetesSecretBackendsCall{Call: call}
+}
+
+// MockStateListInUseKubernetesSecretBackendsCall wrap *gomock.Call
+type MockStateListInUseKubernetesSecretBackendsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateListInUseKubernetesSecretBackendsCall) Return(arg0 []*secretbackend.SecretBackend, arg1 error) *MockStateListInUseKubernetesSecretBackendsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateListInUseKubernetesSecretBackendsCall) Do(f func(context.Context) ([]*secretbackend.SecretBackend, error)) *MockStateListInUseKubernetesSecretBackendsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateListInUseKubernetesSecretBackendsCall) DoAndReturn(f func(context.Context) ([]*secretbackend.SecretBackend, error)) *MockStateListInUseKubernetesSecretBackendsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ListSecretBackendIDs mocks base method.
 func (m *MockState) ListSecretBackendIDs(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
