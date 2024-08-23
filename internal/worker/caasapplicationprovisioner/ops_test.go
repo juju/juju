@@ -355,7 +355,7 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *gc.C) {
 	unitsToDestroy := []string{"test/1"}
 	gomock.InOrder(
 		unitFacade.EXPECT().ApplicationScale(gomock.Any(), "test").Return(1, nil),
-		facade.EXPECT().ProvisioningState(gomock.Any(), "test").Return(nil, nil),
+		facade.EXPECT().ProvisioningState(gomock.Any(), "test").Return(&params.CAASApplicationProvisioningState{}, nil),
 		facade.EXPECT().SetProvisioningState(gomock.Any(), "test", ps).Return(nil),
 		facade.EXPECT().Units(gomock.Any(), "test").Return(units, nil),
 		app.EXPECT().UnitsToRemove(gomock.Any(), 1).Return(unitsToDestroy, nil),
@@ -415,7 +415,7 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *gc.C) {
 	}}
 	unitsToDestroy := []string{"test/0", "test/1"}
 	gomock.InOrder(
-		facade.EXPECT().ProvisioningState(gomock.Any(), "test").Return(nil, nil),
+		facade.EXPECT().ProvisioningState(gomock.Any(), "test").Return(&params.CAASApplicationProvisioningState{}, nil),
 		facade.EXPECT().SetProvisioningState(gomock.Any(), "test", ps).Return(nil),
 		facade.EXPECT().Units(gomock.Any(), "test").Return(units, nil),
 		app.EXPECT().UnitsToRemove(gomock.Any(), 0).Return(unitsToDestroy, nil),
@@ -570,13 +570,13 @@ func (s *OpsSuite) TestAppDying(c *gc.C) {
 	}
 	newPs := params.CAASApplicationProvisioningState{}
 	gomock.InOrder(
-		facade.EXPECT().ProvisioningState(gomock.Any(), "test").Return(nil, nil),
+		facade.EXPECT().ProvisioningState(gomock.Any(), "test").Return(&params.CAASApplicationProvisioningState{}, nil),
 		facade.EXPECT().SetProvisioningState(gomock.Any(), "test", ps).Return(nil),
 		facade.EXPECT().Units(gomock.Any(), "test").Return(nil, nil),
 		app.EXPECT().Scale(0).Return(nil),
 		facade.EXPECT().SetProvisioningState(gomock.Any(), "test", newPs).Return(nil),
 		facade.EXPECT().Units(gomock.Any(), "test").Return(nil, nil),
-		facade.EXPECT().ProvisioningState(gomock.Any(), "test").Return(nil, nil),
+		facade.EXPECT().ProvisioningState(gomock.Any(), "test").Return(&params.CAASApplicationProvisioningState{}, nil),
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppDying(context.Background(), "test", app, life.Dying, facade, unitFacade, s.logger)

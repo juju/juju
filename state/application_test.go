@@ -4769,6 +4769,7 @@ func (s *ApplicationSuite) TestProvisioningState(c *gc.C) {
 }
 
 func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
+	c.Skip("stuff moved to dqlite, kept for reference")
 	registry := &storage.StaticProviderRegistry{
 		Providers: map[storage.ProviderType]storage.Provider{
 			"kubernetes": &dummy.StorageProvider{

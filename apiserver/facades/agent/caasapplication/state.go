@@ -42,7 +42,6 @@ type Application interface {
 	Life() state.Life
 	Name() string
 	UpsertCAASUnit(args state.UpsertCAASUnitParams) (Unit, error)
-	GetScale() int
 }
 
 // Charm provides the subset of charm state required by the

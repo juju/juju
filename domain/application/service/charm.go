@@ -32,6 +32,8 @@ type WatcherFactory interface {
 	NewUUIDsWatcher(
 		namespace string, changeMask changestream.ChangeType,
 	) (watcher.StringsWatcher, error)
+	NewValueMapperWatcher(string, string, changestream.ChangeType, eventsource.Mapper,
+	) (watcher.NotifyWatcher, error)
 	NewNamespaceMapperWatcher(
 		namespace string, changeMask changestream.ChangeType,
 		initialStateQuery eventsource.NamespaceQuery,

@@ -633,6 +633,10 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_unit_insert",
 		"trg_log_unit_update",
 		"trg_log_unit_delete",
+
+		"trg_log_application_scale_insert",
+		"trg_log_application_scale_update",
+		"trg_log_application_scale_delete",
 	)
 
 	// These are additional triggers that are not change log triggers, but

@@ -554,7 +554,7 @@ var unitParams = RegisterCAASUnitParams{
 	OrderedId:    1,
 }
 
-func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingUnitName(c *gc.C) {
+func (s *applicationServiceSuite) TestRegisterCAASUnitMissingUnitName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	p := unitParams
@@ -563,7 +563,7 @@ func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingUnitName(c *gc.C
 	c.Assert(err, gc.ErrorMatches, "missing unit name not valid")
 }
 
-func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingOrderedScale(c *gc.C) {
+func (s *applicationServiceSuite) TestRegisterCAASUnitMissingOrderedScale(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	p := unitParams
@@ -572,7 +572,7 @@ func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingOrderedScale(c *
 	c.Assert(err, gc.ErrorMatches, "registering CAAS units not supported without ordered unit IDs")
 }
 
-func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingProviderID(c *gc.C) {
+func (s *applicationServiceSuite) TestRegisterCAASUnitMissingProviderID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	p := unitParams
@@ -581,7 +581,7 @@ func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingProviderID(c *gc
 	c.Assert(err, gc.ErrorMatches, "provider id not valid")
 }
 
-func (s *applicationServiceSuite) TestAddRegisterCAASUnitMissingPasswordHash(c *gc.C) {
+func (s *applicationServiceSuite) TestRegisterCAASUnitMissingPasswordHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	p := unitParams

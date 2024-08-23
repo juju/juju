@@ -28,6 +28,12 @@ type ScaleState struct {
 	ScaleTarget int
 }
 
+// CloudService contains parameters for an application's cloud service.
+type CloudService struct {
+	ProviderId string
+	Address    *Address
+}
+
 // CloudContainer contains parameters for a unit's cloud container.
 type CloudContainer struct {
 	ProviderId *string

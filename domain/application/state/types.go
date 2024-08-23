@@ -54,7 +54,7 @@ type applicationScale struct {
 	ScaleTarget   int    `db:"scale_target"`
 }
 
-func (as applicationScale) ToScaleState() application.ScaleState {
+func (as applicationScale) toScaleState() application.ScaleState {
 	return application.ScaleState{
 		Scaling:     as.Scaling,
 		Scale:       as.Scale,
@@ -75,6 +75,11 @@ type unitDetails struct {
 type cloudContainer struct {
 	NetNodeID  string `db:"net_node_uuid"`
 	ProviderID string `db:"provider_id"`
+}
+
+type cloudService struct {
+	ApplicationID string `db:"application_uuid"`
+	ProviderID    string `db:"provider_id"`
 }
 
 // These structs represent the persistent charm schema in the database.

@@ -22,9 +22,11 @@ func Register(registry facade.FacadeRegistry) {
 // newStateFacade provides the signature required for facade registration.
 func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 	return NewFacade(
+		ctx.WatcherRegistry(),
 		ctx.Resources(),
 		ctx.Auth(),
 		ctx.ServiceFactory().Network(),
+		ctx.ServiceFactory().Application(nil),
 		stateShim{ctx.State()},
 		clock.WallClock,
 		ctx.Logger().Child("caasunitprovisioner"),

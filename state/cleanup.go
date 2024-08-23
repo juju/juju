@@ -170,6 +170,7 @@ type MachineRemover interface {
 // ApplicationService deletes an application or unit from the dqlite database.
 // This allows us to initially weave some dqlite support into the cleanup workflow.
 type ApplicationService interface {
+	DestroyApplication(context.Context, string) error
 	DeleteApplication(context.Context, string) error
 	DeleteUnit(context.Context, string) error
 }
@@ -574,25 +575,25 @@ func (st *State) cleanupForceStorage(cleanupArgs []bson.Raw) (err error) {
 
 // cleanupApplication checks if all references to a dying application have been removed,
 // and if so, removes the application.
-func (st *State) cleanupApplication(ctx context.Context, store objectstore.ObjectStore, appRemover ApplicationService, applicationname string, cleanupArgs []bson.Raw) (err error) {
-	app, err := st.Application(applicationname)
+func (st *State) cleanupApplication(ctx context.Context, store objectstore.ObjectStore, appService ApplicationService, appName string, cleanupArgs []bson.Raw) (err error) {
+	app, err := st.Application(appName)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			// Nothing to do, the application is already gone.
-			logger.Tracef("cleanupApplication(%s): application already gone", applicationname)
+			logger.Tracef("cleanupApplication(%s): application already gone", appName)
 			return nil
 		}
 		return errors.Trace(err)
 	}
 	if app.Life() == Alive {
-		return errors.BadRequestf("cleanupApplication requested for an application (%s) that is still alive", applicationname)
+		return errors.BadRequestf("cleanupApplication requested for an application (%s) that is still alive", appName)
 	}
 	// We know the app is at least Dying, so check if the unit/relation counts are no longer referencing this application.
 	if app.UnitCount() > 0 || app.RelationCount() > 0 {
 		// this is considered a no-op because whatever is currently referencing the application
 		// should queue up a new cleanup once it stops
 		logger.Tracef("cleanupApplication(%s) called, but it still has references: unitcount: %d relationcount: %d",
-			applicationname, app.UnitCount(), app.RelationCount())
+			appName, app.UnitCount(), app.RelationCount())
 		return nil
 	}
 	destroyStorage := false
@@ -606,26 +607,31 @@ func (st *State) cleanupApplication(ctx context.Context, store objectstore.Objec
 	if err := cleanupArgs[1].Unmarshal(&force); err != nil {
 		return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
 	}
+	// Minimally initiate destroy in dqlite.
+	// It's sufficient for now just to advance the life to dying.
+	if err := appService.DestroyApplication(ctx, appName); err != nil {
+		return errors.Annotatef(err, "destroying application %q", appName)
+	}
 	op := app.DestroyOperation(store)
 	op.DestroyStorage = destroyStorage
 	op.Force = force
 	err = st.ApplyOperation(op)
 	if len(op.Errors) != 0 {
-		logger.Warningf("operational errors cleaning up application %v: %v", applicationname, op.Errors)
+		logger.Warningf("operational errors cleaning up application %v: %v", appName, op.Errors)
 	} else if err == nil && op.Removed {
-		err = appRemover.DeleteApplication(ctx, applicationname)
+		err = appService.DeleteApplication(ctx, appName)
 	}
 	return err
 }
 
 // cleanupForceApplication forcibly removes the application.
-func (st *State) cleanupForceApplication(ctx context.Context, store objectstore.ObjectStore, appRemover ApplicationService, applicationName string, cleanupArgs []bson.Raw) (err error) {
-	logger.Debugf("force destroy application: %v", applicationName)
-	app, err := st.Application(applicationName)
+func (st *State) cleanupForceApplication(ctx context.Context, store objectstore.ObjectStore, appService ApplicationService, appName string, cleanupArgs []bson.Raw) (err error) {
+	logger.Debugf("force destroy application: %v", appName)
+	app, err := st.Application(appName)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			// Nothing to do, the application is already gone.
-			logger.Tracef("forceCleanupApplication(%s): application already gone", applicationName)
+			logger.Tracef("forceCleanupApplication(%s): application already gone", appName)
 			return nil
 		}
 		return errors.Trace(err)
@@ -639,15 +645,21 @@ func (st *State) cleanupForceApplication(ctx context.Context, store objectstore.
 		return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
 	}
 
+	// Minimally initiate destroy in dqlite.
+	// It's sufficient for now just to advance the life to dying.
+	if err := appService.DestroyApplication(ctx, appName); err != nil {
+		return errors.Annotatef(err, "destroying application %q", appName)
+	}
+
 	op := app.DestroyOperation(store)
 	op.Force = true
 	op.CleanupIgnoringResources = true
 	op.MaxWait = maxWait
 	err = st.ApplyOperation(op)
 	if len(op.Errors) != 0 {
-		logger.Warningf("operational errors cleaning up application %v: %v", applicationName, op.Errors)
+		logger.Warningf("operational errors cleaning up application %v: %v", appName, op.Errors)
 	} else if err == nil && op.Removed {
-		err = appRemover.DeleteApplication(ctx, applicationName)
+		err = appService.DeleteApplication(ctx, appName)
 	}
 	return err
 }
@@ -676,7 +688,7 @@ func (st *State) cleanupApplicationsForDyingModel(ctx context.Context, store obj
 	return st.removeApplicationsForDyingModel(ctx, store, appRemover, args)
 }
 
-func (st *State) removeApplicationsForDyingModel(ctx context.Context, store objectstore.ObjectStore, appRemover ApplicationService, args DestroyModelParams) (err error) {
+func (st *State) removeApplicationsForDyingModel(ctx context.Context, store objectstore.ObjectStore, appService ApplicationService, args DestroyModelParams) (err error) {
 	// This won't miss applications, because a Dying model cannot have
 	// applications added to it. But we do have to remove the applications
 	// themselves via individual transactions, because they could be in any
@@ -696,6 +708,11 @@ func (st *State) removeApplicationsForDyingModel(ctx context.Context, store obje
 	iter := applications.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading application document")
 	for iter.Next(&application.doc) {
+		// Minimally initiate destroy in dqlite.
+		// It's sufficient for now just to advance the life to dying.
+		if err := appService.DestroyApplication(ctx, application.Name()); err != nil {
+			return errors.Annotatef(err, "destroying application %q", application.Name())
+		}
 		op := application.DestroyOperation(store)
 		op.RemoveOffers = true
 		op.Force = force
@@ -704,7 +721,7 @@ func (st *State) removeApplicationsForDyingModel(ctx context.Context, store obje
 		if len(op.Errors) != 0 {
 			logger.Warningf("operational errors removing application %v for dying model %v: %v", application.Name(), st.ModelUUID(), op.Errors)
 		} else if err == nil && op.Removed {
-			err = appRemover.DeleteApplication(ctx, application.Name())
+			err = appService.DeleteApplication(ctx, application.Name())
 		}
 		if err != nil {
 			return errors.Trace(err)

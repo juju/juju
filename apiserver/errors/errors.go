@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/upgrade"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -119,9 +120,11 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		params.CodeSecretNotFound,
 		params.CodeSecretRevisionNotFound,
 		params.CodeSecretConsumerNotFound,
-		params.CodeSecretBackendNotFound:
+		params.CodeSecretBackendNotFound,
+		params.CodeApplicationNotFound:
 		status = http.StatusNotFound
-	case params.CodeBadRequest:
+	case params.CodeBadRequest,
+		params.CodeScalingStateInconsistent:
 		status = http.StatusBadRequest
 	case params.CodeMethodNotAllowed:
 		status = http.StatusMethodNotAllowed
@@ -230,6 +233,10 @@ func ServerError(err error) *params.Error {
 		code = params.CodeSecretBackendNotSupported
 	case errors.Is(err, errors.BadRequest):
 		code = params.CodeBadRequest
+	case errors.Is(err, applicationerrors.ApplicationNotFound):
+		code = params.CodeApplicationNotFound
+	case errors.Is(err, applicationerrors.ScalingStateInconsistent):
+		code = params.CodeScalingStateInconsistent
 	case errors.Is(err, errors.MethodNotAllowed):
 		code = params.CodeMethodNotAllowed
 	case errors.Is(err, errors.NotImplemented):

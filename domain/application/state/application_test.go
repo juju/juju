@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -173,6 +174,53 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 	c.Assert(unitID, gc.Equals, "foo/666")
 }
 
+func (s *applicationStateSuite) TestGetApplicationLife(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Dying)
+	var (
+		appLife life.Life
+		gotID   coreapplication.ID
+	)
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		gotID, appLife, err = s.state.GetApplicationLife(ctx, "foo")
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotID, gc.Equals, appID)
+	c.Assert(appLife, gc.Equals, life.Dying)
+}
+
+func (s *applicationStateSuite) TestGetApplicationLifeNotFound(c *gc.C) {
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		_, _, err := s.state.GetApplicationLife(ctx, "foo")
+		return err
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestUpsertCloudService(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
+	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{})
+	c.Assert(err, jc.ErrorIsNil)
+	var providerID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT provider_id FROM cloud_service WHERE application_uuid = ?", appID).Scan(&providerID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(providerID, gc.Equals, "provider-id")
+	err = s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationStateSuite) TestUpsertCloudServiceNotFound(c *gc.C) {
+	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{})
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
 func (s *applicationStateSuite) TestCreateUnitCloudContainer(c *gc.C) {
 	u := application.UpsertUnitArg{
 		UnitName: ptr("foo/666"),
@@ -310,6 +358,95 @@ func (s *applicationStateSuite) TestApplicationScaleStateNotFound(c *gc.C) {
 		return err
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestSetDesiredApplicationScale(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
+
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.SetDesiredApplicationScale(ctx, appID, 666)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var gotScale int
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_scale WHERE application_uuid=?", appID).
+			Scan(&gotScale)
+		return errors.Trace(err)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotScale, jc.DeepEquals, 666)
+}
+
+func (s *applicationStateSuite) TestSetApplicationScalingState(c *gc.C) {
+	u := application.UpsertUnitArg{
+		UnitName: ptr("foo/666"),
+	}
+	appID := s.createApplication(c, "foo", life.Alive, u)
+
+	// Set up the initial scale value.
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.SetDesiredApplicationScale(ctx, appID, 666)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkResult := func(want application.ScaleState) {
+		var got application.ScaleState
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appID).
+				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
+			return errors.Trace(err)
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(got, jc.DeepEquals, want)
+	}
+
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.SetApplicationScalingState(ctx, appID, nil, 668, true)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	checkResult(application.ScaleState{
+		Scale:       666,
+		ScaleTarget: 668,
+		Scaling:     true,
+	})
+
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.SetApplicationScalingState(ctx, appID, ptr(667), 668, true)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	checkResult(application.ScaleState{
+		Scale:       667,
+		ScaleTarget: 668,
+		Scaling:     true,
+	})
+}
+
+func (s *applicationStateSuite) TestSetApplicationLife(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
+
+	checkResult := func(want life.Life) {
+		var gotLife life.Life
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			err := tx.QueryRowContext(ctx, "SELECT life_id FROM application WHERE uuid=?", appID).
+				Scan(&gotLife)
+			return errors.Trace(err)
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(gotLife, jc.DeepEquals, want)
+	}
+
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.SetApplicationLife(ctx, appID, life.Dying)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	checkResult(life.Dying)
+
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.SetApplicationLife(ctx, appID, life.Dying)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	checkResult(life.Dying)
 }
 
 func (s *applicationStateSuite) TestDeleteApplication(c *gc.C) {

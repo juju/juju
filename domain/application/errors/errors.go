@@ -23,6 +23,13 @@ const (
 	// being deleted still has associated units.
 	ApplicationHasUnits = errors.ConstError("application has units")
 
+	// ScalingStateInconsistent is returned by SetScalingState when the scaling state
+	// is inconsistent with the application scale.
+	ScalingStateInconsistent = errors.ConstError("scaling state is inconsistent")
+
+	// ScaleChangeInvalid is returned when an attempt is made to set an invalid application scale value.
+	ScaleChangeInvalid = errors.ConstError("scale change invalid")
+
 	// MissingStorageDirective describes an error that occurs when expected
 	// storage directives are missing.
 	MissingStorageDirective = errors.ConstError("no storage directive specified")

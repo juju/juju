@@ -1685,6 +1685,10 @@ func (fakeMachineRemover) DeleteMachine(context.Context, machine.Name) error { r
 
 type fakeAppRemover struct{}
 
+func (r fakeAppRemover) DestroyApplication(context.Context, string) error {
+	return nil
+}
+
 func (r fakeAppRemover) DeleteUnit(context.Context, string) error {
 	return nil
 }

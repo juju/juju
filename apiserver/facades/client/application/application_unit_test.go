@@ -910,6 +910,7 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
+	s.applicationService.EXPECT().DestroyApplication(gomock.Any(), "postgresql")
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AllUnits().Return([]application.Unit{
 		s.expectUnit(ctrl, "postgresql/0"),
@@ -951,6 +952,7 @@ func (s *ApplicationSuite) TestForceDestroyApplication(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
+	s.applicationService.EXPECT().DestroyApplication(gomock.Any(), "postgresql")
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AllUnits().Return([]application.Unit{
 		s.expectUnit(ctrl, "postgresql/0"),
@@ -982,6 +984,7 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
+	s.applicationService.EXPECT().DestroyApplication(gomock.Any(), "postgresql")
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AllUnits().Return([]application.Unit{
 		s.expectUnit(ctrl, "postgresql/0"),
@@ -2095,9 +2098,7 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModel(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().SetScale(5, int64(0), true).Return(nil)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	s.applicationService.EXPECT().SetApplicationScale(gomock.Any(), "postgresql", 5)
 
 	results, err := s.api.ScaleApplications(context.Background(), params.ScaleApplicationsParams{
 		Applications: []params.ScaleApplicationParams{{
@@ -2132,9 +2133,7 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleChange(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().ChangeScale(5).Return(7, nil)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	s.applicationService.EXPECT().ChangeApplicationScale(gomock.Any(), "postgresql", 5).Return(7, nil)
 
 	results, err := s.api.ScaleApplications(context.Background(), params.ScaleApplicationsParams{
 		Applications: []params.ScaleApplicationParams{{

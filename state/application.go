@@ -2700,10 +2700,12 @@ func (a *Application) insertCAASUnitOps(args UpsertCAASUnitParams) ([]txn.Op, er
 		return nil, errors.NotValidf("nil unit name")
 	}
 
-	if ps := a.ProvisioningState(); args.OrderedId >= a.GetScale() ||
-		(ps != nil && ps.Scaling && args.OrderedId >= ps.ScaleTarget) {
-		return nil, errors.NotAssignedf("unrequired unit %s is", *args.UnitName)
-	}
+	// We write scale info to dqlite now - this check is done there instead.
+	// The rest of the code needs to be kept for now.
+	//if ps := a.ProvisioningState(); args.OrderedId >= a.GetScale() ||
+	//	(ps != nil && ps.Scaling && args.OrderedId >= ps.ScaleTarget) {
+	//	return nil, errors.NotAssignedf("unrequired unit %s is", *args.UnitName)
+	//}
 
 	_, addOps, err := a.addUnitOps("", args.AddUnitParams, nil)
 	if err != nil {

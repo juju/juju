@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/api/common"
 	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -441,7 +440,7 @@ func (c *Client) DestroyUnits(ctx context.Context, unitNames []string) error {
 
 	for _, res := range result.Results {
 		if res.Error != nil {
-			return errors.Trace(apiservererrors.RestoreError(res.Error))
+			return errors.Trace(params.TranslateWellKnownError(res.Error))
 		}
 	}
 
@@ -458,7 +457,7 @@ func (c *Client) ProvisioningState(ctx context.Context, appName string) (*params
 		return nil, err
 	}
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, params.TranslateWellKnownError(result.Error)
 	}
 	return result.ProvisioningState, nil
 }
@@ -475,12 +474,12 @@ func (c *Client) SetProvisioningState(ctx context.Context, appName string, state
 		return err
 	}
 	if result.Error != nil {
-		return result.Error
+		return params.TranslateWellKnownError(result.Error)
 	}
 	return nil
 }
 
-// ProvisionerConfig returns the provisoner's configuration.
+// ProvisionerConfig returns the provisioner's configuration.
 func (c *Client) ProvisionerConfig(ctx context.Context) (params.CAASApplicationProvisionerConfig, error) {
 	var result params.CAASApplicationProvisionerConfigResult
 	err := c.facade.FacadeCall(ctx, "ProvisionerConfig", nil, &result)
@@ -488,7 +487,7 @@ func (c *Client) ProvisionerConfig(ctx context.Context) (params.CAASApplicationP
 		return params.CAASApplicationProvisionerConfig{}, err
 	}
 	if result.Error != nil {
-		return params.CAASApplicationProvisionerConfig{}, result.Error
+		return params.CAASApplicationProvisionerConfig{}, params.TranslateWellKnownError(result.Error)
 	}
 	if result.ProvisionerConfig == nil {
 		return params.CAASApplicationProvisionerConfig{}, nil

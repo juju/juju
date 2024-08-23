@@ -5,7 +5,6 @@ package caasunitprovisioner
 
 import (
 	coreconfig "github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -18,12 +17,8 @@ type CAASUnitProvisionerState interface {
 // Application provides the subset of application state
 // required by the CAAS unit provisioner facade.
 type Application interface {
-	GetScale() int
-	SetScale(int, int64, bool) error
 	WatchConfigSettingsHash() state.StringsWatcher
-	WatchScale() state.NotifyWatcher
 	ApplicationConfig() (coreconfig.ConfigAttributes, error)
-	UpdateCloudService(providerId string, addresses []network.SpaceAddress) error
 }
 
 type stateShim struct {

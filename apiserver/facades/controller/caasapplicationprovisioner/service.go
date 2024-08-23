@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -36,4 +37,11 @@ type ModelInfoService interface {
 	// GetModelInfo returns the readonly model information for the model in
 	// question.
 	GetModelInfo(context.Context) (model.ReadOnlyModel, error)
+}
+
+// ApplicationService describes the service for accessing application scaling info.
+type ApplicationService interface {
+	SetApplicationScalingState(ctx context.Context, name string, scaleTarget int, scaling bool) error
+	GetApplicationScalingState(ctx context.Context, name string) (service.ScalingState, error)
+	GetApplicationScale(ctx context.Context, name string) (int, error)
 }

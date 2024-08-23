@@ -41,7 +41,14 @@ type AddUnitArg struct {
 	// Storage params go here.
 }
 
-// RegisterCAASUnitParams contain parameters for introducing
+// ScalingState contains attributes that describes
+// the scaling state of a CAAS application.
+type ScalingState struct {
+	ScaleTarget int
+	Scaling     bool
+}
+
+// RegisterCAASUnitParams contains parameters for introducing
 // a k8s unit representing a new pod to the model.
 type RegisterCAASUnitParams struct {
 	UnitName     string

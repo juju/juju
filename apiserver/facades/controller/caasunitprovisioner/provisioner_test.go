@@ -12,12 +12,15 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -36,9 +39,12 @@ type CAASProvisionerSuite struct {
 	scaleChanges        chan struct{}
 	settingsChanges     chan []string
 
-	resources  *common.Resources
-	authorizer *apiservertesting.FakeAuthorizer
-	facade     *caasunitprovisioner.Facade
+	watcherRegistry *mocks.MockWatcherRegistry
+	resources       *common.Resources
+	authorizer      *apiservertesting.FakeAuthorizer
+
+	applicationService *MockApplicationService
+	facade             *caasunitprovisioner.Facade
 }
 
 func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
@@ -51,12 +57,10 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 		application: mockApplication{
 			tag:             names.NewApplicationTag("gitlab"),
 			life:            state.Alive,
-			scaleWatcher:    statetesting.NewMockNotifyWatcher(s.scaleChanges),
 			settingsWatcher: statetesting.NewMockStringsWatcher(s.settingsChanges),
 			scale:           5,
 		},
 	}
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.application.scaleWatcher) })
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.application.settingsWatcher) })
 
 	s.resources = common.NewResources()
@@ -66,11 +70,20 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	}
 	s.clock = testclock.NewClock(time.Now())
 	s.PatchValue(&jujuversion.OfficialBuild, 0)
+}
 
+func (s *CAASProvisionerSuite) setUpFacade(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.applicationService = NewMockApplicationService(ctrl)
+	s.watcherRegistry = mocks.NewMockWatcherRegistry(ctrl)
+
+	var err error
 	facade, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, nil, s.st, s.clock, loggertesting.WrapCheckLog(c))
+		s.watcherRegistry, s.resources, s.authorizer, nil, s.applicationService, s.st, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
+	return ctrl
 }
 
 func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
@@ -78,12 +91,18 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, nil, s.st, s.clock, loggertesting.WrapCheckLog(c))
+		nil, s.resources, s.authorizer, nil, nil, s.st, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *CAASProvisionerSuite) TestWatchApplicationsScale(c *gc.C) {
+	defer s.setUpFacade(c).Finish()
+
 	s.scaleChanges <- struct{}{}
+
+	w := watchertest.NewMockNotifyWatcher(s.scaleChanges)
+	s.watcherRegistry.EXPECT().Register(w).Return("1", nil)
+	s.applicationService.EXPECT().WatchApplicationScale(gomock.Any(), "gitlab").Return(w, nil)
 
 	results, err := s.facade.WatchApplicationsScale(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -99,11 +118,11 @@ func (s *CAASProvisionerSuite) TestWatchApplicationsScale(c *gc.C) {
 	})
 
 	c.Assert(results.Results[0].NotifyWatcherId, gc.Equals, "1")
-	resource := s.resources.Get("1")
-	c.Assert(resource, gc.Equals, s.st.application.scaleWatcher)
 }
 
 func (s *CAASProvisionerSuite) TestWatchApplicationsConfigSetingsHash(c *gc.C) {
+	defer s.setUpFacade(c).Finish()
+
 	s.settingsChanges <- []string{"hash"}
 
 	results, err := s.facade.WatchApplicationsTrustHash(context.Background(), params.Entities{
@@ -125,6 +144,10 @@ func (s *CAASProvisionerSuite) TestWatchApplicationsConfigSetingsHash(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestApplicationScale(c *gc.C) {
+	defer s.setUpFacade(c).Finish()
+
+	s.applicationService.EXPECT().GetApplicationScale(gomock.Any(), "gitlab").Return(5, nil)
+
 	results, err := s.facade.ApplicationsScale(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -141,5 +164,4 @@ func (s *CAASProvisionerSuite) TestApplicationScale(c *gc.C) {
 			},
 		}},
 	})
-	s.st.CheckCallNames(c, "Application")
 }
