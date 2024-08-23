@@ -8,7 +8,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
@@ -68,8 +67,13 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 		if _, ok := groupedPortRanges[endpointName]; !ok {
 			groupedPortRanges[endpointPortRange.Endpoint] = []network.PortRange{}
 		}
-		groupedPortRanges[endpointName] = groupedPortRanges[endpointName].Add(endpointPortRange.decode())
+		groupedPortRanges[endpointName] = append(groupedPortRanges[endpointName], endpointPortRange.decode())
 	}
+
+	for _, portRanges := range groupedPortRanges {
+		network.SortPortRanges(portRanges)
+	}
+
 	return groupedPortRanges, nil
 }
 
@@ -96,55 +100,30 @@ func (st *State) UpdateUnitPorts(
 	unitUUID := unitUUID{UUID: unit}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		currentOpenedPorts, err := st.getOpenedPorts(ctx, tx, unitUUID)
+		if err != nil {
+			return errors.Annotatef(err, "getting opened ports for unit %q", unit)
+		}
+
+		allInputPortRanges := append(openPorts.UniquePortRanges(), closePorts.UniquePortRanges()...)
+		err = verifyNoPortRangeConflicts(currentOpenedPorts, allInputPortRanges)
+		if err != nil {
+			return errors.Annotatef(err, "port ranges conflict on unit %q", unit)
+		}
 
 		endpoints, err := st.ensureEndpoints(ctx, tx, unitUUID, endpointsUnderAction)
 		if err != nil {
 			return errors.Annotatef(err, "ensuring endpoints exist for unit %q", unit)
 		}
 
-		protocolMap, err := st.getProtocolMap(ctx, tx)
+		err = st.openPorts(ctx, tx, openPorts, currentOpenedPorts, endpoints)
 		if err != nil {
-			return errors.Annotate(err, "getting protocol map")
+			return errors.Annotatef(err, "opening ports for unit %q", unit)
 		}
 
-		endpointToPorts, err := st.getOpenedPortsForEndpoints(ctx, tx, unitUUID, endpointsUnderAction)
+		err = st.closePorts(ctx, tx, closePorts, currentOpenedPorts)
 		if err != nil {
-			return errors.Annotatef(err, "getting opened ports for unit %q", unit)
-		}
-
-		var (
-			// changedEndpoints is a list of endpoint UUIDs that have had their
-			// opened ports changed.
-			changedEndpoints endpointUUIDs
-
-			// unitPortRanges is a list of port ranges for each endpoint that
-			// have had their opened ports changed.
-			unitPortRanges []unitPortRange
-		)
-		for _, endpoint := range endpoints {
-			endpointName := endpoint.Endpoint
-			currentOpenedPorts := endpointToPorts[endpointName]
-
-			reconciledOpenPorts := currentOpenedPorts.Update(openPorts[endpointName], closePorts[endpointName])
-
-			if !currentOpenedPorts.EqualTo(reconciledOpenPorts) {
-				changedEndpoints = append(changedEndpoints, endpoint.UUID)
-
-				endpointPortRanges := transform.Slice(reconciledOpenPorts, func(p network.PortRange) unitPortRange {
-					return unitPortRange{
-						ProtocolID:       protocolMap[p.Protocol],
-						FromPort:         p.FromPort,
-						ToPort:           p.ToPort,
-						UnitEndpointUUID: endpoint.UUID,
-					}
-				})
-				unitPortRanges = append(unitPortRanges, endpointPortRanges...)
-			}
-		}
-
-		err = st.updateEndpointOpenedPorts(ctx, tx, changedEndpoints, unitPortRanges)
-		if err != nil {
-			return errors.Annotatef(err, "updating opened ports for unit %q", unit)
+			return errors.Annotatef(err, "closing ports for unit %q", unit)
 		}
 
 		return nil
@@ -211,6 +190,117 @@ AND endpoint IN ($endpoints[:])
 	return endpoints, nil
 }
 
+// getOpenedPorts returns the opened ports for the given unit.
+//
+// NOTE: This differs from GetOpenedPorts in that it returns port ranges with
+// their UUIDs, which are not needed by GetOpenedPorts.
+func (st *State) getOpenedPorts(ctx context.Context, tx *sqlair.TX, unitUUID unitUUID) ([]endpointPortRangeUUID, error) {
+	getOpenedPorts, err := st.Prepare(`
+SELECT 
+	port_range.uuid AS &endpointPortRangeUUID.uuid,
+	protocol.protocol AS &endpointPortRangeUUID.protocol,
+	port_range.from_port AS &endpointPortRangeUUID.from_port,
+	port_range.to_port AS &endpointPortRangeUUID.to_port,
+	unit_endpoint.endpoint AS &endpointPortRangeUUID.endpoint
+FROM port_range
+JOIN protocol ON port_range.protocol_id = protocol.id
+INNER JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
+WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
+`, endpointPortRangeUUID{}, unitUUID)
+	if err != nil {
+		return nil, errors.Annotate(err, "preparing get opened ports statement")
+	}
+
+	openedPorts := []endpointPortRangeUUID{}
+	err = tx.Query(ctx, getOpenedPorts, unitUUID).GetAll(&openedPorts)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return []endpointPortRangeUUID{}, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return openedPorts, nil
+}
+
+func verifyNoPortRangeConflicts(currentOpenedPorts []endpointPortRangeUUID, inputPortRanges []network.PortRange) error {
+	for _, inputPortRange := range inputPortRanges {
+		for _, openedPortRange := range currentOpenedPorts {
+			if inputPortRange == openedPortRange.decode() {
+				// We allow port ranges to conflict only if they are equal
+				continue
+			}
+			if inputPortRange.ConflictsWith(openedPortRange.decode()) {
+				return errors.Annotatef(ErrPortRangeConflict,
+					"port range %q conflicts with existing port range %q",
+					inputPortRange, openedPortRange.decode())
+			}
+		}
+	}
+	return nil
+}
+
+// openPorts inserts the given port ranges into the database, unless they're already open.
+func (st *State) openPorts(
+	ctx context.Context, tx *sqlair.TX,
+	openPorts network.GroupedPortRanges, currentOpenedPorts []endpointPortRangeUUID, endpoints []endpoint,
+) error {
+	insertPortRange, err := st.Prepare("INSERT INTO port_range (*) VALUES ($unitPortRange.*)", unitPortRange{})
+	if err != nil {
+		return errors.Annotate(err, "preparing insert port range statement")
+	}
+
+	protocolMap, err := st.getProtocolMap(ctx, tx)
+	if err != nil {
+		return errors.Annotate(err, "getting protocol map")
+	}
+
+	// index the current opened ports by endpoint and port range
+	currentOpenedPortRangeExistenceIndex := make(map[string]map[network.PortRange]bool)
+	for _, openedPortRange := range currentOpenedPorts {
+		if _, ok := currentOpenedPortRangeExistenceIndex[openedPortRange.Endpoint]; !ok {
+			currentOpenedPortRangeExistenceIndex[openedPortRange.Endpoint] = make(map[network.PortRange]bool)
+		}
+		currentOpenedPortRangeExistenceIndex[openedPortRange.Endpoint][openedPortRange.decode()] = true
+	}
+
+	// Construct the new port ranges to open
+	var openPortRanges []unitPortRange
+
+	for _, ep := range endpoints {
+		ports, ok := openPorts[ep.Endpoint]
+		if !ok {
+			continue
+		}
+
+		for _, portRange := range ports {
+			// skip port range if it's already open on this endpoint
+			if _, ok := currentOpenedPortRangeExistenceIndex[ep.Endpoint][portRange]; ok {
+				continue
+			}
+
+			uuid, err := uuid.NewUUID()
+			if err != nil {
+				return errors.Annotatef(err, "generating UUID for unit endpoint")
+			}
+			openPortRanges = append(openPortRanges, unitPortRange{
+				UUID:             uuid.String(),
+				ProtocolID:       protocolMap[portRange.Protocol],
+				FromPort:         portRange.FromPort,
+				ToPort:           portRange.ToPort,
+				UnitEndpointUUID: ep.UUID,
+			})
+		}
+	}
+
+	if len(openPortRanges) > 0 {
+		err = tx.Query(ctx, insertPortRange, openPortRanges).Run()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // getProtocolMap returns a map of protocol names to their IDs in DQLite.
 func (st *State) getProtocolMap(ctx context.Context, tx *sqlair.TX) (map[string]int, error) {
 	getProtocols, err := st.Prepare("SELECT &protocol.* FROM protocol", protocol{})
@@ -232,65 +322,46 @@ func (st *State) getProtocolMap(ctx context.Context, tx *sqlair.TX) (map[string]
 	return protocolMap, nil
 }
 
-// getOpenedPortsForEndpoints returns the opened ports for the given endpoints
-// of a given unit.
-func (st *State) getOpenedPortsForEndpoints(
-	ctx context.Context, tx *sqlair.TX, unitUUID unitUUID, endpoints endpoints,
-) (network.GroupedPortRanges, error) {
-	getOpenedPortsOnEndpoints, err := st.Prepare(`
-SELECT &endpointPortRange.*
-FROM port_range
-JOIN protocol ON port_range.protocol_id = protocol.id
-JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
-WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
-AND unit_endpoint.endpoint IN ($endpoints[:])
-`, endpointPortRange{}, unitUUID, endpoints)
-	if err != nil {
-		return nil, errors.Annotate(err, "preparing get opened ports on endpoints statement")
-	}
-
-	var currentOpenedEndpointPorts []endpointPortRange
-	err = tx.Query(ctx, getOpenedPortsOnEndpoints, unitUUID, endpoints).GetAll(&currentOpenedEndpointPorts)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Trace(err)
-	}
-
-	endpointToPorts := make(network.GroupedPortRanges)
-	for _, r := range currentOpenedEndpointPorts {
-		endpointToPorts[r.Endpoint] = endpointToPorts[r.Endpoint].Add(r.decode())
-	}
-
-	return endpointToPorts, nil
-}
-
-// updateEndpointOpenedPorts updates the opened ports for the given endpoints.
-func (st *State) updateEndpointOpenedPorts(
-	ctx context.Context, tx *sqlair.TX, endpointUUIDs endpointUUIDs, unitPortRanges []unitPortRange,
+// closePorts removes the given port ranges from the database, if they exist.
+func (st *State) closePorts(
+	ctx context.Context, tx *sqlair.TX, closePorts network.GroupedPortRanges, currentOpenedPorts []endpointPortRangeUUID,
 ) error {
-	insertPortRange, err := st.Prepare("INSERT INTO port_range (*) VALUES ($unitPortRange.*)", unitPortRange{})
-	if err != nil {
-		return errors.Annotate(err, "preparing insert port range statement")
-	}
-
-	clearPortRange, err := st.Prepare(`
+	closePortRanges, err := st.Prepare(`
 DELETE FROM port_range
-WHERE unit_endpoint_uuid IN ($endpointUUIDs[:])
-`, endpointUUIDs)
+WHERE uuid IN ($portRangeUUIDs[:])
+`, portRangeUUIDs{})
 	if err != nil {
-		return errors.Annotate(err, "preparing clear port range statement")
+		return errors.Annotate(err, "preparing close port range statement")
 	}
 
-	// Clear out all existing open ports for endpoints undergoing changes.
-	if len(endpointUUIDs) > 0 {
-		err := tx.Query(ctx, clearPortRange, endpointUUIDs).Run()
-		if err != nil {
-			return errors.Trace(err)
+	// index the uuids of current opened ports by endpoint and port range
+	openedPortRangeUUIDIndex := make(map[string]map[network.PortRange]string)
+	for _, openedPortRange := range currentOpenedPorts {
+		if _, ok := openedPortRangeUUIDIndex[openedPortRange.Endpoint]; !ok {
+			openedPortRangeUUIDIndex[openedPortRange.Endpoint] = make(map[network.PortRange]string)
+		}
+		openedPortRangeUUIDIndex[openedPortRange.Endpoint][openedPortRange.decode()] = openedPortRange.UUID
+	}
+
+	// Find the uuids of port ranges to close
+	var closePortRangeUUIDs portRangeUUIDs
+	for endpoint, portRanges := range closePorts {
+		index, ok := openedPortRangeUUIDIndex[endpoint]
+		if !ok {
+			continue
+		}
+
+		for _, closePortRange := range portRanges {
+			openedRangeUUID, ok := index[closePortRange]
+			if !ok {
+				continue
+			}
+			closePortRangeUUIDs = append(closePortRangeUUIDs, openedRangeUUID)
 		}
 	}
 
-	// Insert the freshly calculated port ranges
-	if len(unitPortRanges) > 0 {
-		err := tx.Query(ctx, insertPortRange, unitPortRanges).Run()
+	if len(closePortRangeUUIDs) > 0 {
+		err = tx.Query(ctx, closePortRanges, closePortRangeUUIDs).Run()
 		if err != nil {
 			return errors.Trace(err)
 		}

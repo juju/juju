@@ -28,9 +28,28 @@ func (epr endpointPortRange) decode() network.PortRange {
 	}
 }
 
+type endpointPortRangeUUID struct {
+	UUID     string `db:"uuid"`
+	Protocol string `db:"protocol"`
+	FromPort int    `db:"from_port"`
+	ToPort   int    `db:"to_port"`
+	Endpoint string `db:"endpoint"`
+}
+
+func (p endpointPortRangeUUID) decode() network.PortRange {
+	return network.PortRange{
+		Protocol: p.Protocol,
+		FromPort: p.FromPort,
+		ToPort:   p.ToPort,
+	}
+}
+
+type portRangeUUIDs []string
+
 // unitPortRange represents a range of ports for a given protocol by id for a
 // given unit's endpoint by uuid.
 type unitPortRange struct {
+	UUID             string `db:"uuid"`
 	ProtocolID       int    `db:"protocol_id"`
 	FromPort         int    `db:"from_port"`
 	ToPort           int    `db:"to_port"`
@@ -45,9 +64,6 @@ type endpoint struct {
 
 // endpoints represents a list of network endpoints.
 type endpoints []string
-
-// endpointUUIDs represents a list of network endpoint UUIDs.
-type endpointUUIDs []string
 
 // unitEndpoint represents a unit's endpoint and its UUID.
 type unitEndpoint struct {
