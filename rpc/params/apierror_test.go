@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -59,6 +60,8 @@ func (*errorSuite) TestTranslateWellKnownError(c *gc.C) {
 		{params.CodeSecretBackendNotSupported, params.Error{Code: params.CodeSecretBackendNotSupported, Message: "secret backend not found"}, secretbackenderrors.NotSupported},
 		{params.CodeSecretBackendNotValid, params.Error{Code: params.CodeSecretBackendNotValid, Message: "secret backend not found"}, secretbackenderrors.NotValid},
 		{params.CodeSecretBackendForbidden, params.Error{Code: params.CodeSecretBackendForbidden, Message: "secret backend not found"}, secretbackenderrors.Forbidden},
+		{params.CodeApplicationNotFound, params.Error{Code: params.CodeApplicationNotFound, Message: "application not found"}, applicationerrors.ApplicationNotFound},
+		{params.CodeScalingStateInconsistent, params.Error{Code: params.CodeScalingStateInconsistent, Message: "scaling state inconsistent"}, applicationerrors.ScalingStateInconsistent},
 	}
 
 	for _, v := range tests {

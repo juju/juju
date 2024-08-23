@@ -49,7 +49,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	)
 }
 
-func (s *serviceSuite) createApplication(c *gc.C, svc *service.Service, name string, units ...service.AddUnitArg) coreapplication.ID {
+func (s *serviceSuite) createApplication(c *gc.C, name string, units ...service.AddUnitArg) coreapplication.ID {
 	ctx := context.Background()
 	appID, err := s.svc.CreateApplication(ctx, name, &stubCharm{}, corecharm.Origin{
 		Platform: corecharm.Platform{
@@ -60,6 +60,25 @@ func (s *serviceSuite) createApplication(c *gc.C, svc *service.Service, name str
 	}, service.AddApplicationArgs{}, units...)
 	c.Assert(err, jc.ErrorIsNil)
 	return appID
+}
+
+func (s *serviceSuite) TestDestroyApplication(c *gc.C) {
+	appID := s.createApplication(c, "foo")
+
+	err := s.svc.DestroyApplication(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	var gotLife int
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT life_id FROM application WHERE uuid = ?", appID).
+			Scan(&gotLife)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotLife, gc.Equals, 1)
 }
 
 func (s *serviceSuite) assertCAASUnit(c *gc.C, name, passwordHash string) {
@@ -81,7 +100,7 @@ func (s *serviceSuite) TestReplaceCAASUnit(c *gc.C) {
 	u := service.AddUnitArg{
 		UnitName: ptr("foo/1"),
 	}
-	s.createApplication(c, s.svc, "foo", u)
+	s.createApplication(c, "foo", u)
 
 	args := service.RegisterCAASUnitParams{
 		UnitName:     "foo/1",
@@ -99,7 +118,7 @@ func (s *serviceSuite) TestReplaceDeadCAASUnit(c *gc.C) {
 	u := service.AddUnitArg{
 		UnitName: ptr("foo/1"),
 	}
-	s.createApplication(c, s.svc, "foo", u)
+	s.createApplication(c, "foo", u)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name = ?", u.UnitName)
@@ -119,7 +138,7 @@ func (s *serviceSuite) TestReplaceDeadCAASUnit(c *gc.C) {
 }
 
 func (s *serviceSuite) TestNewCAASUnit(c *gc.C) {
-	appID := s.createApplication(c, s.svc, "foo")
+	appID := s.createApplication(c, "foo")
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scale = 2 WHERE application_uuid = ?", appID)
@@ -140,7 +159,7 @@ func (s *serviceSuite) TestNewCAASUnit(c *gc.C) {
 }
 
 func (s *serviceSuite) TestRegisterCAASUnitExceedsScale(c *gc.C) {
-	s.createApplication(c, s.svc, "foo")
+	s.createApplication(c, "foo")
 
 	args := service.RegisterCAASUnitParams{
 		UnitName:     "foo/1",
@@ -154,7 +173,7 @@ func (s *serviceSuite) TestRegisterCAASUnitExceedsScale(c *gc.C) {
 }
 
 func (s *serviceSuite) TestRegisterCAASUnitExceedsScaleTarget(c *gc.C) {
-	appID := s.createApplication(c, s.svc, "foo")
+	appID := s.createApplication(c, "foo")
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scale = 3, scale_target = 1, scaling = true WHERE application_uuid = ?", appID)
@@ -177,7 +196,7 @@ func (s *serviceSuite) TestSetScalingState(c *gc.C) {
 	u := service.AddUnitArg{
 		UnitName: ptr("foo/1"),
 	}
-	appID := s.createApplication(c, s.svc, "foo", u)
+	appID := s.createApplication(c, "foo", u)
 
 	err := s.svc.SetApplicationScalingState(context.Background(), "foo", 1, true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -203,7 +222,7 @@ func (s *serviceSuite) TestSetScalingStateAlreadyScaling(c *gc.C) {
 	u := service.AddUnitArg{
 		UnitName: ptr("foo/1"),
 	}
-	appID := s.createApplication(c, s.svc, "foo", u)
+	appID := s.createApplication(c, "foo", u)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scaling = true WHERE application_uuid = ?", appID)
@@ -235,7 +254,7 @@ func (s *serviceSuite) TestSetScalingStateDying(c *gc.C) {
 	u := service.AddUnitArg{
 		UnitName: ptr("foo/1"),
 	}
-	appID := s.createApplication(c, s.svc, "foo", u)
+	appID := s.createApplication(c, "foo", u)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = 1 WHERE uuid = ?", appID)
@@ -264,7 +283,7 @@ func (s *serviceSuite) TestSetScalingStateDying(c *gc.C) {
 }
 
 func (s *serviceSuite) TestSetScalingStateInconsistent(c *gc.C) {
-	s.createApplication(c, s.svc, "foo")
+	s.createApplication(c, "foo")
 
 	err := s.svc.SetApplicationScalingState(context.Background(), "foo", 666, true)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ScalingStateInconsistent)
@@ -274,7 +293,7 @@ func (s *serviceSuite) TestGetScalingState(c *gc.C) {
 	u := service.AddUnitArg{
 		UnitName: ptr("foo/1"),
 	}
-	appID := s.createApplication(c, s.svc, "foo", u)
+	appID := s.createApplication(c, "foo", u)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scaling = true WHERE application_uuid = ?", appID)
@@ -294,7 +313,7 @@ func (s *serviceSuite) TestGetScalingState(c *gc.C) {
 }
 
 func (s *serviceSuite) TestSetScale(c *gc.C) {
-	appID := s.createApplication(c, s.svc, "foo")
+	appID := s.createApplication(c, "foo")
 
 	err := s.svc.SetApplicationScale(context.Background(), "foo", 666)
 	c.Assert(err, jc.ErrorIsNil)
@@ -313,7 +332,7 @@ func (s *serviceSuite) TestSetScale(c *gc.C) {
 }
 
 func (s *serviceSuite) TestGetScale(c *gc.C) {
-	s.createApplication(c, s.svc, "foo")
+	s.createApplication(c, "foo")
 
 	err := s.svc.SetApplicationScale(context.Background(), "foo", 666)
 	c.Assert(err, jc.ErrorIsNil)
@@ -327,7 +346,7 @@ func (s *serviceSuite) TestChangeScale(c *gc.C) {
 	u := service.AddUnitArg{
 		UnitName: ptr("foo/1"),
 	}
-	appID := s.createApplication(c, s.svc, "foo", u)
+	appID := s.createApplication(c, "foo", u)
 
 	newScale, err := s.svc.ChangeApplicationScale(context.Background(), "foo", 2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -349,7 +368,7 @@ func (s *serviceSuite) TestChangeScaleInvalid(c *gc.C) {
 	u := service.AddUnitArg{
 		UnitName: ptr("foo/1"),
 	}
-	s.createApplication(c, s.svc, "foo", u)
+	s.createApplication(c, "foo", u)
 
 	_, err := s.svc.ChangeApplicationScale(context.Background(), "foo", -2)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ScaleChangeInvalid)
@@ -362,7 +381,7 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanScale(c *gc.C) {
 	u2 := service.AddUnitArg{
 		UnitName: ptr("foo/1"),
 	}
-	s.createApplication(c, s.svc, "foo", u, u2)
+	s.createApplication(c, "foo", u, u2)
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -382,7 +401,7 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanScale(c *gc.C) {
 	u := service.AddUnitArg{
 		UnitName: ptr("foo/0"),
 	}
-	s.createApplication(c, s.svc, "foo", u)
+	s.createApplication(c, "foo", u)
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -408,7 +427,7 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanDesired(c *gc.C) {
 	u3 := service.AddUnitArg{
 		UnitName: ptr("foo/2"),
 	}
-	s.createApplication(c, s.svc, "foo", u, u2, u3)
+	s.createApplication(c, "foo", u, u2, u3)
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -437,7 +456,7 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanDesired(c *gc.C)
 	u3 := service.AddUnitArg{
 		UnitName: ptr("foo/2"),
 	}
-	s.createApplication(c, s.svc, "foo", u, u2, u3)
+	s.createApplication(c, "foo", u, u2, u3)
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

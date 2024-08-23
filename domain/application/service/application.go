@@ -53,6 +53,9 @@ type AtomicApplicationState interface {
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application is not found.
 	GetApplicationLife(ctx domain.AtomicContext, appName string) (coreapplication.ID, life.Life, error)
 
+	// SetApplicationLife sets the life of the specified application.
+	SetApplicationLife(ctx domain.AtomicContext, appID coreapplication.ID, l life.Life) error
+
 	// ApplicationScaleState looks up the scale state of the specified
 	// application, returning an error satisfying
 	// [applicationerrors.ApplicationNotFound] if the application is not found.
@@ -342,6 +345,24 @@ func (s *ApplicationService) DeleteApplication(ctx context.Context, name string)
 	return errors.Annotatef(err, "deleting application %q", name)
 }
 
+// DestroyApplication prepares an application for removal from the model
+// returning an error  satisfying [applicationerrors.ApplicationNotFoundError]
+// if the application doesn't exist.
+func (s *ApplicationService) DestroyApplication(ctx context.Context, appName string) error {
+	// For now, all we do is advance the application's life to Dying.
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		appID, err := s.st.GetApplicationID(ctx, appName)
+		if errors.Is(err, applicationerrors.ApplicationIsDead) {
+			return nil
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return s.st.SetApplicationLife(ctx, appID, life.Dying)
+	})
+	return errors.Annotatef(err, "destroying application %q", appName)
+}
+
 // UpdateApplicationCharm sets a new charm for the application, validating that aspects such
 // as storage are still viable with the new charm.
 func (s *ApplicationService) UpdateApplicationCharm(ctx context.Context, name string, params UpdateCharmParams) error {
@@ -519,6 +540,7 @@ func (s *ApplicationService) SetApplicationScalingState(ctx context.Context, app
 		if err != nil {
 			return errors.Annotatef(err, "getting life for %q", appName)
 		}
+		s.logger.Criticalf("APP %s LIFE %v", appName, appLife)
 		currentScaleState, err := s.st.ApplicationScaleState(ctx, appID)
 		if err != nil {
 			return errors.Annotatef(err, "getting current scale state for %q", appName)

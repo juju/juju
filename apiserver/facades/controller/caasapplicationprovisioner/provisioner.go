@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -1451,12 +1450,8 @@ func (a *API) SetProvisioningState(ctx context.Context, args params.CAASApplicat
 	}
 
 	err = a.applicationService.SetApplicationScalingState(ctx, appTag.Id(), args.ProvisioningState.ScaleTarget, args.ProvisioningState.Scaling)
-	if errors.Is(err, applicationerrors.ScalingStateInconsistent) {
-		result.Error = apiservererrors.ServerError(apiservererrors.ErrTryAgain)
-		return result, nil
-	} else if err != nil {
+	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
-		return result, nil
 	}
 
 	return result, nil

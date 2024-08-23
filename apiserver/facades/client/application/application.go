@@ -1597,6 +1597,12 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 			return &info, nil
 		}
 
+		// Minimally initiate destroy in dqlite.
+		// It's sufficient for now just to advance the life to dying.
+		if err := api.applicationService.DestroyApplication(ctx, tag.Id()); err != nil {
+			return nil, errors.Annotatef(err, "destroying application %q", tag.Id())
+		}
+
 		op := app.DestroyOperation(api.store)
 		op.DestroyStorage = arg.DestroyStorage
 		op.Force = arg.Force

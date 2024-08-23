@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2"
 
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -214,6 +215,8 @@ const (
 	CodeSecretBackendNotValid      = "secret backend not valid"
 	CodeAccessRequired             = "access required"
 	CodeAppShouldNotHaveUnits      = "application should not have units"
+	CodeApplicationNotFound        = "application not found"
+	CodeScalingStateInconsistent   = "scaling state inconsistent"
 
 	//
 	// Tag based error
@@ -300,6 +303,10 @@ func TranslateWellKnownError(err error) error {
 		return fmt.Errorf("%s%w", err.Error(), errors.Hide(secreterrors.SecretConsumerNotFound))
 	case CodeSecretBackendNotFound:
 		return fmt.Errorf("%s%w", err.Error(), errors.Hide(secretbackenderrors.NotFound))
+	case CodeApplicationNotFound:
+		return fmt.Errorf("%s%w", err.Error(), errors.Hide(applicationerrors.ApplicationNotFound))
+	case CodeScalingStateInconsistent:
+		return fmt.Errorf("%s%w", err.Error(), errors.Hide(applicationerrors.ScalingStateInconsistent))
 	case CodeUnauthorized:
 		return errors.NewUnauthorized(err, "")
 	case CodeNotImplemented:
@@ -399,6 +406,14 @@ func IsCodeSecretBackendForbidden(err error) bool {
 
 func IsCodeSecretBackendNotSupported(err error) bool {
 	return ErrCode(err) == CodeSecretBackendNotSupported
+}
+
+func IsCodeApplicationNotFound(err error) bool {
+	return ErrCode(err) == CodeApplicationNotFound
+}
+
+func IsCodeScalingStateInconsistent(err error) bool {
+	return ErrCode(err) == CodeScalingStateInconsistent
 }
 
 func IsCodeUnauthorized(err error) bool {

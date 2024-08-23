@@ -495,6 +495,44 @@ func (c *MockApplicationStateRunAtomicCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// SetApplicationLife mocks base method.
+func (m *MockApplicationState) SetApplicationLife(arg0 domain.AtomicContext, arg1 application.ID, arg2 life.Life) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetApplicationLife", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetApplicationLife indicates an expected call of SetApplicationLife.
+func (mr *MockApplicationStateMockRecorder) SetApplicationLife(arg0, arg1, arg2 any) *MockApplicationStateSetApplicationLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationLife", reflect.TypeOf((*MockApplicationState)(nil).SetApplicationLife), arg0, arg1, arg2)
+	return &MockApplicationStateSetApplicationLifeCall{Call: call}
+}
+
+// MockApplicationStateSetApplicationLifeCall wrap *gomock.Call
+type MockApplicationStateSetApplicationLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationStateSetApplicationLifeCall) Return(arg0 error) *MockApplicationStateSetApplicationLifeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationStateSetApplicationLifeCall) Do(f func(domain.AtomicContext, application.ID, life.Life) error) *MockApplicationStateSetApplicationLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationStateSetApplicationLifeCall) DoAndReturn(f func(domain.AtomicContext, application.ID, life.Life) error) *MockApplicationStateSetApplicationLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetApplicationScalingState mocks base method.
 func (m *MockApplicationState) SetApplicationScalingState(arg0 domain.AtomicContext, arg1 application.ID, arg2 *int, arg3 int, arg4 bool) error {
 	m.ctrl.T.Helper()

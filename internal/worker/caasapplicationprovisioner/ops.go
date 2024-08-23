@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/rpc/params"
@@ -390,7 +391,7 @@ func updateState(
 			ProviderId:     svc.Id,
 			Addresses:      params.FromProviderAddresses(svc.Addresses...),
 		})
-		if errors.Is(err, errors.NotFound) {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			// Do nothing
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -507,7 +508,7 @@ func refreshApplicationStatus(
 		return errors.Trace(err)
 	}
 
-	// refresh the units information.
+	// refresh the unit's information.
 	units, err := facade.Units(ctx, appName)
 	if errors.Is(err, errors.NotFound) {
 		return nil
@@ -560,8 +561,8 @@ func waitForTerminated(appName string, app caas.Application,
 // reconcileDeadUnitScale is setup to respond to CAAS sidecar units that become
 // dead. It takes stock of what the current desired scale is for the application
 // and the number of dead units in the application. Once the number of dead units
-// has reached the a point where the desired scale has been achieved this func
-// can go ahead and removed the units from CAAS provider.
+// has reached the point where the desired scale has been achieved this func
+// can go ahead and remove the units from CAAS provider.
 func reconcileDeadUnitScale(
 	ctx context.Context,
 	appName string, app caas.Application,
@@ -679,7 +680,7 @@ func ensureScale(
 		logger.Infof("scaling application %q to desired scale %d", appName, ps.ScaleTarget)
 		err = app.Scale(ps.ScaleTarget)
 		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
-			logger.Infof("dying application %q is already removed", appName)
+			logger.Infof("dying application %q is already removed from k8s", appName)
 		} else if err != nil {
 			return err
 		}
@@ -730,7 +731,7 @@ func updateProvisioningState(
 		ScaleTarget: scaleTarget,
 	}
 	err := facade.SetProvisioningState(ctx, appName, newPs)
-	if params.IsCodeTryAgain(err) {
+	if errors.Is(err, applicationerrors.ScalingStateInconsistent) {
 		return tryAgain
 	} else if err != nil {
 		return errors.Annotatef(err, "setting provisiong state for application %q", appName)

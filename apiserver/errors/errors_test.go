@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/testing"
@@ -69,6 +70,16 @@ var errorTransformTests = []struct {
 	code:       params.CodeSecretBackendNotFound,
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeSecretBackendNotFound,
+}, {
+	err:        applicationerrors.ApplicationNotFound,
+	code:       params.CodeApplicationNotFound,
+	status:     http.StatusNotFound,
+	helperFunc: params.IsCodeApplicationNotFound,
+}, {
+	err:        applicationerrors.ScalingStateInconsistent,
+	code:       params.CodeScalingStateInconsistent,
+	status:     http.StatusBadRequest,
+	helperFunc: params.IsCodeScalingStateInconsistent,
 }, {
 	err:        secretbackenderrors.Forbidden,
 	code:       params.CodeSecretBackendForbidden,

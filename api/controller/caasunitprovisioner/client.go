@@ -94,7 +94,7 @@ func (c *Client) WatchApplicationScale(ctx context.Context, application string) 
 		return nil, errors.Errorf("expected 1 result, got %d", n)
 	}
 	if err := results.Results[0].Error; err != nil {
-		return nil, errors.Trace(err)
+		return nil, params.TranslateWellKnownError(err)
 	}
 	w := apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), results.Results[0])
 	return w, nil
@@ -112,6 +112,9 @@ func (c *Client) ApplicationScale(ctx context.Context, applicationName string) (
 	}
 	if len(results.Results) != len(args.Entities) {
 		return 0, errors.Errorf("expected %d result(s), got %d", len(args.Entities), len(results.Results))
+	}
+	if err := results.Results[0].Error; err != nil {
+		return 0, params.TranslateWellKnownError(err)
 	}
 	return results.Results[0].Result, nil
 }
@@ -155,15 +158,6 @@ func (c *Client) WatchApplicationTrustHash(ctx context.Context, application stri
 	return w, nil
 }
 
-// maybeNotFound returns an error satisfying errors.IsNotFound
-// if the supplied error has a CodeNotFound error.
-func maybeNotFound(err *params.Error) error {
-	if err == nil || !params.IsCodeNotFound(err) {
-		return err
-	}
-	return errors.NewNotFound(err, "")
-}
-
 // UpdateApplicationService updates the state model to reflect the state of the application's
 // service as reported by the cloud.
 func (c *Client) UpdateApplicationService(ctx context.Context, arg params.UpdateApplicationServiceArg) error {
@@ -178,8 +172,5 @@ func (c *Client) UpdateApplicationService(ctx context.Context, arg params.Update
 	if result.Results[0].Error == nil {
 		return nil
 	}
-	if params.IsCodeForbidden(result.Results[0].Error) {
-		return errors.NewForbidden(result.Results[0].Error, "")
-	}
-	return maybeNotFound(result.Results[0].Error)
+	return params.TranslateWellKnownError(result.Results[0].Error)
 }

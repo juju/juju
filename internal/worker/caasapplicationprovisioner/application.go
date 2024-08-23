@@ -370,6 +370,7 @@ func (a *appWorker) loop() error {
 				break
 			}
 			err := a.ops.ReconcileDeadUnitScale(ctx, a.name, app, a.facade, a.logger)
+			// TODO(units): this probably needs to check UnitNotFound as well
 			if errors.Is(err, errors.NotFound) {
 				reconcileDeadChan = a.clock.After(retryDelay)
 				shouldRefresh = false

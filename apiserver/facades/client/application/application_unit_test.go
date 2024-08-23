@@ -910,6 +910,7 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
+	s.applicationService.EXPECT().DestroyApplication(gomock.Any(), "postgresql")
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AllUnits().Return([]application.Unit{
 		s.expectUnit(ctrl, "postgresql/0"),
@@ -951,6 +952,7 @@ func (s *ApplicationSuite) TestForceDestroyApplication(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
+	s.applicationService.EXPECT().DestroyApplication(gomock.Any(), "postgresql")
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AllUnits().Return([]application.Unit{
 		s.expectUnit(ctrl, "postgresql/0"),
@@ -982,6 +984,7 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
+	s.applicationService.EXPECT().DestroyApplication(gomock.Any(), "postgresql")
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AllUnits().Return([]application.Unit{
 		s.expectUnit(ctrl, "postgresql/0"),

@@ -694,6 +694,26 @@ WHERE name = $applicationName.name
 	return coreapplication.ID(appInfo.ID), appInfo.LifeID, errors.Trace(err)
 }
 
+// SetApplicationLife sets the life of the specified application.
+func (st *ApplicationState) SetApplicationLife(ctx domain.AtomicContext, appID coreapplication.ID, l life.Life) error {
+	lifeQuery := `
+UPDATE application
+SET life_id = $applicationID.life_id
+WHERE uuid = $applicationID.uuid
+`
+	app := applicationID{ID: appID.String(), LifeID: l}
+	lifeStmt, err := st.Prepare(lifeQuery, app)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, lifeStmt, app).Run()
+		return errors.Trace(err)
+	})
+	return errors.Annotatef(err, "updating application life for %q", appID)
+}
+
 // SetDesiredApplicationScale updates the desired scale of the specified application.
 func (st *ApplicationState) SetDesiredApplicationScale(ctx domain.AtomicContext, appID coreapplication.ID, scale int) error {
 	scaleDetails := applicationScale{

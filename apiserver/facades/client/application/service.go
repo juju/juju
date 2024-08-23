@@ -63,6 +63,11 @@ type ApplicationService interface {
 	// ChangeApplicationScale alters the existing scale by the provided change amount, returning the new amount.
 	// This is used on CAAS models.
 	ChangeApplicationScale(ctx context.Context, name string, scaleChange int) (int, error)
+
+	// DestroyApplication prepares an application for removal from the model
+	// returning an error  satisfying [applicationerrors.ApplicationNotFoundError]
+	// if the application doesn't exist.
+	DestroyApplication(ctx context.Context, name string) error
 }
 
 // ModelConfigService provides access to the model configuration.

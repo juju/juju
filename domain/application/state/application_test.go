@@ -422,6 +422,33 @@ func (s *applicationStateSuite) TestSetApplicationScalingState(c *gc.C) {
 	})
 }
 
+func (s *applicationStateSuite) TestSetApplicationLife(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
+
+	checkResult := func(want life.Life) {
+		var gotLife life.Life
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			err := tx.QueryRowContext(ctx, "SELECT life_id FROM application WHERE uuid=?", appID).
+				Scan(&gotLife)
+			return errors.Trace(err)
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(gotLife, jc.DeepEquals, want)
+	}
+
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.SetApplicationLife(ctx, appID, life.Dying)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	checkResult(life.Dying)
+
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.SetApplicationLife(ctx, appID, life.Dying)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	checkResult(life.Dying)
+}
+
 func (s *applicationStateSuite) TestDeleteApplication(c *gc.C) {
 	s.createApplication(c, "foo", life.Alive)
 
