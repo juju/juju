@@ -63,13 +63,15 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	}
 	testController, err := controller.LatestAPI(
 		context.Background(),
-		facadetest.ModelContext{
-			State_:          s.ControllerModel(c).State(),
-			StatePool_:      s.StatePool(),
-			Resources_:      s.resources,
-			Auth_:           s.authorizer,
-			ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
-			Logger_:         loggertesting.WrapCheckLog(c),
+		facadetest.MultiModelContext{
+			ModelContext: facadetest.ModelContext{
+				State_:          s.ControllerModel(c).State(),
+				StatePool_:      s.StatePool(),
+				Resources_:      s.resources,
+				Auth_:           s.authorizer,
+				ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+				Logger_:         loggertesting.WrapCheckLog(c),
+			},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = testController

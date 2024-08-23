@@ -41,12 +41,12 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // ControllerConfigService is the interface that wraps the ControllerConfig method.
@@ -76,6 +76,20 @@ type ControllerAccessService interface {
 	LastModelLogin(context.Context, user.Name, coremodel.UUID) (time.Time, error)
 }
 
+// ModelService provides access to information about running Juju agents.
+type ModelService interface {
+	// Model returns the model associated with the provided uuid.
+	Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error)
+	// ControllerModel returns the model used for housing the Juju controller.
+	ControllerModel(ctx context.Context) (coremodel.Model, error)
+}
+
+// ModelConfigService provides access to the model configuration.
+type ModelConfigService interface {
+	// ModelConfig returns the current config for the model.
+	ModelConfig(context.Context) (*config.Config, error)
+}
+
 // ModelExporter exports a model to a description.Model.
 type ModelExporter interface {
 	// ExportModel exports a model to a description.Model.
@@ -91,21 +105,24 @@ type ControllerAPI struct {
 	*common.ModelStatusAPI
 	cloudspec.CloudSpecer
 
-	state                   Backend
-	statePool               *state.StatePool
-	authorizer              facade.Authorizer
-	apiUser                 names.UserTag
-	resources               facade.Resources
-	presence                facade.Presence
-	hub                     facade.Hub
-	cloudService            common.CloudService
-	credentialService       common.CredentialService
-	upgradeService          UpgradeService
-	controllerConfigService ControllerConfigService
-	accessService           ControllerAccessService
-	modelExporter           ModelExporter
-	store                   objectstore.ObjectStore
-	leadership              leadership.Reader
+	state                    Backend
+	statePool                *state.StatePool
+	authorizer               facade.Authorizer
+	apiUser                  names.UserTag
+	resources                facade.Resources
+	presence                 facade.Presence
+	hub                      facade.Hub
+	cloudService             common.CloudService
+	credentialService        common.CredentialService
+	upgradeService           UpgradeService
+	controllerConfigService  ControllerConfigService
+	accessService            ControllerAccessService
+	modelService             ModelService
+	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService
+	caasBrokerGetter         func(context.Context) (caas.Broker, error)
+	modelExporter            ModelExporter
+	store                    objectstore.ObjectStore
+	leadership               leadership.Reader
 
 	logger corelogger.Logger
 
@@ -133,6 +150,9 @@ func NewControllerAPI(
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
 	accessService ControllerAccessService,
+	modelService ModelService,
+	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService,
+	caasBrokerGetter func(context.Context) (caas.Broker, error),
 	modelExporter ModelExporter,
 	store objectstore.ObjectStore,
 	leadership leadership.Reader,
@@ -168,23 +188,26 @@ func NewControllerAPI(
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
-		state:                   stateShim{State: st},
-		statePool:               pool,
-		authorizer:              authorizer,
-		apiUser:                 apiUser,
-		resources:               resources,
-		presence:                presence,
-		hub:                     hub,
-		logger:                  logger,
-		controllerConfigService: controllerConfigService,
-		credentialService:       credentialService,
-		upgradeService:          upgradeService,
-		cloudService:            cloudService,
-		accessService:           accessService,
-		controllerTag:           st.ControllerTag(),
-		modelExporter:           modelExporter,
-		store:                   store,
-		leadership:              leadership,
+		state:                    stateShim{State: st},
+		statePool:                pool,
+		authorizer:               authorizer,
+		apiUser:                  apiUser,
+		resources:                resources,
+		presence:                 presence,
+		hub:                      hub,
+		logger:                   logger,
+		controllerConfigService:  controllerConfigService,
+		credentialService:        credentialService,
+		upgradeService:           upgradeService,
+		cloudService:             cloudService,
+		accessService:            accessService,
+		modelService:             modelService,
+		modelConfigServiceGetter: modelConfigServiceGetter,
+		caasBrokerGetter:         caasBrokerGetter,
+		controllerTag:            st.ControllerTag(),
+		modelExporter:            modelExporter,
+		store:                    store,
+		leadership:               leadership,
 	}, nil
 }
 
@@ -243,18 +266,11 @@ func (c *ControllerAPI) MongoVersion(ctx context.Context) (params.StringResult, 
 // dashboard deployed on CAAS.
 func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
 	ctx context.Context,
-	m *state.Model,
 	applicationName string,
 ) (*params.Proxy, error) {
-	configGetter := stateenvirons.EnvironConfigGetter{Model: m, CloudService: c.cloudService, CredentialService: c.credentialService}
-	environ, err := common.EnvironFuncForModel(m, c.cloudService, c.credentialService, configGetter)(ctx)
+	caasBroker, err := c.caasBrokerGetter(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	caasBroker, ok := environ.(caas.Broker)
-	if !ok {
-		return nil, errors.New("cannot get CAAS environ for model")
+		return nil, fmt.Errorf("cannot get CAAS environ for model: %w", err)
 	}
 
 	dashboardApp, err := c.state.Application(applicationName)
@@ -375,7 +391,7 @@ func (c *ControllerAPI) DashboardConnectionInfo(ctx context.Context) (params.Das
 				return rval, err
 			}
 
-			proxyConnection, err := c.dashboardConnectionInfoForCAAS(ctx, model, related.ApplicationName)
+			proxyConnection, err := c.dashboardConnectionInfoForCAAS(ctx, related.ApplicationName)
 			rval.ProxyConnection = proxyConnection
 			return rval, err
 		}
@@ -534,7 +550,7 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 			Name:     model.Name(),
 			OwnerTag: model.Owner().String(),
 		}
-		modelConf, err := model.Config()
+		modelConf, err := c.modelConfigServiceGetter(coremodel.UUID(modelUUID)).ModelConfig(ctx)
 		if err != nil {
 			config.Error = apiservererrors.ServerError(err)
 		} else {
@@ -728,6 +744,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		c.cloudService,
 		c.credentialService,
 		c.upgradeService,
+		c.modelService,
 		c.modelExporter,
 		c.store,
 		leaders,
@@ -876,6 +893,7 @@ var runMigrationPrechecks = func(
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
+	modelService ModelService,
 	modelExporter ModelExporter,
 	store objectstore.ObjectStore,
 	leaders map[string]string,
@@ -900,8 +918,8 @@ var runMigrationPrechecks = func(
 	}
 
 	// Check target controller.
-	modelInfo, srcUserList, err := makeModelInfo(ctx, st, ctlrSt,
-		controllerConfigService, modelExporter, store, leaders)
+	modelInfo, srcUserList, err := makeModelInfo(ctx, st,
+		controllerConfigService, modelService, modelExporter, store, leaders)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1000,8 +1018,9 @@ users to the destination controller or remove them from the current model:
 	return nil
 }
 
-func makeModelInfo(ctx context.Context, st, ctlrSt *state.State,
+func makeModelInfo(ctx context.Context, st *state.State,
 	controllerConfigService ControllerConfigService,
+	modelService ModelService,
 	modelExporter ModelExporter,
 	store objectstore.ObjectStore,
 	leaders map[string]string,
@@ -1029,22 +1048,17 @@ func makeModelInfo(ctx context.Context, st, ctlrSt *state.State,
 	}
 
 	// Retrieve agent version for the model.
-	conf, err := model.ModelConfig(ctx)
+	modelID := coremodel.UUID(model.UUID())
+	modelInfo, err := modelService.Model(ctx, modelID)
 	if err != nil {
-		return empty, userList{}, errors.Trace(err)
+		return empty, userList{}, fmt.Errorf("getting model %q: %w", modelID, err)
 	}
-	agentVersion, _ := conf.AgentVersion()
 
 	// Retrieve agent version for the controller.
-	controllerModel, err := ctlrSt.Model()
+	controllerModel, err := modelService.ControllerModel(ctx)
 	if err != nil {
-		return empty, userList{}, errors.Trace(err)
+		return empty, userList{}, fmt.Errorf("getting controller model info: %w", err)
 	}
-	controllerConfig, err := controllerModel.Config()
-	if err != nil {
-		return empty, userList{}, errors.Trace(err)
-	}
-	controllerVersion, _ := controllerConfig.AgentVersion()
 
 	coreConf, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
@@ -1055,8 +1069,8 @@ func makeModelInfo(ctx context.Context, st, ctlrSt *state.State,
 		UUID:                   model.UUID(),
 		Name:                   model.Name(),
 		Owner:                  model.Owner(),
-		AgentVersion:           agentVersion,
-		ControllerAgentVersion: controllerVersion,
+		AgentVersion:           modelInfo.AgentVersion,
+		ControllerAgentVersion: controllerModel.AgentVersion,
 		ModelDescription:       description,
 	}, ul, nil
 }
