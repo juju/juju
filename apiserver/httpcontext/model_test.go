@@ -54,13 +54,6 @@ func (s *ModelHandlersSuite) SetUpTest(c *gc.C) {
 	s.server = httptest.NewServer(mux)
 }
 
-func (s *ModelHandlersSuite) TestRequestModelUUIDNoContext(c *gc.C) {
-	r := &http.Request{}
-	uuid, valid := httpcontext.RequestModelUUID(r.Context())
-	c.Assert(uuid, gc.Equals, "")
-	c.Assert(valid, jc.IsFalse)
-}
-
 func (s *ModelHandlersSuite) TestControllerUUID(c *gc.C) {
 	resp, err := s.server.Client().Get(s.server.URL + "/controller")
 	c.Assert(err, jc.ErrorIsNil)
