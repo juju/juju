@@ -13,9 +13,10 @@ import (
 	annotationerrors "github.com/juju/juju/domain/annotation/errors"
 )
 
-// getAnnotationQueryForID provides a query for the given id, based on pre-computed queries for
-// GetAnnotations for different kinds of ids. We keep these static (avoiding dynamically generating
-// table names and fields) to keep things safe.
+// getAnnotationQueryForID provides a query for the given id, based on
+// pre-computed queries for GetAnnotations for different kinds of ids. We keep
+// these static (avoiding dynamically generating table names and fields) to keep
+// things safe.
 func getAnnotationQueryForID(id annotations.ID) (string, error) {
 	if id.Kind == annotations.KindModel {
 		return `SELECT (key, value) AS (&Annotation.*) from annotation_model`, nil
@@ -28,18 +29,19 @@ func getAnnotationQueryForID(id annotations.ID) (string, error) {
 	return fmt.Sprintf(`
 SELECT (key, value) AS (&Annotation.*)
 FROM annotation_%s
-WHERE uuid = $M.uuid`, kindName), nil
+WHERE uuid = $annotationUUID.uuid`, kindName), nil
 }
 
-// setAnnotationQueryForID provides a query for the given id, based on pre-computed queries for
-// SetAnnotations for different kinds of ids. We keep these static (avoiding dynamically generating
-// table names and fields) to keep things safe.
+// setAnnotationQueryForID provides a query for the given id, based on
+// pre-computed queries for SetAnnotations for different kinds of ids. We keep
+// these static (avoiding dynamically generating table names and fields) to keep
+// things safe.
 func setAnnotationQueryForID(id annotations.ID) (string, error) {
 	if id.Kind == annotations.KindModel {
 		return `
 INSERT INTO annotation_model (key, value)
-VALUES ($M.key, $M.value)
-	ON CONFLICT(key) DO UPDATE SET value=$M.value`, nil
+VALUES ($Annotation.*)
+	ON CONFLICT(key) DO UPDATE SET value=$Annotation.value`, nil
 	}
 
 	kindName, err := kindNameFromID(id)
@@ -48,12 +50,12 @@ VALUES ($M.key, $M.value)
 	}
 	return fmt.Sprintf(`
 INSERT INTO annotation_%s (uuid, key, value)
-VALUES ($M.uuid, $M.key, $M.value)
-	ON CONFLICT(uuid, key) DO UPDATE SET value=$M.value`, kindName), nil
+VALUES ($annotationUUID.uuid, $Annotation.key, $Annotation.value)
+	ON CONFLICT(uuid, key) DO UPDATE SET value=$Annotation.value`, kindName), nil
 }
 
-// deleteAnnotationQueryForID provides a query for the given id, based on pre-computed queries for
-// SetAnnotations for different kinds of ids.
+// deleteAnnotationQueryForID provides a query for the given id, based on
+// pre-computed queries for SetAnnotations for different kinds of ids.
 func deleteAnnotationsQueryForID(id annotations.ID) (string, error) {
 	if id.Kind == annotations.KindModel {
 		return `DELETE FROM annotation_model`, nil
@@ -64,17 +66,21 @@ func deleteAnnotationsQueryForID(id annotations.ID) (string, error) {
 		}
 		return fmt.Sprintf(`
 DELETE FROM annotation_%s
-WHERE uuid = $M.uuid`, kindName), nil
+WHERE uuid = $annotationUUID.uuid`, kindName), nil
 	}
 }
 
-// uuidQueryForID generates a query and parameters for getting the uuid for a given ID
-// We keep different fields to reference different IDs in separate tables, as follows:
-// machine: TABLE machine, reference field: name
-// unit: TABLE unit, reference field: name
-// application: TABLE application, reference field: name
-// storage_instance: TABLE storage_instance, reference field: name
-// charm: TABLE charm, reference field: url
+// uuidQueryForID generates a query and parameters for getting the uuid for a
+// given annotation ID.
+//
+// We keep different fields to reference different IDs in separate tables, as
+// follows:
+//
+//	machine: TABLE machine, reference field: name
+//	unit: TABLE unit, reference field: name
+//	application: TABLE application, reference field: name
+//	storage_instance: TABLE storage_instance, reference field: name
+//	charm: TABLE charm, reference field: url
 func uuidQueryForID(id annotations.ID) (string, sqlair.M, error) {
 	kindName, err := kindNameFromID(id)
 	if err != nil {
@@ -96,13 +102,13 @@ func uuidQueryForID(id annotations.ID) (string, sqlair.M, error) {
 		selector = "url"
 	}
 
-	query := fmt.Sprintf(`SELECT &M.uuid FROM %s WHERE %s = $M.entity_id`, kindName, selector)
+	query := fmt.Sprintf(`SELECT &annotationUUID.uuid FROM %s WHERE %s = $M.entity_id`, kindName, selector)
 	return query, sqlair.M{"entity_id": id.Name}, nil
 }
 
-// kindNameFromID keeps the field names that's used for different ID.Kinds in the database. Used in
-// deducing the table name (e.g. annotation_<ID.Kind>), as well as fields like <ID.Kind>_uuid in the
-// corresponding table.
+// kindNameFromID keeps the field names that's used for different ID.Kinds in
+// the database. Used in deducing the table name (e.g. annotation_<ID.Kind>),
+// as well as fields like <ID.Kind>_uuid in the corresponding table.
 func kindNameFromID(id annotations.ID) (string, error) {
 	var kindName string
 	switch id.Kind {

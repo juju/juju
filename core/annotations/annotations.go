@@ -10,7 +10,8 @@ import (
 	"github.com/juju/names/v5"
 )
 
-// Kind identifies different kinds of entities that'll get associated with annotations.
+// Kind identifies different kinds of entities that'll get associated with
+// annotations.
 type Kind int
 
 const (
@@ -22,14 +23,15 @@ const (
 	KindStorage     Kind = 6
 )
 
-// ID reifies annotatable GlobalEntities into an internal representation using annotations.Kind.
+// ID reifies annotatable GlobalEntities into an internal representation using
+// annotations.Kind.
 type ID struct {
 	Kind Kind
 	Name string
 }
 
-// ConvertTagToID converts the names.Tag into an ID for different names.Kinds of entities,
-// registering them as annotations.Kinds of entities.
+// ConvertTagToID converts the names.Tag into an ID for different names.Kinds
+// of entities, registering them as annotations.Kinds of entities.
 func ConvertTagToID(n names.Tag) (ID, error) {
 	switch n.Kind() {
 	case names.CharmTagKind:
@@ -92,7 +94,8 @@ func (a Annotation) Has(key, expectedValue string) bool {
 	return ok && v == expectedValue
 }
 
-// HasAll checks if all the provided key value pairs exist in this annotation or not.
+// HasAll checks if all the provided key value pairs exist in this annotation
+// or not.
 func (a Annotation) HasAll(expected map[string]string) bool {
 	for k, v := range expected {
 		if !a.Has(k, v) {
@@ -102,7 +105,8 @@ func (a Annotation) HasAll(expected map[string]string) bool {
 	return true
 }
 
-// HasAny checks if any provided key value pairs exists in this annotation or not.
+// HasAny checks if any provided key value pairs exists in this annotation or
+// not.
 func (a Annotation) HasAny(expected map[string]string) bool {
 	for k, v := range expected {
 		if a.Has(k, v) {
@@ -160,7 +164,8 @@ func (a Annotation) CheckKeysNonEmpty(keys ...string) error {
 	return nil
 }
 
-// getVal returns the value for the specified key and also indicates if it exists.
+// getVal returns the value for the specified key and also indicates if it
+// exists.
 func (a Annotation) getVal(key string) (string, bool) {
 	v, ok := a[key]
 	return v, ok

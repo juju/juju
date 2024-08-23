@@ -55,7 +55,8 @@ func (s *stateSuite) TestGetAnnotationsModel(c *gc.C) {
 	c.Assert(annotations, gc.HasLen, 2)
 }
 
-// TestSetAnnotations asserts the happy path, sets some annotations in the DB for an ID.
+// TestSetAnnotations asserts the happy path, sets some annotations in the DB
+// for an ID.
 func (s *stateSuite) TestSetAnnotations(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -77,8 +78,8 @@ func (s *stateSuite) TestSetAnnotations(c *gc.C) {
 	c.Check(annotations, gc.DeepEquals, map[string]string{"bar": "6", "foo": "15"})
 }
 
-// TestSetAnnotationsUpdateMachine asserts the happy path, updates some annotations in the DB for a
-// Machine ID.
+// TestSetAnnotationsUpdateMachine asserts the happy path, updates some
+// annotations in the DB for a Machine ID.
 func (s *stateSuite) TestSetAnnotationsUpdateMachine(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -91,8 +92,8 @@ func (s *stateSuite) TestSetAnnotationsUpdateMachine(c *gc.C) {
 	})
 }
 
-// TestSetAnnotationsUpdateApplication asserts the happy path, updates some annotations in the DB
-// for an Application ID.
+// TestSetAnnotationsUpdateApplication asserts the happy path, updates some
+// annotations in the DB for an Application ID.
 func (s *stateSuite) TestSetAnnotationsUpdateApplication(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -105,8 +106,8 @@ func (s *stateSuite) TestSetAnnotationsUpdateApplication(c *gc.C) {
 	})
 }
 
-// TestSetAnnotationsUpdateUnit asserts the happy path, updates some annotations in the DB
-// for a Unit ID.
+// TestSetAnnotationsUpdateUnit asserts the happy path, updates some annotations
+// in the DB for a Unit ID.
 func (s *stateSuite) TestSetAnnotationsUpdateUnit(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -119,8 +120,8 @@ func (s *stateSuite) TestSetAnnotationsUpdateUnit(c *gc.C) {
 	})
 }
 
-// TestSetAnnotationsUpdateStorage asserts the happy path, updates some annotations in the DB for a
-// Storage ID.
+// TestSetAnnotationsUpdateStorage asserts the happy path, updates some
+// annotations in the DB for a Storage ID.
 func (s *stateSuite) TestSetAnnotationsUpdateStorage(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -133,8 +134,8 @@ func (s *stateSuite) TestSetAnnotationsUpdateStorage(c *gc.C) {
 	})
 }
 
-// TestSetAnnotationsUpdateCharm asserts the happy path, updates some annotations in the DB for a
-// Storage ID.
+// TestSetAnnotationsUpdateCharm asserts the happy path, updates some
+// annotations in the DB for a Storage ID.
 func (s *stateSuite) TestSetAnnotationsUpdateCharm(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -147,8 +148,8 @@ func (s *stateSuite) TestSetAnnotationsUpdateCharm(c *gc.C) {
 	})
 }
 
-// TestSetAnnotationsUpdateModel asserts the happy path, updates some annotations in the DB for a
-// Model ID.
+// TestSetAnnotationsUpdateModel asserts the happy path, updates some
+// annotations in the DB for a Model ID.
 func (s *stateSuite) TestSetAnnotationsUpdateModel(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -160,8 +161,9 @@ func (s *stateSuite) TestSetAnnotationsUpdateModel(c *gc.C) {
 	})
 }
 
-// testAnnotationUpdate checks if the given id has a {foo:5} annotation alread attached to it (so
-// ensureAnnotation needs to be called with the id before this), then updates the annotations with
+// testAnnotationUpdate checks if the given ID has a {foo:5} annotation
+// already attached to it (so ensureAnnotation needs to be called with the ID
+// before this), then updates the annotations with
 // {bar:6, foo:15} and validates that it's actually updated.
 func testAnnotationUpdate(c *gc.C, st *State, id annotations.ID) {
 	// Check that we only have the foo:5
@@ -179,7 +181,8 @@ func testAnnotationUpdate(c *gc.C, st *State, id annotations.ID) {
 	c.Check(annotations2, gc.DeepEquals, map[string]string{"bar": "6", "foo": "15"})
 }
 
-// TestSetAnnotationsUnset asserts the happy path, unsets some annotations in the DB for an ID.
+// TestSetAnnotationsUnset asserts the happy path, unsets some annotations in
+// the DB for an ID.
 func (s *stateSuite) TestSetAnnotationsUnset(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -207,8 +210,8 @@ func (s *stateSuite) TestSetAnnotationsUnset(c *gc.C) {
 	c.Assert(annotations2, gc.HasLen, 0)
 }
 
-// TestSetAnnotationsUnsetModel asserts the happy path, unsets some annotations in the DB for a
-// model ID.
+// TestSetAnnotationsUnsetModel asserts the happy path, unsets some annotations
+// in the DB for a model ID.
 func (s *stateSuite) TestSetAnnotationsUnsetModel(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -232,22 +235,24 @@ func (s *stateSuite) TestSetAnnotationsUnsetModel(c *gc.C) {
 func (s *stateSuite) TestUUIDQueryForID(c *gc.C) {
 	// machine
 	kindQuery, kindQueryParam, _ := uuidQueryForID(annotations.ID{Kind: annotations.KindMachine, Name: "my-machine"})
-	c.Check(kindQuery, gc.Equals, `SELECT &M.uuid FROM machine WHERE name = $M.entity_id`)
+	c.Check(kindQuery, gc.Equals, `SELECT &annotationUUID.uuid FROM machine WHERE name = $M.entity_id`)
 	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_id": "my-machine"})
 
 	// application
 	kindQuery, kindQueryParam, _ = uuidQueryForID(annotations.ID{Kind: annotations.KindApplication, Name: "appname"})
-	c.Check(kindQuery, gc.Equals, `SELECT &M.uuid FROM application WHERE name = $M.entity_id`)
+	c.Check(kindQuery, gc.Equals, `SELECT &annotationUUID.uuid FROM application WHERE name = $M.entity_id`)
 	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_id": "appname"})
 
 	// charm
 	kindQuery, kindQueryParam, _ = uuidQueryForID(annotations.ID{Kind: annotations.KindCharm, Name: "charmurl"})
-	c.Check(kindQuery, gc.Equals, `SELECT &M.uuid FROM v_charm_url WHERE url = $M.entity_id`)
+	c.Check(kindQuery, gc.Equals, `SELECT &annotationUUID.uuid FROM v_charm_url WHERE url = $M.entity_id`)
 	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_id": "charmurl"})
 }
 
-// TestKindNameFromID asserts the mapping of annotation.Kind -> actual table names
-// Keeping these explicit here should ensure we quickly detect any changes in the future
+// TestKindNameFromID asserts the mapping of annotation.Kind -> actual table
+// names
+// Keeping these explicit here should ensure we quickly detect any changes in
+// the future.
 func (s *stateSuite) TestKindNameFromID(c *gc.C) {
 
 	t1, err := kindNameFromID(annotations.ID{Kind: annotations.KindMachine, Name: "foo"})
@@ -279,13 +284,14 @@ func (s *stateSuite) TestKindNameFromID(c *gc.C) {
 
 }
 
-// ensureAnnotation is a test utility that manually adds a row to an annotation table
+// ensureAnnotation is a test utility that manually adds a row to an annotation
+// table.
 //
-// s.manuallyInsertAnnotations("machine", "uuid123", "keyfoo", "valuebar") will add the row
-// (uuid123 keyfoo valuebar) into the annotation_machine table
+// s.manuallyInsertAnnotations("machine", "uuid123", "keyfoo", "valuebar")
+// will add the row (uuid123 keyfoo valuebar) into the annotation_machine table
 //
-// If the id is model, it'll just ignore the uuid and add the key value pair into the
-// annotation_model table
+// If the id is model, it'll just ignore the uuid and add the key value pair
+// into the annotation_model table.
 func (s *stateSuite) ensureAnnotation(c *gc.C, id, uuid, key, value string) {
 	if id == "model" {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -383,8 +389,8 @@ func (s *stateSuite) ensureStorage(c *gc.C, name, uuid string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// ensureNetNode inserts a row into the net_node table, mostly used as a foreign key for entries in
-// other tables (e.g. machine)
+// ensureNetNode inserts a row into the net_node table, mostly used as a foreign
+// key for entries in other tables (e.g. machine)
 func (s *stateSuite) ensureNetNode(c *gc.C, uuid string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
