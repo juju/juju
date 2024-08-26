@@ -130,6 +130,11 @@ var newConfigTests = []struct {
 	},
 	expectError: `juju mgmt space name "\\n" not valid`,
 }, {
+	about: "HA space name - empty string OK",
+	config: controller.Config{
+		controller.JujuHASpace: "",
+	},
+}, {
 	about: "invalid HA space name - number",
 	config: controller.Config{
 		controller.JujuHASpace: 666,
