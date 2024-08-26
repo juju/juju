@@ -568,7 +568,7 @@ func (s *serviceSuite) TestGetAllUsersPublicKeys(c *gc.C) {
 
 // TestGetAllUsersPublicKeysEmpty is responsible for testing that when a model
 // has no public keys for any user in the system [Service.GetAllUsersPublicKeys]
-// returns an emtpy map and no errors.
+// returns an empty map and no errors.
 func (s *serviceSuite) TestGetAllUsersPublicKeysEmpty(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

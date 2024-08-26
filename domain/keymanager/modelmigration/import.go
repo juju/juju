@@ -24,7 +24,7 @@ import (
 const (
 	// modelConfigKeyAuthorizedKeys is the old model config key that was used
 	// to describe authorized keys for a model in model config. This key has
-	// been removed since and now resides here for backwards compatability with
+	// been removed since and now resides here for backwards compatibility with
 	// 3.x controllers.
 	modelConfigKeyAuthorizeKeys = "authorized-keys"
 )
