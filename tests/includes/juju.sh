@@ -281,6 +281,11 @@ juju_bootstrap() {
 	bash -c "exec ${command} $*" 2>&1 | OUTPUT "${output}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
+	if [[ ${BOOTSTRAP_PROVIDER} != "k8s" ]]; then
+		juju switch "${name}:controller"
+		wait_for_machine_agent_status "0" "started"
+	fi
+
 	# Adding the initial model.
 	juju add-model --show-log "${model}" 2>&1
 
