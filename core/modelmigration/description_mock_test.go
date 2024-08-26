@@ -155,6 +155,44 @@ func (c *MockModelAddApplicationCall) DoAndReturn(f func(description.Application
 	return c
 }
 
+// AddAuthorizedKeys mocks base method.
+func (m *MockModel) AddAuthorizedKeys(arg0 description.UserAuthorizedKeysArgs) description.UserAuthorizedKeys {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddAuthorizedKeys", arg0)
+	ret0, _ := ret[0].(description.UserAuthorizedKeys)
+	return ret0
+}
+
+// AddAuthorizedKeys indicates an expected call of AddAuthorizedKeys.
+func (mr *MockModelMockRecorder) AddAuthorizedKeys(arg0 any) *MockModelAddAuthorizedKeysCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddAuthorizedKeys", reflect.TypeOf((*MockModel)(nil).AddAuthorizedKeys), arg0)
+	return &MockModelAddAuthorizedKeysCall{Call: call}
+}
+
+// MockModelAddAuthorizedKeysCall wrap *gomock.Call
+type MockModelAddAuthorizedKeysCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelAddAuthorizedKeysCall) Return(arg0 description.UserAuthorizedKeys) *MockModelAddAuthorizedKeysCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelAddAuthorizedKeysCall) Do(f func(description.UserAuthorizedKeysArgs) description.UserAuthorizedKeys) *MockModelAddAuthorizedKeysCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelAddAuthorizedKeysCall) DoAndReturn(f func(description.UserAuthorizedKeysArgs) description.UserAuthorizedKeys) *MockModelAddAuthorizedKeysCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AddBlockDevice mocks base method.
 func (m *MockModel) AddBlockDevice(arg0 string, arg1 description.BlockDeviceArgs) error {
 	m.ctrl.T.Helper()
@@ -1137,6 +1175,44 @@ func (c *MockModelApplicationsCall) Do(f func() []description.Application) *Mock
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelApplicationsCall) DoAndReturn(f func() []description.Application) *MockModelApplicationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// AuthorizedKeys mocks base method.
+func (m *MockModel) AuthorizedKeys() []description.UserAuthorizedKeys {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AuthorizedKeys")
+	ret0, _ := ret[0].([]description.UserAuthorizedKeys)
+	return ret0
+}
+
+// AuthorizedKeys indicates an expected call of AuthorizedKeys.
+func (mr *MockModelMockRecorder) AuthorizedKeys() *MockModelAuthorizedKeysCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorizedKeys", reflect.TypeOf((*MockModel)(nil).AuthorizedKeys))
+	return &MockModelAuthorizedKeysCall{Call: call}
+}
+
+// MockModelAuthorizedKeysCall wrap *gomock.Call
+type MockModelAuthorizedKeysCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelAuthorizedKeysCall) Return(arg0 []description.UserAuthorizedKeys) *MockModelAuthorizedKeysCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelAuthorizedKeysCall) Do(f func() []description.UserAuthorizedKeys) *MockModelAuthorizedKeysCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelAuthorizedKeysCall) DoAndReturn(f func() []description.UserAuthorizedKeys) *MockModelAuthorizedKeysCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
