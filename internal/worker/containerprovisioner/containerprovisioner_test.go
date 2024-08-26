@@ -1,18 +1,17 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner_test
+package containerprovisioner_test
 
 import (
 	"context"
 	"fmt"
-	"reflect"
+	reflect "reflect"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/workertest"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -42,35 +42,38 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/worker/provisioner"
-	"github.com/juju/juju/internal/worker/provisioner/mocks"
+	"github.com/juju/juju/internal/worker/containerprovisioner"
 	"github.com/juju/juju/rpc/params"
 )
 
-type CommonProvisionerSuite struct {
-	jujutesting.IsolationSuite
-
-	controllerAPI *mocks.MockControllerAPI
-	machinesAPI   *mocks.MockMachinesAPI
+type lxdProvisionerSuite struct {
+	controllerAPI *MockControllerAPI
+	machinesAPI   *MockMachinesAPI
 	broker        *environmocks.MockEnviron
 
+	containersCh  chan []string
 	modelConfigCh chan struct{}
-	machinesCh    chan []string
 
 	provisionerStarted chan bool
 }
 
-func (s *CommonProvisionerSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *lxdProvisionerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.controllerAPI = mocks.NewMockControllerAPI(ctrl)
-	s.machinesAPI = mocks.NewMockMachinesAPI(ctrl)
+	s.controllerAPI = NewMockControllerAPI(ctrl)
+	s.machinesAPI = NewMockMachinesAPI(ctrl)
 	s.broker = environmocks.NewMockEnviron(ctrl)
 	s.expectAuth()
 	s.expectStartup(c)
 	return ctrl
 }
 
-func (s *CommonProvisionerSuite) expectStartup(c *gc.C) {
+func (s *lxdProvisionerSuite) expectAuth() {
+	s.controllerAPI.EXPECT().APIAddresses(gomock.Any()).Return([]string{"10.0.0.1"}, nil).AnyTimes()
+	s.controllerAPI.EXPECT().ModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil).AnyTimes()
+	s.controllerAPI.EXPECT().CACert(gomock.Any()).Return(coretesting.CACert, nil).AnyTimes()
+}
+
+func (s *lxdProvisionerSuite) expectStartup(c *gc.C) {
 	s.modelConfigCh = make(chan struct{})
 	watchCfg := watchertest.NewMockNotifyWatcher(s.modelConfigCh)
 	s.controllerAPI.EXPECT().WatchForModelConfigChanges(gomock.Any()).Return(watchCfg, nil)
@@ -86,21 +89,58 @@ func (s *CommonProvisionerSuite) expectStartup(c *gc.C) {
 	})
 }
 
-func (s *CommonProvisionerSuite) expectAuth() {
-	s.controllerAPI.EXPECT().APIAddresses(gomock.Any()).Return([]string{"10.0.0.1"}, nil).AnyTimes()
-	s.controllerAPI.EXPECT().ModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil).AnyTimes()
-	s.controllerAPI.EXPECT().CACert(gomock.Any()).Return(coretesting.CACert, nil).AnyTimes()
+var _ = gc.Suite(&lxdProvisionerSuite{})
+
+func (s *lxdProvisionerSuite) newLXDProvisioner(c *gc.C, ctrl *gomock.Controller) containerprovisioner.Provisioner {
+	mTag := names.NewMachineTag("0")
+	defaultPaths := agent.DefaultPaths
+	defaultPaths.DataDir = c.MkDir()
+	cfg, err := agent.NewAgentConfig(
+		agent.AgentConfigParams{
+			Paths:             defaultPaths,
+			Tag:               mTag,
+			UpgradedToVersion: jujuversion.Current,
+			Password:          "password",
+			Nonce:             "nonce",
+			APIAddresses:      []string{"0.0.0.0:12345"},
+			CACert:            coretesting.CACert,
+			Controller:        coretesting.ControllerTag,
+			Model:             coretesting.ModelTag,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.containersCh = make(chan []string)
+	m0 := &testMachine{containersCh: s.containersCh}
+	s.machinesAPI.EXPECT().Machines(gomock.Any(), mTag).Return([]apiprovisioner.MachineResult{{
+		Machine: m0,
+	}}, nil)
+
+	w, err := containerprovisioner.NewContainerProvisioner(
+		instance.LXD, s.controllerAPI, s.machinesAPI, loggertesting.WrapCheckLog(c),
+		cfg, s.broker, &mockToolsFinder{}, &mockDistributionGroupFinder{}, &credentialAPIForTest{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.waitForProvisioner(c)
+	return w
 }
 
-func (s *CommonProvisionerSuite) sendModelConfigChange(c *gc.C) {
+func (s *lxdProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	p := s.newLXDProvisioner(c, ctrl)
+	workertest.CleanKill(c, p)
+}
+
+func (s *lxdProvisionerSuite) sendMachineContainersChange(c *gc.C, ids ...string) {
 	select {
-	case s.modelConfigCh <- struct{}{}:
+	case s.containersCh <- ids:
 	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending model config change")
+		c.Fatal("timed out sending containers change")
 	}
 }
 
-func (s *CommonProvisionerSuite) waitForProvisioner(c *gc.C) {
+func (s *lxdProvisionerSuite) waitForProvisioner(c *gc.C) {
 	select {
 	case <-s.provisionerStarted:
 	case <-time.After(coretesting.LongWait):
@@ -108,7 +148,7 @@ func (s *CommonProvisionerSuite) waitForProvisioner(c *gc.C) {
 	}
 }
 
-func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *testMachine) {
+func (s *lxdProvisionerSuite) checkStartInstance(c *gc.C, m *testMachine) {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		_, err := m.InstanceId(context.Background())
 		if err == nil {
@@ -118,10 +158,84 @@ func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *testMachine) {
 	c.Fatalf("machine %v not started", m.id)
 }
 
-func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C, p provisioner.Provisioner, container bool) {
+func (s *lxdProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	p := s.newLXDProvisioner(c, ctrl)
+	defer workertest.CleanKill(c, p)
+
+	cTag := names.NewMachineTag("0/lxd/666")
+
+	c666 := &testMachine{id: "0/lxd/666"}
+	s.broker.EXPECT().AllRunningInstances(gomock.Any()).Return([]instances.Instance{&testInstance{id: "inst-666"}}, nil).Times(2)
+	s.machinesAPI.EXPECT().Machines(gomock.Any(), cTag).Return([]apiprovisioner.MachineResult{{
+		Machine: c666,
+	}}, nil).Times(2)
+	s.machinesAPI.EXPECT().ProvisioningInfo(gomock.Any(), []names.MachineTag{cTag}).Return(params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{{
+			Result: &params.ProvisioningInfo{
+				ControllerConfig: coretesting.FakeControllerConfig(),
+				Constraints:      constraints.MustParse("mem=666G"),
+				Base:             params.Base{Name: "ubuntu", Channel: "22.04"},
+				Jobs:             []model.MachineJob{model.JobHostUnits},
+			},
+		}},
+	}, nil)
+	startArg := machineStartInstanceArg(c666.id)
+	startArg.Constraints = constraints.MustParse("mem=666G")
+	s.broker.EXPECT().StartInstance(gomock.Any(), newDefaultStartInstanceParamsMatcher(c, startArg)).Return(&environs.StartInstanceResult{
+		Instance: &testInstance{id: "inst-666"},
+	}, nil)
+
+	s.sendMachineContainersChange(c, c666.Id())
+	s.checkStartInstance(c, c666)
+
+	s.broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
+		c.Assert(len(ids), gc.Equals, 1)
+		c.Assert(ids[0], gc.DeepEquals, instance.Id("inst-666"))
+		return nil
+	})
+
+	c666.SetLife(life.Dead)
+	s.sendMachineContainersChange(c, c666.Id())
+	s.waitForRemovalMark(c, c666)
+}
+
+func (s *lxdProvisionerSuite) TestKVMProvisionerObservesConfigChanges(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	p := s.newLXDProvisioner(c, ctrl)
+	defer workertest.CleanKill(c, p)
+
+	s.assertProvisionerObservesConfigChanges(c, p, true)
+}
+
+func (s *lxdProvisionerSuite) TestKVMProvisionerObservesConfigChangesWorkerCount(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	p := s.newLXDProvisioner(c, ctrl)
+	defer workertest.CleanKill(c, p)
+
+	s.assertProvisionerObservesConfigChangesWorkerCount(c, p, true)
+}
+
+// waitForRemovalMark waits for the supplied machine to be marked for removal.
+func (s *lxdProvisionerSuite) waitForRemovalMark(c *gc.C, m *testMachine) {
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		if m.GetMarkForRemoval() {
+			return
+		}
+	}
+	c.Fatalf("machine %q not marked for removal", m.id)
+}
+
+func (s *lxdProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C, p containerprovisioner.Provisioner, container bool) {
 	// Inject our observer into the provisioner
 	cfgObserver := make(chan *config.Config)
-	provisioner.SetObserver(p, cfgObserver)
+	containerprovisioner.SetObserver(p, cfgObserver)
 
 	attrs := coretesting.FakeConfig()
 	attrs[config.ProvisionerHarvestModeKey] = config.HarvestDestroyed.String()
@@ -158,10 +272,10 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	}
 }
 
-func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCount(c *gc.C, p provisioner.Provisioner, container bool) {
+func (s *lxdProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCount(c *gc.C, p containerprovisioner.Provisioner, container bool) {
 	// Inject our observer into the provisioner
 	cfgObserver := make(chan *config.Config)
-	provisioner.SetObserver(p, cfgObserver)
+	containerprovisioner.SetObserver(p, cfgObserver)
 
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.ProvisionerHarvestModeKey: config.HarvestDestroyed.String(),
@@ -211,186 +325,18 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 	}
 }
 
-// waitForRemovalMark waits for the supplied machine to be marked for removal.
-func (s *CommonProvisionerSuite) waitForRemovalMark(c *gc.C, m *testMachine) {
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		if m.GetMarkForRemoval() {
-			return
-		}
-	}
-	c.Fatalf("machine %q not marked for removal", m.id)
-}
-
-func (s *CommonProvisionerSuite) expectMachinesWatcher() {
-	s.machinesCh = make(chan []string)
-	mw := watchertest.NewMockStringsWatcher(s.machinesCh)
-	s.machinesAPI.EXPECT().WatchModelMachines(gomock.Any()).Return(mw, nil)
-
-	rw := watchertest.NewMockNotifyWatcher(make(chan struct{}))
-	s.machinesAPI.EXPECT().WatchMachineErrorRetry(gomock.Any()).Return(rw, nil)
-}
-
-func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
-	c.Assert(s.machinesAPI, gc.NotNil)
-	s.expectMachinesWatcher()
-
-	machineTag := names.NewMachineTag("0")
-	defaultPaths := agent.DefaultPaths
-	defaultPaths.DataDir = c.MkDir()
-	agentConfig, err := agent.NewAgentConfig(
-		agent.AgentConfigParams{
-			Paths:             defaultPaths,
-			Tag:               machineTag,
-			UpgradedToVersion: jujuversion.Current,
-			Password:          "password",
-			Nonce:             "nonce",
-			APIAddresses:      []string{"0.0.0.0:12345"},
-			CACert:            coretesting.CACert,
-			Controller:        coretesting.ControllerTag,
-			Model:             coretesting.ModelTag,
-		})
-	c.Assert(err, jc.ErrorIsNil)
-
-	w, err := provisioner.NewEnvironProvisioner(
-		s.controllerAPI, s.machinesAPI,
-		mockToolsFinder{},
-		&mockDistributionGroupFinder{},
-		agentConfig,
-		loggertesting.WrapCheckLog(c),
-		s.broker, &credentialAPIForTest{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.waitForProvisioner(c)
-	return w
-}
-
-type mockDistributionGroupFinder struct {
-	groups map[names.MachineTag][]string
-}
-
-func (mock *mockDistributionGroupFinder) DistributionGroupByMachineId(
-	ctx context.Context,
-	tags ...names.MachineTag,
-) ([]apiprovisioner.DistributionGroupResult, error) {
-	result := make([]apiprovisioner.DistributionGroupResult, len(tags))
-	if len(mock.groups) == 0 {
-		for i := range tags {
-			result[i] = apiprovisioner.DistributionGroupResult{MachineIds: []string{}}
-		}
-	} else {
-		for i, tag := range tags {
-			if dg, ok := mock.groups[tag]; ok {
-				result[i] = apiprovisioner.DistributionGroupResult{MachineIds: dg}
-			} else {
-				result[i] = apiprovisioner.DistributionGroupResult{
-					MachineIds: []string{}, Err: &params.Error{Code: params.CodeNotFound, Message: "Fail"}}
-			}
-		}
-	}
-	return result, nil
-}
-
-type mockToolsFinder struct {
-}
-
-func (f mockToolsFinder) FindTools(ctx context.Context, number version.Number, os string, a string) (tools.List, error) {
-	if number.Compare(version.MustParse("6.6.6")) == 0 {
-		return nil, tools.ErrNoMatches
-	}
-	v, err := version.ParseBinary(fmt.Sprintf("%s-%s-%s", number, os, arch.HostArch()))
-	if err != nil {
-		return nil, err
-	}
-	if a == "" {
-		return nil, errors.New("missing arch")
-	}
-	v.Arch = a
-	return tools.List{&tools.Tools{Version: v}}, nil
-}
-
-type ProvisionerSuite struct {
-	CommonProvisionerSuite
-}
-
-var _ = gc.Suite(&ProvisionerSuite{})
-
-func (s *ProvisionerSuite) sendModelMachinesChange(c *gc.C, ids ...string) {
+func (s *lxdProvisionerSuite) sendModelConfigChange(c *gc.C) {
 	select {
-	case s.machinesCh <- ids:
+	case s.modelConfigCh <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending model machines change")
+		c.Fatal("timed out sending model config change")
 	}
 }
 
-func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
+type credentialAPIForTest struct{}
 
-	p := s.newEnvironProvisioner(c)
-	workertest.CleanKill(c, p)
-}
-
-func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *gc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-
-	p := s.newEnvironProvisioner(c)
-	defer workertest.CleanKill(c, p)
-
-	// Check that an instance is provisioned when the machine is created...
-
-	mTag := names.NewMachineTag("666")
-	m666 := &testMachine{id: "666"}
-
-	s.broker.EXPECT().AllRunningInstances(gomock.Any()).Return([]instances.Instance{&testInstance{id: "inst-666"}}, nil).Times(2)
-	s.machinesAPI.EXPECT().Machines(gomock.Any(), mTag).Return([]apiprovisioner.MachineResult{{
-		Machine: m666,
-	}}, nil).Times(2)
-	s.machinesAPI.EXPECT().ProvisioningInfo(gomock.Any(), []names.MachineTag{mTag}).Return(params.ProvisioningInfoResults{
-		Results: []params.ProvisioningInfoResult{{
-			Result: &params.ProvisioningInfo{
-				ControllerConfig: coretesting.FakeControllerConfig(),
-				Base:             params.Base{Name: "ubuntu", Channel: "22.04"},
-				Jobs:             []model.MachineJob{model.JobHostUnits},
-			},
-		}},
-	}, nil)
-	startArg := machineStartInstanceArg(mTag.Id())
-	s.broker.EXPECT().StartInstance(gomock.Any(), newDefaultStartInstanceParamsMatcher(c, startArg)).Return(&environs.StartInstanceResult{
-		Instance: &testInstance{id: "inst-666"},
-	}, nil)
-
-	s.sendModelMachinesChange(c, mTag.Id())
-	s.checkStartInstance(c, m666)
-
-	// ...and removed, along with the machine, when the machine is Dead.
-	s.broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
-		c.Assert(len(ids), gc.Equals, 1)
-		c.Assert(ids[0], gc.DeepEquals, instance.Id("inst-666"))
-		return nil
-	})
-
-	m666.SetLife(life.Dead)
-	s.sendModelMachinesChange(c, mTag.Id())
-	s.waitForRemovalMark(c, m666)
-}
-
-func (s *ProvisionerSuite) TestEnvironProvisionerObservesConfigChanges(c *gc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-
-	p := s.newEnvironProvisioner(c)
-	defer workertest.CleanKill(c, p)
-	s.assertProvisionerObservesConfigChanges(c, p, false)
-}
-
-func (s *ProvisionerSuite) TestEnvironProvisionerObservesConfigChangesWorkerCount(c *gc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-
-	p := s.newEnvironProvisioner(c)
-	defer workertest.CleanKill(c, p)
-	s.assertProvisionerObservesConfigChangesWorkerCount(c, p, false)
+func (*credentialAPIForTest) InvalidateModelCredential(_ context.Context, reason string) error {
+	return nil
 }
 
 var (
@@ -689,4 +635,48 @@ func (m *testMachine) EnsureDead(context.Context) error {
 	defer m.mu.Unlock()
 	m.markForRemoval = true
 	return nil
+}
+
+type mockToolsFinder struct {
+}
+
+func (f mockToolsFinder) FindTools(ctx context.Context, number version.Number, os string, a string) (tools.List, error) {
+	if number.Compare(version.MustParse("6.6.6")) == 0 {
+		return nil, tools.ErrNoMatches
+	}
+	v, err := version.ParseBinary(fmt.Sprintf("%s-%s-%s", number, os, arch.HostArch()))
+	if err != nil {
+		return nil, err
+	}
+	if a == "" {
+		return nil, errors.New("missing arch")
+	}
+	v.Arch = a
+	return tools.List{&tools.Tools{Version: v}}, nil
+}
+
+type mockDistributionGroupFinder struct {
+	groups map[names.MachineTag][]string
+}
+
+func (mock *mockDistributionGroupFinder) DistributionGroupByMachineId(
+	ctx context.Context,
+	tags ...names.MachineTag,
+) ([]apiprovisioner.DistributionGroupResult, error) {
+	result := make([]apiprovisioner.DistributionGroupResult, len(tags))
+	if len(mock.groups) == 0 {
+		for i := range tags {
+			result[i] = apiprovisioner.DistributionGroupResult{MachineIds: []string{}}
+		}
+	} else {
+		for i, tag := range tags {
+			if dg, ok := mock.groups[tag]; ok {
+				result[i] = apiprovisioner.DistributionGroupResult{MachineIds: dg}
+			} else {
+				result[i] = apiprovisioner.DistributionGroupResult{
+					MachineIds: []string{}, Err: &params.Error{Code: params.CodeNotFound, Message: "Fail"}}
+			}
+		}
+	}
+	return result, nil
 }

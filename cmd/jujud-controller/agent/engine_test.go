@@ -36,7 +36,7 @@ var (
 		"application-scaler",     // tertiary dependency: will be inactive because migration workers will be inactive
 		"charm-downloader",       // tertiary dependency: will be inactive because migration workers will be inactive
 		"charm-revision-updater", // tertiary dependency: will be inactive because migration workers will be inactive
-		"compute-provisioner",
+		"machine-provisioner",
 		"firewaller",
 		"instance-mutater",
 		"instance-poller",
@@ -61,7 +61,7 @@ var (
 		"application-scaler",
 		"charm-downloader",
 		"charm-revision-updater",
-		"compute-provisioner",
+		"machine-provisioner",
 		"firewaller",
 		"instance-mutater",
 		"instance-poller",

@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner
+package machineprovisioner
 
 import (
 	"context"
@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
@@ -30,7 +29,6 @@ import (
 
 // Ensure our structs implement the required Provisioner interface.
 var _ Provisioner = (*environProvisioner)(nil)
-var _ Provisioner = (*containerProvisioner)(nil)
 
 var (
 	retryStrategyDelay = 10 * time.Second
@@ -86,23 +84,8 @@ type DistributionGroupFinder interface {
 // environProvisioner represents a running provisioning worker for machine nodes
 // belonging to an environment.
 type environProvisioner struct {
-	provisioner
-	environ        Environ
-	configObserver configObserver
-}
-
-// containerProvisioner represents a running provisioning worker for containers
-// hosted on a machine.
-type containerProvisioner struct {
-	provisioner
-	containerType  instance.ContainerType
-	machine        apiprovisioner.MachineProvisioner
-	configObserver configObserver
-}
-
-// provisioner providers common behaviour for a running provisioning worker.
-type provisioner struct {
-	Provisioner
+	environ                 Environ
+	configObserver          configObserver
 	controllerAPI           ControllerAPI
 	machinesAPI             MachinesAPI
 	agentConfig             agent.Config
@@ -138,17 +121,17 @@ func (o *configObserver) notify(cfg *config.Config) {
 }
 
 // Kill implements worker.Worker.Kill.
-func (p *provisioner) Kill() {
+func (p *environProvisioner) Kill() {
 	p.catacomb.Kill(nil)
 }
 
 // Wait implements worker.Worker.Wait.
-func (p *provisioner) Wait() error {
+func (p *environProvisioner) Wait() error {
 	return p.catacomb.Wait()
 }
 
 // getStartTask creates a new worker for the provisioner,
-func (p *provisioner) getStartTask(ctx context.Context, harvestMode config.HarvestMode, workerCount int) (provisionertask.ProvisionerTask, error) {
+func (p *environProvisioner) getStartTask(ctx context.Context, harvestMode config.HarvestMode, workerCount int) (provisionertask.ProvisionerTask, error) {
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
 	machineWatcher, err := p.getMachineWatcher(ctx)
@@ -217,18 +200,15 @@ func NewEnvironProvisioner(
 		return nil, errors.NotValidf("missing logger")
 	}
 	p := &environProvisioner{
-		provisioner: provisioner{
-			agentConfig:             agentConfig,
-			logger:                  logger,
-			controllerAPI:           controllerAPI,
-			machinesAPI:             machinesAPI,
-			toolsFinder:             toolsFinder,
-			distributionGroupFinder: distributionGroupFinder,
-			callContextFunc:         common.NewCloudCallContextFunc(credentialAPI),
-		},
-		environ: environ,
+		agentConfig:             agentConfig,
+		logger:                  logger,
+		controllerAPI:           controllerAPI,
+		machinesAPI:             machinesAPI,
+		toolsFinder:             toolsFinder,
+		distributionGroupFinder: distributionGroupFinder,
+		callContextFunc:         common.NewCloudCallContextFunc(credentialAPI),
+		environ:                 environ,
 	}
-	p.Provisioner = p
 	p.broker = environ
 	logger.Tracef("Starting environ provisioner for %q", p.agentConfig.Tag())
 
@@ -316,129 +296,5 @@ func (p *environProvisioner) setConfig(ctx context.Context, modelConfig *config.
 }
 
 func (p *environProvisioner) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(p.catacomb.Context(context.Background()))
-}
-
-// NewContainerProvisioner returns a new Provisioner. When new machines
-// are added to the state, it allocates instances from the environment
-// and allocates them to the new machines.
-func NewContainerProvisioner(
-	containerType instance.ContainerType,
-	controllerAPI ControllerAPI,
-	machinesAPI MachinesAPI,
-	logger logger.Logger,
-	agentConfig agent.Config,
-	broker environs.InstanceBroker,
-	toolsFinder ToolsFinder,
-	distributionGroupFinder DistributionGroupFinder,
-	credentialAPI common.CredentialAPI,
-) (Provisioner, error) {
-	p := &containerProvisioner{
-		provisioner: provisioner{
-			agentConfig:             agentConfig,
-			logger:                  logger,
-			controllerAPI:           controllerAPI,
-			machinesAPI:             machinesAPI,
-			broker:                  broker,
-			toolsFinder:             toolsFinder,
-			distributionGroupFinder: distributionGroupFinder,
-			callContextFunc:         common.NewCloudCallContextFunc(credentialAPI),
-		},
-		containerType: containerType,
-	}
-	p.Provisioner = p
-	logger.Tracef("Starting %s provisioner for %q", p.containerType, p.agentConfig.Tag())
-
-	err := catacomb.Invoke(catacomb.Plan{
-		Site: &p.catacomb,
-		Work: p.loop,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return p, nil
-}
-
-func (p *containerProvisioner) loop() error {
-	ctx, cancel := p.scopedContext()
-	defer cancel()
-
-	modelWatcher, err := p.controllerAPI.WatchForModelConfigChanges(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := p.catacomb.Add(modelWatcher); err != nil {
-		return errors.Trace(err)
-	}
-
-	modelConfig, err := p.controllerAPI.ModelConfig(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	p.configObserver.notify(modelConfig)
-	harvestMode := modelConfig.ProvisionerHarvestMode()
-	workerCount := modelConfig.NumContainerProvisionWorkers()
-
-	task, err := p.getStartTask(ctx, harvestMode, workerCount)
-	if err != nil {
-		return loggedErrorStack(p.logger, errors.Trace(err))
-	}
-	if err := p.catacomb.Add(task); err != nil {
-		return errors.Trace(err)
-	}
-
-	for {
-		select {
-		case <-p.catacomb.Dying():
-			return p.catacomb.ErrDying()
-		case _, ok := <-modelWatcher.Changes():
-			if !ok {
-				return errors.New("model configuration watch closed")
-			}
-			modelConfig, err := p.controllerAPI.ModelConfig(ctx)
-			if err != nil {
-				return errors.Annotate(err, "cannot load model configuration")
-			}
-			p.configObserver.notify(modelConfig)
-			task.SetHarvestMode(modelConfig.ProvisionerHarvestMode())
-			task.SetNumProvisionWorkers(modelConfig.NumContainerProvisionWorkers())
-		}
-	}
-}
-
-func (p *containerProvisioner) getMachine(ctx context.Context) (apiprovisioner.MachineProvisioner, error) {
-	if p.machine == nil {
-		tag := p.agentConfig.Tag()
-		machineTag, ok := tag.(names.MachineTag)
-		if !ok {
-			return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
-		}
-		result, err := p.machinesAPI.Machines(ctx, machineTag)
-		if err != nil {
-			p.logger.Errorf("error retrieving %s from state", machineTag)
-			return nil, err
-		}
-		if result[0].Err != nil {
-			p.logger.Errorf("%s is not in state", machineTag)
-			return nil, err
-		}
-		p.machine = result[0].Machine
-	}
-	return p.machine, nil
-}
-
-func (p *containerProvisioner) getMachineWatcher(ctx context.Context) (watcher.StringsWatcher, error) {
-	machine, err := p.getMachine(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return machine.WatchContainers(ctx, p.containerType)
-}
-
-func (p *containerProvisioner) getRetryWatcher(ctx context.Context) (watcher.NotifyWatcher, error) {
-	return nil, errors.NotImplementedf("getRetryWatcher")
-}
-
-func (p *containerProvisioner) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(p.catacomb.Context(context.Background()))
 }

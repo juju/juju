@@ -62,6 +62,7 @@ import (
 	"github.com/juju/juju/internal/worker/changestreampruner"
 	"github.com/juju/juju/internal/worker/common"
 	lxdbroker "github.com/juju/juju/internal/worker/containerbroker"
+	"github.com/juju/juju/internal/worker/containerprovisioner"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 	"github.com/juju/juju/internal/worker/controlsocket"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
@@ -93,7 +94,6 @@ import (
 	prworker "github.com/juju/juju/internal/worker/presence"
 	"github.com/juju/juju/internal/worker/providerservicefactory"
 	"github.com/juju/juju/internal/worker/providertracker"
-	"github.com/juju/juju/internal/worker/provisioner"
 	"github.com/juju/juju/internal/worker/proxyupdater"
 	psworker "github.com/juju/juju/internal/worker/pubsub"
 	"github.com/juju/juju/internal/worker/querylogger"
@@ -1094,7 +1094,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineStartup: config.MachineStartup,
 			Logger:         internallogger.GetLogger("juju.worker.machinesetup"),
 		})),
-		lxdContainerProvisioner: ifNotMigrating(provisioner.ContainerProvisioningManifold(provisioner.ContainerManifoldConfig{
+		lxdContainerProvisioner: ifNotMigrating(containerprovisioner.ContainerProvisioningManifold(containerprovisioner.ContainerManifoldConfig{
 			AgentName:                    agentName,
 			APICallerName:                apiCallerName,
 			Logger:                       internallogger.GetLogger("juju.worker.lxdprovisioner"),

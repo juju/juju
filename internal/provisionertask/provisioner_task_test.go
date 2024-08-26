@@ -52,8 +52,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/worker/provisioner"
-	"github.com/juju/juju/internal/worker/provisioner/mocks"
+	"github.com/juju/juju/internal/worker/machineprovisioner/mocks"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -1425,8 +1424,8 @@ func (s *ProvisionerTaskSuite) sendMachineErrorRetryChange(c *gc.C) {
 func (s *ProvisionerTaskSuite) newProvisionerTask(
 	c *gc.C,
 	harvestingMethod config.HarvestMode,
-	distributionGroupFinder provisioner.DistributionGroupFinder,
-	toolsFinder provisioner.ToolsFinder,
+	distributionGroupFinder provisionertask.DistributionGroupFinder,
+	toolsFinder provisionertask.ToolsFinder,
 	numProvisionWorkers int,
 ) provisionertask.ProvisionerTask {
 	return s.newProvisionerTaskWithRetry(c,
@@ -1444,8 +1443,8 @@ func (s *ProvisionerTaskSuite) newProvisionerTask(
 func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 	c *gc.C,
 	harvestingMethod config.HarvestMode,
-	distributionGroupFinder provisioner.DistributionGroupFinder,
-	toolsFinder provisioner.ToolsFinder,
+	distributionGroupFinder provisionertask.DistributionGroupFinder,
+	toolsFinder provisionertask.ToolsFinder,
 	retryStrategy provisionertask.RetryStrategy,
 	numProvisionWorkers int,
 ) provisionertask.ProvisionerTask {
