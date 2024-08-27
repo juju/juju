@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
@@ -216,6 +217,14 @@ func (st *ApplicationState) DeleteApplication(ctx context.Context, name string) 
 		return errors.Trace(err)
 	}
 
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.deleteApplication(ctx, tx, name)
+	})
+	return errors.Annotatef(err, "deleting application %q", name)
+}
+
+func (st *ApplicationState) deleteApplication(ctx context.Context, tx *sqlair.TX, name string) error {
+
 	var appID applicationID
 	queryUnits := `SELECT count(*) AS &M.count FROM unit WHERE application_uuid = $applicationID.uuid`
 	queryUnitsStmt, err := st.Prepare(queryUnits, sqlair.M{}, appID)
@@ -245,41 +254,36 @@ func (st *ApplicationState) DeleteApplication(ctx context.Context, name string) 
 		return errors.Trace(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		appUUID, err := st.lookupApplication(ctx, tx, name, true)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		appID.ID = appUUID.String()
+	appUUID, err := st.lookupApplication(ctx, tx, name, true)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	appID.ID = appUUID.String()
 
-		// Check that there are no units.
-		result := sqlair.M{}
-		err = tx.Query(ctx, queryUnitsStmt, appID).Get(&result)
-		if err != nil {
-			if !errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Annotatef(err, "querying units for application %q", name)
-			}
-		}
-		numUnits, _ := result["count"].(int64)
-		if numUnits > 0 {
-			return fmt.Errorf("cannot delete application %q as it still has %d unit(s)%w", name, numUnits, errors.Hide(applicationerrors.ApplicationHasUnits))
-		}
+	// Check that there are no units.
+	result := sqlair.M{}
+	err = tx.Query(ctx, queryUnitsStmt, appID).Get(&result)
+	if err != nil {
+		return errors.Annotatef(err, "querying units for application %q", name)
+	}
+	numUnits, _ := result["count"].(int64)
+	if numUnits > 0 {
+		return fmt.Errorf("cannot delete application %q as it still has %d unit(s)%w", name, numUnits, errors.Hide(applicationerrors.ApplicationHasUnits))
+	}
 
-		if err := tx.Query(ctx, deletePlatformStmt, appID).Run(); err != nil {
-			return errors.Annotatef(err, "deleting platform row for application %q", name)
-		}
-		if err := tx.Query(ctx, deleteScaleStmt, appID).Run(); err != nil {
-			return errors.Annotatef(err, "deleting scale row for application %q", name)
-		}
-		if err := tx.Query(ctx, deleteChannelStmt, appID).Run(); err != nil {
-			return errors.Annotatef(err, "deleting channel row for application %q", name)
-		}
-		if err := tx.Query(ctx, deleteApplicationStmt, appName).Run(); err != nil {
-			return errors.Trace(err)
-		}
-		return nil
-	})
-	return errors.Annotatef(err, "deleting application %q", name)
+	if err := tx.Query(ctx, deletePlatformStmt, appID).Run(); err != nil {
+		return errors.Annotatef(err, "deleting platform row for application %q", name)
+	}
+	if err := tx.Query(ctx, deleteScaleStmt, appID).Run(); err != nil {
+		return errors.Annotatef(err, "deleting scale row for application %q", name)
+	}
+	if err := tx.Query(ctx, deleteChannelStmt, appID).Run(); err != nil {
+		return errors.Annotatef(err, "deleting channel row for application %q", name)
+	}
+	if err := tx.Query(ctx, deleteApplicationStmt, appName).Run(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // AddUnits adds the specified units to the application, returning an error
@@ -480,50 +484,53 @@ func (st *ApplicationState) DeleteUnit(ctx context.Context, unitName string) err
 	if err != nil {
 		return errors.Trace(err)
 	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.deleteUnit(ctx, tx, unitName)
+	})
+	return errors.Annotatef(err, "deleting unit %q", unitName)
+}
 
-	unitIDParam := sqlair.M{"name": unitName}
+func (st *ApplicationState) deleteUnit(ctx context.Context, tx *sqlair.TX, unitName string) error {
 
-	queryUnit := `SELECT uuid as &M.uuid FROM unit WHERE name = $M.name`
-	queryUnitStmt, err := st.Prepare(queryUnit, sqlair.M{})
+	unit := coreUnit{Name: unitName}
+
+	queryUnit := `SELECT uuid as &coreUnit.uuid FROM unit WHERE name = $coreUnit.name`
+	queryUnitStmt, err := st.Prepare(queryUnit, unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	deleteUnit := `DELETE FROM unit WHERE name = $M.name`
-	deleteUnitStmt, err := st.Prepare(deleteUnit, sqlair.M{})
+	deleteUnit := `DELETE FROM unit WHERE name = $coreUnit.name`
+	deleteUnitStmt, err := st.Prepare(deleteUnit, unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	deleteNode := `
 DELETE FROM net_node WHERE uuid IN
-(SELECT net_node_uuid FROM unit WHERE name = $M.name)
+(SELECT net_node_uuid FROM unit WHERE name = $coreUnit.name)
 `
-	deleteNodeStmt, err := st.Prepare(deleteNode, sqlair.M{})
+	deleteNodeStmt, err := st.Prepare(deleteNode, unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result := sqlair.M{}
-		err = tx.Query(ctx, queryUnitStmt, unitIDParam).Get(result)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(err, "looking up UUID for unit %q", unitName)
-		}
+	err = tx.Query(ctx, queryUnitStmt, unit).Get(&unit)
+	if errors.Is(err, sqlair.ErrNoRows) {
 		// Unit already deleted is a no op.
-		if len(result) == 0 {
-			return nil
-		}
-		if err := tx.Query(ctx, deleteUnitStmt, unitIDParam).Run(); err != nil {
-			return errors.Annotatef(err, "deleting unit %q", unitName)
-		}
-		if err := tx.Query(ctx, deleteNodeStmt, unitIDParam).Run(); err != nil {
-			return errors.Annotatef(err, "deleting net node for unit  %q", unitName)
-		}
-
 		return nil
-	})
-	return errors.Annotatef(err, "deleting unit %q", unitName)
+	}
+	if err != nil {
+		return errors.Annotatef(err, "looking up UUID for unit %q", unitName)
+	}
+
+	if err := tx.Query(ctx, deleteUnitStmt, unit).Run(); err != nil {
+		return errors.Annotatef(err, "deleting unit %q", unitName)
+	}
+	if err := tx.Query(ctx, deleteNodeStmt, unit).Run(); err != nil {
+		return errors.Annotatef(err, "deleting net node for unit  %q", unitName)
+	}
+	return nil
 }
 
 // StorageDefaults returns the default storage sources for a model.
@@ -611,14 +618,14 @@ func (st *ApplicationState) UpsertUnit(
 	return errors.Annotatef(err, "upserting unit %q for application %q", *args.UnitName, appID)
 }
 
-// UnitLife looks up the life of the specified unit, returning an error
+// GetUnitLife looks up the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit is not found.
-func (st *ApplicationState) UnitLife(ctx domain.AtomicContext, unitName string) (life.Life, error) {
-	unit := unitDetails{Name: unitName}
+func (st *ApplicationState) GetUnitLife(ctx domain.AtomicContext, unitName string) (life.Life, error) {
+	unit := coreUnit{Name: unitName}
 	queryUnit := `
-SELECT unit.life_id AS &unitDetails.*
+SELECT unit.life_id AS &coreUnit.*
 FROM unit
-WHERE name = $unitDetails.name
+WHERE name = $coreUnit.name
 `
 	queryUnitStmt, err := st.Prepare(queryUnit, unit)
 	if err != nil {
@@ -638,9 +645,48 @@ WHERE name = $unitDetails.name
 	return unit.LifeID, errors.Annotatef(err, "querying unit %q life", unitName)
 }
 
-// ApplicationScaleState looks up the scale state of the specified application, returning an error
+// SetUnitLife sets the life of the specified unit, returning an error
+// satisfying [applicationerrors.UnitNotFound] if the unit is not found.
+func (st *ApplicationState) SetUnitLife(ctx domain.AtomicContext, unitName string, l life.Life) error {
+	unit := coreUnit{Name: unitName, LifeID: l}
+	query := `
+SELECT uuid AS &coreUnit.uuid
+FROM unit
+WHERE name = $coreUnit.name
+`
+	stmt, err := st.Prepare(query, unit)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	updateLifeQuery := `
+UPDATE unit
+SET life_id = $coreUnit.life_id
+WHERE name = $coreUnit.name
+-- we ensure the life can never go backwards.
+AND life_id < $coreUnit.life_id
+`
+
+	updateLifeStmt, err := st.Prepare(updateLifeQuery, unit)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, unit).Get(&unit)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
+		} else if err != nil {
+			return errors.Annotatef(err, "querying unit %q", unitName)
+		}
+		return tx.Query(ctx, updateLifeStmt, unit).Run()
+	})
+	return errors.Annotatef(err, "updating unit life for %q", unitName)
+}
+
+// GetApplicationScaleState looks up the scale state of the specified application, returning an error
 // satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
-func (st *ApplicationState) ApplicationScaleState(ctx domain.AtomicContext, appID coreapplication.ID) (application.ScaleState, error) {
+func (st *ApplicationState) GetApplicationScaleState(ctx domain.AtomicContext, appID coreapplication.ID) (application.ScaleState, error) {
 	appScale := applicationScale{ApplicationID: appID.String()}
 	queryScale := `
 SELECT (*) AS (&applicationScale.*)
@@ -700,6 +746,8 @@ func (st *ApplicationState) SetApplicationLife(ctx domain.AtomicContext, appID c
 UPDATE application
 SET life_id = $applicationID.life_id
 WHERE uuid = $applicationID.uuid
+-- we ensure the life can never go backwards.
+AND life_id <= $applicationID.life_id
 `
 	app := applicationID{ID: appID.String(), LifeID: l}
 	lifeStmt, err := st.Prepare(lifeQuery, app)
@@ -875,4 +923,56 @@ AND a.name = $applicationName.name
 		result[u.UnitID] = u.LifeID
 	}
 	return result, nil
+}
+
+// RemoveUnitMaybeApplication removes the unit from state, and may remove
+// its application as well, if the application is Dying and no other references
+// to it exist. It will fail if the unit is not Dead.
+// An error satisfying [applicationerrors.UnitNotFound] is returned
+// if the unit is not found.
+func (st *ApplicationState) RemoveUnitMaybeApplication(ctx domain.AtomicContext, unitName string) error {
+	unit := coreUnit{Name: unitName}
+	peerCountQuery := `
+SELECT a.life_id as &unitCount.app_life_id, u.life_id AS &unitCount.unit_life_id, count(peer.uuid) AS &unitCount.count
+FROM unit u
+JOIN application a ON a.uuid = u.application_uuid
+LEFT JOIN unit peer ON u.application_uuid = peer.application_uuid AND peer.uuid != u.uuid
+WHERE u.name = $coreUnit.name
+`
+	peerCountStmt, err := st.Prepare(peerCountQuery, unit, unitCount{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Count the number of units besides this one
+		// belonging to the same application.
+		var count unitCount
+		err = tx.Query(ctx, peerCountStmt, unit).Get(&count)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
+		}
+		if err != nil {
+			return errors.Annotatef(err, "querying peer count for unit %q", unitName)
+		}
+		// This should never happen since this method is called by the service
+		// after setting the unit to Dead. But we check anyway.
+		// There's no need for a typed error.
+		if count.UnitLifeID != life.Dead {
+			return fmt.Errorf("unit %q is not dead, life is %v", unitName, count.UnitLifeID)
+		}
+
+		err = st.deleteUnit(ctx, tx, unitName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if count.Count > 0 || count.ApplicationLifeID == life.Alive {
+			return nil
+		}
+		// This is the last unit, and the application is
+		// not alive, so we delete the application.
+		appName, _ := names.UnitApplication(unitName)
+		err = st.deleteApplication(ctx, tx, appName)
+		return errors.Trace(err)
+	})
+	return errors.Annotatef(err, "removing unit %q", unitName)
 }

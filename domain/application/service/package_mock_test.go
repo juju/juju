@@ -97,45 +97,6 @@ func (c *MockApplicationStateAddUnitsCall) DoAndReturn(f func(context.Context, s
 	return c
 }
 
-// ApplicationScaleState mocks base method.
-func (m *MockApplicationState) ApplicationScaleState(arg0 domain.AtomicContext, arg1 application.ID) (application0.ScaleState, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationScaleState", arg0, arg1)
-	ret0, _ := ret[0].(application0.ScaleState)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ApplicationScaleState indicates an expected call of ApplicationScaleState.
-func (mr *MockApplicationStateMockRecorder) ApplicationScaleState(arg0, arg1 any) *MockApplicationStateApplicationScaleStateCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationScaleState", reflect.TypeOf((*MockApplicationState)(nil).ApplicationScaleState), arg0, arg1)
-	return &MockApplicationStateApplicationScaleStateCall{Call: call}
-}
-
-// MockApplicationStateApplicationScaleStateCall wrap *gomock.Call
-type MockApplicationStateApplicationScaleStateCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationStateApplicationScaleStateCall) Return(arg0 application0.ScaleState, arg1 error) *MockApplicationStateApplicationScaleStateCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateApplicationScaleStateCall) Do(f func(domain.AtomicContext, application.ID) (application0.ScaleState, error)) *MockApplicationStateApplicationScaleStateCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateApplicationScaleStateCall) DoAndReturn(f func(domain.AtomicContext, application.ID) (application0.ScaleState, error)) *MockApplicationStateApplicationScaleStateCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // CreateApplication mocks base method.
 func (m *MockApplicationState) CreateApplication(arg0 context.Context, arg1 string, arg2 application0.AddApplicationArg, arg3 ...application0.UpsertUnitArg) (application.ID, error) {
 	m.ctrl.T.Helper()
@@ -335,6 +296,45 @@ func (c *MockApplicationStateGetApplicationLifeCall) DoAndReturn(f func(domain.A
 	return c
 }
 
+// GetApplicationScaleState mocks base method.
+func (m *MockApplicationState) GetApplicationScaleState(arg0 domain.AtomicContext, arg1 application.ID) (application0.ScaleState, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationScaleState", arg0, arg1)
+	ret0, _ := ret[0].(application0.ScaleState)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationScaleState indicates an expected call of GetApplicationScaleState.
+func (mr *MockApplicationStateMockRecorder) GetApplicationScaleState(arg0, arg1 any) *MockApplicationStateGetApplicationScaleStateCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationScaleState", reflect.TypeOf((*MockApplicationState)(nil).GetApplicationScaleState), arg0, arg1)
+	return &MockApplicationStateGetApplicationScaleStateCall{Call: call}
+}
+
+// MockApplicationStateGetApplicationScaleStateCall wrap *gomock.Call
+type MockApplicationStateGetApplicationScaleStateCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationStateGetApplicationScaleStateCall) Return(arg0 application0.ScaleState, arg1 error) *MockApplicationStateGetApplicationScaleStateCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationStateGetApplicationScaleStateCall) Do(f func(domain.AtomicContext, application.ID) (application0.ScaleState, error)) *MockApplicationStateGetApplicationScaleStateCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationStateGetApplicationScaleStateCall) DoAndReturn(f func(domain.AtomicContext, application.ID) (application0.ScaleState, error)) *MockApplicationStateGetApplicationScaleStateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationUnitLife mocks base method.
 func (m *MockApplicationState) GetApplicationUnitLife(arg0 context.Context, arg1 string, arg2 ...string) (map[string]life.Life, error) {
 	m.ctrl.T.Helper()
@@ -418,6 +418,45 @@ func (c *MockApplicationStateGetStoragePoolByNameCall) DoAndReturn(f func(contex
 	return c
 }
 
+// GetUnitLife mocks base method.
+func (m *MockApplicationState) GetUnitLife(arg0 domain.AtomicContext, arg1 string) (life.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Life)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitLife indicates an expected call of GetUnitLife.
+func (mr *MockApplicationStateMockRecorder) GetUnitLife(arg0, arg1 any) *MockApplicationStateGetUnitLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitLife", reflect.TypeOf((*MockApplicationState)(nil).GetUnitLife), arg0, arg1)
+	return &MockApplicationStateGetUnitLifeCall{Call: call}
+}
+
+// MockApplicationStateGetUnitLifeCall wrap *gomock.Call
+type MockApplicationStateGetUnitLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationStateGetUnitLifeCall) Return(arg0 life.Life, arg1 error) *MockApplicationStateGetUnitLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationStateGetUnitLifeCall) Do(f func(domain.AtomicContext, string) (life.Life, error)) *MockApplicationStateGetUnitLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationStateGetUnitLifeCall) DoAndReturn(f func(domain.AtomicContext, string) (life.Life, error)) *MockApplicationStateGetUnitLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchStatementUnitLife mocks base method.
 func (m *MockApplicationState) InitialWatchStatementUnitLife(arg0 string) (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()
@@ -453,6 +492,44 @@ func (c *MockApplicationStateInitialWatchStatementUnitLifeCall) Do(f func(string
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationStateInitialWatchStatementUnitLifeCall) DoAndReturn(f func(string) (string, eventsource.NamespaceQuery)) *MockApplicationStateInitialWatchStatementUnitLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// RemoveUnitMaybeApplication mocks base method.
+func (m *MockApplicationState) RemoveUnitMaybeApplication(arg0 domain.AtomicContext, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveUnitMaybeApplication", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveUnitMaybeApplication indicates an expected call of RemoveUnitMaybeApplication.
+func (mr *MockApplicationStateMockRecorder) RemoveUnitMaybeApplication(arg0, arg1 any) *MockApplicationStateRemoveUnitMaybeApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUnitMaybeApplication", reflect.TypeOf((*MockApplicationState)(nil).RemoveUnitMaybeApplication), arg0, arg1)
+	return &MockApplicationStateRemoveUnitMaybeApplicationCall{Call: call}
+}
+
+// MockApplicationStateRemoveUnitMaybeApplicationCall wrap *gomock.Call
+type MockApplicationStateRemoveUnitMaybeApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationStateRemoveUnitMaybeApplicationCall) Return(arg0 error) *MockApplicationStateRemoveUnitMaybeApplicationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationStateRemoveUnitMaybeApplicationCall) Do(f func(domain.AtomicContext, string) error) *MockApplicationStateRemoveUnitMaybeApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationStateRemoveUnitMaybeApplicationCall) DoAndReturn(f func(domain.AtomicContext, string) error) *MockApplicationStateRemoveUnitMaybeApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -609,6 +686,44 @@ func (c *MockApplicationStateSetDesiredApplicationScaleCall) DoAndReturn(f func(
 	return c
 }
 
+// SetUnitLife mocks base method.
+func (m *MockApplicationState) SetUnitLife(arg0 domain.AtomicContext, arg1 string, arg2 life.Life) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetUnitLife", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetUnitLife indicates an expected call of SetUnitLife.
+func (mr *MockApplicationStateMockRecorder) SetUnitLife(arg0, arg1, arg2 any) *MockApplicationStateSetUnitLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitLife", reflect.TypeOf((*MockApplicationState)(nil).SetUnitLife), arg0, arg1, arg2)
+	return &MockApplicationStateSetUnitLifeCall{Call: call}
+}
+
+// MockApplicationStateSetUnitLifeCall wrap *gomock.Call
+type MockApplicationStateSetUnitLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationStateSetUnitLifeCall) Return(arg0 error) *MockApplicationStateSetUnitLifeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationStateSetUnitLifeCall) Do(f func(domain.AtomicContext, string, life.Life) error) *MockApplicationStateSetUnitLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationStateSetUnitLifeCall) DoAndReturn(f func(domain.AtomicContext, string, life.Life) error) *MockApplicationStateSetUnitLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // StorageDefaults mocks base method.
 func (m *MockApplicationState) StorageDefaults(arg0 context.Context) (storage.StorageDefaults, error) {
 	m.ctrl.T.Helper()
@@ -644,45 +759,6 @@ func (c *MockApplicationStateStorageDefaultsCall) Do(f func(context.Context) (st
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationStateStorageDefaultsCall) DoAndReturn(f func(context.Context) (storage.StorageDefaults, error)) *MockApplicationStateStorageDefaultsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// UnitLife mocks base method.
-func (m *MockApplicationState) UnitLife(arg0 domain.AtomicContext, arg1 string) (life.Life, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnitLife", arg0, arg1)
-	ret0, _ := ret[0].(life.Life)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UnitLife indicates an expected call of UnitLife.
-func (mr *MockApplicationStateMockRecorder) UnitLife(arg0, arg1 any) *MockApplicationStateUnitLifeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitLife", reflect.TypeOf((*MockApplicationState)(nil).UnitLife), arg0, arg1)
-	return &MockApplicationStateUnitLifeCall{Call: call}
-}
-
-// MockApplicationStateUnitLifeCall wrap *gomock.Call
-type MockApplicationStateUnitLifeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationStateUnitLifeCall) Return(arg0 life.Life, arg1 error) *MockApplicationStateUnitLifeCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateUnitLifeCall) Do(f func(domain.AtomicContext, string) (life.Life, error)) *MockApplicationStateUnitLifeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateUnitLifeCall) DoAndReturn(f func(domain.AtomicContext, string) (life.Life, error)) *MockApplicationStateUnitLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

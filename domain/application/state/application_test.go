@@ -286,7 +286,7 @@ WHERE u.name=?`,
 	c.Assert(providerId, gc.Equals, "another-id")
 }
 
-func (s *applicationStateSuite) TestUnitLife(c *gc.C) {
+func (s *applicationStateSuite) TestGetUnitLife(c *gc.C) {
 	u := application.UpsertUnitArg{
 		UnitName: ptr("foo/666"),
 	}
@@ -295,17 +295,61 @@ func (s *applicationStateSuite) TestUnitLife(c *gc.C) {
 	var unitLife life.Life
 	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		var err error
-		unitLife, err = s.state.UnitLife(ctx, "foo/666")
+		unitLife, err = s.state.GetUnitLife(ctx, "foo/666")
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitLife, gc.Equals, life.Alive)
 }
 
-func (s *applicationStateSuite) TestUnitLifeNotFound(c *gc.C) {
+func (s *applicationStateSuite) TestGetUnitLifeNotFound(c *gc.C) {
 	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.UnitLife(ctx, "foo/666")
+		_, err := s.state.GetUnitLife(ctx, "foo/666")
 		return err
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *applicationStateSuite) TestSetUnitLife(c *gc.C) {
+	u := application.UpsertUnitArg{
+		UnitName: ptr("foo/666"),
+	}
+	s.createApplication(c, "foo", life.Alive, u)
+
+	checkResult := func(want life.Life) {
+		var gotLife life.Life
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			err := tx.QueryRowContext(ctx, "SELECT life_id FROM unit WHERE name=?", u.UnitName).
+				Scan(&gotLife)
+			return errors.Trace(err)
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(gotLife, jc.DeepEquals, want)
+	}
+
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.SetUnitLife(ctx, "foo/666", life.Dying)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	checkResult(life.Dying)
+
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.SetUnitLife(ctx, "foo/666", life.Dead)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	checkResult(life.Dead)
+
+	// Can't go backwards.
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.SetUnitLife(ctx, "foo/666", life.Dying)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	checkResult(life.Dead)
+}
+
+func (s *applicationStateSuite) TestSetUnitLifeNotFound(c *gc.C) {
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.SetUnitLife(ctx, "foo/666", life.Dying)
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
@@ -324,7 +368,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 
 	var unitCount int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name=?", "foo/666").Scan(&unitCount)
+		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name=?", u1.UnitName).Scan(&unitCount)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -334,7 +378,122 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	c.Assert(unitCount, gc.Equals, 0)
 }
 
-func (s *applicationStateSuite) TestApplicationScaleState(c *gc.C) {
+func (s *applicationStateSuite) TestRemoveUnitMaybeApplicationUnitsRemaining(c *gc.C) {
+	u1 := application.UpsertUnitArg{
+		UnitName: ptr("foo/666"),
+	}
+	u2 := application.UpsertUnitArg{
+		UnitName: ptr("foo/667"),
+	}
+	appID := s.createApplication(c, "foo", life.Dying, u1, u2)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id=2 WHERE name=?", u1.UnitName)
+		return errors.Trace(err)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.RemoveUnitMaybeApplication(ctx, "foo/666")
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		unitCount int
+		appCount  int
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name=?", u1.UnitName).
+			Scan(&unitCount); err != nil {
+			return errors.Trace(err)
+		}
+		if err = tx.QueryRowContext(ctx, "SELECT count(*) FROM application WHERE uuid=?", appID).
+			Scan(&appCount); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitCount, gc.Equals, 0)
+	c.Assert(appCount, gc.Equals, 1)
+}
+
+func (s *applicationStateSuite) TestRemoveUnitMaybeApplicationLastUnitAppAlive(c *gc.C) {
+	u1 := application.UpsertUnitArg{
+		UnitName: ptr("foo/666"),
+	}
+	appID := s.createApplication(c, "foo", life.Alive, u1)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id=2 WHERE name=?", u1.UnitName); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.RemoveUnitMaybeApplication(ctx, "foo/666")
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		unitCount int
+		appCount  int
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name=?", u1.UnitName).
+			Scan(&unitCount); err != nil {
+			return errors.Trace(err)
+		}
+		if err = tx.QueryRowContext(ctx, "SELECT count(*) FROM application WHERE uuid=?", appID).
+			Scan(&appCount); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitCount, gc.Equals, 0)
+	c.Assert(appCount, gc.Equals, 1)
+}
+
+func (s *applicationStateSuite) TestRemoveUnitMaybeApplicationLastUnit(c *gc.C) {
+	u1 := application.UpsertUnitArg{
+		UnitName: ptr("foo/666"),
+	}
+	appID := s.createApplication(c, "foo", life.Dying, u1)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id=2 WHERE name=?", u1.UnitName); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.RemoveUnitMaybeApplication(ctx, "foo/666")
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		unitCount int
+		appCount  int
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name=?", u1.UnitName).
+			Scan(&unitCount); err != nil {
+			return errors.Trace(err)
+		}
+		if err = tx.QueryRowContext(ctx, "SELECT count(*) FROM application WHERE uuid=?", appID).
+			Scan(&appCount); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitCount, gc.Equals, 0)
+	c.Assert(appCount, gc.Equals, 0)
+}
+
+func (s *applicationStateSuite) TestGetApplicationScaleState(c *gc.C) {
 	u := application.UpsertUnitArg{
 		UnitName: ptr("foo/666"),
 	}
@@ -343,7 +502,7 @@ func (s *applicationStateSuite) TestApplicationScaleState(c *gc.C) {
 	var scaleState application.ScaleState
 	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		var err error
-		scaleState, err = s.state.ApplicationScaleState(ctx, appID)
+		scaleState, err = s.state.GetApplicationScaleState(ctx, appID)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -352,9 +511,9 @@ func (s *applicationStateSuite) TestApplicationScaleState(c *gc.C) {
 	})
 }
 
-func (s *applicationStateSuite) TestApplicationScaleStateNotFound(c *gc.C) {
+func (s *applicationStateSuite) TestGetApplicationScaleStateNotFound(c *gc.C) {
 	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.ApplicationScaleState(ctx, coreapplication.ID(uuid.MustNewUUID().String()))
+		_, err := s.state.GetApplicationScaleState(ctx, coreapplication.ID(uuid.MustNewUUID().String()))
 		return err
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
@@ -443,10 +602,17 @@ func (s *applicationStateSuite) TestSetApplicationLife(c *gc.C) {
 	checkResult(life.Dying)
 
 	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.SetApplicationLife(ctx, appID, life.Dead)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	checkResult(life.Dead)
+
+	// Can't go backwards.
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		return s.state.SetApplicationLife(ctx, appID, life.Dying)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	checkResult(life.Dying)
+	checkResult(life.Dead)
 }
 
 func (s *applicationStateSuite) TestDeleteApplication(c *gc.C) {
