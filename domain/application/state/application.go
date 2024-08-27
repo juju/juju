@@ -264,9 +264,7 @@ func (st *ApplicationState) deleteApplication(ctx context.Context, tx *sqlair.TX
 	result := sqlair.M{}
 	err = tx.Query(ctx, queryUnitsStmt, appID).Get(&result)
 	if err != nil {
-		if !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(err, "querying units for application %q", name)
-		}
+		return errors.Annotatef(err, "querying units for application %q", name)
 	}
 	numUnits, _ := result["count"].(int64)
 	if numUnits > 0 {
@@ -494,15 +492,15 @@ func (st *ApplicationState) DeleteUnit(ctx context.Context, unitName string) err
 
 func (st *ApplicationState) deleteUnit(ctx context.Context, tx *sqlair.TX, unitName string) error {
 
-	unit := unitID{Name: unitName}
+	unit := coreUnit{Name: unitName}
 
-	queryUnit := `SELECT uuid as &unitID.uuid FROM unit WHERE name = $unitID.name`
+	queryUnit := `SELECT uuid as &coreUnit.uuid FROM unit WHERE name = $coreUnit.name`
 	queryUnitStmt, err := st.Prepare(queryUnit, unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	deleteUnit := `DELETE FROM unit WHERE name = $unitID.name`
+	deleteUnit := `DELETE FROM unit WHERE name = $coreUnit.name`
 	deleteUnitStmt, err := st.Prepare(deleteUnit, unit)
 	if err != nil {
 		return errors.Trace(err)
@@ -510,7 +508,7 @@ func (st *ApplicationState) deleteUnit(ctx context.Context, tx *sqlair.TX, unitN
 
 	deleteNode := `
 DELETE FROM net_node WHERE uuid IN
-(SELECT net_node_uuid FROM unit WHERE name = $unitID.name)
+(SELECT net_node_uuid FROM unit WHERE name = $coreUnit.name)
 `
 	deleteNodeStmt, err := st.Prepare(deleteNode, unit)
 	if err != nil {
@@ -623,11 +621,11 @@ func (st *ApplicationState) UpsertUnit(
 // GetUnitLife looks up the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit is not found.
 func (st *ApplicationState) GetUnitLife(ctx domain.AtomicContext, unitName string) (life.Life, error) {
-	unit := unitID{Name: unitName}
+	unit := coreUnit{Name: unitName}
 	queryUnit := `
-SELECT unit.life_id AS &unitID.*
+SELECT unit.life_id AS &coreUnit.*
 FROM unit
-WHERE name = $unitID.name
+WHERE name = $coreUnit.name
 `
 	queryUnitStmt, err := st.Prepare(queryUnit, unit)
 	if err != nil {
@@ -650,11 +648,11 @@ WHERE name = $unitID.name
 // SetUnitLife sets the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit is not found.
 func (st *ApplicationState) SetUnitLife(ctx domain.AtomicContext, unitName string, l life.Life) error {
-	unit := unitID{Name: unitName, LifeID: l}
+	unit := coreUnit{Name: unitName, LifeID: l}
 	query := `
-SELECT uuid AS &unitID.uuid
+SELECT uuid AS &coreUnit.uuid
 FROM unit
-WHERE name = $unitID.name
+WHERE name = $coreUnit.name
 `
 	stmt, err := st.Prepare(query, unit)
 	if err != nil {
@@ -663,10 +661,10 @@ WHERE name = $unitID.name
 
 	updateLifeQuery := `
 UPDATE unit
-SET life_id = $unitID.life_id
-WHERE name = $unitID.name
+SET life_id = $coreUnit.life_id
+WHERE name = $coreUnit.name
 -- we ensure the life can never go backwards.
-AND life_id < $unitID.life_id
+AND life_id < $coreUnit.life_id
 `
 
 	updateLifeStmt, err := st.Prepare(updateLifeQuery, unit)
@@ -933,13 +931,13 @@ AND a.name = $applicationName.name
 // An error satisfying [applicationerrors.UnitNotFound] is returned
 // if the unit is not found.
 func (st *ApplicationState) RemoveUnitMaybeApplication(ctx domain.AtomicContext, unitName string) error {
-	unit := unitID{Name: unitName}
+	unit := coreUnit{Name: unitName}
 	peerCountQuery := `
-SELECT a.life_id as &unitCount.app_life_id, u.life_id AS &unitCount.unit_life_id, u.uuid, count(peer.uuid) AS &unitCount.count
+SELECT a.life_id as &unitCount.app_life_id, u.life_id AS &unitCount.unit_life_id, count(peer.uuid) AS &unitCount.count
 FROM unit u
 JOIN application a ON a.uuid = u.application_uuid
 LEFT JOIN unit peer ON u.application_uuid = peer.application_uuid AND peer.uuid != u.uuid
-WHERE u.name = $unitID.name
+WHERE u.name = $coreUnit.name
 `
 	peerCountStmt, err := st.Prepare(peerCountQuery, unit, unitCount{})
 	if err != nil {

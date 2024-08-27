@@ -288,6 +288,8 @@ func (s *ApplicationService) DeleteUnit(ctx context.Context, unitName string) er
 // that the unit has become dead, so there's strictly no need to call
 // this method as the unit is already dead.
 // This method is also called during cleanup from various cleanup jobs.
+// If the unit is not found, an error satisfying [applicationerrors.UnitNotFound]
+// is returned.
 func (s *ApplicationService) EnsureUnitDead(ctx context.Context, unitName string, leadershipRevoker leadership.Revoker) error {
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return s.ensureUnitDead(ctx, unitName, leadershipRevoker)
@@ -325,6 +327,9 @@ func (s *ApplicationService) ensureUnitDead(ctx domain.AtomicContext, unitName s
 // TODO(units): revisit his existing logic ported from mongo
 // Note: the callers of this method only do so after the unit has become dead, so
 // there's strictly no need to call ensureUnitDead before removing.
+// If the unit is still alive, an error satisfying [applicationerrors.UnitIsAlive]
+// is returned. If the unit is not found, an error satisfying
+// [applicationerrors.UnitNotFound] is returned.
 func (s *ApplicationService) RemoveUnit(ctx context.Context, unitName string, leadership leadership.Revoker) error {
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		unitLife, err := s.st.GetUnitLife(ctx, unitName)

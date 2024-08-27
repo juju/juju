@@ -72,7 +72,7 @@ type unitDetails struct {
 	PasswordHashAlgorithmID int       `db:"password_hash_algorithm_id"`
 }
 
-type unitID struct {
+type coreUnit struct {
 	ID     string    `db:"uuid"`
 	Name   string    `db:"name"`
 	LifeID life.Life `db:"life_id"`
