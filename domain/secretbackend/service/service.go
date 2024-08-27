@@ -421,6 +421,7 @@ func (s *Service) BackendSummaryInfo(ctx context.Context, reveal bool, names ...
 				ID:          b.ID,
 				Name:        b.Name,
 				BackendType: b.BackendType,
+				Config:      convertConfigToAny(b.Config),
 				// TODO: fetch the correct config for non controller model k8s backend.
 				// https://warthogs.atlassian.net/browse/JUJU-6561
 			},
@@ -641,28 +642,6 @@ func (s *Service) UpdateSecretBackend(ctx context.Context, params UpdateSecretBa
 // DeleteSecretBackend deletes a secret backend.
 func (s *Service) DeleteSecretBackend(ctx context.Context, params DeleteSecretBackendParams) error {
 	return s.st.DeleteSecretBackend(ctx, params.BackendIdentifier, params.DeleteInUse)
-}
-
-// GetSecretBackendByName returns the secret backend for the given backend name.
-func (s *Service) GetSecretBackendByName(ctx context.Context, name string) (*coresecrets.SecretBackend, error) {
-	sb, err := s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{Name: name})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg := convertConfigToAny(sb.Config)
-	if name == kubernetes.BackendName {
-		var err error
-		if cfg, err = s.tryControllerModelK8sBackendConfig(ctx); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return &coresecrets.SecretBackend{
-		ID:                  sb.ID,
-		Name:                sb.Name,
-		BackendType:         sb.BackendType,
-		TokenRotateInterval: sb.TokenRotateInterval,
-		Config:              cfg,
-	}, nil
 }
 
 // RotateBackendToken rotates the token for the given secret backend.

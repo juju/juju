@@ -18,7 +18,7 @@ import (
 // State provides methods for working with secret backends.
 type State interface {
 	GetControllerModelCloudAndCredential(ctx context.Context) (cloud.Cloud, cloud.Credential, error)
-	GetModelCloudAndCredential(ctx context.Context, modelUUID coremodel.UUID) (cloud.Cloud, cloud.Credential, error)
+	GetModelCloudAndCredential(ctx context.Context, modelUUID coremodel.UUID, modelName string) (cloud.Cloud, cloud.Credential, error)
 
 	CreateSecretBackend(ctx context.Context, params secretbackend.CreateSecretBackendParams) (string, error)
 	UpdateSecretBackend(ctx context.Context, params secretbackend.UpdateSecretBackendParams) (string, error)

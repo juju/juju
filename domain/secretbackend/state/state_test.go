@@ -1566,7 +1566,7 @@ func (s *stateSuite) TestGetModelSecretBackendDetails(c *gc.C) {
 
 func (s *stateSuite) TestGetModelCloudAndCredential(c *gc.C) {
 	modelUUID := s.createModel(c, coremodel.IAAS)
-	cld, cred, err := s.state.GetModelCloudAndCredential(context.Background(), modelUUID)
+	cld, cred, err := s.state.GetModelCloudAndCredential(context.Background(), ModelIdentifier{ModelID: modelUUID})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cld, jc.DeepEquals, cloud.Cloud{
 		Name:           "my-cloud",
@@ -1608,7 +1608,7 @@ func (s *stateSuite) TestGetControllerModelCloudAndCredential(c *gc.C) {
 
 func (s *stateSuite) TestGetModelCloudAndCredentialNotFound(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
-	_, _, err := s.state.GetModelCloudAndCredential(context.Background(), modelUUID)
+	_, _, err := s.state.GetModelCloudAndCredential(context.Background(), ModelIdentifier{ModelID: modelUUID})
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 

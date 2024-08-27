@@ -35,6 +35,30 @@ type ModelSecretBackend struct {
 	SecretBackendName string `db:"secret_backend_name"`
 }
 
+// ModelIdentifier represents a set of identifiers for a model.
+type ModelIdentifier struct {
+	// ModelID is the unique identifier for the model.
+	ModelID coremodel.UUID `db:"uuid"`
+	// ModelName is the name of the model.
+	ModelName string `db:"name"`
+}
+
+// Validate checks that the model identifier is valid.
+func (m ModelIdentifier) Validate() error {
+	if m.ModelID == "" && m.ModelName == "" {
+		return fmt.Errorf("both model ID and name are missing")
+	}
+	return nil
+}
+
+// String returns the model name if it is set, otherwise the model ID.
+func (m ModelIdentifier) String() string {
+	if m.ModelName != "" {
+		return m.ModelName
+	}
+	return m.ModelID.String()
+}
+
 // modelDetails represents details about a model.
 type modelDetails struct {
 	// Type is the type of the model.
