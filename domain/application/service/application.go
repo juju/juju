@@ -8,12 +8,14 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -45,10 +47,6 @@ type AtomicApplicationState interface {
 	// application doesn't exist.
 	UpsertUnit(domain.AtomicContext, coreapplication.ID, application.UpsertUnitArg) error
 
-	// UpsertCloudService updates the cloud service for the specified application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
-
 	// GetApplicationLife looks up the life of the specified application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application is not found.
 	GetApplicationLife(ctx domain.AtomicContext, appName string) (coreapplication.ID, life.Life, error)
@@ -56,10 +54,10 @@ type AtomicApplicationState interface {
 	// SetApplicationLife sets the life of the specified application.
 	SetApplicationLife(ctx domain.AtomicContext, appID coreapplication.ID, l life.Life) error
 
-	// ApplicationScaleState looks up the scale state of the specified
+	// GetApplicationScaleState looks up the scale state of the specified
 	// application, returning an error satisfying
 	// [applicationerrors.ApplicationNotFound] if the application is not found.
-	ApplicationScaleState(domain.AtomicContext, coreapplication.ID) (application.ScaleState, error)
+	GetApplicationScaleState(domain.AtomicContext, coreapplication.ID) (application.ScaleState, error)
 
 	// SetApplicationScalingState sets the scaling details for the given caas application
 	// Scale is optional and is only set if not nil.
@@ -68,16 +66,20 @@ type AtomicApplicationState interface {
 	// SetDesiredApplicationScale updates the desired scale of the specified application.
 	SetDesiredApplicationScale(ctx domain.AtomicContext, appID coreapplication.ID, scale int) error
 
-	// UnitLife looks up the life of the specified unit, returning an error
+	// GetUnitLife looks up the life of the specified unit, returning an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit is not found.
-	UnitLife(ctx domain.AtomicContext, unitName string) (life.Life, error)
+	GetUnitLife(ctx domain.AtomicContext, unitName string) (life.Life, error)
+
+	// SetUnitLife sets the life of the specified unit.
+	SetUnitLife(ctx domain.AtomicContext, unitName string, life life.Life) error
 
 	// InitialWatchStatementUnitLife returns the initial namespace query for the application unit life watcher.
 	InitialWatchStatementUnitLife(appName string) (string, eventsource.NamespaceQuery)
 
-	// GetApplicationUnitLife returns the life values for the specified units of the given application.
-	// The supplied ids may belong to a different application; the application name is used to filter.
-	GetApplicationUnitLife(ctx context.Context, appName string, unitIDs ...string) (map[string]life.Life, error)
+	// RemoveUnitMaybeApplication removes the unit from state, and may remove
+	// its application as well, if the application is Dying and no other references
+	// to it exist. It will fail if the unit is not Dead.
+	RemoveUnitMaybeApplication(ctx domain.AtomicContext, unitName string) error
 }
 
 // ApplicationState describes retrieval and persistence methods for
@@ -110,8 +112,16 @@ type ApplicationState interface {
 	// application doesn't exist.
 	AddUnits(ctx context.Context, applicationName string, args ...application.UpsertUnitArg) error
 
+	// UpsertCloudService updates the cloud service for the specified application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
+
 	// DeleteUnit deletes the specified unit.
 	DeleteUnit(ctx context.Context, unitName string) error
+
+	// GetApplicationUnitLife returns the life values for the specified units of the given application.
+	// The supplied ids may belong to a different application; the application name is used to filter.
+	GetApplicationUnitLife(ctx context.Context, appName string, unitIDs ...string) (map[string]life.Life, error)
 }
 
 // ApplicationService provides the API for working with applications.
@@ -263,9 +273,74 @@ func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ..
 }
 
 // DeleteUnit deletes the specified unit.
+// TODO(units) - rework when dual write is refactored
+// This method is called (mostly during cleanup) after a unit
+// has been removed from mongo. The mongo calls are
+// DestroyMaybeRemove, DestroyWithForce, RemoveWithForce.
 func (s *ApplicationService) DeleteUnit(ctx context.Context, unitName string) error {
 	err := s.st.DeleteUnit(ctx, unitName)
 	return errors.Annotatef(err, "deleting unit %q", unitName)
+}
+
+// EnsureUnitDead is called by the unit agent just before it terminates.
+// TODO(units): revisit his existing logic ported from mongo
+// Note: the agent only calls this method once it gets notification
+// that the unit has become dead, so there's strictly no need to call
+// this method as the unit is already dead.
+// This method is also called during cleanup from various cleanup jobs.
+func (s *ApplicationService) EnsureUnitDead(ctx context.Context, unitName string, leadershipRevoker leadership.Revoker) error {
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return s.ensureUnitDead(ctx, unitName, leadershipRevoker)
+	})
+	return errors.Annotatef(err, "ensuring unit %q is dead", unitName)
+}
+
+func (s *ApplicationService) ensureUnitDead(ctx domain.AtomicContext, unitName string, leadershipRevoker leadership.Revoker) (err error) {
+	defer func() {
+		if err == nil {
+			appName, _ := names.UnitApplication(unitName)
+			if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
+				s.logger.Warningf("cannot revoke lease for dead unit %q", unitName)
+			}
+		}
+	}()
+
+	unitLife, err := s.st.GetUnitLife(ctx, unitName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if unitLife == life.Dead {
+		return nil
+	}
+	// TODO(units) - check for subordinates and storage attachments
+	// For IAAS units, we need to do additional checks - these are still done in mongo.
+	// If a unit still has subordinates, return applicationerrors.UnitHasSubordinates.
+	// If a unit still has storage attachments, return applicationerrors.UnitHasStorageAttachments.
+	err = s.st.SetUnitLife(ctx, unitName, life.Dead)
+	return errors.Annotatef(err, "ensuring unit %q is dead", unitName)
+}
+
+// RemoveUnit is called by the deployer worker and caas application provisioner worker to
+// remove from the model units which have transitioned to dead.
+// TODO(units): revisit his existing logic ported from mongo
+// Note: the callers of this method only do so after the unit has become dead, so
+// there's strictly no need to call ensureUnitDead before removing.
+func (s *ApplicationService) RemoveUnit(ctx context.Context, unitName string, leadership leadership.Revoker) error {
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		unitLife, err := s.st.GetUnitLife(ctx, unitName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if unitLife == life.Alive {
+			return fmt.Errorf("cannot remove unit %q: %w", unitName, applicationerrors.UnitIsAlive)
+		}
+		err = s.ensureUnitDead(ctx, unitName, leadership)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return s.st.RemoveUnitMaybeApplication(ctx, unitName)
+	})
+	return errors.Annotatef(err, "removing unit %q", unitName)
 }
 
 // RegisterCAASUnit creates or updates the specified application unit in a caas model,
@@ -310,7 +385,7 @@ func (s *ApplicationService) RegisterCAASUnit(ctx context.Context, appName strin
 		if err != nil {
 			return errors.Trace(err)
 		}
-		unitLife, err := s.st.UnitLife(ctx, args.UnitName)
+		unitLife, err := s.st.GetUnitLife(ctx, args.UnitName)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			return s.insertCAASUnit(ctx, appID, args.OrderedId, unitArg)
 		}
@@ -325,7 +400,7 @@ func (s *ApplicationService) RegisterCAASUnit(ctx context.Context, appName strin
 func (s *ApplicationService) insertCAASUnit(
 	ctx domain.AtomicContext, appID coreapplication.ID, orderedID int, args application.UpsertUnitArg,
 ) error {
-	appScale, err := s.st.ApplicationScaleState(ctx, appID)
+	appScale, err := s.st.GetApplicationScaleState(ctx, appID)
 	if err != nil {
 		return errors.Annotatef(err, "getting application scale state for app %q", appID)
 	}
@@ -434,7 +509,7 @@ func (s *ApplicationService) CAASUnitTerminating(ctx context.Context, appName st
 			if err != nil {
 				return errors.Trace(err)
 			}
-			scaleInfo, err = s.st.ApplicationScaleState(ctx, appID)
+			scaleInfo, err = s.st.GetApplicationScaleState(ctx, appID)
 			return errors.Trace(err)
 		})
 		if err != nil {
@@ -464,7 +539,7 @@ func (s *ApplicationService) SetApplicationScale(ctx context.Context, appName st
 		if err != nil {
 			return errors.Trace(err)
 		}
-		appScale, err := s.st.ApplicationScaleState(ctx, appID)
+		appScale, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
 			return errors.Annotatef(err, "getting application scale state for app %q", appID)
 		}
@@ -496,7 +571,7 @@ func (s *ApplicationService) getApplicationScaleAndID(ctx context.Context, appNa
 			return errors.Trace(err)
 		}
 
-		scaleState, err = s.st.ApplicationScaleState(ctx, appID)
+		scaleState, err = s.st.GetApplicationScaleState(ctx, appID)
 		return errors.Annotatef(err, "getting scaling state for %q", appName)
 	})
 	return appID, scaleState.Scale, errors.Trace(err)
@@ -513,7 +588,7 @@ func (s *ApplicationService) ChangeApplicationScale(ctx context.Context, appName
 		if err != nil {
 			return errors.Trace(err)
 		}
-		currentScaleState, err := s.st.ApplicationScaleState(ctx, appID)
+		currentScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
 			return errors.Annotatef(err, "getting current scale state for %q", appName)
 		}
@@ -541,7 +616,7 @@ func (s *ApplicationService) SetApplicationScalingState(ctx context.Context, app
 			return errors.Annotatef(err, "getting life for %q", appName)
 		}
 		s.logger.Criticalf("APP %s LIFE %v", appName, appLife)
-		currentScaleState, err := s.st.ApplicationScaleState(ctx, appID)
+		currentScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
 			return errors.Annotatef(err, "getting current scale state for %q", appName)
 		}
@@ -576,7 +651,7 @@ func (s *ApplicationService) GetApplicationScalingState(ctx context.Context, app
 		if err != nil {
 			return errors.Trace(err)
 		}
-		scaleState, err = s.st.ApplicationScaleState(ctx, appID)
+		scaleState, err = s.st.GetApplicationScaleState(ctx, appID)
 		return errors.Annotatef(err, "getting scaling state for %q", appName)
 	})
 	return ScalingState{

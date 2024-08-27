@@ -30,7 +30,9 @@ func LifeStringsWatcherMapperFunc(logger logger.Logger, lifeGetter LifeGetter) e
 
 	return func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) (_ []changestream.ChangeEvent, err error) {
 		defer func() {
-			logger.Errorf("running life watcher mapper func: %v", err)
+			if err != nil {
+				logger.Errorf("running life watcher mapper func: %v", err)
+			}
 		}()
 
 		events := make(map[string]changestream.ChangeEvent, len(changes))
@@ -50,7 +52,6 @@ func LifeStringsWatcherMapperFunc(logger logger.Logger, lifeGetter LifeGetter) e
 			if change.Type() == changestream.Delete {
 				latest[change.Changed()] = life.Dead
 				ids.Remove(change.Changed())
-				continue
 			}
 		}
 

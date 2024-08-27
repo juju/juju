@@ -81,6 +81,107 @@ func (s *serviceSuite) TestDestroyApplication(c *gc.C) {
 	c.Assert(gotLife, gc.Equals, 1)
 }
 
+func (s *serviceSuite) TestEnsureUnitDead(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/666"),
+	}
+	s.createApplication(c, "foo", u)
+
+	revoker := application.NewMockRevoker(ctrl)
+	revoker.EXPECT().RevokeLeadership("foo", "foo/666")
+
+	err := s.svc.EnsureUnitDead(context.Background(), "foo/666", revoker)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var gotLife int
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT life_id FROM unit WHERE name = ?", u.UnitName).
+			Scan(&gotLife)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotLife, gc.Equals, 2)
+}
+
+func (s *serviceSuite) TestEnsureUnitDeadNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.createApplication(c, "foo")
+
+	revoker := application.NewMockRevoker(ctrl)
+
+	err := s.svc.EnsureUnitDead(context.Background(), "foo/666", revoker)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *serviceSuite) TestRemoveUnit(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/666"),
+	}
+	s.createApplication(c, "foo", u)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name = ?", u.UnitName)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	revoker := application.NewMockRevoker(ctrl)
+	revoker.EXPECT().RevokeLeadership("foo", "foo/666")
+
+	err = s.svc.RemoveUnit(context.Background(), "foo/666", revoker)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var gotCount int
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name = ?", u.UnitName).
+			Scan(&gotCount)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotCount, gc.Equals, 0)
+}
+
+func (s *serviceSuite) TestRemoveUnitStillAlive(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/666"),
+	}
+	s.createApplication(c, "foo", u)
+
+	revoker := application.NewMockRevoker(ctrl)
+
+	err := s.svc.RemoveUnit(context.Background(), "foo/666", revoker)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitIsAlive)
+}
+
+func (s *serviceSuite) TestRemoveUnitNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.createApplication(c, "foo")
+
+	revoker := application.NewMockRevoker(ctrl)
+
+	err := s.svc.RemoveUnit(context.Background(), "foo/666", revoker)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 func (s *serviceSuite) assertCAASUnit(c *gc.C, name, passwordHash string) {
 	var (
 		gotPasswordHash string

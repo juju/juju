@@ -15,7 +15,7 @@ type KeyValue struct {
 	Value string `db:"value"`
 }
 
-// applicationID is used to get the ID of an application.
+// applicationID is used to get the ID (and life) of an application.
 type applicationID struct {
 	ID     string    `db:"uuid"`
 	LifeID life.Life `db:"life_id"`
@@ -70,6 +70,18 @@ type unitDetails struct {
 	LifeID                  life.Life `db:"life_id"`
 	PasswordHash            string    `db:"password_hash"`
 	PasswordHashAlgorithmID int       `db:"password_hash_algorithm_id"`
+}
+
+type unitID struct {
+	ID     string    `db:"uuid"`
+	Name   string    `db:"name"`
+	LifeID life.Life `db:"life_id"`
+}
+
+type unitCount struct {
+	UnitLifeID        life.Life `db:"unit_life_id"`
+	ApplicationLifeID life.Life `db:"app_life_id"`
+	Count             int       `db:"count"`
 }
 
 type cloudContainer struct {
