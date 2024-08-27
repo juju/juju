@@ -21,6 +21,7 @@ import (
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/cloudspec"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
@@ -66,6 +67,7 @@ type Config struct {
 
 	// ProviderFactory returns a provider for a given model.
 	ProviderFactory providertracker.ProviderFactory
+	CloudSpecGetter cloudspec.CloudSpecGetter
 }
 
 type HTTPClient interface {

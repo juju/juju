@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/environs/cloudspec"
 )
 
 const (
@@ -210,6 +211,72 @@ func (w *providerWorker) ProviderForModel(ctx context.Context, namespace string)
 		return nil, errors.NotFoundf("provider")
 	}
 	return tracked.(*trackerWorker).Provider(), nil
+}
+
+// CloudSpecForModel returns the encapsulated cloud spec for a given model
+// namespace. It will continue to be updated in the background for as long as
+// the Worker continues to run. If the worker is not a singular worker, then an
+// error will be returned.
+func (w *providerWorker) CloudSpecForModel(ctx context.Context, namespace string) (cloudspec.CloudSpec, error) {
+	// The controller namespace is the global names and has no models associated
+	// with it, so fail early.
+	if namespace == database.ControllerNS {
+		return cloudspec.CloudSpec{}, errors.NotValidf("cloudspec for controller namespace")
+	}
+	// If we're a singular namespace, we can't get the cloud spec for a model.
+	if _, ok := w.config.TrackerType.SingularNamespace(); ok {
+		return cloudspec.CloudSpec{}, errors.NotValidf("cloudspec for model with singular tracker")
+	}
+
+	tracker, err := w.workerFromCache(namespace)
+	if err != nil {
+		if errors.Is(err, w.catacomb.ErrDying()) {
+			return cloudspec.CloudSpec{}, ErrProviderWorkerDying
+		}
+
+		return cloudspec.CloudSpec{}, errors.Trace(err)
+	} else if tracker != nil {
+		return tracker.CloudSpec(), nil
+	}
+
+	// Enqueue the request as it's either starting up and we need to wait longer
+	// or it's not running and we need to start it.
+	req := trackerRequest{
+		namespace: namespace,
+		done:      make(chan error),
+	}
+	select {
+	case w.requests <- req:
+	case <-w.catacomb.Dying():
+		return cloudspec.CloudSpec{}, ErrProviderWorkerDying
+	case <-ctx.Done():
+		return cloudspec.CloudSpec{}, errors.Trace(ctx.Err())
+	}
+
+	// Wait for the worker loop to indicate it's done.
+	select {
+	case err := <-req.done:
+		// If we know we've got an error, just return that error before
+		// attempting to ask the objectStoreRunnerWorker.
+		if err != nil {
+			return cloudspec.CloudSpec{}, errors.Trace(err)
+		}
+	case <-w.catacomb.Dying():
+		return cloudspec.CloudSpec{}, ErrProviderWorkerDying
+	case <-ctx.Done():
+		return cloudspec.CloudSpec{}, errors.Trace(ctx.Err())
+	}
+
+	// This will return a not found error if the request was not honoured.
+	// The error will be logged - we don't crash this worker for bad calls.
+	tracked, err := w.runner.Worker(namespace, w.catacomb.Dying())
+	if err != nil {
+		return cloudspec.CloudSpec{}, errors.Trace(err)
+	}
+	if tracked == nil {
+		return cloudspec.CloudSpec{}, errors.NotFoundf("cloudspec")
+	}
+	return tracked.(*trackerWorker).CloudSpec(), nil
 }
 
 // Kill is part of the worker.Worker interface.

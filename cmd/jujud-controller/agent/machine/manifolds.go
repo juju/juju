@@ -662,6 +662,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			TraceName:                 traceName,
 			ObjectStoreName:           objectStoreName,
 			ProviderFactoryName:       providerTrackerName,
+			CloudSpecGetterName:       providerTrackerName,
 
 			// Note that although there is a transient dependency on dbaccessor
 			// via changestream, the direct dependency supplies the capability

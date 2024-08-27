@@ -128,6 +128,11 @@ func (t *trackerWorker) Provider() Provider {
 	return t.provider
 }
 
+// CloudSpec returns the current CloudSpec.
+func (t *trackerWorker) CloudSpec() environscloudspec.CloudSpec {
+	return t.currentCloudSpec
+}
+
 // ModelType returns the type of the model.
 func (t *trackerWorker) ModelType() coremodel.ModelType {
 	return t.model.Type
