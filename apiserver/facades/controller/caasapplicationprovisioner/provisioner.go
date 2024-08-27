@@ -27,6 +27,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/leadership"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -55,7 +56,6 @@ type APIGroup struct {
 	*common.PasswordChanger
 	*common.LifeGetter
 	*common.AgentEntityWatcher
-	*common.Remover
 	charmInfoAPI    *charmscommon.CharmInfoAPI
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
 	*API
@@ -77,6 +77,7 @@ type API struct {
 	modelConfigService      ModelConfigService
 	modelInfoService        ModelInfoService
 	applicationService      ApplicationService
+	leadershipRevoker       leadership.Revoker
 	registry                storage.ProviderRegistry
 	clock                   clock.Clock
 	logger                  corelogger.Logger
@@ -132,6 +133,10 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	leadershipRevoker, err := ctx.LeadershipRevoker()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting leadership client")
+	}
 	api, err := NewCAASApplicationProvisionerAPI(
 		stateShim{State: systemState},
 		stateShim{State: st},
@@ -144,6 +149,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 		modelConfigService,
 		modelInfoService,
 		applicationService,
+		leadershipRevoker,
 		registry,
 		ctx.ObjectStore(),
 		clock.WallClock,
@@ -153,22 +159,15 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 		return nil, errors.Trace(err)
 	}
 
-	leadershipRevoker, err := ctx.LeadershipRevoker()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting leadership client")
-	}
 	lifeCanRead := common.AuthAny(
 		common.AuthFuncForTagKind(names.ApplicationTagKind),
 		common.AuthFuncForTagKind(names.UnitTagKind),
 	)
 
-	unitRemover := ctx.ServiceFactory().Application(nil)
-
 	apiGroup := &APIGroup{
 		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		LifeGetter:         common.NewLifeGetter(st, lifeCanRead),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, ctx.Resources(), common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		Remover:            common.NewRemover(st, ctx.ObjectStore(), common.RevokeLeadershipFunc(leadershipRevoker), true, common.AuthFuncForTagKind(names.UnitTagKind), unitRemover),
 		charmInfoAPI:       commonCharmsAPI,
 		appCharmInfoAPI:    appCharmInfoAPI,
 		API:                api,
@@ -200,6 +199,7 @@ func NewCAASApplicationProvisionerAPI(
 	modelConfigService ModelConfigService,
 	modelInfoService ModelInfoService,
 	applicationService ApplicationService,
+	leadershipRevoker leadership.Revoker,
 	registry storage.ProviderRegistry,
 	store objectstore.ObjectStore,
 	clock clock.Clock,
@@ -222,10 +222,59 @@ func NewCAASApplicationProvisionerAPI(
 		modelConfigService:      modelConfigService,
 		modelInfoService:        modelInfoService,
 		applicationService:      applicationService,
+		leadershipRevoker:       leadershipRevoker,
 		registry:                registry,
 		clock:                   clock,
 		logger:                  logger,
 	}, nil
+}
+
+// Remove removes every given unit from state, calling EnsureDead
+// first, then Remove. It will fail if the unit is not present.
+func (a *API) Remove(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canModify, err := common.AuthFuncForTagKind(names.UnitTagKind)()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canModify(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		if err = a.applicationService.RemoveUnit(ctx, tag.Id(), a.leadershipRevoker); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// TODO(units) - remove me.
+		// Dual write to state.
+		unit, err := a.state.Unit(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if err := unit.EnsureDead(); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if err := unit.Remove(a.store); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+	}
+	return result, nil
 }
 
 // WatchApplications starts a StringsWatcher to watch applications

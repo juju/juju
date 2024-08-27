@@ -111,13 +111,13 @@ func (s *ipAddressesStateSuite) ensureMachineDeadAndRemove(c *gc.C, machine *sta
 
 type ensureDeaderRemover interface {
 	state.EnsureDeader
-	state.Remover
+	Remove() error
 }
 
 func (s *ipAddressesStateSuite) ensureEntityDeadAndRemoved(c *gc.C, entity ensureDeaderRemover) {
 	err := entity.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = entity.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = entity.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -356,7 +356,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenMachineNotAliveO
 	err = s.otherStateMachine.SetDevicesAddresses(args)
 	c.Assert(err, gc.ErrorMatches, `.*: machine "0" not alive`)
 
-	err = s.otherStateMachine.Remove(nil)
+	err = s.otherStateMachine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check it fails with a different error, as eth0 was removed along with

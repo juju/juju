@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machine"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/status"
@@ -1690,6 +1691,10 @@ func (r fakeAppRemover) DestroyApplication(context.Context, string) error {
 }
 
 func (r fakeAppRemover) DeleteUnit(context.Context, string) error {
+	return nil
+}
+
+func (r fakeAppRemover) EnsureUnitDead(ctx context.Context, s string, revoker leadership.Revoker) error {
 	return nil
 }
 

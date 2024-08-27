@@ -44,7 +44,6 @@ import (
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
 	*common.ControllerConfigAPI
-	*common.Remover
 	*common.StatusSetter
 	*common.StatusGetter
 	*common.DeadEnsurer
@@ -165,16 +164,13 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 	urlGetter := common.NewToolsURLGetter(string(modelInfo.UUID), systemState)
 
-	unitRemover := ctx.ServiceFactory().Application(nil)
-
 	modelWatcher := common.NewModelWatcher(serviceFactory.Config(), ctx.WatcherRegistry())
 
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{
-		Remover:              common.NewRemover(st, ctx.ObjectStore(), nil, false, getAuthFunc, unitRemover),
 		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
 		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
-		DeadEnsurer:          common.NewDeadEnsurer(st, nil, getAuthFunc, ctx.ServiceFactory().Machine()),
+		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc, ctx.ServiceFactory().Machine()),
 		PasswordChanger:      common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
 		APIAddresser:         common.NewAPIAddresser(systemState, resources),
@@ -1436,4 +1432,42 @@ func (api *ProvisionerAPI) APIAddresses(ctx context.Context) (result params.Stri
 	}
 
 	return api.APIAddresser.APIAddresses(ctx, controllerConfig)
+}
+
+// Remove removes every given machine from state.
+// It will fail if the machine is not present.
+func (api *ProvisionerAPI) Remove(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canModify, err := api.getAuthFunc()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		machine, err := api.getMachine(canModify, tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// Only remove machines that are not Alive.
+		if life := machine.Life(); life == state.Alive {
+			err := fmt.Errorf("cannot remove machine %q: still alive", tag.String())
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if err := machine.Remove(); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+		}
+	}
+	return result, nil
 }

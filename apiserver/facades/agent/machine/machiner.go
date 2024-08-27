@@ -99,7 +99,7 @@ func NewMachinerAPIForState(
 	return &MachinerAPI{
 		LifeGetter:              common.NewLifeGetter(st, getCanAccess),
 		StatusSetter:            common.NewStatusSetter(st, getCanAccess),
-		DeadEnsurer:             common.NewDeadEnsurer(st, nil, getCanAccess, machineService),
+		DeadEnsurer:             common.NewDeadEnsurer(st, getCanAccess, machineService),
 		AgentEntityWatcher:      common.NewAgentEntityWatcher(st, resources, getCanAccess),
 		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),
 		NetworkConfigAPI:        netConfigAPI,

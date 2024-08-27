@@ -2668,7 +2668,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = gone.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = gone.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = gone.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
@@ -2684,9 +2684,9 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = dying.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = dying.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = dying.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	err = dead.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = dead.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(alive.Id(), dying.Id())
 	wc.AssertNoChange()
@@ -2724,7 +2724,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove it: not reported.
-	err = machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -2783,7 +2783,7 @@ func (s *StateSuite) TestWatchMachinesIgnoresContainers(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove the container: not reported.
-	err = m.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = m.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -2853,7 +2853,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 
 	err = mchild.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = mchild.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = mchild.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make the container Dying: reported.
@@ -2883,7 +2883,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove the container: not reported.
-	err = m.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = m.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	wcAll.AssertNoChange()
@@ -3816,7 +3816,7 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	for _, machine := range []*state.Machine{machine0, machine1, machine2} {
 		err = machine.EnsureDead()
 		c.Assert(err, jc.ErrorIsNil)
-		err = machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+		err = machine.Remove()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

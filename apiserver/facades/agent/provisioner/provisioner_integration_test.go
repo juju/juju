@@ -319,7 +319,7 @@ func (s *withoutControllerSuite) TestLifeAsController(c *gc.C) {
 	})
 
 	// Remove the subordinate and make sure it's detected.
-	err = s.machines[1].Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
+	err = s.machines[1].Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[1].Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -356,9 +356,9 @@ func (s *withoutControllerSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{Error: &params.Error{Message: `cannot remove entity "machine-0": still alive`}},
+			{Error: &params.Error{Message: `cannot remove machine "machine-0": still alive`}},
 			{Error: nil},
-			{Error: &params.Error{Message: `cannot remove entity "machine-2": still alive`}},
+			{Error: &params.Error{Message: `cannot remove machine "machine-2": still alive`}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

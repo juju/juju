@@ -1200,7 +1200,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	err = sb.RemoveVolumeAttachment(machine.MachineTag(), names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(machine.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
+	c.Assert(machine.Remove(), jc.ErrorIsNil)
 
 	// The filesystem will be gone, but the volume is persistent and should
 	// not have been removed.
@@ -1248,7 +1248,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	err = sb.RemoveVolumeAttachment(machine.MachineTag(), volumeTag, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(machine.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
+	c.Assert(machine.Remove(), jc.ErrorIsNil)
 
 	// The volume is persistent and should not have been removed along with
 	// the machine it was attached to.
@@ -1633,6 +1633,6 @@ func assertAllMachinesDeadAndRemove(c *gc.C, st *state.State) {
 		}
 
 		c.Assert(m.Life(), gc.Equals, state.Dead)
-		c.Assert(m.Remove(state.NewObjectStore(c, st.ModelUUID())), jc.ErrorIsNil)
+		c.Assert(m.Remove(), jc.ErrorIsNil)
 	}
 }

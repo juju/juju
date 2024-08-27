@@ -28,7 +28,6 @@ type MachineService interface {
 // various facades.
 type DeadEnsurer struct {
 	st             state.EntityFinder
-	afterDead      func(names.Tag)
 	getCanModify   GetAuthFunc
 	machineService MachineService
 }
@@ -36,10 +35,9 @@ type DeadEnsurer struct {
 // NewDeadEnsurer returns a new DeadEnsurer. The GetAuthFunc will be
 // used on each invocation of EnsureDead to determine current
 // permissions.
-func NewDeadEnsurer(st state.EntityFinder, afterDead func(names.Tag), getCanModify GetAuthFunc, machineService MachineService) *DeadEnsurer {
+func NewDeadEnsurer(st state.EntityFinder, getCanModify GetAuthFunc, machineService MachineService) *DeadEnsurer {
 	return &DeadEnsurer{
 		st:             st,
-		afterDead:      afterDead,
 		getCanModify:   getCanModify,
 		machineService: machineService,
 	}
@@ -64,9 +62,6 @@ func (d *DeadEnsurer) ensureEntityDead(ctx context.Context, tag names.Tag) error
 		}
 	}
 
-	if d.afterDead != nil {
-		d.afterDead(tag)
-	}
 	return nil
 }
 

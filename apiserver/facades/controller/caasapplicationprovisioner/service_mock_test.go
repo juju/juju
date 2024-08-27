@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
+	leadership "github.com/juju/juju/core/leadership"
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/core/watcher"
 	service "github.com/juju/juju/domain/application/service"
@@ -216,6 +217,20 @@ func (m *MockApplicationService) GetApplicationScalingState(arg0 context.Context
 func (mr *MockApplicationServiceMockRecorder) GetApplicationScalingState(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationScalingState", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationScalingState), arg0, arg1)
+}
+
+// RemoveUnit mocks base method.
+func (m *MockApplicationService) RemoveUnit(arg0 context.Context, arg1 string, arg2 leadership.Revoker) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveUnit", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveUnit indicates an expected call of RemoveUnit.
+func (mr *MockApplicationServiceMockRecorder) RemoveUnit(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUnit", reflect.TypeOf((*MockApplicationService)(nil).RemoveUnit), arg0, arg1, arg2)
 }
 
 // SetApplicationScalingState mocks base method.

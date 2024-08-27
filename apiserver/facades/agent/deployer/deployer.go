@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
@@ -26,31 +27,35 @@ type ControllerConfigGetter interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
-// UnitRemover deletes a unit from the dqlite database.
-// This allows us to initially weave some dqlite support into the cleanup workflow.
-type UnitRemover interface {
-	DeleteUnit(context.Context, string) error
+// ApplicationService removes a unit from the dqlite database.
+type ApplicationService interface {
+	RemoveUnit(context.Context, string, leadership.Revoker) error
 }
 
 // DeployerAPI provides access to the Deployer API facade.
 type DeployerAPI struct {
-	*common.Remover
 	*common.PasswordChanger
 	*common.LifeGetter
 	*common.APIAddresser
 	*common.UnitsWatcher
 	*common.StatusSetter
 
+	canWrite func(tag names.Tag) bool
+
 	controllerConfigGetter ControllerConfigGetter
-	st                     *state.State
-	resources              facade.Resources
-	authorizer             facade.Authorizer
+	applicationService     ApplicationService
+	leadershipRevoker      leadership.Revoker
+
+	store      objectstore.ObjectStore
+	st         *state.State
+	resources  facade.Resources
+	authorizer facade.Authorizer
 }
 
 // NewDeployerAPI creates a new server-side DeployerAPI facade.
 func NewDeployerAPI(
 	controllerConfigGetter ControllerConfigGetter,
-	unitRemover UnitRemover,
+	applicationService ApplicationService,
 	authorizer facade.Authorizer,
 	st *state.State,
 	store objectstore.ObjectStore,
@@ -80,15 +85,22 @@ func NewDeployerAPI(
 	getCanWatch := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
+	canWrite, err := getAuthFunc()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	return &DeployerAPI{
-		Remover:                common.NewRemover(st, store, common.RevokeLeadershipFunc(leadershipRevoker), true, getAuthFunc, unitRemover),
 		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
 		APIAddresser:           common.NewAPIAddresser(systemState, resources),
 		UnitsWatcher:           common.NewUnitsWatcher(st, resources, getCanWatch),
 		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
 		controllerConfigGetter: controllerConfigGetter,
+		applicationService:     applicationService,
+		leadershipRevoker:      leadershipRevoker,
+		canWrite:               canWrite,
+		store:                  store,
 		st:                     st,
 		resources:              resources,
 		authorizer:             authorizer,
@@ -155,4 +167,49 @@ func getAllUnits(st *state.State, tag names.Tag) ([]string, error) {
 		return units, nil
 	}
 	return nil, errors.Errorf("cannot obtain units of machine %q: %v", tag, watch.Err())
+}
+
+// Remove removes every given unit from state, calling EnsureDead
+// first, then Remove. It will fail if the unit is not present.
+func (d *DeployerAPI) Remove(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrActionNotAvailable)
+			continue
+		}
+		if !d.canWrite(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		if err = d.applicationService.RemoveUnit(ctx, tag.Id(), d.leadershipRevoker); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// TODO(units) - remove me.
+		// Dual write to state.
+		unit, err := d.st.Unit(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if err := unit.EnsureDead(); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if err := unit.Remove(d.store); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+	}
+	return result, nil
 }

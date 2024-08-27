@@ -146,7 +146,7 @@ func (s *MachineStatusSuite) TestGetSetStatusDead(c *gc.C) {
 func (s *MachineStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	err := s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := testing.ZeroTime()

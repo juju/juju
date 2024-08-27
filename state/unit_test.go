@@ -1573,14 +1573,21 @@ func assertRemoved(c *gc.C, st *state.State, entity state.Living) {
 
 	c.Assert(entity.Refresh(), jc.ErrorIs, errors.NotFound)
 	c.Assert(entity.Destroy(store), jc.ErrorIsNil)
-	if entity, ok := entity.(state.AgentLiving); ok {
-		c.Assert(entity.EnsureDead(), jc.ErrorIsNil)
-		if err := entity.Remove(store); err != nil {
+	switch e := entity.(type) {
+	case *state.Unit:
+		c.Assert(e.EnsureDead(), jc.ErrorIsNil)
+		if err := e.Remove(store); err != nil {
 			c.Assert(err, gc.ErrorMatches, ".*already removed.*")
 		}
-		err := entity.Refresh()
-		c.Assert(err, jc.ErrorIs, errors.NotFound)
+	case *state.Machine:
+		c.Assert(e.EnsureDead(), jc.ErrorIsNil)
+		if err := e.Remove(); err != nil {
+			c.Assert(err, gc.ErrorMatches, ".*already removed.*")
+		}
 	}
+	err := entity.Refresh()
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+
 }
 
 func (s *UnitSuite) TestUnitsInError(c *gc.C) {

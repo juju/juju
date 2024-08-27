@@ -693,6 +693,26 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 			Constraints: params.Constraints,
 			Charm:       ch,
 		})
+		if factory.applicationService != nil {
+			chOrigin := params.Application.CharmOrigin()
+			cons, err := params.Application.StorageConstraints()
+			c.Assert(err, jc.ErrorIsNil)
+			directives := make(map[string]storage.Directive)
+			for k, v := range cons {
+				directives[k] = storage.Directive{
+					Pool:  v.Pool,
+					Size:  v.Size,
+					Count: v.Count,
+				}
+			}
+			_, err = factory.applicationService.CreateApplication(
+				context.Background(), params.Application.Name(),
+				charm.NewCharmBase(ch.Meta(), nil, nil, nil, nil),
+				chOrigin.AsCoreCharmOrigin(), applicationservice.AddApplicationArgs{
+					Storage: directives,
+				})
+			c.Assert(err, jc.ErrorIsNil)
+		}
 	}
 	if params.Password == "" {
 		var err error
@@ -701,6 +721,15 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	}
 	unit, err := params.Application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
+
+	if factory.applicationService != nil {
+		name := unit.Name()
+		u := applicationservice.AddUnitArg{
+			UnitName: &name,
+		}
+		err = factory.applicationService.AddUnits(context.Background(), params.Application.Name(), u)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	if params.Machine != nil {
 		err = unit.AssignToMachine(params.Machine)

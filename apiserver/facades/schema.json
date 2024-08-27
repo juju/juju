@@ -6288,7 +6288,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "Remove removes every given entity from state, calling EnsureDead\nfirst, then Remove. It will fail if the entity is not present."
+                    "description": "Remove removes every given unit from state, calling EnsureDead\nfirst, then Remove. It will fail if the unit is not present."
                 },
                 "SetOperatorStatus": {
                     "type": "object",
@@ -16261,7 +16261,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "Remove removes every given entity from state, calling EnsureDead\nfirst, then Remove. It will fail if the entity is not present."
+                    "description": "Remove removes every given unit from state, calling EnsureDead\nfirst, then Remove. It will fail if the unit is not present."
                 },
                 "SetPasswords": {
                     "type": "object",
@@ -27349,7 +27349,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "Remove removes every given entity from state, calling EnsureDead\nfirst, then Remove. It will fail if the entity is not present."
+                    "description": "Remove removes every given machine from state.\nIt will fail if the machine is not present."
                 },
                 "SetCharmProfiles": {
                     "type": "object",
@@ -39529,7 +39529,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "EnsureDead calls EnsureDead on each given entity from state. It\nwill fail if the entity is not present. If it's Alive, nothing will\nhappen (see state/EnsureDead() for units or machines)."
+                    "description": "EnsureDead calls EnsureDead on each given unit from state.\nIf it's Alive, nothing will happen."
                 },
                 "EnterScope": {
                     "type": "object",

@@ -50,6 +50,17 @@ const (
 	// application is dying or dead.
 	ApplicationDyingOrDead = errors.ConstError("application dying or dead")
 
+	// UnitHasSubordinates describes an error that occurs when trying to set a unit's life
+	// to Dead but it still has subordinates.
+	UnitHasSubordinates = errors.ConstError("unit has subordinates")
+
+	// UnitHasStorageAttachments describes an error that occurs when trying to set a unit's life
+	// to Dead but it still has storage attachments.
+	UnitHasStorageAttachments = errors.ConstError("unit has storage attachments")
+
+	// UnitIsAlive describes an error that occurs when trying to remove a unit that is still alive.
+	UnitIsAlive = errors.ConstError("unit is alive")
+
 	// CharmNotValid describes an error that occurs when the charm is not valid.
 	CharmNotValid = errors.ConstError("charm not valid")
 

@@ -44,7 +44,6 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 		modelInfoService,
 		serviceFactory.Secret(secretBackendAdminConfigGetter),
 		serviceFactory.Network(),
-		serviceFactory.Machine(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Application(nil),
@@ -60,10 +59,9 @@ func newUniterAPIWithServices(
 	modelInfoService ModelInfoService,
 	secretService SecretService,
 	networkService NetworkService,
-	machineService MachineService,
 	cloudService CloudService,
 	credentialService CredentialService,
-	unitRemover UnitRemover,
+	applicationService ApplicationService,
 ) (*UniterAPI, error) {
 	authorizer := context.Auth()
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
@@ -124,7 +122,6 @@ func newUniterAPIWithServices(
 	logger := context.Logger().Child("uniter")
 	return &UniterAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrApplication),
-		DeadEnsurer:                common.NewDeadEnsurer(st, common.RevokeLeadershipFunc(leadershipRevoker), accessUnit, machineService),
 		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrApplication),
 		APIAddresser:               common.NewAPIAddresser(systemState, resources),
 		MongoModelWatcher:          common.NewMongoModelWatcher(m, resources),
@@ -145,11 +142,12 @@ func newUniterAPIWithServices(
 		networkService:          networkService,
 		cloudService:            cloudService,
 		credentialService:       credentialService,
-		unitRemover:             unitRemover,
+		applicationService:      applicationService,
 		clock:                   aClock,
 		auth:                    authorizer,
 		resources:               resources,
 		leadershipChecker:       leadershipChecker,
+		leadershipRevoker:       leadershipRevoker,
 		accessUnit:              accessUnit,
 		accessApplication:       accessApplication,
 		accessMachine:           accessMachine,

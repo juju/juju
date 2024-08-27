@@ -25,7 +25,6 @@ var (
 	_ EnsureDeader = (*Machine)(nil)
 	_ EnsureDeader = (*Unit)(nil)
 
-	_ Remover = (*Machine)(nil)
 	_ Remover = (*Unit)(nil)
 
 	_ Authenticator = (*Machine)(nil)
@@ -36,9 +35,6 @@ var (
 	_ NotifyWatcherFactory = (*Unit)(nil)
 	_ NotifyWatcherFactory = (*Application)(nil)
 	_ NotifyWatcherFactory = (*Model)(nil)
-
-	_ AgentEntity = (*Machine)(nil)
-	_ AgentEntity = (*Unit)(nil)
 
 	_ ModelAccessor = (*Model)(nil)
 	_ UnitsWatcher  = (*Machine)(nil)

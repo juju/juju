@@ -180,7 +180,11 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
 			c.Assert(living.Life(), gc.Equals, v.dbfinal)
 			err = living.EnsureDead()
 			c.Assert(err, jc.ErrorIsNil)
-			err = living.Remove(store)
+			if u, ok := living.(*state.Unit); ok {
+				err = u.Remove(store)
+			} else {
+				err = living.(*state.Machine).Remove()
+			}
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
