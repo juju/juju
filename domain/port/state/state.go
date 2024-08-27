@@ -77,17 +77,50 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 	return groupedPortRanges, nil
 }
 
+// GetEndpointOpenedPorts returns the opened ports for a given endpoint of a
+// given unit.
+func (st *State) GetEndpointOpenedPorts(ctx domain.AtomicContext, unit string, endpoint string) ([]network.PortRange, error) {
+	unitUUID := unitUUID{UUID: unit}
+	endpointName := endpointName{Endpoint: endpoint}
+
+	query, err := st.Prepare(`
+SELECT &portRange.*
+FROM port_range
+JOIN protocol ON port_range.protocol_id = protocol.id
+JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
+WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
+AND unit_endpoint.endpoint = $endpointName.endpoint
+`, portRange{}, unitUUID, endpointName)
+	if err != nil {
+		return nil, errors.Annotate(err, "preparing get opened ports statement")
+	}
+
+	var portRanges []portRange
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, query, unitUUID, endpointName).GetAll(&portRanges)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting opened ports for unit %q", unit)
+	}
+
+	decodedPortRanges := make([]network.PortRange, len(portRanges))
+	for i, pr := range portRanges {
+		decodedPortRanges[i] = pr.decode()
+	}
+	network.SortPortRanges(decodedPortRanges)
+	return decodedPortRanges, nil
+}
+
 // UpdateUnitPorts opens and closes ports for the endpoints of a given unit.
 // The service layer must ensure that opened and closed ports for the same
 // endpoints must not conflict.
 func (st *State) UpdateUnitPorts(
-	ctx context.Context, unit string, openPorts, closePorts network.GroupedPortRanges,
+	ctx domain.AtomicContext, unit string, openPorts, closePorts network.GroupedPortRanges,
 ) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	endpointsUnderActionSet := set.NewStrings()
 	for endpoint := range openPorts {
 		endpointsUnderActionSet.Add(endpoint)
@@ -99,7 +132,7 @@ func (st *State) UpdateUnitPorts(
 
 	unitUUID := unitUUID{UUID: unit}
 
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		currentOpenedPorts, err := st.getOpenedPorts(ctx, tx, unitUUID)
 		if err != nil {
 			return errors.Annotatef(err, "getting opened ports for unit %q", unit)
@@ -132,6 +165,9 @@ func (st *State) UpdateUnitPorts(
 
 // ensureEndpoints ensures that the given endpoints are present in the database.
 // Return all endpoints under action with their corresponding UUIDs.
+//
+// TODO(jack-w-shaw): Once it has been implemented, we should verify new endpoints
+// are valid by checking the charm_relation table.
 func (st *State) ensureEndpoints(
 	ctx context.Context, tx *sqlair.TX, unitUUID unitUUID, endpointsUnderAction endpoints,
 ) ([]endpoint, error) {
@@ -367,4 +403,43 @@ WHERE uuid IN ($portRangeUUIDs[:])
 		}
 	}
 	return nil
+}
+
+// GetEndpoints returns all the endpoints for the given unit
+//
+// TODO(jack-w-shaw): At the moment, we calculate this by checking the unit_endpoints
+// table. However, this will not always return a complete list, as it only includes
+// endpoints that have had ports opened on them at some point.
+//
+// Once it has been implemented, we should check the charm_relation table to get a
+// complete list of endpoints instead.
+func (st *State) GetEndpoints(ctx domain.AtomicContext, unit string) ([]string, error) {
+	unitUUID := unitUUID{UUID: unit}
+
+	getEndpoints, err := st.Prepare(`
+SELECT &endpointName.*
+FROM unit_endpoint
+WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
+`, endpointName{}, unitUUID)
+	if err != nil {
+		return nil, errors.Annotate(err, "preparing get endpoints statement")
+	}
+
+	var endpointNames []endpointName
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, getEndpoints, unitUUID).GetAll(&endpointNames)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting endpoints for unit %q", unit)
+	}
+
+	endpoints := make([]string, len(endpointNames))
+	for i, ep := range endpointNames {
+		endpoints[i] = ep.Endpoint
+	}
+	return endpoints, nil
 }
