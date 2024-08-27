@@ -51,7 +51,7 @@ type ProvisionerAPI struct {
 	*common.PasswordChanger
 	*common.LifeGetter
 	*common.APIAddresser
-	*common.MongoModelWatcher
+	*common.ModelWatcher
 	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	*common.ToolsGetter
@@ -167,6 +167,8 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 
 	unitRemover := ctx.ServiceFactory().Application(nil)
 
+	modelWatcher := common.NewModelWatcher(serviceFactory.Config(), ctx.WatcherRegistry())
+
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{
 		Remover:              common.NewRemover(st, ctx.ObjectStore(), nil, false, getAuthFunc, unitRemover),
@@ -176,7 +178,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		PasswordChanger:      common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
 		APIAddresser:         common.NewAPIAddresser(systemState, resources),
-		MongoModelWatcher:    common.NewMongoModelWatcher(model, resources),
+		ModelWatcher:         modelWatcher,
 		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
