@@ -172,6 +172,15 @@ func checkUpdateControllerConfig(name string) error {
 // checkSpaceIsAvailableToAllControllers checks if each controller machine has
 // at least one address in the input space. If not, an error is returned.
 func (st *State) checkSpaceIsAvailableToAllControllers(spaceName string) error {
+	// TODO(nvinuesa): We should not be checking if the space is empty
+	// at this point, instead we should be using the `removeAttrs`
+	// attribute on `UpdateControllerConfig()` to un-set the spaces.
+	// Unfortunately this is not the case and therefore we must check for
+	// the empty string (un-setting the space value) as a workaround.
+	if spaceName == "" {
+		return nil
+	}
+
 	controllerIds, err := st.ControllerIds()
 	if err != nil {
 		return errors.Annotate(err, "cannot get controller info")

@@ -186,6 +186,29 @@ func (s *ControllerSuite) TestRemovingUnknownName(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown controller config setting "dr-worm"`)
 }
 
+func (s *ControllerSuite) TestUpdateControllerConfigAcceptEmptyStringSpace(c *gc.C) {
+	sp, err := s.State.AddSpace("ha-space", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr := network.NewSpaceAddress("192.168.9.9")
+	addr.SpaceID = sp.Id()
+
+	c.Assert(m.SetProviderAddresses(addr), jc.ErrorIsNil)
+
+	err = s.State.UpdateControllerConfig(map[string]interface{}{
+		controller.JujuHASpace: "ha-space",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.UpdateControllerConfig(map[string]interface{}{
+		controller.JujuHASpace: "",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *ControllerSuite) TestUpdateControllerConfigRejectsSpaceWithoutAddresses(c *gc.C) {
 	_, err := s.State.AddSpace("mgmt-space", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
