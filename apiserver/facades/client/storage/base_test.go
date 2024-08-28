@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	"context"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -68,7 +69,7 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.blockDeviceGetter, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
 }
 
-func (s *baseStorageSuite) storageMetadata() (storage.StorageService, jujustorage.ProviderRegistry, error) {
+func (s *baseStorageSuite) storageMetadata(context.Context) (storage.StorageService, jujustorage.ProviderRegistry, error) {
 	return s.storageService, s.registry, nil
 }
 
