@@ -132,7 +132,7 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	if c.NoDownload {
 		ctx.Infof("Remote backup stored on the controller as %v", metadataResult.Filename)
 	} else {
-		filename := c.decideFilename(ctx, c.Filename, metadataResult.Started)
+		filename := c.decideFilename(c.Filename, metadataResult.Started)
 		if err := c.download(ctx, client, copyFrom, filename); err != nil {
 			return errors.Trace(err)
 		}
@@ -141,7 +141,7 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *createCommand) decideFilename(ctx *cmd.Context, filename string, timestamp time.Time) string {
+func (c *createCommand) decideFilename(filename string, timestamp time.Time) string {
 	if filename != notset {
 		return filename
 	}
