@@ -4,6 +4,8 @@
 package backups
 
 import (
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -107,17 +109,35 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 	}
 
 	// Handle user SSH files (might not exist).
-	SSHDir := filepath.Join(rootDir, sshDir)
-	if _, err := os.Stat(SSHDir); err != nil {
+	authorizedKeysFile := filepath.Join(rootDir, sshDir, authKeysFile)
+	if _, err := os.Stat(authorizedKeysFile); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, errors.Trace(err)
 		}
-		logger.Errorf("skipping missing dir %q", SSHDir)
+		logger.Errorf("skipping missing file %q", authorizedKeysFile)
 	} else {
-		backupFiles = append(backupFiles, filepath.Join(SSHDir, authKeysFile))
+		backupFiles = append(backupFiles, authorizedKeysFile)
 	}
 
-	return backupFiles, nil
+	var finalBackupFiles []string
+	for _, file := range backupFiles {
+		err := filepath.Walk(file, func(path string, info fs.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			if info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+				finalBackupFiles = append(finalBackupFiles, path)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("cannot walk %q: %w", file, err)
+		}
+	}
+	return finalBackupFiles, nil
 }
 
 // replaceableFolders for testing purposes.

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
@@ -55,8 +54,7 @@ func (s *introspectionSuite) TestStartError(c *gc.C) {
 	}
 
 	cfg := addons.IntrospectionConfig{
-		AgentTag:      names.NewMachineTag("42"),
-		NewSocketName: addons.DefaultIntrospectionSocketName,
+		AgentDir: c.MkDir(),
 		WorkerFunc: func(_ introspection.Config) (worker.Worker, error) {
 			return nil, errors.New("boom")
 		},
@@ -85,9 +83,8 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := addons.IntrospectionConfig{
-		AgentTag:      names.NewMachineTag("42"),
-		Engine:        engine,
-		NewSocketName: func(tag names.Tag) string { return "bananas" },
+		AgentDir: c.MkDir(),
+		Engine:   engine,
 		WorkerFunc: func(cfg introspection.Config) (worker.Worker, error) {
 			fake.config = cfg
 			return fake, nil
@@ -98,7 +95,7 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(fake.config.DepEngine, gc.Equals, engine)
-	c.Check(fake.config.SocketName, gc.Equals, "bananas")
+	c.Check(fake.config.SocketName, jc.HasSuffix, "introspection.socket")
 
 	// Stopping the engine causes the introspection worker to stop.
 	engine.Kill()
@@ -108,11 +105,6 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("worker did not get stopped")
 	}
-}
-
-func (s *introspectionSuite) TestDefaultIntrospectionSocketName(c *gc.C) {
-	name := addons.DefaultIntrospectionSocketName(names.NewMachineTag("42"))
-	c.Assert(name, gc.Equals, "jujud-machine-42")
 }
 
 type dummyWorker struct {
