@@ -11,11 +11,13 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/model"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Controller", 12, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+	registry.MustRegisterForMultiModel("Controller", 12, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		api, err := makeControllerAPI(stdCtx, ctx)
 		if err != nil {
 			return nil, fmt.Errorf("creating Controller facade v12: %w", err)
@@ -25,7 +27,7 @@ func Register(registry facade.FacadeRegistry) {
 }
 
 // makeControllerAPI creates a new ControllerAPI.
-func makeControllerAPI(stdCtx context.Context, ctx facade.ModelContext) (*ControllerAPI, error) {
+func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*ControllerAPI, error) {
 	var (
 		st             = ctx.State()
 		authorizer     = ctx.Auth()
@@ -40,6 +42,11 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Contro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	modelConfigServiceGetter := func(modelID model.UUID) ModelConfigService {
+		return ctx.ServiceFactoryForModel(modelID).Config()
+	}
+	caasBrokerGetter := facade.ProviderRunner[caas.Broker](ctx)
 
 	return NewControllerAPI(
 		stdCtx,
@@ -56,6 +63,9 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Contro
 		serviceFactory.Credential(),
 		serviceFactory.Upgrade(),
 		serviceFactory.Access(),
+		serviceFactory.Model(),
+		modelConfigServiceGetter,
+		caasBrokerGetter,
 		ctx.ModelExporter(st),
 		ctx.ObjectStore(),
 		leadership,

@@ -63,7 +63,7 @@ type controllerSuite struct {
 	watcherRegistry  facade.WatcherRegistry
 	authorizer       apiservertesting.FakeAuthorizer
 	hub              *pubsub.StructuredHub
-	context          facadetest.ModelContext
+	context          facadetest.MultiModelContext
 	leadershipReader leadership.Reader
 }
 
@@ -109,16 +109,19 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.leadershipReader = noopLeadershipReader{}
-	s.context = facadetest.ModelContext{
-		State_:            s.State,
-		StatePool_:        s.StatePool,
-		Resources_:        s.resources,
-		WatcherRegistry_:  s.watcherRegistry,
-		Auth_:             s.authorizer,
-		Hub_:              s.hub,
-		ServiceFactory_:   s.ControllerServiceFactory(c),
-		Logger_:           loggertesting.WrapCheckLog(c),
-		LeadershipReader_: s.leadershipReader,
+	s.context = facadetest.MultiModelContext{
+		ModelContext: facadetest.ModelContext{
+			State_:            s.State,
+			StatePool_:        s.StatePool,
+			Resources_:        s.resources,
+			WatcherRegistry_:  s.watcherRegistry,
+			Auth_:             s.authorizer,
+			Hub_:              s.hub,
+			ServiceFactory_:   s.ControllerServiceFactory(c),
+			Logger_:           loggertesting.WrapCheckLog(c),
+			LeadershipReader_: s.leadershipReader,
+		},
+		ServiceFactoryForModel_: s.ControllerServiceFactory(c),
 	}
 	controller, err := controller.LatestAPI(context.Background(), s.context)
 	c.Assert(err, jc.ErrorIsNil)
@@ -136,12 +139,14 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUnitTag("mysql/0"),
 	}
-	endPoint, err := controller.LatestAPI(context.Background(), facadetest.ModelContext{
-		State_:          s.State,
-		Resources_:      s.resources,
-		Auth_:           anAuthoriser,
-		ServiceFactory_: s.ControllerServiceFactory(c),
-		Logger_:         loggertesting.WrapCheckLog(c),
+	endPoint, err := controller.LatestAPI(context.Background(), facadetest.MultiModelContext{
+		ModelContext: facadetest.ModelContext{
+			State_:          s.State,
+			Resources_:      s.resources,
+			Auth_:           anAuthoriser,
+			ServiceFactory_: s.ControllerServiceFactory(c),
+			Logger_:         loggertesting.WrapCheckLog(c),
+		},
 	})
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -280,12 +285,14 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.Owner}
 	controller, err := controller.LatestAPI(
 		context.Background(),
-		facadetest.ModelContext{
-			State_:          st,
-			Resources_:      common.NewResources(),
-			Auth_:           authorizer,
-			ServiceFactory_: s.ControllerServiceFactory(c),
-			Logger_:         loggertesting.WrapCheckLog(c),
+		facadetest.MultiModelContext{
+			ModelContext: facadetest.ModelContext{
+				State_:          st,
+				Resources_:      common.NewResources(),
+				Auth_:           authorizer,
+				ServiceFactory_: s.ControllerServiceFactory(c),
+				Logger_:         loggertesting.WrapCheckLog(c),
+			},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := controller.ControllerConfig(context.Background())
@@ -658,12 +665,14 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 	}
 	endpoint, err := controller.LatestAPI(
 		context.Background(),
-		facadetest.ModelContext{
-			State_:          s.State,
-			Resources_:      s.resources,
-			Auth_:           anAuthoriser,
-			ServiceFactory_: s.ControllerServiceFactory(c),
-			Logger_:         loggertesting.WrapCheckLog(c),
+		facadetest.MultiModelContext{
+			ModelContext: facadetest.ModelContext{
+				State_:          s.State,
+				Resources_:      s.resources,
+				Auth_:           anAuthoriser,
+				ServiceFactory_: s.ControllerServiceFactory(c),
+				Logger_:         loggertesting.WrapCheckLog(c),
+			},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -841,12 +850,14 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 	}
 	endPoint, err := controller.LatestAPI(
 		context.Background(),
-		facadetest.ModelContext{
-			State_:          s.State,
-			Resources_:      s.resources,
-			Auth_:           anAuthoriser,
-			ServiceFactory_: s.ControllerServiceFactory(c),
-			Logger_:         loggertesting.WrapCheckLog(c),
+		facadetest.MultiModelContext{
+			ModelContext: facadetest.ModelContext{
+				State_:          s.State,
+				Resources_:      s.resources,
+				Auth_:           anAuthoriser,
+				ServiceFactory_: s.ControllerServiceFactory(c),
+				Logger_:         loggertesting.WrapCheckLog(c),
+			},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -969,6 +980,9 @@ func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		nil,
 		nil,
 		s.accessService,
+		nil,
+		nil,
+		nil,
 		nil,
 		nil,
 		nil,

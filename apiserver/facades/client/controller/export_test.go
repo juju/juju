@@ -26,6 +26,7 @@ func SetPrecheckResult(p patcher, err error) {
 		cloudService common.CloudService,
 		credentialService common.CredentialService,
 		upgradeService UpgradeService,
+		modelService ModelService,
 		modelExporter ModelExporter,
 		store objectstore.ObjectStore,
 		leaders map[string]string) error {
