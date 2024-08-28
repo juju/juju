@@ -738,7 +738,7 @@ func (s *Suite) expectImportModel(c *gc.C) {
 		controller := state.NewController(s.StatePool)
 		return migration.NewModelImporter(
 			controller, scope, s.controllerConfigService, s.serviceFactoryGetter, cloudSchemaSource,
-			func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+			func(context.Context) (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
 			loggertesting.WrapCheckLog(c),
 		).ImportModel(ctx, bytes)
 	})
