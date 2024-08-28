@@ -93,6 +93,8 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+	} else {
+		path = *dbPathFlag
 	}
 
 	if err := os.MkdirAll(path, 0755); err != nil {
