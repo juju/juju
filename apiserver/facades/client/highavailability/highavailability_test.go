@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	environmocks "github.com/juju/juju/environs/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
@@ -35,7 +37,8 @@ type clientSuite struct {
 
 	commontesting.BlockHelper
 
-	store objectstore.ObjectStore
+	store   objectstore.ObjectStore
+	environ *environmocks.MockEnviron
 }
 
 var _ = gc.Suite(&clientSuite{})
@@ -53,16 +56,8 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		Controller: true,
 	}
 	st := s.ControllerModel(c).State()
-	var err error
-	s.haServer, err = highavailability.NewHighAvailabilityAPI(facadetest.ModelContext{
-		State_:          st,
-		Auth_:           s.authorizer,
-		ServiceFactory_: s.ControllerServiceFactory(c),
-		Logger_:         loggertesting.WrapCheckLog(c),
-	})
-	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.AddMachines(s.InstancePrechecker(c, st), state.MachineTemplate{
+	_, err := st.AddMachines(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobManageModel},
 		Constraints: controllerCons,
@@ -80,6 +75,28 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
 	s.store = testing.NewObjectStore(c, s.ControllerModelUUID())
+}
+
+func (s *clientSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.environ = environmocks.NewMockEnviron(ctrl)
+	s.environ.EXPECT().PrecheckInstance(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	return ctrl
+}
+
+func (s *clientSuite) setupAPI(c *gc.C) {
+	var err error
+	s.haServer, err = highavailability.NewHighAvailabilityAPI(
+		context.Background(),
+		facadetest.ModelContext{
+			State_:          s.ControllerModel(c).State(),
+			Auth_:           s.authorizer,
+			ServiceFactory_: s.ControllerServiceFactory(c),
+			Logger_:         loggertesting.WrapCheckLog(c),
+			Provider_:       s.environ,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *clientSuite) enableS3(c *gc.C) {
@@ -153,6 +170,9 @@ func enableHA(
 }
 
 func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.enableS3(c)
 	st := s.ControllerModel(c).State()
 	machines, err := st.AllMachines()
@@ -177,6 +197,9 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	st := s.ControllerModel(c).State()
 	m0, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -199,6 +222,9 @@ func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHANoErrorForNoAddresses(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	enableHAResult, err := s.enableHA(c, 0, emptyCons, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
@@ -215,6 +241,9 @@ func (s *clientSuite) TestEnableHANoErrorForNoAddresses(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	st := s.ControllerModel(c).State()
 	machines, err := st.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -247,6 +276,9 @@ func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAConstraints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	enableHAResult, err := s.enableHA(c, 3, constraints.MustParse("mem=4G"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
@@ -270,6 +302,9 @@ func (s *clientSuite) TestEnableHAConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAEmptyConstraints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	enableHAResult, err := s.enableHA(c, 3, emptyCons, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
@@ -288,6 +323,9 @@ func (s *clientSuite) TestEnableHAEmptyConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	attrs := controller.Config{controller.JujuHASpace: "ha-space"}
 	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
 	err := controllerConfigService.UpdateControllerConfig(context.Background(), attrs, nil)
@@ -317,6 +355,9 @@ func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAControllerConfigWithFileBackedObjectStore(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	attrs := controller.Config{controller.ObjectStoreType: "file"}
 	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
 	err := controllerConfigService.UpdateControllerConfig(context.Background(), attrs, nil)
@@ -327,6 +368,9 @@ func (s *clientSuite) TestEnableHAControllerConfigWithFileBackedObjectStore(c *g
 }
 
 func (s *clientSuite) TestBlockMakeHA(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	// Block all changes.
 	s.BlockAllChanges(c, "TestBlockEnableHA")
 
@@ -344,6 +388,9 @@ func (s *clientSuite) TestBlockMakeHA(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	placement := []string{"valid"}
 	enableHAResult, err := s.enableHA(c, 3, constraints.MustParse("mem=4G tags=foobar"), placement)
 	c.Assert(err, jc.ErrorIsNil)
@@ -370,6 +417,9 @@ func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	st := s.ControllerModel(c).State()
 	machine1Cons := constraints.MustParse("mem=8G")
 	_, err := st.AddMachines(s.InstancePrechecker(c, st), state.MachineTemplate{
@@ -408,6 +458,9 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	// A value of 0 says either "if I'm not HA, make me HA" or "preserve my
 	// current HA settings".
 	enableHAResult, err := s.enableHA(c, 0, emptyCons, nil)
@@ -448,6 +501,9 @@ func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	// Start off with 5 servers
 	enableHAResult, err := s.enableHA(c, 5, emptyCons, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -495,6 +551,9 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAErrors(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	_, err := s.enableHA(c, -1, emptyCons, nil)
 	c.Assert(err, gc.ErrorMatches, "number of controllers must be odd and non-negative")
 
@@ -518,12 +577,15 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 	st2 := f.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"controller": false}})
 	defer st2.Close()
 
-	haServer, err := highavailability.NewHighAvailabilityAPI(facadetest.ModelContext{
-		State_:          st2,
-		Auth_:           s.authorizer,
-		ServiceFactory_: s.ControllerServiceFactory(c),
-		Logger_:         loggertesting.WrapCheckLog(c),
-	})
+	haServer, err := highavailability.NewHighAvailabilityAPI(
+		context.Background(),
+		facadetest.ModelContext{
+			State_:          st2,
+			Auth_:           s.authorizer,
+			ServiceFactory_: s.ControllerServiceFactory(c),
+			Logger_:         loggertesting.WrapCheckLog(c),
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	enableHAResult, err := enableHA(c, haServer, 3, constraints.MustParse("mem=4G"), nil)
@@ -540,6 +602,9 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAMultipleSpecs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	arg := params.ControllersSpecs{
 		Specs: []params.ControllersSpec{
 			{NumControllers: 3},
@@ -552,6 +617,9 @@ func (s *clientSuite) TestEnableHAMultipleSpecs(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHANoSpecs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	arg := params.ControllersSpecs{
 		Specs: []params.ControllersSpec{},
 	}
@@ -561,6 +629,9 @@ func (s *clientSuite) TestEnableHANoSpecs(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHABootstrap(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	// Testing based on lp:1748275 - Juju HA fails due to demotion of Machine 0
 	machines, err := s.ControllerModel(c).State().AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -581,15 +652,21 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 	st := f.MakeCAASModel(c, nil)
 	defer st.Close()
 
-	_, err := highavailability.NewHighAvailabilityAPI(facadetest.ModelContext{
-		State_:          st,
-		Auth_:           s.authorizer,
-		ServiceFactory_: s.ControllerServiceFactory(c),
-	})
+	_, err := highavailability.NewHighAvailabilityAPI(
+		context.Background(),
+		facadetest.ModelContext{
+			State_:          st,
+			Auth_:           s.authorizer,
+			ServiceFactory_: s.ControllerServiceFactory(c),
+		},
+	)
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
 }
 
 func (s *clientSuite) TestControllerDetails(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	cfg, err := s.ControllerServiceFactory(c).ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	apiPort := cfg.APIPort()
