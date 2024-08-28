@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
-	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"

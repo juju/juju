@@ -47,7 +47,6 @@ func (u *Unit) Refresh(ctx context.Context) error {
 }
 
 // Remove removes the unit from state, calling EnsureDead first, then Remove.
-// It will fail if the unit is not present.
 func (u *Unit) Remove(ctx context.Context) error {
 	var result params.ErrorResults
 	args := params.Entities{

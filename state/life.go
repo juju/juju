@@ -89,7 +89,6 @@ type LifeRefresher interface {
 type AgentLiving interface {
 	Living
 	EnsureDead() error
-	Remove(objectstore.ObjectStore) error
 }
 
 func isAlive(mb modelBackend, collName string, id interface{}) (bool, error) {

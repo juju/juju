@@ -19,7 +19,6 @@ import (
 	charm "github.com/juju/juju/core/charm"
 	network "github.com/juju/juju/core/network"
 	resources "github.com/juju/juju/core/resources"
-	secrets "github.com/juju/juju/core/secrets"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
@@ -418,45 +417,6 @@ func (c *MockApplicationStateGetCharmByApplicationNameCall) Do(f func(context.Co
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationStateGetCharmByApplicationNameCall) DoAndReturn(f func(context.Context, string) (charm0.Charm, charm0.CharmOrigin, charm0.Platform, error)) *MockApplicationStateGetCharmByApplicationNameCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetSecretsForOwners mocks base method.
-func (m *MockApplicationState) GetSecretsForOwners(arg0 domain.AtomicContext, arg1 application0.ApplicationSecretOwners, arg2 application0.UnitSecretOwners) ([]*secrets.URI, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretsForOwners", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]*secrets.URI)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetSecretsForOwners indicates an expected call of GetSecretsForOwners.
-func (mr *MockApplicationStateMockRecorder) GetSecretsForOwners(arg0, arg1, arg2 any) *MockApplicationStateGetSecretsForOwnersCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretsForOwners", reflect.TypeOf((*MockApplicationState)(nil).GetSecretsForOwners), arg0, arg1, arg2)
-	return &MockApplicationStateGetSecretsForOwnersCall{Call: call}
-}
-
-// MockApplicationStateGetSecretsForOwnersCall wrap *gomock.Call
-type MockApplicationStateGetSecretsForOwnersCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationStateGetSecretsForOwnersCall) Return(arg0 []*secrets.URI, arg1 error) *MockApplicationStateGetSecretsForOwnersCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateGetSecretsForOwnersCall) Do(f func(domain.AtomicContext, application0.ApplicationSecretOwners, application0.UnitSecretOwners) ([]*secrets.URI, error)) *MockApplicationStateGetSecretsForOwnersCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateGetSecretsForOwnersCall) DoAndReturn(f func(domain.AtomicContext, application0.ApplicationSecretOwners, application0.UnitSecretOwners) ([]*secrets.URI, error)) *MockApplicationStateGetSecretsForOwnersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

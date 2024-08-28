@@ -171,14 +171,14 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.container.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.container.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
+	err = s.container.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine1.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine1.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine1.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
+	err = s.machine1.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := s.agentAPI(c, s.authorizer, nil)

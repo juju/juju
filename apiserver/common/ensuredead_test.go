@@ -57,23 +57,15 @@ func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
 			return tag == x0 || tag == x1 || tag == x2 || tag == x4
 		}, nil
 	}
-	afterDeadCalled := false
-	afterDead := func(tag names.Tag) {
-		if tag != u("x/1") && tag != u("x/2") {
-			c.Fail()
-		}
-		afterDeadCalled = true
-	}
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	d := common.NewDeadEnsurer(st, afterDead, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
+	d := common.NewDeadEnsurer(st, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
 	entities := params.Entities{[]params.Entity{
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"}, {"unit-x-5"},
 	}}
 	result, err := d.EnsureDead(context.Background(), entities)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(afterDeadCalled, jc.IsTrue)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{Message: "x0 fails"}},
@@ -92,18 +84,18 @@ func (*deadEnsurerSuite) TestEnsureDeadError(c *gc.C) {
 	}
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	d := common.NewDeadEnsurer(&fakeState{}, nil, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
+	d := common.NewDeadEnsurer(&fakeState{}, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
 	_, err := d.EnsureDead(context.Background(), params.Entities{[]params.Entity{{"x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
-func (*removeSuite) TestEnsureDeadNoArgsNoError(c *gc.C) {
+func (*deadEnsurerSuite) TestEnsureDeadNoArgsNoError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	d := common.NewDeadEnsurer(&fakeState{}, nil, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
+	d := common.NewDeadEnsurer(&fakeState{}, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
 	result, err := d.EnsureDead(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)

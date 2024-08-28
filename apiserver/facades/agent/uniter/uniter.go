@@ -40,7 +40,6 @@ import (
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
-	*common.DeadEnsurer
 	*common.AgentEntityWatcher
 	*common.APIAddresser
 	*common.MongoModelWatcher
@@ -58,11 +57,12 @@ type UniterAPI struct {
 	modelInfoService        ModelInfoService
 	secretService           SecretService
 	networkService          NetworkService
-	unitRemover             UnitRemover
+	applicationService      ApplicationService
 	clock                   clock.Clock
 	auth                    facade.Authorizer
 	resources               facade.Resources
 	leadershipChecker       leadership.Checker
+	leadershipRevoker       leadership.Revoker
 	accessUnit              common.GetAuthFunc
 	accessApplication       common.GetAuthFunc
 	accessMachine           common.GetAuthFunc
@@ -77,6 +77,48 @@ type UniterAPI struct {
 	cloudSpecer     cloudspec.CloudSpecer
 
 	logger corelogger.Logger
+}
+
+// EnsureDead calls EnsureDead on each given unit from state.
+// If it's Alive, nothing will happen.
+func (u *UniterAPI) EnsureDead(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canModify, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			return params.ErrorResults{}, errors.Trace(err)
+		}
+		if !canModify(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		// TODO(units) - remove me.
+		// Dual write dead status to state.
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if err = unit.EnsureDead(); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		if err := u.applicationService.EnsureUnitDead(ctx, tag.Id(), u.leadershipRevoker); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+		}
+	}
+	return result, nil
 }
 
 // OpenedMachinePortRangesByEndpoint returns the port ranges opened by each
@@ -443,7 +485,7 @@ func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.E
 				unit    *state.Unit
 				removed bool
 			)
-			err = u.unitRemover.DestroyUnit(ctx, tag.Id())
+			err = u.applicationService.DestroyUnit(ctx, tag.Id())
 			if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
@@ -454,7 +496,7 @@ func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.E
 			if err == nil {
 				removed, err = unit.DestroyMaybeRemove(u.store)
 				if err == nil && removed {
-					err = u.unitRemover.DeleteUnit(ctx, unit.Name())
+					err = u.applicationService.DeleteUnit(ctx, unit.Name())
 				}
 			}
 		}
@@ -1749,7 +1791,7 @@ func (u *UniterAPI) getRemoteRelationAppSettings(rel *state.Relation, appTag nam
 func (u *UniterAPI) destroySubordinates(ctx context.Context, principal *state.Unit) error {
 	subordinates := principal.SubordinateNames()
 	for _, subName := range subordinates {
-		err := u.unitRemover.DestroyUnit(ctx, subName)
+		err := u.applicationService.DestroyUnit(ctx, subName)
 		if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
 			return err
 		}
@@ -1764,7 +1806,7 @@ func (u *UniterAPI) destroySubordinates(ctx context.Context, principal *state.Un
 			return err
 		}
 		if removed {
-			if err := u.unitRemover.DeleteUnit(ctx, subName); err != nil {
+			if err := u.applicationService.DeleteUnit(ctx, subName); err != nil {
 				return err
 			}
 		}

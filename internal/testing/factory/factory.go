@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -641,11 +643,34 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		}
 	}
 	if params.Application == nil {
-		ch := factory.MakeCharm(c, nil)
 		params.Application = factory.MakeApplication(c, &ApplicationParams{
 			Constraints: params.Constraints,
-			Charm:       ch,
 		})
+	}
+	if factory.applicationService != nil {
+		chOrigin := params.Application.CharmOrigin()
+		cons, err := params.Application.StorageConstraints()
+		c.Assert(err, jc.ErrorIsNil)
+		directives := make(map[string]storage.Directive)
+		for k, v := range cons {
+			directives[k] = storage.Directive{
+				Pool:  v.Pool,
+				Size:  v.Size,
+				Count: v.Count,
+			}
+		}
+		ch, _, err := params.Application.Charm()
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = factory.applicationService.CreateApplication(
+			context.Background(), params.Application.Name(),
+			charm.NewCharmBase(ch.Meta(), ch.Manifest(), ch.Config(), ch.Actions(), ch.LXDProfile()),
+			chOrigin.AsCoreCharmOrigin(), applicationservice.AddApplicationArgs{
+				ReferenceName: params.Application.Name(),
+				Storage:       directives,
+			})
+		if !errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
+			c.Assert(err, jc.ErrorIsNil)
+		}
 	}
 	if params.Password == "" {
 		var err error

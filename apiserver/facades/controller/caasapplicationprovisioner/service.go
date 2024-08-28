@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/service"
@@ -45,4 +46,5 @@ type ApplicationService interface {
 	GetApplicationScalingState(ctx context.Context, name string) (service.ScalingState, error)
 	GetApplicationScale(ctx context.Context, name string) (int, error)
 	DestroyUnit(ctx context.Context, name string) error
+	RemoveUnit(ctx context.Context, unitName string, leadershipRevoker leadership.Revoker) error
 }

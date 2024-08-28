@@ -90,11 +90,6 @@ type AtomicApplicationState interface {
 	// indicate the application could be safely deleted.
 	// It will fail if the unit is not Dead.
 	DeleteUnit(ctx domain.AtomicContext, unitName string) (bool, error)
-
-	// GetSecretsForOwners returns the secrets owned by the specified apps and/or units.
-	GetSecretsForOwners(
-		ctx domain.AtomicContext, appOwners application.ApplicationSecretOwners, unitOwners application.UnitSecretOwners,
-	) ([]*coresecrets.URI, error)
 }
 
 // ApplicationState describes retrieval and persistence methods for

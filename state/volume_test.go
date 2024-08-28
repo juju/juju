@@ -944,7 +944,7 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "machine 0 has attachments \\[volume-0\\]")
 	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0"))
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(machine.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
+	c.Assert(machine.Remove(), jc.ErrorIsNil)
 
 	// Machine is gone: non-detachable storage should be done too.
 	allVolumes, err = s.storageBackend.AllVolumes()
@@ -1027,7 +1027,7 @@ func (s *VolumeStateSuite) TestVolumeMachineScoped(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	volume, err = s.storageBackend.Volume(volume.VolumeTag())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)

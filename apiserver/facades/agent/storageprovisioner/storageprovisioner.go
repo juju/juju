@@ -220,7 +220,7 @@ func NewStorageProvisionerAPIv4(
 	}
 	return &StorageProvisionerAPIv4{
 		LifeGetter:       common.NewLifeGetter(st, getLifeAuthFunc),
-		DeadEnsurer:      common.NewDeadEnsurer(st, nil, getStorageEntityAuthFunc, machineService),
+		DeadEnsurer:      common.NewDeadEnsurer(st, getStorageEntityAuthFunc, machineService),
 		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
 		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc),
 

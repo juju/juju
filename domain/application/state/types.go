@@ -4,10 +4,8 @@
 package state
 
 import (
-	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/internal/errors"
 )
 
 // These structs represent the persistent block device entity schema in the database.
@@ -94,24 +92,6 @@ type cloudContainer struct {
 type cloudService struct {
 	ApplicationID string `db:"application_uuid"`
 	ProviderID    string `db:"provider_id"`
-}
-
-type secretID struct {
-	ID string `db:"secret_id"`
-}
-
-type secretIDs []secretID
-
-func (rows secretIDs) toSecretURIs() ([]*coresecrets.URI, error) {
-	result := make([]*coresecrets.URI, len(rows))
-	for i, row := range rows {
-		uri, err := coresecrets.ParseURI(row.ID)
-		if err != nil {
-			return nil, errors.Errorf("secret URI %q not valid", row.ID)
-		}
-		result[i] = uri
-	}
-	return result, nil
 }
 
 type applicationCharmUUID struct {
