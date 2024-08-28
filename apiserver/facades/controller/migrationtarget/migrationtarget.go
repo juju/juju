@@ -103,18 +103,8 @@ type API struct {
 	logDir string
 }
 
-// APIV1 implements the V1 version of the API facade.
-type APIV1 struct {
-	*API
-}
-
-// APIV2 implements the V2 version of the API facade.
-type APIV2 struct {
-	*APIV1
-}
-
-// NewAPI returns a new APIV1. Accepts a NewEnvironFunc and envcontext.ProviderCallContext
-// for testing purposes.
+// NewAPI returns a new migration target api. Accepts a NewEnvironFunc and
+// envcontext.ProviderCallContext for testing purposes.
 func NewAPI(
 	ctx facade.ModelContext,
 	authorizer facade.Authorizer,
@@ -292,24 +282,6 @@ func (api *API) Abort(ctx context.Context, args params.ModelArgs) error {
 	}
 	defer st.Release()
 	return st.RemoveImportingModelDocs()
-}
-
-// Activate sets the migration mode of the model to "none", meaning it
-// is ready for use. It is an error to attempt to Abort a model that
-// has a migration mode other than importing.
-func (api *APIV1) Activate(ctx context.Context, args params.ModelArgs) error {
-	model, release, err := api.getImportingModel(args.ModelTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer release()
-
-	if err := model.SetStatus(status.StatusInfo{Status: status.Available}); err != nil {
-		return errors.Trace(err)
-	}
-
-	// TODO(fwereade) - need to validate binaries here.
-	return model.SetMigrationMode(state.MigrationModeNone)
 }
 
 // Activate sets the migration mode of the model to "none", meaning it
