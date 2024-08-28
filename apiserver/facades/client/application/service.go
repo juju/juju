@@ -68,6 +68,10 @@ type ApplicationService interface {
 	// returning an error  satisfying [applicationerrors.ApplicationNotFoundError]
 	// if the application doesn't exist.
 	DestroyApplication(ctx context.Context, name string) error
+	// DestroyUnit prepares a unit for removal from the model
+	// returning an error  satisfying [applicationerrors.UnitNotFoundError]
+	// if the unit doesn't exist.
+	DestroyUnit(ctx context.Context, name string) error
 }
 
 // ModelConfigService provides access to the model configuration.

@@ -81,6 +81,28 @@ func (s *serviceSuite) TestDestroyApplication(c *gc.C) {
 	c.Assert(gotLife, gc.Equals, 1)
 }
 
+func (s *serviceSuite) TestDestroyUnit(c *gc.C) {
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/666"),
+	}
+	s.createApplication(c, "foo", u)
+
+	err := s.svc.DestroyUnit(context.Background(), "foo/666")
+	c.Assert(err, jc.ErrorIsNil)
+
+	var gotLife int
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT life_id FROM unit WHERE name = ?", u.UnitName).
+			Scan(&gotLife)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotLife, gc.Equals, 1)
+}
+
 func (s *serviceSuite) TestEnsureUnitDead(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

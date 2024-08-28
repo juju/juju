@@ -282,6 +282,17 @@ func (s *ApplicationService) DeleteUnit(ctx context.Context, unitName string) er
 	return errors.Annotatef(err, "deleting unit %q", unitName)
 }
 
+// DestroyUnit prepares a unit for removal from the model
+// returning an error  satisfying [applicationerrors.UnitNotFoundError]
+// if the unit doesn't exist.
+func (s *ApplicationService) DestroyUnit(ctx context.Context, unitName string) error {
+	// For now, all we do is advance the unit's life to Dying.
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return s.st.SetUnitLife(ctx, unitName, life.Dying)
+	})
+	return errors.Annotatef(err, "destroying unit %q", unitName)
+}
+
 // EnsureUnitDead is called by the unit agent just before it terminates.
 // TODO(units): revisit his existing logic ported from mongo
 // Note: the agent only calls this method once it gets notification
@@ -620,7 +631,6 @@ func (s *ApplicationService) SetApplicationScalingState(ctx context.Context, app
 		if err != nil {
 			return errors.Annotatef(err, "getting life for %q", appName)
 		}
-		s.logger.Criticalf("APP %s LIFE %v", appName, appLife)
 		currentScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
 			return errors.Annotatef(err, "getting current scale state for %q", appName)

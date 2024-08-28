@@ -1693,4 +1693,8 @@ func (r fakeAppRemover) DeleteUnit(context.Context, string) error {
 	return nil
 }
 
+func (r fakeAppRemover) DestroyUnit(context.Context, string) error {
+	return nil
+}
+
 func (fakeAppRemover) DeleteApplication(context.Context, string) error { return nil }

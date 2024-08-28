@@ -44,4 +44,5 @@ type ApplicationService interface {
 	SetApplicationScalingState(ctx context.Context, name string, scaleTarget int, scaling bool) error
 	GetApplicationScalingState(ctx context.Context, name string) (service.ScalingState, error)
 	GetApplicationScale(ctx context.Context, name string) (int, error)
+	DestroyUnit(ctx context.Context, name string) error
 }

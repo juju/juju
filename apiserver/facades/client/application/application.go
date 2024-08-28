@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -1491,6 +1492,14 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 		if arg.DryRun {
 			return &info, nil
 		}
+
+		if err := api.applicationService.DestroyUnit(ctx, name); err != nil {
+			if !errors.Is(err, applicationerrors.UnitNotFound) {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		// TODO(units) - remove dual write to state
 		op := unit.DestroyOperation(api.store)
 		op.DestroyStorage = arg.DestroyStorage
 		op.Force = arg.Force
@@ -1599,7 +1608,8 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 
 		// Minimally initiate destroy in dqlite.
 		// It's sufficient for now just to advance the life to dying.
-		if err := api.applicationService.DestroyApplication(ctx, tag.Id()); err != nil {
+		err = api.applicationService.DestroyApplication(ctx, tag.Id())
+		if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return nil, errors.Annotatef(err, "destroying application %q", tag.Id())
 		}
 
