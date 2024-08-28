@@ -95,7 +95,7 @@ def check_package(package):
 		return None
 
 	lines = header.splitlines()
-	if len(lines) > 2 and not lines[2].startswith('Package '):
+	if lines[0].startswith('package ') and not lines[2].startswith('Package '):
 		errors.append('package comment does not start with "Package "')
 
 	if 'Copyright 20' in header:

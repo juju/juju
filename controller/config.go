@@ -1401,7 +1401,11 @@ func (c Config) validateSpaceConfig(key, topic string) error {
 		return nil
 	}
 	if v, ok := val.(string); ok {
-		if !names.IsValidSpace(v) {
+		// NOTE(nvinuesa): We also check for the case where the passed
+		// value is the empty string, this is needed to un-set the
+		// controller config value and not added in the regexp to
+		// validate the space.
+		if !names.IsValidSpace(v) && v != "" {
 			return errors.NotValidf("%s space name %q", topic, val)
 		}
 	} else {
