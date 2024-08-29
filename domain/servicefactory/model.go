@@ -32,6 +32,7 @@ import (
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
 	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
+	modelmigrationstate "github.com/juju/juju/domain/modelmigration/state"
 	networkservice "github.com/juju/juju/domain/network/service"
 	networkstate "github.com/juju/juju/domain/network/state"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
@@ -222,7 +223,7 @@ func (s *ModelFactory) ModelMigration() *modelmigrationservice.Service {
 	return modelmigrationservice.New(
 		providertracker.ProviderRunner[modelmigrationservice.InstanceProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[modelmigrationservice.ResourceProvider](s.providerFactory, s.modelUUID.String()),
-		nil,
+		modelmigrationstate.New(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }
 
