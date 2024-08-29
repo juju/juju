@@ -49,7 +49,7 @@ these addresses in random order when connecting, so that an inaccessible
 controller just results in connection to another.
 
 The list of addresses supplied to agent configuration can be influenced by the
-`juju-ctrl-space` controller configuration article. This is supplied with a
+`juju-mgmt-space` controller configuration article. This is supplied with a
 space name in order that agent-controller communication can be isolated to 
 specific networks.
 
@@ -60,7 +60,7 @@ is sent the current list of API addresses and updates these in the local store.
 The client's first connection attempt is always to the last address that it 
 used successfully. Others are tried subsequently if required.
 
-Addresses used by clients are not influenced by the `juju-ctrl-space` 
+Addresses used by clients are not influenced by the `juju-mgmt-space` 
 configuration.
 
 ### Singular Workers
