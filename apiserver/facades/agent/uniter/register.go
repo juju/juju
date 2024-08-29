@@ -155,6 +155,7 @@ func newUniterAPIWithServices(
 		accessMachine:           accessMachine,
 		accessCloudSpec:         accessCloudSpec,
 		cloudSpecer:             cloudSpec,
+		cloudSpecGetter:         context.CloudSpec,
 		StorageAPI:              storageAPI,
 		logger:                  logger,
 		store:                   context.ObjectStore(),

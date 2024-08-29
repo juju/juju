@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/servicefactory"
@@ -1061,6 +1062,11 @@ func (ctx *facadeContext) ObjectStoreForModel(stdCtx context.Context, modelUUID 
 // sparingly in facade code.
 func (ctx *facadeContext) GetProvider(stdCtx context.Context) (providertracker.Provider, error) {
 	return ctx.r.providerFactory.GetProvider(stdCtx)
+}
+
+// CloudSpec returns the cloud spec for the current model.
+func (ctx *facadeContext) CloudSpec(stdCtx context.Context) (cloudspec.CloudSpec, error) {
+	return ctx.r.providerFactory.CloudSpec(stdCtx)
 }
 
 // DescribeFacades returns the list of available Facades and their Versions

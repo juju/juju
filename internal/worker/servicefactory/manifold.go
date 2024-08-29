@@ -16,6 +16,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
 )
@@ -223,4 +224,8 @@ type NoopProviderFactory struct{}
 
 func (NoopProviderFactory) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
 	return nil, errors.NotSupportedf("provider")
+}
+
+func (NoopProviderFactory) CloudSpecForModel(ctx context.Context, namespace string) (environscloudspec.CloudSpec, error) {
+	return environscloudspec.CloudSpec{}, errors.NotSupportedf("cloudspec")
 }

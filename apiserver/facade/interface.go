@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
 )
@@ -336,14 +337,23 @@ const (
 // ModelProviderFactory returns the provider for the current model.
 type ModelProviderFactory interface {
 	GetProvider(context.Context) (providertracker.Provider, error)
+	CloudSpec(context.Context) (cloudspec.CloudSpec, error)
 }
 
-// ModelProviderFactoryFunc is a simple implementation of ModelProviderFactory.
-type ModelProviderFactoryFunc func(context.Context) (providertracker.Provider, error)
+// modelProviderFactory is a simple implementation of ModelProviderFactory.
+type modelProviderFactory struct {
+	providerFactory providertracker.ProviderFactory
+	modelID         string
+}
 
 // GetProvider implements ModelProviderFactory.
-func (f ModelProviderFactoryFunc) GetProvider(ctx context.Context) (providertracker.Provider, error) {
-	return f(ctx)
+func (m *modelProviderFactory) GetProvider(ctx context.Context) (providertracker.Provider, error) {
+	return m.providerFactory.ProviderForModel(ctx, m.modelID)
+}
+
+// CloudSpec implements ModelProviderFactory.
+func (m *modelProviderFactory) CloudSpec(ctx context.Context) (cloudspec.CloudSpec, error) {
+	return m.providerFactory.CloudSpecForModel(ctx, m.modelID)
 }
 
 // NewModelProviderFactory returns a new ModelProviderFactory given a
@@ -351,9 +361,10 @@ func (f ModelProviderFactoryFunc) GetProvider(ctx context.Context) (providertrac
 func NewModelProviderFactory(
 	modelID model.UUID,
 	providerFactory providertracker.ProviderFactory,
-) ModelProviderFactoryFunc {
-	return func(ctx context.Context) (providertracker.Provider, error) {
-		return providerFactory.ProviderForModel(ctx, modelID.String())
+) ModelProviderFactory {
+	return &modelProviderFactory{
+		providerFactory: providerFactory,
+		modelID:         modelID.String(),
 	}
 }
 

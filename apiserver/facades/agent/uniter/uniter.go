@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
+	envcloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -74,6 +75,7 @@ type UniterAPI struct {
 	// We do not need to use an AuthFunc, because we do not need to pass a tag.
 	accessCloudSpec func() (func() bool, error)
 	cloudSpecer     cloudspec.CloudSpecer
+	cloudSpecGetter func(context.Context) (envcloudspec.CloudSpec, error)
 
 	logger corelogger.Logger
 }
@@ -2001,12 +2003,31 @@ func (u *UniterAPI) CloudSpec(ctx context.Context) (params.CloudSpecResult, erro
 		return params.CloudSpecResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
 	}
 
-	modelInfo, err := u.modelInfoService.GetModelInfo(ctx)
+	spec, err := u.cloudSpecGetter(ctx)
 	if err != nil {
-		return params.CloudSpecResult{}, err
+		return params.CloudSpecResult{}, apiservererrors.ServerError(err)
 	}
-	modelTag := names.NewModelTag(modelInfo.UUID.String())
-	return u.cloudSpecer.GetCloudSpec(ctx, modelTag), nil
+	var paramsCloudCredential *params.CloudCredential
+	if spec.Credential != nil && spec.Credential.AuthType() != "" {
+		paramsCloudCredential = &params.CloudCredential{
+			AuthType:   string(spec.Credential.AuthType()),
+			Attributes: spec.Credential.Attributes(),
+		}
+	}
+	result := params.CloudSpecResult{}
+	result.Result = &params.CloudSpec{
+		Type:              spec.Type,
+		Name:              spec.Name,
+		Region:            spec.Region,
+		Endpoint:          spec.Endpoint,
+		IdentityEndpoint:  spec.IdentityEndpoint,
+		StorageEndpoint:   spec.StorageEndpoint,
+		Credential:        paramsCloudCredential,
+		CACertificates:    spec.CACertificates,
+		SkipTLSVerify:     spec.SkipTLSVerify,
+		IsControllerCloud: spec.IsControllerCloud,
+	}
+	return result, nil
 }
 
 // GoalStates returns information of charm units and relations.
