@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/objectstore"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/mongo"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -172,6 +174,7 @@ type MachineRemover interface {
 type ApplicationService interface {
 	DestroyApplication(context.Context, string) error
 	DeleteApplication(context.Context, string) error
+	DestroyUnit(context.Context, string) error
 	DeleteUnit(context.Context, string) error
 }
 
@@ -220,7 +223,7 @@ func (st *State) Cleanup(
 		case cleanupForceApplication:
 			err = st.cleanupForceApplication(ctx, store, applicationService, doc.Prefix, args)
 		case cleanupUnitsForDyingApplication:
-			err = st.cleanupUnitsForDyingApplication(store, doc.Prefix, args)
+			err = st.cleanupUnitsForDyingApplication(ctx, store, applicationService, doc.Prefix, args)
 		case cleanupDyingUnit:
 			err = st.cleanupDyingUnit(doc.Prefix, args)
 		case cleanupForceDestroyedUnit:
@@ -242,7 +245,7 @@ func (st *State) Cleanup(
 		case cleanupAttachmentsForDyingStorage:
 			err = st.cleanupAttachmentsForDyingStorage(doc.Prefix, args)
 		case cleanupEvacuateMachine:
-			err = st.cleanupEvacuateMachine(doc.Prefix, store, args)
+			err = st.cleanupEvacuateMachine(ctx, doc.Prefix, store, applicationService, args)
 		case cleanupAttachmentsForDyingVolume:
 			err = st.cleanupAttachmentsForDyingVolume(doc.Prefix)
 		case cleanupAttachmentsForDyingFilesystem:
@@ -609,7 +612,8 @@ func (st *State) cleanupApplication(ctx context.Context, store objectstore.Objec
 	}
 	// Minimally initiate destroy in dqlite.
 	// It's sufficient for now just to advance the life to dying.
-	if err := appService.DestroyApplication(ctx, appName); err != nil {
+	err = appService.DestroyApplication(ctx, appName)
+	if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return errors.Annotatef(err, "destroying application %q", appName)
 	}
 	op := app.DestroyOperation(store)
@@ -647,7 +651,8 @@ func (st *State) cleanupForceApplication(ctx context.Context, store objectstore.
 
 	// Minimally initiate destroy in dqlite.
 	// It's sufficient for now just to advance the life to dying.
-	if err := appService.DestroyApplication(ctx, appName); err != nil {
+	err = appService.DestroyApplication(ctx, appName)
+	if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return errors.Annotatef(err, "destroying application %q", appName)
 	}
 
@@ -710,7 +715,8 @@ func (st *State) removeApplicationsForDyingModel(ctx context.Context, store obje
 	for iter.Next(&application.doc) {
 		// Minimally initiate destroy in dqlite.
 		// It's sufficient for now just to advance the life to dying.
-		if err := appService.DestroyApplication(ctx, application.Name()); err != nil {
+		err = appService.DestroyApplication(ctx, application.Name())
+		if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return errors.Annotatef(err, "destroying application %q", application.Name())
 		}
 		op := application.DestroyOperation(store)
@@ -779,7 +785,10 @@ func (st *State) removeOffersForDyingModel() (err error) {
 // cleanupUnitsForDyingApplication sets all units with the given prefix to Dying,
 // if they are not already Dying or Dead. It's expected to be used when an
 // application is destroyed.
-func (st *State) cleanupUnitsForDyingApplication(store objectstore.ObjectStore, applicationname string, cleanupArgs []bson.Raw) (err error) {
+func (st *State) cleanupUnitsForDyingApplication(
+	ctx context.Context, store objectstore.ObjectStore, applicationService ApplicationService,
+	applicationName string, cleanupArgs []bson.Raw,
+) (err error) {
 	var destroyStorage bool
 	destroyStorageArg := func() error {
 		err := cleanupArgs[0].Unmarshal(&destroyStorage)
@@ -814,7 +823,7 @@ func (st *State) cleanupUnitsForDyingApplication(store objectstore.ObjectStore, 
 	units, closer := st.db().GetCollection(unitsC)
 	defer closer()
 
-	sel := bson.D{{"application", applicationname}}
+	sel := bson.D{{"application", applicationName}}
 	// If we're forcing then include dying and dead units, since we
 	// still want the opportunity to schedule fallback cleanups if the
 	// unit or machine agents aren't doing their jobs.
@@ -828,6 +837,7 @@ func (st *State) cleanupUnitsForDyingApplication(store objectstore.ObjectStore, 
 	if err != nil {
 		return errors.Trace(err)
 	}
+	unitsToDestroy := set.NewStrings()
 	var unitDoc unitDoc
 	for iter.Next(&unitDoc) {
 		unit := newUnit(st, m.Type(), &unitDoc)
@@ -836,10 +846,18 @@ func (st *State) cleanupUnitsForDyingApplication(store objectstore.ObjectStore, 
 		op.Force = force
 		op.MaxWait = maxWait
 		err := st.ApplyOperation(op)
-		if len(op.Errors) != 0 {
-			logger.Warningf("operational errors destroying unit %v for dying application %v: %v", unit.Name(), applicationname, op.Errors)
+		if err == nil {
+			unitsToDestroy.Add(unit.Name())
 		}
-
+		if len(op.Errors) != 0 {
+			logger.Warningf("operational errors destroying unit %v for dying application %v: %v", unit.Name(), applicationName, op.Errors)
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	for _, u := range unitsToDestroy.Values() {
+		err = applicationService.DestroyUnit(ctx, u)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1005,7 +1023,13 @@ func (st *State) cleanupForceDestroyedUnit(ctx context.Context, store objectstor
 			logger.Warningf("couldn't get subordinate %q to force destroy: %v", subName, err)
 		}
 		removed, opErrs, err := subUnit.DestroyWithForce(store, true, maxWait)
-		if removed && err == nil {
+		if err == nil {
+			err = unitRemover.DestroyUnit(ctx, subName)
+			if err != nil {
+				opErrs = append(opErrs, err)
+			}
+		}
+		if err == nil && removed {
 			err = unitRemover.DeleteUnit(ctx, unitId)
 		}
 		if len(opErrs) != 0 || err != nil {
@@ -1471,7 +1495,7 @@ func (st *State) cleanupForceRemoveMachine(ctx context.Context, store objectstor
 
 // cleanupEvacuateMachine is initiated by machine.Destroy() to gracefully remove units
 // from the machine before then kicking off machine destroy.
-func (st *State) cleanupEvacuateMachine(machineId string, store objectstore.ObjectStore, cleanupArgs []bson.Raw) error {
+func (st *State) cleanupEvacuateMachine(ctx context.Context, machineId string, store objectstore.ObjectStore, applicationService ApplicationService, cleanupArgs []bson.Raw) error {
 	if len(cleanupArgs) > 0 {
 		return errors.Errorf("expected no arguments, got %d", len(cleanupArgs))
 	}
@@ -1498,6 +1522,7 @@ func (st *State) cleanupEvacuateMachine(machineId string, store objectstore.Obje
 		return nil
 	}
 
+	unitsToDestroy := set.NewStrings()
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			units, err = machine.Units()
@@ -1512,6 +1537,9 @@ func (st *State) cleanupEvacuateMachine(machineId string, store objectstore.Obje
 			if err != nil && !errors.Is(err, jujutxn.ErrNoOperations) {
 				return nil, errors.Trace(err)
 			}
+			if err == nil {
+				unitsToDestroy.Add(unit.Name())
+			}
 			ops = append(ops, op...)
 		}
 		return ops, nil
@@ -1520,6 +1548,12 @@ func (st *State) cleanupEvacuateMachine(machineId string, store objectstore.Obje
 	err = st.db().Run(buildTxn)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	for _, u := range unitsToDestroy.Values() {
+		err = applicationService.DestroyUnit(ctx, u)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	return errors.Errorf("waiting for units to be removed from %s", machineId)
@@ -1613,11 +1647,21 @@ func (st *State) obliterateUnit(ctx context.Context, store objectstore.ObjectSto
 			return opErrs, errors.Annotatef(err, "cannot destroy unit %q", unitName)
 		}
 		opErrs = append(opErrs, err)
-	} else if removed {
-		err = unitRemover.DeleteUnit(ctx, unitName)
+	}
+	if err == nil {
+		err = unitRemover.DestroyUnit(ctx, unitName)
 		if err != nil {
 			if !force {
 				return opErrs, errors.Annotatef(err, "cannot destroy unit %q", unitName)
+			}
+			opErrs = append(opErrs, err)
+		}
+	}
+	if err == nil && removed {
+		err = unitRemover.DeleteUnit(ctx, unitName)
+		if err != nil {
+			if !force {
+				return opErrs, errors.Annotatef(err, "cannot delete unit %q", unitName)
 			}
 			opErrs = append(opErrs, err)
 		}

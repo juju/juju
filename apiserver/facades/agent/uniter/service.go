@@ -51,6 +51,7 @@ type CredentialService interface {
 // initially weave some dqlite support into the cleanup workflow.
 type UnitRemover interface {
 	DeleteUnit(context.Context, string) error
+	DestroyUnit(context.Context, string) error
 }
 
 // NetworkService is the interface that is used to interact with the

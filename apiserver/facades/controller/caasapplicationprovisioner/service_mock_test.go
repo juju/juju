@@ -188,6 +188,20 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
+// DestroyUnit mocks base method.
+func (m *MockApplicationService) DestroyUnit(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DestroyUnit", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DestroyUnit indicates an expected call of DestroyUnit.
+func (mr *MockApplicationServiceMockRecorder) DestroyUnit(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyUnit", reflect.TypeOf((*MockApplicationService)(nil).DestroyUnit), arg0, arg1)
+}
+
 // GetApplicationScale mocks base method.
 func (m *MockApplicationService) GetApplicationScale(arg0 context.Context, arg1 string) (int, error) {
 	m.ctrl.T.Helper()

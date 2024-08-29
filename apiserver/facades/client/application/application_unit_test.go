@@ -1139,6 +1139,7 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").MinTimes(1).Return(app, nil)
 
 	// unit 0 loop
+	s.applicationService.EXPECT().DestroyUnit(gomock.Any(), "postgresql/0")
 	unit0 := s.expectUnit(ctrl, "postgresql/0")
 	unit0.EXPECT().IsPrincipal().Return(true)
 	unit0.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyUnitOperation{})
@@ -1146,6 +1147,7 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	s.backend.EXPECT().ApplyOperation(&state.DestroyUnitOperation{}).Return(nil)
 
 	// unit 1 loop
+	s.applicationService.EXPECT().DestroyUnit(gomock.Any(), "postgresql/1")
 	unit1 := s.expectUnit(ctrl, "postgresql/1")
 	unit1.EXPECT().IsPrincipal().Return(true)
 	unit1.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyUnitOperation{})
@@ -1205,6 +1207,7 @@ func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").MinTimes(1).Return(app, nil)
 
 	// unit 0 loop
+	s.applicationService.EXPECT().DestroyUnit(gomock.Any(), "postgresql/0")
 	unit0 := s.expectUnit(ctrl, "postgresql/0")
 	unit0.EXPECT().IsPrincipal().Return(true)
 	unit0.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyUnitOperation{})
@@ -1217,6 +1220,7 @@ func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
 	}}).Return(nil)
 
 	// unit 1 loop
+	s.applicationService.EXPECT().DestroyUnit(gomock.Any(), "postgresql/1")
 	unit1 := s.expectUnit(ctrl, "postgresql/1")
 	unit1.EXPECT().IsPrincipal().Return(true)
 	unit1.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyUnitOperation{})

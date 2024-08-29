@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -1375,7 +1376,7 @@ func (a *API) DestroyUnits(ctx context.Context, args params.DestroyUnitsParams) 
 	results := make([]params.DestroyUnitResult, 0, len(args.Units))
 
 	for _, unit := range args.Units {
-		res, err := a.destroyUnit(unit)
+		res, err := a.destroyUnit(ctx, unit)
 		if err != nil {
 			res = params.DestroyUnitResult{
 				Error: apiservererrors.ServerError(err),
@@ -1389,12 +1390,20 @@ func (a *API) DestroyUnits(ctx context.Context, args params.DestroyUnitsParams) 
 	}, nil
 }
 
-func (a *API) destroyUnit(args params.DestroyUnitParams) (params.DestroyUnitResult, error) {
+func (a *API) destroyUnit(ctx context.Context, args params.DestroyUnitParams) (params.DestroyUnitResult, error) {
 	unitTag, err := names.ParseUnitTag(args.UnitTag)
 	if err != nil {
 		return params.DestroyUnitResult{}, fmt.Errorf("parsing unit tag: %w", err)
 	}
 
+	err = a.applicationService.DestroyUnit(ctx, unitTag.Id())
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return params.DestroyUnitResult{}, nil
+	} else if err != nil {
+		return params.DestroyUnitResult{}, fmt.Errorf("destroying unit %q: %w", unitTag, err)
+	}
+
+	// TODO(units) - remove dual write to state
 	unit, err := a.state.Unit(unitTag.Id())
 	if errors.Is(err, errors.NotFound) {
 		return params.DestroyUnitResult{}, nil
@@ -1402,6 +1411,7 @@ func (a *API) destroyUnit(args params.DestroyUnitParams) (params.DestroyUnitResu
 		return params.DestroyUnitResult{}, fmt.Errorf("fetching unit %q state: %w", unitTag, err)
 	}
 
+	//
 	op := unit.DestroyOperation(a.store)
 	op.DestroyStorage = args.DestroyStorage
 	op.Force = args.Force

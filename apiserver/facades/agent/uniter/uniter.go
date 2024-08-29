@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -442,6 +443,13 @@ func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.E
 				unit    *state.Unit
 				removed bool
 			)
+			err = u.unitRemover.DestroyUnit(ctx, tag.Id())
+			if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+
+			// TODO(units) - remove dual write to state
 			unit, err = u.getUnit(tag)
 			if err == nil {
 				removed, err = unit.DestroyMaybeRemove(u.store)
@@ -1741,6 +1749,12 @@ func (u *UniterAPI) getRemoteRelationAppSettings(rel *state.Relation, appTag nam
 func (u *UniterAPI) destroySubordinates(ctx context.Context, principal *state.Unit) error {
 	subordinates := principal.SubordinateNames()
 	for _, subName := range subordinates {
+		err := u.unitRemover.DestroyUnit(ctx, subName)
+		if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
+			return err
+		}
+
+		// TODO(units) - remove dual write to state
 		unit, err := u.getUnit(names.NewUnitTag(subName))
 		if err != nil {
 			return err
