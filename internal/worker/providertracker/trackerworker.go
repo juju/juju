@@ -6,6 +6,7 @@ package providertracker
 import (
 	"context"
 	"reflect"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
@@ -67,6 +68,7 @@ type trackerWorker struct {
 	model            coremodel.ReadOnlyModel
 	provider         Provider
 	currentCloudSpec environscloudspec.CloudSpec
+	cloudSpecMutex   sync.RWMutex
 
 	providerGetter providerGetter
 }
@@ -130,6 +132,8 @@ func (t *trackerWorker) Provider() Provider {
 
 // CloudSpec returns the current CloudSpec.
 func (t *trackerWorker) CloudSpec() environscloudspec.CloudSpec {
+	t.cloudSpecMutex.RLock()
+	defer t.cloudSpecMutex.RUnlock()
 	return t.currentCloudSpec
 }
 
@@ -287,7 +291,10 @@ func (t *trackerWorker) updateCloudSpec(ctx context.Context, cloudSetter environ
 	}
 
 	// If the spec hasn't changed, we don't need to do anything.
-	if reflect.DeepEqual(t.currentCloudSpec, spec) {
+	t.cloudSpecMutex.RLock()
+	cloudSpec := t.currentCloudSpec
+	t.cloudSpecMutex.RUnlock()
+	if reflect.DeepEqual(cloudSpec, spec) {
 		return nil
 	}
 
@@ -296,7 +303,9 @@ func (t *trackerWorker) updateCloudSpec(ctx context.Context, cloudSetter environ
 		return errors.Annotate(err, "updating cloud spec")
 	}
 
+	t.cloudSpecMutex.Lock()
 	t.currentCloudSpec = spec
+	t.cloudSpecMutex.Unlock()
 	return nil
 }
 
