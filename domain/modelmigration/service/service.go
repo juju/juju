@@ -6,34 +6,115 @@ package service
 import (
 	"context"
 
+	"github.com/juju/version/v2"
+
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs/envcontext"
+	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
 )
 
-// Provider describes the interface that is needed from the cloud provider to
+// InstanceProvider describes the interface that is needed from the cloud provider to
 // implement the model migration service.
-type Provider interface {
-	AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error)
+type InstanceProvider interface {
+	AllInstances(envcontext.ProviderCallContext) ([]instances.Instance, error)
+}
+
+// ResourceProvider describes a provider for managing cloud resources on behalf
+// of a model.
+type ResourceProvider interface {
+	// AdoptResources is called when the model is moved from one
+	// controller to another using model migration. Some providers tag
+	// instances, disks, and cloud storage with the controller UUID to
+	// aid in clean destruction. This method will be called on the
+	// environ for the target controller so it can update the
+	// controller tags for all of those things. For providers that do
+	// not track the controller UUID, a simple method returning nil
+	// will suffice. The version number of the source controller is
+	// provided for backwards compatibility - if the technique used to
+	// tag items changes, the version number can be used to decide how
+	// to remove the old tags correctly.
+	AdoptResources(envcontext.ProviderCallContext, string, version.Number) error
 }
 
 // Service provides the means for supporting model migration actions between
 // controllers and answering questions about the underlying model(s) that are
 // being migrated.
 type Service struct {
-	// providerGetter is a getter for getting access to the models [Provider].
-	providerGetter func(context.Context) (Provider, error)
+	// instanceProviderGetter is a getter for getting access to the models
+	// [InstanceProvider].
+	instanceProviderGetter func(context.Context) (InstanceProvider, error)
+
+	// resourceProviderGetter is a getter for getting access to the models
+	// [ResourceProvider]
+	resourceProviderGettter func(context.Context) (ResourceProvider, error)
+
+	st State
+}
+
+// State defines the interface required for accessing the underlying state of
+// the model during migration.
+type State interface {
+	GetControllerUUID(context.Context) (string, error)
 }
 
 // New is responsible for constructing a new [Service] to handle model migration
 // tasks.
-func New(providerGetter providertracker.ProviderGetter[Provider]) *Service {
+func New(
+	instanceProviderGetter providertracker.ProviderGetter[InstanceProvider],
+	resourceProviderGetter providertracker.ProviderGetter[ResourceProvider],
+	st State,
+) *Service {
 	return &Service{
-		providerGetter: providerGetter,
+		instanceProviderGetter:  instanceProviderGetter,
+		resourceProviderGettter: resourceProviderGetter,
+		st:                      st,
 	}
+}
+
+// AdoptResources is responsible for taking ownership of the cloud resources of
+// a model when it has been migrated into this controller.
+func (s *Service) AdoptResources(
+	ctx context.Context,
+	sourceControllerVersion version.Number,
+) error {
+	provider, err := s.resourceProviderGettter(ctx)
+
+	// Provider doesn't support adopting resources and this is ok!
+	if errors.Is(err, coreerrors.NotSupported) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf(
+			"getting resource provider for adopting model cloud resources: %w",
+			err,
+		)
+	}
+
+	controllerUUID, err := s.st.GetControllerUUID(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"cannot get controller uuid while adopting model cloud resources: %w",
+			err,
+		)
+	}
+
+	err = provider.AdoptResources(
+		environscontext.WithoutCredentialInvalidator(ctx),
+		controllerUUID,
+		sourceControllerVersion,
+	)
+
+	// Provider doesn't support adopting resources and this is ok!
+	if errors.Is(err, coreerrors.NotImplemented) {
+		return nil
+	}
+	if err != nil {
+		return errors.Errorf("cannot adopt cloud resources for model: %w", err)
+	}
+	return nil
 }
 
 // CheckMachines is responsible for checking a model after it has been migrated
@@ -43,7 +124,7 @@ func New(providerGetter providertracker.ProviderGetter[Provider]) *Service {
 func (s *Service) CheckMachines(
 	ctx context.Context,
 ) ([]modelmigration.MigrationMachineDiscrepancy, error) {
-	provider, err := s.providerGetter(ctx)
+	provider, err := s.instanceProviderGetter(ctx)
 	if err != nil && !errors.Is(err, coreerrors.NotSupported) {
 		return nil, errors.Errorf(
 			"cannot get provider for model to check machines provider machines against the controller: %w",

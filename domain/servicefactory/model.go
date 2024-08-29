@@ -220,7 +220,9 @@ func (s *ModelFactory) Secret(adminConfigGetter secretservice.BackendAdminConfig
 // operations.
 func (s *ModelFactory) ModelMigration() *modelmigrationservice.Service {
 	return modelmigrationservice.New(
-		providertracker.ProviderRunner[modelmigrationservice.Provider](s.providerFactory, s.modelUUID.String()),
+		providertracker.ProviderRunner[modelmigrationservice.InstanceProvider](s.providerFactory, s.modelUUID.String()),
+		providertracker.ProviderRunner[modelmigrationservice.ResourceProvider](s.providerFactory, s.modelUUID.String()),
+		nil,
 	)
 }
 

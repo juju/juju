@@ -7,28 +7,119 @@ import (
 	"context"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/providertracker"
 )
 
 type serviceSuite struct {
-	provider *MockProvider
+	instanceProvider *MockInstanceProvider
+	resourceProvider *MockResourceProvider
+	state            *MockState
 }
 
 var _ = gc.Suite(&serviceSuite{})
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.provider = NewMockProvider(ctrl)
+	s.instanceProvider = NewMockInstanceProvider(ctrl)
+	s.resourceProvider = NewMockResourceProvider(ctrl)
+	s.state = NewMockState(ctrl)
 	return ctrl
 }
 
-func (s *serviceSuite) providerGetter(_ *gc.C) providertracker.ProviderGetter[Provider] {
-	return func(_ context.Context) (Provider, error) {
-		return s.provider, nil
+func (s *serviceSuite) instanceProviderGetter(_ *gc.C) providertracker.ProviderGetter[InstanceProvider] {
+	return func(_ context.Context) (InstanceProvider, error) {
+		return s.instanceProvider, nil
 	}
+}
+
+func (s *serviceSuite) resourceProviderGetter(_ *gc.C) providertracker.ProviderGetter[ResourceProvider] {
+	return func(_ context.Context) (ResourceProvider, error) {
+		return s.resourceProvider, nil
+	}
+}
+
+// TestAdoptResources is testing the happy path of adopting a models cloud
+// resources.
+func (s *serviceSuite) TestAdoptResources(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	sourceControllerVersion, err := version.Parse("4.1.1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.state.EXPECT().GetControllerUUID(gomock.Any()).Return(
+		"deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		nil,
+	)
+	s.resourceProvider.EXPECT().AdoptResources(
+		gomock.Any(),
+		"deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		sourceControllerVersion,
+	).Return(nil)
+
+	err = New(
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+		s.state,
+	).AdoptResources(context.Background(), version.Number(sourceControllerVersion))
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// TestAdoptResourcesProviderNotSupported is asserting that if the provider does
+// not support the Resources interface we don't attempt to migrate any cloud
+// resources and no error is produced.
+func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	resourceGetter := func(_ context.Context) (ResourceProvider, error) {
+		return nil, coreerrors.NotSupported
+	}
+
+	sourceControllerVersion, err := version.Parse("4.1.1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.state.EXPECT().GetControllerUUID(gomock.Any()).Return(
+		"deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		nil,
+	).AnyTimes()
+
+	err = New(
+		s.instanceProviderGetter(c),
+		resourceGetter,
+		s.state,
+	).AdoptResources(context.Background(), version.Number(sourceControllerVersion))
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// TestAdoptResourcesProviderNotImplemented is asserting that if the resource
+// provider returns a not implemented error while trying to adopt a models
+// resources no error is produced from the service and no resources are adopted.
+func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	sourceControllerVersion, err := version.Parse("4.1.1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.state.EXPECT().GetControllerUUID(gomock.Any()).Return(
+		"deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		nil,
+	)
+	s.resourceProvider.EXPECT().AdoptResources(
+		gomock.Any(),
+		"deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		sourceControllerVersion,
+	).Return(coreerrors.NotImplemented)
+
+	err = New(
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+		s.state,
+	).AdoptResources(context.Background(), version.Number(sourceControllerVersion))
+	c.Check(err, jc.ErrorIsNil)
 }
 
 // TestMachinesFromProviderDiscrepancy is testing the return value from
@@ -38,8 +129,12 @@ func (s *serviceSuite) providerGetter(_ *gc.C) providertracker.ProviderGetter[Pr
 func (s *serviceSuite) TestMachinesFromProviderDiscrepancy(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.provider.EXPECT().AllInstances(gomock.Any()).Return(nil, nil)
+	s.instanceProvider.EXPECT().AllInstances(gomock.Any()).Return(nil, nil)
 
-	_, err := New(s.providerGetter(c)).CheckMachines(context.Background())
+	_, err := New(
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+		s.state,
+	).CheckMachines(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 }
