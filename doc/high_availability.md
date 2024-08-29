@@ -13,7 +13,7 @@ controller machine ID, and increased by re-running the `enable-ha` command.
 
 ### Dqlite
 
-Each controller is a Dqlite node. The `dbaccessor` worker on each controller is 
+Each controller is a [Dqlite] node. The `dbaccessor` worker on each controller is 
 responsible for maintaining the Dqlite cluster. When entering HA mode, the 
 `dbaccessor` worker will configure the local Dqlite node as a member of the 
 cluster.
@@ -72,3 +72,5 @@ multiple actors attempting to start a cloud instance for a new machine.
 
 The controller that such singular workers run on is determined by the lease
 sub-system. See the appropriate documentation for more information on leases.
+
+[Dqlite]: https://dqlite.io/
