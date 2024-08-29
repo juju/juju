@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
@@ -26,7 +25,6 @@ import (
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
-	"github.com/juju/juju/environs/cloudspec"
 	internalsecrets "github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -76,31 +74,19 @@ func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	currentBackend, err := s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{ID: m.SecretBackendID})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	currentBackendName := m.SecretBackendName
 
 	var info provider.ModelBackendConfigInfo
 	info.Configs = make(map[string]provider.ModelBackendConfig)
 
-	// TODO(secrets) - only use those in use by model
-	// For now, we'll return all backends on the controller.
-	backends, err := s.st.ListSecretBackendsForModel(ctx, modelUUID, true)
+	backends, err := s.st.ListSecretBackendsForModel(ctx, modelUUID, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	for _, b := range backends {
-		if b.Name == currentBackend.Name {
+		s.logger.Criticalf("backend => \n%#v", b)
+		if b.Name == currentBackendName {
 			info.ActiveID = b.ID
-		}
-
-		cfg := convertConfigToAny(b.Config)
-		if b.Name == kubernetes.BackendName {
-			var err error
-			if cfg, err = s.tryControllerModelK8sBackendConfig(ctx); err != nil {
-				return nil, errors.Trace(err)
-			}
 		}
 		info.Configs[b.ID] = provider.ModelBackendConfig{
 			ControllerUUID: m.ControllerUUID,
@@ -108,12 +94,12 @@ func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID 
 			ModelName:      m.ModelName,
 			BackendConfig: provider.BackendConfig{
 				BackendType: b.BackendType,
-				Config:      cfg,
+				Config:      b.Config,
 			},
 		}
 	}
 	if info.ActiveID == "" {
-		return nil, fmt.Errorf("%w: %q", secretbackenderrors.NotFound, currentBackend.Name)
+		return nil, fmt.Errorf("%w: %q", secretbackenderrors.NotFound, currentBackendName)
 	}
 	return &info, nil
 }
@@ -310,15 +296,6 @@ func (s *Service) backendConfigInfo(
 	return info, nil
 }
 
-func convertConfigToAny(config map[string]string) map[string]interface{} {
-	if len(config) == 0 {
-		return nil
-	}
-	return transform.Map(config, func(k string, v string) (string, any) {
-		return k, v
-	})
-}
-
 func convertConfigToString(config map[string]interface{}) map[string]string {
 	if len(config) == 0 {
 		return nil
@@ -326,31 +303,6 @@ func convertConfigToString(config map[string]interface{}) map[string]string {
 	return transform.Map(config, func(k string, v interface{}) (string, string) {
 		return k, fmt.Sprintf("%v", v)
 	})
-}
-
-func getK8sBackendConfig(cloud cloud.Cloud, cred cloud.Credential) (*provider.BackendConfig, error) {
-	spec, err := cloudspec.MakeCloudSpec(cloud, "", &cred)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	k8sConfig, err := kubernetes.BuiltInConfig(spec)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return k8sConfig, nil
-}
-
-// tryControllerModelK8sBackendConfig returns the k8s backend info for the controller model UUID if it's possible.
-func (s *Service) tryControllerModelK8sBackendConfig(ctx context.Context) (provider.ConfigAttrs, error) {
-	cloud, cred, err := s.st.GetControllerModelCloudAndCredential(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	k8sConfig, err := getK8sBackendConfig(cloud, cred)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return k8sConfig.Config, nil
 }
 
 // BackendSummaryInfoForModel returns a summary of the secret backends
@@ -368,12 +320,12 @@ func (s *Service) BackendSummaryInfoForModel(ctx context.Context, modelUUID core
 				Name:                b.Name,
 				BackendType:         b.BackendType,
 				TokenRotateInterval: b.TokenRotateInterval,
-				Config:              convertConfigToAny(b.Config),
+				Config:              b.Config,
 			},
 			NumSecrets: b.NumSecrets,
 		})
 	}
-	return s.composeBackendInfoResults(ctx, backendInfos, false)
+	return s.composeBackendInfoResults(backendInfos, false)
 }
 
 // ListBackendIDs returns the IDs of all the secret backends.
@@ -394,49 +346,26 @@ func (s *Service) BackendSummaryInfo(ctx context.Context, reveal bool, names ...
 	}
 	backendInfos := make([]*SecretBackendInfo, 0, len(backends))
 	for _, b := range backends {
-		if b.Name == kubernetes.BackendName {
-			// We only care about non kubernetes backend here and
-			// the kubernetes backend info will be fetched later using the reference count data.
-			continue
-		}
 		backendInfos = append(backendInfos, &SecretBackendInfo{
 			SecretBackend: coresecrets.SecretBackend{
 				ID:                  b.ID,
 				Name:                b.Name,
 				BackendType:         b.BackendType,
 				TokenRotateInterval: b.TokenRotateInterval,
-				Config:              convertConfigToAny(b.Config),
+				Config:              b.Config,
 			},
 			NumSecrets: b.NumSecrets,
 		})
 	}
 
-	k8sBackends, err := s.st.ListInUseKubernetesSecretBackends(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, b := range k8sBackends {
-		backendInfos = append(backendInfos, &SecretBackendInfo{
-			SecretBackend: coresecrets.SecretBackend{
-				ID:          b.ID,
-				Name:        b.Name,
-				BackendType: b.BackendType,
-				Config:      convertConfigToAny(b.Config),
-				// TODO: fetch the correct config for non controller model k8s backend.
-				// https://warthogs.atlassian.net/browse/JUJU-6561
-			},
-			NumSecrets: b.NumSecrets,
-		})
-	}
-
-	results, err := s.composeBackendInfoResults(ctx, backendInfos, reveal, names...)
+	results, err := s.composeBackendInfoResults(backendInfos, reveal, names...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return results, nil
 }
 
-func (s *Service) composeBackendInfoResults(ctx context.Context, backendInfos []*SecretBackendInfo, reveal bool, names ...string) ([]*SecretBackendInfo, error) {
+func (s *Service) composeBackendInfoResults(backendInfos []*SecretBackendInfo, reveal bool, names ...string) ([]*SecretBackendInfo, error) {
 	wanted := set.NewStrings(names...)
 	for i := 0; i < len(backendInfos); {
 		b := backendInfos[i]
@@ -472,23 +401,6 @@ func (s *Service) composeBackendInfoResults(ctx context.Context, backendInfos []
 		}
 	}
 	return backendInfos, nil
-}
-
-// PingSecretBackend checks the secret backend for the given backend name.
-func (s *Service) PingSecretBackend(ctx context.Context, name string) error {
-	backend, err := s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{Name: name})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	p, err := s.registry(backend.BackendType)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = pingBackend(p, convertConfigToAny(backend.Config))
-	if err != nil {
-		return fmt.Errorf("cannot ping secret backend %q: %w", name, err)
-	}
-	return nil
 }
 
 // pingBackend instantiates a backend and pings it.
@@ -614,7 +526,7 @@ func (s *Service) UpdateSecretBackend(ctx context.Context, params UpdateSecretBa
 				cfgToApply[k] = defaultVal
 			}
 		}
-		err = configValidator.ValidateConfig(convertConfigToAny(existing.Config), cfgToApply)
+		err = configValidator.ValidateConfig(existing.Config, cfgToApply)
 		if err != nil {
 			return fmt.Errorf("%w: config for provider %q: %w", secretbackenderrors.NotValid, existing.BackendType, err)
 		}
@@ -668,7 +580,7 @@ func (s *Service) RotateBackendToken(ctx context.Context, backendID string) erro
 	s.logger.Debugf("refresh token for backend %v", backendInfo.Name)
 	cfg := provider.BackendConfig{
 		BackendType: backendInfo.BackendType,
-		Config:      convertConfigToAny(backendInfo.Config),
+		Config:      backendInfo.Config,
 	}
 	// Ideally, we should do this in a transaction, but it's not critical.
 	// Because it's called by a single worker at a time.
