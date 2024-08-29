@@ -22,38 +22,14 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(registry facade.FacadeRegistry) {
 	return func(registry facade.FacadeRegistry) {
-		registry.MustRegister("MigrationTarget", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-			return newFacadeV1(stdCtx, ctx)
-		}, reflect.TypeOf((*APIV1)(nil)))
-		registry.MustRegister("MigrationTarget", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-			return newFacadeV2(stdCtx, ctx)
-		}, reflect.TypeOf((*APIV2)(nil)))
-		registry.MustRegister("MigrationTarget", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		registry.MustRegisterForMultiModel("MigrationTarget", 3, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 			return newFacade(stdCtx, ctx, requiredMigrationFacadeVersions)
 		}, reflect.TypeOf((*API)(nil)))
 	}
 }
 
-// newFacadeV1 is used for APIV1 registration.
-func newFacadeV1(stdCtx context.Context, ctx facade.ModelContext) (*APIV1, error) {
-	api, err := newFacade(stdCtx, ctx, facades.FacadeVersions{})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIV1{API: api}, nil
-}
-
-// newFacadeV2 is used for APIV2 registration.
-func newFacadeV2(stdCtx context.Context, ctx facade.ModelContext) (*APIV2, error) {
-	api, err := newFacade(stdCtx, ctx, facades.FacadeVersions{})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIV2{APIV1: &APIV1{API: api}}, nil
-}
-
 // newFacade is used for API registration.
-func newFacade(stdCtx context.Context, ctx facade.ModelContext, facadeVersions facades.FacadeVersions) (*API, error) {
+func newFacade(stdCtx context.Context, ctx facade.MultiModelContext, facadeVersions facades.FacadeVersions) (*API, error) {
 	auth := ctx.Auth()
 	st := ctx.State()
 	if err := checkAuth(stdCtx, auth, st); err != nil {
@@ -97,6 +73,7 @@ func newFacade(stdCtx context.Context, ctx facade.ModelContext, facadeVersions f
 	if credentialService != nil {
 		credentialService = credentialService.WithValidationContextGetter(credentialCallContextGetter)
 	}
+
 	return NewAPI(
 		ctx,
 		auth,

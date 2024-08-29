@@ -118,23 +118,6 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
 }
 
-func (s *Suite) TestFacadeRegisteredV2(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 2)
-	c.Assert(err, jc.ErrorIsNil)
-
-	api, err := aFactory(context.Background(), &facadetest.MultiModelContext{
-		ModelContext: facadetest.ModelContext{
-			State_:          s.State,
-			Auth_:           s.authorizer,
-			ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.APIV2))
-}
-
 func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
 	uuid, bytes := s.makeExportedModel(c)
 	err := api.Import(context.Background(), params.SerializedModel{Bytes: bytes})
