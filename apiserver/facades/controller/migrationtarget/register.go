@@ -7,15 +7,15 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/facades"
+	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -23,17 +23,26 @@ import (
 func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(registry facade.FacadeRegistry) {
 	return func(registry facade.FacadeRegistry) {
 		registry.MustRegisterForMultiModel("MigrationTarget", 3, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
-			return newFacade(stdCtx, ctx, requiredMigrationFacadeVersions)
+			api, err := makeFacade(stdCtx, ctx, requiredMigrationFacadeVersions)
+			if err != nil {
+				return nil, errors.Errorf("making migration target version 3: %w", err)
+			}
+			return api, nil
 		}, reflect.TypeOf((*API)(nil)))
 	}
 }
 
-// newFacade is used for API registration.
-func newFacade(stdCtx context.Context, ctx facade.MultiModelContext, facadeVersions facades.FacadeVersions) (*API, error) {
+// makeFacade is responsible for constructing a new migration target facade and
+// it's dependencies.
+func makeFacade(
+	stdCtx context.Context,
+	ctx facade.MultiModelContext,
+	facadeVersions facades.FacadeVersions,
+) (*API, error) {
 	auth := ctx.Auth()
 	st := ctx.State()
 	if err := checkAuth(stdCtx, auth, st); err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 
 	credentialCallContextGetter := func(stdctx context.Context, modelUUID coremodel.UUID) (service.CredentialValidationContext, error) {
@@ -74,6 +83,10 @@ func newFacade(stdCtx context.Context, ctx facade.MultiModelContext, facadeVersi
 		credentialService = credentialService.WithValidationContextGetter(credentialCallContextGetter)
 	}
 
+	modelMigrationServiceGetter := func(modelId model.UUID) ModelMigrationService {
+		return ctx.ServiceFactoryForModel(modelId).ModelMigration()
+	}
+
 	return NewAPI(
 		ctx,
 		auth,
@@ -82,9 +95,8 @@ func newFacade(stdCtx context.Context, ctx facade.MultiModelContext, facadeVersi
 		serviceFactory.Upgrade(),
 		serviceFactory.Cloud(),
 		credentialService,
-		service.NewCredentialValidator(),
-		credentialCallContextGetter,
 		credentialcommon.CredentialInvalidatorGetter(ctx),
+		modelMigrationServiceGetter,
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facadeVersions,

@@ -32,9 +32,8 @@ import (
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
-	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
-	"github.com/juju/juju/domain/credential/service"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -68,6 +67,7 @@ type Suite struct {
 	credentialService         *credentialcommon.MockCredentialService
 	credentialValidator       *MockCredentialValidator
 	modelImporter             *MockModelImporter
+	modelMigrationService     *MockModelMigrationService
 
 	facadeContext facadetest.ModelContext
 	callContext   envcontext.ProviderCallContext
@@ -621,6 +621,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.credentialValidator = NewMockCredentialValidator(ctrl)
 
 	s.modelImporter = NewMockModelImporter(ctrl)
+	s.modelMigrationService = NewMockModelMigrationService(ctrl)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,
@@ -639,6 +640,10 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
+func (s *Suite) migrationServiceGetter(_ model.UUID) migrationtarget.ModelMigrationService {
+	return s.modelMigrationService
+}
+
 func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc, versions facades.FacadeVersions, logDir string) (*migrationtarget.API, error) {
 	return migrationtarget.NewAPI(
 		&s.facadeContext,
@@ -648,15 +653,12 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stat
 		s.upgradeService,
 		s.cloudService,
 		s.credentialService,
-		s.credentialValidator,
-		func(ctx context.Context, modelUUID coremodel.UUID) (service.CredentialValidationContext, error) {
-			return service.CredentialValidationContext{}, nil
-		},
 		func() (envcontext.ModelCredentialInvalidatorFunc, error) {
 			return func(_ context.Context, reason string) error {
 				return nil
 			}, nil
 		},
+		s.migrationServiceGetter,
 		environFunc,
 		brokerFunc,
 		versions,
