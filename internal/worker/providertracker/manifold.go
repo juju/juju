@@ -13,7 +13,6 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/cloudspec"
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/providertracker"
@@ -202,8 +201,6 @@ func manifoldOutput(in worker.Worker, out any) error {
 	var err error
 	switch result := out.(type) {
 	case *providertracker.ProviderFactory:
-		*result = w
-	case *cloudspec.CloudSpecGetter:
 		*result = w
 	case *environs.Environ:
 		p, err := w.Provider()

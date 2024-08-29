@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/cloudspec"
 	"github.com/juju/juju/core/database"
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/lease"
@@ -91,7 +90,6 @@ type ManifoldConfig struct {
 	// provider tracker, which returns a provider for a given model. This
 	// should be used sparingly in API facades.
 	ProviderFactoryName string
-	CloudSpecGetterName string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -163,9 +161,6 @@ func (config ManifoldConfig) Validate() error {
 	if config.ProviderFactoryName == "" {
 		return errors.NotValidf("empty ProviderFactoryName")
 	}
-	if config.CloudSpecGetterName == "" {
-		return errors.NotValidf("empty CloudSpecGetterName")
-	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
 	}
@@ -209,7 +204,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.TraceName,
 			config.ObjectStoreName,
 			config.ProviderFactoryName,
-			config.CloudSpecGetterName,
 			config.LogSinkName,
 		},
 		Start: config.start,
@@ -307,11 +301,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, fmt.Errorf("getting provider factory: %w", err)
 	}
 
-	var cloudSpecGetter cloudspec.CloudSpecGetter
-	if err := getter.Get(config.CloudSpecGetterName, &cloudSpecGetter); err != nil {
-		return nil, fmt.Errorf("getting cloud spec getter: %w", err)
-	}
-
 	controllerConfigService, err := config.GetControllerConfigService(getter, config.ServiceFactoryName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -364,7 +353,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		TracerGetter:                      tracerGetter,
 		ObjectStoreGetter:                 objectStoreGetter,
 		ProviderFactory:                   providerFactory,
-		CloudSpecGetter:                   cloudSpecGetter,
 		ControllerConfigService:           controllerConfigService,
 		ModelService:                      modelService,
 	})

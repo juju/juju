@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudspec"
 )
 
 // Provider in the intersection of a environs.Environ and a caas.Broker.
@@ -36,6 +37,9 @@ type ProviderFactory interface {
 	// as the Worker continues to run. If the worker is not a singular worker,
 	// then an error will be returned.
 	ProviderForModel(ctx context.Context, namespace string) (Provider, error)
+	// CloudSpecForModel returns the encapsulated cloud spec for a given model
+	// namespace.
+	CloudSpecForModel(ctx context.Context, namespace string) (cloudspec.CloudSpec, error)
 }
 
 // ProviderGetter is a function that returns a provider for a given type.

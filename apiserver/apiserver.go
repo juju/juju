@@ -43,7 +43,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/cloudspec"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
@@ -243,9 +242,6 @@ type ServerConfig struct {
 	// ProviderFactory returns a provider for a given model. This should be
 	// used sparingly in facade code.
 	ProviderFactory providertracker.ProviderFactory
-
-	// CloudSpecGetter returns a cloud spec for a given model.
-	CloudSpecGetter cloudspec.CloudSpecGetter
 }
 
 // Validate validates the API server configuration.
