@@ -5,8 +5,8 @@ Juju can be run in high availability (HA) mode. In HA mode Juju runs on
 multiple controller instances making it resilient to outages.
 
 HA mode is invoked via the `enable-ha` command. By default, this will ensure 
-three controllers, but using the `-n` flag will allow running with five or 
-seven controllers.
+three controllers, but using the `-n` flag allows running with five or seven
+controllers.
 
 The number of controllers can be reduced by invoking `remove-machine` with a 
 controller machine ID, and increased by re-running the `enable-ha` command.
@@ -30,8 +30,8 @@ which are eligible to participate in leader elections, stand-bys and spares.
 Juju does not predicate any logic on node roles.
 
 If the number of controller instances is reduced to one, the `dbaccessor` 
-worker will recognise this scenario and proactively reconfigure the cluster to
-be constituted by the local node only.
+worker detects this scenario and proactively reconfigure the cluster to be 
+constituted by the local node only.
 
 ### Controller Charm
 
