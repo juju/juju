@@ -894,9 +894,14 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		return fmt.Errorf("cannot get container networking method: %w", err)
 	}
 
+	modelConfig, err := api.modelConfigService.ModelConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("getting model config: %w", err)
+	}
+
 	policy, err := containerizer.NewBridgePolicy(ctx,
 		api.networkService,
-		env.Config().NetBondReconfigureDelay(), // TODO: replace with model config service
+		modelConfig.NetBondReconfigureDelay(),
 		containerNetworkingMethod,
 	)
 	if err != nil {
@@ -1045,10 +1050,6 @@ func (api *ProvisionerAPI) prepareContainerAccessEnvironment(ctx context.Context
 	env, err := environs.GetEnviron(ctx, api.configGetter, environs.New)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
-	}
-	// TODO(jam): 2017-02-01 NetworkingEnvironFromModelConfig used to do this, but it doesn't feel good
-	if env.Config().Type() == "dummy" {
-		return nil, nil, nil, errors.NotSupportedf("dummy provider network config")
 	}
 
 	canAccess, err := api.getAuthFunc()

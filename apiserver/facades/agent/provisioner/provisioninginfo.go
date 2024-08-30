@@ -23,6 +23,7 @@ import (
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -76,6 +77,16 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 	env environs.Environ,
 	allSpaces network.SpaceInfos,
 ) (*params.ProvisioningInfo, error) {
+	// Cache information about the model for the duration of this facade call
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting model info: %w", err)
+	}
+	modelConfig, err := api.modelConfigService.ModelConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting model config: %w", err)
+	}
+
 	endpointBindings, err := api.machineEndpointBindings(m)
 	if err != nil {
 		return nil, apiservererrors.ServerError(errors.Annotate(err, "cannot determine machine endpoint bindings"))
@@ -87,7 +98,7 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 	}
 
 	var result params.ProvisioningInfo
-	if result, err = api.getProvisioningInfoBase(ctx, m, env, spaceBindings); err != nil {
+	if result, err = api.getProvisioningInfoBase(ctx, m, env, spaceBindings, modelConfig, modelInfo); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -100,7 +111,7 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 		return nil, errors.Trace(err)
 	}
 
-	if result.ProvisioningNetworkTopology, err = api.machineSpaceTopology(ctx, m.Id(), cons, machineSpaces); err != nil {
+	if result.ProvisioningNetworkTopology, err = api.machineSpaceTopology(ctx, m.Id(), cons, machineSpaces, modelInfo.CloudType); err != nil {
 		return nil, errors.Annotate(err, "matching subnets to zones")
 	}
 
@@ -112,12 +123,14 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 	m *state.Machine,
 	env environs.Environ,
 	endpointBindings map[string]string,
+	modelConfig *config.Config,
+	modelInfo model.ReadOnlyModel,
 ) (params.ProvisioningInfo, error) {
 	base := m.Base()
 	result := params.ProvisioningInfo{
 		Base:              params.Base{Name: base.OS, Channel: base.Channel},
 		Placement:         m.Placement(),
-		CloudInitUserData: env.Config().CloudInitUserData(),
+		CloudInitUserData: modelConfig.CloudInitUserData(),
 
 		// EndpointBindings are used by MAAS by the provider. Operator defined
 		// space bindings are reflected in ProvisioningNetworkTopology.
@@ -143,15 +156,15 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		}
 	}
 
-	if result.Volumes, result.VolumeAttachments, err = api.machineVolumeParams(ctx, m, env); err != nil {
+	if result.Volumes, result.VolumeAttachments, err = api.machineVolumeParams(ctx, m, env, modelConfig, modelInfo.UUID); err != nil {
 		return result, errors.Trace(err)
 	}
 
-	if result.CharmLXDProfiles, err = api.machineLXDProfileNames(ctx, m, env); err != nil {
+	if result.CharmLXDProfiles, err = api.machineLXDProfileNames(ctx, m, env, modelInfo.Name); err != nil {
 		return result, errors.Annotate(err, "cannot write lxd profiles")
 	}
 
-	if result.ImageMetadata, err = api.availableImageMetadata(ctx, m, env); err != nil {
+	if result.ImageMetadata, err = api.availableImageMetadata(ctx, m, env, modelConfig.ImageStream()); err != nil {
 		return result, errors.Annotate(err, "cannot get available image metadata")
 	}
 
@@ -167,7 +180,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		isController = isController || result.Jobs[i].NeedsState()
 	}
 
-	if result.Tags, err = api.machineTags(ctx, m, isController); err != nil {
+	if result.Tags, err = api.machineTags(ctx, m, isController, modelConfig, modelInfo); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -181,6 +194,8 @@ func (api *ProvisionerAPI) machineVolumeParams(
 	ctx context.Context,
 	m *state.Machine,
 	env environs.Environ,
+	modelConfig *config.Config,
+	modelUUID model.UUID,
 ) ([]params.VolumeParams, []params.VolumeAttachmentParams, error) {
 	sb, err := state.NewStorageBackend(api.st)
 	if err != nil {
@@ -192,14 +207,6 @@ func (api *ProvisionerAPI) machineVolumeParams(
 	}
 	if len(volumeAttachments) == 0 {
 		return nil, nil, nil
-	}
-	modelConfig, err := api.modelConfigService.ModelConfig(ctx)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
 	}
 
 	allVolumeParams := make([]params.VolumeParams, 0, len(volumeAttachments))
@@ -217,7 +224,7 @@ func (api *ProvisionerAPI) machineVolumeParams(
 			return nil, nil, errors.Annotatef(err, "getting volume %q storage instance", volumeTag.Id())
 		}
 		volumeParams, err := storagecommon.VolumeParams(ctx,
-			volume, storageInstance, string(modelInfo.UUID), api.controllerUUID,
+			volume, storageInstance, string(modelUUID), api.controllerUUID,
 			modelConfig, api.storagePoolGetter, api.storageProviderRegistry,
 		)
 		if err != nil {
@@ -269,7 +276,13 @@ func (api *ProvisionerAPI) machineVolumeParams(
 }
 
 // machineTags returns machine-specific tags to set on the instance.
-func (api *ProvisionerAPI) machineTags(ctx context.Context, m *state.Machine, isController bool) (map[string]string, error) {
+func (api *ProvisionerAPI) machineTags(
+	ctx context.Context,
+	m *state.Machine,
+	isController bool,
+	modelConfig *config.Config,
+	modelInfo model.ReadOnlyModel,
+) (map[string]string, error) {
 	// Names of all units deployed to the machine.
 	//
 	// TODO(axw) 2015-06-02 #1461358
@@ -288,21 +301,12 @@ func (api *ProvisionerAPI) machineTags(ctx context.Context, m *state.Machine, is
 	}
 	sort.Strings(unitNames)
 
-	cfg, err := api.modelConfigService.ModelConfig(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	machineTags := instancecfg.InstanceTags(string(modelInfo.UUID), api.controllerUUID, cfg, isController)
+	machineTags := instancecfg.InstanceTags(string(modelInfo.UUID), api.controllerUUID, modelConfig, isController)
 	if len(unitNames) > 0 {
 		machineTags[tags.JujuUnitsDeployed] = strings.Join(unitNames, " ")
 	}
 
-	machineID := fmt.Sprintf("%s-%s", cfg.Name(), m.Tag().String())
+	machineID := fmt.Sprintf("%s-%s", modelInfo.Name, m.Tag().String())
 	machineTags[tags.JujuMachine] = machineID
 
 	return machineTags, nil
@@ -354,6 +358,7 @@ func (api *ProvisionerAPI) machineSpaceTopology(
 	machineID string,
 	cons constraints.Value,
 	spaceNames []string,
+	cloudType string,
 ) (params.ProvisioningNetworkTopology, error) {
 	var topology params.ProvisioningNetworkTopology
 
@@ -371,7 +376,7 @@ func (api *ProvisionerAPI) machineSpaceTopology(
 	topology.SpaceSubnets = make(map[string][]string)
 
 	for _, spaceName := range spaceNames {
-		subnetsAndZones, err := api.subnetsAndZonesForSpace(ctx, machineID, spaceName)
+		subnetsAndZones, err := api.subnetsAndZonesForSpace(ctx, machineID, spaceName, cloudType)
 		if err != nil {
 			if errors.Is(err, networkerrors.SpaceNotFound) {
 				return topology, errors.NotFoundf("space with name %q", spaceName)
@@ -398,7 +403,12 @@ func (api *ProvisionerAPI) machineSpaceTopology(
 	return topology, nil
 }
 
-func (api *ProvisionerAPI) subnetsAndZonesForSpace(ctx context.Context, machineID string, spaceName string) (map[string][]string, error) {
+func (api *ProvisionerAPI) subnetsAndZonesForSpace(
+	ctx context.Context,
+	machineID string,
+	spaceName string,
+	cloudType string,
+) (map[string][]string, error) {
 	space, err := api.networkService.SpaceByName(ctx, spaceName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -408,12 +418,6 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(ctx context.Context, machineI
 
 	if len(subnets) == 0 {
 		return nil, errors.Errorf("cannot use space %q as deployment target: no subnets", spaceName)
-	}
-
-	// Memoise the determination of the model's provider.
-	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("getting model info: %w", err)
 	}
 
 	subnetsToZones := make(map[string][]string, len(subnets))
@@ -437,7 +441,7 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(ctx context.Context, machineI
 			// For these cases we allow empty map entries.
 			// TODO (manadart 2022-11-10): Bring this condition under testing
 			// when we cut machine handling over to Dqlite.
-			if modelInfo.CloudType != "azure" && modelInfo.CloudType != "openstack" {
+			if cloudType != "azure" && cloudType != "openstack" {
 				api.logger.Warningf(warningPrefix + "no availability zone(s) set")
 				continue
 			}
@@ -452,7 +456,12 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(ctx context.Context, machineI
 // the given machine and returns the names of profiles. Unlike
 // containerLXDProfilesInfo which returns the info necessary to write lxd profiles
 // via the lxd broker.
-func (api *ProvisionerAPI) machineLXDProfileNames(ctx context.Context, m *state.Machine, env environs.Environ) ([]string, error) {
+func (api *ProvisionerAPI) machineLXDProfileNames(
+	ctx context.Context,
+	m *state.Machine,
+	env environs.Environ,
+	modelName string,
+) ([]string, error) {
 	profileEnv, ok := env.(environs.LXDProfiler)
 	if !ok {
 		api.logger.Tracef("LXDProfiler not implemented by environ")
@@ -460,11 +469,6 @@ func (api *ProvisionerAPI) machineLXDProfileNames(ctx context.Context, m *state.
 	}
 
 	units, err := m.Units()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -485,8 +489,7 @@ func (api *ProvisionerAPI) machineLXDProfileNames(ctx context.Context, m *state.
 		if profile == nil || profile.Empty() {
 			continue
 		}
-
-		pName := lxdprofile.Name(modelInfo.Name, app.Name(), ch.Revision())
+		pName := lxdprofile.Name(modelName, app.Name(), ch.Revision())
 		// Lock here, we get a new env for every call to ProvisioningInfo().
 		api.mu.Lock()
 		if err := profileEnv.MaybeWriteLXDProfile(pName, lxdprofile.Profile{
@@ -561,15 +564,17 @@ func (api *ProvisionerAPI) translateEndpointBindingsToSpaces(spaceInfos network.
 // or an error fetching them.
 func (api *ProvisionerAPI) availableImageMetadata(
 	ctx context.Context,
-	m *state.Machine, env environs.Environ,
+	m *state.Machine,
+	env environs.Environ,
+	imageStream string,
 ) ([]params.CloudImageMetadata, error) {
-	imageConstraint, err := api.constructImageConstraint(m, env)
+	imageConstraint, err := api.constructImageConstraint(ctx, m, env, imageStream)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not construct image constraint")
 	}
 
 	// Look for image metadata in state.
-	data, err := api.findImageMetadata(ctx, imageConstraint, env)
+	data, err := api.findImageMetadata(ctx, imageConstraint, env, imageStream)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -579,7 +584,12 @@ func (api *ProvisionerAPI) availableImageMetadata(
 }
 
 // constructImageConstraint returns model-specific criteria used to look for image metadata.
-func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env environs.Environ) (*imagemetadata.ImageConstraint, error) {
+func (api *ProvisionerAPI) constructImageConstraint(
+	ctx context.Context,
+	m *state.Machine,
+	env environs.Environ,
+	imageStream string,
+) (*imagemetadata.ImageConstraint, error) {
 	base, err := corebase.ParseBase(m.Base().OS, m.Base().Channel)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -587,7 +597,7 @@ func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env enviro
 	vers := base.Channel.Track
 	lookup := simplestreams.LookupParams{
 		Releases: []string{vers},
-		Stream:   env.Config().ImageStream(),
+		Stream:   imageStream,
 	}
 
 	cons, err := m.Constraints()
@@ -617,7 +627,12 @@ func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env enviro
 // findImageMetadata returns all image metadata or an error fetching them.
 // It looks for image metadata in state.
 // If none are found, we fall back on original image search in simple streams.
-func (api *ProvisionerAPI) findImageMetadata(ctx context.Context, imageConstraint *imagemetadata.ImageConstraint, env environs.Environ) ([]params.CloudImageMetadata, error) {
+func (api *ProvisionerAPI) findImageMetadata(
+	ctx context.Context,
+	imageConstraint *imagemetadata.ImageConstraint,
+	env environs.Environ,
+	imageStream string,
+) ([]params.CloudImageMetadata, error) {
 	// Look for image metadata in state.
 	stateMetadata, err := api.imageMetadataFromState(imageConstraint)
 	if err != nil && !errors.Is(err, errors.NotFound) {
@@ -635,7 +650,7 @@ func (api *ProvisionerAPI) findImageMetadata(ctx context.Context, imageConstrain
 	// Currently, an image metadata worker picks up this metadata periodically (daily),
 	// and stores it in state. So potentially, this collection could be different
 	// to what is in state.
-	dsMetadata, err := api.imageMetadataFromDataSources(ctx, env, imageConstraint)
+	dsMetadata, err := api.imageMetadataFromDataSources(ctx, env, imageConstraint, imageStream)
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
@@ -685,14 +700,18 @@ func (api *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.Imag
 }
 
 // imageMetadataFromDataSources finds image metadata that match specified criteria in existing data sources.
-func (api *ProvisionerAPI) imageMetadataFromDataSources(ctx context.Context, env environs.Environ, constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
+func (api *ProvisionerAPI) imageMetadataFromDataSources(
+	ctx context.Context,
+	env environs.Environ,
+	constraint *imagemetadata.ImageConstraint,
+	defaultImageStream string,
+) ([]params.CloudImageMetadata, error) {
 	fetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 	sources, err := environs.ImageMetadataSources(env, fetcher)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	cfg := env.Config()
 	toModel := func(m *imagemetadata.ImageMetadata, source string, priority int) cloudimagemetadata.Metadata {
 		result := cloudimagemetadata.Metadata{
 			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
@@ -714,7 +733,7 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(ctx context.Context, env
 			result.Stream = constraint.Stream
 		}
 		if result.Stream == "" {
-			result.Stream = cfg.ImageStream()
+			result.Stream = defaultImageStream
 		}
 		return result
 	}
