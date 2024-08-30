@@ -65,7 +65,7 @@ func (s *serviceSuite) TestAdoptResources(c *gc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.state,
-	).AdoptResources(context.Background(), version.Number(sourceControllerVersion))
+	).AdoptResources(context.Background(), sourceControllerVersion)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -91,7 +91,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *gc.C) {
 		s.instanceProviderGetter(c),
 		resourceGetter,
 		s.state,
-	).AdoptResources(context.Background(), version.Number(sourceControllerVersion))
+	).AdoptResources(context.Background(), sourceControllerVersion)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -118,7 +118,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *gc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.state,
-	).AdoptResources(context.Background(), version.Number(sourceControllerVersion))
+	).AdoptResources(context.Background(), sourceControllerVersion)
 	c.Check(err, jc.ErrorIsNil)
 }
 
