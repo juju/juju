@@ -11,26 +11,18 @@ import (
 	"time"
 
 	"github.com/juju/description/v8"
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/common/credentialcommon"
-	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/facades"
-	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
@@ -38,7 +30,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/environs/instances"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
 	_ "github.com/juju/juju/internal/provider/manual"
@@ -50,7 +41,6 @@ import (
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -63,9 +53,6 @@ type Suite struct {
 	serviceFactoryGetter      *MockServiceFactoryGetter
 	externalControllerService *MockExternalControllerService
 	upgradeService            *MockUpgradeService
-	cloudService              *commonmocks.MockCloudService
-	credentialService         *credentialcommon.MockCredentialService
-	credentialValidator       *MockCredentialValidator
 	modelImporter             *MockModelImporter
 	modelMigrationService     *MockModelMigrationService
 
@@ -408,13 +395,7 @@ func (s *Suite) TestAdoptIAASResources(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	env := mockEnv{Stub: &testing.Stub{}}
-	api, err := s.newAPI(func(model stateenvirons.Model, _ stateenvirons.CloudService, _ stateenvirons.CredentialService) (environs.Environ, error) {
-		c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
-		return &env, nil
-	}, func(model stateenvirons.Model, _ stateenvirons.CloudService, _ stateenvirons.CredentialService) (caas.Broker, error) {
-		return nil, errors.New("should not be called")
-	}, facades.FacadeVersions{}, c.MkDir())
+	api, err := s.newAPI(facades.FacadeVersions{}, c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, err := st.Model()
@@ -425,12 +406,6 @@ func (s *Suite) TestAdoptIAASResources(c *gc.C) {
 		SourceControllerVersion: version.MustParse("3.2.1"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(env.Stub.Calls(), gc.HasLen, 1)
-	aCall := env.Stub.Calls()[0]
-	c.Assert(aCall.FuncName, gc.Equals, "AdoptResources")
-	c.Assert(aCall.Args[1], gc.Equals, st.ControllerUUID())
-	c.Assert(aCall.Args[2], gc.Equals, version.MustParse("3.2.1"))
 }
 
 func (s *Suite) TestAdoptCAASResources(c *gc.C) {
@@ -439,13 +414,7 @@ func (s *Suite) TestAdoptCAASResources(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 
-	broker := mockBroker{Stub: &testing.Stub{}}
-	api, err := s.newAPI(func(model stateenvirons.Model, _ stateenvirons.CloudService, _ stateenvirons.CredentialService) (environs.Environ, error) {
-		return nil, errors.New("should not be called")
-	}, func(model stateenvirons.Model, _ stateenvirons.CloudService, _ stateenvirons.CredentialService) (caas.Broker, error) {
-		c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
-		return &broker, nil
-	}, facades.FacadeVersions{}, c.MkDir())
+	api, err := s.newAPI(facades.FacadeVersions{}, c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, err := st.Model()
@@ -456,12 +425,6 @@ func (s *Suite) TestAdoptCAASResources(c *gc.C) {
 		SourceControllerVersion: version.MustParse("3.2.1"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(broker.Stub.Calls(), gc.HasLen, 1)
-	aCall := broker.Stub.Calls()[0]
-	c.Assert(aCall.FuncName, gc.Equals, "AdoptResources")
-	c.Assert(aCall.Args[1], gc.Equals, st.ControllerUUID())
-	c.Assert(aCall.Args[2], gc.Equals, version.MustParse("3.2.1"))
 }
 
 func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
@@ -479,14 +442,7 @@ func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
 	})
 	c.Assert(m.Id(), gc.Equals, "1")
 
-	mockEnv := mockEnv{
-		Stub: &testing.Stub{},
-		instances: []*mockInstance{
-			{id: "volta"},
-			{id: "eriatarka"},
-		},
-	}
-	api := s.mustNewAPIWithModel(c, &mockEnv, &mockBroker{})
+	api := s.mustNewAPIWithModel(c)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
@@ -508,11 +464,7 @@ func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
 	})
 	fact.MakeMachineNested(c, m.Id(), nil)
 
-	mockEnv := mockEnv{
-		Stub:      &testing.Stub{},
-		instances: []*mockInstance{{id: "birds"}},
-	}
-	api := s.mustNewAPIWithModel(c, &mockEnv, &mockBroker{})
+	api := s.mustNewAPIWithModel(c)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
@@ -536,11 +488,7 @@ func (s *Suite) TestCheckMachinesIgnoresManualMachines(c *gc.C) {
 		Nonce: "manual:flibbertigibbert",
 	})
 
-	mockEnv := mockEnv{
-		Stub:      &testing.Stub{},
-		instances: []*mockInstance{{id: "birds"}},
-	}
-	api := s.mustNewAPIWithModel(c, &mockEnv, &mockBroker{})
+	api := s.mustNewAPIWithModel(c)
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -554,20 +502,10 @@ func (s *Suite) TestCheckMachinesIgnoresManualMachines(c *gc.C) {
 func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.cloudService.EXPECT().Cloud(gomock.Any(), "manual").Return(&cloud.Cloud{
-		Name:      "manual",
-		Type:      "manual",
-		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
-		Endpoint:  "10.0.0.1",
-	}, nil)
-
 	owner := s.Factory.MakeUser(c, nil)
 
-	cred := cloud.NewCredential(cloud.EmptyAuthType, nil)
 	tag := names.NewCloudCredentialTag(
 		fmt.Sprintf("manual/%s/dummy-credential", owner.Name()))
-	s.credentialService.EXPECT().CloudCredential(gomock.Any(), credential.KeyFromTag(tag)).Return(cred, nil)
-	s.credentialValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), credential.KeyFromTag(tag), &cred, false)
 
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		CloudName:       "manual",
@@ -584,11 +522,7 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 		Nonce: "manual:flibbertigibbert",
 	})
 
-	mockEnv := mockEnv{
-		Stub:      &testing.Stub{},
-		instances: []*mockInstance{{id: "birds"}, {id: "flibbertigibbert"}},
-	}
-	api := s.mustNewAPIWithModel(c, &mockEnv, &mockBroker{})
+	api := s.mustNewAPIWithModel(c)
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -610,15 +544,6 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.externalControllerService = NewMockExternalControllerService(ctrl)
 	s.upgradeService = NewMockUpgradeService(ctrl)
-	s.cloudService = commonmocks.NewMockCloudService(ctrl)
-	s.cloudService.EXPECT().Cloud(gomock.Any(), "dummy").Return(&cloud.Cloud{
-		Name:      "dummy",
-		Type:      "dummy",
-		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
-		Endpoint:  "10.0.0.1",
-	}, nil).AnyTimes()
-	s.credentialService = credentialcommon.NewMockCredentialService(ctrl)
-	s.credentialValidator = NewMockCredentialValidator(ctrl)
 
 	s.modelImporter = NewMockModelImporter(ctrl)
 	s.modelMigrationService = NewMockModelMigrationService(ctrl)
@@ -644,51 +569,38 @@ func (s *Suite) migrationServiceGetter(_ model.UUID) migrationtarget.ModelMigrat
 	return s.modelMigrationService
 }
 
-func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc, versions facades.FacadeVersions, logDir string) (*migrationtarget.API, error) {
+func (s *Suite) newAPI(versions facades.FacadeVersions, logDir string) (*migrationtarget.API, error) {
 	return migrationtarget.NewAPI(
 		&s.facadeContext,
 		s.authorizer,
 		s.controllerConfigService,
 		s.externalControllerService,
 		s.upgradeService,
-		s.cloudService,
-		s.credentialService,
-		func() (envcontext.ModelCredentialInvalidatorFunc, error) {
-			return func(_ context.Context, reason string) error {
-				return nil
-			}, nil
-		},
 		s.migrationServiceGetter,
-		environFunc,
-		brokerFunc,
 		versions,
 		logDir,
 	)
 }
 
 func (s *Suite) mustNewAPI(c *gc.C, logDir string) *migrationtarget.API {
-	api, err := s.newAPI(nil, nil, facades.FacadeVersions{}, logDir)
+	api, err := s.newAPI(facades.FacadeVersions{}, logDir)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
 
-func (s *Suite) newAPIWithFacadeVersions(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc, versions facades.FacadeVersions, logDir string) (*migrationtarget.API, error) {
-	api, err := s.newAPI(environFunc, brokerFunc, versions, logDir)
+func (s *Suite) newAPIWithFacadeVersions(versions facades.FacadeVersions, logDir string) (*migrationtarget.API, error) {
+	api, err := s.newAPI(versions, logDir)
 	return api, err
 }
 
 func (s *Suite) mustNewAPIWithFacadeVersions(c *gc.C, versions facades.FacadeVersions) *migrationtarget.API {
-	api, err := s.newAPIWithFacadeVersions(nil, nil, versions, c.MkDir())
+	api, err := s.newAPIWithFacadeVersions(versions, c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
 
-func (s *Suite) mustNewAPIWithModel(c *gc.C, env environs.Environ, broker caas.Broker) *migrationtarget.API {
-	api, err := s.newAPI(func(stateenvirons.Model, stateenvirons.CloudService, stateenvirons.CredentialService) (environs.Environ, error) {
-		return env, nil
-	}, func(stateenvirons.Model, stateenvirons.CloudService, stateenvirons.CredentialService) (caas.Broker, error) {
-		return broker, nil
-	}, facades.FacadeVersions{}, c.MkDir())
+func (s *Suite) mustNewAPIWithModel(c *gc.C) *migrationtarget.API {
+	api, err := s.newAPI(facades.FacadeVersions{}, c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
@@ -731,44 +643,4 @@ func (s *Suite) expectImportModel(c *gc.C) {
 
 func cloudSchemaSource(environs.CloudService) config.ConfigSchemaSourceGetter {
 	return state.NoopConfigSchemaSource
-}
-
-type mockEnv struct {
-	environs.Environ
-	*testing.Stub
-
-	instances []*mockInstance
-}
-
-func (e *mockEnv) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
-	e.MethodCall(e, "AdoptResources", ctx, controllerUUID, sourceVersion)
-	return e.NextErr()
-}
-
-func (e *mockEnv) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
-	e.MethodCall(e, "AllInstances", ctx)
-	results := make([]instances.Instance, len(e.instances))
-	for i, anInstance := range e.instances {
-		results[i] = anInstance
-	}
-	return results, e.NextErr()
-}
-
-type mockBroker struct {
-	caas.Broker
-	*testing.Stub
-}
-
-func (e *mockBroker) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
-	e.MethodCall(e, "AdoptResources", ctx, controllerUUID, sourceVersion)
-	return e.NextErr()
-}
-
-type mockInstance struct {
-	instances.Instance
-	id string
-}
-
-func (i *mockInstance) Id() instance.Id {
-	return instance.Id(i.id)
 }

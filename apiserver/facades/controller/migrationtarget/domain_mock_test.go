@@ -17,6 +17,7 @@ import (
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	modelmigration "github.com/juju/juju/domain/modelmigration"
 	state "github.com/juju/juju/state"
+	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -328,6 +329,44 @@ func NewMockModelMigrationService(ctrl *gomock.Controller) *MockModelMigrationSe
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelMigrationService) EXPECT() *MockModelMigrationServiceMockRecorder {
 	return m.recorder
+}
+
+// AdoptResources mocks base method.
+func (m *MockModelMigrationService) AdoptResources(arg0 context.Context, arg1 version.Number) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AdoptResources", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AdoptResources indicates an expected call of AdoptResources.
+func (mr *MockModelMigrationServiceMockRecorder) AdoptResources(arg0, arg1 any) *MockModelMigrationServiceAdoptResourcesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AdoptResources", reflect.TypeOf((*MockModelMigrationService)(nil).AdoptResources), arg0, arg1)
+	return &MockModelMigrationServiceAdoptResourcesCall{Call: call}
+}
+
+// MockModelMigrationServiceAdoptResourcesCall wrap *gomock.Call
+type MockModelMigrationServiceAdoptResourcesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelMigrationServiceAdoptResourcesCall) Return(arg0 error) *MockModelMigrationServiceAdoptResourcesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelMigrationServiceAdoptResourcesCall) Do(f func(context.Context, version.Number) error) *MockModelMigrationServiceAdoptResourcesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelMigrationServiceAdoptResourcesCall) DoAndReturn(f func(context.Context, version.Number) error) *MockModelMigrationServiceAdoptResourcesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // CheckMachines mocks base method.

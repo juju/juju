@@ -12,10 +12,9 @@ import (
 
 	"github.com/juju/description/v8"
 	"github.com/juju/names/v5"
+	"github.com/juju/version/v2"
 	"github.com/vallerion/rscanner"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
@@ -25,17 +24,13 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	modelmigration "github.com/juju/juju/domain/modelmigration"
-	"github.com/juju/juju/environs"
-	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // ModelImporter defines an interface for importing models.
@@ -66,13 +61,17 @@ type ControllerConfigService interface {
 
 // ModelManagerService describes the method needed to update model metadata.
 type ModelManagerService interface {
-	Create(context.Context, coremodel.UUID) error
+	Create(context.Context, model.UUID) error
 }
 
 // ModelMigrationService provides the means for supporting model migration
 // actions between controllers and answering questions about the underlying
 // model(s) that are being migrated.
 type ModelMigrationService interface {
+	// AdoptResources is responsible for taking ownership of the cloud resources
+	// of a model when it has been migrated into this controller.
+	AdoptResources(context.Context, version.Number) error
+
 	// CheckMachines is responsible for checking a model after it has been
 	// migrated into this target controller. We check the machines that exist in
 	// the model against the machines reported by the models cloud and report
@@ -97,20 +96,13 @@ type API struct {
 	modelImporter  ModelImporter
 	upgradeService UpgradeService
 
-	controllerUUID              string
 	controllerConfigService     ControllerConfigService
 	externalControllerService   ExternalControllerService
-	cloudService                common.CloudService
-	credentialService           credentialcommon.CredentialService
-	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter
 	modelMigrationServiceGetter ModelMigrationServiceGetter
 
 	pool       *state.StatePool
 	authorizer facade.Authorizer
 	presence   facade.Presence
-
-	getEnviron    stateenvirons.NewEnvironFunc
-	getCAASBroker stateenvirons.NewCAASBrokerFunc
 
 	requiredMigrationFacadeVersions facades.FacadeVersions
 
@@ -125,12 +117,7 @@ func NewAPI(
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
 	upgradeService UpgradeService,
-	cloudService common.CloudService,
-	credentialService credentialcommon.CredentialService,
-	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter,
 	modelMigrationServiceGetter ModelMigrationServiceGetter,
-	getEnviron stateenvirons.NewEnvironFunc,
-	getCAASBroker stateenvirons.NewCAASBrokerFunc,
 	requiredMigrationFacadeVersions facades.FacadeVersions,
 	logDir string,
 ) (*API, error) {
@@ -140,18 +127,12 @@ func NewAPI(
 		pool:                            ctx.StatePool(),
 		controllerConfigService:         controllerConfigService,
 		externalControllerService:       externalControllerService,
-		cloudService:                    cloudService,
 		upgradeService:                  upgradeService,
-		credentialService:               credentialService,
-		credentialInvalidatorGetter:     credentialInvalidatorGetter,
 		modelMigrationServiceGetter:     modelMigrationServiceGetter,
 		authorizer:                      authorizer,
 		presence:                        ctx.Presence(),
-		getEnviron:                      getEnviron,
-		getCAASBroker:                   getCAASBroker,
 		requiredMigrationFacadeVersions: requiredMigrationFacadeVersions,
 		logDir:                          logDir,
-		controllerUUID:                  ctx.ControllerUUID(),
 	}, nil
 }
 
@@ -468,43 +449,9 @@ func (api *API) AdoptResources(ctx context.Context, args params.AdoptResourcesAr
 	if err != nil {
 		return errors.Errorf("cannot parse model tag: %w", err)
 	}
-	st, err := api.pool.Get(tag.Id())
-	if err != nil {
-		return errors.Errorf(
-			"cannot get state for model %q to adopt cloud resources: %w",
-			tag.Id(), err,
-		)
-	}
-	defer st.Release()
 
-	m, err := st.Model()
-	if err != nil {
-		return errors.Errorf("cannot get model %q: %w", tag.Id(), err)
-	}
-
-	var ra environs.ResourceAdopter
-	if m.Type() == state.ModelTypeCAAS {
-		ra, err = api.getCAASBroker(m, api.cloudService, api.credentialService)
-	} else {
-		ra, err = api.getEnviron(m, api.cloudService, api.credentialService)
-	}
-	if err != nil {
-		return errors.Errorf(
-			"cannot get environ resource adopter for model %q: %w",
-			m.UUID(), err,
-		)
-	}
-
-	invalidatorFunc, err := api.credentialInvalidatorGetter()
-	if err != nil {
-		return errors.Errorf("getting environ credential invalidator for model %q: %w", m.UUID(), err)
-	}
-	callCtx := environscontext.WithCredentialInvalidator(ctx, invalidatorFunc)
-	err = ra.AdoptResources(callCtx, api.controllerUUID, args.SourceControllerVersion)
-	if errors.Is(err, coreerrors.NotImplemented) {
-		return nil
-	}
-	return errors.Errorf("cannot adopt resources in model %q cloud: %w", m.UUID(), err)
+	modelId := model.UUID(tag.Id())
+	return api.modelMigrationServiceGetter(modelId).AdoptResources(ctx, args.SourceControllerVersion)
 }
 
 // CheckMachines compares the machines in state with the ones reported
@@ -517,7 +464,7 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 		)
 	}
 
-	modelId := coremodel.UUID(tag.Id())
+	modelId := model.UUID(tag.Id())
 	migrationService := api.modelMigrationServiceGetter(modelId)
 	discrepancies, err := migrationService.CheckMachines(ctx)
 	if err != nil {
