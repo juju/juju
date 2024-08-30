@@ -50,13 +50,13 @@ type appSuite struct {
 var _ = gc.Suite(&appSuite{})
 
 func (s *appSuite) TestValidate(c *gc.C) {
-	app := NewNamedApp("meshuggah")
+	app := &App{name: "meshuggah"}
 	err := app.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *appSuite) TestValidateWithConfinement(c *gc.C) {
-	app := NewNamedApp("meshuggah")
+	app := &App{name: "meshuggah"}
 	app.confinementPolicy = StrictPolicy
 
 	err := app.Validate()
@@ -64,18 +64,18 @@ func (s *appSuite) TestValidateWithConfinement(c *gc.C) {
 }
 
 func (s *appSuite) TestNestedValidate(c *gc.C) {
-	app := NewNamedApp("meshuggah")
-	app.prerequisites = []Installable{NewNamedApp("faceless")}
+	app := &App{name: "meshuggah"}
+	app.prerequisites = []Installable{&App{name: "faceless"}}
 
 	err := app.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *appSuite) TestInvalidNestedValidate(c *gc.C) {
-	nested := NewNamedApp("faceless")
+	nested := &App{name: "faceless"}
 	nested.confinementPolicy = ConfinementPolicy("yolo")
 
-	app := NewNamedApp("meshuggah")
+	app := &App{name: "meshuggah"}
 	app.prerequisites = []Installable{nested}
 
 	err := app.Validate()
@@ -83,16 +83,28 @@ func (s *appSuite) TestInvalidNestedValidate(c *gc.C) {
 }
 
 func (s *appSuite) TestInstall(c *gc.C) {
-	app := NewNamedApp("meshuggah")
-	cmd := app.Install()
+	app := &App{name: "meshuggah"}
+	cmd := app.InstallArgs()
 	c.Assert(cmd, gc.DeepEquals, []string{"install", "meshuggah"})
 }
 
 func (s *appSuite) TestNestedInstall(c *gc.C) {
-	nested := NewNamedApp("faceless")
+	nested := &App{name: "faceless"}
 
-	app := NewNamedApp("meshuggah")
+	app := &App{name: "meshuggah"}
 	app.prerequisites = []Installable{nested}
-	cmd := app.Install()
+	cmd := app.InstallArgs()
 	c.Assert(cmd, gc.DeepEquals, []string{"install", "meshuggah"})
+}
+
+func (s *appSuite) TestInstallLocal(c *gc.C) {
+	app := &App{name: "meshuggah", channel: "latest/stable", path: "/path/to/meshuggah", assertsPath: "/path/to/asserts"}
+	cmd := app.InstallArgs()
+	c.Assert(cmd, gc.DeepEquals, []string{"install", "/path/to/meshuggah"})
+}
+
+func (s *appSuite) TestInstallLocalWithAsserts(c *gc.C) {
+	app := &App{name: "meshuggah", channel: "latest/stable", path: "/path/to/meshuggah", assertsPath: "/path/to/asserts"}
+	cmd := app.AcknowledgeAssertsArgs()
+	c.Assert(cmd, gc.DeepEquals, []string{"ack", "/path/to/asserts"})
 }

@@ -91,8 +91,12 @@ type Installable interface {
 	// Name returns the name of the application
 	Name() string
 
-	// Install returns a way to install one application with all it's settings.
-	Install() []string
+	// InstallArgs returns args to install this application with all it's settings.
+	InstallArgs() []string
+
+	// AcknowledgeAssertsArgs returns args to acknowledge the asserts for the snap
+	// required to install this application. Returns nil is none are required.
+	AcknowledgeAssertsArgs() []string
 
 	// Validate will validate a given application for any potential issues.
 	Validate() error
@@ -115,6 +119,7 @@ type Service struct {
 	runnable       Runnable
 	clock          clock.Clock
 	name           string
+	isLocal        bool
 	scriptRenderer shell.Renderer
 	executable     string
 	app            Installable
@@ -122,43 +127,87 @@ type Service struct {
 	configDir      string
 }
 
+type ServiceConfig struct {
+	// ServiceName is the name of this snap service.
+	ServiceName string
+
+	// SnapPath is an optional parameter that specifies the path on the filesystem
+	// to install the snap from. If SnapPath is not provided, the snap will be
+	// installed from the snap store.
+	SnapPath string
+
+	// SnapAssertsPath is an optional parameter that specifies the path on the
+	// filesystem for any asserts that need to be acknowledged before installing.
+	SnapAssertsPath string
+
+	// Conf is responsible for defining services. Its fields
+	// represent elements of a service configuration.
+	Conf common.Conf
+
+	// ConfigDir represents the directory path where the configuration files for
+	// a service in a snap are located.
+	ConfigDir string
+
+	// Channel represents the channel to install the snap from, if we are installing
+	// from the snap store.
+	Channel string
+
+	// SnapExecutable is the path where we can find the executable for snap itself.
+	SnapExecutable string
+
+	// ConfinementPolicy represents the confinement policy for installing a
+	// snap application. It can have the following values: "strict", "classic",
+	// "devmode", "jailmode". The "strict" policy enforces strict security
+	// confinement, "classic" allows access to system resources, "devmode"
+	// disables all confinement, and "jailmode" runs the snap in an isolated
+	// environment.snap's confinement policy.
+	ConfinementPolicy ConfinementPolicy
+
+	// BackgroundServices represents a slice of background services required
+	// by this snap service. When this service is started, these background
+	// services will also be started.
+	BackgroundServices []BackgroundService
+
+	// Prerequisites represents a slice of prerequisite applications that need
+	// to be installed to install this application.
+	Prerequisites []Installable
+}
+
 // NewService returns a new Service defined by `conf`, with the name `serviceName`.
 // The Service abstracts service(s) provided by a snap.
 //
-// `serviceName` defaults to `snapName`. These two parameters are distinct to allow
-// for a file path to provided as a `mainSnap`, implying that a local snap will be
-// installed by snapd.
-//
 // If no BackgroundServices are provided, Service will wrap all of the snap's
 // background services.
-func NewService(mainSnap, serviceName string, conf common.Conf, snapPath, configDir, channel string, confinementPolicy ConfinementPolicy, backgroundServices []BackgroundService, prerequisites []Installable) (Service, error) {
-	if serviceName == "" {
-		serviceName = mainSnap
-	}
-	if mainSnap == "" {
-		return Service{}, errors.New("mainSnap must be provided")
+func NewService(config ServiceConfig) (Service, error) {
+	if config.ServiceName == "" {
+		return Service{}, errors.New("ServiceName must be provided")
 	}
 	app := &App{
-		name:               mainSnap,
-		confinementPolicy:  confinementPolicy,
-		channel:            channel,
-		backgroundServices: backgroundServices,
-		prerequisites:      prerequisites,
+		name:               config.ServiceName,
+		path:               config.SnapPath,
+		assertsPath:        config.SnapAssertsPath,
+		confinementPolicy:  config.ConfinementPolicy,
+		channel:            config.Channel,
+		backgroundServices: config.BackgroundServices,
+		prerequisites:      config.Prerequisites,
 	}
 	err := app.Validate()
 	if err != nil {
 		return Service{}, errors.Trace(err)
 	}
 
+	isLocal := config.SnapPath != ""
+
 	return Service{
 		runnable:       defaultRunner{},
 		clock:          clock.WallClock,
-		name:           serviceName,
+		name:           config.ServiceName,
+		isLocal:        isLocal,
 		scriptRenderer: &shell.BashRenderer{},
-		executable:     snapPath,
+		executable:     config.SnapExecutable,
 		app:            app,
-		conf:           conf,
-		configDir:      configDir,
+		conf:           config.Conf,
+		configDir:      config.ConfigDir,
 	}, nil
 }
 
@@ -189,6 +238,11 @@ func (s Service) Name() string {
 	return s.app.Name()
 }
 
+// IsLocal returns true if the snap is installed locally.
+func (s Service) IsLocal() bool {
+	return s.isLocal
+}
+
 // Running returns (true, nil) when snap indicates that service is currently active.
 func (s Service) Running() (bool, error) {
 	_, _, running, err := s.status()
@@ -208,17 +262,31 @@ func (s Service) Install() error {
 	for _, app := range s.app.Prerequisites() {
 		logger.Infof("command: %v", app)
 
-		out, err := s.runCommandWithRetry(app.Install()...)
+		out, err := s.installAppWithRetry(app)
 		if err != nil {
 			return errors.Annotatef(err, "output: %v", out)
 		}
 	}
 
-	out, err := s.runCommandWithRetry(s.app.Install()...)
+	out, err := s.installAppWithRetry(s.app)
 	if err != nil {
 		return errors.Annotatef(err, "output: %v", out)
 	}
 	return nil
+}
+
+// installAppWithRetry installs the snap with retries. If the snap
+// has asserts, it will acknowledge them before installing the snap.
+func (s Service) installAppWithRetry(app Installable) (string, error) {
+	ackAsserts := app.AcknowledgeAssertsArgs()
+	if ackAsserts != nil {
+		_, err := s.runCommandWithRetry(ackAsserts...)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	}
+
+	return s.runCommandWithRetry(app.InstallArgs()...)
 }
 
 // Installed returns true if the service has been successfully installed.
@@ -360,6 +428,7 @@ func (s Service) execThenExpect(commandArgs []string, expectation string) error 
 }
 
 func (s Service) runCommand(args ...string) (string, error) {
+	logger.Infof("running snap command: %v", args)
 	return s.runnable.Execute(s.executable, args...)
 }
 
