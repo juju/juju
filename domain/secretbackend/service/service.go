@@ -63,12 +63,8 @@ func newService(
 	}
 }
 
-// For testing.
-var (
-	GetProvider = provider.Provider
-)
-
-// GetSecretBackendConfigForAdmin returns the secret backend configuration for the given backend ID for an admin user.
+// GetSecretBackendConfigForAdmin returns the secret backend configuration for the given backend ID for an admin user,
+// returning an error satisfying [secretbackenderrors.NotFound] if the backend is not found.
 func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID coremodel.UUID) (*provider.ModelBackendConfigInfo, error) {
 	m, err := s.st.GetModelSecretBackendDetails(ctx, modelUUID)
 	if err != nil {
@@ -79,12 +75,14 @@ func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID 
 	var info provider.ModelBackendConfigInfo
 	info.Configs = make(map[string]provider.ModelBackendConfig)
 
-	backends, err := s.st.ListSecretBackendsForModel(ctx, modelUUID, false)
+	// We need to include builtin backends for secret draining and accessing those secrets while drain is in progress.
+	// TODO(secrets) - only use those in use by model
+	// For now, we'll return all backends on the controller.
+	backends, err := s.st.ListSecretBackendsForModel(ctx, modelUUID, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	for _, b := range backends {
-		s.logger.Criticalf("backend => \n%#v", b)
 		if b.Name == currentBackendName {
 			info.ActiveID = b.ID
 		}
@@ -188,7 +186,7 @@ func (s *Service) backendConfigInfo(
 		return nil, errors.Errorf("unexpected nil value for GrantedSecretsGetter")
 	}
 
-	p, err := GetProvider(adminCfg.BackendType)
+	p, err := s.registry(adminCfg.BackendType)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

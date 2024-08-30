@@ -226,7 +226,6 @@ func (rows SecretBackendForK8sModelRows) toSecretBackend(cldData cloudRows, cred
 	cloudIDs := set.NewStrings()
 	var result []*secretbackend.SecretBackend
 	for _, row := range rows {
-		// ????? each model's secret backend should not share the same k8s backend UUID?????
 		if cloudIDs.Contains(row.CloudID) {
 			continue
 		}
