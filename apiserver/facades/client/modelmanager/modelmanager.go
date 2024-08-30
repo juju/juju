@@ -1211,18 +1211,9 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		info.Status = entityStatus
 	}
 
-	// If the user is a controller superuser, they are considered a model
-	// admin.
-	modelAdmin := m.isAdmin
-	if !m.isAdmin {
-		err = m.authorizer.HasPermission(ctx, permission.AdminAccess, tag)
-		modelAdmin = err == nil
-	}
-
-	info.Users, err = common.ModelUserInfo(ctx, m.accessService, m.apiUser, tag)
-	if errors.Is(err, accesserrors.PermissionNotValid) {
-		return params.ModelInfo{}, errors.Annotate(apiservererrors.ErrPerm, "getting model user info")
-	} else if shouldErr(err) {
+	modelAdmin := m.isModelAdmin(ctx, tag)
+	info.Users, err = common.ModelUserInfo(ctx, m.modelService, tag, user.NameFromTag(m.apiUser), modelAdmin)
+	if shouldErr(err) {
 		return params.ModelInfo{}, errors.Annotate(err, "getting model user info")
 	}
 
@@ -1541,4 +1532,13 @@ func (m *ModelManagerAPI) ChangeModelCredential(ctx context.Context, args params
 		}
 	}
 	return params.ErrorResults{Results: results}, nil
+}
+
+// isModelAdmin checks if the user is a controller superuser or admin on the
+// model.
+func (m *ModelManagerAPI) isModelAdmin(ctx context.Context, modelTag names.ModelTag) bool {
+	if m.isAdmin {
+		return true
+	}
+	return m.authorizer.HasPermission(ctx, permission.AdminAccess, modelTag) != nil
 }

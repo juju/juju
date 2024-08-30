@@ -205,3 +205,34 @@ type dbController struct {
 type dbUserName struct {
 	Name string `db:"name"`
 }
+
+// dbModelUserInfo represents information about a user on a particular model.
+type dbModelUserInfo struct {
+	// Name is the username of the user.
+	Name string `db:"name"`
+
+	// DisplayName is a user-friendly name represent the user as.
+	DisplayName string `db:"display_name"`
+
+	// LastModelLogin is the last time the user logged in to the model.
+	LastModelLogin time.Time `db:"time"`
+
+	// AccessType is the access level the user has on the model.
+	AccessType string `db:"access_type"`
+}
+
+// toModelUserInfo converts the result from the DB to the type
+// access.ModelUserInfo.
+func (info *dbModelUserInfo) toModelUserInfo() (coremodel.ModelUserInfo, error) {
+	name, err := user.NewName(info.Name)
+	if err != nil {
+		return coremodel.ModelUserInfo{}, errors.Trace(err)
+	}
+
+	return coremodel.ModelUserInfo{
+		Name:           name,
+		DisplayName:    info.DisplayName,
+		LastModelLogin: info.LastModelLogin,
+		Access:         permission.Access(info.AccessType),
+	}, nil
+}

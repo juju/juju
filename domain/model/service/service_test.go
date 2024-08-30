@@ -7,6 +7,7 @@ import (
 	"context"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -22,7 +23,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
-	usererrors "github.com/juju/juju/domain/access/errors"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -188,7 +189,7 @@ func (s *serviceSuite) TestModelCreationNoCloudRegion(c *gc.C) {
 }
 
 // TestModelCreationOwnerNotFound is testing that if we make a model with an
-// owner that doesn't exist we get back a [usererrors.NotFound] error.
+// owner that doesn't exist we get back a [accesserrors.NotFound] error.
 func (s *serviceSuite) TestModelCreationOwnerNotFound(c *gc.C) {
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{},
@@ -206,7 +207,7 @@ func (s *serviceSuite) TestModelCreationOwnerNotFound(c *gc.C) {
 		Name:        "my-awesome-model",
 	})
 
-	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Assert(err, jc.ErrorIs, accesserrors.UserNotFound)
 }
 
 func (s *serviceSuite) TestModelCreationNoCloudCredential(c *gc.C) {
@@ -842,6 +843,77 @@ func (s *serviceSuite) TestControllerModel(c *gc.C) {
 		Owner:        adminUUID,
 		OwnerName:    coremodel.ControllerModelOwnerUsername,
 	})
+}
+
+func (s *serviceSuite) TestGetModelUsers(c *gc.C) {
+	uuid, err := coremodel.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	bobName := usertesting.GenNewName(c, "bob")
+	jimName := usertesting.GenNewName(c, "jim")
+	adminName := usertesting.GenNewName(c, "admin")
+	s.state.users = map[user.UUID]user.Name{
+		"123": bobName,
+		"456": jimName,
+		"789": adminName,
+	}
+	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
+	modelUserInfo, err := svc.GetModelUsers(context.Background(), uuid)
+	c.Assert(err, gc.IsNil)
+	c.Check(modelUserInfo, jc.SameContents, []coremodel.ModelUserInfo{{
+		Name:           bobName,
+		DisplayName:    bobName.Name(),
+		Access:         permission.AdminAccess,
+		LastModelLogin: time.Time{},
+	}, {
+		Name:           jimName,
+		DisplayName:    jimName.Name(),
+		Access:         permission.AdminAccess,
+		LastModelLogin: time.Time{},
+	}, {
+		Name:           adminName,
+		DisplayName:    adminName.Name(),
+		Access:         permission.AdminAccess,
+		LastModelLogin: time.Time{},
+	}})
+}
+
+func (s *serviceSuite) TestGetModelUsersBadUUID(c *gc.C) {
+	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
+	_, err := svc.GetModelUsers(context.Background(), "bad-uuid)")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *serviceSuite) TestGetModelUser(c *gc.C) {
+	uuid := modeltesting.GenModelUUID(c)
+	bobName := usertesting.GenNewName(c, "bob")
+	jimName := usertesting.GenNewName(c, "jim")
+	adminName := usertesting.GenNewName(c, "admin")
+	s.state.users = map[user.UUID]user.Name{
+		"123": bobName,
+		"456": jimName,
+		"789": adminName,
+	}
+	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
+	modelUserInfo, err := svc.GetModelUser(context.Background(), uuid, bobName)
+	c.Assert(err, gc.IsNil)
+	c.Check(modelUserInfo, gc.Equals, coremodel.ModelUserInfo{
+		Name:           bobName,
+		DisplayName:    bobName.Name(),
+		Access:         permission.AdminAccess,
+		LastModelLogin: time.Time{},
+	})
+}
+
+func (s *serviceSuite) TestGetModelUserBadUUID(c *gc.C) {
+	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
+	_, err := svc.GetModelUser(context.Background(), "bad-uuid", usertesting.GenNewName(c, "bob"))
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *serviceSuite) TestGetModelUserZeroUserName(c *gc.C) {
+	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
+	_, err := svc.GetModelUser(context.Background(), modeltesting.GenModelUUID(c), user.Name{})
+	c.Assert(err, jc.ErrorIs, accesserrors.UserNameNotValid)
 }
 
 func (s *serviceSuite) TestListAllModelSummaries(c *gc.C) {

@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 
@@ -279,6 +280,19 @@ func (d *dummyState) UpdateCredential(
 	}
 
 	return nil
+}
+
+func (d *dummyState) GetModelUsers(_ context.Context, _ coremodel.UUID) ([]coremodel.ModelUserInfo, error) {
+	var rval []coremodel.ModelUserInfo
+	for _, name := range d.users {
+		rval = append(rval, coremodel.ModelUserInfo{
+			Name:           name,
+			DisplayName:    name.Name(),
+			Access:         permission.AdminAccess,
+			LastModelLogin: time.Time{},
+		})
+	}
+	return rval, nil
 }
 
 func (d *dummyState) ListModelSummariesForUser(_ context.Context, userName user.Name) ([]coremodel.UserModelSummary, error) {

@@ -49,7 +49,7 @@ type ModelConfigService interface {
 	SetModelConfig(context.Context, map[string]any) error
 }
 
-// ModelService defines a interface for interacting with the underlying state.
+// ModelService defines an interface for interacting with the model service.
 type ModelService interface {
 	// CreateModel creates a model returning the resultant model's new id.
 	CreateModel(context.Context, model.ModelCreationArgs) (coremodel.UUID, func(context.Context) error, error)
@@ -67,6 +67,20 @@ type ModelService interface {
 
 	// ListAllModels returns a list of all models.
 	ListAllModels(context.Context) ([]coremodel.Model, error)
+
+	// GetModelUsers will retrieve basic information about users with
+	// permissions on the given model UUID.
+	// If the model cannot be found it will return
+	// [github.com/juju/juju/domain/model/errors.NotFound].
+	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
+
+	// GetModelUser will retrieve basic information about the specified model
+	// user.
+	// If the model cannot be found it will return
+	// [github.com/juju/juju/domain/model/errors.NotFound].
+	// If the user cannot be found it will return
+	//[github.com/juju/juju/domain/model/errors.UserNotFoundOnModel].
+	GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name coreuser.Name) (coremodel.ModelUserInfo, error)
 
 	// ListModelSummariesForUser returns a slice of model summaries for a given
 	// user. If no models are found an empty slice is returned.
@@ -131,19 +145,16 @@ type AccessService interface {
 	GetUserByName(context.Context, coreuser.Name) (coreuser.User, error)
 	// ReadUserAccessLevelForTarget returns the Access level for the given
 	// subject (user) on the given target (model).
+	// If the access level of a user cannot be found then
+	// [github.com/juju/juju/domain/access/errors.AccessNotFound] is returned.
 	ReadUserAccessLevelForTarget(ctx context.Context, subject coreuser.Name, target corepermission.ID) (corepermission.Access, error)
 	// UpdatePermission updates the access level for a user of the model.
 	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
 	// LastModelLogin will return the last login time of the specified
-	// user. An accesserrors.UserNeverAccessedModel error will be returned if
-	// there is no record of the user logging in to this model.
+	// user.
+	// [github.com/juju/juju/domain/access/errors.UserNeverAccessedModel] will
+	// be returned if there is no record of the user logging in to this model.
 	LastModelLogin(context.Context, coreuser.Name, coremodel.UUID) (time.Time, error)
-	// GetModelUsers will retrieve basic information about all users with
-	// permissions on the given model UUID.
-	// If the model cannot be found it will return modelerrors.NotFound.
-	// If no permissions can be found on the model it will return
-	// accesserrors.PermissionNotValid.
-	GetModelUsers(ctx context.Context, apiUser coreuser.Name, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error)
 }
 
 // NetworkService is the interface that is used to interact with the

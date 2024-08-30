@@ -7,8 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -22,13 +20,6 @@ import (
 type State interface {
 	UserState
 	PermissionState
-
-	// GetModelUsers will retrieve basic information about all users with
-	// permissions on the given model UUID.
-	// If the model cannot be found it will return modelerrors.NotFound.
-	// If no permissions can be found on the model it will return
-	// accesserrors.PermissionNotValid.
-	GetModelUsers(ctx context.Context, apiUser user.Name, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error)
 }
 
 // UserState describes retrieval and persistence methods for user identify and
@@ -203,7 +194,6 @@ type PermissionState interface {
 type Service struct {
 	*UserService
 	*PermissionService
-	st State
 }
 
 // NewService returns a new Service for interacting with the underlying access
@@ -212,22 +202,5 @@ func NewService(st State) *Service {
 	return &Service{
 		UserService:       NewUserService(st),
 		PermissionService: NewPermissionService(st),
-		st:                st,
 	}
-}
-
-// GetModelUsers will retrieve basic information about all users with
-// permissions on the given model UUID.
-// If the model cannot be found it will return modelerrors.NotFound.
-// If no permissions can be found on the model it will return
-// accesserrors.PermissionNotValid.
-func (s *Service) GetModelUsers(ctx context.Context, apiUser user.Name, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error) {
-	if apiUser.IsZero() {
-		return nil, errors.Trace(errors.NotValidf("empty apiUser"))
-	}
-	if err := modelUUID.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelUserInfo, err := s.st.GetModelUsers(ctx, apiUser, modelUUID)
-	return modelUserInfo, errors.Trace(err)
 }

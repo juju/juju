@@ -1019,6 +1019,58 @@ OR uuid IN (SELECT grant_on
 	return rval, nil
 }
 
+// GetModelUsers will retrieve basic information about all users with
+// permissions on the given model UUID.
+// If the model cannot be found it will return [modelerrors.NotFound].
+func (st *State) GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting DB access")
+	}
+	q := `
+SELECT    (u.name, u.display_name, mll.time, p.access_type) AS (&dbModelUserInfo.*)
+FROM      v_user_auth u
+JOIN      v_permission p ON u.uuid = p.grant_to AND p.grant_on = $dbModelUUID.model_uuid
+LEFT JOIN model_last_login mll ON mll.user_uuid = u.uuid AND mll.model_uuid = p.grant_on
+WHERE     u.disabled = false
+AND       u.removed = false
+`
+
+	uuid := dbModelUUID{ModelUUID: modelUUID.String()}
+	stmt, err := st.Prepare(q, dbModelUserInfo{}, uuid)
+	if err != nil {
+		return nil, errors.Annotatef(err, "preparing select model user info statement")
+	}
+
+	var modelUsers []dbModelUserInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, uuid).GetAll(&modelUsers)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			if _, err := GetModel(ctx, tx, modelUUID); err != nil {
+				return errors.Trace(err)
+			}
+			return fmt.Errorf("no users found on model")
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting model users from database")
+	}
+
+	var userInfo []coremodel.ModelUserInfo
+	for _, modelUser := range modelUsers {
+		mui, err := modelUser.toModelUserInfo()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		userInfo = append(userInfo, mui)
+	}
+
+	return userInfo, nil
+}
+
 // ListModelSummariesForUser lists model summaries of all models the user has
 // access to. If no models are found then a nil slice is returned.
 // TODO(aflynn): 05-08-2024 - The ModelSummary struct includes a machine count,
