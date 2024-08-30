@@ -735,10 +735,10 @@ func AddUserWithPermission(
 // UpdateLastModelLogin updates the last login time for the user
 // with the supplied uuid on the model with the supplied model uuid.
 // The following error types are possible from this function:
-// - accesserrors.UserNameNotValid: When the username is not valid.
-// - accesserrors.UserNotFound: When the user cannot be found.
-// - modelerrors.NotFound: If no model by the given modelUUID exists.
-func (st *UserState) UpdateLastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) error {
+// - [accesserrors.UserNameNotValid] when the username is not valid.
+// - [accesserrors.UserNotFound] when the user cannot be found.
+// - [modelerrors.NotFound] if no model by the given modelUUID exists.
+func (st *UserState) UpdateLastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID, lastLogin time.Time) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Annotate(err, "getting DB access")
@@ -751,11 +751,9 @@ func (st *UserState) UpdateLastModelLogin(ctx context.Context, name user.Name, m
 
 	insertModelLoginStmt, err := st.Prepare(`
 INSERT INTO model_last_login (model_uuid, user_uuid, time)
--- The strftime formatter below inserts the time with millisecond precision.
--- This is useful for testing.
-VALUES ($dbModelAccess.model_uuid, $dbModelAccess.user_uuid, strftime('%Y-%m-%d %H:%M:%f', 'now'))
+VALUES ($dbModelLastLogin.*)
 ON CONFLICT(model_uuid, user_uuid) DO UPDATE SET 
-	time = excluded.time`, dbModelAccess{})
+	time = excluded.time`, dbModelLastLogin{})
 	if err != nil {
 		return errors.Annotate(err, "preparing insert model login query")
 	}
@@ -766,11 +764,13 @@ ON CONFLICT(model_uuid, user_uuid) DO UPDATE SET
 			return errors.Trace(err)
 		}
 
-		ma := dbModelAccess{
+		mll := dbModelLastLogin{
 			UserUUID:  userUUID.String(),
 			ModelUUID: modelUUID.String(),
+			Time:      lastLogin.Truncate(time.Second),
 		}
-		if err := tx.Query(ctx, insertModelLoginStmt, ma).Run(); err != nil {
+
+		if err := tx.Query(ctx, insertModelLoginStmt, mll).Run(); err != nil {
 			if internaldatabase.IsErrConstraintForeignKey(err) {
 				// The foreign key constrain may be triggered if the user or the
 				// model does not exist. However, the user must exist or the
@@ -789,10 +789,10 @@ ON CONFLICT(model_uuid, user_uuid) DO UPDATE SET
 
 // LastModelLogin returns when the specified user last connected to the
 // specified model in UTC. The following errors can be returned:
-// - accesserrors.UserNameNotValid: When the username is not valid.
-// - accesserrors.UserNotFound: When the user cannot be found.
-// - modelerrors.NotFound: If no model by the given modelUUID exists.
-// - accesserrors.UserNeverAccessedModel: If there is no record of the user
+// - [accesserrors.UserNameNotValid] when the username is not valid.
+// - [accesserrors.UserNotFound] when the user cannot be found.
+// - [modelerrors.NotFound] if no model by the given modelUUID exists.
+// - [accesserrors.UserNeverAccessedModel] if there is no record of the user
 // accessing the model.
 func (st *UserState) LastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) (time.Time, error) {
 	db, err := st.DB()
@@ -806,13 +806,13 @@ func (st *UserState) LastModelLogin(ctx context.Context, name user.Name, modelUU
 	}
 
 	getLastModelLoginTime := `
-SELECT   time AS &loginTime.time
+SELECT   time AS &dbModelLastLogin.time
 FROM     model_last_login
-WHERE    model_uuid = $dbModelAccess.model_uuid
-AND      user_uuid = $dbModelAccess.user_uuid
+WHERE    model_uuid = $dbModelLastLogin.model_uuid
+AND      user_uuid = $dbModelLastLogin.user_uuid
 ORDER BY time DESC LIMIT 1;
 	`
-	getLastModelLoginTimeStmt, err := st.Prepare(getLastModelLoginTime, loginTime{}, dbModelAccess{})
+	getLastModelLoginTimeStmt, err := st.Prepare(getLastModelLoginTime, dbModelLastLogin{})
 	if err != nil {
 		return time.Time{}, errors.Annotate(err, "preparing select getLastModelLoginTime query")
 	}
@@ -824,12 +824,11 @@ ORDER BY time DESC LIMIT 1;
 			return errors.Trace(err)
 		}
 
-		var result loginTime
-		ma := dbModelAccess{
+		mll := dbModelLastLogin{
 			ModelUUID: modelUUID.String(),
 			UserUUID:  userUUID.String(),
 		}
-		err = tx.Query(ctx, getLastModelLoginTimeStmt, ma).Get(&result)
+		err = tx.Query(ctx, getLastModelLoginTimeStmt, mll).Get(&mll)
 		if errors.Is(err, sql.ErrNoRows) {
 			if exists, err := st.checkModelExists(ctx, tx, modelUUID); err != nil {
 				return errors.Annotate(err, "checking model exists")
@@ -841,7 +840,7 @@ ORDER BY time DESC LIMIT 1;
 			return errors.Annotatef(err, "running query getLastModelLoginTime")
 		}
 
-		lastConnection = result.Time
+		lastConnection = mll.Time
 		if err != nil {
 			return errors.Annotate(err, "parsing time")
 		}

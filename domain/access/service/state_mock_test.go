@@ -974,17 +974,17 @@ func (c *MockStateSetPasswordHashCall) DoAndReturn(f func(context.Context, user.
 }
 
 // UpdateLastModelLogin mocks base method.
-func (m *MockState) UpdateLastModelLogin(arg0 context.Context, arg1 user.Name, arg2 model.UUID) error {
+func (m *MockState) UpdateLastModelLogin(arg0 context.Context, arg1 user.Name, arg2 model.UUID, arg3 time.Time) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateLastModelLogin", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "UpdateLastModelLogin", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateLastModelLogin indicates an expected call of UpdateLastModelLogin.
-func (mr *MockStateMockRecorder) UpdateLastModelLogin(arg0, arg1, arg2 any) *MockStateUpdateLastModelLoginCall {
+func (mr *MockStateMockRecorder) UpdateLastModelLogin(arg0, arg1, arg2, arg3 any) *MockStateUpdateLastModelLoginCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastModelLogin", reflect.TypeOf((*MockState)(nil).UpdateLastModelLogin), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastModelLogin", reflect.TypeOf((*MockState)(nil).UpdateLastModelLogin), arg0, arg1, arg2, arg3)
 	return &MockStateUpdateLastModelLoginCall{Call: call}
 }
 
@@ -1000,13 +1000,13 @@ func (c *MockStateUpdateLastModelLoginCall) Return(arg0 error) *MockStateUpdateL
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateLastModelLoginCall) Do(f func(context.Context, user.Name, model.UUID) error) *MockStateUpdateLastModelLoginCall {
+func (c *MockStateUpdateLastModelLoginCall) Do(f func(context.Context, user.Name, model.UUID, time.Time) error) *MockStateUpdateLastModelLoginCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateLastModelLoginCall) DoAndReturn(f func(context.Context, user.Name, model.UUID) error) *MockStateUpdateLastModelLoginCall {
+func (c *MockStateUpdateLastModelLoginCall) DoAndReturn(f func(context.Context, user.Name, model.UUID, time.Time) error) *MockStateUpdateLastModelLoginCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

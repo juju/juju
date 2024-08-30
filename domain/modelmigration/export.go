@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"github.com/juju/juju/core/logger"
+	access "github.com/juju/juju/domain/access/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
 	credential "github.com/juju/juju/domain/credential/modelmigration"
@@ -26,6 +27,7 @@ func ExportOperations(
 	logger logger.Logger,
 ) {
 	modelconfig.RegisterExport(coordinator)
+	access.RegisterExport(coordinator, logger.Child("access"))
 	credential.RegisterExport(coordinator, logger.Child("credential"))
 	network.RegisterExport(coordinator, logger.Child("network"))
 	externalcontroller.RegisterExport(coordinator)

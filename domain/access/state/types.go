@@ -185,11 +185,12 @@ type permInOut struct {
 	Access  string `db:"access_type"`
 }
 
-// dbModelAccess is a struct used to record a users logging in to a particular
+// dbModelLastLogin is a struct used to record a users logging in to a particular
 // model.
-type dbModelAccess struct {
-	UserUUID  string `db:"user_uuid"`
-	ModelUUID string `db:"model_uuid"`
+type dbModelLastLogin struct {
+	UserUUID  string    `db:"user_uuid"`
+	ModelUUID string    `db:"model_uuid"`
+	Time      time.Time `db:"time"`
 }
 
 // dbModelUUID is a struct used to record a model UUID from the database.
@@ -201,12 +202,6 @@ type dbModelUUID struct {
 // into it.
 type dbModelExists struct {
 	Exists bool `db:"exists"`
-}
-
-// loginTime is used to record the last time a user logged in when reading from
-// model_last_login.
-type loginTime struct {
-	Time time.Time `db:"time"`
 }
 
 // dbEveryoneExternal represents the permissions of the everyone@external user.

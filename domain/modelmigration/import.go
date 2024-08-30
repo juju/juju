@@ -6,6 +6,7 @@ package modelmigration
 import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
+	access "github.com/juju/juju/domain/access/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
 	credential "github.com/juju/juju/domain/credential/modelmigration"
@@ -43,6 +44,7 @@ func ImportOperations(
 	credential.RegisterImport(coordinator, logger.Child("credential"))
 	model.RegisterImport(coordinator, logger.Child("model"))
 	modelconfig.RegisterImport(coordinator, modelDefaultsProvider)
+	access.RegisterImport(coordinator, logger.Child("access"))
 	network.RegisterImport(coordinator, logger.Child("network"))
 	machine.RegisterImport(coordinator, logger.Child("machine"))
 	application.RegisterImport(coordinator, registry, logger.Child("application"))
