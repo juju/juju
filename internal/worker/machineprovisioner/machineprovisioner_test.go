@@ -43,15 +43,14 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/worker/machineprovisioner"
-	"github.com/juju/juju/internal/worker/machineprovisioner/mocks"
 	"github.com/juju/juju/rpc/params"
 )
 
 type CommonProvisionerSuite struct {
 	jujutesting.IsolationSuite
 
-	controllerAPI *mocks.MockControllerAPI
-	machinesAPI   *mocks.MockMachinesAPI
+	controllerAPI *MockControllerAPI
+	machinesAPI   *MockMachinesAPI
 	broker        *environmocks.MockEnviron
 
 	modelConfigCh chan struct{}
@@ -62,8 +61,8 @@ type CommonProvisionerSuite struct {
 
 func (s *CommonProvisionerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.controllerAPI = mocks.NewMockControllerAPI(ctrl)
-	s.machinesAPI = mocks.NewMockMachinesAPI(ctrl)
+	s.controllerAPI = NewMockControllerAPI(ctrl)
+	s.machinesAPI = NewMockMachinesAPI(ctrl)
 	s.broker = environmocks.NewMockEnviron(ctrl)
 	s.expectAuth()
 	s.expectStartup(c)

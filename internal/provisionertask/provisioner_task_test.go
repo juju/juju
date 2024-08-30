@@ -52,7 +52,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/worker/machineprovisioner/mocks"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -71,8 +70,8 @@ type ProvisionerTaskSuite struct {
 	machineErrorRetryChanges chan struct{}
 	machineErrorRetryWatcher watcher.NotifyWatcher
 
-	controllerAPI *mocks.MockControllerAPI
-	machinesAPI   *mocks.MockMachinesAPI
+	controllerAPI *MockControllerAPI
+	machinesAPI   *MockMachinesAPI
 
 	instances      []instances.Instance
 	instanceBroker *testInstanceBroker
@@ -1514,8 +1513,8 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
 
 func (s *ProvisionerTaskSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.controllerAPI = mocks.NewMockControllerAPI(ctrl)
-	s.machinesAPI = mocks.NewMockMachinesAPI(ctrl)
+	s.controllerAPI = NewMockControllerAPI(ctrl)
+	s.machinesAPI = NewMockMachinesAPI(ctrl)
 	s.expectAuth()
 	return ctrl
 }
