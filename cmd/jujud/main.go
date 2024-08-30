@@ -26,7 +26,6 @@ import (
 	"github.com/juju/utils/v3/exec"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/agent/addons"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
@@ -41,6 +40,7 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
+
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 	// Import the secret providers.
@@ -265,7 +265,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		agentConf,
 		bufferedLogger,
-		addons.DefaultIntrospectionSocketName,
 		upgrades.PreUpgradeSteps,
 		"",
 	)
