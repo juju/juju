@@ -77,7 +77,11 @@ const shellFuncs = `
 juju_agent_call () {
   local agent=$1
   shift
-  juju-introspect --agent=$agent $@
+  if [ -x "$(which sudo)" ]; then
+    sudo juju-introspect --agent=$agent $@
+  else
+    juju-introspect --agent=$agent $@
+  fi
 }
 
 juju_machine_agent_name () {
