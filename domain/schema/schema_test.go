@@ -301,7 +301,6 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 
 		// Link layer device
 		"link_layer_device",
-		"link_layer_device_ip_address",
 		"link_layer_device_type",
 		"virtual_port_type",
 

@@ -96,18 +96,6 @@ CREATE TABLE link_layer_device (
     REFERENCES virtual_port_type (id)
 );
 
-CREATE TABLE link_layer_device_ip_address (
-    device_uuid TEXT NOT NULL,
-    address_uuid TEXT NOT NULL,
-    CONSTRAINT fk_link_layer_device_ip_address_device
-    FOREIGN KEY (device_uuid)
-    REFERENCES link_layer_device (uuid),
-    CONSTRAINT fk_link_layer_device_ip_address_address
-    FOREIGN KEY (address_uuid)
-    REFERENCES ip_address (uuid),
-    PRIMARY KEY (device_uuid, address_uuid)
-);
-
 -- ip_address_type represents the possible ways of specifying
 -- an address, either a hostname resolvable by dns lookup,
 -- or IPv4 or IPv6 address.
@@ -134,9 +122,8 @@ CREATE UNIQUE INDEX idx_ip_address_origin_name
 ON ip_address_origin (name);
 
 INSERT INTO ip_address_origin VALUES
-(0, 'unknown'),
-(1, 'host'),
-(2, 'provider');
+(0, 'host'),
+(1, 'provider');
 
 -- network_address_scope denotes the context an address may apply to.
 -- If a name or address can be reached from the wider internet,
@@ -188,6 +175,8 @@ CREATE TABLE ip_address (
     origin_id INT NOT NULL,
     -- one of public, local-cloud, local-machine, link-local etc.
     scope_id INT NOT NULL,
+    -- the link layer device this address belongs to.
+    device_uuid TEXT NOT NULL,
 
     -- indicates that this address is not the primary.
     -- address associated with the NIC.
@@ -198,6 +187,9 @@ CREATE TABLE ip_address (
     -- associated directly with a device on-machine.
     is_shadow BOOLEAN DEFAULT false,
 
+    CONSTRAINT fk_ip_address_link_layer_device
+    FOREIGN KEY (device_uuid)
+    REFERENCES link_layer_device (uuid),
     CONSTRAINT fk_ip_address_origin
     FOREIGN KEY (origin_id)
     REFERENCES ip_address_origin (id),
@@ -276,8 +268,8 @@ SELECT
     0 AS type_id,
     -- FQDN address config type is always "manual".
     3 AS config_type_id,
-    -- FQDN address origin is always "unknown".
-    0 AS origin_id,
+    -- FQDN address doesn't have an origin.
+    null AS origin_id,
     fa.scope_id
 FROM fqdn_address AS fa;
 
@@ -291,15 +283,14 @@ CREATE TABLE ip_address_provider (
 );
 
 CREATE TABLE ip_address_subnet (
+    address_uuid TEXT NOT NULL PRIMARY KEY,
     subnet_uuid TEXT NOT NULL,
-    address_uuid TEXT NOT NULL,
     CONSTRAINT fk_ip_address_subnet_subnet
     FOREIGN KEY (subnet_uuid)
     REFERENCES subnet (uuid),
     CONSTRAINT fk_ip_address_subnet_ip_address
     FOREIGN KEY (address_uuid)
-    REFERENCES ip_address (uuid),
-    PRIMARY KEY (subnet_uuid, address_uuid)
+    REFERENCES ip_address (uuid)
 );
 
 CREATE TABLE ip_address_gateway (
