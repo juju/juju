@@ -20,28 +20,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 	abstractions "github.com/microsoft/kiota-abstractions-go"
 	"github.com/microsoftgraph/msgraph-sdk-go"
+	"github.com/microsoftgraph/msgraph-sdk-go/applications"
 	"github.com/microsoftgraph/msgraph-sdk-go/models"
 	"github.com/microsoftgraph/msgraph-sdk-go/serviceprincipals"
 )
 
+var logger = loggo.GetLogger("juju.provider.azure.internal.auth")
+
 const (
-	// jujuApplicationId is the ID of the Azure application that we use
-	// for interactive authentication. When the user logs in, a service
-	// principal will be created in their Active Directory tenant for
-	// the application.
-	jujuApplicationId = "60a04dc9-1857-425f-8076-5ba81ca53d66"
-
-	// jujuApplicationObjectId is the ObjectId of the Azure application.
-	jujuApplicationObjectId = "8b744cea-179d-4a73-9dff-20d52126030a"
-
-	// defaultAzureKeyVaultApplicationId is the default Azure Key Vault
-	// applicationID if not specified for a specific cloud type.
-	defaultAzureKeyVaultApplicationId = "cfa8b339-82a2-471a-a3c9-0fc0be7a4093"
-
 	// passwordExpiryDuration is how long the application password we
 	// set will remain valid.
 	passwordExpiryDuration = 365 * 24 * time.Hour
@@ -55,18 +46,24 @@ const (
 	AzureUSGovernment = "AzureUSGovernment"
 )
 
-// cloudVaultApps holds the IDs of the Azure Key Vault Application
-// for each cloud type.
-var cloudVaultApps = map[string]string{
-	AzureCloud:        defaultAzureKeyVaultApplicationId,
-	AzureUSGovernment: "7e7c393b-45d0-48b1-a35e-2905ddf8183c",
+// JujuActions contains the allowed actions needed by
+// a Juju controller.
+var JujuActions = []string{
+	"Microsoft.Compute/*",
+	"Microsoft.KeyVault/*",
+	"Microsoft.Network/*",
+	"Microsoft.Resources/*",
+	"Microsoft.Storage/*",
+	"Microsoft.ManagedIdentity/userAssignedIdentities/*",
 }
 
 // MaybeJujuApplicationObjectID returns the Juju Application Object ID
 // if the passed in application ID is the Juju Enterprise App.
+// This is only needed for very old credentials. At some point we
+// should be able to delete it.
 func MaybeJujuApplicationObjectID(appID string) (string, error) {
-	if appID == jujuApplicationId {
-		return jujuApplicationObjectId, nil
+	if appID == "60a04dc9-1857-425f-8076-5ba81ca53d66" {
+		return "8b744cea-179d-4a73-9dff-20d52126030a", nil
 	}
 	return "", errors.Errorf("unexpected application ID %q", appID)
 }
@@ -85,6 +82,14 @@ type ServicePrincipalParams struct {
 	// TenantId is the tenant that the account creating the service
 	// principal belongs to.
 	TenantId string
+
+	// ApplicationName is the name of the enterprise app with which
+	// the service principal is associated.
+	ApplicationName string
+
+	// RoleDefinitionName is the name of the role definition holding
+	// the allowed actions for a Juju controller.
+	RoleDefinitionName string
 }
 
 // ServicePrincipalCreator creates a service principal for the
@@ -115,7 +120,6 @@ func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stde
 		cred, err := azidentity.NewDeviceCodeCredential(&azidentity.DeviceCodeCredentialOptions{
 			ClientOptions:              azcore.ClientOptions{},
 			AdditionallyAllowedTenants: []string{"*"},
-			ClientID:                   jujuApplicationId,
 			DisableInstanceDiscovery:   false,
 			TenantID:                   params.TenantId,
 		})
@@ -140,27 +144,160 @@ func (c *ServicePrincipalCreator) Create(sdkCtx context.Context, params ServiceP
 		return "", "", "", errors.Trace(err)
 	}
 
-	// The user account must have a service principal for the Azure Key Vault application.
-	azureKeyVaultApplicationId, ok := cloudVaultApps[params.CloudName]
-	if !ok {
-		azureKeyVaultApplicationId = defaultAzureKeyVaultApplicationId
-	}
-	_, err = c.createOrUpdateServicePrincipal(sdkCtx, client, azureKeyVaultApplicationId, "Azure Key Vault application")
+	clientFactory, err := armauthorization.NewClientFactory(params.SubscriptionId, params.Credential, &arm.ClientOptions{
+		ClientOptions: policy.ClientOptions{
+			Transport: c.Sender,
+		},
+	})
 	if err != nil {
-		return "", "", "", errors.Trace(err)
+		return "", "", "", errors.Annotate(err, "failed to create auth client")
 	}
 
-	servicePrincipalObjectId, password, err := c.createOrUpdateJujuServicePrincipal(sdkCtx, client)
+	applicationName := params.ApplicationName
+	if applicationName == "" {
+		applicationName = "Juju Application"
+	}
+	roleDefinitionName := params.RoleDefinitionName
+	if roleDefinitionName == "" {
+		roleDefinitionName = "Juju Application Role Definition"
+	}
+
+	// Create the enterprise application and role definition, followed
+	// by the service principal which informs the creation of the credential.
+
+	roleDefinitionId, err := c.ensureRoleDefinition(sdkCtx, clientFactory, params.SubscriptionId, roleDefinitionName)
+	if err != nil {
+		return "", "", "", errors.Annotate(err, "creating role definition")
+	}
+
+	applicationId, err := c.ensureEnterpriseApplication(sdkCtx, client, roleDefinitionId, applicationName)
+	if err != nil {
+		return "", "", "", errors.Annotate(err, "querying Juju enterprise application")
+	}
+
+	servicePrincipalObjectId, password, err := c.createOrUpdateJujuServicePrincipal(sdkCtx, client, applicationId, applicationName)
 	if err != nil {
 		return "", "", "", errors.Trace(err)
 	}
-	if err := c.createRoleAssignment(sdkCtx, params, servicePrincipalObjectId); err != nil {
+	if err := c.createRoleAssignment(sdkCtx, clientFactory, params.SubscriptionId, servicePrincipalObjectId, roleDefinitionId); err != nil {
 		return "", "", "", errors.Trace(err)
 	}
-	return jujuApplicationId, servicePrincipalObjectId, password, nil
+	return applicationId, servicePrincipalObjectId, password, nil
 }
 
-func (c *ServicePrincipalCreator) createOrUpdateJujuServicePrincipal(sdkCtx context.Context, client *msgraphsdkgo.GraphServiceClient) (servicePrincipalObjectId, password string, _ error) {
+func (c *ServicePrincipalCreator) ensureRoleDefinition(
+	ctx context.Context, clientFactory *armauthorization.ClientFactory, subscriptionId, roleName string,
+) (string, error) {
+	roleScope := path.Join("subscriptions", subscriptionId)
+
+	// Find any existing role definition with the name params.RoleDefinitionName.
+	roleDefinitionClient := clientFactory.NewRoleDefinitionsClient()
+	pager := roleDefinitionClient.NewListPager(roleScope, &armauthorization.RoleDefinitionsClientListOptions{
+		Filter: to.Ptr(fmt.Sprintf("roleName eq '%s'", roleName)),
+	})
+	var roleDefinitionId string
+done:
+	for pager.More() {
+		next, err := pager.NextPage(ctx)
+		if err != nil {
+			return "", errors.Annotate(err, "fetching role definitions")
+		}
+		for _, r := range next.Value {
+			roleDefinitionId = toValue(r.ID)
+			break done
+		}
+	}
+
+	if roleDefinitionId != "" {
+		logger.Debugf("found existing role definition %q", roleDefinitionId)
+		return roleDefinitionId, nil
+	}
+
+	roleDefinitionUUID, err := c.newUUID()
+	if err != nil {
+		return "", errors.Annotate(err, "generating role definition ID")
+	}
+
+	actions := make([]*string, len(JujuActions))
+	for i, r := range JujuActions {
+		actions[i] = to.Ptr(r)
+	}
+	rd, err := roleDefinitionClient.CreateOrUpdate(ctx, roleScope, roleDefinitionUUID.String(), armauthorization.RoleDefinition{
+		Properties: to.Ptr(armauthorization.RoleDefinitionProperties{
+			RoleName:    to.Ptr(roleName),
+			Description: to.Ptr("Role definition for Juju controller"),
+			AssignableScopes: []*string{
+				to.Ptr(roleScope),
+			},
+			Permissions: []*armauthorization.Permission{{
+				Actions: actions,
+			}},
+		}),
+	}, nil)
+	if err != nil {
+		return "", errors.Annotate(err, "failed to create role definition")
+	}
+	return toValue(rd.ID), nil
+}
+
+func (c *ServicePrincipalCreator) ensureEnterpriseApplication(
+	ctx context.Context, client *msgraphsdkgo.GraphServiceClient, roleDefinitionId, name string,
+) (string, error) {
+	applicationClient := client.Applications()
+
+	req := &applications.ApplicationsRequestBuilderGetRequestConfiguration{
+		QueryParameters: &applications.ApplicationsRequestBuilderGetQueryParameters{
+			Filter: to.Ptr(fmt.Sprintf("displayName eq '%s'", name)),
+		},
+	}
+	resp, err := applicationClient.Get(ctx, req)
+	if err != nil {
+		return "", errors.Annotate(err, "listing applications")
+	}
+	result := resp.GetValue()
+	if len(result) > 0 {
+		id := toValue(result[0].GetAppId())
+		logger.Debugf("found existing Juju application %q", id)
+		return id, nil
+	}
+
+	appUUID, err := c.newUUID()
+	if err != nil {
+		return "", errors.Annotate(err, "generating application ID")
+	}
+
+	parts := strings.Split(roleDefinitionId, "/")
+	roleUUID, err := uuid.Parse(parts[len(parts)-1])
+	if err != nil {
+		return "", errors.Annotate(err, "parsing role definition UUID")
+	}
+
+	description := "Permissions for " + name
+	requestBody := models.NewApplication()
+	requestBody.SetId(to.Ptr(appUUID.String()))
+	requestBody.SetDisplayName(to.Ptr(name))
+	requestBody.SetDescription(to.Ptr(description))
+	appRole := models.NewAppRole()
+	appRole.SetId(to.Ptr(roleUUID))
+	appRole.SetValue(to.Ptr(strings.ReplaceAll(name, " ", "")))
+	appRole.SetAllowedMemberTypes([]string{"Application"})
+	appRole.SetDisplayName(to.Ptr(name))
+	appRole.SetDescription(to.Ptr(description))
+	appRole.SetIsEnabled(to.Ptr(true))
+	requestBody.SetAppRoles([]models.AppRoleable{
+		appRole,
+	})
+
+	application, err := applicationClient.Post(ctx, requestBody, nil)
+	if err != nil {
+		return "", errors.Annotate(ReportableError(err), "creating application")
+	}
+	return toValue(application.GetAppId()), nil
+}
+
+func (c *ServicePrincipalCreator) createOrUpdateJujuServicePrincipal(
+	ctx context.Context, client *msgraphsdkgo.GraphServiceClient, applicationId, applicationName string,
+) (servicePrincipalObjectId, password string, _ error) {
 	passwordCredential, err := c.preparePasswordCredential()
 	if err != nil {
 		return "", "", errors.Annotate(err, "preparing password credential")
@@ -186,7 +323,7 @@ func (c *ServicePrincipalCreator) createOrUpdateJujuServicePrincipal(sdkCtx cont
 		return toValue(servicePrincipal.GetId()), toValue(addPassword.GetSecretText()), nil
 	}
 
-	servicePrincipal, err := c.createOrUpdateServicePrincipal(sdkCtx, client, jujuApplicationId, "Juju Application")
+	servicePrincipal, err := c.createOrUpdateServicePrincipal(ctx, client, applicationId, applicationName)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -197,9 +334,9 @@ func (c *ServicePrincipalCreator) createOrUpdateJujuServicePrincipal(sdkCtx cont
 	return id, password, nil
 }
 
-func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(sdkCtx context.Context, client *msgraphsdkgo.GraphServiceClient, appId, label string) (models.ServicePrincipalable, error) {
+func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(ctx context.Context, client *msgraphsdkgo.GraphServiceClient, appId, label string) (models.ServicePrincipalable, error) {
 	// The service principal might already exist, so we need to query its application ID.
-	servicePrincipal, err := client.ServicePrincipalsWithAppId(to.Ptr(appId)).Get(sdkCtx, nil)
+	servicePrincipal, err := client.ServicePrincipalsWithAppId(to.Ptr(appId)).Get(ctx, nil)
 	if err == nil {
 		return servicePrincipal, nil
 	}
@@ -211,7 +348,7 @@ func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(sdkCtx context.
 		requestBody := models.NewServicePrincipal()
 		requestBody.SetAppId(to.Ptr(appId))
 		requestBody.SetAccountEnabled(to.Ptr(true))
-		servicePrincipal, err = client.ServicePrincipals().Post(sdkCtx, requestBody, nil)
+		servicePrincipal, err = client.ServicePrincipals().Post(ctx, requestBody, nil)
 		return errors.Annotate(ReportableError(err), "creating service principal")
 	}
 	retryArgs := retry.CallArgs{
@@ -231,7 +368,7 @@ func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(sdkCtx context.
 		if !isAlreadyExists(err) {
 			return nil, errors.Trace(err)
 		}
-		servicePrincipal, err = client.ServicePrincipalsWithAppId(to.Ptr(appId)).Get(sdkCtx, nil)
+		servicePrincipal, err = client.ServicePrincipalsWithAppId(to.Ptr(appId)).Get(ctx, nil)
 		if err != nil {
 			return nil, errors.Annotatef(ReportableError(err), "looking for service principal for %s", label)
 		}
@@ -255,38 +392,12 @@ func (c *ServicePrincipalCreator) preparePasswordCredential() (*models.PasswordC
 	return cred, nil
 }
 
-func (c *ServicePrincipalCreator) createRoleAssignment(sdkCtx context.Context, params ServicePrincipalParams, servicePrincipalObjectId string) error {
+func (c *ServicePrincipalCreator) createRoleAssignment(
+	ctx context.Context, clientFactory *armauthorization.ClientFactory,
+	subscriptionId, servicePrincipalObjectId, roleDefinitionId string,
+) error {
 	// Find the role definition with the name "Owner".
-	roleScope := path.Join("subscriptions", params.SubscriptionId)
-
-	clientFactory, err := armauthorization.NewClientFactory(params.SubscriptionId, params.Credential, &arm.ClientOptions{
-		ClientOptions: policy.ClientOptions{
-			Transport: c.Sender,
-		},
-	})
-	if err != nil {
-		return errors.Annotate(err, "failed to create auth client")
-	}
-	roleDefinitionClient := clientFactory.NewRoleDefinitionsClient()
-	pager := roleDefinitionClient.NewListPager(roleScope, &armauthorization.RoleDefinitionsClientListOptions{
-		Filter: to.Ptr("roleName eq 'Owner'"),
-	})
-	var roleDefinitionId string
-done:
-	for pager.More() {
-		next, err := pager.NextPage(sdkCtx)
-		if err != nil {
-			return errors.Annotate(err, "fetching role definitions")
-		}
-		for _, r := range next.Value {
-			roleDefinitionId = toValue(r.ID)
-			break done
-		}
-	}
-
-	if roleDefinitionId == "" {
-		return errors.NotFoundf("Owner role definition")
-	}
+	roleScope := path.Join("subscriptions", subscriptionId)
 
 	// The UUID value for the role assignment name is unimportant. Azure
 	// will prevent multiple role assignments for the same role definition
@@ -300,7 +411,7 @@ done:
 	retryArgs := retry.CallArgs{
 		Func: func() error {
 			_, err := roleAssignmentClient.Create(
-				sdkCtx,
+				ctx,
 				roleScope, roleAssignmentName,
 				armauthorization.RoleAssignmentCreateParameters{
 					Properties: &armauthorization.RoleAssignmentProperties{

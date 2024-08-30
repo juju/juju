@@ -135,19 +135,23 @@ func (s *InteractiveSuite) TestInteractive(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
-	sp.SetAppId(to.Ptr("60a04dc9-1857-425f-8076-5ba81ca53d66"))
+	sp.SetAppId(to.Ptr("app-id"))
 	sp.SetId(to.Ptr("sp-object-id"))
 	cred := models.NewPasswordCredential()
 	cred.SetSecretText(to.Ptr("33333333-3333-3333-3333-333333333333"))
 
+	app := models.NewApplication()
+	app.SetAppId(to.Ptr("app-id"))
+	appResp := models.NewApplicationCollectionResponse()
+	appResp.SetValue([]models.Applicationable{app})
+
 	mockAdaptor := &MockRequestAdaptor{NetHttpRequestAdapter: ra}
 	mockAdaptor.results = []requestResult{{
-		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
-		Params:      map[string]string{"appId": "cfa8b339-82a2-471a-a3c9-0fc0be7a4093"},
-		Result:      models.NewServicePrincipal(),
+		PathPattern: regexp.QuoteMeta("{+baseurl}/applications") + ".*",
+		Result:      appResp,
 	}, {
 		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
-		Params:      map[string]string{"appId": "60a04dc9-1857-425f-8076-5ba81ca53d66"},
+		Params:      map[string]string{"appId": "app-id"},
 		Result:      sp,
 	}, {
 		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals/{servicePrincipal%2Did}/addPassword"),
@@ -177,7 +181,7 @@ func (s *InteractiveSuite) TestInteractive(c *gc.C) {
 		Credential:     &azuretesting.FakeCredential{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appId, gc.Equals, "60a04dc9-1857-425f-8076-5ba81ca53d66")
+	c.Assert(appId, gc.Equals, "app-id")
 	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
 	c.Assert(spObjectId, gc.Equals, "sp-object-id")
 	c.Assert(stderr.String(), gc.Equals, `
@@ -191,19 +195,23 @@ func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
-	sp.SetAppId(to.Ptr("60a04dc9-1857-425f-8076-5ba81ca53d66"))
+	sp.SetAppId(to.Ptr("app-id"))
 	sp.SetId(to.Ptr("sp-object-id"))
 	cred := models.NewPasswordCredential()
 	cred.SetSecretText(to.Ptr("33333333-3333-3333-3333-333333333333"))
 
+	app := models.NewApplication()
+	app.SetAppId(to.Ptr("app-id"))
+	appResp := models.NewApplicationCollectionResponse()
+	appResp.SetValue([]models.Applicationable{app})
+
 	mockAdaptor := &MockRequestAdaptor{NetHttpRequestAdapter: ra}
 	mockAdaptor.results = []requestResult{{
-		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
-		Params:      map[string]string{"appId": "cfa8b339-82a2-471a-a3c9-0fc0be7a4093"},
-		Result:      models.NewServicePrincipal(),
+		PathPattern: regexp.QuoteMeta("{+baseurl}/applications") + ".*",
+		Result:      appResp,
 	}, {
 		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
-		Params:      map[string]string{"appId": "60a04dc9-1857-425f-8076-5ba81ca53d66"},
+		Params:      map[string]string{"appId": "app-id"},
 		Result:      sp,
 	}, {
 		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals/{servicePrincipal%2Did}/addPassword"),
@@ -233,7 +241,7 @@ func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *gc.C) {
 		Credential:     &azuretesting.FakeCredential{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appId, gc.Equals, "60a04dc9-1857-425f-8076-5ba81ca53d66")
+	c.Assert(appId, gc.Equals, "app-id")
 	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
 	c.Assert(spObjectId, gc.Equals, "sp-object-id")
 	c.Assert(stderr.String(), gc.Equals, `
@@ -257,19 +265,23 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
-	sp.SetAppId(to.Ptr("60a04dc9-1857-425f-8076-5ba81ca53d66"))
+	sp.SetAppId(to.Ptr("app-id"))
 	sp.SetId(to.Ptr("sp-object-id"))
 	cred := models.NewPasswordCredential()
 	cred.SetSecretText(to.Ptr("33333333-3333-3333-3333-333333333333"))
 
+	app := models.NewApplication()
+	app.SetAppId(to.Ptr("app-id"))
+	appResp := models.NewApplicationCollectionResponse()
+	appResp.SetValue([]models.Applicationable{app})
+
 	mockAdaptor := &MockRequestAdaptor{NetHttpRequestAdapter: ra}
 	mockAdaptor.results = []requestResult{{
-		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
-		Params:      map[string]string{"appId": "cfa8b339-82a2-471a-a3c9-0fc0be7a4093"},
-		Result:      models.NewServicePrincipal(),
+		PathPattern: regexp.QuoteMeta("{+baseurl}/applications") + ".*",
+		Result:      appResp,
 	}, {
 		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
-		Params:      map[string]string{"appId": "60a04dc9-1857-425f-8076-5ba81ca53d66"},
+		Params:      map[string]string{"appId": "app-id"},
 		Err:         dataError("Request_ResourceNotFound"),
 	}, {
 		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals"),
@@ -302,7 +314,7 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFound(c *gc.C) {
 		Credential:     &azuretesting.FakeCredential{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appId, gc.Equals, "60a04dc9-1857-425f-8076-5ba81ca53d66")
+	c.Assert(appId, gc.Equals, "app-id")
 	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
 	c.Assert(spObjectId, gc.Equals, "sp-object-id")
 }
@@ -312,25 +324,29 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFoundRace(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
-	sp.SetAppId(to.Ptr("60a04dc9-1857-425f-8076-5ba81ca53d66"))
+	sp.SetAppId(to.Ptr("app-id"))
 	sp.SetId(to.Ptr("sp-object-id"))
 	cred := models.NewPasswordCredential()
 	cred.SetSecretText(to.Ptr("33333333-3333-3333-3333-333333333333"))
 
+	app := models.NewApplication()
+	app.SetAppId(to.Ptr("app-id"))
+	appResp := models.NewApplicationCollectionResponse()
+	appResp.SetValue([]models.Applicationable{app})
+
 	mockAdaptor := &MockRequestAdaptor{NetHttpRequestAdapter: ra}
 	mockAdaptor.results = []requestResult{{
-		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
-		Params:      map[string]string{"appId": "cfa8b339-82a2-471a-a3c9-0fc0be7a4093"},
-		Result:      models.NewServicePrincipal(),
+		PathPattern: regexp.QuoteMeta("{+baseurl}/applications") + ".*",
+		Result:      appResp,
 	}, {
 		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
-		Params:      map[string]string{"appId": "60a04dc9-1857-425f-8076-5ba81ca53d66"},
+		Params:      map[string]string{"appId": "app-id"},
 		Err:         dataError("Request_ResourceNotFound"),
 	}, {
 		Err: dataError("Request_MultipleObjectsWithSameKeyValue"),
 	}, {
 		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
-		Params:      map[string]string{"appId": "60a04dc9-1857-425f-8076-5ba81ca53d66"},
+		Params:      map[string]string{"appId": "app-id"},
 		Result:      sp,
 	}, {
 		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals/{servicePrincipal%2Did}/addPassword"),
@@ -359,7 +375,7 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFoundRace(c *gc.C) 
 		TenantId:       fakeTenantId, Credential: &azuretesting.FakeCredential{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appId, gc.Equals, "60a04dc9-1857-425f-8076-5ba81ca53d66")
+	c.Assert(appId, gc.Equals, "app-id")
 	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
 	c.Assert(spObjectId, gc.Equals, "sp-object-id")
 }
@@ -369,19 +385,23 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
-	sp.SetAppId(to.Ptr("60a04dc9-1857-425f-8076-5ba81ca53d66"))
+	sp.SetAppId(to.Ptr("app-id"))
 	sp.SetId(to.Ptr("sp-object-id"))
 	cred := models.NewPasswordCredential()
 	cred.SetSecretText(to.Ptr("33333333-3333-3333-3333-333333333333"))
 
+	app := models.NewApplication()
+	app.SetAppId(to.Ptr("app-id"))
+	appResp := models.NewApplicationCollectionResponse()
+	appResp.SetValue([]models.Applicationable{app})
+
 	mockAdaptor := &MockRequestAdaptor{NetHttpRequestAdapter: ra}
 	mockAdaptor.results = []requestResult{{
-		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
-		Params:      map[string]string{"appId": "cfa8b339-82a2-471a-a3c9-0fc0be7a4093"},
-		Result:      models.NewServicePrincipal(),
+		PathPattern: regexp.QuoteMeta("{+baseurl}/applications") + ".*",
+		Result:      appResp,
 	}, {
 		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
-		Params:      map[string]string{"appId": "60a04dc9-1857-425f-8076-5ba81ca53d66"},
+		Params:      map[string]string{"appId": "app-id"},
 		Result:      sp,
 	}, {
 		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals/{servicePrincipal%2Did}/addPassword"),
@@ -410,7 +430,7 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
 		TenantId:       fakeTenantId, Credential: &azuretesting.FakeCredential{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appId, gc.Equals, "60a04dc9-1857-425f-8076-5ba81ca53d66")
+	c.Assert(appId, gc.Equals, "app-id")
 	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
 	c.Assert(spObjectId, gc.Equals, "sp-object-id")
 }
