@@ -124,7 +124,7 @@ func (c *showOperationCommand) Run(ctx *cmd.Context) error {
 	var result actionapi.Operation
 	shouldWatch := c.wait.Nanoseconds() >= 0
 	if shouldWatch {
-		tick := c.clock.NewTimer(resultPollTime)
+		tick := c.clock.NewTimer(resultPollMaxTime)
 		result, err = getOperationResult(api, c.requestedID, tick, wait)
 	} else {
 		result, err = fetchOperationResult(api, c.requestedID)
@@ -188,7 +188,7 @@ func operationTimerLoop(api APIClient, requestedId string, tick, wait clock.Time
 				return result, nil
 			}
 		case <-tick.Chan():
-			tick.Reset(resultPollTime)
+			tick.Reset(resultPollMaxTime)
 		}
 	}
 }

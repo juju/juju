@@ -233,6 +233,5 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 
 // getActionResult abstracts over the action CLI function that we use here to fetch results
 var getActionResult = func(c runClient, actionId string, clk clock.Clock, wait clock.Timer) (actionapi.ActionResult, error) {
-	tick := clk.NewTimer(2 * time.Second)
-	return action.GetActionResult(c, actionId, tick, wait)
+	return action.GetActionResult(c, actionId, clk, wait)
 }
