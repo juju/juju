@@ -457,6 +457,8 @@ WHERE  u.removed = false
 
 // ReadAllUserAccessForTarget return a slice of user access for all users
 // with access to the given target.
+// An [accesserrors.PermissionNotFound] error is returned if no permissions can
+// be found on the target.
 func (st *PermissionState) ReadAllUserAccessForTarget(ctx context.Context, target corepermission.ID) ([]corepermission.UserAccess, error) {
 	db, err := st.DB()
 	if err != nil {

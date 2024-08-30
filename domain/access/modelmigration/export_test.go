@@ -72,8 +72,8 @@ func (s *exportSuite) TestExport(c *gc.C) {
 		Key:        dst.Tag().Id(),
 	}).Return(userAccesses, nil)
 
-	bobTime := time.Now().Round(time.Minute).UTC()
-	bazzaTime := bobTime.Add(time.Minute)
+	bobTime := time.Now().Truncate(time.Minute).UTC()
+	bazzaTime := time.Now().Truncate(time.Minute).UTC().Add(-time.Minute)
 	s.service.EXPECT().LastModelLogin(
 		gomock.Any(), bobName, coremodel.UUID(dst.Tag().Id()),
 	).Return(bobTime, nil)

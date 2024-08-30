@@ -31,15 +31,18 @@ func RegisterExport(coordinator Coordinator, logger logger.Logger) {
 // service methods needed for model permissions export.
 type ExportService interface {
 	// ReadAllUserAccessForTarget return a slice of user access for all users
-	// with access to the given target. A NotValid error is returned if the
-	// target is not valid. Any errors from the state layer are passed through.
+	// with access to the given target.
+	// An [errors.NotValid] error is returned if the target is not valid. Any
+	// errors from the state layer are passed through.
+	// An [accesserrors.PermissionNotFound] error is returned if no permissions
+	// can be found on the target.
 	ReadAllUserAccessForTarget(ctx context.Context, target corepermission.ID) ([]corepermission.UserAccess, error)
 	// LastModelLogin will return the last login time of the specified user.
 	// The following error types are possible from this function:
-	// - accesserrors.UserNameNotValid: When the username is not valid.
-	// - accesserrors.UserNotFound: When the user cannot be found.
-	// - modelerrors.NotFound: If no model by the given modelUUID exists.
-	// - accesserrors.UserNeverAccessedModel: If there is no record of the user
+	// - [accesserrors.UserNameNotValid] when the username is not valid.
+	// - [accesserrors.UserNotFound] when the user cannot be found.
+	// - [modelerrors.NotFound] if no model by the given modelUUID exists.
+	// - [accesserrors.UserNeverAccessedModel] if there is no record of the user
 	// accessing the model.
 	LastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) (time.Time, error)
 }

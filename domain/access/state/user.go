@@ -735,9 +735,9 @@ func AddUserWithPermission(
 // UpdateLastModelLogin updates the last login time for the user
 // with the supplied uuid on the model with the supplied model uuid.
 // The following error types are possible from this function:
-// - accesserrors.UserNameNotValid: When the username is not valid.
-// - accesserrors.UserNotFound: When the user cannot be found.
-// - modelerrors.NotFound: If no model by the given modelUUID exists.
+// - [accesserrors.UserNameNotValid] when the username is not valid.
+// - [accesserrors.UserNotFound] when the user cannot be found.
+// - [modelerrors.NotFound] if no model by the given modelUUID exists.
 func (st *UserState) UpdateLastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID, lastLogin time.Time) error {
 	db, err := st.DB()
 	if err != nil {
@@ -767,7 +767,7 @@ ON CONFLICT(model_uuid, user_uuid) DO UPDATE SET
 		mll := dbModelLastLogin{
 			UserUUID:  userUUID.String(),
 			ModelUUID: modelUUID.String(),
-			Time:      lastLogin.Round(time.Second),
+			Time:      lastLogin.Truncate(time.Second),
 		}
 
 		if err := tx.Query(ctx, insertModelLoginStmt, mll).Run(); err != nil {
@@ -789,10 +789,10 @@ ON CONFLICT(model_uuid, user_uuid) DO UPDATE SET
 
 // LastModelLogin returns when the specified user last connected to the
 // specified model in UTC. The following errors can be returned:
-// - accesserrors.UserNameNotValid: When the username is not valid.
-// - accesserrors.UserNotFound: When the user cannot be found.
-// - modelerrors.NotFound: If no model by the given modelUUID exists.
-// - accesserrors.UserNeverAccessedModel: If there is no record of the user
+// - [accesserrors.UserNameNotValid] when the username is not valid.
+// - [accesserrors.UserNotFound] when the user cannot be found.
+// - [modelerrors.NotFound] if no model by the given modelUUID exists.
+// - [accesserrors.UserNeverAccessedModel] if there is no record of the user
 // accessing the model.
 func (st *UserState) LastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) (time.Time, error) {
 	db, err := st.DB()

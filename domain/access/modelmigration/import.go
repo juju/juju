@@ -38,17 +38,17 @@ func RegisterImport(coordinator Coordinator, logger logger.Logger) {
 type ImportService interface {
 	// CreatePermission gives the user access per the provided spec.
 	// If the user provided does not exist or is marked removed,
-	// accesserrors.PermissionNotFound is returned.
+	// [accesserrors.PermissionNotFound] is returned.
 	// If the user provided exists but is marked disabled,
-	// accesserrors.UserAuthenticationDisabled is returned.
+	// [accesserrors.UserAuthenticationDisabled] is returned.
 	// If a permission for the user and target key already exists,
-	// accesserrors.PermissionAlreadyExists is returned.
+	// [accesserrors.PermissionAlreadyExists] is returned.
 	CreatePermission(ctx context.Context, spec corepermission.UserAccessSpec) (corepermission.UserAccess, error)
 	// SetLastModelLogin will set the last login time for the user to the given
-	// value. The following error types are possible from this function: -
-	// accesserrors.UserNameNotValid: When the username supplied is not valid. -
-	// accesserrors.UserNotFound: When the user cannot be found. -
-	// modelerrors.NotFound: If no model by the given modelUUID exists.
+	// value. The following error types are possible from this function:
+	// [accesserrors.UserNameNotValid] when the username supplied is not valid.
+	// [accesserrors.UserNotFound] when the user cannot be found.
+	// [modelerrors.NotFound] if no model by the given modelUUID exists.
 	SetLastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID, time time.Time) error
 }
 

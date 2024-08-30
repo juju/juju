@@ -280,9 +280,9 @@ func (s *UserService) DisableUserAuthentication(ctx context.Context, name user.N
 
 // UpdateLastModelLogin will update the last login time for the user.
 // The following error types are possible from this function:
-// - accesserrors.UserNameNotValid: When the username supplied is not valid.
-// - accesserrors.UserNotFound: When the user cannot be found.
-// - modelerrors.NotFound: If no model by the given modelUUID exists.
+// - [accesserrors.UserNameNotValid] when the username supplied is not valid.
+// - [accesserrors.UserNotFound] when the user cannot be found.
+// - [modelerrors.NotFound] if no model by the given modelUUID exists.
 func (s *UserService) UpdateLastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) error {
 	if name.IsZero() {
 		return errors.Annotatef(accesserrors.UserNameNotValid, "empty username")
@@ -295,10 +295,10 @@ func (s *UserService) UpdateLastModelLogin(ctx context.Context, name user.Name, 
 }
 
 // SetLastModelLogin will set the last login time for the user to the given
-// value. The following error types are possible from this function: -
-// accesserrors.UserNameNotValid: When the username supplied is not valid. -
-// accesserrors.UserNotFound: When the user cannot be found. -
-// modelerrors.NotFound: If no model by the given modelUUID exists.
+// value. The following error types are possible from this function:
+// [accesserrors.UserNameNotValid] when the username supplied is not valid.
+// [accesserrors.UserNotFound] when the user cannot be found.
+// [modelerrors.NotFound] if no model by the given modelUUID exists.
 func (s *UserService) SetLastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID, lastLogin time.Time) error {
 	if name.IsZero() {
 		return errors.Annotatef(accesserrors.UserNameNotValid, "empty username")
@@ -312,10 +312,10 @@ func (s *UserService) SetLastModelLogin(ctx context.Context, name user.Name, mod
 
 // LastModelLogin will return the last login time of the specified user.
 // The following error types are possible from this function:
-// - accesserrors.UserNameNotValid: When the username is not valid.
-// - accesserrors.UserNotFound: When the user cannot be found.
-// - modelerrors.NotFound: If no model by the given modelUUID exists.
-// - accesserrors.UserNeverAccessedModel: If there is no record of the user
+// - [accesserrors.UserNameNotValid] when the username is not valid.
+// - [accesserrors.UserNotFound] when the user cannot be found.
+// - [modelerrors.NotFound] if no model by the given modelUUID exists.
+// - [accesserrors.UserNeverAccessedModel] if there is no record of the user
 // accessing the model.
 func (s *UserService) LastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) (time.Time, error) {
 	if name.IsZero() {

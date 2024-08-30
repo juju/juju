@@ -1335,7 +1335,7 @@ WHERE user_uuid = ?
 	err = row.Scan(&dbUserUUID, &dbModelUUID, &lastLogin)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(lastLogin.UTC(), gc.Equals, loginTime.Round(time.Second).UTC())
+	c.Assert(lastLogin.UTC(), gc.Equals, loginTime.Truncate(time.Second).UTC())
 	c.Assert(dbUserUUID, gc.Equals, string(adminUUID))
 	c.Assert(dbModelUUID, gc.Equals, string(modelUUID))
 }
@@ -1369,10 +1369,10 @@ func (s *userStateSuite) TestLastModelLogin(c *gc.C) {
 	// Check login times.
 	time1, err := st.LastModelLogin(context.Background(), username1, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(time1.UTC(), gc.Equals, expectedTime1.Round(time.Second).UTC())
+	c.Check(time1.UTC(), gc.Equals, expectedTime1.Truncate(time.Second).UTC())
 	time2, err := st.LastModelLogin(context.Background(), username2, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(time2.UTC(), gc.Equals, expectedTime2.Round(time.Second).UTC())
+	c.Check(time2.UTC(), gc.Equals, expectedTime2.Truncate(time.Second).UTC())
 
 	// Simulate a new login from user1
 	expectedTime3 := expectedTime2.Add(time.Minute)
@@ -1382,7 +1382,7 @@ func (s *userStateSuite) TestLastModelLogin(c *gc.C) {
 	// Check the time for user1 was updated.
 	time3, err := st.LastModelLogin(context.Background(), username1, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(time3, gc.Equals, expectedTime3.Round(time.Second).UTC())
+	c.Check(time3, gc.Equals, expectedTime3.Truncate(time.Second).UTC())
 }
 
 func (s *userStateSuite) TestLastModelLoginModelNotFound(c *gc.C) {
