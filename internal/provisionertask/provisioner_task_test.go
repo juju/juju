@@ -60,6 +60,15 @@ const (
 	defaultHarvestMode            = config.HarvestAll
 )
 
+func machineInstanceInfoSetter(machineProvsionerAPI apiprovisioner.MachineProvisioner) func(
+	ctx context.Context,
+	id instance.Id, displayName string, nonce string, characteristics *instance.HardwareCharacteristics,
+	networkConfig []params.NetworkConfig, volumes []params.Volume,
+	volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
+) error {
+	return machineProvsionerAPI.SetInstanceInfo
+}
+
 type ProvisionerTaskSuite struct {
 	testing.IsolationSuite
 
@@ -1448,21 +1457,22 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 	numProvisionWorkers int,
 ) provisionertask.ProvisionerTask {
 	w, err := provisionertask.NewProvisionerTask(provisionertask.TaskConfig{
-		ControllerUUID:             coretesting.ControllerTag.Id(),
-		HostTag:                    names.NewMachineTag("0"),
-		Logger:                     loggertesting.WrapCheckLog(c),
-		HarvestMode:                harvestingMethod,
-		ControllerAPI:              s.controllerAPI,
-		MachinesAPI:                s.machinesAPI,
-		DistributionGroupFinder:    distributionGroupFinder,
-		ToolsFinder:                toolsFinder,
-		MachineWatcher:             s.modelMachinesWatcher,
-		RetryWatcher:               s.machineErrorRetryWatcher,
-		Broker:                     s.instanceBroker,
-		ImageStream:                imagemetadata.ReleasedStream,
-		RetryStartInstanceStrategy: retryStrategy,
-		CloudCallContextFunc:       func(_ context.Context) envcontext.ProviderCallContext { return s.callCtx },
-		NumProvisionWorkers:        numProvisionWorkers,
+		ControllerUUID:               coretesting.ControllerTag.Id(),
+		HostTag:                      names.NewMachineTag("0"),
+		Logger:                       loggertesting.WrapCheckLog(c),
+		HarvestMode:                  harvestingMethod,
+		ControllerAPI:                s.controllerAPI,
+		MachinesAPI:                  s.machinesAPI,
+		DistributionGroupFinder:      distributionGroupFinder,
+		ToolsFinder:                  toolsFinder,
+		MachineWatcher:               s.modelMachinesWatcher,
+		RetryWatcher:                 s.machineErrorRetryWatcher,
+		Broker:                       s.instanceBroker,
+		ImageStream:                  imagemetadata.ReleasedStream,
+		RetryStartInstanceStrategy:   retryStrategy,
+		CloudCallContextFunc:         func(_ context.Context) envcontext.ProviderCallContext { return s.callCtx },
+		NumProvisionWorkers:          numProvisionWorkers,
+		GetMachineInstanceInfoSetter: machineInstanceInfoSetter,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
@@ -1503,9 +1513,10 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
 			RetryDelay: 0 * time.Second,
 			RetryCount: 0,
 		},
-		CloudCallContextFunc: func(_ context.Context) envcontext.ProviderCallContext { return s.callCtx },
-		NumProvisionWorkers:  numProvisionWorkers,
-		EventProcessedCb:     evtCb,
+		CloudCallContextFunc:         func(_ context.Context) envcontext.ProviderCallContext { return s.callCtx },
+		NumProvisionWorkers:          numProvisionWorkers,
+		EventProcessedCb:             evtCb,
+		GetMachineInstanceInfoSetter: machineInstanceInfoSetter,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return task

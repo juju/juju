@@ -50,7 +50,7 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 		context.Background(),
 		machineUUID,
 		instance.Id("1"),
-		instance.HardwareCharacteristics{
+		&instance.HardwareCharacteristics{
 			Arch:             strptr("arm64"),
 			Mem:              uintptr(1024),
 			RootDisk:         uintptr(256),
@@ -341,7 +341,7 @@ func (s *stateSuite) ensureInstance(c *gc.C, mName machine.Name) string {
 		context.Background(),
 		machineUUID,
 		instance.Id("123"),
-		instance.HardwareCharacteristics{
+		&instance.HardwareCharacteristics{
 			Arch:             strptr("arm64"),
 			Mem:              uintptr(1024),
 			RootDisk:         uintptr(256),

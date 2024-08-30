@@ -110,24 +110,35 @@ type RetryStrategy struct {
 	RetryCount int
 }
 
+// GetMachineInstanceInfoSetter provides the interface for setting the
+// instance info of a machine. It takes a machine provisioner API as input
+// so it can be used when we don't have a machine service available.
+type GetMachineInstanceInfoSetter func(machineProvisioner apiprovisioner.MachineProvisioner) func(
+	ctx context.Context,
+	id instance.Id, displayName string, nonce string, characteristics *instance.HardwareCharacteristics,
+	networkConfig []params.NetworkConfig, volumes []params.Volume,
+	volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
+) error
+
 // TaskConfig holds the initialisation data for a ProvisionerTask instance.
 type TaskConfig struct {
-	ControllerUUID             string
-	HostTag                    names.Tag
-	Logger                     logger.Logger
-	HarvestMode                config.HarvestMode
-	ControllerAPI              ControllerAPI
-	MachinesAPI                MachinesAPI
-	DistributionGroupFinder    DistributionGroupFinder
-	ToolsFinder                ToolsFinder
-	MachineWatcher             watcher.StringsWatcher
-	RetryWatcher               watcher.NotifyWatcher
-	Broker                     environs.InstanceBroker
-	ImageStream                string
-	RetryStartInstanceStrategy RetryStrategy
-	CloudCallContextFunc       common.CloudCallContextFunc
-	NumProvisionWorkers        int
-	EventProcessedCb           func(string)
+	ControllerUUID               string
+	HostTag                      names.Tag
+	Logger                       logger.Logger
+	HarvestMode                  config.HarvestMode
+	ControllerAPI                ControllerAPI
+	MachinesAPI                  MachinesAPI
+	GetMachineInstanceInfoSetter GetMachineInstanceInfoSetter
+	DistributionGroupFinder      DistributionGroupFinder
+	ToolsFinder                  ToolsFinder
+	MachineWatcher               watcher.StringsWatcher
+	RetryWatcher                 watcher.NotifyWatcher
+	Broker                       environs.InstanceBroker
+	ImageStream                  string
+	RetryStartInstanceStrategy   RetryStrategy
+	CloudCallContextFunc         common.CloudCallContextFunc
+	NumProvisionWorkers          int
+	EventProcessedCb             func(string)
 }
 
 func NewProvisionerTask(cfg TaskConfig) (ProvisionerTask, error) {
@@ -139,29 +150,30 @@ func NewProvisionerTask(cfg TaskConfig) (ProvisionerTask, error) {
 		workers = append(workers, cfg.RetryWatcher)
 	}
 	task := &provisionerTask{
-		controllerUUID:             cfg.ControllerUUID,
-		hostTag:                    cfg.HostTag,
-		logger:                     cfg.Logger,
-		controllerAPI:              cfg.ControllerAPI,
-		machinesAPI:                cfg.MachinesAPI,
-		distributionGroupFinder:    cfg.DistributionGroupFinder,
-		toolsFinder:                cfg.ToolsFinder,
-		machineChanges:             machineChanges,
-		retryChanges:               retryChanges,
-		broker:                     cfg.Broker,
-		harvestMode:                cfg.HarvestMode,
-		harvestModeChan:            make(chan config.HarvestMode, 1),
-		machines:                   make(map[string]apiprovisioner.MachineProvisioner),
-		machinesStarting:           make(map[string]bool),
-		machinesStopDeferred:       make(map[string]bool),
-		machinesStopping:           make(map[string]bool),
-		availabilityZoneMachines:   make([]*AvailabilityZoneMachine, 0),
-		imageStream:                cfg.ImageStream,
-		retryStartInstanceStrategy: cfg.RetryStartInstanceStrategy,
-		cloudCallCtxFunc:           cfg.CloudCallContextFunc,
-		wp:                         workerpool.NewWorkerPool(cfg.Logger, cfg.NumProvisionWorkers),
-		wpSizeChan:                 make(chan int, 1),
-		eventProcessedCb:           cfg.EventProcessedCb,
+		controllerUUID:               cfg.ControllerUUID,
+		hostTag:                      cfg.HostTag,
+		logger:                       cfg.Logger,
+		controllerAPI:                cfg.ControllerAPI,
+		machinesAPI:                  cfg.MachinesAPI,
+		getMachineInstanceInfoSetter: cfg.GetMachineInstanceInfoSetter,
+		distributionGroupFinder:      cfg.DistributionGroupFinder,
+		toolsFinder:                  cfg.ToolsFinder,
+		machineChanges:               machineChanges,
+		retryChanges:                 retryChanges,
+		broker:                       cfg.Broker,
+		harvestMode:                  cfg.HarvestMode,
+		harvestModeChan:              make(chan config.HarvestMode, 1),
+		machines:                     make(map[string]apiprovisioner.MachineProvisioner),
+		machinesStarting:             make(map[string]bool),
+		machinesStopDeferred:         make(map[string]bool),
+		machinesStopping:             make(map[string]bool),
+		availabilityZoneMachines:     make([]*AvailabilityZoneMachine, 0),
+		imageStream:                  cfg.ImageStream,
+		retryStartInstanceStrategy:   cfg.RetryStartInstanceStrategy,
+		cloudCallCtxFunc:             cfg.CloudCallContextFunc,
+		wp:                           workerpool.NewWorkerPool(cfg.Logger, cfg.NumProvisionWorkers),
+		wpSizeChan:                   make(chan int, 1),
+		eventProcessedCb:             cfg.EventProcessedCb,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &task.catacomb,
@@ -184,21 +196,22 @@ const (
 )
 
 type provisionerTask struct {
-	controllerUUID             string
-	hostTag                    names.Tag
-	logger                     logger.Logger
-	controllerAPI              ControllerAPI
-	machinesAPI                MachinesAPI
-	distributionGroupFinder    DistributionGroupFinder
-	toolsFinder                ToolsFinder
-	machineChanges             watcher.StringsChannel
-	retryChanges               watcher.NotifyChannel
-	broker                     environs.InstanceBroker
-	catacomb                   catacomb.Catacomb
-	imageStream                string
-	harvestMode                config.HarvestMode
-	harvestModeChan            chan config.HarvestMode
-	retryStartInstanceStrategy RetryStrategy
+	controllerUUID               string
+	hostTag                      names.Tag
+	logger                       logger.Logger
+	controllerAPI                ControllerAPI
+	machinesAPI                  MachinesAPI
+	getMachineInstanceInfoSetter GetMachineInstanceInfoSetter
+	distributionGroupFinder      DistributionGroupFinder
+	toolsFinder                  ToolsFinder
+	machineChanges               watcher.StringsChannel
+	retryChanges                 watcher.NotifyChannel
+	broker                       environs.InstanceBroker
+	catacomb                     catacomb.Catacomb
+	imageStream                  string
+	harvestMode                  config.HarvestMode
+	harvestModeChan              chan config.HarvestMode
+	retryStartInstanceStrategy   RetryStrategy
 
 	machinesMutex            sync.RWMutex
 	machines                 map[string]apiprovisioner.MachineProvisioner // machine ID -> machine
@@ -1510,6 +1523,8 @@ func (task *provisionerTask) doStartMachine(
 	volumeNameToAttachmentInfo := volumeAttachmentsToAPIServer(result.VolumeAttachments)
 	instanceID := result.Instance.Id()
 
+	// TODO(nvinuesa): The charm LXD profiles will have to be re-wired once
+	// they are implemented as a dqlite domain.
 	// Gather the charm LXD profile names, including the lxd profile names from
 	// the container brokers.
 	charmLXDProfiles, err := task.gatherCharmLXDProfiles(
@@ -1518,7 +1533,7 @@ func (task *provisionerTask) doStartMachine(
 		return errors.Trace(err)
 	}
 
-	if err := machine.SetInstanceInfo(
+	if err := task.getMachineInstanceInfoSetter(machine)(
 		ctx,
 		instanceID,
 		result.DisplayName,
@@ -1538,7 +1553,6 @@ func (task *provisionerTask) doStartMachine(
 		}
 		return errors.Annotate(err, "setting instance info")
 	}
-
 	task.logger.Infof(
 		"started machine %s as instance %s with hardware %q, network config %+v, "+
 			"volumes %v, volume attachments %v, subnets to zones %v, lxd profiles %v",

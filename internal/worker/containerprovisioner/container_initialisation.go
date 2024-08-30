@@ -38,6 +38,7 @@ type ContainerSetup struct {
 	logger                  logger.Logger
 	containerType           instance.ContainerType
 	provisioner             ContainerProvisionerAPI
+	machineService          MachineService
 	controllerAPI           ControllerAPI
 	machinesAPI             MachinesAPI
 	toolsFinder             ToolsFinder
@@ -54,15 +55,16 @@ type ContainerSetup struct {
 
 // ContainerSetupParams are used to initialise a container setup worker.
 type ContainerSetupParams struct {
-	Logger        logger.Logger
-	ContainerType instance.ContainerType
-	MTag          names.MachineTag
-	MachineZone   broker.AvailabilityZoner
-	Provisioner   *apiprovisioner.Client
-	Config        agent.Config
-	MachineLock   machinelock.Lock
-	CredentialAPI workercommon.CredentialAPI
-	GetNetConfig  func(network.ConfigSource) (network.InterfaceInfos, error)
+	MachineService MachineService
+	Logger         logger.Logger
+	ContainerType  instance.ContainerType
+	MTag           names.MachineTag
+	MachineZone    broker.AvailabilityZoner
+	Provisioner    *apiprovisioner.Client
+	Config         agent.Config
+	MachineLock    machinelock.Lock
+	CredentialAPI  workercommon.CredentialAPI
+	GetNetConfig   func(network.ConfigSource) (network.InterfaceInfos, error)
 }
 
 // NewContainerSetup returns a ContainerSetup to start the container
@@ -72,6 +74,7 @@ func NewContainerSetup(params ContainerSetupParams) *ContainerSetup {
 		logger:                  params.Logger,
 		containerType:           params.ContainerType,
 		provisioner:             params.Provisioner,
+		machineService:          params.MachineService,
 		controllerAPI:           params.Provisioner,
 		machinesAPI:             params.Provisioner,
 		toolsFinder:             params.Provisioner,
@@ -193,6 +196,7 @@ func (cs *ContainerSetup) initialiseContainerProvisioner(ctx context.Context) (P
 
 	w, err := NewContainerProvisioner(
 		cs.containerType,
+		cs.machineService,
 		cs.controllerAPI,
 		cs.machinesAPI,
 		cs.logger,

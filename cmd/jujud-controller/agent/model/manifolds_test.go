@@ -537,6 +537,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
+		"service-factory",
 		"valid-credential-flag",
 	},
 

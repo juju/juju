@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -734,6 +735,8 @@ func (api *ProvisionerAPI) SetInstanceInfo(ctx context.Context, args params.Inst
 		ifaces := params.InterfaceInfoFromNetworkConfig(arg.NetworkConfig)
 		devicesArgs, devicesAddrs := networkingcommon.NetworkInterfacesToStateArgs(ifaces)
 
+		// TODO(nvinuesa): Remove double writing after finishing
+		// implementing instance data on dqlite.
 		err = machine.SetInstanceInfo(
 			arg.InstanceId, arg.DisplayName, arg.Nonce, arg.Characteristics,
 			devicesArgs, devicesAddrs,
@@ -742,6 +745,21 @@ func (api *ProvisionerAPI) SetInstanceInfo(ctx context.Context, args params.Inst
 		if err != nil {
 			return errors.Annotatef(err, "cannot record provisioning info for %q", arg.InstanceId)
 		}
+
+		machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(machine.Id()))
+		if err != nil {
+			return errors.Annotatef(err, "retrieving machineUUID for machine %q", machine.Id())
+		}
+		instanceID, err := machine.InstanceId()
+		if err := api.machineService.SetMachineCloudInstance(
+			ctx,
+			machineUUID,
+			instanceID,
+			arg.Characteristics,
+		); err != nil {
+			return errors.Annotatef(err, "setting machine cloud instance for machine uuid %q", machineUUID)
+		}
+
 		return nil
 	}
 	for i, arg := range args.Machines {

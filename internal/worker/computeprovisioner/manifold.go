@@ -13,10 +13,36 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/api/base"
+	coredependency "github.com/juju/juju/core/dependency"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
 )
+
+// MachineService defines the methods that the worker assumes from the Machine
+// service.
+type MachineService interface {
+	// SetMachineCloudInstance sets an entry in the machine cloud instance table
+	// along with the instance tags and the link to a lxd profile if any.
+	SetMachineCloudInstance(ctx context.Context, machineUUID string, instanceID instance.Id, hardwareCharacteristics *instance.HardwareCharacteristics) error
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	// It returns a MachineNotFound if the machine does not exist.
+	GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error)
+}
+
+// GetMachineFunc is a helper function that gets a service from the manifold.
+type GetMachineServiceFunc func(getter dependency.Getter, name string) (MachineService, error)
+
+// GetMachineService is a helper function that gets a service from the
+// manifold.
+func GetMachineService(getter dependency.Getter, name string) (MachineService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ModelServiceFactory) MachineService {
+		return factory.Machine()
+	})
+}
 
 // ManifoldConfig defines an environment provisioner's dependencies. It's not
 // currently clear whether it'll be easier to extend this type to include all
@@ -24,12 +50,14 @@ import (
 // for now we dodge the question because we don't need container provisioners
 // in dependency engines. Yet.
 type ManifoldConfig struct {
-	AgentName     string
-	APICallerName string
-	EnvironName   string
-	Logger        logger.Logger
+	AgentName          string
+	APICallerName      string
+	EnvironName        string
+	ServiceFactoryName string
+	GetMachineService  GetMachineServiceFunc
+	Logger             logger.Logger
 
-	NewProvisionerFunc           func(ControllerAPI, MachinesAPI, ToolsFinder, DistributionGroupFinder, agent.Config, logger.Logger, Environ, common.CredentialAPI) (Provisioner, error)
+	NewProvisionerFunc           func(ControllerAPI, MachineService, MachinesAPI, ToolsFinder, DistributionGroupFinder, agent.Config, logger.Logger, Environ, common.CredentialAPI) (Provisioner, error)
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 
@@ -41,8 +69,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.APICallerName,
 			config.EnvironName,
+			config.ServiceFactoryName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
+			if err := config.Validate(); err != nil {
+				return nil, errors.Trace(err)
+			}
 			var agent agent.Agent
 			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, errors.Trace(err)
@@ -66,11 +98,45 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			w, err := config.NewProvisionerFunc(api, api, api, api, agentConfig, config.Logger, environ, credentialAPI)
+			machineService, err := config.GetMachineService(getter, config.ServiceFactoryName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			w, err := config.NewProvisionerFunc(api, machineService, api, api, api, agentConfig, config.Logger, environ, credentialAPI)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			return w, nil
 		},
 	}
+}
+
+// Validate is called by start to check for bad configuration.
+func (config ManifoldConfig) Validate() error {
+	if config.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
+	if config.APICallerName == "" {
+		return errors.NotValidf("empty APICallerName")
+	}
+	if config.EnvironName == "" {
+		return errors.NotValidf("empty EnvironName")
+	}
+	if config.ServiceFactoryName == "" {
+		return errors.NotValidf("empty ServiceFactoryName")
+	}
+	if config.GetMachineService == nil {
+		return errors.NotValidf("nil GetMachineService")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	if config.NewProvisionerFunc == nil {
+		return errors.NotValidf("nil NewProvisionerFunc")
+	}
+	if config.NewCredentialValidatorFacade == nil {
+		return errors.NotValidf("nil NewCredentialValidatorFacade")
+	}
+	return nil
 }

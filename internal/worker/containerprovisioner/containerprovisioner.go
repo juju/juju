@@ -84,6 +84,7 @@ type containerProvisioner struct {
 	toolsFinder             ToolsFinder
 	controllerAPI           ControllerAPI
 	machinesAPI             MachinesAPI
+	machineService          MachineService
 	agentConfig             agent.Config
 	logger                  logger.Logger
 	broker                  environs.InstanceBroker
@@ -119,6 +120,7 @@ func (o *configObserver) notify(cfg *config.Config) {
 // and allocates them to the new machines.
 func NewContainerProvisioner(
 	containerType instance.ContainerType,
+	machineService MachineService,
 	controllerAPI ControllerAPI,
 	machinesAPI MachinesAPI,
 	logger logger.Logger,
@@ -265,17 +267,18 @@ func (p *containerProvisioner) getStartTask(ctx context.Context, harvestMode con
 	}
 
 	task, err := provisionertask.NewProvisionerTask(provisionertask.TaskConfig{
-		ControllerUUID:          controllerCfg.ControllerUUID(),
-		HostTag:                 hostTag,
-		Logger:                  p.logger,
-		HarvestMode:             harvestMode,
-		ControllerAPI:           p.controllerAPI,
-		MachinesAPI:             p.machinesAPI,
-		DistributionGroupFinder: p.distributionGroupFinder,
-		ToolsFinder:             p.toolsFinder,
-		MachineWatcher:          machineWatcher,
-		Broker:                  p.broker,
-		ImageStream:             modelCfg.ImageStream(),
+		ControllerUUID:               controllerCfg.ControllerUUID(),
+		HostTag:                      hostTag,
+		Logger:                       p.logger,
+		HarvestMode:                  harvestMode,
+		ControllerAPI:                p.controllerAPI,
+		MachinesAPI:                  p.machinesAPI,
+		GetMachineInstanceInfoSetter: machineInstanceInfoSetter,
+		DistributionGroupFinder:      p.distributionGroupFinder,
+		ToolsFinder:                  p.toolsFinder,
+		MachineWatcher:               machineWatcher,
+		Broker:                       p.broker,
+		ImageStream:                  modelCfg.ImageStream(),
 		RetryStartInstanceStrategy: provisionertask.RetryStrategy{
 			RetryDelay: retryStrategyDelay,
 			RetryCount: retryStrategyCount,
@@ -287,4 +290,17 @@ func (p *containerProvisioner) getStartTask(ctx context.Context, harvestMode con
 		return nil, errors.Trace(err)
 	}
 	return task, nil
+}
+
+// machineInstanceInfoSetter provides the mechanism for setting instance info
+// for compute (machine) resources.
+// This implementation uses the machines API, because the container
+// provisioner is used on the agents where we cannot use domain services.
+func machineInstanceInfoSetter(machineProvsionerAPI apiprovisioner.MachineProvisioner) func(
+	ctx context.Context,
+	id instance.Id, displayName string, nonce string, characteristics *instance.HardwareCharacteristics,
+	networkConfig []params.NetworkConfig, volumes []params.Volume,
+	volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
+) error {
+	return machineProvsionerAPI.SetInstanceInfo
 }

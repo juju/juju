@@ -24,7 +24,7 @@ func (s *Service) SetMachineCloudInstance(
 	ctx context.Context,
 	machineUUID string,
 	instanceID instance.Id,
-	hardwareCharacteristics instance.HardwareCharacteristics,
+	hardwareCharacteristics *instance.HardwareCharacteristics,
 ) error {
 	return errors.Annotatef(
 		s.st.SetMachineCloudInstance(ctx, machineUUID, instanceID, hardwareCharacteristics),

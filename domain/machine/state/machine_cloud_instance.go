@@ -30,7 +30,7 @@ func (st *State) HardwareCharacteristics(
 	}
 	retrieveHardwareCharacteristics := `
 SELECT (*) AS (&instanceData.*)
-FROM   machine_cloud_instance 
+FROM   machine_cloud_instance
 WHERE  machine_uuid = $instanceData.machine_uuid`
 	machineUUIDQuery := instanceData{
 		MachineUUID: machineUUID,
@@ -58,7 +58,7 @@ func (st *State) SetMachineCloudInstance(
 	ctx context.Context,
 	machineUUID string,
 	instanceID instance.Id,
-	hardwareCharacteristics instance.HardwareCharacteristics,
+	hardwareCharacteristics *instance.HardwareCharacteristics,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -99,7 +99,7 @@ VALUES ($instanceTag.*)
 		if err := tx.Query(ctx, setInstanceDataStmt, instanceData).Run(); err != nil {
 			return errors.Annotatef(err, "inserting machine cloud instance for machine %q", machineUUID)
 		}
-		if instanceTags := tagsFromHardwareCharacteristics(machineUUID, &hardwareCharacteristics); len(instanceTags) > 0 {
+		if instanceTags := tagsFromHardwareCharacteristics(machineUUID, hardwareCharacteristics); len(instanceTags) > 0 {
 			if err := tx.Query(ctx, setInstanceTagStmt, instanceTags).Run(); err != nil {
 				return errors.Annotatef(err, "inserting instance tags for machine %q", machineUUID)
 			}
@@ -122,7 +122,7 @@ func (st *State) DeleteMachineCloudInstance(
 
 	// Prepare query for deleting machine cloud instance.
 	deleteInstanceQuery := `
-DELETE FROM machine_cloud_instance 
+DELETE FROM machine_cloud_instance
 WHERE machine_uuid=$machineUUID.uuid
 `
 	machineUUIDParam := machineUUID{
@@ -135,7 +135,7 @@ WHERE machine_uuid=$machineUUID.uuid
 
 	// Prepare query for deleting instance tags.
 	deleteInstanceTagsQuery := `
-DELETE FROM instance_tag 
+DELETE FROM instance_tag
 WHERE machine_uuid=$machineUUID.uuid
 `
 	deleteInstanceTagStmt, err := st.Prepare(deleteInstanceTagsQuery, machineUUIDParam)
