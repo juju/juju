@@ -9,10 +9,6 @@ echo "-------------------------------------------------------------------------"
 echo ""
 echo "DQLITE REPL Mode:"
 echo ""
-echo "Once logged in, run the following command:"
-echo ""
-echo " > dqlite -s \$(sudo cat /var/lib/juju/dqlite/info.yaml | grep \"Address: \" | cut -d\" \" -f2) ${DB_NAME}"
-echo ""
 echo "-------------------------------------------------------------------------"
 echo ""
 echo "                             WARNING!"
@@ -24,4 +20,11 @@ echo ""
 echo "--------------------------------------------------------------------------"
 echo ""
 
-juju ssh -m controller ${MACHINE}
+CMDS=$(cat << EOF
+sudo cat /var/lib/juju/agents/machine-$MACHINE/agent.conf | yq '.controllercert' | xargs -I% echo % > dqlite.cert
+sudo cat /var/lib/juju/agents/machine-$MACHINE/agent.conf | yq '.controllerkey' | xargs -I% echo % > dqlite.key
+sudo dqlite -s file:///var/lib/juju/dqlite/cluster.yaml -c ./dqlite.cert -k ./dqlite.key $DB_NAME
+EOF
+)
+
+juju ssh -m controller ${MACHINE} "${CMDS}"
