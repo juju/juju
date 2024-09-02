@@ -5,6 +5,7 @@ package snap
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/juju/errors"
 )
@@ -48,34 +49,30 @@ func (p ConfinementPolicy) String() string {
 // App is a wrapper around a single snap
 type App struct {
 	name               string
+	path               string
+	assertsPath        string
 	confinementPolicy  ConfinementPolicy
 	channel            string
 	backgroundServices []BackgroundService
 	prerequisites      []Installable
 }
 
-// NewNamedApp creates a new application from a given name.
-func NewNamedApp(name string) *App {
-	return &App{
-		name: name,
-	}
-}
-
-// NewApp creates a application along with it's dependencies.
-func NewApp(name string, channel string, policy ConfinementPolicy, services []BackgroundService, prerequisites []Installable) *App {
-	return &App{
-		name:               name,
-		channel:            channel,
-		confinementPolicy:  policy,
-		backgroundServices: services,
-		prerequisites:      prerequisites,
-	}
-}
-
 // Validate will validate a given application for any potential issues.
 func (a *App) Validate() error {
 	if !snapNameRe.MatchString(a.name) {
-		return errors.NotValidf("application %v", a.name)
+		return errors.NotValidf("application %v name", a.name)
+	}
+
+	if a.path != "" {
+		if _, err := os.Stat(a.path); err != nil {
+			return errors.NotFoundf("application %v path %v", a.name, a.path)
+		}
+		if a.assertsPath == "" {
+			return errors.NotValidf("local snap %v requires an assert file", a.name)
+		}
+		if _, err := os.Stat(a.assertsPath); err != nil {
+			return errors.NotFoundf("application %v asserts path %v", a.name, a.assertsPath)
+		}
 	}
 
 	if a.confinementPolicy != "" {
@@ -123,18 +120,32 @@ func (a *App) StartCommands(executable string) []string {
 	return commands
 }
 
-// Install returns a way to install one application with all it's settings.
-func (a *App) Install() []string {
+// InstallArgs returns a way to install one application with all it's settings.
+func (a *App) InstallArgs() []string {
 	args := []string{
 		"install",
-	}
-	if a.channel != "" {
-		args = append(args, fmt.Sprintf("--channel=%s", a.channel))
 	}
 	if a.confinementPolicy != "" {
 		args = append(args, fmt.Sprintf("--%s", a.confinementPolicy))
 	}
+	if a.path != "" {
+		// return early if this is a local snap, skipping over not-applicable
+		// args such as channel
+		return append(args, a.path)
+	}
+	if a.channel != "" {
+		args = append(args, fmt.Sprintf("--channel=%s", a.channel))
+	}
 	return append(args, a.name)
+}
+
+// AcknowledgeAssertsArgs returns args to acknowledge the asserts for the snap
+// required to install this application. Returns nil if none are required.
+func (a *App) AcknowledgeAssertsArgs() []string {
+	if a.assertsPath == "" {
+		return nil
+	}
+	return []string{"ack", a.assertsPath}
 }
 
 // Prerequisites defines a list of all the Prerequisites required before the
