@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/internal/worker/modellife"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
+	"github.com/juju/juju/internal/worker/perf"
 	"github.com/juju/juju/internal/worker/providertracker"
 	"github.com/juju/juju/internal/worker/remoterelations"
 	"github.com/juju/juju/internal/worker/removal"
@@ -149,6 +150,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewConnection: apicaller.OnlyConnect,
 			Filter:        apiConnectFilter,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.apicaller"),
+		}),
+
+		perfWorkerName: perf.Manifold(perf.ManifoldConfig{
+			AgentName:          agentName,
+			Clock:              config.Clock,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.perf"),
+			DomainServicesName: domainServicesName,
 		}),
 
 		// The provider domain services is used to access the provider service.
@@ -652,4 +660,6 @@ const (
 	userSecretsDrainWorker = "user-secrets-drain-worker"
 
 	validCredentialFlagName = "valid-credential-flag"
+
+	perfWorkerName = "perf-worker"
 )
