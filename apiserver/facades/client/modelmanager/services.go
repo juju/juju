@@ -26,8 +26,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// ServiceFactory is a factory for creating model info services.
-type ServiceFactory interface {
+// ModelServiceFactory is a factory for creating model info services.
+type ModelServiceFactory interface {
 	ModelInfo() ModelInfoService
 	Config() ModelConfigService
 	Network() NetworkService
@@ -35,7 +35,7 @@ type ServiceFactory interface {
 
 // ServiceFactoryGetter is a factory for creating model services.
 type ServiceFactoryGetter interface {
-	ServiceFactoryForModel(coremodel.UUID) ServiceFactory
+	ServiceFactoryForModel(coremodel.UUID) ModelServiceFactory
 }
 
 // ModelConfigServiceGetter provides a means to fetch the model config service
@@ -188,7 +188,7 @@ type serviceFactoryGetter struct {
 	ctx facade.MultiModelContext
 }
 
-func (s serviceFactoryGetter) ServiceFactoryForModel(uuid coremodel.UUID) ServiceFactory {
+func (s serviceFactoryGetter) ServiceFactoryForModel(uuid coremodel.UUID) ModelServiceFactory {
 	return serviceFactory{serviceFactory: s.ctx.ServiceFactoryForModel(uuid)}
 }
 
