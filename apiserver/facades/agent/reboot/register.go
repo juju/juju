@@ -19,5 +19,5 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacade creates a new server-side RebootAPI facade.
 func newFacade(ctx facade.ModelContext) (*RebootAPI, error) {
-	return NewRebootAPI(ctx)
+	return NewRebootApiFromModelContext(ctx)
 }

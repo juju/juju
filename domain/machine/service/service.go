@@ -12,7 +12,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -102,8 +101,8 @@ type State interface {
 	// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
 	RequireMachineReboot(ctx context.Context, uuid string) error
 
-	// CancelMachineReboot cancels the reboot of the machine referenced by its UUID if it has previously been required.
-	CancelMachineReboot(ctx context.Context, uuid string) error
+	// ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot has previously been required.
+	ClearMachineReboot(ctx context.Context, uuid string) error
 
 	// IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
 	IsMachineRebootRequired(ctx context.Context, uuid string) (bool, error)
@@ -114,7 +113,7 @@ type State interface {
 	GetMachineParentUUID(ctx context.Context, machineUUID string) (string, error)
 
 	// ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
-	ShouldRebootOrShutdown(ctx context.Context, uuid string) (machine.RebootAction, error)
+	ShouldRebootOrShutdown(ctx context.Context, uuid string) (coremachine.RebootAction, error)
 
 	// MarkMachineForRemoval marks the given machine for removal.
 	// It returns a MachineNotFound error if the machine does not exist.
@@ -123,6 +122,10 @@ type State interface {
 	// GetAllMachineRemovals returns the UUIDs of all of the machines that need
 	// to be removed but need provider-level cleanup.
 	GetAllMachineRemovals(context.Context) ([]string, error)
+
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	// It returns a MachineNotFound if the machine does not exist.
+	GetMachineUUID(context.Context, coremachine.Name) (string, error)
 }
 
 // Service provides the API for working with machines.
@@ -301,9 +304,9 @@ func (s *Service) RequireMachineReboot(ctx context.Context, uuid string) error {
 	return errors.Annotatef(s.st.RequireMachineReboot(ctx, uuid), "requiring a machine reboot for machine with uuid %q", uuid)
 }
 
-// CancelMachineReboot cancels the reboot of the machine referenced by its UUID if it has previously been required.
-func (s *Service) CancelMachineReboot(ctx context.Context, uuid string) error {
-	return errors.Annotatef(s.st.CancelMachineReboot(ctx, uuid), "cancelling a machine reboot for machine with uuid %q", uuid)
+// ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot has previously been required.
+func (s *Service) ClearMachineReboot(ctx context.Context, uuid string) error {
+	return errors.Annotatef(s.st.ClearMachineReboot(ctx, uuid), "clear machine reboot flag for machine with uuid %q", uuid)
 }
 
 // IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
@@ -325,7 +328,7 @@ func (s *Service) GetMachineParentUUID(ctx context.Context, machineUUID string) 
 }
 
 // ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
-func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid string) (machine.RebootAction, error) {
+func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid string) (coremachine.RebootAction, error) {
 	rebootRequired, err := s.st.ShouldRebootOrShutdown(ctx, uuid)
 	return rebootRequired, errors.Annotatef(err, "getting if the machine with uuid %q need to reboot or shutdown", uuid)
 }
@@ -344,4 +347,10 @@ func (s *Service) GetAllMachineRemovals(ctx context.Context) ([]string, error) {
 		return nil, errors.Annotate(err, "retrieving all machines marked to be removed")
 	}
 	return removals, nil
+}
+
+// GetMachineUUID returns the UUID of a machine identified by its name.
+// It returns a MachineNotFound if the machine does not exist.
+func (s *Service) GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error) {
+	return s.st.GetMachineUUID(ctx, name)
 }

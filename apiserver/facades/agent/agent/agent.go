@@ -54,6 +54,7 @@ func NewAgentAPI(
 	externalControllerService common.ExternalControllerService,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
+	rebootMachineService common.MachineRebootService,
 ) (*AgentAPI, error) {
 	getCanChange := func() (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
@@ -65,7 +66,7 @@ func NewAgentAPI(
 	}
 	return &AgentAPI{
 		PasswordChanger:   common.NewPasswordChanger(st, getCanChange),
-		RebootFlagClearer: common.NewRebootFlagClearer(st, getCanChange),
+		RebootFlagClearer: common.NewRebootFlagClearer(rebootMachineService, getCanChange),
 		MongoModelWatcher: common.NewMongoModelWatcher(model, resources),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,

@@ -72,4 +72,20 @@ type MachineService interface {
 	// No error is returned if the provided machine doesn't exist, just nothing
 	// gets updated.
 	EnsureDeadMachine(ctx context.Context, machineName coremachine.Name) error
+
+	// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
+	RequireMachineReboot(ctx context.Context, uuid string) error
+
+	// ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot has previously been required.
+	ClearMachineReboot(ctx context.Context, uuid string) error
+
+	// IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
+	IsMachineRebootRequired(ctx context.Context, uuid string) (bool, error)
+
+	// ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
+	ShouldRebootOrShutdown(ctx context.Context, uuid string) (coremachine.RebootAction, error)
+
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	// It returns an errors.MachineNotFound if the machine does not exist.
+	GetMachineUUID(ctx context.Context, machineName coremachine.Name) (string, error)
 }

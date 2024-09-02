@@ -86,6 +86,7 @@ func (s *agentSuite) agentAPI(c *gc.C, auth facade.Authorizer, credentialService
 		nil,
 		nil,
 		credentialService,
+		nil,
 	)
 }
 
@@ -238,36 +239,6 @@ func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
 		"password is only 3 bytes long, and is not a valid Agent password")
-}
-
-func (s *agentSuite) TestClearReboot(c *gc.C) {
-	api, err := s.agentAPI(c, s.authorizer, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.machine1.SetRebootFlag(true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: s.machine0.Tag().String()},
-		{Tag: s.machine1.Tag().String()},
-	}}
-
-	rFlag, err := s.machine1.GetRebootFlag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rFlag, jc.IsTrue)
-
-	result, err := api.ClearReboot(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: nil},
-		},
-	})
-
-	rFlag, err = s.machine1.GetRebootFlag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rFlag, jc.IsFalse)
 }
 
 func (s *agentSuite) TestWatchCredentials(c *gc.C) {

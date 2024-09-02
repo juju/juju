@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/domain/machine"
+	coremachine "github.com/juju/juju/core/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
 
@@ -86,7 +86,7 @@ func (s *stateSuite) TestCancelMachineReboot(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Call the function under test
-	err = s.state.CancelMachineReboot(context.Background(), "u-u-i-d")
+	err = s.state.ClearMachineReboot(context.Background(), "u-u-i-d")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify: Check if the machine needs reboot
@@ -103,9 +103,9 @@ func (s *stateSuite) TestCancelMachineRebootIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Call the function under test, twice (idempotency)
-	err = s.state.CancelMachineReboot(context.Background(), "u-u-i-d")
+	err = s.state.ClearMachineReboot(context.Background(), "u-u-i-d")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.state.CancelMachineReboot(context.Background(), "u-u-i-d")
+	err = s.state.ClearMachineReboot(context.Background(), "u-u-i-d")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify: Check if the machine needs reboot
@@ -126,7 +126,7 @@ func (s *stateSuite) TestCancelMachineRebootSeveralMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Call the function under test
-	err = s.state.CancelMachineReboot(context.Background(), "a-l-i-ve")
+	err = s.state.ClearMachineReboot(context.Background(), "a-l-i-ve")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify: Check which machine needs reboot
@@ -144,40 +144,40 @@ func (s *stateSuite) TestRebootLogic(c *gc.C) {
 		hasParent       bool
 		isParentReboot  bool
 		isMachineReboot bool
-		expectedAction  machine.RebootAction
+		expectedAction  coremachine.RebootAction
 	}{
 		{
 			description:    "orphan, non-rebooting machine, should do nothing",
-			expectedAction: machine.ShouldDoNothing,
+			expectedAction: coremachine.ShouldDoNothing,
 		},
 		{
 			description:     "orphan, rebooting machine, should reboot",
 			isMachineReboot: true,
-			expectedAction:  machine.ShouldReboot,
+			expectedAction:  coremachine.ShouldReboot,
 		},
 		{
 			description:    "non-rebooting machine with non-rebooting parent, should do nothing",
 			hasParent:      true,
-			expectedAction: machine.ShouldDoNothing,
+			expectedAction: coremachine.ShouldDoNothing,
 		},
 		{
 			description:     "rebooting machine with non-rebooting parent, should reboot",
 			hasParent:       true,
 			isMachineReboot: true,
-			expectedAction:  machine.ShouldReboot,
+			expectedAction:  coremachine.ShouldReboot,
 		},
 		{
 			description:    "non-rebooting machine with rebooting parent, should shutdown",
 			hasParent:      true,
 			isParentReboot: true,
-			expectedAction: machine.ShouldShutdown,
+			expectedAction: coremachine.ShouldShutdown,
 		},
 		{
 			description:     "rebooting machine with rebooting parent, should shutdown",
 			hasParent:       true,
 			isParentReboot:  true,
 			isMachineReboot: true,
-			expectedAction:  machine.ShouldShutdown,
+			expectedAction:  coremachine.ShouldShutdown,
 		},
 	} {
 		s.SetUpTest(c) // reset db

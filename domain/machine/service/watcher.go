@@ -95,7 +95,7 @@ func (s *WatchableService) WatchMachineReboot(ctx context.Context, uuid string) 
 	machines := set.NewStrings(uuids...)
 	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
 		"machine_requires_reboot",
-		changestream.Create,
+		changestream.Create|changestream.Delete,
 		func(ctx context.Context, runner database.TxnRunner, events []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 			filteredEvents := make([]changestream.ChangeEvent, 0, len(events))
 			for _, event := range events {

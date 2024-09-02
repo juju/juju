@@ -9,7 +9,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/domain/machine"
+	coremachine "github.com/juju/juju/core/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/database"
 )
@@ -42,12 +42,12 @@ func (st *State) RequireMachineReboot(ctx context.Context, uuid string) error {
 	return errors.Annotatef(err, "requiring reboot of machine %q", uuid)
 }
 
-// CancelMachineReboot cancels the reboot of the machine referenced by its UUID
-// if it has previously been required.
+// ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot
+// has previously been required.
 //
 // It basically removes the uuid from the "machine_requires_reboot" table if
 // present. This function is idempotent.
-func (st *State) CancelMachineReboot(ctx context.Context, uuid string) error {
+func (st *State) ClearMachineReboot(ctx context.Context, uuid string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -111,10 +111,10 @@ func (st *State) IsMachineRebootRequired(ctx context.Context, uuid string) (bool
 //
 // The function returns any error issued through interaction with the database,
 // annotated with the UUID of the machine.
-func (st *State) ShouldRebootOrShutdown(ctx context.Context, uuid string) (machine.RebootAction, error) {
+func (st *State) ShouldRebootOrShutdown(ctx context.Context, uuid string) (coremachine.RebootAction, error) {
 	db, err := st.DB()
 	if err != nil {
-		return machine.ShouldDoNothing, errors.Trace(err)
+		return coremachine.ShouldDoNothing, errors.Trace(err)
 	}
 
 	// Prepare query to get parent UUID
@@ -122,14 +122,14 @@ func (st *State) ShouldRebootOrShutdown(ctx context.Context, uuid string) (machi
 	getParentQuery := `SELECT machine_parent.parent_uuid as &machineUUID.uuid  FROM machine_parent WHERE machine_uuid = $machineUUID.uuid`
 	getParentStmt, err := sqlair.Prepare(getParentQuery, machineUUIDParam)
 	if err != nil {
-		return machine.ShouldDoNothing, errors.Annotatef(err, "requiring reboot action for machine %q", uuid)
+		return coremachine.ShouldDoNothing, errors.Annotatef(err, "requiring reboot action for machine %q", uuid)
 	}
 
 	// Prepare query to check if a machine requires reboot
 	isRebootFlag := `SELECT machine_uuid as &machineUUID.uuid  FROM machine_requires_reboot WHERE machine_uuid = $machineUUID.uuid`
 	isRebootFlagStmt, err := sqlair.Prepare(isRebootFlag, machineUUIDParam)
 	if err != nil {
-		return machine.ShouldDoNothing, errors.Annotatef(err, "requiring reboot action for machine %q", uuid)
+		return coremachine.ShouldDoNothing, errors.Annotatef(err, "requiring reboot action for machine %q", uuid)
 	}
 
 	var parentShouldReboot, machineShouldReboot bool
@@ -180,16 +180,16 @@ func (st *State) ShouldRebootOrShutdown(ctx context.Context, uuid string) (machi
 		return nil
 	})
 	if err != nil {
-		return machine.ShouldDoNothing, errors.Annotatef(err, "requiring reboot action for machine %q", uuid)
+		return coremachine.ShouldDoNothing, errors.Annotatef(err, "requiring reboot action for machine %q", uuid)
 	}
 
 	// Parent need reboot
 	if parentShouldReboot {
-		return machine.ShouldShutdown, nil
+		return coremachine.ShouldShutdown, nil
 	}
 	// Machine need reboot, with no parent or no parent requesting reboot
 	if machineShouldReboot {
-		return machine.ShouldReboot, nil
+		return coremachine.ShouldReboot, nil
 	}
-	return machine.ShouldDoNothing, nil
+	return coremachine.ShouldDoNothing, nil
 }
