@@ -11,6 +11,21 @@ type protocol struct {
 	Name string `db:"protocol"`
 }
 
+// portRange represents a range of ports for a given protocol.
+type portRange struct {
+	Protocol string `db:"protocol"`
+	FromPort int    `db:"from_port"`
+	ToPort   int    `db:"to_port"`
+}
+
+func (pr portRange) decode() network.PortRange {
+	return network.PortRange{
+		Protocol: pr.Protocol,
+		FromPort: pr.FromPort,
+		ToPort:   pr.ToPort,
+	}
+}
+
 // endpointPortRange represents a range of ports for a give protocol for a
 // given endpoint.
 type endpointPortRange struct {
@@ -59,6 +74,11 @@ type unitPortRange struct {
 // endpoint represents a network endpoint and its UUID.
 type endpoint struct {
 	UUID     string `db:"uuid"`
+	Endpoint string `db:"endpoint"`
+}
+
+// endpointName represents a network endpoint's name.
+type endpointName struct {
 	Endpoint string `db:"endpoint"`
 }
 
