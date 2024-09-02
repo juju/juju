@@ -553,5 +553,5 @@ func (api *UserManagerAPI) isModelAdmin(ctx context.Context, modelTag names.Mode
 	if api.isAdmin {
 		return true
 	}
-	return api.authorizer.HasPermission(ctx, permission.AdminAccess, modelTag) != nil
+	return api.authorizer.HasPermission(ctx, permission.AdminAccess, modelTag) == nil
 }
