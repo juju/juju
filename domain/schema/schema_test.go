@@ -297,16 +297,20 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"machine_cloud_instance_status_data",
 		"machine_lxd_profile",
 		"instance_tag",
+		"fqdn_address",
 		"net_node_fqdn_address",
+		"hostname_address",
+		"net_node_hostname_address",
+		"network_address_scope",
 
 		// Link layer device
 		"link_layer_device",
 		"link_layer_device_type",
 		"virtual_port_type",
 
-		// IP address
-		"network_address_scope",
-		"fqdn_address",
+		// Network address
+		"net_node_ip_address",
+		"ip_address_scope",
 		"ip_address",
 		"ip_address_type",
 		"ip_address_origin",

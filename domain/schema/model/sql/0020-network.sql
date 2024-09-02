@@ -27,12 +27,12 @@ CREATE UNIQUE INDEX idx_cloud_container_provider
 ON cloud_container (provider_id);
 
 CREATE TABLE cloud_container_port (
-    net_node_uuid TEXT NOT NULL,
+    cloud_container_uuid TEXT NOT NULL,
     port TEXT NOT NULL,
     CONSTRAINT fk_cloud_container_port_net_node
-    FOREIGN KEY (net_node_uuid)
+    FOREIGN KEY (cloud_container_uuid)
     REFERENCES cloud_container (net_node_uuid),
-    PRIMARY KEY (net_node_uuid, port)
+    PRIMARY KEY (cloud_container_uuid, port)
 );
 
 CREATE TABLE link_layer_device_type (
@@ -125,20 +125,20 @@ INSERT INTO ip_address_origin VALUES
 (0, 'host'),
 (1, 'provider');
 
--- network_address_scope denotes the context an address may apply to.
--- If a name or address can be reached from the wider internet,
--- it is considered public. A private network address is either
--- specific to the cloud or cloud subnet a machine belongs to,
--- or to the machine itself for containers.
-CREATE TABLE network_address_scope (
+-- ip_address_scope denotes the context an ip address may apply to.
+-- If an address can be reached from the wider internet,
+-- it is considered public. A private ip address is either
+-- specific to the cloud or cloud subnet a node belongs to,
+-- or to the node itself for containers.
+CREATE TABLE ip_address_scope (
     id INT PRIMARY KEY,
     name TEXT NOT NULL
 );
 
-CREATE UNIQUE INDEX idx_network_address_scope_name
-ON network_address_scope (name);
+CREATE UNIQUE INDEX idx_ip_address_scope_name
+ON ip_address_scope (name);
 
-INSERT INTO network_address_scope VALUES
+INSERT INTO ip_address_scope VALUES
 (0, 'unknown'),
 (1, 'public'),
 (2, 'local-cloud'),
@@ -158,14 +158,16 @@ ON ip_address_config_type (name);
 INSERT INTO ip_address_config_type VALUES
 (0, 'unknown'),
 (1, 'dhcp'),
-(2, 'static'),
-(3, 'manual'),
-(4, 'loopback');
+(2, 'dhcpv6'),
+(3, 'slaac'),
+(4, 'static'),
+(5, 'manual'),
+(6, 'loopback');
 
 CREATE TABLE ip_address (
     uuid TEXT NOT NULL PRIMARY KEY,
     -- The value of the configured IP address.
-    -- e.g. 192.168.1.2 or 2001:db8::1.
+    -- e.g. 192.168.1.2 or 2001:db8:0000:0000:0000:0000:0000:00001.
     address_value TEXT NOT NULL,
     -- one of ipv4, ipv6 etc.
     type_id INT NOT NULL,
@@ -177,15 +179,6 @@ CREATE TABLE ip_address (
     scope_id INT NOT NULL,
     -- the link layer device this address belongs to.
     device_uuid TEXT NOT NULL,
-
-    -- indicates that this address is not the primary.
-    -- address associated with the NIC.
-    is_secondary BOOLEAN DEFAULT false,
-
-    -- indicates whether this address is a virtual/floating/shadow.
-    -- address assigned to a NIC by a provider rather than being
-    -- associated directly with a device on-machine.
-    is_shadow BOOLEAN DEFAULT false,
 
     CONSTRAINT fk_ip_address_link_layer_device
     FOREIGN KEY (device_uuid)
@@ -201,7 +194,24 @@ CREATE TABLE ip_address (
     REFERENCES ip_address_config_type (id),
     CONSTRAINT fk_ip_address_scope
     FOREIGN KEY (scope_id)
-    REFERENCES network_address_scope (id)
+    REFERENCES ip_address_scope (id)
+);
+
+CREATE TABLE net_node_ip_address (
+    address_uuid TEXT NOT NULL PRIMARY KEY,
+
+    -- indicates that this address is not the primary.
+    -- address associated with the NIC.
+    is_secondary BOOLEAN DEFAULT false,
+
+    -- indicates whether this address is a virtual/floating/shadow.
+    -- address assigned to a NIC by a provider rather than being
+    -- associated directly with a device on-machine.
+    is_shadow BOOLEAN DEFAULT false,
+
+    CONSTRAINT fk_net_node_ip_address_ip_address
+    FOREIGN KEY (address_uuid)
+    REFERENCES ip_address (uuid)
 );
 
 CREATE TABLE ip_address_dns_server_address (
@@ -225,19 +235,42 @@ CREATE TABLE ip_address_dns_search_domain (
     PRIMARY KEY (address_uuid, search_domain)
 );
 
+-- network_address_scope denotes the context a network address may apply to.
+-- If an address can be reached from the wider internet,
+-- it is considered public. A private address is either
+-- specific to the cloud or cloud subnet a node belongs to,
+-- or to the node itself for containers.
+CREATE TABLE network_address_scope (
+    id INT PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_network_address_scope_name
+ON network_address_scope (name);
+
+INSERT INTO network_address_scope VALUES
+-- eg "foo"
+(0, 'local-host'),
+-- eg "foo.local", "foo.namespace.cluster.local"
+(1, 'local-cloud'),
+-- "eg "foo.example.com"
+(2, 'public');
+
 CREATE TABLE fqdn_address (
     uuid TEXT NOT NULL PRIMARY KEY,
-    hostname TEXT NOT NULL,
-    -- one of public, local-cloud, local-machine, link-local etc.
+    address TEXT NOT NULL,
+    -- one of local-cloud, public.
     scope_id INT NOT NULL,
 
+    CONSTRAINT chk_fqdn_address_scope
+    CHECK (scope_id != 0), -- scope can't be local-host
     CONSTRAINT fk_fqdn_address_scope
     FOREIGN KEY (scope_id)
     REFERENCES network_address_scope (id)
 );
 
-CREATE UNIQUE INDEX idx_fqdn_address_hostname
-ON fqdn_address (hostname);
+CREATE UNIQUE INDEX idx_fqdn_address_address
+ON fqdn_address (address);
 
 CREATE TABLE net_node_fqdn_address (
     net_node_uuid TEXT NOT NULL,
@@ -248,6 +281,32 @@ CREATE TABLE net_node_fqdn_address (
     CONSTRAINT fk_net_node_fqdn_address_address
     FOREIGN KEY (address_uuid)
     REFERENCES fqdn_address (uuid),
+    PRIMARY KEY (net_node_uuid, address_uuid)
+);
+
+CREATE TABLE hostname_address (
+    uuid TEXT NOT NULL PRIMARY KEY,
+    hostname TEXT NOT NULL,
+    -- one of local-host, local-cloud, public.
+    scope_id INT NOT NULL,
+
+    CONSTRAINT fk_hostname_address_scope
+    FOREIGN KEY (scope_id)
+    REFERENCES network_address_scope (id)
+);
+
+CREATE UNIQUE INDEX idx_hostname_address_hostname
+ON hostname_address (hostname);
+
+CREATE TABLE net_node_hostname_address (
+    net_node_uuid TEXT NOT NULL,
+    address_uuid TEXT NOT NULL,
+    CONSTRAINT fk_net_node_hostname_address_net_node
+    FOREIGN KEY (net_node_uuid)
+    REFERENCES net_node (uuid),
+    CONSTRAINT fk_net_node_hostname_address_address
+    FOREIGN KEY (address_uuid)
+    REFERENCES hostname_address (uuid),
     PRIMARY KEY (net_node_uuid, address_uuid)
 );
 
