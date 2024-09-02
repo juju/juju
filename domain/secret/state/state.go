@@ -1619,13 +1619,8 @@ AND    suc.unit_uuid = $secretUnitConsumer.unit_uuid
 // externally ina secret backend, returning an error satisfying
 // [secreterrors.SecretNotFound] if the secret does not exist.
 func (st State) ListExternalSecretRevisions(
-	ctx context.Context, uri *coresecrets.URI, revs ...int) ([]coresecrets.ValueRef, error,
+	ctx domain.AtomicContext, uri *coresecrets.URI, revs ...int) ([]coresecrets.ValueRef, error,
 ) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	selectRevisionParams := []any{secretID{
 		ID: uri.ID,
 	}}
@@ -1649,7 +1644,7 @@ WHERE  secret_id = $secretID.id%s
 	}
 
 	var dbSecretRevisions secretValueRefs
-	if err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	if err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
 			return errors.Trace(err)
 		} else if !isLocal {
@@ -2834,8 +2829,8 @@ AND    (subject_type_id = $secretAccessorType.unit_type_id AND subject_id IN ($u
 
 // GetSecretRevisionID returns the revision UUID for the specified secret URI and revision,
 // or an error satisfying [secreterrors.SecretRevisionNotFound] if the revision is not found.
-func (s *State) GetSecretRevisionID(ctx context.Context, uri *coresecrets.URI, revision int) (string, error) {
-	db, err := s.DB()
+func (st State) GetSecretRevisionID(ctx context.Context, uri *coresecrets.URI, revision int) (string, error) {
+	db, err := st.DB()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -2844,7 +2839,7 @@ func (s *State) GetSecretRevisionID(ctx context.Context, uri *coresecrets.URI, r
 		SecretID: uri.ID,
 		Revision: revision,
 	}
-	stmt, err := s.Prepare(`
+	stmt, err := st.Prepare(`
 SELECT uuid AS &secretRevision.uuid
 FROM   secret_revision
 WHERE  secret_id = $secretRevision.secret_id
@@ -3335,13 +3330,10 @@ type (
 // DeleteSecret deletes the specified secret revisions.
 // If revisions is nil or the last remaining revisions are removed.
 // It returns the string format UUID of the deleted revisions.
-func (st State) DeleteSecret(ctx context.Context, uri *coresecrets.URI, revs []int) ([]string, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func (st State) DeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, revs []int) ([]string, error) {
 	var deletedRevisionIDs []string
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
 		deletedRevisionIDs, err = st.deleteSecretRevisions(ctx, tx, uri, revs)
 		return errors.Trace(err)
 	})
@@ -3479,6 +3471,9 @@ DELETE FROM secret_revision WHERE uuid IN ($revisionUUIDs[:])`
 
 	result := []revisionUUID{}
 	err = tx.Query(ctx, selectRevisionStmt, selectRevisionParams...).GetAll(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, fmt.Errorf("secret revisions %v not found%w", revs, errors.Hide(secreterrors.SecretRevisionNotFound))
+	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "selecting revision UUIDs to delete for secret %q", uri)
 	}
