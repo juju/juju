@@ -291,11 +291,35 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"net_node",
 		"cloud_service",
 		"cloud_container",
+		"cloud_container_port",
 		"machine_cloud_instance",
 		"machine_cloud_instance_status",
 		"machine_cloud_instance_status_data",
 		"machine_lxd_profile",
 		"instance_tag",
+		"fqdn_address",
+		"net_node_fqdn_address",
+		"hostname_address",
+		"net_node_hostname_address",
+		"network_address_scope",
+
+		// Link layer device
+		"link_layer_device",
+		"link_layer_device_type",
+		"virtual_port_type",
+
+		// Network address
+		"net_node_ip_address",
+		"ip_address_scope",
+		"ip_address",
+		"ip_address_type",
+		"ip_address_origin",
+		"ip_address_config_type",
+		"ip_address_provider",
+		"ip_address_subnet",
+		"ip_address_gateway",
+		"ip_address_dns_search_domain",
+		"ip_address_dns_server_address",
 
 		// Unit
 		"unit",
@@ -462,6 +486,7 @@ func (s *schemaSuite) TestModelViews(c *gc.C) {
 		"v_charm_url",
 		"v_secret_permission",
 		"v_space_subnet",
+		"v_address",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
 }
