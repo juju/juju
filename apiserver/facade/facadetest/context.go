@@ -4,7 +4,6 @@
 package facadetest
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -16,7 +15,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
 )
@@ -45,7 +43,6 @@ type ModelContext struct {
 	SSHImporterHTTPClient_ facade.HTTPClient
 	ServiceFactory_        servicefactory.ServiceFactory
 	ServiceFactoryGetter_  servicefactory.ServiceFactoryGetter
-	Provider_              providertracker.Provider
 	ModelExporter_         facade.ModelExporter
 	ModelImporter_         facade.ModelImporter
 	ObjectStore_           objectstore.ObjectStore
@@ -206,11 +203,6 @@ func (c ModelContext) HTTPClient(purpose facade.HTTPClientPurpose) (facade.HTTPC
 // ServiceFactory implements facade.ModelContext.
 func (c ModelContext) ServiceFactory() servicefactory.ServiceFactory {
 	return c.ServiceFactory_
-}
-
-// GetProvider implements facade.ModelContext.
-func (c ModelContext) GetProvider(context.Context) (providertracker.Provider, error) {
-	return c.Provider_, nil
 }
 
 // ModelExporter returns a model exporter for the current model.

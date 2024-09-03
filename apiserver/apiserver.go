@@ -238,10 +238,6 @@ type ServerConfig struct {
 	// ObjectStoreGetter returns an object store for the given namespace.
 	// This is used for retrieving blobs for charms and agents.
 	ObjectStoreGetter objectstore.ObjectStoreGetter
-
-	// ProviderFactory returns a provider for a given model. This should be
-	// used sparingly in facade code.
-	ProviderFactory providertracker.ProviderFactory
 }
 
 // Validate validates the API server configuration.
@@ -305,9 +301,6 @@ func (c ServerConfig) Validate() error {
 	if c.ObjectStoreGetter == nil {
 		return errors.NotValidf("missing ObjectStoreGetter")
 	}
-	if c.ProviderFactory == nil {
-		return errors.NotValidf("missing ProviderFactory")
-	}
 	if c.SSHImporterHTTPClient == nil {
 		return errors.NotValidf("missing SSHImporterHTTPClient")
 	}
@@ -370,7 +363,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		dbGetter:              cfg.DBGetter,
 		dbDeleter:             cfg.DBDeleter,
 		serviceFactoryGetter:  cfg.ServiceFactoryGetter,
-		providerFactory:       cfg.ProviderFactory,
 		tracerGetter:          cfg.TracerGetter,
 		objectStoreGetter:     cfg.ObjectStoreGetter,
 		machineTag:            cfg.Tag,

@@ -69,8 +69,6 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		return nil, fmt.Errorf("getting model information for constructing machine manager facade: %w", err)
 	}
 
-	facade.ProviderRunner[environs.InstanceTypesFetcher](ctx)
-
 	return NewMachineManagerAPI(
 		model,
 		serviceFactory.ControllerConfig(),

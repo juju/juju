@@ -68,7 +68,6 @@ type ManifoldSuite struct {
 	modelService            *MockModelService
 	tracerGetter            stubTracerGetter
 	objectStoreGetter       stubObjectStoreGetter
-	providerFactory         *fakeProviderFactory
 
 	stub testing.Stub
 }
@@ -93,7 +92,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.stub.ResetCalls()
 	s.serviceFactoryGetter = &stubServiceFactoryGetter{}
 	s.dbDeleter = stubDBDeleter{}
-	s.providerFactory = &fakeProviderFactory{}
 
 	s.getter = s.newGetter(nil)
 	s.manifold = apiserver.Manifold(apiserver.ManifoldConfig{
@@ -113,7 +111,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		ObjectStoreName:                   "object-store",
 		ChangeStreamName:                  "change-stream",
 		DBAccessorName:                    "db-accessor",
-		ProviderFactoryName:               "provider-tracker",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
@@ -147,7 +144,6 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 		"service-factory":         s.serviceFactoryGetter,
 		"trace":                   s.tracerGetter,
 		"object-store":            s.objectStoreGetter,
-		"provider-tracker":        s.providerFactory,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -253,7 +249,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ServiceFactoryGetter:       s.serviceFactoryGetter,
 		TracerGetter:               s.tracerGetter,
 		ObjectStoreGetter:          s.objectStoreGetter,
-		ProviderFactory:            s.providerFactory,
 		ControllerConfigService:    s.controllerConfigService,
 		ModelService:               s.modelService,
 	})

@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher/registry"
@@ -75,10 +74,6 @@ type apiHandler struct {
 	// given model UUID. This should not be used unless you're sure you need to
 	// access a different model's service factory.
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
-
-	// providerFactory returns a provider for the current model. This should be
-	// used sparingly in facades.
-	providerFactory facade.ModelProviderFactory
 
 	// objectStore is the object store for the resolved model UUID. This is
 	// either the request model UUID, or it's the system state model UUID, if
@@ -145,7 +140,6 @@ func newAPIHandler(
 	rpcConn *rpc.Conn,
 	serviceFactory servicefactory.ServiceFactory,
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
-	providerFactory facade.ModelProviderFactory,
 	tracer trace.Tracer,
 	objectStore objectstore.ObjectStore,
 	objectStoreGetter objectstore.ObjectStoreGetter,
@@ -179,7 +173,6 @@ func newAPIHandler(
 		state:                 st,
 		serviceFactory:        serviceFactory,
 		serviceFactoryGetter:  serviceFactoryGetter,
-		providerFactory:       providerFactory,
 		tracer:                tracer,
 		objectStore:           objectStore,
 		objectStoreGetter:     objectStoreGetter,
@@ -284,12 +277,6 @@ func (r *apiHandler) SharedContext() *sharedServerContext {
 // Authorizer returns the authorizer used for accessing API method calls.
 func (r *apiHandler) Authorizer() facade.Authorizer {
 	return r
-}
-
-// ProviderFactory returns a facade.ModelProviderFactory which allows access to
-// a provider for the current model.
-func (r *apiHandler) ProviderFactory() facade.ModelProviderFactory {
-	return r.providerFactory
 }
 
 // ModelUUID returns the UUID of the model that the API is operating on.
@@ -468,9 +455,6 @@ type apiRootHandler interface {
 	WatcherRegistry() facade.WatcherRegistry
 	// Authorizer returns the authorizer used for accessing API method calls.
 	Authorizer() facade.Authorizer
-	// ProviderFactory returns the provider factory for this model. This should
-	// be used sparingly in facade code.
-	ProviderFactory() facade.ModelProviderFactory
 	// ModelUUID returns the UUID of the model that the API is operating on.
 	ModelUUID() model.UUID
 }
@@ -501,10 +485,6 @@ type apiRoot struct {
 	// prove the rule.
 	modelUUID model.UUID
 
-	// providerFactory returns a provider for the current model. This should be
-	// used sparingly in facade code.
-	providerFactory facade.ModelProviderFactory
-
 	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
 	resources *common.Resources
 }
@@ -533,7 +513,6 @@ func newAPIRoot(
 		authorizer:            root.Authorizer(),
 		objectCache:           make(map[objectKey]reflect.Value),
 		requestRecorder:       requestRecorder,
-		providerFactory:       root.ProviderFactory(),
 		modelUUID:             root.ModelUUID(),
 	}, nil
 }
@@ -1055,12 +1034,6 @@ func (ctx *facadeContext) ServiceFactoryForModel(uuid model.UUID) servicefactory
 // ObjectStoreForModel returns the object store for a given model uuid.
 func (ctx *facadeContext) ObjectStoreForModel(stdCtx context.Context, modelUUID string) (objectstore.ObjectStore, error) {
 	return ctx.r.objectStoreGetter.GetObjectStore(stdCtx, modelUUID)
-}
-
-// GetProvider returns a provider for the current model. This should be used
-// sparingly in facade code.
-func (ctx *facadeContext) GetProvider(stdCtx context.Context) (providertracker.Provider, error) {
-	return ctx.r.providerFactory.GetProvider(stdCtx)
 }
 
 // DescribeFacades returns the list of available Facades and their Versions
