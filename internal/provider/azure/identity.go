@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/azure/internal/armtemplates"
+	"github.com/juju/juju/internal/provider/azure/internal/azureauth"
 )
 
 // SupportsInstanceRoles indicates if Instance Roles are supported by this
@@ -114,14 +115,7 @@ func (env *azureEnviron) ensureControllerManagedIdentity(
 			"description": "roles for juju controller",
 			"type":        "customRole",
 			"permissions": []map[string]any{{
-				"actions": []string{
-					"Microsoft.Compute/*",
-					"Microsoft.KeyVault/*",
-					"Microsoft.Network/*",
-					"Microsoft.Resources/*",
-					"Microsoft.Storage/*",
-					"Microsoft.ManagedIdentity/userAssignedIdentities/*",
-				},
+				"actions": azureauth.JujuActions,
 			}},
 			"assignableScopes": []string{
 				"[subscription().id]",
