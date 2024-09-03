@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/internal/worker/charmrevision"
 	"github.com/juju/juju/internal/worker/cleaner"
 	"github.com/juju/juju/internal/worker/common"
+	provisioner "github.com/juju/juju/internal/worker/computeprovisioner"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
 	"github.com/juju/juju/internal/worker/environupgrader"
 	"github.com/juju/juju/internal/worker/firewaller"
@@ -47,7 +48,6 @@ import (
 	"github.com/juju/juju/internal/worker/instancepoller"
 	"github.com/juju/juju/internal/worker/lifeflag"
 	"github.com/juju/juju/internal/worker/logger"
-	provisioner "github.com/juju/juju/internal/worker/machineprovisioner"
 	"github.com/juju/juju/internal/worker/machineundertaker"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationmaster"
@@ -415,7 +415,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		// All the rest depend on ifNotMigrating.
-		machineProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
+		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			EnvironName:   providerTrackerName,
@@ -688,7 +688,7 @@ const (
 	providerUpgraderName     = "provider-upgrader"
 
 	undertakerName               = "undertaker"
-	machineProvisionerName       = "machine-provisioner"
+	computeProvisionerName       = "compute-provisioner"
 	storageProvisionerName       = "storage-provisioner"
 	charmDownloaderName          = "charm-downloader"
 	firewallerName               = "firewaller"

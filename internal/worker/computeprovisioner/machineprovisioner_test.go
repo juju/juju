@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package machineprovisioner_test
+package computeprovisioner_test
 
 import (
 	"context"
@@ -42,7 +42,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/worker/machineprovisioner"
+	"github.com/juju/juju/internal/worker/computeprovisioner"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -117,10 +117,10 @@ func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *testMachine) {
 	c.Fatalf("machine %v not started", m.id)
 }
 
-func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C, p machineprovisioner.Provisioner, container bool) {
+func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C, p computeprovisioner.Provisioner, container bool) {
 	// Inject our observer into the provisioner
 	cfgObserver := make(chan *config.Config)
-	machineprovisioner.SetObserver(p, cfgObserver)
+	computeprovisioner.SetObserver(p, cfgObserver)
 
 	attrs := coretesting.FakeConfig()
 	attrs[config.ProvisionerHarvestModeKey] = config.HarvestDestroyed.String()
@@ -157,10 +157,10 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	}
 }
 
-func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCount(c *gc.C, p machineprovisioner.Provisioner, container bool) {
+func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCount(c *gc.C, p computeprovisioner.Provisioner, container bool) {
 	// Inject our observer into the provisioner
 	cfgObserver := make(chan *config.Config)
-	machineprovisioner.SetObserver(p, cfgObserver)
+	computeprovisioner.SetObserver(p, cfgObserver)
 
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.ProvisionerHarvestModeKey: config.HarvestDestroyed.String(),
@@ -229,7 +229,7 @@ func (s *CommonProvisionerSuite) expectMachinesWatcher() {
 	s.machinesAPI.EXPECT().WatchMachineErrorRetry(gomock.Any()).Return(rw, nil)
 }
 
-func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) machineprovisioner.Provisioner {
+func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) computeprovisioner.Provisioner {
 	c.Assert(s.machinesAPI, gc.NotNil)
 	s.expectMachinesWatcher()
 
@@ -250,7 +250,7 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) machineprovision
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err := machineprovisioner.NewEnvironProvisioner(
+	w, err := computeprovisioner.NewEnvironProvisioner(
 		s.controllerAPI, s.machinesAPI,
 		mockToolsFinder{},
 		&mockDistributionGroupFinder{},

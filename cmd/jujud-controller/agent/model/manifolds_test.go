@@ -44,12 +44,12 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"charm-downloader",
 		"charm-revision-updater",
 		"clock",
+		"compute-provisioner",
 		"firewaller",
 		"instance-mutater",
 		"instance-poller",
 		"is-responsible-flag",
 		"logging-config-updater",
-		"machine-provisioner",
 		"machine-undertaker",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -526,7 +526,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 
 	"clock": {},
 
-	"machine-provisioner": {
+	"compute-provisioner": {
 		"agent",
 		"api-caller",
 		"is-responsible-flag",

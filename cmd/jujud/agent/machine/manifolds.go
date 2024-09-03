@@ -535,7 +535,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineStartup: config.MachineStartup,
 			Logger:         internallogger.GetLogger("juju.worker.machinesetup"),
 		})),
-		lxdContainerProvisioner: ifNotMigrating(containerprovisioner.ContainerProvisioningManifold(containerprovisioner.ContainerManifoldConfig{
+		lxdContainerProvisioner: ifNotMigrating(containerprovisioner.Manifold(containerprovisioner.ManifoldConfig{
 			AgentName:                    agentName,
 			APICallerName:                apiCallerName,
 			Logger:                       internallogger.GetLogger("juju.worker.lxdprovisioner"),

@@ -26,19 +26,19 @@ type containerManifoldSuite struct {
 var _ = gc.Suite(&containerManifoldSuite{})
 
 func (s *containerManifoldSuite) TestConfigValidateAgentName(c *gc.C) {
-	cfg := containerprovisioner.ContainerManifoldConfig{}
+	cfg := containerprovisioner.ManifoldConfig{}
 	err := cfg.Validate()
 	c.Assert(err, gc.ErrorMatches, "empty AgentName not valid")
 }
 
 func (s *containerManifoldSuite) TestConfigValidateAPICallerName(c *gc.C) {
-	cfg := containerprovisioner.ContainerManifoldConfig{AgentName: "testing"}
+	cfg := containerprovisioner.ManifoldConfig{AgentName: "testing"}
 	err := cfg.Validate()
 	c.Assert(err, gc.ErrorMatches, "empty APICallerName not valid")
 }
 
 func (s *containerManifoldSuite) TestConfigValidateLogger(c *gc.C) {
-	cfg := containerprovisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		AgentName:     "testing",
 		APICallerName: "another string",
 	}
@@ -47,7 +47,7 @@ func (s *containerManifoldSuite) TestConfigValidateLogger(c *gc.C) {
 }
 
 func (s *containerManifoldSuite) TestConfigValidateMachineLock(c *gc.C) {
-	cfg := containerprovisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		AgentName:     "testing",
 		APICallerName: "another string",
 		Logger:        loggertesting.WrapCheckLog(c),
@@ -57,7 +57,7 @@ func (s *containerManifoldSuite) TestConfigValidateMachineLock(c *gc.C) {
 }
 
 func (s *containerManifoldSuite) TestConfigValidateCredentialValidatorFacade(c *gc.C) {
-	cfg := containerprovisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		AgentName:     "testing",
 		APICallerName: "another string",
 		Logger:        loggertesting.WrapCheckLog(c),
@@ -68,7 +68,7 @@ func (s *containerManifoldSuite) TestConfigValidateCredentialValidatorFacade(c *
 }
 
 func (s *containerManifoldSuite) TestConfigValidateContainerType(c *gc.C) {
-	cfg := containerprovisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		AgentName:                    "testing",
 		APICallerName:                "another string",
 		Logger:                       loggertesting.WrapCheckLog(c),
@@ -80,7 +80,7 @@ func (s *containerManifoldSuite) TestConfigValidateContainerType(c *gc.C) {
 }
 
 func (s *containerManifoldSuite) TestConfigValidateSuccess(c *gc.C) {
-	cfg := containerprovisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		AgentName:                    "testing",
 		APICallerName:                "another string",
 		Logger:                       loggertesting.WrapCheckLog(c),
@@ -102,7 +102,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifold(c *gc.C) {
 	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
 	s.machine.EXPECT().SupportedContainers(gomock.Any()).Return([]instance.ContainerType{instance.LXD}, true, nil)
 	s.machine.EXPECT().Life().Return(life.Alive)
-	cfg := containerprovisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 	}
@@ -121,7 +121,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldContainersNotK
 	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
 	s.machine.EXPECT().SupportedContainers(gomock.Any()).Return(nil, false, nil)
 	s.machine.EXPECT().Life().Return(life.Alive)
-	cfg := containerprovisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 	}
@@ -139,7 +139,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldNoContainerSup
 	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
 	s.machine.EXPECT().SupportedContainers(gomock.Any()).Return(nil, true, nil)
 	s.machine.EXPECT().Life().Return(life.Alive)
-	cfg := containerprovisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 	}
@@ -156,7 +156,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldMachineDead(c 
 	}
 	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
 	s.machine.EXPECT().Life().Return(life.Dead)
-	cfg := containerprovisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 	}

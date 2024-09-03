@@ -26,7 +26,7 @@ func SetObserver(p Provisioner, observer chan<- *config.Config) {
 }
 
 func MachineSupportsContainers(
-	cfg ContainerManifoldConfig, pr ContainerMachineGetter, mTag names.MachineTag,
+	cfg ManifoldConfig, pr ContainerMachineGetter, mTag names.MachineTag,
 ) (ContainerMachine, error) {
 	return cfg.machineSupportsContainers(context.Background(), pr, mTag)
 }
