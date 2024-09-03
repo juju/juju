@@ -22,6 +22,10 @@ import (
 )
 
 const (
+	// These attributes are used during interactive credential setup.
+	credAttrApplicationName    = "application-name"
+	credAttrRoleDefinitionName = "role-definition-name"
+
 	credAttrAppId                 = "application-id"
 	credAttrApplicationObjectId   = "application-object-id"
 	credAttrSubscriptionId        = "subscription-id"
@@ -62,9 +66,12 @@ type environProviderCredentials struct {
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (c environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	interactiveSchema := cloud.CredentialSchema{{
-		credAttrSubscriptionId, cloud.CredentialAttr{Description: "Azure subscription ID"},
-	}}
+	// These attributes are prompted for during the interactive credential workflow.
+	interactiveSchema := cloud.CredentialSchema{
+		{credAttrSubscriptionId, cloud.CredentialAttr{Description: "Azure subscription ID"}},
+		{credAttrApplicationName, cloud.CredentialAttr{Description: "Juju application name", Optional: true}},
+		{credAttrRoleDefinitionName, cloud.CredentialAttr{Description: "Juju role definition name", Optional: true}},
+	}
 	if _, err := c.azureCLI.ShowAccount(""); err == nil {
 		// If az account show returns successfully then we can
 		// use that to get at least some login details, otherwise
@@ -176,6 +183,8 @@ func (c environProviderCredentials) FinalizeCredential(
 	switch authType := args.Credential.AuthType(); authType {
 	case deviceCodeAuthType:
 		subscriptionId := args.Credential.Attributes()[credAttrSubscriptionId]
+		applicationName := args.Credential.Attributes()[credAttrApplicationName]
+		roleDefinitionName := args.Credential.Attributes()[credAttrRoleDefinitionName]
 
 		var azCloudName string
 		switch args.CloudName {
@@ -189,6 +198,13 @@ func (c environProviderCredentials) FinalizeCredential(
 			return nil, errors.Errorf("unknown Azure cloud name %q", args.CloudName)
 		}
 
+		stderr := ctx.GetStderr()
+		fmt.Fprintln(stderr, "Note: your user account needs to have a role assignment to the")
+		fmt.Fprintln(stderr, "Azure Key Vault application (cfa8b339-82a2-471a-a3c9-0fc0be7a4093).")
+		fmt.Fprintln(stderr, "You can do this from the Azure portal or using the az cli:")
+		fmt.Fprintln(stderr, "  az ad sp create --id cfa8b339-82a2-471a-a3c9-0fc0be7a4093")
+		fmt.Fprintln(stderr)
+
 		if subscriptionId != "" {
 			opts := azcore.ClientOptions{
 				Cloud:     azureCloud(args.CloudName, args.CloudEndpoint, args.CloudIdentityEndpoint),
@@ -200,10 +216,12 @@ func (c environProviderCredentials) FinalizeCredential(
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return c.deviceCodeCredential(ctx, args, azureauth.ServicePrincipalParams{
-				CloudName:      azCloudName,
-				SubscriptionId: subscriptionId,
-				TenantId:       tenantID,
+			return c.deviceCodeCredential(sdkCtx, ctx, args, azureauth.ServicePrincipalParams{
+				CloudName:          azCloudName,
+				SubscriptionId:     subscriptionId,
+				TenantId:           tenantID,
+				ApplicationName:    applicationName,
+				RoleDefinitionName: roleDefinitionName,
 			})
 		}
 
@@ -211,6 +229,8 @@ func (c environProviderCredentials) FinalizeCredential(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		params.ApplicationName = applicationName
+		params.RoleDefinitionName = roleDefinitionName
 		return c.azureCLICredential(ctx, args, params)
 	case clientCredentialsAuthType:
 		return &args.Credential, nil
@@ -230,11 +250,11 @@ func (c environProviderCredentials) FinalizeCredential(
 }
 
 func (c environProviderCredentials) deviceCodeCredential(
+	sdkCtx context.Context,
 	ctx environs.FinalizeCredentialContext,
 	args environs.FinalizeCredentialParams,
 	params azureauth.ServicePrincipalParams,
 ) (*cloud.Credential, error) {
-	sdkCtx := context.Background()
 	applicationId, spObjectId, password, err := c.servicePrincipalCreator.InteractiveCreate(sdkCtx, ctx.GetStderr(), params)
 	if err != nil {
 		return nil, errors.Trace(err)
