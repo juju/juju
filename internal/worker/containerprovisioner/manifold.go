@@ -1,7 +1,7 @@
 // Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner
+package containerprovisioner
 
 import (
 	"context"
@@ -26,9 +26,9 @@ import (
 
 type GetContainerWatcherFunc func(context.Context) (watcher.StringsWatcher, error)
 
-// ContainerProvisioningManifold creates a manifold that runs a
+// Manifold creates a manifold that runs a
 // container provisioner.
-func ContainerProvisioningManifold(config ContainerManifoldConfig) dependency.Manifold {
+func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
@@ -38,9 +38,9 @@ func ContainerProvisioningManifold(config ContainerManifoldConfig) dependency.Ma
 	}
 }
 
-// ContainerManifoldConfig defines a container provisioner's dependencies,
+// ManifoldConfig defines a container provisioner's dependencies,
 // including how to initialise the container system.
-type ContainerManifoldConfig struct {
+type ManifoldConfig struct {
 	AgentName                    string
 	APICallerName                string
 	Logger                       logger.Logger
@@ -50,7 +50,7 @@ type ContainerManifoldConfig struct {
 }
 
 // Validate is called by start to check for bad configuration.
-func (cfg ContainerManifoldConfig) Validate() error {
+func (cfg ManifoldConfig) Validate() error {
 	if cfg.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
@@ -72,7 +72,7 @@ func (cfg ContainerManifoldConfig) Validate() error {
 	return nil
 }
 
-func (cfg ContainerManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
+func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -161,7 +161,7 @@ func (s *containerShim) Machines(ctx context.Context, tags ...names.MachineTag) 
 	return newResult, nil
 }
 
-func (cfg ContainerManifoldConfig) machineSupportsContainers(ctx context.Context, pr ContainerMachineGetter, mTag names.MachineTag) (ContainerMachine, error) {
+func (cfg ManifoldConfig) machineSupportsContainers(ctx context.Context, pr ContainerMachineGetter, mTag names.MachineTag) (ContainerMachine, error) {
 	result, err := pr.Machines(ctx, mTag)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot load machine %s from state", mTag)

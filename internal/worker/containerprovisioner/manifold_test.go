@@ -1,7 +1,7 @@
 // Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner_test
+package containerprovisioner_test
 
 import (
 	"github.com/juju/errors"
@@ -15,31 +15,30 @@ import (
 	"github.com/juju/juju/core/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/common"
-	"github.com/juju/juju/internal/worker/provisioner"
-	"github.com/juju/juju/internal/worker/provisioner/mocks"
+	"github.com/juju/juju/internal/worker/containerprovisioner"
 )
 
 type containerManifoldSuite struct {
-	machine *mocks.MockContainerMachine
-	getter  *mocks.MockContainerMachineGetter
+	machine *MockContainerMachine
+	getter  *MockContainerMachineGetter
 }
 
 var _ = gc.Suite(&containerManifoldSuite{})
 
 func (s *containerManifoldSuite) TestConfigValidateAgentName(c *gc.C) {
-	cfg := provisioner.ContainerManifoldConfig{}
+	cfg := containerprovisioner.ManifoldConfig{}
 	err := cfg.Validate()
 	c.Assert(err, gc.ErrorMatches, "empty AgentName not valid")
 }
 
 func (s *containerManifoldSuite) TestConfigValidateAPICallerName(c *gc.C) {
-	cfg := provisioner.ContainerManifoldConfig{AgentName: "testing"}
+	cfg := containerprovisioner.ManifoldConfig{AgentName: "testing"}
 	err := cfg.Validate()
 	c.Assert(err, gc.ErrorMatches, "empty APICallerName not valid")
 }
 
 func (s *containerManifoldSuite) TestConfigValidateLogger(c *gc.C) {
-	cfg := provisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		AgentName:     "testing",
 		APICallerName: "another string",
 	}
@@ -48,7 +47,7 @@ func (s *containerManifoldSuite) TestConfigValidateLogger(c *gc.C) {
 }
 
 func (s *containerManifoldSuite) TestConfigValidateMachineLock(c *gc.C) {
-	cfg := provisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		AgentName:     "testing",
 		APICallerName: "another string",
 		Logger:        loggertesting.WrapCheckLog(c),
@@ -58,7 +57,7 @@ func (s *containerManifoldSuite) TestConfigValidateMachineLock(c *gc.C) {
 }
 
 func (s *containerManifoldSuite) TestConfigValidateCredentialValidatorFacade(c *gc.C) {
-	cfg := provisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		AgentName:     "testing",
 		APICallerName: "another string",
 		Logger:        loggertesting.WrapCheckLog(c),
@@ -69,7 +68,7 @@ func (s *containerManifoldSuite) TestConfigValidateCredentialValidatorFacade(c *
 }
 
 func (s *containerManifoldSuite) TestConfigValidateContainerType(c *gc.C) {
-	cfg := provisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		AgentName:                    "testing",
 		APICallerName:                "another string",
 		Logger:                       loggertesting.WrapCheckLog(c),
@@ -81,7 +80,7 @@ func (s *containerManifoldSuite) TestConfigValidateContainerType(c *gc.C) {
 }
 
 func (s *containerManifoldSuite) TestConfigValidateSuccess(c *gc.C) {
-	cfg := provisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		AgentName:                    "testing",
 		APICallerName:                "another string",
 		Logger:                       loggertesting.WrapCheckLog(c),
@@ -97,17 +96,17 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifold(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewMachineTag("42")
-	retval := []provisioner.ContainerMachineResult{
+	retval := []containerprovisioner.ContainerMachineResult{
 		{Machine: s.machine},
 	}
 	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
 	s.machine.EXPECT().SupportedContainers(gomock.Any()).Return([]instance.ContainerType{instance.LXD}, true, nil)
 	s.machine.EXPECT().Life().Return(life.Alive)
-	cfg := provisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 	}
-	m, err := provisioner.MachineSupportsContainers(cfg, s.getter, tag)
+	m, err := containerprovisioner.MachineSupportsContainers(cfg, s.getter, tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m, gc.NotNil)
 }
@@ -116,17 +115,17 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldContainersNotK
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewMachineTag("42")
-	retval := []provisioner.ContainerMachineResult{
+	retval := []containerprovisioner.ContainerMachineResult{
 		{Machine: s.machine},
 	}
 	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
 	s.machine.EXPECT().SupportedContainers(gomock.Any()).Return(nil, false, nil)
 	s.machine.EXPECT().Life().Return(life.Alive)
-	cfg := provisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 	}
-	_, err := provisioner.MachineSupportsContainers(cfg, s.getter, tag)
+	_, err := containerprovisioner.MachineSupportsContainers(cfg, s.getter, tag)
 	c.Assert(err, jc.ErrorIs, errors.NotYetAvailable)
 }
 
@@ -134,17 +133,17 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldNoContainerSup
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewMachineTag("42")
-	retval := []provisioner.ContainerMachineResult{
+	retval := []containerprovisioner.ContainerMachineResult{
 		{Machine: s.machine},
 	}
 	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
 	s.machine.EXPECT().SupportedContainers(gomock.Any()).Return(nil, true, nil)
 	s.machine.EXPECT().Life().Return(life.Alive)
-	cfg := provisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 	}
-	_, err := provisioner.MachineSupportsContainers(cfg, s.getter, tag)
+	_, err := containerprovisioner.MachineSupportsContainers(cfg, s.getter, tag)
 	c.Assert(err, gc.ErrorMatches, "resource permanently unavailable")
 }
 
@@ -152,24 +151,24 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldMachineDead(c 
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewMachineTag("42")
-	retval := []provisioner.ContainerMachineResult{
+	retval := []containerprovisioner.ContainerMachineResult{
 		{Machine: s.machine},
 	}
 	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
 	s.machine.EXPECT().Life().Return(life.Dead)
-	cfg := provisioner.ContainerManifoldConfig{
+	cfg := containerprovisioner.ManifoldConfig{
 		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 	}
-	_, err := provisioner.MachineSupportsContainers(cfg, s.getter, tag)
+	_, err := containerprovisioner.MachineSupportsContainers(cfg, s.getter, tag)
 	c.Assert(err, gc.ErrorMatches, "resource permanently unavailable")
 }
 
 func (s *containerManifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.machine = mocks.NewMockContainerMachine(ctrl)
-	s.getter = mocks.NewMockContainerMachineGetter(ctrl)
+	s.machine = NewMockContainerMachine(ctrl)
+	s.getter = NewMockContainerMachineGetter(ctrl)
 
 	return ctrl
 }

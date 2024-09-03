@@ -52,8 +52,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/worker/provisioner"
-	"github.com/juju/juju/internal/worker/provisioner/mocks"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -72,8 +70,8 @@ type ProvisionerTaskSuite struct {
 	machineErrorRetryChanges chan struct{}
 	machineErrorRetryWatcher watcher.NotifyWatcher
 
-	controllerAPI *mocks.MockControllerAPI
-	machinesAPI   *mocks.MockMachinesAPI
+	controllerAPI *MockControllerAPI
+	machinesAPI   *MockMachinesAPI
 
 	instances      []instances.Instance
 	instanceBroker *testInstanceBroker
@@ -1425,8 +1423,8 @@ func (s *ProvisionerTaskSuite) sendMachineErrorRetryChange(c *gc.C) {
 func (s *ProvisionerTaskSuite) newProvisionerTask(
 	c *gc.C,
 	harvestingMethod config.HarvestMode,
-	distributionGroupFinder provisioner.DistributionGroupFinder,
-	toolsFinder provisioner.ToolsFinder,
+	distributionGroupFinder provisionertask.DistributionGroupFinder,
+	toolsFinder provisionertask.ToolsFinder,
 	numProvisionWorkers int,
 ) provisionertask.ProvisionerTask {
 	return s.newProvisionerTaskWithRetry(c,
@@ -1444,8 +1442,8 @@ func (s *ProvisionerTaskSuite) newProvisionerTask(
 func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 	c *gc.C,
 	harvestingMethod config.HarvestMode,
-	distributionGroupFinder provisioner.DistributionGroupFinder,
-	toolsFinder provisioner.ToolsFinder,
+	distributionGroupFinder provisionertask.DistributionGroupFinder,
+	toolsFinder provisionertask.ToolsFinder,
 	retryStrategy provisionertask.RetryStrategy,
 	numProvisionWorkers int,
 ) provisionertask.ProvisionerTask {
@@ -1515,8 +1513,8 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
 
 func (s *ProvisionerTaskSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.controllerAPI = mocks.NewMockControllerAPI(ctrl)
-	s.machinesAPI = mocks.NewMockMachinesAPI(ctrl)
+	s.controllerAPI = NewMockControllerAPI(ctrl)
+	s.machinesAPI = NewMockMachinesAPI(ctrl)
 	s.expectAuth()
 	return ctrl
 }

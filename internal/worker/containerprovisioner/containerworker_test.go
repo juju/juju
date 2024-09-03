@@ -1,7 +1,7 @@
 // Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner_test
+package containerprovisioner_test
 
 import (
 	"context"
@@ -32,8 +32,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/worker/provisioner"
-	"github.com/juju/juju/internal/worker/provisioner/mocks"
+	"github.com/juju/juju/internal/worker/containerprovisioner"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -47,7 +46,7 @@ type containerWorkerSuite struct {
 	caller         *apimocks.MockAPICaller
 	machine        *provisionermocks.MockMachineProvisioner
 	manager        *testing.MockManager
-	stringsWatcher *mocks.MockStringsWatcher
+	stringsWatcher *MockStringsWatcher
 
 	machineLock *fakeMachineLock
 
@@ -84,7 +83,7 @@ func (s *containerWorkerSuite) TestContainerSetupAndProvisioner(c *gc.C) {
 		})
 
 	w := s.setUpContainerWorker(c)
-	work, ok := w.(*provisioner.ContainerSetupAndProvisioner)
+	work, ok := w.(*containerprovisioner.ContainerSetupAndProvisioner)
 	c.Assert(ok, jc.IsTrue)
 
 	// Watch the worker report. We are waiting for the lxd-provisioner
@@ -120,7 +119,7 @@ func (s *containerWorkerSuite) TestContainerSetupAndProvisionerErrWatcherClose(c
 	s.initialiser = testing.NewMockInitialiser(ctrl)
 	s.caller = apimocks.NewMockAPICaller(ctrl)
 	s.caller.EXPECT().BestFacadeVersion("Provisioner").Return(0).AnyTimes()
-	s.stringsWatcher = mocks.NewMockStringsWatcher(ctrl)
+	s.stringsWatcher = NewMockStringsWatcher(ctrl)
 	s.machine = provisionermocks.NewMockMachineProvisioner(ctrl)
 	s.manager = testing.NewMockManager(ctrl)
 	s.machine.EXPECT().MachineTag().Return(names.NewMachineTag("0")).AnyTimes()
@@ -163,7 +162,7 @@ func (s *containerWorkerSuite) setUpContainerWorker(c *gc.C) worker.Worker {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := provisioner.ContainerSetupParams{
+	args := containerprovisioner.ContainerSetupParams{
 		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 		MachineZone:   s.machine,
@@ -176,13 +175,13 @@ func (s *containerWorkerSuite) setUpContainerWorker(c *gc.C) worker.Worker {
 			return nil, nil
 		},
 	}
-	cs := provisioner.NewContainerSetup(args)
+	cs := containerprovisioner.NewContainerSetup(args)
 
 	// Stub out network config getter.
 	watcherFunc := func(context.Context) (watcher.StringsWatcher, error) {
 		return s.stringsWatcher, nil
 	}
-	w, err := provisioner.NewContainerSetupAndProvisioner(context.Background(), cs, watcherFunc)
+	w, err := containerprovisioner.NewContainerSetupAndProvisioner(context.Background(), cs, watcherFunc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return w
@@ -196,7 +195,7 @@ func (s *containerWorkerSuite) patch(c *gc.C) *gomock.Controller {
 	s.caller.EXPECT().BestFacadeVersion("Provisioner").Return(0).AnyTimes()
 	s.caller.EXPECT().BestFacadeVersion("NotifyWatcher").Return(0).AnyTimes()
 	s.caller.EXPECT().BestFacadeVersion("StringsWatcher").Return(0).AnyTimes()
-	s.stringsWatcher = mocks.NewMockStringsWatcher(ctrl)
+	s.stringsWatcher = NewMockStringsWatcher(ctrl)
 	s.machine = provisionermocks.NewMockMachineProvisioner(ctrl)
 	s.manager = testing.NewMockManager(ctrl)
 
@@ -205,7 +204,7 @@ func (s *containerWorkerSuite) patch(c *gc.C) *gomock.Controller {
 	s.machine.EXPECT().Id().Return("0").AnyTimes()
 	s.machine.EXPECT().MachineTag().Return(names.NewMachineTag("0")).AnyTimes()
 
-	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType, map[string]string, containermanager.NetworkingMethod) (container.Initialiser, error) {
+	s.PatchValue(containerprovisioner.GetContainerInitialiser, func(instance.ContainerType, map[string]string, containermanager.NetworkingMethod) (container.Initialiser, error) {
 		return s.initialiser, nil
 	})
 

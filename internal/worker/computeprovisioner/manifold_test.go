@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner_test
+package computeprovisioner_test
 
 import (
 	"context"
@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/environs"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/common"
-	"github.com/juju/juju/internal/worker/provisioner"
+	"github.com/juju/juju/internal/worker/computeprovisioner"
 )
 
 type ManifoldSuite struct {
@@ -31,13 +31,13 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) makeManifold(c *gc.C) dependency.Manifold {
-	fakeNewProvFunc := func(provisioner.ControllerAPI, provisioner.MachinesAPI, provisioner.ToolsFinder,
-		provisioner.DistributionGroupFinder, agent.Config, logger.Logger, provisioner.Environ, common.CredentialAPI,
-	) (provisioner.Provisioner, error) {
+	fakeNewProvFunc := func(computeprovisioner.ControllerAPI, computeprovisioner.MachinesAPI, computeprovisioner.ToolsFinder,
+		computeprovisioner.DistributionGroupFinder, agent.Config, logger.Logger, computeprovisioner.Environ, common.CredentialAPI,
+	) (computeprovisioner.Provisioner, error) {
 		s.stub.AddCall("NewProvisionerFunc")
-		return struct{ provisioner.Provisioner }{}, nil
+		return struct{ computeprovisioner.Provisioner }{}, nil
 	}
-	return provisioner.Manifold(provisioner.ManifoldConfig{
+	return computeprovisioner.Manifold(computeprovisioner.ManifoldConfig{
 		AgentName:                    "agent",
 		APICallerName:                "api-caller",
 		Logger:                       loggertesting.WrapCheckLog(c),

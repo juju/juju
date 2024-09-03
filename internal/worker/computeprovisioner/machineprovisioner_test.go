@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner_test
+package computeprovisioner_test
 
 import (
 	"context"
@@ -42,16 +42,15 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/worker/provisioner"
-	"github.com/juju/juju/internal/worker/provisioner/mocks"
+	"github.com/juju/juju/internal/worker/computeprovisioner"
 	"github.com/juju/juju/rpc/params"
 )
 
 type CommonProvisionerSuite struct {
 	jujutesting.IsolationSuite
 
-	controllerAPI *mocks.MockControllerAPI
-	machinesAPI   *mocks.MockMachinesAPI
+	controllerAPI *MockControllerAPI
+	machinesAPI   *MockMachinesAPI
 	broker        *environmocks.MockEnviron
 
 	modelConfigCh chan struct{}
@@ -62,8 +61,8 @@ type CommonProvisionerSuite struct {
 
 func (s *CommonProvisionerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.controllerAPI = mocks.NewMockControllerAPI(ctrl)
-	s.machinesAPI = mocks.NewMockMachinesAPI(ctrl)
+	s.controllerAPI = NewMockControllerAPI(ctrl)
+	s.machinesAPI = NewMockMachinesAPI(ctrl)
 	s.broker = environmocks.NewMockEnviron(ctrl)
 	s.expectAuth()
 	s.expectStartup(c)
@@ -118,10 +117,10 @@ func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *testMachine) {
 	c.Fatalf("machine %v not started", m.id)
 }
 
-func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C, p provisioner.Provisioner, container bool) {
+func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C, p computeprovisioner.Provisioner, container bool) {
 	// Inject our observer into the provisioner
 	cfgObserver := make(chan *config.Config)
-	provisioner.SetObserver(p, cfgObserver)
+	computeprovisioner.SetObserver(p, cfgObserver)
 
 	attrs := coretesting.FakeConfig()
 	attrs[config.ProvisionerHarvestModeKey] = config.HarvestDestroyed.String()
@@ -158,10 +157,10 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	}
 }
 
-func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCount(c *gc.C, p provisioner.Provisioner, container bool) {
+func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCount(c *gc.C, p computeprovisioner.Provisioner, container bool) {
 	// Inject our observer into the provisioner
 	cfgObserver := make(chan *config.Config)
-	provisioner.SetObserver(p, cfgObserver)
+	computeprovisioner.SetObserver(p, cfgObserver)
 
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.ProvisionerHarvestModeKey: config.HarvestDestroyed.String(),
@@ -230,7 +229,7 @@ func (s *CommonProvisionerSuite) expectMachinesWatcher() {
 	s.machinesAPI.EXPECT().WatchMachineErrorRetry(gomock.Any()).Return(rw, nil)
 }
 
-func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
+func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) computeprovisioner.Provisioner {
 	c.Assert(s.machinesAPI, gc.NotNil)
 	s.expectMachinesWatcher()
 
@@ -251,7 +250,7 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Prov
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err := provisioner.NewEnvironProvisioner(
+	w, err := computeprovisioner.NewEnvironProvisioner(
 		s.controllerAPI, s.machinesAPI,
 		mockToolsFinder{},
 		&mockDistributionGroupFinder{},
@@ -688,5 +687,11 @@ func (m *testMachine) EnsureDead(context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.markForRemoval = true
+	return nil
+}
+
+type credentialAPIForTest struct{}
+
+func (*credentialAPIForTest) InvalidateModelCredential(_ context.Context, reason string) error {
 	return nil
 }
