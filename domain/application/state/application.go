@@ -326,13 +326,12 @@ func (st *ApplicationState) deleteApplication(ctx context.Context, tx *sqlair.TX
 	appID.ID = appUUID.String()
 
 	// Check that there are no units.
-	result := sqlair.M{}
+	var result countResult
 	err = tx.Query(ctx, queryUnitsStmt, appID).Get(&result)
 	if err != nil {
 		return errors.Annotatef(err, "querying units for application %q", name)
 	}
-	numUnits, _ := result["count"].(int64)
-	if numUnits > 0 {
+	if numUnits := result.Count; numUnits > 0 {
 		return fmt.Errorf("cannot delete application %q as it still has %d unit(s)%w", name, numUnits, errors.Hide(applicationerrors.ApplicationHasUnits))
 	}
 

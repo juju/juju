@@ -123,9 +123,9 @@ func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(ctx context.Context, args
 
 	ch, origin, platform, err := a.service.GetCharmByApplicationName(ctx, appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return params.Charm{}, errors.NotFoundf("application %q not found", appName)
+		return params.Charm{}, errors.NotFoundf("application %q", appName)
 	} else if errors.Is(err, applicationerrors.CharmNotFound) {
-		return params.Charm{}, errors.NotFoundf("charm for application %q not found", appName)
+		return params.Charm{}, errors.NotFoundf("charm for application %q", appName)
 	} else if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
