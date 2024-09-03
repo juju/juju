@@ -161,45 +161,6 @@ func (c *MockSecretBackendServiceDeleteSecretBackendCall) DoAndReturn(f func(con
 	return c
 }
 
-// GetSecretBackendByName mocks base method.
-func (m *MockSecretBackendService) GetSecretBackendByName(arg0 context.Context, arg1 string) (*secrets.SecretBackend, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretBackendByName", arg0, arg1)
-	ret0, _ := ret[0].(*secrets.SecretBackend)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetSecretBackendByName indicates an expected call of GetSecretBackendByName.
-func (mr *MockSecretBackendServiceMockRecorder) GetSecretBackendByName(arg0, arg1 any) *MockSecretBackendServiceGetSecretBackendByNameCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretBackendByName", reflect.TypeOf((*MockSecretBackendService)(nil).GetSecretBackendByName), arg0, arg1)
-	return &MockSecretBackendServiceGetSecretBackendByNameCall{Call: call}
-}
-
-// MockSecretBackendServiceGetSecretBackendByNameCall wrap *gomock.Call
-type MockSecretBackendServiceGetSecretBackendByNameCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSecretBackendServiceGetSecretBackendByNameCall) Return(arg0 *secrets.SecretBackend, arg1 error) *MockSecretBackendServiceGetSecretBackendByNameCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSecretBackendServiceGetSecretBackendByNameCall) Do(f func(context.Context, string) (*secrets.SecretBackend, error)) *MockSecretBackendServiceGetSecretBackendByNameCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretBackendServiceGetSecretBackendByNameCall) DoAndReturn(f func(context.Context, string) (*secrets.SecretBackend, error)) *MockSecretBackendServiceGetSecretBackendByNameCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // UpdateSecretBackend mocks base method.
 func (m *MockSecretBackendService) UpdateSecretBackend(arg0 context.Context, arg1 service.UpdateSecretBackendParams) error {
 	m.ctrl.T.Helper()
