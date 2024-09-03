@@ -63,14 +63,20 @@ used successfully. Others are tried subsequently if required.
 Addresses used by clients are not influenced by the `juju-mgmt-space` 
 configuration.
 
-### Singular Workers
+### Single Instance Workers
 
-Many workers, such as the `dbaccessor` worker above, run on all controller 
-nodes, but there are some workers that must have exactly one instance running. 
-An obvious example of this is a model's compute provisioner - we don't want 
-multiple actors attempting to start a cloud instance for a new machine.
+Many workers, such as the `dbaccessor` worker, run on all controller instances,
+but there are some workers that must run on exactly one controller instance. 
+An obvious example of this is a model's compute provisioner - we would never 
+want more than one actor attempting to start a cloud instance for a new 
+machine.
 
-The controller that such singular workers run on is determined by the lease
-sub-system. See the appropriate documentation for more information on leases.
+Single instance workers are those declared in the model manifolds configuration
+that use the `isResponsible` decorator. This in turn is based on a flag set by the
+`singular` worker.
+
+The `singular` worker only sets the flag if it is the current lease holder for 
+the `singular-controller` namespace. See the appropriate documentation for more 
+information on leases.
 
 [Dqlite]: https://dqlite.io/
