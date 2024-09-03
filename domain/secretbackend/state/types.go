@@ -11,9 +11,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/cloud"
-	corecloud "github.com/juju/juju/core/cloud"
-	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
@@ -68,13 +67,6 @@ func (m modelIdentifier) String() string {
 type modelDetails struct {
 	// Type is the type of the model.
 	Type coremodel.ModelType `db:"model_type"`
-}
-
-// modelCloudAndCredentialID represents the IDs of a models cloud and cloud
-// credential.
-type modelCloudAndCredentialID struct {
-	CloudID      corecloud.ID      `db:"cloud_uuid"`
-	CredentialID corecredential.ID `db:"cloud_credential_uuid"`
 }
 
 // upsertSecretBackendParams are used to upsert a secret backend.
@@ -165,10 +157,10 @@ type SecretBackendRow struct {
 	NumSecrets int `db:"num_secrets"`
 }
 
-// SecretBackendRows represents a slice of SecretBackendRow.
-type SecretBackendRows []SecretBackendRow
+// secretBackendRows represents a slice of SecretBackendRow.
+type secretBackendRows []SecretBackendRow
 
-func (rows SecretBackendRows) toSecretBackends() []*secretbackend.SecretBackend {
+func (rows secretBackendRows) toSecretBackends() []*secretbackend.SecretBackend {
 	// Sort the rows by backend name to ensure that we group the config.
 	sort.Slice(rows, func(i, j int) bool {
 		return rows[i].Name < rows[j].Name
@@ -205,8 +197,8 @@ func (rows SecretBackendRows) toSecretBackends() []*secretbackend.SecretBackend 
 	return result
 }
 
-// SecretBackendForK8sModelRow represents a single joined result from secret_backend, secret_backend_reference and model tables.
-type SecretBackendForK8sModelRow struct {
+// secretBackendForK8sModelRow represents a single joined result from secret_backend, secret_backend_reference and model tables.
+type secretBackendForK8sModelRow struct {
 	SecretBackendRow
 	// ModelName is the name of the model.
 	ModelName string `db:"model_name"`
@@ -217,9 +209,9 @@ type SecretBackendForK8sModelRow struct {
 	CredentialID string `db:"cloud_credential_uuid"`
 }
 
-type SecretBackendForK8sModelRows []SecretBackendForK8sModelRow
+type secretBackendForK8sModelRows []secretBackendForK8sModelRow
 
-func (rows SecretBackendForK8sModelRows) toSecretBackend(cldData cloudRows, credData cloudCredentialRows) ([]*secretbackend.SecretBackend, error) {
+func (rows secretBackendForK8sModelRows) toSecretBackend(cldData cloudRows, credData cloudCredentialRows) ([]*secretbackend.SecretBackend, error) {
 	clds := cldData.toClouds()
 	creds := credData.toCloudCredentials()
 

@@ -204,6 +204,11 @@ func (s *serviceSuite) TestGetSecretBackendConfigForAdmin(c *gc.C) {
 	modelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
 	s.mockState.EXPECT().ListSecretBackendsForModel(gomock.Any(), modelUUID, true).Return([]*secretbackend.SecretBackend{
 		{
+			ID:          jujuBackendID,
+			Name:        juju.BackendName,
+			BackendType: juju.BackendType,
+		},
+		{
 			ID:          vaultBackendID,
 			Name:        "myvault",
 			BackendType: "vault",
@@ -238,6 +243,7 @@ func (s *serviceSuite) TestGetSecretBackendConfigForAdmin(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: vaultBackendID,
 		Configs: map[string]provider.ModelBackendConfig{
+			jujuBackendID:  jujuBackendConfig,
 			k8sBackendID:   k8sBackendConfig,
 			vaultBackendID: vaultBackendConfig,
 		},

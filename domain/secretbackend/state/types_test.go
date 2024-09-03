@@ -27,7 +27,7 @@ func ptr[T any](x T) *T {
 }
 
 func (s *typesSuite) TestToSecretBackends(c *gc.C) {
-	rows := SecretBackendRows{
+	rows := secretBackendRows{
 		{
 			ID:          "uuid1",
 			Name:        "name1",

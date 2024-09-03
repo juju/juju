@@ -297,7 +297,7 @@ FROM secret_backend b`, SecretBackendRow{})
 		return nil, errors.Trace(err)
 	}
 
-	var rows SecretBackendRows
+	var rows secretBackendRows
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).GetAll(&rows)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -346,7 +346,7 @@ GROUP BY b.name, c.name`, kubernetes.BackendName)
 	}
 
 	var result []*secretbackend.SecretBackend
-	var nonK8sRows SecretBackendRows
+	var nonK8sRows secretBackendRows
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		result, err = s.listInUseKubernetesSecretBackends(ctx, tx)
 		if err != nil {
@@ -374,13 +374,13 @@ GROUP BY b.name, c.name`, kubernetes.BackendName)
 func (s *State) listInUseKubernetesSecretBackends(ctx context.Context, tx *sqlair.TX) ([]*secretbackend.SecretBackend, error) {
 	backendQuery := fmt.Sprintf(`
 SELECT
-    sbr.secret_backend_uuid                  AS &SecretBackendForK8sModelRow.uuid,
-    b.name                                   AS &SecretBackendForK8sModelRow.name,
-    vm.name                                  AS &SecretBackendForK8sModelRow.model_name,
-    bt.type                                  AS &SecretBackendForK8sModelRow.backend_type,
-    vc.uuid                                  AS &SecretBackendForK8sModelRow.cloud_uuid,
-    vcca.uuid                                AS &SecretBackendForK8sModelRow.cloud_credential_uuid,
-    COUNT(DISTINCT sbr.secret_revision_uuid) AS &SecretBackendForK8sModelRow.num_secrets,
+    sbr.secret_backend_uuid                  AS &secretBackendForK8sModelRow.uuid,
+    b.name                                   AS &secretBackendForK8sModelRow.name,
+    vm.name                                  AS &secretBackendForK8sModelRow.model_name,
+    bt.type                                  AS &secretBackendForK8sModelRow.backend_type,
+    vc.uuid                                  AS &secretBackendForK8sModelRow.cloud_uuid,
+    vcca.uuid                                AS &secretBackendForK8sModelRow.cloud_credential_uuid,
+    COUNT(DISTINCT sbr.secret_revision_uuid) AS &secretBackendForK8sModelRow.num_secrets,
     (vc.uuid,
     vc.name,
     vc.endpoint,
@@ -402,12 +402,12 @@ FROM secret_backend_reference sbr
     JOIN v_cloud_credential_attributes vcca ON vm.cloud_credential_uuid = vcca.uuid
 WHERE b.name = '%s'
 GROUP BY vm.name, vcca.attribute_key`, kubernetes.BackendName)
-	backendStmt, err := s.Prepare(backendQuery, SecretBackendForK8sModelRow{}, cloudRow{}, cloudCredentialRow{})
+	backendStmt, err := s.Prepare(backendQuery, secretBackendForK8sModelRow{}, cloudRow{}, cloudCredentialRow{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var sbData SecretBackendForK8sModelRows
+	var sbData secretBackendForK8sModelRows
 	var cloudData cloudRows
 	var credentialData cloudCredentialRows
 
@@ -486,7 +486,7 @@ WHERE  m.uuid = $M.uuid
 	}
 
 	var (
-		rows              SecretBackendRows
+		rows              secretBackendRows
 		modelType         coremodel.ModelType
 		currentK8sBackend *secretbackend.SecretBackend
 	)
@@ -538,8 +538,8 @@ WHERE  m.uuid = $M.uuid
 func (s *State) getK8sSecretBackendForModel(ctx context.Context, tx *sqlair.TX, modelUUID coremodel.UUID) (*secretbackend.SecretBackend, error) {
 	stmt, err := s.Prepare(`
 SELECT
-    vc.uuid       AS &SecretBackendForK8sModelRow.cloud_uuid,
-    vcca.uuid     AS &SecretBackendForK8sModelRow.cloud_credential_uuid,
+    vc.uuid       AS &secretBackendForK8sModelRow.cloud_uuid,
+    vcca.uuid     AS &secretBackendForK8sModelRow.cloud_credential_uuid,
     vm.model_type AS &modelDetails.model_type,
     (vc.uuid,
     vc.name,
@@ -558,12 +558,12 @@ FROM v_model vm
     JOIN cloud_ca_cert ccc ON vc.uuid = ccc.cloud_uuid
     JOIN v_cloud_credential_attributes vcca ON vm.cloud_credential_uuid = vcca.uuid
 WHERE vm.uuid = $modelIdentifier.uuid
-GROUP BY vm.name, vcca.attribute_key`, modelIdentifier{}, modelDetails{}, SecretBackendForK8sModelRow{}, cloudRow{}, cloudCredentialRow{})
+GROUP BY vm.name, vcca.attribute_key`, modelIdentifier{}, modelDetails{}, secretBackendForK8sModelRow{}, cloudRow{}, cloudCredentialRow{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var models []modelDetails
-	var sbCloudCredentialIDs SecretBackendForK8sModelRows
+	var sbCloudCredentialIDs secretBackendForK8sModelRows
 	var clds cloudRows
 	var creds cloudCredentialRows
 	err = tx.Query(ctx, stmt, modelIdentifier{ModelID: modelUUID}).GetAll(&models, &sbCloudCredentialIDs, &clds, &creds)
@@ -627,7 +627,7 @@ WHERE b.%s = $M.identifier`, columName)
 		return nil, errors.Trace(err)
 	}
 
-	var rows SecretBackendRows
+	var rows secretBackendRows
 	err = tx.Query(ctx, stmt, sqlair.M{"identifier": v}).GetAll(&rows)
 	if errors.Is(err, sql.ErrNoRows) || len(rows) == 0 {
 		return nil, fmt.Errorf("%w: %q", secretbackenderrors.NotFound, v)
