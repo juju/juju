@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/core/user"
 	coreusertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/watcher"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/environs"
@@ -248,6 +249,7 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 	ctrl := gomock.NewController(c)
 	s.mockSecretBackendService = mocks.NewMockSecretBackendService(ctrl)
 	s.mockAccessService = mocks.NewMockAccessService(ctrl)
+	s.mockModelService = mocks.NewMockModelService(ctrl)
 	s.authorizer.Tag = user
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
@@ -401,6 +403,10 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 	api, ctrl := s.getAPIWithUser(c, mary)
 	defer ctrl.Finish()
 	maryName := coreusertesting.GenNewName(c, "mary")
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(maryName), permission.ID{
+		ObjectType: permission.Model,
+		Key:        s.st.model.cfg.UUID(),
+	}).Return(permission.WriteAccess, nil)
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	s.mockModelService.EXPECT().GetModelUser(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID()), maryName).Return(
 		coremodel.ModelUserInfo{
@@ -420,6 +426,10 @@ func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
 	api, ctrl := s.getAPIWithUser(c, names.NewUserTag("charlotte@local"))
 	defer ctrl.Finish()
 	charlotteName := coreusertesting.GenNewName(c, "charlotte")
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(charlotteName), permission.ID{
+		ObjectType: permission.Model,
+		Key:        s.st.model.cfg.UUID(),
+	}).Return(permission.ReadAccess, nil)
 	s.mockModelService.EXPECT().GetModelUser(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID()), charlotteName).Return(
 		coremodel.ModelUserInfo{
 			Name:        charlotteName,
@@ -450,38 +460,47 @@ func (s *modelInfoSuite) getModelInfo(c *gc.C, modelInfo modelInfo, modelUUID st
 }
 
 func (s *modelInfoSuite) TestModelInfoErrorInvalidTag(c *gc.C) {
-	api, _ := s.getAPI(c)
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
 	s.testModelInfoError(c, api, "user-bob", `"user-bob" is not a valid model tag`)
 }
 
 func (s *modelInfoSuite) TestModelInfoErrorGetModelNotFound(c *gc.C) {
-	api, _ := s.getAPI(c)
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
 	s.st.SetErrors(errors.NotFoundf("model"))
 	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `permission denied`)
 }
 
 func (s *modelInfoSuite) TestModelInfoErrorModelConfig(c *gc.C) {
-	api, _ := s.getAPI(c)
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
 	s.st.model.SetErrors(errors.Errorf("no config for you"))
 	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `no config for you`)
 }
 
 func (s *modelInfoSuite) TestModelInfoErrorModelUsers(c *gc.C) {
-	api, _ := s.getAPI(c)
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(coretesting.ModelTag.Id())).Return(nil, errors.Errorf("no users for you"))
 	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `getting model user info: no users for you`)
 }
 
 func (s *modelInfoSuite) TestModelInfoErrorNoModelUsers(c *gc.C) {
-	c.Skip("This error check in modelInfo is disabled until all permissions have been moved to domain")
-	api, _ := s.getAPI(c)
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(coretesting.ModelTag.Id())).Return(nil, modelerrors.UserNotFoundOnModel)
 	s.st.model.users = nil
-	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `permission denied`)
+	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `getting model user info: user not found on model`)
 }
 
 func (s *modelInfoSuite) TestModelInfoErrorNoAccess(c *gc.C) {
-	c.Skip("This error check in modelInfo is disabled until all permissions have been moved to domain")
-	api, _ := s.getAPIWithUser(c, names.NewUserTag("nemo@local"))
+	noAccessUser := names.NewUserTag("nemo@local")
+	api, _ := s.getAPIWithUser(c, noAccessUser)
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(noAccessUser), permission.ID{
+		ObjectType: permission.Model,
+		Key:        coretesting.ModelTag.Id(),
+	}).Return(permission.NoAccess, accesserrors.AccessNotFound)
 	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `permission denied`)
 }
 
