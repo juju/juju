@@ -14,7 +14,6 @@ import (
 	reflect "reflect"
 	time "time"
 
-	cloud "github.com/juju/juju/cloud"
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/core/watcher"
 	secretbackend "github.com/juju/juju/domain/secretbackend"
@@ -117,86 +116,6 @@ func (c *MockStateDeleteSecretBackendCall) Do(f func(context.Context, secretback
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateDeleteSecretBackendCall) DoAndReturn(f func(context.Context, secretbackend.BackendIdentifier, bool) error) *MockStateDeleteSecretBackendCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetControllerModelCloudAndCredential mocks base method.
-func (m *MockState) GetControllerModelCloudAndCredential(arg0 context.Context) (cloud.Cloud, cloud.Credential, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetControllerModelCloudAndCredential", arg0)
-	ret0, _ := ret[0].(cloud.Cloud)
-	ret1, _ := ret[1].(cloud.Credential)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetControllerModelCloudAndCredential indicates an expected call of GetControllerModelCloudAndCredential.
-func (mr *MockStateMockRecorder) GetControllerModelCloudAndCredential(arg0 any) *MockStateGetControllerModelCloudAndCredentialCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerModelCloudAndCredential", reflect.TypeOf((*MockState)(nil).GetControllerModelCloudAndCredential), arg0)
-	return &MockStateGetControllerModelCloudAndCredentialCall{Call: call}
-}
-
-// MockStateGetControllerModelCloudAndCredentialCall wrap *gomock.Call
-type MockStateGetControllerModelCloudAndCredentialCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetControllerModelCloudAndCredentialCall) Return(arg0 cloud.Cloud, arg1 cloud.Credential, arg2 error) *MockStateGetControllerModelCloudAndCredentialCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetControllerModelCloudAndCredentialCall) Do(f func(context.Context) (cloud.Cloud, cloud.Credential, error)) *MockStateGetControllerModelCloudAndCredentialCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetControllerModelCloudAndCredentialCall) DoAndReturn(f func(context.Context) (cloud.Cloud, cloud.Credential, error)) *MockStateGetControllerModelCloudAndCredentialCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetModelCloudAndCredential mocks base method.
-func (m *MockState) GetModelCloudAndCredential(arg0 context.Context, arg1 model.UUID) (cloud.Cloud, cloud.Credential, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModelCloudAndCredential", arg0, arg1)
-	ret0, _ := ret[0].(cloud.Cloud)
-	ret1, _ := ret[1].(cloud.Credential)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetModelCloudAndCredential indicates an expected call of GetModelCloudAndCredential.
-func (mr *MockStateMockRecorder) GetModelCloudAndCredential(arg0, arg1 any) *MockStateGetModelCloudAndCredentialCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelCloudAndCredential", reflect.TypeOf((*MockState)(nil).GetModelCloudAndCredential), arg0, arg1)
-	return &MockStateGetModelCloudAndCredentialCall{Call: call}
-}
-
-// MockStateGetModelCloudAndCredentialCall wrap *gomock.Call
-type MockStateGetModelCloudAndCredentialCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetModelCloudAndCredentialCall) Return(arg0 cloud.Cloud, arg1 cloud.Credential, arg2 error) *MockStateGetModelCloudAndCredentialCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetModelCloudAndCredentialCall) Do(f func(context.Context, model.UUID) (cloud.Cloud, cloud.Credential, error)) *MockStateGetModelCloudAndCredentialCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetModelCloudAndCredentialCall) DoAndReturn(f func(context.Context, model.UUID) (cloud.Cloud, cloud.Credential, error)) *MockStateGetModelCloudAndCredentialCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -358,45 +277,6 @@ func (c *MockStateInitialWatchStatementForSecretBackendRotationChangesCall) Do(f
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateInitialWatchStatementForSecretBackendRotationChangesCall) DoAndReturn(f func() (string, string)) *MockStateInitialWatchStatementForSecretBackendRotationChangesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ListInUseKubernetesSecretBackends mocks base method.
-func (m *MockState) ListInUseKubernetesSecretBackends(arg0 context.Context) ([]*secretbackend.SecretBackend, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListInUseKubernetesSecretBackends", arg0)
-	ret0, _ := ret[0].([]*secretbackend.SecretBackend)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ListInUseKubernetesSecretBackends indicates an expected call of ListInUseKubernetesSecretBackends.
-func (mr *MockStateMockRecorder) ListInUseKubernetesSecretBackends(arg0 any) *MockStateListInUseKubernetesSecretBackendsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInUseKubernetesSecretBackends", reflect.TypeOf((*MockState)(nil).ListInUseKubernetesSecretBackends), arg0)
-	return &MockStateListInUseKubernetesSecretBackendsCall{Call: call}
-}
-
-// MockStateListInUseKubernetesSecretBackendsCall wrap *gomock.Call
-type MockStateListInUseKubernetesSecretBackendsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateListInUseKubernetesSecretBackendsCall) Return(arg0 []*secretbackend.SecretBackend, arg1 error) *MockStateListInUseKubernetesSecretBackendsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateListInUseKubernetesSecretBackendsCall) Do(f func(context.Context) ([]*secretbackend.SecretBackend, error)) *MockStateListInUseKubernetesSecretBackendsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateListInUseKubernetesSecretBackendsCall) DoAndReturn(f func(context.Context) ([]*secretbackend.SecretBackend, error)) *MockStateListInUseKubernetesSecretBackendsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

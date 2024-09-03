@@ -107,7 +107,7 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 		ID:          s.vaultBackendID,
 		Name:        "my-backend",
 		BackendType: "vault",
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -144,6 +144,7 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 			Name:           "my-cloud",
 			Type:           "ec2",
 			AuthTypes:      cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+			Endpoint:       "https://my-cloud.com",
 			CACertificates: []string{"my-ca-cert"},
 			Regions: []cloud.Region{
 				{Name: "my-region"},
@@ -242,7 +243,7 @@ WHERE backend_uuid = ?`[1:], expectedSecretBackend.ID)
 	}
 
 	if len(expectedSecretBackend.Config) > 0 {
-		actual.Config = map[string]string{}
+		actual.Config = map[string]any{}
 		rows, err := db.Query(`
 SELECT name, content
 FROM secret_backend_config
@@ -329,7 +330,7 @@ func (s *stateSuite) TestCreateSecretBackend(c *gc.C) {
 		Name:                "my-backend",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -417,7 +418,7 @@ func (s *stateSuite) TestUpdateSecretBackend(c *gc.C) {
 		Name:                "my-backend",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -438,7 +439,7 @@ func (s *stateSuite) TestUpdateSecretBackend(c *gc.C) {
 		Name:                "my-backend-updated",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -465,7 +466,7 @@ func (s *stateSuite) TestUpdateSecretBackend(c *gc.C) {
 		Name:                "my-backend-updated",
 		BackendType:         "vault",
 		TokenRotateInterval: &newRotateInternal,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1-updated",
 			"key3": "value3",
 		},
@@ -495,7 +496,7 @@ func (s *stateSuite) TestUpdateSecretBackendWithNoRotateNoConfig(c *gc.C) {
 		Name:                "my-backend",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -514,7 +515,7 @@ func (s *stateSuite) TestUpdateSecretBackendWithNoRotateNoConfig(c *gc.C) {
 		Name:                "my-backend-updated",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -840,7 +841,7 @@ WHERE model_uuid = ?`[1:], modelUUID)
 	c.Assert(configuredBackend, gc.Equals, "internal")
 }
 
-func (s *stateSuite) TestListSecretBackends(c *gc.C) {
+func (s *stateSuite) TestListSecretBackendsIAAS(c *gc.C) {
 	backendID1 := uuid.MustNewUUID().String()
 	rotateInternal1 := 24 * time.Hour
 	nextRotateTime1 := time.Now().Add(rotateInternal1)
@@ -863,7 +864,7 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 		Name:                "my-backend1",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal1,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key3": "value3",
 			"key4": "value4",
 		},
@@ -877,6 +878,47 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	secrectRevisionID2 := uuid.MustNewUUID().String()
 	_, err = s.state.AddSecretBackendReference(context.Background(), &secrets.ValueRef{BackendID: backendID1}, modelUUID, secrectRevisionID2)
+	c.Assert(err, gc.IsNil)
+
+	backends, err := s.state.ListSecretBackends(context.Background())
+	c.Assert(err, gc.IsNil)
+	c.Assert(backends, gc.HasLen, 3)
+	c.Assert(backends, jc.DeepEquals, []*secretbackend.SecretBackend{
+		{
+			ID:          s.internalBackendID,
+			Name:        "internal",
+			BackendType: "controller",
+		},
+		{
+			ID:          s.vaultBackendID,
+			Name:        "my-backend",
+			BackendType: "vault",
+			Config: map[string]any{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		},
+		{
+			ID:                  backendID1,
+			Name:                "my-backend1",
+			BackendType:         "vault",
+			TokenRotateInterval: &rotateInternal1,
+			Config: map[string]any{
+				"key3": "value3",
+				"key4": "value4",
+			},
+			NumSecrets: 2,
+		},
+	})
+}
+
+func (s *stateSuite) TestListSecretBackendsCAAS(c *gc.C) {
+	modelUUID := s.createModel(c, coremodel.CAAS)
+	secrectRevisionID1 := uuid.MustNewUUID().String()
+	_, err := s.state.AddSecretBackendReference(context.Background(), &secrets.ValueRef{BackendID: s.kubernetesBackendID}, modelUUID, secrectRevisionID1)
+	c.Assert(err, gc.IsNil)
+	secrectRevisionID2 := uuid.MustNewUUID().String()
+	_, err = s.state.AddSecretBackendReference(context.Background(), &secrets.ValueRef{BackendID: s.kubernetesBackendID}, modelUUID, secrectRevisionID2)
 	c.Assert(err, gc.IsNil)
 
 	backendID2 := uuid.MustNewUUID().String()
@@ -901,7 +943,7 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 		Name:                "my-backend2",
 		BackendType:         "kubernetes",
 		TokenRotateInterval: &rotateInternal2,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key5": "value5",
 			"key6": "value6",
 		},
@@ -912,6 +954,18 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 	c.Assert(backends, gc.HasLen, 4)
 	c.Assert(backends, jc.DeepEquals, []*secretbackend.SecretBackend{
 		{
+			ID:          s.kubernetesBackendID,
+			Name:        "my-model-local",
+			BackendType: kubernetes.BackendType,
+			Config: map[string]any{
+				"ca-certs":            []string{"my-ca-cert"},
+				"credential":          `{"auth-type":"access-key","Attributes":{"bar":"bar val","foo":"foo val"}}`,
+				"endpoint":            "https://my-cloud.com",
+				"is-controller-cloud": false,
+			},
+			NumSecrets: 2,
+		},
+		{
 			ID:          s.internalBackendID,
 			Name:        "internal",
 			BackendType: "controller",
@@ -920,28 +974,17 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 			ID:          s.vaultBackendID,
 			Name:        "my-backend",
 			BackendType: "vault",
-			Config: map[string]string{
+			Config: map[string]any{
 				"key1": "value1",
 				"key2": "value2",
 			},
-		},
-		{
-			ID:                  backendID1,
-			Name:                "my-backend1",
-			BackendType:         "vault",
-			TokenRotateInterval: &rotateInternal1,
-			Config: map[string]string{
-				"key3": "value3",
-				"key4": "value4",
-			},
-			NumSecrets: 2,
 		},
 		{
 			ID:                  backendID2,
 			Name:                "my-backend2",
 			BackendType:         "kubernetes",
 			TokenRotateInterval: &rotateInternal2,
-			Config: map[string]string{
+			Config: map[string]any{
 				"key5": "value5",
 				"key6": "value6",
 			},
@@ -1018,7 +1061,7 @@ func (s *stateSuite) assertListSecretBackendsForModelIAAS(c *gc.C, includeEmpty 
 		Name:                "my-backend1",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal1,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -1046,7 +1089,7 @@ func (s *stateSuite) assertListSecretBackendsForModelIAAS(c *gc.C, includeEmpty 
 		Name:                "my-backend2",
 		BackendType:         "kubernetes",
 		TokenRotateInterval: &rotateInternal2,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key3": "value3",
 			"key4": "value4",
 		},
@@ -1064,7 +1107,7 @@ func (s *stateSuite) assertListSecretBackendsForModelIAAS(c *gc.C, includeEmpty 
 			ID:          s.vaultBackendID,
 			Name:        "my-backend",
 			BackendType: "vault",
-			Config: map[string]string{
+			Config: map[string]any{
 				"key1": "value1",
 				"key2": "value2",
 			},
@@ -1077,7 +1120,7 @@ func (s *stateSuite) assertListSecretBackendsForModelIAAS(c *gc.C, includeEmpty 
 				Name:                "my-backend1",
 				BackendType:         "vault",
 				TokenRotateInterval: &rotateInternal1,
-				Config: map[string]string{
+				Config: map[string]any{
 					"key1": "value1",
 					"key2": "value2",
 				},
@@ -1087,7 +1130,7 @@ func (s *stateSuite) assertListSecretBackendsForModelIAAS(c *gc.C, includeEmpty 
 				Name:                "my-backend2",
 				BackendType:         "kubernetes",
 				TokenRotateInterval: &rotateInternal2,
-				Config: map[string]string{
+				Config: map[string]any{
 					"key3": "value3",
 					"key4": "value4",
 				},
@@ -1135,7 +1178,7 @@ func (s *stateSuite) assertListSecretBackendsForModelCAAS(c *gc.C, includeEmpty 
 		Name:                "my-backend1",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal1,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -1163,7 +1206,7 @@ func (s *stateSuite) assertListSecretBackendsForModelCAAS(c *gc.C, includeEmpty 
 		Name:                "my-backend2",
 		BackendType:         "kubernetes",
 		TokenRotateInterval: &rotateInternal2,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key3": "value3",
 			"key4": "value4",
 		},
@@ -1176,12 +1219,18 @@ func (s *stateSuite) assertListSecretBackendsForModelCAAS(c *gc.C, includeEmpty 
 			ID:          s.kubernetesBackendID,
 			Name:        "kubernetes",
 			BackendType: "kubernetes",
+			Config: map[string]any{
+				"ca-certs":            []string{"my-ca-cert"},
+				"credential":          `{"auth-type":"access-key","Attributes":{"bar":"bar val","foo":"foo val"}}`,
+				"endpoint":            "https://my-cloud.com",
+				"is-controller-cloud": false,
+			},
 		},
 		{
 			ID:          s.vaultBackendID,
 			Name:        "my-backend",
 			BackendType: "vault",
-			Config: map[string]string{
+			Config: map[string]any{
 				"key1": "value1",
 				"key2": "value2",
 			},
@@ -1194,7 +1243,7 @@ func (s *stateSuite) assertListSecretBackendsForModelCAAS(c *gc.C, includeEmpty 
 				Name:                "my-backend1",
 				BackendType:         "vault",
 				TokenRotateInterval: &rotateInternal1,
-				Config: map[string]string{
+				Config: map[string]any{
 					"key1": "value1",
 					"key2": "value2",
 				},
@@ -1204,14 +1253,14 @@ func (s *stateSuite) assertListSecretBackendsForModelCAAS(c *gc.C, includeEmpty 
 				Name:                "my-backend2",
 				BackendType:         "kubernetes",
 				TokenRotateInterval: &rotateInternal2,
-				Config: map[string]string{
+				Config: map[string]any{
 					"key3": "value3",
 					"key4": "value4",
 				},
 			},
 		)
 	}
-	c.Assert(backends, jc.DeepEquals, expected)
+	c.Assert(backends, jc.SameContents, expected)
 }
 
 func (s *stateSuite) TestListSecretBackendsForModelCAASIncludeEmpty(c *gc.C) {
@@ -1226,55 +1275,6 @@ func (s *stateSuite) TestListSecretBackendsEmpty(c *gc.C) {
 	backends, err := s.state.ListSecretBackends(context.Background())
 	c.Assert(err, gc.IsNil)
 	c.Assert(backends, gc.IsNil)
-}
-
-func (s *stateSuite) TestListKubernetesSecretBackends(c *gc.C) {
-	backendID1 := uuid.MustNewUUID().String()
-	rotateInternal1 := 24 * time.Hour
-	nextRotateTime1 := time.Now().Add(rotateInternal1)
-	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
-		BackendIdentifier: secretbackend.BackendIdentifier{
-			ID:   backendID1,
-			Name: "my-backend1",
-		},
-		BackendType:         "vault",
-		TokenRotateInterval: &rotateInternal1,
-		NextRotateTime:      &nextRotateTime1,
-		Config: map[string]string{
-			"key1": "value1",
-			"key2": "value2",
-		},
-	})
-	c.Assert(err, gc.IsNil)
-	s.assertSecretBackend(c, secretbackend.SecretBackend{
-		ID:                  backendID1,
-		Name:                "my-backend1",
-		BackendType:         "vault",
-		TokenRotateInterval: &rotateInternal1,
-		Config: map[string]string{
-			"key1": "value1",
-			"key2": "value2",
-		},
-	}, &nextRotateTime1)
-
-	modelUUID := s.createModel(c, coremodel.CAAS)
-	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "kubernetes")
-	c.Assert(err, gc.IsNil)
-	secrectRevisionID := uuid.MustNewUUID().String()
-	_, err = s.state.AddSecretBackendReference(context.Background(), &secrets.ValueRef{BackendID: s.kubernetesBackendID}, modelUUID, secrectRevisionID)
-	c.Assert(err, gc.IsNil)
-
-	backends, err := s.state.ListInUseKubernetesSecretBackends(context.Background())
-	c.Assert(err, gc.IsNil)
-	c.Assert(backends, gc.HasLen, 1)
-	c.Assert(backends, jc.DeepEquals, []*secretbackend.SecretBackend{
-		{
-			ID:          s.kubernetesBackendID,
-			Name:        "my-model-local",
-			BackendType: "kubernetes",
-			NumSecrets:  1,
-		},
-	})
 }
 
 func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
@@ -1335,7 +1335,7 @@ func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
 		Name:                "my-backend",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -1408,7 +1408,7 @@ func (s *stateSuite) TestGetSecretBackend(c *gc.C) {
 		Name:                "my-backend",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
-		Config: map[string]string{
+		Config: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -1562,54 +1562,6 @@ func (s *stateSuite) TestGetModelSecretBackendDetails(c *gc.C) {
 		SecretBackendID:   s.vaultBackendID,
 		SecretBackendName: "my-backend",
 	})
-}
-
-func (s *stateSuite) TestGetModelCloudAndCredential(c *gc.C) {
-	modelUUID := s.createModel(c, coremodel.IAAS)
-	cld, cred, err := s.state.GetModelCloudAndCredential(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cld, jc.DeepEquals, cloud.Cloud{
-		Name:           "my-cloud",
-		Type:           "ec2",
-		AuthTypes:      cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-		CACertificates: []string{"my-ca-cert"},
-		Regions: []cloud.Region{
-			{Name: "my-region"},
-		},
-	})
-	expectedCred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
-		"foo": "foo val",
-		"bar": "bar val",
-	})
-	expectedCred.Label = "foobar"
-	c.Check(cred, jc.DeepEquals, expectedCred)
-}
-
-func (s *stateSuite) TestGetControllerModelCloudAndCredential(c *gc.C) {
-	s.createModelWithName(c, coremodel.IAAS, "controller")
-	cld, cred, err := s.state.GetControllerModelCloudAndCredential(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cld, jc.DeepEquals, cloud.Cloud{
-		Name:           "my-cloud",
-		Type:           "ec2",
-		AuthTypes:      cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-		CACertificates: []string{"my-ca-cert"},
-		Regions: []cloud.Region{
-			{Name: "my-region"},
-		},
-	})
-	expectedCred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
-		"foo": "foo val",
-		"bar": "bar val",
-	})
-	expectedCred.Label = "foobar"
-	c.Check(cred, jc.DeepEquals, expectedCred)
-}
-
-func (s *stateSuite) TestGetModelCloudAndCredentialNotFound(c *gc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
-	_, _, err := s.state.GetModelCloudAndCredential(context.Background(), modelUUID)
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *stateSuite) TestGetSecretBackendReference(c *gc.C) {

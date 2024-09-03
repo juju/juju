@@ -9,14 +9,18 @@ import (
 	"sort"
 	"time"
 
-	corecloud "github.com/juju/juju/core/cloud"
-	corecredential "github.com/juju/juju/core/credential"
+	"github.com/juju/collections/set"
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 )
 
 // ModelSecretBackend represents a set of data about a model and its current secret backend config.
@@ -35,17 +39,34 @@ type ModelSecretBackend struct {
 	SecretBackendName string `db:"secret_backend_name"`
 }
 
+// modelIdentifier represents a set of identifiers for a model.
+type modelIdentifier struct {
+	// ModelID is the unique identifier for the model.
+	ModelID coremodel.UUID `db:"uuid"`
+	// ModelName is the name of the model.
+	ModelName string `db:"name"`
+}
+
+// Validate checks that the model identifier is valid.
+func (m modelIdentifier) Validate() error {
+	if m.ModelID == "" && m.ModelName == "" {
+		return fmt.Errorf("both model ID and name are missing")
+	}
+	return nil
+}
+
+// String returns the model name if it is set, otherwise the model ID.
+func (m modelIdentifier) String() string {
+	if m.ModelName != "" {
+		return m.ModelName
+	}
+	return m.ModelID.String()
+}
+
 // modelDetails represents details about a model.
 type modelDetails struct {
 	// Type is the type of the model.
 	Type coremodel.ModelType `db:"model_type"`
-}
-
-// modelCloudAndCredentialID represents the IDs of a models cloud and cloud
-// credential.
-type modelCloudAndCredentialID struct {
-	CloudID      corecloud.ID      `db:"cloud_uuid"`
-	CredentialID corecredential.ID `db:"cloud_credential_uuid"`
 }
 
 // upsertSecretBackendParams are used to upsert a secret backend.
@@ -136,10 +157,10 @@ type SecretBackendRow struct {
 	NumSecrets int `db:"num_secrets"`
 }
 
-// SecretBackendRows represents a slice of SecretBackendRow.
-type SecretBackendRows []SecretBackendRow
+// secretBackendRows represents a slice of SecretBackendRow.
+type secretBackendRows []SecretBackendRow
 
-func (rows SecretBackendRows) toSecretBackends() []*secretbackend.SecretBackend {
+func (rows secretBackendRows) toSecretBackends() []*secretbackend.SecretBackend {
 	// Sort the rows by backend name to ensure that we group the config.
 	sort.Slice(rows, func(i, j int) bool {
 		return rows[i].Name < rows[j].Name
@@ -169,18 +190,58 @@ func (rows SecretBackendRows) toSecretBackends() []*secretbackend.SecretBackend 
 		}
 
 		if currentBackend.Config == nil {
-			currentBackend.Config = make(map[string]string)
+			currentBackend.Config = make(map[string]any)
 		}
 		currentBackend.Config[row.ConfigName] = row.ConfigContent
 	}
 	return result
 }
 
-// SecretBackendForK8sModelRow represents a single joined result from secret_backend, secret_backend_reference and model tables.
-type SecretBackendForK8sModelRow struct {
+// secretBackendForK8sModelRow represents a single joined result from secret_backend, secret_backend_reference and model tables.
+type secretBackendForK8sModelRow struct {
 	SecretBackendRow
 	// ModelName is the name of the model.
 	ModelName string `db:"model_name"`
+
+	// CloudID is the cloud UUID.
+	CloudID string `db:"cloud_uuid"`
+	// CredentialID is the cloud credential UUID.
+	CredentialID string `db:"cloud_credential_uuid"`
+}
+
+type secretBackendForK8sModelRows []secretBackendForK8sModelRow
+
+func (rows secretBackendForK8sModelRows) toSecretBackend(cldData cloudRows, credData cloudCredentialRows) ([]*secretbackend.SecretBackend, error) {
+	clds := cldData.toClouds()
+	creds := credData.toCloudCredentials()
+
+	cloudIDs := set.NewStrings()
+	var result []*secretbackend.SecretBackend
+	for _, row := range rows {
+		if cloudIDs.Contains(row.CloudID) {
+			continue
+		}
+		cloudIDs.Add(row.CloudID)
+		if _, ok := clds[row.CloudID]; !ok {
+			return nil, errors.Errorf("cloud %q not found", row.CloudID)
+		}
+		if _, ok := creds[row.CredentialID]; !ok {
+			return nil, errors.Errorf("cloud credential %q not found", row.CredentialID)
+		}
+		k8sConfig, err := getK8sBackendConfig(clds[row.CloudID], creds[row.CredentialID])
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result = append(result, &secretbackend.SecretBackend{
+			ID:          row.ID,
+			Name:        kubernetes.BuiltInName(row.ModelName),
+			BackendType: row.BackendType,
+			NumSecrets:  row.NumSecrets,
+			Config:      k8sConfig.Config,
+		})
+
+	}
+	return result, nil
 }
 
 // SecretBackendRotationRow represents a single joined result from
@@ -228,19 +289,13 @@ type ModelCloudCredentialRow struct {
 	OwnerName string `db:"owner_name"`
 }
 
-// CloudRow represents a single row from the state database's cloud table.
-type CloudRow struct {
-	// ID holds the cloud document key.
+// cloudRow represents a single row from the state database's cloud table.
+type cloudRow struct {
+	// ID holds the cloud UUID.
 	ID string `db:"uuid"`
 
 	// Name holds the cloud name.
 	Name string `db:"name"`
-
-	// Type holds the cloud type reference.
-	CloudType string `db:"type"`
-
-	// AuthType is the type of authentication used by the cloud.
-	AuthType string `db:"auth_type"`
 
 	// Endpoint holds the cloud's primary endpoint URL.
 	Endpoint string `db:"endpoint"`
@@ -248,11 +303,75 @@ type CloudRow struct {
 	// SkipTLSVerify indicates if the client should skip cert validation.
 	SkipTLSVerify bool `db:"skip_tls_verify"`
 
-	// ModelName holds the name of the model of the cloud.
-	ModelName string `db:"model_name"`
+	// IsControllerCloud indicates if the cloud is hosting the controller model.
+	IsControllerCloud bool `db:"is_controller_cloud"`
 
-	// ModelOwnerUserName holds the name of the user who owns the model.
-	ModelOwnerUserName string `db:"model_owner_user_name"`
+	// CACert holds the ca cert.
+	CACert string `db:"ca_cert"`
+}
+
+func (r cloudRow) toCloud() cloud.Cloud {
+	return cloud.Cloud{
+		Name:              r.Name,
+		Endpoint:          r.Endpoint,
+		SkipTLSVerify:     r.SkipTLSVerify,
+		IsControllerCloud: r.IsControllerCloud,
+		CACertificates:    []string{r.CACert},
+	}
+}
+
+type cloudRows []cloudRow
+
+func (rows cloudRows) toClouds() map[string]cloud.Cloud {
+	clouds := make(map[string]cloud.Cloud, len(rows))
+	for _, row := range rows {
+		clouds[row.ID] = row.toCloud()
+	}
+	return clouds
+}
+
+type cloudCredentialRow struct {
+	// ID holds the cloud credential UUID.
+	ID string `db:"uuid"`
+
+	// Name holds the cloud credential name.
+	Name string `db:"name"`
+
+	// AuthType holds the cloud credential auth type.
+	AuthType string `db:"auth_type"`
+
+	// Revoked is true if the credential has been revoked.
+	Revoked bool `db:"revoked"`
+
+	// AttributeKey contains a single credential attribute key
+	AttributeKey string `db:"attribute_key"`
+
+	// AttributeValue contains a single credential attribute value
+	AttributeValue string `db:"attribute_value"`
+}
+
+type cloudCredentialRows []cloudCredentialRow
+
+func (rows cloudCredentialRows) toCloudCredentials() map[string]cloud.Credential {
+	credentials := make(map[string]cloud.Credential, len(rows))
+	data := make(map[string]credential.CloudCredentialInfo, len(rows))
+	for _, row := range rows {
+		if _, ok := data[row.ID]; !ok {
+			data[row.ID] = credential.CloudCredentialInfo{
+				Label:      row.Name,
+				AuthType:   row.AuthType,
+				Revoked:    row.Revoked,
+				Attributes: make(map[string]string),
+			}
+		}
+		if row.AttributeKey != "" {
+			data[row.ID].Attributes[row.AttributeKey] = row.AttributeValue
+		}
+	}
+	for id, info := range data {
+		credentials[id] = cloud.NewNamedCredential(info.Label, cloud.AuthType(info.AuthType), info.Attributes, info.Revoked)
+	}
+	return credentials
 }
 
 // SecretBackendReference represents a single row from the state database's secret_backend_reference table.

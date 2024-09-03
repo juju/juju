@@ -106,7 +106,7 @@ type SecretBackend struct {
 	// NextRotateTime is the time at which the next token rotation should occur.
 	NextRotateTime *time.Time
 	// Config is the configuration of the secret backend.
-	Config map[string]string
+	Config map[string]any
 	// NumSecrets is the number of secrets stored in the secret backend.
 	NumSecrets int
 }

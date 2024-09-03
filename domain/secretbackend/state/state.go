@@ -20,14 +20,13 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
-	cloudstate "github.com/juju/juju/domain/cloud/state"
-	"github.com/juju/juju/domain/credential"
-	credentialstate "github.com/juju/juju/domain/credential/state"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/secretbackend"
 	domainsecretbackend "github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 )
@@ -298,7 +297,7 @@ FROM secret_backend b`, SecretBackendRow{})
 		return nil, errors.Trace(err)
 	}
 
-	var rows SecretBackendRows
+	var rows secretBackendRows
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).GetAll(&rows)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -326,7 +325,7 @@ func (s *State) ListSecretBackends(ctx context.Context) ([]*secretbackend.Secret
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	q := `
+	nonK8sQuery := fmt.Sprintf(`
 SELECT
     b.uuid                                   AS &SecretBackendRow.uuid,
     b.name                                   AS &SecretBackendRow.name,
@@ -339,15 +338,21 @@ FROM secret_backend b
     JOIN secret_backend_type bt ON b.backend_type_id = bt.id
     LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
     LEFT JOIN secret_backend_reference sbr ON b.uuid = sbr.secret_backend_uuid
-GROUP BY b.name, c.name`
-	stmt, err := s.Prepare(q, SecretBackendRow{})
+WHERE b.name <> '%s'
+GROUP BY b.name, c.name`, kubernetes.BackendName)
+	nonK8sStmt, err := s.Prepare(nonK8sQuery, SecretBackendRow{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var rows SecretBackendRows
+	var result []*secretbackend.SecretBackend
+	var nonK8sRows secretBackendRows
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).GetAll(&rows)
+		result, err = s.listInUseKubernetesSecretBackends(ctx, tx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = tx.Query(ctx, nonK8sStmt).GetAll(&nonK8sRows)
 		if errors.Is(err, sql.ErrNoRows) {
 			// We do not want to return an error if there are no secret backends.
 			// We just return an empty list.
@@ -362,60 +367,73 @@ GROUP BY b.name, c.name`
 	if err != nil {
 		return nil, fmt.Errorf("cannot list secret backends: %w", err)
 	}
-	return rows.toSecretBackends(), nil
+	return append(result, nonK8sRows.toSecretBackends()...), nil
 }
 
-// ListInUseKubernetesSecretBackends returns a list of all kubernetes secret backends which contain secrets.
-func (s *State) ListInUseKubernetesSecretBackends(ctx context.Context) ([]*secretbackend.SecretBackend, error) {
-	db, err := s.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	q := fmt.Sprintf(`
+// listInUseKubernetesSecretBackends returns a list of all kubernetes secret backends which contain secrets.
+func (s *State) listInUseKubernetesSecretBackends(ctx context.Context, tx *sqlair.TX) ([]*secretbackend.SecretBackend, error) {
+	backendQuery := fmt.Sprintf(`
 SELECT
-    sbr.secret_backend_uuid                  AS &SecretBackendForK8sModelRow.uuid,
-    b.name                                   AS &SecretBackendForK8sModelRow.name,
-    m.name                                   AS &SecretBackendForK8sModelRow.model_name,
-    bt.type                                  AS &SecretBackendForK8sModelRow.backend_type,
-    COUNT(DISTINCT sbr.secret_revision_uuid) AS &SecretBackendForK8sModelRow.num_secrets
+    sbr.secret_backend_uuid                  AS &secretBackendForK8sModelRow.uuid,
+    b.name                                   AS &secretBackendForK8sModelRow.name,
+    vm.name                                  AS &secretBackendForK8sModelRow.model_name,
+    bt.type                                  AS &secretBackendForK8sModelRow.backend_type,
+    vc.uuid                                  AS &secretBackendForK8sModelRow.cloud_uuid,
+    vcca.uuid                                AS &secretBackendForK8sModelRow.cloud_credential_uuid,
+    COUNT(DISTINCT sbr.secret_revision_uuid) AS &secretBackendForK8sModelRow.num_secrets,
+    (vc.uuid,
+    vc.name,
+    vc.endpoint,
+    vc.skip_tls_verify,
+    vc.is_controller_cloud,
+    ccc.ca_cert) AS (&cloudRow.*),
+    (vcca.uuid,
+    vcca.name,
+    vcca.auth_type,
+    vcca.revoked,
+    vcca.attribute_key,
+    vcca.attribute_value) AS (&cloudCredentialRow.*)
 FROM secret_backend_reference sbr
     JOIN secret_backend b ON sbr.secret_backend_uuid = b.uuid
     JOIN secret_backend_type bt ON b.backend_type_id = bt.id
-    JOIN model m ON sbr.model_uuid = m.uuid
+    JOIN v_model vm ON sbr.model_uuid = vm.uuid
+    JOIN v_cloud_auth vc ON vm.cloud_uuid = vc.uuid
+    JOIN cloud_ca_cert ccc ON vc.uuid = ccc.cloud_uuid
+    JOIN v_cloud_credential_attributes vcca ON vm.cloud_credential_uuid = vcca.uuid
 WHERE b.name = '%s'
-GROUP BY m.name`, kubernetes.BackendName)
-	stmt, err := s.Prepare(q, SecretBackendForK8sModelRow{})
+GROUP BY vm.name, vcca.attribute_key`, kubernetes.BackendName)
+	backendStmt, err := s.Prepare(backendQuery, secretBackendForK8sModelRow{}, cloudRow{}, cloudCredentialRow{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var rows []SecretBackendForK8sModelRow
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).GetAll(&rows)
-		if errors.Is(err, sql.ErrNoRows) {
-			// We do not want to return an error if there are no secret backends.
-			// We just return an empty list.
-			s.logger.Debugf("no in-use kubernetes secret backends found")
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("querying kubernetes secret backends: %w", err)
-		}
-		return nil
-	})
+	var sbData secretBackendForK8sModelRows
+	var cloudData cloudRows
+	var credentialData cloudCredentialRows
+
+	err = tx.Query(ctx, backendStmt).GetAll(&sbData, &cloudData, &credentialData)
+	if errors.Is(err, sql.ErrNoRows) {
+		// We do not want to return an error if there are no secret backends.
+		// We just return an empty list.
+		s.logger.Debugf("no in-use kubernetes secret backends found")
+		return nil, nil
+	}
 	if err != nil {
-		return nil, fmt.Errorf("cannot list kubernetes secret backends: %w", err)
+		return nil, fmt.Errorf("querying kubernetes secret backends: %w", err)
 	}
-	var result []*secretbackend.SecretBackend
-	for _, row := range rows {
-		result = append(result, &secretbackend.SecretBackend{
-			ID:          row.ID,
-			Name:        kubernetes.BuiltInName(row.ModelName),
-			BackendType: row.BackendType,
-			NumSecrets:  row.NumSecrets,
-		})
+	return sbData.toSecretBackend(cloudData, credentialData)
+}
+
+func getK8sBackendConfig(cloud cloud.Cloud, cred cloud.Credential) (*provider.BackendConfig, error) {
+	spec, err := cloudspec.MakeCloudSpec(cloud, "", &cred)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return result, errors.Trace(err)
+	k8sConfig, err := kubernetes.BuiltInConfig(spec)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return k8sConfig, nil
 }
 
 // ListSecretBackendsForModel returns a list of all secret backends
@@ -428,15 +446,18 @@ func (s *State) ListSecretBackendsForModel(ctx context.Context, modelUUID coremo
 	}
 
 	inUseCondition := ""
-	var inputArgs []any
+	var nonK8sArgs []any
 	if !includeEmpty {
-		inputArgs = append(inputArgs, SecretBackendReference{ModelID: modelUUID})
+		nonK8sArgs = append(nonK8sArgs, SecretBackendReference{ModelID: modelUUID})
 		inUseCondition = fmt.Sprintf(`
     LEFT JOIN secret_backend_reference sbr ON b.uuid = sbr.secret_backend_uuid
-WHERE sbr.model_uuid = $SecretBackendReference.model_uuid OR b.name = '%s' OR b.name = '%s'`[1:], kubernetes.BackendName, juju.BackendName)
+WHERE (sbr.model_uuid = $SecretBackendReference.model_uuid OR b.name = '%s') AND b.name <> '%s'`[1:], juju.BackendName, kubernetes.BackendName)
+	} else {
+		inUseCondition = fmt.Sprintf(`
+WHERE b.name <> '%s'`[1:], kubernetes.BackendName)
 	}
 
-	q := fmt.Sprintf(`
+	nonK8sQuery := fmt.Sprintf(`
 SELECT
     b.uuid                  AS &SecretBackendRow.uuid,
     b.name                  AS &SecretBackendRow.name,
@@ -449,7 +470,7 @@ FROM secret_backend b
     LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
 %s
 ORDER BY b.name`, inUseCondition)
-	stmt, err := s.Prepare(q, append(inputArgs, SecretBackendRow{})...)
+	nonK8sStmt, err := s.Prepare(nonK8sQuery, append(nonK8sArgs, SecretBackendRow{})...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -465,8 +486,9 @@ WHERE  m.uuid = $M.uuid
 	}
 
 	var (
-		rows      SecretBackendRows
-		modelType coremodel.ModelType
+		rows              secretBackendRows
+		modelType         coremodel.ModelType
+		currentK8sBackend *secretbackend.SecretBackend
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var modelDetails modelDetails
@@ -480,7 +502,7 @@ WHERE  m.uuid = $M.uuid
 		}
 		modelType = modelDetails.Type
 
-		err = tx.Query(ctx, stmt, inputArgs...).GetAll(&rows)
+		err = tx.Query(ctx, nonK8sStmt, nonK8sArgs...).GetAll(&rows)
 		if errors.Is(err, sql.ErrNoRows) {
 			// We do not want to return an error if there are no secret backends.
 			// We just return an empty list.
@@ -490,21 +512,88 @@ WHERE  m.uuid = $M.uuid
 		if err != nil {
 			return fmt.Errorf("querying secret backends: %w", err)
 		}
-		return nil
+		if modelType != coremodel.CAAS {
+			return nil
+		}
+		currentK8sBackend, err = s.getK8sSecretBackendForModel(ctx, tx, modelUUID)
+		return errors.Trace(err)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot list secret backends: %w", err)
 	}
-	backends := rows.toSecretBackends()
 
 	var result []*secretbackend.SecretBackend
-	for _, b := range backends {
+	for _, b := range rows.toSecretBackends() {
 		if modelType == coremodel.CAAS && b.Name == juju.BackendName {
 			continue
 		}
 		result = append(result, b)
 	}
+	if currentK8sBackend != nil {
+		result = append(result, currentK8sBackend)
+	}
 	return result, errors.Trace(err)
+}
+
+func (s *State) getK8sSecretBackendForModel(ctx context.Context, tx *sqlair.TX, modelUUID coremodel.UUID) (*secretbackend.SecretBackend, error) {
+	stmt, err := s.Prepare(`
+SELECT
+    vc.uuid       AS &secretBackendForK8sModelRow.cloud_uuid,
+    vcca.uuid     AS &secretBackendForK8sModelRow.cloud_credential_uuid,
+    vm.model_type AS &modelDetails.model_type,
+    (vc.uuid,
+    vc.name,
+    vc.endpoint,
+    vc.skip_tls_verify,
+    vc.is_controller_cloud,
+    ccc.ca_cert) AS (&cloudRow.*),
+    (vcca.uuid,
+    vcca.name,
+    vcca.auth_type,
+    vcca.revoked,
+    vcca.attribute_key,
+    vcca.attribute_value) AS (&cloudCredentialRow.*)
+FROM v_model vm
+    JOIN v_cloud_auth vc ON vm.cloud_uuid = vc.uuid
+    JOIN cloud_ca_cert ccc ON vc.uuid = ccc.cloud_uuid
+    JOIN v_cloud_credential_attributes vcca ON vm.cloud_credential_uuid = vcca.uuid
+WHERE vm.uuid = $modelIdentifier.uuid
+GROUP BY vm.name, vcca.attribute_key`, modelIdentifier{}, modelDetails{}, secretBackendForK8sModelRow{}, cloudRow{}, cloudCredentialRow{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var models []modelDetails
+	var sbCloudCredentialIDs secretBackendForK8sModelRows
+	var clds cloudRows
+	var creds cloudCredentialRows
+	err = tx.Query(ctx, stmt, modelIdentifier{ModelID: modelUUID}).GetAll(&models, &sbCloudCredentialIDs, &clds, &creds)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("%w: %q", modelerrors.NotFound, modelUUID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot fetch k8s secret backend credential for model %q: %w", modelUUID, err)
+	}
+	if len(models) == 0 || len(sbCloudCredentialIDs) == 0 {
+		return nil, fmt.Errorf("%w: %q", modelerrors.NotFound, modelUUID)
+	}
+	model := models[0]
+	if model.Type != coremodel.CAAS {
+		return nil, fmt.Errorf("%w: %q", modelerrors.NotFound, modelUUID)
+	}
+	sbCloudCredentialID := sbCloudCredentialIDs[0]
+
+	cld := clds.toClouds()[sbCloudCredentialID.CloudID]
+	cred := creds.toCloudCredentials()[sbCloudCredentialID.CredentialID]
+	k8sConfig, err := getK8sBackendConfig(cld, cred)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	sb, err := s.getSecretBackend(ctx, tx, secretbackend.BackendIdentifier{Name: kubernetes.BackendName})
+	if err != nil {
+		return nil, fmt.Errorf("cannot get k8s secret backend for model %q: %w", modelUUID, err)
+	}
+	sb.Config = k8sConfig.Config
+	return sb, nil
 }
 
 func (s *State) getSecretBackend(ctx context.Context, tx *sqlair.TX, identifier secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error) {
@@ -538,7 +627,7 @@ WHERE b.%s = $M.identifier`, columName)
 		return nil, errors.Trace(err)
 	}
 
-	var rows SecretBackendRows
+	var rows secretBackendRows
 	err = tx.Query(ctx, stmt, sqlair.M{"identifier": v}).GetAll(&rows)
 	if errors.Is(err, sql.ErrNoRows) || len(rows) == 0 {
 		return nil, fmt.Errorf("%w: %q", secretbackenderrors.NotFound, v)
@@ -676,120 +765,6 @@ WHERE  model_uuid = $ModelSecretBackend.uuid`
 		return nil
 	})
 	return err
-}
-
-// GetControllerModelCloudAndCredential returns the cloud and cloud credential for the
-// controller model.
-func (s *State) GetControllerModelCloudAndCredential(
-	ctx context.Context,
-) (cloud.Cloud, cloud.Credential, error) {
-	db, err := s.DB()
-	if err != nil {
-		return cloud.Cloud{}, cloud.Credential{}, errors.Trace(err)
-	}
-
-	modelQuery := `
-SELECT uuid AS &M.uuid FROM MODEL
-WHERE  name = 'controller'
-`
-	modelStmt, err := s.Prepare(modelQuery, sqlair.M{})
-	if err != nil {
-		return cloud.Cloud{}, cloud.Credential{}, errors.Trace(err)
-	}
-
-	var (
-		cld  cloud.Cloud
-		cred cloud.Credential
-	)
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result := sqlair.M{}
-		err := tx.Query(ctx, modelStmt).Get(&result)
-		if errors.Is(err, sql.ErrNoRows) {
-			// Should never happen.
-			return fmt.Errorf("controller model not found%w", errors.Hide(modelerrors.NotFound))
-		}
-		if err != nil {
-			return fmt.Errorf("querying controller model: %w", err)
-		}
-		modelID, _ := result["uuid"].(string)
-		cld, cred, err = s.getModelCloudAndCredential(ctx, tx, coremodel.UUID(modelID))
-		return errors.Trace(err)
-	})
-	if err != nil {
-		return cloud.Cloud{}, cloud.Credential{}, err
-	}
-	return cld, cred, nil
-}
-
-// GetModelCloudAndCredential returns the cloud and cloud credential for the
-// given model id. If no model is found for the provided id an error of
-// [modelerrors.NotFound] is returned.
-func (s *State) GetModelCloudAndCredential(
-	ctx context.Context,
-	modelID coremodel.UUID,
-) (cloud.Cloud, cloud.Credential, error) {
-	db, err := s.DB()
-	if err != nil {
-		return cloud.Cloud{}, cloud.Credential{}, errors.Trace(err)
-	}
-	var (
-		cld  cloud.Cloud
-		cred cloud.Credential
-	)
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		cld, cred, err = s.getModelCloudAndCredential(ctx, tx, modelID)
-		return errors.Trace(err)
-	})
-	if err != nil {
-		return cloud.Cloud{}, cloud.Credential{}, errors.Trace(err)
-	}
-	return cld, cred, nil
-}
-
-func (s *State) getModelCloudAndCredential(
-	ctx context.Context,
-	tx *sqlair.TX,
-	modelID coremodel.UUID,
-) (cloud.Cloud, cloud.Credential, error) {
-
-	q := `
-    SELECT (cloud_uuid, cloud_credential_uuid) AS (&modelCloudAndCredentialID.*)
-	FROM v_model
-	WHERE uuid = $M.model_id
-	`
-
-	stmt, err := s.Prepare(q, sqlair.M{}, modelCloudAndCredentialID{})
-	if err != nil {
-		return cloud.Cloud{}, cloud.Credential{}, errors.Trace(err)
-	}
-
-	args := sqlair.M{
-		"model_id": modelID,
-	}
-	ids := modelCloudAndCredentialID{}
-
-	var (
-		cld        cloud.Cloud
-		credResult credential.CloudCredentialResult
-	)
-	err = tx.Query(ctx, stmt, args).Get(&ids)
-	if errors.Is(err, sql.ErrNoRows) {
-		return cloud.Cloud{}, cloud.Credential{}, fmt.Errorf("%w for id %q", modelerrors.NotFound, modelID)
-	} else if err != nil {
-		return cloud.Cloud{}, cloud.Credential{}, errors.Trace(err)
-	}
-
-	cld, err = cloudstate.GetCloudForID(ctx, s, tx, ids.CloudID)
-	if err != nil {
-		return cloud.Cloud{}, cloud.Credential{}, fmt.Errorf("getting model %q cloud for id %q: %w", modelID, ids.CloudID, err)
-	}
-
-	credResult, err = credentialstate.GetCloudCredential(ctx, s, tx, ids.CredentialID)
-	if err != nil {
-		return cloud.Cloud{}, cloud.Credential{}, fmt.Errorf("getting model %q cloud credential for id %q: %w", modelID, ids.CredentialID, err)
-	}
-	return cld, cloud.NewNamedCredential(credResult.Label, cloud.AuthType(credResult.AuthType), credResult.Attributes, credResult.Revoked), nil
 }
 
 // GetSecretBackendReferenceCount returns the number of references to the secret backend.
