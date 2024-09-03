@@ -51,9 +51,6 @@ func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
 	c.Assert(modelUser.CreatedBy.Id(), gc.Equals, "createdby")
 	c.Assert(modelUser.DateCreated.Equal(now) || modelUser.DateCreated.After(now), jc.IsTrue)
-	when, err := s.Model.LastModelConnection(modelUser.UserTag)
-	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
-	c.Assert(when.IsZero(), jc.IsTrue)
 
 	modelUser, err = s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -64,9 +61,6 @@ func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
 	c.Assert(modelUser.CreatedBy.Id(), gc.Equals, "createdby")
 	c.Assert(modelUser.DateCreated.Equal(now) || modelUser.DateCreated.After(now), jc.IsTrue)
-	when, err = s.Model.LastModelConnection(modelUser.UserTag)
-	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
-	c.Assert(when.IsZero(), jc.IsTrue)
 }
 
 func (s *ModelUserSuite) TestAddReadOnlyModelUser(c *gc.C) {
@@ -300,66 +294,6 @@ func (s *ModelUserSuite) TestRemoveModelUserFails(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 	err := s.State.RemoveUserAccess(user.UserTag(), s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
-}
-
-func (s *ModelUserSuite) TestUpdateLastConnection(c *gc.C) {
-	now := state.NowToTheSecond(s.State)
-	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Tag()})
-	modelUser, err := s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.Model.UpdateLastModelConnection(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	when, err := s.Model.LastModelConnection(modelUser.UserTag)
-	c.Assert(err, jc.ErrorIsNil)
-	// It is possible that the update is done over a second boundary, so we need
-	// to check for after now as well as equal.
-	c.Assert(when.After(now) || when.Equal(now), jc.IsTrue)
-}
-
-func (s *ModelUserSuite) TestUpdateLastConnectionTwoModelUsers(c *gc.C) {
-	now := state.NowToTheSecond(s.State)
-
-	// Create a user and add them to the initial model.
-	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Tag()})
-	modelUser, err := s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Create a second model and add the same user to this.
-	st2 := s.Factory.MakeModel(c, nil)
-	defer st2.Close()
-	model2, err := st2.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	modelUser2, err := model2.AddUser(
-		state.UserAccessSpec{
-			User:      user.UserTag(),
-			CreatedBy: createdBy.UserTag(),
-			Access:    permission.ReadAccess,
-		})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Now we have two model users with the same username. Ensure we get
-	// separate last connections.
-
-	// Connect modelUser and get last connection.
-	err = s.Model.UpdateLastModelConnection(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	when, err := s.Model.LastModelConnection(modelUser.UserTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(when.After(now) || when.Equal(now), jc.IsTrue)
-
-	// Try to get last connection for modelUser2. As they have never connected,
-	// we expect to get an error.
-	_, err = model2.LastModelConnection(modelUser2.UserTag)
-	c.Assert(err, gc.ErrorMatches, `never connected: "validusername"`)
-
-	// Connect modelUser2 and get last connection.
-	err = s.Model.UpdateLastModelConnection(modelUser2.UserTag)
-	c.Assert(err, jc.ErrorIsNil)
-	when, err = s.Model.LastModelConnection(modelUser2.UserTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(when.After(now) || when.Equal(now), jc.IsTrue)
 }
 
 func (s *ModelUserSuite) TestIsControllerAdmin(c *gc.C) {

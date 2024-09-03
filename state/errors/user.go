@@ -50,25 +50,3 @@ func IsNeverLoggedInError(err error) bool {
 	_, ok := errors.Cause(err).(*neverLoggedInError)
 	return ok
 }
-
-// neverConnectedError is used to indicate that a user has never connected to
-// an model.
-type neverConnectedError struct {
-	userName string
-}
-
-func NewNeverConnectedError(userName string) error {
-	return &neverConnectedError{userName: userName}
-}
-
-// Error returns the error string for a user who has never connected to an
-// model.
-func (e neverConnectedError) Error() string {
-	return `never connected: "` + e.userName + `"`
-}
-
-// IsNeverConnectedError returns true if err is of type neverConnectedError.
-func IsNeverConnectedError(err error) bool {
-	_, ok := errors.Cause(err).(*neverConnectedError)
-	return ok
-}

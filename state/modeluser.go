@@ -18,18 +18,6 @@ import (
 	"github.com/juju/juju/internal/mongo"
 )
 
-// modelUserLastConnectionDoc is updated by the apiserver whenever the user
-// connects over the API. This update is not done using mgo.txn so the values
-// could well change underneath a normal transaction and as such, it should
-// NEVER appear in any transaction asserts. It is really informational only as
-// far as everyone except the api server is concerned.
-type modelUserLastConnectionDoc struct {
-	ID             string    `bson:"_id"`
-	ModelUUID      string    `bson:"model-uuid"`
-	UserName       string    `bson:"user"`
-	LastConnection time.Time `bson:"last-connection"`
-}
-
 // setModelAccess changes the user's access permissions on the model.
 func (st *State) setModelAccess(access permission.Access, userGlobalKey, modelUUID string) error {
 	if err := permission.ValidateModelAccess(access); err != nil {
@@ -40,51 +28,6 @@ func (st *State) setModelAccess(access permission.Access, userGlobalKey, modelUU
 	if err == txn.ErrAborted {
 		return errors.NotFoundf("existing permissions")
 	}
-	return errors.Trace(err)
-}
-
-// LastModelConnection returns when this User last connected through the API
-// in UTC. The resulting time will be nil if the user has never logged in.
-func (m *Model) LastModelConnection(user names.UserTag) (time.Time, error) {
-	lastConnections, closer := m.st.db().GetRawCollection(modelUserLastConnectionC)
-	defer closer()
-
-	username := user.Id()
-	var lastConn modelUserLastConnectionDoc
-	err := lastConnections.FindId(m.st.docID(username)).Select(bson.D{{"last-connection", 1}}).One(&lastConn)
-	if err != nil {
-		if err == mgo.ErrNotFound {
-			err = errors.Wrap(err, newNeverConnectedError(username))
-		}
-		return time.Time{}, errors.Trace(err)
-	}
-
-	return lastConn.LastConnection.UTC(), nil
-}
-
-// UpdateLastModelConnection updates the last connection time of the model user.
-func (m *Model) UpdateLastModelConnection(user names.UserTag) error {
-	return m.updateLastModelConnection(user, m.st.nowToTheSecond())
-}
-
-func (m *Model) updateLastModelConnection(user names.UserTag, when time.Time) error {
-	lastConnections, closer := m.st.db().GetCollection(modelUserLastConnectionC)
-	defer closer()
-
-	lastConnectionsW := lastConnections.Writeable()
-
-	// Update the safe mode of the underlying session to not require
-	// write majority, nor sync to disk.
-	session := lastConnectionsW.Underlying().Database.Session
-	session.SetSafe(&mgo.Safe{})
-
-	lastConn := modelUserLastConnectionDoc{
-		ID:             m.st.docID(strings.ToLower(user.Id())),
-		ModelUUID:      m.UUID(),
-		UserName:       user.Id(),
-		LastConnection: when,
-	}
-	_, err := lastConnectionsW.UpsertId(lastConn.ID, lastConn)
 	return errors.Trace(err)
 }
 

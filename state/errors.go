@@ -15,7 +15,6 @@ var (
 	newParentDeviceHasChildrenError = stateerrors.NewParentDeviceHasChildrenError
 	newErrCharmAlreadyUploaded      = stateerrors.NewErrCharmAlreadyUploaded
 	newDeletedUserError             = stateerrors.NewDeletedUserError
-	newNeverConnectedError          = stateerrors.NewNeverConnectedError
 	newVersionInconsistentError     = stateerrors.NewVersionInconsistentError
 
 	IsCharmAlreadyUploadedError    = stateerrors.IsCharmAlreadyUploadedError
@@ -24,7 +23,6 @@ var (
 	IsNotAlive                     = stateerrors.IsNotAlive
 	IsDeletedUserError             = stateerrors.IsDeletedUserError
 	IsNeverLoggedInError           = stateerrors.IsNeverLoggedInError
-	IsNeverConnectedError          = stateerrors.IsNeverConnectedError
 	IsVersionInconsistentError     = stateerrors.IsVersionInconsistentError
 )
 
