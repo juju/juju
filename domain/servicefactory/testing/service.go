@@ -15,6 +15,7 @@ import (
 	controllerservice "github.com/juju/juju/domain/controller/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
+	controllerproxyservice "github.com/juju/juju/domain/controllerproxy/service"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	flagservice "github.com/juju/juju/domain/flag/service"
@@ -237,5 +238,9 @@ func (s *TestingServiceFactory) WithApplicationService(getter func() *applicatio
 // the model service. As this is only for read-only model information, we
 // can rename it to the more obscure version.
 func (s *TestingServiceFactory) ModelInfo() *modelservice.ModelService {
+	return nil
+}
+
+func (s *TestingServiceFactory) ControllerProxy() *controllerproxyservice.Service {
 	return nil
 }

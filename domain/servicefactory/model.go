@@ -17,6 +17,7 @@ import (
 	applicationstate "github.com/juju/juju/domain/application/state"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
+	controllerproxy "github.com/juju/juju/domain/controllerproxy/service"
 	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	keyupdaterservice "github.com/juju/juju/domain/keyupdater/service"
@@ -252,5 +253,14 @@ func (s *ModelFactory) ModelInfo() *modelservice.ModelService {
 		s.modelUUID,
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("modelinfo")),
+	)
+}
+
+// ControllerProxy returns the controller proxy service.
+// This service is intended to be used by the controller model, not by other
+// models.
+func (s *ModelFactory) ControllerProxy() *controllerproxy.Service {
+	return controllerproxy.NewService(
+		providertracker.ProviderRunner[controllerproxy.Provider](s.providerFactory, s.modelUUID.String()),
 	)
 }

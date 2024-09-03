@@ -49,10 +49,8 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/resources"
 	coretrace "github.com/juju/juju/core/trace"
-	"github.com/juju/juju/environs"
 	internallogger "github.com/juju/juju/internal/logger"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/resource"
@@ -886,8 +884,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}
 	registerHandler := &registerUserHandler{
 		ctxt: httpCtxt,
-		providerGetter: providertracker.ProviderRunner[environs.ConnectorInfo](
-			srv.shared.providerFactory, srv.shared.controllerModelUUID.String()),
 	}
 
 	// HTTP handler for application offer macaroon authentication.
@@ -1173,7 +1169,6 @@ func (srv *Server) serveConn(
 	}
 
 	serviceFactory := srv.shared.serviceFactoryGetter.FactoryForModel(modelUUID)
-	modelProviderFactory := facade.NewModelProviderFactory(modelUUID, srv.shared.providerFactory)
 
 	var handler *apiHandler
 	st, err := srv.shared.statePool.Get(modelUUID.String())
@@ -1186,7 +1181,6 @@ func (srv *Server) serveConn(
 			conn,
 			serviceFactory,
 			srv.shared.serviceFactoryGetter,
-			modelProviderFactory,
 			tracer,
 			objectStore,
 			srv.shared.objectStoreGetter,

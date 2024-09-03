@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
 	"go.uber.org/mock/gomock"
@@ -21,12 +20,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/providertracker"
+	providertracker "github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
-	"github.com/juju/juju/environs"
+	environs "github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/auth"
 	jujuhttp "github.com/juju/juju/internal/http"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -91,22 +90,29 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	}
 	environ := NewMockConnectorInfo(ctrl)
 	proxier := NewMockProxier(ctrl)
+
+	providerFactory := NewMockProviderFactory(ctrl)
+
+	// Setting this like this is less than ideal, as it should be done much
+	// earlier in the test setup, but it's the only way to get the provider
+	// factory to return a provider that implements the providertracker.Provider.
+	s.ProviderTracker = providerFactory
+
 	if hasProxy {
-		// The provider passed in to the factory needs to implement
-		// providertracker.Provider, so we need to wrap this environ inside a
-		// struct.
-		providerEnviron := struct {
+		// Ensure that the provider factory returns a provider that implements
+		// the environs.ConnectorInfo interface.
+		providerFactory.EXPECT().ProviderForModel(gomock.Any(), gomock.Any()).Return(struct {
 			providertracker.Provider
 			environs.ConnectorInfo
-		}{ConnectorInfo: environ}
-		s.SetProviderReturn(providerEnviron, nil)
-	} else {
-		s.SetProviderReturn(nil, errors.NotSupportedf("proxier"))
-	}
-	if hasProxy {
+		}{ConnectorInfo: environ}, nil)
+
 		environ.EXPECT().ConnectionProxyInfo(gomock.Any()).Return(proxier, nil)
 		proxier.EXPECT().RawConfig().Return(rawConfig, nil)
 		proxier.EXPECT().Type().Return("kubernetes-port-forward")
+	} else {
+		// If there is no provider for the model and no error, then it won't
+		// match the right provider type, so will return a not supported error.
+		providerFactory.EXPECT().ProviderForModel(gomock.Any(), gomock.Any()).Return(nil, nil)
 	}
 
 	password := "hunter2"

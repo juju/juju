@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	userservice "github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/internal/proxy"
 )
 
 // ControllerConfigService defines the methods required to get the controller
@@ -23,12 +24,19 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// ControllerProxyService defines the methods required to get controller proxy
+// details.
+type ControllerProxyService interface {
+	// GetConnectionProxyInfo returns the proxy information for the controller.
+	GetConnectionProxyInfo(context.Context) (proxy.Proxier, error)
+}
+
 // UserService defines the methods required to get user details.
 type UserService interface {
 	// GetUserByName returns the user with the given name.
 	GetUserByName(context.Context, user.Name) (user.User, error)
-	// SetPasswordWithActivationKey will use the activation key from the user. To
-	// then apply the payload password.
+	// SetPasswordWithActivationKey will use the activation key from the user.
+	// To then apply the payload password.
 	SetPasswordWithActivationKey(ctx context.Context, name user.Name, nonce, box []byte) (userservice.Sealer, error)
 }
 

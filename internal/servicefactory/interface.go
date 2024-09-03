@@ -15,6 +15,7 @@ import (
 	controllerservice "github.com/juju/juju/domain/controller/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
+	controllerproxyservice "github.com/juju/juju/domain/controllerproxy/service"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	flagservice "github.com/juju/juju/domain/flag/service"
@@ -117,6 +118,9 @@ type ModelServiceFactory interface {
 	ModelMigration() *modelmigrationservice.Service
 	// ModelSecretBackend returns the model secret backend service.
 	ModelSecretBackend() *secretbackendservice.ModelSecretBackendService
+	// ControllerProxy returns the controller proxy service.
+	// It is intended to be used against the controller model.
+	ControllerProxy() *controllerproxyservice.Service
 }
 
 // ServiceFactory provides access to the services required by the apiserver.
