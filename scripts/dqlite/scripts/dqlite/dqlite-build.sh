@@ -107,7 +107,7 @@ build() {
     cd ../
 
     # dqlite
-    git clone https://github.com/canonical/dqlite.git --depth 1 --branch ${TAG_DQLITE}
+    git clone https://github.com/cole-miller/dqlite.git --depth 1 --branch ${TAG_DQLITE}
     cd dqlite
     autoreconf -i
     CFLAGS="-I${PWD}/../sqlite -I${PWD}/../libuv/include -I${PWD}/../lz4/lib -I/usr/local/musl/include -Werror=implicit-function-declaration ${CUSTOM_CFLAGS}" \
