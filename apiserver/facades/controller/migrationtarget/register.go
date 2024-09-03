@@ -27,7 +27,7 @@ func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(regis
 }
 
 // makeFacade is responsible for constructing a new migration target facade and
-// it's dependencies.
+// its dependencies.
 func makeFacade(
 	stdCtx context.Context,
 	ctx facade.MultiModelContext,

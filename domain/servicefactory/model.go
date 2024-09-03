@@ -220,7 +220,7 @@ func (s *ModelFactory) Secret(adminConfigGetter secretservice.BackendAdminConfig
 // ModelMigration returns the model's migration service for supporting migration
 // operations.
 func (s *ModelFactory) ModelMigration() *modelmigrationservice.Service {
-	return modelmigrationservice.New(
+	return modelmigrationservice.NewService(
 		providertracker.ProviderRunner[modelmigrationservice.InstanceProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[modelmigrationservice.ResourceProvider](s.providerFactory, s.modelUUID.String()),
 		modelmigrationstate.New(changestream.NewTxnRunnerFactory(s.modelDB)),

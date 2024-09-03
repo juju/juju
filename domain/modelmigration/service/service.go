@@ -44,11 +44,11 @@ type ResourceProvider interface {
 // controllers and answering questions about the underlying model(s) that are
 // being migrated.
 type Service struct {
-	// instanceProviderGetter is a getter for getting access to the models
+	// instanceProviderGetter is a getter for getting access to the model's
 	// [InstanceProvider].
 	instanceProviderGetter func(context.Context) (InstanceProvider, error)
 
-	// resourceProviderGetter is a getter for getting access to the models
+	// resourceProviderGetter is a getter for getting access to the model's
 	// [ResourceProvider]
 	resourceProviderGettter func(context.Context) (ResourceProvider, error)
 
@@ -61,9 +61,9 @@ type State interface {
 	GetControllerUUID(context.Context) (string, error)
 }
 
-// New is responsible for constructing a new [Service] to handle model migration
+// NewService is responsible for constructing a new [Service] to handle model migration
 // tasks.
-func New(
+func NewService(
 	instanceProviderGetter providertracker.ProviderGetter[InstanceProvider],
 	resourceProviderGetter providertracker.ProviderGetter[ResourceProvider],
 	st State,
@@ -127,7 +127,7 @@ func (s *Service) CheckMachines(
 	provider, err := s.instanceProviderGetter(ctx)
 	if err != nil && !errors.Is(err, coreerrors.NotSupported) {
 		return nil, errors.Errorf(
-			"cannot get provider for model to check machines provider machines against the controller: %w",
+			"cannot get provider for model when checking for machine discrepancies in migrated model: %w",
 			err,
 		)
 	}
@@ -145,7 +145,7 @@ func (s *Service) CheckMachines(
 		)
 	}
 
-	// TODO (tlm) 28/7/2024: This function is incomplete at the moment till we
+	// TODO(instancedata) (tlm) 28/7/2024: This function is incomplete at the moment till we
 	// fully have machines/instance data moved over into Dqlite.
 	//
 	// The algorithm we need to implement here is:

@@ -61,7 +61,7 @@ func (s *serviceSuite) TestAdoptResources(c *gc.C) {
 		sourceControllerVersion,
 	).Return(nil)
 
-	err = New(
+	err = NewService(
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.state,
@@ -87,7 +87,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *gc.C) {
 		nil,
 	).AnyTimes()
 
-	err = New(
+	err = NewService(
 		s.instanceProviderGetter(c),
 		resourceGetter,
 		s.state,
@@ -114,7 +114,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *gc.C) {
 		sourceControllerVersion,
 	).Return(coreerrors.NotImplemented)
 
-	err = New(
+	err = NewService(
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.state,
@@ -131,7 +131,7 @@ func (s *serviceSuite) TestMachinesFromProviderDiscrepancy(c *gc.C) {
 
 	s.instanceProvider.EXPECT().AllInstances(gomock.Any()).Return(nil, nil)
 
-	_, err := New(
+	_, err := NewService(
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.state,
