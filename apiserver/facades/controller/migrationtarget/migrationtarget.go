@@ -11,31 +11,26 @@ import (
 	"time"
 
 	"github.com/juju/description/v8"
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"github.com/juju/version/v2"
 	"github.com/vallerion/rscanner"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/crossmodel"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/facades"
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
-	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
-	credentialservice "github.com/juju/juju/domain/credential/service"
-	"github.com/juju/juju/environs"
-	environscontext "github.com/juju/juju/environs/envcontext"
+	modelmigration "github.com/juju/juju/domain/modelmigration"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // ModelImporter defines an interface for importing models.
@@ -66,8 +61,27 @@ type ControllerConfigService interface {
 
 // ModelManagerService describes the method needed to update model metadata.
 type ModelManagerService interface {
-	Create(context.Context, coremodel.UUID) error
+	Create(context.Context, model.UUID) error
 }
+
+// ModelMigrationService provides the means for supporting model migration
+// actions between controllers and answering questions about the underlying
+// model(s) that are being migrated.
+type ModelMigrationService interface {
+	// AdoptResources is responsible for taking ownership of the cloud resources
+	// of a model when it has been migrated into this controller.
+	AdoptResources(context.Context, version.Number) error
+
+	// CheckMachines is responsible for checking a model after it has been
+	// migrated into this target controller. We check the machines that exist in
+	// the model against the machines reported by the models cloud and report
+	// any discrepancies.
+	CheckMachines(context.Context) ([]modelmigration.MigrationMachineDiscrepancy, error)
+}
+
+// ModelMigrationServiceGetter describes a function that is able to return the
+// [ModelMigrationService] for a given model id.
+type ModelMigrationServiceGetter func(model.UUID) ModelMigrationService
 
 // UpgradeService provides a subset of the upgrade domain service methods.
 type UpgradeService interface {
@@ -82,21 +96,13 @@ type API struct {
 	modelImporter  ModelImporter
 	upgradeService UpgradeService
 
-	controllerUUID              string
 	controllerConfigService     ControllerConfigService
 	externalControllerService   ExternalControllerService
-	cloudService                common.CloudService
-	credentialService           credentialcommon.CredentialService
-	credentialValidator         credentialservice.CredentialValidator
-	credentialCallContextGetter credentialservice.ValidationContextGetter
-	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter
+	modelMigrationServiceGetter ModelMigrationServiceGetter
 
 	pool       *state.StatePool
 	authorizer facade.Authorizer
 	presence   facade.Presence
-
-	getEnviron    stateenvirons.NewEnvironFunc
-	getCAASBroker stateenvirons.NewCAASBrokerFunc
 
 	requiredMigrationFacadeVersions facades.FacadeVersions
 
@@ -111,13 +117,7 @@ func NewAPI(
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
 	upgradeService UpgradeService,
-	cloudService common.CloudService,
-	credentialService credentialcommon.CredentialService,
-	validator credentialservice.CredentialValidator,
-	credentialCallContextGetter credentialservice.ValidationContextGetter,
-	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter,
-	getEnviron stateenvirons.NewEnvironFunc,
-	getCAASBroker stateenvirons.NewCAASBrokerFunc,
+	modelMigrationServiceGetter ModelMigrationServiceGetter,
 	requiredMigrationFacadeVersions facades.FacadeVersions,
 	logDir string,
 ) (*API, error) {
@@ -127,25 +127,20 @@ func NewAPI(
 		pool:                            ctx.StatePool(),
 		controllerConfigService:         controllerConfigService,
 		externalControllerService:       externalControllerService,
-		cloudService:                    cloudService,
 		upgradeService:                  upgradeService,
-		credentialService:               credentialService,
-		credentialValidator:             validator,
-		credentialCallContextGetter:     credentialCallContextGetter,
-		credentialInvalidatorGetter:     credentialInvalidatorGetter,
+		modelMigrationServiceGetter:     modelMigrationServiceGetter,
 		authorizer:                      authorizer,
 		presence:                        ctx.Presence(),
-		getEnviron:                      getEnviron,
-		getCAASBroker:                   getCAASBroker,
 		requiredMigrationFacadeVersions: requiredMigrationFacadeVersions,
 		logDir:                          logDir,
-		controllerUUID:                  ctx.ControllerUUID(),
 	}, nil
 }
 
 func checkAuth(ctx context.Context, authorizer facade.Authorizer, st *state.State) error {
 	if !authorizer.AuthClient() {
-		return errors.Trace(apiservererrors.ErrPerm)
+		return errors.New(
+			"client does not have permission for migration target facade",
+		).Add(apiservererrors.ErrPerm)
 	}
 
 	return authorizer.HasPermission(ctx, permission.SuperuserAccess, st.ControllerTag())
@@ -159,7 +154,11 @@ func (api *API) Prechecks(ctx context.Context, model params.MigrationModelInfo) 
 		var err error
 		modelDescription, err = description.Deserialize(model.ModelDescription)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Errorf(
+				"cannot deserialize model %q description during prechecks: %w",
+				model.UUID,
+				err,
+			)
 		}
 	}
 
@@ -195,11 +194,15 @@ with an earlier version of the target controller and try again.
 
 	ownerTag, err := names.ParseUserTag(model.OwnerTag)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Errorf("cannot parse model %q owner during prechecks: %w", model.UUID, err)
 	}
 	controllerState, err := api.pool.SystemState()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Errorf(
+			"getting system state during prechecks for model %q: %w",
+			model.UUID,
+			err,
+		)
 	}
 	// NOTE (thumper): it isn't clear to me why api.state would be different
 	// from the controllerState as I had thought that the Precheck call was
@@ -207,7 +210,7 @@ with an earlier version of the target controller and try again.
 	// controllerState.
 	backend, err := migration.PrecheckShim(api.state, controllerState)
 	if err != nil {
-		return errors.Annotate(err, "creating backend")
+		return errors.Errorf("cannot create prechecks backend: %w", err)
 	}
 	if err := migration.TargetPrecheck(
 		ctx,
@@ -224,7 +227,7 @@ with an earlier version of the target controller and try again.
 		api.presence.ModelPresence(controllerState.ModelUUID()),
 		api.upgradeService,
 	); err != nil {
-		return errors.Annotate(err, "migration target prechecks failed")
+		return errors.Errorf("migration target prechecks failed: %w", err)
 	}
 	return nil
 }
@@ -246,11 +249,11 @@ func (api *API) Import(ctx context.Context, serialized params.SerializedModel) e
 func (api *API) getModel(modelTag string) (*state.Model, func(), error) {
 	tag, err := names.ParseModelTag(modelTag)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Errorf("cannot parse model tag: %w", err)
 	}
 	model, ph, err := api.pool.GetModel(tag.Id())
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Errorf("cannot get model %q: %w", tag.Id(), err)
 	}
 	return model, func() { ph.Release() }, nil
 }
@@ -258,7 +261,7 @@ func (api *API) getModel(modelTag string) (*state.Model, func(), error) {
 func (api *API) getImportingModel(tag string) (*state.Model, func(), error) {
 	model, release, err := api.getModel(tag)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Errorf("cannot get importing model: %w", err)
 	}
 	if model.MigrationMode() != state.MigrationModeImporting {
 		release()
@@ -272,27 +275,26 @@ func (api *API) getImportingModel(tag string) (*state.Model, func(), error) {
 func (api *API) Abort(ctx context.Context, args params.ModelArgs) error {
 	model, releaseModel, err := api.getImportingModel(args.ModelTag)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Errorf("cannot get model to abort: %w", err)
 	}
 	defer releaseModel()
 
 	st, err := api.pool.Get(model.UUID())
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Errorf("cannot get model %q state to abort: %w", model.UUID(), err)
 	}
 	defer st.Release()
 	return st.RemoveImportingModelDocs()
 }
 
 // Activate sets the migration mode of the model to "none", meaning it
-// is ready for use. It is an error to attempt to Abort a model that
-// has a migration mode other than importing. It also adds any required
+// is ready for use. It also adds any required
 // external controller records for those controllers hosting offers used
 // by the model.
 func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) error {
 	model, release, err := api.getImportingModel(args.ModelTag)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Errorf("cannot get model to activate: %w", err)
 	}
 	defer release()
 
@@ -302,7 +304,11 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 	if len(args.CrossModelUUIDs) > 0 {
 		cTag, err := names.ParseControllerTag(args.ControllerTag)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Errorf(
+				"cannot parse controller tag when activating model %q: %w",
+				model.UUID(),
+				err,
+			)
 		}
 		err = api.externalControllerService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
 			ControllerTag: cTag,
@@ -312,7 +318,12 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 			ModelUUIDs:    args.CrossModelUUIDs,
 		})
 		if err != nil {
-			return errors.Annotate(err, "saving source controller info")
+			return errors.Errorf(
+				"cannot save source controller %q info when activating model %q: %w",
+				cTag.Id(),
+				model.UUID(),
+				err,
+			)
 		}
 	}
 
@@ -320,24 +331,33 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 	// to allow external controller ref counts to function properly.
 	remoteApps, err := model.State().AllRemoteApplications()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Errorf("cannot get remote applications for model %q: %w", model.UUID(), err)
 	}
 	for _, app := range remoteApps {
 		var sourceControllerUUID string
 		extInfo, err := api.externalControllerService.ControllerForModel(ctx, app.SourceModel().Id())
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return errors.Trace(err)
+		if err != nil && !errors.Is(err, coreerrors.NotFound) {
+			return errors.Errorf(
+				"cannot get controller information for remote application %q: %w",
+				app.Name(),
+				err,
+			)
 		}
 		if err == nil {
 			sourceControllerUUID = extInfo.ControllerTag.Id()
 		}
 		if err := app.SetSourceController(sourceControllerUUID); err != nil {
-			return errors.Annotatef(err, "updating source controller uuid for %q", app.Name())
+			return errors.Errorf(
+				"cannot update application %q source controller to %q: %w",
+				app.Name(),
+				sourceControllerUUID,
+				err,
+			)
 		}
 	}
 
 	if err := model.SetStatus(status.StatusInfo{Status: status.Available}); err != nil {
-		return errors.Trace(err)
+		return errors.Errorf("cannot set model %q to activated: %w", model.UUID(), err)
 	}
 
 	// TODO(fwereade) - need to validate binaries here.
@@ -357,7 +377,7 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.Time, error) {
 	model, release, err := api.getModel(args.ModelTag)
 	if err != nil {
-		return time.Time{}, errors.Trace(err)
+		return time.Time{}, errors.Errorf("cannot get model: %w", err)
 	}
 	defer release()
 
@@ -367,7 +387,12 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 
 	f, err := os.Open(modelLogFile)
 	if err != nil && !os.IsNotExist(err) {
-		return time.Time{}, errors.Annotatef(err, "opening file %q", modelLogFile)
+		return time.Time{}, errors.Errorf(
+			"cannot open model %q log file %q: %w",
+			model.UUID(),
+			modelLogFile,
+			err,
+		)
 	} else if err != nil {
 		return time.Time{}, nil
 	}
@@ -377,7 +402,12 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 
 	fs, err := f.Stat()
 	if err != nil {
-		return time.Time{}, errors.Trace(err)
+		return time.Time{}, errors.Errorf(
+			"cannot interrogate model %q log file %q: %w",
+			model.UUID(),
+			modelLogFile,
+			err,
+		)
 	}
 	scanner := rscanner.NewScanner(f, fs.Size())
 
@@ -405,7 +435,7 @@ func logLineTimestamp(line string) (time.Time, error) {
 	timeStr := parts[1] + " " + parts[2]
 	timeStamp, err := time.Parse("2006-01-02 15:04:05", timeStr)
 	if err != nil {
-		return time.Time{}, errors.Annotatef(err, "invalid log timestamp %q", timeStr)
+		return time.Time{}, errors.Errorf("invalid log timestamp %q: %w", timeStr, err)
 	}
 	return timeStamp, nil
 }
@@ -417,39 +447,11 @@ func logLineTimestamp(line string) (time.Time, error) {
 func (api *API) AdoptResources(ctx context.Context, args params.AdoptResourcesArgs) error {
 	tag, err := names.ParseModelTag(args.ModelTag)
 	if err != nil {
-		return errors.Trace(err)
-	}
-	st, err := api.pool.Get(tag.Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer st.Release()
-
-	m, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
+		return errors.Errorf("cannot parse model tag: %w", err)
 	}
 
-	var ra environs.ResourceAdopter
-	if m.Type() == state.ModelTypeCAAS {
-		ra, err = api.getCAASBroker(m, api.cloudService, api.credentialService)
-	} else {
-		ra, err = api.getEnviron(m, api.cloudService, api.credentialService)
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	invalidatorFunc, err := api.credentialInvalidatorGetter()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	callCtx := environscontext.WithCredentialInvalidator(ctx, invalidatorFunc)
-	err = ra.AdoptResources(callCtx, api.controllerUUID, args.SourceControllerVersion)
-	if errors.Is(err, errors.NotImplemented) {
-		return nil
-	}
-	return errors.Trace(err)
+	modelId := model.UUID(tag.Id())
+	return api.modelMigrationServiceGetter(modelId).AdoptResources(ctx, args.SourceControllerVersion)
 }
 
 // CheckMachines compares the machines in state with the ones reported
@@ -457,53 +459,51 @@ func (api *API) AdoptResources(ctx context.Context, args params.AdoptResourcesAr
 func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (params.ErrorResults, error) {
 	tag, err := names.ParseModelTag(args.ModelTag)
 	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	st, err := api.pool.Get(tag.Id())
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	defer st.Release()
-
-	// We don't want to check existing cloud instances for "manual" clouds.
-	m, err := st.Model()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	cloud, err := api.cloudService.Cloud(ctx, m.CloudName())
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+		return params.ErrorResults{}, errors.Errorf(
+			"cannot parse model tag: %w", err,
+		)
 	}
 
-	credentialTag, isSet := m.CloudCredentialTag()
-	if !isSet || credentialTag.IsZero() {
-		return params.ErrorResults{}, nil
-	}
-
-	storedCredential, err := api.credentialService.CloudCredential(ctx, credential.KeyFromTag(credentialTag))
+	modelId := model.UUID(tag.Id())
+	migrationService := api.modelMigrationServiceGetter(modelId)
+	discrepancies, err := migrationService.CheckMachines(ctx)
 	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	if storedCredential.Invalid {
-		return params.ErrorResults{}, errors.NotValidf("credential %q", storedCredential.Label)
-	}
-
-	callCtx, err := api.credentialCallContextGetter(ctx, coremodel.UUID(m.UUID()))
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	cred := jujucloud.NewCredential(storedCredential.AuthType(), storedCredential.Attributes())
-
-	var result params.ErrorResults
-	modelErrors, err := api.credentialValidator.Validate(ctx, callCtx, credential.KeyFromTag(credentialTag), &cred, cloud.Type != "manual")
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+		return params.ErrorResults{}, errors.Errorf(
+			"cannot check machine discrepancies in imported model %q: %w",
+			modelId,
+			err,
+		)
 	}
 
-	result.Results = make([]params.ErrorResult, len(modelErrors))
-	for i, err := range modelErrors {
-		result.Results[i].Error = apiservererrors.ServerError(err)
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, 0, len(discrepancies)),
 	}
+
+	for _, discrepancy := range discrepancies {
+		var errorMsg string
+
+		// If we have an empty MachineName it means that an instance was found
+		// in the models cloud that does not have a corresponding machine in the
+		// Juju controller.
+		if discrepancy.MachineName == "" {
+			errorMsg = fmt.Sprintf(
+				"no machine in model %q with instance %q",
+				modelId,
+				discrepancy.CloudInstanceId,
+			)
+		} else {
+			errorMsg = fmt.Sprintf(
+				"could not find cloud instance %q for machine %q",
+				discrepancy.CloudInstanceId,
+				discrepancy.MachineName,
+			)
+		}
+
+		result.Results = append(result.Results, params.ErrorResult{
+			Error: &params.Error{Message: errorMsg},
+		})
+	}
+
 	return result, nil
 }
 
@@ -511,7 +511,10 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 func (api *API) CACert(ctx context.Context) (params.BytesResult, error) {
 	cfg, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
-		return params.BytesResult{}, errors.Trace(err)
+		return params.BytesResult{}, errors.Errorf(
+			"cannot get controller ca certificates for model migration: %w",
+			err,
+		)
 	}
 	caCert, _ := cfg.CACert()
 	return params.BytesResult{Result: []byte(caCert)}, nil

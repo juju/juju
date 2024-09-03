@@ -24119,6 +24119,9 @@
         "Description": "API implements the API required for the model migration\nmaster worker when communicating with the target controller.",
         "Version": 3,
         "AvailableTo": [
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
             "controller-user"
         ],
         "Schema": {
@@ -24140,7 +24143,7 @@
                             "$ref": "#/definitions/ActivateModelArgs"
                         }
                     },
-                    "description": "Activate sets the migration mode of the model to \"none\", meaning it\nis ready for use. It is an error to attempt to Abort a model that\nhas a migration mode other than importing. It also adds any required\nexternal controller records for those controllers hosting offers used\nby the model."
+                    "description": "Activate sets the migration mode of the model to \"none\", meaning it\nis ready for use. It also adds any required\nexternal controller records for those controllers hosting offers used\nby the model."
                 },
                 "AdoptResources": {
                     "type": "object",

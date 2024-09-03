@@ -26,6 +26,7 @@ import (
 	modelagentservice "github.com/juju/juju/domain/modelagent/service"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
+	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
@@ -177,8 +178,13 @@ func (s *TestingServiceFactory) Agent() *modelagentservice.ModelService {
 	return nil
 }
 
-// Macaroon returns the macaroon bakery service
+// Macaroon returns the macaroon bakery service.
 func (s *TestingServiceFactory) Macaroon() *macaroonservice.Service {
+	return nil
+}
+
+// ModelMigration returns the model migration service.
+func (s *TestingServiceFactory) ModelMigration() *modelmigrationservice.Service {
 	return nil
 }
 

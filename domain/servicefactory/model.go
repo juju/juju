@@ -31,6 +31,8 @@ import (
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
+	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
+	modelmigrationstate "github.com/juju/juju/domain/modelmigration/state"
 	networkservice "github.com/juju/juju/domain/network/service"
 	networkstate "github.com/juju/juju/domain/network/state"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
@@ -212,6 +214,16 @@ func (s *ModelFactory) Secret(adminConfigGetter secretservice.BackendAdminConfig
 		logger.Child("service"),
 		domain.NewWatcherFactory(s.modelDB, logger.Child("watcherfactory")),
 		adminConfigGetter,
+	)
+}
+
+// ModelMigration returns the model's migration service for supporting migration
+// operations.
+func (s *ModelFactory) ModelMigration() *modelmigrationservice.Service {
+	return modelmigrationservice.NewService(
+		providertracker.ProviderRunner[modelmigrationservice.InstanceProvider](s.providerFactory, s.modelUUID.String()),
+		providertracker.ProviderRunner[modelmigrationservice.ResourceProvider](s.providerFactory, s.modelUUID.String()),
+		modelmigrationstate.New(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }
 
