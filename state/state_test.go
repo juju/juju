@@ -520,21 +520,6 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				loggo.GetLogger("juju.state").SetLogLevel(loggo.DEBUG)
 			},
 		}, {
-			about: "reboots",
-			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
-				m := f.MakeMachine(c, &factory.MachineParams{})
-				c.Assert(m.Id(), gc.Equals, "0")
-				w := m.WatchForRebootEvent()
-				return w
-			},
-			triggerEvent: func(st *state.State) {
-				m, err := st.Machine("0")
-				c.Assert(err, jc.ErrorIsNil)
-				err = m.SetRebootFlag(true)
-				c.Assert(err, jc.ErrorIsNil)
-			},
-		}, {
 			about: "statuses",
 			getWatcher: func(st *state.State) interface{} {
 				m, err := st.AddMachine(defaultInstancePrechecker, state.UbuntuBase("22.04"), state.JobHostUnits)

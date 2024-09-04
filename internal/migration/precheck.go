@@ -218,11 +218,12 @@ func (c *precheckContext) checkMachines(ctx context.Context) error {
 				machine.Id(), statusInfo.Status)
 		}
 
-		if rebootAction, err := machine.ShouldRebootOrShutdown(); err != nil {
-			return errors.Annotatef(err, "retrieving machine %s reboot status", machine.Id())
-		} else if rebootAction != state.ShouldDoNothing {
-			return errors.Errorf("machine %s is scheduled to %s", machine.Id(), rebootAction)
-		}
+		// TODO(gfouillet): Restore this once machine fully migrated to dqlite
+		// if rebootAction, err := machine.ShouldRebootOrShutdown(); err != nil {
+		// 	return errors.Annotatef(err, "retrieving machine %s reboot status", machine.Id())
+		// } else if rebootAction != state.ShouldDoNothing {
+		// 	return errors.Errorf("machine %s is scheduled to %s", machine.Id(), rebootAction)
+		// }
 
 		if err := checkAgentTools(modelVersion, machine, "machine "+machine.Id()); err != nil {
 			return errors.Trace(err)

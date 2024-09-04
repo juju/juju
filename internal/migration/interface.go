@@ -80,7 +80,8 @@ type PrecheckMachine interface {
 	Life() state.Life
 	Status() (status.StatusInfo, error)
 	InstanceStatus() (status.StatusInfo, error)
-	ShouldRebootOrShutdown() (state.RebootAction, error)
+	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
+	// ShouldRebootOrShutdown() (state.RebootAction, error)
 }
 
 // PrecheckApplication describes the state interface for an

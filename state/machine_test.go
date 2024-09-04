@@ -66,63 +66,6 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *MachineSuite) TestSetRebootFlagDeadMachine(c *gc.C) {
-	err := s.machine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.machine.SetRebootFlag(true)
-	c.Assert(err, gc.Equals, mgo.ErrNotFound)
-
-	rFlag, err := s.machine.GetRebootFlag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rFlag, jc.IsFalse)
-
-	err = s.machine.SetRebootFlag(false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	action, err := s.machine.ShouldRebootOrShutdown()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(action, gc.Equals, state.ShouldDoNothing)
-}
-
-func (s *MachineSuite) TestSetRebootFlagDeadMachineRace(c *gc.C) {
-	setFlag := jujutxn.TestHook{
-		Before: func() {
-			err := s.machine.EnsureDead()
-			c.Assert(err, jc.ErrorIsNil)
-		},
-	}
-	defer state.SetTestHooks(c, s.State, setFlag).Check()
-
-	err := s.machine.SetRebootFlag(true)
-	c.Assert(err, gc.Equals, mgo.ErrNotFound)
-}
-
-func (s *MachineSuite) TestSetRebootFlag(c *gc.C) {
-	err := s.machine.SetRebootFlag(true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	rebootFlag, err := s.machine.GetRebootFlag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rebootFlag, jc.IsTrue)
-}
-
-func (s *MachineSuite) TestSetUnsetRebootFlag(c *gc.C) {
-	err := s.machine.SetRebootFlag(true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	rebootFlag, err := s.machine.GetRebootFlag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rebootFlag, jc.IsTrue)
-
-	err = s.machine.SetRebootFlag(false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	rebootFlag, err = s.machine.GetRebootFlag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rebootFlag, jc.IsFalse)
-}
-
 func (s *MachineSuite) TestRecordAgentStartInformation(c *gc.C) {
 	now := s.Clock.Now().Truncate(time.Minute)
 	err := s.machine.RecordAgentStartInformation("thundering-herds")
@@ -177,56 +120,6 @@ func (s *MachineSuite) TestAddMachineInsideMachineModelMigrating(c *gc.C) {
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}, s.machine.Id(), instance.LXD)
 	c.Assert(err, gc.ErrorMatches, `model "testmodel" is being migrated`)
-}
-
-func (s *MachineSuite) TestShouldShutdownOrReboot(c *gc.C) {
-	// Add first container.
-	c1, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
-		Base: state.UbuntuBase("12.10"),
-		Jobs: []state.MachineJob{state.JobHostUnits},
-	}, s.machine.Id(), instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add second container.
-	c2, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
-		Base: state.UbuntuBase("12.10"),
-		Jobs: []state.MachineJob{state.JobHostUnits},
-	}, c1.Id(), instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = c2.SetRebootFlag(true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	rAction, err := s.machine.ShouldRebootOrShutdown()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rAction, gc.Equals, state.ShouldDoNothing)
-
-	rAction, err = c1.ShouldRebootOrShutdown()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rAction, gc.Equals, state.ShouldDoNothing)
-
-	rAction, err = c2.ShouldRebootOrShutdown()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rAction, gc.Equals, state.ShouldReboot)
-
-	// // Reboot happens on the root node
-	err = c2.SetRebootFlag(false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.machine.SetRebootFlag(true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	rAction, err = s.machine.ShouldRebootOrShutdown()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rAction, gc.Equals, state.ShouldReboot)
-
-	rAction, err = c1.ShouldRebootOrShutdown()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rAction, gc.Equals, state.ShouldShutdown)
-
-	rAction, err = c2.ShouldRebootOrShutdown()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rAction, gc.Equals, state.ShouldShutdown)
 }
 
 func (s *MachineSuite) TestContainerDefaults(c *gc.C) {
