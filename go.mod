@@ -1,6 +1,7 @@
 module github.com/juju/juju
 
 go 1.21
+toolchain go1.22.5
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.12.0
@@ -250,7 +251,7 @@ require (
 	go.opentelemetry.io/otel v1.21.0 // indirect
 	go.opentelemetry.io/otel/metric v1.21.0 // indirect
 	go.opentelemetry.io/otel/trace v1.21.0 // indirect
-	golang.org/x/mod v0.20.0 // indirect
+	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/term v0.23.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
