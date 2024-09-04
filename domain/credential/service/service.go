@@ -64,11 +64,6 @@ type Service struct {
 	st     State
 	logger logger.Logger
 
-	// These are set via options after the service is created.
-
-	validationContextGetter ValidationContextGetter
-	validator               CredentialValidator
-
 	// TODO(wallyworld) - remove when models are out of mongo
 	legacyUpdater func(tag names.CloudCredentialTag) error
 	legacyRemover func(tag names.CloudCredentialTag) error
@@ -77,25 +72,9 @@ type Service struct {
 // NewService returns a new service reference wrapping the input state.
 func NewService(st State, logger logger.Logger) *Service {
 	return &Service{
-		st:        st,
-		logger:    logger,
-		validator: NewCredentialValidator(),
+		st:     st,
+		logger: logger,
 	}
-}
-
-// WithValidationContextGetter configures the service to use the specified function
-// to get a context used to validate a credential for a specified model.
-// TODO(wallyworld) - remove when models are out of mongo
-func (s *Service) WithValidationContextGetter(validationContextGetter ValidationContextGetter) *Service {
-	s.validationContextGetter = validationContextGetter
-	return s
-}
-
-// WithCredentialValidator configures the service to use the specified
-// credential validator.
-func (s *Service) WithCredentialValidator(validator CredentialValidator) *Service {
-	s.validator = validator
-	return s
 }
 
 // WithLegacyUpdater configures the service to use the specified function
@@ -190,22 +169,6 @@ func (s *Service) modelsUsingCredential(ctx context.Context, key corecredential.
 	return models, nil
 }
 
-func (s *Service) validateCredentialForModel(ctx context.Context, modelUUID coremodel.UUID, key corecredential.Key, cred *cloud.Credential) ([]error, error) {
-	if s.validator == nil || s.validationContextGetter == nil {
-		return nil, errors.Errorf("missing validation helpers")
-	}
-	validationCtx, err := s.validationContextGetter(ctx, modelUUID)
-	if err != nil {
-		return []error{errors.Trace(err)}, nil
-	}
-
-	modelErrors, err := s.validator.Validate(ctx, validationCtx, key, cred, false)
-	if err != nil {
-		return []error{errors.Trace(err)}, nil
-	}
-	return modelErrors, nil
-}
-
 // CheckAndUpdateCredential updates the credential after first checking that any models which use the credential
 // can still access the cloud resources. If force is true, update the credential even if there are issues
 // validating the credential.
@@ -217,10 +180,6 @@ func (s *Service) validateCredentialForModel(ctx context.Context, modelUUID core
 func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredential.Key, cred cloud.Credential, force bool) ([]UpdateCredentialModelResult, error) {
 	if err := key.Validate(); err != nil {
 		return nil, errors.Annotatef(err, "invalid id updating cloud credential")
-	}
-
-	if s.validationContextGetter == nil {
-		return nil, errors.New("cannot validate credential with nil context getter")
 	}
 
 	models, err := s.modelsUsingCredential(ctx, key)
@@ -236,10 +195,6 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredenti
 		result := UpdateCredentialModelResult{
 			ModelUUID: uuid,
 			ModelName: name,
-		}
-		result.Errors, err = s.validateCredentialForModel(ctx, uuid, key, &cred)
-		if err != nil {
-			return nil, errors.Trace(err)
 		}
 		modelsResult = append(modelsResult, result)
 		if len(result.Errors) > 0 {
@@ -341,9 +296,8 @@ type WatchableService struct {
 func NewWatchableService(st State, watcherFactory WatcherFactory, logger logger.Logger) *WatchableService {
 	return &WatchableService{
 		Service: Service{
-			st:        st,
-			logger:    logger,
-			validator: NewCredentialValidator(),
+			st:     st,
+			logger: logger,
 		},
 		watcherFactory: watcherFactory,
 	}
@@ -356,14 +310,6 @@ func (s *WatchableService) WatchCredential(ctx context.Context, key corecredenti
 		return nil, errors.Annotatef(err, "invalid id watching cloud credential")
 	}
 	return s.st.WatchCredential(ctx, s.watcherFactory.NewValueWatcher, key)
-}
-
-// WithValidationContextGetter configures the service to use the specified function
-// to get a context used to validate a credential for a specified model.
-// TODO(wallyworld) - remove when models are out of mongo
-func (s *WatchableService) WithValidationContextGetter(validationContextGetter ValidationContextGetter) *WatchableService {
-	s.validationContextGetter = validationContextGetter
-	return s
 }
 
 // WithLegacyUpdater configures the service to use the specified function
