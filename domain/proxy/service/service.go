@@ -18,6 +18,8 @@ import (
 type Provider interface {
 	environs.ConnectorInfo
 
+	// ProxyToApplication returns a proxy to the application with the given
+	// port.
 	ProxyToApplication(ctx context.Context, appName, remotePort string) (proxy.Proxier, error)
 }
 

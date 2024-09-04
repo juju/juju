@@ -19,12 +19,13 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/permission"
 	providertracker "github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	usererrors "github.com/juju/juju/domain/access/errors"
-	"github.com/juju/juju/domain/access/service"
+	accessservice "github.com/juju/juju/domain/access/service"
 	environs "github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/auth"
 	jujuhttp "github.com/juju/juju/internal/http"
@@ -36,7 +37,7 @@ import (
 
 type registrationSuite struct {
 	jujutesting.ApiServerSuite
-	userService     *service.Service
+	accessService   *accessservice.Service
 	userUUID        user.UUID
 	activationKey   []byte
 	registrationURL string
@@ -47,9 +48,9 @@ var _ = gc.Suite(&registrationSuite{})
 func (s *registrationSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
-	s.userService = s.ControllerServiceFactory(c).Access()
+	s.accessService = s.ControllerServiceFactory(c).Access()
 	var err error
-	s.userUUID, _, err = s.userService.AddUser(context.Background(), service.AddUserArg{
+	s.userUUID, _, err = s.accessService.AddUser(context.Background(), accessservice.AddUserArg{
 		Name:        usertesting.GenNewName(c, "bob"),
 		CreatorUUID: s.AdminUserUUID,
 		Permission: permission.AccessSpec{
@@ -62,7 +63,7 @@ func (s *registrationSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.activationKey, err = s.userService.ResetPassword(context.Background(), usertesting.GenNewName(c, "bob"))
+	s.activationKey, err = s.accessService.ResetPassword(context.Background(), usertesting.GenNewName(c, "bob"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO (stickupkid): Permissions: This is only required to insert admin
@@ -99,11 +100,17 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	s.ProviderTracker = providerFactory
 
 	if hasProxy {
-		// Ensure that the provider factory returns a provider that implements
-		// the environs.ConnectorInfo interface.
+		// This is a bit of a hack. We can't hack out the service factory,
+		// but we can hack out the provider factory, which is the only thing
+		// that the service factory uses to get the provider.
+		// By brute force, we can make the provider factory return a provider
+		// that implements the providertracker.Provider interface.
 		providerFactory.EXPECT().ProviderForModel(gomock.Any(), gomock.Any()).Return(struct {
+			// This has to match the proxy service Provider interface, with
+			// the addition of the providertracker.Provider interface.
 			providertracker.Provider
 			environs.ConnectorInfo
+			caas.ProxyManager
 		}{ConnectorInfo: environ}, nil)
 
 		environ.EXPECT().ConnectionProxyInfo(gomock.Any()).Return(proxier, nil)
@@ -118,7 +125,7 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	password := "hunter2"
 	// It should be not possible to log in as bob with the password "hunter2"
 	// now.
-	_, err := s.userService.GetUserByAuth(context.Background(), usertesting.GenNewName(c, "bob"), auth.NewPassword(password))
+	_, err := s.accessService.GetUserByAuth(context.Background(), usertesting.GenNewName(c, "bob"), auth.NewPassword(password))
 	c.Assert(err, jc.ErrorIs, usererrors.UserUnauthorized)
 
 	validNonce := []byte(strings.Repeat("X", 24))
@@ -142,7 +149,7 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	// It should be possible to log in as bob with the
 	// password "hunter2" now, and there should be no
 	// secret key any longer.
-	user, err := s.userService.GetUserByAuth(context.Background(), usertesting.GenNewName(c, "bob"), auth.NewPassword(password))
+	user, err := s.accessService.GetUserByAuth(context.Background(), usertesting.GenNewName(c, "bob"), auth.NewPassword(password))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(user.UUID, gc.Equals, s.userUUID)
 
@@ -227,7 +234,7 @@ func (s *registrationSuite) TestRegisterInvalidCiphertext(c *gc.C) {
 }
 
 func (s *registrationSuite) TestRegisterNoSecretKey(c *gc.C) {
-	err := s.userService.SetPassword(context.Background(), usertesting.GenNewName(c, "bob"), auth.NewPassword("anything"))
+	err := s.accessService.SetPassword(context.Background(), usertesting.GenNewName(c, "bob"), auth.NewPassword("anything"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	validNonce := []byte(strings.Repeat("X", 24))

@@ -39,7 +39,7 @@ type APISuite struct {
 var _ = gc.Suite(&APISuite{})
 
 func (s *APISuite) TestCreateSpacesFailInvalidTag(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	args := params.CreateSpacesParams{
@@ -68,7 +68,7 @@ func (s *APISuite) TestCreateSpacesFailInvalidTag(c *gc.C) {
 }
 
 func (s *APISuite) TestCreateSpacesFailInvalidCIDR(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	args := params.CreateSpacesParams{
@@ -97,7 +97,7 @@ func (s *APISuite) TestCreateSpacesFailInvalidCIDR(c *gc.C) {
 }
 
 func (s *APISuite) TestCreateSpacesSuccess(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	args := params.CreateSpacesParams{
@@ -168,7 +168,7 @@ func (s *APISuite) TestCreateSpacesSuccess(c *gc.C) {
 }
 
 func (s *APISuite) TestShowSpaceDefault(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	s.expectDefaultSpace(ctrl, "default", nil)
@@ -208,7 +208,7 @@ func (s *APISuite) TestShowSpaceDefault(c *gc.C) {
 }
 
 func (s *APISuite) TestShowSpaceErrorGettingSpace(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	bamErr := errors.New("bam")
@@ -225,7 +225,7 @@ func (s *APISuite) TestShowSpaceErrorGettingSpace(c *gc.C) {
 }
 
 func (s *APISuite) TestShowSpaceErrorGettingSubnets(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	bamErr := errors.New("bam")
@@ -242,7 +242,7 @@ func (s *APISuite) TestShowSpaceErrorGettingSubnets(c *gc.C) {
 }
 
 func (s *APISuite) TestShowSpaceErrorGettingApplications(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	expErr := errors.New("bam")
@@ -260,7 +260,7 @@ func (s *APISuite) TestShowSpaceErrorGettingApplications(c *gc.C) {
 }
 
 func (s *APISuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	bamErr := errors.New("bam")
@@ -279,7 +279,7 @@ func (s *APISuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
 }
 
 func (s *APISuite) TestRenameSpaceErrorToAlreadyExist(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	s.expectDefaultSpace(ctrl, "blub", nil)
@@ -294,7 +294,7 @@ func (s *APISuite) TestRenameSpaceErrorToAlreadyExist(c *gc.C) {
 }
 
 func (s *APISuite) TestRenameSpaceErrorUnexpectedError(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	from, to := "bla", "blub"
@@ -311,7 +311,7 @@ func (s *APISuite) TestRenameSpaceErrorUnexpectedError(c *gc.C) {
 }
 
 func (s *APISuite) TestRenameSpaceErrorRename(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	from, to := "bla", "blub"
@@ -333,7 +333,7 @@ func (s *APISuite) TestRenameSpaceErrorRename(c *gc.C) {
 }
 
 func (s *APISuite) TestRenameAlphaSpaceError(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	from, to := "alpha", "blub"
@@ -346,7 +346,7 @@ func (s *APISuite) TestRenameAlphaSpaceError(c *gc.C) {
 }
 
 func (s *APISuite) TestRenameSpaceSuccess(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	from, to := "bla", "blub"
@@ -366,7 +366,7 @@ func (s *APISuite) TestRenameSpaceSuccess(c *gc.C) {
 }
 
 func (s *APISuite) TestRenameSpaceErrorProviderSpacesSupport(c *gc.C) {
-	ctrl := s.setupMocks(c, true, true)
+	ctrl := s.SetupMocks(c, true, true)
 	defer ctrl.Finish()
 
 	from, to := "bla", "blub"
@@ -379,7 +379,7 @@ func (s *APISuite) TestRenameSpaceErrorProviderSpacesSupport(c *gc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceSuccessNoControllerConfig(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	spaceTag := "myspace"
@@ -405,7 +405,7 @@ func (s *APISuite) TestRemoveSpaceSuccessNoControllerConfig(c *gc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceSuccessControllerConfig(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	spaceTag := "myspace"
@@ -434,7 +434,7 @@ func (s *APISuite) TestRemoveSpaceSuccessControllerConfig(c *gc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceErrorFoundApplications(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	space := "myspace"
@@ -466,7 +466,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundApplications(c *gc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceErrorFoundController(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	spaceName := "myspace"
@@ -495,7 +495,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundController(c *gc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceErrorFoundConstraints(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	space := "myspace"
@@ -533,7 +533,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundConstraints(c *gc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	space := "myspace"
@@ -580,7 +580,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceFoundAllWithForce(c *gc.C) {
-	ctrl := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	spaceTag := "myspace"
@@ -612,7 +612,7 @@ func (s *APISuite) TestRemoveSpaceFoundAllWithForce(c *gc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceErrorProviderSpacesSupport(c *gc.C) {
-	ctrl := s.setupMocks(c, true, true)
+	ctrl := s.SetupMocks(c, true, true)
 	defer ctrl.Finish()
 
 	space := "myspace"
@@ -621,11 +621,6 @@ func (s *APISuite) TestRemoveSpaceErrorProviderSpacesSupport(c *gc.C) {
 
 	_, err := s.API.RemoveSpace(stdcontext.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "modifying provider-sourced spaces not supported")
-}
-
-func (s *APISuite) setupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) *gomock.Controller {
-	ctrl := s.APISuite.SetupMocks(c, supportSpaces, providerSpaces)
-	return ctrl
 }
 
 func (s *APISuite) expectAllTags(spaceName string) (names.ApplicationTag, names.ModelTag) {
@@ -799,7 +794,7 @@ func (s *LegacySuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 }
 
-func (s *LegacySuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *LegacySuite) SetupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.networkService = spaces.NewMockNetworkService(ctrl)
 	return ctrl
@@ -877,19 +872,20 @@ func (s *LegacySuite) TestNewAPIWithBacking(c *gc.C) {
 }
 
 func (s *LegacySuite) TestShowSpaceError(c *gc.C) {
-	apiservertesting.SharedStub.SetErrors(
-		errors.New("boom"), // Backing.ModelConfig()
-	)
+	defer s.SetupMocks(c).Finish()
+
+	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(false, errors.New("boom"))
+	s.makeAPI(c)
 
 	entities := params.Entities{}
 	_, err := s.facade.ShowSpace(stdcontext.Background(), entities)
-	c.Assert(err, gc.ErrorMatches, "getting environ: retrieving model config: boom")
+	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
 // TestCreateSpacesGetProviderError tests that if we call API.CreateSpaces but
 // the providerGetter returns an error, the facade method errors as expected.
 func (s *LegacySuite) TestCreateSpacesGetProviderError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.SetupMocks(c).Finish()
 
 	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(false, errors.NotSupportedf("spaces"))
 	s.makeAPI(c)
@@ -903,7 +899,7 @@ func (s *LegacySuite) TestCreateSpacesGetProviderError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestCreateSpacesNotSupportedError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.SetupMocks(c).Finish()
 	s.makeAPI(c)
 
 	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(false, errors.NotSupportedf("spaces"))
@@ -914,7 +910,7 @@ func (s *LegacySuite) TestCreateSpacesNotSupportedError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.SetupMocks(c).Finish()
 	s.makeAPI(c)
 
 	expected := []params.Space{{
@@ -998,7 +994,7 @@ func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
 }
 
 func (s *LegacySuite) TestListSpacesAllSpacesError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.SetupMocks(c).Finish()
 
 	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(false, errors.Errorf("environ boom"))
 	s.makeAPI(c)
@@ -1008,7 +1004,7 @@ func (s *LegacySuite) TestListSpacesAllSpacesError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestListSpacesSubnetsError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.SetupMocks(c).Finish()
 	s.makeAPI(c)
 
 	apiservertesting.SharedStub.SetErrors(
@@ -1033,7 +1029,7 @@ func (s *LegacySuite) TestListSpacesSubnetsError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.SetupMocks(c).Finish()
 	s.makeAPI(c)
 
 	boom := errors.New("boom")
@@ -1062,7 +1058,7 @@ func (s *LegacySuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestListSpacesNotSupportedError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.SetupMocks(c).Finish()
 	s.makeAPI(c)
 
 	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).
@@ -1073,7 +1069,7 @@ func (s *LegacySuite) TestListSpacesNotSupportedError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestCreateSpacesBlocked(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.SetupMocks(c).Finish()
 	s.makeAPI(c)
 
 	s.blockChecker.SetErrors(apiservererrors.ServerError(apiservererrors.OperationBlockedError("test block")))

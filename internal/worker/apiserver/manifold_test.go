@@ -176,7 +176,6 @@ var expectedInputs = []string{
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
 	"charmhub-http-client", "sshimporter-http-client", "change-stream",
 	"service-factory", "trace", "object-store", "log-sink", "db-accessor",
-	"provider-tracker",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {

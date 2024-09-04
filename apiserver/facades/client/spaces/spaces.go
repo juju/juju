@@ -103,6 +103,7 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 	return &API{
 		networkService:          cfg.NetworkService,
 		controllerConfigService: cfg.ControllerConfigService,
+		auth:                    cfg.Authorizer,
 		backing:                 cfg.Backing,
 		resources:               cfg.Resources,
 		check:                   cfg.Check,

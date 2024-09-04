@@ -19,7 +19,6 @@ import (
 	usererrors "github.com/juju/juju/domain/access/errors"
 	proxyerrors "github.com/juju/juju/domain/proxy/errors"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
-	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -51,8 +50,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 
 	// TODO (stickupkid): Remove this nonsense, we should be able to get the
 	// service factory from the handler.
-	var serviceFactory servicefactory.ServiceFactory
-	serviceFactory = h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(h.ctxt.srv.shared.controllerModelUUID)
+	serviceFactory := h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(h.ctxt.srv.shared.controllerModelUUID)
 	userTag, response, err := h.processPost(
 		req,
 		st.State,
