@@ -34958,9 +34958,6 @@
         "Description": "API provides the spaces API facade for version 6.",
         "Version": 6,
         "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
             "model-user"
         ],
         "Schema": {
