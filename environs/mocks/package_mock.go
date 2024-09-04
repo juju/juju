@@ -1897,18 +1897,18 @@ func (c *MockNetworkingEnvironSupportsContainerAddressesCall) DoAndReturn(f func
 }
 
 // SupportsSpaceDiscovery mocks base method.
-func (m *MockNetworkingEnviron) SupportsSpaceDiscovery(arg0 envcontext.ProviderCallContext) (bool, error) {
+func (m *MockNetworkingEnviron) SupportsSpaceDiscovery() (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SupportsSpaceDiscovery", arg0)
+	ret := m.ctrl.Call(m, "SupportsSpaceDiscovery")
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SupportsSpaceDiscovery indicates an expected call of SupportsSpaceDiscovery.
-func (mr *MockNetworkingEnvironMockRecorder) SupportsSpaceDiscovery(arg0 any) *MockNetworkingEnvironSupportsSpaceDiscoveryCall {
+func (mr *MockNetworkingEnvironMockRecorder) SupportsSpaceDiscovery() *MockNetworkingEnvironSupportsSpaceDiscoveryCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsSpaceDiscovery", reflect.TypeOf((*MockNetworkingEnviron)(nil).SupportsSpaceDiscovery), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsSpaceDiscovery", reflect.TypeOf((*MockNetworkingEnviron)(nil).SupportsSpaceDiscovery))
 	return &MockNetworkingEnvironSupportsSpaceDiscoveryCall{Call: call}
 }
 
@@ -1924,30 +1924,30 @@ func (c *MockNetworkingEnvironSupportsSpaceDiscoveryCall) Return(arg0 bool, arg1
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironSupportsSpaceDiscoveryCall) Do(f func(envcontext.ProviderCallContext) (bool, error)) *MockNetworkingEnvironSupportsSpaceDiscoveryCall {
+func (c *MockNetworkingEnvironSupportsSpaceDiscoveryCall) Do(f func() (bool, error)) *MockNetworkingEnvironSupportsSpaceDiscoveryCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironSupportsSpaceDiscoveryCall) DoAndReturn(f func(envcontext.ProviderCallContext) (bool, error)) *MockNetworkingEnvironSupportsSpaceDiscoveryCall {
+func (c *MockNetworkingEnvironSupportsSpaceDiscoveryCall) DoAndReturn(f func() (bool, error)) *MockNetworkingEnvironSupportsSpaceDiscoveryCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SupportsSpaces mocks base method.
-func (m *MockNetworkingEnviron) SupportsSpaces(arg0 envcontext.ProviderCallContext) (bool, error) {
+func (m *MockNetworkingEnviron) SupportsSpaces() (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SupportsSpaces", arg0)
+	ret := m.ctrl.Call(m, "SupportsSpaces")
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SupportsSpaces indicates an expected call of SupportsSpaces.
-func (mr *MockNetworkingEnvironMockRecorder) SupportsSpaces(arg0 any) *MockNetworkingEnvironSupportsSpacesCall {
+func (mr *MockNetworkingEnvironMockRecorder) SupportsSpaces() *MockNetworkingEnvironSupportsSpacesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsSpaces", reflect.TypeOf((*MockNetworkingEnviron)(nil).SupportsSpaces), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsSpaces", reflect.TypeOf((*MockNetworkingEnviron)(nil).SupportsSpaces))
 	return &MockNetworkingEnvironSupportsSpacesCall{Call: call}
 }
 
@@ -1963,13 +1963,13 @@ func (c *MockNetworkingEnvironSupportsSpacesCall) Return(arg0 bool, arg1 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironSupportsSpacesCall) Do(f func(envcontext.ProviderCallContext) (bool, error)) *MockNetworkingEnvironSupportsSpacesCall {
+func (c *MockNetworkingEnvironSupportsSpacesCall) Do(f func() (bool, error)) *MockNetworkingEnvironSupportsSpacesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironSupportsSpacesCall) DoAndReturn(f func(envcontext.ProviderCallContext) (bool, error)) *MockNetworkingEnvironSupportsSpacesCall {
+func (c *MockNetworkingEnvironSupportsSpacesCall) DoAndReturn(f func() (bool, error)) *MockNetworkingEnvironSupportsSpacesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
