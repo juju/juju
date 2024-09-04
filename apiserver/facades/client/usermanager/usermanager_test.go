@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	coreusertesting "github.com/juju/juju/core/user/testing"
-	"github.com/juju/juju/domain/access"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
@@ -43,6 +42,7 @@ type userManagerSuite struct {
 	resources  *common.Resources
 
 	accessService *MockAccessService
+	modelService  *MockModelService
 }
 
 var _ = gc.Suite(&userManagerSuite{})
@@ -525,8 +525,8 @@ func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
 	owner, err := s.ControllerModel(c).State().UserAccess(testAdmin, model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.accessService.EXPECT().GetModelUsers(gomock.Any(), coreuser.AdminUserName, coremodel.UUID(model.UUID())).Return(
-		[]access.ModelUserInfo{{
+	s.modelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(model.UUID())).Return(
+		[]coremodel.ModelUserInfo{{
 			Name:           owner.UserName,
 			DisplayName:    owner.DisplayName,
 			Access:         permission.AdminAccess,
@@ -1002,6 +1002,7 @@ func (s *userManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.accessService = NewMockAccessService(ctrl)
+	s.modelService = NewMockModelService(ctrl)
 
 	ctx := facadetest.ModelContext{
 		StatePool_: s.StatePool(),
@@ -1014,6 +1015,7 @@ func (s *userManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 	s.api, err = usermanager.NewAPI(
 		ctx.State(),
 		s.accessService,
+		s.modelService,
 		ctx.Auth(),
 		common.NewBlockChecker(ctx.State()),
 		ctx.Auth().GetAuthTag().(names.UserTag),

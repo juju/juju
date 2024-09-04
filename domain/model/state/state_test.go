@@ -58,34 +58,16 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 
 	// We need to generate a user in the database so that we can set the model
 	// owner.
-	userUUID, err := user.NewUUID()
-	m.userUUID = userUUID
-	m.userName = usertesting.GenNewName(c, "test-user")
-	c.Assert(err, jc.ErrorIsNil)
 	m.uuid = modeltesting.GenModelUUID(c)
 	m.controllerUUID = m.SeedControllerTable(c, m.uuid)
-	userState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = userState.AddUserWithPermission(
-		context.Background(),
-		m.userUUID,
-		m.userName,
-		m.userName.Name(),
-		false,
-		m.userUUID,
-		permission.AccessSpec{
-			Access: permission.SuperuserAccess,
-			Target: permission.ID{
-				ObjectType: permission.Controller,
-				Key:        m.controllerUUID,
-			},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
+	m.userName = usertesting.GenNewName(c, "test-user")
+	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	m.userUUID = m.createSuperuser(c, accessState, m.userName)
 
 	// We need to generate a cloud in the database so that we can set the model
 	// cloud.
 	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
-	err = cloudSt.CreateCloud(context.Background(), m.userName, uuid.MustNewUUID().String(),
+	err := cloudSt.CreateCloud(context.Background(), m.userName, uuid.MustNewUUID().String(),
 		cloud.Cloud{
 			Name:      "my-cloud",
 			Type:      "ec2",
@@ -165,9 +147,6 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = userState.UpdateLastModelLogin(context.Background(), m.userName, m.uuid, time.Time{})
-	c.Assert(err, jc.ErrorIsNil)
-
 	err = modelSt.Activate(context.Background(), m.uuid)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -208,33 +187,16 @@ func (m *stateSuite) TestModelCloudNameAndCredential(c *gc.C) {
 
 // TestModelCloudNameAndCredentialController is testing the cloud name and
 // credential id is returned for the controller model and owner. This is the
-// common pattern that this sate func will be used for so we have made a special
-// case to continuously test this.
+// common pattern that this state func will be used for so we have made a
+// special case to continuously test this.
 func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
-	userUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	userState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = userState.AddUserWithPermission(
-		context.Background(),
-		userUUID,
-		coremodel.ControllerModelOwnerUsername,
-		coremodel.ControllerModelOwnerUsername.Name(),
-		false,
-		userUUID,
-		permission.AccessSpec{
-			Access: permission.SuperuserAccess,
-			Target: permission.ID{
-				ObjectType: permission.Controller,
-				Key:        m.controllerUUID,
-			},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
+	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	userUUID := m.createSuperuser(c, accessState, coremodel.ControllerModelOwnerUsername)
 
 	st := NewState(m.TxnRunnerFactory())
 	modelUUID := modeltesting.GenModelUUID(c)
 	// We need to first inject a model that does not have a cloud credential set
-	err = st.Create(
+	err := st.Create(
 		context.Background(),
 		modelUUID,
 		coremodel.IAAS,
@@ -581,8 +543,8 @@ func (m *stateSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
 // new model with an owner that has been removed from the Juju user base that
 // the operation fails with a [usererrors.NotFound] error.
 func (m *stateSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
-	userState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := userState.RemoveUser(context.Background(), m.userName)
+	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := accessState.RemoveUser(context.Background(), m.userName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelSt := NewState(m.TxnRunnerFactory())
@@ -1209,6 +1171,11 @@ func (m *stateSuite) TestListModelSummariesForUser(c *gc.C) {
 	// Add a second model (one was added in SetUpTest).
 	modelUUID := m.createTestModel(c, modelSt, "my-test-model-2", m.userUUID)
 
+	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	expectedLoginTime := time.Now().Truncate(time.Minute).UTC()
+	err := accessState.UpdateLastModelLogin(context.Background(), m.userName, m.uuid, expectedLoginTime)
+	c.Assert(err, jc.ErrorIsNil)
+
 	models, err := modelSt.ListModelSummariesForUser(context.Background(), usertesting.GenNewName(c, "test-user"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1217,8 +1184,8 @@ func (m *stateSuite) TestListModelSummariesForUser(c *gc.C) {
 		return strings.Compare(a.Name, b.Name)
 	})
 
-	expected := []coremodel.UserModelSummary{{
-		UserLastConnection: &time.Time{},
+	c.Check(models, jc.SameContents, []coremodel.UserModelSummary{{
+		UserLastConnection: &expectedLoginTime,
 		UserAccess:         permission.AdminAccess,
 		ModelSummary: coremodel.ModelSummary{
 			Name:        "my-test-model",
@@ -1258,15 +1225,7 @@ func (m *stateSuite) TestListModelSummariesForUser(c *gc.C) {
 			OwnerName:      usertesting.GenNewName(c, "test-user"),
 			Life:           life.Alive,
 		}},
-	}
-
-	for i, e := range expected {
-		if e.UserLastConnection != nil {
-			c.Assert(models[i].UserLastConnection, gc.NotNil)
-			e.UserLastConnection = models[i].UserLastConnection
-		}
-		c.Assert(models[i], gc.DeepEquals, e)
-	}
+	})
 }
 
 func (m *stateSuite) TestListModelSummariesForUserModelNotFound(c *gc.C) {
@@ -1280,7 +1239,7 @@ func (m *stateSuite) TestListAllModelSummaries(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	accessSt := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	userUUID := m.createTestUser(c, accessSt, usertesting.GenNewName(c, "new-user"))
+	userUUID := m.createSuperuser(c, accessSt, usertesting.GenNewName(c, "new-user"))
 	modelUUID := m.createTestModel(c, modelSt, "new-model", userUUID)
 
 	models, err := modelSt.ListAllModelSummaries(context.Background())
@@ -1331,21 +1290,102 @@ func (m *stateSuite) TestListAllModelSummaries(c *gc.C) {
 	})
 }
 
-func (m *stateSuite) createTestUser(c *gc.C, userState *accessstate.State, name user.Name) user.UUID {
+func (s *stateSuite) TestGetModelUsers(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	accessState := accessstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	// Add test users.
+	jimName := usertesting.GenNewName(c, "jim")
+	bobName := usertesting.GenNewName(c, "bob")
+	s.createModelUser(c, accessState, jimName, s.userUUID, permission.WriteAccess, s.uuid)
+	s.createModelUser(c, accessState, bobName, s.userUUID, permission.ReadAccess, s.uuid)
+
+	// Add and disabled/remove users to check they do not show up.
+	disabledName := usertesting.GenNewName(c, "disabled-dude")
+	removedName := usertesting.GenNewName(c, "removed-dude")
+	s.createModelUser(c, accessState, disabledName, s.userUUID, permission.AdminAccess, s.uuid)
+	s.createModelUser(c, accessState, removedName, s.userUUID, permission.AdminAccess, s.uuid)
+	err := accessState.DisableUserAuthentication(context.Background(), disabledName)
+	c.Assert(err, jc.ErrorIsNil)
+	err = accessState.RemoveUser(context.Background(), removedName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelUsers, err := st.GetModelUsers(context.Background(), s.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelUsers, jc.SameContents, []coremodel.ModelUserInfo{
+		{
+			Name:           jimName,
+			DisplayName:    jimName.Name(),
+			Access:         permission.WriteAccess,
+			LastModelLogin: time.Time{},
+		},
+		{
+			Name:           bobName,
+			DisplayName:    bobName.Name(),
+			Access:         permission.ReadAccess,
+			LastModelLogin: time.Time{},
+		},
+		{
+			Name:           s.userName,
+			DisplayName:    s.userName.Name(),
+			Access:         permission.AdminAccess,
+			LastModelLogin: time.Time{},
+		},
+	})
+}
+
+func (s *stateSuite) TestGetModelUsersModelNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetModelUsers(context.Background(), "bad-uuid")
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// createSuperuser adds a new superuser created by themselves.
+func (m *stateSuite) createSuperuser(c *gc.C, accessState *accessstate.State, name user.Name) user.UUID {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = userState.AddUserWithPermission(
+	err = accessState.AddUserWithPermission(
 		context.Background(),
 		userUUID,
 		name,
 		name.Name(),
 		false,
-		m.userUUID,
+		userUUID,
 		permission.AccessSpec{
 			Access: permission.SuperuserAccess,
 			Target: permission.ID{
 				ObjectType: permission.Controller,
 				Key:        m.controllerUUID,
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	return userUUID
+}
+
+// createSuperuser adds a new user with permissions on a model.
+func (m *stateSuite) createModelUser(
+	c *gc.C,
+	accessState *accessstate.State,
+	name user.Name,
+	createdByUUID user.UUID,
+	accessLevel permission.Access,
+	modelUUID coremodel.UUID,
+) user.UUID {
+	userUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = accessState.AddUserWithPermission(
+		context.Background(),
+		userUUID,
+		name,
+		name.Name(),
+		false,
+		createdByUUID,
+		permission.AccessSpec{
+			Access: accessLevel,
+			Target: permission.ID{
+				ObjectType: permission.Model,
+				Key:        modelUUID.String(),
 			},
 		},
 	)

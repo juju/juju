@@ -31,4 +31,9 @@ const (
 	// SecretBackendAlreadySet describes an error that occurs when a model's
 	// secret backend has already been set.
 	SecretBackendAlreadySet = errors.ConstError("secret backend already set")
+
+	// UserNotFoundOnModel describes an error that occurs when information about
+	// a user on a particular model cannot be found. This does not mean the user
+	// does not exist.
+	UserNotFoundOnModel = errors.ConstError("user not found on model")
 )

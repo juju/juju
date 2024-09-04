@@ -269,19 +269,6 @@ type modelShim struct {
 	*state.Model
 }
 
-// Users implements ModelManagerBackend.
-func (m modelShim) Users() ([]permission.UserAccess, error) {
-	stateUsers, err := m.Model.Users()
-	if err != nil {
-		return nil, err
-	}
-	users := make([]permission.UserAccess, len(stateUsers))
-	for i, user := range stateUsers {
-		users[i] = user
-	}
-	return users, nil
-}
-
 type machineShim struct {
 	*state.Machine
 }

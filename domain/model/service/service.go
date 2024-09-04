@@ -84,6 +84,11 @@ type State interface {
 	// returned.
 	ListModelsForUser(context.Context, coreuser.UUID) ([]coremodel.Model, error)
 
+	// GetModelUsers will retrieve basic information about all users with
+	// permissions on the given model UUID.
+	// If the model cannot be found it will return modelerrors.NotFound.
+	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
+
 	// ListModelSummariesForUser returns a slice of model summaries for a given
 	// user. If no models are found an empty slice is returned.
 	ListModelSummariesForUser(ctx context.Context, userName coreuser.Name) ([]coremodel.UserModelSummary, error)
@@ -471,6 +476,43 @@ func ModelTypeForCloud(
 		return coremodel.CAAS, nil
 	}
 	return coremodel.IAAS, nil
+}
+
+// GetModelUsers will retrieve basic information about users with permissions on
+// the given model UUID.
+// If the model cannot be found it will return [modelerrors.NotFound].
+func (s *Service) GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error) {
+	if err := modelUUID.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelUserInfo, err := s.st.GetModelUsers(ctx, modelUUID)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting users for model %s", modelUUID)
+	}
+	return modelUserInfo, nil
+}
+
+// GetModelUser will retrieve basic information about the specified model user.
+// If the model cannot be found it will return [modelerrors.NotFound].
+// If the user cannot be found it will return [modelerrors.UserNotFoundOnModel].
+func (s *Service) GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name coreuser.Name) (coremodel.ModelUserInfo, error) {
+	if name.IsZero() {
+		return coremodel.ModelUserInfo{}, errors.Annotatef(accesserrors.UserNameNotValid, "empty username")
+	}
+	if err := modelUUID.Validate(); err != nil {
+		return coremodel.ModelUserInfo{}, errors.Trace(err)
+	}
+	modelUserInfo, err := s.st.GetModelUsers(ctx, modelUUID)
+	if err != nil {
+		return coremodel.ModelUserInfo{}, errors.Annotatef(err, "getting info of user %q on model %s", name, modelUUID)
+	}
+
+	for _, mui := range modelUserInfo {
+		if mui.Name == name {
+			return mui, nil
+		}
+	}
+	return coremodel.ModelUserInfo{}, errors.Annotatef(modelerrors.UserNotFoundOnModel, "getting info of user %q on model %s", name, modelUUID)
 }
 
 // ListModelSummariesForUser returns a slice of model summaries for a given

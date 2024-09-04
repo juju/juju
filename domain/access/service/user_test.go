@@ -18,7 +18,6 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
 
-	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
@@ -615,42 +614,6 @@ func (s *userServiceSuite) TestLastModelLoginBadUsername(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	_, err := s.service().LastModelLogin(context.Background(), user.Name{}, "")
 	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
-}
-
-func (s *userServiceSuite) TestGetModelUsers(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().GetModelUsers(gomock.Any(), coreusertesting.GenNewName(c, "apiUser"), coremodel.UUID(jujutesting.ModelTag.Id())).Return(nil, nil)
-
-	_, err := NewService(s.state).GetModelUsers(
-		context.Background(),
-		coreusertesting.GenNewName(c, "apiUser"),
-		coremodel.UUID(jujutesting.ModelTag.Id()),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *userServiceSuite) TestGetModelUsersApiUserError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := NewService(s.state).GetModelUsers(
-		context.Background(),
-		user.Name{},
-		coremodel.UUID(jujutesting.ModelTag.Id()),
-	)
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
-	c.Assert(err, gc.ErrorMatches, "empty apiUser not valid", gc.Commentf("%+v", err))
-}
-
-func (s *userServiceSuite) TestGetModelUsersModelUUIDError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := NewService(s.state).GetModelUsers(
-		context.Background(),
-		coreusertesting.GenNewName(c, "apiUser"),
-		coremodel.UUID("bad-model-tag"),
-	)
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
-	c.Assert(err, gc.ErrorMatches, `uuid "bad-model-tag" not valid`, gc.Commentf("%+v", err))
 }
 
 type stringerNotEmpty struct{}

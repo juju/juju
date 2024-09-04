@@ -54,6 +54,7 @@ func newUserManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*UserMa
 	return NewAPI(
 		st,
 		accessService,
+		ctx.ServiceFactory().Model(),
 		authorizer,
 		common.NewBlockChecker(st),
 		apiUserTag,

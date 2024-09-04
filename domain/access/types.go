@@ -4,8 +4,6 @@
 package access
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/permission"
@@ -57,16 +55,4 @@ func (args UpdatePermissionArgs) Validate() error {
 type CredentialOwnerModelAccess struct {
 	ModelName   string            `db:"model_name"`
 	OwnerAccess permission.Access `db:"access_type"`
-}
-
-// ModelUserInfo contains information about a user of a model.
-type ModelUserInfo struct {
-	// Name is the username of the user.
-	Name user.Name
-	// DisplayName is a user-friendly name representation of the users name.
-	DisplayName string
-	// Access represents the level of model access this user has.
-	Access permission.Access
-	// LastLogin is the last time the user logged in.
-	LastModelLogin time.Time
 }

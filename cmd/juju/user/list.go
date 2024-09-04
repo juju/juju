@@ -100,7 +100,7 @@ func (c *listCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.infoCommandBase.SetFlags(f)
-	f.BoolVar(&c.All, "all", false, "Include disabled users")
+	f.BoolVar(&c.All, "all", false, "Include disabled users (on controller only)")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

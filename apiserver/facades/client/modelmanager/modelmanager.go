@@ -235,7 +235,7 @@ func (m *ModelManagerAPI) checkAddModelPermission(ctx context.Context, cloud str
 		Key:        cloud,
 	}
 	perm, err := m.accessService.ReadUserAccessLevelForTarget(ctx, user.NameFromTag(userTag), target)
-	if err != nil && !errors.Is(err, errors.NotFound) {
+	if err != nil && !errors.Is(err, accesserrors.AccessNotFound) {
 		return false, errors.Trace(err)
 	}
 	if !perm.EqualOrGreaterCloudAccessThan(permission.AddModelAccess) {
@@ -1114,6 +1114,12 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
+		ok, err := m.checkReadModelPermission(ctx, coremodel.UUID(tag.Id()), user.NameFromTag(m.apiUser))
+		if err != nil {
+			return params.ModelInfo{}, errors.Trace(err)
+		} else if !ok {
+			return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
+		}
 		modelInfo, err := m.getModelInfo(ctx, tag, true)
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
@@ -1211,18 +1217,9 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		info.Status = entityStatus
 	}
 
-	// If the user is a controller superuser, they are considered a model
-	// admin.
-	modelAdmin := m.isAdmin
-	if !m.isAdmin {
-		err = m.authorizer.HasPermission(ctx, permission.AdminAccess, tag)
-		modelAdmin = err == nil
-	}
-
-	info.Users, err = common.ModelUserInfo(ctx, m.accessService, m.apiUser, tag)
-	if errors.Is(err, accesserrors.PermissionNotValid) {
-		return params.ModelInfo{}, errors.Annotate(apiservererrors.ErrPerm, "getting model user info")
-	} else if shouldErr(err) {
+	modelAdmin := m.isModelAdmin(ctx, tag)
+	info.Users, err = common.ModelUserInfo(ctx, m.modelService, tag, user.NameFromTag(m.apiUser), modelAdmin)
+	if shouldErr(err) {
 		return params.ModelInfo{}, errors.Annotate(err, "getting model user info")
 	}
 
@@ -1541,4 +1538,33 @@ func (m *ModelManagerAPI) ChangeModelCredential(ctx context.Context, args params
 		}
 	}
 	return params.ErrorResults{Results: results}, nil
+}
+
+// isModelAdmin checks if the user is a controller superuser or admin on the
+// model.
+func (m *ModelManagerAPI) isModelAdmin(ctx context.Context, modelTag names.ModelTag) bool {
+	if m.isAdmin {
+		return true
+	}
+	return m.authorizer.HasPermission(ctx, permission.AdminAccess, modelTag) == nil
+}
+
+// checkReadModelPermission checks if the user has controller superuser
+// permissions or at least read permissions on the model.
+func (m *ModelManagerAPI) checkReadModelPermission(ctx context.Context, modelUUID coremodel.UUID, name user.Name) (bool, error) {
+	if m.isAdmin {
+		return true, nil
+	}
+	target := permission.ID{
+		ObjectType: permission.Model,
+		Key:        modelUUID.String(),
+	}
+	perm, err := m.accessService.ReadUserAccessLevelForTarget(ctx, name, target)
+	if err != nil && !errors.Is(err, accesserrors.AccessNotFound) {
+		return false, errors.Trace(err)
+	}
+	if !perm.EqualOrGreaterModelAccessThan(permission.ReadAccess) {
+		return false, nil
+	}
+	return true, nil
 }

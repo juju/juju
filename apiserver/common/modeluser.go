@@ -13,25 +13,32 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/rpc/params"
 )
 
-type accessService interface {
-	// GetModelUsers will retrieve basic information about all users with
+type modelService interface {
+	// GetModelUsers will retrieve basic information about users with
 	// permissions on the given model UUID.
-	// If the model cannot be found it will return modelerrors.NotFound.
-	// If no permissions can be found on the model it will return
-	// accesserrors.PermissionNotValid.
-	GetModelUsers(ctx context.Context, apiUser user.Name, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error)
+	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
+	// GetModelUser will retrieve basic information about the specified model
+	// user.
+	GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name user.Name) (coremodel.ModelUserInfo, error)
 }
 
-// ModelUserInfo gets model user info from the accessService and converts it
+// ModelUserInfo gets model user info from the modelService and converts it
 // into params.ModelUserInfo.
-func ModelUserInfo(ctx context.Context, service accessService, apiUser names.UserTag, modelTag names.ModelTag) ([]params.ModelUserInfo, error) {
-	userInfo, err := service.GetModelUsers(ctx, user.NameFromTag(apiUser), coremodel.UUID(modelTag.Id()))
+func ModelUserInfo(ctx context.Context, service modelService, modelTag names.ModelTag, apiUser user.Name, isAdmin bool) ([]params.ModelUserInfo, error) {
+	var userInfo []coremodel.ModelUserInfo
+	var err error
+	if isAdmin {
+		userInfo, err = service.GetModelUsers(ctx, coremodel.UUID(modelTag.Id()))
+	} else {
+		var ui coremodel.ModelUserInfo
+		ui, err = service.GetModelUser(ctx, coremodel.UUID(modelTag.Id()), apiUser)
+		userInfo = append(userInfo, ui)
+	}
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	modelUserInfo := make([]params.ModelUserInfo, len(userInfo))

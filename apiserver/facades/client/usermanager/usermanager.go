@@ -19,7 +19,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
-	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
@@ -43,13 +42,23 @@ type AccessService interface {
 	// If the access level of a user cannot be found then
 	// accesserrors.AccessNotFound is returned.
 	ReadUserAccessLevelForTarget(ctx context.Context, subject coreuser.Name, target permission.ID) (permission.Access, error)
+}
 
-	// GetModelUsers will retrieve basic information about all users with
+// ModelService defines an interface for interacting with the model service.
+type ModelService interface {
+	// GetModelUsers will retrieve basic information about users with
 	// permissions on the given model UUID.
-	// If the model cannot be found it will return modelerrors.NotFound.
-	// If no permissions can be found on the model it will return
-	// accesserrors.PermissionNotValid.
-	GetModelUsers(ctx context.Context, apiUser coreuser.Name, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error)
+	// If the model cannot be found it will return
+	// [github.com/juju/juju/domain/model/errors.NotFound].
+	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
+
+	// GetModelUser will retrieve basic information about the specified model
+	// user.
+	// If the model cannot be found it will return
+	// [github.com/juju/juju/domain/model/errors.NotFound].
+	// If the user cannot be found it will return
+	// [github.com/juju/juju/domain/model/errors.UserNotFoundOnModel].
+	GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name coreuser.Name) (coremodel.ModelUserInfo, error)
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete
@@ -57,6 +66,7 @@ type AccessService interface {
 type UserManagerAPI struct {
 	state          *state.State
 	accessService  AccessService
+	modelService   ModelService
 	authorizer     facade.Authorizer
 	check          *common.BlockChecker
 	apiUserTag     names.UserTag
@@ -70,6 +80,7 @@ type UserManagerAPI struct {
 func NewAPI(
 	state *state.State,
 	accessService AccessService,
+	modelService ModelService,
 	authorizer facade.Authorizer,
 	check *common.BlockChecker,
 	apiUserTag names.UserTag,
@@ -81,6 +92,7 @@ func NewAPI(
 	return &UserManagerAPI{
 		state:          state,
 		accessService:  accessService,
+		modelService:   modelService,
 		authorizer:     authorizer,
 		check:          check,
 		apiUserTag:     apiUserTag,
@@ -417,7 +429,15 @@ func (api *UserManagerAPI) modelUserInfo(ctx context.Context, modelTag names.Mod
 		return results, err
 	}
 
-	modelUserInfo, err := common.ModelUserInfo(ctx, api.accessService, api.apiUserTag, modelTag)
+	// If the user is a controller superuser, they are considered a model
+	// admin.
+	modelUserInfo, err := common.ModelUserInfo(
+		ctx,
+		api.modelService,
+		modelTag,
+		api.apiUser.Name,
+		api.isModelAdmin(ctx, modelTag),
+	)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -525,4 +545,13 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 		}
 	}
 	return result, nil
+}
+
+// isModelAdmin checks if the user is a controller superuser or admin on the
+// model.
+func (api *UserManagerAPI) isModelAdmin(ctx context.Context, modelTag names.ModelTag) bool {
+	if api.isAdmin {
+		return true
+	}
+	return api.authorizer.HasPermission(ctx, permission.AdminAccess, modelTag) == nil
 }
