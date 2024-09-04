@@ -53,6 +53,7 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
+	storageprovider "github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/worker/peergrouper"
 	"github.com/juju/juju/state"
@@ -392,7 +393,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			BootstrapMachineAddresses: addrs,
 			BootstrapMachineJobs:      agentConfig.Jobs(),
 			SharedSecret:              info.SharedSecret,
-			StorageProviderRegistry:   storage.NewChainedProviderRegistry(env),
+			StorageProviderRegistry:   storageprovider.NewChainedProviderRegistry(env),
 			MongoDialOpts:             dialOpts,
 			StateNewPolicy: stateenvirons.GetNewPolicyFunc(
 				cloudGetter{cloud: &args.ControllerCloud},

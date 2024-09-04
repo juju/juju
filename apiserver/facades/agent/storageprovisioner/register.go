@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/internal/storage"
+	storageprovider "github.com/juju/juju/internal/storage/provider"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -31,7 +31,7 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		return nil, errors.Trace(err)
 	}
 
-	registry := storage.NewChainedProviderRegistry(tracker)
+	registry := storageprovider.NewChainedProviderRegistry(tracker)
 
 	// Get model UUID
 	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)

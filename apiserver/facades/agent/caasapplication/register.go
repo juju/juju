@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/internal/storage"
+	storageprovider "github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -47,7 +47,7 @@ func newStateFacade(stdCtx context.Context, ctx facade.ModelContext) (*Facade, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	registry := storage.NewChainedProviderRegistry(tracker)
+	registry := storageprovider.NewChainedProviderRegistry(tracker)
 	return NewFacade(
 		resources,
 		authorizer,

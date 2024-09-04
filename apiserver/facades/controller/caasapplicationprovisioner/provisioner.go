@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/resource"
 	"github.com/juju/juju/internal/storage"
+	storageprovider "github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -90,7 +91,7 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	registry := storage.NewChainedProviderRegistry(provider)
+	registry := storageprovider.NewChainedProviderRegistry(provider)
 
 	serviceFactory := ctx.ServiceFactory()
 	controllerConfigService := serviceFactory.ControllerConfig()

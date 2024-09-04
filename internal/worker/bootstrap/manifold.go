@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/servicefactory"
-	"github.com/juju/juju/internal/storage"
+	storageprovider "github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
 	workerstate "github.com/juju/juju/internal/worker/state"
@@ -231,7 +231,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			registry := storage.NewChainedProviderRegistry(tracker)
+			registry := storageprovider.NewChainedProviderRegistry(tracker)
 
 			w, err := NewWorker(WorkerConfig{
 				Agent:                   a,

@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/storage"
+	storageprovider "github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -942,7 +943,7 @@ var storageRegistryGetter = func(ctx *facadeContext) func(context.Context) (stor
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return storage.NewChainedProviderRegistry(provider), nil
+		return storageprovider.NewChainedProviderRegistry(provider), nil
 	}
 }
 

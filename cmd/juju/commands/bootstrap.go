@@ -55,6 +55,7 @@ import (
 	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/internal/storage"
+	storageprovider "github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
@@ -832,7 +833,7 @@ to create a new model to deploy %sworkloads.
 	}
 
 	// Validate the storage provider config.
-	registry := storage.NewChainedProviderRegistry(environ)
+	registry := storageprovider.NewChainedProviderRegistry(environ)
 	for poolName, cfg := range bootstrapCfg.storagePools {
 		poolAttrs := make(storage.Attrs)
 		for k, v := range cfg {

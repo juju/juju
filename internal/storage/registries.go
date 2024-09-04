@@ -14,12 +14,6 @@ import (
 // earlier in the chain take precedence.
 type ChainedProviderRegistry []ProviderRegistry
 
-// NewChainedProviderRegistry returns a new ChainedProviderRegistry that
-// chains the given registries.
-func NewChainedProviderRegistry(registries ...ProviderRegistry) ChainedProviderRegistry {
-	return registries
-}
-
 // StorageProviderTypes implements ProviderRegistry.
 func (r ChainedProviderRegistry) StorageProviderTypes() ([]ProviderType, error) {
 	var result []ProviderType
