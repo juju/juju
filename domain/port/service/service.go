@@ -38,9 +38,13 @@ type AtomicState interface {
 type State interface {
 	AtomicState
 
-	// GetOpenedPorts returns the opened ports for a given unit uuid,
+	// GetUnitOpenedPorts returns the opened ports for a given unit uuid,
 	// grouped by endpoint.
-	GetOpenedPorts(ctx context.Context, unitUUID string) (network.GroupedPortRanges, error)
+	GetUnitOpenedPorts(ctx context.Context, unitUUID string) (network.GroupedPortRanges, error)
+
+	// GetMachineOpenedPorts returns the opened ports for all the units on the
+	// machine. Opened ports are grouped first by unit and then by endpoint.
+	GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error)
 }
 
 // Service provides the API for managing the opened ports for units.
@@ -56,9 +60,15 @@ func NewService(st State) *Service {
 	}
 }
 
-// GetOpenedPorts returns the opened ports for a given unit uuid, grouped by endpoint.
-func (s *Service) GetOpenedPorts(ctx context.Context, unitUUID string) (network.GroupedPortRanges, error) {
-	return s.st.GetOpenedPorts(ctx, unitUUID)
+// GetUnitOpenedPorts returns the opened ports for a given unit uuid, grouped by endpoint.
+func (s *Service) GetUnitOpenedPorts(ctx context.Context, unitUUID string) (network.GroupedPortRanges, error) {
+	return s.st.GetUnitOpenedPorts(ctx, unitUUID)
+}
+
+// GetMachineOpenedPorts returns the opened ports for all the units on the machine.
+// Opened ports are grouped first by unit and then by endpoint.
+func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error) {
+	return s.st.GetMachineOpenedPorts(ctx, machineUUID)
 }
 
 // UpdateUnitPorts opens and closes ports for the endpoints of a given unit.

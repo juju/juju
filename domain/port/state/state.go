@@ -28,9 +28,9 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
-// GetOpenedPorts returns the opened ports for a given unit uuid,
+// GetUnitOpenedPorts returns the opened ports for a given unit uuid,
 // grouped by endpoint.
-func (st *State) GetOpenedPorts(ctx context.Context, unit string) (network.GroupedPortRanges, error) {
+func (st *State) GetUnitOpenedPorts(ctx context.Context, unit string) (network.GroupedPortRanges, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -46,7 +46,7 @@ JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
 WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 `, endpointPortRange{}, unitUUID)
 	if err != nil {
-		return nil, errors.Annotate(err, "preparing get opened ports statement")
+		return nil, errors.Annotate(err, "preparing get unit opened ports statement")
 	}
 
 	results := []endpointPortRange{}
@@ -74,6 +74,58 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 		network.SortPortRanges(portRanges)
 	}
 
+	return groupedPortRanges, nil
+}
+
+// GetMachineOpenedPorts returns the opened ports for all the units on the machine.
+// Opened ports are grouped first by unit and then by endpoint.
+//
+// NOTE: In the ddl machines and units both share 1-to-1 relations with net_nodes.
+// So to join units to machines we go via their net_nodes.
+func (st *State) GetMachineOpenedPorts(ctx context.Context, machine string) (map[string]network.GroupedPortRanges, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	machineUUID := machineUUID{UUID: machine}
+
+	query, err := st.Prepare(`
+SELECT &unitEndpointPortRange.*
+FROM port_range
+JOIN protocol ON port_range.protocol_id = protocol.id
+JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
+JOIN unit ON unit_endpoint.unit_uuid = unit.uuid
+JOIN machine ON unit.net_node_uuid = machine.net_node_uuid
+WHERE machine.uuid = $machineUUID.machine_uuid
+`, unitEndpointPortRange{}, machineUUID)
+	if err != nil {
+		return nil, errors.Annotate(err, "preparing get machine opened ports statement")
+	}
+
+	results := []unitEndpointPortRange{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, query, machineUUID).GetAll(&results)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting opened ports for machine %q", machine)
+	}
+
+	groupedPortRanges := map[string]network.GroupedPortRanges{}
+	for _, endpointPortRange := range results {
+		unitUUID := endpointPortRange.UnitUUID
+		if _, ok := groupedPortRanges[unitUUID]; !ok {
+			groupedPortRanges[unitUUID] = network.GroupedPortRanges{}
+		}
+		if _, ok := groupedPortRanges[unitUUID][endpointPortRange.Endpoint]; !ok {
+			groupedPortRanges[unitUUID][endpointPortRange.Endpoint] = []network.PortRange{}
+		}
+		groupedPortRanges[unitUUID][endpointPortRange.Endpoint] = append(groupedPortRanges[unitUUID][endpointPortRange.Endpoint], endpointPortRange.decode())
+	}
 	return groupedPortRanges, nil
 }
 
@@ -133,7 +185,7 @@ func (st *State) UpdateUnitPorts(
 	unitUUID := unitUUID{UUID: unit}
 
 	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		currentOpenedPorts, err := st.getOpenedPorts(ctx, tx, unitUUID)
+		currentOpenedPorts, err := st.getUnitOpenedPorts(ctx, tx, unitUUID)
 		if err != nil {
 			return errors.Annotatef(err, "getting opened ports for unit %q", unit)
 		}
@@ -226,11 +278,11 @@ AND endpoint IN ($endpoints[:])
 	return endpoints, nil
 }
 
-// getOpenedPorts returns the opened ports for the given unit.
+// getUnitOpenedPorts returns the opened ports for the given unit.
 //
-// NOTE: This differs from GetOpenedPorts in that it returns port ranges with
-// their UUIDs, which are not needed by GetOpenedPorts.
-func (st *State) getOpenedPorts(ctx context.Context, tx *sqlair.TX, unitUUID unitUUID) ([]endpointPortRangeUUID, error) {
+// NOTE: This differs from GetUnitOpenedPorts in that it returns port ranges with
+// their UUIDs, which are not needed by GetUnitOpenedPorts.
+func (st *State) getUnitOpenedPorts(ctx context.Context, tx *sqlair.TX, unitUUID unitUUID) ([]endpointPortRangeUUID, error) {
 	getOpenedPorts, err := st.Prepare(`
 SELECT 
 	port_range.uuid AS &endpointPortRangeUUID.uuid,
