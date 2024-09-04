@@ -532,6 +532,48 @@ func (s *secretsSuite) TestDrainBackendConfigInfo(c *gc.C) {
 	})
 }
 
+func (s *secretsSuite) TestSecretCleanupBackendConfigInfo(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	model := mocks.NewMockModel(ctrl)
+	backendState := mocks.NewMockSecretBackendsStorage(ctrl)
+
+	s.PatchValue(&secrets.GetSecretBackendsState, func(secrets.Model) state.SecretBackendsStorage { return backendState })
+
+	modelCfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
+		"secret-backend": "backend-name",
+	})
+	model.EXPECT().ControllerUUID().Return(coretesting.ControllerTag.Id()).AnyTimes()
+	model.EXPECT().UUID().Return(coretesting.ModelTag.Id()).AnyTimes()
+	model.EXPECT().Name().Return("fred").AnyTimes()
+	gomock.InOrder(
+		model.EXPECT().Config().Return(modelCfg, nil),
+		model.EXPECT().Type().Return(state.ModelTypeIAAS),
+		backendState.EXPECT().ListSecretBackends().Return([]*coresecrets.SecretBackend{{
+			ID:          "backend-id",
+			Name:        "backend-name",
+			BackendType: "some-backend",
+		}}, nil),
+	)
+
+	info, err := secrets.SecretCleanupBackendConfigInfo(model, "backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+		ActiveID: "backend-id",
+		Configs: map[string]provider.ModelBackendConfig{
+			"backend-id": {
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				BackendConfig: provider.BackendConfig{
+					BackendType: "some-backend",
+				},
+			},
+		},
+	})
+}
+
 func (s *secretsSuite) TestBackendConfigInfoAppTagLogin(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

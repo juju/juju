@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
+	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -48,6 +49,8 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
+	jujusecrets "github.com/juju/juju/secrets"
+	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
@@ -117,6 +120,9 @@ type APIBase struct {
 	registry              storage.ProviderRegistry
 	caasBroker            CaasBrokerInterface
 	deployApplicationFunc func(ApplicationDeployer, Model, DeployApplicationParams) (Application, error)
+
+	secretBackendConfigGetter jujusecrets.BackendConfigForDeleteGetter
+	secretsState              SecretsState
 }
 
 type CaasBrokerInterface interface {
@@ -160,7 +166,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		return nil, errors.Trace(err)
 	}
 
-	state := &stateShim{ctx.State()}
+	st := &stateShim{ctx.State()}
 
 	modelCfg, err := model.Config()
 	if err != nil {
@@ -178,19 +184,23 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		return nil, errors.Trace(err)
 	}
 
-	updateBase := NewUpdateBaseAPI(state, makeUpdateSeriesValidator(chClient))
+	updateBase := NewUpdateBaseAPI(st, makeUpdateSeriesValidator(chClient))
 	validatorCfg := validatorConfig{
 		charmhubHTTPClient: charmhubHTTPClient,
 		caasBroker:         caasBroker,
 		model:              m,
 		registry:           registry,
-		state:              state,
+		state:              st,
 		storagePoolManager: storagePoolManager,
 	}
-	repoDeploy := NewDeployFromRepositoryAPI(state, makeDeployFromRepositoryValidator(validatorCfg))
+	repoDeploy := NewDeployFromRepositoryAPI(st, makeDeployFromRepositoryValidator(validatorCfg))
+
+	secretBackendConfigGetter := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
+		return commonsecrets.SecretCleanupBackendConfigInfo(commonsecrets.SecretsModel(m), backendID)
+	}
 
 	return NewAPIBase(
-		state,
+		st,
 		storageAccess,
 		ctx.Auth(),
 		updateBase,
@@ -204,6 +214,8 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		registry,
 		resources,
 		caasBroker,
+		secretBackendConfigGetter,
+		state.NewSecrets(ctx.State()),
 	)
 }
 
@@ -223,26 +235,30 @@ func NewAPIBase(
 	registry storage.ProviderRegistry,
 	resources facade.Resources,
 	caasBroker CaasBrokerInterface,
+	secretBackendConfigGetter jujusecrets.BackendConfigForDeleteGetter,
+	secretsState SecretsState,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &APIBase{
-		backend:               backend,
-		storageAccess:         storageAccess,
-		authorizer:            authorizer,
-		updateBase:            updateBase,
-		repoDeploy:            repoDeploy,
-		check:                 blockChecker,
-		model:                 model,
-		modelType:             model.Type(),
-		leadershipReader:      leadershipReader,
-		stateCharm:            stateCharm,
-		deployApplicationFunc: deployApplication,
-		storagePoolManager:    storagePoolManager,
-		registry:              registry,
-		resources:             resources,
-		caasBroker:            caasBroker,
+		backend:                   backend,
+		storageAccess:             storageAccess,
+		authorizer:                authorizer,
+		updateBase:                updateBase,
+		repoDeploy:                repoDeploy,
+		check:                     blockChecker,
+		model:                     model,
+		modelType:                 model.Type(),
+		leadershipReader:          leadershipReader,
+		stateCharm:                stateCharm,
+		deployApplicationFunc:     deployApplication,
+		storagePoolManager:        storagePoolManager,
+		registry:                  registry,
+		resources:                 resources,
+		caasBroker:                caasBroker,
+		secretBackendConfigGetter: secretBackendConfigGetter,
+		secretsState:              secretsState,
 	}, nil
 }
 
@@ -1773,6 +1789,8 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 		if arg.Force {
 			op.MaxWait = common.MaxWait(arg.MaxWait)
 		}
+		backend := jujusecrets.NewClientForContentDeletion(api.secretsState, api.secretBackendConfigGetter)
+		op.SecretContentDeleter = backend.DeleteContent
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, err
 		}

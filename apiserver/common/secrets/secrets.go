@@ -152,6 +152,25 @@ func DrainBackendConfigInfo(backendID string, model Model, authTag names.Tag, le
 	return &result, nil
 }
 
+// SecretCleanupBackendConfigInfo returns the config to delete any application owned secrets
+// when the app is removed.
+func SecretCleanupBackendConfigInfo(model Model, backendID string) (*provider.ModelBackendConfigInfo, error) {
+	adminModelCfg, err := AdminBackendConfigInfo(model)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting configured secrets providers")
+	}
+	result := provider.ModelBackendConfigInfo{
+		ActiveID: adminModelCfg.ActiveID,
+		Configs:  make(map[string]provider.ModelBackendConfig),
+	}
+	cfg, ok := adminModelCfg.Configs[backendID]
+	if !ok {
+		return nil, errors.Errorf("missing secret backend %q", backendID)
+	}
+	result.Configs[backendID] = cfg
+	return &result, nil
+}
+
 // BackendConfigInfo returns the config to create a secret backend
 // for the specified backend IDs.
 // This is called to provide config to a client like a unit agent which

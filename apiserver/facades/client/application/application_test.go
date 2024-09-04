@@ -88,6 +88,8 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		registry,
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
+		nil, // secret backend config getter not used in this suite.
+		state.NewSecrets(s.State),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api

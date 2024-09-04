@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/controller/undertaker"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
@@ -122,7 +123,7 @@ func (s *undertakerSuite) TestHostedProcessDyingEnviron(c *gc.C) {
 	c.Assert(model.Refresh(), jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 
-	err = otherSt.Cleanup()
+	err = otherSt.Cleanup(fakeSecretDeleter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient.ProcessDyingModel(), jc.ErrorIsNil)
 
@@ -155,7 +156,7 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 
-	err = otherSt.Cleanup()
+	err = otherSt.Cleanup(fakeSecretDeleter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient.ProcessDyingModel(), jc.ErrorIsNil)
 
@@ -190,4 +191,8 @@ func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) 
 	c.Assert(undertakerClient, gc.NotNil)
 
 	return undertakerClient, otherState
+}
+
+var fakeSecretDeleter = func(uri *secrets.URI, revision int) error {
+	return nil
 }

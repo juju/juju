@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -362,6 +363,9 @@ type DestroyApplicationOperation struct {
 
 	// ForcedOperation stores needed information to force this operation.
 	ForcedOperation
+
+	// SecretContentDeleter is a function which deletes secret content.
+	SecretContentDeleter func(uri *secrets.URI, revision int) error
 }
 
 // Build is part of the ModelOperation interface.
@@ -455,6 +459,25 @@ func (op *DestroyApplicationOperation) deleteSecrets() error {
 	ownedURIs, err := op.app.st.referencedSecrets(op.app.Tag(), "owner-tag")
 	if err != nil {
 		return errors.Trace(err)
+	}
+	if op.SecretContentDeleter != nil {
+		secretSt := NewSecrets(op.app.st)
+		for _, uri := range ownedURIs {
+			revs, err := secretSt.ListSecretRevisions(uri)
+			if err != nil {
+				return errors.Annotatef(err, "getting revisions for %q", uri.ID)
+			}
+			for _, rev := range revs {
+				if rev.ValueRef == nil {
+					continue
+				}
+				if err = op.SecretContentDeleter(uri, rev.Revision); err != nil {
+					if op.FatalError(err) {
+						return errors.Annotatef(err, "deleting external  content for %s/%d", uri.ID, rev.Revision)
+					}
+				}
+			}
+		}
 	}
 	if _, err := op.app.st.deleteSecrets(ownedURIs); err != nil {
 		return errors.Annotatef(err, "deleting owned secrets for %q", op.app.Name())
