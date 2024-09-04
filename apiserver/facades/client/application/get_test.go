@@ -150,7 +150,9 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	ch := f2.MakeCharm(c, &factory.CharmParams{Name: "dashboard4miner", Series: "focal"})
 	app := f2.MakeApplication(c, &factory.ApplicationParams{
 		Name: "dashboard4miner", Charm: ch,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable", Architecture: "amd64"}},
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "charm-hub",
+			Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable", Architecture: "amd64"}},
 	})
 
 	schemaFields, defaults, err := application.ConfigSchema()

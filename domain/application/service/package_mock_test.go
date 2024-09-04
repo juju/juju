@@ -379,6 +379,47 @@ func (c *MockApplicationStateGetApplicationUnitLifeCall) DoAndReturn(f func(cont
 	return c
 }
 
+// GetCharmByApplicationName mocks base method.
+func (m *MockApplicationState) GetCharmByApplicationName(arg0 context.Context, arg1 string) (charm0.Charm, charm0.CharmOrigin, charm0.Platform, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmByApplicationName", arg0, arg1)
+	ret0, _ := ret[0].(charm0.Charm)
+	ret1, _ := ret[1].(charm0.CharmOrigin)
+	ret2, _ := ret[2].(charm0.Platform)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// GetCharmByApplicationName indicates an expected call of GetCharmByApplicationName.
+func (mr *MockApplicationStateMockRecorder) GetCharmByApplicationName(arg0, arg1 any) *MockApplicationStateGetCharmByApplicationNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmByApplicationName", reflect.TypeOf((*MockApplicationState)(nil).GetCharmByApplicationName), arg0, arg1)
+	return &MockApplicationStateGetCharmByApplicationNameCall{Call: call}
+}
+
+// MockApplicationStateGetCharmByApplicationNameCall wrap *gomock.Call
+type MockApplicationStateGetCharmByApplicationNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationStateGetCharmByApplicationNameCall) Return(arg0 charm0.Charm, arg1 charm0.CharmOrigin, arg2 charm0.Platform, arg3 error) *MockApplicationStateGetCharmByApplicationNameCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2, arg3)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationStateGetCharmByApplicationNameCall) Do(f func(context.Context, string) (charm0.Charm, charm0.CharmOrigin, charm0.Platform, error)) *MockApplicationStateGetCharmByApplicationNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationStateGetCharmByApplicationNameCall) DoAndReturn(f func(context.Context, string) (charm0.Charm, charm0.CharmOrigin, charm0.Platform, error)) *MockApplicationStateGetCharmByApplicationNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetStoragePoolByName mocks base method.
 func (m *MockApplicationState) GetStoragePoolByName(arg0 context.Context, arg1 string) (storage.StoragePoolDetails, error) {
 	m.ctrl.T.Helper()
@@ -901,12 +942,13 @@ func (c *MockCharmStateDeleteCharmCall) DoAndReturn(f func(context.Context, char
 }
 
 // GetCharm mocks base method.
-func (m *MockCharmState) GetCharm(arg0 context.Context, arg1 charm.ID) (charm0.Charm, error) {
+func (m *MockCharmState) GetCharm(arg0 context.Context, arg1 charm.ID) (charm0.Charm, charm0.CharmOrigin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCharm", arg0, arg1)
 	ret0, _ := ret[0].(charm0.Charm)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(charm0.CharmOrigin)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetCharm indicates an expected call of GetCharm.
@@ -922,19 +964,19 @@ type MockCharmStateGetCharmCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCharmStateGetCharmCall) Return(arg0 charm0.Charm, arg1 error) *MockCharmStateGetCharmCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockCharmStateGetCharmCall) Return(arg0 charm0.Charm, arg1 charm0.CharmOrigin, arg2 error) *MockCharmStateGetCharmCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmStateGetCharmCall) Do(f func(context.Context, charm.ID) (charm0.Charm, error)) *MockCharmStateGetCharmCall {
+func (c *MockCharmStateGetCharmCall) Do(f func(context.Context, charm.ID) (charm0.Charm, charm0.CharmOrigin, error)) *MockCharmStateGetCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmStateGetCharmCall) DoAndReturn(f func(context.Context, charm.ID) (charm0.Charm, error)) *MockCharmStateGetCharmCall {
+func (c *MockCharmStateGetCharmCall) DoAndReturn(f func(context.Context, charm.ID) (charm0.Charm, charm0.CharmOrigin, error)) *MockCharmStateGetCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

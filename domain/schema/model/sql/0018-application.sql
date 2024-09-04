@@ -23,16 +23,6 @@ CREATE TABLE application (
 CREATE UNIQUE INDEX idx_application_name
 ON application (name);
 
-CREATE TABLE application_channel (
-    application_uuid TEXT NOT NULL PRIMARY KEY,
-    track TEXT NOT NULL,
-    risk TEXT NOT NULL,
-    branch TEXT,
-    CONSTRAINT fk_application_channel_application
-    FOREIGN KEY (application_uuid)
-    REFERENCES application (uuid)
-);
-
 -- Application scale is currently only targeting k8s applications.
 CREATE TABLE application_scale (
     application_uuid TEXT NOT NULL PRIMARY KEY,
@@ -42,22 +32,6 @@ CREATE TABLE application_scale (
     CONSTRAINT fk_application_endpoint_space_application
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid)
-);
-
-CREATE TABLE application_platform (
-    application_uuid TEXT NOT NULL PRIMARY KEY,
-    os_id TEXT NOT NULL,
-    channel TEXT NOT NULL,
-    architecture_id TEXT NOT NULL,
-    CONSTRAINT fk_application_platform_application
-    FOREIGN KEY (application_uuid)
-    REFERENCES application (uuid),
-    CONSTRAINT fk_application_platform_os
-    FOREIGN KEY (os_id)
-    REFERENCES os (id),
-    CONSTRAINT fk_application_platform_architecture
-    FOREIGN KEY (architecture_id)
-    REFERENCES architecture (id)
 );
 
 CREATE TABLE application_endpoint_space (
@@ -112,4 +86,31 @@ CREATE TABLE application_setting (
     CONSTRAINT fk_application_setting_application
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid)
+);
+
+CREATE TABLE application_platform (
+    application_uuid TEXT NOT NULL,
+    os_id TEXT NOT NULL,
+    channel TEXT,
+    architecture_id TEXT NOT NULL,
+    CONSTRAINT fk_application_platform_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_application_platform_os
+    FOREIGN KEY (os_id)
+    REFERENCES os (id),
+    CONSTRAINT fk_application_platform_architecture
+    FOREIGN KEY (architecture_id)
+    REFERENCES architecture (id)
+);
+
+CREATE TABLE application_channel (
+    application_uuid TEXT NOT NULL,
+    track TEXT,
+    risk TEXT,
+    branch TEXT,
+    CONSTRAINT fk_application_origin_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid),
+    PRIMARY KEY (application_uuid, track, risk, branch)
 );

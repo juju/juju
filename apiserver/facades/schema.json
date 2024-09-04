@@ -6768,6 +6768,12 @@
                         "description": {
                             "type": "string"
                         },
+                        "execution-group": {
+                            "type": "string"
+                        },
+                        "parallel": {
+                            "type": "boolean"
+                        },
                         "params": {
                             "type": "object",
                             "patternProperties": {
@@ -8120,7 +8126,10 @@
         "Description": "",
         "Version": 1,
         "AvailableTo": [
-            "controller-machine-agent"
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
+            "model-user"
         ],
         "Schema": {
             "type": "object",
@@ -8371,6 +8380,12 @@
                     "properties": {
                         "description": {
                             "type": "string"
+                        },
+                        "execution-group": {
+                            "type": "string"
+                        },
+                        "parallel": {
+                            "type": "boolean"
                         },
                         "params": {
                             "type": "object",
@@ -10357,6 +10372,12 @@
                     "properties": {
                         "description": {
                             "type": "string"
+                        },
+                        "execution-group": {
+                            "type": "string"
+                        },
+                        "parallel": {
+                            "type": "boolean"
                         },
                         "params": {
                             "type": "object",

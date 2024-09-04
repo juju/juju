@@ -464,16 +464,28 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "mysql",
 		Charm: ch,
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "local",
+			Platform: &state.Platform{OS: "ubuntu", Channel: "12.10/stable", Architecture: "amd64"},
+		},
 	})
 	wpch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", URL: "local:quantal/wordpress-3"})
 	wordpress := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: wpch,
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "local",
+			Platform: &state.Platform{OS: "ubuntu", Channel: "12.10/stable", Architecture: "amd64"},
+		},
 	})
 	loggingch := f.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "local:quantal/logging-1"})
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: loggingch,
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "local",
+			Platform: &state.Platform{OS: "ubuntu", Channel: "12.10/stable", Architecture: "amd64"},
+		},
 	})
 	eps, err := st.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)

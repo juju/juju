@@ -36,48 +36,158 @@ type applicationServiceSuite struct {
 
 var _ = gc.Suite(&applicationServiceSuite{})
 
-func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.state = NewMockApplicationState(ctrl)
-	s.charm = NewMockCharm(ctrl)
-	registry := storage.ChainedProviderRegistry{
-		dummystorage.StorageProviders(),
-		provider.CommonStorageProviders(),
-	}
-	s.service = NewApplicationService(s.state, registry, loggertesting.WrapCheckLog(c))
-
-	return ctrl
-}
-
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
 
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: ptr("ubuntu/666"),
 	}
 	ch := domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
-			Name:  "foo",
+			Name:  "ubuntu",
 			RunAs: "default",
 		},
 	}
 	platform := application.Platform{
-		Channel:        "24.04",
-		OSTypeID:       application.Ubuntu,
-		ArchitectureID: application.ARM64,
+		Channel:      "24.04",
+		OSType:       domaincharm.Ubuntu,
+		Architecture: domaincharm.ARM64,
 	}
 	app := application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platform,
+		Origin: domaincharm.CharmOrigin{
+			ReferenceName: "ubuntu",
+			Source:        domaincharm.CharmHubSource,
+			Revision:      42,
+		},
 	}
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "666", app, u).Return(id, nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", app, u).Return(id, nil)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
+	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "ubuntu",
+	}).AnyTimes()
+
+	a := AddUnitArg{
+		UnitName: ptr("ubuntu/666"),
+	}
+	_, err := s.service.CreateApplication(context.Background(), "ubuntu", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Revision: ptr(42),
+	}, AddApplicationArgs{
+		ReferenceName: "ubuntu",
+	}, a)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationWithInvalidApplicationName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Revision: ptr(42),
+	}, AddApplicationArgs{
+		ReferenceName: "ubuntu",
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationWithInvalidCharmName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "666",
+	}).AnyTimes()
+
+	_, err := s.service.CreateApplication(context.Background(), "ubuntu", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Revision: ptr(42),
+	}, AddApplicationArgs{
+		ReferenceName: "ubuntu",
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationWithInvalidReferenceName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "ubuntu",
+	}).AnyTimes()
+
+	_, err := s.service.CreateApplication(context.Background(), "ubuntu", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Revision: ptr(42),
+	}, AddApplicationArgs{
+		ReferenceName: "666",
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationWithNoCharmName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
+
+	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	}, AddApplicationArgs{})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationWithNoApplicationOrCharmName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
+
+	_, err := s.service.CreateApplication(context.Background(), "", s.charm, corecharm.Origin{
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	}, AddApplicationArgs{})
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationWithNoMeta(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(nil).AnyTimes()
+
+	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	}, AddApplicationArgs{})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmMetadataNotValid)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationWithNoArchitecture(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo"}).AnyTimes()
+
+	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Platform: corecharm.Platform{Channel: "24.04", OS: "ubuntu"},
+	}, AddApplicationArgs{
+		ReferenceName: "foo",
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmOriginNotValid)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", gomock.Any()).Return(id, rErr)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -85,13 +195,14 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 		Name: "foo",
 	}).AnyTimes()
 
-	a := AddUnitArg{
-		UnitName: ptr("foo/666"),
-	}
-	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-	}, AddApplicationArgs{}, a)
-	c.Assert(err, jc.ErrorIsNil)
+	}, AddApplicationArgs{
+		ReferenceName: "foo",
+	})
+	c.Check(err, jc.ErrorIs, rErr)
+	c.Assert(err, gc.ErrorMatches, `creating application "foo": boom`)
 }
 
 func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
@@ -119,16 +230,21 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 		},
 	}
 	platform := application.Platform{
-		Channel:        "24.04",
-		OSTypeID:       application.Ubuntu,
-		ArchitectureID: application.ARM64,
+		Channel:      "24.04",
+		OSType:       domaincharm.Ubuntu,
+		Architecture: domaincharm.ARM64,
 	}
 	app := application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platform,
+		Origin: domaincharm.CharmOrigin{
+			ReferenceName: "foo",
+			Source:        domaincharm.LocalSource,
+			Revision:      42,
+		},
 	}
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "666", app, u).Return(id, nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app, u).Return(id, nil)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -151,9 +267,13 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+		Source:   corecharm.Local,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-	}, AddApplicationArgs{}, a)
+		Revision: ptr(42),
+	}, AddApplicationArgs{
+		ReferenceName: "foo",
+	}, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -182,16 +302,21 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 		},
 	}
 	platform := application.Platform{
-		Channel:        "24.04",
-		OSTypeID:       application.Ubuntu,
-		ArchitectureID: application.ARM64,
+		Channel:      "24.04",
+		OSType:       domaincharm.Ubuntu,
+		Architecture: domaincharm.ARM64,
 	}
 	app := application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platform,
+		Origin: domaincharm.CharmOrigin{
+			ReferenceName: "foo",
+			Source:        domaincharm.CharmHubSource,
+			Revision:      42,
+		},
 	}
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultBlockSource: ptr("fast")}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "666", app, u).Return(id, nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app, u).Return(id, nil)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -214,9 +339,12 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Revision: ptr(42),
 	}, AddApplicationArgs{
+		ReferenceName: "foo",
 		Storage: map[string]storage.Directive{
 			"data": {Count: 2},
 		},
@@ -249,16 +377,21 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 		},
 	}
 	platform := application.Platform{
-		Channel:        "24.04",
-		OSTypeID:       application.Ubuntu,
-		ArchitectureID: application.ARM64,
+		Channel:      "24.04",
+		OSType:       domaincharm.Ubuntu,
+		Architecture: domaincharm.ARM64,
 	}
 	app := application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platform,
+		Origin: domaincharm.CharmOrigin{
+			ReferenceName: "foo",
+			Source:        domaincharm.CharmHubSource,
+			Revision:      42,
+		},
 	}
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "666", app, u).Return(id, nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app, u).Return(id, nil)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -281,9 +414,13 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-	}, AddApplicationArgs{}, a)
+		Revision: ptr(42),
+	}, AddApplicationArgs{
+		ReferenceName: "foo",
+	}, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -312,16 +449,21 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 		},
 	}
 	platform := application.Platform{
-		Channel:        "24.04",
-		OSTypeID:       application.Ubuntu,
-		ArchitectureID: application.ARM64,
+		Channel:      "24.04",
+		OSType:       domaincharm.Ubuntu,
+		Architecture: domaincharm.ARM64,
 	}
 	app := application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platform,
+		Origin: domaincharm.CharmOrigin{
+			ReferenceName: "foo",
+			Source:        domaincharm.CharmHubSource,
+			Revision:      42,
+		},
 	}
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultFilesystemSource: ptr("fast")}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "666", app, u).Return(id, nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app, u).Return(id, nil)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -344,9 +486,12 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Revision: ptr(42),
 	}, AddApplicationArgs{
+		ReferenceName: "foo",
 		Storage: map[string]storage.Directive{
 			"data": {Count: 2},
 		},
@@ -372,9 +517,11 @@ func (s *applicationServiceSuite) TestCreateWithSharedStorageMissingDirectives(c
 	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-	}, AddApplicationArgs{}, a)
+	}, AddApplicationArgs{
+		ReferenceName: "foo",
+	}, a)
 	c.Assert(err, jc.ErrorIs, storageerrors.MissingSharedStorageDirectiveError)
 	c.Assert(err, gc.ErrorMatches, `adding default storage directives: no storage directive specified for shared charm storage "data"`)
 }
@@ -398,81 +545,15 @@ func (s *applicationServiceSuite) TestCreateWithStorageValidates(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
-	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{
+		ReferenceName: "foo",
 		Storage: map[string]storage.Directive{
 			"logs": {Count: 2},
 		},
 	}, a)
 	c.Assert(err, gc.ErrorMatches, `invalid storage directives: charm "mine" has no store called "logs"`)
-}
-
-func (s *applicationServiceSuite) TestCreateApplicationWithNoCharmName(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
-
-	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
-		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-	}, AddApplicationArgs{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
-}
-
-func (s *applicationServiceSuite) TestCreateApplicationWithNoApplicationOrCharmName(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
-
-	_, err := s.service.CreateApplication(context.Background(), "", s.charm, corecharm.Origin{
-		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-	}, AddApplicationArgs{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
-}
-
-func (s *applicationServiceSuite) TestCreateApplicationWithNoMeta(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.charm.EXPECT().Meta().Return(nil).AnyTimes()
-
-	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
-		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-	}, AddApplicationArgs{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmMetadataNotValid)
-}
-
-func (s *applicationServiceSuite) TestCreateApplicationWithNoArchitecture(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo"}).AnyTimes()
-
-	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
-		Source:   corecharm.CharmHub,
-		Platform: corecharm.Platform{Channel: "24.04", OS: "ubuntu"},
-	}, AddApplicationArgs{})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmOriginNotValid)
-}
-
-func (s *applicationServiceSuite) TestCreateApplicationError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	id := applicationtesting.GenApplicationUUID(c)
-
-	rErr := errors.New("boom")
-	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "666", gomock.Any()).Return(id, rErr)
-	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
-	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
-	s.charm.EXPECT().Meta().Return(&charm.Meta{
-		Name: "foo",
-	}).AnyTimes()
-
-	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
-		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-	}, AddApplicationArgs{})
-	c.Check(err, jc.ErrorIs, rErr)
-	c.Assert(err, gc.ErrorMatches, `creating application "666": boom`)
 }
 
 func (s *applicationServiceSuite) TestDeleteApplicationSuccess(c *gc.C) {
@@ -588,4 +669,57 @@ func (s *applicationServiceSuite) TestRegisterCAASUnitMissingPasswordHash(c *gc.
 	p.PasswordHash = nil
 	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
 	c.Assert(err, gc.ErrorMatches, "password hash not valid")
+}
+
+func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetCharmByApplicationName(gomock.Any(), "foo").Return(domaincharm.Charm{
+		Metadata: domaincharm.Metadata{
+			Name: "foo",
+
+			// RunAs becomes mandatory when being persisted. Empty string is not
+			// allowed.
+			RunAs: "default",
+		},
+	}, domaincharm.CharmOrigin{
+		ReferenceName: "bar",
+		Revision:      42,
+	}, application.Platform{
+		OSType:       domaincharm.Ubuntu,
+		Architecture: domaincharm.AMD64,
+	}, nil)
+
+	metadata, origin, platform, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(metadata.Meta(), gc.DeepEquals, &charm.Meta{
+		Name: "foo",
+
+		// Notice that the RunAs field becomes empty string when being returned.
+	})
+	c.Check(origin, gc.DeepEquals, domaincharm.CharmOrigin{
+		ReferenceName: "bar",
+		Revision:      42,
+	})
+	c.Check(platform, gc.DeepEquals, application.Platform{
+		OSType:       domaincharm.Ubuntu,
+		Architecture: domaincharm.AMD64,
+	})
+}
+
+func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.state = NewMockApplicationState(ctrl)
+	s.charm = NewMockCharm(ctrl)
+	registry := storage.ChainedProviderRegistry{
+		dummystorage.StorageProviders(),
+		provider.CommonStorageProviders(),
+	}
+	s.service = NewApplicationService(s.state, registry, loggertesting.WrapCheckLog(c))
+
+	return ctrl
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

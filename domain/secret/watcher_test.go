@@ -60,8 +60,17 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 	_, err := svc.CreateApplication(context.Background(),
 		appName,
 		&stubCharm{},
-		corecharm.Origin{},
-		applicationservice.AddApplicationArgs{},
+		corecharm.Origin{
+			Source: corecharm.CharmHub,
+			Platform: corecharm.Platform{
+				Channel:      "24.04",
+				OS:           "ubuntu",
+				Architecture: "amd64",
+			},
+		},
+		applicationservice.AddApplicationArgs{
+			ReferenceName: appName,
+		},
 		applicationservice.AddUnitArg{UnitName: &unitName},
 	)
 	c.Assert(err, jc.ErrorIsNil)

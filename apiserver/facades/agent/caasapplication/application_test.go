@@ -57,8 +57,20 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	serviceFactory := s.DefaultModelServiceFactory(c)
 	unitName := "gitlab/0"
 	applicationService := serviceFactory.Application(provider.CommonStorageProviders())
+
+	origin := corecharm.Origin{
+		Source: corecharm.CharmHub,
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "24.04",
+		},
+	}
+
 	_, err := applicationService.CreateApplication(
-		context.Background(), "gitlab", &stubCharm{}, corecharm.Origin{}, service.AddApplicationArgs{}, service.AddUnitArg{
+		context.Background(), "gitlab", &stubCharm{}, origin, service.AddApplicationArgs{
+			ReferenceName: "gitlab",
+		}, service.AddUnitArg{
 			UnitName: &unitName,
 		})
 	c.Assert(err, jc.ErrorIsNil)

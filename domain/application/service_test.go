@@ -50,14 +50,16 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *serviceSuite) createApplication(c *gc.C, name string, units ...service.AddUnitArg) coreapplication.ID {
-	ctx := context.Background()
-	appID, err := s.svc.CreateApplication(ctx, name, &stubCharm{}, corecharm.Origin{
+	appID, err := s.svc.CreateApplication(context.Background(), name, &stubCharm{}, corecharm.Origin{
+		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{
 			Channel:      "24.04",
 			OS:           "ubuntu",
 			Architecture: "amd64",
 		},
-	}, service.AddApplicationArgs{}, units...)
+	}, service.AddApplicationArgs{
+		ReferenceName: name,
+	}, units...)
 	c.Assert(err, jc.ErrorIsNil)
 	return appID
 }

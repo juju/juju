@@ -9,16 +9,15 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/internal/charm"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -36,50 +35,30 @@ type firewallerSuite struct {
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 
-	newFunc func(c *gc.C, resources facade.Resources,
-		authorizer facade.Authorizer,
-		st *mockState,
-	) (facadeSidecar, error)
-
 	facade facadeSidecar
+
+	charmService *MockCharmService
+	appService   *MockApplicationService
+
+	modelTag names.ModelTag
 }
 
-var _ = gc.Suite(&firewallerSuite{
-	newFunc: func(c *gc.C, resources facade.Resources,
-		authorizer facade.Authorizer,
-		st *mockState,
-	) (facadeSidecar, error) {
-		commonState := &mockCommonStateShim{st}
-		commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
-		c.Assert(err, jc.ErrorIsNil)
-		appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
-		c.Assert(err, jc.ErrorIsNil)
-		return caasfirewaller.NewFacadeForTest(
-			resources,
-			authorizer,
-			st,
-			commonCharmsAPI,
-			appCharmInfoAPI,
-		)
-	},
-})
+var _ = gc.Suite(&firewallerSuite{})
 
 func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
+	s.modelTag = coretesting.ModelTag
+
 	s.applicationsChanges = make(chan []string, 1)
 	s.appExposedChanges = make(chan struct{}, 1)
 	s.openPortsChanges = make(chan []string, 1)
+
 	appExposedWatcher := statetesting.NewMockNotifyWatcher(s.appExposedChanges)
 	s.st = &mockState{
 		application: mockApplication{
 			life:    state.Alive,
 			watcher: appExposedWatcher,
-			charm: mockCharm{
-				meta:     &charm.Meta{},
-				manifest: &charm.Manifest{},
-				url:      "ch:gitlab",
-			},
 		},
 		applicationsWatcher: statetesting.NewMockStringsWatcher(s.applicationsChanges),
 		openPortsWatcher:    statetesting.NewMockStringsWatcher(s.openPortsChanges),
@@ -94,24 +73,11 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-
-	facade, err := s.newFunc(c, s.resources, s.authorizer, s.st)
-	c.Assert(err, jc.ErrorIsNil)
-	s.facade = facade
-
-	// charm.FormatV2.
-	s.st.application.charm.manifest.Bases = []charm.Base{
-		{
-			Name: "ubuntu",
-			Channel: charm.Channel{
-				Risk:  "stable",
-				Track: "20.04",
-			},
-		},
-	}
 }
 
 func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	openPortsChanges := []string{"port1", "port2"}
 	s.openPortsChanges <- openPortsChanges
 
@@ -128,6 +94,8 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestGetApplicationOpenedPorts(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.st.application.appPortRanges = network.GroupedPortRanges{
 		"": []network.PortRange{
 			{
@@ -166,26 +134,31 @@ func (s *firewallerSuite) TestGetApplicationOpenedPorts(c *gc.C) {
 	})
 }
 
-type facadeSidecar interface {
-	IsExposed(ctx context.Context, args params.Entities) (params.BoolResults, error)
-	ApplicationsConfig(ctx context.Context, args params.Entities) (params.ApplicationGetConfigResults, error)
-	WatchApplications(ctx context.Context) (params.StringsWatchResult, error)
-	Life(ctx context.Context, args params.Entities) (params.LifeResults, error)
-	Watch(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error)
-	ApplicationCharmInfo(ctx context.Context, args params.Entity) (params.Charm, error)
-	WatchOpenedPorts(ctx context.Context, args params.Entities) (params.StringsWatchResults, error)
-	GetOpenedPorts(ctx context.Context, arg params.Entity) (params.ApplicationOpenedPortsResults, error)
-}
-
 func (s *firewallerSuite) TestPermission(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
-	_, err := s.newFunc(c, s.resources, s.authorizer, s.st)
+
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(s.modelTag, s.charmService, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(s.modelTag, s.appService, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = caasfirewaller.NewFacade(
+		s.resources,
+		s.authorizer,
+		s.st,
+		commonCharmsAPI,
+		appCharmInfoAPI,
+	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *firewallerSuite) TestWatchApplications(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	applicationNames := []string{"db2", "hadoop"}
 	s.applicationsChanges <- applicationNames
 	result, err := s.facade.WatchApplications(context.Background())
@@ -196,6 +169,8 @@ func (s *firewallerSuite) TestWatchApplications(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestWatchApplication(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.appExposedChanges <- struct{}{}
 
 	results, err := s.facade.Watch(context.Background(), params.Entities{
@@ -218,6 +193,8 @@ func (s *firewallerSuite) TestWatchApplication(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestIsExposed(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.st.application.exposed = true
 	results, err := s.facade.IsExposed(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -238,6 +215,8 @@ func (s *firewallerSuite) TestIsExposed(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestLife(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	results, err := s.facade.Life(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -258,6 +237,8 @@ func (s *firewallerSuite) TestLife(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestApplicationConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	results, err := s.facade.ApplicationsConfig(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -271,4 +252,40 @@ func (s *firewallerSuite) TestApplicationConfig(c *gc.C) {
 		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
 	c.Assert(results.Results[0].Config, jc.DeepEquals, map[string]interface{}{"foo": "bar"})
+}
+
+func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.charmService = NewMockCharmService(ctrl)
+	s.appService = NewMockApplicationService(ctrl)
+
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(s.modelTag, s.charmService, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(s.modelTag, s.appService, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	facade, err := caasfirewaller.NewFacade(
+		s.resources,
+		s.authorizer,
+		s.st,
+		commonCharmsAPI,
+		appCharmInfoAPI,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.facade = facade
+
+	return ctrl
+}
+
+type facadeSidecar interface {
+	IsExposed(ctx context.Context, args params.Entities) (params.BoolResults, error)
+	ApplicationsConfig(ctx context.Context, args params.Entities) (params.ApplicationGetConfigResults, error)
+	WatchApplications(ctx context.Context) (params.StringsWatchResult, error)
+	Life(ctx context.Context, args params.Entities) (params.LifeResults, error)
+	Watch(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error)
+	ApplicationCharmInfo(ctx context.Context, args params.Entity) (params.Charm, error)
+	WatchOpenedPorts(ctx context.Context, args params.Entities) (params.StringsWatchResults, error)
+	GetOpenedPorts(ctx context.Context, arg params.Entity) (params.ApplicationOpenedPortsResults, error)
 }

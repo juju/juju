@@ -56,10 +56,14 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 		Series: "focal",
 	})
 	s.app = f2.MakeApplication(c, &factory.ApplicationParams{
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-			OS:      "ubuntu",
-			Channel: "20.04/stable",
-		}},
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-hub",
+			Platform: &state.Platform{
+				OS:           "ubuntu",
+				Channel:      "20.04/stable",
+				Architecture: "amd64",
+			},
+		},
 		Charm: ch,
 	})
 	f2.MakeUnit(c, &factory.UnitParams{Application: s.app})

@@ -14,7 +14,9 @@ INSERT INTO charm_run_as_kind VALUES
 
 CREATE TABLE charm (
     uuid TEXT NOT NULL PRIMARY KEY,
-    name TEXT,
+    -- name represents the original name of the charm. This is what is stored
+    -- in the charm metadata.yaml file.
+    name TEXT NOT NULL,
     description TEXT,
     summary TEXT,
     subordinate BOOLEAN DEFAULT FALSE,
@@ -47,17 +49,6 @@ SELECT
 FROM charm AS c
 LEFT JOIN charm_run_as_kind AS crak ON c.run_as_id = crak.id;
 
-CREATE TABLE charm_channel (
-    charm_uuid TEXT NOT NULL,
-    track TEXT NOT NULL,
-    risk TEXT NOT NULL,
-    branch TEXT,
-    CONSTRAINT fk_charm_channel_charm
-    FOREIGN KEY (charm_uuid)
-    REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid)
-);
-
 -- The charm_state table exists to store the availability of a charm. The
 -- fact that the charm is in the database indicates that it's a placeholder.
 -- Updating the available flag to true indicates that the charm is now
@@ -85,13 +76,25 @@ ON charm_source (name);
 
 INSERT INTO charm_source VALUES
 (0, 'local'),
-(1, 'ch');
+(1, 'charmhub');
 
 CREATE TABLE charm_origin (
     charm_uuid TEXT NOT NULL,
-    source_id INT,
-    id TEXT,
-    revision INT,
+    -- reference_name is the name of the charm that was originally supplied.
+    -- The charm name can be different from the actual charm name in the
+    -- metadata. If it's downloaded from charmhub the reference_name will be
+    -- the name of the charm in the charmhub store. This is the transient
+    -- name of the charm.
+    --
+    -- This can happen if the charm was uploaded to charmhub with a different
+    -- name than the charm name in the metadata.yaml file.
+    reference_name TEXT NOT NULL,
+    source_id INT NOT NULL DEFAULT 1,
+    -- charmhub_identifier is the identifier that charmhub uses to identify the
+    -- charm. This is used to refresh the charm from charmhub. The
+    -- reference_name can change but the charmhub_identifier will not.
+    charmhub_identifier TEXT,
+    revision INT NOT NULL DEFAULT -1,
     version TEXT,
     CONSTRAINT fk_charm_source_source
     FOREIGN KEY (source_id)
@@ -101,11 +104,25 @@ CREATE TABLE charm_origin (
     REFERENCES charm (uuid)
 );
 
+CREATE UNIQUE INDEX idx_charm_origin_reference_name_revision
+ON charm_origin (reference_name, revision);
+
+CREATE VIEW v_charm_origin AS
+SELECT
+    co.charm_uuid,
+    co.reference_name,
+    cs.name AS source,
+    co.charmhub_identifier,
+    co.revision,
+    co.version
+FROM charm_origin AS co
+LEFT JOIN charm_source AS cs ON co.source_id = cs.id;
+
 CREATE TABLE charm_platform (
     charm_uuid TEXT NOT NULL,
-    os_id TEXT,
+    os_id TEXT NOT NULL,
     channel TEXT,
-    architecture_id TEXT,
+    architecture_id TEXT NOT NULL,
     CONSTRAINT fk_charm_platform_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),

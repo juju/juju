@@ -165,7 +165,8 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 			unitArgs[i].UnitName = &n
 		}
 		_, addApplicationErr = api.applicationService.CreateApplication(ctx, dt.applicationName, ch, dt.origin, applicationservice.AddApplicationArgs{
-			Storage: dt.storage,
+			ReferenceName: dt.charmURL.Name,
+			Storage:       dt.storage,
 		}, unitArgs...)
 	}
 

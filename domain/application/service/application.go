@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
@@ -28,7 +28,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -112,17 +112,38 @@ type ApplicationState interface {
 	// application doesn't exist.
 	AddUnits(ctx context.Context, applicationName string, args ...application.UpsertUnitArg) error
 
-	// UpsertCloudService updates the cloud service for the specified application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+	// UpsertCloudService updates the cloud service for the specified
+	// application, returning an error satisfying
+	// [applicationerrors.ApplicationNotFoundError] if the application doesn't
+	// exist.
 	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
 
 	// DeleteUnit deletes the specified unit.
 	DeleteUnit(ctx context.Context, unitName string) error
 
-	// GetApplicationUnitLife returns the life values for the specified units of the given application.
-	// The supplied ids may belong to a different application; the application name is used to filter.
+	// GetApplicationUnitLife returns the life values for the specified units of
+	// the given application. The supplied ids may belong to a different
+	// application; the application name is used to filter.
 	GetApplicationUnitLife(ctx context.Context, appName string, unitIDs ...string) (map[string]life.Life, error)
+
+	// GetCharmByApplicationName returns the charm and the charm origin for the
+	// specified application name.
+	// If the application does not exist, an error satisfying
+	// [applicationerrors.ApplicationNotFoundError] is returned.
+	// If the charm for the application does not exist, an error satisfying
+	// [applicationerrors.CharmNotFoundError] is returned.
+	GetCharmByApplicationName(context.Context, string) (domaincharm.Charm, domaincharm.CharmOrigin, application.Platform, error)
 }
+
+const (
+	// applicationSnippet is a non-compiled regexp that can be composed with
+	// other snippets to form a valid application regexp.
+	applicationSnippet = "(?:[a-z][a-z0-9]*(?:-[a-z0-9]*[a-z][a-z0-9]*)*)"
+)
+
+var (
+	validApplication = regexp.MustCompile("^" + applicationSnippet + "$")
+)
 
 // ApplicationService provides the API for working with applications.
 type ApplicationService struct {
@@ -156,21 +177,28 @@ func NewApplicationService(st ApplicationState, registry storage.ProviderRegistr
 func (s *ApplicationService) CreateApplication(
 	ctx context.Context,
 	name string,
-	charm charm.Charm,
+	charm internalcharm.Charm,
 	origin corecharm.Origin,
 	args AddApplicationArgs,
 	units ...AddUnitArg,
 ) (coreapplication.ID, error) {
+	if !isValidApplicationName(name) {
+		return "", applicationerrors.ApplicationNameNotValid
+	}
+
 	// Validate that we have a valid charm and name.
 	meta := charm.Meta()
 	if meta == nil {
 		return "", applicationerrors.CharmMetadataNotValid
-	} else if name == "" && meta.Name == "" {
-		return "", applicationerrors.ApplicationNameNotValid
-	} else if meta.Name == "" {
-		return "", applicationerrors.CharmNameNotValid
 	}
 
+	if !isValidCharmName(meta.Name) {
+		return "", applicationerrors.CharmNameNotValid
+	} else if !isValidReferenceName(args.ReferenceName) {
+		return "", fmt.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
+	}
+
+	// Validate the origin of the charm.
 	if err := origin.Validate(); err != nil {
 		return "", fmt.Errorf("%w: %v", applicationerrors.CharmOriginNotValid, err)
 	}
@@ -178,6 +206,9 @@ func (s *ApplicationService) CreateApplication(
 	// We know that the charm name is valid, so we can use it as the application
 	// name if that is not provided.
 	if name == "" {
+		// Annoyingly this should be the reference name, but that's not
+		// true in the previous code. To keep compatibility, we'll use the
+		// charm name.
 		name = meta.Name
 	}
 
@@ -202,23 +233,16 @@ func (s *ApplicationService) CreateApplication(
 		return "", fmt.Errorf("encode charm: %w", err)
 	}
 
-	var channel *domaincharm.Channel
-	if origin.Channel != nil {
-		normalisedC := origin.Channel.Normalize()
-		channel = &domaincharm.Channel{
-			Track:  normalisedC.Track,
-			Risk:   domaincharm.ChannelRisk(normalisedC.Risk),
-			Branch: normalisedC.Branch,
-		}
+	originArg, channelArg, platformArg, err := encodeCharmOrigin(origin, args.ReferenceName)
+	if err != nil {
+		return "", fmt.Errorf("encode charm origin: %w", err)
 	}
+
 	appArg := application.AddApplicationArg{
-		Charm:   ch,
-		Channel: channel,
-		Platform: application.Platform{
-			Channel:        origin.Platform.Channel,
-			OSTypeID:       application.MarshallOSType(ostype.OSTypeForName(origin.Platform.OS)),
-			ArchitectureID: application.MarshallArchitecture(origin.Platform.Architecture),
-		},
+		Charm:    ch,
+		Platform: platformArg,
+		Origin:   originArg,
+		Channel:  channelArg,
 	}
 
 	unitArgs := make([]application.UpsertUnitArg, len(units))
@@ -461,9 +485,68 @@ func (s *ApplicationService) UpdateApplicationCharm(ctx context.Context, name st
 	return nil
 }
 
+// GetCharmByApplicationName returns the charm for the specified application
+// name.
+// If the application does not exist, an error satisfying
+// [applicationerrors.ApplicationNotFoundError] is returned.
+// If the charm for the application does not exist, an error satisfying
+// [applicationerrors.CharmNotFoundError] is returned.
+// If the application name is not valid, an error satisfying
+// [applicationerrors.ApplicationNameNotValid] is returned.
+func (s *ApplicationService) GetCharmByApplicationName(ctx context.Context, name string) (
+	internalcharm.Charm,
+	domaincharm.CharmOrigin,
+	application.Platform,
+	error,
+) {
+	if !isValidApplicationName(name) {
+		return nil, domaincharm.CharmOrigin{}, application.Platform{}, applicationerrors.ApplicationNameNotValid
+	}
+
+	charm, origin, platform, err := s.st.GetCharmByApplicationName(ctx, name)
+	if err != nil {
+		return nil, origin, platform, errors.Trace(err)
+	}
+
+	// The charm needs to be decoded into the internalcharm.Charm type.
+
+	metadata, err := decodeMetadata(charm.Metadata)
+	if err != nil {
+		return nil, origin, platform, errors.Trace(err)
+	}
+
+	manifest, err := decodeManifest(charm.Manifest)
+	if err != nil {
+		return nil, origin, platform, errors.Trace(err)
+	}
+
+	actions, err := decodeActions(charm.Actions)
+	if err != nil {
+		return nil, origin, platform, errors.Trace(err)
+	}
+
+	config, err := decodeConfig(charm.Config)
+	if err != nil {
+		return nil, origin, platform, errors.Trace(err)
+	}
+
+	lxdProfile, err := decodeLXDProfile(charm.LXDProfile)
+	if err != nil {
+		return nil, origin, platform, errors.Trace(err)
+	}
+
+	return internalcharm.NewCharmBase(
+		&metadata,
+		&manifest,
+		&config,
+		&actions,
+		&lxdProfile,
+	), origin, platform, nil
+}
+
 // addDefaultStorageDirectives fills in default values, replacing any empty/missing values
 // in the specified directives.
-func (s *ApplicationService) addDefaultStorageDirectives(ctx context.Context, modelType coremodel.ModelType, allDirectives map[string]storage.Directive, charmMeta *charm.Meta) error {
+func (s *ApplicationService) addDefaultStorageDirectives(ctx context.Context, modelType coremodel.ModelType, allDirectives map[string]storage.Directive, charmMeta *internalcharm.Meta) error {
 	defaults, err := s.st.StorageDefaults(ctx)
 	if err != nil {
 		return errors.Annotate(err, "getting storage defaults")
@@ -471,7 +554,7 @@ func (s *ApplicationService) addDefaultStorageDirectives(ctx context.Context, mo
 	return domainstorage.StorageDirectivesWithDefaults(charmMeta.Storage, modelType, defaults, allDirectives)
 }
 
-func (s *ApplicationService) validateStorageDirectives(ctx context.Context, modelType coremodel.ModelType, allDirectives map[string]storage.Directive, charm charm.Charm) error {
+func (s *ApplicationService) validateStorageDirectives(ctx context.Context, modelType coremodel.ModelType, allDirectives map[string]storage.Directive, charm internalcharm.Charm) error {
 	validator, err := domainstorage.NewStorageDirectivesValidator(modelType, s.registry, s.st)
 	if err != nil {
 		return errors.Trace(err)
@@ -726,4 +809,16 @@ func (s *WatchableApplicationService) WatchApplicationScale(ctx context.Context,
 		return nil, nil
 	}
 	return s.watcherFactory.NewValueMapperWatcher("application_scale", appID.String(), mask, mapper)
+}
+
+// isValidApplicationName returns whether name is a valid application name.
+func isValidApplicationName(name string) bool {
+	return validApplication.MatchString(name)
+}
+
+// isValidReferenceName returns whether name is a valid reference name.
+// This ensures that the reference name is both a valid application name
+// and a valid charm name.
+func isValidReferenceName(name string) bool {
+	return isValidApplicationName(name) && isValidCharmName(name)
 }

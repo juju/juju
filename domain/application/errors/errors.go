@@ -60,6 +60,9 @@ const (
 
 	// UnitIsAlive describes an error that occurs when trying to remove a unit that is still alive.
 	UnitIsAlive = errors.ConstError("unit is alive")
+	// InvalidApplicationState describes an error where the application state is invalid.
+	// There are missing required fields.
+	InvalidApplicationState = errors.ConstError("invalid application state")
 
 	// CharmNotValid describes an error that occurs when the charm is not valid.
 	CharmNotValid = errors.ConstError("charm not valid")

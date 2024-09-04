@@ -609,7 +609,8 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 				Channel:      params.CharmOrigin.Platform.Channel,
 			},
 		}, applicationservice.AddApplicationArgs{
-			Storage: directives,
+			ReferenceName: params.Name,
+			Storage:       directives,
 		})
 	}
 	c.Assert(err, jc.ErrorIsNil)

@@ -21,6 +21,20 @@ type applicationID struct {
 	LifeID life.Life `db:"life_id"`
 }
 
+type applicationChannel struct {
+	ApplicationID string `db:"application_uuid"`
+	Track         string `db:"track"`
+	Risk          string `db:"risk"`
+	Branch        string `db:"branch"`
+}
+
+type applicationPlatform struct {
+	ApplicationID  string `db:"application_uuid"`
+	OSTypeID       int    `db:"os_id"`
+	Channel        string `db:"channel"`
+	ArchitectureID int    `db:"architecture_id"`
+}
+
 // applicationName is used to get the name of an application.
 type applicationName struct {
 	Name string `db:"name"`
@@ -31,20 +45,6 @@ type applicationDetails struct {
 	Name          string    `db:"name"`
 	CharmID       string    `db:"charm_uuid"`
 	LifeID        life.Life `db:"life_id"`
-}
-
-type applicationPlatform struct {
-	ApplicationID  string                   `db:"application_uuid"`
-	OSTypeID       application.OSType       `db:"os_id"`
-	Channel        string                   `db:"channel"`
-	ArchitectureID application.Architecture `db:"architecture_id"`
-}
-
-type applicationChannel struct {
-	ApplicationID string `db:"application_uuid"`
-	Track         string `db:"track"`
-	Risk          string `db:"risk"`
-	Branch        string `db:"branch"`
 }
 
 type applicationScale struct {
@@ -94,6 +94,10 @@ type cloudService struct {
 	ProviderID    string `db:"provider_id"`
 }
 
+type applicationCharmUUID struct {
+	CharmUUID string `db:"charm_uuid"`
+}
+
 // These structs represent the persistent charm schema in the database.
 
 // charmID represents a single charm row from the charm table, that only
@@ -111,10 +115,11 @@ type charmName struct {
 	Name string `db:"name"`
 }
 
-// charmNameRevision is used to pass the name and revision to the query.
-type charmNameRevision struct {
-	Name     string `db:"name"`
-	Revision int    `db:"revision"`
+// charmReferenceNameRevision is used to pass the reference name and revision to
+// the query.
+type charmReferenceNameRevision struct {
+	ReferenceName string `db:"reference_name"`
+	Revision      int    `db:"revision"`
 }
 
 // charmAvailable is used to get the available status of a charm.
@@ -140,13 +145,14 @@ type setCharmHash struct {
 	Hash       string `db:"hash"`
 }
 
-// setCharmSourceRevisionVersion is used to set the source, revision and
-// version of a charm.
-type setCharmSourceRevisionVersion struct {
-	CharmUUID string `db:"charm_uuid"`
-	SourceID  int    `db:"source_id"`
-	Revision  int    `db:"revision"`
-	Version   string `db:"version"`
+// setInitialCharmOrigin is used to set the reference_name, source, revision
+// and version of a charm.
+type setInitialCharmOrigin struct {
+	CharmUUID     string `db:"charm_uuid"`
+	ReferenceName string `db:"reference_name"`
+	SourceID      int    `db:"source_id"`
+	Revision      int    `db:"revision"`
+	Version       string `db:"version"`
 }
 
 // charmMetadata is used to get the metadata of a charm.
@@ -471,4 +477,31 @@ type setCharmAction struct {
 // charmArchivePath is used to get the archive path of a charm.
 type charmArchivePath struct {
 	ArchivePath string `db:"archive_path"`
+}
+
+// charmOrigin is used to get the origin of a charm.
+type charmOrigin struct {
+	CharmID       string `db:"charm_uuid"`
+	ReferenceName string `db:"reference_name"`
+	Source        string `db:"source"`
+	Revision      int    `db:"revision"`
+}
+
+// setCharmOrigin is used to set the origin of a charm.
+type setCharmOrigin struct {
+	CharmID       string `db:"charm_uuid"`
+	ReferenceName string `db:"reference_name"`
+	SourceID      int    `db:"source_id"`
+	Revision      int    `db:"revision"`
+}
+
+type countResult struct {
+	Count int `db:"count"`
+}
+
+type charmPlatform struct {
+	CharmID        string `db:"charm_uuid"`
+	OSTypeID       int    `db:"os_id"`
+	Channel        string `db:"channel"`
+	ArchitectureID int    `db:"architecture_id"`
 }

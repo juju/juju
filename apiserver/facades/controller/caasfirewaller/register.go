@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facade"
@@ -25,19 +26,23 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 
-	commonState := &charmscommon.StateShim{ctx.State()}
-	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
+	serviceFactory := ctx.ServiceFactory()
+	applicationService := serviceFactory.Application(nil)
+
+	modelTag := names.NewModelTag(ctx.ModelUUID().String())
+
+	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(modelTag, applicationService, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(modelTag, applicationService, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newFacade(
+	return NewFacade(
 		resources,
 		authorizer,
-		&stateShim{ctx.State()},
+		&stateShim{State: ctx.State()},
 		commonCharmsAPI,
 		appCharmInfoAPI,
 	)

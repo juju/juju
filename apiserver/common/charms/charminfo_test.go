@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -16,66 +16,114 @@ import (
 	"github.com/juju/juju/apiserver/common/charms/mocks"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/application/charm"
+	internalcharm "github.com/juju/juju/internal/charm"
+	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
-type charmInfoSuite struct{}
+type charmInfoSuite struct {
+	testing.IsolationSuite
+
+	charmService *mocks.MockCharmService
+	authorizer   *facademocks.MockAuthorizer
+}
 
 var _ = gc.Suite(&charmInfoSuite{})
 
-func (s *charmInfoSuite) TestBasic(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+func (s *charmInfoSuite) TestCharmInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-	st := mocks.NewMockState(ctrl)
-	st.EXPECT().Model().Return(nil, nil)
-	ch := mocks.NewMockCharm(ctrl)
-	st.EXPECT().Charm("foo-1").Return(ch, nil)
+	s.authorizer.EXPECT().AuthController().Return(true)
+	s.charmService.EXPECT().GetCharmID(gomock.Any(), charm.GetCharmArgs{
+		Name:     "foo",
+		Revision: ptr(1),
+	}).Return(corecharm.ID("deadbeef"), nil)
 
-	// The convertCharm logic is tested in the CharmInfo tests, so just test
-	// the minimal set of fields here.
-	ch.EXPECT().Revision().Return(1)
-	ch.EXPECT().Config().Return(&charm.Config{})
-	ch.EXPECT().Meta().Return(&charm.Meta{Name: "foo"})
-	ch.EXPECT().Actions().Return(&charm.Actions{})
-	ch.EXPECT().Manifest().Return(&charm.Manifest{})
-	ch.EXPECT().LXDProfile().Return(&charm.LXDProfile{})
-	ch.EXPECT().URL().Return("ch:foo-1")
+	metadata := &internalcharm.Meta{Name: "foo"}
+	manifest := &internalcharm.Manifest{
+		Bases: []internalcharm.Base{{Name: "ubuntu", Channel: internalcharm.Channel{Track: "22.04", Risk: "stable"}}},
+	}
+	config := &internalcharm.Config{
+		Options: map[string]internalcharm.Option{"foo": {Type: "string"}},
+	}
+	actions := &internalcharm.Actions{
+		ActionSpecs: map[string]internalcharm.ActionSpec{"bar": {Description: "baz"}},
+	}
+	lxdProfile := &internalcharm.LXDProfile{
+		Config: map[string]string{"foo": "bar"},
+	}
 
-	authorizer := facademocks.NewMockAuthorizer(ctrl)
-	authorizer.EXPECT().AuthController().Return(true)
+	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
+	charmOrigin := charm.CharmOrigin{Source: charm.CharmHubSource, Revision: 1}
+	s.charmService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("deadbeef")).Return(charmBase, charmOrigin, nil)
 
 	// Make the CharmInfo call
-	api, err := charms.NewCharmInfoAPI(st, authorizer)
+	api, err := charms.NewCharmInfoAPI(internaltesting.ModelTag, s.charmService, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	charmInfo, err := api.CharmInfo(context.Background(), params.CharmURL{URL: "foo-1"})
 	c.Assert(err, gc.IsNil)
 
-	c.Check(charmInfo.URL, gc.Equals, "ch:foo-1")
-	c.Check(charmInfo.Meta.Name, gc.Equals, "foo")
+	c.Check(charmInfo.URL, gc.Equals, "ch:amd64/foo-1")
+	c.Check(charmInfo.Meta, gc.DeepEquals, &params.CharmMeta{Name: "foo", MinJujuVersion: "0.0.0"})
+	c.Check(charmInfo.Manifest, gc.DeepEquals, &params.CharmManifest{Bases: []params.CharmBase{{Name: "ubuntu", Channel: "22.04/stable"}}})
+	c.Check(charmInfo.Config, gc.DeepEquals, map[string]params.CharmOption{"foo": {Type: "string"}})
+	c.Check(charmInfo.Actions, gc.DeepEquals, &params.CharmActions{ActionSpecs: map[string]params.CharmActionSpec{"bar": {Description: "baz"}}})
+	c.Check(charmInfo.LXDProfile, gc.DeepEquals, &params.CharmLXDProfile{Config: map[string]string{"foo": "bar"}, Devices: map[string]map[string]string{}})
+}
+
+func (s *charmInfoSuite) TestCharmInfoMinimal(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.authorizer.EXPECT().AuthController().Return(true)
+	s.charmService.EXPECT().GetCharmID(gomock.Any(), charm.GetCharmArgs{
+		Name:     "foo",
+		Revision: ptr(1),
+	}).Return(corecharm.ID("deadbeef"), nil)
+
+	metadata := &internalcharm.Meta{Name: "foo"}
+
+	charmBase := internalcharm.NewCharmBase(metadata, nil, nil, nil, nil)
+	charmOrigin := charm.CharmOrigin{Source: charm.CharmHubSource, Revision: 1}
+	s.charmService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("deadbeef")).Return(charmBase, charmOrigin, nil)
+
+	// Make the CharmInfo call
+	api, err := charms.NewCharmInfoAPI(internaltesting.ModelTag, s.charmService, s.authorizer)
+	c.Assert(err, gc.IsNil)
+	charmInfo, err := api.CharmInfo(context.Background(), params.CharmURL{URL: "foo-1"})
+	c.Assert(err, gc.IsNil)
+
+	c.Check(charmInfo.URL, gc.Equals, "ch:amd64/foo-1")
+	c.Check(charmInfo.Meta, gc.DeepEquals, &params.CharmMeta{Name: "foo", MinJujuVersion: "0.0.0"})
+	c.Check(charmInfo.Manifest, gc.IsNil)
+	c.Check(charmInfo.Config, gc.IsNil)
+	c.Check(charmInfo.Actions, gc.IsNil)
+	c.Check(charmInfo.LXDProfile, gc.IsNil)
 }
 
 func (s *charmInfoSuite) TestPermissionDenied(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
-	st := mocks.NewMockState(ctrl)
-	model := mocks.NewMockModel(ctrl)
-	st.EXPECT().Model().Return(model, nil)
+	modelTag := internaltesting.ModelTag
 
-	modelTag := names.NewModelTag("1")
-	model.EXPECT().ModelTag().Return(modelTag)
-
-	authorizer := facademocks.NewMockAuthorizer(ctrl)
-	authorizer.EXPECT().AuthController().Return(false)
-	authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, modelTag).
+	s.authorizer.EXPECT().AuthController().Return(false)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, modelTag).
 		Return(errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	// Make the CharmInfo call
-	api, err := charms.NewCharmInfoAPI(st, authorizer)
+	api, err := charms.NewCharmInfoAPI(modelTag, s.charmService, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	_, err = api.CharmInfo(context.Background(), params.CharmURL{URL: "foo"})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *charmInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.charmService = mocks.NewMockCharmService(ctrl)
+	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
+
+	return ctrl
 }

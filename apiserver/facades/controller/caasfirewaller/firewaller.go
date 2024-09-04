@@ -106,7 +106,7 @@ func (f *Facade) WatchApplications(ctx context.Context) (params.StringsWatchResu
 	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
 
-func newFacade(
+func NewFacade(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	st CAASFirewallerState,

@@ -100,7 +100,7 @@ type CharmState interface {
 	ReserveCharmRevision(ctx context.Context, id corecharm.ID, revision int) (corecharm.ID, error)
 
 	// GetCharm returns the charm using the charm ID.
-	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, error)
+	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, charm.CharmOrigin, error)
 
 	// SetCharm persists the charm metadata, actions, config and manifest to
 	// state.
@@ -130,7 +130,7 @@ func NewCharmService(st CharmState, logger logger.Logger) *CharmService {
 // This can also be used as a cheap way to see if a charm exists without
 // needing to load the charm metadata.
 func (s *CharmService) GetCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error) {
-	if !charmNameRegExp.MatchString(args.Name) {
+	if !isValidCharmName(args.Name) {
 		return "", applicationerrors.CharmNameNotValid
 	}
 
@@ -195,41 +195,41 @@ func (s *CharmService) IsSubordinateCharm(ctx context.Context, id corecharm.ID) 
 // needed; model migration, charm export, etc.
 //
 // If the charm does not exist, a NotFound error is returned.
-func (s *CharmService) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, error) {
+func (s *CharmService) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmOrigin, error) {
 	if err := id.Validate(); err != nil {
-		return nil, fmt.Errorf("charm id: %w", err)
+		return nil, charm.CharmOrigin{}, fmt.Errorf("charm id: %w", err)
 	}
 
-	charm, err := s.st.GetCharm(ctx, id)
+	resultCharm, resultOrigin, err := s.st.GetCharm(ctx, id)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, charm.CharmOrigin{}, errors.Trace(err)
 	}
 
 	// The charm needs to be decoded into the internalcharm.Charm type.
 
-	metadata, err := decodeMetadata(charm.Metadata)
+	metadata, err := decodeMetadata(resultCharm.Metadata)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, charm.CharmOrigin{}, errors.Trace(err)
 	}
 
-	manifest, err := decodeManifest(charm.Manifest)
+	manifest, err := decodeManifest(resultCharm.Manifest)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, charm.CharmOrigin{}, errors.Trace(err)
 	}
 
-	actions, err := decodeActions(charm.Actions)
+	actions, err := decodeActions(resultCharm.Actions)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, charm.CharmOrigin{}, errors.Trace(err)
 	}
 
-	config, err := decodeConfig(charm.Config)
+	config, err := decodeConfig(resultCharm.Config)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, charm.CharmOrigin{}, errors.Trace(err)
 	}
 
-	lxdProfile, err := decodeLXDProfile(charm.LXDProfile)
+	lxdProfile, err := decodeLXDProfile(resultCharm.LXDProfile)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, charm.CharmOrigin{}, errors.Trace(err)
 	}
 
 	return internalcharm.NewCharmBase(
@@ -238,7 +238,7 @@ func (s *CharmService) GetCharm(ctx context.Context, id corecharm.ID) (internalc
 		&config,
 		&actions,
 		&lxdProfile,
-	), nil
+	), resultOrigin, nil
 }
 
 // GetCharmMetadata returns the metadata for the charm using the charm ID.
@@ -421,11 +421,12 @@ func (s *CharmService) SetCharm(ctx context.Context, args charm.SetCharmArgs) (c
 	}
 
 	charmID, err := s.st.SetCharm(ctx, ch, charm.SetStateArgs{
-		Source:      source,
-		Revision:    args.Revision,
-		Hash:        args.Hash,
-		ArchivePath: args.ArchivePath,
-		Version:     args.Version,
+		Source:        source,
+		ReferenceName: args.ReferenceName,
+		Revision:      args.Revision,
+		Hash:          args.Hash,
+		ArchivePath:   args.ArchivePath,
+		Version:       args.Version,
 	})
 	if err != nil {
 		return "", warnings, errors.Trace(err)
@@ -519,4 +520,9 @@ func encodeCharmSource(source internalcharm.Schema) (charm.CharmSource, error) {
 	default:
 		return "", fmt.Errorf("%w: %v", applicationerrors.CharmSourceNotValid, source)
 	}
+}
+
+// isValidCharmName returns whether name is a valid charm name.
+func isValidCharmName(name string) bool {
+	return charmNameRegExp.MatchString(name)
 }

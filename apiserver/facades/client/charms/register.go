@@ -40,14 +40,15 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 		return nil, apiservererrors.ErrPerm
 	}
 
-	st := ctx.State()
-	commonState := &charmscommon.StateShim{State: st}
-	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
+	modelTag := names.NewModelTag(ctx.ModelUUID().String())
+
+	serviceFactory := ctx.ServiceFactory()
+	applicationService := serviceFactory.Application(nil)
+
+	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(modelTag, applicationService, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	serviceFactory := ctx.ServiceFactory()
 
 	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
@@ -64,7 +65,7 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 	return &API{
 		charmInfoAPI:       charmInfoAPI,
 		authorizer:         authorizer,
-		backendState:       newStateShim(st),
+		backendState:       newStateShim(ctx.State()),
 		modelConfigService: serviceFactory.Config(),
 		applicationService: serviceFactory.Application(nil),
 		charmhubHTTPClient: charmhubHTTPClient,

@@ -56,9 +56,10 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 	var id corecharm.ID
 	harness.AddTest(func(c *gc.C) {
 		id, _, err = svc.SetCharm(context.Background(), charm.SetCharmArgs{
-			Charm:    &stubCharm{},
-			Source:   internalcharm.CharmHub,
-			Revision: 1,
+			Charm:         &stubCharm{},
+			Source:        internalcharm.CharmHub,
+			ReferenceName: "test",
+			Revision:      1,
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -81,47 +82,18 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 	harness.Run(c)
 }
 
-type stubCharm struct{}
-
-func (s *stubCharm) Meta() *internalcharm.Meta {
-	return &internalcharm.Meta{
-		Name: "test",
-	}
-}
-
-func (s *stubCharm) Manifest() *internalcharm.Manifest {
-	return &internalcharm.Manifest{
-		Bases: []internalcharm.Base{{
-			Name: "ubuntu",
-			Channel: internalcharm.Channel{
-				Risk: internalcharm.Stable,
-			},
-			Architectures: []string{"amd64"},
-		}},
-	}
-}
-
-func (s *stubCharm) Config() *internalcharm.Config {
-	return nil
-}
-
-func (s *stubCharm) Actions() *internalcharm.Actions {
-	return nil
-}
-
-func (s *stubCharm) Revision() int {
-	return 0
-}
-
 func (s *watcherSuite) createApplication(c *gc.C, svc *service.Service, name string, units ...service.AddUnitArg) coreapplication.ID {
 	ctx := context.Background()
 	appID, err := svc.CreateApplication(ctx, name, &stubCharm{}, corecharm.Origin{
+		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{
 			Channel:      "24.04",
 			OS:           "ubuntu",
 			Architecture: "amd64",
 		},
-	}, service.AddApplicationArgs{}, units...)
+	}, service.AddApplicationArgs{
+		ReferenceName: name,
+	}, units...)
 	c.Assert(err, jc.ErrorIsNil)
 	return appID
 }
@@ -406,4 +378,36 @@ func (s *watcherSuite) TestWatchApplicationScale(c *gc.C) {
 	})
 
 	harness.Run(c)
+}
+
+type stubCharm struct{}
+
+func (s *stubCharm) Meta() *internalcharm.Meta {
+	return &internalcharm.Meta{
+		Name: "test",
+	}
+}
+
+func (s *stubCharm) Manifest() *internalcharm.Manifest {
+	return &internalcharm.Manifest{
+		Bases: []internalcharm.Base{{
+			Name: "ubuntu",
+			Channel: internalcharm.Channel{
+				Risk: internalcharm.Stable,
+			},
+			Architectures: []string{"amd64"},
+		}},
+	}
+}
+
+func (s *stubCharm) Config() *internalcharm.Config {
+	return nil
+}
+
+func (s *stubCharm) Actions() *internalcharm.Actions {
+	return nil
+}
+
+func (s *stubCharm) Revision() int {
+	return 0
 }
