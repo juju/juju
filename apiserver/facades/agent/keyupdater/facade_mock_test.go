@@ -10,7 +10,6 @@
 package keyupdater
 
 import (
-	context "context"
 	reflect "reflect"
 
 	facade "github.com/juju/juju/apiserver/facade"
@@ -19,7 +18,6 @@ import (
 	logger "github.com/juju/juju/core/logger"
 	model "github.com/juju/juju/core/model"
 	objectstore "github.com/juju/juju/core/objectstore"
-	providertracker "github.com/juju/juju/core/providertracker"
 	servicefactory "github.com/juju/juju/internal/servicefactory"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
@@ -233,45 +231,6 @@ func (c *MockModelContextDisposeCall) Do(f func()) *MockModelContextDisposeCall 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelContextDisposeCall) DoAndReturn(f func()) *MockModelContextDisposeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetProvider mocks base method.
-func (m *MockModelContext) GetProvider(arg0 context.Context) (providertracker.Provider, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetProvider", arg0)
-	ret0, _ := ret[0].(providertracker.Provider)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetProvider indicates an expected call of GetProvider.
-func (mr *MockModelContextMockRecorder) GetProvider(arg0 any) *MockModelContextGetProviderCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProvider", reflect.TypeOf((*MockModelContext)(nil).GetProvider), arg0)
-	return &MockModelContextGetProviderCall{Call: call}
-}
-
-// MockModelContextGetProviderCall wrap *gomock.Call
-type MockModelContextGetProviderCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelContextGetProviderCall) Return(arg0 providertracker.Provider, arg1 error) *MockModelContextGetProviderCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelContextGetProviderCall) Do(f func(context.Context) (providertracker.Provider, error)) *MockModelContextGetProviderCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelContextGetProviderCall) DoAndReturn(f func(context.Context) (providertracker.Provider, error)) *MockModelContextGetProviderCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
