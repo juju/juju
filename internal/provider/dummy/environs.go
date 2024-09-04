@@ -751,7 +751,7 @@ func (e *environ) Instances(_ envcontext.ProviderCallContext, ids []instance.Id)
 }
 
 // SupportsSpaces is specified on environs.Networking.
-func (env *environ) SupportsSpaces(_ envcontext.ProviderCallContext) (bool, error) {
+func (env *environ) SupportsSpaces() (bool, error) {
 	dummy.mu.Lock()
 	defer dummy.mu.Unlock()
 	if !dummy.supportsSpaces {

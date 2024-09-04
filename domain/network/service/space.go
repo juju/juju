@@ -230,14 +230,14 @@ func (s *ProviderService) upsertProviderSubnets(ctx context.Context, subnetsToUp
 }
 
 // SupportsSpaces returns whether the provider supports spaces.
-func (s *ProviderService) SupportsSpaces(ctx context.Context, invalidator envcontext.ModelCredentialInvalidatorFunc) (bool, error) {
+func (s *ProviderService) SupportsSpaces(ctx context.Context) (bool, error) {
 	networkProvider, err := s.provider(ctx)
 	if errors.Is(err, errors.NotSupported) {
 		return false, nil
 	} else if err != nil {
 		return false, errors.Trace(err)
 	}
-	return networkProvider.SupportsSpaces(envcontext.WithCredentialInvalidator(ctx, invalidator))
+	return networkProvider.SupportsSpaces()
 }
 
 // SupportsSpaceDiscovery returns whether the provider supports discovering

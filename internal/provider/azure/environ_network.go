@@ -22,7 +22,7 @@ import (
 var _ environs.NetworkingEnviron = &azureEnviron{}
 
 // SupportsSpaces implements environs.NetworkingEnviron.
-func (env *azureEnviron) SupportsSpaces(envcontext.ProviderCallContext) (bool, error) {
+func (env *azureEnviron) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 

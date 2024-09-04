@@ -894,7 +894,7 @@ func (s *LegacySuite) TestShowSpaceError(c *gc.C) {
 func (s *LegacySuite) TestCreateSpacesGetProviderError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.networkService.EXPECT().SupportsSpaces(gomock.Any(), gomock.Any()).Return(false, errors.NotSupportedf("spaces"))
+	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(false, errors.NotSupportedf("spaces"))
 	s.makeAPI(c)
 
 	args := params.CreateSpacesParams{}
@@ -909,7 +909,7 @@ func (s *LegacySuite) TestCreateSpacesNotSupportedError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
 
-	s.networkService.EXPECT().SupportsSpaces(gomock.Any(), gomock.Any()).Return(false, errors.NotSupportedf("spaces"))
+	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(false, errors.NotSupportedf("spaces"))
 
 	args := params.CreateSpacesParams{}
 	_, err := s.facade.CreateSpaces(stdcontext.Background(), args)
@@ -993,7 +993,7 @@ func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
 		},
 	}
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(retrievedSpaces, nil)
-	s.networkService.EXPECT().SupportsSpaces(gomock.Any(), gomock.Any()).Return(true, nil)
+	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(true, nil)
 
 	result, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1003,7 +1003,7 @@ func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
 func (s *LegacySuite) TestListSpacesAllSpacesError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.networkService.EXPECT().SupportsSpaces(gomock.Any(), gomock.Any()).Return(false, errors.Errorf("environ boom"))
+	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(false, errors.Errorf("environ boom"))
 	s.makeAPI(c)
 
 	_, err := s.facade.ListSpaces(stdcontext.Background())
@@ -1025,7 +1025,7 @@ func (s *LegacySuite) TestListSpacesSubnetsError(c *gc.C) {
 		errors.New("space2 subnets failed"), // Space.Subnets()
 	)
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
-	s.networkService.EXPECT().SupportsSpaces(gomock.Any(), gomock.Any()).Return(true, nil)
+	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(true, nil)
 
 	results, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1051,7 +1051,7 @@ func (s *LegacySuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
 	)
 
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
-	s.networkService.EXPECT().SupportsSpaces(gomock.Any(), gomock.Any()).Return(true, nil)
+	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(true, nil)
 
 	results, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1068,7 +1068,7 @@ func (s *LegacySuite) TestListSpacesNotSupportedError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
 
-	s.networkService.EXPECT().SupportsSpaces(gomock.Any(), gomock.Any()).
+	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).
 		Return(false, errors.NotSupportedf("spaces"))
 
 	_, err := s.facade.ListSpaces(stdcontext.Background())

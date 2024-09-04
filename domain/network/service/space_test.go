@@ -46,14 +46,6 @@ func (s *spaceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *spaceSuite) TestGenerateFanSubnetID(c *gc.C) {
-	obtained := generateFanSubnetID("10.0.0.0/24", "provider-id")
-	c.Check(obtained, gc.Equals, "provider-id-INFAN-10-0-0-0-24")
-	// Empty providerID
-	obtained = generateFanSubnetID("192.168.0.0/16", "")
-	c.Check(obtained, gc.Equals, "-INFAN-192-168-0-0-16")
-}
-
 func (s *spaceSuite) TestAddSpaceInvalidNameEmpty(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -854,9 +846,9 @@ func (s *spaceSuite) TestSupportsSpaces(c *gc.C) {
 
 	providerService := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c))
 
-	s.provider.EXPECT().SupportsSpaces(gomock.AssignableToTypeOf(envcontext.ProviderCallContext{})).Return(true, nil)
+	s.provider.EXPECT().SupportsSpaces().Return(true, nil)
 
-	supported, err := providerService.SupportsSpaces(context.Background(), neverInvalidate)
+	supported, err := providerService.SupportsSpaces(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(supported, jc.IsTrue)
 }
@@ -866,7 +858,7 @@ func (s *spaceSuite) TestSupportsSpacesNotSupported(c *gc.C) {
 
 	providerService := NewProviderService(s.st, s.notSupportedProviderGetter, loggertesting.WrapCheckLog(c))
 
-	supported, err := providerService.SupportsSpaces(context.Background(), neverInvalidate)
+	supported, err := providerService.SupportsSpaces(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(supported, jc.IsFalse)
 }

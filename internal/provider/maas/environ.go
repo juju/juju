@@ -299,7 +299,7 @@ func (env *maasEnviron) getSupportedArchitectures(ctx envcontext.ProviderCallCon
 }
 
 // SupportsSpaces is specified on environs.Networking.
-func (env *maasEnviron) SupportsSpaces(ctx envcontext.ProviderCallContext) (bool, error) {
+func (env *maasEnviron) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 

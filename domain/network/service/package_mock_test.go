@@ -924,18 +924,18 @@ func (c *MockProviderSupportsSpaceDiscoveryCall) DoAndReturn(f func(envcontext.P
 }
 
 // SupportsSpaces mocks base method.
-func (m *MockProvider) SupportsSpaces(arg0 envcontext.ProviderCallContext) (bool, error) {
+func (m *MockProvider) SupportsSpaces() (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SupportsSpaces", arg0)
+	ret := m.ctrl.Call(m, "SupportsSpaces")
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SupportsSpaces indicates an expected call of SupportsSpaces.
-func (mr *MockProviderMockRecorder) SupportsSpaces(arg0 any) *MockProviderSupportsSpacesCall {
+func (mr *MockProviderMockRecorder) SupportsSpaces() *MockProviderSupportsSpacesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsSpaces", reflect.TypeOf((*MockProvider)(nil).SupportsSpaces), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsSpaces", reflect.TypeOf((*MockProvider)(nil).SupportsSpaces))
 	return &MockProviderSupportsSpacesCall{Call: call}
 }
 
@@ -951,13 +951,13 @@ func (c *MockProviderSupportsSpacesCall) Return(arg0 bool, arg1 error) *MockProv
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProviderSupportsSpacesCall) Do(f func(envcontext.ProviderCallContext) (bool, error)) *MockProviderSupportsSpacesCall {
+func (c *MockProviderSupportsSpacesCall) Do(f func() (bool, error)) *MockProviderSupportsSpacesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProviderSupportsSpacesCall) DoAndReturn(f func(envcontext.ProviderCallContext) (bool, error)) *MockProviderSupportsSpacesCall {
+func (c *MockProviderSupportsSpacesCall) DoAndReturn(f func() (bool, error)) *MockProviderSupportsSpacesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

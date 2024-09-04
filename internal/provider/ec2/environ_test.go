@@ -245,12 +245,11 @@ func (*Suite) TestSupportsNetworking(c *gc.C) {
 }
 
 func (*Suite) TestSupportsSpaces(c *gc.C) {
-	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 	var env *environ
-	supported, err := env.SupportsSpaces(callCtx)
+	supported, err := env.SupportsSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supported, jc.IsTrue)
-	c.Check(environs.SupportsSpaces(callCtx, env), jc.IsTrue)
+	c.Check(environs.SupportsSpaces(env), jc.IsTrue)
 }
 
 func (*Suite) TestSupportsSpaceDiscovery(c *gc.C) {

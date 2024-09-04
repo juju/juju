@@ -1407,18 +1407,18 @@ func (c *MockNetworkServiceSupportsSpaceDiscoveryCall) DoAndReturn(f func(contex
 }
 
 // SupportsSpaces mocks base method.
-func (m *MockNetworkService) SupportsSpaces(arg0 context.Context, arg1 envcontext.ModelCredentialInvalidatorFunc) (bool, error) {
+func (m *MockNetworkService) SupportsSpaces(arg0 context.Context) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SupportsSpaces", arg0, arg1)
+	ret := m.ctrl.Call(m, "SupportsSpaces", arg0)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SupportsSpaces indicates an expected call of SupportsSpaces.
-func (mr *MockNetworkServiceMockRecorder) SupportsSpaces(arg0, arg1 any) *MockNetworkServiceSupportsSpacesCall {
+func (mr *MockNetworkServiceMockRecorder) SupportsSpaces(arg0 any) *MockNetworkServiceSupportsSpacesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsSpaces", reflect.TypeOf((*MockNetworkService)(nil).SupportsSpaces), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsSpaces", reflect.TypeOf((*MockNetworkService)(nil).SupportsSpaces), arg0)
 	return &MockNetworkServiceSupportsSpacesCall{Call: call}
 }
 
@@ -1434,13 +1434,13 @@ func (c *MockNetworkServiceSupportsSpacesCall) Return(arg0 bool, arg1 error) *Mo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkServiceSupportsSpacesCall) Do(f func(context.Context, envcontext.ModelCredentialInvalidatorFunc) (bool, error)) *MockNetworkServiceSupportsSpacesCall {
+func (c *MockNetworkServiceSupportsSpacesCall) Do(f func(context.Context) (bool, error)) *MockNetworkServiceSupportsSpacesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkServiceSupportsSpacesCall) DoAndReturn(f func(context.Context, envcontext.ModelCredentialInvalidatorFunc) (bool, error)) *MockNetworkServiceSupportsSpacesCall {
+func (c *MockNetworkServiceSupportsSpacesCall) DoAndReturn(f func(context.Context) (bool, error)) *MockNetworkServiceSupportsSpacesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

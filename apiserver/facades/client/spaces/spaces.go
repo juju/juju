@@ -64,7 +64,7 @@ type NetworkService interface {
 	// UUID.
 	UpdateSubnet(ctx context.Context, uuid, spaceUUID string) error
 	// SupportsSpaces returns whether the current environment supports spaces.
-	SupportsSpaces(ctx context.Context, invalidator envcontext.ModelCredentialInvalidatorFunc) (bool, error)
+	SupportsSpaces(ctx context.Context) (bool, error)
 	// SupportsSpaceDiscovery returns whether the current environment supports
 	// discovering spaces from the provider.
 	SupportsSpaceDiscovery(ctx context.Context, invalidator envcontext.ModelCredentialInvalidatorFunc) (bool, error)
@@ -305,11 +305,7 @@ func (api *API) ReloadSpaces(ctx context.Context) error {
 // and also if it supports spaces. If we don't support spaces, an
 // [errors.NotSupported] error will be returned.
 func (api *API) checkSupportsSpaces(ctx context.Context) error {
-	invalidatorFunc, err := api.credentialInvalidatorGetter()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if supported, err := api.networkService.SupportsSpaces(ctx, invalidatorFunc); err != nil {
+	if supported, err := api.networkService.SupportsSpaces(ctx); err != nil {
 		return errors.Trace(err)
 	} else if !supported {
 		return errors.NotSupportedf("spaces")

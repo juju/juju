@@ -2373,7 +2373,7 @@ func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []in
 }
 
 // SupportsSpaces is specified on environs.Networking.
-func (e *Environ) SupportsSpaces(envcontext.ProviderCallContext) (bool, error) {
+func (e *Environ) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 

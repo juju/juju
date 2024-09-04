@@ -20,7 +20,7 @@ func (s *environNetworkSuite) TestSupportsSpaces(c *gc.C) {
 	netEnv, ok := environs.SupportsNetworking(s.env)
 	c.Assert(ok, jc.IsTrue)
 
-	spaceSupport, err := netEnv.SupportsSpaces(s.callCtx)
+	spaceSupport, err := netEnv.SupportsSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spaceSupport, jc.IsTrue)
 }

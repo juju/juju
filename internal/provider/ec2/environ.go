@@ -243,7 +243,7 @@ func (e *environ) SupportsInstanceRoles(_ envcontext.ProviderCallContext) bool {
 }
 
 // SupportsSpaces is specified on environs.Networking.
-func (e *environ) SupportsSpaces(ctx envcontext.ProviderCallContext) (bool, error) {
+func (e *environ) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 

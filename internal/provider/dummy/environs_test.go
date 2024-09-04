@@ -118,21 +118,21 @@ func (s *suite) TestSupportsSpaces(c *gc.C) {
 	}()
 
 	// Without change spaces are supported.
-	ok, err := e.SupportsSpaces(s.callCtx)
+	ok, err := e.SupportsSpaces()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now turn it off.
 	isEnabled := dummy.SetSupportsSpaces(false)
 	c.Assert(isEnabled, jc.IsTrue)
-	ok, err = e.SupportsSpaces(s.callCtx)
+	ok, err = e.SupportsSpaces()
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 
 	// And finally turn it on again.
 	isEnabled = dummy.SetSupportsSpaces(true)
 	c.Assert(isEnabled, jc.IsFalse)
-	ok, err = e.SupportsSpaces(s.callCtx)
+	ok, err = e.SupportsSpaces()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 }

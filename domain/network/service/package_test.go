@@ -4,11 +4,8 @@
 package service
 
 import (
-	"fmt"
-	"strings"
 	"testing"
 
-	"github.com/juju/juju/core/network"
 	gc "gopkg.in/check.v1"
 )
 
@@ -16,10 +13,4 @@ import (
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
-}
-
-// generateFanSubnetID generates a correct ID for a subnet of type fan overlay.
-func generateFanSubnetID(subnetNetwork, providerID string) string {
-	subnetWithDashes := strings.Replace(strings.Replace(subnetNetwork, ".", "-", -1), "/", "-", -1)
-	return fmt.Sprintf("%s-%s-%s", providerID, network.InFan, subnetWithDashes)
 }

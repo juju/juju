@@ -425,8 +425,8 @@ func (se *StubNetworkingEnviron) Subnets(
 	return ProviderInstance.Subnets, nil
 }
 
-func (se *StubNetworkingEnviron) SupportsSpaces(ctx envcontext.ProviderCallContext) (bool, error) {
-	se.MethodCall(se, "SupportsSpaces", ctx)
+func (se *StubNetworkingEnviron) SupportsSpaces() (bool, error) {
+	se.MethodCall(se, "SupportsSpaces")
 	if err := se.NextErr(); err != nil {
 		return false, err
 	}

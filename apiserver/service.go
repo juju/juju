@@ -34,8 +34,8 @@ type ProxyService interface {
 type UserService interface {
 	// GetUserByName returns the user with the given name.
 	GetUserByName(context.Context, user.Name) (user.User, error)
-	// SetPasswordWithActivationKey will use the activation key from the user.
-	// To then apply the payload password.
+	// SetPasswordWithActivationKey will use the activation key from the user
+	// to then apply the payload password.
 	SetPasswordWithActivationKey(ctx context.Context, name user.Name, nonce, box []byte) (userservice.Sealer, error)
 }
 

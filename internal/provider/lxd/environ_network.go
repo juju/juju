@@ -405,7 +405,7 @@ func isErrMissingAPIExtension(err error, ext string) bool {
 // SupportsSpaces returns whether the current environment supports
 // spaces. The returned error satisfies errors.IsNotSupported(),
 // unless a general API failure occurs.
-func (e *environ) SupportsSpaces(envcontext.ProviderCallContext) (bool, error) {
+func (e *environ) SupportsSpaces() (bool, error) {
 	// Really old lxd versions (e.g. xenial/ppc64) do not even support the
 	// network API extension so the subnet discovery code path will not
 	// work there.

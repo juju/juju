@@ -65,7 +65,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	s.ControllerConfigService = NewMockControllerConfigService(ctrl)
 	s.NetworkService = NewMockNetworkService(ctrl)
 
-	s.NetworkService.EXPECT().SupportsSpaces(gomock.Any(), gomock.Any()).Return(supportSpaces, nil).AnyTimes()
+	s.NetworkService.EXPECT().SupportsSpaces(gomock.Any()).Return(supportSpaces, nil).AnyTimes()
 	s.NetworkService.EXPECT().SupportsSpaceDiscovery(gomock.Any(), gomock.Any()).Return(providerSpaces, nil).AnyTimes()
 
 	var err error
