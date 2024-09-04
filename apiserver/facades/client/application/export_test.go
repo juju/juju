@@ -4,7 +4,6 @@
 package application
 
 import (
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 )
 
@@ -14,8 +13,8 @@ var (
 	ValidateSecretConfig    = validateSecretConfig
 )
 
-func GetState(st *state.State, prechecker environs.InstancePrechecker) Backend {
-	return stateShim{State: st, prechecker: prechecker}
+func GetState(st *state.State) Backend {
+	return stateShim{State: st}
 }
 
 func GetModel(m *state.Model) Model {

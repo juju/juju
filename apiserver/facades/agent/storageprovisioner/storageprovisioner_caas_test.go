@@ -23,6 +23,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
+	internaluuid "github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -45,9 +46,11 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
-	s.st = f.MakeCAASModel(c, nil)
+	modelUUID, err := internaluuid.UUIDFromString(s.DefaultModelUUID.String())
+	c.Assert(err, jc.ErrorIsNil)
+	args := &factory.ModelParams{UUID: &modelUUID}
+	s.st = f.MakeCAASModel(c, args)
 	s.AddCleanup(func(_ *gc.C) { s.st.Close() })
-	var err error
 	m, err := s.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -58,7 +61,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	modelInfo, err := domainServices.ModelInfo().GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(m, domainServices.Cloud(), domainServices.Credential())
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(m, domainServices.Cloud(), domainServices.Credential(), s.DefaultModelDomainServices(c).Config())
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
@@ -77,7 +80,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 		backend,
 		storageBackend,
 		s.DefaultModelDomainServices(c).BlockDevice(),
-		s.ControllerDomainServices(c).Config(),
+		s.DefaultModelDomainServices(c).Config(),
 		s.DefaultModelDomainServices(c).Machine(),
 		s.resources,
 		s.authorizer,

@@ -2719,18 +2719,6 @@ func (t *localServerSuite) TestStopInstances(c *gc.C) {
 	}
 }
 
-func (t *localServerSuite) TestPrechecker(c *gc.C) {
-	// All implementations of InstancePrechecker should
-	// return nil for empty constraints (excluding the
-	// manual provider).
-	t.Prepare(c)
-	err := t.Env.PrecheckInstance(t.ProviderCallContext,
-		environs.PrecheckInstanceParams{
-			Base: jujuversion.DefaultSupportedLTSBase(),
-		})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (t *localServerSuite) TestPorts(c *gc.C) {
 	t.prepareAndBootstrap(c)
 

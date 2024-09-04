@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
@@ -93,10 +92,6 @@ func (s *internalStateSuite) TearDownTest(c *gc.C) {
 }
 
 type internalStatePolicy struct{}
-
-func (internalStatePolicy) Prechecker() (environs.InstancePrechecker, error) {
-	return nil, errors.NotImplementedf("Prechecker")
-}
 
 func (internalStatePolicy) ConfigValidator() (config.Validator, error) {
 	return nil, errors.NotImplementedf("ConfigValidator")

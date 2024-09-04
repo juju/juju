@@ -58,6 +58,7 @@ func NewUpgraderAPI(
 	logger corelogger.Logger,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
+	modelConfigService common.ModelConfigService,
 	modelAgentService ModelAgentService,
 	controllerStore objectstore.ObjectStore,
 ) (*UpgraderAPI, error) {
@@ -73,7 +74,7 @@ func NewUpgraderAPI(
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), ctrlSt)
 	configGetter := stateenvirons.EnvironConfigGetter{
-		Model: model, CloudService: cloudService, CredentialService: credentialService}
+		Model: model, ModelConfigService: modelConfigService, CloudService: cloudService, CredentialService: credentialService}
 	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
 	toolsFinder := common.NewToolsFinder(controllerConfigGetter, st, urlGetter, newEnviron, controllerStore)
 	return &UpgraderAPI{

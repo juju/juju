@@ -1137,14 +1137,19 @@ func openStatePool(
 		credService = domainServices.Credential()
 		cloudService = domainServices.Cloud()
 	}
+	storageServiceGetter := func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter {
+		return domainServicesGetter.ServicesForModel(modelUUID).Storage(registry)
+	}
+	modelConfigServiceGetter := func(modelUUID coremodel.UUID) stateenvirons.ModelConfigService {
+		return domainServicesGetter.ServicesForModel(modelUUID).Config()
+	}
 	pool, err := state.OpenStatePool(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      agentConfig.Controller(),
-		ControllerModelTag: agentConfig.Model(),
-		MongoSession:       session,
-		NewPolicy: stateenvirons.GetNewPolicyFunc(cloudService, credService, func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter {
-			return domainServicesGetter.ServicesForModel(modelUUID).Storage(registry)
-		}),
+
+		Clock:                  clock.WallClock,
+		ControllerTag:          agentConfig.Controller(),
+		ControllerModelTag:     agentConfig.Model(),
+		MongoSession:           session,
+		NewPolicy:              stateenvirons.GetNewPolicyFunc(cloudService, credService, modelConfigServiceGetter, storageServiceGetter),
 		RunTransactionObserver: runTransactionObserver,
 	})
 	if err != nil {

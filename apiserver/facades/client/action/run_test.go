@@ -15,7 +15,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/action"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -47,15 +46,15 @@ func (s *runSuite) SetUpTest(c *gc.C) {
 
 func (s *runSuite) addMachine(c *gc.C) *state.Machine {
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
 
-func (s *runSuite) addUnit(c *gc.C, application *state.Application, prechecker environs.InstancePrechecker) *state.Unit {
+func (s *runSuite) addUnit(c *gc.C, application *state.Application) *state.Unit {
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToNewMachine(prechecker)
+	err = unit.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
 }
@@ -114,18 +113,17 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 	s.addMachine(c)
 
 	st := s.ControllerModel(c).State()
-	prechecker := s.InstancePrechecker(c, st)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	charm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
-	magic, err := st.AddApplication(prechecker, state.AddApplicationArgs{
+	magic, err := st.AddApplication(state.AddApplicationArgs{
 		Name: "magic", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
 	}, jujutesting.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	s.addUnit(c, magic, prechecker)
-	s.addUnit(c, magic, prechecker)
+	s.addUnit(c, magic)
+	s.addUnit(c, magic)
 
 	s.client.Run(
 		context.Background(),
@@ -171,18 +169,17 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 	s.addMachine(c)
 
 	st := s.ControllerModel(c).State()
-	prechecker := s.InstancePrechecker(c, st)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	charm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
-	magic, err := st.AddApplication(prechecker, state.AddApplicationArgs{
+	magic, err := st.AddApplication(state.AddApplicationArgs{
 		Name: "magic", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
 	}, jujutesting.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	s.addUnit(c, magic, prechecker)
-	s.addUnit(c, magic, prechecker)
+	s.addUnit(c, magic)
+	s.addUnit(c, magic)
 
 	s.client.Run(
 		context.Background(),

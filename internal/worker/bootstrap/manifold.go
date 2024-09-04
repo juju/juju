@@ -227,25 +227,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			controllerModelDomainServices := domainServicesGetter.ServicesForModel(controllerModel.UUID)
 
-			// TODO (stickupkid): This should be removed once we get rid of
-			// the policy and move it into the domain services.
-			prechecker, err := stateenvirons.NewInstancePrechecker(
-				systemState,
-				controllerModelDomainServices.Cloud(),
-				controllerModelDomainServices.Credential(),
-			)
-			if err != nil {
-				_ = stTracker.Done()
-				return nil, errors.Trace(err)
-			}
-
 			model, err := systemState.Model()
 			if err != nil {
 				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
 			registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-				model, controllerDomainServices.Cloud(), controllerDomainServices.Credential(),
+				model, controllerDomainServices.Cloud(),
+				controllerDomainServices.Credential(),
+				controllerModelDomainServices.Config(),
 				stateenvirons.GetNewEnvironFunc(environs.New),
 				stateenvirons.GetNewCAASBrokerFunc(caas.New),
 			)
@@ -275,8 +265,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				NetworkService:          controllerModelDomainServices.Network(),
 				BakeryConfigService:     controllerDomainServices.Macaroon(),
 				SystemState: &stateShim{
-					State:      systemState,
-					prechecker: prechecker,
+					State: systemState,
 				},
 				BootstrapUnlocker:       bootstrapUnlocker,
 				AgentBinaryUploader:     config.AgentBinaryUploader,

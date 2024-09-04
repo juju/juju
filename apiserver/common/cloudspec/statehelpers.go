@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/credential"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/state"
@@ -23,9 +24,11 @@ type Pool interface {
 	Get(string) (*state.PooledState, error)
 }
 
+type ModelConfigServiceGetter func(coremodel.UUID) common.ModelConfigService
+
 // MakeCloudSpecGetter returns a function which returns a CloudSpec
 // for a given model, using the given Pool.
-func MakeCloudSpecGetter(pool Pool, cloudService common.CloudService, credentialService common.CredentialService) func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
+func MakeCloudSpecGetter(pool Pool, cloudService common.CloudService, credentialService common.CredentialService, modelConfigServiceGetter ModelConfigServiceGetter) func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 	return func(ctx context.Context, tag names.ModelTag) (environscloudspec.CloudSpec, error) {
 		st, err := pool.Get(tag.Id())
 		if err != nil {
@@ -37,13 +40,20 @@ func MakeCloudSpecGetter(pool Pool, cloudService common.CloudService, credential
 		if err != nil {
 			return environscloudspec.CloudSpec{}, errors.Trace(err)
 		}
+
+		modelConfigService := modelConfigServiceGetter(coremodel.UUID(m.UUID()))
+
 		// TODO - CAAS(externalreality): Once cloud methods are migrated
 		// to model EnvironConfigGetter will no longer need to contain
 		// both state and model but only model.
 		// TODO (manadart 2018-02-15): This potentially frees the state from
 		// the pool. Release is called, but the state reference survives.
 		return stateenvirons.EnvironConfigGetter{
-			Model: m, CloudService: cloudService, CredentialService: credentialService}.CloudSpec(ctx)
+			Model:              m,
+			CloudService:       cloudService,
+			CredentialService:  credentialService,
+			ModelConfigService: modelConfigService,
+		}.CloudSpec(ctx)
 	}
 }
 
@@ -51,14 +61,18 @@ func MakeCloudSpecGetter(pool Pool, cloudService common.CloudService, credential
 // CloudSpec for a single model. Attempts to request a CloudSpec for
 // any other model other than the one associated with the given
 // state.State results in an error.
-func MakeCloudSpecGetterForModel(st *state.State, cloudService common.CloudService, credentialService common.CredentialService) func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
+func MakeCloudSpecGetterForModel(st *state.State, cloudService common.CloudService, credentialService common.CredentialService, modelConfigService common.ModelConfigService) func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 	return func(ctx context.Context, tag names.ModelTag) (environscloudspec.CloudSpec, error) {
 		m, err := st.Model()
 		if err != nil {
 			return environscloudspec.CloudSpec{}, errors.Trace(err)
 		}
 		configGetter := stateenvirons.EnvironConfigGetter{
-			Model: m, CloudService: cloudService, CredentialService: credentialService}
+			Model:              m,
+			CloudService:       cloudService,
+			CredentialService:  credentialService,
+			ModelConfigService: modelConfigService,
+		}
 
 		if tag.Id() != st.ModelUUID() {
 			return environscloudspec.CloudSpec{}, errors.New("cannot get cloud spec for this model")

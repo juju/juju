@@ -693,7 +693,7 @@ func (s *UnitSuite) addSubordinateUnit(c *gc.C) *state.Unit {
 func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 	mid, err := u.AssignedMachineId()
 	if errors.Is(err, errors.NotAssigned) {
-		err = u.AssignToNewMachine(defaultInstancePrechecker)
+		err = u.AssignToNewMachine()
 		c.Assert(err, jc.ErrorIsNil)
 		mid, err = u.AssignedMachineId()
 	}
@@ -729,7 +729,7 @@ func (s *UnitSuite) TestAllAddresses(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPublicAddress(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -751,7 +751,7 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 }
 
 func (s *UnitSuite) TestStablePrivateAddress(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -773,7 +773,7 @@ func (s *UnitSuite) TestStablePrivateAddress(c *gc.C) {
 }
 
 func (s *UnitSuite) TestStablePublicAddress(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -795,7 +795,7 @@ func (s *UnitSuite) TestStablePublicAddress(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -832,7 +832,7 @@ func (s *UnitSuite) TestPrivateAddressSubordinate(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -866,7 +866,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 
 	{
 		tc := destroyMachineTestCase{desc: "standalone principal", destroyed: true}
-		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -875,7 +875,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "co-located principals", destroyed: false}
-		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -888,7 +888,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "host has container", destroyed: false}
-		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 			Base: state.UbuntuBase("12.10"),
@@ -903,9 +903,9 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "host has vote", destroyed: false}
-		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		_, _, err = s.State.EnableHA(defaultInstancePrechecker, 1, constraints.Value{}, state.UbuntuBase("12.10"), []string{tc.host.Id()})
+		_, _, err = s.State.EnableHA(1, constraints.Value{}, state.UbuntuBase("12.10"), []string{tc.host.Id()})
 		c.Assert(err, jc.ErrorIsNil)
 		node, err := s.State.ControllerNode(tc.host.Id())
 		c.Assert(err, jc.ErrorIsNil)
@@ -918,7 +918,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "unassigned unit", destroyed: true}
-		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -968,7 +968,7 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroy(c *gc.C) {
 	charmWithOut := s.AddTestingCharm(c, "mysql")
 	applicationWithOutProfile := s.AddTestingApplication(c, "mysql", charmWithOut)
 
-	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1002,9 +1002,9 @@ func (s *UnitSuite) demoteController(c *gc.C, m *state.Machine) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
-	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, err = s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	_, _, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1029,9 +1029,9 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
-	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, err = s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	_, _, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1048,9 +1048,9 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
-	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, err = s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	_, _, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1068,7 +1068,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
-	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1096,9 +1096,9 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
-	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, err = s.State.EnableHA(defaultInstancePrechecker, 1, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	_, _, err = s.State.EnableHA(1, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1135,7 +1135,7 @@ func (s *UnitSuite) TestRemoveUnitWRelationLastUnit(c *gc.C) {
 	mysqlApp := s.AddTestingApplication(c, "mysql", mysqlCharm)
 	mysqlUnit, err := mysqlApp.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mysqlUnit.AssignToNewMachine(defaultInstancePrechecker), jc.ErrorIsNil)
+	c.Assert(mysqlUnit.AssignToNewMachine(), jc.ErrorIsNil)
 	endpoints, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(endpoints...)
@@ -1287,7 +1287,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.AssignToNewMachine(defaultInstancePrechecker)
+		err := s.unit.AssignToNewMachine()
 		c.Assert(err, jc.ErrorIsNil)
 		now := coretesting.NonZeroTime()
 		sInfo := status.StatusInfo{
@@ -1337,7 +1337,7 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 }
 
 func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1358,7 +1358,7 @@ func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
 }
 
 func (s *UnitSuite) TestDestroyUnassignRetry(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1387,7 +1387,7 @@ func (s *UnitSuite) TestDestroyAssignErrorRetry(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotAssigned)
 
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.AssignToNewMachine(defaultInstancePrechecker)
+		err := s.unit.AssignToNewMachine()
 		c.Assert(err, jc.ErrorIsNil)
 		now := coretesting.NonZeroTime()
 		sInfo := status.StatusInfo{
@@ -1430,7 +1430,7 @@ func (s *UnitSuite) TestShortCircuitDestroyUnitNotAssigned(c *gc.C) {
 func (s *UnitSuite) TestCannotShortCircuitDestroyAssignedUnit(c *gc.C) {
 	// This test is similar to TestShortCircuitDestroyUnitNotAssigned but
 	// the unit is assigned to a machine.
-	err := s.unit.AssignToNewMachine(defaultInstancePrechecker)
+	err := s.unit.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	now := coretesting.NonZeroTime()
 	err = s.unit.SetAgentStatus(status.StatusInfo{
@@ -1450,7 +1450,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.AssignToNewMachine(defaultInstancePrechecker)
+	err = s.unit.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1480,7 +1480,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.AssignToNewMachine(defaultInstancePrechecker)
+		err = unit.AssignToNewMachine()
 		c.Assert(err, jc.ErrorIsNil)
 		now := coretesting.NonZeroTime()
 		sInfo := status.StatusInfo{
@@ -1500,7 +1500,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *gc.C) {
 	// A unit assigned to a provisioned machine is still removed directly so
 	// long as it has not set status.
-	err := s.unit.AssignToNewMachine(defaultInstancePrechecker)
+	err := s.unit.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	mid, err := s.unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1515,7 +1515,7 @@ func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *gc.C) {
 }
 
 func (s *UnitSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
-	err := s.unit.AssignToNewMachine(defaultInstancePrechecker)
+	err := s.unit.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	now := coretesting.NonZeroTime()
 	for i := 0; i < 10; i++ {
@@ -1600,7 +1600,7 @@ func (s *UnitSuite) TestUnitsInError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set a non unit error to ensure it's ignored.
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetStatus(status.StatusInfo{
 		Status:  status.Error,
@@ -1702,7 +1702,7 @@ func (s *UnitSuite) TesOpenedPorts(c *gc.C) {
 	_, err := s.unit.OpenedPortRanges()
 	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotAssigned)
 
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1796,7 +1796,7 @@ func (s *UnitSuite) assertPortRangesAfterOpenClose(c *gc.C, u *state.Unit, openR
 }
 
 func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1844,7 +1844,7 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1875,7 +1875,7 @@ func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2369,7 +2369,7 @@ func (s *UnitSuite) TestWatchUnits(c *gc.C) {
 	u, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(u.Name())
-	err = u.AssignToNewMachine(defaultInstancePrechecker)
+	err = u.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(u.Name())
 
@@ -2609,7 +2609,7 @@ func (s *UnitSuite) TestDestroyWithForceWorksOnDyingUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Assign the unit to a machine and set the agent status so
 	// removal can't be short-circuited.
-	err = s.State.AssignUnit(defaultInstancePrechecker, unit, state.AssignNew)
+	err = s.State.AssignUnit(unit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetAgentStatus(status.StatusInfo{
 		Status: status.Idle,

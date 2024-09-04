@@ -31,10 +31,11 @@ func newUndertakerFacade(ctx facade.ModelContext) (*UndertakerAPI, error) {
 	domainServices := ctx.DomainServices()
 	cloudService := domainServices.Cloud()
 	credentialService := domainServices.Credential()
+	modelConfigService := domainServices.Config()
 	backendService := domainServices.SecretBackend()
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		ctx.Resources(),
-		cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService),
+		cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService, modelConfigService),
 		cloudspec.MakeCloudSpecWatcherForModel(st, cloudService),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
 		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, domainServices.Credential()),

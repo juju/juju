@@ -23,14 +23,16 @@ import (
 // environStatePolicy implements state.Policy in
 // terms of environs.Environ and related types.
 type environStatePolicy struct {
-	st                   *state.State
-	cloudService         CloudService
-	credentialService    CredentialService
-	getEnviron           NewEnvironFunc
-	getBroker            NewCAASBrokerFunc
-	checkerMu            sync.Mutex
-	checker              deployChecker
-	storageServiceGetter storageServiceGetter
+	st                       *state.State
+	cloudService             CloudService
+	credentialService        CredentialService
+	modelConfigService       ModelConfigService
+	modelConfigServiceGetter modelServiceGetter
+	getEnviron               NewEnvironFunc
+	getBroker                NewCAASBrokerFunc
+	checkerMu                sync.Mutex
+	checker                  deployChecker
+	storageServiceGetter     storageServiceGetter
 }
 
 // deployChecker is the subset of the Environ interface (common to Environ and
@@ -41,35 +43,23 @@ type deployChecker interface {
 }
 
 type storageServiceGetter func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter
+type modelServiceGetter func(modelUUID coremodel.UUID) ModelConfigService
 
 // GetNewPolicyFunc returns a state.NewPolicyFunc that will return
 // a state.Policy implemented in terms of either environs.Environ
 // or caas.Broker and related types.
-func GetNewPolicyFunc(cloudService CloudService, credentialService CredentialService, storageServiceGetter storageServiceGetter) state.NewPolicyFunc {
+func GetNewPolicyFunc(cloudService CloudService, credentialService CredentialService, modelConfigServiceGetter modelServiceGetter, storageServiceGetter storageServiceGetter) state.NewPolicyFunc {
 	return func(st *state.State) state.Policy {
 		return &environStatePolicy{
-			st:                   st,
-			cloudService:         cloudService,
-			credentialService:    credentialService,
-			getEnviron:           GetNewEnvironFunc(environs.New),
-			getBroker:            GetNewCAASBrokerFunc(caas.New),
-			storageServiceGetter: storageServiceGetter,
+			st:                       st,
+			cloudService:             cloudService,
+			credentialService:        credentialService,
+			modelConfigServiceGetter: modelConfigServiceGetter,
+			getEnviron:               GetNewEnvironFunc(environs.New),
+			getBroker:                GetNewCAASBrokerFunc(caas.New),
+			storageServiceGetter:     storageServiceGetter,
 		}
 	}
-}
-
-// NewInstancePrechecker returns a new instance prechecker that uses the
-// specified cloudService and credentialService to create the underlying
-// deployChecker.
-func NewInstancePrechecker(st *state.State, cloudService CloudService, credentialService CredentialService) (environs.InstancePrechecker, error) {
-	policy := &environStatePolicy{
-		st:                st,
-		cloudService:      cloudService,
-		credentialService: credentialService,
-		getEnviron:        GetNewEnvironFunc(environs.New),
-		getBroker:         GetNewCAASBrokerFunc(caas.New),
-	}
-	return policy.Prechecker()
 }
 
 // getDeployChecker returns the cached deployChecker instance, or creates a
@@ -81,6 +71,9 @@ func (p *environStatePolicy) getDeployChecker() (deployChecker, error) {
 	if p.credentialService == nil {
 		return nil, errors.NotSupportedf("deploy check without credential service")
 	}
+	if p.modelConfigServiceGetter == nil && p.modelConfigService == nil {
+		return nil, errors.NotSupportedf("deploy check without model config or model config getter")
+	}
 	if p.checker != nil {
 		return p.checker, nil
 	}
@@ -89,17 +82,17 @@ func (p *environStatePolicy) getDeployChecker() (deployChecker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	modelConfigService := p.modelConfigService
+	if modelConfigService == nil {
+		modelConfigService = p.modelConfigServiceGetter(coremodel.UUID(model.UUID()))
+	}
 	if model.Type() == state.ModelTypeIAAS {
-		p.checker, err = p.getEnviron(model, p.cloudService, p.credentialService)
+		p.checker, err = p.getEnviron(model, p.cloudService, p.credentialService, modelConfigService)
 	} else {
-		p.checker, err = p.getBroker(model, p.cloudService, p.credentialService)
+		p.checker, err = p.getBroker(model, p.cloudService, p.credentialService, modelConfigService)
 	}
 	return p.checker, err
-}
-
-// Prechecker implements state.Policy.
-func (p *environStatePolicy) Prechecker() (environs.InstancePrechecker, error) {
-	return p.getDeployChecker()
 }
 
 // ConfigValidator implements state.Policy.
@@ -132,14 +125,23 @@ func (p *environStatePolicy) StorageServices() (state.StoragePoolGetter, storage
 	if p.storageServiceGetter == nil {
 		return nil, nil, errors.NotSupportedf("StorageServices check without storage pool getter")
 	}
+	if p.modelConfigServiceGetter == nil && p.modelConfigService == nil {
+		return nil, nil, errors.NotSupportedf("StorageServices check without model config or model config getter")
+	}
 
 	model, err := p.st.Model()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+
+	modelConfigService := p.modelConfigService
+	if modelConfigService == nil {
+		modelConfigService = p.modelConfigServiceGetter(coremodel.UUID(model.UUID()))
+	}
+
 	// ProviderRegistry doesn't make any calls to fetch instance types,
 	// so it doesn't help to use getDeployChecker() here.
-	registry, err := NewStorageProviderRegistryForModel(model, p.cloudService, p.credentialService, p.getEnviron, p.getBroker)
+	registry, err := NewStorageProviderRegistryForModel(model, p.cloudService, p.credentialService, modelConfigService, p.getEnviron, p.getBroker)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -153,16 +155,17 @@ func NewStorageProviderRegistryForModel(
 	model *state.Model,
 	cloudService CloudService,
 	credentialService CredentialService,
+	modelConfigService ModelConfigService,
 	newEnv NewEnvironFunc,
 	newBroker NewCAASBrokerFunc,
 ) (_ storage.ProviderRegistry, err error) {
 	var reg storage.ProviderRegistry
 	if model.Type() == state.ModelTypeIAAS {
-		if reg, err = newEnv(model, cloudService, credentialService); err != nil {
+		if reg, err = newEnv(model, cloudService, credentialService, modelConfigService); err != nil {
 			return nil, errors.Trace(err)
 		}
 	} else {
-		if reg, err = newBroker(model, cloudService, credentialService); err != nil {
+		if reg, err = newBroker(model, cloudService, credentialService, modelConfigService); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}

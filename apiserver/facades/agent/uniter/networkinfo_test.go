@@ -24,6 +24,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -71,7 +72,7 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	st := s.ControllerModel(c).State()
 
 	prr := s.newProReqRelation(c, charm.ScopeGlobal)
-	err := prr.pu0.AssignToNewMachine(s.InstancePrechecker(c, st))
+	err := prr.pu0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -160,7 +161,7 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.AssignToNewMachine(s.InstancePrechecker(c, st)), jc.ErrorIsNil)
+	c.Assert(unit.AssignToNewMachine(), jc.ErrorIsNil)
 
 	id, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -226,7 +227,7 @@ func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C)
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.AssignToNewMachine(s.InstancePrechecker(c, st)), jc.ErrorIsNil)
+	c.Assert(unit.AssignToNewMachine(), jc.ErrorIsNil)
 
 	id, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -278,10 +279,8 @@ func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C)
 }
 
 func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(c *gc.C) {
-	st := s.ControllerModel(c).State()
-
 	prr := s.newProReqRelation(c, charm.ScopeGlobal)
-	err := prr.pu0.AssignToNewMachine(s.InstancePrechecker(c, st))
+	err := prr.pu0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -342,7 +341,10 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
-	st := f.MakeCAASModel(c, nil)
+	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := f.MakeCAASModel(c, &factory.ModelParams{UUID: &modelUUID})
 	defer func() { _ = st.Close() }()
 
 	f2, release := s.NewFactory(c, st.ModelUUID())
@@ -363,7 +365,7 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 		return nil, errors.New("bad horsey")
 	}
 
-	err := app.UpdateCloudService("", network.SpaceAddresses{
+	err = app.UpdateCloudService("", network.SpaceAddresses{
 		network.NewSpaceAddress(host, network.WithScope(network.ScopePublic)),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -408,7 +410,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	st := s.ControllerModel(c).State()
 
 	prr := s.newProReqRelationWithBindings(c, charm.ScopeGlobal, bindings, nil)
-	err := prr.pu0.AssignToNewMachine(s.InstancePrechecker(c, st))
+	err := prr.pu0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -452,7 +454,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	prr := s.newRemoteProReqRelation(c)
-	err := prr.ru0.AssignToNewMachine(s.InstancePrechecker(c, st))
+	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -486,7 +488,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 	st := s.ControllerModel(c).State()
 
 	prr := s.newRemoteProReqRelation(c)
-	err := prr.ru0.AssignToNewMachine(s.InstancePrechecker(c, st))
+	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -519,7 +521,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 	st := s.ControllerModel(c).State()
 
 	prr := s.newRemoteProReqRelation(c)
-	err := prr.ru0.AssignToNewMachine(s.InstancePrechecker(c, st))
+	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -564,7 +566,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 	st := s.ControllerModel(c).State()
 
 	prr := s.newRemoteProReqRelation(c)
-	err := prr.ru0.AssignToNewMachine(s.InstancePrechecker(c, st))
+	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -625,7 +627,10 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
-	st := f.MakeCAASModel(c, nil)
+	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := f.MakeCAASModel(c, &factory.ModelParams{UUID: &modelUUID})
 	defer func() { _ = st.Close() }()
 
 	f2, release := s.NewFactory(c, st.ModelUUID())
@@ -678,7 +683,10 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
-	st := f.MakeCAASModel(c, nil)
+	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := f.MakeCAASModel(c, &factory.ModelParams{UUID: &modelUUID})
 	defer func() { _ = st.Close() }()
 
 	f2, release := s.NewFactory(c, st.ModelUUID())
@@ -707,7 +715,10 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
-	st := f.MakeCAASModel(c, nil)
+	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := f.MakeCAASModel(c, &factory.ModelParams{UUID: &modelUUID})
 	defer func() { _ = st.Close() }()
 
 	f2, release := s.NewFactory(c, st.ModelUUID())
@@ -721,7 +732,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 	// as we are interested in the return from unit.AllAddresses().
 	// It simulates the same thing.
 	// This should never be returned as an ingress address.
-	err := gitLab.UpdateCloudService("", network.SpaceAddresses{
+	err = gitLab.UpdateCloudService("", network.SpaceAddresses{
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeMachineLocal)),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -818,7 +829,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
+	machine, err := st.AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
@@ -892,7 +903,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
+	machine, err := st.AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})

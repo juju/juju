@@ -1165,10 +1165,12 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		return params.ModelInfo{}, errors.Trace(err)
 	}
 
+	modelUUID := model.UUID()
+
 	info := params.ModelInfo{
 		Name:           model.Name(),
 		Type:           string(model.Type()),
-		UUID:           model.UUID(),
+		UUID:           modelUUID,
 		ControllerUUID: m.controllerUUID.String(),
 		IsController:   st.IsController(),
 		OwnerTag:       model.Owner().String(),
@@ -1235,7 +1237,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		}
 	}
 	if withSecrets && canSeeMachinesAndSecrets {
-		backends, err := m.secretBackendService.BackendSummaryInfoForModel(ctx, coremodel.UUID(model.UUID()))
+		backends, err := m.secretBackendService.BackendSummaryInfoForModel(ctx, coremodel.UUID(modelUUID))
 		if shouldErr(err) {
 			return params.ModelInfo{}, errors.Trace(err)
 		}

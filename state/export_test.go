@@ -29,8 +29,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/mongo"
@@ -281,12 +279,6 @@ func AddTestingApplicationWithBindings(c *gc.C, st *State, objectStore objectsto
 	})
 }
 
-type testInstancePreChecker struct{}
-
-func (testInstancePreChecker) PrecheckInstance(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error {
-	return errors.NotSupportedf("prechecking instances")
-}
-
 type addTestingApplicationParams struct {
 	st       *State
 	name     string
@@ -324,7 +316,7 @@ func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params 
 			},
 		}
 	}
-	app, err := params.st.AddApplication(testInstancePreChecker{}, AddApplicationArgs{
+	app, err := params.st.AddApplication(AddApplicationArgs{
 		Name:             params.name,
 		Charm:            params.ch,
 		CharmOrigin:      origin,

@@ -126,10 +126,12 @@ func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 
 func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 	model, st := s.newCAASModel(c)
+	testCfg, _ := s.createTestModelConfig(c)
 	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(
 		model,
 		&testing.MockCloudService{CloudInfo: &cloud.Cloud{Name: "caascloud", Type: "kubernetes"}},
 		&testing.MockCredentialService{Credential: ptr(cloud.NewCredential(cloud.UserPassAuthType, nil))},
+		&testing.MockConfigService{Config: testCfg},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
@@ -292,7 +294,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 		}},
 		Charm: ch,
 	}
-	application2, err := otherSt.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, otherSt.ModelUUID()))
+	application2, err := otherSt.AddApplication(args, state.NewObjectStore(c, otherSt.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()

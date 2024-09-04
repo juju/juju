@@ -2503,17 +2503,6 @@ func (s *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*missing machine nonce")
 }
 
-func (s *localServerSuite) TestPrechecker(c *gc.C) {
-	// All implementations of InstancePrechecker should
-	// return nil for empty constraints (excluding the
-	// manual provider).
-	err := s.env.PrecheckInstance(s.ProviderCallContext,
-		environs.PrecheckInstanceParams{
-			Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
-		})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *localServerSuite) assertStartInstanceDefaultSecurityGroup(c *gc.C, useDefault bool) {
 	s.CleanupSuite.PatchValue(&s.TestConfig, s.TestConfig.Merge(coretesting.Attrs{
 		"use-default-secgroup": useDefault,

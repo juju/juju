@@ -53,7 +53,7 @@ func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 	// to be numerically consecutive from zero.
 	st := s.ControllerModel(c).State()
 	for i := 0; i <= 2; i++ {
-		machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+		machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, machine)
 	}

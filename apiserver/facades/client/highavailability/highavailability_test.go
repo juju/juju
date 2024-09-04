@@ -62,7 +62,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.AddMachines(s.InstancePrechecker(c, st), state.MachineTemplate{
+	_, err = st.AddMachines(state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobManageModel},
 		Constraints: controllerCons,
@@ -372,14 +372,14 @@ func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
 func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	machine1Cons := constraints.MustParse("mem=8G")
-	_, err := st.AddMachines(s.InstancePrechecker(c, st), state.MachineTemplate{
+	_, err := st.AddMachines(state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: machine1Cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	placement := []string{"1", "2"}

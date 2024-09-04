@@ -2402,7 +2402,12 @@ func (u *UniterAPI) CloudAPIVersion(ctx context.Context) (params.StringResult, e
 	result := params.StringResult{}
 
 	configGetter := stateenvirons.EnvironConfigGetter{
-		Model: u.m, NewContainerBroker: u.containerBrokerFunc, CloudService: u.cloudService, CredentialService: u.credentialService}
+		Model:              u.m,
+		NewContainerBroker: u.containerBrokerFunc,
+		CloudService:       u.cloudService,
+		CredentialService:  u.credentialService,
+		ModelConfigService: u.modelConfigService,
+	}
 	spec, err := configGetter.CloudSpec(ctx)
 	if err != nil {
 		return result, apiservererrors.ServerError(err)

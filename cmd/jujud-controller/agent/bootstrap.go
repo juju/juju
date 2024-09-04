@@ -32,9 +32,7 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud-controller/util"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	coreuser "github.com/juju/juju/core/user"
@@ -52,7 +50,6 @@ import (
 	"github.com/juju/juju/internal/database"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/worker/peergrouper"
 	"github.com/juju/juju/state"
@@ -169,20 +166,6 @@ var (
 	environsNewCAAS = caas.New
 )
 
-// credentialGetter serves a fixed credential as a CredentialService instance.
-// It is needed by the state policy to create an environ when validating the
-// ops needed to set up the initial controller model.
-type credentialGetter struct {
-	cred *jujucloud.Credential
-}
-
-func (c credentialGetter) CloudCredential(_ stdcontext.Context, key credential.Key) (jujucloud.Credential, error) {
-	if c.cred == nil {
-		return jujucloud.Credential{}, errors.NotFoundf("credential %q", key)
-	}
-	return *c.cred, nil
-}
-
 // cloudGetter serves a fixed cloud as a CloudService instance.
 // It is needed by the state policy to create an environ when validating the
 // ops needed to set up the initial controller model.
@@ -195,12 +178,6 @@ func (c cloudGetter) Cloud(_ stdcontext.Context, name string) (*jujucloud.Cloud,
 		return nil, errors.NotFoundf("cloud %q", name)
 	}
 	return c.cloud, nil
-}
-
-type noopStoragePoolGetter struct{}
-
-func (noopStoragePoolGetter) GetStoragePoolByName(ctx stdcontext.Context, name string) (*storage.Config, error) {
-	return nil, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
 }
 
 // Run initializes state for an environment.
@@ -394,25 +371,10 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			SharedSecret:              info.SharedSecret,
 			StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),
 			MongoDialOpts:             dialOpts,
-			StateNewPolicy: stateenvirons.GetNewPolicyFunc(
-				cloudGetter{cloud: &args.ControllerCloud},
-				credentialGetter{cred: args.ControllerCloudCredential},
-				// We don't need the storage service at bootstrap.
-				func(modelUUID model.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter {
-					return noopStoragePoolGetter{}
-				},
-			),
-			BootstrapDqlite: c.DqliteInitializer,
-			Provider:        environs.Provider,
-			Logger:          internallogger.GetLogger("juju.agent.bootstrap"),
-			InstancePrecheckerGetter: func(st *state.State) (environs.InstancePrechecker, error) {
-				return stateenvirons.NewInstancePrechecker(
-					st,
-					cloudGetter{cloud: &args.ControllerCloud},
-					credentialGetter{cred: args.ControllerCloudCredential},
-				)
-			},
-			ConfigSchemaSourceGetter: configSchemaSource,
+			BootstrapDqlite:           c.DqliteInitializer,
+			Provider:                  environs.Provider,
+			Logger:                    internallogger.GetLogger("juju.agent.bootstrap"),
+			ConfigSchemaSourceGetter:  configSchemaSource,
 		})
 		if err != nil {
 			return errors.Trace(err)

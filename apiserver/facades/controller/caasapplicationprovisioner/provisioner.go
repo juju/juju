@@ -94,18 +94,19 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 	authorizer := ctx.Auth()
 
 	st := ctx.State()
+	domainServices := ctx.DomainServices()
 
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, ctx.DomainServices().Cloud(), ctx.DomainServices().Credential())
+
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting caas client")
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 
-	domainServices := ctx.DomainServices()
 	controllerConfigService := domainServices.ControllerConfig()
 	modelConfigService := domainServices.Config()
 	modelInfoService := domainServices.ModelInfo()

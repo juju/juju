@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -25,14 +24,9 @@ func newFacade(ctx facade.ModelContext) (*API, error) {
 
 	domainServices := ctx.DomainServices()
 
-	prechecker, err := stateenvirons.NewInstancePrechecker(st, domainServices.Cloud(), domainServices.Credential())
-	if err != nil {
-		return nil, err
-	}
-
 	setter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, common.AuthAlways())
 	return &API{
-		st:             stateShim{State: st, prechecker: prechecker},
+		st:             stateShim{State: st},
 		machineService: domainServices.Machine(),
 		networkService: domainServices.Network(),
 		res:            ctx.Resources(),

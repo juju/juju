@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -64,7 +63,6 @@ type NetworkService interface {
 // implementation of the api end point.
 type HighAvailabilityAPI struct {
 	st                      *state.State
-	prechecker              environs.InstancePrechecker
 	nodeService             NodeService
 	machineService          MachineService
 	applicationService      ApplicationService
@@ -161,7 +159,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	}
 
 	// Might be nicer to pass the spec itself to this method.
-	changes, addedUnits, err := st.EnableHA(api.prechecker, spec.NumControllers, spec.Constraints, referenceMachine.Base(), spec.Placement)
+	changes, addedUnits, err := st.EnableHA(spec.NumControllers, spec.Constraints, referenceMachine.Base(), spec.Placement)
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}

@@ -386,9 +386,9 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo) {
 	c.Assert(got, jc.DeepEquals, expected)
 	s.st.model.CheckCalls(c, []jujutesting.StubCall{
+		{"UUID", nil},
 		{"Name", nil},
 		{"Type", nil},
-		{"UUID", nil},
 		{"UUID", nil},
 		{"Owner", nil},
 		{"Life", nil},
@@ -398,7 +398,6 @@ func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo
 		{"Life", nil},
 		{"Config", nil},
 		{"Status", nil},
-		{"UUID", nil},
 		{"Type", nil},
 	})
 }

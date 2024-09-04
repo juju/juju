@@ -727,7 +727,7 @@ func (s *MachineLegacySuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	})
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.ControllerModel(c).State().AssignUnit(state.NoopInstancePrechecker{}, unit, state.AssignNew)
+	err = s.ControllerModel(c).State().AssignUnit(unit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, instId := s.waitProvisioned(c, unit)

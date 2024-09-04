@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 
@@ -16,8 +15,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/internal/storage"
 )
 
 // MachineTemplate holds attributes that are to be associated
@@ -112,8 +109,8 @@ type HostFilesystemParams struct {
 // AddMachineInsideNewMachine creates a new machine within a container
 // of the given type inside another new machine. The two given templates
 // specify the form of the child and parent respectively.
-func (st *State) AddMachineInsideNewMachine(prechecker environs.InstancePrechecker, template, parentTemplate MachineTemplate, containerType instance.ContainerType) (*Machine, error) {
-	mdoc, ops, err := st.addMachineInsideNewMachineOps(prechecker, template, parentTemplate, containerType)
+func (st *State) AddMachineInsideNewMachine(template, parentTemplate MachineTemplate, containerType instance.ContainerType) (*Machine, error) {
+	mdoc, ops, err := st.addMachineInsideNewMachineOps(template, parentTemplate, containerType)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot add a new machine")
 	}
@@ -132,8 +129,8 @@ func (st *State) AddMachineInsideMachine(template MachineTemplate, parentId stri
 
 // AddMachine adds a machine with the given series and jobs.
 // It is deprecated and around for testing purposes only.
-func (st *State) AddMachine(prechecker environs.InstancePrechecker, base Base, jobs ...MachineJob) (*Machine, error) {
-	ms, err := st.AddMachines(prechecker, MachineTemplate{
+func (st *State) AddMachine(base Base, jobs ...MachineJob) (*Machine, error) {
+	ms, err := st.AddMachines(MachineTemplate{
 		Base: base,
 		Jobs: jobs,
 	})
@@ -145,8 +142,8 @@ func (st *State) AddMachine(prechecker environs.InstancePrechecker, base Base, j
 
 // AddOneMachine machine adds a new machine configured according to the
 // given template.
-func (st *State) AddOneMachine(prechecker environs.InstancePrechecker, template MachineTemplate) (*Machine, error) {
-	ms, err := st.AddMachines(prechecker, template)
+func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
+	ms, err := st.AddMachines(template)
 	if err != nil {
 		return nil, err
 	}
@@ -155,13 +152,13 @@ func (st *State) AddOneMachine(prechecker environs.InstancePrechecker, template 
 
 // AddMachines adds new machines configured according to the
 // given templates.
-func (st *State) AddMachines(prechecker environs.InstancePrechecker, templates ...MachineTemplate) (_ []*Machine, err error) {
+func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add a new machine")
 	var ms []*Machine
 	var ops []txn.Op
 	var controllerIds []string
 	for _, template := range templates {
-		mdoc, addOps, err := st.addMachineOps(prechecker, template)
+		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -261,20 +258,10 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowController boo
 // addMachineOps returns operations to add a new top level machine
 // based on the given template. It also returns the machine document
 // that will be inserted.
-func (st *State) addMachineOps(prechecker environs.InstancePrechecker, template MachineTemplate) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op, error) {
 	template, err := st.effectiveMachineTemplate(template, st.IsController())
 	if err != nil {
 		return nil, nil, err
-	}
-	if template.InstanceId == "" {
-		volumeAttachments, err := st.machineTemplateVolumeAttachmentParams(template)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		if err := precheckInstance(context.Background(), prechecker, template.Base, template.Constraints, template.Placement, volumeAttachments); err != nil {
-			return nil, nil, errors.Trace(err)
-		}
 	}
 	seq, err := sequence(st, "machine")
 	if err != nil {
@@ -395,7 +382,7 @@ func (st *State) newContainerId(parentId string, containerType instance.Containe
 // machine within a container of the given type inside another
 // new machine. The two given templates specify the form
 // of the child and parent respectively.
-func (st *State) addMachineInsideNewMachineOps(prechecker environs.InstancePrechecker, template, parentTemplate MachineTemplate, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineTemplate, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
 	if template.InstanceId != "" || parentTemplate.InstanceId != "" {
 		return nil, nil, errors.New("cannot specify instance id for a new container")
 	}
@@ -409,22 +396,6 @@ func (st *State) addMachineInsideNewMachineOps(prechecker environs.InstancePrech
 	}
 	if containerType == "" {
 		return nil, nil, errors.New("no container type specified")
-	}
-	if parentTemplate.InstanceId == "" {
-		volumeAttachments, err := st.machineTemplateVolumeAttachmentParams(parentTemplate)
-		if err != nil {
-			return nil, nil, err
-		}
-		if err := precheckInstance(
-			context.Background(),
-			prechecker,
-			parentTemplate.Base,
-			parentTemplate.Constraints,
-			parentTemplate.Placement,
-			volumeAttachments,
-		); err != nil {
-			return nil, nil, err
-		}
 	}
 
 	parentDoc := st.machineDocForTemplate(parentTemplate, strconv.Itoa(seq))
@@ -454,37 +425,6 @@ func (st *State) addMachineInsideNewMachineOps(prechecker environs.InstancePrech
 		insertNewContainerRefOp(st, parentDoc.Id, mdoc.Id),
 	)
 	return mdoc, append(prereqOps, parentOp, machineOp), nil
-}
-
-func (st *State) machineTemplateVolumeAttachmentParams(t MachineTemplate) ([]storage.VolumeAttachmentParams, error) {
-	sb, err := NewStorageBackend(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	out := make([]storage.VolumeAttachmentParams, 0, len(t.VolumeAttachments))
-	for volumeTag, a := range t.VolumeAttachments {
-		v, err := sb.Volume(volumeTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		volumeInfo, err := v.Info()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		providerType, _, _, err := poolStorageProvider(sb, volumeInfo.Pool)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		out = append(out, storage.VolumeAttachmentParams{
-			AttachmentParams: storage.AttachmentParams{
-				Provider: providerType,
-				ReadOnly: a.ReadOnly,
-			},
-			Volume:   volumeTag,
-			VolumeId: volumeInfo.VolumeId,
-		})
-	}
-	return out, nil
 }
 
 func (st *State) machineDocForTemplate(template MachineTemplate, id string) *machineDoc {

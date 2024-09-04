@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/internal/password"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -183,7 +184,10 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.Client, *state.CAA
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
-	st := f.MakeCAASModel(c, nil)
+	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := f.MakeCAASModel(c, &factory.ModelParams{UUID: &modelUUID})
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 

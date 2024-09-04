@@ -29,9 +29,10 @@ func newFacade(ctx facade.ModelContext) (*AgentToolsAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	domainServices := ctx.DomainServices()
 	newEnviron := func() (environs.Environ, error) {
 		newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
-		return newEnviron(model, ctx.DomainServices().Cloud(), ctx.DomainServices().Credential())
+		return newEnviron(model, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
 	}
 	return NewAgentToolsAPI(
 		st,
@@ -40,7 +41,7 @@ func newFacade(ctx facade.ModelContext) (*AgentToolsAPI, error) {
 		envVersionUpdate,
 		ctx.Auth(),
 		ctx.Logger().Child("model"),
-		ctx.DomainServices().Config(),
-		ctx.DomainServices().Agent(),
+		domainServices.Config(),
+		domainServices.Agent(),
 	)
 }

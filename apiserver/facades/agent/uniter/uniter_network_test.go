@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/featureflag"
@@ -131,7 +130,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.st = s.ControllerModel(c).State()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.machine0 = s.addProvisionedMachineWithDevicesAndAddresses(c, 10, s.InstancePrechecker(c, s.st))
+	s.machine0 = s.addProvisionedMachineWithDevicesAndAddresses(c, 10)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -159,7 +158,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		Machine:     s.machine0,
 	})
 
-	s.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20, s.InstancePrechecker(c, s.st))
+	s.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20)
 
 	s.mysqlCharm = f.MakeCharm(c, &factory.CharmParams{
 		Name: "mysql",
@@ -189,8 +188,8 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.setupUniterAPIForUnit(c, s.wordpressUnit)
 }
 
-func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int, prechecker environs.InstancePrechecker) *state.Machine {
-	machine, err := s.st.AddMachine(prechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int) *state.Machine {
+	machine, err := s.st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)

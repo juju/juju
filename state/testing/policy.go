@@ -117,3 +117,13 @@ func (m *MockCloudService) Cloud(ctx stdcontext.Context, name string) (*cloud.Cl
 	}
 	return m.CloudInfo, nil
 }
+
+type MockConfigService struct {
+	Config *config.Config
+}
+
+func (m *MockConfigService) ModelConfig(_ stdcontext.Context) (*config.Config, error) {
+	// name (model name)
+	// uuid (model uuid)
+	return m.Config, nil
+}

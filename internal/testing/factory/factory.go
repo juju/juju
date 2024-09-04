@@ -29,7 +29,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -52,7 +51,6 @@ const (
 type Factory struct {
 	pool               *state.StatePool
 	st                 *state.State
-	prechecker         environs.InstancePrechecker
 	applicationService *applicationservice.WatchableService
 	controllerConfig   controller.Config
 }
@@ -63,7 +61,6 @@ func NewFactory(st *state.State, pool *state.StatePool, controllerConfig control
 	return &Factory{
 		st:               st,
 		pool:             pool,
-		prechecker:       state.NoopInstancePrechecker{},
 		controllerConfig: controllerConfig,
 	}
 }
@@ -72,21 +69,6 @@ func NewFactory(st *state.State, pool *state.StatePool, controllerConfig control
 func (f *Factory) WithApplicationService(s *applicationservice.WatchableService) *Factory {
 	f.applicationService = s
 	return f
-}
-
-// NewFactoryWithPrechecker returns a new factory with the given prechecker.
-func NewFactoryWithPrechecker(
-	st *state.State,
-	pool *state.StatePool,
-	prechecker environs.InstancePrechecker,
-	controllerConfig controller.Config,
-) *Factory {
-	return &Factory{
-		st:               st,
-		pool:             pool,
-		prechecker:       prechecker,
-		controllerConfig: controllerConfig,
-	}
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -291,7 +273,7 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 	if params.Characteristics != nil {
 		machineTemplate.HardwareCharacteristics = *params.Characteristics
 	}
-	machine, err := factory.st.AddOneMachine(factory.prechecker, machineTemplate)
+	machine, err := factory.st.AddOneMachine(machineTemplate)
 	c.Assert(err, jc.ErrorIsNil)
 	if setProvisioned {
 		err = machine.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
@@ -461,7 +443,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 
 	appConfig, err := coreconfig.NewConfig(params.ApplicationConfig, params.ApplicationConfigFields, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	application, err := factory.st.AddApplication(factory.prechecker, state.AddApplicationArgs{
+	application, err := factory.st.AddApplication(state.AddApplicationArgs{
 		Name:              params.Name,
 		Charm:             params.Charm,
 		CharmOrigin:       params.CharmOrigin,

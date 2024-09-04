@@ -66,7 +66,7 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 	modelInfo, err := domainServices.ModelInfo().GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), domainServices.Cloud(), domainServices.Credential())
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), domainServices.Cloud(), domainServices.Credential(), s.DefaultModelDomainServices(c).Config())
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	s.st = s.ControllerModel(c).State()
@@ -139,7 +139,7 @@ func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 	// Make an unprovisioned machine with storage for tests to use.
 	// TODO(axw) extend testing/factory to allow creating unprovisioned
 	// machines.
-	_, err = s.st.AddOneMachine(s.InstancePrechecker(c, s.st), state.MachineTemplate{
+	_, err = s.st.AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{
@@ -186,7 +186,7 @@ func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 	// Make an unprovisioned machine with storage for tests to use.
 	// TODO(axw) extend testing/factory to allow creating unprovisioned
 	// machines.
-	_, err = s.st.AddOneMachine(s.InstancePrechecker(c, s.st), state.MachineTemplate{
+	_, err = s.st.AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.HostFilesystemParams{{

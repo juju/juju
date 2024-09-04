@@ -503,7 +503,9 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *gc.C) {
 }
 
 func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
+	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
+	c.Assert(err, jc.ErrorIsNil)
+	st := s.Factory.MakeModel(c, &factory.ModelParams{UUID: &modelUUID})
 	defer st.Close()
 
 	controller.SetPrecheckResult(s, errors.New("boom"))

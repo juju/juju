@@ -5,7 +5,6 @@ package client_test
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
@@ -14,14 +13,12 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/version"
-	domainmodel "github.com/juju/juju/domain/model"
-	modelstate "github.com/juju/juju/domain/model/state"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing/factory"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -43,7 +40,9 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
 	// Set up a CAAS model to replace the IAAS one.
-	st := f.MakeCAASModel(c, nil)
+	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
+	c.Assert(err, jc.ErrorIsNil)
+	st := f.MakeCAASModel(c, &factory.ModelParams{UUID: &modelUUID})
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
 	f2, release := s.NewFactory(c, st.ModelUUID())
 	defer release()
@@ -67,18 +66,6 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 		Charm: ch,
 	})
 	f2.MakeUnit(c, &factory.UnitParams{Application: s.app})
-
-	// Double-write model information to dqlite.
-	// Add the model to the model database.
-	err = s.ModelTxnRunner(c, st.ModelUUID()).StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return modelstate.CreateReadOnlyModel(ctx, domainmodel.ReadOnlyModelCreationArgs{
-			UUID:         coremodel.UUID(st.ModelUUID()),
-			Name:         s.model.Name(),
-			Cloud:        "caascloud",
-			AgentVersion: version.Current,
-		}, tx)
-	})
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *CAASStatusSuite) TestStatusOperatorNotReady(c *gc.C) {

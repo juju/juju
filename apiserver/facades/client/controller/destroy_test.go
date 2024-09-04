@@ -21,6 +21,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -195,10 +196,25 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	f := factory.NewFactory(s.otherState, s.StatePool(), controllerConfig)
-	f.MakeUnit(c, &factory.UnitParams{
-		Application: f.MakeApplication(c, &factory.ApplicationParams{
-			Charm: f.MakeCharm(c, &factory.CharmParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
+	c.Assert(err, jc.ErrorIsNil)
+	modelState := f.MakeModel(c, &factory.ModelParams{
+		UUID:  &modelUUID,
+		Name:  "modelconfig",
+		Owner: s.otherModelOwner,
+		ConfigAttrs: testing.Attrs{
+			"controller": false,
+		},
+	})
+	s.AddCleanup(func(c *gc.C) { _ = modelState.Close() })
+
+	f2 := factory.NewFactory(modelState, s.StatePool(), controllerConfig)
+	f2.MakeUnit(c, &factory.UnitParams{
+		Application: f2.MakeApplication(c, &factory.ApplicationParams{
+			Charm: f2.MakeCharm(c, &factory.CharmParams{
 				Name: "storage-block",
 			}),
 			Storage: map[string]state.StorageConstraints{
@@ -220,10 +236,25 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c 
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	f := factory.NewFactory(s.otherState, s.StatePool(), controllerConfig)
-	f.MakeUnit(c, &factory.UnitParams{
-		Application: f.MakeApplication(c, &factory.ApplicationParams{
-			Charm: f.MakeCharm(c, &factory.CharmParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
+	c.Assert(err, jc.ErrorIsNil)
+	modelState := f.MakeModel(c, &factory.ModelParams{
+		UUID:  &modelUUID,
+		Name:  "modelconfig",
+		Owner: s.otherModelOwner,
+		ConfigAttrs: testing.Attrs{
+			"controller": false,
+		},
+	})
+	s.AddCleanup(func(c *gc.C) { _ = modelState.Close() })
+
+	f2 := factory.NewFactory(modelState, s.StatePool(), controllerConfig)
+	f2.MakeUnit(c, &factory.UnitParams{
+		Application: f2.MakeApplication(c, &factory.ApplicationParams{
+			Charm: f2.MakeCharm(c, &factory.CharmParams{
 				Name: "storage-block",
 			}),
 			Storage: map[string]state.StorageConstraints{

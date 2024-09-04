@@ -2134,7 +2134,7 @@ func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
 	c.Assert(unitOne.SubordinateNames(), gc.HasLen, 0)
 
 	// Assign the principal unit to a machine.
-	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unitZero.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2707,7 +2707,7 @@ func (s *ApplicationSuite) TestRemoveApplicationMachine(c *gc.C) {
 
 	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
 
@@ -4554,7 +4554,7 @@ func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
 
 func (s *ApplicationSuite) TestCharmLegacyNoOSInvalid(c *gc.C) {
 	ch := state.AddTestingCharmForSeries(c, s.State, "precise", "sample-fail-no-os")
-	_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
+	_, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "sample-fail-no-os",
 		Charm: ch,
 		CharmOrigin: &state.CharmOrigin{
@@ -4681,7 +4681,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	}
 	// Simulate a bundle deploying multiple applications from a single
 	// charm. The watcher needs to notify on the secondary applications.
-	appSameCharm, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
+	appSameCharm, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:        "mysql-testing",
 		Charm:       ch3,
 		CharmOrigin: origin,

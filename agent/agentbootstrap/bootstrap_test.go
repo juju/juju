@@ -166,7 +166,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 			AdminUser:                 adminUser,
 			StateInitializationParams: stateInitParams,
 			MongoDialOpts:             mongotest.DialOpts(),
-			StateNewPolicy:            state.NewPolicyFunc(nil),
 			BootstrapMachineAddresses: initialAddrs,
 			BootstrapMachineJobs:      []model.MachineJob{model.JobManageModel},
 			SharedSecret:              "abc123",
@@ -176,10 +175,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 				c.Assert(t, gc.Equals, "dummy")
 				return &envProvider, nil
 			},
-			Logger: loggertesting.WrapCheckLog(c),
-			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
-				return state.NoopInstancePrechecker{}, nil
-			},
+			Logger:                   loggertesting.WrapCheckLog(c),
 			ConfigSchemaSourceGetter: state.NoopConfigSchemaSource,
 		},
 	)
@@ -299,15 +295,11 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 			AdminUser:                 adminUser,
 			StateInitializationParams: instancecfg.StateInitializationParams{},
 			MongoDialOpts:             mongotest.DialOpts(),
-			StateNewPolicy:            nil,
 			SharedSecret:              "abc123",
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
 			BootstrapDqlite:           bootstrapDqliteWithDummyCloudType,
 			Logger:                    loggertesting.WrapCheckLog(c),
-			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
-				return state.NoopInstancePrechecker{}, nil
-			},
-			ConfigSchemaSourceGetter: state.NoopConfigSchemaSource,
+			ConfigSchemaSourceGetter:  state.NoopConfigSchemaSource,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -368,7 +360,6 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			AdminUser:                 adminUser,
 			StateInitializationParams: args,
 			MongoDialOpts:             mongotest.DialOpts(),
-			StateNewPolicy:            state.NewPolicyFunc(nil),
 			BootstrapMachineJobs:      []model.MachineJob{model.JobManageModel},
 			SharedSecret:              "abc123",
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
@@ -376,10 +367,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			Provider: func(t string) (environs.EnvironProvider, error) {
 				return &fakeProvider{}, nil
 			},
-			Logger: loggertesting.WrapCheckLog(c),
-			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
-				return state.NoopInstancePrechecker{}, nil
-			},
+			Logger:                   loggertesting.WrapCheckLog(c),
 			ConfigSchemaSourceGetter: state.NoopConfigSchemaSource,
 		},
 	)
@@ -395,15 +383,11 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			AdminUser:                 adminUser,
 			StateInitializationParams: args,
 			MongoDialOpts:             mongotest.DialOpts(),
-			StateNewPolicy:            state.NewPolicyFunc(nil),
 			SharedSecret:              "baz",
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
 			BootstrapDqlite:           database.BootstrapDqlite,
 			Logger:                    loggertesting.WrapCheckLog(c),
-			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
-				return state.NoopInstancePrechecker{}, nil
-			},
-			ConfigSchemaSourceGetter: state.NoopConfigSchemaSource,
+			ConfigSchemaSourceGetter:  state.NoopConfigSchemaSource,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

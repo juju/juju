@@ -167,7 +167,9 @@ func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	modelState := f.MakeModel(c, &factory.ModelParams{})
+	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
+	c.Assert(err, jc.ErrorIsNil)
+	modelState := f.MakeModel(c, &factory.ModelParams{UUID: &modelUUID})
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
