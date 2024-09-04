@@ -22,7 +22,10 @@ type serviceSuite struct {
 
 var _ = gc.Suite(&serviceSuite{})
 
-const unitUUID = "unit-uuid"
+const (
+	unitUUID    = "unit-uuid"
+	machineUUID = "machine-uuid"
+)
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
@@ -35,7 +38,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) TestGetOpenedPorts(c *gc.C) {
+func (s *serviceSuite) TestGetUnitOpenedPorts(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	grp := network.GroupedPortRanges{
@@ -48,10 +51,38 @@ func (s *serviceSuite) TestGetOpenedPorts(c *gc.C) {
 		},
 	}
 
-	s.st.EXPECT().GetOpenedPorts(gomock.Any(), unitUUID).Return(grp, nil)
+	s.st.EXPECT().GetUnitOpenedPorts(gomock.Any(), unitUUID).Return(grp, nil)
 
 	srv := NewService(s.st)
-	res, err := srv.GetOpenedPorts(context.Background(), unitUUID)
+	res, err := srv.GetUnitOpenedPorts(context.Background(), unitUUID)
+	c.Assert(err, gc.IsNil)
+	c.Assert(res, gc.DeepEquals, grp)
+}
+
+func (s *serviceSuite) TestGetMachineOpenedPorts(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	grp := map[string]network.GroupedPortRanges{
+		"unit-uuid-1": {
+			"ep1": {
+				network.MustParsePortRange("80/tcp"),
+				network.MustParsePortRange("443/tcp"),
+			},
+			"ep2": {
+				network.MustParsePortRange("8000-9000/udp"),
+			},
+		},
+		"unit-uuid-2": {
+			"ep3": {
+				network.MustParsePortRange("8080/tcp"),
+			},
+		},
+	}
+
+	s.st.EXPECT().GetMachineOpenedPorts(gomock.Any(), machineUUID).Return(grp, nil)
+
+	srv := NewService(s.st)
+	res, err := srv.GetMachineOpenedPorts(context.Background(), machineUUID)
 	c.Assert(err, gc.IsNil)
 	c.Assert(res, gc.DeepEquals, grp)
 }
