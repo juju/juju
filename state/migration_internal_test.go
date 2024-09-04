@@ -149,11 +149,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// and are not to be migrated.
 		globalSettingsC,
 
-		// There is a precheck to ensure that there are no pending reboots
-		// for the model being migrated, and as such, there is no need to
-		// migrate that information.
-		rebootC,
-
 		// Charms are added into the migrated model during the binary transfer
 		// phase after the initial model migration.
 		charmsC,

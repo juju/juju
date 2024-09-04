@@ -3373,26 +3373,6 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 	return nil
 }
 
-// WatchForRebootEvent returns a notify watcher that will trigger an event
-// when the reboot flag is set on our machine agent, our parent machine agent
-// or grandparent machine agent
-func (m *Machine) WatchForRebootEvent() NotifyWatcher {
-	machineIds := m.machinesToCareAboutRebootsFor()
-	machines := set.NewStrings(machineIds...)
-
-	filter := func(key interface{}) bool {
-		if id, ok := key.(string); ok {
-			if id, err := m.st.strictLocalID(id); err == nil {
-				return machines.Contains(id)
-			} else {
-				return false
-			}
-		}
-		return false
-	}
-	return newNotifyCollWatcher(m.st, rebootC, filter)
-}
-
 // WatchForMigration returns a notify watcher which reports when
 // a migration is in progress for the model associated with the
 // State.

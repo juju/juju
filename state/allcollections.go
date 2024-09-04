@@ -269,11 +269,6 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
-		rebootC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "machineid"},
-			}},
-		},
 		sshHostKeysC: {},
 
 		// This collection contains information from removed machines
@@ -547,7 +542,6 @@ const (
 	payloadsC              = "payloads"
 	permissionsC           = "permissions"
 	providerIDsC           = "providerIDs"
-	rebootC                = "reboot"
 	relationScopesC        = "relationscopes"
 	relationsC             = "relations"
 	sequenceC              = "sequence"

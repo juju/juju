@@ -244,6 +244,9 @@ func (s *SourcePrecheckSuite) TestAgentVersionError(c *gc.C) {
 func (s *SourcePrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
+	c.ExpectFailure("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
+
 	s.checkRebootRequired(c, sourcePrecheck)
 }
 
@@ -471,6 +474,9 @@ func (s *SourcePrecheckSuite) TestControllerMachineVersionsDoNotMatch(c *gc.C) {
 
 func (s *SourcePrecheckSuite) TestControllerMachineRequiresReboot(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
+	c.ExpectFailure("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
 
 	s.expectIsUpgrade(false)
 
@@ -729,6 +735,9 @@ func (s *TargetPrecheckSuite) TestDying(c *gc.C) {
 func (s *TargetPrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
+	c.ExpectFailure("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
+
 	s.expectIsUpgrade(false)
 
 	s.checkRebootRequired(c, s.runPrecheck)
@@ -966,7 +975,8 @@ func newBackendWithMismatchingTools() *fakeBackend {
 func newBackendWithRebootingMachine() *fakeBackend {
 	return &fakeBackend{
 		machines: []migration.PrecheckMachine{
-			&fakeMachine{id: "0", rebootAction: state.ShouldReboot},
+			// TODO(gfouillet): Restore this once machine fully migrated to dqlite
+			&fakeMachine{id: "0" /*rebootAction: state.ShouldReboot*/},
 		},
 		machineCountForSeriesUbuntu: map[string]int{"ubuntu@22.04": 1},
 	}
@@ -1181,7 +1191,8 @@ type fakeMachine struct {
 	life           state.Life
 	status         status.Status
 	instanceStatus status.Status
-	rebootAction   state.RebootAction
+	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
+	// rebootAction   state.RebootAction
 }
 
 func (m *fakeMachine) Id() string {
@@ -1222,12 +1233,13 @@ func (m *fakeMachine) AgentTools() (*tools.Tools, error) {
 	}, nil
 }
 
-func (m *fakeMachine) ShouldRebootOrShutdown() (state.RebootAction, error) {
-	if m.rebootAction == "" {
-		return state.ShouldDoNothing, nil
-	}
-	return m.rebootAction, nil
-}
+// TODO(gfouillet): Restore this once machine fully migrated to dqlite
+// func (m *fakeMachine) ShouldRebootOrShutdown() (state.RebootAction, error) {
+// 	if m.rebootAction == "" {
+// 		return state.ShouldDoNothing, nil
+// 	}
+// 	return m.rebootAction, nil
+// }
 
 type fakeApp struct {
 	name     string
