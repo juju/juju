@@ -14,4 +14,7 @@ const (
 
 	// SubnetNotFound is returned when a subnet is not found.
 	SubnetNotFound = errors.ConstError("subnet not found")
+
+	// SpaceNameNotValid is returned when a space name is not valid.
+	SpaceNameNotValid = errors.ConstError("space name is not valid")
 )

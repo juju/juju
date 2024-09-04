@@ -5,7 +5,6 @@ package spaces
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 
 	"github.com/juju/collections/set"
@@ -19,7 +18,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 )
@@ -27,7 +25,7 @@ import (
 // ControllerConfigService is an interface that provides controller
 // configuration.
 type ControllerConfigService interface {
-	ControllerConfig(stdcontext.Context) (controller.Config, error)
+	ControllerConfig(context.Context) (controller.Config, error)
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -65,6 +63,11 @@ type NetworkService interface {
 	// UpdateSubnet updates the spaceUUID of the subnet identified by the input
 	// UUID.
 	UpdateSubnet(ctx context.Context, uuid, spaceUUID string) error
+	// SupportsSpaces returns whether the current environment supports spaces.
+	SupportsSpaces(ctx context.Context, invalidator envcontext.ModelCredentialInvalidatorFunc) (bool, error)
+	// SupportsSpaceDiscovery returns whether the current environment supports
+	// discovering spaces from the provider.
+	SupportsSpaceDiscovery(ctx context.Context, invalidator envcontext.ModelCredentialInvalidatorFunc) (bool, error)
 }
 
 // API provides the spaces API facade for version 6.
@@ -76,7 +79,6 @@ type API struct {
 	resources                   facade.Resources
 	auth                        facade.Authorizer
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
-	providerGetter              func(context.Context) (environs.NetworkingEnviron, error)
 
 	check  BlockChecker
 	logger corelogger.Logger
@@ -88,7 +90,6 @@ type apiConfig struct {
 	Backing                     Backing
 	Check                       BlockChecker
 	CredentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
-	ProviderGetter              func(context.Context) (environs.NetworkingEnviron, error)
 	Resources                   facade.Resources
 	Authorizer                  facade.Authorizer
 	logger                      corelogger.Logger
@@ -109,7 +110,6 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 		resources:                   cfg.Resources,
 		auth:                        cfg.Authorizer,
 		credentialInvalidatorGetter: cfg.CredentialInvalidatorGetter,
-		providerGetter:              cfg.ProviderGetter,
 		check:                       cfg.Check,
 		logger:                      cfg.logger,
 	}, nil
@@ -117,7 +117,7 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
-func (api *API) CreateSpaces(ctx stdcontext.Context, args params.CreateSpacesParams) (results params.ErrorResults, err error) {
+func (api *API) CreateSpaces(ctx context.Context, args params.CreateSpacesParams) (results params.ErrorResults, err error) {
 	err = api.auth.HasPermission(ctx, permission.AdminAccess, api.backing.ModelTag())
 	if err != nil {
 		return results, err
@@ -176,7 +176,7 @@ func (api *API) createOneSpace(ctx context.Context, args params.CreateSpaceParam
 }
 
 // ListSpaces lists all the available spaces and their associated subnets.
-func (api *API) ListSpaces(ctx stdcontext.Context) (results params.ListSpacesResults, err error) {
+func (api *API) ListSpaces(ctx context.Context) (results params.ListSpacesResults, err error) {
 	err = api.auth.HasPermission(ctx, permission.ReadAccess, api.backing.ModelTag())
 	if err != nil {
 		return results, err
@@ -216,7 +216,7 @@ func (api *API) ListSpaces(ctx stdcontext.Context) (results params.ListSpacesRes
 }
 
 // ShowSpace shows the spaces for a set of given entities.
-func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (params.ShowSpaceResults, error) {
+func (api *API) ShowSpace(ctx context.Context, entities params.Entities) (params.ShowSpaceResults, error) {
 	err := api.auth.HasPermission(ctx, permission.ReadAccess, api.backing.ModelTag())
 	if err != nil {
 		return params.ShowSpaceResults{}, err
@@ -290,7 +290,7 @@ func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (par
 }
 
 // ReloadSpaces refreshes spaces from substrate
-func (api *API) ReloadSpaces(ctx stdcontext.Context) error {
+func (api *API) ReloadSpaces(ctx context.Context) error {
 	err := api.auth.HasPermission(ctx, permission.AdminAccess, api.backing.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
@@ -304,17 +304,14 @@ func (api *API) ReloadSpaces(ctx stdcontext.Context) error {
 // checkSupportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces. If we don't support spaces, an
 // [errors.NotSupported] error will be returned.
-func (api *API) checkSupportsSpaces(ctx stdcontext.Context) error {
-	env, err := api.providerGetter(ctx)
-	if err != nil {
-		return fmt.Errorf("getting networking environ for model: %w", err)
-	}
+func (api *API) checkSupportsSpaces(ctx context.Context) error {
 	invalidatorFunc, err := api.credentialInvalidatorGetter()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
-	if !environs.SupportsSpaces(callCtx, env) {
+	if supported, err := api.networkService.SupportsSpaces(ctx, invalidatorFunc); err != nil {
+		return errors.Trace(err)
+	} else if !supported {
 		return errors.NotSupportedf("spaces")
 	}
 	return nil
@@ -358,7 +355,7 @@ func (api *API) applicationsBoundToSpace(spaceID string, allSpaces network.Space
 
 // ensureSpacesAreMutable checks that the current user
 // is allowed to edit the Space topology.
-func (api *API) ensureSpacesAreMutable(ctx stdcontext.Context) error {
+func (api *API) ensureSpacesAreMutable(ctx context.Context) error {
 	err := api.auth.HasPermission(ctx, permission.AdminAccess, api.backing.ModelTag())
 	if err != nil {
 		return err
@@ -376,22 +373,15 @@ func (api *API) ensureSpacesAreMutable(ctx stdcontext.Context) error {
 // NetworkingEnviron and also if it supports provider spaces.
 // An error is returned if it is the provider and not the Juju operator
 // that determines the space topology.
-func (api *API) ensureSpacesNotProviderSourced(ctx stdcontext.Context) error {
-	env, err := api.providerGetter(ctx)
-	if err != nil {
-		return fmt.Errorf("getting networking environ for model: %w", err)
-	}
+func (api *API) ensureSpacesNotProviderSourced(ctx context.Context) error {
 	invalidatorFunc, err := api.credentialInvalidatorGetter()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
-	providerSourced, err := env.SupportsSpaceDiscovery(callCtx)
+	supported, err := api.networkService.SupportsSpaceDiscovery(ctx, invalidatorFunc)
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	if providerSourced {
+	} else if supported {
 		return errors.NotSupportedf("modifying provider-sourced spaces")
 	}
 	return nil

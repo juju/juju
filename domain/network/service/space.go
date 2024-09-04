@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/juju/collections/set"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/environs/envcontext"
 )
 
@@ -40,7 +40,7 @@ func NewService(st State, logger logger.Logger) *Service {
 // AddSpace creates and returns a new space.
 func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (network.Id, error) {
 	if !names.IsValidSpace(string(space.Name)) {
-		return "", errors.NotValidf("space name %q", space.Name)
+		return "", errors.NotValidf("space name %q%w", space.Name, errors.Hide(networkerrors.SpaceNameNotValid))
 	}
 
 	spaceID := space.ID
@@ -229,10 +229,27 @@ func (s *ProviderService) upsertProviderSubnets(ctx context.Context, subnetsToUp
 	return nil
 }
 
-// generateFanSubnetID generates a correct ID for a subnet of type fan overlay.
-func generateFanSubnetID(subnetNetwork, providerID string) string {
-	subnetWithDashes := strings.Replace(strings.Replace(subnetNetwork, ".", "-", -1), "/", "-", -1)
-	return fmt.Sprintf("%s-%s-%s", providerID, network.InFan, subnetWithDashes)
+// SupportsSpaces returns whether the provider supports spaces.
+func (s *ProviderService) SupportsSpaces(ctx context.Context, invalidator envcontext.ModelCredentialInvalidatorFunc) (bool, error) {
+	networkProvider, err := s.provider(ctx)
+	if errors.Is(err, errors.NotSupported) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Trace(err)
+	}
+	return networkProvider.SupportsSpaces(envcontext.WithCredentialInvalidator(ctx, invalidator))
+}
+
+// SupportsSpaceDiscovery returns whether the provider supports discovering
+// spaces from the provider.
+func (s *ProviderService) SupportsSpaceDiscovery(ctx context.Context, invalidator envcontext.ModelCredentialInvalidatorFunc) (bool, error) {
+	networkProvider, err := s.provider(ctx)
+	if errors.Is(err, errors.NotSupported) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Trace(err)
+	}
+	return networkProvider.SupportsSpaceDiscovery(envcontext.WithCredentialInvalidator(ctx, invalidator))
 }
 
 // ProviderSpaces defines a set of operations to perform when dealing with

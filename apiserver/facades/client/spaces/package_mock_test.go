@@ -17,6 +17,7 @@ import (
 	controller "github.com/juju/juju/controller"
 	constraints "github.com/juju/juju/core/constraints"
 	network "github.com/juju/juju/core/network"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	state "github.com/juju/juju/state"
 	txn "github.com/juju/mgo/v3/txn"
 	names "github.com/juju/names/v5"
@@ -1362,6 +1363,84 @@ func (c *MockNetworkServiceSubnetsByCIDRCall) Do(f func(context.Context, ...stri
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockNetworkServiceSubnetsByCIDRCall) DoAndReturn(f func(context.Context, ...string) ([]network.SubnetInfo, error)) *MockNetworkServiceSubnetsByCIDRCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SupportsSpaceDiscovery mocks base method.
+func (m *MockNetworkService) SupportsSpaceDiscovery(arg0 context.Context, arg1 envcontext.ModelCredentialInvalidatorFunc) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SupportsSpaceDiscovery", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SupportsSpaceDiscovery indicates an expected call of SupportsSpaceDiscovery.
+func (mr *MockNetworkServiceMockRecorder) SupportsSpaceDiscovery(arg0, arg1 any) *MockNetworkServiceSupportsSpaceDiscoveryCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsSpaceDiscovery", reflect.TypeOf((*MockNetworkService)(nil).SupportsSpaceDiscovery), arg0, arg1)
+	return &MockNetworkServiceSupportsSpaceDiscoveryCall{Call: call}
+}
+
+// MockNetworkServiceSupportsSpaceDiscoveryCall wrap *gomock.Call
+type MockNetworkServiceSupportsSpaceDiscoveryCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkServiceSupportsSpaceDiscoveryCall) Return(arg0 bool, arg1 error) *MockNetworkServiceSupportsSpaceDiscoveryCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkServiceSupportsSpaceDiscoveryCall) Do(f func(context.Context, envcontext.ModelCredentialInvalidatorFunc) (bool, error)) *MockNetworkServiceSupportsSpaceDiscoveryCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkServiceSupportsSpaceDiscoveryCall) DoAndReturn(f func(context.Context, envcontext.ModelCredentialInvalidatorFunc) (bool, error)) *MockNetworkServiceSupportsSpaceDiscoveryCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SupportsSpaces mocks base method.
+func (m *MockNetworkService) SupportsSpaces(arg0 context.Context, arg1 envcontext.ModelCredentialInvalidatorFunc) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SupportsSpaces", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SupportsSpaces indicates an expected call of SupportsSpaces.
+func (mr *MockNetworkServiceMockRecorder) SupportsSpaces(arg0, arg1 any) *MockNetworkServiceSupportsSpacesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsSpaces", reflect.TypeOf((*MockNetworkService)(nil).SupportsSpaces), arg0, arg1)
+	return &MockNetworkServiceSupportsSpacesCall{Call: call}
+}
+
+// MockNetworkServiceSupportsSpacesCall wrap *gomock.Call
+type MockNetworkServiceSupportsSpacesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkServiceSupportsSpacesCall) Return(arg0 bool, arg1 error) *MockNetworkServiceSupportsSpacesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkServiceSupportsSpacesCall) Do(f func(context.Context, envcontext.ModelCredentialInvalidatorFunc) (bool, error)) *MockNetworkServiceSupportsSpacesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkServiceSupportsSpacesCall) DoAndReturn(f func(context.Context, envcontext.ModelCredentialInvalidatorFunc) (bool, error)) *MockNetworkServiceSupportsSpacesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

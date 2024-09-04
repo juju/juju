@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/environs"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -25,11 +25,18 @@ func Register(registry facade.FacadeRegistry) {
 // newAPI creates a new Space API server-side facade with a
 // state.State backing.
 func newAPI(ctx facade.ModelContext) (*API, error) {
+	// Only clients can access the Spaces facade.
+	if !ctx.Auth().AuthClient() {
+		return nil, apiservererrors.ErrPerm
+	}
+
 	st := ctx.State()
 
 	serviceFactory := ctx.ServiceFactory()
 	cloudService := serviceFactory.Cloud()
 	credentialService := serviceFactory.Credential()
+	networkService := serviceFactory.Network()
+
 	stateShim, err := NewStateShim(st, cloudService, credentialService)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -39,14 +46,11 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 	check := common.NewBlockChecker(st)
 	auth := ctx.Auth()
 
-	providerGetter := facade.ProviderRunner[environs.NetworkingEnviron](ctx)
-
 	return newAPIWithBacking(apiConfig{
-		NetworkService:              ctx.ServiceFactory().Network(),
+		NetworkService:              networkService,
 		Backing:                     stateShim,
 		Check:                       check,
 		CredentialInvalidatorGetter: credentialInvalidatorGetter,
-		ProviderGetter:              providerGetter,
 		Resources:                   ctx.Resources(),
 		Authorizer:                  auth,
 		logger:                      ctx.Logger().Child("spaces"),

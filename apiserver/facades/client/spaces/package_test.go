@@ -4,7 +4,6 @@
 package spaces
 
 import (
-	stdcontext "context"
 	"testing"
 
 	"github.com/juju/names/v5"
@@ -66,8 +65,6 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	bExp.ModelTag().Return(names.NewModelTag("123"))
 
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
-	mockNetworkEnviron.EXPECT().SupportsSpaces(gomock.Any()).Return(supportSpaces, nil).AnyTimes()
-	mockNetworkEnviron.EXPECT().SupportsSpaceDiscovery(gomock.Any()).Return(providerSpaces, nil).AnyTimes()
 
 	mockProvider := environmocks.NewMockCloudEnvironProvider(ctrl)
 	mockProvider.EXPECT().Open(gomock.Any(), gomock.Any()).Return(mockNetworkEnviron, nil).AnyTimes()
@@ -77,19 +74,19 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	s.ControllerConfigService = NewMockControllerConfigService(ctrl)
 	s.NetworkService = NewMockNetworkService(ctrl)
 
+	s.NetworkService.EXPECT().SupportsSpaces(gomock.Any(), gomock.Any()).Return(supportSpaces, nil).AnyTimes()
+	s.NetworkService.EXPECT().SupportsSpaceDiscovery(gomock.Any(), gomock.Any()).Return(providerSpaces, nil).AnyTimes()
+
 	var err error
 	s.API, err = newAPIWithBacking(apiConfig{
 		Backing:                     s.Backing,
 		Check:                       s.blockChecker,
 		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
-		ProviderGetter: func(ctx stdcontext.Context) (environs.NetworkingEnviron, error) {
-			return mockNetworkEnviron, nil
-		},
-		Resources:               s.resource,
-		Authorizer:              s.authorizer,
-		ControllerConfigService: s.ControllerConfigService,
-		NetworkService:          s.NetworkService,
-		logger:                  loggertesting.WrapCheckLog(c),
+		Resources:                   s.resource,
+		Authorizer:                  s.authorizer,
+		ControllerConfigService:     s.ControllerConfigService,
+		NetworkService:              s.NetworkService,
+		logger:                      loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
