@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package unit
+package unitstate
 
 // AgentState represents the state of the world according
 // to a unit agent at hook commit time.
