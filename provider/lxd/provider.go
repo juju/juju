@@ -315,7 +315,7 @@ func (p *environProvider) FinalizeCloud(
 }
 
 func getLocalHostAddress(ctx environs.FinalizeCloudContext, serverFactory ServerFactory) (string, error) {
-	svr, err := serverFactory.LocalServer()
+	svr, err := serverFactory.LocalRestrictedServer()
 	if err != nil {
 		return "", errors.Trace(err)
 	}

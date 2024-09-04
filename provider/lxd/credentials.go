@@ -172,6 +172,7 @@ func (p environProviderCredentials) DetectCredentials(cloudName string) (*cloud.
 // detectLocalCredentials will use the local server to read and finalize the
 // cloud credentials.
 func (p environProviderCredentials) detectLocalCredentials(certPEM, keyPEM []byte) (*cloud.Credential, error) {
+	// TODO: pass in project or use restricted server
 	svr, err := p.serverFactory.LocalServer()
 	if err != nil {
 		return nil, errors.NewNotFound(err, "failed to connect to local LXD")
@@ -361,6 +362,7 @@ func (p environProviderCredentials) finalizeCredential(
 	// and we can start a local server to finalise the credential
 	// over the LXD Unix docket.
 	if args.CloudEndpoint == "" {
+		// TODO: pass in project or use restricted server
 		svr, err := p.serverFactory.LocalServer()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -405,6 +407,7 @@ func (p environProviderCredentials) finalizeRemoteCredential(
 	}
 
 	insecureCreds := cloud.NewCredential(cloud.CertificateAuthType, credAttrs)
+	// TODO: pass in LXD project or use restricted client
 	server, err := p.serverFactory.InsecureRemoteServer(CloudSpec{
 		CloudSpec: environscloudspec.CloudSpec{
 			Endpoint:   endpoint,
@@ -461,6 +464,7 @@ func (p environProviderCredentials) finalizeRemoteCredential(
 	attributes[credAttrServerCert] = lxdServerCert
 
 	secureCreds := cloud.NewCredential(cloud.CertificateAuthType, attributes)
+	// TODO: add project or use restricted client
 	server, err = p.serverFactory.RemoteServer(CloudSpec{
 		CloudSpec: environscloudspec.CloudSpec{
 			Endpoint:   endpoint,
