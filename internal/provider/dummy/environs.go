@@ -761,7 +761,7 @@ func (env *environ) SupportsSpaces() (bool, error) {
 }
 
 // SupportsSpaceDiscovery is specified on environs.Networking.
-func (env *environ) SupportsSpaceDiscovery(_ envcontext.ProviderCallContext) (bool, error) {
+func (env *environ) SupportsSpaceDiscovery() (bool, error) {
 	if err := env.checkBroken("SupportsSpaceDiscovery"); err != nil {
 		return false, err
 	}
@@ -933,7 +933,7 @@ func (env *environ) Subnets(
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 
-	if ok, _ := env.SupportsSpaceDiscovery(ctx); ok {
+	if ok, _ := env.SupportsSpaceDiscovery(); ok {
 		// Space discovery needs more subnets to work with.
 		return env.subnetsForSpaceDiscovery(estate)
 	}

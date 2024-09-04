@@ -46,7 +46,7 @@ type Networking interface {
 	// SupportsSpaceDiscovery returns whether the current environment
 	// supports discovering spaces from the provider. The returned error
 	// satisfies errors.IsNotSupported(), unless a general API failure occurs.
-	SupportsSpaceDiscovery(ctx envcontext.ProviderCallContext) (bool, error)
+	SupportsSpaceDiscovery() (bool, error)
 
 	// Spaces returns a slice of network.SpaceInfo with info, including
 	// details of all associated subnets, about all spaces known to the
@@ -107,7 +107,7 @@ type NoSpaceDiscoveryEnviron struct{}
 
 // SupportsSpaceDiscovery (Networking) indicates that
 // this environ does not support space discovery.
-func (*NoSpaceDiscoveryEnviron) SupportsSpaceDiscovery(envcontext.ProviderCallContext) (bool, error) {
+func (*NoSpaceDiscoveryEnviron) SupportsSpaceDiscovery() (bool, error) {
 	return false, nil
 }
 

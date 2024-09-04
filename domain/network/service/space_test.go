@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	"github.com/juju/juju/environs/envcontext"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -445,7 +444,7 @@ func (s *spaceSuite) TestReloadSpacesFromProvider(c *gc.C) {
 		},
 	}
 
-	s.provider.EXPECT().SupportsSpaceDiscovery(gomock.Any()).Return(true, nil)
+	s.provider.EXPECT().SupportsSpaceDiscovery().Return(true, nil)
 	s.provider.EXPECT().Spaces(gomock.Any()).Return(twoSpaces, nil)
 	s.st.EXPECT().GetAllSpaces(gomock.Any()).Return([]network.SpaceInfo{
 		{
@@ -501,7 +500,7 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnets(c *gc.C) {
 		{CIDR: "10.12.24.1/24"},
 	}
 
-	s.provider.EXPECT().SupportsSpaceDiscovery(gomock.Any()).Return(false, nil)
+	s.provider.EXPECT().SupportsSpaceDiscovery().Return(false, nil)
 	s.provider.EXPECT().Subnets(gomock.Any(), instance.UnknownId, nil).Return(twoSubnets, nil)
 
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
@@ -526,7 +525,7 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *gc.C) {
 		{CIDR: "10.12.24.1/24"},
 	}
 
-	s.provider.EXPECT().SupportsSpaceDiscovery(gomock.Any()).Return(false, nil)
+	s.provider.EXPECT().SupportsSpaceDiscovery().Return(false, nil)
 	s.provider.EXPECT().Subnets(gomock.Any(), instance.UnknownId, nil).Return(twoSubnets, nil)
 
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
@@ -868,9 +867,9 @@ func (s *spaceSuite) TestSupportsSpaceDiscovery(c *gc.C) {
 
 	providerService := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c))
 
-	s.provider.EXPECT().SupportsSpaceDiscovery(gomock.AssignableToTypeOf(envcontext.ProviderCallContext{})).Return(true, nil)
+	s.provider.EXPECT().SupportsSpaceDiscovery().Return(true, nil)
 
-	supported, err := providerService.SupportsSpaceDiscovery(context.Background(), neverInvalidate)
+	supported, err := providerService.SupportsSpaceDiscovery(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(supported, jc.IsTrue)
 }
@@ -880,11 +879,7 @@ func (s *spaceSuite) TestSupportsSpaceDiscoveryNotSupported(c *gc.C) {
 
 	providerService := NewProviderService(s.st, s.notSupportedProviderGetter, loggertesting.WrapCheckLog(c))
 
-	supported, err := providerService.SupportsSpaceDiscovery(context.Background(), neverInvalidate)
+	supported, err := providerService.SupportsSpaceDiscovery(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(supported, jc.IsFalse)
-}
-
-func neverInvalidate(ctx context.Context, reason string) error {
-	return nil
 }

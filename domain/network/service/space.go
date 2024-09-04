@@ -140,7 +140,7 @@ func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
 		return errors.Trace(err)
 	}
 
-	canDiscoverSpaces, err := networkProvider.SupportsSpaceDiscovery(callContext)
+	canDiscoverSpaces, err := networkProvider.SupportsSpaceDiscovery()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -242,14 +242,14 @@ func (s *ProviderService) SupportsSpaces(ctx context.Context) (bool, error) {
 
 // SupportsSpaceDiscovery returns whether the provider supports discovering
 // spaces from the provider.
-func (s *ProviderService) SupportsSpaceDiscovery(ctx context.Context, invalidator envcontext.ModelCredentialInvalidatorFunc) (bool, error) {
+func (s *ProviderService) SupportsSpaceDiscovery(ctx context.Context) (bool, error) {
 	networkProvider, err := s.provider(ctx)
 	if errors.Is(err, errors.NotSupported) {
 		return false, nil
 	} else if err != nil {
 		return false, errors.Trace(err)
 	}
-	return networkProvider.SupportsSpaceDiscovery(envcontext.WithCredentialInvalidator(ctx, invalidator))
+	return networkProvider.SupportsSpaceDiscovery()
 }
 
 // ProviderSpaces defines a set of operations to perform when dealing with

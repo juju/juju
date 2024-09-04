@@ -67,7 +67,7 @@ type NetworkService interface {
 	SupportsSpaces(ctx context.Context) (bool, error)
 	// SupportsSpaceDiscovery returns whether the current environment supports
 	// discovering spaces from the provider.
-	SupportsSpaceDiscovery(ctx context.Context, invalidator envcontext.ModelCredentialInvalidatorFunc) (bool, error)
+	SupportsSpaceDiscovery(ctx context.Context) (bool, error)
 }
 
 // API provides the spaces API facade for version 6.
@@ -85,14 +85,13 @@ type API struct {
 }
 
 type apiConfig struct {
-	NetworkService              NetworkService
-	ControllerConfigService     ControllerConfigService
-	Backing                     Backing
-	Check                       BlockChecker
-	CredentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
-	Resources                   facade.Resources
-	Authorizer                  facade.Authorizer
-	logger                      corelogger.Logger
+	NetworkService          NetworkService
+	ControllerConfigService ControllerConfigService
+	Backing                 Backing
+	Check                   BlockChecker
+	Resources               facade.Resources
+	Authorizer              facade.Authorizer
+	logger                  corelogger.Logger
 }
 
 // newAPIWithBacking creates a new server-side Spaces API facade with
@@ -104,14 +103,12 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 	}
 
 	return &API{
-		networkService:              cfg.NetworkService,
-		controllerConfigService:     cfg.ControllerConfigService,
-		backing:                     cfg.Backing,
-		resources:                   cfg.Resources,
-		auth:                        cfg.Authorizer,
-		credentialInvalidatorGetter: cfg.CredentialInvalidatorGetter,
-		check:                       cfg.Check,
-		logger:                      cfg.logger,
+		networkService:          cfg.NetworkService,
+		controllerConfigService: cfg.ControllerConfigService,
+		backing:                 cfg.Backing,
+		resources:               cfg.Resources,
+		check:                   cfg.Check,
+		logger:                  cfg.logger,
 	}, nil
 }
 
@@ -370,11 +367,7 @@ func (api *API) ensureSpacesAreMutable(ctx context.Context) error {
 // An error is returned if it is the provider and not the Juju operator
 // that determines the space topology.
 func (api *API) ensureSpacesNotProviderSourced(ctx context.Context) error {
-	invalidatorFunc, err := api.credentialInvalidatorGetter()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	supported, err := api.networkService.SupportsSpaceDiscovery(ctx, invalidatorFunc)
+	supported, err := api.networkService.SupportsSpaceDiscovery(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	} else if supported {

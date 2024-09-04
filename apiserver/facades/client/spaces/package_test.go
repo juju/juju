@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -66,18 +65,17 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	s.NetworkService = NewMockNetworkService(ctrl)
 
 	s.NetworkService.EXPECT().SupportsSpaces(gomock.Any()).Return(supportSpaces, nil).AnyTimes()
-	s.NetworkService.EXPECT().SupportsSpaceDiscovery(gomock.Any(), gomock.Any()).Return(providerSpaces, nil).AnyTimes()
+	s.NetworkService.EXPECT().SupportsSpaceDiscovery(gomock.Any()).Return(providerSpaces, nil).AnyTimes()
 
 	var err error
 	s.API, err = newAPIWithBacking(apiConfig{
-		Backing:                     s.Backing,
-		Check:                       s.blockChecker,
-		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
-		Resources:                   s.resource,
-		Authorizer:                  s.authorizer,
-		ControllerConfigService:     s.ControllerConfigService,
-		NetworkService:              s.NetworkService,
-		logger:                      loggertesting.WrapCheckLog(c),
+		Backing:                 s.Backing,
+		Check:                   s.blockChecker,
+		Resources:               s.resource,
+		Authorizer:              s.authorizer,
+		ControllerConfigService: s.ControllerConfigService,
+		NetworkService:          s.NetworkService,
+		logger:                  loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

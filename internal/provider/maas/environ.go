@@ -304,7 +304,7 @@ func (env *maasEnviron) SupportsSpaces() (bool, error) {
 }
 
 // SupportsSpaceDiscovery is specified on environs.Networking.
-func (env *maasEnviron) SupportsSpaceDiscovery(ctx envcontext.ProviderCallContext) (bool, error) {
+func (env *maasEnviron) SupportsSpaceDiscovery() (bool, error) {
 	return true, nil
 }
 

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -42,17 +41,15 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
-	credentialInvalidatorGetter := credentialcommon.CredentialInvalidatorGetter(ctx)
 	check := common.NewBlockChecker(st)
 	auth := ctx.Auth()
 
 	return newAPIWithBacking(apiConfig{
-		NetworkService:              networkService,
-		Backing:                     stateShim,
-		Check:                       check,
-		CredentialInvalidatorGetter: credentialInvalidatorGetter,
-		Resources:                   ctx.Resources(),
-		Authorizer:                  auth,
-		logger:                      ctx.Logger().Child("spaces"),
+		NetworkService: networkService,
+		Backing:        stateShim,
+		Check:          check,
+		Resources:      ctx.Resources(),
+		Authorizer:     auth,
+		logger:         ctx.Logger().Child("spaces"),
 	})
 }

@@ -145,21 +145,21 @@ func (s *suite) TestSupportsSpaceDiscovery(c *gc.C) {
 	}()
 
 	// Without change space discovery is not supported.
-	ok, err := e.SupportsSpaceDiscovery(s.callCtx)
+	ok, err := e.SupportsSpaceDiscovery()
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now turn it on.
 	isEnabled := dummy.SetSupportsSpaceDiscovery(true)
 	c.Assert(isEnabled, jc.IsFalse)
-	ok, err = e.SupportsSpaceDiscovery(s.callCtx)
+	ok, err = e.SupportsSpaceDiscovery()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// And finally turn it off again.
 	isEnabled = dummy.SetSupportsSpaceDiscovery(false)
 	c.Assert(isEnabled, jc.IsTrue)
-	ok, err = e.SupportsSpaceDiscovery(s.callCtx)
+	ok, err = e.SupportsSpaceDiscovery()
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(err, jc.ErrorIsNil)
 }
