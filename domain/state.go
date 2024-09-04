@@ -25,6 +25,8 @@ type StateBase struct {
 	// statements is a cache of sqlair statements keyed by the query string.
 	statementMutex sync.RWMutex
 	statements     map[string]*sqlair.Statement
+
+	atomicPool sync.Pool
 }
 
 // NewStateBase returns a new StateBase.
@@ -32,6 +34,11 @@ func NewStateBase(getDB database.TxnRunnerFactory) *StateBase {
 	return &StateBase{
 		getDB:      getDB,
 		statements: make(map[string]*sqlair.Statement),
+		atomicPool: sync.Pool{
+			New: func() interface{} {
+				return &atomicContext{}
+			},
+		},
 	}
 }
 
@@ -121,15 +128,14 @@ func (st *StateBase) RunAtomic(ctx context.Context, fn func(AtomicContext) error
 		// transaction from being used outside of the transaction scope. This
 		// will prevent any references to the sqlair.TX from being held outside
 		// of the transaction scope.
+		txCtx := st.atomicPool.Get().(*atomicContext)
+		txCtx.ctx = ctx
+		txCtx.tx = tx
 
-		// TODO (stickupkid): The atomicContext can be pooled on the StateBase
-		// to reduce the number of allocations. Attempting to push the tx into
-		// the context would prevent that as a viable option.
-		txCtx := &atomicContext{
-			ctx: ctx,
-			tx:  tx,
-		}
-		defer txCtx.close()
+		defer func() {
+			txCtx.close()
+			st.atomicPool.Put(txCtx)
+		}()
 
 		return fn(txCtx)
 	})
@@ -170,7 +176,7 @@ func Run(ctx AtomicContext, fn func(context.Context, *sqlair.TX) error) error {
 	atomic.mu.Lock()
 	defer atomic.mu.Unlock()
 
-	tx := atomic.txn()
+	tx := atomic.tx
 	if tx == nil {
 		// If you're seeing this error, it means that the AtomicContext was not
 		// created by RunAtomic. This is a programming error. Did you capture
@@ -228,12 +234,6 @@ type atomicContext struct {
 // Context returns the context that the transaction was created with.
 func (c *atomicContext) Context() context.Context {
 	return c.ctx
-}
-
-// txn returns the transaction stored on the atomicContext.
-// This is used to run transactions within the context of the atomicContext.
-func (c *atomicContext) txn() *sqlair.TX {
-	return c.tx
 }
 
 // close removes the transaction from the atomicContext.
