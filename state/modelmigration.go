@@ -17,7 +17,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/mongo"
 )
@@ -94,10 +93,6 @@ type ModelMigration interface {
 	// Refresh updates the contents of the ModelMigration from the
 	// underlying state.
 	Refresh() error
-
-	// ModelUserAccess returns the type of access that the given tag had to
-	// the model prior to it being migrated.
-	ModelUserAccess(names.Tag) permission.Access
 }
 
 // MinionReports indicates the sets of agents whose migration minion
@@ -159,14 +154,6 @@ type modelMigDoc struct {
 	// TargetMacaroons holds the macaroons to use with TargetAuthTag
 	// when authenticating.
 	TargetMacaroons string `bson:"target-macaroons,omitempty"`
-
-	// The list of users and their access-level to the model being migrated.
-	ModelUsers []modelMigUserDoc `bson:"model-users,omitempty"`
-}
-
-type modelMigUserDoc struct {
-	UserID string            `bson:"user_id"`
-	Access permission.Access `bson:"access"`
 }
 
 // modelMigStatusDoc tracks the progress of a migration attempt for a
@@ -644,18 +631,6 @@ func (mig *modelMigration) Refresh() error {
 	return nil
 }
 
-// ModelUserAccess implements ModelMigration.
-func (mig *modelMigration) ModelUserAccess(tag names.Tag) permission.Access {
-	id := tag.Id()
-	for _, user := range mig.doc.ModelUsers {
-		if user.UserID == id {
-			return user.Access
-		}
-	}
-
-	return permission.NoAccess
-}
-
 // MigrationSpec holds the information required to create a
 // ModelMigration instance.
 type MigrationSpec struct {
@@ -722,11 +697,6 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			return nil, errors.Trace(err)
 		}
 
-		userDocs, err := modelUserDocs(model)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
 		id := fmt.Sprintf("%s:%d", modelUUID, attempt)
 		doc = modelMigDoc{
 			Id:                    id,
@@ -740,7 +710,6 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			TargetAuthTag:         spec.TargetInfo.AuthTag.String(),
 			TargetPassword:        spec.TargetInfo.Password,
 			TargetMacaroons:       macsJSON,
-			ModelUsers:            userDocs,
 		}
 
 		statusDoc = modelMigStatusDoc{
@@ -786,23 +755,6 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 		statusDoc: statusDoc,
 		st:        st,
 	}, nil
-}
-
-func modelUserDocs(m *Model) ([]modelMigUserDoc, error) {
-	users, err := m.Users()
-	if err != nil {
-		return nil, err
-	}
-
-	var docs []modelMigUserDoc
-	for _, user := range users {
-		docs = append(docs, modelMigUserDoc{
-			UserID: user.UserTag.Id(),
-			Access: user.Access,
-		})
-	}
-
-	return docs, nil
 }
 
 func macaroonsToJSON(m []macaroon.Slice) (string, error) {

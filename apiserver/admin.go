@@ -350,7 +350,7 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 }
 
 func (a *admin) maybeEmitRedirectError(modelUUID model.UUID, authTag names.Tag) error {
-	userTag, ok := authTag.(names.UserTag)
+	_, ok := authTag.(names.UserTag)
 	if !ok {
 		return nil
 	}
@@ -377,7 +377,8 @@ func (a *admin) maybeEmitRedirectError(modelUUID model.UUID, authTag names.Tag) 
 	// granted access, do not return a redirect error.
 	// We need to return redirects if possible for anonymous logins in order
 	// to ensure post-migration operation of CMRs.
-	if mig == nil || (userTag.Id() != api.AnonymousUsername && mig.ModelUserAccess(userTag) == permission.NoAccess) {
+	// TODO(aflynn): reinstate check for unauthorised user (JUJU-6669).
+	if mig == nil {
 		return nil
 	}
 

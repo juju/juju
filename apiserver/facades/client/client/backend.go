@@ -65,7 +65,6 @@ type Model interface {
 	Config() (*config.Config, error)
 	Owner() names.UserTag
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
-	Users() ([]permission.UserAccess, error)
 	StatusHistory(status.StatusHistoryFilter) ([]status.StatusInfo, error)
 	LatestToolsVersion() version.Number
 	Status() (status.StatusInfo, error)
