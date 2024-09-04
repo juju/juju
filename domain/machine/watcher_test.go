@@ -39,6 +39,7 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 			loggertesting.WrapCheckLog(c),
 		),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
+		nil,
 	)
 }
 

@@ -19,7 +19,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/password"
@@ -47,7 +46,7 @@ type InstanceConfigServices struct {
 func InstanceConfig(
 	ctx context.Context,
 	modelID coremodel.UUID,
-	providerGetter providertracker.ProviderGetter[environs.BootstrapEnviron],
+	providerGetter func(context.Context) (environs.BootstrapEnviron, error),
 	ctrlSt ControllerBackend,
 	st InstanceConfigBackend,
 	services InstanceConfigServices,

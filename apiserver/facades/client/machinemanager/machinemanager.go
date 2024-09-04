@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/status"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
@@ -87,10 +86,16 @@ type Authorizer interface {
 	AuthClient() bool
 }
 
-// MachineService manages machines.
+// MachineService is the interface that is used to interact with the machines.
 type MachineService interface {
+	// CreateMachine creates a machine with the given name.
 	CreateMachine(context.Context, machine.Name) (string, error)
+	// DeleteMachine deletes a machine with the given name.
 	DeleteMachine(context.Context, machine.Name) error
+	// GetBootstrapEnviron returns the bootstrap environ.
+	GetBootstrapEnviron(context.Context) (environs.BootstrapEnviron, error)
+	// GetInstanceTypesFetcher returns the instance types fetcher.
+	GetInstanceTypesFetcher(context.Context) (environs.InstanceTypesFetcher, error)
 }
 
 // CharmhubClient represents a way for querying the charmhub api for information
@@ -110,8 +115,6 @@ type NetworkService interface {
 type MachineManagerAPI struct {
 	model                   coremodel.ReadOnlyModel
 	controllerConfigService ControllerConfigService
-	bootstrapProvider       providertracker.ProviderGetter[environs.BootstrapEnviron]
-	instanceTypeProvider    providertracker.ProviderGetter[environs.InstanceTypesFetcher]
 	st                      Backend
 	cloudService            common.CloudService
 	credentialService       common.CredentialService
@@ -137,8 +140,6 @@ type MachineManagerAPI struct {
 func NewMachineManagerAPI(
 	model coremodel.ReadOnlyModel,
 	controllerConfigService ControllerConfigService,
-	bootstrapProvider providertracker.ProviderGetter[environs.BootstrapEnviron],
-	instanceTypeProvider providertracker.ProviderGetter[environs.InstanceTypesFetcher],
 	backend Backend,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
@@ -157,8 +158,6 @@ func NewMachineManagerAPI(
 ) *MachineManagerAPI {
 	api := &MachineManagerAPI{
 		model:                       model,
-		bootstrapProvider:           bootstrapProvider,
-		instanceTypeProvider:        instanceTypeProvider,
 		controllerConfigService:     controllerConfigService,
 		st:                          backend,
 		cloudService:                cloudService,
@@ -368,7 +367,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 	icfg, err := InstanceConfig(
 		ctx,
 		mm.model.UUID,
-		mm.bootstrapProvider,
+		mm.machineService.GetBootstrapEnviron,
 		st,
 		mm.st, services, args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {

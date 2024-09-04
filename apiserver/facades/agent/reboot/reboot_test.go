@@ -136,6 +136,7 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 			loggertesting.WrapCheckLog(c),
 		),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
+		nil,
 	)
 }
 

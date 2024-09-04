@@ -14,7 +14,6 @@ import (
 
 	cmachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
-	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
@@ -303,7 +302,7 @@ func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *gc.C) {
 func (s *serviceSuite) TestGetMachineStatusSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	expectedStatus := status.StatusInfo{Status: corestatus.Started}
+	expectedStatus := status.StatusInfo{Status: status.Started}
 	s.state.EXPECT().GetMachineStatus(gomock.Any(), cmachine.Name("666")).Return(expectedStatus, nil)
 
 	machineStatus, err := NewService(s.state).GetMachineStatus(context.Background(), "666")
@@ -328,7 +327,7 @@ func (s *serviceSuite) TestGetMachineStatusError(c *gc.C) {
 func (s *serviceSuite) TestSetMachineStatusSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	newStatus := status.StatusInfo{Status: corestatus.Started}
+	newStatus := status.StatusInfo{Status: status.Started}
 	s.state.EXPECT().SetMachineStatus(gomock.Any(), cmachine.Name("666"), newStatus).Return(nil)
 
 	err := NewService(s.state).SetMachineStatus(context.Background(), "666", newStatus)
@@ -340,7 +339,7 @@ func (s *serviceSuite) TestSetMachineStatusSuccess(c *gc.C) {
 func (s *serviceSuite) TestSetMachineStatusError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	newStatus := status.StatusInfo{Status: corestatus.Started}
+	newStatus := status.StatusInfo{Status: status.Started}
 	rErr := errors.New("boom")
 	s.state.EXPECT().SetMachineStatus(gomock.Any(), cmachine.Name("666"), newStatus).Return(rErr)
 
@@ -359,7 +358,7 @@ func (s *serviceSuite) TestSetMachineStatusInvalid(c *gc.C) {
 func (s *serviceSuite) TestGetInstanceStatusSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	expectedStatus := status.StatusInfo{Status: corestatus.Running}
+	expectedStatus := status.StatusInfo{Status: status.Running}
 	s.state.EXPECT().GetInstanceStatus(gomock.Any(), cmachine.Name("666")).Return(expectedStatus, nil)
 
 	instanceStatus, err := NewService(s.state).GetInstanceStatus(context.Background(), "666")
@@ -385,7 +384,7 @@ func (s *serviceSuite) TestGetInstanceStatusError(c *gc.C) {
 func (s *serviceSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	newStatus := status.StatusInfo{Status: corestatus.Running}
+	newStatus := status.StatusInfo{Status: status.Running}
 	s.state.EXPECT().SetInstanceStatus(gomock.Any(), cmachine.Name("666"), newStatus).Return(nil)
 
 	err := NewService(s.state).SetInstanceStatus(context.Background(), "666", newStatus)
@@ -398,7 +397,7 @@ func (s *serviceSuite) TestSetInstanceStatusError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	newStatus := status.StatusInfo{Status: corestatus.Running}
+	newStatus := status.StatusInfo{Status: status.Running}
 	s.state.EXPECT().SetInstanceStatus(gomock.Any(), cmachine.Name("666"), newStatus).Return(rErr)
 
 	err := NewService(s.state).SetInstanceStatus(context.Background(), "666", newStatus)

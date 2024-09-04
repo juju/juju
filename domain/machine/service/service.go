@@ -10,9 +10,11 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -126,6 +128,12 @@ type State interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	// It returns a MachineNotFound if the machine does not exist.
 	GetMachineUUID(context.Context, coremachine.Name) (string, error)
+}
+
+// Provider represents an underlying cloud provider.
+type Provider interface {
+	environs.BootstrapEnviron
+	environs.InstanceTypesFetcher
 }
 
 // Service provides the API for working with machines.
@@ -353,4 +361,30 @@ func (s *Service) GetAllMachineRemovals(ctx context.Context) ([]string, error) {
 // It returns a MachineNotFound if the machine does not exist.
 func (s *Service) GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error) {
 	return s.st.GetMachineUUID(ctx, name)
+}
+
+// ProviderService provides the API for working with machines using the
+// underlying provider.
+type ProviderService struct {
+	Service
+
+	providerGetter providertracker.ProviderGetter[Provider]
+}
+
+// GetBootstrapEnviron returns the bootstrap environ.
+func (s *ProviderService) GetBootstrapEnviron(context.Context) (environs.BootstrapEnviron, error) {
+	provider, err := s.providerGetter(context.Background())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return provider, nil
+}
+
+// GetInstanceTypesFetcher returns the instance types fetcher.
+func (s *ProviderService) GetInstanceTypesFetcher(context.Context) (environs.InstanceTypesFetcher, error) {
+	provider, err := s.providerGetter(context.Background())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return provider, nil
 }

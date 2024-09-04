@@ -21,6 +21,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
 	status "github.com/juju/juju/core/status"
+	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	charm "github.com/juju/juju/internal/charm"
 	charmhub "github.com/juju/juju/internal/charmhub"
@@ -2318,6 +2319,84 @@ func (c *MockMachineServiceDeleteMachineCall) Do(f func(context.Context, machine
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineServiceDeleteMachineCall) DoAndReturn(f func(context.Context, machine.Name) error) *MockMachineServiceDeleteMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetBootstrapEnviron mocks base method.
+func (m *MockMachineService) GetBootstrapEnviron(arg0 context.Context) (environs.BootstrapEnviron, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBootstrapEnviron", arg0)
+	ret0, _ := ret[0].(environs.BootstrapEnviron)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBootstrapEnviron indicates an expected call of GetBootstrapEnviron.
+func (mr *MockMachineServiceMockRecorder) GetBootstrapEnviron(arg0 any) *MockMachineServiceGetBootstrapEnvironCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBootstrapEnviron", reflect.TypeOf((*MockMachineService)(nil).GetBootstrapEnviron), arg0)
+	return &MockMachineServiceGetBootstrapEnvironCall{Call: call}
+}
+
+// MockMachineServiceGetBootstrapEnvironCall wrap *gomock.Call
+type MockMachineServiceGetBootstrapEnvironCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceGetBootstrapEnvironCall) Return(arg0 environs.BootstrapEnviron, arg1 error) *MockMachineServiceGetBootstrapEnvironCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceGetBootstrapEnvironCall) Do(f func(context.Context) (environs.BootstrapEnviron, error)) *MockMachineServiceGetBootstrapEnvironCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceGetBootstrapEnvironCall) DoAndReturn(f func(context.Context) (environs.BootstrapEnviron, error)) *MockMachineServiceGetBootstrapEnvironCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetInstanceTypesFetcher mocks base method.
+func (m *MockMachineService) GetInstanceTypesFetcher(arg0 context.Context) (environs.InstanceTypesFetcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetInstanceTypesFetcher", arg0)
+	ret0, _ := ret[0].(environs.InstanceTypesFetcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetInstanceTypesFetcher indicates an expected call of GetInstanceTypesFetcher.
+func (mr *MockMachineServiceMockRecorder) GetInstanceTypesFetcher(arg0 any) *MockMachineServiceGetInstanceTypesFetcherCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstanceTypesFetcher", reflect.TypeOf((*MockMachineService)(nil).GetInstanceTypesFetcher), arg0)
+	return &MockMachineServiceGetInstanceTypesFetcherCall{Call: call}
+}
+
+// MockMachineServiceGetInstanceTypesFetcherCall wrap *gomock.Call
+type MockMachineServiceGetInstanceTypesFetcherCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceGetInstanceTypesFetcherCall) Return(arg0 environs.InstanceTypesFetcher, arg1 error) *MockMachineServiceGetInstanceTypesFetcherCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceGetInstanceTypesFetcherCall) Do(f func(context.Context) (environs.InstanceTypesFetcher, error)) *MockMachineServiceGetInstanceTypesFetcherCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceGetInstanceTypesFetcherCall) DoAndReturn(f func(context.Context) (environs.InstanceTypesFetcher, error)) *MockMachineServiceGetInstanceTypesFetcherCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

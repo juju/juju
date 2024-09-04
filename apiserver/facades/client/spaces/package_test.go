@@ -13,8 +13,6 @@ import (
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/environs"
-	environmocks "github.com/juju/juju/environs/mocks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -47,7 +45,7 @@ func (s *APISuite) TearDownTest(_ *gc.C) {
 	s.API = nil
 }
 
-func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) (*gomock.Controller, func()) {
+func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.resource = facademocks.NewMockResources(ctrl)
@@ -63,13 +61,6 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	s.Backing = NewMockBacking(ctrl)
 	bExp := s.Backing.EXPECT()
 	bExp.ModelTag().Return(names.NewModelTag("123"))
-
-	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
-
-	mockProvider := environmocks.NewMockCloudEnvironProvider(ctrl)
-	mockProvider.EXPECT().Open(gomock.Any(), gomock.Any()).Return(mockNetworkEnviron, nil).AnyTimes()
-
-	unReg := environs.RegisterProvider("mock-provider", mockProvider)
 
 	s.ControllerConfigService = NewMockControllerConfigService(ctrl)
 	s.NetworkService = NewMockNetworkService(ctrl)
@@ -90,7 +81,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	return ctrl, unReg
+	return ctrl
 }
 
 // NewAPIWithBacking is also a legacy-only artifact,

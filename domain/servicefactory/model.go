@@ -119,6 +119,7 @@ func (s *ModelFactory) Machine() *machineservice.WatchableService {
 			s.modelDB,
 			s.logger.Child("machine"),
 		),
+		providertracker.ProviderRunner[machineservice.Provider](s.providerFactory, s.modelUUID.String()),
 	)
 }
 
