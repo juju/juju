@@ -18,7 +18,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -74,11 +73,10 @@ type NetworkService interface {
 type API struct {
 	controllerConfigService ControllerConfigService
 
-	networkService              NetworkService
-	backing                     Backing
-	resources                   facade.Resources
-	auth                        facade.Authorizer
-	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
+	networkService NetworkService
+	backing        Backing
+	resources      facade.Resources
+	auth           facade.Authorizer
 
 	check  BlockChecker
 	logger corelogger.Logger
