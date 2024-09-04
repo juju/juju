@@ -24,9 +24,8 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
-// ControllerProxyService defines the methods required to get controller proxy
-// details.
-type ControllerProxyService interface {
+// ProxyService defines the methods required to get proxy details.
+type ProxyService interface {
 	// GetConnectionProxyInfo returns the proxy information for the controller.
 	GetConnectionProxyInfo(context.Context) (proxy.Proxier, error)
 }

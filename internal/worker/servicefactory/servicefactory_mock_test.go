@@ -23,21 +23,21 @@ import (
 	service6 "github.com/juju/juju/domain/controller/service"
 	service7 "github.com/juju/juju/domain/controllerconfig/service"
 	service8 "github.com/juju/juju/domain/controllernode/service"
-	service9 "github.com/juju/juju/domain/controllerproxy/service"
-	service10 "github.com/juju/juju/domain/credential/service"
-	service11 "github.com/juju/juju/domain/externalcontroller/service"
-	service12 "github.com/juju/juju/domain/flag/service"
-	service13 "github.com/juju/juju/domain/keymanager/service"
-	service14 "github.com/juju/juju/domain/keyupdater/service"
-	service15 "github.com/juju/juju/domain/macaroon/service"
-	service16 "github.com/juju/juju/domain/machine/service"
-	service17 "github.com/juju/juju/domain/model/service"
-	service18 "github.com/juju/juju/domain/modelagent/service"
-	service19 "github.com/juju/juju/domain/modelconfig/service"
-	service20 "github.com/juju/juju/domain/modeldefaults/service"
-	service21 "github.com/juju/juju/domain/modelmigration/service"
-	service22 "github.com/juju/juju/domain/network/service"
-	service23 "github.com/juju/juju/domain/objectstore/service"
+	service9 "github.com/juju/juju/domain/credential/service"
+	service10 "github.com/juju/juju/domain/externalcontroller/service"
+	service11 "github.com/juju/juju/domain/flag/service"
+	service12 "github.com/juju/juju/domain/keymanager/service"
+	service13 "github.com/juju/juju/domain/keyupdater/service"
+	service14 "github.com/juju/juju/domain/macaroon/service"
+	service15 "github.com/juju/juju/domain/machine/service"
+	service16 "github.com/juju/juju/domain/model/service"
+	service17 "github.com/juju/juju/domain/modelagent/service"
+	service18 "github.com/juju/juju/domain/modelconfig/service"
+	service19 "github.com/juju/juju/domain/modeldefaults/service"
+	service20 "github.com/juju/juju/domain/modelmigration/service"
+	service21 "github.com/juju/juju/domain/network/service"
+	service22 "github.com/juju/juju/domain/objectstore/service"
+	service23 "github.com/juju/juju/domain/proxy/service"
 	service24 "github.com/juju/juju/domain/secret/service"
 	service25 "github.com/juju/juju/domain/secretbackend/service"
 	service26 "github.com/juju/juju/domain/storage/service"
@@ -109,10 +109,10 @@ func (c *MockControllerServiceFactoryAccessCall) DoAndReturn(f func() *service.S
 }
 
 // AgentObjectStore mocks base method.
-func (m *MockControllerServiceFactory) AgentObjectStore() *service23.WatchableService {
+func (m *MockControllerServiceFactory) AgentObjectStore() *service22.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AgentObjectStore")
-	ret0, _ := ret[0].(*service23.WatchableService)
+	ret0, _ := ret[0].(*service22.WatchableService)
 	return ret0
 }
 
@@ -129,19 +129,19 @@ type MockControllerServiceFactoryAgentObjectStoreCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerServiceFactoryAgentObjectStoreCall) Return(arg0 *service23.WatchableService) *MockControllerServiceFactoryAgentObjectStoreCall {
+func (c *MockControllerServiceFactoryAgentObjectStoreCall) Return(arg0 *service22.WatchableService) *MockControllerServiceFactoryAgentObjectStoreCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerServiceFactoryAgentObjectStoreCall) Do(f func() *service23.WatchableService) *MockControllerServiceFactoryAgentObjectStoreCall {
+func (c *MockControllerServiceFactoryAgentObjectStoreCall) Do(f func() *service22.WatchableService) *MockControllerServiceFactoryAgentObjectStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerServiceFactoryAgentObjectStoreCall) DoAndReturn(f func() *service23.WatchableService) *MockControllerServiceFactoryAgentObjectStoreCall {
+func (c *MockControllerServiceFactoryAgentObjectStoreCall) DoAndReturn(f func() *service22.WatchableService) *MockControllerServiceFactoryAgentObjectStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -337,10 +337,10 @@ func (c *MockControllerServiceFactoryControllerNodeCall) DoAndReturn(f func() *s
 }
 
 // Credential mocks base method.
-func (m *MockControllerServiceFactory) Credential() *service10.WatchableService {
+func (m *MockControllerServiceFactory) Credential() *service9.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Credential")
-	ret0, _ := ret[0].(*service10.WatchableService)
+	ret0, _ := ret[0].(*service9.WatchableService)
 	return ret0
 }
 
@@ -357,28 +357,28 @@ type MockControllerServiceFactoryCredentialCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerServiceFactoryCredentialCall) Return(arg0 *service10.WatchableService) *MockControllerServiceFactoryCredentialCall {
+func (c *MockControllerServiceFactoryCredentialCall) Return(arg0 *service9.WatchableService) *MockControllerServiceFactoryCredentialCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerServiceFactoryCredentialCall) Do(f func() *service10.WatchableService) *MockControllerServiceFactoryCredentialCall {
+func (c *MockControllerServiceFactoryCredentialCall) Do(f func() *service9.WatchableService) *MockControllerServiceFactoryCredentialCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerServiceFactoryCredentialCall) DoAndReturn(f func() *service10.WatchableService) *MockControllerServiceFactoryCredentialCall {
+func (c *MockControllerServiceFactoryCredentialCall) DoAndReturn(f func() *service9.WatchableService) *MockControllerServiceFactoryCredentialCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ExternalController mocks base method.
-func (m *MockControllerServiceFactory) ExternalController() *service11.WatchableService {
+func (m *MockControllerServiceFactory) ExternalController() *service10.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExternalController")
-	ret0, _ := ret[0].(*service11.WatchableService)
+	ret0, _ := ret[0].(*service10.WatchableService)
 	return ret0
 }
 
@@ -395,28 +395,28 @@ type MockControllerServiceFactoryExternalControllerCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerServiceFactoryExternalControllerCall) Return(arg0 *service11.WatchableService) *MockControllerServiceFactoryExternalControllerCall {
+func (c *MockControllerServiceFactoryExternalControllerCall) Return(arg0 *service10.WatchableService) *MockControllerServiceFactoryExternalControllerCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerServiceFactoryExternalControllerCall) Do(f func() *service11.WatchableService) *MockControllerServiceFactoryExternalControllerCall {
+func (c *MockControllerServiceFactoryExternalControllerCall) Do(f func() *service10.WatchableService) *MockControllerServiceFactoryExternalControllerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerServiceFactoryExternalControllerCall) DoAndReturn(f func() *service11.WatchableService) *MockControllerServiceFactoryExternalControllerCall {
+func (c *MockControllerServiceFactoryExternalControllerCall) DoAndReturn(f func() *service10.WatchableService) *MockControllerServiceFactoryExternalControllerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Flag mocks base method.
-func (m *MockControllerServiceFactory) Flag() *service12.Service {
+func (m *MockControllerServiceFactory) Flag() *service11.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Flag")
-	ret0, _ := ret[0].(*service12.Service)
+	ret0, _ := ret[0].(*service11.Service)
 	return ret0
 }
 
@@ -433,28 +433,28 @@ type MockControllerServiceFactoryFlagCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerServiceFactoryFlagCall) Return(arg0 *service12.Service) *MockControllerServiceFactoryFlagCall {
+func (c *MockControllerServiceFactoryFlagCall) Return(arg0 *service11.Service) *MockControllerServiceFactoryFlagCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerServiceFactoryFlagCall) Do(f func() *service12.Service) *MockControllerServiceFactoryFlagCall {
+func (c *MockControllerServiceFactoryFlagCall) Do(f func() *service11.Service) *MockControllerServiceFactoryFlagCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerServiceFactoryFlagCall) DoAndReturn(f func() *service12.Service) *MockControllerServiceFactoryFlagCall {
+func (c *MockControllerServiceFactoryFlagCall) DoAndReturn(f func() *service11.Service) *MockControllerServiceFactoryFlagCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Macaroon mocks base method.
-func (m *MockControllerServiceFactory) Macaroon() *service15.Service {
+func (m *MockControllerServiceFactory) Macaroon() *service14.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Macaroon")
-	ret0, _ := ret[0].(*service15.Service)
+	ret0, _ := ret[0].(*service14.Service)
 	return ret0
 }
 
@@ -471,28 +471,28 @@ type MockControllerServiceFactoryMacaroonCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerServiceFactoryMacaroonCall) Return(arg0 *service15.Service) *MockControllerServiceFactoryMacaroonCall {
+func (c *MockControllerServiceFactoryMacaroonCall) Return(arg0 *service14.Service) *MockControllerServiceFactoryMacaroonCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerServiceFactoryMacaroonCall) Do(f func() *service15.Service) *MockControllerServiceFactoryMacaroonCall {
+func (c *MockControllerServiceFactoryMacaroonCall) Do(f func() *service14.Service) *MockControllerServiceFactoryMacaroonCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerServiceFactoryMacaroonCall) DoAndReturn(f func() *service15.Service) *MockControllerServiceFactoryMacaroonCall {
+func (c *MockControllerServiceFactoryMacaroonCall) DoAndReturn(f func() *service14.Service) *MockControllerServiceFactoryMacaroonCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Model mocks base method.
-func (m *MockControllerServiceFactory) Model() *service17.Service {
+func (m *MockControllerServiceFactory) Model() *service16.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Model")
-	ret0, _ := ret[0].(*service17.Service)
+	ret0, _ := ret[0].(*service16.Service)
 	return ret0
 }
 
@@ -509,28 +509,28 @@ type MockControllerServiceFactoryModelCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerServiceFactoryModelCall) Return(arg0 *service17.Service) *MockControllerServiceFactoryModelCall {
+func (c *MockControllerServiceFactoryModelCall) Return(arg0 *service16.Service) *MockControllerServiceFactoryModelCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerServiceFactoryModelCall) Do(f func() *service17.Service) *MockControllerServiceFactoryModelCall {
+func (c *MockControllerServiceFactoryModelCall) Do(f func() *service16.Service) *MockControllerServiceFactoryModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerServiceFactoryModelCall) DoAndReturn(f func() *service17.Service) *MockControllerServiceFactoryModelCall {
+func (c *MockControllerServiceFactoryModelCall) DoAndReturn(f func() *service16.Service) *MockControllerServiceFactoryModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ModelDefaults mocks base method.
-func (m *MockControllerServiceFactory) ModelDefaults() *service20.Service {
+func (m *MockControllerServiceFactory) ModelDefaults() *service19.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelDefaults")
-	ret0, _ := ret[0].(*service20.Service)
+	ret0, _ := ret[0].(*service19.Service)
 	return ret0
 }
 
@@ -547,19 +547,19 @@ type MockControllerServiceFactoryModelDefaultsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerServiceFactoryModelDefaultsCall) Return(arg0 *service20.Service) *MockControllerServiceFactoryModelDefaultsCall {
+func (c *MockControllerServiceFactoryModelDefaultsCall) Return(arg0 *service19.Service) *MockControllerServiceFactoryModelDefaultsCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerServiceFactoryModelDefaultsCall) Do(f func() *service20.Service) *MockControllerServiceFactoryModelDefaultsCall {
+func (c *MockControllerServiceFactoryModelDefaultsCall) Do(f func() *service19.Service) *MockControllerServiceFactoryModelDefaultsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerServiceFactoryModelDefaultsCall) DoAndReturn(f func() *service20.Service) *MockControllerServiceFactoryModelDefaultsCall {
+func (c *MockControllerServiceFactoryModelDefaultsCall) DoAndReturn(f func() *service19.Service) *MockControllerServiceFactoryModelDefaultsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -664,10 +664,10 @@ func (m *MockModelServiceFactory) EXPECT() *MockModelServiceFactoryMockRecorder 
 }
 
 // Agent mocks base method.
-func (m *MockModelServiceFactory) Agent() *service18.ModelService {
+func (m *MockModelServiceFactory) Agent() *service17.ModelService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Agent")
-	ret0, _ := ret[0].(*service18.ModelService)
+	ret0, _ := ret[0].(*service17.ModelService)
 	return ret0
 }
 
@@ -684,19 +684,19 @@ type MockModelServiceFactoryAgentCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceFactoryAgentCall) Return(arg0 *service18.ModelService) *MockModelServiceFactoryAgentCall {
+func (c *MockModelServiceFactoryAgentCall) Return(arg0 *service17.ModelService) *MockModelServiceFactoryAgentCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceFactoryAgentCall) Do(f func() *service18.ModelService) *MockModelServiceFactoryAgentCall {
+func (c *MockModelServiceFactoryAgentCall) Do(f func() *service17.ModelService) *MockModelServiceFactoryAgentCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceFactoryAgentCall) DoAndReturn(f func() *service18.ModelService) *MockModelServiceFactoryAgentCall {
+func (c *MockModelServiceFactoryAgentCall) DoAndReturn(f func() *service17.ModelService) *MockModelServiceFactoryAgentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -854,10 +854,10 @@ func (c *MockModelServiceFactoryBlockDeviceCall) DoAndReturn(f func() *service4.
 }
 
 // Config mocks base method.
-func (m *MockModelServiceFactory) Config() *service19.WatchableService {
+func (m *MockModelServiceFactory) Config() *service18.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config")
-	ret0, _ := ret[0].(*service19.WatchableService)
+	ret0, _ := ret[0].(*service18.WatchableService)
 	return ret0
 }
 
@@ -874,66 +874,28 @@ type MockModelServiceFactoryConfigCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceFactoryConfigCall) Return(arg0 *service19.WatchableService) *MockModelServiceFactoryConfigCall {
+func (c *MockModelServiceFactoryConfigCall) Return(arg0 *service18.WatchableService) *MockModelServiceFactoryConfigCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceFactoryConfigCall) Do(f func() *service19.WatchableService) *MockModelServiceFactoryConfigCall {
+func (c *MockModelServiceFactoryConfigCall) Do(f func() *service18.WatchableService) *MockModelServiceFactoryConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceFactoryConfigCall) DoAndReturn(f func() *service19.WatchableService) *MockModelServiceFactoryConfigCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ControllerProxy mocks base method.
-func (m *MockModelServiceFactory) ControllerProxy() *service9.Service {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerProxy")
-	ret0, _ := ret[0].(*service9.Service)
-	return ret0
-}
-
-// ControllerProxy indicates an expected call of ControllerProxy.
-func (mr *MockModelServiceFactoryMockRecorder) ControllerProxy() *MockModelServiceFactoryControllerProxyCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerProxy", reflect.TypeOf((*MockModelServiceFactory)(nil).ControllerProxy))
-	return &MockModelServiceFactoryControllerProxyCall{Call: call}
-}
-
-// MockModelServiceFactoryControllerProxyCall wrap *gomock.Call
-type MockModelServiceFactoryControllerProxyCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelServiceFactoryControllerProxyCall) Return(arg0 *service9.Service) *MockModelServiceFactoryControllerProxyCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelServiceFactoryControllerProxyCall) Do(f func() *service9.Service) *MockModelServiceFactoryControllerProxyCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceFactoryControllerProxyCall) DoAndReturn(f func() *service9.Service) *MockModelServiceFactoryControllerProxyCall {
+func (c *MockModelServiceFactoryConfigCall) DoAndReturn(f func() *service18.WatchableService) *MockModelServiceFactoryConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // KeyManager mocks base method.
-func (m *MockModelServiceFactory) KeyManager() *service13.Service {
+func (m *MockModelServiceFactory) KeyManager() *service12.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KeyManager")
-	ret0, _ := ret[0].(*service13.Service)
+	ret0, _ := ret[0].(*service12.Service)
 	return ret0
 }
 
@@ -950,28 +912,28 @@ type MockModelServiceFactoryKeyManagerCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceFactoryKeyManagerCall) Return(arg0 *service13.Service) *MockModelServiceFactoryKeyManagerCall {
+func (c *MockModelServiceFactoryKeyManagerCall) Return(arg0 *service12.Service) *MockModelServiceFactoryKeyManagerCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceFactoryKeyManagerCall) Do(f func() *service13.Service) *MockModelServiceFactoryKeyManagerCall {
+func (c *MockModelServiceFactoryKeyManagerCall) Do(f func() *service12.Service) *MockModelServiceFactoryKeyManagerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceFactoryKeyManagerCall) DoAndReturn(f func() *service13.Service) *MockModelServiceFactoryKeyManagerCall {
+func (c *MockModelServiceFactoryKeyManagerCall) DoAndReturn(f func() *service12.Service) *MockModelServiceFactoryKeyManagerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // KeyManagerWithImporter mocks base method.
-func (m *MockModelServiceFactory) KeyManagerWithImporter(arg0 service13.PublicKeyImporter) *service13.ImporterService {
+func (m *MockModelServiceFactory) KeyManagerWithImporter(arg0 service12.PublicKeyImporter) *service12.ImporterService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KeyManagerWithImporter", arg0)
-	ret0, _ := ret[0].(*service13.ImporterService)
+	ret0, _ := ret[0].(*service12.ImporterService)
 	return ret0
 }
 
@@ -988,28 +950,28 @@ type MockModelServiceFactoryKeyManagerWithImporterCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceFactoryKeyManagerWithImporterCall) Return(arg0 *service13.ImporterService) *MockModelServiceFactoryKeyManagerWithImporterCall {
+func (c *MockModelServiceFactoryKeyManagerWithImporterCall) Return(arg0 *service12.ImporterService) *MockModelServiceFactoryKeyManagerWithImporterCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceFactoryKeyManagerWithImporterCall) Do(f func(service13.PublicKeyImporter) *service13.ImporterService) *MockModelServiceFactoryKeyManagerWithImporterCall {
+func (c *MockModelServiceFactoryKeyManagerWithImporterCall) Do(f func(service12.PublicKeyImporter) *service12.ImporterService) *MockModelServiceFactoryKeyManagerWithImporterCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceFactoryKeyManagerWithImporterCall) DoAndReturn(f func(service13.PublicKeyImporter) *service13.ImporterService) *MockModelServiceFactoryKeyManagerWithImporterCall {
+func (c *MockModelServiceFactoryKeyManagerWithImporterCall) DoAndReturn(f func(service12.PublicKeyImporter) *service12.ImporterService) *MockModelServiceFactoryKeyManagerWithImporterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // KeyUpdater mocks base method.
-func (m *MockModelServiceFactory) KeyUpdater() *service14.WatchableService {
+func (m *MockModelServiceFactory) KeyUpdater() *service13.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KeyUpdater")
-	ret0, _ := ret[0].(*service14.WatchableService)
+	ret0, _ := ret[0].(*service13.WatchableService)
 	return ret0
 }
 
@@ -1026,28 +988,28 @@ type MockModelServiceFactoryKeyUpdaterCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceFactoryKeyUpdaterCall) Return(arg0 *service14.WatchableService) *MockModelServiceFactoryKeyUpdaterCall {
+func (c *MockModelServiceFactoryKeyUpdaterCall) Return(arg0 *service13.WatchableService) *MockModelServiceFactoryKeyUpdaterCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceFactoryKeyUpdaterCall) Do(f func() *service14.WatchableService) *MockModelServiceFactoryKeyUpdaterCall {
+func (c *MockModelServiceFactoryKeyUpdaterCall) Do(f func() *service13.WatchableService) *MockModelServiceFactoryKeyUpdaterCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceFactoryKeyUpdaterCall) DoAndReturn(f func() *service14.WatchableService) *MockModelServiceFactoryKeyUpdaterCall {
+func (c *MockModelServiceFactoryKeyUpdaterCall) DoAndReturn(f func() *service13.WatchableService) *MockModelServiceFactoryKeyUpdaterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Machine mocks base method.
-func (m *MockModelServiceFactory) Machine() *service16.WatchableService {
+func (m *MockModelServiceFactory) Machine() *service15.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Machine")
-	ret0, _ := ret[0].(*service16.WatchableService)
+	ret0, _ := ret[0].(*service15.WatchableService)
 	return ret0
 }
 
@@ -1064,28 +1026,28 @@ type MockModelServiceFactoryMachineCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceFactoryMachineCall) Return(arg0 *service16.WatchableService) *MockModelServiceFactoryMachineCall {
+func (c *MockModelServiceFactoryMachineCall) Return(arg0 *service15.WatchableService) *MockModelServiceFactoryMachineCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceFactoryMachineCall) Do(f func() *service16.WatchableService) *MockModelServiceFactoryMachineCall {
+func (c *MockModelServiceFactoryMachineCall) Do(f func() *service15.WatchableService) *MockModelServiceFactoryMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceFactoryMachineCall) DoAndReturn(f func() *service16.WatchableService) *MockModelServiceFactoryMachineCall {
+func (c *MockModelServiceFactoryMachineCall) DoAndReturn(f func() *service15.WatchableService) *MockModelServiceFactoryMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ModelInfo mocks base method.
-func (m *MockModelServiceFactory) ModelInfo() *service17.ModelService {
+func (m *MockModelServiceFactory) ModelInfo() *service16.ModelService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelInfo")
-	ret0, _ := ret[0].(*service17.ModelService)
+	ret0, _ := ret[0].(*service16.ModelService)
 	return ret0
 }
 
@@ -1102,28 +1064,28 @@ type MockModelServiceFactoryModelInfoCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceFactoryModelInfoCall) Return(arg0 *service17.ModelService) *MockModelServiceFactoryModelInfoCall {
+func (c *MockModelServiceFactoryModelInfoCall) Return(arg0 *service16.ModelService) *MockModelServiceFactoryModelInfoCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceFactoryModelInfoCall) Do(f func() *service17.ModelService) *MockModelServiceFactoryModelInfoCall {
+func (c *MockModelServiceFactoryModelInfoCall) Do(f func() *service16.ModelService) *MockModelServiceFactoryModelInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceFactoryModelInfoCall) DoAndReturn(f func() *service17.ModelService) *MockModelServiceFactoryModelInfoCall {
+func (c *MockModelServiceFactoryModelInfoCall) DoAndReturn(f func() *service16.ModelService) *MockModelServiceFactoryModelInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ModelMigration mocks base method.
-func (m *MockModelServiceFactory) ModelMigration() *service21.Service {
+func (m *MockModelServiceFactory) ModelMigration() *service20.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelMigration")
-	ret0, _ := ret[0].(*service21.Service)
+	ret0, _ := ret[0].(*service20.Service)
 	return ret0
 }
 
@@ -1140,19 +1102,19 @@ type MockModelServiceFactoryModelMigrationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceFactoryModelMigrationCall) Return(arg0 *service21.Service) *MockModelServiceFactoryModelMigrationCall {
+func (c *MockModelServiceFactoryModelMigrationCall) Return(arg0 *service20.Service) *MockModelServiceFactoryModelMigrationCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceFactoryModelMigrationCall) Do(f func() *service21.Service) *MockModelServiceFactoryModelMigrationCall {
+func (c *MockModelServiceFactoryModelMigrationCall) Do(f func() *service20.Service) *MockModelServiceFactoryModelMigrationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceFactoryModelMigrationCall) DoAndReturn(f func() *service21.Service) *MockModelServiceFactoryModelMigrationCall {
+func (c *MockModelServiceFactoryModelMigrationCall) DoAndReturn(f func() *service20.Service) *MockModelServiceFactoryModelMigrationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1196,10 +1158,10 @@ func (c *MockModelServiceFactoryModelSecretBackendCall) DoAndReturn(f func() *se
 }
 
 // Network mocks base method.
-func (m *MockModelServiceFactory) Network() *service22.WatchableService {
+func (m *MockModelServiceFactory) Network() *service21.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Network")
-	ret0, _ := ret[0].(*service22.WatchableService)
+	ret0, _ := ret[0].(*service21.WatchableService)
 	return ret0
 }
 
@@ -1216,28 +1178,28 @@ type MockModelServiceFactoryNetworkCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceFactoryNetworkCall) Return(arg0 *service22.WatchableService) *MockModelServiceFactoryNetworkCall {
+func (c *MockModelServiceFactoryNetworkCall) Return(arg0 *service21.WatchableService) *MockModelServiceFactoryNetworkCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceFactoryNetworkCall) Do(f func() *service22.WatchableService) *MockModelServiceFactoryNetworkCall {
+func (c *MockModelServiceFactoryNetworkCall) Do(f func() *service21.WatchableService) *MockModelServiceFactoryNetworkCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceFactoryNetworkCall) DoAndReturn(f func() *service22.WatchableService) *MockModelServiceFactoryNetworkCall {
+func (c *MockModelServiceFactoryNetworkCall) DoAndReturn(f func() *service21.WatchableService) *MockModelServiceFactoryNetworkCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ObjectStore mocks base method.
-func (m *MockModelServiceFactory) ObjectStore() *service23.WatchableService {
+func (m *MockModelServiceFactory) ObjectStore() *service22.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ObjectStore")
-	ret0, _ := ret[0].(*service23.WatchableService)
+	ret0, _ := ret[0].(*service22.WatchableService)
 	return ret0
 }
 
@@ -1254,19 +1216,57 @@ type MockModelServiceFactoryObjectStoreCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceFactoryObjectStoreCall) Return(arg0 *service23.WatchableService) *MockModelServiceFactoryObjectStoreCall {
+func (c *MockModelServiceFactoryObjectStoreCall) Return(arg0 *service22.WatchableService) *MockModelServiceFactoryObjectStoreCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceFactoryObjectStoreCall) Do(f func() *service23.WatchableService) *MockModelServiceFactoryObjectStoreCall {
+func (c *MockModelServiceFactoryObjectStoreCall) Do(f func() *service22.WatchableService) *MockModelServiceFactoryObjectStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceFactoryObjectStoreCall) DoAndReturn(f func() *service23.WatchableService) *MockModelServiceFactoryObjectStoreCall {
+func (c *MockModelServiceFactoryObjectStoreCall) DoAndReturn(f func() *service22.WatchableService) *MockModelServiceFactoryObjectStoreCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Proxy mocks base method.
+func (m *MockModelServiceFactory) Proxy() *service23.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Proxy")
+	ret0, _ := ret[0].(*service23.Service)
+	return ret0
+}
+
+// Proxy indicates an expected call of Proxy.
+func (mr *MockModelServiceFactoryMockRecorder) Proxy() *MockModelServiceFactoryProxyCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Proxy", reflect.TypeOf((*MockModelServiceFactory)(nil).Proxy))
+	return &MockModelServiceFactoryProxyCall{Call: call}
+}
+
+// MockModelServiceFactoryProxyCall wrap *gomock.Call
+type MockModelServiceFactoryProxyCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelServiceFactoryProxyCall) Return(arg0 *service23.Service) *MockModelServiceFactoryProxyCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelServiceFactoryProxyCall) Do(f func() *service23.Service) *MockModelServiceFactoryProxyCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelServiceFactoryProxyCall) DoAndReturn(f func() *service23.Service) *MockModelServiceFactoryProxyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1409,10 +1409,10 @@ func (c *MockServiceFactoryAccessCall) DoAndReturn(f func() *service.Service) *M
 }
 
 // Agent mocks base method.
-func (m *MockServiceFactory) Agent() *service18.ModelService {
+func (m *MockServiceFactory) Agent() *service17.ModelService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Agent")
-	ret0, _ := ret[0].(*service18.ModelService)
+	ret0, _ := ret[0].(*service17.ModelService)
 	return ret0
 }
 
@@ -1429,28 +1429,28 @@ type MockServiceFactoryAgentCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryAgentCall) Return(arg0 *service18.ModelService) *MockServiceFactoryAgentCall {
+func (c *MockServiceFactoryAgentCall) Return(arg0 *service17.ModelService) *MockServiceFactoryAgentCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryAgentCall) Do(f func() *service18.ModelService) *MockServiceFactoryAgentCall {
+func (c *MockServiceFactoryAgentCall) Do(f func() *service17.ModelService) *MockServiceFactoryAgentCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryAgentCall) DoAndReturn(f func() *service18.ModelService) *MockServiceFactoryAgentCall {
+func (c *MockServiceFactoryAgentCall) DoAndReturn(f func() *service17.ModelService) *MockServiceFactoryAgentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AgentObjectStore mocks base method.
-func (m *MockServiceFactory) AgentObjectStore() *service23.WatchableService {
+func (m *MockServiceFactory) AgentObjectStore() *service22.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AgentObjectStore")
-	ret0, _ := ret[0].(*service23.WatchableService)
+	ret0, _ := ret[0].(*service22.WatchableService)
 	return ret0
 }
 
@@ -1467,19 +1467,19 @@ type MockServiceFactoryAgentObjectStoreCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryAgentObjectStoreCall) Return(arg0 *service23.WatchableService) *MockServiceFactoryAgentObjectStoreCall {
+func (c *MockServiceFactoryAgentObjectStoreCall) Return(arg0 *service22.WatchableService) *MockServiceFactoryAgentObjectStoreCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryAgentObjectStoreCall) Do(f func() *service23.WatchableService) *MockServiceFactoryAgentObjectStoreCall {
+func (c *MockServiceFactoryAgentObjectStoreCall) Do(f func() *service22.WatchableService) *MockServiceFactoryAgentObjectStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryAgentObjectStoreCall) DoAndReturn(f func() *service23.WatchableService) *MockServiceFactoryAgentObjectStoreCall {
+func (c *MockServiceFactoryAgentObjectStoreCall) DoAndReturn(f func() *service22.WatchableService) *MockServiceFactoryAgentObjectStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1713,10 +1713,10 @@ func (c *MockServiceFactoryCloudCall) DoAndReturn(f func() *service5.WatchableSe
 }
 
 // Config mocks base method.
-func (m *MockServiceFactory) Config() *service19.WatchableService {
+func (m *MockServiceFactory) Config() *service18.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config")
-	ret0, _ := ret[0].(*service19.WatchableService)
+	ret0, _ := ret[0].(*service18.WatchableService)
 	return ret0
 }
 
@@ -1733,19 +1733,19 @@ type MockServiceFactoryConfigCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryConfigCall) Return(arg0 *service19.WatchableService) *MockServiceFactoryConfigCall {
+func (c *MockServiceFactoryConfigCall) Return(arg0 *service18.WatchableService) *MockServiceFactoryConfigCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryConfigCall) Do(f func() *service19.WatchableService) *MockServiceFactoryConfigCall {
+func (c *MockServiceFactoryConfigCall) Do(f func() *service18.WatchableService) *MockServiceFactoryConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryConfigCall) DoAndReturn(f func() *service19.WatchableService) *MockServiceFactoryConfigCall {
+func (c *MockServiceFactoryConfigCall) DoAndReturn(f func() *service18.WatchableService) *MockServiceFactoryConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1864,49 +1864,11 @@ func (c *MockServiceFactoryControllerNodeCall) DoAndReturn(f func() *service8.Se
 	return c
 }
 
-// ControllerProxy mocks base method.
-func (m *MockServiceFactory) ControllerProxy() *service9.Service {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerProxy")
-	ret0, _ := ret[0].(*service9.Service)
-	return ret0
-}
-
-// ControllerProxy indicates an expected call of ControllerProxy.
-func (mr *MockServiceFactoryMockRecorder) ControllerProxy() *MockServiceFactoryControllerProxyCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerProxy", reflect.TypeOf((*MockServiceFactory)(nil).ControllerProxy))
-	return &MockServiceFactoryControllerProxyCall{Call: call}
-}
-
-// MockServiceFactoryControllerProxyCall wrap *gomock.Call
-type MockServiceFactoryControllerProxyCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryControllerProxyCall) Return(arg0 *service9.Service) *MockServiceFactoryControllerProxyCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryControllerProxyCall) Do(f func() *service9.Service) *MockServiceFactoryControllerProxyCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryControllerProxyCall) DoAndReturn(f func() *service9.Service) *MockServiceFactoryControllerProxyCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Credential mocks base method.
-func (m *MockServiceFactory) Credential() *service10.WatchableService {
+func (m *MockServiceFactory) Credential() *service9.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Credential")
-	ret0, _ := ret[0].(*service10.WatchableService)
+	ret0, _ := ret[0].(*service9.WatchableService)
 	return ret0
 }
 
@@ -1923,28 +1885,28 @@ type MockServiceFactoryCredentialCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryCredentialCall) Return(arg0 *service10.WatchableService) *MockServiceFactoryCredentialCall {
+func (c *MockServiceFactoryCredentialCall) Return(arg0 *service9.WatchableService) *MockServiceFactoryCredentialCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryCredentialCall) Do(f func() *service10.WatchableService) *MockServiceFactoryCredentialCall {
+func (c *MockServiceFactoryCredentialCall) Do(f func() *service9.WatchableService) *MockServiceFactoryCredentialCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryCredentialCall) DoAndReturn(f func() *service10.WatchableService) *MockServiceFactoryCredentialCall {
+func (c *MockServiceFactoryCredentialCall) DoAndReturn(f func() *service9.WatchableService) *MockServiceFactoryCredentialCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ExternalController mocks base method.
-func (m *MockServiceFactory) ExternalController() *service11.WatchableService {
+func (m *MockServiceFactory) ExternalController() *service10.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExternalController")
-	ret0, _ := ret[0].(*service11.WatchableService)
+	ret0, _ := ret[0].(*service10.WatchableService)
 	return ret0
 }
 
@@ -1961,28 +1923,28 @@ type MockServiceFactoryExternalControllerCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryExternalControllerCall) Return(arg0 *service11.WatchableService) *MockServiceFactoryExternalControllerCall {
+func (c *MockServiceFactoryExternalControllerCall) Return(arg0 *service10.WatchableService) *MockServiceFactoryExternalControllerCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryExternalControllerCall) Do(f func() *service11.WatchableService) *MockServiceFactoryExternalControllerCall {
+func (c *MockServiceFactoryExternalControllerCall) Do(f func() *service10.WatchableService) *MockServiceFactoryExternalControllerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryExternalControllerCall) DoAndReturn(f func() *service11.WatchableService) *MockServiceFactoryExternalControllerCall {
+func (c *MockServiceFactoryExternalControllerCall) DoAndReturn(f func() *service10.WatchableService) *MockServiceFactoryExternalControllerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Flag mocks base method.
-func (m *MockServiceFactory) Flag() *service12.Service {
+func (m *MockServiceFactory) Flag() *service11.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Flag")
-	ret0, _ := ret[0].(*service12.Service)
+	ret0, _ := ret[0].(*service11.Service)
 	return ret0
 }
 
@@ -1999,28 +1961,28 @@ type MockServiceFactoryFlagCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryFlagCall) Return(arg0 *service12.Service) *MockServiceFactoryFlagCall {
+func (c *MockServiceFactoryFlagCall) Return(arg0 *service11.Service) *MockServiceFactoryFlagCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryFlagCall) Do(f func() *service12.Service) *MockServiceFactoryFlagCall {
+func (c *MockServiceFactoryFlagCall) Do(f func() *service11.Service) *MockServiceFactoryFlagCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryFlagCall) DoAndReturn(f func() *service12.Service) *MockServiceFactoryFlagCall {
+func (c *MockServiceFactoryFlagCall) DoAndReturn(f func() *service11.Service) *MockServiceFactoryFlagCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // KeyManager mocks base method.
-func (m *MockServiceFactory) KeyManager() *service13.Service {
+func (m *MockServiceFactory) KeyManager() *service12.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KeyManager")
-	ret0, _ := ret[0].(*service13.Service)
+	ret0, _ := ret[0].(*service12.Service)
 	return ret0
 }
 
@@ -2037,28 +1999,28 @@ type MockServiceFactoryKeyManagerCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryKeyManagerCall) Return(arg0 *service13.Service) *MockServiceFactoryKeyManagerCall {
+func (c *MockServiceFactoryKeyManagerCall) Return(arg0 *service12.Service) *MockServiceFactoryKeyManagerCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryKeyManagerCall) Do(f func() *service13.Service) *MockServiceFactoryKeyManagerCall {
+func (c *MockServiceFactoryKeyManagerCall) Do(f func() *service12.Service) *MockServiceFactoryKeyManagerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryKeyManagerCall) DoAndReturn(f func() *service13.Service) *MockServiceFactoryKeyManagerCall {
+func (c *MockServiceFactoryKeyManagerCall) DoAndReturn(f func() *service12.Service) *MockServiceFactoryKeyManagerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // KeyManagerWithImporter mocks base method.
-func (m *MockServiceFactory) KeyManagerWithImporter(arg0 service13.PublicKeyImporter) *service13.ImporterService {
+func (m *MockServiceFactory) KeyManagerWithImporter(arg0 service12.PublicKeyImporter) *service12.ImporterService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KeyManagerWithImporter", arg0)
-	ret0, _ := ret[0].(*service13.ImporterService)
+	ret0, _ := ret[0].(*service12.ImporterService)
 	return ret0
 }
 
@@ -2075,28 +2037,28 @@ type MockServiceFactoryKeyManagerWithImporterCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryKeyManagerWithImporterCall) Return(arg0 *service13.ImporterService) *MockServiceFactoryKeyManagerWithImporterCall {
+func (c *MockServiceFactoryKeyManagerWithImporterCall) Return(arg0 *service12.ImporterService) *MockServiceFactoryKeyManagerWithImporterCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryKeyManagerWithImporterCall) Do(f func(service13.PublicKeyImporter) *service13.ImporterService) *MockServiceFactoryKeyManagerWithImporterCall {
+func (c *MockServiceFactoryKeyManagerWithImporterCall) Do(f func(service12.PublicKeyImporter) *service12.ImporterService) *MockServiceFactoryKeyManagerWithImporterCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryKeyManagerWithImporterCall) DoAndReturn(f func(service13.PublicKeyImporter) *service13.ImporterService) *MockServiceFactoryKeyManagerWithImporterCall {
+func (c *MockServiceFactoryKeyManagerWithImporterCall) DoAndReturn(f func(service12.PublicKeyImporter) *service12.ImporterService) *MockServiceFactoryKeyManagerWithImporterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // KeyUpdater mocks base method.
-func (m *MockServiceFactory) KeyUpdater() *service14.WatchableService {
+func (m *MockServiceFactory) KeyUpdater() *service13.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KeyUpdater")
-	ret0, _ := ret[0].(*service14.WatchableService)
+	ret0, _ := ret[0].(*service13.WatchableService)
 	return ret0
 }
 
@@ -2113,28 +2075,28 @@ type MockServiceFactoryKeyUpdaterCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryKeyUpdaterCall) Return(arg0 *service14.WatchableService) *MockServiceFactoryKeyUpdaterCall {
+func (c *MockServiceFactoryKeyUpdaterCall) Return(arg0 *service13.WatchableService) *MockServiceFactoryKeyUpdaterCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryKeyUpdaterCall) Do(f func() *service14.WatchableService) *MockServiceFactoryKeyUpdaterCall {
+func (c *MockServiceFactoryKeyUpdaterCall) Do(f func() *service13.WatchableService) *MockServiceFactoryKeyUpdaterCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryKeyUpdaterCall) DoAndReturn(f func() *service14.WatchableService) *MockServiceFactoryKeyUpdaterCall {
+func (c *MockServiceFactoryKeyUpdaterCall) DoAndReturn(f func() *service13.WatchableService) *MockServiceFactoryKeyUpdaterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Macaroon mocks base method.
-func (m *MockServiceFactory) Macaroon() *service15.Service {
+func (m *MockServiceFactory) Macaroon() *service14.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Macaroon")
-	ret0, _ := ret[0].(*service15.Service)
+	ret0, _ := ret[0].(*service14.Service)
 	return ret0
 }
 
@@ -2151,28 +2113,28 @@ type MockServiceFactoryMacaroonCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryMacaroonCall) Return(arg0 *service15.Service) *MockServiceFactoryMacaroonCall {
+func (c *MockServiceFactoryMacaroonCall) Return(arg0 *service14.Service) *MockServiceFactoryMacaroonCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryMacaroonCall) Do(f func() *service15.Service) *MockServiceFactoryMacaroonCall {
+func (c *MockServiceFactoryMacaroonCall) Do(f func() *service14.Service) *MockServiceFactoryMacaroonCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryMacaroonCall) DoAndReturn(f func() *service15.Service) *MockServiceFactoryMacaroonCall {
+func (c *MockServiceFactoryMacaroonCall) DoAndReturn(f func() *service14.Service) *MockServiceFactoryMacaroonCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Machine mocks base method.
-func (m *MockServiceFactory) Machine() *service16.WatchableService {
+func (m *MockServiceFactory) Machine() *service15.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Machine")
-	ret0, _ := ret[0].(*service16.WatchableService)
+	ret0, _ := ret[0].(*service15.WatchableService)
 	return ret0
 }
 
@@ -2189,28 +2151,28 @@ type MockServiceFactoryMachineCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryMachineCall) Return(arg0 *service16.WatchableService) *MockServiceFactoryMachineCall {
+func (c *MockServiceFactoryMachineCall) Return(arg0 *service15.WatchableService) *MockServiceFactoryMachineCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryMachineCall) Do(f func() *service16.WatchableService) *MockServiceFactoryMachineCall {
+func (c *MockServiceFactoryMachineCall) Do(f func() *service15.WatchableService) *MockServiceFactoryMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryMachineCall) DoAndReturn(f func() *service16.WatchableService) *MockServiceFactoryMachineCall {
+func (c *MockServiceFactoryMachineCall) DoAndReturn(f func() *service15.WatchableService) *MockServiceFactoryMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Model mocks base method.
-func (m *MockServiceFactory) Model() *service17.Service {
+func (m *MockServiceFactory) Model() *service16.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Model")
-	ret0, _ := ret[0].(*service17.Service)
+	ret0, _ := ret[0].(*service16.Service)
 	return ret0
 }
 
@@ -2227,28 +2189,28 @@ type MockServiceFactoryModelCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryModelCall) Return(arg0 *service17.Service) *MockServiceFactoryModelCall {
+func (c *MockServiceFactoryModelCall) Return(arg0 *service16.Service) *MockServiceFactoryModelCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryModelCall) Do(f func() *service17.Service) *MockServiceFactoryModelCall {
+func (c *MockServiceFactoryModelCall) Do(f func() *service16.Service) *MockServiceFactoryModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryModelCall) DoAndReturn(f func() *service17.Service) *MockServiceFactoryModelCall {
+func (c *MockServiceFactoryModelCall) DoAndReturn(f func() *service16.Service) *MockServiceFactoryModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ModelDefaults mocks base method.
-func (m *MockServiceFactory) ModelDefaults() *service20.Service {
+func (m *MockServiceFactory) ModelDefaults() *service19.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelDefaults")
-	ret0, _ := ret[0].(*service20.Service)
+	ret0, _ := ret[0].(*service19.Service)
 	return ret0
 }
 
@@ -2265,28 +2227,28 @@ type MockServiceFactoryModelDefaultsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryModelDefaultsCall) Return(arg0 *service20.Service) *MockServiceFactoryModelDefaultsCall {
+func (c *MockServiceFactoryModelDefaultsCall) Return(arg0 *service19.Service) *MockServiceFactoryModelDefaultsCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryModelDefaultsCall) Do(f func() *service20.Service) *MockServiceFactoryModelDefaultsCall {
+func (c *MockServiceFactoryModelDefaultsCall) Do(f func() *service19.Service) *MockServiceFactoryModelDefaultsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryModelDefaultsCall) DoAndReturn(f func() *service20.Service) *MockServiceFactoryModelDefaultsCall {
+func (c *MockServiceFactoryModelDefaultsCall) DoAndReturn(f func() *service19.Service) *MockServiceFactoryModelDefaultsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ModelInfo mocks base method.
-func (m *MockServiceFactory) ModelInfo() *service17.ModelService {
+func (m *MockServiceFactory) ModelInfo() *service16.ModelService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelInfo")
-	ret0, _ := ret[0].(*service17.ModelService)
+	ret0, _ := ret[0].(*service16.ModelService)
 	return ret0
 }
 
@@ -2303,28 +2265,28 @@ type MockServiceFactoryModelInfoCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryModelInfoCall) Return(arg0 *service17.ModelService) *MockServiceFactoryModelInfoCall {
+func (c *MockServiceFactoryModelInfoCall) Return(arg0 *service16.ModelService) *MockServiceFactoryModelInfoCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryModelInfoCall) Do(f func() *service17.ModelService) *MockServiceFactoryModelInfoCall {
+func (c *MockServiceFactoryModelInfoCall) Do(f func() *service16.ModelService) *MockServiceFactoryModelInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryModelInfoCall) DoAndReturn(f func() *service17.ModelService) *MockServiceFactoryModelInfoCall {
+func (c *MockServiceFactoryModelInfoCall) DoAndReturn(f func() *service16.ModelService) *MockServiceFactoryModelInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ModelMigration mocks base method.
-func (m *MockServiceFactory) ModelMigration() *service21.Service {
+func (m *MockServiceFactory) ModelMigration() *service20.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelMigration")
-	ret0, _ := ret[0].(*service21.Service)
+	ret0, _ := ret[0].(*service20.Service)
 	return ret0
 }
 
@@ -2341,19 +2303,19 @@ type MockServiceFactoryModelMigrationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryModelMigrationCall) Return(arg0 *service21.Service) *MockServiceFactoryModelMigrationCall {
+func (c *MockServiceFactoryModelMigrationCall) Return(arg0 *service20.Service) *MockServiceFactoryModelMigrationCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryModelMigrationCall) Do(f func() *service21.Service) *MockServiceFactoryModelMigrationCall {
+func (c *MockServiceFactoryModelMigrationCall) Do(f func() *service20.Service) *MockServiceFactoryModelMigrationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryModelMigrationCall) DoAndReturn(f func() *service21.Service) *MockServiceFactoryModelMigrationCall {
+func (c *MockServiceFactoryModelMigrationCall) DoAndReturn(f func() *service20.Service) *MockServiceFactoryModelMigrationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2397,10 +2359,10 @@ func (c *MockServiceFactoryModelSecretBackendCall) DoAndReturn(f func() *service
 }
 
 // Network mocks base method.
-func (m *MockServiceFactory) Network() *service22.WatchableService {
+func (m *MockServiceFactory) Network() *service21.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Network")
-	ret0, _ := ret[0].(*service22.WatchableService)
+	ret0, _ := ret[0].(*service21.WatchableService)
 	return ret0
 }
 
@@ -2417,28 +2379,28 @@ type MockServiceFactoryNetworkCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryNetworkCall) Return(arg0 *service22.WatchableService) *MockServiceFactoryNetworkCall {
+func (c *MockServiceFactoryNetworkCall) Return(arg0 *service21.WatchableService) *MockServiceFactoryNetworkCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryNetworkCall) Do(f func() *service22.WatchableService) *MockServiceFactoryNetworkCall {
+func (c *MockServiceFactoryNetworkCall) Do(f func() *service21.WatchableService) *MockServiceFactoryNetworkCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryNetworkCall) DoAndReturn(f func() *service22.WatchableService) *MockServiceFactoryNetworkCall {
+func (c *MockServiceFactoryNetworkCall) DoAndReturn(f func() *service21.WatchableService) *MockServiceFactoryNetworkCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ObjectStore mocks base method.
-func (m *MockServiceFactory) ObjectStore() *service23.WatchableService {
+func (m *MockServiceFactory) ObjectStore() *service22.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ObjectStore")
-	ret0, _ := ret[0].(*service23.WatchableService)
+	ret0, _ := ret[0].(*service22.WatchableService)
 	return ret0
 }
 
@@ -2455,19 +2417,57 @@ type MockServiceFactoryObjectStoreCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryObjectStoreCall) Return(arg0 *service23.WatchableService) *MockServiceFactoryObjectStoreCall {
+func (c *MockServiceFactoryObjectStoreCall) Return(arg0 *service22.WatchableService) *MockServiceFactoryObjectStoreCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryObjectStoreCall) Do(f func() *service23.WatchableService) *MockServiceFactoryObjectStoreCall {
+func (c *MockServiceFactoryObjectStoreCall) Do(f func() *service22.WatchableService) *MockServiceFactoryObjectStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryObjectStoreCall) DoAndReturn(f func() *service23.WatchableService) *MockServiceFactoryObjectStoreCall {
+func (c *MockServiceFactoryObjectStoreCall) DoAndReturn(f func() *service22.WatchableService) *MockServiceFactoryObjectStoreCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Proxy mocks base method.
+func (m *MockServiceFactory) Proxy() *service23.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Proxy")
+	ret0, _ := ret[0].(*service23.Service)
+	return ret0
+}
+
+// Proxy indicates an expected call of Proxy.
+func (mr *MockServiceFactoryMockRecorder) Proxy() *MockServiceFactoryProxyCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Proxy", reflect.TypeOf((*MockServiceFactory)(nil).Proxy))
+	return &MockServiceFactoryProxyCall{Call: call}
+}
+
+// MockServiceFactoryProxyCall wrap *gomock.Call
+type MockServiceFactoryProxyCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockServiceFactoryProxyCall) Return(arg0 *service23.Service) *MockServiceFactoryProxyCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockServiceFactoryProxyCall) Do(f func() *service23.Service) *MockServiceFactoryProxyCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockServiceFactoryProxyCall) DoAndReturn(f func() *service23.Service) *MockServiceFactoryProxyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

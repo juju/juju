@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/providertracker"
-	controllerproxyerrors "github.com/juju/juju/domain/controllerproxy/errors"
+	proxyerrors "github.com/juju/juju/domain/proxy/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/proxy"
 )
@@ -17,6 +17,8 @@ import (
 // Provider represents an underlying cloud provider.
 type Provider interface {
 	environs.ConnectorInfo
+
+	ProxyToApplication(ctx context.Context, appName, remotePort string) (proxy.Proxier, error)
 }
 
 // Service defines a service for interacting with the underlying proxy provider.
@@ -38,17 +40,30 @@ func NewService(providerGetter providertracker.ProviderGetter[Provider]) *Servic
 func (s *Service) GetConnectionProxyInfo(ctx context.Context) (proxy.Proxier, error) {
 	provider, err := s.providerGetter(ctx)
 	if errors.Is(err, errors.NotSupported) {
-		return nil, controllerproxyerrors.ProxyInfoNotSupported
+		return nil, proxyerrors.ProxyInfoNotSupported
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	proxier, err := provider.ConnectionProxyInfo(ctx)
 	if errors.Is(err, errors.NotFound) {
-		return nil, controllerproxyerrors.ProxyInfoNotFound
+		return nil, proxyerrors.ProxyInfoNotFound
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return proxier, nil
+}
+
+// GetProxyToApplication returns the proxy information for the application
+// with the given port.
+func (s *Service) GetProxyToApplication(ctx context.Context, appName, remotePort string) (proxy.Proxier, error) {
+	provider, err := s.providerGetter(ctx)
+	if errors.Is(err, errors.NotSupported) {
+		return nil, proxyerrors.ProxyNotSupported
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return provider.ProxyToApplication(ctx, appName, remotePort)
 }

@@ -17,7 +17,7 @@ import (
 
 	coreuser "github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
-	controllerproxyerrors "github.com/juju/juju/domain/controllerproxy/errors"
+	proxyerrors "github.com/juju/juju/domain/proxy/errors"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/rpc/params"
@@ -56,7 +56,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	userTag, response, err := h.processPost(
 		req,
 		st.State,
-		serviceFactory.ControllerProxy(),
+		serviceFactory.Proxy(),
 		serviceFactory.ControllerConfig(),
 		serviceFactory.Access(),
 	)
@@ -111,7 +111,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 func (h *registerUserHandler) processPost(
 	req *http.Request,
 	st *state.State,
-	controllerProxyService ControllerProxyService,
+	proxyService ProxyService,
 	controllerConfigService ControllerConfigService,
 	userService UserService,
 ) (
@@ -146,7 +146,7 @@ func (h *registerUserHandler) processPost(
 
 	// Respond with the CA-cert and password, encrypted again with the
 	// activation key.
-	responsePayload, err := h.getSecretKeyLoginResponsePayload(req.Context(), st, controllerProxyService, controllerConfigService)
+	responsePayload, err := h.getSecretKeyLoginResponsePayload(req.Context(), st, proxyService, controllerConfigService)
 	if err != nil {
 		return names.UserTag{}, nil, errors.Trace(err)
 	}
@@ -175,7 +175,7 @@ func (h *registerUserHandler) processPost(
 func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	ctx context.Context,
 	st *state.State,
-	controllerProxyService ControllerProxyService,
+	proxyService ProxyService,
 	controllerConfigService ControllerConfigService,
 ) (*params.SecretKeyLoginResponsePayload, error) {
 	if !st.IsController() {
@@ -191,9 +191,9 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 		ControllerUUID: controllerConfig.ControllerUUID(),
 	}
 
-	proxier, err := controllerProxyService.GetConnectionProxyInfo(ctx)
-	if errors.Is(err, controllerproxyerrors.ProxyInfoNotSupported) ||
-		errors.Is(err, controllerproxyerrors.ProxyInfoNotFound) {
+	proxier, err := proxyService.GetConnectionProxyInfo(ctx)
+	if errors.Is(err, proxyerrors.ProxyInfoNotSupported) ||
+		errors.Is(err, proxyerrors.ProxyInfoNotFound) {
 		return &payload, nil
 	} else if err != nil {
 		return nil, errors.Trace(err)

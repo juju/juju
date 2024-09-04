@@ -14,4 +14,7 @@ const (
 	// ProxyInfoNotFound describes an error that occurs when a proxy information
 	// cannot be found.
 	ProxyInfoNotFound = errors.ConstError("proxy info not found")
+	// ProxyNotSupported describes an error that occurs when the underlying
+	// provider does not support the proxy.
+	ProxyNotSupported = errors.ConstError("proxy not supported")
 )

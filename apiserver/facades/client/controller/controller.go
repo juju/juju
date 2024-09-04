@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	corelogger "github.com/juju/juju/core/logger"
@@ -44,6 +43,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/migration"
+	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -90,6 +90,13 @@ type ModelConfigService interface {
 	ModelConfig(context.Context) (*config.Config, error)
 }
 
+// ProxyService provides access to the proxy service.
+type ProxyService interface {
+	// GetProxyToApplication returns the proxy information for the application
+	// with the given port.
+	GetProxyToApplication(ctx context.Context, appName, remotePort string) (proxy.Proxier, error)
+}
+
 // ModelExporter exports a model to a description.Model.
 type ModelExporter interface {
 	// ExportModel exports a model to a description.Model.
@@ -119,7 +126,7 @@ type ControllerAPI struct {
 	accessService            ControllerAccessService
 	modelService             ModelService
 	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService
-	caasBrokerGetter         func(context.Context) (caas.Broker, error)
+	proxyService             ProxyService
 	modelExporter            ModelExporter
 	store                    objectstore.ObjectStore
 	leadership               leadership.Reader
@@ -152,7 +159,7 @@ func NewControllerAPI(
 	accessService ControllerAccessService,
 	modelService ModelService,
 	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService,
-	caasBrokerGetter func(context.Context) (caas.Broker, error),
+	proxyService ProxyService,
 	modelExporter ModelExporter,
 	store objectstore.ObjectStore,
 	leadership leadership.Reader,
@@ -203,7 +210,7 @@ func NewControllerAPI(
 		accessService:            accessService,
 		modelService:             modelService,
 		modelConfigServiceGetter: modelConfigServiceGetter,
-		caasBrokerGetter:         caasBrokerGetter,
+		proxyService:             proxyService,
 		controllerTag:            st.ControllerTag(),
 		modelExporter:            modelExporter,
 		store:                    store,
@@ -268,11 +275,6 @@ func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
 	ctx context.Context,
 	applicationName string,
 ) (*params.Proxy, error) {
-	caasBroker, err := c.caasBrokerGetter(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get CAAS environ for model: %w", err)
-	}
-
 	dashboardApp, err := c.state.Application(applicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -286,7 +288,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
 		return nil, errors.NotFoundf("dashboard port in charm config")
 	}
 
-	proxier, err := caasBroker.ProxyToApplication(ctx, applicationName, fmt.Sprint(port))
+	proxier, err := c.proxyService.GetProxyToApplication(ctx, applicationName, fmt.Sprint(port))
 	if err != nil {
 		return nil, err
 	}
