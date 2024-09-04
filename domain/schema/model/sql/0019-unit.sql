@@ -100,8 +100,8 @@ CREATE TABLE unit_state (
 
 -- Local charm state stored upon hook commit with uniter state.
 CREATE TABLE unit_state_charm (
-    unit_uuid TEXT,
-    "key" TEXT,
+    unit_uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
     value TEXT NOT NULL,
     PRIMARY KEY (unit_uuid, "key"),
     CONSTRAINT fk_unit_state_charm_unit
@@ -111,8 +111,8 @@ CREATE TABLE unit_state_charm (
 
 -- Local relation state stored upon hook commit with uniter state.
 CREATE TABLE unit_state_relation (
-    unit_uuid TEXT,
-    "key" TEXT,
+    unit_uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
     value TEXT NOT NULL,
     PRIMARY KEY (unit_uuid, "key"),
     CONSTRAINT fk_unit_state_relation_unit
