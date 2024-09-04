@@ -39,9 +39,6 @@ type Backend interface {
 	// Application returns a local application by name.
 	Application(string) (Application, error)
 
-	// GetOfferAccess gets the access permission for the specified user on an offer.
-	GetOfferAccess(offerUUID string, user names.UserTag) (permission.Access, error)
-
 	// RemoteApplication returns a remote application by name.
 	RemoteApplication(string) (RemoteApplication, error)
 

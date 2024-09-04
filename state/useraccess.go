@@ -146,8 +146,6 @@ func (st *State) UserPermission(subject names.UserTag, target names.Tag) (permis
 			return "", errors.Trace(err)
 		}
 		return access.Access, nil
-	case names.ApplicationOfferTagKind:
-		return st.GetOfferAccess(target.Id(), subject)
 	default:
 		return "", errors.NotValidf("%q as a target", target.Kind())
 	}

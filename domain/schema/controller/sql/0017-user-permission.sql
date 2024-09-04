@@ -128,6 +128,17 @@ FROM v_permission AS p
 INNER JOIN controller ON p.grant_on = controller.uuid
 WHERE p.object_type = 'controller';
 
+-- All offer permissions, NOT verifying the offer does exist.
+CREATE VIEW v_permission_offer AS
+SELECT
+    p.uuid,
+    p.grant_on,
+    p.grant_to,
+    p.access_type,
+    p.object_type
+FROM v_permission AS p
+WHERE p.object_type = 'offer';
+
 -- The permissions for the special user everyone@external.
 CREATE VIEW v_everyone_external AS
 SELECT

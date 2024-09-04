@@ -124,7 +124,7 @@ func AddUserPermission(ctx context.Context, tx *sqlair.TX, spec AddUserPermissio
 
 // DeletePermission removes the given subject's (user) access to the
 // given target.
-// If the specified subject does not exist, a accesserrors.NotFound is
+// If the specified subject does not exist, an [accesserrors.NotFound] is
 // returned.
 // If the permission does not exist, no error is returned.
 func (st *PermissionState) DeletePermission(ctx context.Context, subject user.Name, target corepermission.ID) error {
@@ -145,6 +145,10 @@ func (st *PermissionState) DeletePermission(ctx context.Context, subject user.Na
 // on the target. If a subject does not exist, it is created using the subject
 // and api user. Access can be granted or revoked. Revoking Read access will
 // delete the permission.
+// [accesserrors.UserNotFound] is returned if the user does not exist in the
+// users table and AddUser is false
+// [accesserrors.PermissionAccessGreater] is returned if the user is being
+// granted an access level greater or equal to what they already have.
 func (st *PermissionState) UpsertPermission(ctx context.Context, args access.UpdatePermissionArgs) error {
 	db, err := st.DB()
 	if err != nil {
@@ -546,8 +550,7 @@ func (st *PermissionState) ReadAllAccessForUserAndObjectType(
 	case corepermission.Cloud:
 		view = "v_permission_cloud"
 	case corepermission.Offer:
-		// TODO implement for offers
-		return nil, errors.NotImplementedf("ReadAllAccessForUserAndObjectType for offers")
+		view = "v_permission_offer"
 	default:
 		return nil, errors.NotValidf("object type %q", objectType)
 	}
@@ -714,7 +717,7 @@ FROM    cloud
 WHERE   name = $M.grant_on
 `
 	case corepermission.Offer:
-		return errors.NotImplementedf("db permission support for offers")
+		return nil
 	default:
 		return errors.NotValidf("object type %q", target.ObjectType)
 	}

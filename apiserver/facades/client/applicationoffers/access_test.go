@@ -12,14 +12,20 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
+	access "github.com/juju/juju/domain/access"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -55,9 +61,10 @@ func (s *offerAccessSuite) setupAPI(c *gc.C) {
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getFakeControllerInfo,
 		s.mockState, s.mockStatePool,
-		s.mockModelService,
+		s.mockModelService, s.mockAccessService,
 		s.authorizer, s.authContext,
 		c.MkDir(), loggertesting.WrapCheckLog(c),
+		testing.ControllerTag.Id(), model.UUID(testing.ModelTag.Id()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -98,8 +105,6 @@ func (s *offerAccessSuite) setupOffer(modelUUID, modelName, owner, offerName str
 	st := &mockState{
 		modelUUID:         modelUUID,
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
-		users:             make(map[string]applicationoffers.User),
-		accessPerms:       make(map[offerAccess]permission.Access),
 		model:             model,
 	}
 	s.mockStatePool.st[modelUUID] = st
@@ -112,10 +117,18 @@ func (s *offerAccessSuite) TestGrantMissingUserFails(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.setupOffer("uuid", "test", "admin", "someoffer")
+	offerUUID := s.setupOffer("uuid", "test", "admin", "someoffer")
 	user := names.NewUserTag("foobar")
+
+	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), access.UpdatePermissionArgs{
+		AccessSpec: offerAccessSpec(offerUUID, permission.ReadAccess),
+		ApiUser:    coreuser.AdminUserName,
+		Subject:    coreuser.NameFromTag(user),
+		Change:     permission.Grant,
+	}).Return(accesserrors.UserNotFound)
+
 	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
-	expectedErr := `could not grant offer access: user "foobar" not found`
+	expectedErr := `could not grant offer access for "foobar": user not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 
@@ -130,189 +143,90 @@ func (s *offerAccessSuite) TestGrantMissingOfferFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 
-func (s *offerAccessSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
+func (s *offerAccessSuite) TestRevokePermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
 	offerUUID := s.setupOffer("uuid", "test", "admin", "someoffer")
-	st := s.mockStatePool.st["uuid"]
-	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
-
 	user := names.NewUserTag("foobar")
-	offer := names.NewApplicationOfferTag(offerUUID)
-	err := st.CreateOfferAccess(offer, user, permission.ConsumeAccess)
-	c.Assert(err, jc.ErrorIsNil)
+	userName := coreuser.NameFromTag(user)
+	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), access.UpdatePermissionArgs{
+		AccessSpec: offerAccessSpec(offerUUID, permission.ReadAccess),
+		ApiUser:    coreuser.AdminUserName,
+		Subject:    userName,
+		Change:     permission.Revoke,
+	})
 
-	err = s.revoke(c, user, params.OfferConsumeAccess, "test.someoffer")
-	c.Assert(err, jc.ErrorIsNil)
-
-	access, err := st.GetOfferAccess(offer.Id(), user)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, permission.ReadAccess)
-}
-
-func (s *offerAccessSuite) TestRevokeReadRemovesPermission(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.setupAPI(c)
-
-	offerUUID := s.setupOffer("uuid", "test", "admin", "someoffer")
-	st := s.mockStatePool.st["uuid"]
-	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
-
-	user := names.NewUserTag("foobar")
-	offer := names.NewApplicationOfferTag(offerUUID)
-	err := st.CreateOfferAccess(offer, user, permission.ConsumeAccess)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.revoke(c, user, params.OfferReadAccess, "test.someoffer")
-	c.Assert(err, gc.IsNil)
-
-	_, err = st.GetOfferAccess(offer.Id(), user)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-}
-
-func (s *offerAccessSuite) TestRevokeMissingUser(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.setupAPI(c)
-
-	offerUUID := s.setupOffer("uuid", "test", "admin", "someoffer")
-	st := s.mockStatePool.st["uuid"]
-
-	user := names.NewUserTag("bob")
 	err := s.revoke(c, user, params.OfferReadAccess, "test.someoffer")
-	c.Assert(err, gc.ErrorMatches, `could not revoke offer access: offer user "bob" does not exist`)
-
-	offer := names.NewApplicationOfferTag(offerUUID)
-	_, err = st.GetOfferAccess(offer.Id(), user)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *offerAccessSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
+func (s *offerAccessSuite) TestGrantPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.setupOffer("uuid", "test", "admin", "someoffer")
-	st := s.mockStatePool.st["uuid"]
-	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
+	offerUUID := s.setupOffer("uuid", "test", "admin", "someoffer")
 
 	user := names.NewUserTag("foobar")
-	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
-	c.Assert(err, jc.ErrorIsNil)
+	userName := coreuser.NameFromTag(user)
+	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), access.UpdatePermissionArgs{
+		AccessSpec: offerAccessSpec(offerUUID, permission.ReadAccess),
+		ApiUser:    coreuser.AdminUserName,
+		Subject:    userName,
+		Change:     permission.Grant,
+	}).Return(accesserrors.PermissionAccessGreater)
 
-	err = s.grant(c, user, params.OfferReadAccess, "test.someoffer")
-	c.Assert(err, gc.ErrorMatches, `user already has "read" access or greater`)
+	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
+
+	c.Assert(errors.Cause(err), gc.ErrorMatches, `could not grant offer access for .*: access or greater`)
 }
 
-func (s *offerAccessSuite) assertGrantOfferAddUser(c *gc.C, user names.UserTag) {
+func (s *offerAccessSuite) TestGrantPermissionAddRemoteUser(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	offerUUID := s.setupOffer("uuid", "test", "superuser-bob", "someoffer")
-	st := s.mockStatePool.st["uuid"]
-	st.(*mockState).users["other"] = &mockUser{"other"}
-	st.(*mockState).users[user.Name()] = &mockUser{user.Name()}
 
 	apiUser := names.NewUserTag("superuser-bob")
+	apiUserName := coreuser.NameFromTag(apiUser)
 	s.authorizer.Tag = apiUser
+	user := names.NewUserTag("bob@remote")
+	userName := coreuser.NameFromTag(user)
+
+	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), access.UpdatePermissionArgs{
+		AccessSpec: offerAccessSpec(offerUUID, permission.ReadAccess),
+		ApiUser:    apiUserName,
+		Subject:    userName,
+		Change:     permission.Grant,
+		AddUser:    true,
+		External:   boolPtr(true),
+	})
 
 	err := s.grant(c, user, params.OfferReadAccess, "superuser-bob/test.someoffer")
 	c.Assert(err, jc.ErrorIsNil)
-
-	offer := names.NewApplicationOfferTag(offerUUID)
-	access, err := st.GetOfferAccess(offer.Id(), user)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
 
-func (s *offerAccessSuite) TestGrantOfferAddLocalUser(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.setupAPI(c)
+func (s *offerAccessSuite) assertGrantToOffer(c *gc.C, userAccess permission.Access) {
+	offerUUID := s.setupOffer("uuid", "test", "bob@remote", "someoffer")
 
-	s.assertGrantOfferAddUser(c, names.NewLocalUserTag("bob"))
-}
-
-func (s *offerAccessSuite) TestGrantOfferAddRemoteUser(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.setupAPI(c)
-
-	s.assertGrantOfferAddUser(c, names.NewUserTag("bob@remote"))
-}
-
-func (s *offerAccessSuite) TestGrantOfferSuperUser(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.setupAPI(c)
-
-	offerUUID := s.setupOffer("uuid", "test", "superuser-bob", "someoffer")
-	st := s.mockStatePool.st["uuid"]
-	st.(*mockState).users["other"] = &mockUser{"other"}
-
-	user := names.NewUserTag("superuser-bob")
+	user := names.NewUserTag("bob@remote")
 	s.authorizer.Tag = user
+	other := names.NewUserTag("other@remote")
 
-	other := names.NewUserTag("other")
-	err := s.grant(c, other, params.OfferReadAccess, "superuser-bob/test.someoffer")
-	c.Assert(err, jc.ErrorIsNil)
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), coreuser.NameFromTag(user), permission.ID{
+		ObjectType: permission.Offer,
+		Key:        offerUUID,
+	}).Return(userAccess, nil)
 
-	offer := names.NewApplicationOfferTag(offerUUID)
-	access, err := st.GetOfferAccess(offer.Id(), other)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, permission.ReadAccess)
-}
-
-func (s *offerAccessSuite) TestGrantIncreaseAccess(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.setupAPI(c)
-
-	offerUUID := s.setupOffer("uuid", "test", "other", "someoffer")
-	st := s.mockStatePool.st["uuid"]
-	st.(*mockState).users["other"] = &mockUser{"other"}
-
-	user := names.NewUserTag("other")
-	s.authorizer.Tag = user
-	s.authorizer.AdminTag = user
-
-	offer := names.NewApplicationOfferTag(offerUUID)
-	err := st.CreateOfferAccess(offer, user, permission.ReadAccess)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.grant(c, user, params.OfferConsumeAccess, "other/test.someoffer")
-	c.Assert(err, jc.ErrorIsNil)
-
-	access, err := st.GetOfferAccess(offer.Id(), user)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, permission.ConsumeAccess)
+	err := s.grant(c, other, params.OfferReadAccess, "bob@remote/test.someoffer")
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *offerAccessSuite) TestGrantToOfferNoAccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.setupOffer("uuid", "test", "bob@remote", "someoffer")
-	st := s.mockStatePool.st["uuid"]
-	st.(*mockState).users["other"] = &mockUser{"other"}
-	st.(*mockState).users["bob"] = &mockUser{"bob"}
-
-	user := names.NewUserTag("bob@remote")
-	s.authorizer.Tag = user
-
-	other := names.NewUserTag("other@remote")
-	err := s.grant(c, other, params.OfferReadAccess, "bob@remote/test.someoffer")
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
-func (s *offerAccessSuite) assertGrantToOffer(c *gc.C, userAccess permission.Access) {
-	offerUUID := s.setupOffer("uuid", "test", "bob@remote", "someoffer")
-	st := s.mockStatePool.st["uuid"]
-	st.(*mockState).users["other"] = &mockUser{"other"}
-	st.(*mockState).users["bob"] = &mockUser{"bob"}
-
-	user := names.NewUserTag("bob@remote")
-	s.authorizer.Tag = user
-
-	offer := names.NewApplicationOfferTag(offerUUID)
-	err := st.CreateOfferAccess(offer, user, userAccess)
-	c.Assert(err, jc.ErrorIsNil)
-
-	other := names.NewUserTag("other@remote")
-	err = s.grant(c, other, params.OfferReadAccess, "bob@remote/test.someoffer")
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	s.assertGrantToOffer(c, permission.NoAccess)
 }
 
 func (s *offerAccessSuite) TestGrantToOfferReadAccess(c *gc.C) {
@@ -334,24 +248,27 @@ func (s *offerAccessSuite) TestGrantToOfferAdminAccess(c *gc.C) {
 	s.setupAPI(c)
 
 	offerUUID := s.setupOffer("uuid", "test", "foobar", "someoffer")
-	st := s.mockStatePool.st["uuid"]
-	st.(*mockState).users["other"] = &mockUser{"other"}
-	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 
 	user := names.NewUserTag("foobar")
+	userName := coreuser.NameFromTag(user)
 	s.authorizer.Tag = user
-	s.authorizer.AdminTag = user
-	offer := names.NewApplicationOfferTag(offerUUID)
-	err := st.CreateOfferAccess(offer, user, permission.AdminAccess)
-	c.Assert(err, jc.ErrorIsNil)
-
 	other := names.NewUserTag("other")
-	err = s.grant(c, other, params.OfferReadAccess, "foobar/test.someoffer")
-	c.Assert(err, jc.ErrorIsNil)
+	otherName := coreuser.NameFromTag(other)
 
-	access, err := st.GetOfferAccess(offer.Id(), other)
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), coreuser.NameFromTag(user), permission.ID{
+		ObjectType: permission.Offer,
+		Key:        offerUUID,
+	}).Return(permission.AdminAccess, nil)
+
+	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), access.UpdatePermissionArgs{
+		AccessSpec: offerAccessSpec(offerUUID, permission.ReadAccess),
+		ApiUser:    userName,
+		Subject:    otherName,
+		Change:     permission.Grant,
+	})
+
+	err := s.grant(c, other, params.OfferReadAccess, "foobar/test.someoffer")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
 
 func (s *offerAccessSuite) TestGrantOfferInvalidUserTag(c *gc.C) {
@@ -458,4 +375,18 @@ func (s *offerAccessSuite) TestModifyOfferAccessInvalidAction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `unknown action "dance"`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
+}
+
+func offerAccessSpec(offerUUID string, accessLevel permission.Access) permission.AccessSpec {
+	return permission.AccessSpec{
+		Target: permission.ID{
+			ObjectType: permission.Offer,
+			Key:        offerUUID,
+		},
+		Access: accessLevel,
+	}
+}
+
+func boolPtr(v bool) *bool {
+	return &v
 }

@@ -5,7 +5,6 @@ package applicationoffers_test
 
 import (
 	stdcontext "context"
-	"fmt"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -227,11 +226,6 @@ func (m *mockApplicationOffers) Remove(name string, force bool) error {
 	return nil
 }
 
-type offerAccess struct {
-	user      names.UserTag
-	offerUUID string
-}
-
 type mockState struct {
 	crossmodel.Backend
 	common.APIAddressAccessor
@@ -239,12 +233,10 @@ type mockState struct {
 	model             *mockModel
 	AdminTag          names.UserTag
 	allmodels         []applicationoffers.Model
-	users             map[string]applicationoffers.User
 	applications      map[string]crossmodel.Application
 	applicationOffers map[string]jujucrossmodel.ApplicationOffer
 	relations         map[string]crossmodel.Relation
 	connections       []applicationoffers.OfferConnection
-	accessPerms       map[offerAccess]permission.Access
 	relationNetworks  state.RelationNetworks
 }
 
@@ -308,22 +300,6 @@ func (m *mockState) OfferConnections(offerUUID string) ([]applicationoffers.Offe
 	return m.connections, nil
 }
 
-func (m *mockState) User(tag names.UserTag) (applicationoffers.User, error) {
-	user, ok := m.users[tag.Id()]
-	if !ok {
-		return nil, errors.NotFoundf("user %v", tag.Id())
-	}
-	return user, nil
-}
-
-type mockUser struct {
-	name string
-}
-
-func (m *mockUser) DisplayName() string {
-	return m.name
-}
-
 type mockRelationNetworks struct {
 	state.RelationNetworks
 }
@@ -339,53 +315,12 @@ func (m *mockState) IngressNetworks(relationKey string) (state.RelationNetworks,
 	return m.relationNetworks, nil
 }
 
-func (m *mockState) GetOfferAccess(offerUUID string, user names.UserTag) (permission.Access, error) {
-	access, ok := m.accessPerms[offerAccess{user: user, offerUUID: offerUUID}]
-	if !ok {
-		return "", errors.NotFoundf("offer access for %v", user)
-	}
-	return access, nil
-}
-
-func (m *mockState) CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
-	if _, ok := m.users[user.Name()]; !ok {
-		return errors.NotFoundf("user %q", user.Name())
-	}
-	if _, ok := m.accessPerms[offerAccess{user: user, offerUUID: offer.Id()}]; ok {
-		return errors.NewAlreadyExists(nil, fmt.Sprintf("offer user %s", user.Name()))
-	}
-	m.accessPerms[offerAccess{user: user, offerUUID: offer.Id()}] = access
+func (m *mockState) UpdateOfferAccessCleanup(_ names.ApplicationOfferTag, _ names.UserTag, _ permission.Access, _ bool) error {
 	return nil
 }
 
-func (m *mockState) UpdateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
-	if _, ok := m.users[user.Name()]; !ok {
-		return errors.NotFoundf("user %q", user.Name())
-	}
-	if _, ok := m.accessPerms[offerAccess{user: user, offerUUID: offer.Id()}]; !ok {
-		return errors.NewNotFound(nil, fmt.Sprintf("offer user %s", user.Name()))
-	}
-	m.accessPerms[offerAccess{user: user, offerUUID: offer.Id()}] = access
+func (m *mockState) RemoveOfferAccessCleanup(_ names.ApplicationOfferTag, _ names.UserTag, _ bool) error {
 	return nil
-}
-
-func (m *mockState) RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error {
-	if _, ok := m.users[user.Name()]; !ok {
-		return errors.NewNotFound(nil, fmt.Sprintf("offer user %q does not exist", user.Name()))
-	}
-	delete(m.accessPerms, offerAccess{user: user, offerUUID: offer.Id()})
-	return nil
-}
-
-func (m *mockState) GetOfferUsers(offerUUID string) (map[string]permission.Access, error) {
-	result := make(map[string]permission.Access)
-	for offerAccess, access := range m.accessPerms {
-		if offerAccess.offerUUID != offerUUID {
-			continue
-		}
-		result[offerAccess.user.Id()] = access
-	}
-	return result, nil
 }
 
 func (m *mockState) AllSpaceInfos() (network.SpaceInfos, error) {

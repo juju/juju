@@ -386,6 +386,7 @@ func (s *workerSuite) expectUser(c *gc.C) {
 		c.Check(u.Name, gc.Equals, usertesting.GenNewName(c, "juju-metrics"))
 		return usertesting.GenUserUUID(c), nil, nil
 	})
+	s.userService.EXPECT().AddExternalUser(gomock.Any(), usertesting.GenNewName(c, "everyone@external"), "", gomock.Any())
 }
 
 func (s *workerSuite) expectAuthorizedKeys() {

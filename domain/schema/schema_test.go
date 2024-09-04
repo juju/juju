@@ -228,6 +228,7 @@ func (s *schemaSuite) TestControllerViews(c *gc.C) {
 		"v_permission_cloud",
 		"v_permission_controller",
 		"v_permission_model",
+		"v_permission_offer",
 		"v_everyone_external",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())

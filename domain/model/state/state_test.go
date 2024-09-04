@@ -65,7 +65,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	m.uuid = modeltesting.GenModelUUID(c)
 	m.controllerUUID = m.SeedControllerTable(c, m.uuid)
 	userState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = userState.AddUser(
+	err = userState.AddUserWithPermission(
 		context.Background(),
 		m.userUUID,
 		m.userName,
@@ -214,7 +214,7 @@ func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	userState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = userState.AddUser(
+	err = userState.AddUserWithPermission(
 		context.Background(),
 		userUUID,
 		coremodel.ControllerModelOwnerUsername,
@@ -1334,7 +1334,7 @@ func (m *stateSuite) TestListAllModelSummaries(c *gc.C) {
 func (m *stateSuite) createTestUser(c *gc.C, userState *accessstate.State, name user.Name) user.UUID {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = userState.AddUser(
+	err = userState.AddUserWithPermission(
 		context.Background(),
 		userUUID,
 		name,

@@ -829,24 +829,11 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			endpoints[k] = ep.Name
 		}
 
-		userMap, err := e.st.GetOfferUsers(offer.OfferUUID)
-		if err != nil {
-			return errors.Annotatef(err, "ACL for offer %s", offer.OfferName)
-		}
-
-		var acl map[string]string
-		if len(userMap) != 0 {
-			acl = make(map[string]string, len(userMap))
-			for user, access := range userMap {
-				acl[user] = accessToString(access)
-			}
-		}
-
 		_ = exApplication.AddOffer(description.ApplicationOfferArgs{
 			OfferUUID:              offer.OfferUUID,
 			OfferName:              offer.OfferName,
 			Endpoints:              endpoints,
-			ACL:                    acl,
+			ACL:                    nil,
 			ApplicationName:        offer.ApplicationName,
 			ApplicationDescription: offer.ApplicationDescription,
 		})

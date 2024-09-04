@@ -1,6 +1,5 @@
-// Copyright 2015 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
-
+// // Copyright 2015 Canonical Ltd.
+// // Licensed under the AGPLv3, see LICENCE file for details.
 package applicationoffers_test
 
 import (
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -23,6 +23,8 @@ import (
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -66,10 +68,10 @@ func (s *applicationOffersSuite) setupAPI(c *gc.C) {
 	}
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.mockModelService,
+		s.mockState, s.mockStatePool, s.mockModelService, s.mockAccessService,
 		s.authorizer, s.authContext,
 		c.MkDir(), loggertesting.WrapCheckLog(c),
-	)
+		testing.ControllerTag.Id(), model.UUID(testing.ModelTag.Id()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -98,6 +100,20 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
 	}
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
+
+	if expectedErr == nil {
+		// Expect the creator getting admin access on the offer.
+		s.mockAccessService.EXPECT().CreatePermission(gomock.Any(), permission.UserAccessSpec{
+			AccessSpec: offerAccessSpec("", permission.AdminAccess),
+			User:       usertesting.GenNewName(c, "fred"),
+		})
+		// Expect everyone@external getting read access. everyone@exteral gets
+		// read access on all offers.
+		s.mockAccessService.EXPECT().CreatePermission(gomock.Any(), permission.UserAccessSpec{
+			AccessSpec: offerAccessSpec("", permission.ReadAccess),
+			User:       usertesting.GenNewName(c, "everyone@external"),
+		})
+	}
 
 	errs, err := s.api.Offer(context.Background(), all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -151,8 +167,10 @@ func (s *applicationOffersSuite) TestAddOfferUpdatesExistingOffer(c *gc.C) {
 	s.mockState.applications = map[string]crossmodel.Application{
 		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
 	}
+
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 	errs, err := s.api.Offer(context.Background(), all)
+
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, gc.IsNil)
@@ -212,7 +230,19 @@ func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
 		"two":        &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
 		"paramsfail": &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
 	}
+
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
+	// Expect the creator getting admin access on the offer.
+	s.mockAccessService.EXPECT().CreatePermission(gomock.Any(), permission.UserAccessSpec{
+		AccessSpec: offerAccessSpec("", permission.AdminAccess),
+		User:       coreuser.AdminUserName,
+	}).Times(2)
+	// Expect everyone@external getting read access. everyone@exteral gets
+	// read access on all offers.
+	s.mockAccessService.EXPECT().CreatePermission(gomock.Any(), permission.UserAccessSpec{
+		AccessSpec: offerAccessSpec("", permission.ReadAccess),
+		User:       usertesting.GenNewName(c, "everyone@external"),
+	}).Times(2)
 
 	errs, err := s.api.Offer(context.Background(), all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -257,11 +287,7 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 	s.applicationOffers.CheckCallNames(c, offerCall, addOffersBackendCall)
 }
 
-func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedErr error, expectedCIDRS []string) {
-	s.mockState.users["mary"] = &mockUser{"mary"}
-	_ = s.mockState.CreateOfferAccess(
-		names.NewApplicationOfferTag(offerUUID),
-		names.NewUserTag("mary"), permission.ConsumeAccess)
+func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedCIDRS []string) {
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
@@ -272,11 +298,23 @@ func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedE
 			},
 		},
 	}
+
+	// Since user is admin, get everyone else's access on the offer.
+	s.mockAccessService.EXPECT().ReadAllUserAccessForTarget(gomock.Any(), permission.ID{
+		ObjectType: permission.Offer,
+		Key:        offerUUID,
+	}).Return([]permission.UserAccess{{
+		UserName:    usertesting.GenNewName(c, "mary"),
+		DisplayName: "mary",
+		Access:      permission.ConsumeAccess,
+	}}, nil)
+
+	// Get the admin user from the database to retrieve their display name.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(coreuser.User{
+		DisplayName: "admin",
+	}, nil)
+
 	found, err := s.api.ListApplicationOffers(context.Background(), filter)
-	if expectedErr != nil {
-		c.Assert(errors.Cause(err), gc.ErrorMatches, expectedErr.Error())
-		return
-	}
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedOfferDetails := []params.ApplicationOfferAdminDetailsV5{
@@ -289,7 +327,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedE
 				OfferURL:               "fred@external/prod.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 				Users: []params.OfferUserDetails{
-					{UserName: "admin", DisplayName: "", Access: "admin"},
+					{UserName: "admin", DisplayName: "admin", Access: "admin"},
 					{UserName: "mary", DisplayName: "mary", Access: "consume"},
 				},
 			},
@@ -317,7 +355,8 @@ func (s *applicationOffersSuite) TestList(c *gc.C) {
 
 	s.authorizer.Tag = names.NewUserTag("admin")
 	offerUUID := s.setupOffers(c, "test", false)
-	s.assertList(c, offerUUID, nil, []string{"192.168.1.0/32", "10.0.0.0/8"})
+
+	s.assertList(c, offerUUID, []string{"192.168.1.0/32", "10.0.0.0/8"})
 }
 
 func (s *applicationOffersSuite) TestListCAAS(c *gc.C) {
@@ -327,7 +366,7 @@ func (s *applicationOffersSuite) TestListCAAS(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin")
 	offerUUID := s.setupOffers(c, "test", false)
 	s.mockState.model.modelType = state.ModelTypeCAAS
-	s.assertList(c, offerUUID, nil, []string{"192.168.1.0/32", "10.0.0.0/8"})
+	s.assertList(c, offerUUID, []string{"192.168.1.0/32", "10.0.0.0/8"})
 }
 
 func (s *applicationOffersSuite) TestListNoRelationNetworks(c *gc.C) {
@@ -337,15 +376,26 @@ func (s *applicationOffersSuite) TestListNoRelationNetworks(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin")
 	s.mockState.relationNetworks = nil
 	offerUUID := s.setupOffers(c, "test", false)
-	s.assertList(c, offerUUID, nil, nil)
+	s.assertList(c, offerUUID, nil)
 }
 
 func (s *applicationOffersSuite) TestListPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	offerUUID := s.setupOffers(c, "test", false)
-	s.assertList(c, offerUUID, apiservererrors.ErrPerm, nil)
+	_ = s.setupOffers(c, "test", false)
+	filter := params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				OwnerName:       "fred@external",
+				ModelName:       "prod",
+				OfferName:       "hosted-db2",
+				ApplicationName: "test",
+			},
+		},
+	}
+	_, err := s.api.ListApplicationOffers(context.Background(), filter)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, apiservererrors.ErrPerm.Error())
 }
 
 func (s *applicationOffersSuite) TestListError(c *gc.C) {
@@ -403,10 +453,7 @@ func (s *applicationOffersSuite) TestListRequiresFilter(c *gc.C) {
 
 func (s *applicationOffersSuite) assertShow(c *gc.C, url, offerUUID string, expected []params.ApplicationOfferResult) {
 	s.setupOffersForUUID(c, offerUUID, "", false)
-	s.mockState.users["mary"] = &mockUser{"mary"}
-	_ = s.mockState.CreateOfferAccess(
-		names.NewApplicationOfferTag(offerUUID),
-		names.NewUserTag("mary"), permission.ConsumeAccess)
+
 	filter := params.OfferURLs{[]string{url}, bakery.LatestVersion}
 
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
@@ -447,8 +494,23 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 			}},
 		},
 	}}
+
+	// Expect call to get all permissions on the offer
+	s.mockAccessService.EXPECT().ReadAllUserAccessForTarget(gomock.Any(), permission.ID{
+		ObjectType: permission.Offer,
+		Key:        offerUUID,
+	}).Return([]permission.UserAccess{{
+		UserName:    usertesting.GenNewName(c, "mary"),
+		DisplayName: "mary",
+		Access:      permission.ConsumeAccess,
+	}}, nil).Times(2)
+
 	s.authorizer.Tag = names.NewUserTag("admin")
 	expected[0].Result.Users[0].UserName = "admin"
+	// Expect getting api user from the database to retrieve their display name.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(coreuser.User{
+		DisplayName: "",
+	}, nil)
 	s.assertShow(c, "fred@external/prod.hosted-db2", offerUUID, expected)
 	// Again with an unqualified model path.
 	s.mockState.AdminTag = names.NewUserTag("fred@external")
@@ -456,6 +518,10 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 	s.authorizer.Tag = s.mockState.AdminTag
 	expected[0].Result.Users[0].UserName = "fred@external"
 	s.applicationOffers.ResetCalls()
+	// Expect getting api user from the database to retrieve their display name.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "fred@external")).Return(coreuser.User{
+		DisplayName: "",
+	}, nil)
 	s.assertShow(c, "prod.hosted-db2", offerUUID, expected)
 }
 
@@ -464,11 +530,17 @@ func (s *applicationOffersSuite) TestShowNoPermission(c *gc.C) {
 	s.setupAPI(c)
 
 	offerUUID := uuid.MustNewUUID().String()
-	s.mockState.users["someone"] = &mockUser{"someone"}
 	user := names.NewUserTag("someone")
-	offer := names.NewApplicationOfferTag(offerUUID)
-	err := s.mockState.CreateOfferAccess(offer, user, permission.NoAccess)
-	c.Assert(err, jc.ErrorIsNil)
+	userName := coreuser.NameFromTag(user)
+	// Expect getting api user from the database to retrieve their display name.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), userName).Return(coreuser.User{
+		DisplayName: "",
+	}, nil)
+	// Expect call to get permissions on the offer
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), userName, permission.ID{
+		ObjectType: permission.Offer,
+		Key:        offerUUID,
+	}).Return(permission.NoAccess, nil)
 
 	s.authorizer.Tag = user
 	expected := []params.ApplicationOfferResult{{
@@ -477,12 +549,13 @@ func (s *applicationOffersSuite) TestShowNoPermission(c *gc.C) {
 	s.assertShow(c, "fred@external/prod.hosted-db2", offerUUID, expected)
 }
 
-func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
+func (s *applicationOffersSuite) TestShowNonSuperuser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
 	offerUUID := uuid.MustNewUUID().String()
 	user := names.NewUserTag("someone")
+	userName := coreuser.NameFromTag(user)
 	s.authorizer.Tag = user
 	expected := []params.ApplicationOfferResult{{
 		Result: &params.ApplicationOfferAdminDetailsV5{
@@ -498,8 +571,49 @@ func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
 				},
 			},
 		}}}
-	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag(offerUUID), user, permission.ReadAccess)
+	// Expect getting api user from the database to retrieve their display name.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), userName).Return(coreuser.User{
+		DisplayName: "someone",
+	}, nil)
+	// Expect call to get permissions on the offer
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), userName, permission.ID{
+		ObjectType: permission.Offer,
+		Key:        offerUUID,
+	}).Return(permission.ReadAccess, nil)
+	s.assertShow(c, "fred@external/prod.hosted-db2", offerUUID, expected)
+}
+
+func (s *applicationOffersSuite) TestShowNonSuperuserExternal(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
+	offerUUID := uuid.MustNewUUID().String()
+	user := names.NewUserTag("fred@external")
+	userName := coreuser.NameFromTag(user)
+	s.authorizer.Tag = user
+	expected := []params.ApplicationOfferResult{{
+		Result: &params.ApplicationOfferAdminDetailsV5{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				SourceModelTag:         testing.ModelTag.String(),
+				ApplicationDescription: "description",
+				OfferURL:               "fred@external/prod.hosted-db2",
+				OfferName:              "hosted-db2",
+				OfferUUID:              offerUUID,
+				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+				Users: []params.OfferUserDetails{
+					{UserName: "fred@external", DisplayName: "fred@external", Access: "read"},
+				},
+			},
+		}}}
+	// Expect getting api user from the database to retrieve their display name.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), userName).Return(coreuser.User{
+		DisplayName: "fred@external",
+	}, nil)
+	// Expect call to get permissions on the offer
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), userName, permission.ID{
+		ObjectType: permission.Offer,
+		Key:        offerUUID,
+	}).Return(permission.ReadAccess, nil)
 	s.assertShow(c, "fred@external/prod.hosted-db2", offerUUID, expected)
 }
 
@@ -534,6 +648,11 @@ func (s *applicationOffersSuite) TestShowNotFound(c *gc.C) {
 	}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
+
+	// Expect getting api users display name from database.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), coreuser.NameFromTag(s.authorizer.Tag.(names.UserTag))).Return(coreuser.User{
+		DisplayName: "",
+	}, nil)
 
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -574,6 +693,11 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 	}
 	s.mockState.allmodels = []applicationoffers.Model{s.mockState.model, anotherModel}
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()), "uuid2")
+
+	// Expect getting api users display name from database.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), coreuser.NameFromTag(s.authorizer.Tag.(names.UserTag))).Return(coreuser.User{
+		DisplayName: "",
+	}, nil).Times(2)
 
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -629,24 +753,34 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	s.mockState.allmodels = []applicationoffers.Model{fakeModel, anotherModel}
 
 	user := names.NewUserTag("someone")
+	userName := coreuser.NameFromTag(user)
 	s.authorizer.Tag = user
-	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-test-uuid"), user, permission.ReadAccess)
 
 	anotherState := &mockState{
-		modelUUID:   "uuid2",
-		users:       make(map[string]applicationoffers.User),
-		accessPerms: make(map[offerAccess]permission.Access),
-		model:       anotherModel,
+		modelUUID: "uuid2",
+		model:     anotherModel,
 	}
 	anotherState.applications = map[string]crossmodel.Application{
 		"testagain": &mockApplication{
 			charm: ch, curl: "ch:mysql-2", bindings: map[string]string{"db2": "anotherspace"}},
 	}
-	anotherState.users[user.Name()] = &mockUser{user.Name()}
-	_ = anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-testagain-uuid"), user, permission.ConsumeAccess)
 	s.mockStatePool.st["uuid2"] = anotherState
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()), "uuid2")
+
+	// Read targets access level on the offer.
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), userName, permission.ID{
+		ObjectType: permission.Offer,
+		Key:        "hosted-test-uuid",
+	}).Return(permission.ReadAccess, nil)
+	// Read targets access level on the offer.
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), userName, permission.ID{
+		ObjectType: permission.Offer,
+		Key:        "hosted-testagain-uuid",
+	}).Return(permission.ConsumeAccess, nil)
+	// Expect getting api users display name from database.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), userName).Return(coreuser.User{
+		DisplayName: "someone",
+	}, nil).Times(2)
 
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -711,6 +845,17 @@ func (s *applicationOffersSuite) TestFind(c *gc.C) {
 	s.setupAPI(c)
 
 	offerUUID := s.setupOffers(c, "", true)
+
+	// Get the admin user from the database to retrieve their display name.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(coreuser.User{
+		DisplayName: "admin",
+	}, nil)
+	// Since user is admin, get everyone else's access on the offer.
+	s.mockAccessService.EXPECT().ReadAllUserAccessForTarget(gomock.Any(), permission.ID{
+		ObjectType: permission.Offer,
+		Key:        offerUUID,
+	})
+
 	s.authorizer.Tag = names.NewUserTag("admin")
 	expected := []params.ApplicationOfferAdminDetailsV5{
 		{
@@ -722,7 +867,7 @@ func (s *applicationOffersSuite) TestFind(c *gc.C) {
 				OfferURL:               "fred@external/prod.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 				Users: []params.OfferUserDetails{
-					{UserName: "admin", DisplayName: "", Access: "admin"},
+					{UserName: "admin", DisplayName: "admin", Access: "admin"},
 				}},
 			ApplicationName: "test",
 			CharmURL:        "ch:db2-2",
@@ -742,13 +887,20 @@ func (s *applicationOffersSuite) TestFindNoPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.mockState.users["someone"] = &mockUser{"someone"}
 	user := names.NewUserTag("someone")
-	offer := names.NewApplicationOfferTag(uuid.MustNewUUID().String())
-	err := s.mockState.CreateOfferAccess(offer, user, permission.NoAccess)
-	c.Assert(err, jc.ErrorIsNil)
+	userName := coreuser.NameFromTag(user)
+	offerUUID := s.setupOffers(c, "", true)
 
-	s.setupOffers(c, "", true)
+	// Get api user from the database to retrieve their display name.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), userName).Return(coreuser.User{
+		DisplayName: "admin",
+	}, nil)
+	// Read targets access level on the offer.
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), userName, permission.ID{
+		ObjectType: permission.Offer,
+		Key:        offerUUID,
+	}).Return(permission.NoAccess, nil)
+
 	s.authorizer.Tag = names.NewUserTag("someone")
 	s.assertFind(c, []params.ApplicationOfferAdminDetailsV5{})
 }
@@ -759,7 +911,19 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 
 	offerUUID := s.setupOffers(c, "", true)
 	user := names.NewUserTag("someone")
+	userName := coreuser.NameFromTag(user)
 	s.authorizer.Tag = user
+
+	// Get api user from the database to retrieve their display name.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), userName).Return(coreuser.User{
+		DisplayName: "someone",
+	}, nil)
+	// Read targets access level on the offer.
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), userName, permission.ID{
+		ObjectType: permission.Offer,
+		Key:        offerUUID,
+	}).Return(permission.ReadAccess, nil)
+
 	expected := []params.ApplicationOfferAdminDetailsV5{
 		{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
@@ -774,8 +938,6 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 				}},
 		},
 	}
-	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag(offerUUID), user, permission.ReadAccess)
 	s.assertFind(c, expected)
 }
 
@@ -804,6 +966,7 @@ func (s *applicationOffersSuite) TestFindRequiresFilter(c *gc.C) {
 	s.setupAPI(c)
 
 	s.setupOffers(c, "", true)
+
 	_, err := s.api.FindApplicationOffers(context.Background(), params.OfferFilters{})
 	c.Assert(err, gc.ErrorMatches, "at least one offer filter is required")
 }
@@ -875,15 +1038,8 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		modelType: state.ModelTypeIAAS,
 	}
 
-	user := names.NewUserTag("someone")
-	s.authorizer.Tag = user
-	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag(oneOfferUUID), user, permission.ConsumeAccess)
-
 	anotherState := &mockState{
-		modelUUID:   "uuid2",
-		users:       make(map[string]applicationoffers.User),
-		accessPerms: make(map[offerAccess]permission.Access),
+		modelUUID: "uuid2",
 	}
 	s.mockStatePool.st["uuid2"] = anotherState
 	anotherState.applications = map[string]crossmodel.Application{
@@ -928,9 +1084,6 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 			relationId:  1,
 		},
 	}
-	anotherState.users[user.Name()] = &mockUser{user.Name()}
-	_ = anotherState.CreateOfferAccess(names.NewApplicationOfferTag(twoOfferUUID), user, permission.ReadAccess)
-	_ = anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-postgresql-uuid"), user, permission.AdminAccess)
 
 	s.mockState.allmodels = []applicationoffers.Model{
 		s.mockState.model,
@@ -962,6 +1115,33 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 			},
 		},
 	}
+
+	user := names.NewUserTag("someone")
+	userName := coreuser.NameFromTag(user)
+	s.authorizer.Tag = user
+	// Read user access level on each offer.
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), userName, permission.ID{
+		ObjectType: permission.Offer,
+		Key:        oneOfferUUID,
+	}).Return(permission.ConsumeAccess, nil)
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), userName, permission.ID{
+		ObjectType: permission.Offer,
+		Key:        twoOfferUUID,
+	}).Return(permission.ReadAccess, nil)
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), userName, permission.ID{
+		ObjectType: permission.Offer,
+		Key:        "hosted-postgresql-uuid",
+	}).Return(permission.AdminAccess, nil)
+	// Since user is admin, get everyone else's access on the offer.
+	s.mockAccessService.EXPECT().ReadAllUserAccessForTarget(gomock.Any(), permission.ID{
+		ObjectType: permission.Offer,
+		Key:        "hosted-postgresql-uuid",
+	}).Return([]permission.UserAccess{{UserName: userName, UserTag: user, DisplayName: "someone", Access: "read"}}, nil)
+	// Get the user from the database to retrieve their display name.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), userName).Return(coreuser.User{
+		DisplayName: "someone",
+	}, nil).AnyTimes()
+
 	found, err := s.api.FindApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResultsV5{
@@ -1093,10 +1273,11 @@ func (s *consumeSuite) setupAPI(c *gc.C) {
 	}
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.mockModelService,
+		s.mockState, s.mockStatePool, s.mockModelService, s.mockAccessService,
 		s.authorizer, s.authContext,
 		c.MkDir(),
 		loggertesting.WrapCheckLog(c),
+		testing.ControllerTag.Id(), model.UUID(testing.ModelTag.Id()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -1124,13 +1305,19 @@ func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
 	s.setupAPI(c)
 
 	offerUUID := s.setupOffer()
-	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
-	st.(*mockState).users["someone"] = &mockUser{"someone"}
 	apiUser := names.NewUserTag("someone")
-	offer := names.NewApplicationOfferTag(offerUUID)
-	err := st.CreateOfferAccess(offer, apiUser, permission.NoAccess)
-	c.Assert(err, jc.ErrorIsNil)
+	apiUserName := coreuser.NameFromTag(apiUser)
+
+	// Expect call to get permissions on the offer
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), apiUserName, permission.ID{
+		ObjectType: permission.Offer,
+		Key:        offerUUID,
+	}).Return(permission.NoAccess, nil)
+	// Get the admin user from the database to retrieve their display name.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), apiUserName).Return(coreuser.User{
+		DisplayName: "someone",
+	}, nil)
 
 	s.authorizer.Tag = apiUser
 	results, err := s.api.GetConsumeDetails(
@@ -1191,15 +1378,19 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 	c *gc.C, configAuthorizer func(*apiservertesting.FakeAuthorizer, names.UserTag) string,
 ) {
 	offerUUID := s.setupOffer()
-	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
-	st.(*mockState).users["someone"] = &mockUser{"someone"}
 	apiUser := names.NewUserTag("someone")
 
 	userTag := configAuthorizer(s.authorizer, apiUser)
-	offer := names.NewApplicationOfferTag(offerUUID)
-	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
-	c.Assert(err, jc.ErrorIsNil)
+	// Expect call to get permissions on the offer
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), coreuser.NameFromTag(apiUser), permission.ID{
+		ObjectType: permission.Offer,
+		Key:        offerUUID,
+	}).Return(permission.ConsumeAccess, nil)
+	// Get the api user from the database to retrieve their display name.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "someone")).Return(coreuser.User{
+		DisplayName: "someone",
+	}, nil)
 
 	results, err := s.api.GetConsumeDetails(
 		context.Background(),
@@ -1242,16 +1433,11 @@ func (s *consumeSuite) TestConsumeDetailsNonAdminSpecifiedUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	offerUUID := s.setupOffer()
-	st := s.mockStatePool.st[testing.ModelTag.Id()]
-	st.(*mockState).users["someone"] = &mockUser{"someone"}
+	_ = s.setupOffer()
 	apiUser := names.NewUserTag("someone")
-	offer := names.NewApplicationOfferTag(offerUUID)
-	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
-	c.Assert(err, jc.ErrorIsNil)
 
 	s.authorizer.Tag = names.NewUserTag("joe-blow")
-	_, err = s.api.GetConsumeDetails(
+	_, err := s.api.GetConsumeDetails(
 		context.Background(),
 		params.ConsumeOfferDetailsArg{
 			UserTag: apiUser.String(),
@@ -1270,19 +1456,26 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 
 	st := s.mockStatePool.st[testing.ModelTag.Id()].(*mockState)
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
-	st.users["someone"] = &mockUser{"someone"}
 	delete(st.applications["mysql"].(*mockApplication).bindings, "database")
 
 	// Add a default endpoint for the application.
 	st.applications["mysql"].(*mockApplication).bindings[""] = "default-endpoint"
 
 	apiUser := names.NewUserTag("someone")
-	offer := names.NewApplicationOfferTag(offerUUID)
-	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
-	c.Assert(err, jc.ErrorIsNil)
-
+	apiUserName := coreuser.NameFromTag(apiUser)
 	s.authorizer.Tag = apiUser
 	s.authorizer.HasConsumeTag = apiUser
+
+	// Expect call to get permissions on the offer
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), apiUserName, permission.ID{
+		ObjectType: permission.Offer,
+		Key:        offerUUID,
+	}).Return(permission.ConsumeAccess, nil)
+	// Get the admin user from the database to retrieve their display name.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), apiUserName).Return(coreuser.User{
+		DisplayName: "someone",
+	}, nil)
+
 	results, err := s.api.GetConsumeDetails(
 		context.Background(),
 		params.ConsumeOfferDetailsArg{
@@ -1319,8 +1512,6 @@ func (s *consumeSuite) setupOffer() string {
 		model:             model,
 		applications:      make(map[string]crossmodel.Application),
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
-		users:             make(map[string]applicationoffers.User),
-		accessPerms:       make(map[offerAccess]permission.Access),
 		relations:         make(map[string]crossmodel.Relation),
 	}
 	s.mockStatePool.st[modelUUID] = st
@@ -1350,14 +1541,19 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 	s.setupAPI(c)
 
 	offerUUID := s.setupOffer()
-	st := s.mockStatePool.st[testing.ModelTag.Id()]
-	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 
 	// Give user permission to see the offer.
 	user := names.NewUserTag("foobar")
-	offer := names.NewApplicationOfferTag(offerUUID)
-	err := st.CreateOfferAccess(offer, user, permission.ConsumeAccess)
-	c.Assert(err, jc.ErrorIsNil)
+	userName := coreuser.NameFromTag(user)
+	// Expect getting api user from the database to retrieve their display name.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), userName).Return(coreuser.User{
+		DisplayName: "",
+	}, nil).Times(2)
+	// Expect call to get permissions on the offer
+	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), userName, permission.ID{
+		ObjectType: permission.Offer,
+		Key:        offerUUID,
+	}).Return(permission.ConsumeAccess, nil)
 
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 	s.authorizer.Tag = user
@@ -1398,7 +1594,6 @@ type destroyOffers interface {
 func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C, api destroyOffers) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
-	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 	st.(*mockState).connections = []applicationoffers.OfferConnection{
 		&mockOfferConnection{
 			username:    "fred@external",
@@ -1424,6 +1619,12 @@ func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C, api destroyOffers) {
 
 	urls := []string{"fred@external/prod.hosted-db2"}
 	filter := params.OfferURLs{urls, bakery.LatestVersion}
+
+	// Get the api user from the database to retrieve their display name.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(coreuser.User{
+		DisplayName: "admin",
+	}, nil)
+
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
@@ -1437,7 +1638,6 @@ func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
-	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 	st.(*mockState).connections = []applicationoffers.OfferConnection{
 		&mockOfferConnection{
 			username:    "fred@external",
@@ -1469,6 +1669,12 @@ func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
 
 	urls := []string{"fred@external/prod.hosted-db2"}
 	filter := params.OfferURLs{urls, bakery.LatestVersion}
+
+	// Get the api user from the database to retrieve their display name.
+	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(coreuser.User{
+		DisplayName: "admin",
+	}, nil)
+
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
@@ -1481,8 +1687,6 @@ func (s *consumeSuite) TestDestroyOffersPermission(c *gc.C) {
 
 	s.setupOffer()
 	s.authorizer.Tag = names.NewUserTag("mary")
-	st := s.mockStatePool.st[testing.ModelTag.Id()]
-	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 
 	results, err := s.api.DestroyOffers(context.Background(), params.DestroyApplicationOffers{

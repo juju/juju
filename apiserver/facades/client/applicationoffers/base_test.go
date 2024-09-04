@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/charm"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -39,6 +38,7 @@ type baseSuite struct {
 	authContext       *crossmodel.AuthContext
 	applicationOffers *stubApplicationOffers
 	mockModelService  *MockModelService
+	mockAccessService *MockAccessService
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
@@ -50,9 +50,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 
 	s.mockState = &mockState{
 		modelUUID:         coretesting.ModelTag.Id(),
-		users:             make(map[string]applicationoffers.User),
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
-		accessPerms:       make(map[offerAccess]permission.Access),
 		relations:         make(map[string]crossmodel.Relation),
 		relationNetworks:  &mockRelationNetworks{},
 	}
@@ -62,6 +60,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockModelService = NewMockModelService(ctrl)
+	s.mockAccessService = NewMockAccessService(ctrl)
 	return ctrl
 }
 

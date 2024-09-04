@@ -64,7 +64,7 @@ func (s *credentialSuite) addOwner(c *gc.C, name user.Name) user.UUID {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = userState.AddUser(
+	err = userState.AddUserWithPermission(
 		context.Background(),
 		userUUID,
 		name,
