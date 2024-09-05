@@ -82,6 +82,9 @@ type ModelService interface {
 	Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error)
 	// ControllerModel returns the model used for housing the Juju controller.
 	ControllerModel(ctx context.Context) (coremodel.Model, error)
+	// GetModelUsers will retrieve basic information about users with permissions on
+	// the given model UUID.
+	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
 }
 
 // ModelConfigService provides access to the model configuration.
@@ -1040,17 +1043,18 @@ func makeModelInfo(ctx context.Context, st *state.State,
 		return empty, ul, errors.Trace(err)
 	}
 
-	users, err := model.Users()
+	modelID := coremodel.UUID(model.UUID())
+
+	users, err := modelService.GetModelUsers(ctx, modelID)
 	if err != nil {
 		return empty, ul, errors.Trace(err)
 	}
 	ul.users = set.NewStrings()
 	for _, u := range users {
-		ul.users.Add(u.UserName.Name())
+		ul.users.Add(u.Name.Name())
 	}
 
 	// Retrieve agent version for the model.
-	modelID := coremodel.UUID(model.UUID())
 	modelInfo, err := modelService.Model(ctx, modelID)
 	if err != nil {
 		return empty, userList{}, fmt.Errorf("getting model %q: %w", modelID, err)

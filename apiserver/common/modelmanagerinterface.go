@@ -199,7 +199,9 @@ func (st modelManagerStateShim) GetBackend(modelUUID string) (ModelManagerBacken
 			return nil, nil, errors.Trace(mErr)
 		}
 
-		if mig == nil || mig.ModelUserAccess(st.user) == permission.NoAccess {
+		// TODO(aflynn): Also return this error if, in the migration info, the
+		// user had access to the migrated model (JUJU-6669).
+		if mig == nil {
 			return nil, nil, errors.Trace(err) // return original NotFound error
 		}
 

@@ -14,7 +14,6 @@ import (
 	time "time"
 
 	migration "github.com/juju/juju/core/migration"
-	permission "github.com/juju/juju/core/permission"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
@@ -268,44 +267,6 @@ func (c *MockModelMigrationModelUUIDCall) Do(f func() string) *MockModelMigratio
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelMigrationModelUUIDCall) DoAndReturn(f func() string) *MockModelMigrationModelUUIDCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ModelUserAccess mocks base method.
-func (m *MockModelMigration) ModelUserAccess(arg0 names.Tag) permission.Access {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelUserAccess", arg0)
-	ret0, _ := ret[0].(permission.Access)
-	return ret0
-}
-
-// ModelUserAccess indicates an expected call of ModelUserAccess.
-func (mr *MockModelMigrationMockRecorder) ModelUserAccess(arg0 any) *MockModelMigrationModelUserAccessCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUserAccess", reflect.TypeOf((*MockModelMigration)(nil).ModelUserAccess), arg0)
-	return &MockModelMigrationModelUserAccessCall{Call: call}
-}
-
-// MockModelMigrationModelUserAccessCall wrap *gomock.Call
-type MockModelMigrationModelUserAccessCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelMigrationModelUserAccessCall) Return(arg0 permission.Access) *MockModelMigrationModelUserAccessCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelMigrationModelUserAccessCall) Do(f func(names.Tag) permission.Access) *MockModelMigrationModelUserAccessCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelMigrationModelUserAccessCall) DoAndReturn(f func(names.Tag) permission.Access) *MockModelMigrationModelUserAccessCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

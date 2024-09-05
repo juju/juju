@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	internalpassword "github.com/juju/juju/internal/password"
@@ -368,11 +367,6 @@ func (ctlr *Controller) NewModel(configSchemaGetter config.ConfigSchemaSourceGet
 	}
 	if args.MigrationMode != MigrationModeImporting {
 		_, _ = probablyUpdateStatusHistory(newSt.db(), newModel.Kind(), modelGlobalKey, modelGlobalKey, modelStatusDoc)
-	}
-
-	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), permission.AdminAccess)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
 	}
 
 	// TODO(storage) - we need to add the default storage pools using the new dqlite model service
@@ -818,43 +812,6 @@ func (m *Model) AllEndpointBindings() (map[string]*Bindings, error) {
 	}
 
 	return appEndpointBindings, nil
-}
-
-// Users returns a slice of all users for this model.
-func (m *Model) Users() ([]permission.UserAccess, error) {
-	coll, closer := m.st.db().GetCollection(modelUsersC)
-	defer closer()
-
-	var userDocs []userAccessDoc
-	err := coll.Find(nil).All(&userDocs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var modelUsers []permission.UserAccess
-	for _, doc := range userDocs {
-		// check if the User belonging to this model user has
-		// been deleted, in this case we should not return it.
-		userTag := names.NewUserTag(doc.UserName)
-		if userTag.IsLocal() {
-			_, err := m.st.User(userTag)
-			if err != nil {
-				if !IsDeletedUserError(err) {
-					// We ignore deleted users for now. So if it is not a
-					// DeletedUserError we return the error.
-					return nil, errors.Trace(err)
-				}
-				continue
-			}
-		}
-		mu, err := NewModelUserAccess(m.st, doc)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		modelUsers = append(modelUsers, mu)
-	}
-
-	return modelUsers, nil
 }
 
 // IsControllerModel returns a boolean indicating whether
