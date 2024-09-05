@@ -4,10 +4,12 @@
 package service
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
+	coresecrets "github.com/juju/juju/core/secrets"
 )
 
 // CreateCharmSecretParams are used to create charm a secret.
@@ -97,6 +99,12 @@ const (
 	UnitAccessor              SecretAccessorKind = "unit"
 	ModelAccessor             SecretAccessorKind = "model"
 )
+
+// GrantedSecretsGetter returns the revisions on the given backend for which
+// consumers have access with the given role.
+type GrantedSecretsGetter func(
+	ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...SecretAccessor,
+) ([]*coresecrets.SecretRevisionRef, error)
 
 // SecretAccessor represents an entity that can access a secret.
 type SecretAccessor struct {

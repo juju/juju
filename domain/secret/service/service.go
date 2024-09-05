@@ -26,8 +26,8 @@ import (
 
 // NewSecretService returns a new secret service wrapping the specified state.
 func NewSecretService(
-	secretState State, secretBackendReferenceMutator SecretBackendReferenceMutator,
-	logger logger.Logger, adminConfigGetter BackendAdminConfigGetter,
+	secretState State, secretBackendReferenceMutator SecretBackendReferenceMutator, logger logger.Logger,
+	adminConfigGetter BackendAdminConfigGetter, userSecretConfigGetter BackendUserSecretConfigGetter,
 ) *SecretService {
 	return &SecretService{
 		secretState:                   secretState,
@@ -36,19 +36,29 @@ func NewSecretService(
 		clock:                         clock.WallClock,
 		providerGetter:                provider.Provider,
 		adminConfigGetter:             adminConfigGetter,
+		userSecretConfigGetter:        userSecretConfigGetter,
 		uuidGenerator:                 uuid.NewUUID,
 	}
 }
 
+// ProviderGetter is a func used to get a secret backend provider for a specified type.
+type ProviderGetter func(backendType string) (provider.SecretBackendProvider, error)
+
 // BackendAdminConfigGetter is a func used to get admin level secret backend config.
 type BackendAdminConfigGetter func(context.Context) (*provider.ModelBackendConfigInfo, error)
 
-// ProviderGetter is a func used to get a secret backend provider for a specified type.
-type ProviderGetter func(backendType string) (provider.SecretBackendProvider, error)
+// BackendAdminConfigGetter is a func used to get admin level secret backend config.
+type BackendUserSecretConfigGetter func(context.Context, GrantedSecretsGetter, SecretAccessor) (*provider.ModelBackendConfigInfo, error)
 
 // NotImplementedBackendConfigGetter is a not implemented secret backend getter.
 // It is used by callers of the secret service that do not need any backend functionality.
 var NotImplementedBackendConfigGetter = func(context.Context) (*provider.ModelBackendConfigInfo, error) {
+	return nil, errors.NotImplemented
+}
+
+// NotImplementedBackendConfigGetter is a not implemented secret backend getter.
+// It is used by callers of the secret service that do not need any backend functionality.
+var NotImplementedBackendUserSecretConfigGetter = func(context.Context, GrantedSecretsGetter, SecretAccessor) (*provider.ModelBackendConfigInfo, error) {
 	return nil, errors.NotImplemented
 }
 
@@ -60,6 +70,7 @@ type SecretService struct {
 	clock                         clock.Clock
 	providerGetter                ProviderGetter
 	adminConfigGetter             BackendAdminConfigGetter
+	userSecretConfigGetter        BackendUserSecretConfigGetter
 
 	activeBackendID string
 	backends        map[string]provider.SecretsBackend
@@ -101,6 +112,23 @@ func (s *SecretService) getBackend(cfg *provider.ModelBackendConfig) (provider.S
 		return nil, errors.Trace(err)
 	}
 	return p.NewBackend(cfg)
+}
+
+func (s *SecretService) getBackendForUserSecrets(ctx context.Context, accessor SecretAccessor) (provider.SecretsBackend, string, error) {
+	info, err := s.userSecretConfigGetter(ctx, s.ListGrantedSecretsForBackend, accessor)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	activeBackendID := info.ActiveID
+	cfg, ok := info.Configs[activeBackendID]
+	if !ok {
+		return nil, "", fmt.Errorf("active backend config for %q: %w", activeBackendID, backenderrors.NotFound)
+	}
+	backend, err := s.getBackend(&cfg)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	return backend, activeBackendID, nil
 }
 
 func (s *SecretService) loadBackendInfo(ctx context.Context, activeOnly bool) error {
@@ -153,12 +181,10 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 		p.Data[k] = v
 	}
 
-	err := s.loadBackendInfo(ctx, true)
+	backend, backendID, err := s.getBackendForUserSecrets(ctx, params.Accessor)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// loadBackendInfo will error is there's no active backend.
-	backend := s.backends[s.activeBackendID]
 
 	revId, err := backend.SaveContent(ctx, uri, 1, secrets.NewSecretValue(params.Data))
 	if err != nil && !errors.Is(err, errors.NotSupported) {
@@ -178,7 +204,7 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}()
 		p.Data = nil
 		p.ValueRef = &secrets.ValueRef{
-			BackendID:  s.activeBackendID,
+			BackendID:  backendID,
 			RevisionID: revId,
 		}
 	}
@@ -310,12 +336,11 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		for k, v := range params.Data {
 			p.Data[k] = v
 		}
-		err := s.loadBackendInfo(ctx, true)
+
+		backend, backendID, err := s.getBackendForUserSecrets(ctx, params.Accessor)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		// loadBackendInfo will error is there's no active backend.
-		backend := s.backends[s.activeBackendID]
 
 		latestRevision, err := s.secretState.GetLatestRevision(ctx, uri)
 		if err != nil {
@@ -340,7 +365,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 			}()
 			p.Data = nil
 			p.ValueRef = &secrets.ValueRef{
-				BackendID:  s.activeBackendID,
+				BackendID:  backendID,
 				RevisionID: revId,
 			}
 		}
