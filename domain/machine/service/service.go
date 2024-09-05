@@ -372,8 +372,8 @@ type ProviderService struct {
 }
 
 // GetBootstrapEnviron returns the bootstrap environ.
-func (s *ProviderService) GetBootstrapEnviron(context.Context) (environs.BootstrapEnviron, error) {
-	provider, err := s.providerGetter(context.Background())
+func (s *ProviderService) GetBootstrapEnviron(ctx context.Context) (environs.BootstrapEnviron, error) {
+	provider, err := s.providerGetter(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -381,8 +381,8 @@ func (s *ProviderService) GetBootstrapEnviron(context.Context) (environs.Bootstr
 }
 
 // GetInstanceTypesFetcher returns the instance types fetcher.
-func (s *ProviderService) GetInstanceTypesFetcher(context.Context) (environs.InstanceTypesFetcher, error) {
-	provider, err := s.providerGetter(context.Background())
+func (s *ProviderService) GetInstanceTypesFetcher(ctx context.Context) (environs.InstanceTypesFetcher, error) {
+	provider, err := s.providerGetter(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
