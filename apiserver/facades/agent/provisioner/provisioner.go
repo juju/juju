@@ -28,6 +28,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
@@ -165,13 +166,16 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 	urlGetter := common.NewToolsURLGetter(string(modelInfo.UUID), systemState)
 
-	unitRemover := ctx.ServiceFactory().Application(nil)
+	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
+		StorageRegistry: storage.NotImplementedProviderRegistry{},
+		Secrets:         applicationservice.NotImplementedSecretService{},
+	})
 
 	modelWatcher := common.NewModelWatcher(serviceFactory.Config(), ctx.WatcherRegistry())
 
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{
-		Remover:              common.NewRemover(st, ctx.ObjectStore(), nil, false, getAuthFunc, unitRemover),
+		Remover:              common.NewRemover(st, ctx.ObjectStore(), nil, false, getAuthFunc, applicationService),
 		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
 		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
 		DeadEnsurer:          common.NewDeadEnsurer(st, nil, getAuthFunc, ctx.ServiceFactory().Machine()),

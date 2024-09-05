@@ -216,8 +216,8 @@ func (s *TestingServiceFactory) ModelSecretBackend() *secretbackendservice.Model
 	return nil
 }
 
-// Application returns the block device service.
-func (s *TestingServiceFactory) Application(storage.ProviderRegistry) *applicationservice.WatchableService {
+// Application returns the application service.
+func (s *TestingServiceFactory) Application(applicationservice.ApplicationServiceParams) *applicationservice.WatchableService {
 	if s.applicationServiceGetter == nil {
 		return nil
 	}

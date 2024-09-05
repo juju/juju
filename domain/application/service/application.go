@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
@@ -27,6 +28,7 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
@@ -145,27 +147,46 @@ var (
 	validApplication = regexp.MustCompile("^" + applicationSnippet + "$")
 )
 
+// SecretService defines methods on a secret service
+// used by an application service.
+type SecretService interface {
+	InternalDeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, params secretservice.DeleteSecretParams) (func(), error)
+}
+
+// NotImplementedSecretService defines a secret service which does nothing.
+type NotImplementedSecretService struct{}
+
+func (NotImplementedSecretService) InternalDeleteSecret(domain.AtomicContext, *coresecrets.URI, secretservice.DeleteSecretParams) (func(), error) {
+	return func() {}, nil
+}
+
 // ApplicationService provides the API for working with applications.
 type ApplicationService struct {
 	st     ApplicationState
 	logger logger.Logger
 
-	registry  storage.ProviderRegistry
 	modelType coremodel.ModelType
+
+	registry      storage.ProviderRegistry
+	secretService SecretService
 }
 
 // NewApplicationService returns a new service reference wrapping the input state.
-func NewApplicationService(st ApplicationState, registry storage.ProviderRegistry, logger logger.Logger) *ApplicationService {
+func NewApplicationService(st ApplicationState, params ApplicationServiceParams, logger logger.Logger) *ApplicationService {
 	// Some uses of application service don't need to supply a storage registry,
 	// eg cleaner facade. In such cases it'd wasteful to create one as an
 	// environ instance would be needed.
-	if registry == nil {
-		registry = storage.NotImplementedProviderRegistry{}
+	if params.StorageRegistry == nil {
+		params.StorageRegistry = storage.NotImplementedProviderRegistry{}
+	}
+	if params.Secrets == nil {
+		params.Secrets = NotImplementedSecretService{}
 	}
 	return &ApplicationService{
-		st:       st,
-		logger:   logger,
-		registry: registry,
+		st:            st,
+		logger:        logger,
+		registry:      params.StorageRegistry,
+		secretService: params.Secrets,
 		// TODO(storage) - pass in model info getter
 		modelType: coremodel.IAAS,
 	}
@@ -327,21 +348,18 @@ func (s *ApplicationService) DestroyUnit(ctx context.Context, unitName string) e
 // is returned.
 func (s *ApplicationService) EnsureUnitDead(ctx context.Context, unitName string, leadershipRevoker leadership.Revoker) error {
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return s.ensureUnitDead(ctx, unitName, leadershipRevoker)
+		return s.ensureUnitDead(ctx, unitName)
 	})
+	if err == nil {
+		appName, _ := names.UnitApplication(unitName)
+		if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
+			s.logger.Warningf("cannot revoke lease for dead unit %q", unitName)
+		}
+	}
 	return errors.Annotatef(err, "ensuring unit %q is dead", unitName)
 }
 
-func (s *ApplicationService) ensureUnitDead(ctx domain.AtomicContext, unitName string, leadershipRevoker leadership.Revoker) (err error) {
-	defer func() {
-		if err == nil {
-			appName, _ := names.UnitApplication(unitName)
-			if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
-				s.logger.Warningf("cannot revoke lease for dead unit %q", unitName)
-			}
-		}
-	}()
-
+func (s *ApplicationService) ensureUnitDead(ctx domain.AtomicContext, unitName string) (err error) {
 	unitLife, err := s.st.GetUnitLife(ctx, unitName)
 	if err != nil {
 		return errors.Trace(err)
@@ -365,7 +383,7 @@ func (s *ApplicationService) ensureUnitDead(ctx domain.AtomicContext, unitName s
 // If the unit is still alive, an error satisfying [applicationerrors.UnitIsAlive]
 // is returned. If the unit is not found, an error satisfying
 // [applicationerrors.UnitNotFound] is returned.
-func (s *ApplicationService) RemoveUnit(ctx context.Context, unitName string, leadership leadership.Revoker) error {
+func (s *ApplicationService) RemoveUnit(ctx context.Context, unitName string, leadershipRevoker leadership.Revoker) error {
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		unitLife, err := s.st.GetUnitLife(ctx, unitName)
 		if err != nil {
@@ -374,12 +392,18 @@ func (s *ApplicationService) RemoveUnit(ctx context.Context, unitName string, le
 		if unitLife == life.Alive {
 			return fmt.Errorf("cannot remove unit %q: %w", unitName, applicationerrors.UnitIsAlive)
 		}
-		err = s.ensureUnitDead(ctx, unitName, leadership)
+		err = s.ensureUnitDead(ctx, unitName)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return s.st.RemoveUnitMaybeApplication(ctx, unitName)
 	})
+	if err == nil {
+		appName, _ := names.UnitApplication(unitName)
+		if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
+			s.logger.Warningf("cannot revoke lease for dead unit %q", unitName)
+		}
+	}
 	return errors.Annotatef(err, "removing unit %q", unitName)
 }
 
@@ -766,12 +790,26 @@ type WatchableApplicationService struct {
 }
 
 // NewWatchableApplicationService returns a new service reference wrapping the input state.
-func NewWatchableApplicationService(st ApplicationState, watcherFactory WatcherFactory, registry storage.ProviderRegistry, logger logger.Logger) *WatchableApplicationService {
+func NewWatchableApplicationService(
+	st ApplicationState, watcherFactory WatcherFactory,
+	params ApplicationServiceParams,
+	logger logger.Logger,
+) *WatchableApplicationService {
+	// Some uses of application service don't need to supply a storage registry,
+	// eg cleaner facade. In such cases it'd wasteful to create one as an
+	// environ instance would be needed.
+	if params.StorageRegistry == nil {
+		params.StorageRegistry = storage.NotImplementedProviderRegistry{}
+	}
+	if params.Secrets == nil {
+		params.Secrets = NotImplementedSecretService{}
+	}
 	return &WatchableApplicationService{
 		ApplicationService: ApplicationService{
-			st:       st,
-			registry: registry,
-			logger:   logger,
+			st:            st,
+			registry:      params.StorageRegistry,
+			secretService: params.Secrets,
+			logger:        logger,
 		},
 		watcherFactory: watcherFactory,
 	}

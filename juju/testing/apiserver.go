@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
@@ -576,8 +577,12 @@ func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory
 			provider.CommonStorageProviders(),
 		}
 	}
+	applicationService := modelServiceFactory.Application(applicationservice.ApplicationServiceParams{
+		StorageRegistry: registry,
+		Secrets:         applicationservice.NotImplementedSecretService{},
+	})
 	return factory.NewFactory(st, s.controller.StatePool(), coretesting.FakeControllerConfig()).
-		WithApplicationService(modelServiceFactory.Application(registry)), releaser
+		WithApplicationService(applicationService), releaser
 }
 
 // ControllerModelUUID returns the controller model uuid.

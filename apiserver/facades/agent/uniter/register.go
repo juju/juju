@@ -15,7 +15,9 @@ import (
 	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/internal/secrets/provider"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	"github.com/juju/juju/internal/storage"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -29,25 +31,25 @@ func Register(registry facade.FacadeRegistry) {
 func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, error) {
 	serviceFactory := ctx.ServiceFactory()
 	modelInfoService := serviceFactory.ModelInfo()
-	secretBackendService := serviceFactory.SecretBackend()
-	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
-		modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return secretBackendService.GetSecretBackendConfigForAdmin(stdCtx, modelInfo.UUID)
-	}
+	secretBackendAdminConfigGetter := secretbackendservice.BackendConfigGetterFunc(
+		serviceFactory.SecretBackend(), ctx.ModelUUID())
+	secretService := serviceFactory.Secret(secretBackendAdminConfigGetter)
+	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
+		StorageRegistry: storage.NotImplementedProviderRegistry{},
+		Secrets:         secretService,
+	})
+
 	return newUniterAPIWithServices(
 		stdCtx, ctx,
 		serviceFactory.ControllerConfig(),
 		serviceFactory.Config(),
 		modelInfoService,
-		serviceFactory.Secret(secretBackendAdminConfigGetter),
+		secretService,
 		serviceFactory.Network(),
 		serviceFactory.Machine(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
-		serviceFactory.Application(nil),
+		applicationService,
 	)
 }
 

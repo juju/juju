@@ -36,6 +36,8 @@ import (
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -103,9 +105,13 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 	controllerConfigService := serviceFactory.ControllerConfig()
 	modelConfigService := serviceFactory.Config()
 	modelInfoService := serviceFactory.ModelInfo()
-
-	applicationService := serviceFactory.Application(registry)
 	storageService := serviceFactory.Storage(registry)
+	secretBackendAdminConfigGetter := secretbackendservice.BackendConfigGetterFunc(
+		serviceFactory.SecretBackend(), ctx.ModelUUID())
+	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
+		StorageRegistry: registry,
+		Secrets:         serviceFactory.Secret(secretBackendAdminConfigGetter),
+	})
 
 	sb, err := state.NewStorageBackend(ctx.State())
 	if err != nil {
@@ -166,13 +172,11 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 		common.AuthFuncForTagKind(names.UnitTagKind),
 	)
 
-	unitRemover := ctx.ServiceFactory().Application(nil)
-
 	apiGroup := &APIGroup{
 		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		LifeGetter:         common.NewLifeGetter(st, lifeCanRead),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, ctx.Resources(), common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		Remover:            common.NewRemover(st, ctx.ObjectStore(), common.RevokeLeadershipFunc(leadershipRevoker), true, common.AuthFuncForTagKind(names.UnitTagKind), unitRemover),
+		Remover:            common.NewRemover(st, ctx.ObjectStore(), common.RevokeLeadershipFunc(leadershipRevoker), true, common.AuthFuncForTagKind(names.UnitTagKind), applicationService),
 		charmInfoAPI:       commonCharmsAPI,
 		appCharmInfoAPI:    appCharmInfoAPI,
 		API:                api,

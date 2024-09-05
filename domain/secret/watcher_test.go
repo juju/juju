@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -54,7 +55,10 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 	logger := loggertesting.WrapCheckLog(c)
 	st := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger)
-	svc := applicationservice.NewService(st, nil, nil, logger)
+	svc := applicationservice.NewService(st, nil, applicationservice.ApplicationServiceParams{
+		StorageRegistry: storage.NotImplementedProviderRegistry{},
+		Secrets:         applicationservice.NotImplementedSecretService{},
+	}, logger)
 
 	unitName := fmt.Sprintf("%s/0", appName)
 	_, err := svc.CreateApplication(context.Background(),

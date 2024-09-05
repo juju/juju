@@ -715,7 +715,11 @@ func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	}
-	s.service = NewApplicationService(s.state, registry, loggertesting.WrapCheckLog(c))
+	params := ApplicationServiceParams{
+		StorageRegistry: registry,
+		Secrets:         NotImplementedSecretService{},
+	}
+	s.service = NewApplicationService(s.state, params, loggertesting.WrapCheckLog(c))
 
 	return ctrl
 }

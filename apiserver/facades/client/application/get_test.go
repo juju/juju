@@ -22,10 +22,10 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	storageprovider "github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -62,6 +62,11 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 
+	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+		StorageRegistry: registry,
+		Secrets:         service.NotImplementedSecretService{},
+	})
+
 	api, err := application.NewAPIBase(
 		application.GetState(st, state.NoopInstancePrechecker{}),
 		nil,
@@ -77,7 +82,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),
-		serviceFactory.Application(storageprovider.CommonStorageProviders()),
+		applicationService,
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,
@@ -208,6 +213,11 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+		StorageRegistry: registry,
+		Secrets:         service.NotImplementedSecretService{},
+	})
+
 	api, err := application.NewAPIBase(
 		application.GetState(st, state.NoopInstancePrechecker{}),
 		nil,
@@ -223,7 +233,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),
-		serviceFactory.Application(registry),
+		applicationService,
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,

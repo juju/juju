@@ -43,7 +43,10 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
-		nil,
+		service.ApplicationServiceParams{
+			StorageRegistry: provider.CommonStorageProviders(),
+			Secrets:         service.NotImplementedSecretService{},
+		},
 		loggertesting.WrapCheckLog(c),
 	)
 	watcher, err := svc.WatchCharms()
@@ -107,7 +110,10 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
-		provider.CommonStorageProviders(),
+		service.ApplicationServiceParams{
+			StorageRegistry: provider.CommonStorageProviders(),
+			Secrets:         service.NotImplementedSecretService{},
+		},
 		loggertesting.WrapCheckLog(c),
 	)
 
@@ -282,7 +288,10 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *gc.C) {
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
-		provider.CommonStorageProviders(),
+		service.ApplicationServiceParams{
+			StorageRegistry: provider.CommonStorageProviders(),
+			Secrets:         service.NotImplementedSecretService{},
+		},
 		loggertesting.WrapCheckLog(c),
 	)
 
@@ -337,7 +346,10 @@ func (s *watcherSuite) TestWatchApplicationScale(c *gc.C) {
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
-		provider.CommonStorageProviders(),
+		service.ApplicationServiceParams{
+			StorageRegistry: provider.CommonStorageProviders(),
+			Secrets:         service.NotImplementedSecretService{},
+		},
 		loggertesting.WrapCheckLog(c),
 	)
 	s.createApplication(c, &svc.Service, "foo")

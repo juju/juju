@@ -69,7 +69,10 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewService(
 		state.NewApplicationState(scope.ModelDB(), i.logger),
 		state.NewCharmState(scope.ModelDB()),
-		i.registry,
+		service.ApplicationServiceParams{
+			StorageRegistry: i.registry,
+			Secrets:         service.NotImplementedSecretService{},
+		},
 		i.logger,
 	)
 	return nil

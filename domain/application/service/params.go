@@ -9,6 +9,13 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
+// ApplicationServiceParams defines parameters used to
+// create an application service.
+type ApplicationServiceParams struct {
+	StorageRegistry storage.ProviderRegistry
+	Secrets         SecretService
+}
+
 // AddApplicationArgs contains arguments for adding an application to the model.
 type AddApplicationArgs struct {
 	// ReferenceName is the given name of the charm that is stored in the
