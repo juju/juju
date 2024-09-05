@@ -185,15 +185,15 @@ func (st *State) UpdateUnitPorts(
 	unitUUID := unitUUID{UUID: unit}
 
 	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		currentOpenedPorts, err := st.getUnitOpenedPorts(ctx, tx, unitUUID)
+		colocatedOpenedPorts, err := st.getColocatedOpenedPorts(ctx, tx, unitUUID)
 		if err != nil {
-			return errors.Annotatef(err, "getting opened ports for unit %q", unit)
+			return errors.Annotatef(err, "getting opened ports co-located with unit %q", unit)
 		}
 
 		allInputPortRanges := append(openPorts.UniquePortRanges(), closePorts.UniquePortRanges()...)
-		err = verifyNoPortRangeConflicts(currentOpenedPorts, allInputPortRanges)
+		err = verifyNoPortRangeConflicts(colocatedOpenedPorts, allInputPortRanges)
 		if err != nil {
-			return errors.Annotatef(err, "port ranges conflict on unit %q", unit)
+			return errors.Annotate(err, "port range conflict with existing open port range")
 		}
 
 		endpoints, err := st.ensureEndpoints(ctx, tx, unitUUID, endpointsUnderAction)
@@ -201,12 +201,17 @@ func (st *State) UpdateUnitPorts(
 			return errors.Annotatef(err, "ensuring endpoints exist for unit %q", unit)
 		}
 
-		err = st.openPorts(ctx, tx, openPorts, currentOpenedPorts, endpoints)
+		currentUnitOpenedPorts, err := st.getUnitOpenedPorts(ctx, tx, unitUUID)
+		if err != nil {
+			return errors.Annotatef(err, "getting opened ports for unit %q", unit)
+		}
+
+		err = st.openPorts(ctx, tx, openPorts, currentUnitOpenedPorts, endpoints)
 		if err != nil {
 			return errors.Annotatef(err, "opening ports for unit %q", unit)
 		}
 
-		err = st.closePorts(ctx, tx, closePorts, currentOpenedPorts)
+		err = st.closePorts(ctx, tx, closePorts, currentUnitOpenedPorts)
 		if err != nil {
 			return errors.Annotatef(err, "closing ports for unit %q", unit)
 		}
@@ -278,6 +283,35 @@ AND endpoint IN ($endpoints[:])
 	return endpoints, nil
 }
 
+// getColocatedOpenedPorts returns the opened ports for all units co-located with
+// the given unit.
+//
+// Units are considered co-located if they share the same net-node.
+func (st *State) getColocatedOpenedPorts(ctx context.Context, tx *sqlair.TX, unitUUID unitUUID) ([]portRange, error) {
+	getOpenedPorts, err := st.Prepare(`
+SELECT &portRange.*
+FROM port_range AS pr
+JOIN protocol AS p ON pr.protocol_id = p.id
+JOIN unit_endpoint AS ep ON pr.unit_endpoint_uuid = ep.uuid
+JOIN unit AS u ON ep.unit_uuid = u.uuid
+JOIN unit AS u2 on u2.net_node_uuid = u.net_node_uuid
+WHERE u2.uuid = $unitUUID.unit_uuid
+`, portRange{}, unitUUID)
+	if err != nil {
+		return nil, errors.Annotate(err, "preparing get machine opened ports statement")
+	}
+
+	var openedPorts []portRange
+	err = tx.Query(ctx, getOpenedPorts, unitUUID).GetAll(&openedPorts)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return []portRange{}, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return openedPorts, nil
+}
+
 // getUnitOpenedPorts returns the opened ports for the given unit.
 //
 // NOTE: This differs from GetUnitOpenedPorts in that it returns port ranges with
@@ -292,14 +326,14 @@ SELECT
 	unit_endpoint.endpoint AS &endpointPortRangeUUID.endpoint
 FROM port_range
 JOIN protocol ON port_range.protocol_id = protocol.id
-INNER JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
+JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
 WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 `, endpointPortRangeUUID{}, unitUUID)
 	if err != nil {
 		return nil, errors.Annotate(err, "preparing get opened ports statement")
 	}
 
-	openedPorts := []endpointPortRangeUUID{}
+	var openedPorts []endpointPortRangeUUID
 	err = tx.Query(ctx, getOpenedPorts, unitUUID).GetAll(&openedPorts)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return []endpointPortRangeUUID{}, nil
@@ -310,7 +344,7 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 	return openedPorts, nil
 }
 
-func verifyNoPortRangeConflicts(currentOpenedPorts []endpointPortRangeUUID, inputPortRanges []network.PortRange) error {
+func verifyNoPortRangeConflicts(currentOpenedPorts []portRange, inputPortRanges []network.PortRange) error {
 	for _, inputPortRange := range inputPortRanges {
 		for _, openedPortRange := range currentOpenedPorts {
 			if inputPortRange == openedPortRange.decode() {

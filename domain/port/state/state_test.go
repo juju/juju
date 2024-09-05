@@ -44,12 +44,12 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	err := machineSt.CreateMachine(context.Background(), "m", netNodeUUID, mUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.unitUUID = s.createUnit(c)
+	s.unitUUID = s.createUnit(c, netNodeUUID)
 }
 
 // createUnit creates a new unit in state and returns its UUID. The unit is assigned
 // to the net node with uuid `netNodeUUID`.
-func (s *stateSuite) createUnit(c *gc.C) string {
+func (s *stateSuite) createUnit(c *gc.C, netNodeUUID string) string {
 	applicationSt := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
 	_, err := applicationSt.CreateApplication(context.Background(), "app", application.AddApplicationArg{
 		Charm: charm.Charm{
@@ -72,13 +72,9 @@ func (s *stateSuite) createUnit(c *gc.C) string {
 			return errors.Trace(err)
 		}
 
-		// NOTE: As of writing, both the machine and unit domain are only partially
-		// complete. In such a way that makes it impossible to assign a machine
-		// and unit to the same net-node (which represents a unit deployed on a
-		// machine). This hack overwrites state to assign the unit to the machine.
-		//
-		// TODO (jack-w-shaw): once these other domains are closer to completion,
-		// remove this hack when we can.
+		_, err = tx.ExecContext(ctx, "INSERT INTO net_node VALUES (?) ON CONFLICT DO NOTHING", netNodeUUID)
+		c.Assert(err, jc.ErrorIsNil)
+
 		_, err = tx.ExecContext(ctx, "UPDATE unit SET net_node_uuid = ? WHERE name = ?", netNodeUUID, unitName)
 		if err != nil {
 			return errors.Trace(err)
@@ -174,7 +170,7 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnits(c *gc.C) {
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID := s.createUnit(c)
+	unit1UUID := s.createUnit(c, netNodeUUID)
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
 			"endpoint": {
@@ -500,6 +496,72 @@ func (s *stateSuite) TestUpdateUnitPortsClosePortRangeOverlapping(c *gc.C) {
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestUpdateUnitPortRangesOverlappingAcrossColocatedUnits(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	s.initialiseOpenPort(c, st)
+
+	unit1UUID := s.createUnit(c, netNodeUUID)
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{"endpoint": {{Protocol: "tcp", FromPort: 2000, ToPort: 2500}}}, network.GroupedPortRanges{})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{"endpoint": {{Protocol: "tcp", FromPort: 2000, ToPort: 2250}}}, network.GroupedPortRanges{})
+	})
+	c.Check(err, jc.ErrorIs, ErrPortRangeConflict)
+}
+
+func (s *stateSuite) TestUpdateUnitPortRangesOverlappingAcrossNonColocatedUnits(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	s.initialiseOpenPort(c, st)
+
+	unit1UUID := s.createUnit(c, "net-node-uuid-2")
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{"endpoint": {{Protocol: "tcp", FromPort: 2000, ToPort: 2500}}}, network.GroupedPortRanges{})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{"endpoint": {{Protocol: "tcp", FromPort: 2000, ToPort: 2250}}}, network.GroupedPortRanges{})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestUpdateUnitPortRangesOpenAlreadyOpenAcrossUnits(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	s.initialiseOpenPort(c, st)
+	unit1UUID := s.createUnit(c, netNodeUUID)
+
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{"endpoint": {{Protocol: "udp", FromPort: 1000, ToPort: 1500}}}, network.GroupedPortRanges{})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{"endpoint": {{Protocol: "udp", FromPort: 1000, ToPort: 1500}}}, network.GroupedPortRanges{})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineGroupedPortRanges, err := st.GetMachineOpenedPorts(ctx, mUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(machineGroupedPortRanges, gc.HasLen, 2)
+
+	unit0PortRanges, ok := machineGroupedPortRanges[s.unitUUID]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(unit0PortRanges["endpoint"], gc.HasLen, 2)
+	c.Check(unit0PortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
+	c.Check(unit0PortRanges["endpoint"][1], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
+
+	unit1PortRanges, ok := machineGroupedPortRanges[unit1UUID]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(unit1PortRanges["endpoint"], gc.HasLen, 1)
+	c.Check(unit1PortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
 }
 
 func (s *stateSuite) TestUpdateUnitPortsMatchingRangeAcrossEndpoints(c *gc.C) {
