@@ -61,7 +61,7 @@ SELECT
     cm.assumes,
     c.available
 FROM charm AS c
-JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid
+LEFT JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid
 LEFT JOIN charm_run_as_kind AS crak ON cm.run_as_id = crak.id;
 
 CREATE TABLE charm_source (

@@ -132,12 +132,6 @@ type charmSubordinate struct {
 	Subordinate bool `db:"subordinate"`
 }
 
-// charmIDName is used to get the ID and name of a charm.
-type charmIDName struct {
-	UUID string `db:"uuid"`
-	Name string `db:"name"`
-}
-
 // setCharmHash is used to set the hash of a charm.
 type setCharmHash struct {
 	CharmUUID  string `db:"charm_uuid"`
