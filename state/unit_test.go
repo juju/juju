@@ -1236,7 +1236,7 @@ func (s *UnitSuite) TestRemoveUnitWRelationLastUnit(c *gc.C) {
 	c.Assert(s.unit.EnsureDead(), jc.ErrorIsNil)
 	assertLife(c, s.application, state.Dying)
 	c.Assert(s.unit.Remove(), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
 	// Now the application should be gone
 	c.Assert(s.application.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
@@ -2435,7 +2435,7 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	// ...but when the unit on the other side departs the relation, the
 	// relation and the other application are cleaned up.
 	c.Assert(mysql0ru.LeaveScope(), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
 	c.Assert(wordpress.Refresh(), jc.Satisfies, errors.IsNotFound)
 	c.Assert(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
@@ -2477,7 +2477,7 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	// removal causes the relation and the other application to be cleaned up.
 	c.Assert(mysql0.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(mysql0.Remove(), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
 	c.Assert(wordpress.Refresh(), jc.Satisfies, errors.IsNotFound)
 	c.Assert(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
@@ -2826,7 +2826,7 @@ func (s *UnitSuite) TestDestroyWithForceWorksOnDyingUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(needsCleanup, gc.Equals, true)
 
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(fakeSecretDeleter)
 	c.Assert(err, jc.ErrorIsNil)
 	needsCleanup, err = s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)

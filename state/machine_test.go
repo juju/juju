@@ -383,7 +383,7 @@ func (s *MachineSuite) TestLifeJobManageModelWithControllerCharm(c *gc.C) {
 	err = s.State.RemoveControllerReference(cn2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
 
 	err = m2.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)

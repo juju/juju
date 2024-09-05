@@ -211,7 +211,7 @@ func (s *PayloadsSuite) TestRemoveUnitUntracksPayloads(c *gc.C) {
 
 	err = fix.Unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(fakeSecretDeleter)
 	c.Assert(err, jc.ErrorIsNil)
 	fix.CheckNoPayload(c)
 }

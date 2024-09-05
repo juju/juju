@@ -140,7 +140,7 @@ func (s *MachineSuite) TestForceMarksSeriesLockUnlocksMachineForCleanup(c *gc.C)
 	// After a forced destroy an upgrade series lock on a machine should be
 	// marked for cleanup and therefore should be cleaned up if anything
 	// should trigger a state cleanup.
-	s.State.Cleanup()
+	s.State.Cleanup(fakeSecretDeleter)
 
 	// The machine, since it was destroyed, its lock should have been
 	// cleaned up. Checking to see if the machine is not locked, that is,

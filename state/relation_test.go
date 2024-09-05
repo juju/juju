@@ -1186,7 +1186,7 @@ func (s *RelationSuite) TestDestroyForceStuckRemoteUnits(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// But running cleanup immediately doesn't do it all.
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(fakeSecretDeleter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 
@@ -1200,7 +1200,7 @@ func (s *RelationSuite) TestDestroyForceStuckRemoteUnits(c *gc.C) {
 
 	s.Clock.Advance(time.Minute)
 
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(fakeSecretDeleter)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertNotInScope(c, localRelUnit)
@@ -1228,7 +1228,7 @@ func (s *RelationSuite) TestDestroyForceIsFineIfUnitsAlreadyLeft(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// But running cleanup immediately doesn't do it.
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(fakeSecretDeleter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 	for i, ru := range relUnits {
@@ -1251,7 +1251,7 @@ func (s *RelationSuite) TestDestroyForceIsFineIfUnitsAlreadyLeft(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	s.Clock.Advance(30 * time.Second)
 
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(fakeSecretDeleter)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// If the cleanup had failed because the relation had gone, it
@@ -1272,7 +1272,7 @@ func (s *RelationSuite) assertRelationCleanedUp(c *gc.C, rel *state.Relation, re
 	s.assertNeedsCleanup(c)
 
 	// But running cleanup immediately doesn't do it.
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(fakeSecretDeleter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 	for i, ru := range relUnits {
@@ -1285,7 +1285,7 @@ func (s *RelationSuite) assertRelationCleanedUp(c *gc.C, rel *state.Relation, re
 
 	s.Clock.Advance(time.Minute)
 
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(fakeSecretDeleter)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, ru := range relUnits {

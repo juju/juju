@@ -10,6 +10,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -17,11 +18,13 @@ import (
 type CleanerAPI struct {
 	st        StateInterface
 	resources facade.Resources
+
+	secretContentDeleter state.SecretContentDeleter
 }
 
 // Cleanup triggers a state cleanup
 func (api *CleanerAPI) Cleanup() error {
-	return api.st.Cleanup()
+	return api.st.Cleanup(api.secretContentDeleter)
 }
 
 // WatchCleanups watches for cleanups to be performed in state.

@@ -63,6 +63,8 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		&mockStorageRegistry{},
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
+		nil, // secret backend config getter not used in this suite.
+		state.NewSecrets(s.State),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.applicationAPI = api
@@ -183,6 +185,8 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		&mockStorageRegistry{},
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
+		nil, // secret backend config getter not used in this suite.
+		state.NewSecrets(s.State),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

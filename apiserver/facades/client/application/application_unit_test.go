@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
+	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
@@ -66,6 +67,7 @@ type ApplicationSuite struct {
 	api *application.APIBase
 
 	backend            *mocks.MockBackend
+	secrets            *mocks.MockSecretsStore
 	storageAccess      *mocks.MockStorageInterface
 	model              *mocks.MockModel
 	leadershipReader   *mocks.MockReader
@@ -160,6 +162,8 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	s.backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 	s.backend.EXPECT().AllSpaceInfos().Return(s.allSpaceInfos, nil).AnyTimes()
 
+	s.secrets = mocks.NewMockSecretsStore(ctrl)
+
 	s.storageAccess = mocks.NewMockStorageInterface(ctrl)
 	s.storageAccess.EXPECT().VolumeAccess().Return(nil).AnyTimes()
 	s.storageAccess.EXPECT().FilesystemAccess().Return(nil).AnyTimes()
@@ -206,6 +210,10 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.registry,
 		common.NewResources(),
 		s.caasBroker,
+		func(backendID string) (*secretsprovider.ModelBackendConfigInfo, error) {
+			return &secretsprovider.ModelBackendConfigInfo{}, nil
+		},
+		s.secrets,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -965,7 +973,7 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 
 	s.expectDefaultStorageAttachments(ctrl)
 
-	s.backend.EXPECT().ApplyOperation(&state.DestroyApplicationOperation{}).Return(nil)
+	s.backend.EXPECT().ApplyOperation(gomock.AssignableToTypeOf(&state.DestroyApplicationOperation{})).Return(nil)
 
 	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
 		Applications: []params.DestroyApplicationParams{{
@@ -992,6 +1000,26 @@ func (s *ApplicationSuite) TestDestroyApplicationWithBlockRemove(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "remove blocked")
 }
 
+type destroyAppMatcher struct {
+	c        *gc.C
+	expected *state.DestroyApplicationOperation
+}
+
+func (m destroyAppMatcher) Matches(x interface{}) bool {
+	obtained, ok := x.(*state.DestroyApplicationOperation)
+	if !ok {
+		return false
+	}
+	m.c.Assert(obtained.SecretContentDeleter, gc.NotNil)
+	obtained.SecretContentDeleter = nil
+	m.c.Assert(obtained, jc.DeepEquals, m.expected)
+	return true
+}
+
+func (m destroyAppMatcher) String() string {
+	return pretty.Sprintf("Match the contents of %v", m.expected)
+}
+
 func (s *ApplicationSuite) TestForceDestroyApplication(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
@@ -1008,10 +1036,11 @@ func (s *ApplicationSuite) TestForceDestroyApplication(c *gc.C) {
 
 	zero := time.Duration(0)
 
-	s.backend.EXPECT().ApplyOperation(&state.DestroyApplicationOperation{ForcedOperation: state.ForcedOperation{
-		Force:   true,
-		MaxWait: common.MaxWait(&zero),
-	}}).Return(nil)
+	s.backend.EXPECT().ApplyOperation(destroyAppMatcher{c: c, expected: &state.DestroyApplicationOperation{
+		ForcedOperation: state.ForcedOperation{
+			Force:   true,
+			MaxWait: common.MaxWait(&zero),
+		}}}).Return(nil)
 
 	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
 		Applications: []params.DestroyApplicationParams{{
@@ -1037,9 +1066,9 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 
 	s.expectDefaultStorageAttachments(ctrl)
 
-	s.backend.EXPECT().ApplyOperation(&state.DestroyApplicationOperation{
+	s.backend.EXPECT().ApplyOperation(destroyAppMatcher{c: c, expected: &state.DestroyApplicationOperation{
 		DestroyStorage: true,
-	}).Return(nil)
+	}}).Return(nil)
 
 	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
 		Applications: []params.DestroyApplicationParams{{

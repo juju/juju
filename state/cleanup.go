@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/mongo"
 	stateerrors "github.com/juju/juju/state/errors"
 	statestorage "github.com/juju/juju/state/storage"
@@ -160,10 +161,13 @@ func (st *State) NeedsCleanup() (bool, error) {
 	return count > 0, nil
 }
 
+// SecretContentDeleter removes the specified secret content.
+type SecretContentDeleter func(uri *secrets.URI, revision int) error
+
 // Cleanup removes all documents that were previously marked for removal, if
 // any such exist. It should be called periodically by at least one element
 // of the system.
-func (st *State) Cleanup() (err error) {
+func (st *State) Cleanup(secretContentDeleter SecretContentDeleter) (err error) {
 	var doc cleanupDoc
 	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
@@ -197,9 +201,9 @@ func (st *State) Cleanup() (err error) {
 		case cleanupCharm:
 			err = st.cleanupCharm(doc.Prefix)
 		case cleanupApplication:
-			err = st.cleanupApplication(doc.Prefix, args)
+			err = st.cleanupApplication(doc.Prefix, args, secretContentDeleter)
 		case cleanupForceApplication:
-			err = st.cleanupForceApplication(doc.Prefix, args)
+			err = st.cleanupForceApplication(doc.Prefix, args, secretContentDeleter)
 		case cleanupUnitsForDyingApplication:
 			err = st.cleanupUnitsForDyingApplication(doc.Prefix, args)
 		case cleanupDyingUnit:
@@ -213,7 +217,7 @@ func (st *State) Cleanup() (err error) {
 		case cleanupRemovedUnit:
 			err = st.cleanupRemovedUnit(doc.Prefix, args)
 		case cleanupApplicationsForDyingModel:
-			err = st.cleanupApplicationsForDyingModel(args)
+			err = st.cleanupApplicationsForDyingModel(args, secretContentDeleter)
 		case cleanupDyingMachine:
 			err = st.cleanupDyingMachine(doc.Prefix, args)
 		case cleanupForceDestroyedMachine:
@@ -567,7 +571,7 @@ func (st *State) cleanupBranchesForDyingModel(cleanupArgs []bson.Raw) (err error
 
 // cleanupApplication checks if all references to a dying application have been removed,
 // and if so, removes the application.
-func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.Raw) (err error) {
+func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.Raw, secretContentDeleter SecretContentDeleter) (err error) {
 	app, err := st.Application(applicationname)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -602,6 +606,7 @@ func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.R
 	op := app.DestroyOperation()
 	op.DestroyStorage = destroyStorage
 	op.Force = force
+	op.SecretContentDeleter = secretContentDeleter
 	err = st.ApplyOperation(op)
 	if len(op.Errors) != 0 {
 		logger.Warningf("operational errors cleaning up application %v: %v", applicationname, op.Errors)
@@ -610,7 +615,7 @@ func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.R
 }
 
 // cleanupForceApplication forcibly removes the application.
-func (st *State) cleanupForceApplication(applicationName string, cleanupArgs []bson.Raw) (err error) {
+func (st *State) cleanupForceApplication(applicationName string, cleanupArgs []bson.Raw, secretContentDeleter SecretContentDeleter) (err error) {
 	logger.Debugf("force destroy application: %v", applicationName)
 	app, err := st.Application(applicationName)
 	if err != nil {
@@ -634,6 +639,7 @@ func (st *State) cleanupForceApplication(applicationName string, cleanupArgs []b
 	op.Force = true
 	op.CleanupIgnoringResources = true
 	op.MaxWait = maxWait
+	op.SecretContentDeleter = secretContentDeleter
 	err = st.ApplyOperation(op)
 	if len(op.Errors) != 0 {
 		logger.Warningf("operational errors cleaning up application %v: %v", applicationName, op.Errors)
@@ -644,7 +650,7 @@ func (st *State) cleanupForceApplication(applicationName string, cleanupArgs []b
 // cleanupApplicationsForDyingModel sets all applications to Dying, if they are
 // not already Dying or Dead. It's expected to be used when a model is
 // destroyed.
-func (st *State) cleanupApplicationsForDyingModel(cleanupArgs []bson.Raw) (err error) {
+func (st *State) cleanupApplicationsForDyingModel(cleanupArgs []bson.Raw, secretContentDeleter SecretContentDeleter) (err error) {
 	var args DestroyModelParams
 	switch n := len(cleanupArgs); n {
 	case 0:
@@ -662,10 +668,10 @@ func (st *State) cleanupApplicationsForDyingModel(cleanupArgs []bson.Raw) (err e
 	if err := st.removeRemoteApplicationsForDyingModel(args); err != nil {
 		return err
 	}
-	return st.removeApplicationsForDyingModel(args)
+	return st.removeApplicationsForDyingModel(args, secretContentDeleter)
 }
 
-func (st *State) removeApplicationsForDyingModel(args DestroyModelParams) (err error) {
+func (st *State) removeApplicationsForDyingModel(args DestroyModelParams, secretContentDeleter SecretContentDeleter) (err error) {
 	// This won't miss applications, because a Dying model cannot have
 	// applications added to it. But we do have to remove the applications
 	// themselves via individual transactions, because they could be in any
@@ -689,6 +695,7 @@ func (st *State) removeApplicationsForDyingModel(args DestroyModelParams) (err e
 		op.RemoveOffers = true
 		op.Force = force
 		op.MaxWait = args.MaxWait
+		op.SecretContentDeleter = secretContentDeleter
 		err := st.ApplyOperation(op)
 		if len(op.Errors) != 0 {
 			logger.Warningf("operational errors removing application %v for dying model %v: %v", application.Name(), st.ModelUUID(), op.Errors)

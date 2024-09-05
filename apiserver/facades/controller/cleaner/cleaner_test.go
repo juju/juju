@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
@@ -130,7 +131,15 @@ func (st *mockState) WatchCleanups() state.NotifyWatcher {
 	return w
 }
 
-func (st *mockState) Cleanup() error {
-	st.MethodCall(st, "Cleanup")
+func (st *mockState) Cleanup(secretContentDeleter state.SecretContentDeleter) error {
+	st.MethodCall(st, "Cleanup", secretContentDeleter)
 	return st.NextErr()
+}
+
+func (st *mockState) SecretsModel() (commonsecrets.Model, error) {
+	return mockModel{}, nil
+}
+
+type mockModel struct {
+	commonsecrets.Model
 }

@@ -14,7 +14,7 @@ func TestAll(t *stdtesting.T) {
 }
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/lxdprofile_mock.go github.com/juju/charm/v12 LXDProfiler
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state StorageAttachment,StorageInstance,MachinePortRanges,UnitPortRanges,CloudContainer
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state StorageAttachment,StorageInstance,MachinePortRanges,UnitPortRanges,CloudContainer,SecretsStore
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_storage_mock.go github.com/juju/juju/state/storage Storage
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/storage_mock.go github.com/juju/juju/storage ProviderRegistry
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/poolmanager_mock.go github.com/juju/juju/storage/poolmanager PoolManager

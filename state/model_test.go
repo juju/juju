@@ -1958,7 +1958,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 }
 
 func assertCleanupRuns(c *gc.C, st *state.State) {
-	err := st.Cleanup()
+	err := st.Cleanup(fakeSecretDeleter)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -4,6 +4,65 @@ run_secrets() {
 	model_name='model-secrets-k8s'
 	juju --show-log add-model "$model_name" --config secret-backend=auto
 
+	# k8s secrets are stored in an external backend.
+	# These checks ensure the secrets are deleted when the units and app are deleted.
+	echo "deploy an app and create an app owned secret and a unit owned secret"
+	juju --show-log deploy snappass-test
+	wait_for "snappass-test" "$(active_idle_condition "snappass-test" 0 0)"
+	wait_for "active" '.applications["snappass-test"] | ."application-status".current'
+	full_uri1=$(juju exec --unit snappass-test/0 -- secret-add foo=bar)
+	short_uri1=${full_uri1##*/}
+	full_uri2=$(juju exec --unit snappass-test/0 -- secret-add --owner unit foo=bar2)
+	short_uri2=${full_uri2##*/}
+	check_contains "$(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${short_uri1}"'-1")')" "${short_uri1}-1"
+	check_contains "$(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${short_uri2}"'-1")')" "${short_uri2}-1"
+
+	echo "add another unit and create a unit owned secret"
+	juju --show-log scale-application snappass-test 2
+	wait_for "snappass-test" "$(active_idle_condition "snappass-test" 0 1)"
+	full_uri3=$(juju exec --unit snappass-test/1 -- secret-add --owner unit foo=bar3)
+	short_uri3=${full_uri3##*/}
+	check_contains "$(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${short_uri3}"'-1")')" "${short_uri3}-1"
+
+	echo "remove a unit and check only its secret is removed"
+	juju --show-log scale-application snappass-test 1
+	check_contains "$(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${short_uri1}"'-1")')" "${short_uri1}-1"
+	check_contains "$(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${short_uri2}"'-1")')" "${short_uri2}-1"
+	attempt=0
+	until [[ -z $(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${short_uri3}"'-1")') ]]; do
+		if [[ ${attempt} -ge 30 ]]; then
+			echo "Failed: secrets were not deleted on unit removal."
+			exit 1
+		fi
+		sleep 2
+		attempt=$((attempt + 1))
+	done
+
+	echo "remove the last unit and check only the app owned secret remains"
+	juju --show-log scale-application snappass-test 0
+	check_contains "$(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${short_uri1}"'-1")')" "${short_uri1}-1"
+	attempt=0
+	until [[ -z $(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${short_uri2}"'-1")') ]]; do
+		if [[ ${attempt} -ge 30 ]]; then
+			echo "Failed: secrets were not deleted on unit removal."
+			exit 1
+		fi
+		sleep 2
+		attempt=$((attempt + 1))
+	done
+
+	echo "remove the app and the app owned secret should be deleted too"
+	juju --show-log remove-application snappass-test
+	attempt=0
+	until [[ -z $(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${short_uri1}"'-1")') ]]; do
+		if [[ ${attempt} -ge 30 ]]; then
+			echo "Failed: secrets were not deleted on app removal."
+			exit 1
+		fi
+		sleep 2
+		attempt=$((attempt + 1))
+	done
+
 	juju --show-log deploy hello-kubecon hello
 	# TODO(anvial): remove the revision flag once we update hello-kubecon charm
 	#  (https://discourse.charmhub.io/t/old-ingress-relation-removal/12944)

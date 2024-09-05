@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -62,6 +63,13 @@ type Backend interface {
 	state.EndpointBinding
 	ModelConstraints() (constraints.Value, error)
 	services.StateBackend
+}
+
+// SecretsState defines the functionality for accessing secrets.
+type SecretsState interface {
+	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
+	ListSecrets(filter state.SecretsFilter) ([]*secrets.SecretMetadata, error)
+	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 }
 
 // BlockChecker defines the block-checking functionality required by

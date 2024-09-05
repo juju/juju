@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -1169,7 +1170,7 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 
 	assertCleanups := func(n int) {
 		for i := 0; i < 4; i++ {
-			err := st.Cleanup()
+			err := st.Cleanup(fakeSecretDeleter)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		state.AssertNoCleanups(c, st)
@@ -1692,7 +1693,7 @@ func (s *CleanupSuite) TestForceDestroyRelationIncorrectUnitCount(c *gc.C) {
 }
 
 func (s *CleanupSuite) assertCleanupRuns(c *gc.C) {
-	err := s.State.Cleanup()
+	err := s.State.Cleanup(fakeSecretDeleter)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1758,4 +1759,8 @@ func assertUnitInScope(c *gc.C, unit *state.Unit, rel *state.Relation, expected 
 	inscope, err := ru.InScope()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inscope, gc.Equals, expected)
+}
+
+var fakeSecretDeleter = func(uri *secrets.URI, revision int) error {
+	return nil
 }

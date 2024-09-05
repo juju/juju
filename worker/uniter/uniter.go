@@ -753,9 +753,42 @@ func (u *Uniter) terminate() error {
 			}
 			// The unit is known to be Dying; so if it didn't have subordinates
 			// just above, it can't acquire new ones before this call.
+			// The same goes for secrets.
+
+			// Just before the transition to dead, remove any secret content
+			// for secrets owned by this unit.
+			// We only handle unit owned secrets here. Any app owned secrets
+			// can only be deleted when the app itself is removed. This is
+			// done in the api server.
+			u.logger.Debugf("deleting secret content")
+			secrets, err := u.secretsClient.SecretMetadata()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			backend, err := u.secretsBackendGetter()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			for _, s := range secrets {
+				owner, err := names.ParseTag(s.Metadata.OwnerTag)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if owner.Kind() == names.ApplicationTagKind {
+					continue
+				}
+				for _, rev := range s.Revisions {
+					err = backend.DeleteContent(s.Metadata.URI, rev)
+					if err != nil {
+						return errors.Annotatef(err, "deleting secret content for %s/%d", s.Metadata.URI.ID, rev)
+					}
+				}
+			}
+
 			if err := u.unit.EnsureDead(); err != nil {
 				return errors.Trace(err)
 			}
+
 			return u.stopUnitError()
 		}
 	}
