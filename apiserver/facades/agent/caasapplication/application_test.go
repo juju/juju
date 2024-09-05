@@ -56,7 +56,10 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	// upserting of units.
 	serviceFactory := s.DefaultModelServiceFactory(c)
 	unitName := "gitlab/0"
-	applicationService := serviceFactory.Application(provider.CommonStorageProviders())
+	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+		StorageRegistry: provider.CommonStorageProviders(),
+		Secrets:         service.NotImplementedSecretService{},
+	})
 
 	origin := corecharm.Origin{
 		Source: corecharm.CharmHub,

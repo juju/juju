@@ -50,7 +50,10 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	var err error
 	res := common.NewResources()
 	s.machineService = machineservice.NewWatchableService(nil, nil)
-	s.applicationService = applicationservice.NewWatchableService(nil, nil, nil, storage.NotImplementedProviderRegistry{}, loggertesting.WrapCheckLog(c))
+	s.applicationService = applicationservice.NewWatchableService(nil, nil, nil, applicationservice.ApplicationServiceParams{
+		StorageRegistry: storage.NotImplementedProviderRegistry{},
+		Secrets:         applicationservice.NotImplementedSecretService{},
+	}, loggertesting.WrapCheckLog(c))
 	s.api, err = cleaner.NewCleanerAPI(facadetest.ModelContext{
 		Resources_: res,
 		Auth_:      s.authoriser,

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/internal/storage"
 )
 
 // State represents a type for interacting with the underlying state.
@@ -25,10 +24,14 @@ type Service struct {
 
 // NewService returns a new Service for interacting with the underlying
 // application state.
-func NewService(appSt ApplicationState, charmSt CharmState, registry storage.ProviderRegistry, logger logger.Logger) *Service {
+func NewService(
+	appSt ApplicationState, charmSt CharmState,
+	params ApplicationServiceParams,
+	logger logger.Logger,
+) *Service {
 	return &Service{
 		CharmService:       NewCharmService(charmSt, logger),
-		ApplicationService: NewApplicationService(appSt, registry, logger),
+		ApplicationService: NewApplicationService(appSt, params, logger),
 	}
 }
 
@@ -41,9 +44,13 @@ type WatchableService struct {
 }
 
 // NewWatchableService returns a new service reference wrapping the input state.
-func NewWatchableService(appSt ApplicationState, charmSt CharmState, watcherFactory WatcherFactory, registry storage.ProviderRegistry, logger logger.Logger) *WatchableService {
+func NewWatchableService(
+	appSt ApplicationState, charmSt CharmState, watcherFactory WatcherFactory,
+	params ApplicationServiceParams,
+	logger logger.Logger,
+) *WatchableService {
 	watchableCharmService := NewWatchableCharmService(charmSt, watcherFactory, logger)
-	watchableApplicationService := NewWatchableApplicationService(appSt, watcherFactory, registry, logger)
+	watchableApplicationService := NewWatchableApplicationService(appSt, watcherFactory, params, logger)
 	return &WatchableService{
 		Service: Service{
 			CharmService:       &watchableCharmService.CharmService,

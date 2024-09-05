@@ -44,7 +44,10 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 			loggertesting.WrapCheckLog(c),
 		),
 		state.NewCharmState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }),
-		provider.CommonStorageProviders(),
+		service.ApplicationServiceParams{
+			StorageRegistry: provider.CommonStorageProviders(),
+			Secrets:         service.NotImplementedSecretService{},
+		},
 		loggertesting.WrapCheckLog(c),
 	)
 }

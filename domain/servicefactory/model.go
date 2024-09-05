@@ -131,15 +131,14 @@ func (s *ModelFactory) BlockDevice() *blockdeviceservice.WatchableService {
 }
 
 // Application returns the model's application service.
-// TODO - replace callers which pass in nil registry.
-func (s *ModelFactory) Application(registry storage.ProviderRegistry) *applicationservice.WatchableService {
+func (s *ModelFactory) Application(params applicationservice.ApplicationServiceParams) *applicationservice.WatchableService {
 	return applicationservice.NewWatchableService(
 		applicationstate.NewApplicationState(changestream.NewTxnRunnerFactory(s.modelDB),
 			s.logger.Child("application"),
 		),
 		applicationstate.NewCharmState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		domain.NewWatcherFactory(s.modelDB, s.logger.Child("application")),
-		registry,
+		params,
 		s.logger.Child("application"),
 	)
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -112,6 +113,11 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	serviceFactoryGetter := s.ServiceFactoryGetter(c)
 	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Storage(registry)
+	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+		StorageRegistry: registry,
+		Secrets:         service.NotImplementedSecretService{},
+	})
+
 	api, err := application.NewAPIBase(
 		application.GetState(st, env),
 		nil,
@@ -127,7 +133,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),
-		serviceFactory.Application(registry),
+		applicationService,
 		nil, // leadership not used in these tests.
 		application.CharmToStateCharm,
 		application.DeployApplication,

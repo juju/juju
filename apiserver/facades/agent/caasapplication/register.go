@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -41,14 +43,22 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
+	secretBackendAdminConfigGetter := secretbackendservice.BackendConfigGetterFunc(
+		serviceFactory.SecretBackend(), ctx.ModelUUID())
+	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
+		StorageRegistry: registry,
+		Secrets:         serviceFactory.Secret(secretBackendAdminConfigGetter),
+	})
+
 	return NewFacade(
 		resources,
 		authorizer,
 		systemState,
 		&stateShim{State: st},
 		serviceFactory.ControllerConfig(),
-		serviceFactory.Application(registry),
+		applicationService,
 		broker,
 		ctx.StatePool().Clock(),
 		ctx.Logger().Child("caasapplication"),

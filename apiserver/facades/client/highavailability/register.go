@@ -11,6 +11,8 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/internal/storage"
 	oldstate "github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -57,13 +59,18 @@ func newHighAvailabilityAPI(ctx facade.ModelContext) (*HighAvailabilityAPI, erro
 		return nil, errors.Trace(err)
 	}
 
+	// For adding additional controller units, we don't need a storage registry.
+	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
+		StorageRegistry: storage.NotImplementedProviderRegistry{},
+		Secrets:         applicationservice.NotImplementedSecretService{},
+	})
+
 	return &HighAvailabilityAPI{
-		st:             st,
-		prechecker:     prechecker,
-		nodeService:    serviceFactory.ControllerNode(),
-		machineService: serviceFactory.Machine(),
-		// For adding additional controller units, we don't need a storage registry.
-		applicationService:      serviceFactory.Application(nil),
+		st:                      st,
+		prechecker:              prechecker,
+		nodeService:             serviceFactory.ControllerNode(),
+		machineService:          serviceFactory.Machine(),
+		applicationService:      applicationService,
 		controllerConfigService: serviceFactory.ControllerConfig(),
 		networkService:          serviceFactory.Network(),
 		authorizer:              authorizer,

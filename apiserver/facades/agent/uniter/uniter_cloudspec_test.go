@@ -13,8 +13,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -40,6 +42,10 @@ func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
 	facadeContext := s.facadeContext(c)
+	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
+		StorageRegistry: storage.NotImplementedProviderRegistry{},
+		Secrets:         applicationservice.NotImplementedSecretService{},
+	})
 	uniterAPI, err := uniter.NewUniterAPIWithServices(
 		context.Background(), facadeContext,
 		serviceFactory.ControllerConfig(),
@@ -50,7 +56,7 @@ func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
 		serviceFactory.Machine(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
-		serviceFactory.Application(nil),
+		applicationService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := uniterAPI.CloudSpec(context.Background())
@@ -72,6 +78,10 @@ func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
 	facadeContext.State_ = cm.State()
 
 	serviceFactory := facadeContext.ServiceFactory()
+	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
+		StorageRegistry: storage.NotImplementedProviderRegistry{},
+		Secrets:         applicationservice.NotImplementedSecretService{},
+	})
 
 	uniterAPI, err := uniter.NewUniterAPIWithServices(
 		context.Background(), facadeContext,
@@ -83,7 +93,7 @@ func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
 		serviceFactory.Machine(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
-		serviceFactory.Application(nil),
+		applicationService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	uniter.SetNewContainerBrokerFunc(uniterAPI, func(context.Context, environs.OpenParams) (caas.Broker, error) {

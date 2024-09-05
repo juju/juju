@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/secretbackend"
+	"github.com/juju/juju/internal/secrets/provider"
 )
 
 // State provides methods for working with secret backends.
@@ -41,4 +42,14 @@ type WatcherFactory interface {
 	// NewValueWatcher returns a watcher for a particular change
 	// value in a namespace, based on the input change mask.
 	NewValueWatcher(namespace, changeValue string, changeMask changestream.ChangeType) (watcher.NotifyWatcher, error)
+}
+
+// BackendConfigGetterFunc returns a function that gets the
+// config for a given model's current secret backend.
+func BackendConfigGetterFunc(
+	backendService *WatchableService, modelUUID coremodel.UUID,
+) func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
+	return func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
+		return backendService.GetSecretBackendConfigForAdmin(stdCtx, modelUUID)
+	}
 }

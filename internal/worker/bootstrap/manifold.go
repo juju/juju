@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/servicefactory"
@@ -253,6 +254,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			applicationService := controllerModelServiceFactory.Application(applicationservice.ApplicationServiceParams{
+				StorageRegistry: registry,
+				Secrets:         applicationservice.NotImplementedSecretService{},
+			})
+
 			w, err := NewWorker(WorkerConfig{
 				Agent:                   a,
 				ObjectStoreGetter:       objectStoreGetter,
@@ -261,7 +267,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UserService:             controllerServiceFactory.Access(),
 				StorageService:          controllerModelServiceFactory.Storage(registry),
 				ProviderRegistry:        registry,
-				ApplicationService:      controllerModelServiceFactory.Application(registry),
+				ApplicationService:      applicationService,
 				ControllerModel:         controllerModel,
 				ModelConfigService:      controllerModelServiceFactory.Config(),
 				KeyManagerService:       controllerModelServiceFactory.KeyManager(),

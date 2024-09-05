@@ -15,8 +15,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/domain/application/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/juju/testing"
 )
 
@@ -51,6 +53,10 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 	}
 
 	serviceFactory := s.ControllerServiceFactory(c)
+	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+		StorageRegistry: storage.NotImplementedProviderRegistry{},
+		Secrets:         service.NotImplementedSecretService{},
+	})
 	_, err := uniter.NewUniterAPIWithServices(
 		context.Background(), facadeContext,
 		serviceFactory.ControllerConfig(),
@@ -61,7 +67,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 		serviceFactory.Machine(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
-		serviceFactory.Application(nil),
+		applicationService,
 	)
 	c.Assert(err, gc.ErrorMatches, "kaboom")
 }

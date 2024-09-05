@@ -92,7 +92,7 @@ type ModelServiceFactory interface {
 	// BlockDevice returns the block device service.
 	BlockDevice() *blockdeviceservice.WatchableService
 	// Application returns the application service.
-	Application(registry storage.ProviderRegistry) *applicationservice.WatchableService
+	Application(params applicationservice.ApplicationServiceParams) *applicationservice.WatchableService
 	// KeyManager returns the key manager service.
 	KeyManager() *keymanagerservice.Service
 	// KeyManagerWithImporter returns they manager service that is capable of importing keys

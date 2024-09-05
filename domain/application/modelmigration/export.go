@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/application/state"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/storage"
 )
 
 // RegisterExport registers the export operations with the given coordinator.
@@ -65,7 +66,10 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	e.service = service.NewService(
 		state.NewApplicationState(scope.ModelDB(), e.logger),
 		state.NewCharmState(scope.ModelDB()),
-		nil,
+		service.ApplicationServiceParams{
+			StorageRegistry: storage.NotImplementedProviderRegistry{},
+			Secrets:         service.NotImplementedSecretService{},
+		},
 		e.logger,
 	)
 	return nil

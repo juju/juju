@@ -89,8 +89,13 @@ func (t successfulToken) Check() error {
 func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *coresecrets.ValueRef) (*coresecrets.URI, string) {
 	ctx := context.Background()
 	appService := applicationservice.NewApplicationService(
-		applicationstate.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(c, s.modelUUID.String()), nil }, loggertesting.WrapCheckLog(c)),
-		storage.NotImplementedProviderRegistry{}, loggertesting.WrapCheckLog(c),
+		applicationstate.NewApplicationState(
+			func() (database.TxnRunner, error) { return s.ModelTxnRunner(c, s.modelUUID.String()), nil }, loggertesting.WrapCheckLog(c)),
+		applicationservice.ApplicationServiceParams{
+			StorageRegistry: storage.NotImplementedProviderRegistry{},
+			Secrets:         applicationservice.NotImplementedSecretService{},
+		},
+		loggertesting.WrapCheckLog(c),
 	)
 	u := applicationservice.AddUnitArg{
 		UnitName: ptr("mariadb/0"),
