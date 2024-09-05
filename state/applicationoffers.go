@@ -22,17 +22,6 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-const (
-	// applicationOfferGlobalKey is the key for an application offer.
-	applicationOfferGlobalKey = "ao"
-)
-
-// applicationOfferKey will return the key for a given offer using the
-// offer uuid and the applicationOfferGlobalKey.
-func applicationOfferKey(offerUUID string) string {
-	return fmt.Sprintf("%s#%s", applicationOfferGlobalKey, offerUUID)
-}
-
 // applicationOfferDoc represents the internal state of a application offer in MongoDB.
 type applicationOfferDoc struct {
 	DocID string `bson:"_id"`

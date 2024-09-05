@@ -15,7 +15,6 @@ import (
 
 	client "github.com/juju/juju/apiserver/facades/client/client"
 	crossmodel "github.com/juju/juju/core/crossmodel"
-	permission "github.com/juju/juju/core/permission"
 	status "github.com/juju/juju/core/status"
 	config "github.com/juju/juju/environs/config"
 	charm "github.com/juju/juju/internal/charm"
@@ -889,45 +888,6 @@ func NewMockModel(ctrl *gomock.Controller) *MockModel {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModel) EXPECT() *MockModelMockRecorder {
 	return m.recorder
-}
-
-// AddUser mocks base method.
-func (m *MockModel) AddUser(arg0 state.UserAccessSpec) (permission.UserAccess, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddUser", arg0)
-	ret0, _ := ret[0].(permission.UserAccess)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddUser indicates an expected call of AddUser.
-func (mr *MockModelMockRecorder) AddUser(arg0 any) *MockModelAddUserCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUser", reflect.TypeOf((*MockModel)(nil).AddUser), arg0)
-	return &MockModelAddUserCall{Call: call}
-}
-
-// MockModelAddUserCall wrap *gomock.Call
-type MockModelAddUserCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelAddUserCall) Return(arg0 permission.UserAccess, arg1 error) *MockModelAddUserCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelAddUserCall) Do(f func(state.UserAccessSpec) (permission.UserAccess, error)) *MockModelAddUserCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelAddUserCall) DoAndReturn(f func(state.UserAccessSpec) (permission.UserAccess, error)) *MockModelAddUserCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // CloudCredentialTag mocks base method.

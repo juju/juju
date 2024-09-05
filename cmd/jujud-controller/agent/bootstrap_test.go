@@ -389,13 +389,6 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	err = adminDB.Login("admin", info.Password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check that the admin user has been given an appropriate password
-	st, closer := s.getSystemState(c)
-	defer closer()
-	u, err := st.User(names.NewLocalUserTag("admin"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(u.PasswordValid(testPassword), jc.IsTrue)
-
 	// Check that the machine configuration has been given a new
 	// password and that we can connect to mongo as that machine
 	// and that the in-mongo password also verifies correctly.
@@ -408,7 +401,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
 
-	st, closer = s.getSystemState(c)
+	st, closer := s.getSystemState(c)
 	defer closer()
 
 	node, err := st.ControllerNode("0")

@@ -13,7 +13,6 @@ var (
 	_ Entity = (*UnitAgent)(nil)
 	_ Entity = (*Application)(nil)
 	_ Entity = (*Model)(nil)
-	_ Entity = (*User)(nil)
 
 	_ EntityWithApplication = (*Unit)(nil)
 
@@ -29,7 +28,6 @@ var (
 
 	_ Authenticator = (*Machine)(nil)
 	_ Authenticator = (*Unit)(nil)
-	_ Authenticator = (*User)(nil)
 
 	_ NotifyWatcherFactory = (*Machine)(nil)
 	_ NotifyWatcherFactory = (*Unit)(nil)

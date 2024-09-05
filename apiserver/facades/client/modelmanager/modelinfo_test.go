@@ -808,7 +808,6 @@ type mockState struct {
 	cloudUsers      map[string]permission.Access
 	model           *mockModel
 	controllerModel *mockModel
-	users           []permission.UserAccess
 	machines        []common.Machine
 	controllerNodes []common.ControllerNode
 	cfgDefaults     config.ModelDefaultAttributes
@@ -980,36 +979,6 @@ func (st *mockState) AbortCurrentUpgrade() error {
 func (st *mockState) Close() error {
 	st.MethodCall(st, "Close")
 	return st.NextErr()
-}
-
-func (st *mockState) AddControllerUser(spec state.UserAccessSpec) (permission.UserAccess, error) {
-	st.MethodCall(st, "AddControllerUser", spec)
-	return permission.UserAccess{}, st.NextErr()
-}
-
-func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (permission.UserAccess, error) {
-	st.MethodCall(st, "ModelUser", tag, target)
-	for _, user := range st.users {
-		if user.UserTag != tag {
-			continue
-		}
-		nextErr := st.NextErr()
-		if nextErr != nil {
-			return permission.UserAccess{}, nextErr
-		}
-		return user, nil
-	}
-	return permission.UserAccess{}, st.NextErr()
-}
-
-func (st *mockState) RemoveUserAccess(subject names.UserTag, target names.Tag) error {
-	st.MethodCall(st, "RemoveUserAccess", subject, target)
-	return st.NextErr()
-}
-
-func (st *mockState) SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error) {
-	st.MethodCall(st, "SetUserAccess", subject, target, access)
-	return permission.UserAccess{}, st.NextErr()
 }
 
 func (st *mockState) ModelConfigDefaultValues(cloud string) (config.ModelDefaultAttributes, error) {
@@ -1297,11 +1266,6 @@ func (m *mockModel) Name() string {
 func (m *mockModel) MigrationMode() state.MigrationMode {
 	m.MethodCall(m, "MigrationMode")
 	return m.migrationStatus
-}
-
-func (m *mockModel) AddUser(spec state.UserAccessSpec) (permission.UserAccess, error) {
-	m.MethodCall(m, "AddUser", spec)
-	return permission.UserAccess{}, m.NextErr()
 }
 
 func (m *mockModel) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {

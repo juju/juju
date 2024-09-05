@@ -204,9 +204,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	modelTag := model.Tag().(names.ModelTag)
 	controllerTag := names.NewControllerTag(controllerCfg.ControllerUUID())
 	s.assertCanLogInAsAdmin(c, modelTag, controllerTag, testing.DefaultMongoPassword)
-	user, err := st.User(model.Owner())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
 	// Check that controller model configuration has been added, and
 	// model constraints set.

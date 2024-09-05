@@ -4,8 +4,6 @@
 package state
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
@@ -18,16 +16,7 @@ import (
 const (
 	// ControllerSettingsGlobalKey is the key for the controller and its settings.
 	ControllerSettingsGlobalKey = "controllerSettings"
-
-	// controllerGlobalKey is the key for controller.
-	controllerGlobalKey = "c"
 )
-
-// controllerKey will return the key for a given controller using the
-// controller uuid and the controllerGlobalKey.
-func controllerKey(controllerUUID string) string {
-	return fmt.Sprintf("%s#%s", controllerGlobalKey, controllerUUID)
-}
 
 // Controller encapsulates state for the Juju controller as a whole,
 // as opposed to model specific functionality.

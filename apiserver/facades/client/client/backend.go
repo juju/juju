@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -64,7 +63,6 @@ type Model interface {
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
 	Config() (*config.Config, error)
 	Owner() names.UserTag
-	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
 	StatusHistory(status.StatusHistoryFilter) ([]status.StatusInfo, error)
 	LatestToolsVersion() version.Number
 	Status() (status.StatusInfo, error)

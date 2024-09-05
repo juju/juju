@@ -21,7 +21,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		cloudimagemetadataC,
 		constraintsC,
 		modelsC,
-		permissionsC,
 		settingsC,
 		sequenceC,
 		sshHostKeysC,
@@ -85,11 +84,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// We don't export the controller model at this stage.
 		controllersC,
 		controllerNodesC,
-		// Users aren't migrated.
-		usersC,
-		// Controller users contain extra data about users therefore
-		// are not migrated either.
-		controllerUsersC,
 		// userenvnameC is just to provide a unique key constraint.
 		usermodelnameC,
 		// reference counts are implementation details that should be
@@ -223,32 +217,6 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		"InvalidCredentialReason",
 	)
 	s.AssertExportedFields(c, modelDoc{}, fields)
-}
-
-func (s *MigrationSuite) TestUserAccessDocFields(c *gc.C) {
-	fields := set.NewStrings(
-		// ID is the same as UserName (but lowercased)
-		"ID",
-		// ObjectUUID shouldn't be exported, and is inherited
-		// from the model definition.
-		"ObjectUUID",
-		// Tracked fields:
-		"UserName",
-		"DisplayName",
-		"CreatedBy",
-		"DateCreated",
-	)
-	s.AssertExportedFields(c, userAccessDoc{}, fields)
-}
-
-func (s *MigrationSuite) TestPermissionDocFields(c *gc.C) {
-	fields := set.NewStrings(
-		"ID",
-		"ObjectGlobalKey",
-		"SubjectGlobalKey",
-		"Access",
-	)
-	s.AssertExportedFields(c, permissionDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {

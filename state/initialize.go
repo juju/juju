@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -168,20 +167,7 @@ func Initialize(args InitializeParams, providerConfigSchemaGetter config.ConfigS
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	salt, err := password.RandomSalt()
-	if err != nil {
-		return nil, err
-	}
-
-	dateCreated := st.nowToTheSecond()
-	ops := createInitialUserOps(
-		args.ControllerConfig.ControllerUUID(),
-		args.ControllerModelArgs.Owner,
-		args.AdminPassword,
-		salt,
-		dateCreated,
-	)
-
+	var ops []txn.Op
 	ops = append(ops,
 		txn.Op{
 			C:      controllersC,
