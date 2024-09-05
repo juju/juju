@@ -178,19 +178,19 @@ func (s *Service) BackendConfigInfo(
 
 func (s *Service) backendConfigInfo(
 	ctx context.Context,
-	grantedSecretsGetter GrantedSecretsGetter,
-	backendID string, adminCfg *provider.ModelBackendConfig,
+	grantedSecretsGetter secretservice.GrantedSecretsGetter,
+	backendID string, cfg *provider.ModelBackendConfig,
 	accessor secretservice.SecretAccessor, token leadership.Token, sameController, forDrain bool,
 ) (*provider.ModelBackendConfig, error) {
 	if grantedSecretsGetter == nil {
 		return nil, errors.Errorf("unexpected nil value for GrantedSecretsGetter")
 	}
 
-	p, err := s.registry(adminCfg.BackendType)
+	p, err := s.registry(cfg.BackendType)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	err = p.Initialise(adminCfg)
+	err = p.Initialise(cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "initialising secrets provider")
 	}
@@ -281,15 +281,15 @@ func (s *Service) backendConfigInfo(
 	}
 
 	s.logger.Debugf("secrets for %s:\nowned: %v\nconsumed:%v", accessor, ownedRevisions, readRevisions)
-	cfg, err := p.RestrictedConfig(ctx, adminCfg, sameController, forDrain, coreAccessor, ownedRevisions, readRevisions)
+	restrictedConfig, err := p.RestrictedConfig(ctx, cfg, sameController, forDrain, coreAccessor, ownedRevisions, readRevisions)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	info := &provider.ModelBackendConfig{
-		ControllerUUID: adminCfg.ControllerUUID,
-		ModelUUID:      adminCfg.ModelUUID,
-		ModelName:      adminCfg.ModelName,
-		BackendConfig:  *cfg,
+		ControllerUUID: cfg.ControllerUUID,
+		ModelUUID:      cfg.ModelUUID,
+		ModelName:      cfg.ModelName,
+		BackendConfig:  *restrictedConfig,
 	}
 	return info, nil
 }
