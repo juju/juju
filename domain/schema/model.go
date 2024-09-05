@@ -20,7 +20,6 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-cloud-instance-triggers.gen.go -package=triggers -tables=machine_cloud_instance
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-requires-reboot-triggers.gen.go -package=triggers -tables=machine_requires_reboot
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/user-public-ssh-key.gen.go -package=triggers -tables=user_public_ssh_key
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/charm.gen.go -package=triggers -tables=charm
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit.gen.go -package=triggers -tables=unit
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-scale.gen.go -package=triggers -tables=application_scale
@@ -48,7 +47,6 @@ const (
 	tableMachine
 	tableMachineCloudInstance
 	tableMachineRequireReboot
-	tableUserPublicSSHKey
 	tableCharm
 	tableUnit
 	tableApplicationScale
@@ -106,7 +104,6 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForMachine("uuid", tableMachine),
 		triggers.ChangeLogTriggersForMachineCloudInstance("machine_uuid", tableMachineCloudInstance),
 		triggers.ChangeLogTriggersForMachineRequiresReboot("machine_uuid", tableMachineRequireReboot),
-		triggers.ChangeLogTriggersForUserPublicSshKey("id", tableUserPublicSSHKey),
 		triggers.ChangeLogTriggersForCharm("uuid", tableCharm),
 		triggers.ChangeLogTriggersForUnit("uuid", tableUnit),
 		triggers.ChangeLogTriggersForApplicationScale("application_uuid", tableApplicationScale),

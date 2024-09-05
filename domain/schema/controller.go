@@ -19,6 +19,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/secret-triggers.gen.go -package=triggers -tables=secret_backend_rotation,model_secret_backend
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/model-triggers.gen.go -package=triggers -tables=model
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/model-authorized-keys-triggers.gen.go -package=triggers -tables=model_authorized_keys
 
 //go:embed controller/sql/*.sql
 var controllerSchemaDir embed.FS
@@ -38,6 +39,7 @@ const (
 	tableSecretBackendRotation
 	tableModelSecretBackend
 	tableModelMetadata
+	tableModelAuthorizedKeys
 )
 
 // ControllerDDL is used to create the controller database schema at bootstrap.
@@ -86,6 +88,7 @@ func ControllerDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForSecretBackendRotation("backend_uuid", tableSecretBackendRotation),
 		triggers.ChangeLogTriggersForModelSecretBackend("model_uuid", tableModelSecretBackend),
 		triggers.ChangeLogTriggersForModel("uuid", tableModelMetadata),
+		triggers.ChangeLogTriggersForModelAuthorizedKeys("model_id", tableModelAuthorizedKeys),
 	)
 
 	// Generic triggers.

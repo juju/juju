@@ -148,6 +148,7 @@ func (s *schemaSuite) TestControllerTables(c *gc.C) {
 		"model_migration_status",
 		"model_migration_user",
 		"model_migration_minion_sync",
+		"model_authorized_keys",
 
 		// Upgrade info
 		"upgrade_info",
@@ -159,12 +160,16 @@ func (s *schemaSuite) TestControllerTables(c *gc.C) {
 		"object_store_metadata_path",
 		"object_store_metadata_hash_type",
 
+		// SSH Keys
+		"ssh_fingerprint_hash_algorithm",
+
 		// Users
 		"user",
 		"user_authentication",
 		"user_password",
 		"user_activation_key",
 		"model_last_login",
+		"user_public_ssh_key",
 
 		// Flags
 		"flag",
@@ -223,6 +228,7 @@ func (s *schemaSuite) TestControllerViews(c *gc.C) {
 
 		// Models
 		"v_model",
+		"v_model_authorized_keys",
 
 		// Secret backends
 		"v_model_secret_backend",
@@ -253,10 +259,6 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"application_platform",
 		"application_setting",
 		"application_scale",
-
-		// User Public Keys
-		"ssh_fingerprint_hash_algorithm",
-		"user_public_ssh_key",
 
 		// Annotations
 		"annotation_application",
@@ -550,6 +552,10 @@ func (s *schemaSuite) TestControllerTriggers(c *gc.C) {
 		"trg_log_model_secret_backend_update",
 		"trg_log_model_secret_backend_delete",
 
+		"trg_log_model_authorized_keys_insert",
+		"trg_log_model_authorized_keys_update",
+		"trg_log_model_authorized_keys_delete",
+
 		"trg_log_model_insert",
 		"trg_log_model_update",
 		"trg_log_model_delete",
@@ -655,10 +661,6 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_machine_requires_reboot_insert",
 		"trg_log_machine_requires_reboot_update",
 		"trg_log_machine_requires_reboot_delete",
-
-		"trg_log_user_public_ssh_key_insert",
-		"trg_log_user_public_ssh_key_update",
-		"trg_log_user_public_ssh_key_delete",
 
 		"trg_log_unit_insert",
 		"trg_log_unit_update",
