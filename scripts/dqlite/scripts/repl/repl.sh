@@ -21,8 +21,12 @@ echo "--------------------------------------------------------------------------
 echo ""
 
 CMDS=$(cat << EOF
-sudo cat /var/lib/juju/agents/machine-$MACHINE/agent.conf | yq '.controllercert' | xargs -I% echo % > dqlite.cert
-sudo cat /var/lib/juju/agents/machine-$MACHINE/agent.conf | yq '.controllerkey' | xargs -I% echo % > dqlite.key
+sudo awk '/controllercert/ {in_cert_block=1; next}
+/:/ {in_cert_block=0}
+in_cert_block { print }' /var/lib/juju/agents/machine-$MACHINE/agent.conf | sed 's/  //' > dqlite.cert
+sudo awk '/controllerkey/ {in_cert_block=1; next}
+/:/ {in_cert_block=0}
+in_cert_block { print }' /var/lib/juju/agents/machine-$MACHINE/agent.conf | sed 's/  //' > dqlite.key
 sudo dqlite -s file:///var/lib/juju/dqlite/cluster.yaml -c ./dqlite.cert -k ./dqlite.key $DB_NAME
 EOF
 )
