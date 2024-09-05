@@ -101,7 +101,6 @@ func (s *rebootSuite) setupMachine(c *gc.C, tag names.MachineTag, err error, uui
 	wc.AssertNoChange()
 
 	s.AddCleanup(func(c *gc.C) {
-		watchertest.DirtyKill(c, w)
 		wc.AssertKilled()
 	})
 
