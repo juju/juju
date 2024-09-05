@@ -11,10 +11,11 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/model"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/keymanager"
-	keyserrors "github.com/juju/juju/domain/keymanager/errors"
+	keyerrors "github.com/juju/juju/domain/keymanager/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/ssh"
 	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
@@ -37,6 +38,9 @@ type PublicKeyImporter interface {
 // Service provides the means for interacting with a users underlying
 // public keys for a model.
 type Service struct {
+	// modelId is the model that this service is scoped to.
+	modelId model.UUID
+
 	// st provides the state access layer to this service.
 	st State
 }
@@ -55,24 +59,39 @@ type ImporterService struct {
 // State provides the access layer the [Service] needs for persisting and
 // retrieving a user's public keys on a model.
 type State interface {
-	// AddPublicKeysForUser adds a set of public keys for a user on
-	// this model. If one or more of the public keys to add for the user already
-	// exists a [keyserrors.PublicKeyAlreadyExists] error will be returned.
-	AddPublicKeysForUser(context.Context, user.UUID, []keymanager.PublicKey) error
+	// AddPublicKeyForUser is responsible for adding one or more ssh public keys
+	// for a user to a given model.
+	// The following errors can be expected:
+	// - [keyerrors.PublicKeyAlreadyExists] - When one of the public keys being
+	// added for a user already exists on the model.
+	// - [github.com/juju/juju/domain/access/errors.UserNotFound] - When the user does not exist.
+	// - [modelerrors.NotFound] - When the model does not exist.
+	AddPublicKeysForUser(context.Context, model.UUID, user.UUID, []keymanager.PublicKey) error
 
-	// AddPublicKeyForUserIfNotFound will attempt to add the given set of public
-	// keys to the user. If the user already contains the public key it will be
-	// skipped and no [keyserrors.PublicKeyAlreadyExists] error will be returned.
-	AddPublicKeyForUserIfNotFound(context.Context, user.UUID, []keymanager.PublicKey) error
+	// EnsurePublicKeysForUser will attempt to add the given set of public
+	// keys for the user to the specified model . If the user already has the
+	// public key in the model it will be skipped and no
+	// [keyerrors.PublicKeyAlreadyExists] error will be returned.
+	// The following errors can be expected:
+	// - [github.com/juju/juju/domain/access/errors.UserNotFound] - When the user does not exist.
+	// - [modelerrors.NotFound] - When the model does not exist.
+	EnsurePublicKeysForUser(context.Context, model.UUID, user.UUID, []keymanager.PublicKey) error
 
-	// GetPublicKeysForUser is responsible for returning all of the
-	// public keys for the current user in this model.
-	GetPublicKeysForUser(context.Context, user.UUID) ([]coressh.PublicKey, error)
+	// GetPublicKeysForUser is responsible for returning all of the public
+	// keys for the user id on a model. If the user does not exist no error is
+	// returned.
+	// The following errors can be expected:
+	// - github.com/juju/juju/domain/access/errors.UserNotFound if the user does not exist.
+	// - modelerrors.NotFound if the model does not exist.
+	GetPublicKeysForUser(context.Context, model.UUID, user.UUID) ([]coressh.PublicKey, error)
 
 	// DeletePublicKeysForUser is responsible for removing the keys from the
-	// users list of public keys where the string list represents one of
-	// the keys fingerprint, public key data or comment.
-	DeletePublicKeysForUser(context.Context, user.UUID, []string) error
+	// users list of public keys on the given model. keyIds represent one of the
+	// keys fingerprint, public key data or comment.
+	// The following errors can be expected:
+	// - [github.com/juju/juju/domain/access/errors.UserNotFound] - When the user does not exist.
+	// - [modelerrors.NotFound] - When the model does not exist.
+	DeletePublicKeysForUser(context.Context, model.UUID, user.UUID, []string) error
 }
 
 var (
@@ -84,20 +103,25 @@ var (
 )
 
 // NewService constructs a new [Service] for interacting with a users public
-// keys.
-func NewService(state State) *Service {
+// keys on a model.
+func NewService(modelId model.UUID, state State) *Service {
 	return &Service{
-		st: state,
+		modelId: modelId,
+		st:      state,
 	}
 }
 
 // NewImporterService constructs a new [ImporterService] that can both be used
 // for interacting with a users public keys and also importing new public keys
 // from external sources.
-func NewImporterService(keyImporter PublicKeyImporter, state State) *ImporterService {
+func NewImporterService(
+	modelId model.UUID,
+	keyImporter PublicKeyImporter,
+	state State,
+) *ImporterService {
 	return &ImporterService{
 		keyImporter: keyImporter,
-		Service:     NewService(state),
+		Service:     NewService(modelId, state),
 	}
 }
 
@@ -106,11 +130,15 @@ func NewImporterService(keyImporter PublicKeyImporter, state State) *ImporterSer
 // - [errors.NotValid] when the user id is not valid
 // - [github.com/juju/juju/domain/access/errors.UserNotFound] when the user does
 // not exist.
-// - [keyserrors.InvalidPublicKey] when a public key fails validation.
-// - [keyserrors.ReservedCommentViolation] when a key being added contains a
+// - [keyerrors.InvalidPublicKey] when a public key fails validation.
+// - [keyerrors.ReservedCommentViolation] when a key being added contains a
 // comment string that is reserved.
-// - [keyserrors.PublicKeyAlreadyExists] when a public key being added
+// - [keyerrors.PublicKeyAlreadyExists] when a public key being added
 // for a user already exists.
+// - [github.com/juju/juju/domain/access/errors.UserNotFound] when the provided
+// user does not exist.
+// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
+// not exist.
 func (s *Service) AddPublicKeysForUser(
 	ctx context.Context,
 	userID user.UUID,
@@ -130,7 +158,7 @@ func (s *Service) AddPublicKeysForUser(
 		if err != nil {
 			return fmt.Errorf(
 				"%w %q at index %d: %w",
-				keyserrors.InvalidPublicKey, keyToAdd, i, err,
+				keyerrors.InvalidPublicKey, keyToAdd, i, err,
 			)
 		}
 
@@ -140,7 +168,7 @@ func (s *Service) AddPublicKeysForUser(
 				keyToAdd,
 				i,
 				parsedKey.Comment,
-				errors.Hide(keyserrors.ReservedCommentViolation),
+				errors.Hide(keyerrors.ReservedCommentViolation),
 			)
 		}
 
@@ -152,7 +180,7 @@ func (s *Service) AddPublicKeysForUser(
 		})
 	}
 
-	return s.st.AddPublicKeysForUser(ctx, userID, toAdd)
+	return s.st.AddPublicKeysForUser(ctx, s.modelId, userID, toAdd)
 }
 
 // DeletePublicKeysForUser removes the keys associated with targets from the
@@ -162,7 +190,12 @@ func (s *Service) AddPublicKeysForUser(
 // a target this will result in no operation. The following errors can be
 // expected:
 // - [errors.NotValid] when the user id is not valid
-// - [accesserrors.UserNotFound] when the provided user does not exist.
+// - [github.com/juju/juju/domain/access/errors.UserNotFound] when the provided
+// user does not exist.
+// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
+// not exist.
+// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
+// not exist.
 func (s *Service) DeleteKeysForUser(
 	ctx context.Context,
 	userID user.UUID,
@@ -175,7 +208,7 @@ func (s *Service) DeleteKeysForUser(
 		)
 	}
 
-	return s.st.DeletePublicKeysForUser(ctx, userID, targets)
+	return s.st.DeletePublicKeysForUser(ctx, s.modelId, userID, targets)
 }
 
 // ImportPublicKeysForUser will import all of the public keys available for a
@@ -186,13 +219,17 @@ func (s *Service) DeleteKeysForUser(
 // - [errors.NotValid] when the user id is not valid
 // - [github.com/juju/juju/domain/access/errors.UserNotFound] when the user does
 // not exist.
-// - [keyserrors.InvalidPublicKey] when a key being imported fails validation.
-// - [keyserrors.ReservedCommentViolation] when a key being added contains a
+// - [keyerrors.InvalidPublicKey] when a key being imported fails validation.
+// - [keyerrors.ReservedCommentViolation] when a key being added contains a
 // comment string that is reserved.
-// - [keyserrors.UnknownImportSource] when the source for the import operation
+// - [keyerrors.UnknownImportSource] when the source for the import operation
 // is unknown to the service.
-// - [keyserrors.ImportSubjectNotFound] when the source has indicated that the
+// - [keyerrors.ImportSubjectNotFound] when the source has indicated that the
 // subject for the import operation does not exist.
+// - [github.com/juju/juju/domain/access/errors.UserNotFound] when the provided
+// user does not exist.
+// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
+// not exist.
 func (s *ImporterService) ImportPublicKeysForUser(
 	ctx context.Context,
 	userID user.UUID,
@@ -211,12 +248,12 @@ func (s *ImporterService) ImportPublicKeysForUser(
 	case errors.Is(err, importererrors.NoResolver):
 		return fmt.Errorf(
 			"cannot import public keys for user %q, unknown public key source %q%w",
-			userID, subject.Scheme, errors.Hide(keyserrors.UnknownImportSource),
+			userID, subject.Scheme, errors.Hide(keyerrors.UnknownImportSource),
 		)
 	case errors.Is(err, importererrors.SubjectNotFound):
 		return fmt.Errorf(
 			"cannot import public keys for user %q, import subject %q not found%w",
-			userID, subject.String(), errors.Hide(keyserrors.ImportSubjectNotFound),
+			userID, subject.String(), errors.Hide(keyerrors.ImportSubjectNotFound),
 		)
 	case err != nil:
 		return fmt.Errorf(
@@ -231,7 +268,7 @@ func (s *ImporterService) ImportPublicKeysForUser(
 		if err != nil {
 			return fmt.Errorf(
 				"cannot parse key %d for subject %q when importing keys for user %q: %w%w",
-				i, subject.String(), userID, err, errors.Hide(keyserrors.InvalidPublicKey),
+				i, subject.String(), userID, err, errors.Hide(keyerrors.InvalidPublicKey),
 			)
 		}
 
@@ -242,7 +279,7 @@ func (s *ImporterService) ImportPublicKeysForUser(
 				userID,
 				subject.String(),
 				parsedKey.Comment,
-				errors.Hide(keyserrors.ReservedCommentViolation),
+				errors.Hide(keyerrors.ReservedCommentViolation),
 			)
 		}
 
@@ -254,13 +291,16 @@ func (s *ImporterService) ImportPublicKeysForUser(
 		})
 	}
 
-	return s.st.AddPublicKeyForUserIfNotFound(ctx, userID, keysToAdd)
+	return s.st.EnsurePublicKeysForUser(ctx, s.modelId, userID, keysToAdd)
 }
 
 // ListPublicKeysForUser is responsible for returning the public ssh keys for
 // the specified user. The following errors can be expected:
 // - [errors.NotValid] when the user id is not valid.
-// - [usererrors.NotFound] when the given user does not exist.
+// - [github.com/juju/juju/domain/access/errors.UserNotFound] when the provided
+// user does not exist.
+// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
+// not exist.
 func (s *Service) ListPublicKeysForUser(
 	ctx context.Context,
 	userID user.UUID,
@@ -272,5 +312,5 @@ func (s *Service) ListPublicKeysForUser(
 		)
 	}
 
-	return s.st.GetPublicKeysForUser(ctx, userID)
+	return s.st.GetPublicKeysForUser(ctx, s.modelId, userID)
 }
