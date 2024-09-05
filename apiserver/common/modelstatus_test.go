@@ -116,10 +116,10 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 }
 
 func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
-	otherModelOwner := s.Factory.MakeModelUser(c, nil)
+	ownerTag := names.NewUserTag("owner")
 	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:  "dummytoo",
-		Owner: otherModelOwner.UserTag,
+		Owner: ownerTag,
 		ConfigAttrs: testing.Attrs{
 			"controller": false,
 		},
@@ -211,7 +211,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 			ModelTag:           hostedModelTag,
 			HostedMachineCount: 2,
 			ApplicationCount:   1,
-			OwnerTag:           otherModelOwner.UserTag.String(),
+			OwnerTag:           ownerTag.String(),
 			Life:               life.Alive,
 			Type:               string(state.ModelTypeIAAS),
 			Machines: []params.ModelMachineInfo{
@@ -226,9 +226,9 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 }
 
 func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
-	otherModelOwner := s.Factory.MakeModelUser(c, nil)
+	ownerTag := names.NewUserTag("owner")
 	otherSt := s.Factory.MakeCAASModel(c, &factory.ModelParams{
-		Owner: otherModelOwner.UserTag,
+		Owner: ownerTag,
 		ConfigAttrs: testing.Attrs{
 			"controller": false,
 		},
@@ -270,7 +270,7 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 			HostedMachineCount: 0,
 			ApplicationCount:   1,
 			UnitCount:          1,
-			OwnerTag:           otherModelOwner.UserTag.String(),
+			OwnerTag:           ownerTag.String(),
 			Life:               life.Alive,
 			Type:               string(state.ModelTypeCAAS),
 			Applications: []params.ModelApplicationInfo{

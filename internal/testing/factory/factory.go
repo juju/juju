@@ -232,59 +232,11 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	if !params.NoModelUser {
-		model, err := factory.st.Model()
-		c.Assert(err, jc.ErrorIsNil)
-		_, err = model.AddUser(state.UserAccessSpec{
-			User:        user.UserTag(),
-			CreatedBy:   names.NewUserTag(user.CreatedBy()),
-			DisplayName: params.DisplayName,
-			Access:      params.Access,
-		})
-		c.Assert(err, jc.ErrorIsNil)
-	}
 	if params.Disabled {
 		err := user.Disable()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	return user
-}
-
-// MakeModelUser will create a modelUser with values defined by the params. For
-// attributes of ModelUserParams that are the default empty values, some
-// meaningful valid values are used instead. If params is not specified,
-// defaults are used.
-func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) permission.UserAccess {
-	if params == nil {
-		params = &ModelUserParams{}
-	}
-	if params.User == "" {
-		user := factory.MakeUser(c, &UserParams{NoModelUser: true})
-		params.User = user.UserTag().Id()
-	}
-	if params.DisplayName == "" {
-		params.DisplayName = uniqueString("display name")
-	}
-	if params.Access == permission.NoAccess {
-		params.Access = permission.AdminAccess
-	}
-	if params.CreatedBy == nil {
-		env, err := factory.st.Model()
-		c.Assert(err, jc.ErrorIsNil)
-		params.CreatedBy = env.Owner()
-	}
-	model, err := factory.st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	createdByUserTag := params.CreatedBy.(names.UserTag)
-	modelUser, err := model.AddUser(state.UserAccessSpec{
-		User:        names.NewUserTag(params.User),
-		CreatedBy:   createdByUserTag,
-		DisplayName: params.DisplayName,
-		Access:      params.Access,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return modelUser
 }
 
 func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *MachineParams {

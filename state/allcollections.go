@@ -159,14 +159,6 @@ func allCollections() CollectionSchema {
 		// Local collections
 		// =================
 
-		// This collection holds users related to a model and will be used as one
-		// of the intersection axis of permissionsC
-		modelUsersC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "user"},
-			}},
-		},
-
 		// This collection contains governors that prevent certain kinds of
 		// changes from being accepted.
 		blocksC: {},
@@ -534,7 +526,6 @@ const (
 	migrationsC            = "migrations"
 	migrationsMinionSyncC  = "migrations.minionsync"
 	migrationsStatusC      = "migrations.status"
-	modelUsersC            = "modelusers"
 	modelsC                = "models"
 	modelEntityRefsC       = "modelEntityRefs"
 	openedPortsC           = "openedPorts"

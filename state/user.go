@@ -155,22 +155,6 @@ func (st *State) recreateExistingUser(u *User, name, displayName, password, crea
 
 		var ops []txn.Op
 
-		// ensure models that were migrating at the time of the RemoveUser call are
-		// processed now.
-		modelQuery, closer, err := st.modelQueryForUser(u.UserTag(), false)
-		defer closer()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		var modelDocs []modelDoc
-		if err := modelQuery.All(&modelDocs); err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, model := range modelDocs {
-			// remove the permission for the model
-			ops = append(ops, removeModelUserOpsGlobal(model.UUID, u.UserTag())...)
-		}
-
 		// remove previous controller permissions
 		if _, err := u.st.controllerUser(u.UserTag()); err == nil {
 			ops = append(ops, removeControllerUserOps(st.ControllerUUID(), u.UserTag())...)
@@ -231,25 +215,8 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 			}
 		}
 
-		// remove the access to all the models and the current controller
-		// first query all the models for this user
-		modelQuery, closer, err := st.modelQueryForUser(tag, false)
-		defer closer()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		var modelDocs []modelDoc
-		if err := modelQuery.All(&modelDocs); err != nil {
-			return nil, errors.Trace(err)
-		}
-		var ops []txn.Op
-		for _, model := range modelDocs {
-			// remove the permission for the model
-			ops = append(ops, removeModelUserOpsGlobal(model.UUID, tag)...)
-		}
-
 		// remove the user from the controller
-		ops = append(ops, removeControllerUserOps(st.ControllerUUID(), tag)...)
+		ops := removeControllerUserOps(st.ControllerUUID(), tag)
 
 		// new entry in the removal log
 		newRemovalLogEntry := userRemovedLogEntry{
