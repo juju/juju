@@ -488,7 +488,7 @@ ON charm_container_mount (charm_uuid);
 CREATE VIEW v_charm_url AS
 SELECT
     c.uuid,
-    cs.name || ':' || c.name || '-' || COALESCE(co.revision, 0) AS url
+    cs.name || ':' || co.reference_name || '-' || COALESCE(co.revision, 0) AS url
 FROM charm AS c
 INNER JOIN charm_origin AS co ON c.uuid = co.charm_uuid
 LEFT JOIN charm_source AS cs ON co.source_id = cs.id;

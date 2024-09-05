@@ -330,8 +330,22 @@ func (s *stateSuite) ensureMachine(c *gc.C, id, uuid string) {
 func (s *stateSuite) ensureApplication(c *gc.C, name, uuid string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, name)
-VALUES (?, ?)`, uuid, "myapp")
+INSERT INTO charm (uuid)
+VALUES (?)`, uuid)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_metadata (charm_uuid, name)
+VALUES (?, 'myapp')`, uuid)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_origin (charm_uuid, reference_name)
+VALUES (?, 'myapp')`, uuid)
 		if err != nil {
 			return err
 		}
@@ -370,9 +384,21 @@ func (s *stateSuite) ensureCharm(c *gc.C, url, uuid string) {
 	}
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name) VALUES (?, ?)`, uuid, parts.Name); err != nil {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO charm (uuid)
+VALUES (?)`, uuid)
+		if err != nil {
 			return err
 		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_metadata (charm_uuid, name)
+VALUES (?, ?)
+		`, uuid, parts.Name)
+		if err != nil {
+			return err
+		}
+
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO charm_origin (charm_uuid, source_id, reference_name, revision) 
 VALUES (?, ?, ?, ?)

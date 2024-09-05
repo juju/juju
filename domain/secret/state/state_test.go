@@ -556,30 +556,54 @@ func (s *stateSuite) TestListSecretsByURI(c *gc.C) {
 func (s *stateSuite) setupUnits(c *gc.C, appName string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		charmUUID := uuid.MustNewUUID().String()
-		_, err := tx.ExecContext(context.Background(), `
-INSERT INTO charm (uuid, name)
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO charm (uuid)
+VALUES (?);
+`, charmUUID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_metadata (charm_uuid, name)
 VALUES (?, ?);
-`, charmUUID, appName)
-		c.Assert(err, jc.ErrorIsNil)
+		`, charmUUID, appName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_origin (charm_uuid, reference_name)
+VALUES (?, ?);
+		`, charmUUID, appName)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		applicationUUID := uuid.MustNewUUID().String()
-		_, err = tx.ExecContext(context.Background(), `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO application (uuid, charm_uuid, name, life_id)
 VALUES (?, ?, ?, ?)
 `, applicationUUID, charmUUID, appName, life.Alive)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		// Do 2 units.
 		for i := 0; i < 2; i++ {
 			netNodeUUID := uuid.MustNewUUID().String()
-			_, err = tx.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
-			c.Assert(err, jc.ErrorIsNil)
+			_, err = tx.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			unitUUID := uuid.MustNewUUID().String()
-			_, err = tx.ExecContext(context.Background(), `
+			_, err = tx.ExecContext(ctx, `
 INSERT INTO unit (uuid, life_id, name, net_node_uuid, application_uuid)
 VALUES (?, ?, ?, ?, (SELECT uuid from application WHERE name = ?))
 `, unitUUID, life.Alive, appName+fmt.Sprintf("/%d", i), netNodeUUID, appName)
-			c.Assert(err, jc.ErrorIsNil)
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 		return nil
 	})
@@ -1501,7 +1525,7 @@ func (s *stateSuite) TestSaveSecretConsumerDifferentModelFirstTime(c *gc.C) {
 	var latest int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
-			SELECT latest_revision FROM secret_reference WHERE secret_id = ?
+SELECT latest_revision FROM secret_reference WHERE secret_id = ?
 		`, uri.ID)
 		if err := row.Scan(&latest); err != nil {
 			return err
@@ -2213,7 +2237,7 @@ func (s *stateSuite) TestUpdateSecretNoRotate(c *gc.C) {
 	var count int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
-			SELECT count(*) FROM secret_rotation WHERE secret_id = ?
+SELECT count(*) FROM secret_rotation WHERE secret_id = ?
 		`, uri.ID)
 		if err := row.Scan(&count); err != nil {
 			return err
