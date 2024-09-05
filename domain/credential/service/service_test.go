@@ -216,9 +216,6 @@ func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *gc.C) {
 
 	var legacyUpdated bool
 	service := s.service(c).
-		WithValidationContextGetter(func(_ context.Context, modelUUID coremodel.UUID) (CredentialValidationContext, error) {
-			return CredentialValidationContext{}, errors.NotImplemented
-		}).
 		WithLegacyUpdater(func(tag names.CloudCredentialTag) error {
 			c.Assert(tag, jc.DeepEquals, names.NewCloudCredentialTag("cirrus/bob/foobar"))
 			legacyUpdated = true
@@ -253,9 +250,6 @@ func (s *serviceSuite) TestUpdateCredentialsModelsError(c *gc.C) {
 
 	var legacyUpdated bool
 	service := s.service(c).
-		WithValidationContextGetter(func(_ context.Context, modelUUID coremodel.UUID) (CredentialValidationContext, error) {
-			return CredentialValidationContext{}, errors.NotImplemented
-		}).
 		WithLegacyUpdater(func(tag names.CloudCredentialTag) error {
 			return errors.NotImplemented
 		})
@@ -264,86 +258,6 @@ func (s *serviceSuite) TestUpdateCredentialsModelsError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot get models")
 	c.Assert(results, gc.HasLen, 0)
 	c.Assert(legacyUpdated, jc.IsFalse)
-}
-
-func (s *serviceSuite) TestUpdateCredentialsModelsFailedContext(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	cred := cloud.Credential{}
-	id := corecredential.Key{
-		Cloud: "cirrus",
-		Owner: usertesting.GenNewName(c, "bob"),
-		Name:  "foobar",
-	}
-
-	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[coremodel.UUID]string{
-		coremodel.UUID(jujutesting.ModelTag.Id()): "mymodel",
-	}, nil)
-
-	contextError := errors.New("failed context")
-
-	var legacyUpdated bool
-	service := s.service(c).
-		WithValidationContextGetter(func(_ context.Context, modelUUID coremodel.UUID) (CredentialValidationContext, error) {
-			return CredentialValidationContext{}, contextError
-		}).
-		WithLegacyUpdater(func(tag names.CloudCredentialTag) error {
-			c.Assert(tag, jc.DeepEquals, names.NewCloudCredentialTag("cirrus/bob/foobar"))
-			legacyUpdated = true
-			return nil
-		})
-
-	results, err := service.CheckAndUpdateCredential(context.Background(), id, cred, false)
-	c.Assert(err, gc.ErrorMatches, "credential is not valid for one or more models")
-	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[0].Errors, gc.HasLen, 1)
-	c.Assert(results[0].Errors[0], gc.ErrorMatches, "failed context")
-	results[0].Errors = nil
-	c.Assert(results, jc.DeepEquals, []UpdateCredentialModelResult{{
-		ModelUUID: coremodel.UUID(jujutesting.ModelTag.Id()), ModelName: "mymodel",
-	}})
-	c.Assert(legacyUpdated, jc.IsFalse)
-}
-
-func (s *serviceSuite) TestUpdateCredentialsModelsFailedContextForce(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	key := corecredential.Key{
-		Cloud: "cirrus",
-		Owner: usertesting.GenNewName(c, "bob"),
-		Name:  "foobar",
-	}
-
-	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(map[coremodel.UUID]string{
-		coremodel.UUID(jujutesting.ModelTag.Id()): "mymodel",
-	}, nil)
-
-	var invalid = true
-	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), key, credential.CloudCredentialInfo{}).Return(&invalid, nil)
-
-	contextError := errors.New("failed context")
-
-	var legacyUpdated bool
-	service := s.service(c).
-		WithValidationContextGetter(func(_ context.Context, modelUUID coremodel.UUID) (CredentialValidationContext, error) {
-			return CredentialValidationContext{}, contextError
-		}).
-		WithLegacyUpdater(func(tag names.CloudCredentialTag) error {
-			c.Assert(tag, jc.DeepEquals, names.NewCloudCredentialTag("cirrus/bob/foobar"))
-			legacyUpdated = true
-			return nil
-		})
-
-	results, err := service.CheckAndUpdateCredential(context.Background(), key, cloud.Credential{}, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[0].Errors, gc.HasLen, 1)
-	c.Assert(results[0].Errors[0], gc.ErrorMatches, "failed context")
-	results[0].Errors = nil
-	c.Assert(results, jc.DeepEquals, []UpdateCredentialModelResult{{
-		ModelUUID: coremodel.UUID(jujutesting.ModelTag.Id()), ModelName: "mymodel",
-	}})
-	c.Assert(legacyUpdated, jc.IsTrue)
 }
 
 func (s *serviceSuite) TestUpdateCredentialsModels(c *gc.C) {
@@ -362,14 +276,9 @@ func (s *serviceSuite) TestUpdateCredentialsModels(c *gc.C) {
 
 	var invalid = true
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), key, credential.CloudCredentialInfo{}).Return(&invalid, nil)
-	s.validator.EXPECT().Validate(gomock.Any(), gomock.Any(), key, &cred, false).Return(nil, nil)
 
 	var legacyUpdated bool
 	service := s.service(c).
-		WithValidationContextGetter(func(_ context.Context, modelUUID coremodel.UUID) (CredentialValidationContext, error) {
-			return CredentialValidationContext{}, nil
-		}).
-		WithCredentialValidator(s.validator).
 		WithLegacyUpdater(func(tag names.CloudCredentialTag) error {
 			c.Assert(tag, jc.DeepEquals, names.NewCloudCredentialTag("cirrus/bob/foobar"))
 			legacyUpdated = true
@@ -401,15 +310,8 @@ func (s *serviceSuite) TestUpdateCredentialsModelFailedValidationForce(c *gc.C) 
 	var invalid = true
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), key, credential.CloudCredentialInfo{}).Return(&invalid, nil)
 
-	validationError := errors.New("cred error")
-	s.validator.EXPECT().Validate(gomock.Any(), gomock.Any(), key, &cred, false).Return([]error{validationError}, nil)
-
 	var legacyUpdated bool
 	service := s.service(c).
-		WithValidationContextGetter(func(_ context.Context, modelUUID coremodel.UUID) (CredentialValidationContext, error) {
-			return CredentialValidationContext{}, nil
-		}).
-		WithCredentialValidator(s.validator).
 		WithLegacyUpdater(func(tag names.CloudCredentialTag) error {
 			c.Assert(tag, jc.DeepEquals, names.NewCloudCredentialTag("cirrus/bob/foobar"))
 			legacyUpdated = true
@@ -419,142 +321,7 @@ func (s *serviceSuite) TestUpdateCredentialsModelFailedValidationForce(c *gc.C) 
 	results, err := service.CheckAndUpdateCredential(context.Background(), key, cred, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []UpdateCredentialModelResult{{
-		ModelUUID: coremodel.UUID(jujutesting.ModelTag.Id()), ModelName: "mymodel", Errors: []error{validationError},
-	}})
-	c.Assert(legacyUpdated, jc.IsTrue)
-}
-
-func (s *serviceSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	cred := cloud.Credential{}
-	key := corecredential.Key{
-		Cloud: "cirrus",
-		Owner: usertesting.GenNewName(c, "bob"),
-		Name:  "foobar",
-	}
-
-	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(map[coremodel.UUID]string{
-		coremodel.UUID(jujutesting.ModelTag.Id()): "mymodel",
-		"deadbeef-1bad-500d-9000-4b1d0d06f666":    "anothermodel",
-	}, nil)
-
-	validationError := errors.New("cred error")
-	calls := 0
-	s.validator.EXPECT().Validate(gomock.Any(), gomock.Any(), key, &cred, false).DoAndReturn(
-		func(
-			stdCtx context.Context,
-			ctx CredentialValidationContext,
-			credentialKey corecredential.Key,
-			credential *cloud.Credential,
-			checkCloudInstances bool,
-		) ([]error, error) {
-			calls++
-			if calls == 1 {
-				return []error{validationError}, nil
-			}
-			return nil, nil
-		}).Times(2)
-
-	var legacyUpdated bool
-	service := s.service(c).
-		WithValidationContextGetter(func(_ context.Context, modelUUID coremodel.UUID) (CredentialValidationContext, error) {
-			return CredentialValidationContext{}, nil
-		}).
-		WithCredentialValidator(s.validator).
-		WithLegacyUpdater(func(tag names.CloudCredentialTag) error {
-			c.Assert(tag, jc.DeepEquals, names.NewCloudCredentialTag("cirrus/bob/foobar"))
-			legacyUpdated = true
-			return nil
-		})
-
-	results, err := service.CheckAndUpdateCredential(context.Background(), key, cred, false)
-	c.Assert(err, gc.ErrorMatches, "credential is not valid for one or more models")
-	c.Assert(results, gc.HasLen, 2)
-	gotErrors := 0
-	for i := 0; i < 2; i++ {
-		if len(results[i].Errors) == 0 {
-			continue
-		}
-		gotErrors++
-		c.Assert(results[i].Errors, gc.HasLen, 1)
-		c.Assert(results[i].Errors[0], gc.ErrorMatches, "cred error")
-		results[i].Errors = nil
-	}
-	c.Assert(gotErrors, gc.Equals, 1)
-	c.Assert(results, jc.DeepEquals, []UpdateCredentialModelResult{{
 		ModelUUID: coremodel.UUID(jujutesting.ModelTag.Id()), ModelName: "mymodel",
-	}, {
-		ModelUUID: "deadbeef-1bad-500d-9000-4b1d0d06f666", ModelName: "anothermodel",
-	}})
-	c.Assert(legacyUpdated, jc.IsFalse)
-}
-
-func (s *serviceSuite) TestUpdateCredentialsSomeModelsFailedValidationForce(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	cred := cloud.Credential{}
-	key := corecredential.Key{
-		Cloud: "cirrus",
-		Owner: usertesting.GenNewName(c, "bob"),
-		Name:  "foobar",
-	}
-
-	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(map[coremodel.UUID]string{
-		coremodel.UUID(jujutesting.ModelTag.Id()): "mymodel",
-		"deadbeef-1bad-500d-9000-4b1d0d06f666":    "anothermodel",
-	}, nil)
-
-	var invalid = true
-	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), key, credential.CloudCredentialInfo{}).Return(&invalid, nil)
-
-	validationError := errors.New("cred error")
-	calls := 0
-	s.validator.EXPECT().Validate(gomock.Any(), gomock.Any(), key, &cred, false).DoAndReturn(
-		func(
-			stdCtx context.Context,
-			ctx CredentialValidationContext,
-			credentialID corecredential.Key,
-			credential *cloud.Credential,
-			checkCloudInstances bool,
-		) ([]error, error) {
-			calls++
-			if calls == 1 {
-				return []error{validationError}, nil
-			}
-			return nil, nil
-		}).Times(2)
-
-	var legacyUpdated bool
-	service := s.service(c).
-		WithValidationContextGetter(func(_ context.Context, modelUUID coremodel.UUID) (CredentialValidationContext, error) {
-			return CredentialValidationContext{}, nil
-		}).
-		WithCredentialValidator(s.validator).
-		WithLegacyUpdater(func(tag names.CloudCredentialTag) error {
-			c.Assert(tag, jc.DeepEquals, names.NewCloudCredentialTag("cirrus/bob/foobar"))
-			legacyUpdated = true
-			return nil
-		})
-
-	results, err := service.CheckAndUpdateCredential(context.Background(), key, cred, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 2)
-	gotErrors := 0
-	for i := 0; i < 2; i++ {
-		if len(results[i].Errors) == 0 {
-			continue
-		}
-		gotErrors++
-		c.Assert(results[i].Errors, gc.HasLen, 1)
-		c.Assert(results[i].Errors[0], gc.ErrorMatches, "cred error")
-		results[i].Errors = nil
-	}
-	c.Assert(gotErrors, gc.Equals, 1)
-	c.Assert(results, jc.DeepEquals, []UpdateCredentialModelResult{{
-		ModelUUID: coremodel.UUID(jujutesting.ModelTag.Id()), ModelName: "mymodel",
-	}, {
-		ModelUUID: "deadbeef-1bad-500d-9000-4b1d0d06f666", ModelName: "anothermodel",
 	}})
 	c.Assert(legacyUpdated, jc.IsTrue)
 }
