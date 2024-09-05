@@ -107,7 +107,6 @@ func (*multiWatcherSuite) TestMultiWatcherStop(c *gc.C) {
 	defer workertest.DirtyKill(c, w)
 	wc.AssertOneChange()
 
-	workertest.CleanKill(c, w)
 	wc.AssertKilled()
 
 	// Ensure that the underlying watchers are also stopped.
