@@ -237,6 +237,44 @@ func (c *MockApplicationServiceCreateApplicationCall) DoAndReturn(f func(context
 	return c
 }
 
+// DeleteApplication mocks base method.
+func (m *MockApplicationService) DeleteApplication(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteApplication", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteApplication indicates an expected call of DeleteApplication.
+func (mr *MockApplicationServiceMockRecorder) DeleteApplication(arg0, arg1 any) *MockApplicationServiceDeleteApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteApplication", reflect.TypeOf((*MockApplicationService)(nil).DeleteApplication), arg0, arg1)
+	return &MockApplicationServiceDeleteApplicationCall{Call: call}
+}
+
+// MockApplicationServiceDeleteApplicationCall wrap *gomock.Call
+type MockApplicationServiceDeleteApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceDeleteApplicationCall) Return(arg0 error) *MockApplicationServiceDeleteApplicationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceDeleteApplicationCall) Do(f func(context.Context, string) error) *MockApplicationServiceDeleteApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceDeleteApplicationCall) DoAndReturn(f func(context.Context, string) error) *MockApplicationServiceDeleteApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DestroyApplication mocks base method.
 func (m *MockApplicationService) DestroyApplication(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
