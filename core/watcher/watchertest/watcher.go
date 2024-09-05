@@ -108,6 +108,31 @@ func (w *WatcherC[T]) Check(assertion WatcherAssert[T]) {
 	}
 }
 
+// AssertKilled Kills the watcher and asserts that Wait completes without
+// error before a long time has passed.
+func (w *WatcherC[T]) AssertKilled() {
+	w.Watcher.Kill()
+
+	wait := make(chan error)
+	go func() {
+		wait <- w.Watcher.Wait()
+	}()
+	select {
+	case <-time.After(testing.LongWait):
+		w.c.Fatalf("watcher never stopped")
+	case err := <-wait:
+		w.c.Assert(err, jc.ErrorIsNil)
+	}
+
+	select {
+	case _, ok := <-w.Watcher.Changes():
+		if ok {
+			w.c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
+		}
+	default:
+	}
+}
+
 // CleanKill calls CheckKill with the supplied arguments, and Checks that the
 // returned error is nil. It's particularly suitable for deferring:
 //

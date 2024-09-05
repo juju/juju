@@ -102,6 +102,10 @@ func (h *Harness[T]) Run(c *gc.C, initial ...T) {
 
 	h.watcher.AssertNoChange()
 	h.idler.AssertChangeStreamIdle(c)
+
+	// Now ensure that the watcher is also killed cleanly.
+
+	h.watcher.AssertKilled()
 }
 
 type harnessTest[T any] struct {
