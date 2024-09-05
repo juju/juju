@@ -17,8 +17,9 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
-	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
+	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/rpc/params"
@@ -36,22 +37,32 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 	if !ctx.Auth().AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	serviceFactory := ctx.ServiceFactory()
-
 	leadershipChecker, err := ctx.LeadershipChecker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	backendService := serviceFactory.SecretBackend()
-	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
-		return backendService.GetSecretBackendConfigForAdmin(stdCtx, coremodel.UUID(model.UUID()))
+	modelInfoService := serviceFactory.ModelInfo()
+	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	secretService := serviceFactory.Secret(secretBackendAdminConfigGetter)
+	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
+		return backendService.GetSecretBackendConfigForAdmin(stdCtx, modelInfo.UUID)
+	}
+	backendUserSecretConfigGetter := func(
+		stdCtx context.Context, gsg secretservice.GrantedSecretsGetter, accessor secretservice.SecretAccessor,
+	) (*provider.ModelBackendConfigInfo, error) {
+		return backendService.BackendConfigInfo(stdCtx, secretbackendservice.BackendConfigParams{
+			GrantedSecretsGetter: gsg,
+			Accessor:             accessor,
+			ModelUUID:            modelInfo.UUID,
+			SameController:       true,
+		})
+	}
+	secretService := serviceFactory.Secret(secretBackendAdminConfigGetter, backendUserSecretConfigGetter)
 
 	controllerAPI := common.NewControllerConfigAPI(
 		ctx.State(),

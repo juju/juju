@@ -62,7 +62,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 		serviceFactory.ControllerConfig(),
 		serviceFactory.Config(),
 		serviceFactory.ModelInfo(),
-		serviceFactory.Secret(secretservice.NotImplementedBackendConfigGetter),
+		serviceFactory.Secret(secretservice.NotImplementedBackendConfigGetter, secretservice.NotImplementedBackendUserSecretConfigGetter),
 		serviceFactory.Network(),
 		serviceFactory.Machine(),
 		serviceFactory.Cloud(),

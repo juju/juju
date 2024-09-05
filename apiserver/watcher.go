@@ -883,8 +883,11 @@ func newSecretsRevisionWatcher(_ context.Context, context facade.ModelContext) (
 
 	return &srvSecretsRevisionWatcher{
 		watcherCommon: newWatcherCommon(context),
-		secretService: context.ServiceFactory().Secret(service.NotImplementedBackendConfigGetter),
-		watcher:       watcher,
+		secretService: context.ServiceFactory().Secret(
+			service.NotImplementedBackendConfigGetter,
+			service.NotImplementedBackendUserSecretConfigGetter,
+		),
+		watcher: watcher,
 	}, nil
 }
 

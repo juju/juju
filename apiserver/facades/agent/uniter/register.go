@@ -16,7 +16,9 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -33,7 +35,17 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 	modelInfoService := serviceFactory.ModelInfo()
 	secretBackendAdminConfigGetter := secretbackendservice.BackendConfigGetterFunc(
 		serviceFactory.SecretBackend(), ctx.ModelUUID())
-	secretService := serviceFactory.Secret(secretBackendAdminConfigGetter)
+	backendUserSecretConfigGetter := func(
+		stdCtx context.Context, gsg secretservice.GrantedSecretsGetter, accessor secretservice.SecretAccessor,
+	) (*provider.ModelBackendConfigInfo, error) {
+		return serviceFactory.SecretBackend().BackendConfigInfo(stdCtx, secretbackendservice.BackendConfigParams{
+			GrantedSecretsGetter: gsg,
+			Accessor:             accessor,
+			ModelUUID:            ctx.ModelUUID(),
+			SameController:       true,
+		})
+	}
+	secretService := serviceFactory.Secret(secretBackendAdminConfigGetter, backendUserSecretConfigGetter)
 	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
 		Secrets:         secretService,

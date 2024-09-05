@@ -51,7 +51,7 @@ func makeStateCrossModelRelationsAPI(stdCtx context.Context, ctx facade.ModelCon
 		firewall.StateShim(st, m),
 		ctx.Resources(), ctx.Auth(),
 		authCtxt.(*commoncrossmodel.AuthContext),
-		ctx.ServiceFactory().Secret(service.NotImplementedBackendConfigGetter),
+		ctx.ServiceFactory().Secret(service.NotImplementedBackendConfigGetter, service.NotImplementedBackendUserSecretConfigGetter),
 		ctx.ServiceFactory().Config(),
 		firewall.WatchEgressAddressesForRelations,
 		watchRelationLifeSuspendedStatus,
