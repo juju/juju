@@ -68,7 +68,9 @@ func (s *stateSuite) createUnit(c *gc.C) string {
 	var unitUUID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&unitUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		// NOTE: As of writing, both the machine and unit domain are only partially
 		// complete. In such a way that makes it impossible to assign a machine
@@ -78,7 +80,9 @@ func (s *stateSuite) createUnit(c *gc.C) string {
 		// TODO (jack-w-shaw): once these other domains are closer to completion,
 		// remove this hack when we can.
 		_, err = tx.ExecContext(ctx, "UPDATE unit SET net_node_uuid = ? WHERE name = ?", netNodeUUID, unitName)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		return nil
 	})
