@@ -84,7 +84,7 @@ func (s *ModelSuite) TestSetPassword(c *gc.C) {
 
 func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
-	owner := s.Factory.MakeUser(c, nil).UserTag()
+	owner := names.NewUserTag("owner")
 
 	// Create the first model.
 	model, st1, err := s.Controller.NewModel(state.NoopConfigSchemaSource, state.ModelArgs{
@@ -149,8 +149,8 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 
 func (s *ModelSuite) TestNewCAASModelDifferentUser(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
-	owner := s.Factory.MakeUser(c, nil).UserTag()
-	owner2 := s.Factory.MakeUser(c, nil).UserTag()
+	owner := names.NewUserTag("owner")
+	owner2 := names.NewUserTag("owner2")
 
 	// Create the first model.
 	model, st1, err := s.Controller.NewModel(state.NoopConfigSchemaSource, state.ModelArgs{
@@ -190,7 +190,7 @@ func (s *ModelSuite) TestNewCAASModelDifferentUser(c *gc.C) {
 
 func (s *ModelSuite) TestNewCAASModelSameUserFails(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
-	owner := s.Factory.MakeUser(c, nil).UserTag()
+	owner := names.NewUserTag("owner")
 
 	// Create the first model.
 	model, st1, err := s.Controller.NewModel(state.NoopConfigSchemaSource, state.ModelArgs{

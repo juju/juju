@@ -502,7 +502,7 @@ func (s *Suite) TestCheckMachinesIgnoresManualMachines(c *gc.C) {
 func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	owner := s.Factory.MakeUser(c, nil)
+	owner := names.NewUserTag("owner")
 
 	tag := names.NewCloudCredentialTag(
 		fmt.Sprintf("manual/%s/dummy-credential", owner.Name()))
@@ -510,7 +510,7 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		CloudName:       "manual",
 		CloudCredential: tag,
-		Owner:           owner.UserTag(),
+		Owner:           owner,
 	})
 	defer st.Close()
 

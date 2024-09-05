@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/testing/factory"
 	coretools "github.com/juju/juju/internal/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -358,14 +357,6 @@ func (s *toolsSuite) TestMigrateToolsForUser(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	// TODO (stickupkid): Permissions: This is only required to insert admin
-	// permissions into the state, remove when permissions are written to state.
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	f.MakeUser(c, &factory.UserParams{
-		Name: userTag.Name(),
-	})
 
 	url := s.URL("/migrate/tools", nil).String()
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{

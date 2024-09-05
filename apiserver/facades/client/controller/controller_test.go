@@ -153,9 +153,9 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 }
 
 func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *gc.C) {
-	owner := s.Factory.MakeUser(c, nil)
+	owner := names.NewUserTag("owner")
 	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "first", Owner: owner.UserTag()}).Close()
+		Name: "first", Owner: owner}).Close()
 	remoteUserTag := names.NewUserTag("user@remote")
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "second", Owner: remoteUserTag}).Close()
@@ -168,7 +168,7 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *gc.
 	two := results.Models[1]
 
 	c.Assert(one.Name, gc.Equals, "first")
-	c.Assert(one.OwnerTag, gc.Equals, owner.UserTag().String())
+	c.Assert(one.OwnerTag, gc.Equals, owner.String())
 	c.Assert(two.Name, gc.Equals, "second")
 	c.Assert(two.OwnerTag, gc.Equals, remoteUserTag.String())
 }
@@ -197,9 +197,9 @@ func (s *controllerSuite) makeCloudSpec(c *gc.C, pSpec *params.CloudSpec) enviro
 }
 
 func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *gc.C) {
-	owner := s.Factory.MakeUser(c, nil)
+	owner := names.NewUserTag("owner")
 	_ = s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "first", Owner: owner.UserTag()}).Close()
+		Name: "first", Owner: owner}).Close()
 	remoteUserTag := names.NewUserTag("user@remote")
 	_ = s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "second", Owner: remoteUserTag}).Close()
@@ -657,11 +657,8 @@ func (s *controllerSuite) TestConfigSet(c *gc.C) {
 }
 
 func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{
-		Access: permission.ReadAccess,
-	})
 	anAuthoriser := apiservertesting.FakeAuthorizer{
-		Tag: user.Tag(),
+		Tag: names.NewUserTag("username"),
 	}
 	endpoint, err := controller.LatestAPI(
 		context.Background(),
@@ -866,12 +863,9 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 }
 
 func (s *controllerSuite) makeBobsModel(c *gc.C) string {
-	bob := s.Factory.MakeUser(c, &factory.UserParams{
-		Name:        "bob",
-		NoModelUser: true,
-	})
+	bob := names.NewUserTag("bob")
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Owner: bob.UserTag(),
+		Owner: bob,
 		Name:  "bobs-model"})
 	uuid := st.ModelUUID()
 	st.Close()
@@ -1061,23 +1055,14 @@ func (s *accessSuite) TestGetControllerAccessPermissions(c *gc.C) {
 
 func (s *accessSuite) TestAllModels(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	admin := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+	admin := names.NewUserTag("foobar")
 
 	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "owned", Owner: admin.UserTag()}).Close()
+		Name: "owned", Owner: admin}).Close()
 	remoteUserTag := names.NewUserTag("user@remote")
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "user", Owner: remoteUserTag})
 	defer func() { _ = st.Close() }()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	model.AddUser(
-		state.UserAccessSpec{
-			User:        admin.UserTag(),
-			CreatedBy:   remoteUserTag,
-			DisplayName: "Foo Bar",
-			Access:      permission.WriteAccess})
 
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "no-access", Owner: remoteUserTag}).Close()

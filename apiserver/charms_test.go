@@ -540,14 +540,6 @@ func (s *charmsSuite) TestMigrateCharmUnauthorized(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO (stickupkid): Permissions: This is only required to insert admin
-	// permissions into the state, remove when permissions are written to state.
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	f.MakeUser(c, &factory.UserParams{
-		Name: userTag.Name(),
-	})
-
 	url := s.charmsURL("series=quantal")
 	url.Path = "/migrate/charms"
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{

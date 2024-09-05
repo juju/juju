@@ -83,14 +83,6 @@ func (s *pubsubSuite) TestRejectsUserLogins(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO (stickupkid): Permissions: This is only required to insert admin
-	// permissions into the state, remove when permissions are written to state.
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	f.MakeUser(c, &factory.UserParams{
-		Name: userTag.Name(),
-	})
-
 	header := jujuhttp.BasicAuthHeader(userTag.String(), "hunter2")
 	s.checkAuthFails(c, header, http.StatusForbidden, "authorization failed: user .* is not a controller")
 }

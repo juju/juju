@@ -72,9 +72,9 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 
 func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 	// Set up the user making the call.
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
+	user := names.NewUserTag("username")
 	anAuthoriser := apiservertesting.FakeAuthorizer{
-		Tag: user.Tag(),
+		Tag: user,
 	}
 
 	api := common.NewModelStatusAPI(
@@ -94,11 +94,11 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 
 func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	// Set up the user making the call.
-	owner := s.Factory.MakeUser(c, nil)
+	owner := names.NewUserTag("owner")
 	anAuthoriser := apiservertesting.FakeAuthorizer{
-		Tag: owner.Tag(),
+		Tag: owner,
 	}
-	st := s.Factory.MakeModel(c, &factory.ModelParams{Owner: owner.Tag()})
+	st := s.Factory.MakeModel(c, &factory.ModelParams{Owner: owner})
 	defer st.Close()
 	api := common.NewModelStatusAPI(
 		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
