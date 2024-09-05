@@ -16,13 +16,14 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
 
 type WatchableService struct {
-	Service
+	ProviderService
 	watcherFactory WatcherFactory
 }
 
@@ -49,10 +50,17 @@ type WatcherFactory interface {
 }
 
 // NewWatchableService returns a new service reference wrapping the input state.
-func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableService {
+func NewWatchableService(
+	st State,
+	watcherFactory WatcherFactory,
+	providerGetter providertracker.ProviderGetter[Provider],
+) *WatchableService {
 	return &WatchableService{
-		Service: Service{
-			st: st,
+		ProviderService: ProviderService{
+			Service: Service{
+				st: st,
+			},
+			providerGetter: providerGetter,
 		},
 		watcherFactory: watcherFactory,
 	}

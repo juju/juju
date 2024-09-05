@@ -24,8 +24,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	"github.com/juju/juju/environs"
-	environmocks "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -41,9 +39,8 @@ type APISuite struct {
 var _ = gc.Suite(&APISuite{})
 
 func (s *APISuite) TestCreateSpacesFailInvalidTag(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
 
 	args := params.CreateSpacesParams{
 		Spaces: []params.CreateSpaceParams{
@@ -71,9 +68,8 @@ func (s *APISuite) TestCreateSpacesFailInvalidTag(c *gc.C) {
 }
 
 func (s *APISuite) TestCreateSpacesFailInvalidCIDR(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
 
 	args := params.CreateSpacesParams{
 		Spaces: []params.CreateSpaceParams{
@@ -101,9 +97,8 @@ func (s *APISuite) TestCreateSpacesFailInvalidCIDR(c *gc.C) {
 }
 
 func (s *APISuite) TestCreateSpacesSuccess(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
 
 	args := params.CreateSpacesParams{
 		Spaces: []params.CreateSpaceParams{
@@ -173,9 +168,8 @@ func (s *APISuite) TestCreateSpacesSuccess(c *gc.C) {
 }
 
 func (s *APISuite) TestShowSpaceDefault(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
 
 	s.expectDefaultSpace(ctrl, "default", nil)
 	s.expectEndpointBindings(ctrl, "1")
@@ -214,9 +208,8 @@ func (s *APISuite) TestShowSpaceDefault(c *gc.C) {
 }
 
 func (s *APISuite) TestShowSpaceErrorGettingSpace(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
 
 	bamErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, "default", bamErr)
@@ -232,9 +225,8 @@ func (s *APISuite) TestShowSpaceErrorGettingSpace(c *gc.C) {
 }
 
 func (s *APISuite) TestShowSpaceErrorGettingSubnets(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
 
 	bamErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, "default", bamErr)
@@ -250,9 +242,8 @@ func (s *APISuite) TestShowSpaceErrorGettingSubnets(c *gc.C) {
 }
 
 func (s *APISuite) TestShowSpaceErrorGettingApplications(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
 
 	expErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, "default", nil)
@@ -269,9 +260,8 @@ func (s *APISuite) TestShowSpaceErrorGettingApplications(c *gc.C) {
 }
 
 func (s *APISuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
 
 	bamErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, "default", nil)
@@ -289,9 +279,8 @@ func (s *APISuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
 }
 
 func (s *APISuite) TestRenameSpaceErrorToAlreadyExist(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
 
 	s.expectDefaultSpace(ctrl, "blub", nil)
 
@@ -305,9 +294,9 @@ func (s *APISuite) TestRenameSpaceErrorToAlreadyExist(c *gc.C) {
 }
 
 func (s *APISuite) TestRenameSpaceErrorUnexpectedError(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
+
 	from, to := "bla", "blub"
 
 	bamErr := errors.New("bam")
@@ -322,9 +311,9 @@ func (s *APISuite) TestRenameSpaceErrorUnexpectedError(c *gc.C) {
 }
 
 func (s *APISuite) TestRenameSpaceErrorRename(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
+
 	from, to := "bla", "blub"
 
 	bamErr := errors.New("bam")
@@ -344,9 +333,9 @@ func (s *APISuite) TestRenameSpaceErrorRename(c *gc.C) {
 }
 
 func (s *APISuite) TestRenameAlphaSpaceError(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
+
 	from, to := "alpha", "blub"
 
 	args := s.getRenameArgs(from, to)
@@ -357,9 +346,9 @@ func (s *APISuite) TestRenameAlphaSpaceError(c *gc.C) {
 }
 
 func (s *APISuite) TestRenameSpaceSuccess(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
+
 	from, to := "bla", "blub"
 
 	s.expectDefaultSpace(ctrl, to, networkerrors.SpaceNotFound)
@@ -377,9 +366,9 @@ func (s *APISuite) TestRenameSpaceSuccess(c *gc.C) {
 }
 
 func (s *APISuite) TestRenameSpaceErrorProviderSpacesSupport(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, true)
+	ctrl := s.SetupMocks(c, true, true)
 	defer ctrl.Finish()
-	defer unreg()
+
 	from, to := "bla", "blub"
 
 	args := s.getRenameArgs(from, to)
@@ -390,9 +379,9 @@ func (s *APISuite) TestRenameSpaceErrorProviderSpacesSupport(c *gc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceSuccessNoControllerConfig(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
+
 	spaceTag := "myspace"
 	args, tag := s.getRemoveArgs(spaceTag, false)
 
@@ -416,9 +405,9 @@ func (s *APISuite) TestRemoveSpaceSuccessNoControllerConfig(c *gc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceSuccessControllerConfig(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
+
 	spaceTag := "myspace"
 	args, tag := s.getRemoveArgs(spaceTag, false)
 
@@ -445,9 +434,9 @@ func (s *APISuite) TestRemoveSpaceSuccessControllerConfig(c *gc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceErrorFoundApplications(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
+
 	space := "myspace"
 	args, _ := s.getRemoveArgs(space, false)
 
@@ -477,9 +466,9 @@ func (s *APISuite) TestRemoveSpaceErrorFoundApplications(c *gc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceErrorFoundController(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
+
 	spaceName := "myspace"
 	args, _ := s.getRemoveArgs(spaceName, false)
 
@@ -506,9 +495,9 @@ func (s *APISuite) TestRemoveSpaceErrorFoundController(c *gc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceErrorFoundConstraints(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
+
 	space := "myspace"
 	args, _ := s.getRemoveArgs(space, false)
 
@@ -544,9 +533,9 @@ func (s *APISuite) TestRemoveSpaceErrorFoundConstraints(c *gc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
+
 	space := "myspace"
 	args, _ := s.getRemoveArgs(space, false)
 
@@ -591,9 +580,9 @@ func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceFoundAllWithForce(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unreg()
+
 	spaceTag := "myspace"
 	args, tag := s.getRemoveArgs(spaceTag, true)
 
@@ -623,21 +612,15 @@ func (s *APISuite) TestRemoveSpaceFoundAllWithForce(c *gc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceErrorProviderSpacesSupport(c *gc.C) {
-	ctrl, unreg := s.setupMocks(c, true, true)
+	ctrl := s.SetupMocks(c, true, true)
 	defer ctrl.Finish()
-	defer unreg()
+
 	space := "myspace"
 
 	args, _ := s.getRemoveArgs(space, false)
 
 	_, err := s.API.RemoveSpace(stdcontext.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "modifying provider-sourced spaces not supported")
-}
-
-func (s *APISuite) setupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) (*gomock.Controller, func()) {
-	ctrl, unReg := s.APISuite.SetupMocks(c, supportSpaces, providerSpaces)
-
-	return ctrl, unReg
 }
 
 func (s *APISuite) expectAllTags(spaceName string) (names.ApplicationTag, names.ModelTag) {
@@ -664,7 +647,7 @@ func (s *APISuite) getDefaultControllerConfig(c *gc.C, attr map[string]interface
 func (s *APISuite) getShowSpaceArg(name string) params.Entities {
 	spaceTag := names.NewSpaceTag(name)
 	args := params.Entities{
-		Entities: []params.Entity{{spaceTag.String()}},
+		Entities: []params.Entity{{Tag: spaceTag.String()}},
 	}
 	return args
 }
@@ -802,8 +785,6 @@ type LegacySuite struct {
 
 	blockChecker   mockBlockChecker
 	networkService *spaces.MockNetworkService
-	environ        *environmocks.MockNetworkingEnviron
-	providerGetter func(stdcontext.Context) (environs.NetworkingEnviron, error)
 }
 
 var _ = gc.Suite(&LegacySuite{})
@@ -813,23 +794,20 @@ func (s *LegacySuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 }
 
-func (s *LegacySuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *LegacySuite) SetupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.networkService = spaces.NewMockNetworkService(ctrl)
-	s.environ = environmocks.NewMockNetworkingEnviron(ctrl)
 	return ctrl
 }
 
 func (s *LegacySuite) makeAPI(c *gc.C) {
 	var err error
 	s.facade, err = spaces.NewAPIWithBacking(spaces.APIConfig{
-		Backing:                     &stubBacking{apiservertesting.BackingInstance},
-		Check:                       &s.blockChecker,
-		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
-		ProviderGetter:              s.providerGetter,
-		Resources:                   s.resources,
-		Authorizer:                  s.auth,
-		NetworkService:              s.networkService,
+		Backing:        &stubBacking{apiservertesting.BackingInstance},
+		Check:          &s.blockChecker,
+		Resources:      s.resources,
+		Authorizer:     s.auth,
+		NetworkService: s.networkService,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.facade, gc.NotNil)
@@ -856,9 +834,6 @@ func (s *LegacySuite) SetUpTest(c *gc.C) {
 	}
 
 	s.blockChecker = mockBlockChecker{}
-	s.providerGetter = func(stdcontext.Context) (environs.NetworkingEnviron, error) {
-		return s.environ, nil
-	}
 }
 
 func (s *LegacySuite) TearDownTest(c *gc.C) {
@@ -871,11 +846,10 @@ func (s *LegacySuite) TearDownTest(c *gc.C) {
 func (s *LegacySuite) TestNewAPIWithBacking(c *gc.C) {
 	// Clients are allowed.
 	facade, err := spaces.NewAPIWithBacking(spaces.APIConfig{
-		Backing:                     &stubBacking{apiservertesting.BackingInstance},
-		Check:                       &s.blockChecker,
-		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
-		Resources:                   s.resources,
-		Authorizer:                  s.auth,
+		Backing:    &stubBacking{apiservertesting.BackingInstance},
+		Check:      &s.blockChecker,
+		Resources:  s.resources,
+		Authorizer: s.auth,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(facade, gc.NotNil)
@@ -886,11 +860,10 @@ func (s *LegacySuite) TestNewAPIWithBacking(c *gc.C) {
 	agentAuthorizer := s.auth
 	agentAuthorizer.Tag = names.NewMachineTag("42")
 	facade, err = spaces.NewAPIWithBacking(spaces.APIConfig{
-		Backing:                     &stubBacking{apiservertesting.BackingInstance},
-		Check:                       &s.blockChecker,
-		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
-		Resources:                   s.resources,
-		Authorizer:                  agentAuthorizer,
+		Backing:    &stubBacking{apiservertesting.BackingInstance},
+		Check:      &s.blockChecker,
+		Resources:  s.resources,
+		Authorizer: agentAuthorizer,
 	})
 	c.Assert(err, jc.DeepEquals, apiservererrors.ErrPerm)
 	c.Assert(facade, gc.IsNil)
@@ -899,38 +872,37 @@ func (s *LegacySuite) TestNewAPIWithBacking(c *gc.C) {
 }
 
 func (s *LegacySuite) TestShowSpaceError(c *gc.C) {
-	apiservertesting.SharedStub.SetErrors(
-		errors.New("boom"), // Backing.ModelConfig()
-	)
+	defer s.SetupMocks(c).Finish()
+
+	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(false, errors.New("boom"))
+	s.makeAPI(c)
 
 	entities := params.Entities{}
 	_, err := s.facade.ShowSpace(stdcontext.Background(), entities)
-	c.Assert(err, gc.ErrorMatches, "getting environ: retrieving model config: boom")
+	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
 // TestCreateSpacesGetProviderError tests that if we call API.CreateSpaces but
 // the providerGetter returns an error, the facade method errors as expected.
 func (s *LegacySuite) TestCreateSpacesGetProviderError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.SetupMocks(c).Finish()
 
-	s.providerGetter = func(stdcontext.Context) (environs.NetworkingEnviron, error) {
-		return nil, errors.NotSupportedf("networking")
-	}
+	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(false, errors.NotSupportedf("spaces"))
 	s.makeAPI(c)
 
 	args := params.CreateSpacesParams{}
 	_, err := s.facade.CreateSpaces(stdcontext.Background(), args)
-	c.Assert(err, gc.ErrorMatches, "getting networking environ for model: networking not supported")
+	c.Assert(err, gc.ErrorMatches, "spaces not supported")
 	var paramsErr *params.Error
 	c.Assert(errors.As(err, &paramsErr), jc.IsTrue)
 	c.Check(paramsErr.Code, gc.Equals, params.CodeNotSupported)
 }
 
 func (s *LegacySuite) TestCreateSpacesNotSupportedError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.SetupMocks(c).Finish()
 	s.makeAPI(c)
 
-	s.environ.EXPECT().SupportsSpaces(gomock.Any()).Return(false, errors.NotSupportedf("spaces"))
+	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(false, errors.NotSupportedf("spaces"))
 
 	args := params.CreateSpacesParams{}
 	_, err := s.facade.CreateSpaces(stdcontext.Background(), args)
@@ -938,7 +910,7 @@ func (s *LegacySuite) TestCreateSpacesNotSupportedError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.SetupMocks(c).Finish()
 	s.makeAPI(c)
 
 	expected := []params.Space{{
@@ -1014,7 +986,7 @@ func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
 		},
 	}
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(retrievedSpaces, nil)
-	s.environ.EXPECT().SupportsSpaces(gomock.Any()).Return(true, nil)
+	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(true, nil)
 
 	result, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1022,18 +994,17 @@ func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
 }
 
 func (s *LegacySuite) TestListSpacesAllSpacesError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.providerGetter = func(stdcontext.Context) (environs.NetworkingEnviron, error) {
-		return nil, errors.New("environ boom")
-	}
+	defer s.SetupMocks(c).Finish()
+
+	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(false, errors.Errorf("environ boom"))
 	s.makeAPI(c)
 
 	_, err := s.facade.ListSpaces(stdcontext.Background())
-	c.Assert(err, gc.ErrorMatches, "getting networking environ for model: environ boom")
+	c.Assert(err, gc.ErrorMatches, "environ boom")
 }
 
 func (s *LegacySuite) TestListSpacesSubnetsError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.SetupMocks(c).Finish()
 	s.makeAPI(c)
 
 	apiservertesting.SharedStub.SetErrors(
@@ -1047,7 +1018,7 @@ func (s *LegacySuite) TestListSpacesSubnetsError(c *gc.C) {
 		errors.New("space2 subnets failed"), // Space.Subnets()
 	)
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
-	s.environ.EXPECT().SupportsSpaces(gomock.Any()).Return(true, nil)
+	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(true, nil)
 
 	results, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1058,7 +1029,7 @@ func (s *LegacySuite) TestListSpacesSubnetsError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.SetupMocks(c).Finish()
 	s.makeAPI(c)
 
 	boom := errors.New("boom")
@@ -1073,7 +1044,7 @@ func (s *LegacySuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
 	)
 
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
-	s.environ.EXPECT().SupportsSpaces(gomock.Any()).Return(true, nil)
+	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(true, nil)
 
 	results, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1087,10 +1058,10 @@ func (s *LegacySuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestListSpacesNotSupportedError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.SetupMocks(c).Finish()
 	s.makeAPI(c)
 
-	s.environ.EXPECT().SupportsSpaces(gomock.Any()).
+	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).
 		Return(false, errors.NotSupportedf("spaces"))
 
 	_, err := s.facade.ListSpaces(stdcontext.Background())
@@ -1098,7 +1069,7 @@ func (s *LegacySuite) TestListSpacesNotSupportedError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestCreateSpacesBlocked(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.SetupMocks(c).Finish()
 	s.makeAPI(c)
 
 	s.blockChecker.SetErrors(apiservererrors.ServerError(apiservererrors.OperationBlockedError("test block")))

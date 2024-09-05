@@ -49,10 +49,8 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/resources"
 	coretrace "github.com/juju/juju/core/trace"
-	"github.com/juju/juju/environs"
 	internallogger "github.com/juju/juju/internal/logger"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/resource"
@@ -238,10 +236,6 @@ type ServerConfig struct {
 	// ObjectStoreGetter returns an object store for the given namespace.
 	// This is used for retrieving blobs for charms and agents.
 	ObjectStoreGetter objectstore.ObjectStoreGetter
-
-	// ProviderFactory returns a provider for a given model. This should be
-	// used sparingly in facade code.
-	ProviderFactory providertracker.ProviderFactory
 }
 
 // Validate validates the API server configuration.
@@ -305,9 +299,6 @@ func (c ServerConfig) Validate() error {
 	if c.ObjectStoreGetter == nil {
 		return errors.NotValidf("missing ObjectStoreGetter")
 	}
-	if c.ProviderFactory == nil {
-		return errors.NotValidf("missing ProviderFactory")
-	}
 	if c.SSHImporterHTTPClient == nil {
 		return errors.NotValidf("missing SSHImporterHTTPClient")
 	}
@@ -370,7 +361,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		dbGetter:              cfg.DBGetter,
 		dbDeleter:             cfg.DBDeleter,
 		serviceFactoryGetter:  cfg.ServiceFactoryGetter,
-		providerFactory:       cfg.ProviderFactory,
 		tracerGetter:          cfg.TracerGetter,
 		objectStoreGetter:     cfg.ObjectStoreGetter,
 		machineTag:            cfg.Tag,
@@ -894,8 +884,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}
 	registerHandler := &registerUserHandler{
 		ctxt: httpCtxt,
-		providerGetter: providertracker.ProviderRunner[environs.ConnectorInfo](
-			srv.shared.providerFactory, srv.shared.controllerModelUUID.String()),
 	}
 
 	// HTTP handler for application offer macaroon authentication.
@@ -1181,7 +1169,6 @@ func (srv *Server) serveConn(
 	}
 
 	serviceFactory := srv.shared.serviceFactoryGetter.FactoryForModel(modelUUID)
-	modelProviderFactory := facade.NewModelProviderFactory(modelUUID, srv.shared.providerFactory)
 
 	var handler *apiHandler
 	st, err := srv.shared.statePool.Get(modelUUID.String())
@@ -1194,7 +1181,6 @@ func (srv *Server) serveConn(
 			conn,
 			serviceFactory,
 			srv.shared.serviceFactoryGetter,
-			modelProviderFactory,
 			tracer,
 			objectStore,
 			srv.shared.objectStoreGetter,

@@ -41,12 +41,12 @@ type Networking interface {
 	// SupportsSpaces returns whether the current environment supports
 	// spaces. The returned error satisfies errors.IsNotSupported(),
 	// unless a general API failure occurs.
-	SupportsSpaces(ctx envcontext.ProviderCallContext) (bool, error)
+	SupportsSpaces() (bool, error)
 
 	// SupportsSpaceDiscovery returns whether the current environment
 	// supports discovering spaces from the provider. The returned error
 	// satisfies errors.IsNotSupported(), unless a general API failure occurs.
-	SupportsSpaceDiscovery(ctx envcontext.ProviderCallContext) (bool, error)
+	SupportsSpaceDiscovery() (bool, error)
 
 	// Spaces returns a slice of network.SpaceInfo with info, including
 	// details of all associated subnets, about all spaces known to the
@@ -107,7 +107,7 @@ type NoSpaceDiscoveryEnviron struct{}
 
 // SupportsSpaceDiscovery (Networking) indicates that
 // this environ does not support space discovery.
-func (*NoSpaceDiscoveryEnviron) SupportsSpaceDiscovery(envcontext.ProviderCallContext) (bool, error) {
+func (*NoSpaceDiscoveryEnviron) SupportsSpaceDiscovery() (bool, error) {
 	return false, nil
 }
 
@@ -131,8 +131,8 @@ func supportsNetworking(environ BootstrapEnviron) (NetworkingEnviron, bool) {
 }
 
 // SupportsSpaces checks if the environment supports spaces.
-func SupportsSpaces(ctx envcontext.ProviderCallContext, env NetworkingEnviron) bool {
-	ok, err := env.SupportsSpaces(ctx)
+func SupportsSpaces(env NetworkingEnviron) bool {
+	ok, err := env.SupportsSpaces()
 	if err != nil {
 		if !errors.Is(err, errors.NotSupported) {
 			logger.Errorf("checking model spaces support failed with: %v", err)

@@ -5,13 +5,11 @@ package facade
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/juju/description/v8"
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/leadership"
@@ -21,7 +19,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
 )
@@ -88,15 +85,6 @@ type ModelContext interface {
 	ServiceFactory
 	ObjectStoreFactory
 	Logger
-
-	// ModelProviderFactory returns a provider for the current model. This
-	// should be used very sparingly in facades. The recommended usage is to
-	// define a provider interface with the methods you need, and pass the
-	// context into the top-level ProviderRunner function to get a provider of
-	// the correct type:
-	//
-	//     providerGetter := facade.ProviderRunner[myProviderType](ctx)
-	ModelProviderFactory
 
 	// Auth represents information about the connected client. You
 	// should always be checking individual requests against Auth:
@@ -332,42 +320,3 @@ const (
 	// established for use in the keymanager facade.
 	HTTPClientPurposeUserSSHImport HTTPClientPurpose = "ssh-key-import"
 )
-
-// ModelProviderFactory returns the provider for the current model.
-type ModelProviderFactory interface {
-	GetProvider(context.Context) (providertracker.Provider, error)
-}
-
-// ModelProviderFactoryFunc is a simple implementation of ModelProviderFactory.
-type ModelProviderFactoryFunc func(context.Context) (providertracker.Provider, error)
-
-// GetProvider implements ModelProviderFactory.
-func (f ModelProviderFactoryFunc) GetProvider(ctx context.Context) (providertracker.Provider, error) {
-	return f(ctx)
-}
-
-// NewModelProviderFactory returns a new ModelProviderFactory given a
-// providertracker.ProviderFactory and a given model ID.
-func NewModelProviderFactory(
-	modelID model.UUID,
-	providerFactory providertracker.ProviderFactory,
-) ModelProviderFactoryFunc {
-	return func(ctx context.Context) (providertracker.Provider, error) {
-		return providerFactory.ProviderForModel(ctx, modelID.String())
-	}
-}
-
-// ProviderRunner allows getting a provider satisfying a given interface.
-func ProviderRunner[T any](providerFactory ModelProviderFactory) func(context.Context) (T, error) {
-	var zero T
-	return func(ctx context.Context) (T, error) {
-		p, err := providerFactory.GetProvider(ctx)
-		if err != nil {
-			return zero, fmt.Errorf("getting provider for model: %w", err)
-		}
-		if v, ok := p.(T); ok {
-			return v, nil
-		}
-		return zero, errors.NotSupportedf("provider type %T", zero)
-	}
-}

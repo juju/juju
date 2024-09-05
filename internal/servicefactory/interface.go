@@ -29,6 +29,7 @@ import (
 	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
+	proxyservice "github.com/juju/juju/domain/proxy/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
@@ -117,6 +118,8 @@ type ModelServiceFactory interface {
 	ModelMigration() *modelmigrationservice.Service
 	// ModelSecretBackend returns the model secret backend service.
 	ModelSecretBackend() *secretbackendservice.ModelSecretBackendService
+	// Proxy returns the proxy service.
+	Proxy() *proxyservice.Service
 }
 
 // ServiceFactory provides access to the services required by the apiserver.

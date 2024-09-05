@@ -26,7 +26,6 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -83,7 +82,6 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.api = NewMachineManagerAPI(
 		s.model,
 		s.controllerConfigService,
-		nil, nil,
 		s.st,
 		s.cloudService,
 		s.credService,
@@ -240,7 +238,6 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.api = NewMachineManagerAPI(
 		s.model,
 		s.controllerConfigService,
-		nil, nil,
 		s.st,
 		s.cloudService,
 		s.credService,
@@ -768,14 +765,11 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller
 	s.bootstrapEnviron = NewMockBootstrapEnviron(ctrl)
 	s.store = NewMockObjectStore(ctrl)
 
-	bootstrapProvider := func(_ context.Context) (environs.BootstrapEnviron, error) {
-		return s.bootstrapEnviron, nil
-	}
+	s.machineService.EXPECT().GetBootstrapEnviron(gomock.Any()).Return(s.bootstrapEnviron, nil).AnyTimes()
 
 	s.api = NewMachineManagerAPI(
 		s.model,
 		s.controllerConfigService,
-		bootstrapProvider, nil,
 		s.st,
 		s.cloudService,
 		s.credService,

@@ -1080,7 +1080,7 @@ func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 	return info, nil
 }
 
-func (e *Environ) SupportsSpaces(envcontext.ProviderCallContext) (bool, error) {
+func (e *Environ) SupportsSpaces() (bool, error) {
 	return false, nil
 }
 

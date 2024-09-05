@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/model"
 )
 
@@ -46,7 +45,6 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 	modelConfigServiceGetter := func(modelID model.UUID) ModelConfigService {
 		return ctx.ServiceFactoryForModel(modelID).Config()
 	}
-	caasBrokerGetter := facade.ProviderRunner[caas.Broker](ctx)
 
 	return NewControllerAPI(
 		stdCtx,
@@ -65,7 +63,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		serviceFactory.Access(),
 		serviceFactory.Model(),
 		modelConfigServiceGetter,
-		caasBrokerGetter,
+		serviceFactory.Proxy(),
 		ctx.ModelExporter(st),
 		ctx.ObjectStore(),
 		leadership,

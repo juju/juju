@@ -4,7 +4,6 @@
 package spaces
 
 import (
-	stdcontext "context"
 	"testing"
 
 	"github.com/juju/names/v5"
@@ -13,9 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/environs"
-	environmocks "github.com/juju/juju/environs/mocks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -48,7 +44,7 @@ func (s *APISuite) TearDownTest(_ *gc.C) {
 	s.API = nil
 }
 
-func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) (*gomock.Controller, func()) {
+func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.resource = facademocks.NewMockResources(ctrl)
@@ -65,26 +61,16 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	bExp := s.Backing.EXPECT()
 	bExp.ModelTag().Return(names.NewModelTag("123"))
 
-	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
-	mockNetworkEnviron.EXPECT().SupportsSpaces(gomock.Any()).Return(supportSpaces, nil).AnyTimes()
-	mockNetworkEnviron.EXPECT().SupportsSpaceDiscovery(gomock.Any()).Return(providerSpaces, nil).AnyTimes()
-
-	mockProvider := environmocks.NewMockCloudEnvironProvider(ctrl)
-	mockProvider.EXPECT().Open(gomock.Any(), gomock.Any()).Return(mockNetworkEnviron, nil).AnyTimes()
-
-	unReg := environs.RegisterProvider("mock-provider", mockProvider)
-
 	s.ControllerConfigService = NewMockControllerConfigService(ctrl)
 	s.NetworkService = NewMockNetworkService(ctrl)
 
+	s.NetworkService.EXPECT().SupportsSpaces(gomock.Any()).Return(supportSpaces, nil).AnyTimes()
+	s.NetworkService.EXPECT().SupportsSpaceDiscovery(gomock.Any()).Return(providerSpaces, nil).AnyTimes()
+
 	var err error
 	s.API, err = newAPIWithBacking(apiConfig{
-		Backing:                     s.Backing,
-		Check:                       s.blockChecker,
-		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
-		ProviderGetter: func(ctx stdcontext.Context) (environs.NetworkingEnviron, error) {
-			return mockNetworkEnviron, nil
-		},
+		Backing:                 s.Backing,
+		Check:                   s.blockChecker,
 		Resources:               s.resource,
 		Authorizer:              s.authorizer,
 		ControllerConfigService: s.ControllerConfigService,
@@ -93,7 +79,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	return ctrl, unReg
+	return ctrl
 }
 
 // NewAPIWithBacking is also a legacy-only artifact,

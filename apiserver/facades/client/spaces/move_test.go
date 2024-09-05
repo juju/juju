@@ -25,9 +25,8 @@ type moveSubnetsAPISuite struct {
 var _ = gc.Suite(&moveSubnetsAPISuite{})
 
 func (s *moveSubnetsAPISuite) TestMoveSubnetsSubnetNotFoundError(c *gc.C) {
-	ctrl, unReg := s.SetupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unReg()
 
 	spaceName := "destination"
 	subnetID := "3"
@@ -41,9 +40,8 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSubnetNotFoundError(c *gc.C) {
 }
 
 func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *gc.C) {
-	ctrl, unReg := s.SetupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unReg()
 
 	spaceName := "destination"
 	subnetID := "3"
@@ -103,9 +101,8 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *gc.C) {
 }
 
 func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *gc.C) {
-	ctrl, unReg := s.SetupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unReg()
 
 	spaceName := "destination"
 	subnetID := "3"
@@ -167,9 +164,8 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *gc.C) 
 }
 
 func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceError(c *gc.C) {
-	ctrl, unReg := s.SetupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unReg()
 
 	spaceName := "destination"
 	subnetID := "3"
@@ -224,9 +220,8 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceE
 }
 
 func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess(c *gc.C) {
-	ctrl, unReg := s.SetupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unReg()
 
 	spaceName := "destination"
 	subnetID := "3"
@@ -291,9 +286,8 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 }
 
 func (s *moveSubnetsAPISuite) TestMoveSubnetsPositiveConstraintsViolatedNoForceError(c *gc.C) {
-	ctrl, unReg := s.SetupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unReg()
 
 	spaceName := "destination"
 	subnetID := "3"
@@ -359,9 +353,8 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsPositiveConstraintsViolatedNoForceE
 }
 
 func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceError(c *gc.C) {
-	ctrl, unReg := s.SetupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
-	defer unReg()
 
 	spaceName := "destination"
 	subnetID := "3"

@@ -86,10 +86,6 @@ func (testingAPIRootHandler) Authorizer() facade.Authorizer {
 	return nil
 }
 
-func (testingAPIRootHandler) ProviderFactory() facade.ModelProviderFactory {
-	return nil
-}
-
 func (testingAPIRootHandler) ModelUUID() model.UUID {
 	return ""
 }
@@ -155,7 +151,6 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servi
 		st,
 		nil,
 		sf,
-		nil,
 		nil,
 		coretrace.NoopTracer{},
 		nil,

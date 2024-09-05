@@ -17,9 +17,8 @@ import (
 
 	coreuser "github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
-	"github.com/juju/juju/environs"
+	proxyerrors "github.com/juju/juju/domain/proxy/errors"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
-	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -28,8 +27,7 @@ import (
 // used to complete a secure user registration process, and provide controller
 // login credentials.
 type registerUserHandler struct {
-	ctxt           httpContext
-	providerGetter func(context.Context) (environs.ConnectorInfo, error)
+	ctxt httpContext
 }
 
 // ServeHTTP implements the http.Handler interface.
@@ -52,11 +50,11 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 
 	// TODO (stickupkid): Remove this nonsense, we should be able to get the
 	// service factory from the handler.
-	var serviceFactory servicefactory.ControllerServiceFactory
-	serviceFactory = h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(h.ctxt.srv.shared.controllerModelUUID)
+	serviceFactory := h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(h.ctxt.srv.shared.controllerModelUUID)
 	userTag, response, err := h.processPost(
 		req,
 		st.State,
+		serviceFactory.Proxy(),
 		serviceFactory.ControllerConfig(),
 		serviceFactory.Access(),
 	)
@@ -111,6 +109,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 func (h *registerUserHandler) processPost(
 	req *http.Request,
 	st *state.State,
+	proxyService ProxyService,
 	controllerConfigService ControllerConfigService,
 	userService UserService,
 ) (
@@ -145,7 +144,7 @@ func (h *registerUserHandler) processPost(
 
 	// Respond with the CA-cert and password, encrypted again with the
 	// activation key.
-	responsePayload, err := h.getSecretKeyLoginResponsePayload(req.Context(), st, controllerConfigService)
+	responsePayload, err := h.getSecretKeyLoginResponsePayload(req.Context(), st, proxyService, controllerConfigService)
 	if err != nil {
 		return names.UserTag{}, nil, errors.Trace(err)
 	}
@@ -174,6 +173,7 @@ func (h *registerUserHandler) processPost(
 func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	ctx context.Context,
 	st *state.State,
+	proxyService ProxyService,
 	controllerConfigService ControllerConfigService,
 ) (*params.SecretKeyLoginResponsePayload, error) {
 	if !st.IsController() {
@@ -189,20 +189,14 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 		ControllerUUID: controllerConfig.ControllerUUID(),
 	}
 
-	connInfo, err := h.providerGetter(ctx)
-	if errors.Is(err, errors.NotSupported) { // Not all providers support this.
+	proxier, err := proxyService.GetConnectionProxyInfo(ctx)
+	if errors.Is(err, proxyerrors.ProxyInfoNotSupported) ||
+		errors.Is(err, proxyerrors.ProxyInfoNotFound) {
 		return &payload, nil
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
-	proxier, err := connInfo.ConnectionProxyInfo(ctx)
-	if errors.Is(err, errors.NotFound) {
-		return &payload, nil
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+
 	if payload.ProxyConfig, err = params.NewProxy(proxier); err != nil {
 		return nil, errors.Trace(err)
 	}

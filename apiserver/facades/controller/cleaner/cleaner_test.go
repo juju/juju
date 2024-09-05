@@ -49,7 +49,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	cleaner.PatchState(s, s.st)
 	var err error
 	res := common.NewResources()
-	s.machineService = machineservice.NewWatchableService(nil, nil)
+	s.machineService = machineservice.NewWatchableService(nil, nil, nil)
 	s.applicationService = applicationservice.NewWatchableService(nil, nil, nil, applicationservice.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
 		Secrets:         applicationservice.NotImplementedSecretService{},

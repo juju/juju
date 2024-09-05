@@ -102,7 +102,7 @@ func makeSubnetIDForNetwork(networkName, address string, mask int) (string, stri
 // SupportsSpaces returns whether the current environment supports
 // spaces. The returned error satisfies errors.IsNotSupported(),
 // unless a general API failure occurs.
-func (e *environ) SupportsSpaces(envcontext.ProviderCallContext) (bool, error) {
+func (e *environ) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 
@@ -188,7 +188,7 @@ func (*environ) SupportsContainerAddresses(envcontext.ProviderCallContext) (bool
 // SupportsSpaceDiscovery returns whether the current environment
 // supports discovering spaces from the provider. The returned error
 // satisfies errors.IsNotSupported(), unless a general API failure occurs.
-func (*environ) SupportsSpaceDiscovery(envcontext.ProviderCallContext) (bool, error) {
+func (*environ) SupportsSpaceDiscovery() (bool, error) {
 	return false, nil
 }
 

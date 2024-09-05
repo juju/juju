@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -164,9 +163,6 @@ type ApiServerSuite struct {
 	// ConfigSchemaSourceGetter is used to provide the config schema for the model.
 	// DEPRECATED: This will be removed in the future.
 	ConfigSchemaSourceGetter func(*gc.C) environsconfig.ConfigSchemaSourceGetter
-
-	// providerFactory is the fake provider factory dependency for testing.
-	providerFactory fakeProviderFactory
 }
 
 type noopRegisterer struct {
@@ -357,8 +353,6 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 		serviceFactoryGetter: cfg.ServiceFactoryGetter,
 	}
 	s.ObjectStoreGetter = cfg.ObjectStoreGetter
-
-	cfg.ProviderFactory = &s.providerFactory
 
 	// Set up auth handler.
 	factory := s.ControllerServiceFactory(c)
@@ -814,23 +808,4 @@ func (f *fakePresence) AgentStatus(agent string) (presence.Status, error) {
 		return status, nil
 	}
 	return presence.Alive, nil
-}
-
-// fakeProviderFactory is a provider factory implementation that allows
-// defining fake values for testing using ApiServerSuite.SetProviderReturn.
-type fakeProviderFactory struct {
-	provider providertracker.Provider
-	err      error
-}
-
-// ProviderForModel implements providertracker.ProviderFactory.
-func (f *fakeProviderFactory) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
-	return f.provider, f.err
-}
-
-// SetProviderReturn defines the values that should be returned from the
-// provider factory.
-func (s *ApiServerSuite) SetProviderReturn(provider providertracker.Provider, err error) {
-	s.providerFactory.provider = provider
-	s.providerFactory.err = err
 }

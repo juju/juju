@@ -52,7 +52,7 @@ func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *
 
 	// Space support and by extension, subnet detection is not available.
 	srv.EXPECT().HasExtension("network").Return(false)
-	supportsSpaces, err := env.SupportsSpaces(ctx)
+	supportsSpaces, err := env.SupportsSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supportsSpaces, jc.IsFalse, gc.Commentf("expected SupportsSpaces to return false when the lxd server lacks the 'network' extension"))
 
@@ -365,7 +365,7 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 
 	// Spaces should be supported
-	supportsSpaces, err := env.SupportsSpaces(ctx)
+	supportsSpaces, err := env.SupportsSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supportsSpaces, jc.IsTrue)
 

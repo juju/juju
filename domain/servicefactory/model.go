@@ -37,6 +37,7 @@ import (
 	networkstate "github.com/juju/juju/domain/network/state"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
+	proxy "github.com/juju/juju/domain/proxy/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretstate "github.com/juju/juju/domain/secret/state"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -118,6 +119,7 @@ func (s *ModelFactory) Machine() *machineservice.WatchableService {
 			s.modelDB,
 			s.logger.Child("machine"),
 		),
+		providertracker.ProviderRunner[machineservice.Provider](s.providerFactory, s.modelUUID.String()),
 	)
 }
 
@@ -252,5 +254,12 @@ func (s *ModelFactory) ModelInfo() *modelservice.ModelService {
 		s.modelUUID,
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("modelinfo")),
+	)
+}
+
+// Proxy returns the proxy service.
+func (s *ModelFactory) Proxy() *proxy.Service {
+	return proxy.NewService(
+		providertracker.ProviderRunner[proxy.Provider](s.providerFactory, s.modelUUID.String()),
 	)
 }

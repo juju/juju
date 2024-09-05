@@ -29,6 +29,7 @@ import (
 	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
+	proxyservice "github.com/juju/juju/domain/proxy/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
@@ -237,5 +238,9 @@ func (s *TestingServiceFactory) WithApplicationService(getter func() *applicatio
 // the model service. As this is only for read-only model information, we
 // can rename it to the more obscure version.
 func (s *TestingServiceFactory) ModelInfo() *modelservice.ModelService {
+	return nil
+}
+
+func (s *TestingServiceFactory) Proxy() *proxyservice.Service {
 	return nil
 }

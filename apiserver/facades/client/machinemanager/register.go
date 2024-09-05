@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -69,13 +68,9 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		return nil, fmt.Errorf("getting model information for constructing machine manager facade: %w", err)
 	}
 
-	facade.ProviderRunner[environs.InstanceTypesFetcher](ctx)
-
 	return NewMachineManagerAPI(
 		model,
 		serviceFactory.ControllerConfig(),
-		facade.ProviderRunner[environs.BootstrapEnviron](ctx),
-		facade.ProviderRunner[environs.InstanceTypesFetcher](ctx),
 		backend,
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),

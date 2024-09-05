@@ -321,7 +321,7 @@ func (e *environ) subnetsByURL(ctx envcontext.ProviderCallContext, urls []string
 }
 
 // SupportsSpaces implements environs.NetworkingEnviron.
-func (e *environ) SupportsSpaces(ctx envcontext.ProviderCallContext) (bool, error) {
+func (e *environ) SupportsSpaces() (bool, error) {
 	return false, nil
 }
 

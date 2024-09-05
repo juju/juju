@@ -16,7 +16,7 @@ import (
 var _ environs.NetworkingEnviron = &manualEnviron{}
 
 // SupportsSpaces implements environs.NetworkingEnviron.
-func (e *manualEnviron) SupportsSpaces(envcontext.ProviderCallContext) (bool, error) {
+func (e *manualEnviron) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 
