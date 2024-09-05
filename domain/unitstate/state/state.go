@@ -35,7 +35,7 @@ func (st *State) GetUnitUUIDForName(ctx domain.AtomicContext, name string) (stri
 	q := "SELECT &unitUUID.uuid FROM unit WHERE name = $unitName.name"
 	stmt, err := st.Prepare(q, uName, uuid)
 	if err != nil {
-		return "", fmt.Errorf("failed to prepare query: %w", err)
+		return "", fmt.Errorf("preparing UUID query: %w", err)
 	}
 
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -47,4 +47,41 @@ func (st *State) GetUnitUUIDForName(ctx domain.AtomicContext, name string) (stri
 	})
 
 	return uuid.UUID, err
+}
+
+// EnsureUnitStateRecord ensures that there is a row in the unit_state table
+// for the input unit UUID. This eliminates the need for upsert statements
+// when updating state for uniter, storage and secrets.
+func (st *State) EnsureUnitStateRecord(ctx domain.AtomicContext, uuid string) error {
+	id := unitUUID{UUID: uuid}
+
+	q := "SELECT unit_uuid AS &unitUUID.uuid FROM unit_state WHERE unit_uuid = $unitUUID.uuid"
+	rowStmt, err := st.Prepare(q, id)
+	if err != nil {
+		return fmt.Errorf("preparing state row query: %w", err)
+	}
+
+	q = "INSERT INTO unit_state(unit_uuid) values ($unitUUID.uuid)"
+	insertStmt, err := st.Prepare(q, id)
+	if err != nil {
+		return fmt.Errorf("preparing state insert query: %w", err)
+	}
+
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, rowStmt, id).Get(&id)
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("checking for state row: %w", err)
+		}
+
+		err = tx.Query(ctx, insertStmt, id).Run()
+		if err != nil {
+			return fmt.Errorf("adding state row: %w", err)
+		}
+		return nil
+	})
+
+	return err
 }

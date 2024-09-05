@@ -42,14 +42,12 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit").Scan(&s.unitUUID)
-		c.Assert(err, jc.ErrorIsNil)
-		return nil
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit").Scan(&s.unitUUID)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestGetEndpoints(c *gc.C) {
+func (s *stateSuite) TestGetUUIDForName(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 
@@ -61,4 +59,33 @@ func (s *stateSuite) TestGetEndpoints(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(uuid, gc.Equals, s.unitUUID)
+}
+
+func (s *stateSuite) TestEnsureUnitStateRecord(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.EnsureUnitStateRecord(ctx, s.unitUUID)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var uuid string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit").Scan(&uuid)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uuid, gc.Equals, s.unitUUID)
+
+	// Running again makes no change.
+	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.EnsureUnitStateRecord(ctx, s.unitUUID)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit").Scan(&uuid)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uuid, gc.Equals, s.unitUUID)
 }
