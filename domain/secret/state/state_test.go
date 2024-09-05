@@ -411,9 +411,13 @@ func (s *stateSuite) TestListExternalSecretRevisions(c *gc.C) {
 	err = st.CreateUserSecret(ctx, 1, uri3, sp3)
 	c.Assert(err, jc.ErrorIsNil)
 
-	revs, err := st.ListExternalSecretRevisions(ctx, uri)
+	var refs []coresecrets.ValueRef
+	err = st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		refs, err = st.ListExternalSecretRevisions(ctx, uri)
+		return err
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(revs, jc.SameContents, []coresecrets.ValueRef{{
+	c.Assert(refs, jc.SameContents, []coresecrets.ValueRef{{
 		BackendID:  "some-backend",
 		RevisionID: "some-revision",
 	}, {
@@ -421,9 +425,12 @@ func (s *stateSuite) TestListExternalSecretRevisions(c *gc.C) {
 		RevisionID: "some-revision2",
 	}})
 
-	revs, err = st.ListExternalSecretRevisions(ctx, uri, 2)
+	err = st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		refs, err = st.ListExternalSecretRevisions(ctx, uri, 2)
+		return err
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(revs, jc.SameContents, []coresecrets.ValueRef{{
+	c.Assert(refs, jc.SameContents, []coresecrets.ValueRef{{
 		BackendID:  "some-backend2",
 		RevisionID: "some-revision2",
 	}})
@@ -3517,7 +3524,11 @@ func (s *stateSuite) TestDeleteSomeRevisions(c *gc.C) {
 	expectedToBeDeleted := []string{
 		getRevUUID(c, s.DB(), uri, 2),
 	}
-	deletedRevisionIDs, err := st.DeleteSecret(ctx, uri, []int{2})
+	var deletedRevisionIDs []string
+	err = st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		deletedRevisionIDs, err = st.DeleteSecret(ctx, uri, []int{2})
+		return err
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deletedRevisionIDs, jc.SameContents, expectedToBeDeleted)
 
@@ -3584,7 +3595,11 @@ func (s *stateSuite) assertDeleteAllRevisions(c *gc.C, revs []int) {
 		getRevUUID(c, s.DB(), uri, 2),
 		getRevUUID(c, s.DB(), uri, 3),
 	}
-	deletedRevisionIDs, err := st.DeleteSecret(ctx, uri, revs)
+	var deletedRevisionIDs []string
+	err = st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		deletedRevisionIDs, err = st.DeleteSecret(ctx, uri, revs)
+		return err
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deletedRevisionIDs, jc.SameContents, expectedToBeDeleted)
 

@@ -9,6 +9,9 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
+//go:generate go run go.uber.org/mock/mockgen -typed -package secret -destination provider_mock_test.go github.com/juju/juju/internal/secrets/provider SecretBackendProvider,SecretsBackend
+//go:generate go run go.uber.org/mock/mockgen -typed -package secret -destination refcount_mock_test.go github.com/juju/juju/domain/secret/service SecretBackendReferenceMutator
+
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }

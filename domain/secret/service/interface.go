@@ -12,13 +12,25 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/internal/uuid"
 )
 
+// AtomicState describes retrieval and persistence methods for
+// secrets that require atomic transactions.
+type AtomicState interface {
+	domain.AtomicStateBase
+
+	ListExternalSecretRevisions(ctx domain.AtomicContext, uri *secrets.URI, revisions ...int) ([]secrets.ValueRef, error)
+	DeleteSecret(ctx domain.AtomicContext, uri *secrets.URI, revs []int) ([]string, error)
+}
+
 // State describes retrieval and persistence methods needed for
 // the secrets domain service.
 type State interface {
+	AtomicState
+
 	GetModelUUID(ctx context.Context) (string, error)
 	CreateUserSecret(
 		ctx context.Context, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams,
@@ -30,11 +42,9 @@ type State interface {
 		ctx context.Context, version int, uri *secrets.URI, unitName string, secret domainsecret.UpsertSecretParams,
 	) error
 	UpdateSecret(ctx context.Context, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
-	DeleteSecret(ctx context.Context, uri *secrets.URI, revs []int) ([]string, error)
 	DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string, error)
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetLatestRevision(ctx context.Context, uri *secrets.URI) (int, error)
-	ListExternalSecretRevisions(ctx context.Context, uri *secrets.URI, revisions ...int) ([]secrets.ValueRef, error)
 	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
 	ListSecrets(ctx context.Context, uri *secrets.URI,
 		revision *int, labels domainsecret.Labels,

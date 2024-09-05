@@ -43,6 +43,9 @@ func NewSecretService(
 // BackendAdminConfigGetter is a func used to get admin level secret backend config.
 type BackendAdminConfigGetter func(context.Context) (*provider.ModelBackendConfigInfo, error)
 
+// ProviderGetter is a func used to get a secret backend provider for a specified type.
+type ProviderGetter func(backendType string) (provider.SecretBackendProvider, error)
+
 // NotImplementedBackendConfigGetter is a not implemented secret backend getter.
 // It is used by callers of the secret service that do not need any backend functionality.
 var NotImplementedBackendConfigGetter = func(context.Context) (*provider.ModelBackendConfigInfo, error) {
@@ -55,12 +58,24 @@ type SecretService struct {
 	secretBackendReferenceMutator SecretBackendReferenceMutator
 	logger                        logger.Logger
 	clock                         clock.Clock
-	providerGetter                func(backendType string) (provider.SecretBackendProvider, error)
+	providerGetter                ProviderGetter
 	adminConfigGetter             BackendAdminConfigGetter
 
 	activeBackendID string
 	backends        map[string]provider.SecretsBackend
 	uuidGenerator   func() (uuid.UUID, error)
+}
+
+// WithProviderGetter is used in tests to override the default provider getter.
+func (s *SecretService) WithProviderGetter(getter ProviderGetter) *SecretService {
+	s.providerGetter = getter
+	return s
+}
+
+// WithBackendRefMutator is used in tests to override the default backend ref mutator.
+func (s *SecretService) WithBackendRefMutator(mutator SecretBackendReferenceMutator) *SecretService {
+	s.secretBackendReferenceMutator = mutator
+	return s
 }
 
 // CreateSecretURIs returns the specified number of new secret URIs.
