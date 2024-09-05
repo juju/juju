@@ -68,6 +68,12 @@ type ApplicationService interface {
 	// returning an error  satisfying [applicationerrors.ApplicationNotFoundError]
 	// if the application doesn't exist.
 	DestroyApplication(ctx context.Context, name string) error
+
+	// DeleteApplication deletes the specified application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+	// TODO(units) - remove when destroy is fully implemented.
+	DeleteApplication(ctx context.Context, name string) error
+
 	// DestroyUnit prepares a unit for removal from the model
 	// returning an error  satisfying [applicationerrors.UnitNotFoundError]
 	// if the unit doesn't exist.

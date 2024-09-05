@@ -1625,7 +1625,12 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 		if len(op.Errors) != 0 {
 			api.logger.Warningf("operational errors destroying application %v: %v", tag.Id(), op.Errors)
 		}
-		return &info, nil
+
+		// TODO(units) - remove when destroy is fully implemented.
+		if op.Removed {
+			err = api.applicationService.DeleteApplication(ctx, tag.Id())
+		}
+		return &info, err
 	}
 	results := make([]params.DestroyApplicationResult, len(args.Applications))
 	for i, arg := range args.Applications {

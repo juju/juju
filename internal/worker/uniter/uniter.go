@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	coretrace "github.com/juju/juju/core/trace"
 	jujucharm "github.com/juju/juju/internal/charm"
@@ -679,9 +680,38 @@ func (u *Uniter) terminate(ctx stdcontext.Context) error {
 			}
 			// The unit is known to be Dying; so if it didn't have subordinates
 			// just above, it can't acquire new ones before this call.
+			// The same goes for secrets.
+
+			// Just before the transition to dead, remove any secret content
+			// for secrets owned by this unit.
+			// We only handle unit owned secrets here. Any app owned secrets
+			// can only be deleted when the app itself is removed. This is
+			// done in the api server.
+			u.logger.Debugf("deleting secret content")
+			secrets, err := u.secretsClient.SecretMetadata(ctx)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			backend, err := u.secretsBackendGetter()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			for _, s := range secrets {
+				if s.Metadata.Owner.Kind == coresecrets.ApplicationOwner {
+					continue
+				}
+				for _, rev := range s.Revisions {
+					err = backend.DeleteContent(ctx, s.Metadata.URI, rev)
+					if err != nil {
+						return errors.Annotatef(err, "deleting secret content for %s/%d", s.Metadata.URI.ID, rev)
+					}
+				}
+			}
+
 			if err := u.unit.EnsureDead(ctx); err != nil {
 				return errors.Trace(err)
 			}
+
 			return u.stopUnitError()
 		}
 	}
