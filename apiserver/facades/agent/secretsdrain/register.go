@@ -12,9 +12,7 @@ import (
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
-	"github.com/juju/juju/internal/secrets/provider"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -34,34 +32,20 @@ func newSecretsDrainAPI(stdCtx context.Context, ctx facade.ModelContext) (*commo
 		return nil, errors.Trace(err)
 	}
 	serviceFactory := ctx.ServiceFactory()
-	modelInfoService := serviceFactory.ModelInfo()
 	secretBackendService := ctx.ServiceFactory().SecretBackend()
 
-	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	authTag := ctx.Auth().GetAuthTag()
 
-	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
-		return secretBackendService.GetSecretBackendConfigForAdmin(stdCtx, modelInfo.UUID)
-	}
-	backendUserSecretConfigGetter := func(
-		stdCtx context.Context, gsg secretservice.GrantedSecretsGetter, accessor secretservice.SecretAccessor,
-	) (*provider.ModelBackendConfigInfo, error) {
-		return secretBackendService.BackendConfigInfo(stdCtx, secretbackendservice.BackendConfigParams{
-			GrantedSecretsGetter: gsg,
-			Accessor:             accessor,
-			ModelUUID:            modelInfo.UUID,
-			SameController:       true,
-		})
-	}
+	secretBackendAdminConfigGetter := secretbackendservice.AdminBackendConfigGetterFunc(
+		secretBackendService, ctx.ModelUUID())
+	backendUserSecretConfigGetter := secretbackendservice.UserSecretBackendConfigGetterFunc(
+		secretBackendService, ctx.ModelUUID())
 	return commonsecrets.NewSecretsDrainAPI(
 		authTag,
 		ctx.Auth(),
 		ctx.Logger().Child("secretsdrain"),
 		leadershipChecker,
-		modelInfo.UUID,
+		ctx.ModelUUID(),
 		serviceFactory.Secret(secretBackendAdminConfigGetter, backendUserSecretConfigGetter),
 		secretBackendService,
 		ctx.WatcherRegistry(),

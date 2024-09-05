@@ -33,7 +33,7 @@ func Register(registry facade.FacadeRegistry) {
 func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, error) {
 	serviceFactory := ctx.ServiceFactory()
 	modelInfoService := serviceFactory.ModelInfo()
-	secretBackendAdminConfigGetter := secretbackendservice.BackendConfigGetterFunc(
+	secretBackendAdminConfigGetter := secretbackendservice.AdminBackendConfigGetterFunc(
 		serviceFactory.SecretBackend(), ctx.ModelUUID())
 	backendUserSecretConfigGetter := func(
 		stdCtx context.Context, gsg secretservice.GrantedSecretsGetter, accessor secretservice.SecretAccessor,

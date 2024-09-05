@@ -12,9 +12,7 @@ import (
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
-	"github.com/juju/juju/internal/secrets/provider"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -40,26 +38,11 @@ func newUserSecretsDrainAPI(stdCtx stdcontext.Context, context facade.ModelConte
 	serviceFactory := context.ServiceFactory()
 	backendService := serviceFactory.SecretBackend()
 
-	modelInfoService := serviceFactory.ModelInfo()
-	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	secretBackendAdminConfigGetter := func(stdCtx stdcontext.Context) (*provider.ModelBackendConfigInfo, error) {
-		return backendService.GetSecretBackendConfigForAdmin(stdCtx, modelInfo.UUID)
-	}
-	backendUserSecretConfigGetter := func(
-		stdCtx stdcontext.Context, gsg secretservice.GrantedSecretsGetter, accessor secretservice.SecretAccessor,
-	) (*provider.ModelBackendConfigInfo, error) {
-		return backendService.BackendConfigInfo(stdCtx, secretbackendservice.BackendConfigParams{
-			GrantedSecretsGetter: gsg,
-			Accessor:             accessor,
-			ModelUUID:            modelInfo.UUID,
-			SameController:       true,
-		})
-	}
-	secretService := context.ServiceFactory().Secret(secretBackendAdminConfigGetter, backendUserSecretConfigGetter)
+	secretBackendAdminConfigGetter := secretbackendservice.AdminBackendConfigGetterFunc(
+		backendService, context.ModelUUID())
+	secretBackendUserSecretConfigGetter := secretbackendservice.UserSecretBackendConfigGetterFunc(
+		backendService, context.ModelUUID())
+	secretService := context.ServiceFactory().Secret(secretBackendAdminConfigGetter, secretBackendUserSecretConfigGetter)
 
 	authTag := model.ModelTag()
 	commonDrainAPI, err := commonsecrets.NewSecretsDrainAPI(
@@ -67,7 +50,7 @@ func newUserSecretsDrainAPI(stdCtx stdcontext.Context, context facade.ModelConte
 		context.Auth(),
 		context.Logger().Child("usersecretsdrain"),
 		leadershipChecker,
-		modelInfo.UUID,
+		context.ModelUUID(),
 		secretService,
 		backendService,
 		context.WatcherRegistry(),
@@ -78,7 +61,7 @@ func newUserSecretsDrainAPI(stdCtx stdcontext.Context, context facade.ModelConte
 
 	return &SecretsDrainAPI{
 		SecretsDrainAPI:      commonDrainAPI,
-		modelUUID:            modelInfo.UUID.String(),
+		modelUUID:            context.ModelUUID().String(),
 		secretBackendService: backendService,
 		secretService:        secretService,
 	}, nil

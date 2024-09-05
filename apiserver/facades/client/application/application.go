@@ -172,7 +172,9 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	if err != nil {
 		return nil, fmt.Errorf("getting model info: %w", err)
 	}
-	secretBackendAdminConfigGetter := secretbackendservice.BackendConfigGetterFunc(
+	secretBackendAdminConfigGetter := secretbackendservice.AdminBackendConfigGetterFunc(
+		serviceFactory.SecretBackend(), ctx.ModelUUID())
+	secretBackendUserSecretConfigGetter := secretbackendservice.UserSecretBackendConfigGetterFunc(
 		serviceFactory.SecretBackend(), ctx.ModelUUID())
 	validatorCfg := validatorConfig{
 		charmhubHTTPClient: charmhubHTTPClient,
@@ -189,7 +191,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	}
 	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: registry,
-		Secrets:         serviceFactory.Secret(secretBackendAdminConfigGetter),
+		Secrets:         serviceFactory.Secret(secretBackendAdminConfigGetter, secretBackendUserSecretConfigGetter),
 	})
 	repoDeploy := NewDeployFromRepositoryAPI(
 		state,

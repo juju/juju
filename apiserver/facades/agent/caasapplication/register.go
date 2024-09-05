@@ -45,11 +45,13 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 	}
 
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
-	secretBackendAdminConfigGetter := secretbackendservice.BackendConfigGetterFunc(
+	secretBackendAdminConfigGetter := secretbackendservice.AdminBackendConfigGetterFunc(
+		serviceFactory.SecretBackend(), ctx.ModelUUID())
+	secretBackendUserSecretConfigGetter := secretbackendservice.UserSecretBackendConfigGetterFunc(
 		serviceFactory.SecretBackend(), ctx.ModelUUID())
 	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: registry,
-		Secrets:         serviceFactory.Secret(secretBackendAdminConfigGetter),
+		Secrets:         serviceFactory.Secret(secretBackendAdminConfigGetter, secretBackendUserSecretConfigGetter),
 	})
 
 	return NewFacade(

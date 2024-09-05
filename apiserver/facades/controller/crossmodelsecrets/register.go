@@ -13,9 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
-	"github.com/juju/juju/internal/secrets/provider"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -36,21 +34,12 @@ func makeStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModel
 	serviceFactory := ctx.ServiceFactory()
 
 	backendService := serviceFactory.SecretBackend()
-	secretInfoGetter := func(modelUUID string) SecretService {
-		secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
-			return backendService.GetSecretBackendConfigForAdmin(stdCtx, coremodel.UUID(modelUUID))
-		}
-		backendUserSecretConfigGetter := func(
-			stdCtx context.Context, gsg secretservice.GrantedSecretsGetter, accessor secretservice.SecretAccessor,
-		) (*provider.ModelBackendConfigInfo, error) {
-			return backendService.BackendConfigInfo(stdCtx, secretbackendservice.BackendConfigParams{
-				GrantedSecretsGetter: gsg,
-				Accessor:             accessor,
-				ModelUUID:            coremodel.UUID(modelUUID),
-				SameController:       true,
-			})
-		}
-		return ctx.ServiceFactoryForModel(coremodel.UUID(modelUUID)).Secret(secretBackendAdminConfigGetter, backendUserSecretConfigGetter)
+	secretInfoGetter := func(modelUUID coremodel.UUID) SecretService {
+		secretBackendAdminConfigGetter := secretbackendservice.AdminBackendConfigGetterFunc(
+			serviceFactory.SecretBackend(), modelUUID)
+		secretBackendUserSecretConfigGetter := secretbackendservice.UserSecretBackendConfigGetterFunc(
+			serviceFactory.SecretBackend(), modelUUID)
+		return ctx.ServiceFactoryForModel(modelUUID).Secret(secretBackendAdminConfigGetter, secretBackendUserSecretConfigGetter)
 	}
 
 	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)

@@ -18,9 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
-	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
-	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/rpc/params"
 )
@@ -44,25 +42,12 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 	}
 
 	backendService := serviceFactory.SecretBackend()
-	modelInfoService := serviceFactory.ModelInfo()
-	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
-		return backendService.GetSecretBackendConfigForAdmin(stdCtx, modelInfo.UUID)
-	}
-	backendUserSecretConfigGetter := func(
-		stdCtx context.Context, gsg secretservice.GrantedSecretsGetter, accessor secretservice.SecretAccessor,
-	) (*provider.ModelBackendConfigInfo, error) {
-		return backendService.BackendConfigInfo(stdCtx, secretbackendservice.BackendConfigParams{
-			GrantedSecretsGetter: gsg,
-			Accessor:             accessor,
-			ModelUUID:            modelInfo.UUID,
-			SameController:       true,
-		})
-	}
-	secretService := serviceFactory.Secret(secretBackendAdminConfigGetter, backendUserSecretConfigGetter)
+
+	secretBackendAdminConfigGetter := secretbackendservice.AdminBackendConfigGetterFunc(
+		serviceFactory.SecretBackend(), ctx.ModelUUID())
+	secretBackendUserSecretConfigGetter := secretbackendservice.UserSecretBackendConfigGetterFunc(
+		serviceFactory.SecretBackend(), ctx.ModelUUID())
+	secretService := serviceFactory.Secret(secretBackendAdminConfigGetter, secretBackendUserSecretConfigGetter)
 
 	controllerAPI := common.NewControllerConfigAPI(
 		ctx.State(),
@@ -106,7 +91,7 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 		secretsConsumer:      secretService,
 		clock:                clock.WallClock,
 		controllerUUID:       ctx.ControllerUUID(),
-		modelUUID:            ctx.State().ModelUUID(),
+		modelUUID:            ctx.ModelUUID().String(),
 		remoteClientGetter:   remoteClientGetter,
 		crossModelState:      ctx.State().RemoteEntities(),
 		logger:               ctx.Logger().Child("secretsmanager", corelogger.SECRETS),
