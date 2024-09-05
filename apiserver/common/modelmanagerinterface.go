@@ -323,16 +323,6 @@ func (st modelManagerStateShim) AllVolumes() ([]state.Volume, error) {
 	return sb.AllVolumes()
 }
 
-// ModelConfig returns the underlying model's config. Exposed here to satisfy the
-// ModelBackend interface.
-func (st modelManagerStateShim) ModelConfig(ctx context.Context) (*config.Config, error) {
-	model, err := st.State.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return model.ModelConfig(ctx)
-}
-
 // [TODO: Eric Claude Jones] This method ignores an error for the purpose of
 // expediting refactoring for CAAS features (we are avoiding changing method
 // signatures so that refactoring doesn't spiral out of control). This method
