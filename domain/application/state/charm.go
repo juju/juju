@@ -95,8 +95,9 @@ func (s *CharmState) IsControllerCharm(ctx context.Context, id corecharm.ID) (bo
 	ident := charmID{UUID: id.String()}
 
 	query := `
-SELECT name AS &charmName.name
+SELECT cm.name AS &charmName.name
 FROM charm
+JOIN charm_metadata AS cm ON charm.uuid = cm.charm_uuid
 WHERE uuid = $charmID.uuid;
 `
 	stmt, err := s.Prepare(query, ident, result)
@@ -132,8 +133,9 @@ func (s *CharmState) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (b
 	ident := charmID{UUID: id.String()}
 
 	query := `
-SELECT subordinate AS &charmSubordinate.subordinate
+SELECT cm.subordinate AS &charmSubordinate.subordinate
 FROM charm
+JOIN charm_metadata AS cm ON charm.uuid = cm.charm_uuid
 WHERE uuid = $charmID.uuid;
 `
 	stmt, err := s.Prepare(query, ident, result)
@@ -214,10 +216,8 @@ func (s *CharmState) IsCharmAvailable(ctx context.Context, id corecharm.ID) (boo
 	ident := charmID{UUID: id.String()}
 
 	query := `
-SELECT charm_state.available AS &charmAvailable.available
+SELECT charm.available AS &charmAvailable.available
 FROM charm
-INNER JOIN charm_state
-ON charm.uuid = charm_state.charm_uuid
 WHERE uuid = $charmID.uuid;
 `
 	stmt, err := s.Prepare(query, ident, result)
@@ -263,9 +263,9 @@ WHERE uuid = $charmID.uuid;
 	}
 
 	updateQuery := `
-UPDATE charm_state
+UPDATE charm
 SET available = true
-WHERE charm_uuid = $charmID.uuid;
+WHERE uuid = $charmID.uuid;
 `
 
 	updateStmt, err := s.Prepare(updateQuery, ident)
@@ -302,29 +302,35 @@ func (s *CharmState) ReserveCharmRevision(ctx context.Context, id corecharm.ID, 
 		return "", errors.Trace(err)
 	}
 
-	var charmResult charmIDName
+	var reserveCharmResult reserveCharm
 	ident := charmID{UUID: id.String()}
 
 	selectQuery := `
-SELECT &charmIDName.*
-FROM charm 
-LEFT JOIN charm_state
-ON charm.uuid = charm_state.charm_uuid
+SELECT &reserveCharm.*
+FROM charm
+JOIN charm_metadata AS cm ON charm.uuid = cm.charm_uuid
+JOIN charm_origin AS co ON charm.uuid = co.charm_uuid
 WHERE uuid = $charmID.uuid;
 `
-	selectStmt, err := s.Prepare(selectQuery, charmResult, ident)
+	selectStmt, err := s.Prepare(selectQuery, ident, reserveCharmResult)
 	if err != nil {
 		return "", fmt.Errorf("failed to prepare query: %w", err)
 	}
 
-	insertCharmQuery := `INSERT INTO charm (*) VALUES ($charmIDName.*);`
-	insertCharmStmt, err := s.Prepare(insertCharmQuery, charmResult)
+	insertCharmQuery := `INSERT INTO charm (*) VALUES ($charmID.*);`
+	insertCharmStmt, err := s.Prepare(insertCharmQuery, ident)
 	if err != nil {
 		return "", fmt.Errorf("failed to prepare query: %w", err)
 	}
 
-	insertCharmStateQuery := `INSERT INTO charm_state ("charm_uuid", "available") VALUES ($charmID.uuid, false);`
-	insertCharmStateStmt, err := s.Prepare(insertCharmStateQuery, ident)
+	insertCharmMetadataQuery := `INSERT INTO charm_metadata (*) VALUES ($setCharmMetadata.*);`
+	insertCharmMetadataStmt, err := s.Prepare(insertCharmMetadataQuery, setCharmMetadata{})
+	if err != nil {
+		return "", fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	insertCharmOriginQuery := `INSERT INTO charm_origin (*) VALUES ($setCharmOrigin.*);`
+	insertCharmOriginStmt, err := s.Prepare(insertCharmOriginQuery, setCharmOrigin{})
 	if err != nil {
 		return "", fmt.Errorf("failed to prepare query: %w", err)
 	}
@@ -335,23 +341,23 @@ WHERE uuid = $charmID.uuid;
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, selectStmt, ident).Get(&charmResult); err != nil {
+		if err := tx.Query(ctx, selectStmt, ident).Get(&reserveCharmResult); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
 			return fmt.Errorf("failed to reserve charm revision: %w", err)
 		}
 
-		newCharm := charmResult
-		newCharm.UUID = newID.String()
-		if err := tx.Query(ctx, insertCharmStmt, newCharm).Run(); err != nil {
+		if err := tx.Query(ctx, insertCharmStmt, charmID{UUID: newID.String()}).Run(); err != nil {
 			return fmt.Errorf("failed to reserve charm revision: inserting charm: %w", err)
 		}
 
-		if err := tx.Query(ctx, insertCharmStateStmt, charmID{
-			UUID: newID.String(),
-		}).Run(); err != nil {
-			return fmt.Errorf("failed to reserve charm revision: inserting charm state: %w", err)
+		if err := tx.Query(ctx, insertCharmMetadataStmt, setCharmMetadata{CharmUUID: newID.String(), Name: reserveCharmResult.Name}).Run(); err != nil {
+			return fmt.Errorf("failed to reserve charm revision: inserting charm_metadata: %w", err)
+		}
+
+		if err := tx.Query(ctx, insertCharmOriginStmt, setCharmOrigin{CharmUUID: newID.String(), ReferenceName: reserveCharmResult.Name}).Run(); err != nil {
+			return fmt.Errorf("failed to reserve charm revision: inserting charm_origin: %w", err)
 		}
 
 		return nil
@@ -603,7 +609,7 @@ var tablesToDeleteFrom = []string{
 	"charm_platform",
 	"charm_relation",
 	"charm_resource",
-	"charm_state",
+	"charm_metadata",
 	"charm_storage_property",
 	"charm_storage",
 	"charm_tag",
@@ -743,7 +749,7 @@ func (s *CharmState) setCharmPlatform(ctx context.Context, tx *sqlair.TX, id cor
 	}
 
 	args := charmPlatform{
-		CharmID:        ident.UUID,
+		CharmUUID:      ident.UUID,
 		OSTypeID:       ostypeID,
 		ArchitectureID: architectureID,
 		Channel:        platform.Channel,

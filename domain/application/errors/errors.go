@@ -81,6 +81,10 @@ const (
 	// CharmNotFound describes an error that occurs when a charm cannot be found.
 	CharmNotFound = errors.ConstError("charm not found")
 
+	// LXDProfileNotFound describes an error that occurs when an LXD profile
+	// cannot be found.
+	LXDProfileNotFound = errors.ConstError("LXD profile not found")
+
 	// CharmAlreadyExists describes an error that occurs when a charm already
 	// exists for the given natural key.
 	CharmAlreadyExists = errors.ConstError("charm already exists")

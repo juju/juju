@@ -30,7 +30,7 @@ type commonStateBase struct {
 
 func (s *commonStateBase) checkChamReferenceExists(ctx context.Context, tx *sqlair.TX, referenceName string, revision int) (corecharm.ID, error) {
 	selectQuery := `
-SELECT &charmIDName.*
+SELECT &charmID.*
 FROM charm
 LEFT JOIN charm_origin
 WHERE charm.uuid = charm_origin.charm_uuid
@@ -42,7 +42,7 @@ AND charm_origin.revision = $charmReferenceNameRevision.revision
 		Revision:      revision,
 	}
 
-	var result charmIDName
+	var result charmID
 	selectStmt, err := s.Prepare(selectQuery, result, ref)
 	if err != nil {
 		return "", fmt.Errorf("failed to prepare query: %w", err)
@@ -63,7 +63,11 @@ AND charm_origin.revision = $charmReferenceNameRevision.revision
 }
 
 func (s *commonStateBase) setCharm(ctx context.Context, tx *sqlair.TX, id corecharm.ID, charm charm.Charm, archivePath string) error {
-	if err := s.setCharmMetadata(ctx, tx, id, charm.Metadata, charm.LXDProfile, archivePath); err != nil {
+	if err := s.setCharmState(ctx, tx, id, archivePath); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := s.setCharmMetadata(ctx, tx, id, charm.Metadata, charm.LXDProfile); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -121,22 +125,44 @@ func (s *commonStateBase) setCharm(ctx context.Context, tx *sqlair.TX, id corech
 	return nil
 }
 
+func (s *commonStateBase) setCharmState(
+	ctx context.Context,
+	tx *sqlair.TX,
+	id corecharm.ID,
+	archivePath string,
+) error {
+	data := setCharm{
+		UUID:        id.String(),
+		ArchivePath: archivePath,
+	}
+
+	query := `INSERT INTO charm (*) VALUES ($setCharm.*);`
+	stmt, err := s.Prepare(query, data)
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, data).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm state: %w", err)
+	}
+
+	return nil
+}
+
 func (s *commonStateBase) setCharmMetadata(
 	ctx context.Context,
 	tx *sqlair.TX,
 	id corecharm.ID,
 	metadata charm.Metadata,
 	lxdProfile []byte,
-	archivePath string) error {
-	ident := charmID{UUID: id.String()}
-
-	encodedMetadata, err := encodeMetadata(id, metadata, lxdProfile, archivePath)
+) error {
+	encodedMetadata, err := encodeMetadata(id, metadata, lxdProfile)
 	if err != nil {
 		return fmt.Errorf("failed to encode charm metadata: %w", err)
 	}
 
-	query := `INSERT INTO charm (*) VALUES ($setCharmMetadata.*);`
-	stmt, err := s.Prepare(query, encodedMetadata, ident)
+	query := `INSERT INTO charm_metadata (*) VALUES ($setCharmMetadata.*);`
+	stmt, err := s.Prepare(query, encodedMetadata)
 	if err != nil {
 		return fmt.Errorf("failed to prepare query: %w", err)
 	}
@@ -646,21 +672,39 @@ ORDER BY array_index ASC, nested_array_index ASC;
 // the state base, and if the decode fails, the retry logic won't be triggered,
 // as it doesn't satisfy the retry error types.
 func (s *commonStateBase) getCharmLXDProfile(ctx context.Context, tx *sqlair.TX, ident charmID) ([]byte, error) {
-	query := `
-SELECT &charmLXDProfile.*
+	charmQuery := `
+SELECT &charmID.*
 FROM charm
 WHERE uuid = $charmID.uuid;
 	`
 
-	var profile charmLXDProfile
-	stmt, err := s.Prepare(query, profile, ident)
+	lxdProfileQuery := `
+SELECT &charmLXDProfile.*
+FROM charm
+JOIN charm_metadata AS cm ON charm.uuid = cm.charm_uuid
+WHERE uuid = $charmID.uuid;
+	`
+
+	charmStmt, err := s.Prepare(charmQuery, ident)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare query: %w", err)
+		return nil, fmt.Errorf("failed to prepare charm query: %w", err)
+	}
+	var profile charmLXDProfile
+	lxdProfileStmt, err := s.Prepare(lxdProfileQuery, profile, ident)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare lxd profile query: %w", err)
 	}
 
-	if err := tx.Query(ctx, stmt, ident).Get(&profile); err != nil {
+	if err := tx.Query(ctx, charmStmt, ident).Get(&ident); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil, applicationerrors.CharmNotFound
+		}
+		return nil, fmt.Errorf("failed to get charm: %w", err)
+	}
+
+	if err := tx.Query(ctx, lxdProfileStmt, ident).Get(&profile); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil, applicationerrors.LXDProfileNotFound
 		}
 		return nil, fmt.Errorf("failed to get charm lxd profile: %w", err)
 	}
@@ -698,6 +742,7 @@ WHERE charm_uuid = $charmID.uuid;
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return charm.Config{}, applicationerrors.CharmNotFound
 		}
+		return charm.Config{}, fmt.Errorf("failed to get charm: %w", err)
 	}
 
 	var configs []charmConfig
@@ -741,6 +786,7 @@ WHERE charm_uuid = $charmID.uuid;
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return charm.Actions{}, applicationerrors.CharmNotFound
 		}
+		return charm.Actions{}, fmt.Errorf("failed to get charm: %w", err)
 	}
 
 	var actions []charmAction
@@ -759,7 +805,7 @@ WHERE charm_uuid = $charmID.uuid;
 func (s *commonStateBase) getCharmMetadata(ctx context.Context, tx *sqlair.TX, ident charmID) (charmMetadata, error) {
 	query := `
 SELECT &charmMetadata.*
-FROM v_charm
+FROM v_charm_metadata
 WHERE uuid = $charmID.uuid;
 `
 	var metadata charmMetadata
