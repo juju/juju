@@ -15,3 +15,10 @@ type unitName struct {
 	// For example, postgresql/3.
 	Name string `db:"name"`
 }
+
+// unitState contains a YAML string representing the 
+// state for a unit's uniter, storage or secrets.
+type unitState struct {
+	// State is the YAML string.
+	State string `db:"state"`
+}

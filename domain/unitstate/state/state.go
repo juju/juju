@@ -85,3 +85,54 @@ func (st *State) EnsureUnitStateRecord(ctx domain.AtomicContext, uuid string) er
 
 	return err
 }
+
+// UpdateUnitStateUniter sets the input uniter
+// state against the input unit UUID.
+func (st *State) UpdateUnitStateUniter(ctx domain.AtomicContext, uuid, state string) error {
+	id := unitUUID{UUID: uuid}
+	uSt := unitState{State: state}
+
+	q := "UPDATE unit_state SET uniter_state = $unitState.state WHERE unit_uuid = $unitUUID.uuid"
+	stmt, err := st.Prepare(q, id, uSt)
+	if err != nil {
+		return fmt.Errorf("preparing uniter state update query: %w", err)
+	}
+
+	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, id, uSt).Run()
+	})
+}
+
+// UpdateUnitStateStorage sets the input storage
+// state against the input unit UUID.
+func (st *State) UpdateUnitStateStorage(ctx domain.AtomicContext, uuid, state string) error {
+	id := unitUUID{UUID: uuid}
+	uSt := unitState{State: state}
+
+	q := "UPDATE unit_state SET storage_state = $unitState.state WHERE unit_uuid = $unitUUID.uuid"
+	stmt, err := st.Prepare(q, id, uSt)
+	if err != nil {
+		return fmt.Errorf("preparing storage state update query: %w", err)
+	}
+
+	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, id, uSt).Run()
+	})
+}
+
+// UpdateUnitStateSecret sets the input secret
+// state against the input unit UUID.
+func (st *State) UpdateUnitStateSecret(ctx domain.AtomicContext, uuid, state string) error {
+	id := unitUUID{UUID: uuid}
+	uSt := unitState{State: state}
+
+	q := "UPDATE unit_state SET secret_state = $unitState.state WHERE unit_uuid = $unitUUID.uuid"
+	stmt, err := st.Prepare(q, id, uSt)
+	if err != nil {
+		return fmt.Errorf("preparing uniter secret update query: %w", err)
+	}
+
+	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, id, uSt).Run()
+	})
+}

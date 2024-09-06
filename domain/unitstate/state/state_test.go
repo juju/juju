@@ -89,3 +89,69 @@ func (s *stateSuite) TestEnsureUnitStateRecord(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uuid, gc.Equals, s.unitUUID)
 }
+
+func (s *stateSuite) TestUpdateUnitStateUniter(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	expState := "some uniter state YAML"
+
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		if err := st.EnsureUnitStateRecord(ctx, s.unitUUID); err != nil {
+			return err
+		}
+		return st.UpdateUnitStateUniter(ctx, s.unitUUID, expState)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var gotState string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		q := "SELECT uniter_state FROM unit_state where unit_uuid = ?"
+		return tx.QueryRowContext(ctx, q, s.unitUUID).Scan(&gotState)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotState, gc.Equals, expState)
+}
+
+func (s *stateSuite) TestUpdateUnitStateStorage(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	expState := "some storage state YAML"
+
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		if err := st.EnsureUnitStateRecord(ctx, s.unitUUID); err != nil {
+			return err
+		}
+		return st.UpdateUnitStateStorage(ctx, s.unitUUID, expState)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var gotState string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		q := "SELECT storage_state FROM unit_state where unit_uuid = ?"
+		return tx.QueryRowContext(ctx, q, s.unitUUID).Scan(&gotState)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotState, gc.Equals, expState)
+}
+
+func (s *stateSuite) TestUpdateUnitStateSecret(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	expState := "some secret state YAML"
+
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		if err := st.EnsureUnitStateRecord(ctx, s.unitUUID); err != nil {
+			return err
+		}
+		return st.UpdateUnitStateSecret(ctx, s.unitUUID, expState)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var gotState string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		q := "SELECT secret_state FROM unit_state where unit_uuid = ?"
+		return tx.QueryRowContext(ctx, q, s.unitUUID).Scan(&gotState)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotState, gc.Equals, expState)
+}
