@@ -13,12 +13,15 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	domainsecret "github.com/juju/juju/domain/secret"
+	secretstate "github.com/juju/juju/domain/secret/state"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -1082,7 +1085,7 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 		Manifest:   expectedManifest,
 		Actions:    expectedActions,
 		Config:     expectedConfig,
-		LXDProfile: []byte{},
+		LXDProfile: nil,
 	})
 	c.Check(origin, gc.DeepEquals, charm.CharmOrigin{
 		Source:   charm.CharmHubSource,
@@ -1151,6 +1154,73 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 
 	_, _, _, err = s.state.GetCharmByApplicationName(context.Background(), "bar")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) createSecrets(c *gc.C) (appSecretURI *coresecrets.URI, unitSecretURI *coresecrets.URI) {
+	u1 := application.UpsertUnitArg{
+		UnitName: ptr("mariadb/666"),
+	}
+	s.createApplication(c, "mariadb", life.Alive, u1)
+
+	u2 := application.UpsertUnitArg{
+		UnitName: ptr("mysql/666"),
+	}
+	s.createApplication(c, "mysql", life.Alive, u2)
+
+	secretState := secretstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	ctx := context.Background()
+	uri1 := coresecrets.NewURI()
+	sp := domainsecret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo": "bar"},
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+	}
+	err := secretState.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := coresecrets.NewURI()
+	sp2 := domainsecret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo": "bar"},
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+	}
+	err = secretState.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/666", sp2)
+	c.Assert(err, jc.ErrorIsNil)
+	return uri1, uri2
+}
+
+func (s *applicationStateSuite) TestGetSecretsForAppOwners(c *gc.C) {
+	uri1, _ := s.createSecrets(c)
+	var gotURIs []*coresecrets.URI
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		gotURIs, err = s.state.GetSecretsForOwners(ctx, application.ApplicationSecretOwners{"mysql"}, application.NilUnitOwners)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotURIs, jc.SameContents, []*coresecrets.URI{uri1})
+}
+
+func (s *applicationStateSuite) TestGetSecretsForUnitOwners(c *gc.C) {
+	_, uri2 := s.createSecrets(c)
+	var gotURIs []*coresecrets.URI
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		gotURIs, err = s.state.GetSecretsForOwners(ctx, application.NilApplicationOwners, application.UnitSecretOwners{"mysql/666"})
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotURIs, jc.SameContents, []*coresecrets.URI{uri2})
+}
+
+func (s *applicationStateSuite) TestGetSecretsNone(c *gc.C) {
+	s.createSecrets(c)
+	var gotURIs []*coresecrets.URI
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		gotURIs, err = s.state.GetSecretsForOwners(ctx, application.ApplicationSecretOwners{"mariadb"}, application.UnitSecretOwners{"mariadb/666"})
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotURIs, gc.HasLen, 0)
 }
 
 func (s *applicationStateSuite) assertApplication(
