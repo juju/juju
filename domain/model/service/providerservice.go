@@ -12,7 +12,7 @@ import (
 // ProviderState is the model state required by the provide service. This is
 // the model database state, not the controller state.
 type ProviderState interface {
-	// Model returns a read-only model for the given uuid.
+	// Model returns a read-only model.
 	Model(context.Context) (coremodel.ReadOnlyModel, error)
 }
 
@@ -29,7 +29,7 @@ func NewProviderService(st ProviderState) *ProviderService {
 	}
 }
 
-// // Model returns a read-only model for the given uuid.
+// Model returns a read-only model.
 //
 // The following error types can be expected to be returned:
 // - [modelerrors.NotFound]: When the model is not found for a given uuid.

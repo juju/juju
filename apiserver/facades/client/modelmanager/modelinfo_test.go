@@ -60,6 +60,7 @@ type modelInfoSuite struct {
 	controllerUUID           uuid.UUID
 	mockAccessService        *mocks.MockAccessService
 	mockModelService         *mocks.MockModelService
+	mockApplicationService   *mocks.MockApplicationService
 }
 
 func pUint64(v uint64) *uint64 {
@@ -207,15 +208,12 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *modelInfoSuite) TearDownTest(c *gc.C) {
-	modelmanager.ResetSupportedFeaturesGetter()
-}
-
 func (s *modelInfoSuite) getAPI(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 	s.mockSecretBackendService = mocks.NewMockSecretBackendService(ctrl)
 	s.mockAccessService = mocks.NewMockAccessService(ctrl)
 	s.mockModelService = mocks.NewMockModelService(ctrl)
+	s.mockApplicationService = mocks.NewMockApplicationService(ctrl)
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
@@ -230,6 +228,7 @@ func (s *modelInfoSuite) getAPI(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock
 			ModelService:         s.mockModelService,
 			ModelDefaultsService: nil,
 			AccessService:        s.mockAccessService,
+			ApplicationService:   s.mockApplicationService,
 			ObjectStore:          &mockObjectStore{},
 			SecretBackendService: s.mockSecretBackendService,
 		},
@@ -241,7 +240,8 @@ func (s *modelInfoSuite) getAPI(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock
 
 	var fs assumes.FeatureSet
 	fs.Add(assumes.Feature{Name: "example"})
-	modelmanager.MockSupportedFeatures(fs)
+
+	s.mockApplicationService.EXPECT().GetSupportedFeatures(gomock.Any()).Return(fs, nil).AnyTimes()
 	return api, ctrl
 }
 
@@ -250,6 +250,7 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 	s.mockSecretBackendService = mocks.NewMockSecretBackendService(ctrl)
 	s.mockAccessService = mocks.NewMockAccessService(ctrl)
 	s.mockModelService = mocks.NewMockModelService(ctrl)
+	s.mockApplicationService = mocks.NewMockApplicationService(ctrl)
 	s.authorizer.Tag = user
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
@@ -265,6 +266,7 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 			ModelService:         s.mockModelService,
 			ModelDefaultsService: nil,
 			AccessService:        s.mockAccessService,
+			ApplicationService:   s.mockApplicationService,
 			ObjectStore:          &mockObjectStore{},
 			SecretBackendService: s.mockSecretBackendService,
 		},
@@ -273,6 +275,10 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 		common.NewBlockChecker(s.st), s.authorizer, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
+
+	var fs assumes.FeatureSet
+	fs.Add(assumes.Feature{Name: "example"})
+	s.mockApplicationService.EXPECT().GetSupportedFeatures(gomock.Any()).Return(fs, nil).AnyTimes()
 	return api, ctrl
 }
 

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/apiserver/common"
+	coreassumes "github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -27,13 +27,14 @@ import (
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
-var (
-	// Overridden by tests.
-	SupportedFeaturesGetter = stateenvirons.SupportedFeatures
-)
+// ModelService provides access to the model state.
+type ModelService interface {
+	// GetSupportedFeatures returns the set of features that the model makes
+	// available for charms to use.
+	GetSupportedFeatures(ctx context.Context) (coreassumes.FeatureSet, error)
+}
 
 // DeployApplicationParams contains the arguments required to deploy the referenced
 // charm.
@@ -76,8 +77,6 @@ type UnitAdder interface {
 func DeployApplication(
 	ctx context.Context, st ApplicationDeployer, model Model,
 	modelInfo coremodel.ReadOnlyModel,
-	cloudService common.CloudService,
-	credentialService common.CredentialService,
 	applicationService ApplicationService,
 	store objectstore.ObjectStore,
 	args DeployApplicationParams,
@@ -100,7 +99,7 @@ func DeployApplication(
 	}
 
 	// Enforce "assumes" requirements.
-	if err := assertCharmAssumptions(ctx, args.Charm.Meta().Assumes, model, cloudService, credentialService); err != nil {
+	if err := assertCharmAssumptions(ctx, applicationService, args.Charm.Meta().Assumes); err != nil {
 		if !errors.Is(err, errors.NotSupported) || !args.Force {
 			return nil, errors.Trace(err)
 		}
@@ -301,14 +300,15 @@ func StateCharmOrigin(origin corecharm.Origin) (*state.CharmOrigin, error) {
 }
 
 func assertCharmAssumptions(
-	ctx context.Context, assumesExprTree *assumes.ExpressionTree, model Model, cloudService common.CloudService,
-	credentialService common.CredentialService,
+	ctx context.Context,
+	applicationService ApplicationService,
+	assumesExprTree *assumes.ExpressionTree,
 ) error {
 	if assumesExprTree == nil {
 		return nil
 	}
 
-	featureSet, err := SupportedFeaturesGetter(model, cloudService, credentialService)
+	featureSet, err := applicationService.GetSupportedFeatures(ctx)
 	if err != nil {
 		return errors.Annotate(err, "querying feature set supported by the model")
 	}

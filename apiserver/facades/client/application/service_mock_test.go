@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	application "github.com/juju/juju/core/application"
+	assumes "github.com/juju/juju/core/assumes"
 	charm "github.com/juju/juju/core/charm"
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	machine "github.com/juju/juju/core/machine"
@@ -347,6 +348,45 @@ func (c *MockApplicationServiceDestroyUnitCall) Do(f func(context.Context, strin
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceDestroyUnitCall) DoAndReturn(f func(context.Context, string) error) *MockApplicationServiceDestroyUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetSupportedFeatures mocks base method.
+func (m *MockApplicationService) GetSupportedFeatures(arg0 context.Context) (assumes.FeatureSet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSupportedFeatures", arg0)
+	ret0, _ := ret[0].(assumes.FeatureSet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSupportedFeatures indicates an expected call of GetSupportedFeatures.
+func (mr *MockApplicationServiceMockRecorder) GetSupportedFeatures(arg0 any) *MockApplicationServiceGetSupportedFeaturesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSupportedFeatures", reflect.TypeOf((*MockApplicationService)(nil).GetSupportedFeatures), arg0)
+	return &MockApplicationServiceGetSupportedFeaturesCall{Call: call}
+}
+
+// MockApplicationServiceGetSupportedFeaturesCall wrap *gomock.Call
+type MockApplicationServiceGetSupportedFeaturesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetSupportedFeaturesCall) Return(arg0 assumes.FeatureSet, arg1 error) *MockApplicationServiceGetSupportedFeaturesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetSupportedFeaturesCall) Do(f func(context.Context) (assumes.FeatureSet, error)) *MockApplicationServiceGetSupportedFeaturesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetSupportedFeaturesCall) DoAndReturn(f func(context.Context) (assumes.FeatureSet, error)) *MockApplicationServiceGetSupportedFeaturesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

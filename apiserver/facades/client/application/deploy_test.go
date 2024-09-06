@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/application"
+	"github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -71,8 +73,6 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -100,8 +100,6 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -135,8 +133,6 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 		&f,
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -172,8 +168,6 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -254,8 +248,6 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 		stateDeployer{State: st},
 		m,
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -317,8 +309,6 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 		stateDeployer{State: st},
 		m,
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -367,8 +357,6 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 		&f,
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -404,8 +392,6 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -442,8 +428,6 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 		stateDeployer{State: st},
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -492,8 +476,6 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -531,8 +513,6 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 		stateDeployer{State: st},
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -564,8 +544,6 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 		&f,
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -602,8 +580,6 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 		&f,
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -643,8 +619,6 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 		&f,
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -689,8 +663,6 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 		&f,
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -716,6 +688,8 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
+	s.ProviderTracker = fakeProviderTracker{}
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
@@ -738,9 +712,9 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 		context.Background(),
 		&f,
 		m,
-		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
+		model.ReadOnlyModel{
+			UUID: model.UUID(s.ControllerModelUUID()),
+		},
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -758,6 +732,8 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C) {
+	s.ProviderTracker = fakeProviderTracker{}
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
@@ -781,8 +757,6 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 		&f,
 		m,
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -815,8 +789,6 @@ func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 		&f,
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
 		applicationService,
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		application.DeployApplicationParams{
@@ -931,4 +903,18 @@ func (f *fakeDeployer) ReadSequence(name string) (int, error) {
 func (f *fakeDeployer) AddApplication(args state.AddApplicationArgs, _ objectstore.ObjectStore) (application.Application, error) {
 	f.args = args
 	return nil, nil
+}
+
+type fakeProviderTracker struct{}
+
+func (fakeProviderTracker) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
+	return fakeProvider{}, nil
+}
+
+type fakeProvider struct {
+	providertracker.Provider
+}
+
+func (fakeProvider) SupportedFeatures() (assumes.FeatureSet, error) {
+	return assumes.FeatureSet{}, nil
 }

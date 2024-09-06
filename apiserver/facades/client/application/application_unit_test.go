@@ -53,7 +53,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 type mockLXDProfilerCharm struct {
@@ -118,10 +117,6 @@ func fakeClassifyDetachedStorage(
 	return destroyed, detached, nil
 }
 
-func fakeSupportedFeaturesGetter(stateenvirons.Model, stateenvirons.CloudService, stateenvirons.CredentialService) (coreassumes.FeatureSet, error) {
-	return coreassumes.FeatureSet{}, nil
-}
-
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin"),
@@ -132,7 +127,6 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	}
 	s.modelConfig = coretesting.FakeConfig()
 	s.PatchValue(&application.ClassifyDetachedStorage, fakeClassifyDetachedStorage)
-	s.PatchValue(&application.SupportedFeaturesGetter, fakeSupportedFeaturesGetter)
 	s.deployParams = make(map[string]application.DeployApplicationParams)
 
 	s.changeAllowed = nil
@@ -174,6 +168,9 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.machineService = application.NewMockMachineService(ctrl)
 	s.applicationService = application.NewMockApplicationService(ctrl)
+
+	var fs coreassumes.FeatureSet
+	s.applicationService.EXPECT().GetSupportedFeatures(gomock.Any()).Return(fs, nil).AnyTimes()
 
 	s.ecService = application.NewMockExternalControllerService(ctrl)
 
@@ -231,7 +228,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		func(application.Charm) *state.Charm {
 			return nil
 		},
-		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ model.ReadOnlyModel, _ common.CloudService, _ common.CredentialService, _ application.ApplicationService, _ objectstore.ObjectStore, p application.DeployApplicationParams, _ corelogger.Logger) (application.Application, error) {
+		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ model.ReadOnlyModel, _ application.ApplicationService, _ objectstore.ObjectStore, p application.DeployApplicationParams, _ corelogger.Logger) (application.Application, error) {
 			s.deployParams[p.ApplicationName] = p
 			return nil, nil
 		},

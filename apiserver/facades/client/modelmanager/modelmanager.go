@@ -46,9 +46,6 @@ import (
 
 var (
 	logger = internallogger.GetLogger("juju.apiserver.modelmanager")
-
-	// Overridden by tests.
-	supportedFeaturesGetter = stateenvirons.SupportedFeatures
 )
 
 type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams) (caas.Broker, error)
@@ -81,6 +78,7 @@ type ModelManagerAPI struct {
 	modelDefaultsService ModelDefaultsService
 	cloudService         CloudService
 	credentialService    CredentialService
+	applicationService   ApplicationService
 	networkService       NetworkService
 	configSchemaSource   config.ConfigSchemaSourceGetter
 	accessService        AccessService
@@ -135,6 +133,7 @@ func NewModelManagerAPI(
 		cloudService:         services.CloudService,
 		credentialService:    services.CredentialService,
 		networkService:       services.NetworkService,
+		applicationService:   services.ApplicationService,
 		configSchemaSource:   configSchemaSource,
 		store:                services.ObjectStore,
 		getBroker:            getBroker,
@@ -1279,7 +1278,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		}
 	}
 
-	fs, err := supportedFeaturesGetter(model, m.cloudService, m.credentialService)
+	fs, err := m.applicationService.GetSupportedFeatures(ctx)
 	if err != nil {
 		return params.ModelInfo{}, err
 	}

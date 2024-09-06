@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -160,6 +161,7 @@ type AccessService interface {
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
 type NetworkService interface {
+	// ReloadSpaces reloads the spaces.
 	ReloadSpaces(ctx context.Context) error
 }
 
@@ -167,6 +169,12 @@ type NetworkService interface {
 type SecretBackendService interface {
 	// BackendSummaryInfoForModel returns a summary of the secret backends for a model.
 	BackendSummaryInfoForModel(ctx context.Context, modelUUID coremodel.UUID) ([]*secretbackendservice.SecretBackendInfo, error)
+}
+
+// ApplicationService instances save an application to dqlite state.
+type ApplicationService interface {
+	// GetSupportedFeatures returns the set of features supported by the service.
+	GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error)
 }
 
 // Services holds the services needed by the model manager api.
@@ -192,7 +200,11 @@ type Services struct {
 	// SecretBackendService is an interface for interacting with secret backend
 	// service.
 	SecretBackendService SecretBackendService
-	NetworkService       NetworkService
+	// NetworkService is an interface for interacting with the network service.
+	NetworkService NetworkService
+	// ApplicationService is an interface for interacting with the application
+	// service.
+	ApplicationService ApplicationService
 }
 
 type serviceFactoryGetter struct {

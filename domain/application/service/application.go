@@ -10,9 +10,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	coredatabase "github.com/juju/juju/core/database"
@@ -20,6 +22,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/providertracker"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -30,6 +33,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
@@ -885,10 +889,82 @@ func (s *ApplicationService) GetApplicationScalingState(ctx context.Context, app
 	}, errors.Trace(err)
 }
 
+// AgentVersionGetter is responsible for retrieving the agent version for a
+// given model.
+type AgentVersionGetter interface {
+	// GetModelAgentVersion returns the agent version for the specified model.
+	// If the agent version cannot be found, an error satisfying
+	// [modelerrors.NotFound] will be returned.
+	GetModelAgentVersion(context.Context, coremodel.UUID) (version.Number, error)
+}
+
+// Provider defines the interface for interacting with the underlying model
+// provider.
+type Provider interface {
+	environs.SupportedFeatureEnumerator
+}
+
+// ProviderApplicationService defines a service for interacting with the underlying
+// model state.
+type ProviderApplicationService struct {
+	ApplicationService
+
+	modelID            coremodel.UUID
+	agentVersionGetter AgentVersionGetter
+	provider           providertracker.ProviderGetter[Provider]
+}
+
+// NewProviderApplicationService returns a new Service for interacting with a models state.
+func NewProviderApplicationService(
+	st ApplicationState, params ApplicationServiceParams, logger logger.Logger,
+	modelID coremodel.UUID,
+	agentVersionGetter AgentVersionGetter,
+	provider providertracker.ProviderGetter[Provider],
+) *ProviderApplicationService {
+	service := NewApplicationService(st, params, logger)
+
+	return &ProviderApplicationService{
+		ApplicationService: *service,
+		modelID:            modelID,
+		agentVersionGetter: agentVersionGetter,
+		provider:           provider,
+	}
+}
+
+// GetSupportedFeatures returns the set of features that the model makes
+// available for charms to use.
+func (s *ProviderApplicationService) GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error) {
+	agentVersion, err := s.agentVersionGetter.GetModelAgentVersion(ctx, s.modelID)
+	if err != nil {
+		return assumes.FeatureSet{}, err
+	}
+
+	var fs assumes.FeatureSet
+	fs.Add(assumes.Feature{
+		Name:        "juju",
+		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
+		Version:     &agentVersion,
+	})
+
+	provider, err := s.provider(ctx)
+	if err != nil {
+		return fs, err
+	}
+
+	envFs, err := provider.SupportedFeatures()
+	if err != nil {
+		return fs, fmt.Errorf("enumerating features supported by environment: %w", err)
+	}
+
+	fs.Merge(envFs)
+
+	return fs, nil
+}
+
 // WatchableApplicationService provides the API for working with applications and the
 // ability to create watchers.
 type WatchableApplicationService struct {
-	ApplicationService
+	ProviderApplicationService
 	watcherFactory WatcherFactory
 }
 
@@ -897,24 +973,15 @@ func NewWatchableApplicationService(
 	st ApplicationState, watcherFactory WatcherFactory,
 	params ApplicationServiceParams,
 	logger logger.Logger,
+	modelID coremodel.UUID,
+	agentVersionGetter AgentVersionGetter,
+	provider providertracker.ProviderGetter[Provider],
 ) *WatchableApplicationService {
-	// Some uses of application service don't need to supply a storage registry,
-	// eg cleaner facade. In such cases it'd wasteful to create one as an
-	// environ instance would be needed.
-	if params.StorageRegistry == nil {
-		params.StorageRegistry = storage.NotImplementedProviderRegistry{}
-	}
-	if params.Secrets == nil {
-		params.Secrets = NotImplementedSecretService{}
-	}
+	service := NewProviderApplicationService(st, params, logger, modelID, agentVersionGetter, provider)
+
 	return &WatchableApplicationService{
-		ApplicationService: ApplicationService{
-			st:            st,
-			registry:      params.StorageRegistry,
-			secretService: params.Secrets,
-			logger:        logger,
-		},
-		watcherFactory: watcherFactory,
+		ProviderApplicationService: *service,
+		watcherFactory:             watcherFactory,
 	}
 }
 
