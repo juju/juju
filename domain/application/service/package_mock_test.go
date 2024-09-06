@@ -19,6 +19,7 @@ import (
 	charm "github.com/juju/juju/core/charm"
 	network "github.com/juju/juju/core/network"
 	resources "github.com/juju/juju/core/resources"
+	secrets "github.com/juju/juju/core/secrets"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
@@ -142,7 +143,7 @@ func (c *MockApplicationStateCreateApplicationCall) DoAndReturn(f func(context.C
 }
 
 // DeleteApplication mocks base method.
-func (m *MockApplicationState) DeleteApplication(arg0 context.Context, arg1 string) error {
+func (m *MockApplicationState) DeleteApplication(arg0 domain.AtomicContext, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteApplication", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -168,23 +169,24 @@ func (c *MockApplicationStateDeleteApplicationCall) Return(arg0 error) *MockAppl
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateDeleteApplicationCall) Do(f func(context.Context, string) error) *MockApplicationStateDeleteApplicationCall {
+func (c *MockApplicationStateDeleteApplicationCall) Do(f func(domain.AtomicContext, string) error) *MockApplicationStateDeleteApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateDeleteApplicationCall) DoAndReturn(f func(context.Context, string) error) *MockApplicationStateDeleteApplicationCall {
+func (c *MockApplicationStateDeleteApplicationCall) DoAndReturn(f func(domain.AtomicContext, string) error) *MockApplicationStateDeleteApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DeleteUnit mocks base method.
-func (m *MockApplicationState) DeleteUnit(arg0 context.Context, arg1 string) error {
+func (m *MockApplicationState) DeleteUnit(arg0 domain.AtomicContext, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteUnit", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeleteUnit indicates an expected call of DeleteUnit.
@@ -200,19 +202,19 @@ type MockApplicationStateDeleteUnitCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationStateDeleteUnitCall) Return(arg0 error) *MockApplicationStateDeleteUnitCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockApplicationStateDeleteUnitCall) Return(arg0 bool, arg1 error) *MockApplicationStateDeleteUnitCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateDeleteUnitCall) Do(f func(context.Context, string) error) *MockApplicationStateDeleteUnitCall {
+func (c *MockApplicationStateDeleteUnitCall) Do(f func(domain.AtomicContext, string) (bool, error)) *MockApplicationStateDeleteUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateDeleteUnitCall) DoAndReturn(f func(context.Context, string) error) *MockApplicationStateDeleteUnitCall {
+func (c *MockApplicationStateDeleteUnitCall) DoAndReturn(f func(domain.AtomicContext, string) (bool, error)) *MockApplicationStateDeleteUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -420,6 +422,45 @@ func (c *MockApplicationStateGetCharmByApplicationNameCall) DoAndReturn(f func(c
 	return c
 }
 
+// GetSecretsForOwners mocks base method.
+func (m *MockApplicationState) GetSecretsForOwners(arg0 domain.AtomicContext, arg1 application0.ApplicationSecretOwners, arg2 application0.UnitSecretOwners) ([]*secrets.URI, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretsForOwners", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]*secrets.URI)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretsForOwners indicates an expected call of GetSecretsForOwners.
+func (mr *MockApplicationStateMockRecorder) GetSecretsForOwners(arg0, arg1, arg2 any) *MockApplicationStateGetSecretsForOwnersCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretsForOwners", reflect.TypeOf((*MockApplicationState)(nil).GetSecretsForOwners), arg0, arg1, arg2)
+	return &MockApplicationStateGetSecretsForOwnersCall{Call: call}
+}
+
+// MockApplicationStateGetSecretsForOwnersCall wrap *gomock.Call
+type MockApplicationStateGetSecretsForOwnersCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationStateGetSecretsForOwnersCall) Return(arg0 []*secrets.URI, arg1 error) *MockApplicationStateGetSecretsForOwnersCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationStateGetSecretsForOwnersCall) Do(f func(domain.AtomicContext, application0.ApplicationSecretOwners, application0.UnitSecretOwners) ([]*secrets.URI, error)) *MockApplicationStateGetSecretsForOwnersCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationStateGetSecretsForOwnersCall) DoAndReturn(f func(domain.AtomicContext, application0.ApplicationSecretOwners, application0.UnitSecretOwners) ([]*secrets.URI, error)) *MockApplicationStateGetSecretsForOwnersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetStoragePoolByName mocks base method.
 func (m *MockApplicationState) GetStoragePoolByName(arg0 context.Context, arg1 string) (storage.StoragePoolDetails, error) {
 	m.ctrl.T.Helper()
@@ -533,44 +574,6 @@ func (c *MockApplicationStateInitialWatchStatementUnitLifeCall) Do(f func(string
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationStateInitialWatchStatementUnitLifeCall) DoAndReturn(f func(string) (string, eventsource.NamespaceQuery)) *MockApplicationStateInitialWatchStatementUnitLifeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// RemoveUnitMaybeApplication mocks base method.
-func (m *MockApplicationState) RemoveUnitMaybeApplication(arg0 domain.AtomicContext, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveUnitMaybeApplication", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveUnitMaybeApplication indicates an expected call of RemoveUnitMaybeApplication.
-func (mr *MockApplicationStateMockRecorder) RemoveUnitMaybeApplication(arg0, arg1 any) *MockApplicationStateRemoveUnitMaybeApplicationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUnitMaybeApplication", reflect.TypeOf((*MockApplicationState)(nil).RemoveUnitMaybeApplication), arg0, arg1)
-	return &MockApplicationStateRemoveUnitMaybeApplicationCall{Call: call}
-}
-
-// MockApplicationStateRemoveUnitMaybeApplicationCall wrap *gomock.Call
-type MockApplicationStateRemoveUnitMaybeApplicationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationStateRemoveUnitMaybeApplicationCall) Return(arg0 error) *MockApplicationStateRemoveUnitMaybeApplicationCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateRemoveUnitMaybeApplicationCall) Do(f func(domain.AtomicContext, string) error) *MockApplicationStateRemoveUnitMaybeApplicationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateRemoveUnitMaybeApplicationCall) DoAndReturn(f func(domain.AtomicContext, string) error) *MockApplicationStateRemoveUnitMaybeApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

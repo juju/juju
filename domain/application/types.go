@@ -84,3 +84,15 @@ type UpsertUnitArg struct {
 	PasswordHash   *string
 	CloudContainer *CloudContainer
 }
+
+// These aliases are used to specify secret filter terms.
+type (
+	ApplicationSecretOwners []string
+	UnitSecretOwners        []string
+)
+
+// These consts are used to specify nil filter terms.
+var (
+	NilApplicationOwners = ApplicationSecretOwners(nil)
+	NilUnitOwners        = UnitSecretOwners(nil)
+)

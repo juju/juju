@@ -140,17 +140,19 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		Name: "wordpress-extra-bindings",
 		URL:  "ch:amd64/quantal/wordpress-extra-bindings-4",
 	})
-	s.wordpress, err = s.st.AddApplication(s.InstancePrechecker(c, s.st), state.AddApplicationArgs{
-		Name:        "wordpress",
-		Charm:       s.wpCharm,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "12.10/stable"}},
+	s.wordpress = f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress",
+		Charm: s.wpCharm,
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "charm-hub",
+			Platform: &state.Platform{OS: "ubuntu", Channel: "12.10/stable", Architecture: "amd64"}},
 		EndpointBindings: map[string]string{
 			"db":        string(internalSpaceID),  // relation name
 			"admin-api": string(publicSpaceID),    // extra-binding name
 			"foo-bar":   string(layerTwoSpaceID),  // extra-binding to L2
 			"":          string(wpDefaultSpaceID), // explicitly specified default space
 		},
-	}, testing.NewObjectStore(c, s.st.ModelUUID()))
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,

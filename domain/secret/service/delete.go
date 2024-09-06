@@ -36,7 +36,7 @@ func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, para
 	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
 		return errors.Trace(err)
 	}
-	var cleanExternal func()
+	var cleanExternal func(context.Context)
 	if err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
 		cleanExternal, err = s.InternalDeleteSecret(ctx, uri, params)
@@ -45,7 +45,7 @@ func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, para
 		return errors.Annotatef(err, "deleting secret %q", uri.ID)
 	}
 	// Delete an external content and remove references from the affected backend(s).
-	cleanExternal()
+	cleanExternal(ctx)
 
 	return nil
 }
@@ -56,7 +56,7 @@ func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, para
 // secrets owned by a unit or application being deleted. No permission checks are done.
 // It returns a function which can be called to delete any external content and also remove
 // any references from the affected backend(s).
-func (s *SecretService) InternalDeleteSecret(ctx domain.AtomicContext, uri *secrets.URI, params DeleteSecretParams) (func(), error) {
+func (s *SecretService) InternalDeleteSecret(ctx domain.AtomicContext, uri *secrets.URI, params DeleteSecretParams) (func(context.Context), error) {
 	external, err := s.secretState.ListExternalSecretRevisions(ctx, uri, params.Revisions...)
 	if err != nil {
 		return nil, errors.Annotatef(err, "listing external revisions for %q", uri.ID)
@@ -66,15 +66,15 @@ func (s *SecretService) InternalDeleteSecret(ctx domain.AtomicContext, uri *secr
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return func() {
+	return func(ctx context.Context) {
 		// Remove any external secrets stored in a backend.
-		if err := s.removeFromExternal(ctx.Context(), uri, params.Accessor, external); err != nil {
+		if err := s.removeFromExternal(ctx, uri, params.Accessor, external); err != nil {
 			// We don't want to error out if we can't remove the external content.
 			s.logger.Errorf("removing external content for secret %q: %v", uri.ID, err)
 		}
 
 		// Backend references live in the controller db.
-		if err := s.secretBackendReferenceMutator.RemoveSecretBackendReference(ctx.Context(), deletedRevisionIDs...); err != nil {
+		if err := s.secretBackendReferenceMutator.RemoveSecretBackendReference(ctx, deletedRevisionIDs...); err != nil {
 			// We don't want to error out if we can't remove the backend reference.
 			s.logger.Errorf("failed to remove secret backend reference for deleted secret revisions %v: %v", deletedRevisionIDs, err)
 		}
@@ -123,12 +123,10 @@ func (s *SecretService) removeFromBackend(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// For models, we need to delete the content.
-	if accessor.Kind == ModelAccessor {
-		for _, revId := range revs.RevisionIDs() {
-			if err = backend.DeleteContent(ctx, revId); err != nil && !errors.Is(err, secreterrors.SecretRevisionNotFound) {
-				return errors.Annotatef(err, "deleting secret content from backend for %q", revId)
-			}
+
+	for _, revId := range revs.RevisionIDs() {
+		if err = backend.DeleteContent(ctx, revId); err != nil && !errors.Is(err, secreterrors.SecretRevisionNotFound) {
+			return errors.Annotatef(err, "deleting secret content from backend for %q", revId)
 		}
 	}
 	// For units, we want to clean up any backend artefacts.

@@ -56,10 +56,24 @@ var NotImplementedBackendConfigGetter = func(context.Context) (*provider.ModelBa
 	return nil, errors.NotImplemented
 }
 
-// NotImplementedBackendConfigGetter is a not implemented secret backend getter.
+// NotImplementedBackendUserSecretConfigGetter is a not implemented secret backend getter.
 // It is used by callers of the secret service that do not need any backend functionality.
 var NotImplementedBackendUserSecretConfigGetter = func(context.Context, GrantedSecretsGetter, SecretAccessor) (*provider.ModelBackendConfigInfo, error) {
 	return nil, errors.NotImplemented
+}
+
+// NoopImplementedBackendReferenceMutator is a reference mutator which does nothing.
+type NoopImplementedBackendReferenceMutator struct{}
+
+func (NoopImplementedBackendReferenceMutator) AddSecretBackendReference(ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string) (func() error, error) {
+	return func() error { return nil }, nil
+}
+func (NoopImplementedBackendReferenceMutator) RemoveSecretBackendReference(ctx context.Context, revisionIDs ...string) error {
+	return nil
+}
+
+func (NoopImplementedBackendReferenceMutator) UpdateSecretBackendReference(ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string) (func() error, error) {
+	return func() error { return nil }, nil
 }
 
 // SecretService provides the API for working with secrets.

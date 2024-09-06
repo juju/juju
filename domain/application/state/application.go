@@ -11,13 +11,13 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
+	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
@@ -274,13 +274,8 @@ WHERE name = $applicationName.name
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 // If the application still has units, as error satisfying [applicationerrors.ApplicationHasUnits]
 // is returned.
-func (st *ApplicationState) DeleteApplication(ctx context.Context, name string) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+func (st *ApplicationState) DeleteApplication(ctx domain.AtomicContext, name string) error {
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return st.deleteApplication(ctx, tx, name)
 	})
 	return errors.Annotatef(err, "deleting application %q", name)
@@ -301,24 +296,6 @@ func (st *ApplicationState) deleteApplication(ctx context.Context, tx *sqlair.TX
 		return errors.Trace(err)
 	}
 
-	deletePlatform := `DELETE FROM application_platform WHERE application_uuid = $applicationID.uuid`
-	deletePlatformStmt, err := st.Prepare(deletePlatform, appID)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	deleteScale := `DELETE FROM application_scale WHERE application_uuid = $applicationID.uuid`
-	deleteScaleStmt, err := st.Prepare(deleteScale, appID)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	deleteChannel := `DELETE FROM application_channel WHERE application_uuid = $applicationID.uuid`
-	deleteChannelStmt, err := st.Prepare(deleteChannel, appID)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	appUUID, err := st.lookupApplication(ctx, tx, name, true)
 	if err != nil {
 		return errors.Trace(err)
@@ -335,17 +312,47 @@ func (st *ApplicationState) deleteApplication(ctx context.Context, tx *sqlair.TX
 		return fmt.Errorf("cannot delete application %q as it still has %d unit(s)%w", name, numUnits, errors.Hide(applicationerrors.ApplicationHasUnits))
 	}
 
-	if err := tx.Query(ctx, deletePlatformStmt, appID).Run(); err != nil {
-		return errors.Annotatef(err, "deleting platform row for application %q", name)
-	}
-	if err := tx.Query(ctx, deleteScaleStmt, appID).Run(); err != nil {
-		return errors.Annotatef(err, "deleting scale row for application %q", name)
-	}
-	if err := tx.Query(ctx, deleteChannelStmt, appID).Run(); err != nil {
-		return errors.Annotatef(err, "deleting channel row for application %q", name)
+	// TODO(units) - fix these tables to allow deletion of rows
+	// Deleting resource row results in FK mismatch error,
+	// foreign key mismatch - "resource" referencing "resource_meta"
+	// even for empty tables and even though there's no FK
+	// from resource_meta to resource.
+	//
+	// resource
+	// resource_meta
+
+	if err := st.deleteSimpleApplicationReferences(ctx, tx, appID.ID); err != nil {
+		return errors.Annotatef(err, "deleting associated records for application %q", appName)
 	}
 	if err := tx.Query(ctx, deleteApplicationStmt, appName).Run(); err != nil {
 		return errors.Trace(err)
+	}
+	return nil
+}
+func (st *ApplicationState) deleteSimpleApplicationReferences(ctx context.Context, tx *sqlair.TX, appID string) error {
+	app := applicationID{ID: appID}
+
+	for _, table := range []string{
+		"cloud_service",
+		"application_channel",
+		"application_platform",
+		"application_scale",
+		"application_config",
+		"application_constraint",
+		"application_setting",
+		"application_endpoint_space",
+		"application_endpoint_cidr",
+		"application_storage_directive",
+	} {
+		deleteApplicationReference := fmt.Sprintf(`DELETE FROM %s WHERE application_uuid = $applicationID.uuid`, table)
+		deleteApplicationReferenceStmt, err := st.Prepare(deleteApplicationReference, app)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := tx.Query(ctx, deleteApplicationReferenceStmt, app).Run(); err != nil {
+			return errors.Annotatef(err, "deleting reference to application in table %q", table)
+		}
 	}
 	return nil
 }
@@ -543,15 +550,50 @@ ON CONFLICT(net_node_uuid) DO UPDATE
 }
 
 // DeleteUnit deletes the specified unit.
-func (st *ApplicationState) DeleteUnit(ctx context.Context, unitName string) error {
-	db, err := st.DB()
+// If the unit's application is Dying and no
+// other references to it exist, true is returned to
+// indicate the application could be safely deleted.
+// It will fail if the unit is not Dead.
+func (st *ApplicationState) DeleteUnit(ctx domain.AtomicContext, unitName string) (bool, error) {
+	unit := coreUnit{Name: unitName}
+	peerCountQuery := `
+SELECT a.life_id as &unitCount.app_life_id, u.life_id AS &unitCount.unit_life_id, count(peer.uuid) AS &unitCount.count
+FROM unit u
+JOIN application a ON a.uuid = u.application_uuid
+LEFT JOIN unit peer ON u.application_uuid = peer.application_uuid AND peer.uuid != u.uuid
+WHERE u.name = $coreUnit.name
+`
+	peerCountStmt, err := st.Prepare(peerCountQuery, unit, unitCount{})
 	if err != nil {
-		return errors.Trace(err)
+		return false, errors.Trace(err)
 	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return st.deleteUnit(ctx, tx, unitName)
+	canRemoveApplication := false
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Count the number of units besides this one
+		// belonging to the same application.
+		var count unitCount
+		err = tx.Query(ctx, peerCountStmt, unit).Get(&count)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
+		}
+		if err != nil {
+			return errors.Annotatef(err, "querying peer count for unit %q", unitName)
+		}
+		// This should never happen since this method is called by the service
+		// after setting the unit to Dead. But we check anyway.
+		// There's no need for a typed error.
+		if count.UnitLifeID != life.Dead {
+			return fmt.Errorf("unit %q is not dead, life is %v", unitName, count.UnitLifeID)
+		}
+
+		err = st.deleteUnit(ctx, tx, unitName)
+		if err != nil {
+			return errors.Annotate(err, "deleting dead unit")
+		}
+		canRemoveApplication = count.Count == 0 && count.ApplicationLifeID != life.Alive
+		return nil
 	})
-	return errors.Annotatef(err, "deleting unit %q", unitName)
+	return canRemoveApplication, errors.Annotatef(err, "removing unit %q", unitName)
 }
 
 func (st *ApplicationState) deleteUnit(ctx context.Context, tx *sqlair.TX, unitName string) error {
@@ -588,11 +630,92 @@ DELETE FROM net_node WHERE uuid IN
 		return errors.Annotatef(err, "looking up UUID for unit %q", unitName)
 	}
 
+	if err := st.deleteCloudContainer(ctx, tx, unit.ID); err != nil {
+		return errors.Annotatef(err, "deleting cloud container for unit %q", unitName)
+	}
+
+	if err := st.deletePorts(ctx, tx, unit.ID); err != nil {
+		return errors.Annotatef(err, "deleting port ranges for unit %q", unitName)
+	}
+
+	// TODO(units) - delete storage, annotations
+
+	if err := st.deleteSimpleUnitReferences(ctx, tx, unit.ID); err != nil {
+		return errors.Annotatef(err, "deleting associated records for unit %q", unitName)
+	}
+
 	if err := tx.Query(ctx, deleteUnitStmt, unit).Run(); err != nil {
 		return errors.Annotatef(err, "deleting unit %q", unitName)
 	}
 	if err := tx.Query(ctx, deleteNodeStmt, unit).Run(); err != nil {
 		return errors.Annotatef(err, "deleting net node for unit  %q", unitName)
+	}
+	return nil
+}
+
+func (st *ApplicationState) deleteCloudContainer(ctx context.Context, tx *sqlair.TX, unitID string) error {
+	unit := coreUnit{ID: unitID}
+
+	deleteCloudContainer := `DELETE FROM cloud_container WHERE net_node_uuid = $coreUnit.uuid`
+	deleteCloudContainerStmt, err := st.Prepare(deleteCloudContainer, unit)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := tx.Query(ctx, deleteCloudContainerStmt, unit).Run(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (st *ApplicationState) deletePorts(ctx context.Context, tx *sqlair.TX, unitID string) error {
+	unit := coreUnit{ID: unitID}
+
+	deletePortRange := `
+DELETE FROM port_range
+WHERE unit_endpoint_uuid IN
+(SELECT uuid FROM unit_endpoint ue
+WHERE ue.unit_uuid = $coreUnit.uuid)
+`
+	deletePortRangeStmt, err := st.Prepare(deletePortRange, unit)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := tx.Query(ctx, deletePortRangeStmt, unit).Run(); err != nil {
+		return errors.Annotate(err, "cannot delete port range records")
+	}
+
+	deleteEndpoint := `DELETE FROM unit_endpoint WHERE unit_uuid = $coreUnit.uuid`
+	deleteEndpointStmt, err := st.Prepare(deleteEndpoint, unit)
+	if err != nil {
+		return errors.Annotate(err, "cannot delete endpoint records")
+	}
+
+	if err := tx.Query(ctx, deleteEndpointStmt, unit).Run(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (st *ApplicationState) deleteSimpleUnitReferences(ctx context.Context, tx *sqlair.TX, unitID string) error {
+	unit := coreUnit{ID: unitID}
+
+	for _, table := range []string{
+		"unit_agent",
+		"unit_state",
+		"unit_state_charm",
+		"unit_state_relation",
+	} {
+		deleteUnitReference := fmt.Sprintf(`DELETE FROM %s WHERE unit_uuid = $coreUnit.uuid`, table)
+		deleteUnitReferenceStmt, err := st.Prepare(deleteUnitReference, unit)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := tx.Query(ctx, deleteUnitReferenceStmt, unit).Run(); err != nil {
+			return errors.Annotatef(err, "deleting reference to unit in table %q", table)
+		}
 	}
 	return nil
 }
@@ -989,56 +1112,53 @@ AND a.name = $applicationName.name
 	return result, nil
 }
 
-// RemoveUnitMaybeApplication removes the unit from state, and may remove
-// its application as well, if the application is Dying and no other references
-// to it exist. It will fail if the unit is not Dead.
-// An error satisfying [applicationerrors.UnitNotFound] is returned
-// if the unit is not found.
-func (st *ApplicationState) RemoveUnitMaybeApplication(ctx domain.AtomicContext, unitName string) error {
-	unit := coreUnit{Name: unitName}
-	peerCountQuery := `
-SELECT a.life_id as &unitCount.app_life_id, u.life_id AS &unitCount.unit_life_id, count(peer.uuid) AS &unitCount.count
-FROM unit u
-JOIN application a ON a.uuid = u.application_uuid
-LEFT JOIN unit peer ON u.application_uuid = peer.application_uuid AND peer.uuid != u.uuid
-WHERE u.name = $coreUnit.name
-`
-	peerCountStmt, err := st.Prepare(peerCountQuery, unit, unitCount{})
-	if err != nil {
-		return errors.Trace(err)
+// GetSecretsForOwners returns the secrets owned by the specified apps and/or units.
+func (st *ApplicationState) GetSecretsForOwners(
+	ctx domain.AtomicContext, appOwners application.ApplicationSecretOwners, unitOwners application.UnitSecretOwners,
+) ([]*coresecrets.URI, error) {
+	if len(appOwners) == 0 && len(unitOwners) == 0 {
+		return nil, errors.New("must supply at least one app owner or unit owner")
 	}
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Count the number of units besides this one
-		// belonging to the same application.
-		var count unitCount
-		err = tx.Query(ctx, peerCountStmt, unit).Get(&count)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
-		}
-		if err != nil {
-			return errors.Annotatef(err, "querying peer count for unit %q", unitName)
-		}
-		// This should never happen since this method is called by the service
-		// after setting the unit to Dead. But we check anyway.
-		// There's no need for a typed error.
-		if count.UnitLifeID != life.Dead {
-			return fmt.Errorf("unit %q is not dead, life is %v", unitName, count.UnitLifeID)
-		}
 
-		err = st.deleteUnit(ctx, tx, unitName)
-		if err != nil {
+	query := `
+SELECT sm.secret_id AS &secretID.secret_id
+FROM secret_metadata sm
+LEFT JOIN secret_application_owner sao ON sao.secret_id = sm.secret_id
+LEFT JOIN application a ON a.uuid = sao.application_uuid
+LEFT JOIN secret_unit_owner suo ON suo.secret_id = sm.secret_id
+LEFT JOIN unit u ON u.uuid = suo.unit_uuid
+WHERE
+    (sao.application_uuid <> "" OR suo.unit_uuid <> "")
+AND
+    (a.name IN ($ApplicationSecretOwners[:]) OR u.name IN ($UnitSecretOwners[:]))
+`
+
+	queryTypes := []any{
+		secretID{},
+		application.ApplicationSecretOwners{},
+		application.UnitSecretOwners{},
+	}
+
+	queryStmt, err := st.Prepare(query, queryTypes...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var (
+		dbSecrets secretIDs
+		uris      []*coresecrets.URI
+	)
+	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, queryStmt, appOwners, unitOwners).GetAll(&dbSecrets)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Trace(err)
 		}
-		if count.Count > 0 || count.ApplicationLifeID == life.Alive {
-			return nil
-		}
-		// This is the last unit, and the application is
-		// not alive, so we delete the application.
-		appName, _ := names.UnitApplication(unitName)
-		err = st.deleteApplication(ctx, tx, appName)
+		uris, err = dbSecrets.toSecretURIs()
 		return errors.Trace(err)
-	})
-	return errors.Annotatef(err, "removing unit %q", unitName)
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return uris, nil
 }
 
 // GetCharmByApplicationName returns the charm for the specified application

@@ -198,6 +198,7 @@ func (s *serviceSuite) TestDeleteSecretExternal(c *gc.C) {
 	s.secretsBackendProvider.EXPECT().NewBackend(ptr(backendConfigs.Configs["backend-id"])).DoAndReturn(func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 		return s.secretsBackend, nil
 	})
+	s.secretsBackend.EXPECT().DeleteContent(gomock.Any(), "rev-id")
 	s.secretsBackendProvider.EXPECT().CleanupSecrets(gomock.Any(), ptr(backendConfigs.Configs["backend-id"]), "mariadb/0", provider.SecretRevisions{
 		uri.ID: set.NewStrings("rev-id"),
 	})

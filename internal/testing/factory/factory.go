@@ -702,6 +702,13 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	}
 	unit, err := params.Application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
+	if factory.applicationService != nil {
+		unitName := unit.Name()
+		err = factory.applicationService.AddUnits(context.Background(), params.Application.Name(), applicationservice.AddUnitArg{
+			UnitName: &unitName,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	if params.Machine != nil {
 		err = unit.AssignToMachine(params.Machine)
