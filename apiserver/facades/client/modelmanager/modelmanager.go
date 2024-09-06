@@ -1338,7 +1338,6 @@ func (m *ModelManagerAPI) ModifyModelAccess(ctx context.Context, args params.Mod
 			result.Results[i].Error = apiservererrors.ServerError(errors.Annotate(err, "could not modify model access"))
 			continue
 		}
-		external := !targetUserTag.IsLocal()
 		err = m.accessService.UpdatePermission(ctx, access.UpdatePermissionArgs{
 			AccessSpec: permission.AccessSpec{
 				Target: permission.ID{
@@ -1347,11 +1346,8 @@ func (m *ModelManagerAPI) ModifyModelAccess(ctx context.Context, args params.Mod
 				},
 				Access: modelAccess,
 			},
-			AddUser:  true,
-			External: &external,
-			ApiUser:  user.NameFromTag(m.apiUser),
-			Change:   permission.AccessChange(arg.Action),
-			Subject:  user.NameFromTag(targetUserTag),
+			Change:  permission.AccessChange(arg.Action),
+			Subject: user.NameFromTag(targetUserTag),
 		})
 
 		result.Results[i].Error = apiservererrors.ServerError(err)

@@ -122,7 +122,6 @@ func (s *offerAccessSuite) TestGrantMissingUserFails(c *gc.C) {
 
 	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), access.UpdatePermissionArgs{
 		AccessSpec: offerAccessSpec(offerUUID, permission.ReadAccess),
-		ApiUser:    coreuser.AdminUserName,
 		Subject:    coreuser.NameFromTag(user),
 		Change:     permission.Grant,
 	}).Return(accesserrors.UserNotFound)
@@ -152,7 +151,6 @@ func (s *offerAccessSuite) TestRevokePermission(c *gc.C) {
 	userName := coreuser.NameFromTag(user)
 	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), access.UpdatePermissionArgs{
 		AccessSpec: offerAccessSpec(offerUUID, permission.ReadAccess),
-		ApiUser:    coreuser.AdminUserName,
 		Subject:    userName,
 		Change:     permission.Revoke,
 	})
@@ -171,7 +169,6 @@ func (s *offerAccessSuite) TestGrantPermission(c *gc.C) {
 	userName := coreuser.NameFromTag(user)
 	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), access.UpdatePermissionArgs{
 		AccessSpec: offerAccessSpec(offerUUID, permission.ReadAccess),
-		ApiUser:    coreuser.AdminUserName,
 		Subject:    userName,
 		Change:     permission.Grant,
 	}).Return(accesserrors.PermissionAccessGreater)
@@ -188,18 +185,14 @@ func (s *offerAccessSuite) TestGrantPermissionAddRemoteUser(c *gc.C) {
 	offerUUID := s.setupOffer("uuid", "test", "superuser-bob", "someoffer")
 
 	apiUser := names.NewUserTag("superuser-bob")
-	apiUserName := coreuser.NameFromTag(apiUser)
 	s.authorizer.Tag = apiUser
 	user := names.NewUserTag("bob@remote")
 	userName := coreuser.NameFromTag(user)
 
 	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), access.UpdatePermissionArgs{
 		AccessSpec: offerAccessSpec(offerUUID, permission.ReadAccess),
-		ApiUser:    apiUserName,
 		Subject:    userName,
 		Change:     permission.Grant,
-		AddUser:    true,
-		External:   boolPtr(true),
 	})
 
 	err := s.grant(c, user, params.OfferReadAccess, "superuser-bob/test.someoffer")
@@ -250,7 +243,6 @@ func (s *offerAccessSuite) TestGrantToOfferAdminAccess(c *gc.C) {
 	offerUUID := s.setupOffer("uuid", "test", "foobar", "someoffer")
 
 	user := names.NewUserTag("foobar")
-	userName := coreuser.NameFromTag(user)
 	s.authorizer.Tag = user
 	other := names.NewUserTag("other")
 	otherName := coreuser.NameFromTag(other)
@@ -262,7 +254,6 @@ func (s *offerAccessSuite) TestGrantToOfferAdminAccess(c *gc.C) {
 
 	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), access.UpdatePermissionArgs{
 		AccessSpec: offerAccessSpec(offerUUID, permission.ReadAccess),
-		ApiUser:    userName,
 		Subject:    otherName,
 		Change:     permission.Grant,
 	})
@@ -385,8 +376,4 @@ func offerAccessSpec(offerUUID string, accessLevel permission.Access) permission
 		},
 		Access: accessLevel,
 	}
-}
-
-func boolPtr(v bool) *bool {
-	return &v
 }

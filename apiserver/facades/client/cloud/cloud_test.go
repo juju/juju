@@ -889,8 +889,6 @@ func (s *cloudSuite) TestModifyCloudAccess(c *gc.C) {
 		},
 		Subject: usertesting.GenNewName(c, "fred"),
 		Change:  permission.Grant,
-		ApiUser: user.NameFromTag(adminTag),
-		AddUser: false,
 	}
 	cloudPermissionService.UpdatePermission(gomock.Any(), fredSpec).Return(nil)
 	marySpec := access.UpdatePermissionArgs{
@@ -903,8 +901,6 @@ func (s *cloudSuite) TestModifyCloudAccess(c *gc.C) {
 		},
 		Subject: usertesting.GenNewName(c, "mary"),
 		Change:  permission.Revoke,
-		ApiUser: user.NameFromTag(adminTag),
-		AddUser: false,
 	}
 	cloudPermissionService.UpdatePermission(gomock.Any(), marySpec).Return(nil)
 

@@ -1106,7 +1106,6 @@ func (s *modelManagerSuite) TestUpdatedModel(c *gc.C) {
 	as := s.accessService.EXPECT()
 	modelUUID := modeltesting.GenModelUUID(c).String()
 	testUser := names.NewUserTag("foobar")
-	external := false
 	updateArgs := access.UpdatePermissionArgs{
 		AccessSpec: permission.AccessSpec{
 			Target: permission.ID{
@@ -1115,11 +1114,8 @@ func (s *modelManagerSuite) TestUpdatedModel(c *gc.C) {
 			},
 			Access: permission.WriteAccess,
 		},
-		AddUser:  true,
-		External: &external,
-		ApiUser:  user.AdminUserName,
-		Change:   permission.Grant,
-		Subject:  user.NameFromTag(testUser),
+		Change:  permission.Grant,
+		Subject: user.NameFromTag(testUser),
 	}
 	as.UpdatePermission(gomock.Any(), updateArgs).Return(nil)
 

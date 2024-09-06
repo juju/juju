@@ -1584,14 +1584,10 @@ func (s *consumeSuite) TestDestroyOffersNoForceV2(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.assertDestroyOffersNoForce(c, s.api)
+	s.assertDestroyOffersNoForce(c)
 }
 
-type destroyOffers interface {
-	DestroyOffers(ctx context.Context, args params.DestroyApplicationOffers) (params.ErrorResults, error)
-}
-
-func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C, api destroyOffers) {
+func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).connections = []applicationoffers.OfferConnection{

@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
 )
 
@@ -65,7 +64,16 @@ func (s *MacaroonSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.ControllerConfigAttrs = map[string]interface{}{
 		controller.IdentityURL: s.discharger.Location(),
 	}
+
 	s.ApiServerSuite.SetUpTest(c)
+
+	err := s.ControllerServiceFactory(c).Access().AddExternalUser(
+		context.Background(),
+		permission.EveryoneUserName,
+		"",
+		s.AdminUserUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MacaroonSuite) TearDownTest(c *gc.C) {
@@ -88,13 +96,9 @@ func (s *MacaroonSuite) AddModelUser(c *gc.C, username user.Name) {
 	}
 
 	accessService := s.ControllerServiceFactory(c).Access()
-	external := true
 	err := accessService.UpdatePermission(context.Background(), access.UpdatePermissionArgs{
-		Subject:  username,
-		Change:   permission.Grant,
-		External: &external,
-		AddUser:  true,
-		ApiUser:  usertesting.GenNewName(c, "admin"),
+		Subject: username,
+		Change:  permission.Grant,
 		AccessSpec: permission.AccessSpec{
 			Target: permission.ID{
 				ObjectType: permission.Model,
@@ -118,13 +122,9 @@ func (s *MacaroonSuite) AddControllerUser(c *gc.C, username user.Name, accessLev
 		},
 	}
 
-	external := true
 	err := accessService.UpdatePermission(context.Background(), access.UpdatePermissionArgs{
 		Subject:    username,
 		Change:     permission.Grant,
-		External:   &external,
-		AddUser:    true,
-		ApiUser:    usertesting.GenNewName(c, "admin"),
 		AccessSpec: perm,
 	})
 

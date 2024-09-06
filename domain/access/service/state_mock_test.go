@@ -972,40 +972,40 @@ func (c *MockStateUpdateLastModelLoginCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
-// UpsertPermission mocks base method.
-func (m *MockState) UpsertPermission(arg0 context.Context, arg1 access.UpdatePermissionArgs) error {
+// UpdatePermission mocks base method.
+func (m *MockState) UpdatePermission(arg0 context.Context, arg1 access.UpdatePermissionArgs) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpsertPermission", arg0, arg1)
+	ret := m.ctrl.Call(m, "UpdatePermission", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpsertPermission indicates an expected call of UpsertPermission.
-func (mr *MockStateMockRecorder) UpsertPermission(arg0, arg1 any) *MockStateUpsertPermissionCall {
+// UpdatePermission indicates an expected call of UpdatePermission.
+func (mr *MockStateMockRecorder) UpdatePermission(arg0, arg1 any) *MockStateUpdatePermissionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertPermission", reflect.TypeOf((*MockState)(nil).UpsertPermission), arg0, arg1)
-	return &MockStateUpsertPermissionCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePermission", reflect.TypeOf((*MockState)(nil).UpdatePermission), arg0, arg1)
+	return &MockStateUpdatePermissionCall{Call: call}
 }
 
-// MockStateUpsertPermissionCall wrap *gomock.Call
-type MockStateUpsertPermissionCall struct {
+// MockStateUpdatePermissionCall wrap *gomock.Call
+type MockStateUpdatePermissionCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateUpsertPermissionCall) Return(arg0 error) *MockStateUpsertPermissionCall {
+func (c *MockStateUpdatePermissionCall) Return(arg0 error) *MockStateUpdatePermissionCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpsertPermissionCall) Do(f func(context.Context, access.UpdatePermissionArgs) error) *MockStateUpsertPermissionCall {
+func (c *MockStateUpdatePermissionCall) Do(f func(context.Context, access.UpdatePermissionArgs) error) *MockStateUpdatePermissionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpsertPermissionCall) DoAndReturn(f func(context.Context, access.UpdatePermissionArgs) error) *MockStateUpsertPermissionCall {
+func (c *MockStateUpdatePermissionCall) DoAndReturn(f func(context.Context, access.UpdatePermissionArgs) error) *MockStateUpdatePermissionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

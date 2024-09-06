@@ -794,6 +794,15 @@ func (api *CloudAPI) ModifyCloudAccess(ctx context.Context, args params.ModifyCl
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		if !api.isAdmin {
+			err := api.authorizer.HasPermission(ctx, permission.AdminAccess, cloudTag)
+			if errors.Is(err, authentication.ErrorEntityMissingPermission) {
+				result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+				continue
+			} else if err != nil {
+				return result, errors.Trace(err)
+			}
+		}
 		if api.apiUser.String() == arg.UserTag {
 			result.Results[i].Error = apiservererrors.ServerError(errors.New("cannot change your own cloud access"))
 			continue
@@ -811,8 +820,6 @@ func (api *CloudAPI) ModifyCloudAccess(ctx context.Context, args params.ModifyCl
 				},
 				Access: permission.Access(arg.Access),
 			},
-			AddUser: false,
-			ApiUser: user.NameFromTag(api.apiUser),
 			Change:  permission.AccessChange(arg.Action),
 			Subject: user.NameFromTag(userTag),
 		}

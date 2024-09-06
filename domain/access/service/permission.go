@@ -145,17 +145,19 @@ func (s *PermissionService) ReadAllAccessForUserAndObjectType(ctx context.Contex
 	return userAccess, errors.Trace(err)
 }
 
-// UpdatePermission updates the permission on the target for the given
-// subject (user). The api user must have Superuser access or Admin access
-// on the target. If a subject does not exist and the args specify, it is
-// created using the subject and api user. Adding the user would typically
-// only happen for updates to model access. Access can be granted or revoked.
-// Revoking Read access will delete the permission.
+// UpdatePermission updates the permission on the target for the given subject
+// (user). If the subject is an external user, and they do not exist, they are
+// created. Access can be granted or revoked. Revoking Read access will delete
+// the permission.
+// [accesserrors.UserNotFound] is returned if the user is local and does not
+// exist in the users table.
+// [accesserrors.PermissionAccessGreater] is returned if the user is being
+// granted an access level greater or equal to what they already have.
 func (s *PermissionService) UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error {
 	if err := args.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(s.st.UpsertPermission(ctx, args))
+	return errors.Trace(s.st.UpdatePermission(ctx, args))
 }
 
 // AllModelAccessForCloudCredential for a given (cloud) credential key, return all
