@@ -183,9 +183,8 @@ func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State) (
 
 	// ReadFileSHA256 returns a full 64 char SHA256. However, charm refs
 	// only use the first 7 chars. So truncate the sha to match
-	charmSHA = charmSHA[0:7]
-	if charmSHA != shaFromQuery {
-		return nil, errors.BadRequestf("Uploaded charm sha256 (%v) does not match sha in url (%v)", charmSHA, shaFromQuery)
+	if sha := charmSHA[0:7]; sha != shaFromQuery {
+		return nil, errors.BadRequestf("Uploaded charm sha256 (%v) does not match sha in url (%v)", sha, shaFromQuery)
 	}
 
 	archive, err := charm.ReadCharmArchive(charmFileName)
