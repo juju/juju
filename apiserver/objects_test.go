@@ -164,7 +164,7 @@ func (s *getCharmObjectSuite) TestGetReturnsNotYetAvailableForPendingCharms(c *g
 func (s *getCharmObjectSuite) TestGetReturnsMatchingContents(c *gc.C) {
 	chArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	f, err := os.Open(chArchive.Path)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
 	_ = s.uploadRequest(c, s.objectsCharmsURI("testcharm-"+getCharmHash(c, f)), "application/zip", "local:testcharm", f)
 
@@ -200,7 +200,7 @@ func (s *getCharmObjectSuite) TestGetWorksForControllerMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, err := os.Open(ch.Path)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Controller machine should be able to download the charm from
@@ -235,7 +235,7 @@ func (s *getCharmObjectSuite) TestGetAllowsOtherEnvironments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, err := os.Open(ch.Path)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri := s.URL(fmt.Sprintf("/model-%s/charms/%s", newSt.ModelUUID(), "testcharm-"+getCharmHash(c, f)), nil).String()
@@ -323,7 +323,7 @@ func (s *putCharmObjectSuite) TestUploadBumpsRevision(c *gc.C) {
 	// and the BundleSha256 is calculated.
 	f, err := os.Open(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	resp := s.uploadRequest(c, s.objectsCharmsURI("testcharm-"+getCharmHash(c, f)), "application/zip", "local:testcharm", f)
 	expectedURL := "local:testcharm-2"
 	s.assertUploadResponse(c, resp, expectedURL)
@@ -351,7 +351,7 @@ func (s *putCharmObjectSuite) TestUploadVersion(c *gc.C) {
 
 	f, err := os.Open(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	resp := s.uploadRequest(c, s.objectsCharmsURI("testcharm-"+getCharmHash(c, f)), "application/zip", "local:testcharm", f)
 
 	expectedURL := "local:testcharm-1"
@@ -401,7 +401,7 @@ func (s *putCharmObjectSuite) TestNonLocalCharmUploadFailsIfNotMigrating(c *gc.C
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	f, err := os.Open(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	hash := getCharmHash(c, f)
 
 	curl := fmt.Sprintf("ch:%s-%d", ch.Meta().Name, ch.Revision())
@@ -425,7 +425,7 @@ func (s *putCharmObjectSuite) TestNonLocalCharmUpload(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	f, err := os.Open(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	hash := getCharmHash(c, f)
 
 	curl := fmt.Sprintf("ch:%s-%d", ch.Meta().Name, ch.Revision())
@@ -454,7 +454,7 @@ func (s *putCharmObjectSuite) TestUnsupportedSchema(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	f, err := os.Open(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	resp := s.uploadRequest(c, s.objectsCharmsURI("testcharm-"+getCharmHash(c, f)), "application/zip", "zz:testcharm", f)
 	s.assertErrorResponse(
@@ -468,7 +468,7 @@ func (s *putCharmObjectSuite) TestNonLocalCharmUploadWithRevisionOverride(c *gc.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	f, err := os.Open(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	resp := s.uploadRequest(c, s.objectsCharmsURI("testcharm-"+getCharmHash(c, f)), "application/zip", "ch:testcharm-99", f)
 
@@ -487,7 +487,7 @@ func (s *putCharmObjectSuite) TestMigrateCharm(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	f, err := os.Open(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// The default user is just a normal user, not a controller admin
 	url := s.migrateObjectsCharmsURI("testcharm-" + getCharmHash(c, f))
@@ -515,7 +515,7 @@ func (s *putCharmObjectSuite) TestMigrateCharmName(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	f, err := os.Open(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// The default user is just a normal user, not a controller admin
 	url := s.migrateObjectsCharmsURI("meshuggah-" + getCharmHash(c, f))
@@ -541,7 +541,7 @@ func (s *putCharmObjectSuite) TestMigrateCharmNotMigrating(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	f, err := os.Open(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// The default user is just a normal user, not a controller admin
 	url := s.migrateObjectsCharmsURI("testcharm-" + getCharmHash(c, f))
@@ -585,7 +585,7 @@ func (s *putCharmObjectSuite) TestMigrateCharmUnauthorized(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	f, err := os.Open(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// The default user is just a normal user, not a controller admin
 	url := s.migrateObjectsCharmsURI("testcharm-" + getCharmHash(c, f))
@@ -605,11 +605,11 @@ func (s *putCharmObjectSuite) TestMigrateCharmUnauthorized(c *gc.C) {
 }
 
 func getCharmHash(c *gc.C, stream io.ReadSeeker) string {
-	_, err := stream.Seek(0, os.SEEK_SET)
+	_, err := stream.Seek(0, io.SeekStart)
 	c.Assert(err, jc.ErrorIsNil)
 	hash, _, err := utils.ReadSHA256(stream)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = stream.Seek(0, os.SEEK_SET)
+	_, err = stream.Seek(0, io.SeekStart)
 	c.Assert(err, jc.ErrorIsNil)
 	return hash[0:7]
 }

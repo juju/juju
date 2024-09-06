@@ -57,7 +57,7 @@ func ReadCharmFromStorage(ctx context.Context, objectStore ReadObjectStore, data
 }
 
 // CharmArchiveEntry retrieves the specified entry from the zip archive.
-func CharmArchiveEntry(charmPath, entryPath string, wantIcon bool) ([]byte, error) {
+func CharmArchiveEntry(charmPath, entryPath string) ([]byte, error) {
 	// TODO(fwereade) 2014-01-27 bug #1285685
 	// This doesn't handle symlinks helpfully, and should be talking in
 	// terms of bundles rather than zip readers; but this demands thought
@@ -84,11 +84,6 @@ func CharmArchiveEntry(charmPath, entryPath string, wantIcon bool) ([]byte, erro
 		}
 		defer contents.Close()
 		return io.ReadAll(contents)
-	}
-	if wantIcon {
-		// An icon was requested but none was found in the archive so
-		// return the default icon instead.
-		return []byte(DefaultCharmIcon), nil
 	}
 	return nil, errors.NotFoundf("charm file")
 }
