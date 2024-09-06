@@ -15,6 +15,7 @@ import (
 	uniterrors "github.com/juju/juju/domain/unitstate/errors"
 )
 
+// State implements persistence for unit state.
 type State struct {
 	*domain.StateBase
 }
