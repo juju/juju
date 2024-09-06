@@ -27,7 +27,7 @@ func (s *stateSuite) TestGetHardwareCharacteristics(c *gc.C) {
 	c.Check(*hc.RootDiskSource, gc.Equals, "/test")
 	c.Check(*hc.CpuCores, gc.Equals, uint64(4))
 	c.Check(*hc.CpuPower, gc.Equals, uint64(75))
-	c.Check(*hc.AvailabilityZone, gc.Equals, "az-1")
+	c.Check(*hc.AvailabilityZone, gc.Equals, "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	c.Check(*hc.VirtType, gc.Equals, "virtual-machine")
 }
 
@@ -43,7 +43,7 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 	err = row.Scan(&machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a reference AZ.
-	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('az-1', 'az1')")
+	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('deadbeef-0bad-400d-8000-4b1d0d06f00d', 'az-1')")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.SetMachineCloudInstance(
@@ -88,7 +88,7 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 	c.Check(instanceData.RootDiskSource, gc.IsNil)
 	c.Check(*instanceData.CPUCores, gc.Equals, uint64(4))
 	c.Check(*instanceData.CPUPower, gc.Equals, uint64(75))
-	c.Check(*instanceData.AvailabilityZoneUUID, gc.Equals, "az-1")
+	c.Check(*instanceData.AvailabilityZoneUUID, gc.Equals, "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	c.Check(*instanceData.VirtType, gc.Equals, "virtual-machine")
 
 	rows, err := db.QueryContext(context.Background(), "SELECT tag FROM instance_tag WHERE machine_uuid='"+machineUUID+"'")
@@ -334,7 +334,7 @@ func (s *stateSuite) ensureInstance(c *gc.C, mName machine.Name) string {
 	err = row.Scan(&machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a reference AZ.
-	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('az-1', 'az1')")
+	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('deadbeef-0bad-400d-8000-4b1d0d06f00d', 'az-1')")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.SetMachineCloudInstance(

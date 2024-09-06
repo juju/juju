@@ -16,6 +16,8 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	networkerrors "github.com/juju/juju/domain/network/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // HardwareCharacteristics returns the hardware characteristics struct with
@@ -83,6 +85,21 @@ VALUES ($instanceTag.*)
 		return errors.Trace(err)
 	}
 
+	azName := availabilityZoneName{}
+	if hardwareCharacteristics != nil && hardwareCharacteristics.AvailabilityZone != nil {
+		az := *hardwareCharacteristics.AvailabilityZone
+		azName = availabilityZoneName{Name: az}
+	}
+	retrieveAZUUID := `
+SELECT uuid AS &availabilityZoneName.uuid
+FROM   availability_zone
+WHERE  availability_zone.name = $availabilityZoneName.name
+`
+	retrieveAZUUIDStmt, err := st.Prepare(retrieveAZUUID, azName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		instanceData := instanceData{
 			MachineUUID: machineUUID,
@@ -95,8 +112,17 @@ VALUES ($instanceTag.*)
 			instanceData.RootDiskSource = hardwareCharacteristics.RootDiskSource
 			instanceData.CPUCores = hardwareCharacteristics.CpuCores
 			instanceData.CPUPower = hardwareCharacteristics.CpuPower
-			instanceData.AvailabilityZoneUUID = hardwareCharacteristics.AvailabilityZone
 			instanceData.VirtType = hardwareCharacteristics.VirtType
+			if hardwareCharacteristics.AvailabilityZone != nil {
+				azUUID := availabilityZoneName{}
+				if err := tx.Query(ctx, retrieveAZUUIDStmt, azName).Get(&azUUID); err != nil {
+					if errors.Is(err, sql.ErrNoRows) {
+						return internalerrors.Errorf("%w %q for machine %q", networkerrors.AvailabilityZoneNotFound, *hardwareCharacteristics.AvailabilityZone, machineUUID)
+					}
+					return internalerrors.Errorf("cannot retrieve availability zone %q for machine uuid %q: %w", *hardwareCharacteristics.AvailabilityZone, machineUUID, err)
+				}
+				instanceData.AvailabilityZoneUUID = &azUUID.UUID
+			}
 		}
 		if err := tx.Query(ctx, setInstanceDataStmt, instanceData).Run(); err != nil {
 			return errors.Annotatef(err, "inserting machine cloud instance for machine %q", machineUUID)
