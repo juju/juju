@@ -520,9 +520,10 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		args.Config[config.UUIDKey] = modelID.String()
 	}
 
-	newConfig, err := m.newModelConfig(ctx, cloudSpec, args, controllerModel)
+	configService := m.serviceFactoryGetter.ServiceFactoryForModel(modelID).Config()
+	newConfig, err := configService.ModelConfig(ctx)
 	if err != nil {
-		return result, errors.Annotate(err, "failed to create config")
+		return result, errors.Annotate(err, "failed to get config")
 	}
 
 	var createdModel common.Model

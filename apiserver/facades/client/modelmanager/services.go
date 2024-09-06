@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
@@ -46,6 +47,8 @@ type ModelConfigServiceGetter func(coremodel.UUID) (ModelConfigService, error)
 // ModelConfigService describes the set of functions needed for working with a
 // model's config.
 type ModelConfigService interface {
+	ModelConfig(context.Context) (*config.Config, error)
+
 	// SetModelConfig sets the models config.
 	SetModelConfig(context.Context, map[string]any) error
 }
