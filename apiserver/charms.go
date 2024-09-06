@@ -198,11 +198,18 @@ type CharmUploader interface {
 // RepackageAndUploadCharm expands the given charm archive to a
 // temporary directory, repackages it with the given curl's revision,
 // then uploads it to storage, and finally updates the state.
-func RepackageAndUploadCharm(ctx context.Context, objectStore services.Storage, uploader CharmUploader, archive *charm.CharmArchive, curl string, charmRevision int) error {
+func RepackageAndUploadCharm(
+	ctx context.Context,
+	objectStore services.Storage,
+	uploader CharmUploader,
+	archive *charm.CharmArchive,
+	curl string,
+	charmRevision int,
+) (charm.Charm, string, string, string, error) {
 	// Create a temp dir to contain the extracted charm dir.
 	tempDir, err := os.MkdirTemp("", "charm-download")
 	if err != nil {
-		return errors.Annotate(err, "cannot create temp directory")
+		return nil, "", "", "", errors.Annotate(err, "cannot create temp directory")
 	}
 	defer os.RemoveAll(tempDir)
 	extractPath := filepath.Join(tempDir, "extracted")
@@ -210,12 +217,12 @@ func RepackageAndUploadCharm(ctx context.Context, objectStore services.Storage, 
 	// Expand and repack it with the specified revision
 	archive.SetRevision(charmRevision)
 	if err := archive.ExpandTo(extractPath); err != nil {
-		return errors.Annotate(err, "cannot extract uploaded charm")
+		return nil, "", "", "", errors.Annotate(err, "cannot extract uploaded charm")
 	}
 
 	charmDir, err := charm.ReadCharmDir(extractPath)
 	if err != nil {
-		return errors.Annotate(err, "cannot read extracted charm")
+		return nil, "", "", "", errors.Annotate(err, "cannot read extracted charm")
 	}
 
 	// Try to get the version details here.
@@ -226,10 +233,10 @@ func RepackageAndUploadCharm(ctx context.Context, objectStore services.Storage, 
 		version, err = charm.ReadVersion(file)
 		_ = file.Close()
 		if err != nil {
-			return errors.Trace(err)
+			return nil, "", "", "", errors.Trace(err)
 		}
 	} else if !os.IsNotExist(err) {
-		return errors.Annotate(err, "cannot open version file")
+		return nil, "", "", "", errors.Annotate(err, "cannot open version file")
 	}
 
 	// Bundle the charm and calculate its sha256 hash at the same time.
@@ -237,7 +244,7 @@ func RepackageAndUploadCharm(ctx context.Context, objectStore services.Storage, 
 	hash := sha256.New()
 	err = charmDir.ArchiveTo(io.MultiWriter(hash, &repackagedArchive))
 	if err != nil {
-		return errors.Annotate(err, "cannot repackage uploaded charm")
+		return nil, "", "", "", errors.Annotate(err, "cannot repackage uploaded charm")
 	}
 	archiveSHA256 := hex.EncodeToString(hash.Sum(nil))
 
@@ -249,7 +256,7 @@ func RepackageAndUploadCharm(ctx context.Context, objectStore services.Storage, 
 		ObjectStore:  objectStore,
 	})
 
-	return charmStorage.Store(ctx, curl, downloader.DownloadedCharm{
+	storagePath, err := charmStorage.Store(ctx, curl, downloader.DownloadedCharm{
 		Charm:        archive,
 		CharmData:    &repackagedArchive,
 		CharmVersion: version,
@@ -257,6 +264,12 @@ func RepackageAndUploadCharm(ctx context.Context, objectStore services.Storage, 
 		SHA256:       archiveSHA256,
 		LXDProfile:   charmDir.LXDProfile(),
 	})
+
+	if err != nil {
+		return nil, "", "", "", errors.Annotate(err, "cannot store charm")
+	}
+
+	return archive, archiveSHA256, version, storagePath, nil
 }
 
 type storageStateShim struct {

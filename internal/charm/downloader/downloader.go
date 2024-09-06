@@ -41,7 +41,7 @@ type RepositoryGetter interface {
 // Storage provides an API for storing downloaded charms.
 type Storage interface {
 	PrepareToStoreCharm(string) error
-	Store(context.Context, string, DownloadedCharm) error
+	Store(context.Context, string, DownloadedCharm) (string, error)
 }
 
 // DownloadedCharm encapsulates the details of a downloaded charm.
@@ -208,7 +208,7 @@ func (d *Downloader) storeCharm(ctx context.Context, charmURL string, dc Downloa
 	defer func() { _ = charmArchive.Close() }()
 
 	dc.CharmData = charmArchive
-	if err := d.storage.Store(ctx, charmURL, dc); err != nil {
+	if _, err := d.storage.Store(ctx, charmURL, dc); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

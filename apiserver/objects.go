@@ -15,7 +15,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4"
 
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/objectstore"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -128,15 +131,29 @@ func (h *objectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Reques
 	}
 	defer st.Release()
 
+	serviceFactory, err := h.ctxt.serviceFactoryForRequest(r.Context())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	applicationService := serviceFactory.Application(service.ApplicationServiceParams{})
+
 	// Add a charm to the store provider.
-	charmURL, err := h.processPut(r, st.State)
+	charmURL, err := h.processPut(r, st.State, applicationService)
 	if err != nil {
 		return errors.NewBadRequest(err, "")
 	}
 	return errors.Trace(sendStatusAndHeadersAndJSON(w, http.StatusOK, map[string]string{"Juju-Curl": charmURL.String()}, &params.CharmsResponse{CharmURL: charmURL.String()}))
 }
 
-func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State) (*charm.URL, error) {
+type CharmService interface {
+	// SetCharm persists the charm metadata, actions, config and manifest to
+	// state.
+	// If there are any non-blocking issues with the charm metadata, actions,
+	// config or manifest, a set of warnings will be returned.
+	SetCharm(ctx context.Context, args applicationcharm.SetCharmArgs) (corecharm.ID, []string, error)
+}
+
+func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State, charmService CharmService) (*charm.URL, error) {
 	query := r.URL.Query()
 	name, shaFromQuery, err := splitNameAndSHAFromQuery(query)
 	if err != nil {
@@ -196,7 +213,8 @@ func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State) (
 		curl.Revision = archive.Revision()
 	}
 
-	switch charm.Schema(schema) {
+	source := charm.Schema(schema)
+	switch source {
 	case charm.Local:
 		curl, err = st.PrepareLocalCharmUpload(curl.String())
 		if err != nil {
@@ -212,7 +230,30 @@ func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State) (
 		return nil, errors.Errorf("unsupported schema %q", schema)
 	}
 
-	return curl, errors.Trace(RepackageAndUploadCharm(r.Context(), objectStore, storageStateShim{State: st}, archive, curl.String(), curl.Revision))
+	ch, sha, version, storagePath, err := RepackageAndUploadCharm(r.Context(), objectStore, storageStateShim{State: st}, archive, curl.String(), curl.Revision)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Dual write the charm to the service.
+	// TODO(stickupkid): There should be a SetCharm method on a charm
+	// service, which increments the charm revision and uploads the charm to
+	// the object store.
+	// This can be done, once all the charm service methods are being used,
+	// instead of the state methods.
+	if _, _, err := charmService.SetCharm(r.Context(), applicationcharm.SetCharmArgs{
+		Charm:         ch,
+		Source:        source,
+		ReferenceName: curl.Name,
+		Revision:      curl.Revision,
+		Hash:          sha,
+		ArchivePath:   storagePath,
+		Version:       version,
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return curl, nil
 }
 
 func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
