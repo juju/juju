@@ -189,6 +189,7 @@ func (s *stateSuite) TestUpdateUnitStateCharm(c *gc.C) {
 		if err != nil {
 			return err
 		}
+		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
 			var k, v string
@@ -197,7 +198,7 @@ func (s *stateSuite) TestUpdateUnitStateCharm(c *gc.C) {
 			}
 			gotState[k] = v
 		}
-		return rows.Close()
+		return rows.Err()
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -233,6 +234,7 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *gc.C) {
 		if err != nil {
 			return err
 		}
+		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
 			var k, v string
@@ -241,7 +243,7 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *gc.C) {
 			}
 			gotState[k] = v
 		}
-		return rows.Close()
+		return rows.Err()
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
