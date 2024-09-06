@@ -53,8 +53,10 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 		state.NewState(scope.ModelDB(), e.logger),
 		secretbackendstate.NewState(scope.ControllerDB(), e.logger),
 		e.logger,
-		service.NotImplementedBackendConfigGetter,
-		service.NotImplementedBackendUserSecretConfigGetter,
+		service.SecretServiceParams{
+			BackendAdminConfigGetter:      service.NotImplementedBackendConfigGetter,
+			BackendUserSecretConfigGetter: service.NotImplementedBackendUserSecretConfigGetter,
+		},
 	)
 	return nil
 }

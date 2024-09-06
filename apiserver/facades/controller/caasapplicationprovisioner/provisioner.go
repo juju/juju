@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/bootstrap"
@@ -106,13 +107,19 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 	modelConfigService := serviceFactory.Config()
 	modelInfoService := serviceFactory.ModelInfo()
 	storageService := serviceFactory.Storage(registry)
-	secretBackendAdminConfigGetter := secretbackendservice.AdminBackendConfigGetterFunc(
-		serviceFactory.SecretBackend(), ctx.ModelUUID())
-	secretBackendUserSecretConfigGetter := secretbackendservice.UserSecretBackendConfigGetterFunc(
-		serviceFactory.SecretBackend(), ctx.ModelUUID())
+	backendService := serviceFactory.SecretBackend()
 	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: registry,
-		Secrets:         serviceFactory.Secret(secretBackendAdminConfigGetter, secretBackendUserSecretConfigGetter),
+		Secrets: serviceFactory.Secret(
+			secretservice.SecretServiceParams{
+				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+					backendService, ctx.ModelUUID(),
+				),
+				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+					backendService, ctx.ModelUUID(),
+				),
+			},
+		),
 	})
 
 	sb, err := state.NewStorageBackend(ctx.State())

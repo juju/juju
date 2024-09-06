@@ -22,7 +22,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
-	"github.com/juju/juju/domain/secret/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -884,8 +884,10 @@ func newSecretsRevisionWatcher(_ context.Context, context facade.ModelContext) (
 	return &srvSecretsRevisionWatcher{
 		watcherCommon: newWatcherCommon(context),
 		secretService: context.ServiceFactory().Secret(
-			service.NotImplementedBackendConfigGetter,
-			service.NotImplementedBackendUserSecretConfigGetter,
+			secretservice.SecretServiceParams{
+				BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
+			},
 		),
 		watcher: watcher,
 	}, nil

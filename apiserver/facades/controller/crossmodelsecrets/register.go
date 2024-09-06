@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 )
 
@@ -35,11 +36,16 @@ func makeStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModel
 
 	backendService := serviceFactory.SecretBackend()
 	secretInfoGetter := func(modelUUID coremodel.UUID) SecretService {
-		secretBackendAdminConfigGetter := secretbackendservice.AdminBackendConfigGetterFunc(
-			serviceFactory.SecretBackend(), modelUUID)
-		secretBackendUserSecretConfigGetter := secretbackendservice.UserSecretBackendConfigGetterFunc(
-			serviceFactory.SecretBackend(), modelUUID)
-		return ctx.ServiceFactoryForModel(modelUUID).Secret(secretBackendAdminConfigGetter, secretBackendUserSecretConfigGetter)
+		return ctx.ServiceFactoryForModel(modelUUID).Secret(
+			secretservice.SecretServiceParams{
+				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+					serviceFactory.SecretBackend(), modelUUID,
+				),
+				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+					serviceFactory.SecretBackend(), modelUUID,
+				),
+			},
+		)
 	}
 
 	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)

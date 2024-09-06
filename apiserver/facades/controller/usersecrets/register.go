@@ -9,6 +9,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 )
 
@@ -26,13 +27,18 @@ func NewUserSecretsManager(stdCtx stdcontext.Context, ctx facade.ModelContext) (
 	}
 	serviceFactory := ctx.ServiceFactory()
 	backendService := serviceFactory.SecretBackend()
-	secretBackendAdminConfigGetter := secretbackendservice.AdminBackendConfigGetterFunc(
-		backendService, ctx.ModelUUID())
-	secretBackendUserSecretConfigGetter := secretbackendservice.UserSecretBackendConfigGetterFunc(
-		backendService, ctx.ModelUUID())
 
 	return &UserSecretsManager{
 		watcherRegistry: ctx.WatcherRegistry(),
-		secretService:   serviceFactory.Secret(secretBackendAdminConfigGetter, secretBackendUserSecretConfigGetter),
+		secretService: serviceFactory.Secret(
+			secretservice.SecretServiceParams{
+				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+					backendService, ctx.ModelUUID(),
+				),
+				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+					backendService, ctx.ModelUUID(),
+				),
+			},
+		),
 	}, nil
 }

@@ -18,7 +18,6 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
-	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -33,19 +32,18 @@ func Register(registry facade.FacadeRegistry) {
 func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, error) {
 	serviceFactory := ctx.ServiceFactory()
 	modelInfoService := serviceFactory.ModelInfo()
-	secretBackendAdminConfigGetter := secretbackendservice.AdminBackendConfigGetterFunc(
-		serviceFactory.SecretBackend(), ctx.ModelUUID())
-	backendUserSecretConfigGetter := func(
-		stdCtx context.Context, gsg secretservice.GrantedSecretsGetter, accessor secretservice.SecretAccessor,
-	) (*provider.ModelBackendConfigInfo, error) {
-		return serviceFactory.SecretBackend().BackendConfigInfo(stdCtx, secretbackendservice.BackendConfigParams{
-			GrantedSecretsGetter: gsg,
-			Accessor:             accessor,
-			ModelUUID:            ctx.ModelUUID(),
-			SameController:       true,
-		})
-	}
-	secretService := serviceFactory.Secret(secretBackendAdminConfigGetter, backendUserSecretConfigGetter)
+
+	backendService := serviceFactory.SecretBackend()
+	secretService := serviceFactory.Secret(
+		secretservice.SecretServiceParams{
+			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+			BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+		},
+	)
 	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
 		Secrets:         secretService,

@@ -12,6 +12,7 @@ import (
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 )
 
@@ -32,22 +33,25 @@ func newSecretsDrainAPI(stdCtx context.Context, ctx facade.ModelContext) (*commo
 		return nil, errors.Trace(err)
 	}
 	serviceFactory := ctx.ServiceFactory()
-	secretBackendService := ctx.ServiceFactory().SecretBackend()
+	backendService := serviceFactory.SecretBackend()
 
 	authTag := ctx.Auth().GetAuthTag()
 
-	secretBackendAdminConfigGetter := secretbackendservice.AdminBackendConfigGetterFunc(
-		secretBackendService, ctx.ModelUUID())
-	backendUserSecretConfigGetter := secretbackendservice.UserSecretBackendConfigGetterFunc(
-		secretBackendService, ctx.ModelUUID())
 	return commonsecrets.NewSecretsDrainAPI(
 		authTag,
 		ctx.Auth(),
 		ctx.Logger().Child("secretsdrain"),
 		leadershipChecker,
 		ctx.ModelUUID(),
-		serviceFactory.Secret(secretBackendAdminConfigGetter, backendUserSecretConfigGetter),
-		secretBackendService,
+		serviceFactory.Secret(secretservice.SecretServiceParams{
+			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+			BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+		}),
+		backendService,
 		ctx.WatcherRegistry(),
 	)
 }

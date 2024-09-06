@@ -1605,7 +1605,7 @@ func (s *serviceSuite) TestWatchObsolete(c *gc.C) {
 		return []string{"yyy/1", "yyy/2"}, nil
 	})
 
-	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil, nil)
+	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, SecretServiceParams{})
 	w, err := svc.WatchObsolete(context.Background(),
 		CharmSecretOwner{
 			Kind: ApplicationOwner,
@@ -1666,7 +1666,7 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_revision_obsolete", changestream.Create, gomock.Any()).Return(mockObsoleteWatcher, nil)
 	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_metadata", changestream.Update, gomock.Any()).Return(mockAutoPruneWatcher, nil)
 
-	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil, nil)
+	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, SecretServiceParams{})
 	w, err := svc.WatchObsoleteUserSecretsToPrune(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
@@ -1725,7 +1725,7 @@ func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		"mysql/0", "revision-uuid-2",
 	).Return([]string{uri2.String()}, nil)
 
-	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil, nil)
+	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, SecretServiceParams{})
 	w, err := svc.WatchConsumedSecretsChanges(context.Background(), "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
@@ -1777,7 +1777,7 @@ func (s *serviceSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 		return []string{uri1.String(), uri2.String()}, nil
 	})
 
-	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil, nil)
+	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, SecretServiceParams{})
 	w, err := svc.WatchRemoteConsumedSecretsChanges(context.Background(), "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
@@ -1838,7 +1838,7 @@ func (s *serviceSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 			},
 		}, nil
 	})
-	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil, nil)
+	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, SecretServiceParams{})
 	w, err := svc.WatchSecretsRotationChanges(context.Background(),
 		CharmSecretOwner{
 			Kind: ApplicationOwner,
@@ -1920,7 +1920,7 @@ func (s *serviceSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 			},
 		}, nil
 	})
-	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil, nil)
+	svc := NewWatchableService(s.state, s.secretBackendReferenceMutator, loggertesting.WrapCheckLog(c), mockWatcherFactory, SecretServiceParams{})
 	w, err := svc.WatchSecretRevisionsExpiryChanges(context.Background(),
 		CharmSecretOwner{
 			Kind: ApplicationOwner,

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/domain/secret/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -51,7 +51,12 @@ func makeStateCrossModelRelationsAPI(stdCtx context.Context, ctx facade.ModelCon
 		firewall.StateShim(st, m),
 		ctx.Resources(), ctx.Auth(),
 		authCtxt.(*commoncrossmodel.AuthContext),
-		ctx.ServiceFactory().Secret(service.NotImplementedBackendConfigGetter, service.NotImplementedBackendUserSecretConfigGetter),
+		ctx.ServiceFactory().Secret(
+			secretservice.SecretServiceParams{
+				BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
+			},
+		),
 		ctx.ServiceFactory().Config(),
 		firewall.WatchEgressAddressesForRelations,
 		watchRelationLifeSuspendedStatus,

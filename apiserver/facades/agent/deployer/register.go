@@ -12,6 +12,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/storage"
 )
@@ -43,13 +44,20 @@ func NewDeployerFacade(ctx facade.ModelContext) (*DeployerAPI, error) {
 	}
 
 	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
-	secretBackendAdminConfigGetter := secretbackendservice.AdminBackendConfigGetterFunc(
-		ctx.ServiceFactory().SecretBackend(), ctx.ModelUUID())
-	secretBackendUserSecretConfigGetter := secretbackendservice.UserSecretBackendConfigGetterFunc(
-		ctx.ServiceFactory().SecretBackend(), ctx.ModelUUID())
+	serviceFactory := ctx.ServiceFactory()
+	backendService := serviceFactory.SecretBackend()
 	applicationService := ctx.ServiceFactory().Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         ctx.ServiceFactory().Secret(secretBackendAdminConfigGetter, secretBackendUserSecretConfigGetter),
+		Secrets: ctx.ServiceFactory().Secret(
+			secretservice.SecretServiceParams{
+				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+					backendService, ctx.ModelUUID(),
+				),
+				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+					backendService, ctx.ModelUUID(),
+				),
+			},
+		),
 	})
 
 	return NewDeployerAPI(controllerConfigGetter, applicationService, authorizer, st, ctx.ObjectStore(), resources, leadershipRevoker, systemState)

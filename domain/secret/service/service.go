@@ -26,8 +26,8 @@ import (
 
 // NewSecretService returns a new secret service wrapping the specified state.
 func NewSecretService(
-	secretState State, secretBackendReferenceMutator SecretBackendReferenceMutator, logger logger.Logger,
-	adminConfigGetter BackendAdminConfigGetter, userSecretConfigGetter BackendUserSecretConfigGetter,
+	secretState State, secretBackendReferenceMutator SecretBackendReferenceMutator,
+	logger logger.Logger, params SecretServiceParams,
 ) *SecretService {
 	return &SecretService{
 		secretState:                   secretState,
@@ -35,8 +35,8 @@ func NewSecretService(
 		logger:                        logger,
 		clock:                         clock.WallClock,
 		providerGetter:                provider.Provider,
-		adminConfigGetter:             adminConfigGetter,
-		userSecretConfigGetter:        userSecretConfigGetter,
+		adminConfigGetter:             params.BackendAdminConfigGetter,
+		userSecretConfigGetter:        params.BackendUserSecretConfigGetter,
 		uuidGenerator:                 uuid.NewUUID,
 	}
 }

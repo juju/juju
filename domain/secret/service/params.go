@@ -12,6 +12,13 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 )
 
+// SecretServiceParams defines parameters used to create a secret service for
+// managing secret centent.
+type SecretServiceParams struct {
+	BackendAdminConfigGetter      BackendAdminConfigGetter
+	BackendUserSecretConfigGetter BackendUserSecretConfigGetter
+}
+
 // CreateCharmSecretParams are used to create charm a secret.
 type CreateCharmSecretParams struct {
 	UpdateCharmSecretParams

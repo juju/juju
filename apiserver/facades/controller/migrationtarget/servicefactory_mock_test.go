@@ -1234,17 +1234,17 @@ func (c *MockServiceFactoryProxyCall) DoAndReturn(f func() *service23.Service) *
 }
 
 // Secret mocks base method.
-func (m *MockServiceFactory) Secret(arg0 service24.BackendAdminConfigGetter, arg1 service24.BackendUserSecretConfigGetter) *service24.WatchableService {
+func (m *MockServiceFactory) Secret(arg0 service24.SecretServiceParams) *service24.WatchableService {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Secret", arg0, arg1)
+	ret := m.ctrl.Call(m, "Secret", arg0)
 	ret0, _ := ret[0].(*service24.WatchableService)
 	return ret0
 }
 
 // Secret indicates an expected call of Secret.
-func (mr *MockServiceFactoryMockRecorder) Secret(arg0, arg1 any) *MockServiceFactorySecretCall {
+func (mr *MockServiceFactoryMockRecorder) Secret(arg0 any) *MockServiceFactorySecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Secret", reflect.TypeOf((*MockServiceFactory)(nil).Secret), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Secret", reflect.TypeOf((*MockServiceFactory)(nil).Secret), arg0)
 	return &MockServiceFactorySecretCall{Call: call}
 }
 
@@ -1260,13 +1260,13 @@ func (c *MockServiceFactorySecretCall) Return(arg0 *service24.WatchableService) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactorySecretCall) Do(f func(service24.BackendAdminConfigGetter, service24.BackendUserSecretConfigGetter) *service24.WatchableService) *MockServiceFactorySecretCall {
+func (c *MockServiceFactorySecretCall) Do(f func(service24.SecretServiceParams) *service24.WatchableService) *MockServiceFactorySecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactorySecretCall) DoAndReturn(f func(service24.BackendAdminConfigGetter, service24.BackendUserSecretConfigGetter) *service24.WatchableService) *MockServiceFactorySecretCall {
+func (c *MockServiceFactorySecretCall) DoAndReturn(f func(service24.SecretServiceParams) *service24.WatchableService) *MockServiceFactorySecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
