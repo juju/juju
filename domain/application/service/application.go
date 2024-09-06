@@ -90,11 +90,6 @@ type AtomicApplicationState interface {
 	// indicate the application could be safely deleted.
 	// It will fail if the unit is not Dead.
 	DeleteUnit(ctx domain.AtomicContext, unitName string) (bool, error)
-
-	// GetSecretsForOwners returns the secrets owned by the specified apps and/or units.
-	GetSecretsForOwners(
-		ctx domain.AtomicContext, appOwners application.ApplicationSecretOwners, unitOwners application.UnitSecretOwners,
-	) ([]*coresecrets.URI, error)
 }
 
 // ApplicationState describes retrieval and persistence methods for
@@ -155,10 +150,15 @@ var (
 // used by an application service.
 type SecretService interface {
 	InternalDeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, params secretservice.DeleteSecretParams) (func(context.Context), error)
+	GetSecretsForOwners(ctx domain.AtomicContext, owners ...secretservice.CharmSecretOwner) ([]*coresecrets.URI, error)
 }
 
 // NotImplementedSecretService defines a secret service which does nothing.
 type NotImplementedSecretService struct{}
+
+func (s NotImplementedSecretService) GetSecretsForOwners(ctx domain.AtomicContext, owners ...secretservice.CharmSecretOwner) ([]*coresecrets.URI, error) {
+	return nil, nil
+}
 
 func (NotImplementedSecretService) InternalDeleteSecret(domain.AtomicContext, *coresecrets.URI, secretservice.DeleteSecretParams) (func(context.Context), error) {
 	return func(context.Context) {}, nil
@@ -344,7 +344,10 @@ func (s *ApplicationService) DeleteUnit(ctx context.Context, unitName string) er
 
 func (s *ApplicationService) deleteUnit(ctx domain.AtomicContext, unitName string) ([]func(context.Context), error) {
 	// Get unit owned secrets.
-	uris, err := s.st.GetSecretsForOwners(ctx, application.NilApplicationOwners, application.UnitSecretOwners{unitName})
+	uris, err := s.secretService.GetSecretsForOwners(ctx, secretservice.CharmSecretOwner{
+		Kind: secretservice.UnitOwner,
+		ID:   unitName,
+	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting unit owned secrets for %q", unitName)
 	}
@@ -551,7 +554,10 @@ func (s *ApplicationService) DeleteApplication(ctx context.Context, name string)
 
 func (s *ApplicationService) deleteApplication(ctx domain.AtomicContext, name string) ([]func(context.Context), error) {
 	// Get app owned secrets.
-	uris, err := s.st.GetSecretsForOwners(ctx, application.ApplicationSecretOwners{name}, application.NilUnitOwners)
+	uris, err := s.secretService.GetSecretsForOwners(ctx, secretservice.CharmSecretOwner{
+		Kind: secretservice.ApplicationOwner,
+		ID:   name,
+	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting application owned secrets for %q", name)
 	}

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
-	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
@@ -1110,55 +1109,6 @@ AND a.name = $applicationName.name
 		result[u.UnitID] = u.LifeID
 	}
 	return result, nil
-}
-
-// GetSecretsForOwners returns the secrets owned by the specified apps and/or units.
-func (st *ApplicationState) GetSecretsForOwners(
-	ctx domain.AtomicContext, appOwners application.ApplicationSecretOwners, unitOwners application.UnitSecretOwners,
-) ([]*coresecrets.URI, error) {
-	if len(appOwners) == 0 && len(unitOwners) == 0 {
-		return nil, errors.New("must supply at least one app owner or unit owner")
-	}
-
-	query := `
-SELECT sm.secret_id AS &secretID.secret_id
-FROM secret_metadata sm
-LEFT JOIN secret_application_owner sao ON sao.secret_id = sm.secret_id
-LEFT JOIN application a ON a.uuid = sao.application_uuid
-LEFT JOIN secret_unit_owner suo ON suo.secret_id = sm.secret_id
-LEFT JOIN unit u ON u.uuid = suo.unit_uuid
-WHERE
-    (sao.application_uuid <> "" OR suo.unit_uuid <> "")
-AND
-    (a.name IN ($ApplicationSecretOwners[:]) OR u.name IN ($UnitSecretOwners[:]))
-`
-
-	queryTypes := []any{
-		secretID{},
-		application.ApplicationSecretOwners{},
-		application.UnitSecretOwners{},
-	}
-
-	queryStmt, err := st.Prepare(query, queryTypes...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var (
-		dbSecrets secretIDs
-		uris      []*coresecrets.URI
-	)
-	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, queryStmt, appOwners, unitOwners).GetAll(&dbSecrets)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Trace(err)
-		}
-		uris, err = dbSecrets.toSecretURIs()
-		return errors.Trace(err)
-	}); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return uris, nil
 }
 
 // GetCharmByApplicationName returns the charm for the specified application

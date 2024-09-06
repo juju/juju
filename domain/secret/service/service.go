@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -486,6 +487,12 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 		return errors.Annotatef(err, "cannot update charm secret %q", uri.ID)
 	}
 	return nil
+}
+
+// GetSecretsForOwners returns the secrets owned by the specified apps and/or units.
+func (s *SecretService) GetSecretsForOwners(ctx domain.AtomicContext, owners ...CharmSecretOwner) ([]*secrets.URI, error) {
+	appOwners, unitOwners := splitCharmSecretOwners(owners...)
+	return s.secretState.GetSecretsForOwners(ctx, appOwners, unitOwners)
 }
 
 // ListSecrets returns the secrets matching the specified terms.

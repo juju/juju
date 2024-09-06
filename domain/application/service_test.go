@@ -50,7 +50,10 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 		s.secretState,
 		secretservice.NoopImplementedBackendReferenceMutator{},
 		loggertesting.WrapCheckLog(c),
-		secretservice.NotImplementedBackendConfigGetter,
+		secretservice.SecretServiceParams{
+			BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+			BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
+		},
 	)
 	s.svc = service.NewService(
 		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
