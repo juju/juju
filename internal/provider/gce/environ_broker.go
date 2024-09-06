@@ -276,13 +276,15 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value, os ostype.OS
 func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
 	rootDiskMB := inst.base.RootDiskGB() * 1024
 	hwc := instance.HardwareCharacteristics{
-		Arch:             &spec.Image.Arch,
-		Mem:              &spec.InstanceType.Mem,
-		CpuCores:         &spec.InstanceType.CpuCores,
-		CpuPower:         spec.InstanceType.CpuPower,
-		RootDisk:         &rootDiskMB,
-		AvailabilityZone: &inst.base.ZoneName,
+		Arch:     &spec.Image.Arch,
+		Mem:      &spec.InstanceType.Mem,
+		CpuCores: &spec.InstanceType.CpuCores,
+		CpuPower: spec.InstanceType.CpuPower,
+		RootDisk: &rootDiskMB,
 		// Tags: not supported in GCE.
+	}
+	if inst.base.ZoneName != "" {
+		hwc.AvailabilityZone = &inst.base.ZoneName
 	}
 	return &hwc
 }

@@ -445,7 +445,9 @@ func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareChara
 		hc.CpuPower = inst.instType.CpuPower
 		// tags not currently supported on openstack
 	}
-	hc.AvailabilityZone = &inst.serverDetail.AvailabilityZone
+	if inst.serverDetail.AvailabilityZone != "" {
+		hc.AvailabilityZone = &inst.serverDetail.AvailabilityZone
+	}
 	// If the instance was started with a volume block device mapping, select the first
 	// boot disk as the reported RootDisk size.
 	if inst.runOpts != nil {
