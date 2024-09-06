@@ -34,4 +34,8 @@ const (
 	// MachineHasNoParent describes an error that occurs when a machine has no
 	// parent.
 	MachineHasNoParent = errors.ConstError("machine has no parent")
+
+	// MachineCloudInstanceAlreadyExists describes an error that occurs
+	// when adding cloud instance on a machine that already exists.
+	MachineCloudInstanceAlreadyExists = errors.ConstError("machine cloud instance already exists")
 )

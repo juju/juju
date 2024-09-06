@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/provisionertask"
@@ -243,7 +244,9 @@ func (p *environProvisioner) machineInstanceInfoSetter(machineProvisioner apipro
 			// with the same machine UUID.
 			// This will all solve when we stop double writing and
 			// the following error be uncommented.
-			// return errors.Annotatef(err, "setting machine cloud instance for machine uuid %q", machineUUID)
+			if !errors.Is(err, machineerrors.MachineCloudInstanceAlreadyExists) {
+				return errors.Annotatef(err, "setting machine cloud instance for machine uuid %q", machineUUID)
+			}
 		}
 		return nil
 	}

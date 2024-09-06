@@ -60,13 +60,13 @@ const (
 	defaultHarvestMode            = config.HarvestAll
 )
 
-func machineInstanceInfoSetter(machineProvsionerAPI apiprovisioner.MachineProvisioner) func(
+func machineInstanceInfoSetter(machineProvisionerAPI apiprovisioner.MachineProvisioner) func(
 	ctx context.Context,
 	id instance.Id, displayName string, nonce string, characteristics *instance.HardwareCharacteristics,
 	networkConfig []params.NetworkConfig, volumes []params.Volume,
 	volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
 ) error {
-	return machineProvsionerAPI.SetInstanceInfo
+	return machineProvisionerAPI.SetInstanceInfo
 }
 
 type ProvisionerTaskSuite struct {

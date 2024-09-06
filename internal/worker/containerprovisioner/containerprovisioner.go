@@ -294,11 +294,11 @@ func (p *containerProvisioner) getStartTask(ctx context.Context, harvestMode con
 // for compute (machine) resources.
 // This implementation uses the machines API, because the container
 // provisioner is used on the agents where we cannot use domain services.
-func machineInstanceInfoSetter(machineProvsionerAPI apiprovisioner.MachineProvisioner) func(
+func machineInstanceInfoSetter(machineProvisionerAPI apiprovisioner.MachineProvisioner) func(
 	ctx context.Context,
 	id instance.Id, displayName string, nonce string, characteristics *instance.HardwareCharacteristics,
 	networkConfig []params.NetworkConfig, volumes []params.Volume,
 	volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
 ) error {
-	return machineProvsionerAPI.SetInstanceInfo
+	return machineProvisionerAPI.SetInstanceInfo
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/domain"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
+	"github.com/juju/juju/internal/database"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
@@ -125,6 +126,9 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 			}
 		}
 		if err := tx.Query(ctx, setInstanceDataStmt, instanceData).Run(); err != nil {
+			if database.IsErrConstraintPrimaryKey(err) {
+				return internalerrors.Errorf("%w for machine %q", machineerrors.MachineCloudInstanceAlreadyExists, machineUUID)
+			}
 			return errors.Annotatef(err, "inserting machine cloud instance for machine %q", machineUUID)
 		}
 		if instanceTags := tagsFromHardwareCharacteristics(machineUUID, hardwareCharacteristics); len(instanceTags) > 0 {

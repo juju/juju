@@ -106,6 +106,41 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 	c.Check(instanceTags[1], gc.Equals, "tag2")
 }
 
+func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *gc.C) {
+	db := s.DB()
+
+	// Create a reference machine.
+	err := s.state.CreateMachine(context.Background(), "42", "", "")
+	c.Assert(err, jc.ErrorIsNil)
+	var machineUUID string
+	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='42'")
+	c.Assert(row.Err(), jc.ErrorIsNil)
+	err = row.Scan(&machineUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetMachineCloudInstance(
+		context.Background(),
+		machineUUID,
+		instance.Id("1"),
+		&instance.HardwareCharacteristics{
+			Arch: strptr("arm64"),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Must fail when we try to add again.
+	err = s.state.SetMachineCloudInstance(
+		context.Background(),
+		machineUUID,
+		instance.Id("1"),
+		&instance.HardwareCharacteristics{
+			Arch: strptr("amd64"),
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, "machine cloud instance already exists.*")
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineCloudInstanceAlreadyExists)
+}
+
 // TestDeleteInstanceData asserts the happy path of DeleteMachineCloudInstance
 // at the state layer.
 func (s *stateSuite) TestDeleteInstanceData(c *gc.C) {
