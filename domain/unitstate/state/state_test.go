@@ -38,10 +38,11 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 
 	unitArg := application.UpsertUnitArg{UnitName: ptr("app/0")}
 
-	_, err := appState.CreateApplication(context.Background(), "app", appArg, unitArg)
+	ctx := context.Background()
+	_, err := appState.CreateApplication(ctx, "app", appArg, unitArg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit").Scan(&s.unitUUID)
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -71,7 +72,7 @@ func (s *stateSuite) TestEnsureUnitStateRecord(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var uuid string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit").Scan(&uuid)
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -83,7 +84,7 @@ func (s *stateSuite) TestEnsureUnitStateRecord(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit").Scan(&uuid)
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -104,7 +105,7 @@ func (s *stateSuite) TestUpdateUnitStateUniter(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var gotState string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		q := "SELECT uniter_state FROM unit_state where unit_uuid = ?"
 		return tx.QueryRowContext(ctx, q, s.unitUUID).Scan(&gotState)
 	})
@@ -126,7 +127,7 @@ func (s *stateSuite) TestUpdateUnitStateStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var gotState string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		q := "SELECT storage_state FROM unit_state where unit_uuid = ?"
 		return tx.QueryRowContext(ctx, q, s.unitUUID).Scan(&gotState)
 	})
@@ -148,10 +149,98 @@ func (s *stateSuite) TestUpdateUnitStateSecret(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var gotState string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		q := "SELECT secret_state FROM unit_state where unit_uuid = ?"
 		return tx.QueryRowContext(ctx, q, s.unitUUID).Scan(&gotState)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotState, gc.Equals, expState)
+}
+
+func (s *stateSuite) TestUpdateUnitStateCharm(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	// Set some initial state. This should be overwritten.
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		q := "INSERT INTO unit_state_charm VALUES (?, 'one-key', 'one-val')"
+		_, err := tx.ExecContext(ctx, q, s.unitUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expState := map[string]string{
+		"two-key":   "two-val",
+		"three-key": "three-val",
+	}
+
+	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.SetUnitStateCharm(ctx, s.unitUUID, expState)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotState := make(map[string]string)
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		q := "SELECT key, value FROM unit_state_charm WHERE unit_uuid = ?"
+		rows, err := tx.QueryContext(ctx, q, s.unitUUID)
+		if err != nil {
+			return err
+		}
+
+		for rows.Next() {
+			var k, v string
+			if err := rows.Scan(&k, &v); err != nil {
+				return err
+			}
+			gotState[k] = v
+		}
+		return rows.Close()
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(gotState, gc.DeepEquals, expState)
+}
+
+func (s *stateSuite) TestUpdateUnitStateRelation(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	// Set some initial state. This should be overwritten.
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		q := "INSERT INTO unit_state_relation VALUES (?, 'one-key', 'one-val')"
+		_, err := tx.ExecContext(ctx, q, s.unitUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expState := map[string]string{
+		"two-key":   "two-val",
+		"three-key": "three-val",
+	}
+
+	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.SetUnitStateRelation(ctx, s.unitUUID, expState)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotState := make(map[string]string)
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		q := "SELECT key, value FROM unit_state_relation WHERE unit_uuid = ?"
+		rows, err := tx.QueryContext(ctx, q, s.unitUUID)
+		if err != nil {
+			return err
+		}
+
+		for rows.Next() {
+			var k, v string
+			if err := rows.Scan(&k, &v); err != nil {
+				return err
+			}
+			gotState[k] = v
+		}
+		return rows.Close()
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(gotState, gc.DeepEquals, expState)
 }

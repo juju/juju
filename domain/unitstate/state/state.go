@@ -129,10 +129,72 @@ func (st *State) UpdateUnitStateSecret(ctx domain.AtomicContext, uuid, state str
 	q := "UPDATE unit_state SET secret_state = $unitState.state WHERE unit_uuid = $unitUUID.uuid"
 	stmt, err := st.Prepare(q, id, uSt)
 	if err != nil {
-		return fmt.Errorf("preparing uniter secret update query: %w", err)
+		return fmt.Errorf("preparing secret state update query: %w", err)
 	}
 
 	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt, id, uSt).Run()
+	})
+}
+
+// SetUnitStateCharm sets the input key/value pairs
+// as the charm state for the input unit UUID.
+func (st *State) SetUnitStateCharm(ctx domain.AtomicContext, uuid string, state map[string]string) error {
+	id := unitUUID{UUID: uuid}
+
+	q := "DELETE from unit_state_charm WHERE unit_uuid = $unitUUID.uuid"
+	dStmt, err := st.Prepare(q, id)
+	if err != nil {
+		return fmt.Errorf("preparing charm state delete query: %w", err)
+	}
+
+	keyVals := makeUnitStateKeyVals(uuid, state)
+
+	q = "INSERT INTO unit_state_charm(*) VALUES ($unitStateKeyVal.*)"
+	iStmt, err := st.Prepare(q, keyVals[0])
+	if err != nil {
+		return fmt.Errorf("preparing charm state insert query: %w", err)
+	}
+
+	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, dStmt, id).Run(); err != nil {
+			return fmt.Errorf("deleting unit charm state: %w", err)
+		}
+
+		if err := tx.Query(ctx, iStmt, keyVals).Run(); err != nil {
+			return fmt.Errorf("setting unit charm state: %w", err)
+		}
+		return nil
+	})
+}
+
+// SetUnitStateRelation sets the input key/value pairs
+// as the relation state for the input unit UUID.
+func (st *State) SetUnitStateRelation(ctx domain.AtomicContext, uuid string, state map[string]string) error {
+	id := unitUUID{UUID: uuid}
+
+	q := "DELETE from unit_state_relation WHERE unit_uuid = $unitUUID.uuid"
+	dStmt, err := st.Prepare(q, id)
+	if err != nil {
+		return fmt.Errorf("preparing relation state delete query: %w", err)
+	}
+
+	keyVals := makeUnitStateKeyVals(uuid, state)
+
+	q = "INSERT INTO unit_state_relation(*) VALUES ($unitStateKeyVal.*)"
+	iStmt, err := st.Prepare(q, keyVals[0])
+	if err != nil {
+		return fmt.Errorf("preparing relation state insert query: %w", err)
+	}
+
+	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, dStmt, id).Run(); err != nil {
+			return fmt.Errorf("deleting unit relation state: %w", err)
+		}
+
+		if err := tx.Query(ctx, iStmt, keyVals).Run(); err != nil {
+			return fmt.Errorf("setting unit relation state: %w", err)
+		}
+		return nil
 	})
 }

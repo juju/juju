@@ -15,7 +15,7 @@ type AgentState struct {
 	// UniterState is the uniter's state as a YAML string.
 	UniterState *string
 
-	// RelationState is key/values pairs for relation attributes.
+	// RelationState is key/value pairs for relation attributes.
 	RelationState *map[int]string
 
 	// StorageState is a YAML string.
