@@ -249,14 +249,14 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 		return nil, errors.Trace(err)
 	}
 	for _, perm := range cloudUsers {
-		if !isAdmin && api.apiUser.Id() != perm.UserID {
+		if !isAdmin && api.apiUser.Id() != perm.UserName.Name() {
 			// The authenticated user is neither the controller
 			// superuser, a cloud administrator, nor a cloud user, so
 			// has no business knowing about the cloud user.
 			continue
 		}
 		userInfo := params.CloudUserInfo{
-			UserName:    perm.UserID,
+			UserName:    perm.UserName.Name(),
 			DisplayName: perm.DisplayName,
 			Access:      string(perm.Access),
 		}

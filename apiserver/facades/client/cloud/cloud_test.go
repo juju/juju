@@ -153,8 +153,8 @@ func (s *cloudSuite) TestCloudInfoAdmin(c *gc.C) {
 
 	cloudPermissionService := s.cloudAccessService.EXPECT()
 	userPerm := []permission.UserAccess{
-		{UserID: "fred", DisplayName: "display-fred", Access: permission.AddModelAccess},
-		{UserID: "mary", DisplayName: "display-mary", Access: permission.AdminAccess},
+		{UserName: usertesting.GenNewName(c, "fred"), DisplayName: "display-fred", Access: permission.AddModelAccess},
+		{UserName: usertesting.GenNewName(c, "mary"), DisplayName: "display-mary", Access: permission.AdminAccess},
 	}
 	target := permission.ID{
 		ObjectType: permission.Cloud,
@@ -213,8 +213,8 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *gc.C) {
 	cloudPermissionService.ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(fredTag),
 		permID).Return(permission.AddModelAccess, nil)
 	userPerm := []permission.UserAccess{
-		{UserID: "fred", DisplayName: "display-fred", Access: permission.AddModelAccess},
-		{UserID: "mary", DisplayName: "display-mary", Access: permission.AdminAccess},
+		{UserName: usertesting.GenNewName(c, "fred"), DisplayName: "display-fred", Access: permission.AddModelAccess},
+		{UserName: usertesting.GenNewName(c, "mary"), DisplayName: "display-mary", Access: permission.AdminAccess},
 	}
 	cloudPermissionService.ReadAllUserAccessForTarget(gomock.Any(), permID).Return(userPerm,
 		nil)
