@@ -100,7 +100,7 @@ func (s *watcherSuite) setupServiceAndState(c *gc.C) (*service.WatchableService,
 		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "secret_revision"),
 		logger,
 	)
-	return service.NewWatchableService(st, nil, logger, factory, nil), st
+	return service.NewWatchableService(st, nil, logger, factory, service.SecretServiceParams{}), st
 }
 
 func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {

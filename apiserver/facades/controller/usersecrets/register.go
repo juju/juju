@@ -7,39 +7,38 @@ import (
 	stdcontext "context"
 	"reflect"
 
-	"github.com/juju/errors"
-
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/secrets/provider"
+	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("UserSecretsManager", 1, func(stdCtx stdcontext.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return NewUserSecretsManager(ctx)
+		return NewUserSecretsManager(stdCtx, ctx)
 	}, reflect.TypeOf((*UserSecretsManager)(nil)))
 }
 
 // NewUserSecretsManager creates a UserSecretsManager.
-func NewUserSecretsManager(ctx facade.ModelContext) (*UserSecretsManager, error) {
+func NewUserSecretsManager(stdCtx stdcontext.Context, ctx facade.ModelContext) (*UserSecretsManager, error) {
 	if !ctx.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	serviceFactory := ctx.ServiceFactory()
 	backendService := serviceFactory.SecretBackend()
-	backendConfigGetter := func(ctx stdcontext.Context) (*provider.ModelBackendConfigInfo, error) {
-		return backendService.GetSecretBackendConfigForAdmin(ctx, coremodel.UUID(model.UUID()))
-	}
 
 	return &UserSecretsManager{
 		watcherRegistry: ctx.WatcherRegistry(),
-		secretService:   serviceFactory.Secret(backendConfigGetter),
+		secretService: serviceFactory.Secret(
+			secretservice.SecretServiceParams{
+				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+					backendService, ctx.ModelUUID(),
+				),
+				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+					backendService, ctx.ModelUUID(),
+				),
+			},
+		),
 	}, nil
 }

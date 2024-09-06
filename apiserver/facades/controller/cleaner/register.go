@@ -10,6 +10,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/storage"
 )
@@ -29,12 +30,20 @@ func newCleanerAPI(ctx facade.ModelContext) (*CleanerAPI, error) {
 	}
 
 	serviceFactory := ctx.ServiceFactory()
-	secretBackendAdminConfigGetter := secretbackendservice.BackendConfigGetterFunc(
-		serviceFactory.SecretBackend(), ctx.ModelUUID())
+	backendService := serviceFactory.SecretBackend()
 	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
 		// For removing applications, we don't need a storage registry.
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         serviceFactory.Secret(secretBackendAdminConfigGetter),
+		Secrets: serviceFactory.Secret(
+			secretservice.SecretServiceParams{
+				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+					backendService, ctx.ModelUUID(),
+				),
+				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+					backendService, ctx.ModelUUID(),
+				),
+			},
+		),
 	})
 	return &CleanerAPI{
 		st:             getState(ctx.State()),

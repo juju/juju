@@ -4,6 +4,8 @@
 package secretsdrain_test
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -26,7 +28,7 @@ func (s *drainSuite) TestNewSecretManagerAPIPermissionCheck(c *gc.C) {
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().AuthUnitAgent().Return(false)
 
-	_, err := secretsdrain.NewSecretsDrainAPI(facadetest.ModelContext{
+	_, err := secretsdrain.NewSecretsDrainAPI(context.Background(), facadetest.ModelContext{
 		Auth_: authorizer,
 	})
 	c.Assert(err, gc.ErrorMatches, "permission denied")

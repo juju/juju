@@ -16,6 +16,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/storage"
 )
@@ -31,9 +32,18 @@ func Register(registry facade.FacadeRegistry) {
 func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, error) {
 	serviceFactory := ctx.ServiceFactory()
 	modelInfoService := serviceFactory.ModelInfo()
-	secretBackendAdminConfigGetter := secretbackendservice.BackendConfigGetterFunc(
-		serviceFactory.SecretBackend(), ctx.ModelUUID())
-	secretService := serviceFactory.Secret(secretBackendAdminConfigGetter)
+
+	backendService := serviceFactory.SecretBackend()
+	secretService := serviceFactory.Secret(
+		secretservice.SecretServiceParams{
+			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+			BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+		},
+	)
 	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
 		Secrets:         secretService,

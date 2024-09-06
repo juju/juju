@@ -45,7 +45,12 @@ func makeAPI(stdCtx context.Context, ctx facade.ModelContext) (*API, error) {
 		modelInfo.UUID,
 		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
 		externalControllerService,
-		serviceFactory.Secret(secretservice.NotImplementedBackendConfigGetter),
+		serviceFactory.Secret(
+			secretservice.SecretServiceParams{
+				BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
+			},
+		),
 		common.NewControllerConfigAPI(systemState, controllerConfigService, externalControllerService),
 		ctx.Resources(), ctx.Auth(),
 		ctx.Logger().Child("remoterelations", corelogger.CMR),

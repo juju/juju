@@ -128,6 +128,16 @@ func (s *providerSuite) TestBackendConfigAdmin(c *gc.C) {
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-create`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(nil),
+				}, nil
+			},
+		),
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/auth/token/create`)
 				return &http.Response{
 					Request:    req,

@@ -12,19 +12,19 @@ import (
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/secrets/provider"
+	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("SecretsDrain", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newSecretsDrainAPI(ctx)
+		return newSecretsDrainAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*commonsecrets.SecretsDrainAPI)(nil)))
 }
 
 // newSecretsDrainAPI creates a SecretsDrainAPI.
-func newSecretsDrainAPI(ctx facade.ModelContext) (*commonsecrets.SecretsDrainAPI, error) {
+func newSecretsDrainAPI(stdCtx context.Context, ctx facade.ModelContext) (*commonsecrets.SecretsDrainAPI, error) {
 	if !ctx.Auth().AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -32,25 +32,26 @@ func newSecretsDrainAPI(ctx facade.ModelContext) (*commonsecrets.SecretsDrainAPI
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelUUID := coremodel.UUID(model.UUID())
+	serviceFactory := ctx.ServiceFactory()
+	backendService := serviceFactory.SecretBackend()
+
 	authTag := ctx.Auth().GetAuthTag()
 
-	secretBackendService := ctx.ServiceFactory().SecretBackend()
-	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
-		return secretBackendService.GetSecretBackendConfigForAdmin(stdCtx, modelUUID)
-	}
 	return commonsecrets.NewSecretsDrainAPI(
 		authTag,
 		ctx.Auth(),
 		ctx.Logger().Child("secretsdrain"),
 		leadershipChecker,
-		modelUUID,
-		ctx.ServiceFactory().Secret(secretBackendAdminConfigGetter),
-		secretBackendService,
+		ctx.ModelUUID(),
+		serviceFactory.Secret(secretservice.SecretServiceParams{
+			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+			BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+		}),
+		backendService,
 		ctx.WatcherRegistry(),
 	)
 }

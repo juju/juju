@@ -207,14 +207,14 @@ func (s *ModelFactory) Storage(registry storage.ProviderRegistry) *storageservic
 }
 
 // Secret returns the model's secret service.
-func (s *ModelFactory) Secret(adminConfigGetter secretservice.BackendAdminConfigGetter) *secretservice.WatchableService {
+func (s *ModelFactory) Secret(params secretservice.SecretServiceParams) *secretservice.WatchableService {
 	logger := s.logger.Child("secret")
 	return secretservice.NewWatchableService(
 		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), logger.Child("state")),
 		secretbackendstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), logger.Child("secretbackendstate")),
 		logger.Child("service"),
 		domain.NewWatcherFactory(s.modelDB, logger.Child("watcherfactory")),
-		adminConfigGetter,
+		params,
 	)
 }
 

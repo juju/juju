@@ -73,7 +73,7 @@ func (s *serviceSuite) setup(c *gc.C) *gomock.Controller {
 		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(c, s.modelUUID.String()), nil }, loggertesting.WrapCheckLog(c)),
 		secretbackendstate.NewState(func() (database.TxnRunner, error) { return s.ControllerTxnRunner(), nil }, loggertesting.WrapCheckLog(c)),
 		loggertesting.WrapCheckLog(c),
-		s.backendConfigGetter).
+		service.SecretServiceParams{BackendAdminConfigGetter: s.backendConfigGetter}).
 		WithProviderGetter(func(string) (provider.SecretBackendProvider, error) { return s.secretsBackendProvider, nil }).
 		WithBackendRefMutator(s.secretBackendReferenceMutator)
 

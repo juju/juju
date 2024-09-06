@@ -11,6 +11,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secretbackend"
 	"github.com/juju/juju/internal/secrets/provider"
 )
@@ -44,12 +45,29 @@ type WatcherFactory interface {
 	NewValueWatcher(namespace, changeValue string, changeMask changestream.ChangeType) (watcher.NotifyWatcher, error)
 }
 
-// BackendConfigGetterFunc returns a function that gets the
-// config for a given model's current secret backend.
-func BackendConfigGetterFunc(
+// AdminBackendConfigGetterFunc returns a function that gets the
+// admin config for a given model's current secret backend.
+func AdminBackendConfigGetterFunc(
 	backendService *WatchableService, modelUUID coremodel.UUID,
 ) func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
 	return func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return backendService.GetSecretBackendConfigForAdmin(stdCtx, modelUUID)
+	}
+}
+
+// UserSecretBackendConfigGetterFunc returns a function that gets the
+// config for a given model's current secret backend for creating or updating user secrets.
+func UserSecretBackendConfigGetterFunc(backendService *WatchableService, modelUUID coremodel.UUID) func(
+	stdCtx context.Context, gsg secretservice.GrantedSecretsGetter, accessor secretservice.SecretAccessor,
+) (*provider.ModelBackendConfigInfo, error) {
+	return func(
+		stdCtx context.Context, gsg secretservice.GrantedSecretsGetter, accessor secretservice.SecretAccessor,
+	) (*provider.ModelBackendConfigInfo, error) {
+		return backendService.BackendConfigInfo(stdCtx, BackendConfigParams{
+			GrantedSecretsGetter: gsg,
+			Accessor:             accessor,
+			ModelUUID:            modelUUID,
+			SameController:       true,
+		})
 	}
 }

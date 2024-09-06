@@ -8,14 +8,13 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/secrets/provider"
+	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -33,20 +32,22 @@ func Register(registry facade.FacadeRegistry) {
 // backed by global state.
 func makeStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*CrossModelSecretsAPI, error) {
 	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
-
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	serviceFactory := ctx.ServiceFactory()
 
 	backendService := serviceFactory.SecretBackend()
-	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
-		return backendService.GetSecretBackendConfigForAdmin(stdCtx, coremodel.UUID(model.UUID()))
+	secretInfoGetter := func(modelUUID coremodel.UUID) SecretService {
+		return ctx.ServiceFactoryForModel(modelUUID).Secret(
+			secretservice.SecretServiceParams{
+				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+					serviceFactory.SecretBackend(), modelUUID,
+				),
+				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+					serviceFactory.SecretBackend(), modelUUID,
+				),
+			},
+		)
 	}
-	secretInfoGetter := func(modelUUID string) SecretService {
-		return ctx.ServiceFactoryForModel(coremodel.UUID(modelUUID)).Secret(secretBackendAdminConfigGetter)
-	}
+
 	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, fmt.Errorf("retrieving model info: %w", err)

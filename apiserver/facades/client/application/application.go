@@ -44,6 +44,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -172,8 +173,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	if err != nil {
 		return nil, fmt.Errorf("getting model info: %w", err)
 	}
-	secretBackendAdminConfigGetter := secretbackendservice.BackendConfigGetterFunc(
-		serviceFactory.SecretBackend(), ctx.ModelUUID())
+
 	validatorCfg := validatorConfig{
 		charmhubHTTPClient: charmhubHTTPClient,
 		caasBroker:         caasBroker,
@@ -187,9 +187,19 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		storagePoolGetter:  storagePoolGetter,
 		logger:             repoLogger,
 	}
+	backendService := serviceFactory.SecretBackend()
 	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: registry,
-		Secrets:         serviceFactory.Secret(secretBackendAdminConfigGetter),
+		Secrets: serviceFactory.Secret(
+			secretservice.SecretServiceParams{
+				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+					backendService, ctx.ModelUUID(),
+				),
+				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+					backendService, ctx.ModelUUID(),
+				),
+			},
+		),
 	})
 	repoDeploy := NewDeployFromRepositoryAPI(
 		state,

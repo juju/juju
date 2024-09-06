@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
@@ -27,7 +28,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-type secretServiceGetter func(modelUUID string) SecretService
+type secretServiceGetter func(modelUUID model.UUID) SecretService
 
 // CrossModelSecretsAPI provides access to the CrossModelSecrets API facade.
 type CrossModelSecretsAPI struct {
@@ -106,7 +107,7 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(ctx stdcontext.Context, arg 
 
 	s.logger.Debugf("consumer unit for token %q: %v", arg.ApplicationToken, consumerUnit.Id())
 
-	secretService := s.secretServiceGetter(uri.SourceUUID)
+	secretService := s.secretServiceGetter(coremodel.UUID(uri.SourceUUID))
 	scopeTag, err := s.accessScope(ctx, secretService, uri, consumerUnit)
 	if errors.Is(err, secreterrors.SecretAccessScopeNotFound) {
 		return "", apiservererrors.ErrPerm
@@ -197,7 +198,7 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx stdcontext.Context, arg para
 		return nil, nil, 0, errors.Trace(err)
 	}
 
-	secretService := s.secretServiceGetter(uri.SourceUUID)
+	secretService := s.secretServiceGetter(coremodel.UUID(uri.SourceUUID))
 
 	var (
 		wantRevision   int

@@ -202,21 +202,15 @@ func (p vaultProvider) RestrictedConfig(
 		if err := ensurePolicy(ctx, sys, &policies, mountPath, "update"); err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		// For drain worker, we need to be able to create a new secret.
-		if err := ensurePolicy(ctx, sys, &policies, mountPath, "create"); err != nil {
-			return nil, errors.Trace(err)
-		}
 	} else if adminUser {
 		// For admin users, all secrets for the model can be read.
 		if err := ensurePolicy(ctx, sys, &policies, mountPath, "read"); err != nil {
 			return nil, errors.Trace(err)
 		}
-	} else {
-		// Agents can create new secrets in the model.
-		if err := ensurePolicy(ctx, sys, &policies, mountPath, "create"); err != nil {
-			return nil, errors.Trace(err)
-		}
+	}
+	// Agents, drain workers and admin users (creates user secrets) can create new secrets in the model.
+	if err := ensurePolicy(ctx, sys, &policies, mountPath, "create"); err != nil {
+		return nil, errors.Trace(err)
 	}
 	// Any secrets owned by the agent can be updated/deleted etc.
 	logger.Debugf("owned secrets: %#v", owned)

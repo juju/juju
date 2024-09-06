@@ -31,7 +31,7 @@ type WatchableService struct {
 // NewWatchableService returns a new watchable service wrapping the specified state.
 func NewWatchableService(
 	secretState State, secretBackendReferenceMutator SecretBackendReferenceMutator,
-	logger logger.Logger, watcherFactory WatcherFactory, adminConfigGetter BackendAdminConfigGetter,
+	logger logger.Logger, watcherFactory WatcherFactory, params SecretServiceParams,
 ) *WatchableService {
 	return &WatchableService{
 		SecretService: SecretService{
@@ -40,7 +40,8 @@ func NewWatchableService(
 			logger:                        logger,
 			clock:                         clock.WallClock,
 			providerGetter:                provider.Provider,
-			adminConfigGetter:             adminConfigGetter,
+			adminConfigGetter:             params.BackendAdminConfigGetter,
+			userSecretConfigGetter:        params.BackendUserSecretConfigGetter,
 			uuidGenerator:                 uuid.NewUUID,
 		},
 		watcherFactory: watcherFactory,

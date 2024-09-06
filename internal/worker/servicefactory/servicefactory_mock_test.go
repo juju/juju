@@ -1272,7 +1272,7 @@ func (c *MockModelServiceFactoryProxyCall) DoAndReturn(f func() *service23.Servi
 }
 
 // Secret mocks base method.
-func (m *MockModelServiceFactory) Secret(arg0 service24.BackendAdminConfigGetter) *service24.WatchableService {
+func (m *MockModelServiceFactory) Secret(arg0 service24.SecretServiceParams) *service24.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Secret", arg0)
 	ret0, _ := ret[0].(*service24.WatchableService)
@@ -1298,13 +1298,13 @@ func (c *MockModelServiceFactorySecretCall) Return(arg0 *service24.WatchableServ
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceFactorySecretCall) Do(f func(service24.BackendAdminConfigGetter) *service24.WatchableService) *MockModelServiceFactorySecretCall {
+func (c *MockModelServiceFactorySecretCall) Do(f func(service24.SecretServiceParams) *service24.WatchableService) *MockModelServiceFactorySecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceFactorySecretCall) DoAndReturn(f func(service24.BackendAdminConfigGetter) *service24.WatchableService) *MockModelServiceFactorySecretCall {
+func (c *MockModelServiceFactorySecretCall) DoAndReturn(f func(service24.SecretServiceParams) *service24.WatchableService) *MockModelServiceFactorySecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2473,7 +2473,7 @@ func (c *MockServiceFactoryProxyCall) DoAndReturn(f func() *service23.Service) *
 }
 
 // Secret mocks base method.
-func (m *MockServiceFactory) Secret(arg0 service24.BackendAdminConfigGetter) *service24.WatchableService {
+func (m *MockServiceFactory) Secret(arg0 service24.SecretServiceParams) *service24.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Secret", arg0)
 	ret0, _ := ret[0].(*service24.WatchableService)
@@ -2499,13 +2499,13 @@ func (c *MockServiceFactorySecretCall) Return(arg0 *service24.WatchableService) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactorySecretCall) Do(f func(service24.BackendAdminConfigGetter) *service24.WatchableService) *MockServiceFactorySecretCall {
+func (c *MockServiceFactorySecretCall) Do(f func(service24.SecretServiceParams) *service24.WatchableService) *MockServiceFactorySecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactorySecretCall) DoAndReturn(f func(service24.BackendAdminConfigGetter) *service24.WatchableService) *MockServiceFactorySecretCall {
+func (c *MockServiceFactorySecretCall) DoAndReturn(f func(service24.SecretServiceParams) *service24.WatchableService) *MockServiceFactorySecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

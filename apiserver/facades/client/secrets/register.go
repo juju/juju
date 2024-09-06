@@ -4,29 +4,29 @@
 package secrets
 
 import (
-	stdcontext "context"
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/secrets/provider"
+	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Secrets", 1, func(stdCtx stdcontext.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newSecretsAPIV1(ctx)
+	registry.MustRegister("Secrets", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		return newSecretsAPIV1(stdCtx, ctx)
 	}, reflect.TypeOf((*SecretsAPI)(nil)))
-	registry.MustRegister("Secrets", 2, func(stdCtx stdcontext.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newSecretsAPI(ctx)
+	registry.MustRegister("Secrets", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		return newSecretsAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*SecretsAPI)(nil)))
 }
 
-func newSecretsAPIV1(context facade.ModelContext) (*SecretsAPIV1, error) {
-	api, err := newSecretsAPI(context)
+func newSecretsAPIV1(stdCtx context.Context, context facade.ModelContext) (*SecretsAPIV1, error) {
+	api, err := newSecretsAPI(stdCtx, context)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -34,30 +34,37 @@ func newSecretsAPIV1(context facade.ModelContext) (*SecretsAPIV1, error) {
 }
 
 // newSecretsAPI creates a SecretsAPI.
-func newSecretsAPI(context facade.ModelContext) (*SecretsAPI, error) {
-	if !context.Auth().AuthClient() {
+func newSecretsAPI(stdCtx context.Context, ctx facade.ModelContext) (*SecretsAPI, error) {
+	if !ctx.Auth().AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	model, err := context.State().Model()
+	serviceFactory := ctx.ServiceFactory()
+	backendService := serviceFactory.SecretBackend()
+
+	modelInfoService := serviceFactory.ModelInfo()
+	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	serviceFactory := context.ServiceFactory()
-	backendService := serviceFactory.SecretBackend()
-	adminBackendConfigGetter := func(ctx stdcontext.Context) (*provider.ModelBackendConfigInfo, error) {
-		return backendService.GetSecretBackendConfigForAdmin(
-			ctx, coremodel.UUID(model.UUID()),
-		)
-	}
-	secretService := serviceFactory.Secret(adminBackendConfigGetter)
+
+	secretService := serviceFactory.Secret(
+		secretservice.SecretServiceParams{
+			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+			BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+		},
+	)
 
 	return &SecretsAPI{
-		authorizer:           context.Auth(),
-		authTag:              context.Auth().GetAuthTag(),
-		controllerUUID:       context.ControllerUUID(),
-		modelUUID:            context.State().ModelUUID(),
-		modelName:            model.Name(),
+		authorizer:           ctx.Auth(),
+		authTag:              ctx.Auth().GetAuthTag(),
+		controllerUUID:       ctx.ControllerUUID(),
+		modelUUID:            ctx.State().ModelUUID(),
+		modelName:            modelInfo.Name,
 		secretService:        secretService,
 		secretBackendService: backendService,
 	}, nil
