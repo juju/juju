@@ -774,10 +774,9 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		logger:            logger.Child("charms-handler"),
 	}
 	modelCharmsHTTPHandler := &charmsHTTPHandler{
-		postHandler: modelCharmsHandler.ServePost,
-		getHandler:  modelCharmsHandler.ServeGet,
+		getHandler: modelCharmsHandler.ServeGet,
 	}
-	modelCharmsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
+	charmsObjectsAuthorizer := tagKindAuthorizer{names.UserTagKind}
 
 	modelObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
 		ctxt:              httpCtxt,
@@ -865,8 +864,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		logger:            logger.Child("charms-handler"),
 	}
 	migrateCharmsHTTPHandler := &charmsHTTPHandler{
-		postHandler: migrateCharmsHandler.ServePost,
-		getHandler:  migrateCharmsHandler.ServeUnsupported,
+		getHandler: migrateCharmsHandler.ServeUnsupported,
 	}
 	migrateObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
 		ctxt:              httpCtxt,
@@ -926,11 +924,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		pattern: modelRoutePrefix + "/charms",
 		methods: []string{"GET"},
 		handler: modelCharmsHTTPHandler,
-	}, {
-		pattern:    modelRoutePrefix + "/charms",
-		methods:    []string{"POST"},
-		handler:    modelCharmsHTTPHandler,
-		authorizer: modelCharmsUploadAuthorizer,
 	}, {
 		pattern:    modelRoutePrefix + "/tools",
 		handler:    modelToolsUploadHandler,
@@ -1020,7 +1013,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		pattern:    charmsObjectsRoutePrefix,
 		methods:    []string{"PUT"},
 		handler:    modelObjectsCharmsHTTPHandler,
-		authorizer: modelCharmsUploadAuthorizer,
+		authorizer: charmsObjectsAuthorizer,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {
