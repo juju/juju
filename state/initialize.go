@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -266,9 +265,6 @@ func (st *State) modelSetupOps(controllerUUID string, providerConfigSchemaGetter
 		Status:    status.Available,
 	}
 
-	modelUserOps := createModelUserOps(
-		modelUUID, args.Owner, args.Owner, args.Owner.Name(), st.nowToTheSecond(), permission.AdminAccess,
-	)
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),
 		createConstraintsOp(modelGlobalKey, args.Constraints),
@@ -330,6 +326,5 @@ func (st *State) modelSetupOps(controllerUUID string, providerConfigSchemaGetter
 		),
 		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
 	)
-	ops = append(ops, modelUserOps...)
 	return ops, modelStatusDoc, nil
 }

@@ -77,14 +77,7 @@ func (st *State) addUserAccess(spec UserAccessSpec, target userAccessTarget) (pe
 	)
 	switch target.globalKey {
 	case modelGlobalKey:
-		ops = createModelUserOps(
-			target.uuid,
-			spec.User,
-			spec.CreatedBy,
-			spec.DisplayName,
-			st.nowToTheSecond(),
-			spec.Access)
-		targetTag = names.NewModelTag(target.uuid)
+		return permission.UserAccess{}, nil
 	case controllerGlobalKey:
 		ops = createControllerUserOps(
 			st.ControllerUUID(),
@@ -111,16 +104,6 @@ func (st *State) addUserAccess(spec UserAccessSpec, target userAccessTarget) (pe
 func userAccessID(user names.UserTag) string {
 	username := user.Id()
 	return strings.ToLower(username)
-}
-
-// NewModelUserAccess returns a new permission.UserAccess for the given userDoc and
-// current Model.
-func NewModelUserAccess(st *State, userDoc userAccessDoc) (permission.UserAccess, error) {
-	perm, err := st.userPermission(modelKey(userDoc.ObjectUUID), userGlobalKey(strings.ToLower(userDoc.UserName)))
-	if err != nil {
-		return permission.UserAccess{}, errors.Annotate(err, "obtaining model permission")
-	}
-	return newUserAccess(perm, userDoc, names.NewModelTag(userDoc.ObjectUUID))
 }
 
 // NewControllerUserAccess returns a new permission.UserAccess for the given userDoc and
@@ -196,10 +179,6 @@ func (st *State) UserAccess(subject names.UserTag, target names.Tag) (permission
 	)
 	switch target.Kind() {
 	case names.ModelTagKind:
-		userDoc, err = st.modelUser(target.Id(), subject)
-		if err == nil {
-			return NewModelUserAccess(st, userDoc)
-		}
 	case names.ControllerTagKind:
 		userDoc, err = st.controllerUser(subject)
 		if err == nil {
@@ -219,7 +198,6 @@ func (st *State) SetUserAccess(subject names.UserTag, target names.Tag, access p
 	}
 	switch target.Kind() {
 	case names.ModelTagKind:
-		err = st.setModelAccess(access, userGlobalKey(userAccessID(subject)), target.Id())
 	case names.ControllerTagKind:
 		err = st.setControllerAccess(access, userGlobalKey(userAccessID(subject)))
 	default:
@@ -235,7 +213,6 @@ func (st *State) SetUserAccess(subject names.UserTag, target names.Tag, access p
 func (st *State) RemoveUserAccess(subject names.UserTag, target names.Tag) error {
 	switch target.Kind() {
 	case names.ModelTagKind:
-		return errors.Trace(st.removeModelUser(subject))
 	case names.ControllerTagKind:
 		return errors.Trace(st.removeControllerUser(subject))
 	}

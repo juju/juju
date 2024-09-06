@@ -2905,7 +2905,7 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 	for _, collName := range state.MultiModelCollections() {
 		// skip adding constraints, modelUser and settings as they were added when the
 		// model was created
-		if collName == "constraints" || collName == "modelusers" || collName == "settings" {
+		if collName == "constraints" || collName == "settings" {
 			continue
 		}
 		if state.HasRawAccess(collName) {

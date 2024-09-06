@@ -21,7 +21,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		cloudimagemetadataC,
 		constraintsC,
 		modelsC,
-		modelUsersC,
 		permissionsC,
 		settingsC,
 		sequenceC,

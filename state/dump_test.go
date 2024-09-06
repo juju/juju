@@ -34,6 +34,5 @@ func (s *dumpSuite) TestDumpAll(c *gc.C) {
 		initialCollections.Add(name)
 	}
 	// check that there are some other collections there
-	c.Check(initialCollections.Contains("modelusers"), jc.IsTrue)
 	c.Check(initialCollections.Contains("statuses"), jc.IsTrue)
 }
