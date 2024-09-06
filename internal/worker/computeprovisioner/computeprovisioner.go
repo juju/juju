@@ -223,13 +223,16 @@ func (p *environProvisioner) machineInstanceInfoSetter(machineProvisioner apipro
 		}
 
 		instanceID, err := machineProvisioner.InstanceId(ctx)
+		if err != nil {
+			return errors.Annotatef(err, "retrieving instance ID for machine %q", id)
+		}
 		if err := p.machineService.SetMachineCloudInstance(
 			ctx,
 			machineUUID,
 			instanceID,
 			hc,
 		); err != nil {
-			// TODO(nvinuesa): We deliverately hide this error
+			// TODO(nvinuesa): We deliberately hide this error
 			// because we are still double writing and therefore
 			// the call to set machine cloud instance happens twice:
 			// - First at the call through the API, see 29 lines

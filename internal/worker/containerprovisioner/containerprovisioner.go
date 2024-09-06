@@ -84,7 +84,6 @@ type containerProvisioner struct {
 	toolsFinder             ToolsFinder
 	controllerAPI           ControllerAPI
 	machinesAPI             MachinesAPI
-	machineService          MachineService
 	agentConfig             agent.Config
 	logger                  logger.Logger
 	broker                  environs.InstanceBroker
@@ -120,7 +119,6 @@ func (o *configObserver) notify(cfg *config.Config) {
 // and allocates them to the new machines.
 func NewContainerProvisioner(
 	containerType instance.ContainerType,
-	machineService MachineService,
 	controllerAPI ControllerAPI,
 	machinesAPI MachinesAPI,
 	logger logger.Logger,

@@ -750,11 +750,10 @@ func (api *ProvisionerAPI) SetInstanceInfo(ctx context.Context, args params.Inst
 		if err != nil {
 			return errors.Annotatef(err, "retrieving machineUUID for machine %q", machine.Id())
 		}
-		instanceID, err := machine.InstanceId()
 		if err := api.machineService.SetMachineCloudInstance(
 			ctx,
 			machineUUID,
-			instanceID,
+			arg.InstanceId,
 			arg.Characteristics,
 		); err != nil {
 			return errors.Annotatef(err, "setting machine cloud instance for machine uuid %q", machineUUID)

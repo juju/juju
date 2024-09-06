@@ -85,16 +85,18 @@ VALUES ($instanceTag.*)
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		instanceData := instanceData{
-			MachineUUID:          machineUUID,
-			InstanceID:           string(instanceID),
-			Arch:                 hardwareCharacteristics.Arch,
-			Mem:                  hardwareCharacteristics.Mem,
-			RootDisk:             hardwareCharacteristics.RootDisk,
-			RootDiskSource:       hardwareCharacteristics.RootDiskSource,
-			CPUCores:             hardwareCharacteristics.CpuCores,
-			CPUPower:             hardwareCharacteristics.CpuPower,
-			AvailabilityZoneUUID: hardwareCharacteristics.AvailabilityZone,
-			VirtType:             hardwareCharacteristics.VirtType,
+			MachineUUID: machineUUID,
+			InstanceID:  string(instanceID),
+		}
+		if hardwareCharacteristics != nil {
+			instanceData.Arch = hardwareCharacteristics.Arch
+			instanceData.Mem = hardwareCharacteristics.Mem
+			instanceData.RootDisk = hardwareCharacteristics.RootDisk
+			instanceData.RootDiskSource = hardwareCharacteristics.RootDiskSource
+			instanceData.CPUCores = hardwareCharacteristics.CpuCores
+			instanceData.CPUPower = hardwareCharacteristics.CpuPower
+			instanceData.AvailabilityZoneUUID = hardwareCharacteristics.AvailabilityZone
+			instanceData.VirtType = hardwareCharacteristics.VirtType
 		}
 		if err := tx.Query(ctx, setInstanceDataStmt, instanceData).Run(); err != nil {
 			return errors.Annotatef(err, "inserting machine cloud instance for machine %q", machineUUID)

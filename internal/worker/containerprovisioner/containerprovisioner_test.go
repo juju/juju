@@ -116,7 +116,7 @@ func (s *lxdProvisionerSuite) newLXDProvisioner(c *gc.C, ctrl *gomock.Controller
 	}}, nil)
 
 	w, err := containerprovisioner.NewContainerProvisioner(
-		instance.LXD, nil, s.controllerAPI, s.machinesAPI, loggertesting.WrapCheckLog(c),
+		instance.LXD, s.controllerAPI, s.machinesAPI, loggertesting.WrapCheckLog(c),
 		cfg, s.broker, &mockToolsFinder{}, &mockDistributionGroupFinder{}, &credentialAPIForTest{})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -1317,6 +1317,8 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	machineService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Machine()
+	machineService.CreateMachine(context.Background(), machine.Name(volumesMachine.Id()))
 
 	args := params.InstancesInfo{Machines: []params.InstanceInfo{{
 		Tag:        s.machines[0].Tag().String(),

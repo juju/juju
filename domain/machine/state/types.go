@@ -35,7 +35,7 @@ type instanceTag struct {
 }
 
 func tagsFromHardwareCharacteristics(machineUUID string, hc *instance.HardwareCharacteristics) []instanceTag {
-	if hc.Tags == nil {
+	if hc == nil || hc.Tags == nil {
 		return nil
 	}
 	res := make([]instanceTag, len(*hc.Tags))
