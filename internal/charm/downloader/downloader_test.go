@@ -216,7 +216,7 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 	c.Log(curl.String())
 	s.storage.EXPECT().PrepareToStoreCharm(curl.String()).Return(nil)
 	s.storage.EXPECT().Store(gomock.Any(), curl.String(), gomock.AssignableToTypeOf(downloader.DownloadedCharm{})).DoAndReturn(
-		func(_ context.Context, _ string, dc downloader.DownloadedCharm) error {
+		func(_ context.Context, _ string, dc downloader.DownloadedCharm) (string, error) {
 			c.Assert(dc.Size, gc.Equals, int64(10))
 
 			contents, err := io.ReadAll(dc.CharmData)
@@ -225,7 +225,7 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 			c.Assert(dc.CharmVersion, gc.Equals, "the-version")
 			c.Assert(dc.SHA256, gc.Equals, "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461")
 
-			return nil
+			return "", nil
 		},
 	)
 	s.repoGetter.EXPECT().GetCharmRepository(gomock.Any(), corecharm.CharmHub).Return(repoAdaptor{s.repo}, nil)
