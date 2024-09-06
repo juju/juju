@@ -84,13 +84,9 @@ type charmsHandler struct {
 	logger            corelogger.Logger
 }
 
-// bundleContentSenderFunc functions are responsible for sending a
-// response related to a charm bundle.
-type bundleContentSenderFunc func(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive) error
-
-func (h *charmsHandler) ServeUnsupported(w http.ResponseWriter, r *http.Request) error {
-	return errors.Trace(emitUnsupportedMethodErr(r.Method))
-}
+// archiveContentSenderFunc functions are responsible for sending a
+// response related to a charm archive.
+type archiveContentSenderFunc func(w http.ResponseWriter, r *http.Request, archive *charm.CharmArchive) error
 
 func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "GET" {
@@ -114,7 +110,7 @@ func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
 	// charm has no icon.
 	charmArchivePath, fileArg, err := h.processGet(r, st.State)
 	if err != nil {
-		// An error occurred retrieving the charm bundle.
+		// An error occurred retrieving the charm archive.
 		if errors.Is(err, errors.NotFound) || errors.Is(err, errors.NotYetAvailable) {
 			return errors.Trace(err)
 		}
@@ -123,7 +119,7 @@ func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
 	}
 	defer os.Remove(charmArchivePath)
 
-	var sender bundleContentSenderFunc
+	var sender archiveContentSenderFunc
 	switch fileArg {
 	case "":
 		// The client requested the list of charm files.
@@ -136,29 +132,29 @@ func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
 		sender = h.archiveEntrySender(fileArg)
 	}
 
-	return errors.Trace(sendBundleContent(w, r, charmArchivePath, sender))
+	return errors.Trace(sendArchiveContent(w, r, charmArchivePath, sender))
 }
 
 // manifestSender sends a JSON-encoded response to the client including the
-// list of files contained in the charm bundle.
-func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive) error {
-	manifest, err := bundle.ArchiveMembers()
+// list of files contained in the charm archive.
+func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, archive *charm.CharmArchive) error {
+	manifest, err := archive.ArchiveMembers()
 	if err != nil {
-		return errors.Annotatef(err, "unable to read manifest in %q", bundle.Path)
+		return errors.Annotatef(err, "unable to read manifest in %q", archive.Path)
 	}
 	return errors.Trace(sendStatusAndJSON(w, http.StatusOK, &params.CharmsResponse{
 		Files: manifest.SortedValues(),
 	}))
 }
 
-// archiveEntrySender returns a bundleContentSenderFunc which is responsible
-// for sending the contents of filePath included in the given charm bundle. If
+// archiveEntrySender returns a archiveContentSenderFunc which is responsible
+// for sending the contents of filePath included in the given charm archive. If
 // filePath does not identify a file or a symlink, a 403 forbidden error is
 // returned. If serveIcon is true, then the charm icon.svg file is sent, or a
 // default icon if that file is not included in the charm.
-func (h *charmsHandler) archiveEntrySender(filePath string) bundleContentSenderFunc {
-	return func(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive) error {
-		contents, err := common.CharmArchiveEntry(bundle.Path, filePath)
+func (h *charmsHandler) archiveEntrySender(filePath string) archiveContentSenderFunc {
+	return func(w http.ResponseWriter, r *http.Request, archive *charm.CharmArchive) error {
+		contents, err := common.CharmArchiveEntry(archive.Path, filePath)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -178,16 +174,16 @@ func (h *charmsHandler) archiveEntrySender(filePath string) bundleContentSenderF
 	}
 }
 
-// archiveSender is a bundleContentSenderFunc which is responsible for sending
-// the contents of the given charm bundle.
-func (h *charmsHandler) archiveSender(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive) error {
+// archiveSender is a archiveContentSenderFunc which is responsible for sending
+// the contents of the given charm archive.
+func (h *charmsHandler) archiveSender(w http.ResponseWriter, r *http.Request, archive *charm.CharmArchive) error {
 	// Note that http.ServeFile's error responses are not our standard JSON
 	// responses (they are the usual textual error messages as produced
 	// by http.Error), but there's not a great deal we can do about that,
 	// except accept non-JSON error responses in the client, because
 	// http.ServeFile does not provide a way of customizing its
 	// error responses.
-	http.ServeFile(w, r, bundle.Path)
+	http.ServeFile(w, r, archive.Path)
 	return nil
 }
 
@@ -243,7 +239,7 @@ func RepackageAndUploadCharm(ctx context.Context, objectStore services.Storage, 
 	if err != nil {
 		return errors.Annotate(err, "cannot repackage uploaded charm")
 	}
-	bundleSHA256 := hex.EncodeToString(hash.Sum(nil))
+	archiveSHA256 := hex.EncodeToString(hash.Sum(nil))
 
 	// Now we need to repackage it with the reserved URL, upload it to
 	// provider storage and update the state.
@@ -258,7 +254,7 @@ func RepackageAndUploadCharm(ctx context.Context, objectStore services.Storage, 
 		CharmData:    &repackagedArchive,
 		CharmVersion: version,
 		Size:         int64(repackagedArchive.Len()),
-		SHA256:       bundleSHA256,
+		SHA256:       archiveSHA256,
 		LXDProfile:   charmDir.LXDProfile(),
 	})
 }
@@ -278,7 +274,7 @@ func (s storageStateShim) PrepareCharmUpload(curl string) (services.UploadedChar
 }
 
 // processGet handles a charm file GET request after authentication.
-// It returns the bundle path, the requested file path (if any), whether the
+// It returns the archive path, the requested file path (if any), whether the
 // default charm icon has been requested and an error.
 func (h *charmsHandler) processGet(r *http.Request, st *state.State) (
 	archivePath string,
@@ -350,22 +346,22 @@ func sendJSONError(w http.ResponseWriter, req *http.Request, err error) error {
 	}))
 }
 
-// sendBundleContent uses the given bundleContentSenderFunc to send a
+// sendArchiveContent uses the given archiveContentSenderFunc to send a
 // response related to the charm archive located in the given
 // archivePath.
-func sendBundleContent(
+func sendArchiveContent(
 	w http.ResponseWriter,
 	r *http.Request,
 	archivePath string,
-	sender bundleContentSenderFunc,
+	sender archiveContentSenderFunc,
 ) error {
-	logger.Child("charmhttp").Tracef("sendBundleContent %q", archivePath)
-	bundle, err := charm.ReadCharmArchive(archivePath)
+	logger.Child("charmhttp").Tracef("sendArchiveContent %q", archivePath)
+	archive, err := charm.ReadCharmArchive(archivePath)
 	if err != nil {
 		return errors.Annotatef(err, "unable to read archive in %q", archivePath)
 	}
-	// The bundleContentSenderFunc will set up and send an appropriate response.
-	if err := sender(w, r, bundle); err != nil {
+	// The archiveContentSenderFunc will set up and send an appropriate response.
+	if err := sender(w, r, archive); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
