@@ -559,6 +559,10 @@ func (s *schemaSuite) TestControllerTriggers(c *gc.C) {
 		"trg_log_model_insert",
 		"trg_log_model_update",
 		"trg_log_model_delete",
+
+		"trg_log_user_authentication_insert",
+		"trg_log_user_authentication_update",
+		"trg_log_user_authentication_delete",
 	)
 
 	// These are additional triggers that are not change log triggers, but
