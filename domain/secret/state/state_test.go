@@ -437,6 +437,73 @@ func (s *stateSuite) TestListExternalSecretRevisions(c *gc.C) {
 
 }
 
+func (s *stateSuite) createOwnedSecrets(c *gc.C) (appSecretURI *coresecrets.URI, unitSecretURI *coresecrets.URI) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+	s.setupUnits(c, "mariadb")
+
+	ctx := context.Background()
+	uri1 := coresecrets.NewURI()
+	sp := domainsecret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo": "bar"},
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+	}
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := coresecrets.NewURI()
+	sp2 := domainsecret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo": "bar"},
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+	}
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/1", sp2)
+	c.Assert(err, jc.ErrorIsNil)
+	return uri1, uri2
+}
+
+func (s *stateSuite) TestGetSecretsForAppOwners(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	uri1, _ := s.createOwnedSecrets(c)
+	var gotURIs []*coresecrets.URI
+	err := st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		gotURIs, err = st.GetSecretsForOwners(ctx, domainsecret.ApplicationOwners{"mysql"}, domainsecret.NilUnitOwners)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotURIs, jc.SameContents, []*coresecrets.URI{uri1})
+}
+
+func (s *stateSuite) TestGetSecretsForUnitOwners(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	_, uri2 := s.createOwnedSecrets(c)
+	var gotURIs []*coresecrets.URI
+	err := st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		gotURIs, err = st.GetSecretsForOwners(ctx, domainsecret.NilApplicationOwners, domainsecret.UnitOwners{"mysql/1"})
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotURIs, jc.SameContents, []*coresecrets.URI{uri2})
+}
+
+func (s *stateSuite) TestGetSecretsNone(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.createOwnedSecrets(c)
+	var gotURIs []*coresecrets.URI
+	err := st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		gotURIs, err = st.GetSecretsForOwners(ctx, domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/1"})
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotURIs, gc.HasLen, 0)
+}
+
 func (s *stateSuite) TestListSecretsNone(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 

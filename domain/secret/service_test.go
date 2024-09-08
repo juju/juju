@@ -17,6 +17,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
@@ -198,6 +199,7 @@ func (s *serviceSuite) TestDeleteSecretExternal(c *gc.C) {
 	s.secretsBackendProvider.EXPECT().NewBackend(ptr(backendConfigs.Configs["backend-id"])).DoAndReturn(func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 		return s.secretsBackend, nil
 	})
+	s.secretsBackend.EXPECT().DeleteContent(gomock.Any(), "rev-id")
 	s.secretsBackendProvider.EXPECT().CleanupSecrets(gomock.Any(), ptr(backendConfigs.Configs["backend-id"]), "mariadb/0", provider.SecretRevisions{
 		uri.ID: set.NewStrings("rev-id"),
 	})
@@ -214,4 +216,28 @@ func (s *serviceSuite) TestDeleteSecretExternal(c *gc.C) {
 
 	_, err = s.svc.GetSecret(context.Background(), uri)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+}
+
+func (s *serviceSuite) TestGetSecretsForOwners(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	ref := &coresecrets.ValueRef{
+		BackendID:  "backend-id",
+		RevisionID: "rev-id",
+	}
+	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), ref, s.modelUUID, gomock.Any())
+	uri, _ := s.createSecret(c, nil, ref)
+
+	var uris []*coresecrets.URI
+	st := state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(c, s.modelUUID.String()), nil }, loggertesting.WrapCheckLog(c))
+	err := st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		uris, err = s.svc.GetSecretsForOwners(ctx, service.CharmSecretOwner{
+			Kind: service.UnitOwner,
+			ID:   "mariadb/0",
+		})
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uris, jc.SameContents, []*coresecrets.URI{uri})
 }

@@ -78,10 +78,18 @@ type AtomicApplicationState interface {
 	// InitialWatchStatementUnitLife returns the initial namespace query for the application unit life watcher.
 	InitialWatchStatementUnitLife(appName string) (string, eventsource.NamespaceQuery)
 
-	// RemoveUnitMaybeApplication removes the unit from state, and may remove
-	// its application as well, if the application is Dying and no other references
-	// to it exist. It will fail if the unit is not Dead.
-	RemoveUnitMaybeApplication(ctx domain.AtomicContext, unitName string) error
+	// DeleteApplication deletes the specified application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// application doesn't exist. If the application still has units, as error
+	// satisfying [applicationerrors.ApplicationHasUnits] is returned.
+	DeleteApplication(domain.AtomicContext, string) error
+
+	// DeleteUnit deletes the specified unit.
+	// If the unit's application is Dying and no
+	// other references to it exist, true is returned to
+	// indicate the application could be safely deleted.
+	// It will fail if the unit is not Dead.
+	DeleteUnit(ctx domain.AtomicContext, unitName string) (bool, error)
 }
 
 // ApplicationState describes retrieval and persistence methods for
@@ -103,12 +111,6 @@ type ApplicationState interface {
 	// exists.
 	CreateApplication(context.Context, string, application.AddApplicationArg, ...application.UpsertUnitArg) (coreapplication.ID, error)
 
-	// DeleteApplication deletes the specified application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the
-	// application doesn't exist. If the application still has units, as error
-	// satisfying [applicationerrors.ApplicationHasUnits] is returned.
-	DeleteApplication(context.Context, string) error
-
 	// AddUnits adds the specified units to the application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the
 	// application doesn't exist.
@@ -119,9 +121,6 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFoundError] if the application doesn't
 	// exist.
 	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
-
-	// DeleteUnit deletes the specified unit.
-	DeleteUnit(ctx context.Context, unitName string) error
 
 	// GetApplicationUnitLife returns the life values for the specified units of
 	// the given application. The supplied ids may belong to a different
@@ -150,14 +149,19 @@ var (
 // SecretService defines methods on a secret service
 // used by an application service.
 type SecretService interface {
-	InternalDeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, params secretservice.DeleteSecretParams) (func(), error)
+	InternalDeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, params secretservice.DeleteSecretParams) (func(context.Context), error)
+	GetSecretsForOwners(ctx domain.AtomicContext, owners ...secretservice.CharmSecretOwner) ([]*coresecrets.URI, error)
 }
 
 // NotImplementedSecretService defines a secret service which does nothing.
 type NotImplementedSecretService struct{}
 
-func (NotImplementedSecretService) InternalDeleteSecret(domain.AtomicContext, *coresecrets.URI, secretservice.DeleteSecretParams) (func(), error) {
-	return func() {}, nil
+func (s NotImplementedSecretService) GetSecretsForOwners(ctx domain.AtomicContext, owners ...secretservice.CharmSecretOwner) ([]*coresecrets.URI, error) {
+	return nil, nil
+}
+
+func (NotImplementedSecretService) InternalDeleteSecret(domain.AtomicContext, *coresecrets.URI, secretservice.DeleteSecretParams) (func(context.Context), error) {
+	return func(context.Context) {}, nil
 }
 
 // ApplicationService provides the API for working with applications.
@@ -323,8 +327,59 @@ func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ..
 // has been removed from mongo. The mongo calls are
 // DestroyMaybeRemove, DestroyWithForce, RemoveWithForce.
 func (s *ApplicationService) DeleteUnit(ctx context.Context, unitName string) error {
-	err := s.st.DeleteUnit(ctx, unitName)
-	return errors.Annotatef(err, "deleting unit %q", unitName)
+	var cleanups []func(context.Context)
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		cleanups, err = s.deleteUnit(ctx, unitName)
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return errors.Annotatef(err, "deleting unit %q", unitName)
+	}
+	for _, cleanup := range cleanups {
+		cleanup(ctx)
+	}
+	return nil
+}
+
+func (s *ApplicationService) deleteUnit(ctx domain.AtomicContext, unitName string) ([]func(context.Context), error) {
+	// Get unit owned secrets.
+	uris, err := s.secretService.GetSecretsForOwners(ctx, secretservice.CharmSecretOwner{
+		Kind: secretservice.UnitOwner,
+		ID:   unitName,
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting unit owned secrets for %q", unitName)
+	}
+	// Delete unit owned secrets.
+	var cleanups []func(context.Context)
+	for _, uri := range uris {
+		s.logger.Debugf("deleting unit %q secret: %s", unitName, uri.ID)
+		cleanup, err := s.secretService.InternalDeleteSecret(ctx, uri, secretservice.DeleteSecretParams{
+			Accessor: secretservice.SecretAccessor{
+				Kind: secretservice.UnitAccessor,
+				ID:   unitName,
+			},
+		})
+		if err != nil {
+			return nil, errors.Annotatef(err, "deleting secret %q", uri)
+		}
+		cleanups = append(cleanups, cleanup)
+	}
+
+	err = s.ensureUnitDead(ctx, unitName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	isLast, err := s.st.DeleteUnit(ctx, unitName)
+	if err != nil {
+		return nil, errors.Annotatef(err, "deleting unit %q", unitName)
+	}
+	if isLast {
+		// TODO(units): schedule application cleanup
+	}
+	return cleanups, nil
 }
 
 // DestroyUnit prepares a unit for removal from the model
@@ -384,6 +439,7 @@ func (s *ApplicationService) ensureUnitDead(ctx domain.AtomicContext, unitName s
 // is returned. If the unit is not found, an error satisfying
 // [applicationerrors.UnitNotFound] is returned.
 func (s *ApplicationService) RemoveUnit(ctx context.Context, unitName string, leadershipRevoker leadership.Revoker) error {
+	var cleanups []func(context.Context)
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		unitLife, err := s.st.GetUnitLife(ctx, unitName)
 		if err != nil {
@@ -392,19 +448,20 @@ func (s *ApplicationService) RemoveUnit(ctx context.Context, unitName string, le
 		if unitLife == life.Alive {
 			return fmt.Errorf("cannot remove unit %q: %w", unitName, applicationerrors.UnitIsAlive)
 		}
-		err = s.ensureUnitDead(ctx, unitName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return s.st.RemoveUnitMaybeApplication(ctx, unitName)
+		cleanups, err = s.deleteUnit(ctx, unitName)
+		return errors.Annotatef(err, "deleting unit %q", unitName)
 	})
-	if err == nil {
-		appName, _ := names.UnitApplication(unitName)
-		if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
-			s.logger.Warningf("cannot revoke lease for dead unit %q", unitName)
-		}
+	if err != nil {
+		return errors.Annotatef(err, "removing unit %q", unitName)
 	}
-	return errors.Annotatef(err, "removing unit %q", unitName)
+	appName, _ := names.UnitApplication(unitName)
+	if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
+		s.logger.Warningf("cannot revoke lease for dead unit %q", unitName)
+	}
+	for _, cleanup := range cleanups {
+		cleanup(ctx)
+	}
+	return nil
 }
 
 // RegisterCAASUnit creates or updates the specified application unit in a caas model,
@@ -480,8 +537,54 @@ func (s *ApplicationService) insertCAASUnit(
 // If the application still has units, as error satisfying [applicationerrors.ApplicationHasUnits]
 // is returned.
 func (s *ApplicationService) DeleteApplication(ctx context.Context, name string) error {
-	err := s.st.DeleteApplication(ctx, name)
-	return errors.Annotatef(err, "deleting application %q", name)
+	var cleanups []func(context.Context)
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		cleanups, err = s.deleteApplication(ctx, name)
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return errors.Annotatef(err, "deleting application %q", name)
+	}
+	for _, cleanup := range cleanups {
+		cleanup(ctx)
+	}
+	return nil
+}
+
+func (s *ApplicationService) deleteApplication(ctx domain.AtomicContext, name string) ([]func(context.Context), error) {
+	// Get app owned secrets.
+	uris, err := s.secretService.GetSecretsForOwners(ctx, secretservice.CharmSecretOwner{
+		Kind: secretservice.ApplicationOwner,
+		ID:   name,
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting application owned secrets for %q", name)
+	}
+	// Delete app owned secrets.
+	var cleanups []func(context.Context)
+	for _, uri := range uris {
+		s.logger.Debugf("deleting application %q secret: %s", name, uri.ID)
+		cleanup, err := s.secretService.InternalDeleteSecret(ctx, uri, secretservice.DeleteSecretParams{
+			// TODO(units) - access is expected to be a unit
+			// It is passed to CleanupSecrets() on k8s and is used
+			// to name the service account..
+			Accessor: secretservice.SecretAccessor{
+				Kind: secretservice.UnitAccessor,
+				ID:   name + "/0",
+			},
+		})
+		if err != nil {
+			return nil, errors.Annotatef(err, "deleting secret %q", uri)
+		}
+		cleanups = append(cleanups, cleanup)
+	}
+
+	err = s.st.DeleteApplication(ctx, name)
+	if err != nil {
+		return nil, errors.Annotatef(err, "deleting application %q", name)
+	}
+	return cleanups, nil
 }
 
 // DestroyApplication prepares an application for removal from the model

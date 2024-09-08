@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -20,6 +19,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -556,26 +556,6 @@ func (s *applicationServiceSuite) TestCreateWithStorageValidates(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid storage directives: charm "mine" has no store called "logs"`)
 }
 
-func (s *applicationServiceSuite) TestDeleteApplicationSuccess(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().DeleteApplication(gomock.Any(), "666").Return(nil)
-
-	err := s.service.DeleteApplication(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *applicationServiceSuite) TestDeleteApplicationError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	rErr := errors.New("boom")
-	s.state.EXPECT().DeleteApplication(gomock.Any(), "666").Return(rErr)
-
-	err := s.service.DeleteApplication(context.Background(), "666")
-	c.Check(err, jc.ErrorIs, rErr)
-	c.Assert(err, gc.ErrorMatches, `deleting application "666": boom`)
-}
-
 func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -589,26 +569,6 @@ func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 	}
 	err := s.service.AddUnits(context.Background(), "666", a)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *applicationServiceSuite) TestDeleteUnitSuccess(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().DeleteUnit(gomock.Any(), "foo/666").Return(nil)
-
-	err := s.service.DeleteUnit(context.Background(), "foo/666")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *applicationServiceSuite) TestDeleteUnitError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	rErr := errors.New("boom")
-	s.state.EXPECT().DeleteUnit(gomock.Any(), "foo/666").Return(rErr)
-
-	err := s.service.DeleteUnit(context.Background(), "foo/666")
-	c.Check(err, jc.ErrorIs, rErr)
-	c.Assert(err, gc.ErrorMatches, `deleting unit "foo/666": boom`)
 }
 
 func (s *applicationServiceSuite) TestRegisterCAASUnit(c *gc.C) {

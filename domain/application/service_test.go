@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -16,19 +15,25 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/schema/testing"
+	domainsecret "github.com/juju/juju/domain/secret"
+	secretservice "github.com/juju/juju/domain/secret/service"
+	secretstate "github.com/juju/juju/domain/secret/state"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
 	testing.ModelSuite
 
-	svc *service.Service
+	svc         *service.Service
+	secretState *secretstate.State
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -39,6 +44,17 @@ func ptr[T any](v T) *T {
 
 func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
+
+	s.secretState = secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, loggertesting.WrapCheckLog(c))
+	secretService := secretservice.NewSecretService(
+		s.secretState,
+		secretservice.NoopImplementedBackendReferenceMutator{},
+		loggertesting.WrapCheckLog(c),
+		secretservice.SecretServiceParams{
+			BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+			BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
+		},
+	)
 	s.svc = service.NewService(
 		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
 			loggertesting.WrapCheckLog(c),
@@ -46,7 +62,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 		state.NewCharmState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }),
 		service.ApplicationServiceParams{
 			StorageRegistry: provider.CommonStorageProviders(),
-			Secrets:         service.NotImplementedSecretService{},
+			Secrets:         secretService,
 		},
 		loggertesting.WrapCheckLog(c),
 	)
@@ -78,12 +94,76 @@ func (s *serviceSuite) TestDestroyApplication(c *gc.C) {
 		err := tx.QueryRowContext(ctx, "SELECT life_id FROM application WHERE uuid = ?", appID).
 			Scan(&gotLife)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotLife, gc.Equals, 1)
+}
+
+func (s *serviceSuite) createSecrets(c *gc.C, appName, unitName string) (appSecretURI *coresecrets.URI, unitSecretURI *coresecrets.URI) {
+	ctx := context.Background()
+	appSecretURI = coresecrets.NewURI()
+	sp := domainsecret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo": "bar"},
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+	}
+	err := s.secretState.CreateCharmApplicationSecret(ctx, 1, appSecretURI, appName, sp)
+	c.Assert(err, jc.ErrorIsNil)
+	if unitName == "" {
+		return appSecretURI, unitSecretURI
+	}
+
+	unitSecretURI = coresecrets.NewURI()
+	sp2 := domainsecret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo": "bar"},
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+	}
+	err = s.secretState.CreateCharmUnitSecret(ctx, 1, unitSecretURI, unitName, sp2)
+	c.Assert(err, jc.ErrorIsNil)
+	return appSecretURI, unitSecretURI
+}
+
+func (s *serviceSuite) TestDeleteApplication(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appID := s.createApplication(c, "foo")
+	s.createSecrets(c, "foo", "")
+
+	err := s.svc.DeleteApplication(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		gotAppCount    int
+		gotSecretCount int
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM application WHERE name = ?", "foo").
+			Scan(&gotAppCount)
+		if err != nil {
+			return err
+		}
+		err = tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_metadata sm JOIN secret_application_owner so ON sm.secret_id = so.secret_id WHERE application_uuid = ?", appID).
+			Scan(&gotSecretCount)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotAppCount, gc.Equals, 0)
+	c.Assert(gotSecretCount, gc.Equals, 0)
+}
+
+func (s *serviceSuite) TestDeleteApplicationNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	err := s.svc.DeleteApplication(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *serviceSuite) TestDestroyUnit(c *gc.C) {
@@ -100,7 +180,7 @@ func (s *serviceSuite) TestDestroyUnit(c *gc.C) {
 		err := tx.QueryRowContext(ctx, "SELECT life_id FROM unit WHERE name = ?", u.UnitName).
 			Scan(&gotLife)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		return nil
 	})
@@ -128,7 +208,7 @@ func (s *serviceSuite) TestEnsureUnitDead(c *gc.C) {
 		err := tx.QueryRowContext(ctx, "SELECT life_id FROM unit WHERE name = ?", u.UnitName).
 			Scan(&gotLife)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		return nil
 	})
@@ -145,6 +225,58 @@ func (s *serviceSuite) TestEnsureUnitDeadNotFound(c *gc.C) {
 	revoker := application.NewMockRevoker(ctrl)
 
 	err := s.svc.EnsureUnitDead(context.Background(), "foo/666", revoker)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *serviceSuite) TestDeleteUnit(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/666"),
+	}
+	s.createApplication(c, "foo", u)
+	s.createSecrets(c, "foo", "foo/666")
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name = ?", u.UnitName)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.svc.DeleteUnit(context.Background(), "foo/666")
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		gotUnitCount   int
+		gotSecretCount int
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name = ?", u.UnitName).
+			Scan(&gotUnitCount)
+		if err != nil {
+			return err
+		}
+		err = tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_metadata sm JOIN secret_unit_owner so ON sm.secret_id = so.secret_id JOIN unit u ON so.unit_uuid = u.uuid WHERE u.name = ?", u.UnitName).
+			Scan(&gotSecretCount)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotUnitCount, gc.Equals, 0)
+	c.Assert(gotSecretCount, gc.Equals, 0)
+}
+
+func (s *serviceSuite) TestDeleteUnitNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.createApplication(c, "foo")
+
+	err := s.svc.DeleteUnit(context.Background(), "foo/666")
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -174,7 +306,7 @@ func (s *serviceSuite) TestRemoveUnit(c *gc.C) {
 		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name = ?", u.UnitName).
 			Scan(&gotCount)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		return nil
 	})
@@ -216,7 +348,7 @@ func (s *serviceSuite) assertCAASUnit(c *gc.C, name, passwordHash string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT password_hash FROM unit WHERE name = ?", name).Scan(&gotPasswordHash)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		return nil
 	})
@@ -337,7 +469,7 @@ func (s *serviceSuite) TestSetScalingState(c *gc.C) {
 		err := tx.QueryRowContext(ctx, "SELECT scale_target, scaling FROM application_scale WHERE application_uuid = ?", appID).
 			Scan(&gotScaleTarget, &gotScaling)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		return nil
 	})
@@ -369,7 +501,7 @@ func (s *serviceSuite) TestSetScalingStateAlreadyScaling(c *gc.C) {
 		err := tx.QueryRowContext(ctx, "SELECT scale_target, scaling FROM application_scale WHERE application_uuid = ?", appID).
 			Scan(&gotScaleTarget, &gotScaling)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		return nil
 	})
@@ -401,7 +533,7 @@ func (s *serviceSuite) TestSetScalingStateDying(c *gc.C) {
 		err := tx.QueryRowContext(ctx, "SELECT scale_target, scaling FROM application_scale WHERE application_uuid = ?", appID).
 			Scan(&gotScaleTarget, &gotScaling)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		return nil
 	})
@@ -451,7 +583,7 @@ func (s *serviceSuite) TestSetScale(c *gc.C) {
 		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_scale WHERE application_uuid = ?", appID).
 			Scan(&gotScale)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		return nil
 	})
@@ -484,7 +616,7 @@ func (s *serviceSuite) TestChangeScale(c *gc.C) {
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_scale WHERE application_uuid = ?", appID).Scan(&gotScale)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		return nil
 	})

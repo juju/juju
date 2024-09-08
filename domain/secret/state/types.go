@@ -287,6 +287,18 @@ type (
 	secretExternalRevisions []secretExternalRevision
 )
 
+func (rows secretIDs) toSecretURIs() ([]*coresecrets.URI, error) {
+	result := make([]*coresecrets.URI, len(rows))
+	for i, row := range rows {
+		uri, err := coresecrets.ParseURI(row.ID)
+		if err != nil {
+			return nil, errors.Errorf("secret URI %q not valid", row.ID)
+		}
+		result[i] = uri
+	}
+	return result, nil
+}
+
 func (rows secretIDs) toSecretMetadataForDrain(revRows secretExternalRevisions) ([]*coresecrets.SecretMetadataForDrain, error) {
 	if len(rows) != len(revRows) {
 		// Should never happen.

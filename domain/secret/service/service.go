@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -56,10 +57,24 @@ var NotImplementedBackendConfigGetter = func(context.Context) (*provider.ModelBa
 	return nil, errors.NotImplemented
 }
 
-// NotImplementedBackendConfigGetter is a not implemented secret backend getter.
+// NotImplementedBackendUserSecretConfigGetter is a not implemented secret backend getter.
 // It is used by callers of the secret service that do not need any backend functionality.
 var NotImplementedBackendUserSecretConfigGetter = func(context.Context, GrantedSecretsGetter, SecretAccessor) (*provider.ModelBackendConfigInfo, error) {
 	return nil, errors.NotImplemented
+}
+
+// NoopImplementedBackendReferenceMutator is a reference mutator which does nothing.
+type NoopImplementedBackendReferenceMutator struct{}
+
+func (NoopImplementedBackendReferenceMutator) AddSecretBackendReference(ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string) (func() error, error) {
+	return func() error { return nil }, nil
+}
+func (NoopImplementedBackendReferenceMutator) RemoveSecretBackendReference(ctx context.Context, revisionIDs ...string) error {
+	return nil
+}
+
+func (NoopImplementedBackendReferenceMutator) UpdateSecretBackendReference(ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string) (func() error, error) {
+	return func() error { return nil }, nil
 }
 
 // SecretService provides the API for working with secrets.
@@ -472,6 +487,12 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 		return errors.Annotatef(err, "cannot update charm secret %q", uri.ID)
 	}
 	return nil
+}
+
+// GetSecretsForOwners returns the secrets owned by the specified apps and/or units.
+func (s *SecretService) GetSecretsForOwners(ctx domain.AtomicContext, owners ...CharmSecretOwner) ([]*secrets.URI, error) {
+	appOwners, unitOwners := splitCharmSecretOwners(owners...)
+	return s.secretState.GetSecretsForOwners(ctx, appOwners, unitOwners)
 }
 
 // ListSecrets returns the secrets matching the specified terms.

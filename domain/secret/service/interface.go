@@ -24,6 +24,9 @@ type AtomicState interface {
 
 	ListExternalSecretRevisions(ctx domain.AtomicContext, uri *secrets.URI, revisions ...int) ([]secrets.ValueRef, error)
 	DeleteSecret(ctx domain.AtomicContext, uri *secrets.URI, revs []int) ([]string, error)
+	GetSecretsForOwners(
+		ctx domain.AtomicContext, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	) ([]*secrets.URI, error)
 }
 
 // State describes retrieval and persistence methods needed for
