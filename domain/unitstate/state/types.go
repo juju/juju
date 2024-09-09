@@ -26,12 +26,15 @@ type unitState struct {
 // unitStateVal is a type for holding a key/value pair that is
 // a constituent in unit state for charm and relation.
 type unitStateKeyVal struct {
-	UUID  string `db:"unit_uuid"`
-	Key   string `db:"key"`
+	UUID string `db:"unit_uuid"`
+	// TODO (manadart 2024-09-09): This should be a generic T congruent with
+	// the function below. However, at the time of writing, SQLair does not
+	// support generic argumentation.
+	Key   any    `db:"key"`
 	Value string `db:"value"`
 }
 
-func makeUnitStateKeyVals(unitUUID string, kv map[string]string) []unitStateKeyVal {
+func makeUnitStateKeyVals[T comparable](unitUUID string, kv map[T]string) []unitStateKeyVal {
 	keyVals := make([]unitStateKeyVal, 0, len(kv))
 	for k, v := range kv {
 		keyVals = append(keyVals, unitStateKeyVal{

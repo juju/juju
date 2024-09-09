@@ -211,15 +211,15 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *gc.C) {
 
 	// Set some initial state. This should be overwritten.
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		q := "INSERT INTO unit_state_relation VALUES (?, 'one-key', 'one-val')"
+		q := "INSERT INTO unit_state_relation VALUES (?, 1, 'one-val')"
 		_, err := tx.ExecContext(ctx, q, s.unitUUID)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	expState := map[string]string{
-		"two-key":   "two-val",
-		"three-key": "three-val",
+	expState := map[int]string{
+		2: "two-val",
+		3: "three-val",
 	}
 
 	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
@@ -227,7 +227,7 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotState := make(map[string]string)
+	gotState := make(map[int]string)
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		q := "SELECT key, value FROM unit_state_relation WHERE unit_uuid = ?"
 		rows, err := tx.QueryContext(ctx, q, s.unitUUID)
@@ -237,7 +237,8 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *gc.C) {
 		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
-			var k, v string
+			var k int
+			var v string
 			if err := rows.Scan(&k, &v); err != nil {
 				return err
 			}

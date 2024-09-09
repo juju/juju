@@ -171,7 +171,7 @@ func (st *State) SetUnitStateCharm(ctx domain.AtomicContext, uuid string, state 
 
 // SetUnitStateRelation sets the input key/value pairs
 // as the relation state for the input unit UUID.
-func (st *State) SetUnitStateRelation(ctx domain.AtomicContext, uuid string, state map[string]string) error {
+func (st *State) SetUnitStateRelation(ctx domain.AtomicContext, uuid string, state map[int]string) error {
 	id := unitUUID{UUID: uuid}
 
 	q := "DELETE from unit_state_relation WHERE unit_uuid = $unitUUID.uuid"
