@@ -6,13 +6,17 @@ package service
 import (
 	"context"
 
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	"github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
+	model "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -24,6 +28,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type applicationServiceSuite struct {
@@ -684,6 +689,74 @@ func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func ptr[T any](v T) *T {
-	return &v
+type providerApplicationServiceSuite struct {
+	service *ProviderApplicationService
+
+	modelID model.UUID
+
+	agentVersionGetter *MockAgentVersionGetter
+	provider           *MockProvider
+}
+
+var _ = gc.Suite(&providerApplicationServiceSuite{})
+
+func (s *providerApplicationServiceSuite) TestGetSupportedFeatures(c *gc.C) {
+	ctrl := s.setupMocks(c, func(ctx context.Context) (Provider, error) {
+		return s.provider, nil
+	})
+	defer ctrl.Finish()
+
+	agentVersion := version.MustParse("4.0.0")
+	s.agentVersionGetter.EXPECT().GetModelAgentVersion(gomock.Any(), s.modelID).Return(agentVersion, nil)
+
+	s.provider.EXPECT().SupportedFeatures().Return(assumes.FeatureSet{}, nil)
+
+	features, err := s.service.GetSupportedFeatures(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	var fs assumes.FeatureSet
+	fs.Add(assumes.Feature{
+		Name:        "juju",
+		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
+		Version:     &agentVersion,
+	})
+	c.Check(features, jc.DeepEquals, fs)
+}
+
+func (s *providerApplicationServiceSuite) TestGetSupportedFeaturesNotSupported(c *gc.C) {
+	ctrl := s.setupMocks(c, func(ctx context.Context) (Provider, error) {
+		return s.provider, jujuerrors.NotSupported
+	})
+	defer ctrl.Finish()
+
+	agentVersion := version.MustParse("4.0.0")
+	s.agentVersionGetter.EXPECT().GetModelAgentVersion(gomock.Any(), s.modelID).Return(agentVersion, nil)
+
+	features, err := s.service.GetSupportedFeatures(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	var fs assumes.FeatureSet
+	fs.Add(assumes.Feature{
+		Name:        "juju",
+		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
+		Version:     &agentVersion,
+	})
+	c.Check(features, jc.DeepEquals, fs)
+}
+
+func (s *providerApplicationServiceSuite) setupMocks(c *gc.C, fn func(ctx context.Context) (Provider, error)) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.modelID = model.UUID(jujutesting.ModelTag.Id())
+
+	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
+	s.provider = NewMockProvider(ctrl)
+
+	s.service = &ProviderApplicationService{
+		modelID:            s.modelID,
+		agentVersionGetter: s.agentVersionGetter,
+		provider:           fn,
+	}
+
+	return ctrl
 }

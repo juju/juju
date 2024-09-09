@@ -382,6 +382,7 @@ func (s *ApplicationService) deleteUnit(ctx domain.AtomicContext, unitName strin
 	}
 	if isLast {
 		// TODO(units): schedule application cleanup
+		_ = isLast
 	}
 	return cleanups, nil
 }
@@ -947,7 +948,9 @@ func (s *ProviderApplicationService) GetSupportedFeatures(ctx context.Context) (
 	})
 
 	provider, err := s.provider(ctx)
-	if err != nil {
+	if errors.Is(err, errors.NotSupported) {
+		return fs, nil
+	} else if err != nil {
 		return fs, err
 	}
 
