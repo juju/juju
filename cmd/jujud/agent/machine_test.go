@@ -395,7 +395,7 @@ func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) c
 	})
 
 	attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
-	err := s.ControllerModel(c).UpdateModelConfig(state.NoopConfigSchemaSource, attrs, nil)
+	err := s.ControllerServiceFactory(c).Config().UpdateModelConfig(stdcontext.Background(), attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return ignoreAddressCh
 }
