@@ -1,17 +1,12 @@
-High Availability (HA)
-======================
+# Controller high availability (HA)
 
-Juju can be run in high availability (HA) mode. In HA mode Juju runs on 
-multiple controller instances making it resilient to outages.
+See first: [Juju user docs | How to make a controller highly available]
 
-HA mode is invoked via the `enable-ha` command. By default, this will ensure 
-three controllers, but using the `-n` flag allows running with five or seven
-controllers.
+This document details controller and agent behaviour when running controllers 
+in
+HA mode.
 
-The number of controllers can be reduced by invoking `remove-machine` with a 
-controller machine ID, and increased by re-running the `enable-ha` command.
-
-### Dqlite
+## Dqlite
 
 Each controller is a [Dqlite] node. The `dbaccessor` worker on each controller is 
 responsible for maintaining the Dqlite cluster. When entering HA mode, the 
@@ -23,17 +18,18 @@ machine. It is a requirement that there is a unique local-cloud-scoped address
 for Dqlite to use. If there is no unique address, new nodes will not be joined 
 to the cluster until one can be determined. See _Controller Charm_ below.
 
-Beyond joining nodes to the cluster, Juju does not manage Dqlite node roles.
-This is handled within Dqlite itself. A cluster will have one leader, voters
-which are eligible to participate in leader elections, stand-bys and spares.
-
-Juju does not predicate any logic on node roles.
+Each Dqlite node has a role within the cluster. Juju does not manage node 
+roles; this is handled within Dqlite itself. A cluster is constituted by:
+- one _leader_ to which all database reads and writes are redirected,
+- up to two other _voters_ that participate in leader elections,
+- _stand-bys_; and
+- _spares_.
 
 If the number of controller instances is reduced to one, the `dbaccessor` 
-worker detects this scenario and proactively reconfigure the cluster to be 
-constituted by the local node only.
+worker detects this scenario and reconfigures the cluster with the local node 
+as the only member.
 
-### Controller Charm
+## Controller charm
 
 The controller charm propagates binding information to the `dbaccessor` worker.
 It coordinates with other controller units via the `db-cluster` peer relation.
@@ -41,29 +37,29 @@ If there are multiple potential bind addresses for a Dqlite node, the user must
 supply an endpoint binding for the relation using a space that ensures a unique
 IP address.
 
-### API Addresses for Agents
+## API addresses for agents
 
-When machines in the control plane change, agent configuration files are 
-re-written with usable API addresses from all controllers. Agents will try
-these addresses in random order when connecting, so that an inaccessible 
-controller just results in connection to another.
+When machines in the control plane change,  the `api-address-updater` worker
+for each agent re-writes the agent's configuration file with usable API 
+addresses from all controllers. Agents will try these addresses in random order
+until they establish a successful controller connection.
 
 The list of addresses supplied to agent configuration can be influenced by the
-`juju-mgmt-space` controller configuration article. This is supplied with a
-space name in order that agent-controller communication can be isolated to 
-specific networks.
+`juju-mgmt-space` controller configuration value. This is supplied with a space
+name so that agent-controller communication can be isolated to specific 
+networks.
 
-### API Addresses for Clients
+## API addresses for clients
 
-Each time the Juju client establishes a connection to the Juju controller, it
-is sent the current list of API addresses and updates these in the local store. 
-The client's first connection attempt is always to the last address that it 
-used successfully. Others are tried subsequently if required.
+Each time the Juju client establishes a connection to the Juju controller, the
+controller sends the current list of API addresses and the client updates these 
+in the local store. The client's first connection attempt is always to the last 
+address that it used successfully. Others are tried subsequently if required.
 
 Addresses used by clients are not influenced by the `juju-mgmt-space` 
 configuration.
 
-### Single Instance Workers
+## Single instance workers
 
 Many workers, such as the `dbaccessor` worker, run on all controller instances,
 but there are some workers that must run on exactly one controller instance. 
@@ -79,4 +75,5 @@ The `singular` worker only sets the flag if it is the current lease holder for
 the `singular-controller` namespace. See the appropriate documentation for more 
 information on leases.
 
+[Juju user docs | How to make a controller highly available]: https://juju.is/docs/juju/manage-controllers#heading--make-a-controller-highly-available
 [Dqlite]: https://dqlite.io/
