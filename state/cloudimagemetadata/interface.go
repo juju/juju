@@ -70,10 +70,6 @@ type Storage interface {
 	// Returned result is grouped by source type and ordered by date created.
 	FindMetadata(criteria MetadataFilter) (map[string][]Metadata, error)
 
-	// SupportedArchitectures returns collection of unique architectures
-	// that stored metadata contains.
-	SupportedArchitectures(criteria MetadataFilter) ([]string, error)
-
 	// AllCloudImageMetadata returns all the cloud image metadata in the
 	// model.
 	AllCloudImageMetadata() ([]Metadata, error)
