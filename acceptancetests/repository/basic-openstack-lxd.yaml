@@ -69,6 +69,7 @@ applications:
       gui-x: '0'
       gui-y: '250'
     charm: cs:percona-cluster
+    channel: 5.7/edge
     num_units: 1
     options:
       max-connections: 20000
