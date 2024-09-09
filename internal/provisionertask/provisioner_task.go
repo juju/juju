@@ -71,12 +71,6 @@ type MachinesAPI interface {
 	ProvisioningInfo(_ context.Context, machineTags []names.MachineTag) (params.ProvisioningInfoResults, error)
 }
 
-// Environ describes the methods for provisioning instances.
-type Environ interface {
-	environs.InstanceBroker
-	environs.ConfigSetter
-}
-
 // DistributionGroupFinder provides access to machine distribution groups.
 type DistributionGroupFinder interface {
 	DistributionGroupByMachineId(context.Context, ...names.MachineTag) ([]apiprovisioner.DistributionGroupResult, error)

@@ -8,7 +8,6 @@ import (
 	stdcontext "context"
 	"fmt"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/constraints"
@@ -16,7 +15,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 // NewPolicyFunc is the type of a function that,
@@ -60,40 +58,6 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 	} else {
 		validator = constraints.NewValidator()
 	}
-
-	// Add supported architectures gleaned from cloud image
-	// metadata to the validator's vocabulary.
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting model")
-	}
-	if region := model.CloudRegion(); region != "" {
-		cfg, err := model.ModelConfig(stdcontext.Background())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		arches, err := st.CloudImageMetadataStorage.SupportedArchitectures(
-			cloudimagemetadata.MetadataFilter{
-				Stream: cfg.AgentStream(),
-				Region: region,
-			},
-		)
-		if err != nil {
-			return nil, errors.Annotate(err, "querying supported architectures")
-		}
-
-		// Also include any arches that belong to manually provisioned machines
-		// See LP1946639.
-		manualMachArches, err := st.GetManualMachineArches()
-		if err != nil {
-			return nil, errors.Annotate(err, "querying supported architectures for manual machines")
-		}
-
-		if supportedArches := manualMachArches.Union(set.NewStrings(arches...)); len(supportedArches) != 0 {
-			validator.UpdateVocabulary(constraints.Arch, supportedArches.SortedValues())
-		}
-	}
-
 	return validator, nil
 }
 

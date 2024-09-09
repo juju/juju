@@ -407,15 +407,3 @@ type MetadataFilter struct {
 	// RootStorageType stores storage type.
 	RootStorageType string `json:"root-storage-type,omitempty"`
 }
-
-// SupportedArchitectures implements Storage.SupportedArchitectures.
-func (s *storage) SupportedArchitectures(criteria MetadataFilter) ([]string, error) {
-	coll, closer := s.store.GetCollection(s.collection)
-	defer closer()
-
-	var arches []string
-	if err := coll.Find(buildSearchClauses(criteria)).Distinct("arch", &arches); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return arches, nil
-}
