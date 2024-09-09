@@ -58,7 +58,7 @@ type CAASModelSuite struct {
 var _ = gc.Suite(&CAASModelSuite{})
 
 func (s *CAASModelSuite) TestNewModel(c *gc.C) {
-	owner := s.Factory.MakeUser(c, nil)
+	owner := names.NewUserTag("owner")
 	cfg, uuid := s.createTestModelConfig(c)
 	modelTag := names.NewModelTag(uuid)
 	credTag := names.NewCloudCredentialTag(
@@ -67,7 +67,7 @@ func (s *CAASModelSuite) TestNewModel(c *gc.C) {
 		Type:                    state.ModelTypeCAAS,
 		CloudName:               "caas-cloud",
 		Config:                  cfg,
-		Owner:                   owner.UserTag(),
+		Owner:                   owner,
 		CloudCredential:         credTag,
 		StorageProviderRegistry: provider.CommonStorageProviders(),
 	})

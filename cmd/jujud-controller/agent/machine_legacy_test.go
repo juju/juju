@@ -147,11 +147,7 @@ For now, we're going to skip these tests.
 func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *gc.C) {
 	c.Skip("TODO - fix when controller config sorted out")
 	password := "shhh..."
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	user := f.MakeUser(c, &factory.UserParams{
-		Password: password,
-	})
+	user := names.NewUserTag("username")
 
 	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
 
@@ -166,7 +162,7 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *gc.C) {
 		makeAPIRequest := func(doRequest func(*apiclient.Client)) {
 			apiInfo, ok := conf.APIInfo()
 			c.Assert(ok, jc.IsTrue)
-			apiInfo.Tag = user.Tag()
+			apiInfo.Tag = user
 			apiInfo.Password = password
 			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
@@ -176,7 +172,7 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *gc.C) {
 		makeMachineAPIRequest := func(doRequest func(*machinemanager.Client)) {
 			apiInfo, ok := conf.APIInfo()
 			c.Assert(ok, jc.IsTrue)
-			apiInfo.Tag = user.Tag()
+			apiInfo.Tag = user
 			apiInfo.Password = password
 			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)

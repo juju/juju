@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/internal/auth"
 	jujuhttp "github.com/juju/juju/internal/http"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -65,14 +64,6 @@ func (s *registrationSuite) SetUpTest(c *gc.C) {
 
 	s.activationKey, err = s.accessService.ResetPassword(context.Background(), usertesting.GenNewName(c, "bob"))
 	c.Assert(err, jc.ErrorIsNil)
-
-	// TODO (stickupkid): Permissions: This is only required to insert admin
-	// permissions into the state, remove when permissions are written to state.
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	f.MakeUser(c, &factory.UserParams{
-		Name: "bob",
-	})
 
 	s.registrationURL = s.URL("/register", url.Values{}).String()
 }

@@ -486,20 +486,6 @@ func (s *loginSuite) infoForNewUser(c *gc.C, info *api.Info) *api.Info {
 	return &newInfo
 }
 
-func (s *loginSuite) TestNonModelUserLoginFails(c *gc.C) {
-	info := s.ControllerModelApiInfo()
-	f, release := s.NewFactory(c, info.ModelTag.Id())
-	defer release()
-	user := f.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoModelUser: true})
-	ctag := names.NewControllerTag(s.ControllerModel(c).State().ControllerUUID())
-	err := s.ControllerModel(c).State().RemoveUserAccess(user.UserTag(), ctag)
-	c.Assert(err, jc.ErrorIsNil)
-	info.Password = "dummy-password"
-	info.Tag = user.UserTag()
-	_, err = api.Open(context.Background(), info, fastDialOpts)
-	assertInvalidEntityPassword(c, err)
-}
-
 func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 	s.WithUpgrading = true
 	s.testLoginDuringMaintenance(c, func(st api.Connection) {
@@ -563,11 +549,10 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	info := s.ControllerModelApiInfo()
 	f, release := s.NewFactory(c, info.ModelTag.Id())
 	defer release()
-	modelOwner := f.MakeUser(c, &factory.UserParams{
-		Password: "secret",
-	})
+
+	ownerName := usertesting.GenNewName(c, "modelOwner")
 	modelState := f.MakeModel(c, &factory.ModelParams{
-		Owner: modelOwner.UserTag(),
+		Owner: names.NewUserTag(ownerName.Name()),
 	})
 	defer modelState.Close()
 	model, err := modelState.Model()
@@ -600,7 +585,7 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	// that had access to the model before it got migrated. We should still
 	// be able to connect to the API but we should get back a Redirect
 	// error when we actually try to login.
-	info.Tag = modelOwner.Tag()
+	info.Tag = names.NewUserTag(ownerName.Name())
 	info.Password = "secret"
 	_, err = api.Open(context.Background(), info, fastDialOpts)
 	redirErr, ok := errors.Cause(err).(*api.RedirectError)
@@ -760,9 +745,7 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 	// using the correct state connection.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	modelOwner := f.MakeUser(c, nil)
 	modelState := f.MakeModel(c, &factory.ModelParams{
-		Owner: modelOwner.UserTag(),
 		ConfigAttrs: map[string]interface{}{
 			"controller": false,
 		},
@@ -787,9 +770,7 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	modelOwner := f.MakeUser(c, nil)
 	modelState := f.MakeModel(c, &factory.ModelParams{
-		Owner: modelOwner.UserTag(),
 		ConfigAttrs: map[string]interface{}{
 			"controller": false,
 		},
@@ -922,16 +903,6 @@ func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (names.UserTag, par
 		User:       name,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	// TODO (stickupkid): Remove the make user call when permissions are
-	// written to state.
-	f, release := s.NewFactory(c, info.ModelTag.Id())
-	defer release()
-
-	f.MakeUser(c, &factory.UserParams{
-		Name:     userTag.Name(),
-		Password: pass,
-	})
 
 	conn := s.openAPIWithoutLogin(c)
 
@@ -1162,14 +1133,6 @@ func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *g
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	// TODO (stickupkid): Permissions: This is only required to insert admin
-	// permissions into the state, remove when permissions are written to state.
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	f.MakeUser(c, &factory.UserParams{
-		Name: name.Name(),
-	})
 
 	now := s.Clock.Now().UTC().Truncate(time.Second)
 

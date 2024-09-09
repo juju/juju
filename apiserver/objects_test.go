@@ -582,14 +582,6 @@ func (s *putCharmObjectSuite) TestMigrateCharmUnauthorized(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO (stickupkid): Permissions: This is only required to insert admin
-	// permissions into the state, remove when permissions are written to state.
-	fact, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	fact.MakeUser(c, &factory.UserParams{
-		Name: userTag.Name(),
-	})
-
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	f, err := os.Open(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)

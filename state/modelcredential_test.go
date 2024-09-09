@@ -174,11 +174,8 @@ func (s *ModelCredentialSuite) addModel(c *gc.C, modelName string, tag names.Clo
 	return st
 }
 
-func assertCredentialCreated(c *gc.C, testSuite ConnSuite) (string, *state.User, names.CloudCredentialTag) {
-	owner := testSuite.Factory.MakeUser(c, &factory.UserParams{
-		Password: "secret",
-		Name:     "bob",
-	})
+func assertCredentialCreated(c *gc.C, testSuite ConnSuite) (string, names.UserTag, names.CloudCredentialTag) {
+	owner := names.NewUserTag("owner")
 
 	cloudName := "stratus"
 
@@ -219,7 +216,7 @@ func (s *ModelCredentialSuite) TestInvalidateModelCredentialTouchesAllCredential
 	// 2. create some models to use it
 	modelUUIDs := make([]string, 5)
 	for i := 0; i < 5; i++ {
-		modelUUIDs[i] = assertModelCreated(c, s.ConnSuite, cloudName, credentialTag, credentialOwner.Tag(), fmt.Sprintf("model-for-cloud%v", i))
+		modelUUIDs[i] = assertModelCreated(c, s.ConnSuite, cloudName, credentialTag, credentialOwner, fmt.Sprintf("model-for-cloud%v", i))
 	}
 
 	// 3. invalidate credential
@@ -237,7 +234,7 @@ func (s *ModelCredentialSuite) TestInvalidateModelCredentialTouchesAllCredential
 
 func assertModelSuspended(c *gc.C, testSuite ConnSuite) (names.CloudCredentialTag, string) {
 	cloudName, credentialOwner, credentialTag := assertCredentialCreated(c, testSuite)
-	modelUUID := assertModelCreated(c, testSuite, cloudName, credentialTag, credentialOwner.Tag(), "model-for-cloud")
+	modelUUID := assertModelCreated(c, testSuite, cloudName, credentialTag, credentialOwner, "model-for-cloud")
 	m, helper, err := testSuite.StatePool.GetModel(modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	defer helper.Release()
@@ -273,7 +270,7 @@ func (s *ModelCredentialSuite) TestSetCredentialRevertsModelStatus(c *gc.C) {
 
 	modelUUIDs := make([]string, desiredNumber)
 	for i := 0; i < desiredNumber; i++ {
-		modelUUIDs[i] = assertModelCreated(c, s.ConnSuite, cloudName, credentialTag, credentialOwner.Tag(), fmt.Sprintf("model-for-cloud%v", i))
+		modelUUIDs[i] = assertModelCreated(c, s.ConnSuite, cloudName, credentialTag, credentialOwner, fmt.Sprintf("model-for-cloud%v", i))
 		oneModelState, helper, err := s.StatePool.GetModel(modelUUIDs[i])
 		c.Assert(err, jc.ErrorIsNil)
 		defer helper.Release()
@@ -300,10 +297,7 @@ func (s *ModelCredentialSuite) TestSetCredentialRevertsModelStatus(c *gc.C) {
 	}
 
 	// 5. create another credential on the same cloud
-	owner := s.Factory.MakeUser(c, &factory.UserParams{
-		Password: "secret",
-		Name:     "uncle",
-	})
+	owner := names.NewUserTag("owner")
 	anotherCredentialTag := names.NewCloudCredentialTag(fmt.Sprintf("%v/%v/%v", cloudName, owner.Name(), "barfoo"))
 
 	for i := 0; i < desiredNumber; i++ {

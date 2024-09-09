@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -86,25 +85,6 @@ func NewFactoryWithPrechecker(
 		prechecker:       prechecker,
 		controllerConfig: controllerConfig,
 	}
-}
-
-// UserParams defines the parameters for creating a user with MakeUser.
-type UserParams struct {
-	Name        string
-	DisplayName string
-	Password    string
-	Creator     names.Tag
-	NoModelUser bool
-	Disabled    bool
-	Access      permission.Access
-}
-
-// ModelUserParams defines the parameters for creating an environment user.
-type ModelUserParams struct {
-	User        string
-	DisplayName string
-	CreatedBy   names.Tag
-	Access      permission.Access
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -199,44 +179,6 @@ func uniqueString(prefix string) string {
 		prefix = "no-prefix"
 	}
 	return fmt.Sprintf("%s-%d", prefix, uniqueInteger())
-}
-
-// MakeUser will create a user with values defined by the params.
-// For attributes of UserParams that are the default empty values,
-// some meaningful valid values are used instead.
-// If params is not specified, defaults are used.
-// If params.NoModelUser is false, the user will also be created
-// in the current model.
-func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
-	if params == nil {
-		params = &UserParams{}
-	}
-	if params.Name == "" {
-		params.Name = uniqueString("username")
-	}
-	if params.DisplayName == "" {
-		params.DisplayName = uniqueString("display name")
-	}
-	if params.Password == "" {
-		params.Password = "password"
-	}
-	if params.Creator == nil {
-		env, err := factory.st.Model()
-		c.Assert(err, jc.ErrorIsNil)
-		params.Creator = env.Owner()
-	}
-	if params.Access == permission.NoAccess {
-		params.Access = permission.AdminAccess
-	}
-	creatorUserTag := params.Creator.(names.UserTag)
-	user, err := factory.st.AddUser(
-		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	if params.Disabled {
-		err := user.Disable()
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	return user
 }
 
 func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *MachineParams {

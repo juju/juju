@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -782,7 +781,7 @@ func (s *RelationSuite) setupRelationStatus(c *gc.C) *state.Relation {
 		Owner:           s.Owner.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "fred", Access: permission.WriteAccess})
+	user := names.NewUserTag("fred")
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: uuid.MustNewUUID().String(),
 		OfferUUID:       offer.OfferUUID,
