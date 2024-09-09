@@ -152,7 +152,8 @@ func (s *ModelFactory) Application(params applicationservice.ApplicationServiceP
 // when wanting to modify a user's public ssh keys within a model.
 func (s *ModelFactory) KeyManager() *keymanagerservice.Service {
 	return keymanagerservice.NewService(
-		keymanagerstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.modelUUID,
+		keymanagerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }
 
@@ -163,6 +164,7 @@ func (s *ModelFactory) KeyManagerWithImporter(
 	importer keymanagerservice.PublicKeyImporter,
 ) *keymanagerservice.ImporterService {
 	return keymanagerservice.NewImporterService(
+		s.modelUUID,
 		importer,
 		keymanagerstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
