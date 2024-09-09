@@ -3,8 +3,8 @@
 
 package state
 
-// authorisedKey represents a single authorised key for a machine.
-type authorisedKey struct {
+// authorizedKey represents a single authorised key for a machine.
+type authorizedKey struct {
 	PublicKey string `db:"public_key"`
 }
 
@@ -17,4 +17,15 @@ type keyValue struct {
 // machineName represents a single machine name
 type machineName struct {
 	Name string `db:"name"`
+}
+
+// modelIdValue represents a model id for associating public keys with.
+type modelIdValue struct {
+	ModelId string `db:"model_id"`
+}
+
+// modelUUIDValue represents a model uuid for reading the model's id from the
+// model database.
+type modelUUIDValue struct {
+	UUID string `db:"uuid"`
 }

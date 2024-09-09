@@ -6,18 +6,22 @@ package state
 import (
 	"context"
 	"database/sql"
-	"slices"
 
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	jc "github.com/juju/testing/checkers"
+
 	coremachine "github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
-	"github.com/juju/juju/domain/keymanager"
-	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
+	jujuversion "github.com/juju/juju/core/version"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/model"
+	modelstate "github.com/juju/juju/domain/model/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/internal/ssh"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
@@ -41,30 +45,13 @@ var (
 	}
 )
 
-func generatePublicKeys(c *gc.C, publicKeys []string) []keymanager.PublicKey {
-	rval := make([]keymanager.PublicKey, 0, len(publicKeys))
-	for _, pk := range publicKeys {
-		parsedKey, err := ssh.ParsePublicKey(pk)
-		c.Assert(err, jc.ErrorIsNil)
-
-		rval = append(rval, keymanager.PublicKey{
-			Comment:         parsedKey.Comment,
-			FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
-			Fingerprint:     parsedKey.Fingerprint(),
-			Key:             pk,
-		})
-	}
-
-	return rval
-}
-
 // ensureNetNode inserts a row into the net_node table, mostly used as a foreign key for entries in
 // other tables (e.g. machine)
 func (s *stateSuite) ensureNetNode(c *gc.C, uuid string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-		INSERT INTO net_node (uuid)
-		VALUES (?)`, uuid)
+			INSERT INTO net_node (uuid)
+			VALUES (?)`, uuid)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,103 +75,47 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ensureMachine(c, s.machineName, "123")
 }
 
-// TestAuthorisedKeysForUnknownMachine is assertint that if we ask for
-// authorised keys for a machine that doesn't exist we get back a
-// [machineerrors.MachineNotFound] error.
-func (s *stateSuite) TestAuthorisedKeysForUnknownMachine(c *gc.C) {
-	state := NewState(s.TxnRunnerFactory())
-	_, err := state.AuthorisedKeysForMachine(context.Background(), coremachine.Name("100"))
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
-}
-
-// TestEmptyAuthorisedKeysForMachine tests that if there are no authorised keys
-// for machine this does not produce an error.
-func (s *stateSuite) TestEmptyAuthorisedKeysForMachine(c *gc.C) {
-	state := NewState(s.TxnRunnerFactory())
-	keys, err := state.AuthorisedKeysForMachine(context.Background(), s.machineName)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(len(keys), gc.Equals, 0)
-}
-
-// TestAuthorisedKeysForMachine is asserting the happy path of fetching
-// authorised keys for a given machine with no errors.
-func (s *stateSuite) TestAuthorisedKeysForMachine(c *gc.C) {
-	keyManagerState := keymanagerstate.NewState(s.TxnRunnerFactory())
-	keysToAdd := generatePublicKeys(c, testingPublicKeys)
-	userID := usertesting.GenUserUUID(c)
-
-	err := keyManagerState.AddPublicKeysForUser(context.Background(), userID, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
-
-	keys, err := NewState(s.TxnRunnerFactory()).AuthorisedKeysForMachine(
+// TestCheckMachineExists is asserting the happy path of
+// [State.CheckMachineExists] and that if a machine that exists is asked for no
+// error is returned.
+func (s *stateSuite) TestCheckMachineExists(c *gc.C) {
+	err := NewState(s.TxnRunnerFactory()).CheckMachineExists(
 		context.Background(),
 		s.machineName,
 	)
 	c.Check(err, jc.ErrorIsNil)
-	slices.Sort(keys)
-	slices.Sort(testingPublicKeys)
-	c.Check(keys, jc.DeepEquals, testingPublicKeys)
 }
 
-// TestAllPublicKeysQuery is testing the query from [State.AllPublicKeysQuery]
-// to make sure that it is returning all public keys in the model.
-func (s *stateSuite) TestAllPublicKeysQuery(c *gc.C) {
-	keyManagerState := keymanagerstate.NewState(s.TxnRunnerFactory())
-	keysToAdd := generatePublicKeys(c, testingPublicKeys)
-	userID := usertesting.GenUserUUID(c)
-
-	err := keyManagerState.AddPublicKeysForUser(context.Background(), userID, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
-
-	state := NewState(s.TxnRunnerFactory())
-
-	keys := []string{}
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, state.AllPublicKeysQuery())
-		if err != nil {
-			return err
-		}
-
-		defer rows.Close()
-		var key string
-		for rows.Next() {
-			if err := rows.Scan(&key); err != nil {
-				return err
-			}
-
-			keys = append(keys, key)
-		}
-
-		return rows.Err()
-	})
-
-	c.Check(err, jc.ErrorIsNil)
-	slices.Sort(keys)
-	slices.Sort(testingPublicKeys)
-	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+// TestCheckMachineDoesNotExist is asserting the if we ask for a machine that
+// doesn't exist we get back [machineerrors.MachineNotFound] error.
+func (s *stateSuite) TestCheckMachineDoesNotExist(c *gc.C) {
+	err := NewState(s.TxnRunnerFactory()).CheckMachineExists(
+		context.Background(),
+		coremachine.Name("100"),
+	)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-// TestAllAuthorisedKeys asserts that State.AllAuthorisedKeys returns all
-// authorised keys from the database.
-func (s *stateSuite) TestAllAuthorisedKeys(c *gc.C) {
-	keyManagerState := keymanagerstate.NewState(s.TxnRunnerFactory())
-	keysToAdd := generatePublicKeys(c, testingPublicKeys)
-	userID := usertesting.GenUserUUID(c)
+func (s *stateSuite) TestGetModelId(c *gc.C) {
+	mst := modelstate.NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := keyManagerState.AddPublicKeysForUser(context.Background(), userID, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
-
-	state := NewState(s.TxnRunnerFactory())
-	keys, err := state.AllAuthorisedKeys(context.Background())
+	id := modeltesting.GenModelUUID(c)
+	args := model.ReadOnlyModelCreationArgs{
+		UUID:            id,
+		AgentVersion:    jujuversion.Current,
+		ControllerUUID:  uuid.MustNewUUID(),
+		Name:            "my-awesome-model",
+		Type:            coremodel.IAAS,
+		Cloud:           "aws",
+		CloudType:       "ec2",
+		CloudRegion:     "myregion",
+		CredentialOwner: usertesting.GenNewName(c, "myowner"),
+		CredentialName:  "mycredential",
+	}
+	err := mst.Create(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(keys, jc.SameContents, testingPublicKeys)
-}
 
-// TestAllAuthorisedKeys asserts that State.AllAuthorisedKeys returns nothing
-// when there are no authorised keys in the database.
-func (s *stateSuite) TestAllAuthorisedKeysEmpty(c *gc.C) {
-	state := NewState(s.TxnRunnerFactory())
-	keys, err := state.AllAuthorisedKeys(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(keys, jc.DeepEquals, []string{})
+	modelId, err := NewState(s.TxnRunnerFactory()).GetModelId(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(modelId, gc.Equals, id)
 }
