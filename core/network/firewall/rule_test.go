@@ -264,7 +264,7 @@ func (IngressRuleSuite) TestRemoveCIDRsMatchingAddressType(c *gc.C) {
 		NewIngressRule(network.MustParsePortRange("80/tcp"), "35.187.158.35/32"),
 		// We expect these rules to be de-dupped once the IPV6 CIDRs get removed
 		NewIngressRule(network.MustParsePortRange("81/tcp"), "35.187.1.35/32", "::/0"),
-		NewIngressRule(network.MustParsePortRange("81/tcp"), "35.187.1.35/32", "2002::1234:abcd:ffff:c0a8:101/64"),
+		NewIngressRule(network.MustParsePortRange("81/tcp"), "35.187.1.35/32", "2001:0DB8::/32"),
 	}
 
 	out := in.RemoveCIDRsMatchingAddressType(network.IPv6Address)

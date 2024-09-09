@@ -169,6 +169,10 @@ CREATE TABLE ip_address (
     -- The value of the configured IP address.
     -- e.g. 192.168.1.2 or 2001:db8:0000:0000:0000:0000:0000:00001.
     address_value TEXT NOT NULL,
+    -- the most significant 64 bits of the address.
+    address_msb UNSIGNED BIG INT,
+    -- the least significant 64 bits of the address.
+    address_lsb UNSIGNED BIG INT NOT NULL,
     -- one of ipv4, ipv6 etc.
     type_id INT NOT NULL,
     -- one of dhcp, static, manual, loopback etc.

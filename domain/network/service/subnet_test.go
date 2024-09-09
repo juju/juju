@@ -9,10 +9,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	domainnetwork "github.com/juju/juju/domain/network"
 )
 
 type subnetSuite struct {
@@ -46,9 +47,10 @@ func (s *subnetSuite) TestFailAddSubnet(c *gc.C) {
 		DoAndReturn(
 			func(
 				ctx context.Context,
-				subnet network.SubnetInfo,
+				subnet domainnetwork.SubnetArg,
 			) error {
 				c.Assert(subnet.CIDR, gc.Equals, subnetInfo.CIDR)
+				c.Assert(subnet.CIDRAddressRange, jc.DeepEquals, domainnetwork.MustCIDRAddressRangeFromString(subnetInfo.CIDR))
 				c.Assert(subnet.ProviderId, gc.Equals, subnetInfo.ProviderId)
 				c.Assert(subnet.ProviderNetworkId, gc.Equals, subnetInfo.ProviderNetworkId)
 				c.Assert(subnet.AvailabilityZones, jc.SameContents, subnetInfo.AvailabilityZones)
@@ -75,9 +77,10 @@ func (s *subnetSuite) TestAddSubnet(c *gc.C) {
 		Do(
 			func(
 				ctx context.Context,
-				subnet network.SubnetInfo,
+				subnet domainnetwork.SubnetArg,
 			) error {
 				c.Assert(subnet.CIDR, gc.Equals, subnetInfo.CIDR)
+				c.Assert(subnet.CIDRAddressRange, jc.DeepEquals, domainnetwork.MustCIDRAddressRangeFromString(subnetInfo.CIDR))
 				c.Assert(subnet.ProviderId, gc.Equals, subnetInfo.ProviderId)
 				c.Assert(subnet.ProviderNetworkId, gc.Equals, subnetInfo.ProviderNetworkId)
 				c.Assert(subnet.AvailabilityZones, jc.SameContents, subnetInfo.AvailabilityZones)

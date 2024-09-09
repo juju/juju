@@ -315,7 +315,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 		}},
 	}, {
 		about: "IPV4 and IPV6 CIDRs",
-		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), "192.168.1.0/24", "2002::1234:abcd:ffff:c0a8:101/64")},
+		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), "192.168.1.0/24", "2002:0:0:1234::/64")},
 		expected: []neutron.RuleInfoV2{{
 			Direction:      "ingress",
 			IPProtocol:     "tcp",
@@ -329,7 +329,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 			IPProtocol:     "tcp",
 			PortRangeMin:   80,
 			PortRangeMax:   100,
-			RemoteIPPrefix: "2002::1234:abcd:ffff:c0a8:101/64",
+			RemoteIPPrefix: "2002:0:0:1234::/64",
 			ParentGroupId:  groupId,
 			EthernetType:   "IPv6",
 		}},

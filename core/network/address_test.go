@@ -975,92 +975,11 @@ func (s *AddressSuite) TestAddressValueForCIDR(c *gc.C) {
 	c.Check(val, gc.Equals, "172.31.37.53/20")
 }
 
-func (s *AddressSuite) TestCIDRAddressType(c *gc.C) {
-	tests := []struct {
-		descr  string
-		CIDR   string
-		exp    network.AddressType
-		expErr string
-	}{
-		{
-			descr: "IPV4 CIDR",
-			CIDR:  "10.0.0.0/24",
-			exp:   network.IPv4Address,
-		},
-		{
-			descr: "IPV6 CIDR",
-			CIDR:  "2002::1234:abcd:ffff:c0a8:101/64",
-			exp:   network.IPv6Address,
-		},
-		{
-			descr: "IPV6 with 4in6 prefix",
-			CIDR:  "0:0:0:0:0:ffff:c0a8:2a00/120",
-			// The Go stdlib interprets this as an IPV4
-			exp: network.IPv4Address,
-		},
-		{
-			descr:  "bogus CIDR",
-			CIDR:   "catastrophe",
-			expErr: ".*invalid CIDR address.*",
-		},
-	}
-
-	for i, t := range tests {
-		c.Logf("test %d: %s", i, t.descr)
-		got, err := network.CIDRAddressType(t.CIDR)
-		if t.expErr != "" {
-			c.Check(got, gc.Equals, network.AddressType(""))
-			c.Check(err, gc.ErrorMatches, t.expErr)
-		} else {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(got, gc.Equals, t.exp)
-		}
-	}
-}
-
 func (s *AddressSuite) TestNoAddressError(c *gc.C) {
 	err := network.NoAddressError("fake")
 	c.Assert(err, gc.ErrorMatches, `no fake address\(es\)`)
 	c.Assert(network.IsNoAddressError(err), jc.IsTrue)
 	c.Assert(network.IsNoAddressError(errors.New("address found")), jc.IsFalse)
-}
-
-func (s *AddressSuite) TestNetworkCIDRFromIPAndMask(c *gc.C) {
-	specs := []struct {
-		descr   string
-		ip      net.IP
-		mask    net.IPMask
-		expCIDR string
-	}{
-		{
-			descr:   "nil ip",
-			mask:    net.IPv4Mask(0, 0, 0, 255),
-			expCIDR: "",
-		},
-		{
-			descr:   "nil mask",
-			ip:      net.ParseIP("10.1.2.42"),
-			expCIDR: "",
-		},
-		{
-			descr:   "network IP",
-			ip:      net.ParseIP("10.1.0.0"),
-			mask:    net.IPv4Mask(255, 255, 0, 0),
-			expCIDR: "10.1.0.0/16",
-		},
-		{
-			descr:   "host IP",
-			ip:      net.ParseIP("10.1.2.42"),
-			mask:    net.IPv4Mask(255, 255, 255, 0),
-			expCIDR: "10.1.2.0/24",
-		},
-	}
-
-	for i, spec := range specs {
-		c.Logf("%d: %s", i, spec.descr)
-		gotCIDR := network.NetworkCIDRFromIPAndMask(spec.ip, spec.mask)
-		c.Assert(gotCIDR, gc.Equals, spec.expCIDR)
-	}
 }
 
 func (s *AddressSuite) TestIsValidAddressConfigTypeWithValidValues(c *gc.C) {

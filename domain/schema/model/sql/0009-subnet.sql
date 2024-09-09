@@ -1,6 +1,19 @@
 CREATE TABLE subnet (
     uuid TEXT NOT NULL PRIMARY KEY,
     cidr TEXT NOT NULL,
+    -- the most significant 64 bits of the cidr
+    -- start ip address.
+    start_address_msb UNSIGNED BIG INT,
+    -- the least significant 64 bits of the cidr
+    -- start ip address.
+    start_address_lsb UNSIGNED BIG INT NOT NULL,
+    -- the most significant 64 bits of the cidr
+    -- end ip address.
+    end_address_msb UNSIGNED BIG INT,
+    -- the least significant 64 bits of the cidr
+    -- end ip address.
+    end_address_lsb UNSIGNED BIG INT NOT NULL,
+
     vlan_tag INT,
     space_uuid TEXT,
     CONSTRAINT fk_subnets_spaces

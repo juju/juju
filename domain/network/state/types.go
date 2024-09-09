@@ -7,6 +7,7 @@ import (
 	"database/sql"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/database"
 )
 
 // Subnet represents a single row from the subnet table.
@@ -15,6 +16,11 @@ type Subnet struct {
 	UUID string `db:"uuid"`
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string `db:"cidr"`
+	// CIDR of the network, in 123.45.67.89/24 format.
+	StartAddressMSB database.Uint64 `db:"start_address_msb"`
+	StartAddressLSB database.Uint64 `db:"start_address_lsb"`
+	EndAddressMSB   database.Uint64 `db:"end_address_msb"`
+	EndAddressLSB   database.Uint64 `db:"end_address_lsb"`
 	// VLANtag is the subnet's vlan tag.
 	VLANtag int `db:"vlan_tag"`
 	// SpaceUUID is the space UUID.

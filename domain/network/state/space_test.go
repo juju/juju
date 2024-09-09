@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -34,14 +35,17 @@ func (s *stateSuite) TestAddSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID.String()),
-			CIDR:              "192.168.0.0/12",
-			ProviderId:        "provider-id-0",
-			ProviderNetworkId: "provider-network-id-0",
-			VLANTag:           0,
-			AvailabilityZones: []string{"az0", "az1"},
-			SpaceID:           "",
+		domainnetwork.SubnetArg{
+			SubnetInfo: network.SubnetInfo{
+				ID:                network.Id(subnetUUID.String()),
+				CIDR:              "192.168.0.0/13",
+				ProviderId:        "provider-id-0",
+				ProviderNetworkId: "provider-network-id-0",
+				VLANTag:           0,
+				AvailabilityZones: []string{"az0", "az1"},
+				SpaceID:           "",
+			},
+			CIDRAddressRange: domainnetwork.MustCIDRAddressRangeFromString("192.168.0.0/13"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,14 +95,17 @@ func (s *stateSuite) TestAddSpaceFailDuplicateName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID.String()),
-			CIDR:              "192.168.0.0/12",
-			ProviderId:        "provider-id-0",
-			ProviderNetworkId: "provider-network-id-0",
-			VLANTag:           0,
-			AvailabilityZones: []string{"az0", "az1"},
-			SpaceID:           "",
+		domainnetwork.SubnetArg{
+			SubnetInfo: network.SubnetInfo{
+				ID:                network.Id(subnetUUID.String()),
+				CIDR:              "192.168.0.0/13",
+				ProviderId:        "provider-id-0",
+				ProviderNetworkId: "provider-network-id-0",
+				VLANTag:           0,
+				AvailabilityZones: []string{"az0", "az1"},
+				SpaceID:           "",
+			},
+			CIDRAddressRange: domainnetwork.MustCIDRAddressRangeFromString("192.168.0.0/13"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -131,14 +138,17 @@ func (s *stateSuite) TestAddSpaceEmptyProviderID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID.String()),
-			CIDR:              "192.168.0.0/12",
-			ProviderId:        "",
-			ProviderNetworkId: "provider-network-id-0",
-			VLANTag:           0,
-			AvailabilityZones: []string{"az0", "az1"},
-			SpaceID:           "",
+		domainnetwork.SubnetArg{
+			SubnetInfo: network.SubnetInfo{
+				ID:                network.Id(subnetUUID.String()),
+				CIDR:              "192.168.0.0/13",
+				ProviderId:        "",
+				ProviderNetworkId: "provider-network-id-0",
+				VLANTag:           0,
+				AvailabilityZones: []string{"az0", "az1"},
+				SpaceID:           "",
+			},
+			CIDRAddressRange: domainnetwork.MustCIDRAddressRangeFromString("192.168.0.0/13"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -167,14 +177,17 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID0.String()),
-			CIDR:              "192.168.0.0/12",
-			ProviderId:        "provider-id-0",
-			ProviderNetworkId: "provider-network-id-0",
-			VLANTag:           0,
-			AvailabilityZones: []string{"az0"},
-			SpaceID:           "",
+		domainnetwork.SubnetArg{
+			SubnetInfo: network.SubnetInfo{
+				ID:                network.Id(subnetUUID0.String()),
+				CIDR:              "192.168.0.0/13",
+				ProviderId:        "provider-id-0",
+				ProviderNetworkId: "provider-network-id-0",
+				VLANTag:           0,
+				AvailabilityZones: []string{"az0"},
+				SpaceID:           "",
+			},
+			CIDRAddressRange: domainnetwork.MustCIDRAddressRangeFromString("192.168.0.0/13"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -183,14 +196,17 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID1.String()),
-			CIDR:              "192.176.0.0/12",
-			ProviderId:        "provider-id-2",
-			ProviderNetworkId: "provider-network-id-2",
-			VLANTag:           0,
-			AvailabilityZones: []string{"az1"},
-			SpaceID:           "",
+		domainnetwork.SubnetArg{
+			SubnetInfo: network.SubnetInfo{
+				ID:                network.Id(subnetUUID1.String()),
+				CIDR:              "192.176.0.0/12",
+				ProviderId:        "provider-id-2",
+				ProviderNetworkId: "provider-network-id-2",
+				VLANTag:           0,
+				AvailabilityZones: []string{"az1"},
+				SpaceID:           "",
+			},
+			CIDRAddressRange: domainnetwork.MustCIDRAddressRangeFromString("192.176.0.0/12"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -209,7 +225,7 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 	expected := network.SubnetInfos{
 		{
 			ID:                network.Id(subnetUUID0.String()),
-			CIDR:              "192.168.0.0/12",
+			CIDR:              "192.168.0.0/13",
 			ProviderId:        "provider-id-0",
 			ProviderSpaceId:   "foo",
 			ProviderNetworkId: "provider-network-id-0",
@@ -300,14 +316,17 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID0.String()),
-			CIDR:              "192.168.0.0/24",
-			ProviderId:        "provider-id-0",
-			ProviderNetworkId: "provider-network-id-0",
-			VLANTag:           0,
-			AvailabilityZones: []string{"az0", "az1"},
-			SpaceID:           "",
+		domainnetwork.SubnetArg{
+			SubnetInfo: network.SubnetInfo{
+				ID:                network.Id(subnetUUID0.String()),
+				CIDR:              "192.168.0.0/24",
+				ProviderId:        "provider-id-0",
+				ProviderNetworkId: "provider-network-id-0",
+				VLANTag:           0,
+				AvailabilityZones: []string{"az0", "az1"},
+				SpaceID:           "",
+			},
+			CIDRAddressRange: domainnetwork.MustCIDRAddressRangeFromString("192.168.0.0/24"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -315,14 +334,17 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID1.String()),
-			CIDR:              "192.168.1.0/24",
-			ProviderId:        "provider-id-1",
-			ProviderNetworkId: "provider-network-id-1",
-			VLANTag:           0,
-			AvailabilityZones: []string{"az0", "az1"},
-			SpaceID:           "",
+		domainnetwork.SubnetArg{
+			SubnetInfo: network.SubnetInfo{
+				ID:                network.Id(subnetUUID1.String()),
+				CIDR:              "192.168.1.0/24",
+				ProviderId:        "provider-id-1",
+				ProviderNetworkId: "provider-network-id-1",
+				VLANTag:           0,
+				AvailabilityZones: []string{"az0", "az1"},
+				SpaceID:           "",
+			},
+			CIDRAddressRange: domainnetwork.MustCIDRAddressRangeFromString("192.168.1.0/24"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -330,14 +352,17 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID2.String()),
-			CIDR:              "192.168.2.0/24",
-			ProviderId:        "provider-id-2",
-			ProviderNetworkId: "provider-network-id-2",
-			VLANTag:           0,
-			AvailabilityZones: []string{"az2", "az3"},
-			SpaceID:           "",
+		domainnetwork.SubnetArg{
+			SubnetInfo: network.SubnetInfo{
+				ID:                network.Id(subnetUUID2.String()),
+				CIDR:              "192.168.2.0/24",
+				ProviderId:        "provider-id-2",
+				ProviderNetworkId: "provider-network-id-2",
+				VLANTag:           0,
+				AvailabilityZones: []string{"az2", "az3"},
+				SpaceID:           "",
+			},
+			CIDRAddressRange: domainnetwork.MustCIDRAddressRangeFromString("192.168.2.0/24"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -399,14 +424,17 @@ func (s *stateSuite) TestDeleteSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID0.String()),
-			CIDR:              "192.168.0.0/20",
-			ProviderId:        "provider-id-0",
-			ProviderNetworkId: "provider-network-id-0",
-			VLANTag:           0,
-			AvailabilityZones: []string{"az0", "az1"},
-			SpaceID:           "",
+		domainnetwork.SubnetArg{
+			SubnetInfo: network.SubnetInfo{
+				ID:                network.Id(subnetUUID0.String()),
+				CIDR:              "192.168.0.0/20",
+				ProviderId:        "provider-id-0",
+				ProviderNetworkId: "provider-network-id-0",
+				VLANTag:           0,
+				AvailabilityZones: []string{"az0", "az1"},
+				SpaceID:           "",
+			},
+			CIDRAddressRange: domainnetwork.MustCIDRAddressRangeFromString("192.168.0.0/20"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

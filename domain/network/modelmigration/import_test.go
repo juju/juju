@@ -49,7 +49,7 @@ func (s *importSuite) TestImportSubnetWithoutSpaces(c *gc.C) {
 		ProviderNetworkId: "subnet-provider-network-id",
 		VLANTag:           42,
 		AvailabilityZones: []string{"az1", "az2"},
-		FanLocalUnderlay:  "192.168.0.0/12",
+		FanLocalUnderlay:  "192.160.0.0/12",
 		FanOverlay:        "10.0.0.0/8",
 	})
 	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
+	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
 )
@@ -23,7 +24,7 @@ import (
 func (st *State) AllSubnetsQuery(ctx context.Context, db database.TxnRunner) ([]string, error) {
 	var subnets []Subnet
 	stmt, err := st.Prepare(`
-SELECT &Subnet.uuid 
+SELECT &Subnet.uuid
 FROM   subnet`, Subnet{})
 	if err != nil {
 		return nil, errors.Annotate(err, "preparing select subnet statement")
@@ -44,7 +45,7 @@ FROM   subnet`, Subnet{})
 
 // UpsertSubnets updates or adds each one of the provided subnets in one
 // transaction.
-func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo) error {
+func (st *State) UpsertSubnets(ctx context.Context, subnets []domainnetwork.SubnetArg) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -78,7 +79,7 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 	})
 }
 
-func (st *State) addSubnet(ctx context.Context, tx *sqlair.TX, subnetInfo network.SubnetInfo) error {
+func (st *State) addSubnet(ctx context.Context, tx *sqlair.TX, subnetInfo domainnetwork.SubnetArg) error {
 	spaceUUIDValue := subnetInfo.SpaceID
 	if subnetInfo.SpaceID == "" {
 		spaceUUIDValue = network.AlphaSpaceId
@@ -86,10 +87,14 @@ func (st *State) addSubnet(ctx context.Context, tx *sqlair.TX, subnetInfo networ
 	subnetUUID := subnetInfo.ID.String()
 
 	subnet := Subnet{
-		UUID:      subnetUUID,
-		CIDR:      subnetInfo.CIDR,
-		VLANtag:   subnetInfo.VLANTag,
-		SpaceUUID: spaceUUIDValue,
+		UUID:            subnetUUID,
+		CIDR:            subnetInfo.SubnetInfo.CIDR,
+		StartAddressMSB: subnetInfo.Start.MSB,
+		StartAddressLSB: subnetInfo.Start.LSB,
+		EndAddressMSB:   subnetInfo.End.MSB,
+		EndAddressLSB:   subnetInfo.End.LSB,
+		VLANtag:         subnetInfo.VLANTag,
+		SpaceUUID:       spaceUUIDValue,
 	}
 	providerSubnet := ProviderSubnet{
 		SubnetUUID: subnetUUID,
@@ -103,7 +108,7 @@ func (st *State) addSubnet(ctx context.Context, tx *sqlair.TX, subnetInfo networ
 	}
 
 	insertSubnetStmt, err := st.Prepare(`
-INSERT INTO subnet (*) 
+INSERT INTO subnet (*)
 VALUES ($Subnet.*)`, subnet)
 	if err != nil {
 		return errors.Trace(err)
@@ -186,7 +191,7 @@ VALUES ($ProviderNetworkSubnet.*)`, providerNetworkSubnet)
 
 // addAvailabilityZones adds the availability zones of a subnet if they don't exist, and
 // update the availability_zone_subnet table with the subnets' id.
-func (st *State) addAvailabilityZones(ctx context.Context, tx *sqlair.TX, subnetUUID string, subnet network.SubnetInfo) error {
+func (st *State) addAvailabilityZones(ctx context.Context, tx *sqlair.TX, subnetUUID string, subnet domainnetwork.SubnetArg) error {
 	availabilityZone := AvailabilityZone{}
 	availabilityZoneSubnet := AvailabilityZoneSubnet{
 		SubnetUUID: subnetUUID,
@@ -247,7 +252,7 @@ VALUES ($AvailabilityZoneSubnet.*)`, availabilityZoneSubnet)
 // AddSubnet creates a subnet.
 func (st *State) AddSubnet(
 	ctx context.Context,
-	subnet network.SubnetInfo,
+	subnet domainnetwork.SubnetArg,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -348,22 +353,25 @@ func (st *State) GetSubnetsByCIDR(
 	q := `
 SELECT &SubnetRow.*
 FROM   v_space_subnet
-WHERE  subnet_cidr = $M.cidr`
+WHERE  subnet_cidr = $SubnetRow.subnet_cidr`
 
-	s, err := st.Prepare(q, SubnetRow{}, sqlair.M{})
+	s, err := st.Prepare(q, SubnetRow{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
 	}
 
 	var resultSubnets SubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for _, cidr := range cidrs {
+		for _, cidrStr := range cidrs {
 			var rows SubnetRows
-			if err := tx.Query(ctx, s, sqlair.M{"cidr": cidr}).GetAll(&rows); err != nil {
+			subnet := SubnetRow{
+				CIDR: cidrStr,
+			}
+			if err := tx.Query(ctx, s, subnet).GetAll(&rows); err != nil {
 				if errors.Is(err, sqlair.ErrNoRows) {
 					continue
 				}
-				return errors.Annotatef(err, "retrieving subnets by CIDR %v", cidr)
+				return errors.Annotatef(err, "retrieving subnets by CIDR %v", cidrStr)
 			}
 			resultSubnets = append(resultSubnets, rows...)
 		}
@@ -444,8 +452,8 @@ DELETE FROM subnet WHERE uuid = $Subnet.uuid;`, subnet)
 		return errors.Annotate(err, "preparing delete subnet statement")
 	}
 	selectProviderNetworkStmt, err := st.Prepare(`
-SELECT &ProviderNetworkSubnet.provider_network_uuid 
-FROM   provider_network_subnet 
+SELECT &ProviderNetworkSubnet.provider_network_uuid
+FROM   provider_network_subnet
 WHERE  subnet_uuid = $Subnet.uuid;`, subnet, providerNetworkSubnet)
 	if err != nil {
 		return errors.Annotate(err, "preparing select provider network statement")

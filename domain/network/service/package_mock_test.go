@@ -16,6 +16,7 @@ import (
 	database "github.com/juju/juju/core/database"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
+	network0 "github.com/juju/juju/domain/network"
 	environs "github.com/juju/juju/environs"
 	envcontext "github.com/juju/juju/environs/envcontext"
 	names "github.com/juju/names/v5"
@@ -84,7 +85,7 @@ func (c *MockStateAddSpaceCall) DoAndReturn(f func(context.Context, string, stri
 }
 
 // AddSubnet mocks base method.
-func (m *MockState) AddSubnet(arg0 context.Context, arg1 network.SubnetInfo) error {
+func (m *MockState) AddSubnet(arg0 context.Context, arg1 network0.SubnetArg) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddSubnet", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -110,13 +111,13 @@ func (c *MockStateAddSubnetCall) Return(arg0 error) *MockStateAddSubnetCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAddSubnetCall) Do(f func(context.Context, network.SubnetInfo) error) *MockStateAddSubnetCall {
+func (c *MockStateAddSubnetCall) Do(f func(context.Context, network0.SubnetArg) error) *MockStateAddSubnetCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddSubnetCall) DoAndReturn(f func(context.Context, network.SubnetInfo) error) *MockStateAddSubnetCall {
+func (c *MockStateAddSubnetCall) DoAndReturn(f func(context.Context, network0.SubnetArg) error) *MockStateAddSubnetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -552,7 +553,7 @@ func (c *MockStateUpdateSubnetCall) DoAndReturn(f func(context.Context, string, 
 }
 
 // UpsertSubnets mocks base method.
-func (m *MockState) UpsertSubnets(arg0 context.Context, arg1 []network.SubnetInfo) error {
+func (m *MockState) UpsertSubnets(arg0 context.Context, arg1 []network0.SubnetArg) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpsertSubnets", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -578,13 +579,13 @@ func (c *MockStateUpsertSubnetsCall) Return(arg0 error) *MockStateUpsertSubnetsC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpsertSubnetsCall) Do(f func(context.Context, []network.SubnetInfo) error) *MockStateUpsertSubnetsCall {
+func (c *MockStateUpsertSubnetsCall) Do(f func(context.Context, []network0.SubnetArg) error) *MockStateUpsertSubnetsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpsertSubnetsCall) DoAndReturn(f func(context.Context, []network.SubnetInfo) error) *MockStateUpsertSubnetsCall {
+func (c *MockStateUpsertSubnetsCall) DoAndReturn(f func(context.Context, []network0.SubnetArg) error) *MockStateUpsertSubnetsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

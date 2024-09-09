@@ -10,10 +10,14 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/network"
+	domainnetwork "github.com/juju/juju/domain/network"
 )
 
 // AddSubnet creates and returns a new subnet.
-func (s *Service) AddSubnet(ctx context.Context, args network.SubnetInfo) (network.Id, error) {
+func (s *Service) AddSubnet(ctx context.Context, subnet network.SubnetInfo) (network.Id, error) {
+	args := domainnetwork.SubnetArg{
+		SubnetInfo: subnet,
+	}
 	if args.ID == "" {
 		uuid, err := uuid.NewV7()
 		if err != nil {
@@ -22,6 +26,11 @@ func (s *Service) AddSubnet(ctx context.Context, args network.SubnetInfo) (netwo
 		args.ID = network.Id(uuid.String())
 	}
 
+	var err error
+	args.CIDRAddressRange, err = domainnetwork.CIDRAddressRangeFromString(subnet.CIDR)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	if err := s.st.AddSubnet(ctx, args); err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return "", errors.Trace(err)
 	}

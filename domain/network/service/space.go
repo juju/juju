@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
+	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/environs/envcontext"
 )
@@ -213,17 +214,26 @@ func (s *ProviderService) saveProviderSubnets(
 // makes sure a uuid is inserted by checking if one was provided otherwise
 // create a new UUID v7.
 func (s *ProviderService) upsertProviderSubnets(ctx context.Context, subnetsToUpsert network.SubnetInfos) error {
+	subnetArgs := make([]domainnetwork.SubnetArg, len(subnetsToUpsert))
 	for i, sn := range subnetsToUpsert {
+		subnetArgs[i] = domainnetwork.SubnetArg{
+			SubnetInfo: sn,
+		}
+		var err error
+		subnetArgs[i].CIDRAddressRange, err = domainnetwork.CIDRAddressRangeFromString(sn.CIDR)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		if sn.ID.String() == "" {
 			uuid, err := uuid.NewV7()
 			if err != nil {
 				return errors.Trace(err)
 			}
-			subnetsToUpsert[i].ID = network.Id(uuid.String())
+			subnetArgs[i].ID = network.Id(uuid.String())
 		}
 
 	}
-	if err := s.st.UpsertSubnets(ctx, subnetsToUpsert); err != nil && !errors.Is(err, errors.AlreadyExists) {
+	if err := s.st.UpsertSubnets(ctx, subnetArgs); err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return errors.Trace(err)
 	}
 	return nil

@@ -1950,7 +1950,7 @@ func (s *InstanceModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
 
 	// Expose app to space-1.
 	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: []string{"10.0.0.0/24", "2002::1234:abcd:ffff:c0a8:101/64"}},
+		allEndpoints: {ExposeToCIDRs: []string{"10.0.0.0/24", "2002:0:0:1234::/64"}},
 	}, nil)
 
 	s.applicationsCh <- struct{}{}
@@ -2253,7 +2253,7 @@ func (s *GlobalModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
 
 	// Expose app to space-1.
 	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: []string{"10.0.0.0/24", "2002::1234:abcd:ffff:c0a8:101/64"}},
+		allEndpoints: {ExposeToCIDRs: []string{"10.0.0.0/24", "2002:0:0:1234::/64"}},
 	}, nil)
 
 	s.applicationsCh <- struct{}{}

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/environs"
 )
 
@@ -61,7 +62,7 @@ type SpaceState interface {
 // SubnetState describes persistence layer methods for the subnet (sub-) domain.
 type SubnetState interface {
 	// AddSubnet creates a subnet.
-	AddSubnet(ctx context.Context, subnet network.SubnetInfo) error
+	AddSubnet(ctx context.Context, subnet domainnetwork.SubnetArg) error
 	// GetAllSubnets returns all known subnets in the model.
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 	// GetSubnet returns the subnet by UUID.
@@ -76,7 +77,7 @@ type SubnetState interface {
 	DeleteSubnet(ctx context.Context, uuid string) error
 	// UpsertSubnets updates or adds each one of the provided subnets in one
 	// transaction.
-	UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo) error
+	UpsertSubnets(ctx context.Context, subnets []domainnetwork.SubnetArg) error
 	// AllSubnetsQuery returns the SQL query that finds all subnet UUIDs from the
 	// subnet table, needed for the subnets watcher.
 	AllSubnetsQuery(ctx context.Context, db database.TxnRunner) ([]string, error)
