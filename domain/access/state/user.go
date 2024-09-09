@@ -394,6 +394,23 @@ func (st *UserState) RemoveUser(ctx context.Context, name user.Name) error {
 
 	m := make(sqlair.M, 1)
 
+	deleteModelAuthorizedKeysStmt, err := st.Prepare(`
+	DELETE FROM model_authorized_keys
+	WHERE user_public_ssh_key_id IN (SELECT id
+	                                 FROM user_public_ssh_key as upsk
+	                                 WHERE upsk.user_id = $M.uuid)
+	`, m)
+	if err != nil {
+		return errors.Annotate(err, "preparing delete model authorized keys query for user")
+	}
+
+	deleteUserPublicSSHKeysStmt, err := st.Prepare(
+		"DELETE FROM user_public_ssh_key WHERE user_id = $M.uuid", m,
+	)
+	if err != nil {
+		return errors.Annotate(err, "preparing delete user public ssh keys")
+	}
+
 	deletePassStmt, err := st.Prepare("DELETE FROM user_password WHERE user_uuid = $M.uuid", m)
 	if err != nil {
 		return errors.Annotate(err, "preparing password deletion query")
@@ -415,6 +432,14 @@ func (st *UserState) RemoveUser(ctx context.Context, name user.Name) error {
 			return errors.Trace(err)
 		}
 		m["uuid"] = uuid
+
+		if err := tx.Query(ctx, deleteModelAuthorizedKeysStmt, m).Run(); err != nil {
+			return errors.Annotatef(err, "deleting model authorized keys for %q", name)
+		}
+
+		if err := tx.Query(ctx, deleteUserPublicSSHKeysStmt, m).Run(); err != nil {
+			return errors.Annotatef(err, "deleting user publish ssh keys for %q", name)
+		}
 
 		if err := tx.Query(ctx, deletePassStmt, m).Run(); err != nil {
 			return errors.Annotatef(err, "deleting password for %q", name)
