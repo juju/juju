@@ -132,17 +132,17 @@ type charmSubordinate struct {
 	Subordinate bool `db:"subordinate"`
 }
 
-// charmIDName is used to get the ID and name of a charm.
-type charmIDName struct {
-	UUID string `db:"uuid"`
-	Name string `db:"name"`
-}
-
 // setCharmHash is used to set the hash of a charm.
 type setCharmHash struct {
 	CharmUUID  string `db:"charm_uuid"`
 	HashKindID int    `db:"hash_kind_id"`
 	Hash       string `db:"hash"`
+}
+
+// setCharm is used to set the charm.
+type setCharm struct {
+	UUID        string `db:"uuid"`
+	ArchivePath string `db:"archive_path"`
 }
 
 // setInitialCharmOrigin is used to set the reference_name, source, revision
@@ -169,7 +169,7 @@ type charmMetadata struct {
 // setCharmMetadata is used to set the metadata of a charm.
 // This includes the setting of the LXD profile.
 type setCharmMetadata struct {
-	UUID           string `db:"uuid"`
+	CharmUUID      string `db:"charm_uuid"`
 	Name           string `db:"name"`
 	Summary        string `db:"summary"`
 	Description    string `db:"description"`
@@ -178,7 +178,6 @@ type setCharmMetadata struct {
 	Assumes        []byte `db:"assumes"`
 	RunAsID        int    `db:"run_as_id"`
 	LXDProfile     []byte `db:"lxd_profile"`
-	ArchivePath    string `db:"archive_path"`
 }
 
 // charmTag is used to get the tags of a charm.
@@ -481,7 +480,7 @@ type charmArchivePath struct {
 
 // charmOrigin is used to get the origin of a charm.
 type charmOrigin struct {
-	CharmID       string `db:"charm_uuid"`
+	CharmUUID     string `db:"charm_uuid"`
 	ReferenceName string `db:"reference_name"`
 	Source        string `db:"source"`
 	Revision      int    `db:"revision"`
@@ -489,7 +488,7 @@ type charmOrigin struct {
 
 // setCharmOrigin is used to set the origin of a charm.
 type setCharmOrigin struct {
-	CharmID       string `db:"charm_uuid"`
+	CharmUUID     string `db:"charm_uuid"`
 	ReferenceName string `db:"reference_name"`
 	SourceID      int    `db:"source_id"`
 	Revision      int    `db:"revision"`
@@ -500,8 +499,14 @@ type countResult struct {
 }
 
 type charmPlatform struct {
-	CharmID        string `db:"charm_uuid"`
+	CharmUUID      string `db:"charm_uuid"`
 	OSTypeID       int    `db:"os_id"`
 	Channel        string `db:"channel"`
 	ArchitectureID int    `db:"architecture_id"`
+}
+
+type reserveCharm struct {
+	UUID          string `db:"uuid"`
+	Name          string `db:"name"`
+	ReferenceName string `db:"reference_name"`
 }

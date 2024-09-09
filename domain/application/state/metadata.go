@@ -393,14 +393,14 @@ func decodeContainers(containers []charmContainer) (map[string]charm.Container, 
 	return result, nil
 }
 
-func encodeMetadata(id corecharm.ID, metadata charm.Metadata, lxdProfile []byte, archivePath string) (setCharmMetadata, error) {
+func encodeMetadata(id corecharm.ID, metadata charm.Metadata, lxdProfile []byte) (setCharmMetadata, error) {
 	runAs, err := encodeRunAs(metadata.RunAs)
 	if err != nil {
 		return setCharmMetadata{}, fmt.Errorf("cannot encode run as %q: %w", metadata.RunAs, err)
 	}
 
 	return setCharmMetadata{
-		UUID:           id.String(),
+		CharmUUID:      id.String(),
 		Name:           metadata.Name,
 		Summary:        metadata.Summary,
 		Description:    metadata.Description,
@@ -409,7 +409,6 @@ func encodeMetadata(id corecharm.ID, metadata charm.Metadata, lxdProfile []byte,
 		RunAsID:        runAs,
 		Assumes:        metadata.Assumes,
 		LXDProfile:     lxdProfile,
-		ArchivePath:    archivePath,
 	}, nil
 }
 

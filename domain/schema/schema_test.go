@@ -350,18 +350,18 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"machine_removals",
 
 		// Charm
-		"charm",
 		"architecture",
 		"charm_action",
 		"charm_category",
-		"charm_config",
 		"charm_config_type",
+		"charm_config",
 		"charm_container_mount",
 		"charm_container",
 		"charm_device",
 		"charm_extra_binding",
 		"charm_hash",
 		"charm_manifest_base",
+		"charm_metadata",
 		"charm_origin",
 		"charm_payload",
 		"charm_platform",
@@ -373,12 +373,12 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"charm_resource",
 		"charm_run_as_kind",
 		"charm_source",
-		"charm_state",
+		"charm_storage_kind",
 		"charm_storage_property",
 		"charm_storage",
-		"charm_storage_kind",
 		"charm_tag",
 		"charm_term",
+		"charm",
 		"hash_kind",
 		"os",
 
@@ -476,10 +476,11 @@ func (s *schemaSuite) TestModelViews(c *gc.C) {
 
 	// Ensure that each view is present.
 	expected := set.NewStrings(
-		"v_charm",
+		"v_address",
 		"v_charm_config",
 		"v_charm_container",
 		"v_charm_manifest",
+		"v_charm_metadata",
 		"v_charm_origin",
 		"v_charm_relation",
 		"v_charm_resource",
@@ -487,7 +488,6 @@ func (s *schemaSuite) TestModelViews(c *gc.C) {
 		"v_charm_url",
 		"v_secret_permission",
 		"v_space_subnet",
-		"v_address",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
 }
@@ -709,26 +709,30 @@ func (s *schemaSuite) TestControllerChangeLogTriggersForSecretBackends(c *gc.C) 
 
 	backendUUID := utils.MustNewUUID().String()
 
-	s.assertExecSQL(c, "INSERT INTO secret_backend (uuid, name, backend_type_id) VALUES (?, 'myVault', 2);", "", backendUUID)
-	s.assertExecSQL(c, "INSERT INTO secret_backend_rotation (backend_uuid, next_rotation_time) VALUES (?, datetime('now', '+1 day'));", "", backendUUID)
-	s.assertExecSQL(c, `UPDATE secret_backend_rotation SET next_rotation_time = datetime('now', '+2 day') WHERE backend_uuid = ?;`, "", backendUUID)
-	s.assertExecSQL(c, `DELETE FROM secret_backend_rotation WHERE backend_uuid = ?;`, "", backendUUID)
+	s.assertExecSQL(c, "INSERT INTO secret_backend (uuid, name, backend_type_id) VALUES (?, 'myVault', 2);", backendUUID)
+	s.assertExecSQL(c, "INSERT INTO secret_backend_rotation (backend_uuid, next_rotation_time) VALUES (?, datetime('now', '+1 day'));", backendUUID)
+	s.assertExecSQL(c, `UPDATE secret_backend_rotation SET next_rotation_time = datetime('now', '+2 day') WHERE backend_uuid = ?;`, backendUUID)
+	s.assertExecSQL(c, `DELETE FROM secret_backend_rotation WHERE backend_uuid = ?;`, backendUUID)
 
 	s.assertChangeLogCount(c, 1, tableSecretBackendRotation, 1)
 	s.assertChangeLogCount(c, 2, tableSecretBackendRotation, 1)
 	s.assertChangeLogCount(c, 4, tableSecretBackendRotation, 1)
 }
 
-func (s *schemaSuite) assertExecSQL(c *gc.C, q string, errMsg string, args ...any) {
-	_ = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+func (s *schemaSuite) assertExecSQL(c *gc.C, q string, args ...any) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, q, args...)
-		if errMsg != "" {
-			c.Check(err, gc.ErrorMatches, errMsg)
-		} else {
-			c.Check(err, jc.ErrorIsNil)
-		}
-		return nil
+		return err
 	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *schemaSuite) assertExecSQLError(c *gc.C, q string, errMsg string, args ...any) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, q, args...)
+		return err
+	})
+	c.Assert(err, gc.ErrorMatches, errMsg)
 }
 
 func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
@@ -740,10 +744,10 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 4, tableSecretMetadataAutoPrune, 0)
 
 	secretURI := coresecrets.NewURI()
-	s.assertExecSQL(c, `INSERT INTO secret (id) VALUES (?);`, "", secretURI.ID)
-	s.assertExecSQL(c, `INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id) VALUES (?, 1, 'mySecret', 0);`, "", secretURI.ID)
-	s.assertExecSQL(c, `UPDATE secret_metadata SET auto_prune = true WHERE secret_id = ?;`, "", secretURI.ID)
-	s.assertExecSQL(c, `DELETE FROM secret_metadata WHERE secret_id = ?;`, "", secretURI.ID)
+	s.assertExecSQL(c, `INSERT INTO secret (id) VALUES (?);`, secretURI.ID)
+	s.assertExecSQL(c, `INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id) VALUES (?, 1, 'mySecret', 0);`, secretURI.ID)
+	s.assertExecSQL(c, `UPDATE secret_metadata SET auto_prune = true WHERE secret_id = ?;`, secretURI.ID)
+	s.assertExecSQL(c, `DELETE FROM secret_metadata WHERE secret_id = ?;`, secretURI.ID)
 
 	s.assertChangeLogCount(c, 1, tableSecretMetadataAutoPrune, 1)
 	s.assertChangeLogCount(c, 2, tableSecretMetadataAutoPrune, 1)
@@ -754,10 +758,10 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 2, tableSecretRotation, 0)
 	s.assertChangeLogCount(c, 4, tableSecretRotation, 0)
 
-	s.assertExecSQL(c, `INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id) VALUES (?, 1, 'mySecret', 0);`, "", secretURI.ID)
-	s.assertExecSQL(c, `INSERT INTO secret_rotation (secret_id, next_rotation_time) VALUES (?, datetime('now', '+1 day'));`, "", secretURI.ID)
-	s.assertExecSQL(c, `UPDATE secret_rotation SET next_rotation_time = datetime('now', '+2 day') WHERE secret_id = ?;`, "", secretURI.ID)
-	s.assertExecSQL(c, `DELETE FROM secret_rotation WHERE secret_id = ?;`, "", secretURI.ID)
+	s.assertExecSQL(c, `INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id) VALUES (?, 1, 'mySecret', 0);`, secretURI.ID)
+	s.assertExecSQL(c, `INSERT INTO secret_rotation (secret_id, next_rotation_time) VALUES (?, datetime('now', '+1 day'));`, secretURI.ID)
+	s.assertExecSQL(c, `UPDATE secret_rotation SET next_rotation_time = datetime('now', '+2 day') WHERE secret_id = ?;`, secretURI.ID)
+	s.assertExecSQL(c, `DELETE FROM secret_rotation WHERE secret_id = ?;`, secretURI.ID)
 
 	s.assertChangeLogCount(c, 1, tableSecretRotation, 1)
 	s.assertChangeLogCount(c, 2, tableSecretRotation, 1)
@@ -769,11 +773,11 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 2, tableSecretRevisionObsolete, 0)
 	s.assertChangeLogCount(c, 4, tableSecretRevisionObsolete, 0)
 
-	s.assertExecSQL(c, `INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, 1);`, "", revisionUUID, secretURI.ID)
-	s.assertExecSQL(c, `INSERT INTO secret_revision_obsolete (revision_uuid) VALUES (?);`, "", revisionUUID)
-	s.assertExecSQL(c, `UPDATE secret_revision_obsolete SET obsolete = true WHERE revision_uuid = ?;`, "", revisionUUID)
-	s.assertExecSQL(c, `DELETE FROM secret_revision_obsolete WHERE revision_uuid = ?;`, "", revisionUUID)
-	s.assertExecSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, "", revisionUUID)
+	s.assertExecSQL(c, `INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, 1);`, revisionUUID, secretURI.ID)
+	s.assertExecSQL(c, `INSERT INTO secret_revision_obsolete (revision_uuid) VALUES (?);`, revisionUUID)
+	s.assertExecSQL(c, `UPDATE secret_revision_obsolete SET obsolete = true WHERE revision_uuid = ?;`, revisionUUID)
+	s.assertExecSQL(c, `DELETE FROM secret_revision_obsolete WHERE revision_uuid = ?;`, revisionUUID)
+	s.assertExecSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, revisionUUID)
 
 	s.assertChangeLogCount(c, 1, tableSecretRevisionObsolete, 1)
 	s.assertChangeLogCount(c, 2, tableSecretRevisionObsolete, 1)
@@ -784,11 +788,11 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 2, tableSecretRevisionExpire, 0)
 	s.assertChangeLogCount(c, 4, tableSecretRevisionExpire, 0)
 
-	s.assertExecSQL(c, `INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, 1);`, "", revisionUUID, secretURI.ID)
-	s.assertExecSQL(c, `INSERT INTO secret_revision_expire (revision_uuid, expire_time) VALUES (?, datetime('now', '+1 day'));`, "", revisionUUID)
-	s.assertExecSQL(c, `UPDATE secret_revision_expire SET expire_time = datetime('now', '+2 day') WHERE revision_uuid = ?;`, "", revisionUUID)
-	s.assertExecSQL(c, `DELETE FROM secret_revision_expire WHERE revision_uuid = ?;`, "", revisionUUID)
-	s.assertExecSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, "", revisionUUID)
+	s.assertExecSQL(c, `INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, 1);`, revisionUUID, secretURI.ID)
+	s.assertExecSQL(c, `INSERT INTO secret_revision_expire (revision_uuid, expire_time) VALUES (?, datetime('now', '+1 day'));`, revisionUUID)
+	s.assertExecSQL(c, `UPDATE secret_revision_expire SET expire_time = datetime('now', '+2 day') WHERE revision_uuid = ?;`, revisionUUID)
+	s.assertExecSQL(c, `DELETE FROM secret_revision_expire WHERE revision_uuid = ?;`, revisionUUID)
+	s.assertExecSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, revisionUUID)
 
 	s.assertChangeLogCount(c, 1, tableSecretRevisionExpire, 1)
 	s.assertChangeLogCount(c, 2, tableSecretRevisionExpire, 1)
@@ -799,8 +803,8 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 2, tableSecretRevision, 0)
 	s.assertChangeLogCount(c, 4, tableSecretRevision, 2)
 
-	s.assertExecSQL(c, `INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, 1);`, "", revisionUUID, secretURI.ID)
-	s.assertExecSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, "", revisionUUID)
+	s.assertExecSQL(c, `INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, 1);`, revisionUUID, secretURI.ID)
+	s.assertExecSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, revisionUUID)
 
 	s.assertChangeLogCount(c, 1, tableSecretRevision, 3)
 	s.assertChangeLogCount(c, 2, tableSecretRevision, 0)
@@ -811,29 +815,31 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 2, tableSecretReference, 0)
 	s.assertChangeLogCount(c, 4, tableSecretReference, 0)
 
-	s.assertExecSQL(c, `INSERT INTO secret_reference (secret_id, latest_revision) VALUES (?, 1);`, "", secretURI.ID)
-	s.assertExecSQL(c, `UPDATE secret_reference SET latest_revision = 2 WHERE secret_id = ?;`, "", secretURI.ID)
-	s.assertExecSQL(c, `DELETE FROM secret_reference WHERE secret_id = ?;`, "", secretURI.ID)
+	s.assertExecSQL(c, `INSERT INTO secret_reference (secret_id, latest_revision) VALUES (?, 1);`, secretURI.ID)
+	s.assertExecSQL(c, `UPDATE secret_reference SET latest_revision = 2 WHERE secret_id = ?;`, secretURI.ID)
+	s.assertExecSQL(c, `DELETE FROM secret_reference WHERE secret_id = ?;`, secretURI.ID)
 
 	s.assertChangeLogCount(c, 1, tableSecretReference, 1)
 	s.assertChangeLogCount(c, 2, tableSecretReference, 1)
 	s.assertChangeLogCount(c, 4, tableSecretReference, 1)
 
 	charmUUID := utils.MustNewUUID().String()
-	s.assertExecSQL(c, "INSERT INTO charm (uuid, name) VALUES (?, 'mysql');", "", charmUUID)
+	s.assertExecSQL(c, "INSERT INTO charm (uuid) VALUES (?);", charmUUID)
+	s.assertExecSQL(c, "INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'mysql');", charmUUID)
+	s.assertExecSQL(c, "INSERT INTO charm_origin (charm_uuid, reference_name) VALUES (?, 'mysql');", charmUUID)
 
 	appUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
 INSERT INTO application (uuid, charm_uuid, name, life_id, password_hash_algorithm_id, password_hash) 
-VALUES (?, ?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');`, "", appUUID, charmUUID)
+VALUES (?, ?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');`, appUUID, charmUUID)
 
 	netNodeUUID := utils.MustNewUUID().String()
-	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, "", netNodeUUID)
+	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, netNodeUUID)
 	unitUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
 INSERT INTO unit (uuid, life_id, name, application_uuid, net_node_uuid, charm_uuid, resolve_kind_id) 
 VALUES (?, 0, 0, ?, ?, ?, 0);`,
-		"", unitUUID, appUUID, netNodeUUID, charmUUID)
+		unitUUID, appUUID, netNodeUUID, charmUUID)
 }
 
 func (s *schemaSuite) TestControllerTriggersForImmutableTables(c *gc.C) {
@@ -843,21 +849,21 @@ func (s *schemaSuite) TestControllerTriggersForImmutableTables(c *gc.C) {
 	backendUUID2 := utils.MustNewUUID().String()
 	s.assertExecSQL(c,
 		"INSERT INTO secret_backend (uuid, name, backend_type_id) VALUES (?, 'controller-sb', 0);",
-		"", backendUUID1)
+		backendUUID1)
 	s.assertExecSQL(c,
 		"INSERT INTO secret_backend (uuid, name, backend_type_id) VALUES (?, 'kubernetes-sb', 1);",
-		"", backendUUID2)
-	s.assertExecSQL(c,
+		backendUUID2)
+	s.assertExecSQLError(c,
 		"UPDATE secret_backend SET name = 'new-name' WHERE uuid = ?",
 		"secret backends with type controller or kubernetes are immutable", backendUUID1)
-	s.assertExecSQL(c,
+	s.assertExecSQLError(c,
 		"UPDATE secret_backend SET name = 'new-name' WHERE uuid = ?",
 		"secret backends with type controller or kubernetes are immutable", backendUUID2)
 
-	s.assertExecSQL(c,
+	s.assertExecSQLError(c,
 		"DELETE FROM secret_backend WHERE uuid = ?;",
 		"secret backends with type controller or kubernetes are immutable", backendUUID1)
-	s.assertExecSQL(c,
+	s.assertExecSQLError(c,
 		"DELETE FROM secret_backend WHERE uuid = ?;",
 		"secret backends with type controller or kubernetes are immutable", backendUUID2)
 }
@@ -870,12 +876,12 @@ func (s *schemaSuite) TestModelTriggersForImmutableTables(c *gc.C) {
 	s.assertExecSQL(c, `
 INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud, cloud_type, cloud_region)
 VALUES (?, ?, ?, 'my-model', 'caas', 'cloud-1', 'kubernetes', 'cloud-region-1');`,
-		"", modelUUID, controllerUUID, jujuversion.Current.String())
-	s.assertExecSQL(c,
+		modelUUID, controllerUUID, jujuversion.Current.String())
+	s.assertExecSQLError(c,
 		"UPDATE model SET name = 'new-name' WHERE uuid = ?",
 		"model table is immutable", modelUUID)
 
-	s.assertExecSQL(c,
+	s.assertExecSQLError(c,
 		"DELETE FROM model WHERE uuid = ?;",
 		"model table is immutable", modelUUID)
 }

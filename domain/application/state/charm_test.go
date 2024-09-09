@@ -32,11 +32,20 @@ func (s *charmStateSuite) TestGetCharmIDByRevision(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name) VALUES (?, 'foo')`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid) VALUES (?)`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'foo')`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO charm_origin (reference_name, charm_uuid, revision) VALUES (?, ?, 1)`, "foo", id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		return nil
 	})
@@ -92,8 +101,15 @@ func (s *charmStateSuite) TestIsControllerCharmWithControllerCharm(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name) VALUES (?, 'juju-controller')`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid) VALUES (?)`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'juju-controller')`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -109,8 +125,15 @@ func (s *charmStateSuite) TestIsControllerCharmWithNoControllerCharm(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name) VALUES (?, 'ubuntu')`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid) VALUES (?)`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'ubuntu')`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,8 +158,15 @@ func (s *charmStateSuite) TestIsSubordinateCharmWithSubordinateCharm(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name, subordinate) VALUES (?, 'ubuntu', true)`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid) VALUES (?)`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name, subordinate) VALUES (?, 'ubuntu', true)`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -152,8 +182,16 @@ func (s *charmStateSuite) TestIsSubordinateCharmWithNoSubordinateCharm(c *gc.C) 
 	id := charmtesting.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name, subordinate) VALUES (?, 'ubuntu', false)`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid) VALUES (?)`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name, subordinate) VALUES (?, 'ubuntu', false)`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -178,14 +216,25 @@ func (s *charmStateSuite) TestSupportsContainersWithContainers(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name) VALUES (?, 'ubuntu')`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid) VALUES (?)`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'ubuntu')`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO charm_container (charm_uuid, "key") VALUES (?, 'ubuntu@22.04')`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO charm_container (charm_uuid, "key") VALUES (?, 'ubuntu@20.04')`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -201,8 +250,15 @@ func (s *charmStateSuite) TestSupportsContainersWithNoContainers(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name, subordinate) VALUES (?, 'ubuntu', false)`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid) VALUES (?)`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name, subordinate) VALUES (?, 'ubuntu', false)`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -227,11 +283,15 @@ func (s *charmStateSuite) TestIsCharmAvailableWithAvailable(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name) VALUES (?, 'ubuntu')`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, available) VALUES (?, true)`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, true)`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'ubuntu')`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -247,11 +307,15 @@ func (s *charmStateSuite) TestIsCharmAvailableWithNotAvailable(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name) VALUES (?, 'ubuntu')`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, available) VALUES (?, false)`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'ubuntu')`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -276,11 +340,15 @@ func (s *charmStateSuite) TestSetCharmAvailable(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name) VALUES (?, 'ubuntu')`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, available) VALUES (?, false)`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'ubuntu')`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -312,11 +380,20 @@ func (s *charmStateSuite) TestReserveCharmRevision(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name, run_as_id) VALUES (?, 'ubuntu', 0)`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, available) VALUES (?, false)`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, id.String())
-		c.Assert(err, jc.ErrorIsNil)
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name, run_as_id) VALUES (?, 'ubuntu', 0)`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm_origin (charm_uuid, reference_name) VALUES (?, 'ubuntu')`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1908,9 +1985,9 @@ func (s *charmStateSuite) TestGetCharmLXDProfile(c *gc.C) {
 		}
 
 		_, err := tx.ExecContext(ctx, `
-UPDATE charm 
+UPDATE charm_metadata 
 SET lxd_profile = ?
-WHERE uuid = ?
+WHERE charm_uuid = ?
 `, `{"profile": []}`, uuid)
 		if err != nil {
 			return errors.Trace(err)
@@ -1936,6 +2013,25 @@ func (s *charmStateSuite) TestGetCharmLXDProfileCharmNotFound(c *gc.C) {
 
 	_, err := st.GetCharmLXDProfile(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *charmStateSuite) TestGetCharmLXDProfileLXDProfileNotFound(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+	uuid := id.String()
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, available) VALUES (?, false)`, uuid)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.GetCharmLXDProfile(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.LXDProfileNotFound)
 }
 
 func (s *charmStateSuite) TestGetCharmConfig(c *gc.C) {
@@ -2239,14 +2335,14 @@ func (s *charmStateSuite) TestGetCharmArchivePathCharmNotFound(c *gc.C) {
 }
 
 func insertCharmState(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) error {
-	_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
-VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
+	_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, available) VALUES (?, false)`, uuid)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, uuid)
+	_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_metadata (charm_uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
+VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
 	if err != nil {
 		return errors.Trace(err)
 	}

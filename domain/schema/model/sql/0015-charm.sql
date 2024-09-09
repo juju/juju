@@ -12,8 +12,21 @@ INSERT INTO charm_run_as_kind VALUES
 (2, 'sudoer'),
 (3, 'non-root');
 
+-- The charm table exists as the nexus to all charm data. 
+--
+-- The fact that the charm is in the database indicates that it's a placeholder.
+-- Updating the available flag to true indicates that the charm is now available
+-- for deployment.
 CREATE TABLE charm (
     uuid TEXT NOT NULL PRIMARY KEY,
+    -- Archive path is the path to the charm archive on disk. This is used to
+    -- determine the source of the charm.
+    archive_path TEXT,
+    available BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE charm_metadata (
+    charm_uuid TEXT NOT NULL,
     -- name represents the original name of the charm. This is what is stored
     -- in the charm metadata.yaml file.
     name TEXT NOT NULL,
@@ -28,43 +41,28 @@ CREATE TABLE charm (
     -- blob without constraining the expression to a specific set of rules.
     assumes TEXT,
     lxd_profile TEXT,
-    -- Archive path is the path to the charm archive on disk. This is used to
-    -- determine the source of the charm.
-    archive_path TEXT,
     CONSTRAINT fk_charm_run_as_kind_charm
     FOREIGN KEY (run_as_id)
-    REFERENCES charm_run_as_kind (id)
-);
-
-CREATE VIEW v_charm AS
-SELECT
-    c.uuid,
-    c.name,
-    c.description,
-    c.summary,
-    c.subordinate,
-    c.min_juju_version,
-    crak.name AS run_as,
-    c.assumes
-FROM charm AS c
-LEFT JOIN charm_run_as_kind AS crak ON c.run_as_id = crak.id;
-
--- The charm_state table exists to store the availability of a charm. The
--- fact that the charm is in the database indicates that it's a placeholder.
--- Updating the available flag to true indicates that the charm is now
--- available for deployment.
--- This is exists as a separate table as the charm table models the charm
--- metadata and the goal state of the charm. The charm_state table models the
--- internal state of the charm.
-CREATE TABLE charm_state (
-    charm_uuid TEXT NOT NULL,
-    -- Available is a flag that indicates whether the charm is available for
-    -- deployment.
-    available BOOLEAN,
-    CONSTRAINT fk_charm_state_charm
+    REFERENCES charm_run_as_kind (id),
+    CONSTRAINT fk_charm_metadata_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid)
 );
+
+CREATE VIEW v_charm_metadata AS
+SELECT
+    c.uuid,
+    cm.name,
+    cm.description,
+    cm.summary,
+    cm.subordinate,
+    cm.min_juju_version,
+    crak.name AS run_as,
+    cm.assumes,
+    c.available
+FROM charm AS c
+LEFT JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid
+LEFT JOIN charm_run_as_kind AS crak ON cm.run_as_id = crak.id;
 
 CREATE TABLE charm_source (
     id INT PRIMARY KEY,
@@ -490,7 +488,7 @@ ON charm_container_mount (charm_uuid);
 CREATE VIEW v_charm_url AS
 SELECT
     c.uuid,
-    cs.name || ':' || c.name || '-' || COALESCE(co.revision, 0) AS url
+    cs.name || ':' || co.reference_name || '-' || COALESCE(co.revision, 0) AS url
 FROM charm AS c
 INNER JOIN charm_origin AS co ON c.uuid = co.charm_uuid
 LEFT JOIN charm_source AS cs ON co.source_id = cs.id;

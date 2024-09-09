@@ -105,7 +105,7 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 	)
 
 	originInfo := setCharmOrigin{
-		CharmID: charmID.String(),
+		CharmUUID: charmID.String(),
 		// Set the Name on charm origin to the application name. This is
 		// because the charm metadata.yaml can differ from the charm name
 		// that was used to create the application.
@@ -123,7 +123,7 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 	}
 
 	charmPlatformInfo := charmPlatform{
-		CharmID:        charmID.String(),
+		CharmUUID:      charmID.String(),
 		OSTypeID:       int(app.Platform.OSType),
 		Channel:        app.Platform.Channel,
 		ArchitectureID: int(app.Platform.Architecture),
