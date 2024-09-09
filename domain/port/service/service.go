@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/port"
 )
 
 // WildcardEndpoint is a special endpoint that represents all endpoints.
@@ -20,6 +21,11 @@ const WildcardEndpoint = ""
 // context.
 type AtomicState interface {
 	domain.AtomicStateBase
+
+	// GetColocatedOpenedPorts returns all the open ports for all units co-located
+	// with the given unit. Units are considered co-located if they share the same
+	// net-node.
+	GetColocatedOpenedPorts(ctx domain.AtomicContext, unitUUID string) ([]network.PortRange, error)
 
 	// GetOpenedEndpointPorts returns the opened ports for a given endpoint of a
 	// given unit.
@@ -87,7 +93,10 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID string, openPort
 	if len(openPorts.UniquePortRanges())+len(closePorts.UniquePortRanges()) == 0 {
 		return nil
 	}
-	err := verifyNoPortRangeConflicts(openPorts, closePorts)
+
+	allInputPortRanges := append(openPorts.UniquePortRanges(), closePorts.UniquePortRanges()...)
+	//  verify input port ranges do not conflict with each other.
+	err := verifyNoPortRangeConflicts(allInputPortRanges, allInputPortRanges)
 	if err != nil {
 		return errors.Annotate(err, "cannot update unit ports with conflict(s)")
 	}
@@ -106,6 +115,17 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID string, openPort
 	}
 
 	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		// Verify input port ranges do no conflict with any port ranges co-located
+		// with the unit.
+		colocatedOpened, err := s.st.GetColocatedOpenedPorts(ctx, unitUUID)
+		if err != nil {
+			return errors.Annotate(err, "failed to get co-located opened ports")
+		}
+		err = verifyNoPortRangeConflicts(allInputPortRanges, colocatedOpened)
+		if err != nil {
+			return errors.Annotate(err, "cannot update unit ports with conflict(s) on co-located units")
+		}
+
 		wildcardOpen, _ := openPorts[WildcardEndpoint]
 		wildcardClose, _ := closePorts[WildcardEndpoint]
 
@@ -213,17 +233,15 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID string, openPort
 	return errors.Annotate(err, "failed to update unit ports")
 }
 
-// verifyNoPortRangeConflicts verifies the provided open and close port ranges
-// include no conflicts.
+// verifyNoPortRangeConflicts verifies the provided port ranges do not conflict
+// with each other.
 //
 // A conflict occurs when two (or more) port ranges across all endpoints overlap,
 // but are not equal.
-func verifyNoPortRangeConflicts(openPorts, closePorts network.GroupedPortRanges) error {
-	allPortRanges := append(openPorts.UniquePortRanges(), closePorts.UniquePortRanges()...)
-
+func verifyNoPortRangeConflicts(rangesA, rangesB []network.PortRange) error {
 	var conflicts []string
-	for i, portRange := range allPortRanges {
-		for _, otherPortRange := range allPortRanges[i+1:] {
+	for _, portRange := range rangesA {
+		for _, otherPortRange := range rangesB {
 			if portRange.ConflictsWith(otherPortRange) && portRange != otherPortRange {
 				conflicts = append(conflicts, fmt.Sprintf("[%s, %s]", portRange, otherPortRange))
 			}
@@ -232,5 +250,5 @@ func verifyNoPortRangeConflicts(openPorts, closePorts network.GroupedPortRanges)
 	if len(conflicts) == 0 {
 		return nil
 	}
-	return errors.NotValidf("conflicting port ranges: %s", conflicts)
+	return errors.Annotatef(port.ErrPortRangeConflict, "conflicting port ranges: %s", conflicts)
 }

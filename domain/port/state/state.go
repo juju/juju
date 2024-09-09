@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
@@ -126,7 +127,49 @@ WHERE machine.uuid = $machineUUID.machine_uuid
 		}
 		groupedPortRanges[unitUUID][endpointPortRange.Endpoint] = append(groupedPortRanges[unitUUID][endpointPortRange.Endpoint], endpointPortRange.decode())
 	}
+
+	for _, grp := range groupedPortRanges {
+		for _, portRanges := range grp {
+			network.SortPortRanges(portRanges)
+		}
+	}
+
 	return groupedPortRanges, nil
+}
+
+// GetColocatedOpenedPorts returns all the open ports for all units co-located with
+// the given unit. Units are considered co-located if they share the same net-node.
+func (st *State) GetColocatedOpenedPorts(ctx domain.AtomicContext, unit string) ([]network.PortRange, error) {
+	unitUUID := unitUUID{UUID: unit}
+
+	getOpenedPorts, err := st.Prepare(`
+SELECT &portRange.*
+FROM port_range AS pr
+JOIN protocol AS p ON pr.protocol_id = p.id
+JOIN unit_endpoint AS ep ON pr.unit_endpoint_uuid = ep.uuid
+JOIN unit AS u ON ep.unit_uuid = u.uuid
+JOIN unit AS u2 on u2.net_node_uuid = u.net_node_uuid
+WHERE u2.uuid = $unitUUID.unit_uuid
+`, portRange{}, unitUUID)
+	if err != nil {
+		return nil, errors.Annotate(err, "preparing get machine opened ports statement")
+	}
+
+	portRanges := []portRange{}
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, getOpenedPorts, unitUUID).GetAll(&portRanges)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting opened ports for unit %q", unit)
+	}
+
+	ret := transform.Slice(portRanges, func(p portRange) network.PortRange { return p.decode() })
+	network.SortPortRanges(ret)
+	return ret, nil
 }
 
 // GetEndpointOpenedPorts returns the opened ports for a given endpoint of a
@@ -185,17 +228,6 @@ func (st *State) UpdateUnitPorts(
 	unitUUID := unitUUID{UUID: unit}
 
 	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		colocatedOpenedPorts, err := st.getColocatedOpenedPorts(ctx, tx, unitUUID)
-		if err != nil {
-			return errors.Annotatef(err, "getting opened ports co-located with unit %q", unit)
-		}
-
-		allInputPortRanges := append(openPorts.UniquePortRanges(), closePorts.UniquePortRanges()...)
-		err = verifyNoPortRangeConflicts(colocatedOpenedPorts, allInputPortRanges)
-		if err != nil {
-			return errors.Annotate(err, "port range conflict with existing open port range")
-		}
-
 		endpoints, err := st.ensureEndpoints(ctx, tx, unitUUID, endpointsUnderAction)
 		if err != nil {
 			return errors.Annotatef(err, "ensuring endpoints exist for unit %q", unit)
@@ -283,35 +315,6 @@ AND endpoint IN ($endpoints[:])
 	return endpoints, nil
 }
 
-// getColocatedOpenedPorts returns the opened ports for all units co-located with
-// the given unit.
-//
-// Units are considered co-located if they share the same net-node.
-func (st *State) getColocatedOpenedPorts(ctx context.Context, tx *sqlair.TX, unitUUID unitUUID) ([]portRange, error) {
-	getOpenedPorts, err := st.Prepare(`
-SELECT &portRange.*
-FROM port_range AS pr
-JOIN protocol AS p ON pr.protocol_id = p.id
-JOIN unit_endpoint AS ep ON pr.unit_endpoint_uuid = ep.uuid
-JOIN unit AS u ON ep.unit_uuid = u.uuid
-JOIN unit AS u2 on u2.net_node_uuid = u.net_node_uuid
-WHERE u2.uuid = $unitUUID.unit_uuid
-`, portRange{}, unitUUID)
-	if err != nil {
-		return nil, errors.Annotate(err, "preparing get machine opened ports statement")
-	}
-
-	var openedPorts []portRange
-	err = tx.Query(ctx, getOpenedPorts, unitUUID).GetAll(&openedPorts)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return []portRange{}, nil
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return openedPorts, nil
-}
-
 // getUnitOpenedPorts returns the opened ports for the given unit.
 //
 // NOTE: This differs from GetUnitOpenedPorts in that it returns port ranges with
@@ -342,23 +345,6 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 		return nil, errors.Trace(err)
 	}
 	return openedPorts, nil
-}
-
-func verifyNoPortRangeConflicts(currentOpenedPorts []portRange, inputPortRanges []network.PortRange) error {
-	for _, inputPortRange := range inputPortRanges {
-		for _, openedPortRange := range currentOpenedPorts {
-			if inputPortRange == openedPortRange.decode() {
-				// We allow port ranges to conflict only if they are equal
-				continue
-			}
-			if inputPortRange.ConflictsWith(openedPortRange.decode()) {
-				return errors.Annotatef(ErrPortRangeConflict,
-					"port range %q conflicts with existing port range %q",
-					inputPortRange, openedPortRange.decode())
-			}
-		}
-	}
-	return nil
 }
 
 // openPorts inserts the given port ranges into the database, unless they're already open.
