@@ -13,13 +13,17 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
 
 type serviceSuite struct {
 	controllerKeyProvider *MockControllerKeyProvider
 	state                 *MockState
-	watchableState        *MockWatchableState
+	controllerState       *MockControllerState
+
+	modelId model.UUID
 }
 
 var (
@@ -36,11 +40,15 @@ var (
 	}
 )
 
+func (s *serviceSuite) SetUpTest(c *gc.C) {
+	s.modelId = modeltesting.GenModelUUID(c)
+}
+
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerKeyProvider = NewMockControllerKeyProvider(ctrl)
 	s.state = NewMockState(ctrl)
-	s.watchableState = NewMockWatchableState(ctrl)
+	s.controllerState = NewMockControllerState(ctrl)
 	return ctrl
 }
 
@@ -50,13 +58,15 @@ func (s *serviceSuite) TestAuthorisedKeysForMachine(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerKeyProvider.EXPECT().ControllerAuthorisedKeys(gomock.Any()).Return(controllerKeys, nil)
-	s.state.EXPECT().AuthorisedKeysForMachine(gomock.Any(), coremachine.Name("0")).Return(machineKeys, nil)
+	s.state.EXPECT().GetModelId(gomock.Any()).Return(s.modelId, nil)
+	s.state.EXPECT().CheckMachineExists(gomock.Any(), coremachine.Name("0")).Return(nil)
+	s.controllerState.EXPECT().GetUserAuthorizedKeysForModel(gomock.Any(), s.modelId).Return(machineKeys, nil)
 
 	expected := make([]string, 0, len(controllerKeys)+len(machineKeys))
 	expected = append(expected, controllerKeys...)
 	expected = append(expected, machineKeys...)
 
-	keys, err := NewService(s.controllerKeyProvider, s.state).GetAuthorisedKeysForMachine(
+	keys, err := NewService(s.controllerKeyProvider, s.controllerState, s.state).GetAuthorisedKeysForMachine(
 		context.Background(),
 		coremachine.Name("0"),
 	)
@@ -73,12 +83,14 @@ func (s *serviceSuite) TestAuthorisedKeysForMachineNoControllerKeys(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerKeyProvider.EXPECT().ControllerAuthorisedKeys(gomock.Any()).Return(nil, nil)
-	s.state.EXPECT().AuthorisedKeysForMachine(gomock.Any(), coremachine.Name("0")).Return(machineKeys, nil)
+	s.state.EXPECT().GetModelId(gomock.Any()).Return(s.modelId, nil)
+	s.state.EXPECT().CheckMachineExists(gomock.Any(), coremachine.Name("0")).Return(nil)
+	s.controllerState.EXPECT().GetUserAuthorizedKeysForModel(gomock.Any(), s.modelId).Return(machineKeys, nil)
 
 	expected := make([]string, 0, len(machineKeys))
 	expected = append(expected, machineKeys...)
 
-	keys, err := NewService(s.controllerKeyProvider, s.state).GetAuthorisedKeysForMachine(
+	keys, err := NewService(s.controllerKeyProvider, s.controllerState, s.state).GetAuthorisedKeysForMachine(
 		context.Background(),
 		coremachine.Name("0"),
 	)
@@ -95,9 +107,9 @@ func (s *serviceSuite) TestAuthorisedKeysForMachineNoControllerKeys(c *gc.C) {
 func (s *serviceSuite) TestAuthorisedKeysForMachineNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().AuthorisedKeysForMachine(gomock.Any(), coremachine.Name("0")).Return(nil, machineerrors.MachineNotFound)
+	s.state.EXPECT().CheckMachineExists(gomock.Any(), coremachine.Name("0")).Return(machineerrors.MachineNotFound)
 
-	_, err := NewService(s.controllerKeyProvider, s.state).GetAuthorisedKeysForMachine(
+	_, err := NewService(s.controllerKeyProvider, s.controllerState, s.state).GetAuthorisedKeysForMachine(
 		context.Background(),
 		coremachine.Name("0"),
 	)
@@ -109,9 +121,11 @@ func (s *serviceSuite) TestAuthorisedKeysForMachineNotFound(c *gc.C) {
 func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().AllAuthorisedKeys(gomock.Any()).Return(controllerKeys, nil)
+	s.controllerKeyProvider.EXPECT().ControllerAuthorisedKeys(gomock.Any()).Return(nil, nil)
+	s.state.EXPECT().GetModelId(gomock.Any()).Return(s.modelId, nil)
+	s.controllerState.EXPECT().GetUserAuthorizedKeysForModel(gomock.Any(), s.modelId).Return(controllerKeys, nil)
 
-	keys, err := NewService(s.controllerKeyProvider, s.state).
+	keys, err := NewService(s.controllerKeyProvider, s.controllerState, s.state).
 		GetInitialAuthorisedKeysForContainer(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(keys, jc.DeepEquals, controllerKeys)
@@ -122,9 +136,16 @@ func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerSuccess(c *gc.C) 
 func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerFailure(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().AllAuthorisedKeys(gomock.Any()).Return(nil, errors.New("foo"))
+	boom := errors.New("boom")
 
-	_, err := NewService(s.controllerKeyProvider, s.state).
+	s.controllerKeyProvider.EXPECT().ControllerAuthorisedKeys(gomock.Any()).Return(nil, nil).AnyTimes()
+	s.state.EXPECT().GetModelId(gomock.Any()).Return(s.modelId, nil)
+	s.controllerState.EXPECT().GetUserAuthorizedKeysForModel(gomock.Any(), s.modelId).Return(
+		nil,
+		boom,
+	)
+
+	_, err := NewService(s.controllerKeyProvider, s.controllerState, s.state).
 		GetInitialAuthorisedKeysForContainer(context.Background())
-	c.Check(err, gc.ErrorMatches, ".*foo")
+	c.Check(err, jc.ErrorIs, boom)
 }

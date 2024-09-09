@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	coremachine "github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/watcher"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -115,7 +114,6 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.En
 			)
 		}
 
-		notifyWatcher, err := watcher.Normalise[[]string](keysWatcher)
 		if err != nil {
 			return params.NotifyWatchResults{}, fmt.Errorf(
 				"converting machine %q authorised keys watcher to notify watcher: %w",
@@ -124,7 +122,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.En
 		}
 
 		results[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher[struct{}](
-			ctx, api.watcherRegistry, notifyWatcher,
+			ctx, api.watcherRegistry, keysWatcher,
 		)
 		if err != nil {
 			return params.NotifyWatchResults{}, fmt.Errorf(

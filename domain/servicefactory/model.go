@@ -173,12 +173,13 @@ func (s *ModelFactory) KeyManagerWithImporter(
 // KeyUpdater returns the model's key updater service. Use this service when
 // wanting to retrieve the authorised ssh public keys for a model.
 func (s *ModelFactory) KeyUpdater() *keyupdaterservice.WatchableService {
-	// The keyupdater service requires information from both the model and
-	// controller databases. We supply the controller DB dependency via a
-	// provider service to abstract the source of the information.
+	controllerState := keyupdaterstate.NewControllerState(
+		changestream.NewTxnRunnerFactory(s.controllerDB),
+	)
 	return keyupdaterservice.NewWatchableService(
+		controllerState,
 		keyupdaterservice.NewControllerKeyService(
-			keyupdaterstate.NewControllerKeyState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+			controllerState,
 		),
 		keyupdaterstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		domain.NewWatcherFactory(s.modelDB, s.logger.Child("keyupdater")),
