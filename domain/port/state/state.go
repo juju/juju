@@ -9,11 +9,12 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
+	jujuerrors "github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -34,7 +35,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 func (st *State) GetUnitOpenedPorts(ctx context.Context, unit string) (network.GroupedPortRanges, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 
 	unitUUID := unitUUID{UUID: unit}
@@ -47,7 +48,7 @@ JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
 WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 `, endpointPortRange{}, unitUUID)
 	if err != nil {
-		return nil, errors.Annotate(err, "preparing get unit opened ports statement")
+		return nil, errors.Errorf("preparing get unit opened ports statement: %w", err)
 	}
 
 	results := []endpointPortRange{}
@@ -56,10 +57,10 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	})
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting opened ports for unit %q", unit)
+		return nil, errors.Errorf("getting opened ports for unit %q: %w", unit, err)
 	}
 
 	groupedPortRanges := network.GroupedPortRanges{}
@@ -86,7 +87,7 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 func (st *State) GetMachineOpenedPorts(ctx context.Context, machine string) (map[string]network.GroupedPortRanges, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 
 	machineUUID := machineUUID{UUID: machine}
@@ -101,7 +102,7 @@ JOIN machine ON unit.net_node_uuid = machine.net_node_uuid
 WHERE machine.uuid = $machineUUID.machine_uuid
 `, unitEndpointPortRange{}, machineUUID)
 	if err != nil {
-		return nil, errors.Annotate(err, "preparing get machine opened ports statement")
+		return nil, errors.Errorf("preparing get machine opened ports statement: %w", err)
 	}
 
 	results := []unitEndpointPortRange{}
@@ -110,10 +111,10 @@ WHERE machine.uuid = $machineUUID.machine_uuid
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	})
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting opened ports for machine %q", machine)
+		return nil, errors.Errorf("getting opened ports for machine %q: %w", machine, err)
 	}
 
 	groupedPortRanges := map[string]network.GroupedPortRanges{}
@@ -152,7 +153,7 @@ JOIN unit AS u2 on u2.net_node_uuid = u.net_node_uuid
 WHERE u2.uuid = $unitUUID.unit_uuid
 `, portRange{}, unitUUID)
 	if err != nil {
-		return nil, errors.Annotate(err, "preparing get machine opened ports statement")
+		return nil, errors.Errorf("preparing get colocated opened ports statement: %w", err)
 	}
 
 	portRanges := []portRange{}
@@ -161,10 +162,10 @@ WHERE u2.uuid = $unitUUID.unit_uuid
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	})
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting opened ports for unit %q", unit)
+		return nil, errors.Errorf("getting opened ports for colocated units with %q: %w", unit, err)
 	}
 
 	ret := transform.Slice(portRanges, func(p portRange) network.PortRange { return p.decode() })
@@ -187,7 +188,7 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 AND unit_endpoint.endpoint = $endpointName.endpoint
 `, portRange{}, unitUUID, endpointName)
 	if err != nil {
-		return nil, errors.Annotate(err, "preparing get opened ports statement")
+		return nil, errors.Errorf("preparing get endpoint opened ports statement: %w", err)
 	}
 
 	var portRanges []portRange
@@ -196,10 +197,10 @@ AND unit_endpoint.endpoint = $endpointName.endpoint
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	})
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting opened ports for unit %q", unit)
+		return nil, errors.Errorf("getting opened ports for endpoint %q of unit %q: %w", endpoint, unit, err)
 	}
 
 	decodedPortRanges := make([]network.PortRange, len(portRanges))
@@ -230,22 +231,22 @@ func (st *State) UpdateUnitPorts(
 	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		endpoints, err := st.ensureEndpoints(ctx, tx, unitUUID, endpointsUnderAction)
 		if err != nil {
-			return errors.Annotatef(err, "ensuring endpoints exist for unit %q", unit)
+			return errors.Errorf("ensuring endpoints exist for unit %q: %w", unit, err)
 		}
 
 		currentUnitOpenedPorts, err := st.getUnitOpenedPorts(ctx, tx, unitUUID)
 		if err != nil {
-			return errors.Annotatef(err, "getting opened ports for unit %q", unit)
+			return errors.Errorf("getting opened ports for unit %q: %w", unit, err)
 		}
 
 		err = st.openPorts(ctx, tx, openPorts, currentUnitOpenedPorts, endpoints)
 		if err != nil {
-			return errors.Annotatef(err, "opening ports for unit %q", unit)
+			return errors.Errorf("opening ports for unit %q: %w", unit, err)
 		}
 
 		err = st.closePorts(ctx, tx, closePorts, currentUnitOpenedPorts)
 		if err != nil {
-			return errors.Annotatef(err, "closing ports for unit %q", unit)
+			return errors.Errorf("closing ports for unit %q: %w", unit, err)
 		}
 
 		return nil
@@ -267,18 +268,18 @@ WHERE unit_uuid = $unitUUID.unit_uuid
 AND endpoint IN ($endpoints[:])
 `, endpoint{}, unitUUID, endpointsUnderAction)
 	if err != nil {
-		return nil, errors.Annotate(err, "preparing get unit endpoints statement")
+		return nil, errors.Errorf("preparing get unit endpoints statement: %w", err)
 	}
 
 	insertUnitEndpoint, err := st.Prepare("INSERT INTO unit_endpoint (*) VALUES ($unitEndpoint.*)", unitEndpoint{})
 	if err != nil {
-		return nil, errors.Annotate(err, "preparing insert unit endpoint statement")
+		return nil, errors.Errorf("preparing insert unit endpoint statement: %w", err)
 	}
 
 	var endpoints []endpoint
 	err = tx.Query(ctx, getUnitEndpoints, unitUUID, endpointsUnderAction).GetAll(&endpoints)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 
 	foundEndpoints := set.NewStrings()
@@ -292,7 +293,7 @@ AND endpoint IN ($endpoints[:])
 	for i, requiredEndpoint := range requiredEndpoints.Values() {
 		uuid, err := uuid.NewUUID()
 		if err != nil {
-			return nil, errors.Annotatef(err, "generating UUID for unit endpoint")
+			return nil, errors.Errorf("generating UUID for unit endpoint: %w", err)
 		}
 		newUnitEndpoints[i] = unitEndpoint{
 			UUID:     uuid.String(),
@@ -308,7 +309,7 @@ AND endpoint IN ($endpoints[:])
 	if len(newUnitEndpoints) > 0 {
 		err = tx.Query(ctx, insertUnitEndpoint, newUnitEndpoints).Run()
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, jujuerrors.Trace(err)
 		}
 	}
 
@@ -333,7 +334,7 @@ JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
 WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 `, endpointPortRangeUUID{}, unitUUID)
 	if err != nil {
-		return nil, errors.Annotate(err, "preparing get opened ports statement")
+		return nil, errors.Errorf("preparing get opened ports statement: %w", err)
 	}
 
 	var openedPorts []endpointPortRangeUUID
@@ -342,7 +343,7 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 		return []endpointPortRangeUUID{}, nil
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 	return openedPorts, nil
 }
@@ -354,12 +355,12 @@ func (st *State) openPorts(
 ) error {
 	insertPortRange, err := st.Prepare("INSERT INTO port_range (*) VALUES ($unitPortRange.*)", unitPortRange{})
 	if err != nil {
-		return errors.Annotate(err, "preparing insert port range statement")
+		return errors.Errorf("preparing insert port range statement: %w", err)
 	}
 
 	protocolMap, err := st.getProtocolMap(ctx, tx)
 	if err != nil {
-		return errors.Annotate(err, "getting protocol map")
+		return errors.Errorf("getting protocol map: %w", err)
 	}
 
 	// index the current opened ports by endpoint and port range
@@ -388,7 +389,7 @@ func (st *State) openPorts(
 
 			uuid, err := uuid.NewUUID()
 			if err != nil {
-				return errors.Annotatef(err, "generating UUID for unit endpoint")
+				return errors.Errorf("generating UUID for unit endpoint: %w", err)
 			}
 			openPortRanges = append(openPortRanges, unitPortRange{
 				UUID:             uuid.String(),
@@ -403,7 +404,7 @@ func (st *State) openPorts(
 	if len(openPortRanges) > 0 {
 		err = tx.Query(ctx, insertPortRange, openPortRanges).Run()
 		if err != nil {
-			return errors.Trace(err)
+			return jujuerrors.Trace(err)
 		}
 	}
 	return nil
@@ -413,13 +414,13 @@ func (st *State) openPorts(
 func (st *State) getProtocolMap(ctx context.Context, tx *sqlair.TX) (map[string]int, error) {
 	getProtocols, err := st.Prepare("SELECT &protocol.* FROM protocol", protocol{})
 	if err != nil {
-		return nil, errors.Annotate(err, "preparing get protocol ID statement")
+		return nil, errors.Errorf("preparing get protocol ID statement: %w", err)
 	}
 
 	protocols := []protocol{}
 	err = tx.Query(ctx, getProtocols).GetAll(&protocols)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 
 	protocolMap := map[string]int{}
@@ -439,7 +440,7 @@ DELETE FROM port_range
 WHERE uuid IN ($portRangeUUIDs[:])
 `, portRangeUUIDs{})
 	if err != nil {
-		return errors.Annotate(err, "preparing close port range statement")
+		return errors.Errorf("preparing close port range statement: %w", err)
 	}
 
 	// index the uuids of current opened ports by endpoint and port range
@@ -471,7 +472,7 @@ WHERE uuid IN ($portRangeUUIDs[:])
 	if len(closePortRangeUUIDs) > 0 {
 		err = tx.Query(ctx, closePortRanges, closePortRangeUUIDs).Run()
 		if err != nil {
-			return errors.Trace(err)
+			return jujuerrors.Trace(err)
 		}
 	}
 	return nil
@@ -494,7 +495,7 @@ FROM unit_endpoint
 WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 `, endpointName{}, unitUUID)
 	if err != nil {
-		return nil, errors.Annotate(err, "preparing get endpoints statement")
+		return nil, errors.Errorf("preparing get endpoints statement: %w", err)
 	}
 
 	var endpointNames []endpointName
@@ -503,10 +504,10 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	})
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting endpoints for unit %q", unit)
+		return nil, errors.Errorf("getting endpoints for unit %q: %w", unit, err)
 	}
 
 	endpoints := make([]string, len(endpointNames))

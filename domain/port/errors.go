@@ -3,7 +3,7 @@
 
 package port
 
-import "github.com/juju/errors"
+import "github.com/juju/juju/internal/errors"
 
 var (
 	ErrPortRangeConflict = errors.ConstError("port range conflict")

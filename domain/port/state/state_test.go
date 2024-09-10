@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -20,6 +19,7 @@ import (
 	applicationstate "github.com/juju/juju/domain/application/state"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/internal/changestream/testing"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/logger"
 )
 
@@ -69,7 +69,7 @@ func (s *stateSuite) createUnit(c *gc.C, netNodeUUID string) string {
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&unitUUID)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 
 		_, err = tx.ExecContext(ctx, "INSERT INTO net_node VALUES (?) ON CONFLICT DO NOTHING", netNodeUUID)
@@ -77,7 +77,7 @@ func (s *stateSuite) createUnit(c *gc.C, netNodeUUID string) string {
 
 		_, err = tx.ExecContext(ctx, "UPDATE unit SET net_node_uuid = ? WHERE name = ?", netNodeUUID, unitName)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 
 		return nil
