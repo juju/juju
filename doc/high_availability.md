@@ -1,110 +1,83 @@
-High Availability (HA)
-======================
+# Controller high availability (HA)
 
+See first: [Juju user docs | How to make a controller highly available]
 
-High Availability in general terms means that we have 3 or more (up to 7) 
-State Machines, each one of which can be used as the master.
+This document details controller and agent behaviour when running controllers 
+in
+HA mode.
 
-This is an overview of how it works:
+## Dqlite
 
-### Mongo
-_Mongo_ is always started in [replicaset mode](http://docs.mongodb.org/manual/replication/).
+Each controller is a [Dqlite] node. The `dbaccessor` worker on each controller is 
+responsible for maintaining the Dqlite cluster. When entering HA mode, the 
+`dbaccessor` worker will configure the local Dqlite node as a member of the 
+cluster.
 
- If not in HA, this will behave as if it were a single mongodb and, in practical 
-terms there is no difference with a regular setup.
+When starting Dqlite, the worker must bind it to an IP address. The address is 
+read from the controller configuration file populated by the controller charm. 
+If there is no address to use for binding, the worker will wait for one to be
+written to the file before attempting to join the cluster. 
+See _Controller Charm_ below.
 
-### Voting
+Each Dqlite node has a role within the cluster. Juju does not manage node 
+roles; this is handled within Dqlite itself. A cluster is constituted by:
+- one _leader_ to which all database reads and writes are redirected,
+- up to two other _voters_ that participate in leader elections,
+- _stand-bys_; and
+- _spares_.
 
-A voting member of the replicaset is a one that has a say in which member is master.
+If the number of controller instances is reduced to one, the `dbaccessor` 
+worker detects this scenario and reconfigures the cluster with the local node 
+as the only member.
 
-A non-voting member is just a storage backup.
+## Controller charm
 
-Currently we don't support non-voting members; instead when a member is non-voting it
-means that said controller is going to be removed entirely.
+The controller charm propagates bind addresses to the `dbaccessor` worker by 
+writing them to the controller configuration file. Each controller unit shares 
+its resolved bind address with the other units via the `db-cluster` peer 
+relation. The charm must be able to determine a unique address in the 
+local-cloud scope before it is shared with other units and written to the 
+configuration file. If no unique address can be determined, the user must supply 
+an endpoint binding for the relation using a space that ensures a unique IP 
+address.
 
-### Ensure availability
+## API addresses for agents
 
-There is a `ensure-availabiity` command for juju, it takes `-n` (minimum number
- of state machines) as an optional parameter; if it's not provided it will 
-default to 3.
+When machines in the control plane change,  the `api-address-updater` worker
+for each agent re-writes the agent's configuration file with usable API 
+addresses from all controllers. Agents will try these addresses in random order
+until they establish a successful controller connection.
 
- This needs to be an odd number in order to prevent ties during voting.
- 
- The number cannot be larger than seven (making the current possibilities: 3, 
-5 and 7) due to limitations of mongodb, which cannot have more than 7
-replica set voting members.
- 
- Currently the number can be increased but not decreased (this is planned). 
-In the first case Juju will bring up as many machines as necessary to meet the 
-requirement; in the second nothing will happen since the rule tries to have 
-_"at least that many"_
- 
- At present there is no way to reduce the number of machines, you can kill by 
-hand enough machines to reduce to a number you need, but this is risky and 
-**not recommended**. If you kill less than half of the machines (half+1
-remaining) running `enable-ha` again will add more machines to 
-replace the dead ones. If you kill more there is no way to recover as there 
-are not enough voting machines.
- 
- The EnableHA API call will report will report the changes that it 
-made to the model, which will shortly be reflected in reality
-### The API 
+The list of addresses supplied to agent configuration can be influenced by the
+`juju-mgmt-space` controller configuration value. This is supplied with a space
+name so that agent-controller communication can be isolated to specific 
+networks.
 
- There is an API server running on all State Machines, these talk to all
-the peers but queries and updates are addressed to the mongo master instance.
- 
- Unit and machine agents connect to any of the API servers, by trying to connect
-to all the addresses concurrently, but not simultaneously. It starts to try each
-address in turn after a short delay. After a successful connection, the
-connected address will be stored; it will be tried first when next connecting.
+## API addresses for clients
 
-### The peergrouper worker:
- 
- It looks at the current state and decides what the peergroup members should 
-look like and continually tries to maintain those members.
+Each time the Juju client establishes a connection to the Juju controller, the
+controller sends the current list of API addresses and the client updates these 
+in the local store. The client's first connection attempt is always to the last 
+address that it used successfully. Others are tried subsequently if required.
 
- The reason for its existence is that it can often take a while for mongo to 
-allow a peer group change, so we can't change it directly in the 
-EnableHA API call
+Addresses used by clients are not influenced by the `juju-mgmt-space` 
+configuration.
 
- Its worker loop continally watches 
+## Single instance workers
 
- 1. The current set of controllers 
- 2. The addresses of the current controllers 
- 3. The status of the current mongo peergroup
- 
-It feeds all that information into `desiredPeerGroup`, which provides the peer 
-group that we want to be and continually tries to set that peer group in mongo 
-until it succeeds.
- 
-**NOTE:** There is one situation which currently doesn't work which is 
-that if you've only got one controller, you can't switch to another one.
+Many workers, such as the `dbaccessor` worker, run on all controller instances,
+but there are some workers that must run on exactly one controller instance. 
+An obvious example of this is a model's compute provisioner - we would never 
+want more than one actor attempting to start a cloud instance for a new 
+machine.
 
-### The Singleton Workers
+Single instance workers are those declared in the model manifolds configuration
+that use the `isResponsible` decorator. This in turn is based on a flag set by the
+`singular` worker.
 
-**Note:** This section reflects the current behavior of these workers but 
-should by no means be taken as an example to follow since most (if not all)
-should run concurrently and are going to change in the near future.
+The `singular` worker only sets the flag if it is the current lease holder for 
+the `singular-controller` namespace. See the appropriate documentation for more 
+information on leases.
 
-The following workers require only a single instance to be running
-at any one moment:
-
- * The environment provisioner
- * The firewaller
- * The charm revision updater
- * The state cleaner
- * The transaction resumer
- * The minunits worker
-
-When a machine agent connects to the state, it decides whether
-it is on the same instance as the mongo master instance, and
-if so, it runs the singleton workers; otherwise it doesn't run them.
-
-Because we are using `mgo.Strong` consistency semantics,
-it's guaranteed that our mongo connection will be dropped
-when the master changes, which means that when the
-master changes, the machine agent will reconnect to the
-state and choose whether to run the singleton workers again.
-
-It also means that we can never accidentally have two
-singleton workers performing operations at the same time.
+[Juju user docs | How to make a controller highly available]: https://juju.is/docs/juju/manage-controllers#heading--make-a-controller-highly-available
+[Dqlite]: https://dqlite.io/
