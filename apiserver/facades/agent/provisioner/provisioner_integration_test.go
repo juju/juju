@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -958,7 +959,7 @@ func (s *withoutControllerSuite) TestKeepInstance(c *gc.C) {
 
 	// Add a machine with keep-instance = true.
 	foobarMachine := f.MakeMachine(c, &factory.MachineParams{InstanceId: "1234"})
-	err := foobarMachine.SetKeepInstance(true)
+	err := s.serviceFactory.Machine().SetKeepInstance(context.Background(), coremachine.Name(foobarMachine.Tag().String()), true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{

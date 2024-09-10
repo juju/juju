@@ -22,6 +22,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
@@ -270,9 +271,6 @@ func (s *DestroyMachineManagerSuite) expectUnpinAppLeaders(id string) {
 
 func (s *DestroyMachineManagerSuite) expectDestroyMachine(ctrl *gomock.Controller, units []Unit, containers []string, attemptDestroy, keep, force bool) *MockMachine {
 	machine := NewMockMachine(ctrl)
-	if keep {
-		machine.EXPECT().SetKeepInstance(true).Return(nil)
-	}
 
 	machine.EXPECT().Containers().Return(containers, nil)
 
@@ -554,6 +552,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C)
 	s.expectUnpinAppLeaders("0")
 
 	machine0 := s.expectDestroyMachine(ctrl, nil, nil, true, true, true)
+	s.machineService.EXPECT().SetKeepInstance(gomock.Any(), coremachine.Name("0"), true)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	noWait := 0 * time.Second
@@ -591,6 +590,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C
 	s.expectUnpinAppLeaders("0")
 
 	machine0 := s.expectDestroyMachine(ctrl, nil, nil, true, true, true)
+	s.machineService.EXPECT().SetKeepInstance(gomock.Any(), coremachine.Name("0"), true)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{

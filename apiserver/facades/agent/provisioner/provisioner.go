@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -63,6 +64,7 @@ type ProvisionerAPI struct {
 	keyUpdaterService           KeyUpdaterService
 	modelConfigService          ModelConfigService
 	modelInfoService            ModelInfoService
+	machineService              MachineService
 	resources                   facade.Resources
 	authorizer                  facade.Authorizer
 	storageProviderRegistry     storage.ProviderRegistry
@@ -189,6 +191,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		keyUpdaterService:           serviceFactory.KeyUpdater(),
 		modelConfigService:          serviceFactory.Config(),
 		modelInfoService:            modelInfoService,
+		machineService:              serviceFactory.Machine(),
 		resources:                   resources,
 		authorizer:                  authorizer,
 		configGetter:                configGetter,
@@ -497,22 +500,14 @@ func (api *ProvisionerAPI) KeepInstance(ctx context.Context, args params.Entitie
 
 		Results: make([]params.BoolResult, len(args.Entities)),
 	}
-	canAccess, err := api.getAuthFunc()
-	if err != nil {
-		return result, err
-	}
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		machine, err := api.getMachine(canAccess, tag)
-		if err == nil {
-			keep, err := machine.KeepInstance()
-			result.Results[i].Result = keep
-			result.Results[i].Error = apiservererrors.ServerError(err)
-		}
+		keep, err := api.machineService.KeepInstance(ctx, machine.Name(tag.Id()))
+		result.Results[i].Result = keep
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil

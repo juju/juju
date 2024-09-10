@@ -96,6 +96,15 @@ type MachineService interface {
 	GetBootstrapEnviron(context.Context) (environs.BootstrapEnviron, error)
 	// GetInstanceTypesFetcher returns the instance types fetcher.
 	GetInstanceTypesFetcher(context.Context) (environs.InstanceTypesFetcher, error)
+	// KeepInstance reports whether a machine, when removed from Juju, should cause
+	// the corresponding cloud instance to be stopped.
+	// It returns a NotFound if the given machine doesn't exist.
+	KeepInstance(ctx context.Context, machineName coremachine.Name) (bool, error)
+	// SetKeepInstance sets whether the machine cloud instance will be retained
+	// when the machine is removed from Juju. This is only relevant if an instance
+	// exists.
+	// It returns a NotFound if the given machine doesn't exist.
+	SetKeepInstance(ctx context.Context, machineName coremachine.Name, keep bool) error
 }
 
 // CharmhubClient represents a way for querying the charmhub api for information
@@ -505,14 +514,10 @@ func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Ent
 			fail(err)
 			continue
 		}
-		machine, err := mm.st.Machine(machineTag.Id())
-		if err != nil {
-			fail(err)
-			continue
-		}
+
 		if keep {
 			mm.logger.Infof("destroy machine %v but keep instance", machineTag.Id())
-			if err := machine.SetKeepInstance(keep); err != nil {
+			if err := mm.machineService.SetKeepInstance(ctx, coremachine.Name(machineTag.Id()), keep); err != nil {
 				if !force {
 					fail(err)
 					continue
@@ -524,6 +529,11 @@ func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Ent
 			MachineId: machineTag.Id(),
 		}
 
+		machine, err := mm.st.Machine(machineTag.Id())
+		if err != nil {
+			fail(err)
+			continue
+		}
 		containers, err := machine.Containers()
 		if err != nil {
 			fail(err)

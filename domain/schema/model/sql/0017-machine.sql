@@ -13,6 +13,7 @@ CREATE TABLE machine (
     agent_started_at DATETIME,
     hostname TEXT,
     is_controller BOOLEAN,
+    keep_instance BOOLEAN,
     CONSTRAINT fk_machine_net_node
     FOREIGN KEY (net_node_uuid)
     REFERENCES net_node (uuid),

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
@@ -48,6 +49,20 @@ type ModelInfoService interface {
 	// GetModelInfo returns the readonly model information for the model in
 	// question.
 	GetModelInfo(context.Context) (model.ReadOnlyModel, error)
+}
+
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// KeepInstance reports whether a machine, when removed from Juju, should cause
+	// the corresponding cloud instance to be stopped.
+	// It returns a NotFound if the given machine doesn't exist.
+	KeepInstance(ctx context.Context, machineName coremachine.Name) (bool, error)
+	// SetKeepInstance sets whether the machine cloud instance will be retained
+	// when the machine is removed from Juju. This is only relevant if an instance
+	// exists.
+	// It returns a NotFound if the given machine doesn't exist.
+	SetKeepInstance(ctx context.Context, machineName coremachine.Name, keep bool) error
 }
 
 // StoragePoolGetter instances get a storage pool by name.
