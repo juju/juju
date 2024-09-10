@@ -1531,44 +1531,6 @@ func (c *MockMachineSetInstanceStatusCall) DoAndReturn(f func(status.StatusInfo)
 	return c
 }
 
-// SetKeepInstance mocks base method.
-func (m *MockMachine) SetKeepInstance(arg0 bool) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetKeepInstance", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetKeepInstance indicates an expected call of SetKeepInstance.
-func (mr *MockMachineMockRecorder) SetKeepInstance(arg0 any) *MockMachineSetKeepInstanceCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetKeepInstance", reflect.TypeOf((*MockMachine)(nil).SetKeepInstance), arg0)
-	return &MockMachineSetKeepInstanceCall{Call: call}
-}
-
-// MockMachineSetKeepInstanceCall wrap *gomock.Call
-type MockMachineSetKeepInstanceCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineSetKeepInstanceCall) Return(arg0 error) *MockMachineSetKeepInstanceCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineSetKeepInstanceCall) Do(f func(bool) error) *MockMachineSetKeepInstanceCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineSetKeepInstanceCall) DoAndReturn(f func(bool) error) *MockMachineSetKeepInstanceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetPassword mocks base method.
 func (m *MockMachine) SetPassword(arg0 string) error {
 	m.ctrl.T.Helper()
@@ -2401,45 +2363,6 @@ func (c *MockMachineServiceGetInstanceTypesFetcherCall) DoAndReturn(f func(conte
 	return c
 }
 
-// KeepInstance mocks base method.
-func (m *MockMachineService) KeepInstance(arg0 context.Context, arg1 machine.Name) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "KeepInstance", arg0, arg1)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// KeepInstance indicates an expected call of KeepInstance.
-func (mr *MockMachineServiceMockRecorder) KeepInstance(arg0, arg1 any) *MockMachineServiceKeepInstanceCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeepInstance", reflect.TypeOf((*MockMachineService)(nil).KeepInstance), arg0, arg1)
-	return &MockMachineServiceKeepInstanceCall{Call: call}
-}
-
-// MockMachineServiceKeepInstanceCall wrap *gomock.Call
-type MockMachineServiceKeepInstanceCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceKeepInstanceCall) Return(arg0 bool, arg1 error) *MockMachineServiceKeepInstanceCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceKeepInstanceCall) Do(f func(context.Context, machine.Name) (bool, error)) *MockMachineServiceKeepInstanceCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceKeepInstanceCall) DoAndReturn(f func(context.Context, machine.Name) (bool, error)) *MockMachineServiceKeepInstanceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetKeepInstance mocks base method.
 func (m *MockMachineService) SetKeepInstance(arg0 context.Context, arg1 machine.Name, arg2 bool) error {
 	m.ctrl.T.Helper()
@@ -2474,6 +2397,45 @@ func (c *MockMachineServiceSetKeepInstanceCall) Do(f func(context.Context, machi
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineServiceSetKeepInstanceCall) DoAndReturn(f func(context.Context, machine.Name, bool) error) *MockMachineServiceSetKeepInstanceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ShouldKeepInstance mocks base method.
+func (m *MockMachineService) ShouldKeepInstance(arg0 context.Context, arg1 machine.Name) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ShouldKeepInstance", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ShouldKeepInstance indicates an expected call of ShouldKeepInstance.
+func (mr *MockMachineServiceMockRecorder) ShouldKeepInstance(arg0, arg1 any) *MockMachineServiceShouldKeepInstanceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldKeepInstance", reflect.TypeOf((*MockMachineService)(nil).ShouldKeepInstance), arg0, arg1)
+	return &MockMachineServiceShouldKeepInstanceCall{Call: call}
+}
+
+// MockMachineServiceShouldKeepInstanceCall wrap *gomock.Call
+type MockMachineServiceShouldKeepInstanceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceShouldKeepInstanceCall) Return(arg0 bool, arg1 error) *MockMachineServiceShouldKeepInstanceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceShouldKeepInstanceCall) Do(f func(context.Context, machine.Name) (bool, error)) *MockMachineServiceShouldKeepInstanceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceShouldKeepInstanceCall) DoAndReturn(f func(context.Context, machine.Name) (bool, error)) *MockMachineServiceShouldKeepInstanceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

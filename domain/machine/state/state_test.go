@@ -721,7 +721,7 @@ func (s *stateSuite) TestKeepInstance(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	isController, err := s.state.KeepInstance(context.Background(), "666")
+	isController, err := s.state.ShouldKeepInstance(context.Background(), "666")
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(isController, gc.Equals, false)
 
@@ -733,7 +733,7 @@ SET    keep_instance = TRUE
 WHERE  name = $1`
 	_, err = db.ExecContext(context.Background(), updateIsController, "666")
 	c.Assert(err, jc.ErrorIsNil)
-	isController, err = s.state.KeepInstance(context.Background(), "666")
+	isController, err = s.state.ShouldKeepInstance(context.Background(), "666")
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(isController, gc.Equals, true)
 }
@@ -741,7 +741,7 @@ WHERE  name = $1`
 // TestIsControllerNotFound asserts that a NotFound error is returned when the
 // machine is not found.
 func (s *stateSuite) TestKeepInstanceNotFound(c *gc.C) {
-	_, err := s.state.KeepInstance(context.Background(), "666")
+	_, err := s.state.ShouldKeepInstance(context.Background(), "666")
 	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 

@@ -506,7 +506,7 @@ func (api *ProvisionerAPI) KeepInstance(ctx context.Context, args params.Entitie
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		keep, err := api.machineService.KeepInstance(ctx, machine.Name(tag.Id()))
+		keep, err := api.machineService.ShouldKeepInstance(ctx, machine.Name(tag.Id()))
 		result.Results[i].Result = keep
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}

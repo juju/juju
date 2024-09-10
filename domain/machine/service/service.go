@@ -101,9 +101,9 @@ type State interface {
 	// It returns a NotFound if the given machine doesn't exist.
 	IsMachineController(context.Context, coremachine.Name) (bool, error)
 
-	// KeepInstance reports whether a machine, when removed from Juju, should cause
+	// ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
 	// the corresponding cloud instance to be stopped.
-	KeepInstance(ctx context.Context, mName machine.Name) (bool, error)
+	ShouldKeepInstance(ctx context.Context, mName machine.Name) (bool, error)
 
 	// SetKeepInstance sets whether the machine cloud instance will be retained
 	// when the machine is removed from Juju. This is only relevant if an instance
@@ -317,11 +317,11 @@ func (s *Service) IsMachineController(ctx context.Context, machineName coremachi
 	return isController, nil
 }
 
-// KeepInstance reports whether a machine, when removed from Juju, should cause
+// ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
 // the corresponding cloud instance to be stopped.
 // It returns a NotFound if the given machine doesn't exist.
-func (s *Service) KeepInstance(ctx context.Context, machineName coremachine.Name) (bool, error) {
-	keepInstance, err := s.st.KeepInstance(ctx, machineName)
+func (s *Service) ShouldKeepInstance(ctx context.Context, machineName coremachine.Name) (bool, error) {
+	keepInstance, err := s.st.ShouldKeepInstance(ctx, machineName)
 	if err != nil {
 		return false, errors.Trace(err)
 	}

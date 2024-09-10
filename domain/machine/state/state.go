@@ -778,9 +778,9 @@ func (st *State) GetMachineUUID(ctx context.Context, name machine.Name) (string,
 	return uuid.UUID, errors.Annotatef(err, "getting UUID for machine %q", name)
 }
 
-// KeepInstance reports whether a machine, when removed from Juju, should cause
+// ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
 // the corresponding cloud instance to be stopped.
-func (st *State) KeepInstance(ctx context.Context, mName machine.Name) (bool, error) {
+func (st *State) ShouldKeepInstance(ctx context.Context, mName machine.Name) (bool, error) {
 	db, err := st.DB()
 	if err != nil {
 		return false, errors.Trace(err)
@@ -823,29 +823,38 @@ func (st *State) SetKeepInstance(ctx context.Context, mName machine.Name, keep b
 		return errors.Trace(err)
 	}
 
-	// Prepare query for updating machine keep instance.
+	// Prepare query for machine uuid.
+	machineUUID := machineUUID{}
 	machineNameParam := machineName{Name: mName}
+	machineExistsQuery := `
+SELECT uuid AS &machineUUID.uuid
+FROM   machine 
+WHERE  name = $machineName.name`
+	machineExistsStmt, err := st.Prepare(machineExistsQuery, machineUUID, machineNameParam)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Prepare query for updating machine keep instance.
 	keepInstanceParam := keepInstance{KeepInstance: keep}
-	query := `
+	keepInstanceQuery := `
 UPDATE machine 
 SET    keep_instance = $keepInstance.keep_instance 
 WHERE  name = $machineName.name`
-	queryStmt, err := st.Prepare(query, keepInstanceParam, machineNameParam)
+	keepInstanceStmt, err := st.Prepare(keepInstanceQuery, keepInstanceParam, machineNameParam)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Update machine keep instance.
-		var outcome sqlair.Outcome
-		err = tx.Query(ctx, queryStmt, keepInstanceParam, machineNameParam).Get(&outcome)
-		affected, err := outcome.Result().RowsAffected()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if affected != 1 {
+		// Query for the machine uuid before attempting to update it,
+		// and return an error if it doesn't.
+		err := tx.Query(ctx, machineExistsStmt, machineNameParam).Get(&machineUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
 			return machineerrors.MachineNotFound
 		}
+		// Update machine keep instance.
+		err = tx.Query(ctx, keepInstanceStmt, keepInstanceParam, machineNameParam).Run()
 		if err != nil {
 			return fmt.Errorf("setting keep instance for machine %q: %w", mName, err)
 		}

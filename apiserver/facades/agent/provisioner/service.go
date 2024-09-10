@@ -54,10 +54,10 @@ type ModelInfoService interface {
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
-	// KeepInstance reports whether a machine, when removed from Juju, should cause
+	// ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
 	// the corresponding cloud instance to be stopped.
 	// It returns a NotFound if the given machine doesn't exist.
-	KeepInstance(ctx context.Context, machineName coremachine.Name) (bool, error)
+	ShouldKeepInstance(ctx context.Context, machineName coremachine.Name) (bool, error)
 	// SetKeepInstance sets whether the machine cloud instance will be retained
 	// when the machine is removed from Juju. This is only relevant if an instance
 	// exists.
