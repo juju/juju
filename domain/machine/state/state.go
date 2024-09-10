@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -775,4 +776,88 @@ func (st *State) GetMachineUUID(ctx context.Context, name machine.Name) (string,
 		return nil
 	})
 	return uuid.UUID, errors.Annotatef(err, "getting UUID for machine %q", name)
+}
+
+// ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
+// the corresponding cloud instance to be stopped.
+func (st *State) ShouldKeepInstance(ctx context.Context, mName machine.Name) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	machineNameParam := machineName{Name: mName}
+	result := keepInstance{}
+	query := `
+SELECT &keepInstance.keep_instance 
+FROM   machine 
+WHERE  name = $machineName.name`
+	queryStmt, err := st.Prepare(query, machineNameParam, result)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("querying machine %q keep instance: %w", mName, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, fmt.Errorf("check for machine %q keep instance: %w", mName, err)
+	}
+
+	return result.KeepInstance, nil
+}
+
+// SetKeepInstance sets whether the machine cloud instance will be retained
+// when the machine is removed from Juju. This is only relevant if an instance
+// exists.
+func (st *State) SetKeepInstance(ctx context.Context, mName machine.Name, keep bool) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Prepare query for machine uuid.
+	machineUUID := machineUUID{}
+	machineNameParam := machineName{Name: mName}
+	machineExistsQuery := `
+SELECT uuid AS &machineUUID.uuid
+FROM   machine 
+WHERE  name = $machineName.name`
+	machineExistsStmt, err := st.Prepare(machineExistsQuery, machineUUID, machineNameParam)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Prepare query for updating machine keep instance.
+	keepInstanceParam := keepInstance{KeepInstance: keep}
+	keepInstanceQuery := `
+UPDATE machine 
+SET    keep_instance = $keepInstance.keep_instance 
+WHERE  name = $machineName.name`
+	keepInstanceStmt, err := st.Prepare(keepInstanceQuery, keepInstanceParam, machineNameParam)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Query for the machine uuid before attempting to update it,
+		// and return an error if it doesn't.
+		err := tx.Query(ctx, machineExistsStmt, machineNameParam).Get(&machineUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		}
+		// Update machine keep instance.
+		err = tx.Query(ctx, keepInstanceStmt, keepInstanceParam, machineNameParam).Run()
+		if err != nil {
+			return fmt.Errorf("setting keep instance for machine %q: %w", mName, err)
+		}
+		return nil
+	})
 }

@@ -716,3 +716,56 @@ func (s *stateSuite) TestGetMachineUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "123")
 }
+
+func (s *stateSuite) TestKeepInstance(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	isController, err := s.state.ShouldKeepInstance(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(isController, gc.Equals, false)
+
+	db := s.DB()
+
+	updateIsController := `
+UPDATE machine
+SET    keep_instance = TRUE
+WHERE  name = $1`
+	_, err = db.ExecContext(context.Background(), updateIsController, "666")
+	c.Assert(err, jc.ErrorIsNil)
+	isController, err = s.state.ShouldKeepInstance(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(isController, gc.Equals, true)
+}
+
+// TestIsControllerNotFound asserts that a NotFound error is returned when the
+// machine is not found.
+func (s *stateSuite) TestKeepInstanceNotFound(c *gc.C) {
+	_, err := s.state.ShouldKeepInstance(context.Background(), "666")
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestSetKeepInstance(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.SetKeepInstance(context.Background(), "666", true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	db := s.DB()
+	query := `
+SELECT keep_instance
+FROM   machine
+WHERE  name = $1`
+	row := db.QueryRowContext(context.Background(), query, "666")
+	c.Assert(row.Err(), jc.ErrorIsNil)
+
+	var keep bool
+	c.Assert(row.Scan(&keep), jc.ErrorIsNil)
+	c.Check(keep, jc.IsTrue)
+
+}
+
+func (s *stateSuite) TestSetKeepInstanceNotFound(c *gc.C) {
+	err := s.state.SetKeepInstance(context.Background(), "666", true)
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}

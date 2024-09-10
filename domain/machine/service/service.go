@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/status"
@@ -99,6 +100,15 @@ type State interface {
 	// IsMachineController returns whether the machine is a controller machine.
 	// It returns a NotFound if the given machine doesn't exist.
 	IsMachineController(context.Context, coremachine.Name) (bool, error)
+
+	// ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
+	// the corresponding cloud instance to be stopped.
+	ShouldKeepInstance(ctx context.Context, mName machine.Name) (bool, error)
+
+	// SetKeepInstance sets whether the machine cloud instance will be retained
+	// when the machine is removed from Juju. This is only relevant if an instance
+	// exists.
+	SetKeepInstance(ctx context.Context, mName machine.Name, keep bool) error
 
 	// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
 	RequireMachineReboot(ctx context.Context, uuid string) error
@@ -305,6 +315,25 @@ func (s *Service) IsMachineController(ctx context.Context, machineName coremachi
 		return false, errors.Annotatef(err, "checking if machine %q is a controller", machineName)
 	}
 	return isController, nil
+}
+
+// ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
+// the corresponding cloud instance to be stopped.
+// It returns a NotFound if the given machine doesn't exist.
+func (s *Service) ShouldKeepInstance(ctx context.Context, machineName coremachine.Name) (bool, error) {
+	keepInstance, err := s.st.ShouldKeepInstance(ctx, machineName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return keepInstance, nil
+}
+
+// SetKeepInstance sets whether the machine cloud instance will be retained
+// when the machine is removed from Juju. This is only relevant if an instance
+// exists.
+// It returns a NotFound if the given machine doesn't exist.
+func (s *Service) SetKeepInstance(ctx context.Context, machineName coremachine.Name, keep bool) error {
+	return errors.Trace(s.st.SetKeepInstance(ctx, machineName, keep))
 }
 
 // RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.

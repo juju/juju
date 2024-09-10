@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -958,7 +959,9 @@ func (s *withoutControllerSuite) TestKeepInstance(c *gc.C) {
 
 	// Add a machine with keep-instance = true.
 	foobarMachine := f.MakeMachine(c, &factory.MachineParams{InstanceId: "1234"})
-	err := foobarMachine.SetKeepInstance(true)
+	_, err := s.serviceFactory.Machine().CreateMachine(context.Background(), coremachine.Name(foobarMachine.Tag().Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.serviceFactory.Machine().SetKeepInstance(context.Background(), coremachine.Name(foobarMachine.Tag().Id()), true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -967,7 +970,6 @@ func (s *withoutControllerSuite) TestKeepInstance(c *gc.C) {
 		{Tag: s.machines[2].Tag().String()},
 		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},
-		{Tag: "application-bar"},
 	}}
 	result, err := s.provisioner.KeepInstance(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -976,8 +978,7 @@ func (s *withoutControllerSuite) TestKeepInstance(c *gc.C) {
 			{Result: false},
 			{Result: true},
 			{Result: false},
-			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ServerError("check for machine \"42\" keep instance: machine not found")},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})

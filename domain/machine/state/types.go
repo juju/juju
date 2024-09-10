@@ -110,6 +110,12 @@ type machineIsController struct {
 	IsController bool `db:"is_controller"`
 }
 
+// keepInstance represents the struct to be used for the keep_instance column
+// within the sqlair statements in the machine domain.
+type keepInstance struct {
+	KeepInstance bool `db:"keep_instance"`
+}
+
 // machineParent represents the struct to be used for the columns of the
 // machine_parent table within the sqlair statements in the machine domain.
 type machineParent struct {

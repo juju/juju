@@ -417,34 +417,6 @@ func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
 }
 
-// SetKeepInstance sets whether the cloud machine instance
-// will be retained when the machine is removed from Juju.
-// This is only relevant if an instance exists.
-func (m *Machine) SetKeepInstance(keepInstance bool) error {
-	ops := []txn.Op{{
-		C:      instanceDataC,
-		Id:     m.doc.DocID,
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"keep-instance", keepInstance}}}},
-	}}
-	if err := m.st.db().RunTransaction(ops); err != nil {
-		// If instance doc doesn't exist, that's ok; there's nothing to keep,
-		// but that's not an error we care about.
-		return errors.Annotatef(onAbort(err, nil), "cannot set KeepInstance on machine %v", m)
-	}
-	return nil
-}
-
-// KeepInstance reports whether a machine, when removed from
-// Juju, will cause the corresponding cloud instance to be stopped.
-func (m *Machine) KeepInstance() (bool, error) {
-	instData, err := getInstanceData(m.st, m.Id())
-	if err != nil {
-		return false, err
-	}
-	return instData.KeepInstance, nil
-}
-
 // CharmProfiles returns the names of any LXD profiles used by the machine,
 // which were defined in the charm deployed to that machine.
 func (m *Machine) CharmProfiles() ([]string, error) {
