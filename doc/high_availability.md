@@ -13,10 +13,11 @@ responsible for maintaining the Dqlite cluster. When entering HA mode, the
 `dbaccessor` worker will configure the local Dqlite node as a member of the 
 cluster.
 
-When starting Dqlite, the worker must bind it to an IP address on the local
-machine. It is a requirement that there is a unique local-cloud-scoped address
-for Dqlite to use. If there is no unique address, new nodes will not be joined 
-to the cluster until one can be determined. See _Controller Charm_ below.
+When starting Dqlite, the worker must bind it to an IP address. The address is 
+read from the controller configuration file populated by the controller charm. 
+If there is no address to use for binding, the worker will wait for one to be
+written to the file before attempting to join the cluster. 
+See _Controller Charm_ below.
 
 Each Dqlite node has a role within the cluster. Juju does not manage node 
 roles; this is handled within Dqlite itself. A cluster is constituted by:
@@ -31,11 +32,14 @@ as the only member.
 
 ## Controller charm
 
-The controller charm propagates binding information to the `dbaccessor` worker.
-It coordinates with other controller units via the `db-cluster` peer relation.
-If there are multiple potential bind addresses for a Dqlite node, the user must
-supply an endpoint binding for the relation using a space that ensures a unique
-IP address.
+The controller charm propagates bind addresses to the `dbaccessor` worker by 
+writing them to the controller configuration file. Each controller unit shares 
+its resolved bind address with the other units via the `db-cluster` peer 
+relation. The charm must be able to determine a unique address in the 
+local-cloud scope before it is shared with other units and written to the 
+configuration file. If no unique address can be determined, the user must supply 
+an endpoint binding for the relation using a space that ensures a unique IP 
+address.
 
 ## API addresses for agents
 
