@@ -497,15 +497,13 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 
 func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
-	testAdmin := jujutesting.AdminUser
 	model := s.ControllerModel(c)
-	owner, err := s.ControllerModel(c).State().UserAccess(testAdmin, model.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
+	owner := names.NewUserTag("owner")
 
 	s.modelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(model.UUID())).Return(
 		[]coremodel.ModelUserInfo{{
-			Name:           owner.UserName,
-			DisplayName:    owner.DisplayName,
+			Name:           coreuser.NameFromTag(owner),
+			DisplayName:    owner.Name(),
 			Access:         permission.AdminAccess,
 			LastModelLogin: time.Time{},
 		}, {
@@ -540,8 +538,8 @@ func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
 		Results: []params.ModelUserInfoResult{{
 			Result: &params.ModelUserInfo{
 				ModelTag:    model.ModelTag().String(),
-				UserName:    owner.UserName.Name(),
-				DisplayName: owner.DisplayName,
+				UserName:    owner.Name(),
+				DisplayName: owner.Name(),
 				Access:      "admin",
 			},
 		}, {
@@ -820,24 +818,20 @@ func (s *userManagerSuite) TestBlockResetPassword(c *gc.C) {
 func (s *userManagerSuite) TestResetPasswordControllerAdminForSelf(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	alex, err := s.ControllerModel(c).State().User(jujutesting.AdminUser)
-	c.Assert(err, jc.ErrorIsNil)
-	args := params.Entities{Entities: []params.Entity{{Tag: alex.Tag().String()}}}
-	c.Assert(alex.PasswordValid("dummy-secret"), jc.IsTrue)
+	admin := jujutesting.AdminUser
+	args := params.Entities{Entities: []params.Entity{{Tag: admin.String()}}}
 
+	// Do not expect any calls to the access service as this should fail.
 	results, err := s.api.ResetPassword(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 
-	err = alex.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
 		{
-			Tag:   alex.Tag().String(),
+			Tag:   admin.String(),
 			Error: apiservererrors.ServerError(apiservererrors.ErrPerm),
 		},
 	})
-	c.Assert(alex.PasswordValid("dummy-secret"), jc.IsTrue)
 }
 
 func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {

@@ -486,6 +486,42 @@ func (s *loginSuite) infoForNewUser(c *gc.C, info *api.Info) *api.Info {
 	return &newInfo
 }
 
+func (s *loginSuite) TestNoLoginPermissions(c *gc.C) {
+	info := s.ControllerModelApiInfo()
+	accessService := s.ControllerServiceFactory(c).Access()
+	password := "dummy-password"
+	tag := names.NewUserTag("charliebrown")
+	// Add a user with permission to log into this controller.
+	_, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
+		Name:        user.NameFromTag(tag),
+		DisplayName: "Charlie Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword(password)),
+		Permission: permission.AccessSpec{
+			Access: permission.LoginAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.ControllerUUID,
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = accessService.DeletePermission(context.Background(), user.NameFromTag(tag),
+		permission.ID{
+			ObjectType: permission.Controller,
+			Key:        s.ControllerUUID,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	info.Password = password
+	info.Tag = tag
+	_, err = api.Open(context.Background(), info, fastDialOpts)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: "permission denied",
+		Code:    "unauthorized access",
+	})
+}
+
 func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 	s.WithUpgrading = true
 	s.testLoginDuringMaintenance(c, func(st api.Connection) {
