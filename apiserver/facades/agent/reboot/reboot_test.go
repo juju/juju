@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v5"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
@@ -50,6 +51,7 @@ var (
 )
 
 type rebootSuite struct {
+	testing.CleanupSuite
 	jujutesting.ApiServerSuite
 	changestreamtesting.ModelSuite
 
@@ -115,18 +117,22 @@ func (s *rebootSuite) setupMachine(c *gc.C, tag names.MachineTag, err error, uui
 }
 
 func (s *rebootSuite) SetUpSuite(c *gc.C) {
+	s.CleanupSuite.SetUpSuite(c)
 	s.ModelSuite.SetUpSuite(c)
 	s.ApiServerSuite.SetUpSuite(c)
 }
 
 func (s *rebootSuite) SetUpTest(c *gc.C) {
+	s.CleanupSuite.SetUpTest(c)
 	s.ModelSuite.SetUpTest(c)
 	s.ApiServerSuite.SetUpTest(c)
 
 	var err error
 	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
+	s.AddCleanup(func(c *gc.C) {
+		workertest.DirtyKill(c, s.watcherRegistry)
+	})
 
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "machine")
 	s.machineService = service.NewWatchableService(
@@ -140,11 +146,14 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *rebootSuite) TearDownTest(c *gc.C) {
+
+	s.CleanupSuite.TearDownTest(c)
 	s.ApiServerSuite.TearDownTest(c)
 	s.ModelSuite.TearDownTest(c)
 }
 
 func (s *rebootSuite) TearDownSuite(c *gc.C) {
+	s.CleanupSuite.TearDownSuite(c)
 	s.ApiServerSuite.TearDownSuite(c)
 	s.ModelSuite.TearDownSuite(c)
 }
