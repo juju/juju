@@ -38,6 +38,8 @@ type CAASApplicationSuite struct {
 	st         *mockState
 	clock      *testclock.Clock
 	broker     *mockBroker
+
+	applicationService *service.WatchableService
 }
 
 func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
@@ -56,7 +58,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	// upserting of units.
 	serviceFactory := s.DefaultModelServiceFactory(c)
 	unitName := "gitlab/0"
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	s.applicationService = serviceFactory.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -70,7 +72,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	_, err := applicationService.CreateApplication(
+	_, err := s.applicationService.CreateApplication(
 		context.Background(), "gitlab", &stubCharm{}, origin, service.AddApplicationArgs{
 			ReferenceName: "gitlab",
 		}, service.AddUnitArg{
@@ -86,7 +88,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 		s.authorizer,
 		s.st, s.st,
 		s.ControllerServiceFactory(c).ControllerConfig(),
-		applicationService,
+		s.applicationService,
 		s.broker,
 		s.clock,
 		loggertesting.WrapCheckLog(c),
@@ -131,11 +133,11 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 
 	s.st.CheckCallNames(c, "Model", "Application", "APIHostPortsForAgents")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpsertCAASUnit", "Name")
+	s.st.app.CheckCallNames(c, "UpsertCAASUnit")
 
 	mc := jc.NewMultiChecker()
 	mc.AddExpr("_.AddUnitParams.PasswordHash", gc.Not(gc.IsNil))
-	c.Assert(s.st.app.Calls()[3].Args[0], mc, state.UpsertCAASUnitParams{
+	c.Assert(s.st.app.Calls()[0].Args[0], mc, state.UpsertCAASUnitParams{
 		AddUnitParams: state.AddUnitParams{
 			ProviderId: strPtr("gitlab-0"),
 			UnitName:   strPtr("gitlab/0"),
@@ -169,7 +171,7 @@ func (s *CAASApplicationSuite) TestAddUnitNotNeeded(c *gc.C) {
 
 	s.st.CheckCallNames(c, "Model", "Application")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpsertCAASUnit")
+	s.st.app.CheckCallNames(c, "UpsertCAASUnit")
 }
 
 func (s *CAASApplicationSuite) TestReuseUnitByName(c *gc.C) {
@@ -202,11 +204,11 @@ func (s *CAASApplicationSuite) TestReuseUnitByName(c *gc.C) {
 
 	s.st.CheckCallNames(c, "Model", "Application", "APIHostPortsForAgents")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpsertCAASUnit", "Name")
+	s.st.app.CheckCallNames(c, "UpsertCAASUnit")
 
 	mc := jc.NewMultiChecker()
 	mc.AddExpr("_.AddUnitParams.PasswordHash", gc.Not(gc.IsNil))
-	c.Assert(s.st.app.Calls()[3].Args[0], mc, state.UpsertCAASUnitParams{
+	c.Assert(s.st.app.Calls()[0].Args[0], mc, state.UpsertCAASUnitParams{
 		AddUnitParams: state.AddUnitParams{
 			ProviderId: strPtr("gitlab-0"),
 			UnitName:   strPtr("gitlab/0"),
@@ -240,7 +242,7 @@ func (s *CAASApplicationSuite) TestDontReuseDeadUnitByName(c *gc.C) {
 
 	s.st.CheckCallNames(c, "Model", "Application")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpsertCAASUnit")
+	s.st.app.CheckCallNames(c, "UpsertCAASUnit")
 }
 
 func (s *CAASApplicationSuite) TestFindByProviderID(c *gc.C) {
@@ -333,7 +335,8 @@ func (s *CAASApplicationSuite) TestDyingApplication(c *gc.C) {
 		PodUUID: "gitlab-uuid",
 	}
 
-	s.st.app.life = state.Dying
+	err := s.applicationService.DestroyApplication(context.Background(), "gitlab")
+	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := s.facade.UnitIntroduction(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -345,7 +348,8 @@ func (s *CAASApplicationSuite) TestMissingArgUUID(c *gc.C) {
 		PodName: "gitlab-0",
 	}
 
-	s.st.app.life = state.Dying
+	err := s.applicationService.DestroyApplication(context.Background(), "gitlab")
+	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := s.facade.UnitIntroduction(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -357,7 +361,8 @@ func (s *CAASApplicationSuite) TestMissingArgName(c *gc.C) {
 		PodUUID: "gitlab-uuid",
 	}
 
-	s.st.app.life = state.Dying
+	err := s.applicationService.DestroyApplication(context.Background(), "gitlab")
+	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := s.facade.UnitIntroduction(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)

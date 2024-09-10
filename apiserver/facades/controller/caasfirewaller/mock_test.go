@@ -67,16 +67,10 @@ func (st *mockState) Model() (*state.Model, error) {
 type mockApplication struct {
 	testing.Stub
 	state.Entity // Pull in Tag method (which tests don't use)
-	life         state.Life
 	exposed      bool
 	watcher      state.NotifyWatcher
 
 	appPortRanges network.GroupedPortRanges
-}
-
-func (a *mockApplication) Life() state.Life {
-	a.MethodCall(a, "Life")
-	return a.life
 }
 
 func (a *mockApplication) IsExposed() bool {

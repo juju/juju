@@ -12,6 +12,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common/firewall"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -40,6 +41,10 @@ type NetworkService interface {
 	// association (fan underlays), filtered based on the provided list of subnets
 	// to watch.
 	WatchSubnets(ctx context.Context, subnetUUIDsToWatch set.Strings) (watcher.StringsWatcher, error)
+}
+
+type ApplicationService interface {
+	GetUnitLife(context.Context, string) (life.Value, error)
 }
 
 // ControllerConfigAPI provides the subset of common.ControllerConfigAPI

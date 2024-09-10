@@ -10,11 +10,12 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/internal/testing"
 	upgradevalidationmocks "github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration ControllerConfigService,UpgradeService
+//go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration ControllerConfigService,UpgradeService,ApplicationService
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination servicefactory_mock_test.go github.com/juju/juju/internal/servicefactory ServiceFactoryGetter,ServiceFactory
 
 func TestPackage(t *stdtesting.T) {
@@ -24,14 +25,15 @@ func TestPackage(t *stdtesting.T) {
 type precheckBaseSuite struct {
 	testing.BaseSuite
 
-	upgradeService *MockUpgradeService
+	upgradeService     *MockUpgradeService
+	applicationService *MockApplicationService
 
 	server        *upgradevalidationmocks.MockServer
 	serverFactory *upgradevalidationmocks.MockServerFactory
 }
 
 func (s *precheckBaseSuite) checkRebootRequired(c *gc.C, runPrecheck precheckRunner) {
-	err := runPrecheck(newBackendWithRebootingMachine(), &fakeCredentialService{}, s.upgradeService)
+	err := runPrecheck(newBackendWithRebootingMachine(), &fakeCredentialService{}, s.upgradeService, s.applicationService)
 	c.Assert(err, gc.ErrorMatches, "machine 0 is scheduled to reboot")
 }
 
@@ -39,22 +41,27 @@ func (s *precheckBaseSuite) checkAgentVersionError(c *gc.C, runPrecheck precheck
 	backend := &fakeBackend{
 		agentVersionErr: errors.New("boom"),
 	}
-	err := runPrecheck(backend, &fakeCredentialService{}, s.upgradeService)
+	err := runPrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService)
 	c.Assert(err, gc.ErrorMatches, "retrieving model version: boom")
 }
 
 func (s *precheckBaseSuite) checkMachineVersionsDontMatch(c *gc.C, runPrecheck precheckRunner) {
-	err := runPrecheck(newBackendWithMismatchingTools(), &fakeCredentialService{}, s.upgradeService)
+	err := runPrecheck(newBackendWithMismatchingTools(), &fakeCredentialService{}, s.upgradeService, s.applicationService)
 	c.Assert(err.Error(), gc.Equals, "machine 1 agent binaries don't match model (1.3.1 != 1.2.3)")
 }
 
 func (s *precheckBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.upgradeService = NewMockUpgradeService(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
 
 	s.server = upgradevalidationmocks.NewMockServer(ctrl)
 	s.serverFactory = upgradevalidationmocks.NewMockServerFactory(ctrl)
 	return ctrl
+}
+
+func (s *precheckBaseSuite) expectApplicationLife(appName string, l life.Value) {
+	s.applicationService.EXPECT().GetApplicationLife(gomock.Any(), appName).Return(l, nil)
 }
 
 func (s *precheckBaseSuite) expectIsUpgrade(upgrading bool) {

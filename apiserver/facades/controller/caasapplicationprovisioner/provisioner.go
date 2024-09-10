@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -58,11 +59,12 @@ import (
 
 type APIGroup struct {
 	*common.PasswordChanger
-	*common.LifeGetter
 	*common.AgentEntityWatcher
+	*API
+
 	charmInfoAPI    *charmscommon.CharmInfoAPI
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
-	*API
+	lifeCanRead     common.GetAuthFunc
 }
 
 type NewResourceOpenerFunc func(appName string) (resources.Opener, error)
@@ -185,14 +187,52 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 
 	apiGroup := &APIGroup{
 		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		LifeGetter:         common.NewLifeGetter(st, lifeCanRead),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, ctx.Resources(), common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		charmInfoAPI:       commonCharmsAPI,
 		appCharmInfoAPI:    appCharmInfoAPI,
+		lifeCanRead:        lifeCanRead,
 		API:                api,
 	}
 
 	return apiGroup, nil
+}
+
+// Life returns the life status of every supplied app or unit, where available.
+func (a *APIGroup) Life(ctx context.Context, args params.Entities) (params.LifeResults, error) {
+	result := params.LifeResults{
+		Results: make([]params.LifeResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canRead, err := a.lifeCanRead()
+	if err != nil {
+		return params.LifeResults{}, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canRead(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		var lifeValue life.Value
+		switch tag.Kind() {
+		case names.ApplicationTagKind:
+			lifeValue, err = a.applicationService.GetApplicationLife(ctx, tag.Id())
+		case names.UnitTagKind:
+			lifeValue, err = a.applicationService.GetUnitLife(ctx, tag.Id())
+		default:
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		result.Results[i].Life = lifeValue
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
 }
 
 // CharmInfo returns information about the requested charm.
@@ -872,6 +912,7 @@ func (a *API) UpdateApplicationsUnits(ctx context.Context, args params.UpdateApp
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		//
 		app, err := a.state.Application(appTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)

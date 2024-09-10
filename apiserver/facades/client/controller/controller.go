@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
@@ -87,6 +88,10 @@ type ModelService interface {
 	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
 }
 
+type ApplicationService interface {
+	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
+}
+
 // ModelConfigService provides access to the model configuration.
 type ModelConfigService interface {
 	// ModelConfig returns the current config for the model.
@@ -128,6 +133,7 @@ type ControllerAPI struct {
 	controllerConfigService  ControllerConfigService
 	accessService            ControllerAccessService
 	modelService             ModelService
+	applicationServiceGetter func(coremodel.UUID) ApplicationService
 	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService
 	proxyService             ProxyService
 	modelExporter            func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
@@ -161,6 +167,7 @@ func NewControllerAPI(
 	upgradeService UpgradeService,
 	accessService ControllerAccessService,
 	modelService ModelService,
+	applicationServiceGetter func(coremodel.UUID) ApplicationService,
 	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService,
 	proxyService ProxyService,
 	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
@@ -210,6 +217,7 @@ func NewControllerAPI(
 		credentialService:        credentialService,
 		upgradeService:           upgradeService,
 		cloudService:             cloudService,
+		applicationServiceGetter: applicationServiceGetter,
 		accessService:            accessService,
 		modelService:             modelService,
 		modelConfigServiceGetter: modelConfigServiceGetter,
@@ -741,6 +749,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	applicationService := c.applicationServiceGetter(coremodel.UUID(hostedState.ModelUUID()))
 	if err := runMigrationPrechecks(
 		ctx,
 		hostedState.State, systemState,
@@ -750,6 +759,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		c.credentialService,
 		c.upgradeService,
 		c.modelService,
+		applicationService,
 		c.modelExporter,
 		c.store,
 		leaders,
@@ -895,6 +905,7 @@ var runMigrationPrechecks = func(
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
 	modelService ModelService,
+	applicationService ApplicationService,
 	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
 	store objectstore.ObjectStore,
 	leaders map[string]string,
@@ -914,6 +925,7 @@ var runMigrationPrechecks = func(
 		cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService),
 		credentialService,
 		upgradeService,
+		applicationService,
 	); err != nil {
 		return errors.Annotate(err, "source prechecks failed")
 	}

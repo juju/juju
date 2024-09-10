@@ -6243,7 +6243,7 @@
                             "$ref": "#/definitions/LifeResults"
                         }
                     },
-                    "description": "Life returns the life status of every supplied entity, where available."
+                    "description": "Life returns the life status of every supplied app or unit, where available."
                 },
                 "ProvisionerConfig": {
                     "type": "object",
@@ -8204,7 +8204,7 @@
                             "$ref": "#/definitions/LifeResults"
                         }
                     },
-                    "description": "Life returns the life status of every supplied entity, where available."
+                    "description": "Life returns the life status of the specified units."
                 },
                 "Watch": {
                     "type": "object",
@@ -16261,7 +16261,7 @@
                             "$ref": "#/definitions/LifeResults"
                         }
                     },
-                    "description": "Life returns the life status of every supplied entity, where available."
+                    "description": "Life returns the life of the specified units."
                 },
                 "ModelUUID": {
                     "type": "object",
@@ -17692,7 +17692,7 @@
                             "$ref": "#/definitions/LifeResults"
                         }
                     },
-                    "description": "Life returns the life status of every supplied entity, where available."
+                    "description": "Life returns the life status of the specified entities."
                 },
                 "MacaroonForRelations": {
                     "type": "object",
@@ -39658,7 +39658,7 @@
                             "$ref": "#/definitions/LifeResults"
                         }
                     },
-                    "description": "Life returns the life status of every supplied entity, where available."
+                    "description": "Life returns the life status of the specified units."
                 },
                 "LogActionsMessages": {
                     "type": "object",

@@ -97,6 +97,7 @@ func newUniterAPIWithServices(
 	accessApplication := applicationAccessor(authorizer, st)
 	accessMachine := machineAccessor(authorizer, st)
 	accessCloudSpec := cloudSpecAccessor(authorizer, st)
+	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
 	m, err := st.Model()
 	if err != nil {
@@ -112,8 +113,6 @@ func newUniterAPIWithServices(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
 	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
 	if err != nil {
@@ -135,7 +134,6 @@ func newUniterAPIWithServices(
 	}
 	logger := context.Logger().Child("uniter")
 	return &UniterAPI{
-		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrApplication),
 		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrApplication),
 		APIAddresser:               common.NewAPIAddresser(systemState, resources),
 		ModelWatcher:               common.NewModelWatcher(modelConfigService, context.WatcherRegistry()),
@@ -164,6 +162,7 @@ func newUniterAPIWithServices(
 		leadershipRevoker:       leadershipRevoker,
 		accessUnit:              accessUnit,
 		accessApplication:       accessApplication,
+		accessUnitOrApplication: accessUnitOrApplication,
 		accessMachine:           accessMachine,
 		accessCloudSpec:         accessCloudSpec,
 		cloudSpecer:             cloudSpec,

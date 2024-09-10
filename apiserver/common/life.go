@@ -30,7 +30,8 @@ func NewLifeGetter(st state.EntityFinder, getCanRead GetAuthFunc) *LifeGetter {
 	}
 }
 
-func (lg *LifeGetter) oneLife(tag names.Tag) (life.Value, error) {
+// OneLife returns the life of the specified entity.
+func (lg *LifeGetter) OneLife(tag names.Tag) (life.Value, error) {
 	entity0, err := lg.st.FindEntity(tag)
 	if err != nil {
 		return "", err
@@ -62,7 +63,7 @@ func (lg *LifeGetter) Life(ctx context.Context, args params.Entities) (params.Li
 		}
 		err = apiservererrors.ErrPerm
 		if canRead(tag) {
-			result.Results[i].Life, err = lg.oneLife(tag)
+			result.Results[i].Life, err = lg.OneLife(tag)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}

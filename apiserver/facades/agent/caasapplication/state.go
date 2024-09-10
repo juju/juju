@@ -39,8 +39,6 @@ type Model interface {
 // Application provides the subset of application state
 // required by the CAAS application facade.
 type Application interface {
-	Life() state.Life
-	Name() string
 	UpsertCAASUnit(args state.UpsertCAASUnitParams) (Unit, error)
 }
 

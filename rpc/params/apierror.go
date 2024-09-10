@@ -216,7 +216,11 @@ const (
 	CodeAccessRequired             = "access required"
 	CodeAppShouldNotHaveUnits      = "application should not have units"
 	CodeApplicationNotFound        = "application not found"
+	CodeApplicationAlreadyExists   = "application already exists"
+	CodeApplicationIsDead          = "application is dead"
 	CodeScalingStateInconsistent   = "scaling state inconsistent"
+	CodeUnitNotFound               = "unit not found"
+	CodeUnitAlreadyExists          = "unit already exists"
 
 	//
 	// Tag based error
@@ -305,8 +309,16 @@ func TranslateWellKnownError(err error) error {
 		return fmt.Errorf("%s%w", err.Error(), errors.Hide(secretbackenderrors.NotFound))
 	case CodeApplicationNotFound:
 		return fmt.Errorf("%s%w", err.Error(), errors.Hide(applicationerrors.ApplicationNotFound))
+	case CodeApplicationAlreadyExists:
+		return fmt.Errorf("%s%w", err.Error(), errors.Hide(applicationerrors.ApplicationAlreadyExists))
+	case CodeApplicationIsDead:
+		return fmt.Errorf("%s%w", err.Error(), errors.Hide(applicationerrors.ApplicationIsDead))
 	case CodeScalingStateInconsistent:
 		return fmt.Errorf("%s%w", err.Error(), errors.Hide(applicationerrors.ScalingStateInconsistent))
+	case CodeUnitAlreadyExists:
+		return fmt.Errorf("%s%w", err.Error(), errors.Hide(applicationerrors.UnitAlreadyExists))
+	case CodeUnitNotFound:
+		return fmt.Errorf("%s%w", err.Error(), errors.Hide(applicationerrors.UnitNotFound))
 	case CodeUnauthorized:
 		return errors.NewUnauthorized(err, "")
 	case CodeNotImplemented:
@@ -414,6 +426,14 @@ func IsCodeApplicationNotFound(err error) bool {
 
 func IsCodeScalingStateInconsistent(err error) bool {
 	return ErrCode(err) == CodeScalingStateInconsistent
+}
+
+func IsCodeUnitAlreadyExists(err error) bool {
+	return ErrCode(err) == CodeUnitAlreadyExists
+}
+
+func IsCodeUnitNotFound(err error) bool {
+	return ErrCode(err) == CodeUnitNotFound
 }
 
 func IsCodeUnauthorized(err error) bool {

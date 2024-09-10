@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -29,17 +30,19 @@ type ControllerConfigGetter interface {
 
 // ApplicationService removes a unit from the dqlite database.
 type ApplicationService interface {
+	GetUnitLife(context.Context, string) (life.Value, error)
+	EnsureUnitDead(context.Context, string, leadership.Revoker) error
 	RemoveUnit(context.Context, string, leadership.Revoker) error
 }
 
 // DeployerAPI provides access to the Deployer API facade.
 type DeployerAPI struct {
 	*common.PasswordChanger
-	*common.LifeGetter
 	*common.APIAddresser
 	*common.UnitsWatcher
 	*common.StatusSetter
 
+	canRead  func(tag names.Tag) bool
 	canWrite func(tag names.Tag) bool
 
 	controllerConfigGetter ControllerConfigGetter
@@ -85,21 +88,21 @@ func NewDeployerAPI(
 	getCanWatch := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	canWrite, err := getAuthFunc()
+	auth, err := getAuthFunc()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return &DeployerAPI{
 		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
-		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
 		APIAddresser:           common.NewAPIAddresser(systemState, resources),
 		UnitsWatcher:           common.NewUnitsWatcher(st, resources, getCanWatch),
 		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
 		controllerConfigGetter: controllerConfigGetter,
 		applicationService:     applicationService,
 		leadershipRevoker:      leadershipRevoker,
-		canWrite:               canWrite,
+		canRead:                auth,
+		canWrite:               auth,
 		store:                  store,
 		st:                     st,
 		resources:              resources,
@@ -153,6 +156,31 @@ func (d *DeployerAPI) APIAddresses(ctx context.Context) (result params.StringsRe
 	return d.APIAddresser.APIAddresses(ctx, controllerConfig)
 }
 
+// Life returns the life of the specified units.
+func (d *DeployerAPI) Life(ctx context.Context, args params.Entities) (params.LifeResults, error) {
+	result := params.LifeResults{
+		Results: make([]params.LifeResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !d.canRead(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		lifeValue, err := d.applicationService.GetUnitLife(ctx, tag.Id())
+		result.Results[i].Life = lifeValue
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
 // getAllUnits returns a list of all principal and subordinate units
 // assigned to the given machine.
 func getAllUnits(st *state.State, tag names.Tag) ([]string, error) {
@@ -190,22 +218,41 @@ func (d *DeployerAPI) Remove(ctx context.Context, args params.Entities) (params.
 			continue
 		}
 
-		if err = d.applicationService.RemoveUnit(ctx, tag.Id(), d.leadershipRevoker); err != nil {
+		// TODO(units) - remove me.
+		// Dual write to state.
+		// We need to set the unit life to Dead in state **first**
+		// because the life watcher is currently looking at state
+		// not dqlite.
+		unit, err := d.st.Unit(tag.Id())
+		if err != nil {
+			if errors.Is(err, errors.NotFound) {
+				err = apiservererrors.ErrPerm
+			}
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-
-		// TODO(units) - remove me.
-		// Dual write to state.
-		unit, err := d.st.Unit(tag.Id())
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+		if unit.Life() == state.Alive {
+			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("cannot remove unit %q: still alive", tag.Id()))
 			continue
 		}
 		if err := unit.EnsureDead(); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+
+		// Given the way dual write works, we need this for now.
+		if err = d.applicationService.EnsureUnitDead(ctx, tag.Id(), d.leadershipRevoker); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		// This is the call we will keep once mongo is removed.
+		// We will need to remove the alive check.
+		if err = d.applicationService.RemoveUnit(ctx, tag.Id(), d.leadershipRevoker); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// TODO(units) - remove me.
 		if err := unit.Remove(d.store); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue

@@ -15,6 +15,7 @@ import (
 
 	controller "github.com/juju/juju/controller"
 	leadership "github.com/juju/juju/core/leadership"
+	life "github.com/juju/juju/core/life"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -101,6 +102,83 @@ func NewMockApplicationService(ctrl *gomock.Controller) *MockApplicationService 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
+}
+
+// EnsureUnitDead mocks base method.
+func (m *MockApplicationService) EnsureUnitDead(arg0 context.Context, arg1 string, arg2 leadership.Revoker) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureUnitDead", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureUnitDead indicates an expected call of EnsureUnitDead.
+func (mr *MockApplicationServiceMockRecorder) EnsureUnitDead(arg0, arg1, arg2 any) *MockApplicationServiceEnsureUnitDeadCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureUnitDead", reflect.TypeOf((*MockApplicationService)(nil).EnsureUnitDead), arg0, arg1, arg2)
+	return &MockApplicationServiceEnsureUnitDeadCall{Call: call}
+}
+
+// MockApplicationServiceEnsureUnitDeadCall wrap *gomock.Call
+type MockApplicationServiceEnsureUnitDeadCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceEnsureUnitDeadCall) Return(arg0 error) *MockApplicationServiceEnsureUnitDeadCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceEnsureUnitDeadCall) Do(f func(context.Context, string, leadership.Revoker) error) *MockApplicationServiceEnsureUnitDeadCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceEnsureUnitDeadCall) DoAndReturn(f func(context.Context, string, leadership.Revoker) error) *MockApplicationServiceEnsureUnitDeadCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitLife mocks base method.
+func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 string) (life.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitLife indicates an expected call of GetUnitLife.
+func (mr *MockApplicationServiceMockRecorder) GetUnitLife(arg0, arg1 any) *MockApplicationServiceGetUnitLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitLife", reflect.TypeOf((*MockApplicationService)(nil).GetUnitLife), arg0, arg1)
+	return &MockApplicationServiceGetUnitLifeCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitLifeCall wrap *gomock.Call
+type MockApplicationServiceGetUnitLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitLifeCall) Return(arg0 life.Value, arg1 error) *MockApplicationServiceGetUnitLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitLifeCall) Do(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // RemoveUnit mocks base method.

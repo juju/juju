@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 )
 
@@ -121,7 +122,8 @@ func (p *firewaller) loop() error {
 			for _, appName := range apps {
 				// If charm is a v1 charm, skip processing.
 				format, err := p.charmFormat(ctx, appName)
-				if errors.Is(err, errors.NotFound) {
+				// TODO(units) - remove the dead check once life mgmt fully across to dqlite
+				if errors.Is(err, errors.NotFound) || errors.Is(err, applicationerrors.ApplicationIsDead) {
 					p.config.Logger.Debugf("application %q no longer exists", appName)
 					continue
 				} else if err != nil {
@@ -133,7 +135,7 @@ func (p *firewaller) loop() error {
 				}
 
 				appLife, err := p.config.LifeGetter.Life(ctx, appName)
-				if errors.Is(err, errors.NotFound) || appLife == life.Dead {
+				if errors.Is(err, applicationerrors.ApplicationNotFound) || appLife == life.Dead {
 					w, ok := p.appWorkers[appName]
 					if ok {
 						if err := worker.Stop(w); err != nil {

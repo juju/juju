@@ -159,7 +159,7 @@ func (c *Client) Life(ctx context.Context, appName string) (life.Value, error) {
 		return "", errors.Errorf("expected 1 result, got %d", n)
 	}
 	if err := results.Results[0].Error; err != nil {
-		return "", maybeNotFound(err)
+		return "", params.TranslateWellKnownError(err)
 	}
 	return results.Results[0].Life, nil
 }
@@ -197,16 +197,7 @@ func (c *Client) IsExposed(ctx context.Context, appName string) (bool, error) {
 		return false, errors.Errorf("expected 1 result, got %d", n)
 	}
 	if err := results.Results[0].Error; err != nil {
-		return false, maybeNotFound(err)
+		return false, params.TranslateWellKnownError(err)
 	}
 	return results.Results[0].Result, nil
-}
-
-// maybeNotFound returns an error satisfying errors.IsNotFound
-// if the supplied error has a CodeNotFound error.
-func maybeNotFound(err *params.Error) error {
-	if err == nil || !params.IsCodeNotFound(err) {
-		return err
-	}
-	return errors.NewNotFound(err, "")
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api/agent/caasapplication"
 	basetesting "github.com/juju/juju/api/base/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -90,12 +91,12 @@ func (s *provisionerSuite) TestUnitIntroductionFailAlreadyExists(c *gc.C) {
 		c.Assert(args.PodUUID, gc.Equals, "pod-uuid")
 		c.Assert(result, gc.FitsTypeOf, &params.CAASUnitIntroductionResult{})
 		*(result.(*params.CAASUnitIntroductionResult)) = params.CAASUnitIntroductionResult{
-			Error: &params.Error{Code: params.CodeAlreadyExists},
+			Error: &params.Error{Code: params.CodeUnitAlreadyExists},
 		}
 		return nil
 	})
 	_, err := client.UnitIntroduction(context.Background(), "pod-name", "pod-uuid")
-	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitAlreadyExists)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -117,7 +118,7 @@ func (s *provisionerSuite) TestUnitIntroductionFailNotAssigned(c *gc.C) {
 		return nil
 	})
 	_, err := client.UnitIntroduction(context.Background(), "pod-name", "pod-uuid")
-	c.Assert(err, jc.ErrorIs, errors.NotAssigned)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotAssigned)
 	c.Assert(called, jc.IsTrue)
 }
 

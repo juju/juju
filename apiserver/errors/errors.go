@@ -121,10 +121,14 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		params.CodeSecretRevisionNotFound,
 		params.CodeSecretConsumerNotFound,
 		params.CodeSecretBackendNotFound,
-		params.CodeApplicationNotFound:
+		params.CodeApplicationNotFound,
+		params.CodeUnitNotFound:
 		status = http.StatusNotFound
 	case params.CodeBadRequest,
-		params.CodeScalingStateInconsistent:
+		params.CodeScalingStateInconsistent,
+		params.CodeApplicationAlreadyExists,
+		params.CodeApplicationIsDead,
+		params.CodeUnitAlreadyExists:
 		status = http.StatusBadRequest
 	case params.CodeMethodNotAllowed:
 		status = http.StatusMethodNotAllowed
@@ -237,6 +241,16 @@ func ServerError(err error) *params.Error {
 		code = params.CodeApplicationNotFound
 	case errors.Is(err, applicationerrors.ScalingStateInconsistent):
 		code = params.CodeScalingStateInconsistent
+	case errors.Is(err, applicationerrors.UnitNotAssigned):
+		code = params.CodeNotAssigned
+	case errors.Is(err, applicationerrors.ApplicationAlreadyExists):
+		code = params.CodeApplicationAlreadyExists
+	case errors.Is(err, applicationerrors.ApplicationIsDead):
+		code = params.CodeApplicationIsDead
+	case errors.Is(err, applicationerrors.UnitAlreadyExists):
+		code = params.CodeUnitAlreadyExists
+	case errors.Is(err, applicationerrors.UnitNotFound):
+		code = params.CodeUnitNotFound
 	case errors.Is(err, errors.MethodNotAllowed):
 		code = params.CodeMethodNotAllowed
 	case errors.Is(err, errors.NotImplemented):

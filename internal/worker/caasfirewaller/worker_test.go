@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -157,7 +158,7 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 	app2Worker.EXPECT().Wait().Return(nil)
 
 	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app1").Return(charmInfo, nil)
-	s.lifeGetter.EXPECT().Life(gomock.Any(), "app1").Return(life.Value(""), errors.NotFoundf("%q", "app1"))
+	s.lifeGetter.EXPECT().Life(gomock.Any(), "app1").Return(life.Value(""), applicationerrors.ApplicationNotFound)
 	// Stopped app1's worker because it's removed.
 	app1Worker.EXPECT().Kill()
 	app1Worker.EXPECT().Wait().Return(nil)

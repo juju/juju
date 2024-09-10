@@ -98,7 +98,7 @@ func (s *ApplicationWorkerSuite) TestLifeNotFound(c *gc.C) {
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(brokerApp),
 		facade.EXPECT().Life(gomock.Any(), "test").DoAndReturn(func(ctx context.Context, appName string) (life.Value, error) {
 			close(done)
-			return "", errors.NotFoundf("test charm")
+			return "", applicationerrors.ApplicationNotFound
 		}),
 	)
 	appWorker := s.startAppWorker(c, nil, facade, broker, nil, ops, false)

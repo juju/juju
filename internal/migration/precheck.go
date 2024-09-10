@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/life"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -31,8 +32,9 @@ func SourcePrecheck(
 	environscloudspecGetter environsCloudSpecGetter,
 	credentialService CredentialService,
 	upgradeService UpgradeService,
+	applicationService ApplicationService,
 ) error {
-	c := newPrecheckSource(backend, modelPresence, environscloudspecGetter, credentialService, upgradeService)
+	c := newPrecheckSource(backend, modelPresence, environscloudspecGetter, credentialService, upgradeService, applicationService)
 	if err := c.checkModel(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -61,7 +63,7 @@ func SourcePrecheck(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerCtx := newPrecheckTarget(controllerBackend, controllerPresence, upgradeService)
+	controllerCtx := newPrecheckTarget(controllerBackend, controllerPresence, upgradeService, applicationService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Annotate(err, "controller")
 	}
@@ -77,6 +79,7 @@ func TargetPrecheck(ctx context.Context,
 	modelInfo coremigration.ModelInfo,
 	presence ModelPresence,
 	upgradeService UpgradeService,
+	applicationService ApplicationService,
 ) error {
 	if err := modelInfo.Validate(); err != nil {
 		return errors.Trace(err)
@@ -110,7 +113,7 @@ func TargetPrecheck(ctx context.Context,
 			modelInfo.ControllerAgentVersion, controllerVersion)
 	}
 
-	controllerCtx := newPrecheckTarget(backend, presence, upgradeService)
+	controllerCtx := newPrecheckTarget(backend, presence, upgradeService, applicationService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -155,20 +158,23 @@ func newPrecheckTarget(
 	backend PrecheckBackend,
 	presence ModelPresence,
 	upgradeService UpgradeService,
+	applicationService ApplicationService,
 ) *precheckTarget {
 	return &precheckTarget{
 		precheckContext: precheckContext{
-			backend:        backend,
-			presence:       presence,
-			upgradeService: upgradeService,
+			backend:            backend,
+			presence:           presence,
+			upgradeService:     upgradeService,
+			applicationService: applicationService,
 		},
 	}
 }
 
 type precheckContext struct {
-	backend        PrecheckBackend
-	presence       ModelPresence
-	upgradeService UpgradeService
+	backend            PrecheckBackend
+	presence           ModelPresence
+	upgradeService     UpgradeService
+	applicationService ApplicationService
 }
 
 func (c *precheckContext) checkController(ctx context.Context) error {
@@ -248,8 +254,12 @@ func (c *precheckContext) checkApplications(ctx context.Context) (map[string][]P
 	}
 	appUnits := make(map[string][]PrecheckUnit, len(apps))
 	for _, app := range apps {
-		if app.Life() != state.Alive {
-			return nil, errors.Errorf("application %s is %s", app.Name(), app.Life())
+		appLife, err := c.applicationService.GetApplicationLife(ctx, app.Name())
+		if err != nil {
+			return nil, errors.Annotatef(err, "retrieving life for %q", app.Name())
+		}
+		if appLife != life.Alive {
+			return nil, errors.Errorf("application %s is %s", app.Name(), appLife)
 		}
 		units, err := app.AllUnits()
 		if err != nil {
@@ -275,6 +285,7 @@ func (c *precheckContext) checkUnits(ctx context.Context, app PrecheckApplicatio
 	}
 
 	for _, unit := range units {
+		//
 		if unit.Life() != state.Alive {
 			return errors.Errorf("unit %s is %s", unit.Name(), unit.Life())
 		}
@@ -381,12 +392,14 @@ func newPrecheckSource(
 	backend PrecheckBackend, presence ModelPresence, environscloudspecGetter environsCloudSpecGetter,
 	credentialService CredentialService,
 	upgradeService UpgradeService,
+	applicationService ApplicationService,
 ) *precheckSource {
 	return &precheckSource{
 		precheckContext: precheckContext{
-			backend:        backend,
-			presence:       presence,
-			upgradeService: upgradeService,
+			backend:            backend,
+			presence:           presence,
+			upgradeService:     upgradeService,
+			applicationService: applicationService,
 		},
 		environscloudspecGetter: environscloudspecGetter,
 		credentialService:       credentialService,

@@ -6,10 +6,10 @@ package caasapplication
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -52,10 +52,10 @@ func (c *Client) UnitIntroduction(ctx context.Context, podName string, podUUID s
 		return nil, err
 	}
 	if err := result.Error; err != nil {
-		if params.IsCodeAlreadyExists(err) {
-			return nil, errors.AlreadyExists
+		if params.IsCodeUnitAlreadyExists(err) {
+			return nil, applicationerrors.UnitAlreadyExists
 		} else if params.IsCodeNotAssigned(err) {
-			return nil, errors.NotAssigned
+			return nil, applicationerrors.UnitNotAssigned
 		}
 		return nil, err
 	}

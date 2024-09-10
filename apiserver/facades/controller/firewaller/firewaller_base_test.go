@@ -144,7 +144,7 @@ func (s *firewallerBaseSuite) testLife(
 			{Life: "alive"},
 			{Life: "alive"},
 			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},
+			{Error: &params.Error{Code: "unit not found", Message: "unit not found"}},
 			{Error: apiservertesting.NotFoundError(`application "bar"`)},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

@@ -17,6 +17,7 @@ import (
 	assumes "github.com/juju/juju/core/assumes"
 	charm "github.com/juju/juju/core/charm"
 	crossmodel "github.com/juju/juju/core/crossmodel"
+	life "github.com/juju/juju/core/life"
 	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
 	service "github.com/juju/juju/domain/application/service"
@@ -352,6 +353,45 @@ func (c *MockApplicationServiceDestroyUnitCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// GetApplicationLife mocks base method.
+func (m *MockApplicationService) GetApplicationLife(arg0 context.Context, arg1 string) (life.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationLife indicates an expected call of GetApplicationLife.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationLife(arg0, arg1 any) *MockApplicationServiceGetApplicationLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationLife", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationLife), arg0, arg1)
+	return &MockApplicationServiceGetApplicationLifeCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationLifeCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationLifeCall) Return(arg0 life.Value, arg1 error) *MockApplicationServiceGetApplicationLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationLifeCall) Do(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetApplicationLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationLifeCall) DoAndReturn(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetApplicationLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetSupportedFeatures mocks base method.
 func (m *MockApplicationService) GetSupportedFeatures(arg0 context.Context) (assumes.FeatureSet, error) {
 	m.ctrl.T.Helper()
@@ -387,6 +427,45 @@ func (c *MockApplicationServiceGetSupportedFeaturesCall) Do(f func(context.Conte
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceGetSupportedFeaturesCall) DoAndReturn(f func(context.Context) (assumes.FeatureSet, error)) *MockApplicationServiceGetSupportedFeaturesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitLife mocks base method.
+func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 string) (life.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitLife indicates an expected call of GetUnitLife.
+func (mr *MockApplicationServiceMockRecorder) GetUnitLife(arg0, arg1 any) *MockApplicationServiceGetUnitLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitLife", reflect.TypeOf((*MockApplicationService)(nil).GetUnitLife), arg0, arg1)
+	return &MockApplicationServiceGetUnitLifeCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitLifeCall wrap *gomock.Call
+type MockApplicationServiceGetUnitLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitLifeCall) Return(arg0 life.Value, arg1 error) *MockApplicationServiceGetUnitLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitLifeCall) Do(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -14,19 +14,31 @@ import (
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/application"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
 
+// ApplicationService provides access to the application service.
+type ApplicationService interface {
+	GetCharmByApplicationName(context.Context, string) (charm.Charm, applicationcharm.CharmOrigin, application.Platform, error)
+	GetApplicationLife(context.Context, string) (life.Value, error)
+	GetUnitLife(context.Context, string) (life.Value, error)
+}
 type Facade struct {
-	*common.LifeGetter
 	*common.AgentEntityWatcher
 	resources       facade.Resources
 	state           CAASFirewallerState
 	charmInfoAPI    *charmscommon.CharmInfoAPI
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
 	accessModel     common.GetAuthFunc
+	accessUnit      common.GetAuthFunc
+
+	applicationService ApplicationService
 }
 
 // CharmInfo returns information about the requested charm.
@@ -112,30 +124,69 @@ func NewFacade(
 	st CAASFirewallerState,
 	commonCharmsAPI *charmscommon.CharmInfoAPI,
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI,
+	applicationService ApplicationService,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
+	accessUnit := common.AuthAny(
+		common.AuthFuncForTagKind(names.ApplicationTagKind),
+		common.AuthFuncForTagKind(names.UnitTagKind),
+	)
 
 	return &Facade{
 		accessModel: common.AuthFuncForTagKind(names.ModelTagKind),
-		LifeGetter: common.NewLifeGetter(
-			st, common.AuthAny(
-				common.AuthFuncForTagKind(names.ApplicationTagKind),
-				common.AuthFuncForTagKind(names.UnitTagKind),
-			),
-		),
+		accessUnit:  accessUnit,
 		AgentEntityWatcher: common.NewAgentEntityWatcher(
 			st,
 			resources,
 			accessApplication,
 		),
-		resources:       resources,
-		state:           st,
-		charmInfoAPI:    commonCharmsAPI,
-		appCharmInfoAPI: appCharmInfoAPI,
+		resources:          resources,
+		state:              st,
+		charmInfoAPI:       commonCharmsAPI,
+		appCharmInfoAPI:    appCharmInfoAPI,
+		applicationService: applicationService,
 	}, nil
+}
+
+// Life returns the life status of the specified units.
+func (f *Facade) Life(ctx context.Context, args params.Entities) (params.LifeResults, error) {
+	result := params.LifeResults{
+		Results: make([]params.LifeResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canRead, err := f.accessUnit()
+	if err != nil {
+		return params.LifeResults{}, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canRead(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		var lifeValue life.Value
+		switch tag.Kind() {
+		case names.ApplicationTagKind:
+			lifeValue, err = f.applicationService.GetApplicationLife(ctx, tag.Id())
+		case names.UnitTagKind:
+			lifeValue, err = f.applicationService.GetUnitLife(ctx, tag.Id())
+		default:
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		result.Results[i].Life = lifeValue
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
 }
 
 // WatchOpenedPorts returns a new StringsWatcher for each given

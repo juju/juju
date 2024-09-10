@@ -46,9 +46,9 @@ const (
 	// is not assigned.
 	UnitNotAssigned = errors.ConstError("unit not assigned")
 
-	// ApplicationDyingOrDead describes an error where resource query fails because the
-	// application is dying or dead.
-	ApplicationDyingOrDead = errors.ConstError("application dying or dead")
+	// UnitAlreadyExists describes an error that occurs when the
+	// unit being created already exists.
+	UnitAlreadyExists = errors.ConstError("unit already exists")
 
 	// UnitHasSubordinates describes an error that occurs when trying to set a unit's life
 	// to Dead but it still has subordinates.

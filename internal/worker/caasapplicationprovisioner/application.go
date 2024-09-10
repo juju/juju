@@ -116,7 +116,7 @@ func (a *appWorker) loop() error {
 	// If the application no longer exists, return immediately. If it's in
 	// Dead state, ensure it's deleted and terminated.
 	appLife, err := a.facade.Life(ctx, a.name)
-	if errors.Is(err, errors.NotFound) {
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		a.logger.Debugf("application %q no longer exists", a.name)
 		return nil
 	} else if err != nil {
@@ -203,7 +203,7 @@ func (a *appWorker) loop() error {
 
 	handleChange := func() error {
 		appLife, err = a.facade.Life(ctx, a.name)
-		if errors.Is(err, errors.NotFound) {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			appLife = life.Dead
 		} else if err != nil {
 			return errors.Trace(err)
@@ -371,10 +371,7 @@ func (a *appWorker) loop() error {
 				break
 			}
 			err := a.ops.ReconcileDeadUnitScale(ctx, a.name, app, a.facade, a.logger)
-			// TODO(units): this probably needs to check UnitNotFound as well
-			if errors.Is(err, applicationerrors.ApplicationNotFound) ||
-				// TODO(units) - remove this when Life() uses the service.
-				errors.Is(err, errors.NotFound) {
+			if errors.Is(err, applicationerrors.ApplicationNotFound) || errors.Is(err, applicationerrors.UnitNotFound) {
 				reconcileDeadChan = a.clock.After(retryDelay)
 				shouldRefresh = false
 			} else if errors.Is(err, tryAgain) {

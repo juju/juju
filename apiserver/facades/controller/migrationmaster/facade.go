@@ -55,6 +55,7 @@ type API struct {
 	modelConfigService      ModelConfigService
 	modelInfoService        ModelInfoService
 	modelService            ModelService
+	applicationService      ApplicationService
 	store                   objectstore.ObjectStore
 }
 
@@ -77,6 +78,7 @@ func NewAPI(
 	modelConfigService ModelConfigService,
 	modelInfoService ModelInfoService,
 	modelService ModelService,
+	applicationService ApplicationService,
 	upgradeService UpgradeService,
 ) (*API, error) {
 	if !authorizer.AuthController() {
@@ -100,6 +102,7 @@ func NewAPI(
 		modelConfigService:      modelConfigService,
 		modelInfoService:        modelInfoService,
 		modelService:            modelService,
+		applicationService:      applicationService,
 		upgradeService:          upgradeService,
 	}, nil
 }
@@ -274,6 +277,7 @@ func (api *API) Prechecks(ctx context.Context, arg params.PrechecksArgs) error {
 		api.environscloudspecGetter,
 		api.credentialService,
 		api.upgradeService,
+		api.applicationService,
 	)
 }
 

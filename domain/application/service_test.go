@@ -15,6 +15,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/life"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -81,6 +82,17 @@ func (s *serviceSuite) createApplication(c *gc.C, name string, units ...service.
 	}, units...)
 	c.Assert(err, jc.ErrorIsNil)
 	return appID
+}
+
+func (s *serviceSuite) TestGetApplicationLife(c *gc.C) {
+	s.createApplication(c, "foo")
+
+	lifeValue, err := s.svc.GetApplicationLife(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(lifeValue, gc.Equals, life.Alive)
+
+	_, err = s.svc.GetApplicationLife(context.Background(), "bar")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *serviceSuite) TestDestroyApplication(c *gc.C) {
@@ -164,6 +176,50 @@ func (s *serviceSuite) TestDeleteApplicationNotFound(c *gc.C) {
 
 	err := s.svc.DeleteApplication(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *serviceSuite) TestEnsureApplicationDead(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.createApplication(c, "foo")
+
+	err := s.svc.EnsureApplicationDead(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	var gotLife int
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT life_id FROM application WHERE name = ?", "foo").
+			Scan(&gotLife)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotLife, gc.Equals, 2)
+}
+
+func (s *serviceSuite) TestEnsureApplicationDeadNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	err := s.svc.EnsureApplicationDead(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *serviceSuite) TestGetUnitLife(c *gc.C) {
+	u := service.AddUnitArg{
+		UnitName: ptr("foo/666"),
+	}
+	s.createApplication(c, "foo", u)
+
+	lifeValue, err := s.svc.GetUnitLife(context.Background(), "foo/666")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(lifeValue, gc.Equals, life.Alive)
+
+	_, err = s.svc.GetUnitLife(context.Background(), "foo/667")
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *serviceSuite) TestDestroyUnit(c *gc.C) {
@@ -394,7 +450,7 @@ func (s *serviceSuite) TestReplaceDeadCAASUnit(c *gc.C) {
 		OrderedId:    1,
 	}
 	err = s.svc.RegisterCAASUnit(context.Background(), "foo", args)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationIsDead)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitAlreadyExists)
 }
 
 func (s *serviceSuite) TestNewCAASUnit(c *gc.C) {

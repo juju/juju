@@ -76,7 +76,7 @@ func (facade *connFacade) Life(ctx context.Context, entity names.Tag) (Life, err
 		return "", errors.Errorf("expected 1 result, got %d", len(results.Entities))
 	}
 	if err := results.Entities[0].Error; err != nil {
-		if params.IsCodeNotFoundOrCodeUnauthorized(err) {
+		if params.IsCodeNotFoundOrCodeUnauthorized(err) || params.IsCodeUnitNotFound(err) {
 			return "", ErrDenied
 		}
 		return "", errors.Trace(err)

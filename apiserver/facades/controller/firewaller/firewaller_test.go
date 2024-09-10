@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -37,6 +38,7 @@ type firewallerSuite struct {
 	controllerConfigService *MockControllerConfigService
 	modelConfigService      *MockModelConfigService
 	networkService          *MockNetworkService
+	applicationService      *MockApplicationService
 }
 
 var _ = gc.Suite(&firewallerSuite{})
@@ -51,6 +53,7 @@ func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
 
 	return ctrl
 }
@@ -80,6 +83,7 @@ func (s *firewallerSuite) setupAPI(c *gc.C) {
 		s.controllerConfigAPI,
 		s.controllerConfigService,
 		s.modelConfigService,
+		s.applicationService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -102,6 +106,8 @@ func (s *firewallerSuite) TestLife(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
+
+	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), "foo/0").Return("", applicationerrors.UnitNotFound)
 
 	s.testLife(c, s.firewaller)
 }

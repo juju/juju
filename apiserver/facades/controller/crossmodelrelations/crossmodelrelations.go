@@ -222,6 +222,7 @@ func (api *CrossModelRelationsAPIv3) registerRemoteRelation(ctx context.Context,
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get application for offer %q", relation.OfferUUID)
 	}
+	// TODO(units) - XXXX
 	if localApp.Life() != state.Alive {
 		// We don't want to leak the application name so just log it.
 		api.logger.Warningf("local application for offer %v not found", localApplicationName)

@@ -60,6 +60,8 @@ func (*errorSuite) TestTranslateWellKnownError(c *gc.C) {
 		{params.CodeSecretBackendNotSupported, params.Error{Code: params.CodeSecretBackendNotSupported, Message: "secret backend not found"}, secretbackenderrors.NotSupported},
 		{params.CodeSecretBackendNotValid, params.Error{Code: params.CodeSecretBackendNotValid, Message: "secret backend not found"}, secretbackenderrors.NotValid},
 		{params.CodeSecretBackendForbidden, params.Error{Code: params.CodeSecretBackendForbidden, Message: "secret backend not found"}, secretbackenderrors.Forbidden},
+		{params.CodeUnitNotFound, params.Error{Code: params.CodeUnitNotFound, Message: "unit not found"}, applicationerrors.UnitNotFound},
+		{params.CodeUnitAlreadyExists, params.Error{Code: params.CodeUnitAlreadyExists, Message: "unit already exists"}, applicationerrors.UnitAlreadyExists},
 		{params.CodeApplicationNotFound, params.Error{Code: params.CodeApplicationNotFound, Message: "application not found"}, applicationerrors.ApplicationNotFound},
 		{params.CodeScalingStateInconsistent, params.Error{Code: params.CodeScalingStateInconsistent, Message: "scaling state inconsistent"}, applicationerrors.ScalingStateInconsistent},
 	}

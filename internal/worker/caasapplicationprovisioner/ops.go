@@ -278,9 +278,18 @@ func appDying(
 	appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
 	logger logger.Logger,
-) error {
+) (err error) {
+	// TODO(units) - remove this once life mgmt fully across to dqlite
+	// Since life is still handled in both mongo and dqlite, it's possible
+	// that a mongo cleanup job can mark the app as dead.
+	defer func() {
+		if errors.Is(err, applicationerrors.ApplicationIsDead) {
+			err = nil
+		}
+	}()
+
 	logger.Debugf("application %q dying", appName)
-	err := ensureScale(ctx, appName, app, appLife, facade, unitFacade, logger)
+	err = ensureScale(ctx, appName, app, appLife, facade, unitFacade, logger)
 	if err != nil {
 		return errors.Annotate(err, "cannot scale dying application to 0")
 	}
@@ -328,7 +337,8 @@ func checkCharmFormat(
 	logger logger.Logger,
 ) (isOk bool, err error) {
 	charmInfo, err := facade.ApplicationCharmInfo(ctx, appName)
-	if errors.Is(err, errors.NotFound) {
+	// TODO(units) - remove the dead check once life mgmt fully across to dqlite
+	if errors.Is(err, errors.NotFound) || errors.Is(err, applicationerrors.ApplicationIsDead) {
 		logger.Debugf("application %q no longer exists", appName)
 		return false, nil
 	} else if err != nil {
@@ -687,7 +697,7 @@ func ensureScale(
 		return updateProvisioningState(ctx, appName, false, 0, facade)
 	}
 
-	unitsToDestroy, err := app.UnitsToRemove(context.TODO(), ps.ScaleTarget)
+	unitsToDestroy, err := app.UnitsToRemove(ctx, ps.ScaleTarget)
 	if err != nil && errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {

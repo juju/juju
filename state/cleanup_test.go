@@ -1703,3 +1703,7 @@ func (r fakeAppRemover) DestroyUnit(context.Context, string) error {
 }
 
 func (fakeAppRemover) DeleteApplication(context.Context, string) error { return nil }
+
+func (fakeAppRemover) EnsureApplicationDead(ctx context.Context, appName string) error {
+	return nil
+}

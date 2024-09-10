@@ -695,7 +695,7 @@ func (fw *Firewaller) unitsChanged(ctx context.Context, change *unitsChange) err
 	for _, name := range change.units {
 		unitTag := names.NewUnitTag(name)
 		unit, err := fw.firewallerApi.Unit(ctx, unitTag)
-		if err != nil && !params.IsCodeNotFound(err) {
+		if err != nil && !params.IsCodeUnitNotFound(err) {
 			return err
 		}
 		var machineTag names.MachineTag

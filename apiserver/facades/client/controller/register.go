@@ -12,6 +12,8 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/internal/storage"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -45,6 +47,12 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 	modelConfigServiceGetter := func(modelID model.UUID) ModelConfigService {
 		return ctx.ServiceFactoryForModel(modelID).Config()
 	}
+	applicationServiceGetter := func(modelID model.UUID) ApplicationService {
+		return ctx.ServiceFactoryForModel(modelID).Application(service.ApplicationServiceParams{
+			StorageRegistry: storage.NotImplementedProviderRegistry{},
+			Secrets:         service.NotImplementedSecretService{},
+		})
+	}
 
 	return NewControllerAPI(
 		stdCtx,
@@ -62,6 +70,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		serviceFactory.Upgrade(),
 		serviceFactory.Access(),
 		serviceFactory.Model(),
+		applicationServiceGetter,
 		modelConfigServiceGetter,
 		serviceFactory.Proxy(),
 		func(modelUUID model.UUID, legacyState facade.LegacyStateExporter) ModelExporter {

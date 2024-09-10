@@ -29,11 +29,13 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/password"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
+	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
@@ -215,10 +217,21 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(relStatus.Status, gc.Equals, status.Joining)
 
+	// We need to dual write to dqlite.
+	sf := s.ServiceFactorySuite.ServiceFactoryGetter(c).FactoryForModel(s.ServiceFactorySuite.ControllerModelUUID)
+	applicationService := sf.Application(service.ApplicationServiceParams{
+		StorageRegistry: storage.NotImplementedProviderRegistry{},
+		Secrets:         service.NotImplementedSecretService{},
+	})
+
 	// Make the wordpressUnit dead.
 	err = s.wordpressUnit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpressUnit.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Dead)
+
+	err = applicationService.EnsureUnitDead(context.Background(), "wordpress/0", s.leadershipRevoker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Dead)
 
@@ -228,12 +241,15 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(extraUnit, gc.NotNil)
 
-	// Make the wordpress service dying.
+	// Make the wordpress application dying.
 	err = s.wordpress.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpress.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.wordpress.Life(), gc.Equals, state.Dying)
+
+	err = applicationService.DestroyApplication(context.Background(), "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
