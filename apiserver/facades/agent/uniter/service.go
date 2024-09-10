@@ -26,6 +26,9 @@ type ControllerConfigService interface {
 type ModelConfigService interface {
 	// ModelConfig returns the current config for the model.
 	ModelConfig(context.Context) (*config.Config, error)
+	// Watch returns a watcher that returns keys for any changes to model
+	// config.
+	Watch() (watcher.StringsWatcher, error)
 }
 
 // ModelInfoService describes the service for interacting and reading the

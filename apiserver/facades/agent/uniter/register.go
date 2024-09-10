@@ -138,7 +138,7 @@ func newUniterAPIWithServices(
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrApplication),
 		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrApplication),
 		APIAddresser:               common.NewAPIAddresser(systemState, resources),
-		MongoModelWatcher:          common.NewMongoModelWatcher(m, resources),
+		ModelWatcher:               common.NewModelWatcher(modelConfigService, context.WatcherRegistry()),
 		RebootRequester:            common.NewRebootRequester(machineService, accessMachine),
 		UnitStateAPI:               common.NewExternalUnitStateAPI(controllerConfigService, st, resources, authorizer, accessUnit, logger),
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),

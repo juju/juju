@@ -15,6 +15,7 @@ import (
 
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
+	watcher "github.com/juju/juju/core/watcher"
 	config "github.com/juju/juju/environs/config"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -55,6 +56,21 @@ func (m *MockModelConfigService) ModelConfig(arg0 context.Context) (*config.Conf
 func (mr *MockModelConfigServiceMockRecorder) ModelConfig(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockModelConfigService)(nil).ModelConfig), arg0)
+}
+
+// Watch mocks base method.
+func (m *MockModelConfigService) Watch() (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Watch")
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Watch indicates an expected call of Watch.
+func (mr *MockModelConfigServiceMockRecorder) Watch() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockModelConfigService)(nil).Watch))
 }
 
 // MockModelInfoService is a mock of ModelInfoService interface.

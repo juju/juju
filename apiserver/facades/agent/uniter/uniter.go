@@ -42,7 +42,7 @@ type UniterAPI struct {
 	*StatusAPI
 	*common.AgentEntityWatcher
 	*common.APIAddresser
-	*common.MongoModelWatcher
+	*common.ModelWatcher
 	*common.RebootRequester
 	*common.UnitStateAPI
 	*leadershipapiserver.LeadershipSettingsAccessor
