@@ -79,11 +79,12 @@ func (c *MockStoragePrepareToStoreCharmCall) DoAndReturn(f func(string) error) *
 }
 
 // Store mocks base method.
-func (m *MockStorage) Store(arg0 context.Context, arg1 string, arg2 downloader.DownloadedCharm) error {
+func (m *MockStorage) Store(arg0 context.Context, arg1 string, arg2 downloader.DownloadedCharm) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Store", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Store indicates an expected call of Store.
@@ -99,19 +100,19 @@ type MockStorageStoreCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStorageStoreCall) Return(arg0 error) *MockStorageStoreCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockStorageStoreCall) Return(arg0 string, arg1 error) *MockStorageStoreCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageStoreCall) Do(f func(context.Context, string, downloader.DownloadedCharm) error) *MockStorageStoreCall {
+func (c *MockStorageStoreCall) Do(f func(context.Context, string, downloader.DownloadedCharm) (string, error)) *MockStorageStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageStoreCall) DoAndReturn(f func(context.Context, string, downloader.DownloadedCharm) error) *MockStorageStoreCall {
+func (c *MockStorageStoreCall) DoAndReturn(f func(context.Context, string, downloader.DownloadedCharm) (string, error)) *MockStorageStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

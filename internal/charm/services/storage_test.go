@@ -72,7 +72,7 @@ func (s *storageTestSuite) TestStoreBlobFails(c *gc.C) {
 
 	s.storageBackend.EXPECT().Put(gomock.Any(), expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return(errors.New("failed"))
 
-	err := s.storage.Store(context.Background(), curl, dlCharm)
+	_, err := s.storage.Store(context.Background(), curl, dlCharm)
 	c.Assert(err, gc.ErrorMatches, "cannot add charm to storage.*")
 }
 
@@ -103,7 +103,7 @@ func (s *storageTestSuite) TestStoreBlobAlreadyStored(c *gc.C) {
 	// the duplicate we just uploaded from the store.
 	s.storageBackend.EXPECT().Remove(gomock.Any(), expStoreCharmPath).Return(nil)
 
-	err := s.storage.Store(context.Background(), curl, dlCharm)
+	_, err := s.storage.Store(context.Background(), curl, dlCharm)
 	c.Assert(err, jc.ErrorIsNil) // charm already uploaded by someone; no error
 }
 
@@ -134,7 +134,7 @@ func (s *storageTestSuite) TestStoreCharmAlreadyStored(c *gc.C) {
 	// the duplicate we just uploaded from the store.
 	s.storageBackend.EXPECT().Remove(gomock.Any(), expStoreCharmPath).Return(nil)
 
-	err := s.storage.Store(context.Background(), curl, dlCharm)
+	_, err := s.storage.Store(context.Background(), curl, dlCharm)
 	c.Assert(err, jc.ErrorIsNil) // charm already uploaded by someone; no error
 }
 

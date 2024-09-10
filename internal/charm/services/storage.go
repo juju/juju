@@ -64,16 +64,16 @@ func (s *CharmStorage) PrepareToStoreCharm(charmURL string) error {
 }
 
 // CharmStorage attempts to store the contents of a downloaded charm.
-func (s *CharmStorage) Store(ctx context.Context, charmURL string, downloadedCharm charmdownloader.DownloadedCharm) error {
+func (s *CharmStorage) Store(ctx context.Context, charmURL string, downloadedCharm charmdownloader.DownloadedCharm) (string, error) {
 	s.logger.Tracef("store %q", charmURL)
 	storagePath, err := s.charmArchiveStoragePath(charmURL)
 	if err != nil {
-		return errors.Annotate(err, "cannot generate charm archive name")
+		return "", errors.Annotate(err, "cannot generate charm archive name")
 	}
 
 	// If the blob is already stored, we can skip the upload.
 	if err := s.objectStore.Put(ctx, storagePath, downloadedCharm.CharmData, downloadedCharm.Size); err != nil && !errors.Is(err, objectstoreerrors.ErrHashAlreadyExists) {
-		return errors.Annotate(err, "cannot add charm to storage")
+		return "", errors.Annotate(err, "cannot add charm to storage")
 	}
 
 	info := state.CharmInfo{
@@ -100,11 +100,11 @@ func (s *CharmStorage) Store(ctx context.Context, charmURL string, downloadedCha
 		if alreadyUploaded {
 			// Somebody else managed to upload and update the charm in
 			// state before us. This is not an error.
-			return nil
+			return "", nil
 		}
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	return nil
+	return storagePath, nil
 }
 
 // charmArchiveStoragePath returns a string that is suitable as a
