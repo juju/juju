@@ -85,19 +85,6 @@ func (s *MachineSuite) TestRecordAgentStartInformation(c *gc.C) {
 	c.Assert(s.machine.Hostname(), gc.Equals, "thundering-herds", gc.Commentf("expected the host name not be changed"))
 }
 
-func (s *MachineSuite) TestSetKeepInstance(c *gc.C) {
-	err := s.machine.SetProvisioned("1234", "", "nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetKeepInstance(true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	m, err := s.State.Machine(s.machine.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	keep, err := m.KeepInstance()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(keep, jc.IsTrue)
-}
-
 func (s *MachineSuite) TestAddMachineInsideMachineModelDying(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)

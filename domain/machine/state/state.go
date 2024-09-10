@@ -808,7 +808,7 @@ WHERE  name = $machineName.name`
 		return nil
 	})
 	if err != nil {
-		return false, fmt.Errorf("check for machine %q keep instane: %w", mName, err)
+		return false, fmt.Errorf("check for machine %q keep instance: %w", mName, err)
 	}
 
 	return result.KeepInstance, nil

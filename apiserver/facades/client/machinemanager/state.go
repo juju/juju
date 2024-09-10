@@ -66,7 +66,6 @@ type Machine interface {
 	Base() state.Base
 	Containers() ([]string, error)
 	Units() ([]Unit, error)
-	SetKeepInstance(keepInstance bool) error
 	Principals() []string
 	IsManager() bool
 	ApplicationNames() ([]string, error)
