@@ -18,7 +18,7 @@ var validateRevokeAccessTest = []struct {
 	expected permission.Access
 }{
 	{
-		spec:     permission.AccessSpec{Target: permission.ID{ObjectType: permission.Model}, Access: permission.AddModelAccess},
+		spec:     permission.AccessSpec{Target: permission.ID{ObjectType: permission.Model}, Access: permission.AdminAccess},
 		expected: permission.WriteAccess,
 	}, {
 		spec:     permission.AccessSpec{Target: permission.ID{ObjectType: permission.Model}, Access: permission.WriteAccess},

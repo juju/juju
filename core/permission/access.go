@@ -332,7 +332,7 @@ func (a Access) GreaterOfferAccessThan(access Access) bool {
 // * Read gets you NoAccess
 func modelRevoke(a Access) Access {
 	switch a {
-	case AddModelAccess:
+	case AdminAccess:
 		return WriteAccess
 	case WriteAccess:
 		return ReadAccess
