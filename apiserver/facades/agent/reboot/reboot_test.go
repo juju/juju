@@ -12,6 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
+	"iter"
+	"slices"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/reboot"
@@ -55,6 +57,38 @@ type rebootSuite struct {
 
 	watcherRegistry facade.WatcherRegistry
 	machineService  *service.WatchableService
+
+	// tearDownTest is a stack of functions used to perform cleanup operations after each test in the suite.
+	// Those function will be called before any other cleanup action.
+	tearDownTest tearDownStack
+}
+
+// tearDownStack is a stack of functions used to perform cleanup operations after tests are executed.
+type tearDownStack struct {
+	stack []func(c *gc.C)
+}
+
+// push adds a new teardown function to the tearDownStack.
+func (s *tearDownStack) push(f func(c *gc.C)) {
+	s.stack = append(s.stack, f)
+}
+
+// popAll removes all functions from the stack and returns them in a reversed sequence.
+func (s *tearDownStack) popAll() iter.Seq[func(c *gc.C)] {
+	result := values(slices.Backward(s.stack))
+	s.stack = nil
+	return result
+}
+
+// values returns an iterator yielding all values from an iterator of key-value pairs.
+func values[K any, V any](seq iter.Seq2[K, V]) iter.Seq[V] {
+	return func(yield func(V) bool) {
+		for _, v := range seq {
+			if !yield(v) {
+				return
+			}
+		}
+	}
 }
 
 var _ = gc.Suite(&rebootSuite{})
@@ -100,7 +134,7 @@ func (s *rebootSuite) setupMachine(c *gc.C, tag names.MachineTag, err error, uui
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
-	s.AddCleanup(func(c *gc.C) {
+	s.tearDownTest.push(func(c *gc.C) {
 		wc.AssertKilled()
 	})
 
@@ -126,7 +160,9 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
+	s.AddCleanup(func(c *gc.C) {
+		workertest.DirtyKill(c, s.watcherRegistry)
+	})
 
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "machine")
 	s.machineService = service.NewWatchableService(
@@ -140,6 +176,11 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *rebootSuite) TearDownTest(c *gc.C) {
+
+	for teardown := range s.tearDownTest.popAll() {
+		teardown(c)
+	}
+
 	s.ApiServerSuite.TearDownTest(c)
 	s.ModelSuite.TearDownTest(c)
 }
