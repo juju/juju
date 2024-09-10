@@ -145,7 +145,6 @@ For now, we're going to skip these tests.
 }
 
 func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *gc.C) {
-	c.Skip("TODO - fix when controller config sorted out")
 	password := "shhh..."
 	user := names.NewUserTag("username")
 

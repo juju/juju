@@ -136,20 +136,6 @@ func (api *UserManagerAPI) addOneUser(ctx context.Context, arg params.AddUser) p
 	var activationKey []byte
 	var err error
 
-	// TODO(anvial): Legacy block to delete when user domain wire up is complete.
-	if arg.Password != "" {
-		_, err = api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, api.apiUserTag.Id())
-		if err != nil {
-			return params.AddUserResult{Error: apiservererrors.ServerError(errors.Annotate(err, "creating user"))}
-		}
-	} else {
-		_, err = api.state.AddUserWithSecretKey(arg.Username, arg.DisplayName, api.apiUserTag.Id())
-		if err != nil {
-			return params.AddUserResult{Error: apiservererrors.ServerError(errors.Annotate(err, "creating user"))}
-		}
-	}
-	// End legacy block.
-
 	name, err := coreuser.NewName(arg.Username)
 	if err != nil {
 		return params.AddUserResult{Error: apiservererrors.ServerError(errors.Annotate(err, "creating user"))}
