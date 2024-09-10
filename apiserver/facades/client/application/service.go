@@ -79,7 +79,8 @@ type ApplicationService interface {
 	// returning an error  satisfying [applicationerrors.UnitNotFoundError]
 	// if the unit doesn't exist.
 	DestroyUnit(ctx context.Context, name string) error
-	// GetSupportedFeatures returns the set of features supported by the service.
+	// GetSupportedFeatures returns the set of features that the model makes
+	// available for charms to use.
 	GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error)
 }
 

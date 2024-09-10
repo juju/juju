@@ -894,8 +894,6 @@ func (s *ApplicationService) GetApplicationScalingState(ctx context.Context, app
 // given model.
 type AgentVersionGetter interface {
 	// GetModelAgentVersion returns the agent version for the specified model.
-	// If the agent version cannot be found, an error satisfying
-	// [modelerrors.NotFound] will be returned.
 	GetModelAgentVersion(context.Context, coremodel.UUID) (version.Number, error)
 }
 
@@ -934,6 +932,8 @@ func NewProviderApplicationService(
 
 // GetSupportedFeatures returns the set of features that the model makes
 // available for charms to use.
+// If the agent version cannot be found, an error satisfying
+// [modelerrors.NotFound] will be returned.
 func (s *ProviderApplicationService) GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error) {
 	agentVersion, err := s.agentVersionGetter.GetModelAgentVersion(ctx, s.modelID)
 	if err != nil {
