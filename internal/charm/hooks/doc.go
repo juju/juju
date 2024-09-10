@@ -5,7 +5,7 @@
 
 // A unit's direct action is entirely defined by its charm's hooks. Hooks
 // are executable files in a charm's hooks directory; hooks with particular names
-// will be invoked by the juju unit agent at particular times, and thereby cause
+// will be invoked by the Juju unit agent at particular times, and thereby cause
 // changes to the world.
 
 // Whenever a hook-worthy event takes place, the unit agent tries to run the hook
@@ -15,12 +15,11 @@
 // a non-zero exit code, the agent enters an error state and awaits resolution;
 // otherwise it continues to process model changes as before.
 
-// Hooks should ideally be idempotent, so that they can fail and be re-executed
-// from scratch without trouble. As a hook author, you don't have complete control
-// over the times your hook might be stopped: if the unit agent process is killed
-// for any reason while running a hook, then when it recovers it will treat that
-// hook as having failed -- just as if it had returned a non-zero exit code -- and
-// request user intervention.
+// A charm's reactions to hooks should ideally be idempotent. Charm authors don't
+// have complete control over the times your hook might be stopped: if the unit agent
+// process is killed  for any reason while running a hook, then when it recovers it
+// will treat that hook as  having failed -- just as if it had returned a non-zero
+// exit code -- and request user  intervention.
 
 // It is unrealistic to expect great sophistication on the part of the average user,
 // and as a charm author you should expect that users will attempt to re-execute
