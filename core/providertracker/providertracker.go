@@ -8,14 +8,16 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 )
 
-// Provider in the intersection of a environs.Environ and a caas.Broker.
+// EnvironProvider is an interface that represents a provider that can be
+// used to manage environments.
 //
 // We ideally don't want to import the environs package here, but I've not
 // sure how to avoid it.
-type Provider interface {
+type EnvironProvider interface {
 	// InstancePrechecker provides a means of "prechecking" placement
 	// arguments before recording them in state.
 	environs.InstancePrechecker
@@ -25,6 +27,26 @@ type Provider interface {
 
 	// ResourceAdopter defines methods for adopting resources.
 	environs.ResourceAdopter
+}
+
+// Provider in the intersection of a environs.Environ and a caas.Broker.
+type Provider interface {
+	EnvironProvider
+
+	// ForCredential returns a new cloned forked provider with the given
+	// credential. There are some restrictions on the returned provider:
+	//
+	// - The provider is no longer managed, it is a singular entity. Therefore
+	//   it will not be automatically updated if the model changes.
+	// - The provider will be garbage collected when the last reference to it
+	//   is dropped.
+	// - The provider is only valid for the lifetime of the credential.
+	// - The provider is created with the current config of the provider, at
+	//   the time of the call.
+	//
+	// The purpose of the provider is to allow for validation of credentials
+	// without changing the underlying provider.
+	ForCredential(context.Context, cloud.Credential) (Provider, error)
 }
 
 // ProviderFactory is an interface that provides a way to get a provider

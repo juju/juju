@@ -20,22 +20,8 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 )
-
-// Provider is an interface that represents a provider, this can either be
-// a CAAS broker or IAAS provider.
-type Provider = providertracker.Provider
-
-// ProviderConfigGetter is an interface that extends
-// environs.EnvironConfigGetter to include the ControllerUUID method.
-type ProviderConfigGetter interface {
-	environs.EnvironConfigGetter
-
-	// ControllerUUID returns the UUID of the controller.
-	ControllerUUID() uuid.UUID
-}
 
 // IAASProviderFunc is a function that returns a IAAS provider.
 type IAASProviderFunc func(ctx context.Context, args environs.OpenParams) (environs.Environ, error)
@@ -148,47 +134,6 @@ func manifold(trackerType TrackerType, config ManifoldConfig) dependency.Manifol
 			}
 			return w, nil
 		},
-	}
-}
-
-// IAASGetProvider creates a new provider from the given args.
-func IAASGetProvider(newProvider IAASProviderFunc) func(ctx context.Context, getter ProviderConfigGetter) (Provider, environscloudspec.CloudSpec, error) {
-	return func(ctx context.Context, getter ProviderConfigGetter) (Provider, environscloudspec.CloudSpec, error) {
-		// We can't use newProvider directly, as type invariance prevents us
-		// from using it with the environs.GetEnvironAndCloud function.
-		// Just wrap it in a closure to work around this.
-		provider, spec, err := environs.GetEnvironAndCloud(ctx, getter, func(ctx context.Context, op environs.OpenParams) (environs.Environ, error) {
-			return newProvider(ctx, op)
-		})
-		if err != nil {
-			return nil, environscloudspec.CloudSpec{}, errors.Trace(err)
-		}
-		return provider, *spec, nil
-	}
-}
-
-// CAASGetProvider creates a new provider from the given args.
-func CAASGetProvider(newProvider CAASProviderFunc) func(ctx context.Context, getter ProviderConfigGetter) (Provider, environscloudspec.CloudSpec, error) {
-	return func(ctx context.Context, getter ProviderConfigGetter) (Provider, environscloudspec.CloudSpec, error) {
-		cloudSpec, err := getter.CloudSpec(ctx)
-		if err != nil {
-			return nil, environscloudspec.CloudSpec{}, errors.Annotate(err, "cannot get cloud information")
-		}
-
-		cfg, err := getter.ModelConfig(ctx)
-		if err != nil {
-			return nil, environscloudspec.CloudSpec{}, errors.Trace(err)
-		}
-
-		broker, err := newProvider(ctx, environs.OpenParams{
-			ControllerUUID: getter.ControllerUUID().String(),
-			Cloud:          cloudSpec,
-			Config:         cfg,
-		})
-		if err != nil {
-			return nil, environscloudspec.CloudSpec{}, errors.Annotate(err, "cannot create caas broker")
-		}
-		return broker, cloudSpec, nil
 	}
 }
 

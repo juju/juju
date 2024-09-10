@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	cloud "github.com/juju/juju/cloud"
 	constraints "github.com/juju/juju/core/constraints"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
@@ -371,6 +372,45 @@ func (c *MockProviderDestroyControllerCall) Do(f func(envcontext.ProviderCallCon
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockProviderDestroyControllerCall) DoAndReturn(f func(envcontext.ProviderCallContext, string) error) *MockProviderDestroyControllerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ForCredential mocks base method.
+func (m *MockProvider) ForCredential(arg0 context.Context, arg1 cloud.Credential) (Provider, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ForCredential", arg0, arg1)
+	ret0, _ := ret[0].(Provider)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ForCredential indicates an expected call of ForCredential.
+func (mr *MockProviderMockRecorder) ForCredential(arg0, arg1 any) *MockProviderForCredentialCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForCredential", reflect.TypeOf((*MockProvider)(nil).ForCredential), arg0, arg1)
+	return &MockProviderForCredentialCall{Call: call}
+}
+
+// MockProviderForCredentialCall wrap *gomock.Call
+type MockProviderForCredentialCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockProviderForCredentialCall) Return(arg0 Provider, arg1 error) *MockProviderForCredentialCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockProviderForCredentialCall) Do(f func(context.Context, cloud.Credential) (Provider, error)) *MockProviderForCredentialCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockProviderForCredentialCall) DoAndReturn(f func(context.Context, cloud.Credential) (Provider, error)) *MockProviderForCredentialCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

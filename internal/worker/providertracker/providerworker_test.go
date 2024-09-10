@@ -19,7 +19,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/database"
+	environs "github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/testing"
 )
@@ -288,11 +290,13 @@ func (s *providerWorkerSuite) newMultiWorker(c *gc.C) worker.Worker {
 }
 
 func (s *providerWorkerSuite) newWorker(c *gc.C, trackerType TrackerType) worker.Worker {
+	provider := forkableProvider{Environ: s.environ}
+
 	w, err := newWorker(Config{
 		TrackerType:          trackerType,
 		ServiceFactoryGetter: s.serviceFactoryGetter,
 		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
-			return s.environ, cloudspec.CloudSpec{}, nil
+			return provider, cloudspec.CloudSpec{}, nil
 		},
 		GetCAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
 			c.Fatalf("unexpected call to GetCAASProvider")
@@ -302,7 +306,7 @@ func (s *providerWorkerSuite) newWorker(c *gc.C, trackerType TrackerType) worker
 			atomic.AddInt64(&s.called, 1)
 
 			w := &trackerWorker{
-				provider: s.environ,
+				provider: provider,
 			}
 			err := catacomb.Invoke(catacomb.Plan{
 				Site: &w.catacomb,
@@ -334,4 +338,12 @@ func assertWait(c *gc.C, wait func()) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting")
 	}
+}
+
+type forkableProvider struct {
+	environs.Environ
+}
+
+func (p forkableProvider) ForCredential(ctx context.Context, cred cloud.Credential) (Provider, error) {
+	return forkableProvider{Environ: p.Environ}, nil
 }

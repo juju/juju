@@ -81,10 +81,10 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 			return newStubWorker(), nil
 		},
 		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
-			return s.environ, cloudspec.CloudSpec{}, nil
+			return newForkableIAASProvider(s.environ, nil, nil), cloudspec.CloudSpec{}, nil
 		},
 		GetCAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
-			return s.broker, cloudspec.CloudSpec{}, nil
+			return newForkableCAASProvider(s.broker, nil, nil), cloudspec.CloudSpec{}, nil
 		},
 		GetProviderServiceFactoryGetter: func(getter dependency.Getter, name string) (ServiceFactoryGetter, error) {
 			return s.serviceFactoryGetter, nil
@@ -118,18 +118,21 @@ func (s *manifoldSuite) TestIAASManifoldOutput(c *gc.C) {
 
 	s.expectServiceFactory("hunter2")
 
+	provider := newForkableIAASProvider(s.environ, nil, nil)
+
 	w, err := newWorker(Config{
 		TrackerType:          SingularType("hunter2"),
 		ServiceFactoryGetter: s.serviceFactoryGetter,
 		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
-			return s.environ, cloudspec.CloudSpec{}, nil
+			return provider, cloudspec.CloudSpec{}, nil
 		},
 		GetCAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
-			return s.broker, cloudspec.CloudSpec{}, nil
+			c.Fatalf("unexpected call to GetCAASProvider")
+			return nil, cloudspec.CloudSpec{}, nil
 		},
 		NewTrackerWorker: func(ctx context.Context, cfg TrackerConfig) (worker.Worker, error) {
 			w := &trackerWorker{
-				provider: s.environ,
+				provider: provider,
 			}
 			err := catacomb.Invoke(catacomb.Plan{
 				Site: &w.catacomb,
@@ -170,18 +173,21 @@ func (s *manifoldSuite) TestCAASManifoldOutput(c *gc.C) {
 
 	s.expectServiceFactory("hunter2")
 
+	provider := newForkableCAASProvider(s.broker, nil, nil)
+
 	w, err := newWorker(Config{
 		TrackerType:          SingularType("hunter2"),
 		ServiceFactoryGetter: s.serviceFactoryGetter,
 		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
-			return s.environ, cloudspec.CloudSpec{}, nil
+			c.Fatalf("unexpected call to GetIAASProvider")
+			return nil, cloudspec.CloudSpec{}, nil
 		},
 		GetCAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
-			return s.broker, cloudspec.CloudSpec{}, nil
+			return provider, cloudspec.CloudSpec{}, nil
 		},
 		NewTrackerWorker: func(ctx context.Context, cfg TrackerConfig) (worker.Worker, error) {
 			w := &trackerWorker{
-				provider: s.broker,
+				provider: provider,
 			}
 			err := catacomb.Invoke(catacomb.Plan{
 				Site: &w.catacomb,

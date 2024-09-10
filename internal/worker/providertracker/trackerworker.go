@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -165,9 +166,17 @@ func (t *trackerWorker) loop() (err error) {
 		credentialChanges <-chan struct{}
 	)
 
+	// We expect that every provider should be a forkable provider, and that
+	// each provider can be retrieved from it. This allows us to dynamically
+	// cast the provider to an environProvider.
+	environProvider := t.provider.(environProvider)
+	if environProvider == nil {
+		return errors.New("provider does not implement environProvider")
+	}
+
 	// Not every provider supports updating the cloud spec, we only want
 	// to get the cloud and credential watchers if the provider supports it.
-	cloudSpecSetter, ok := any(t.provider).(environs.CloudSpecSetter)
+	cloudSpecSetter, ok := environProvider.EnvironProvider().(environs.CloudSpecSetter)
 	if ok {
 		cloudChanges, err = t.watchCloudChanges(ctx)
 		if err != nil {
@@ -357,6 +366,20 @@ func (g providerGetter) CloudSpec(ctx context.Context) (environscloudspec.CloudS
 	return environscloudspec.MakeCloudSpec(*modelCloud, g.model.CloudRegion, modelCredentials)
 }
 
+// ForCredential returns a new providerGetter with the given credential.
+// Once the ProviderConfigGetter has been cloned, you can no longer watch for
+// changes.
+func (g providerGetter) ForCredential(cred cloud.Credential) ProviderConfigGetter {
+	return providerGetter{
+		model:         g.model,
+		cloudService:  noWatchCloudService{CloudService: g.cloudService},
+		configService: noWatchConfigService{ConfigService: g.configService},
+		credentialService: &staticCredentialService{
+			credentials: cred,
+		},
+	}
+}
+
 func modelCredentials(ctx context.Context, credentialService CredentialService, model coremodel.ReadOnlyModel) (*cloud.Credential, error) {
 	if model.CredentialName == "" {
 		return nil, nil
@@ -379,4 +402,42 @@ func modelCredentials(ctx context.Context, credentialService CredentialService, 
 	)
 	return &cloudCredential, nil
 
+}
+
+type noWatchCloudService struct {
+	CloudService
+}
+
+// WatchCloud returns [errors.NotSupported] error, when attempting to watch
+// cloud. The cloud service has been forked to provide an implementation that
+// does not support watching.
+func (noWatchCloudService) WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
+	return nil, errors.NotSupportedf("watching cloud")
+}
+
+type noWatchConfigService struct {
+	ConfigService
+}
+
+// Watch returns [errors.NotSupported] error, when attempting to watch
+// config. The config service has been forked to provide an implementation that
+// does not support watching..
+func (noWatchConfigService) Watch() (watcher.StringsWatcher, error) {
+	return nil, errors.NotSupportedf("watching config")
+}
+
+type staticCredentialService struct {
+	credentials cloud.Credential
+}
+
+// CloudCredential returns the cloud credential for the given tag.
+func (s *staticCredentialService) CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error) {
+	return s.credentials, nil
+}
+
+// WatchCredential returns [errors.NotSupported] error, when attempting to watch
+// credential. The credential service has been forked to provide an
+// implementation that does not support watching.
+func (s *staticCredentialService) WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error) {
+	return nil, errors.NotSupportedf("watching credential")
 }
