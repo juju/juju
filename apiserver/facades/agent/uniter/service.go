@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/leadership"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -47,11 +48,11 @@ type CredentialService interface {
 	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
 }
 
-// UnitRemover deletes a unit from the dqlite database. This allows us to
-// initially weave some dqlite support into the cleanup workflow.
-type UnitRemover interface {
-	DeleteUnit(context.Context, string) error
-	DestroyUnit(context.Context, string) error
+// ApplicationService provides access to the application service.
+type ApplicationService interface {
+	EnsureUnitDead(ctx context.Context, unitName string, leadershipRevoker leadership.Revoker) error
+	DeleteUnit(ctx context.Context, unitName string) error
+	DestroyUnit(ctx context.Context, unitName string) error
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -68,11 +69,6 @@ type NetworkService interface {
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
-	// EnsureDeadMachine sets the provided machine's life status to Dead.
-	// No error is returned if the provided machine doesn't exist, just nothing
-	// gets updated.
-	EnsureDeadMachine(ctx context.Context, machineName coremachine.Name) error
-
 	// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
 	RequireMachineReboot(ctx context.Context, uuid string) error
 

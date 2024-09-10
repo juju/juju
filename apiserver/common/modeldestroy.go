@@ -14,6 +14,15 @@ import (
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
+// MaxWait is how far in the future the backstop force cleanup will be scheduled.
+// Default is 1min if no value is provided.
+func MaxWait(in *time.Duration) time.Duration {
+	if in != nil {
+		return *in
+	}
+	return 1 * time.Minute
+}
+
 // DestroyController sets the controller model to Dying and, if requested,
 // schedules cleanups so that all of the hosted models are destroyed, or
 // otherwise returns an error indicating that there are hosted models

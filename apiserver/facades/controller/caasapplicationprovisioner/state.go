@@ -74,6 +74,7 @@ type Unit interface {
 	Tag() names.Tag
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyUnitOperation
 	EnsureDead() error
+	Remove(store objectstore.ObjectStore) error
 	ContainerInfo() (state.CloudContainer, error)
 	UpdateOperation(props state.UnitUpdateProperties) *state.UpdateUnitOperation
 	Status() (status.StatusInfo, error)

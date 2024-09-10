@@ -1128,7 +1128,7 @@ func (s *FilesystemIAASModelSuite) TestRemoveMachineRemovesFilesystems(c *gc.C) 
 
 	c.Assert(machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(machine.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
+	c.Assert(machine.Remove(), jc.ErrorIsNil)
 
 	// Machine is gone: filesystem should be gone too.
 	_, err := s.storageBackend.Filesystem(filesystem.FilesystemTag())
@@ -1259,7 +1259,7 @@ func (s *FilesystemIAASModelSuite) TestFilesystemMachineScoped(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.storageBackend.Filesystem(filesystem.FilesystemTag())

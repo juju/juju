@@ -153,7 +153,7 @@ func (s *firewallerBaseSuite) testLife(
 	})
 
 	// Remove a machine and make sure it's detected.
-	err = s.machines[1].Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
+	err = s.machines[1].Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[1].Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)

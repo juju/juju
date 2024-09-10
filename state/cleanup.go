@@ -16,6 +16,7 @@ import (
 	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/objectstore"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -174,6 +175,7 @@ type MachineRemover interface {
 type ApplicationService interface {
 	DestroyApplication(context.Context, string) error
 	DeleteApplication(context.Context, string) error
+	EnsureUnitDead(context.Context, string, leadership.Revoker) error
 	DestroyUnit(context.Context, string) error
 	DeleteUnit(context.Context, string) error
 }
@@ -241,7 +243,7 @@ func (st *State) Cleanup(
 		case cleanupForceDestroyedMachine:
 			err = st.cleanupForceDestroyedMachine(ctx, store, applicationService, machineRemover, doc.Prefix, args)
 		case cleanupForceRemoveMachine:
-			err = st.cleanupForceRemoveMachine(ctx, store, machineRemover, doc.Prefix, args)
+			err = st.cleanupForceRemoveMachine(ctx, machineRemover, doc.Prefix, args)
 		case cleanupAttachmentsForDyingStorage:
 			err = st.cleanupAttachmentsForDyingStorage(doc.Prefix, args)
 		case cleanupEvacuateMachine:
@@ -993,7 +995,13 @@ func (st *State) scheduleForceCleanup(kind cleanupKind, name string, maxWait tim
 	}
 }
 
-func (st *State) cleanupForceDestroyedUnit(ctx context.Context, store objectstore.ObjectStore, unitRemover ApplicationService, unitId string, cleanupArgs []bson.Raw) error {
+type noopLeadershipRevoker struct{}
+
+func (noopLeadershipRevoker) RevokeLeadership(applicationId, unitId string) error {
+	return nil
+}
+
+func (st *State) cleanupForceDestroyedUnit(ctx context.Context, store objectstore.ObjectStore, applicationService ApplicationService, unitId string, cleanupArgs []bson.Raw) error {
 	var maxWait time.Duration
 	if n := len(cleanupArgs); n != 1 {
 		return errors.Errorf("expected 1 argument, got %d", n)
@@ -1024,13 +1032,13 @@ func (st *State) cleanupForceDestroyedUnit(ctx context.Context, store objectstor
 		}
 		removed, opErrs, err := subUnit.DestroyWithForce(store, true, maxWait)
 		if err == nil {
-			err = unitRemover.DestroyUnit(ctx, subName)
+			err = applicationService.DestroyUnit(ctx, subName)
 			if err != nil {
 				opErrs = append(opErrs, err)
 			}
 		}
 		if err == nil && removed {
-			err = unitRemover.DeleteUnit(ctx, unitId)
+			err = applicationService.DeleteUnit(ctx, unitId)
 		}
 		if len(opErrs) != 0 || err != nil {
 			logger.Warningf("errors while destroying subordinate %q: %v, %v", subName, err, opErrs)
@@ -1065,6 +1073,18 @@ func (st *State) cleanupForceDestroyedUnit(ctx context.Context, store objectstor
 	}
 
 	// Mark the unit dead.
+	err = applicationService.EnsureUnitDead(ctx, unitId, noopLeadershipRevoker{})
+	if errors.Is(err, applicationerrors.UnitHasSubordinates) || errors.Is(err, applicationerrors.UnitHasStorageAttachments) {
+		// In this case we do want to die and try again - we can't set
+		// the unit to dead until the subordinates and storage are
+		// gone, so we should give them time to be removed.
+		return err
+	} else if err != nil {
+		logger.Warningf("couldn't set unit %q dead: %v", unitId, err)
+	}
+
+	// TODO(units) - remove me
+	// Dual write to state.
 	err = unit.EnsureDead()
 	if err == stateerrors.ErrUnitHasSubordinates || err == stateerrors.ErrUnitHasStorageAttachments {
 		// In this case we do want to die and try again - we can't set
@@ -1104,7 +1124,7 @@ func (st *State) forceRemoveUnitStorageAttachments(unit *Unit) error {
 	return nil
 }
 
-func (st *State) cleanupForceRemoveUnit(ctx context.Context, store objectstore.ObjectStore, unitRemover ApplicationService, unitId string, cleanupArgs []bson.Raw) error {
+func (st *State) cleanupForceRemoveUnit(ctx context.Context, store objectstore.ObjectStore, applicationService ApplicationService, unitId string, cleanupArgs []bson.Raw) error {
 	var maxWait time.Duration
 	if n := len(cleanupArgs); n != 1 {
 		return errors.Errorf("expected 1 argument, got %d", n)
@@ -1123,7 +1143,7 @@ func (st *State) cleanupForceRemoveUnit(ctx context.Context, store objectstore.O
 	if len(opErrs) != 0 {
 		logger.Warningf("errors encountered force-removing unit %q: %v", unitId, opErrs)
 	} else {
-		err = unitRemover.DeleteUnit(ctx, unitId)
+		err = applicationService.DeleteUnit(ctx, unitId)
 	}
 	return errors.Trace(err)
 }
@@ -1326,7 +1346,7 @@ func (st *State) cleanupDyingMachine(machineID string, cleanupArgs []bson.Raw) e
 // cleanupForceDestroyedMachine systematically destroys and removes all entities
 // that depend upon the supplied machine, and removes the machine from state. It's
 // expected to be used in response to destroy-machine --force.
-func (st *State) cleanupForceDestroyedMachine(ctx context.Context, store objectstore.ObjectStore, unitRemover ApplicationService, machineRemover MachineRemover, machineId string, cleanupArgs []bson.Raw) error {
+func (st *State) cleanupForceDestroyedMachine(ctx context.Context, store objectstore.ObjectStore, applicationService ApplicationService, machineRemover MachineRemover, machineId string, cleanupArgs []bson.Raw) error {
 	var maxWait time.Duration
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
 	if n := len(cleanupArgs); n > 0 {
@@ -1339,10 +1359,10 @@ func (st *State) cleanupForceDestroyedMachine(ctx context.Context, store objects
 			}
 		}
 	}
-	return st.cleanupForceDestroyedMachineInternal(ctx, store, unitRemover, machineRemover, machineId, maxWait)
+	return st.cleanupForceDestroyedMachineInternal(ctx, store, applicationService, machineRemover, machineId, maxWait)
 }
 
-func (st *State) cleanupForceDestroyedMachineInternal(ctx context.Context, store objectstore.ObjectStore, unitRemover ApplicationService, machineRemover MachineRemover, machineID string, maxWait time.Duration) error {
+func (st *State) cleanupForceDestroyedMachineInternal(ctx context.Context, store objectstore.ObjectStore, applicationService ApplicationService, machineRemover MachineRemover, machineID string, maxWait time.Duration) error {
 	machine, err := st.Machine(machineID)
 	if errors.Is(err, errors.NotFound) {
 		return nil
@@ -1367,11 +1387,11 @@ func (st *State) cleanupForceDestroyedMachineInternal(ctx context.Context, store
 	// But machine destruction is unsophisticated, and doesn't allow for
 	// destruction while dependencies exist; so we just have to deal with that
 	// possibility below.
-	if err := st.cleanupContainers(ctx, store, unitRemover, machineRemover, machine, maxWait); err != nil {
+	if err := st.cleanupContainers(ctx, store, applicationService, machineRemover, machine, maxWait); err != nil {
 		return errors.Trace(err)
 	}
 	for _, unitName := range machine.doc.Principals {
-		opErrs, err := st.obliterateUnit(ctx, store, unitRemover, unitName, true, maxWait)
+		opErrs, err := st.obliterateUnit(ctx, store, applicationService, unitName, true, maxWait)
 		if len(opErrs) != 0 {
 			logger.Warningf("while obliterating unit %v: %v", unitName, opErrs)
 		}
@@ -1435,7 +1455,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(ctx context.Context, store
 // cleanupForceRemoveMachine is a backstop to remove a force-destroyed
 // machine after a certain amount of time if it hasn't gone away
 // already.
-func (st *State) cleanupForceRemoveMachine(ctx context.Context, store objectstore.ObjectStore, machineRemover MachineRemover, machineId string, cleanupArgs []bson.Raw) error {
+func (st *State) cleanupForceRemoveMachine(ctx context.Context, machineRemover MachineRemover, machineId string, cleanupArgs []bson.Raw) error {
 	var maxWait time.Duration
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
 	if n := len(cleanupArgs); n > 0 {
@@ -1487,7 +1507,7 @@ func (st *State) cleanupForceRemoveMachine(ctx context.Context, store objectstor
 	if err := machineToRemove.advanceLifecycle(Dead, true, false, maxWait); err != nil {
 		return errors.Trace(err)
 	}
-	if err := machineToRemove.Remove(store); err != nil {
+	if err := machineToRemove.Remove(); err != nil {
 		return errors.Trace(err)
 	}
 	return machineRemover.DeleteMachine(ctx, machine.Name(machineId))
@@ -1561,7 +1581,7 @@ func (st *State) cleanupEvacuateMachine(ctx context.Context, machineId string, s
 
 // cleanupContainers recursively calls cleanupForceDestroyedMachine on the supplied
 // machine's containers, and removes them from state entirely.
-func (st *State) cleanupContainers(ctx context.Context, store objectstore.ObjectStore, unitRemover ApplicationService, machineRemover MachineRemover, hostMachine *Machine, maxWait time.Duration) error {
+func (st *State) cleanupContainers(ctx context.Context, store objectstore.ObjectStore, applicationService ApplicationService, machineRemover MachineRemover, hostMachine *Machine, maxWait time.Duration) error {
 	containerIds, err := hostMachine.Containers()
 	if errors.Is(err, errors.NotFound) {
 		return nil
@@ -1569,7 +1589,7 @@ func (st *State) cleanupContainers(ctx context.Context, store objectstore.Object
 		return err
 	}
 	for _, containerId := range containerIds {
-		if err := st.cleanupForceDestroyedMachineInternal(ctx, store, unitRemover, machineRemover, containerId, maxWait); err != nil {
+		if err := st.cleanupForceDestroyedMachineInternal(ctx, store, applicationService, machineRemover, containerId, maxWait); err != nil {
 			return err
 		}
 		container, err := st.Machine(containerId)
@@ -1578,7 +1598,7 @@ func (st *State) cleanupContainers(ctx context.Context, store objectstore.Object
 		} else if err != nil {
 			return err
 		}
-		if err := container.Remove(store); err != nil {
+		if err := container.Remove(); err != nil {
 			return err
 		}
 		if err = machineRemover.DeleteMachine(ctx, machine.Name(containerId)); err != nil {
@@ -1629,7 +1649,7 @@ func cleanupDyingMachineResources(m *Machine, force bool) error {
 // sane to obliterate any unit in isolation; its only reasonable use is in
 // the context of machine obliteration, in which we can be sure that unclean
 // shutdown of units is not going to leave a machine in a difficult state.
-func (st *State) obliterateUnit(ctx context.Context, store objectstore.ObjectStore, unitRemover ApplicationService, unitName string, force bool, maxWait time.Duration) ([]error, error) {
+func (st *State) obliterateUnit(ctx context.Context, store objectstore.ObjectStore, applicationService ApplicationService, unitName string, force bool, maxWait time.Duration) ([]error, error) {
 	var opErrs []error
 	unit, err := st.Unit(unitName)
 	if errors.Is(err, errors.NotFound) {
@@ -1649,7 +1669,7 @@ func (st *State) obliterateUnit(ctx context.Context, store objectstore.ObjectSto
 		opErrs = append(opErrs, err)
 	}
 	if err == nil {
-		err = unitRemover.DestroyUnit(ctx, unitName)
+		err = applicationService.DestroyUnit(ctx, unitName)
 		if err != nil {
 			if !force {
 				return opErrs, errors.Annotatef(err, "cannot destroy unit %q", unitName)
@@ -1658,7 +1678,7 @@ func (st *State) obliterateUnit(ctx context.Context, store objectstore.ObjectSto
 		}
 	}
 	if err == nil && removed {
-		err = unitRemover.DeleteUnit(ctx, unitName)
+		err = applicationService.DeleteUnit(ctx, unitName)
 		if err != nil {
 			if !force {
 				return opErrs, errors.Annotatef(err, "cannot delete unit %q", unitName)
@@ -1683,10 +1703,10 @@ func (st *State) obliterateUnit(ctx context.Context, store objectstore.ObjectSto
 		opErrs = append(opErrs, err)
 	}
 	for _, subName := range unit.SubordinateNames() {
-		errs, err := st.obliterateUnit(ctx, store, unitRemover, subName, force, maxWait)
+		errs, err := st.obliterateUnit(ctx, store, applicationService, subName, force, maxWait)
 		opErrs = append(opErrs, errs...)
 		if len(errs) == 0 && err == nil {
-			err = unitRemover.DeleteUnit(ctx, unitName)
+			err = applicationService.DeleteUnit(ctx, unitName)
 		}
 		if err != nil {
 			if !force {
@@ -1703,7 +1723,7 @@ func (st *State) obliterateUnit(ctx context.Context, store objectstore.ObjectSto
 	}
 	errs, err = unit.RemoveWithForce(store, force, maxWait)
 	if len(errs) == 0 && err == nil {
-		err = unitRemover.DeleteUnit(ctx, unitName)
+		err = applicationService.DeleteUnit(ctx, unitName)
 	}
 	opErrs = append(opErrs, errs...)
 	return opErrs, err

@@ -627,7 +627,7 @@ func reconcileDeadUnitScale(
 
 	for _, deadUnit := range deadUnits {
 		logger.Infof("removing dead unit %s", deadUnit.Tag.Id())
-		if err := facade.RemoveUnit(ctx, deadUnit.Tag.Id()); err != nil && !errors.Is(err, errors.NotFound) {
+		if err := facade.RemoveUnit(ctx, deadUnit.Tag.Id()); err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
 			return fmt.Errorf("removing dead unit %q: %w", deadUnit.Tag.Id(), err)
 		}
 	}

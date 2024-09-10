@@ -302,7 +302,7 @@ func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// once the machine is destroyed, there should be no ports documents present for it
@@ -460,13 +460,13 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	err = s.State.SetSSHHostKeys(s.machine.MachineTag(), state.SSHHostKeys{"rsa", "dsa"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.machine.Remove()
 	c.Assert(err, gc.ErrorMatches, "cannot remove machine 1: machine is not dead")
 
 	err = s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Refresh()
@@ -482,7 +482,7 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// Removing an already removed machine is OK.
-	err = s.machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -491,9 +491,9 @@ func (s *MachineSuite) TestRemoveAbort(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		c.Assert(s.machine.Remove(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
+		c.Assert(s.machine.Remove(), gc.IsNil)
 	}).Check()
-	err = s.machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -991,7 +991,7 @@ func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
 
 	err = m0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = m0.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = m0.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	err = m0.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -1162,7 +1162,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	// Remove machine, start new watch, check single event.
 	err = machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w = s.machine.Watch()
@@ -1541,7 +1541,7 @@ func (s *MachineSuite) TestWatchMachineStartTimes(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	err = s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	s.Clock.Advance(quiesceInterval)
 	wc.AssertChange("1")
@@ -1646,7 +1646,7 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {
 		return err
 	})
 
-	err := s.machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetConstraints(cons)
 	c.Assert(err, gc.ErrorMatches, cannotSet)
@@ -2528,7 +2528,7 @@ func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
 
 	// Remove it: watcher eventually closed and Err
 	// returns an IsNotFound error.
-	err = machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case _, ok := <-w.Changes():

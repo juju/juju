@@ -10,16 +10,19 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
 	"github.com/juju/juju/apiserver/facades/agent/deployer/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -60,7 +63,7 @@ type deployerSuite struct {
 	revoker   *mockLeadershipRevoker
 
 	controllerConfigGetter *mocks.MockControllerConfigGetter
-	unitRemover            *mocks.MockUnitRemover
+	applicationService     *mocks.MockApplicationService
 }
 
 var _ = gc.Suite(&deployerSuite{})
@@ -69,8 +72,7 @@ func (s *deployerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
 	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfigAttrs, nil).AnyTimes()
-	s.unitRemover = mocks.NewMockUnitRemover(ctrl)
-	s.unitRemover.EXPECT().DeleteUnit(gomock.Any(), gomock.Any()).AnyTimes()
+	s.applicationService = mocks.NewMockApplicationService(ctrl)
 
 	return ctrl
 }
@@ -80,7 +82,7 @@ func (s *deployerSuite) makeDeployerAPI(c *gc.C) {
 
 	deployer, err := deployer.NewDeployerAPI(
 		s.controllerConfigGetter,
-		s.unitRemover,
+		s.applicationService,
 		s.authorizer,
 		s.ControllerModel(c).State(),
 		testing.NewObjectStore(c, s.ControllerModelUUID()),
@@ -309,6 +311,20 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeDeployerAPI(c)
 
+	gomock.InOrder(
+		s.applicationService.EXPECT().RemoveUnit(gomock.Any(), "mysql/0", gomock.Any()).
+			Return(errors.New(`cannot remove unit "mysql/0": still alive`)),
+		s.applicationService.EXPECT().RemoveUnit(gomock.Any(), "logging/0", gomock.Any()).
+			Return(errors.New(`cannot remove unit "logging/0": still alive`)),
+		s.applicationService.EXPECT().RemoveUnit(gomock.Any(), "logging/0", gomock.Any()).
+			DoAndReturn(func(ctx context.Context, unitName string, revoker leadership.Revoker) error {
+				appName, _ := names.UnitApplication(unitName)
+				return revoker.RevokeLeadership(appName, unitName)
+			}),
+		s.applicationService.EXPECT().RemoveUnit(gomock.Any(), "logging/0", gomock.Any()).
+			Return(apiservererrors.ErrPerm),
+	)
+
 	c.Assert(s.principal0.Life(), gc.Equals, state.Alive)
 	c.Assert(s.subordinate0.Life(), gc.Equals, state.Alive)
 
@@ -323,9 +339,9 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{Error: &params.Error{Message: `cannot remove entity "unit-mysql-0": still alive`}},
+			{Error: &params.Error{Message: `cannot remove unit "mysql/0": still alive`}},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: &params.Error{Message: `cannot remove entity "unit-logging-0": still alive`}},
+			{Error: &params.Error{Message: `cannot remove unit "logging/0": still alive`}},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})

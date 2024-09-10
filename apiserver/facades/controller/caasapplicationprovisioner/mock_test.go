@@ -61,7 +61,7 @@ func (st *mockState) ApplyOperation(op state.ModelOperation) error {
 
 func (st *mockState) Unit(unit string) (caasapplicationprovisioner.Unit, error) {
 	st.MethodCall(st, "Unit")
-	return nil, nil
+	return &mockUnit{}, nil
 }
 
 func (st *mockState) WatchApplications() state.StringsWatcher {
@@ -403,6 +403,11 @@ func (u *mockUnit) Status() (status.StatusInfo, error) {
 
 func (u *mockUnit) EnsureDead() error {
 	u.MethodCall(u, "EnsureDead")
+	return u.NextErr()
+}
+
+func (u *mockUnit) Remove(objectstore.ObjectStore) error {
+	u.MethodCall(u, "Remove")
 	return u.NextErr()
 }
 

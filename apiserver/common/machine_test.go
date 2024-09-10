@@ -54,6 +54,10 @@ const (
 	dontWait = time.Duration(0)
 )
 
+type fakeObjectStore struct {
+	objectstore.ObjectStore
+}
+
 func (s *machineSuite) TestDestroyMachines(c *gc.C) {
 	st := mockState{
 		machines: map[string]*fakeMachine{

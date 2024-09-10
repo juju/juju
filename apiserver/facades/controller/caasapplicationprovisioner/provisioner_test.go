@@ -53,6 +53,7 @@ type CAASApplicationProvisionerSuite struct {
 	modelConfigService      *MockModelConfigService
 	modelInfoService        *MockModelInfoService
 	applicationService      *MockApplicationService
+	leadershipRevoker       *MockRevoker
 	registry                *mockStorageRegistry
 	store                   *mockObjectStore
 }
@@ -89,6 +90,7 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *gc.C) *gomock.Controller {
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.modelInfoService = NewMockModelInfoService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.leadershipRevoker = NewMockRevoker(ctrl)
 
 	newResourceOpener := func(appName string) (jujuresource.Opener, error) {
 		return &mockResourceOpener{appName: appName, resources: s.st.resource}, nil
@@ -103,6 +105,7 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *gc.C) *gomock.Controller {
 		s.modelConfigService,
 		s.modelInfoService,
 		s.applicationService,
+		s.leadershipRevoker,
 		s.registry,
 		s.store,
 		s.clock,
@@ -127,6 +130,7 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
 		s.modelConfigService,
 		s.modelInfoService,
 		s.applicationService,
+		s.leadershipRevoker,
 		s.registry,
 		s.store,
 		s.clock,
@@ -779,4 +783,19 @@ func (s *CAASApplicationProvisionerSuite) fakeModelConfig() (*envconfig.Config, 
 	attrs["operator-storage"] = "k8s-storage"
 	attrs["agent-version"] = "2.6-beta3.666"
 	return envconfig.New(envconfig.UseDefaults, attrs)
+}
+
+func (s *CAASApplicationProvisionerSuite) TestRemove(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.applicationService.EXPECT().RemoveUnit(gomock.Any(), "gitlab/0", s.leadershipRevoker)
+
+	result, err := s.api.Remove(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: "unit-gitlab-0",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{
+		Error: nil,
+	}}})
 }

@@ -71,19 +71,6 @@ type NotifyWatcherFactory interface {
 	Watch() NotifyWatcher
 }
 
-// AgentEntity represents an entity that can
-// have an agent responsible for it.
-type AgentEntity interface {
-	Entity
-	Lifer
-	Authenticator
-	AgentTooler
-	status.StatusSetter
-	EnsureDeader
-	Remover
-	NotifyWatcherFactory
-}
-
 // ModelAccessor defines the methods needed to watch for model
 // config changes, and read the model config.
 type ModelAccessor interface {
