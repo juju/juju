@@ -428,6 +428,43 @@ func (s *CharmState) GetCharmMetadata(ctx context.Context, id corecharm.ID) (cha
 	return charmMetadata, nil
 }
 
+// GetCharmMetadataDescription returns the metadata for the charm using the
+// charm ID. If the charm does not exist, a [errors.CharmNotFound] error is
+// returned.
+func (s *CharmState) GetCharmMetadataDescription(ctx context.Context, id corecharm.ID) (string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	ident := charmID{UUID: id.String()}
+
+	query := `
+SELECT description AS &charmMetadata.description
+FROM v_charm_metadata
+WHERE uuid = $charmID.uuid;`
+
+	var metadata charmMetadata
+	stmt, err := s.Prepare(query, metadata, ident)
+	if err != nil {
+		return "", fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, ident).Get(&metadata); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return applicationerrors.CharmNotFound
+			}
+			return fmt.Errorf("failed to select charm metadata: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return "", fmt.Errorf("failed to get charm metadata: %w", err)
+	}
+
+	return metadata.Description, nil
+}
+
 // GetCharmManifest returns the manifest for the charm using the charm ID.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
 func (s *CharmState) GetCharmManifest(ctx context.Context, id corecharm.ID) (charm.Manifest, error) {
@@ -566,7 +603,7 @@ func (s *CharmState) SetCharm(ctx context.Context, charm charm.Charm, charmArgs 
 		// Check the charm doesn't already exist, if it does, return an already
 		// exists error. Also doing this early, prevents the moving straight
 		// to a write transaction.
-		if _, err := s.checkChamReferenceExists(ctx, tx, charmArgs.ReferenceName, charmArgs.Revision); err != nil {
+		if _, err := s.checkCharmReferenceExists(ctx, tx, charmArgs.ReferenceName, charmArgs.Revision); err != nil {
 			return errors.Trace(err)
 		}
 

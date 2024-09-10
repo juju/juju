@@ -207,10 +207,6 @@ type Application interface {
 	// Endpoints returns the application's currently available relation endpoints.
 	Endpoints() ([]state.Endpoint, error)
 
-	// Charm returns the application's charm and whether units should upgrade to that
-	// charm even if they are in an error state.
-	Charm() (ch Charm, force bool, err error)
-
 	// CharmURL returns a string representation the application's charm URL,
 	// and whether units should upgrade to the charm with that URL even if
 	// they are in an error state.

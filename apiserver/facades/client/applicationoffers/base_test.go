@@ -32,13 +32,14 @@ type baseSuite struct {
 
 	authorizer *testing.FakeAuthorizer
 
-	mockState         *mockState
-	mockStatePool     *mockStatePool
-	bakery            *mockBakeryService
-	authContext       *crossmodel.AuthContext
-	applicationOffers *stubApplicationOffers
-	mockModelService  *MockModelService
-	mockAccessService *MockAccessService
+	mockState              *mockState
+	mockStatePool          *mockStatePool
+	bakery                 *mockBakeryService
+	authContext            *crossmodel.AuthContext
+	applicationOffers      *stubApplicationOffers
+	mockModelService       *MockModelService
+	mockAccessService      *MockAccessService
+	mockApplicationService *MockApplicationService
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
@@ -61,6 +62,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockModelService = NewMockModelService(ctrl)
 	s.mockAccessService = NewMockAccessService(ctrl)
+	s.mockApplicationService = NewMockApplicationService(ctrl)
 	return ctrl
 }
 
@@ -117,15 +119,9 @@ func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string,
 		c.Assert(filters[0], jc.DeepEquals, expectedFilter)
 		return []jujucrossmodel.ApplicationOffer{anOffer}, nil
 	}
-	ch := &mockCharm{
-		meta: &charm.Meta{
-			Description: "A pretty popular database",
-		},
-	}
 	s.mockState.applications = map[string]crossmodel.Application{
 		"test": &mockApplication{
 			name:     "test",
-			charm:    ch,
 			curl:     "ch:db2-2",
 			bindings: map[string]string{"db2": "myspace"}, // myspace
 		},

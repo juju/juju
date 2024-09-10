@@ -31,6 +31,7 @@ type BaseAPI struct {
 	StatePool            StatePool
 	modelService         ModelService
 	accessService        AccessService
+	applicationService   ApplicationService
 	getControllerInfo    func(context.Context) (apiAddrs []string, caCert string, _ error)
 	logger               corelogger.Logger
 	controllerUUID       string

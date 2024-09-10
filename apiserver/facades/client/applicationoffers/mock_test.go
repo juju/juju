@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -108,22 +107,9 @@ func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	return jujutesting.DefaultCredentialTag, true
 }
 
-type mockCharm struct {
-	meta *charm.Meta
-}
-
-func (m *mockCharm) Meta() *charm.Meta {
-	return m.meta
-}
-
-func (m *mockCharm) StoragePath() string {
-	return "storage-path"
-}
-
 type mockApplication struct {
 	crossmodel.Application
 	name      string
-	charm     *mockCharm
 	curl      string
 	endpoints []state.Endpoint
 	bindings  map[string]string
@@ -131,10 +117,6 @@ type mockApplication struct {
 
 func (m *mockApplication) Name() string {
 	return m.name
-}
-
-func (m *mockApplication) Charm() (crossmodel.Charm, bool, error) {
-	return m.charm, true, nil
 }
 
 func (m *mockApplication) CharmURL() (curl *string, force bool) {

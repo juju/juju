@@ -16,6 +16,7 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	model "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
@@ -670,6 +671,18 @@ func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
 		OSType:       domaincharm.Ubuntu,
 		Architecture: domaincharm.AMD64,
 	})
+}
+
+func (s *applicationServiceSuite) TestGetCharmIDByApplicationName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
+
+	charmID, err := s.service.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(charmID, gc.DeepEquals, id)
 }
 
 func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {

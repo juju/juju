@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagestate "github.com/juju/juju/domain/storage/state"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -160,7 +161,7 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 		shouldInsertCharm := true
 
 		// Check if the charm already exists.
-		existingCharmID, err := st.checkChamReferenceExists(ctx, tx, referenceName, revision)
+		existingCharmID, err := st.checkCharmReferenceExists(ctx, tx, referenceName, revision)
 		if err != nil && !errors.Is(err, applicationerrors.CharmAlreadyExists) {
 			return fmt.Errorf("checking if charm %q exists: %w", charmName, err)
 		} else if errors.Is(err, applicationerrors.CharmAlreadyExists) {
@@ -1106,6 +1107,72 @@ AND a.name = $applicationName.name
 		result[u.UnitID] = u.LifeID
 	}
 	return result, nil
+}
+
+// GetCharmIDByApplicationName returns the charm ID for the specified
+// application name.
+//
+// If the application does not exist, an error satisfying
+// [applicationerrors.ApplicationNotFoundError] is returned.
+// If the charm cannot be found, an error satisfying
+// [applicationerrors.CharmNotFoundError] is returned.
+func (st *ApplicationState) GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	query, err := st.Prepare(`
+SELECT &applicationCharmUUID.*
+FROM application
+WHERE uuid = $applicationID.uuid
+	`, applicationCharmUUID{}, applicationID{})
+	if err != nil {
+		return "", fmt.Errorf("preparing query for application %q: %w", name, err)
+	}
+
+	var result charmID
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		appID, err := st.lookupApplication(ctx, tx, name, false)
+		if err != nil {
+			return internalerrors.Errorf("looking up application %q: %w", name, err)
+		}
+
+		appIdent := applicationID{ID: appID.String()}
+
+		var charmIdent applicationCharmUUID
+		if err := tx.Query(ctx, query, appIdent).Get(&charmIdent); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return fmt.Errorf("application %s: %w", name, applicationerrors.ApplicationNotFound)
+			}
+			return fmt.Errorf("getting charm for application %q: %w", name, err)
+		}
+
+		// If the charmUUID is empty, then something went wrong with adding an
+		// application.
+		if charmIdent.CharmUUID == "" {
+			// Do not return a CharmNotFound error here. The application is in
+			// a broken state. There isn't anything we can do to fix it here.
+			// This will require manual intervention.
+			return fmt.Errorf("application is missing charm")
+		}
+
+		// Now get the charm by the UUID, but if it doesn't exist, return an
+		// error.
+		chIdent := charmID{UUID: charmIdent.CharmUUID}
+		err = st.checkCharmExists(ctx, tx, chIdent)
+		if err != nil {
+			return fmt.Errorf("getting charm for application %q: %w", name, err)
+		}
+
+		result = chIdent
+
+		return nil
+	}); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return corecharm.ID(result.UUID), nil
 }
 
 // GetCharmByApplicationName returns the charm for the specified application

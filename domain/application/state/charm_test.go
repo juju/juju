@@ -443,6 +443,24 @@ func (s *charmStateSuite) TestGetCharmMetadata(c *gc.C) {
 	})
 }
 
+func (s *charmStateSuite) TestGetCharmMetadataDescription(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+	uuid := id.String()
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		insertCharmMetadata(ctx, c, tx, uuid)
+
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	description, err := st.GetCharmMetadataDescription(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(description, gc.DeepEquals, "description")
+}
+
 func (s *charmStateSuite) TestGetCharmMetadataWithTagsAndCategories(c *gc.C) {
 	st := NewCharmState(s.TxnRunnerFactory())
 

@@ -424,6 +424,45 @@ func (c *MockApplicationStateGetCharmByApplicationNameCall) DoAndReturn(f func(c
 	return c
 }
 
+// GetCharmIDByApplicationName mocks base method.
+func (m *MockApplicationState) GetCharmIDByApplicationName(arg0 context.Context, arg1 string) (charm.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmIDByApplicationName", arg0, arg1)
+	ret0, _ := ret[0].(charm.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCharmIDByApplicationName indicates an expected call of GetCharmIDByApplicationName.
+func (mr *MockApplicationStateMockRecorder) GetCharmIDByApplicationName(arg0, arg1 any) *MockApplicationStateGetCharmIDByApplicationNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmIDByApplicationName", reflect.TypeOf((*MockApplicationState)(nil).GetCharmIDByApplicationName), arg0, arg1)
+	return &MockApplicationStateGetCharmIDByApplicationNameCall{Call: call}
+}
+
+// MockApplicationStateGetCharmIDByApplicationNameCall wrap *gomock.Call
+type MockApplicationStateGetCharmIDByApplicationNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationStateGetCharmIDByApplicationNameCall) Return(arg0 charm.ID, arg1 error) *MockApplicationStateGetCharmIDByApplicationNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationStateGetCharmIDByApplicationNameCall) Do(f func(context.Context, string) (charm.ID, error)) *MockApplicationStateGetCharmIDByApplicationNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationStateGetCharmIDByApplicationNameCall) DoAndReturn(f func(context.Context, string) (charm.ID, error)) *MockApplicationStateGetCharmIDByApplicationNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetStoragePoolByName mocks base method.
 func (m *MockApplicationState) GetStoragePoolByName(arg0 context.Context, arg1 string) (storage.StoragePoolDetails, error) {
 	m.ctrl.T.Helper()
@@ -1216,6 +1255,45 @@ func (c *MockCharmStateGetCharmMetadataCall) Do(f func(context.Context, charm.ID
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCharmStateGetCharmMetadataCall) DoAndReturn(f func(context.Context, charm.ID) (charm0.Metadata, error)) *MockCharmStateGetCharmMetadataCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetCharmMetadataDescription mocks base method.
+func (m *MockCharmState) GetCharmMetadataDescription(arg0 context.Context, arg1 charm.ID) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmMetadataDescription", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCharmMetadataDescription indicates an expected call of GetCharmMetadataDescription.
+func (mr *MockCharmStateMockRecorder) GetCharmMetadataDescription(arg0, arg1 any) *MockCharmStateGetCharmMetadataDescriptionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmMetadataDescription", reflect.TypeOf((*MockCharmState)(nil).GetCharmMetadataDescription), arg0, arg1)
+	return &MockCharmStateGetCharmMetadataDescriptionCall{Call: call}
+}
+
+// MockCharmStateGetCharmMetadataDescriptionCall wrap *gomock.Call
+type MockCharmStateGetCharmMetadataDescriptionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCharmStateGetCharmMetadataDescriptionCall) Return(arg0 string, arg1 error) *MockCharmStateGetCharmMetadataDescriptionCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCharmStateGetCharmMetadataDescriptionCall) Do(f func(context.Context, charm.ID) (string, error)) *MockCharmStateGetCharmMetadataDescriptionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCharmStateGetCharmMetadataDescriptionCall) DoAndReturn(f func(context.Context, charm.ID) (string, error)) *MockCharmStateGetCharmMetadataDescriptionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

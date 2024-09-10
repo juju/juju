@@ -20,11 +20,13 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -69,6 +71,7 @@ func (s *applicationOffersSuite) setupAPI(c *gc.C) {
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.mockModelService, s.mockAccessService,
+		s.mockApplicationService,
 		s.authorizer, s.authContext,
 		c.MkDir(), loggertesting.WrapCheckLog(c),
 		testing.ControllerTag.Id(), model.UUID(testing.ModelTag.Id()))
@@ -95,13 +98,15 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 		c.Assert(offer.HasRead, gc.DeepEquals, []string{"everyone@external"})
 		return &jujucrossmodel.ApplicationOffer{}, nil
 	}
-	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]crossmodel.Application{
-		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
+		applicationName: &mockApplication{bindings: map[string]string{"db": "myspace"}},
 	}
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 
 	if expectedErr == nil {
+		id := charmtesting.GenCharmID(c)
+		s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(id, nil)
+		s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), id).Return("A pretty popular blog engine", nil)
 		// Expect the creator getting admin access on the offer.
 		s.mockAccessService.EXPECT().CreatePermission(gomock.Any(), permission.UserAccessSpec{
 			AccessSpec: offerAccessSpec("", permission.AdminAccess),
@@ -163,10 +168,13 @@ func (s *applicationOffersSuite) TestAddOfferUpdatesExistingOffer(c *gc.C) {
 		c.Assert(offer.HasRead, gc.DeepEquals, []string{"everyone@external"})
 		return &jujucrossmodel.ApplicationOffer{}, nil
 	}
-	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]crossmodel.Application{
-		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
+		applicationName: &mockApplication{bindings: map[string]string{"db": "myspace"}},
 	}
+
+	chID := charmtesting.GenCharmID(c)
+	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(chID, nil)
+	s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), gomock.Any()).Return("A pretty popular blog engine", nil)
 
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 	errs, err := s.api.Offer(context.Background(), all)
@@ -224,11 +232,10 @@ func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
 		}
 		return &jujucrossmodel.ApplicationOffer{}, nil
 	}
-	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]crossmodel.Application{
-		"one":        &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
-		"two":        &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
-		"paramsfail": &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
+		"one":        &mockApplication{bindings: map[string]string{"db": "myspace"}},
+		"two":        &mockApplication{bindings: map[string]string{"db": "myspace"}},
+		"paramsfail": &mockApplication{bindings: map[string]string{"db": "myspace"}},
 	}
 
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
@@ -244,12 +251,19 @@ func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
 		User:       usertesting.GenNewName(c, "everyone@external"),
 	}).Times(2)
 
+	chID := charmtesting.GenCharmID(c)
+	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "one").Return(chID, nil)
+	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "notthere").Return(chID, applicationerrors.ApplicationNotFound)
+	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "paramsfail").Return(chID, nil)
+	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "two").Return(chID, nil)
+	s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), gomock.Any()).Return("A pretty popular blog engine", nil).Times(3)
+
 	errs, err := s.api.Offer(context.Background(), all)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, gc.IsNil)
 	c.Assert(errs.Results[3].Error, gc.IsNil)
-	c.Assert(errs.Results[1].Error, gc.ErrorMatches, `getting offered application notthere: application "notthere" not found`)
+	c.Assert(errs.Results[1].Error, gc.ErrorMatches, `getting charm ID for application notthere: application not found`)
 	c.Assert(errs.Results[2].Error, gc.ErrorMatches, `params fail`)
 	s.applicationOffers.CheckCallNames(c, offerCall, addOffersBackendCall, offerCall, addOffersBackendCall, offerCall, addOffersBackendCall)
 }
@@ -274,11 +288,14 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 	s.applicationOffers.addOffer = func(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
 		return nil, errors.New(msg)
 	}
-	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]crossmodel.Application{
-		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
+		applicationName: &mockApplication{bindings: map[string]string{"db": "myspace"}},
 	}
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
+
+	chID := charmtesting.GenCharmID(c)
+	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(chID, nil)
+	s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), gomock.Any()).Return("A pretty popular blog engine", nil)
 
 	errs, err := s.api.Offer(context.Background(), all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -344,7 +361,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedC
 		},
 	}
 	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResultsV5{
-		expectedOfferDetails,
+		Results: expectedOfferDetails,
 	})
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
 }
@@ -740,10 +757,9 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 		}
 		return []jujucrossmodel.ApplicationOffer{anOffer2}, nil
 	}
-	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]crossmodel.Application{
 		"test": &mockApplication{
-			charm: ch, curl: "ch:db2-2", bindings: map[string]string{"db": "myspace"}},
+			curl: "ch:db2-2", bindings: map[string]string{"db": "myspace"}},
 	}
 
 	fakeModel := &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
@@ -762,7 +778,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	}
 	anotherState.applications = map[string]crossmodel.Application{
 		"testagain": &mockApplication{
-			charm: ch, curl: "ch:mysql-2", bindings: map[string]string{"db2": "anotherspace"}},
+			curl: "ch:mysql-2", bindings: map[string]string{"db2": "anotherspace"}},
 	}
 	s.mockStatePool.st["uuid2"] = anotherState
 	s.registerKnownModels(model.UUID(testing.ModelTag.Id()), "uuid2")
@@ -1020,12 +1036,10 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		}
 		return result, nil
 	}
-	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]crossmodel.Application{
 		"db2": &mockApplication{
-			name:  "db2",
-			charm: ch,
-			curl:  "ch:db2-2",
+			name: "db2",
+			curl: "ch:db2-2",
 			bindings: map[string]string{
 				"db2": "myspace",
 			},
@@ -1044,16 +1058,14 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	s.mockStatePool.st["uuid2"] = anotherState
 	anotherState.applications = map[string]crossmodel.Application{
 		"mysql": &mockApplication{
-			name:  "mysql",
-			charm: ch,
-			curl:  "ch:mysql-2",
+			name: "mysql",
+			curl: "ch:mysql-2",
 			bindings: map[string]string{
 				"mysql": "anotherspace",
 			},
 		},
 		"postgresql": &mockApplication{
-			charm: ch,
-			curl:  "ch:postgresql-2",
+			curl: "ch:postgresql-2",
 			bindings: map[string]string{
 				"postgresql": "anotherspace",
 			},
@@ -1145,7 +1157,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	found, err := s.api.FindApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResultsV5{
-		[]params.ApplicationOfferAdminDetailsV5{
+		Results: []params.ApplicationOfferAdminDetailsV5{
 			{
 				ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 					SourceModelTag:         testing.ModelTag.String(),
@@ -1274,6 +1286,7 @@ func (s *consumeSuite) setupAPI(c *gc.C) {
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.mockModelService, s.mockAccessService,
+		s.mockApplicationService,
 		s.authorizer, s.authContext,
 		c.MkDir(),
 		loggertesting.WrapCheckLog(c),
@@ -1526,7 +1539,6 @@ func (s *consumeSuite) setupOffer() string {
 	st.applicationOffers[offerName] = anOffer
 	st.applications["mysql"] = &mockApplication{
 		name:     "mysql",
-		charm:    &mockCharm{meta: &charm.Meta{Description: "A pretty popular database"}},
 		bindings: map[string]string{"database": "myspace"},
 		endpoints: []state.Endpoint{
 			{Relation: charm.Relation{Name: "juju-info", Role: "provider", Interface: "juju-info", Limit: 0, Scope: "global"}},

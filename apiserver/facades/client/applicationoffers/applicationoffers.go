@@ -40,6 +40,7 @@ func createOffersAPI(
 	statePool StatePool,
 	modelService ModelService,
 	accessService AccessService,
+	applicationService ApplicationService,
 	authorizer facade.Authorizer,
 	authContext *commoncrossmodel.AuthContext,
 	dataDir string,
@@ -60,6 +61,7 @@ func createOffersAPI(
 			ControllerModel:      backend,
 			modelService:         modelService,
 			accessService:        accessService,
+			applicationService:   applicationService,
 			StatePool:            statePool,
 			getControllerInfo:    getControllerInfo,
 			logger:               logger,
@@ -109,7 +111,7 @@ func (api *OffersAPIv5) Offer(ctx context.Context, all params.AddApplicationOffe
 				continue
 			}
 		}
-		applicationOfferParams, err := api.makeAddOfferArgsFromParams(owner, backend, one)
+		applicationOfferParams, err := api.makeAddOfferArgsFromParams(ctx, owner, backend, one)
 		if err != nil {
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -154,7 +156,7 @@ func (api *OffersAPIv5) Offer(ctx context.Context, all params.AddApplicationOffe
 	return params.ErrorResults{Results: result}, nil
 }
 
-func (api *OffersAPIv5) makeAddOfferArgsFromParams(user names.UserTag, backend Backend, addOfferParams params.AddApplicationOffer) (jujucrossmodel.AddApplicationOfferArgs, error) {
+func (api *OffersAPIv5) makeAddOfferArgsFromParams(ctx context.Context, user names.UserTag, backend Backend, addOfferParams params.AddApplicationOffer) (jujucrossmodel.AddApplicationOfferArgs, error) {
 	result := jujucrossmodel.AddApplicationOfferArgs{
 		OfferName:              addOfferParams.OfferName,
 		ApplicationName:        addOfferParams.ApplicationName,
@@ -166,19 +168,24 @@ func (api *OffersAPIv5) makeAddOfferArgsFromParams(user names.UserTag, backend B
 	if result.OfferName == "" {
 		result.OfferName = result.ApplicationName
 	}
-	application, err := backend.Application(addOfferParams.ApplicationName)
-	if err != nil {
-		return result, errors.Annotatef(err, "getting offered application %v", addOfferParams.ApplicationName)
+
+	// If we have the full result, just return early.
+	if result.ApplicationDescription != "" {
+		return result, nil
 	}
 
-	if result.ApplicationDescription == "" {
-		ch, _, err := application.Charm()
-		if err != nil {
-			return result,
-				errors.Annotatef(err, "getting charm for application %v", addOfferParams.ApplicationName)
-		}
-		result.ApplicationDescription = ch.Meta().Description
+	charmID, err := api.applicationService.GetCharmIDByApplicationName(context.Background(), result.ApplicationName)
+	if err != nil {
+		return result, errors.Annotatef(err, "getting charm ID for application %v", result.ApplicationName)
 	}
+
+	description, err := api.applicationService.GetCharmMetadataDescription(ctx, charmID)
+	if err != nil {
+		return result, errors.Annotatef(err, "getting charm description for application %v", result.ApplicationName)
+	}
+
+	result.ApplicationDescription = description
+
 	return result, nil
 }
 
