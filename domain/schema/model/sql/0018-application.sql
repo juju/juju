@@ -92,7 +92,7 @@ CREATE TABLE application_platform (
     application_uuid TEXT NOT NULL,
     os_id TEXT NOT NULL,
     channel TEXT,
-    architecture_id TEXT NOT NULL,
+    architecture_id INT NOT NULL,
     CONSTRAINT fk_application_platform_application
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid),
