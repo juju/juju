@@ -48,6 +48,7 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 			Secrets:         service.NotImplementedSecretService{},
 		},
 		loggertesting.WrapCheckLog(c),
+		"", nil, nil,
 	)
 	watcher, err := svc.WatchCharms()
 	c.Assert(err, jc.ErrorIsNil)
@@ -115,6 +116,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 			Secrets:         service.NotImplementedSecretService{},
 		},
 		loggertesting.WrapCheckLog(c),
+		"", nil, nil,
 	)
 
 	s.createApplication(c, &svc.Service, "foo")
@@ -293,6 +295,7 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *gc.C) {
 			Secrets:         service.NotImplementedSecretService{},
 		},
 		loggertesting.WrapCheckLog(c),
+		"", nil, nil,
 	)
 
 	var unitID1, unitID2 string
@@ -351,6 +354,7 @@ func (s *watcherSuite) TestWatchApplicationScale(c *gc.C) {
 			Secrets:         service.NotImplementedSecretService{},
 		},
 		loggertesting.WrapCheckLog(c),
+		"", nil, nil,
 	)
 	s.createApplication(c, &svc.Service, "foo")
 	s.createApplication(c, &svc.Service, "bar")

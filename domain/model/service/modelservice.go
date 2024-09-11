@@ -24,7 +24,8 @@ type ModelState interface {
 	Model(context.Context) (coremodel.ReadOnlyModel, error)
 }
 
-// ModelGetterState represents the state required for reading all model information.
+// ModelGetterState represents the state required for reading all model
+// information.
 type ModelGetterState interface {
 	GetModel(context.Context, coremodel.UUID) (coremodel.Model, error)
 }

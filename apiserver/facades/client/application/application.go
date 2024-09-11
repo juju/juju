@@ -174,19 +174,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		return nil, fmt.Errorf("getting model info: %w", err)
 	}
 
-	validatorCfg := validatorConfig{
-		charmhubHTTPClient: charmhubHTTPClient,
-		caasBroker:         caasBroker,
-		model:              m,
-		modelInfo:          modelInfo,
-		modelConfigService: serviceFactory.Config(),
-		cloudService:       serviceFactory.Cloud(),
-		credentialService:  serviceFactory.Credential(),
-		registry:           registry,
-		state:              state,
-		storagePoolGetter:  storagePoolGetter,
-		logger:             repoLogger,
-	}
 	backendService := serviceFactory.SecretBackend()
 	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: registry,
@@ -201,6 +188,20 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 			},
 		),
 	})
+
+	validatorCfg := validatorConfig{
+		charmhubHTTPClient: charmhubHTTPClient,
+		caasBroker:         caasBroker,
+		model:              m,
+		modelInfo:          modelInfo,
+		modelConfigService: serviceFactory.Config(),
+		applicationService: applicationService,
+		registry:           registry,
+		state:              state,
+		storagePoolGetter:  storagePoolGetter,
+		logger:             repoLogger,
+	}
+
 	repoDeploy := NewDeployFromRepositoryAPI(
 		state,
 		applicationService,
@@ -243,8 +244,6 @@ type DeployApplicationFunc = func(
 	ApplicationDeployer,
 	Model,
 	model.ReadOnlyModel,
-	common.CloudService,
-	common.CredentialService,
 	ApplicationService,
 	objectstore.ObjectStore,
 	DeployApplicationParams,
@@ -603,7 +602,7 @@ func (api *APIBase) deployApplication(
 		return errors.Trace(err)
 	}
 	// TODO: replace model with model info/config services
-	_, err = api.deployApplicationFunc(ctx, api.backend, api.model, api.modelInfo, api.cloudService, api.credentialService, api.applicationService, api.store, DeployApplicationParams{
+	_, err = api.deployApplicationFunc(ctx, api.backend, api.model, api.modelInfo, api.applicationService, api.store, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Charm:             api.stateCharm(ch),
 		CharmOrigin:       origin,
@@ -1069,11 +1068,7 @@ func (api *APIBase) applicationSetCharm(
 	}
 
 	// Enforce "assumes" requirements if the feature flag is enabled.
-	model, err := api.backend.Model()
-	if err != nil {
-		return errors.Annotate(err, "retrieving model")
-	}
-	if err := assertCharmAssumptions(ctx, newCharm.Meta().Assumes, model, api.cloudService, api.credentialService); err != nil {
+	if err := assertCharmAssumptions(ctx, api.applicationService, newCharm.Meta().Assumes); err != nil {
 		if !errors.Is(err, errors.NotSupported) || !params.Force.Force {
 			return errors.Trace(err)
 		}
@@ -1081,7 +1076,6 @@ func (api *APIBase) applicationSetCharm(
 		api.logger.Warningf("proceeding with upgrade of application %q even though the charm feature requirements could not be met as --force was specified", params.AppName)
 	}
 
-	//
 	force := params.Force
 	cfg := state.SetCharmConfig{
 		Charm:              api.stateCharm(newCharm),

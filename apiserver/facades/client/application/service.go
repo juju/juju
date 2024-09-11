@@ -9,6 +9,7 @@ import (
 	"github.com/juju/version/v2"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/machine"
@@ -78,6 +79,9 @@ type ApplicationService interface {
 	// returning an error  satisfying [applicationerrors.UnitNotFoundError]
 	// if the unit doesn't exist.
 	DestroyUnit(ctx context.Context, name string) error
+	// GetSupportedFeatures returns the set of features that the model makes
+	// available for charms to use.
+	GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error)
 }
 
 // ModelConfigService provides access to the model configuration.

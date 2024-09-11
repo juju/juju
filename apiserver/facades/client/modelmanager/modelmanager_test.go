@@ -76,6 +76,7 @@ type modelManagerSuite struct {
 	modelService         *mocks.MockModelService
 	modelExporter        *mocks.MockModelExporter
 	serviceFactoryGetter *mocks.MockServiceFactoryGetter
+	applicationService   *mocks.MockApplicationService
 	authoriser           apiservertesting.FakeAuthorizer
 	api                  *modelmanager.ModelManagerAPI
 	caasApi              *modelmanager.ModelManagerAPI
@@ -91,6 +92,7 @@ func (s *modelManagerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	s.modelService = mocks.NewMockModelService(ctrl)
 	s.accessService = mocks.NewMockAccessService(ctrl)
 	s.serviceFactoryGetter = mocks.NewMockServiceFactoryGetter(ctrl)
+	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	return ctrl
 }
 
@@ -237,6 +239,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) {
 			CredentialService:    apiservertesting.ConstCredentialGetter(&cred),
 			ModelService:         s.modelService,
 			ModelDefaultsService: nil,
+			ApplicationService:   s.applicationService,
 			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
@@ -262,6 +265,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) {
 			ModelService:         s.modelService,
 			ModelDefaultsService: nil,
 			AccessService:        s.accessService,
+			ApplicationService:   s.applicationService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		state.NoopConfigSchemaSource,
@@ -273,11 +277,8 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) {
 
 	var fs assumes.FeatureSet
 	fs.Add(assumes.Feature{Name: "example"})
-	modelmanager.MockSupportedFeatures(fs)
-}
 
-func (s *modelManagerSuite) TearDownTest(c *gc.C) {
-	modelmanager.ResetSupportedFeaturesGetter()
+	s.applicationService.EXPECT().GetSupportedFeatures(gomock.Any()).Return(fs, nil).AnyTimes()
 }
 
 func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
@@ -298,6 +299,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			ModelService:         s.modelService,
 			ModelDefaultsService: nil,
 			AccessService:        s.accessService,
+			ApplicationService:   s.applicationService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		state.NoopConfigSchemaSource,
@@ -1148,6 +1150,7 @@ type modelManagerStateSuite struct {
 	controllerConfigService *mocks.MockControllerConfigService
 	accessService           *mocks.MockAccessService
 	modelService            *mocks.MockModelService
+	applicationService      *mocks.MockApplicationService
 	serviceFactoryGetter    *mocks.MockServiceFactoryGetter
 
 	store objectstore.ObjectStore
@@ -1184,7 +1187,11 @@ func (s *modelManagerStateSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
 	s.accessService = mocks.NewMockAccessService(ctrl)
 	s.modelService = mocks.NewMockModelService(ctrl)
+	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	s.serviceFactoryGetter = mocks.NewMockServiceFactoryGetter(ctrl)
+
+	var fs assumes.FeatureSet
+	s.applicationService.EXPECT().GetSupportedFeatures(gomock.Any()).AnyTimes().Return(fs, nil)
 
 	return ctrl
 }
@@ -1214,6 +1221,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			ModelDefaultsService: nil,
 			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
+			ApplicationService:   s.applicationService,
 		},
 		s.ConfigSchemaSourceGetter(c),
 		toolsFinder,

@@ -142,6 +142,9 @@ func (s *ModelFactory) Application(params applicationservice.ApplicationServiceP
 		domain.NewWatcherFactory(s.modelDB, s.logger.Child("application")),
 		params,
 		s.logger.Child("application"),
+		s.modelUUID,
+		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 	)
 }
 

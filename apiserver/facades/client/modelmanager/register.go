@@ -14,6 +14,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state/stateenvirons"
@@ -99,6 +100,7 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 			ObjectStore:          ctx.ObjectStore(),
 			SecretBackendService: secretBackendService,
 			NetworkService:       serviceFactory.Network(),
+			ApplicationService:   serviceFactory.Application(service.ApplicationServiceParams{}),
 		},
 		configSchemaSource,
 		toolsFinder,

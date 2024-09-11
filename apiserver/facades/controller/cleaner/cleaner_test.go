@@ -53,7 +53,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	s.applicationService = applicationservice.NewWatchableService(nil, nil, nil, applicationservice.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
 		Secrets:         applicationservice.NotImplementedSecretService{},
-	}, loggertesting.WrapCheckLog(c))
+	}, loggertesting.WrapCheckLog(c), "", nil, nil)
 	s.api, err = cleaner.NewCleanerAPI(facadetest.ModelContext{
 		Resources_: res,
 		Auth_:      s.authoriser,

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -283,8 +282,7 @@ type validatorConfig struct {
 	model              Model
 	modelInfo          model.ReadOnlyModel
 	modelConfigService ModelConfigService
-	cloudService       common.CloudService
-	credentialService  common.CredentialService
+	applicationService ApplicationService
 	registry           storage.ProviderRegistry
 	state              DeployFromRepositoryState
 	storagePoolGetter  StoragePoolGetter
@@ -297,8 +295,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 		model:              cfg.model,
 		modelInfo:          cfg.modelInfo,
 		modelConfigService: cfg.modelConfigService,
-		cloudService:       cfg.cloudService,
-		credentialService:  cfg.credentialService,
+		applicationService: cfg.applicationService,
 		state:              cfg.state,
 		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
 			return services.NewCharmRepoFactory(cfg)
@@ -340,8 +337,7 @@ type deployFromRepositoryValidator struct {
 	model              Model
 	modelInfo          model.ReadOnlyModel
 	modelConfigService ModelConfigService
-	cloudService       common.CloudService
-	credentialService  common.CredentialService
+	applicationService ApplicationService
 	state              DeployFromRepositoryState
 
 	mu          sync.Mutex
@@ -506,7 +502,7 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 	}
 
 	// Enforce "assumes" requirements if the feature flag is enabled.
-	if err := assertCharmAssumptions(ctx, resolvedCharm.Meta().Assumes, v.model, v.cloudService, v.credentialService); err != nil {
+	if err := assertCharmAssumptions(ctx, v.applicationService, resolvedCharm.Meta().Assumes); err != nil {
 		if !errors.Is(err, errors.NotSupported) || !arg.Force {
 			errs = append(errs, err)
 		}
