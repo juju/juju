@@ -96,6 +96,20 @@ func (mr *MockMongoSnapServiceMockRecorder) Installed() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Installed", reflect.TypeOf((*MockMongoSnapService)(nil).Installed))
 }
 
+// IsLocal mocks base method.
+func (m *MockMongoSnapService) IsLocal() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsLocal")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsLocal indicates an expected call of IsLocal.
+func (mr *MockMongoSnapServiceMockRecorder) IsLocal() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLocal", reflect.TypeOf((*MockMongoSnapService)(nil).IsLocal))
+}
+
 // Name mocks base method.
 func (m *MockMongoSnapService) Name() string {
 	m.ctrl.T.Helper()
