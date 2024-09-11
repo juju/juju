@@ -249,14 +249,14 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 		return nil, errors.Trace(err)
 	}
 	for _, perm := range cloudUsers {
-		if !isAdmin && api.apiUser.Id() != perm.UserID {
+		if !isAdmin && api.apiUser.Id() != perm.UserName.Name() {
 			// The authenticated user is neither the controller
 			// superuser, a cloud administrator, nor a cloud user, so
 			// has no business knowing about the cloud user.
 			continue
 		}
 		userInfo := params.CloudUserInfo{
-			UserName:    perm.UserID,
+			UserName:    perm.UserName.Name(),
 			DisplayName: perm.DisplayName,
 			Access:      string(perm.Access),
 		}
@@ -794,6 +794,15 @@ func (api *CloudAPI) ModifyCloudAccess(ctx context.Context, args params.ModifyCl
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		if !api.isAdmin {
+			err := api.authorizer.HasPermission(ctx, permission.AdminAccess, cloudTag)
+			if errors.Is(err, authentication.ErrorEntityMissingPermission) {
+				result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+				continue
+			} else if err != nil {
+				return result, errors.Trace(err)
+			}
+		}
 		if api.apiUser.String() == arg.UserTag {
 			result.Results[i].Error = apiservererrors.ServerError(errors.New("cannot change your own cloud access"))
 			continue
@@ -811,8 +820,6 @@ func (api *CloudAPI) ModifyCloudAccess(ctx context.Context, args params.ModifyCl
 				},
 				Access: permission.Access(arg.Access),
 			},
-			AddUser: false,
-			ApiUser: user.NameFromTag(api.apiUser),
 			Change:  permission.AccessChange(arg.Action),
 			Subject: user.NameFromTag(userTag),
 		}

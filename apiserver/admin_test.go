@@ -1050,13 +1050,12 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 }
 
 func (s *loginSuite) setEveryoneAccess(c *gc.C, accessLevel permission.Access) {
-	external := true
-	err := s.ControllerServiceFactory(c).Access().UpdatePermission(context.Background(), access.UpdatePermissionArgs{
-		Subject:  permission.EveryoneUserName,
-		Change:   permission.Grant,
-		External: &external,
-		AddUser:  true,
-		ApiUser:  user.AdminUserName,
+	accessService := s.ControllerServiceFactory(c).Access()
+	err := accessService.AddExternalUser(context.Background(), permission.EveryoneUserName, "", s.AdminUserUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	err = accessService.UpdatePermission(context.Background(), access.UpdatePermissionArgs{
+		Subject: permission.EveryoneUserName,
+		Change:  permission.Grant,
 		AccessSpec: permission.AccessSpec{
 			Target: permission.ID{
 				ObjectType: permission.Controller,

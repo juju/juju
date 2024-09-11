@@ -19,9 +19,7 @@ var _ = gc.Suite(&typesSuite{})
 func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *gc.C) {
 	argsToTest := []UpdatePermissionArgs{
 		{}, { // Missing Subject
-			ApiUser: usertesting.GenNewName(c, "admin"),
-		}, { // Missing Target
-			ApiUser: usertesting.GenNewName(c, "admin"),
+		}, {  // Missing Target
 			Subject: usertesting.GenNewName(c, "testme"),
 		}, { // Target and Access don't mesh
 			AccessSpec: permission.AccessSpec{
@@ -31,7 +29,6 @@ func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *gc.C) {
 					Key:        "aws",
 				},
 			},
-			ApiUser: usertesting.GenNewName(c, "admin"),
 			Subject: usertesting.GenNewName(c, "testme"),
 		}, { // Invalid Change
 			AccessSpec: permission.AccessSpec{
@@ -41,7 +38,6 @@ func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *gc.C) {
 					Key:        "aws",
 				},
 			},
-			ApiUser: usertesting.GenNewName(c, "admin"),
 			Change:  "testing",
 			Subject: usertesting.GenNewName(c, "testme"),
 		}}

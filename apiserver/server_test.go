@@ -317,7 +317,6 @@ func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 				Key:        s.ControllerUUID,
 			},
 		},
-		ApiUser: user.AdminUserName,
 		Change:  permission.Grant,
 		Subject: usertesting.GenNewName(c, u.Tag().Id()),
 	})

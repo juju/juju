@@ -293,7 +293,6 @@ func (api *OffersAPIv5) changeOfferAccess(
 	accessLevel permission.Access,
 ) error {
 	targetUserName := coreuser.NameFromTag(targetUserTag)
-	apiUserName := coreuser.NameFromTag(api.Authorizer.GetAuthTag().(names.UserTag))
 
 	offer, err := backend.ApplicationOffer(offerName)
 	if err != nil {
@@ -311,12 +310,6 @@ func (api *OffersAPIv5) changeOfferAccess(
 		return errors.Errorf("unknown action %q", action)
 	}
 
-	var addUser bool
-	var external *bool
-	if ext := !targetUserName.IsLocal(); ext {
-		addUser = true
-		external = &ext
-	}
 	err = api.accessService.UpdatePermission(ctx, access.UpdatePermissionArgs{
 		AccessSpec: permission.AccessSpec{
 			Target: permission.ID{
@@ -325,11 +318,8 @@ func (api *OffersAPIv5) changeOfferAccess(
 			},
 			Access: accessLevel,
 		},
-		AddUser:  addUser,
-		External: external,
-		ApiUser:  apiUserName,
-		Change:   change,
-		Subject:  targetUserName,
+		Change:  change,
+		Subject: targetUserName,
 	})
 	return errors.Annotatef(err, "could not %s offer access for %q", change, targetUserName)
 }

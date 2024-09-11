@@ -990,7 +990,6 @@ func (s *accessSuite) TestModifyControllerAccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	userName := usertesting.GenNewName(c, "test-user")
 
-	external := false
 	updateArgs := access.UpdatePermissionArgs{
 		AccessSpec: permission.AccessSpec{
 			Access: permission.SuperuserAccess,
@@ -999,11 +998,8 @@ func (s *accessSuite) TestModifyControllerAccess(c *gc.C) {
 				Key:        testing.ControllerTag.Id(),
 			},
 		},
-		AddUser:  true,
-		External: &external,
-		ApiUser:  usertesting.GenNewName(c, "test-admin"),
-		Change:   permission.Grant,
-		Subject:  userName,
+		Change:  permission.Grant,
+		Subject: userName,
 	}
 	s.accessService.EXPECT().UpdatePermission(gomock.Any(), updateArgs).Return(nil)
 

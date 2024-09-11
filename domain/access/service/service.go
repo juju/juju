@@ -150,11 +150,10 @@ type PermissionState interface {
 	// given target.
 	DeletePermission(ctx context.Context, subject user.Name, target permission.ID) error
 
-	// UpsertPermission updates the permission on the target for the given
-	// subject (user). The api user must have Admin permission on the target. If a
-	// subject does not exist, it is created using the subject and api user. Access
-	// can be granted or revoked.
-	UpsertPermission(ctx context.Context, args access.UpdatePermissionArgs) error
+	// UpdatePermission updates the permission on the target for the given
+	// subject (user). If a subject does not exist, it is created using the
+	// subject and api user. Access can be granted or revoked.
+	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
 
 	// ReadUserAccessForTarget returns the subject's (user) access for the
 	// given user on the given target.

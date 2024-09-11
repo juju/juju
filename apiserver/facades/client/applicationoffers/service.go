@@ -38,12 +38,10 @@ type AccessService interface {
 	// If a permission for the user and target key already exists,
 	// [accesserrors.PermissionAlreadyExists] is returned.
 	CreatePermission(ctx context.Context, spec corepermission.UserAccessSpec) (corepermission.UserAccess, error)
-	// UpdatePermission updates the permission on the target for the given
-	// subject (user). The api user must have Superuser access or Admin access
-	// on the target. If a subject does not exist and the args specify, it is
-	// created using the subject and api user. Adding the user would typically
-	// only happen for updates to model access. Access can be granted or revoked.
-	// Revoking Read access will delete the permission.
+	// UpdatePermission updates the permission on the target for the given subject
+	// (user). If the subject is an external user, and they do not exist, they are
+	// created. Access can be granted or revoked. Revoking Read access will delete
+	// the permission.
 	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
 	// DeletePermission removes the given user's access to the given target.
 	// A NotValid error is returned if the subject (user) string is empty, or
