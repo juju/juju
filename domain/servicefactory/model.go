@@ -177,10 +177,10 @@ func (s *ModelFactory) KeyUpdater() *keyupdaterservice.WatchableService {
 		changestream.NewTxnRunnerFactory(s.controllerDB),
 	)
 	return keyupdaterservice.NewWatchableService(
-		controllerState,
 		keyupdaterservice.NewControllerKeyService(
 			controllerState,
 		),
+		controllerState,
 		keyupdaterstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		domain.NewWatcherFactory(s.modelDB, s.logger.Child("keyupdater")),
 	)

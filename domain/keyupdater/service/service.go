@@ -101,8 +101,8 @@ func NewService(
 // NewWatchableService creates a new [WatchableService] for consuming changes in
 // authorised keys for a model.
 func NewWatchableService(
-	controllerState ControllerState,
 	controllerKeyProvider ControllerKeyProvider,
+	controllerState ControllerState,
 	st State,
 	watcherFactory WatcherFactory,
 ) *WatchableService {
