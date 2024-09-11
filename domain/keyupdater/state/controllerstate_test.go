@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	userstate "github.com/juju/juju/domain/access/state"
@@ -135,13 +134,6 @@ func (s *controllerStateSuite) TestGetUserAuthorizedKeysForModel(c *gc.C) {
 		"second",
 		false,
 		s.userId,
-		permission.AccessSpec{
-			Access: permission.AdminAccess,
-			Target: permission.ID{
-				ObjectType: permission.Model,
-				Key:        s.modelId.String(),
-			},
-		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
