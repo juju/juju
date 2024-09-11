@@ -35,6 +35,7 @@ type newLxdProfileSuite struct {
 	unit    *MockLXDProfileUnitV2
 
 	modelInfoService *MockModelInfoService
+	machineService   *MockMachineService
 }
 
 var _ = gc.Suite(&newLxdProfileSuite{})
@@ -58,7 +59,7 @@ func (s *newLxdProfileSuite) TestWatchInstanceData(c *gc.C) {
 	}
 
 	api := s.newAPI(c)
-	results, err := api.WatchInstanceData(args)
+	results, err := api.WatchInstanceData(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -230,6 +231,7 @@ func (s *newLxdProfileSuite) newAPI(c *gc.C) *uniter.LXDProfileAPIv2 {
 		s.backend,
 		resources,
 		authorizer,
+		s.machineService,
 		unitAuthFunc,
 		loggertesting.WrapCheckLog(c),
 		s.modelInfoService,
@@ -280,5 +282,5 @@ func (s *newLxdProfileSuite) expectWatchInstanceData() {
 	}
 	watcher.changes <- struct{}{}
 
-	s.machine.EXPECT().WatchInstanceData().Return(watcher)
+	s.machineService.EXPECT().WatchMachineCloudInstances(gomock.Any())
 }

@@ -2744,7 +2744,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 
 // WatchInstanceData is a shim to call the LXDProfileAPIv2 version of this method.
 func (u *UniterAPI) WatchInstanceData(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
-	return u.lxdProfileAPI.WatchInstanceData(args)
+	return u.lxdProfileAPI.WatchInstanceData(ctx, args)
 }
 
 // LXDProfileName is a shim to call the LXDProfileAPIv2 version of this method.

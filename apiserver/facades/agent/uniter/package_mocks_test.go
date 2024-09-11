@@ -639,44 +639,6 @@ func (c *MockLXDProfileMachineV2IsManualCall) DoAndReturn(f func() (bool, error)
 	return c
 }
 
-// WatchInstanceData mocks base method.
-func (m *MockLXDProfileMachineV2) WatchInstanceData() state.NotifyWatcher {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchInstanceData")
-	ret0, _ := ret[0].(state.NotifyWatcher)
-	return ret0
-}
-
-// WatchInstanceData indicates an expected call of WatchInstanceData.
-func (mr *MockLXDProfileMachineV2MockRecorder) WatchInstanceData() *MockLXDProfileMachineV2WatchInstanceDataCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchInstanceData", reflect.TypeOf((*MockLXDProfileMachineV2)(nil).WatchInstanceData))
-	return &MockLXDProfileMachineV2WatchInstanceDataCall{Call: call}
-}
-
-// MockLXDProfileMachineV2WatchInstanceDataCall wrap *gomock.Call
-type MockLXDProfileMachineV2WatchInstanceDataCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockLXDProfileMachineV2WatchInstanceDataCall) Return(arg0 state.NotifyWatcher) *MockLXDProfileMachineV2WatchInstanceDataCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockLXDProfileMachineV2WatchInstanceDataCall) Do(f func() state.NotifyWatcher) *MockLXDProfileMachineV2WatchInstanceDataCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLXDProfileMachineV2WatchInstanceDataCall) DoAndReturn(f func() state.NotifyWatcher) *MockLXDProfileMachineV2WatchInstanceDataCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockLXDProfileUnitV2 is a mock of LXDProfileUnitV2 interface.
 type MockLXDProfileUnitV2 struct {
 	ctrl     *gomock.Controller

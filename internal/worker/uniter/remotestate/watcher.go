@@ -422,7 +422,8 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		if err := w.catacomb.Add(instanceDataW); err != nil {
 			return errors.Trace(err)
 		}
-		instanceDataChannel = instanceDataW.Changes()
+		// instanceDataChannel = instanceDataW.Changes()
+		instanceDataChannel = make(chan struct{})
 		requiredEvents++
 	}
 

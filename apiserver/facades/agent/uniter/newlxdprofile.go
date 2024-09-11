@@ -16,9 +16,9 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 type LXDProfileBackendV2 interface {
@@ -33,7 +33,6 @@ type LXDProfileMachineV2 interface {
 	CharmProfiles() ([]string, error)
 	ContainerType() instance.ContainerType
 	IsManual() (bool, error)
-	WatchInstanceData() state.NotifyWatcher
 }
 
 // LXDProfileUnitV2 describes unit-receiver state methods
@@ -60,6 +59,7 @@ type LXDProfileAPIv2 struct {
 	accessUnit common.GetAuthFunc
 
 	modelInfoService ModelInfoService
+	machineService   MachineService
 }
 
 // NewLXDProfileAPIv2 returns a new LXDProfileAPIv2. Currently both
@@ -68,6 +68,7 @@ func NewLXDProfileAPIv2(
 	backend LXDProfileBackendV2,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	machineService MachineService,
 	accessUnit common.GetAuthFunc,
 	logger corelogger.Logger,
 	modelInfoService ModelInfoService,
@@ -79,6 +80,7 @@ func NewLXDProfileAPIv2(
 		accessUnit:       accessUnit,
 		logger:           logger,
 		modelInfoService: modelInfoService,
+		machineService:   machineService,
 	}
 }
 
@@ -127,6 +129,7 @@ func NewExternalLXDProfileAPIv2(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	machineService MachineService,
 	accessUnit common.GetAuthFunc,
 	logger corelogger.Logger,
 	modelInfoService ModelInfoService,
@@ -135,6 +138,7 @@ func NewExternalLXDProfileAPIv2(
 		LXDProfileStateV2{st},
 		resources,
 		authorizer,
+		machineService,
 		accessUnit,
 		logger,
 		modelInfoService,
@@ -143,7 +147,7 @@ func NewExternalLXDProfileAPIv2(
 
 // WatchInstanceData returns a NotifyWatcher for observing
 // changes to the lxd profile for one unit.
-func (u *LXDProfileAPIv2) WatchInstanceData(args params.Entities) (params.NotifyWatchResults, error) {
+func (u *LXDProfileAPIv2) WatchInstanceData(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	u.logger.Tracef("Starting WatchInstanceData with %+v", args)
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
@@ -163,30 +167,27 @@ func (u *LXDProfileAPIv2) WatchInstanceData(args params.Entities) (params.Notify
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		machine, err := u.getLXDProfileMachineV2(tag)
+
+		var watcherID string
+		watch, err := u.machineService.WatchMachineCloudInstances(ctx)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		watcherId, err := u.watchOneInstanceData(machine)
+		notifyWatcher, err := watcher.Normalise(watch)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
+		}
+		if _, ok := <-notifyWatcher.Changes(); ok {
+			watcherID = u.resources.Register(notifyWatcher)
 		}
 
-		result.Results[i].NotifyWatcherId = watcherId
+		result.Results[i].NotifyWatcherId = watcherID
 
 	}
 	u.logger.Tracef("WatchInstanceData returning %+v", result)
 	return result, nil
-}
-
-func (u *LXDProfileAPIv2) watchOneInstanceData(machine LXDProfileMachineV2) (string, error) {
-	watch := machine.WatchInstanceData()
-	if _, ok := <-watch.Changes(); ok {
-		return u.resources.Register(watch), nil
-	}
-	return "", watcher.EnsureErr(watch)
 }
 
 // LXDProfileName returns the name of the lxd profile applied to the unit's
