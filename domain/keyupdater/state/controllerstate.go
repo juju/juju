@@ -108,10 +108,9 @@ WHERE uuid = $modelIdValue.model_id
 	}
 
 	stmt, err := s.Prepare(`
-SELECT (upsk.public_key) AS (&authorizedKey.*)
-FROM model_authorized_keys AS mak
-INNER JOIN user_public_ssh_key AS upsk ON upsk.id = mak.user_public_ssh_key_id
-WHERE mak.model_id = $modelIdValue.model_id
+SELECT (public_key) AS (&authorizedKey.*)
+FROM v_model_authorized_keys
+WHERE model_id = $modelIdValue.model_id
 `, modelIdVal, authorizedKey{})
 	if err != nil {
 		return nil, errors.Errorf(
