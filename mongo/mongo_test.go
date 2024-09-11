@@ -239,7 +239,7 @@ func (s *MongoSuite) TestEnsureServerInstalledLocalSnap(c *gc.C) {
 
 	testing.PatchExecutableAsEchoArgs(c, s, "snap")
 
-	s.PatchValue(mongo.InstallMongo, func(dep packaging.Dependency, series string) error {
+	s.PatchValue(mongo.InstallMongo, func(packaging.Dependency, base.Base) error {
 		c.Fatalf("unexpected call to InstallMongo")
 		return nil
 	})
