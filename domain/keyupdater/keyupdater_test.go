@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -55,7 +54,6 @@ func (s *keyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.ModelSuite.SetUpTest(c)
 
-	controllerUUID := s.SeedControllerUUID(c)
 	s.userID = usertesting.GenUserUUID(c)
 
 	accessState := accessstate.NewState(s.ControllerSuite.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -65,13 +63,6 @@ func (s *keyUpdaterSuite) SetUpTest(c *gc.C) {
 		coreuser.AdminUserName.Name(),
 		false,
 		s.userID,
-		permission.AccessSpec{
-			Access: permission.SuperuserAccess,
-			Target: permission.ID{
-				ObjectType: permission.Controller,
-				Key:        controllerUUID,
-			},
-		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

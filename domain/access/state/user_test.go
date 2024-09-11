@@ -788,7 +788,6 @@ func (s *userStateSuite) TestRemoveUserSSHKeys(c *gc.C) {
 		adminName, "admin",
 		false,
 		adminUUID,
-		s.controllerLoginAccess(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -802,7 +801,6 @@ func (s *userStateSuite) TestRemoveUserSSHKeys(c *gc.C) {
 		userToRemoveName, "userToRemove",
 		false,
 		adminUUID,
-		s.controllerLoginAccess(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
