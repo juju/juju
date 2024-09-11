@@ -55,7 +55,7 @@ func (r *relationsResolver) NextOp(localState resolver.LocalState, remoteState r
 	if r.logger.IsTraceEnabled() {
 		r.logger.Tracef("relation resolver next op for new remote relations %# v", pretty.Formatter(remoteState.Relations))
 		defer func() {
-			if err == resolver.ErrNoOperation {
+			if errors.Is(err, resolver.ErrNoOperation) {
 				r.logger.Tracef("no relation operation to run")
 			}
 		}()
@@ -99,7 +99,7 @@ func (r *relationsResolver) NextOp(localState resolver.LocalState, remoteState r
 			relState = NewState(relationId)
 		}
 		hInfo, err := r.nextHookForRelation(relState, relationSnapshot, remoteBroken)
-		if err == resolver.ErrNoOperation {
+		if errors.Is(err, resolver.ErrNoOperation) {
 			continue
 		}
 		return opFactory.NewRunHook(hInfo)
@@ -343,7 +343,7 @@ func (r *createdRelationsResolver) NextOp(
 	if r.logger.IsTraceEnabled() {
 		r.logger.Tracef("create relation resolver next op for new remote relations %# v", pretty.Formatter(remoteState.Relations))
 		defer func() {
-			if err == resolver.ErrNoOperation {
+			if errors.Is(err, resolver.ErrNoOperation) {
 				r.logger.Tracef("no create relation operation to run")
 			}
 		}()
@@ -369,7 +369,7 @@ func (r *createdRelationsResolver) NextOp(
 
 		hook, err := r.nextHookForRelation(relationId)
 		if err != nil {
-			if err == resolver.ErrNoOperation {
+			if errors.Is(err, resolver.ErrNoOperation) {
 				continue
 			}
 
