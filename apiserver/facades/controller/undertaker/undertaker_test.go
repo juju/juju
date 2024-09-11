@@ -9,14 +9,16 @@ import (
 
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/secrets/provider"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -28,6 +30,7 @@ type undertakerSuite struct {
 	coretesting.BaseSuite
 	secrets                  *mockSecrets
 	mockSecretBackendService *MockSecretBackendService
+	modelConfigService       *mocks.MockModelConfigService
 }
 
 var _ = gc.Suite(&undertakerSuite{})
@@ -35,6 +38,7 @@ var _ = gc.Suite(&undertakerSuite{})
 func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName string) (*mockState, *UndertakerAPI, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 	s.mockSecretBackendService = NewMockSecretBackendService(ctrl)
+	s.modelConfigService = mocks.NewMockModelConfigService(ctrl)
 
 	machineNo := "1"
 	if isSystem {
@@ -50,7 +54,15 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 	s.secrets = &mockSecrets{}
 	s.PatchValue(&GetProvider, func(string) (provider.SecretBackendProvider, error) { return s.secrets, nil })
 
-	api, err := newUndertakerAPI(st, nil, authorizer, nil, s.mockSecretBackendService)
+	api, err := newUndertakerAPI(
+		st,
+		nil,
+		authorizer,
+		nil,
+		s.mockSecretBackendService,
+		s.modelConfigService,
+		nil,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return st, api, ctrl
 }
@@ -66,6 +78,8 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 			st,
 			nil,
 			authorizer,
+			nil,
+			nil,
 			nil,
 			nil,
 		)
@@ -190,6 +204,10 @@ func (s *undertakerSuite) TestDeadRemoveModelSecretsConfigNotFound(c *gc.C) {
 
 func (s *undertakerSuite) TestModelConfig(c *gc.C) {
 	_, hostedAPI, _ := s.setupStateAndAPI(c, false, "hostedmodel")
+
+	expectedCfg, err := config.New(false, coretesting.FakeConfig())
+	c.Assert(err, jc.ErrorIsNil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(expectedCfg, nil)
 
 	cfg, err := hostedAPI.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)

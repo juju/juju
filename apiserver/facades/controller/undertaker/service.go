@@ -12,5 +12,7 @@ import (
 
 // SecretBackendService defines the methods that the secret backend service
 type SecretBackendService interface {
+	// GetSecretBackendConfigForAdmin returns the secret backend configuration
+	// for the given backend ID for an admin user.
 	GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID coremodel.UUID) (*provider.ModelBackendConfigInfo, error)
 }
