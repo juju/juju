@@ -136,7 +136,7 @@ func assertNumCalls(c *gc.C, numCalls *int32, expected int32) {
 	c.Assert(v, gc.Equals, expected)
 }
 
-func (s *relationResolverSuite) newRelationStateTracer(c *gc.C, apiCaller base.APICaller, unitTag names.UnitTag) relation.RelationStateTracker {
+func (s *relationResolverSuite) newRelationStateTracker(c *gc.C, apiCaller base.APICaller, unitTag names.UnitTag) relation.RelationStateTracker {
 	abort := make(chan struct{})
 	st := uniter.NewState(apiCaller, unitTag)
 	u, err := st.Unit(unitTag)
@@ -166,7 +166,7 @@ func (s *relationResolverSuite) setupRelations(c *gc.C) relation.RelationStateTr
 		uniterAPICall("State", unitEntity, unitStateResults, nil),
 		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 	)
-	r := s.newRelationStateTracer(c, apiCaller, unitTag)
+	r := s.newRelationStateTracker(c, apiCaller, unitTag)
 	assertNumCalls(c, &numCalls, 4)
 	return r
 }
@@ -231,7 +231,7 @@ func (s *relationResolverSuite) assertNewRelationsWithExistingRelations(c *gc.C,
 		)
 	}
 	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
-	r := s.newRelationStateTracer(c, apiCaller, unitTag)
+	r := s.newRelationStateTracker(c, apiCaller, unitTag)
 	assertNumCalls(c, &numCalls, int32(len(apiCalls)))
 
 	info := r.GetInfo()
@@ -268,7 +268,7 @@ func (s *relationResolverSuite) TestNextOpNothing(c *gc.C) {
 		uniterAPICall("State", unitEntity, unitStateResults, nil),
 		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 	)
-	r := s.newRelationStateTracer(c, apiCaller, unitTag)
+	r := s.newRelationStateTracker(c, apiCaller, unitTag)
 	assertNumCalls(c, &numCalls, 4)
 
 	localState := resolver.LocalState{
@@ -393,7 +393,7 @@ func (s *relationResolverSuite) assertHookRelationJoined(c *gc.C, numCalls *int3
 	unitTag := names.NewUnitTag("wordpress/0")
 
 	apiCaller := mockAPICaller(c, numCalls, apiCalls...)
-	r := s.newRelationStateTracer(c, apiCaller, unitTag)
+	r := s.newRelationStateTracker(c, apiCaller, unitTag)
 	assertNumCalls(c, numCalls, 4)
 
 	localState := resolver.LocalState{
@@ -839,7 +839,7 @@ func (s *relationResolverSuite) TestImplicitRelationNoHooks(c *gc.C) {
 
 	var numCalls int32
 	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
-	r := s.newRelationStateTracer(c, apiCaller, unitTag)
+	r := s.newRelationStateTracker(c, apiCaller, unitTag)
 
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -979,7 +979,7 @@ func (s *relationResolverSuite) TestSubSubPrincipalRelationDyingDestroysUnit(c *
 	//apiCalls = append(apiCalls, uniterAPICall("State", nrpeUnitEntity, unitStateResults, nil))
 	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
 
-	r := s.newRelationStateTracer(c, apiCaller, nrpeUnitTag)
+	r := s.newRelationStateTracker(c, apiCaller, nrpeUnitTag)
 	assertNumCalls(c, &numCalls, callsBeforeDestroy)
 
 	// So now we have a relations object with two relations, one to
@@ -1035,7 +1035,7 @@ func (s *relationResolverSuite) TestSubSubOtherRelationDyingNotDestroyed(c *gc.C
 
 	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
 
-	r := s.newRelationStateTracer(c, apiCaller, nrpeUnitTag)
+	r := s.newRelationStateTracker(c, apiCaller, nrpeUnitTag)
 
 	// TODO: Fix this test...
 	// This test intermittently makes either 16 or 17
@@ -1154,7 +1154,7 @@ func (s *relationResolverSuite) TestPrincipalDyingDestroysSubordinates(c *gc.C) 
 	//apiCalls = append(apiCalls, uniterAPICall("State", nrpeUnitEntity, unitStateResults, nil))
 	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
 
-	r := s.newRelationStateTracer(c, apiCaller, nrpeUnitTag)
+	r := s.newRelationStateTracker(c, apiCaller, nrpeUnitTag)
 	assertNumCalls(c, &numCalls, callsBeforeDestroy)
 
 	// So now we have a relation between a principal (wordpress) and a
