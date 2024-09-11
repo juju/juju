@@ -32,7 +32,7 @@ func (st *State) HardwareCharacteristics(
 		return nil, errors.Trace(err)
 	}
 	retrieveHardwareCharacteristics := `
-SELECT (*) AS (&instanceData.*)
+SELECT &instanceData.*
 FROM   machine_cloud_instance
 WHERE  machine_uuid = $instanceData.machine_uuid`
 	machineUUIDQuery := instanceData{
@@ -92,7 +92,7 @@ VALUES ($instanceTag.*)
 		azName = availabilityZoneName{Name: az}
 	}
 	retrieveAZUUID := `
-SELECT uuid AS &availabilityZoneName.uuid
+SELECT &availabilityZoneName.uuid
 FROM   availability_zone
 WHERE  availability_zone.name = $availabilityZoneName.name
 `
