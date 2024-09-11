@@ -16,6 +16,9 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	networkerrors "github.com/juju/juju/domain/network/errors"
+	"github.com/juju/juju/internal/database"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // HardwareCharacteristics returns the hardware characteristics struct with
@@ -29,8 +32,8 @@ func (st *State) HardwareCharacteristics(
 		return nil, errors.Trace(err)
 	}
 	retrieveHardwareCharacteristics := `
-SELECT (*) AS (&instanceData.*)
-FROM   machine_cloud_instance 
+SELECT &instanceData.*
+FROM   machine_cloud_instance
 WHERE  machine_uuid = $instanceData.machine_uuid`
 	machineUUIDQuery := instanceData{
 		MachineUUID: machineUUID,
@@ -58,7 +61,7 @@ func (st *State) SetMachineCloudInstance(
 	ctx context.Context,
 	machineUUID string,
 	instanceID instance.Id,
-	hardwareCharacteristics instance.HardwareCharacteristics,
+	hardwareCharacteristics *instance.HardwareCharacteristics,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -83,23 +86,52 @@ VALUES ($instanceTag.*)
 		return errors.Trace(err)
 	}
 
+	azName := availabilityZoneName{}
+	if hardwareCharacteristics != nil && hardwareCharacteristics.AvailabilityZone != nil {
+		az := *hardwareCharacteristics.AvailabilityZone
+		azName = availabilityZoneName{Name: az}
+	}
+	retrieveAZUUID := `
+SELECT &availabilityZoneName.uuid
+FROM   availability_zone
+WHERE  availability_zone.name = $availabilityZoneName.name
+`
+	retrieveAZUUIDStmt, err := st.Prepare(retrieveAZUUID, azName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		instanceData := instanceData{
-			MachineUUID:          machineUUID,
-			InstanceID:           string(instanceID),
-			Arch:                 hardwareCharacteristics.Arch,
-			Mem:                  hardwareCharacteristics.Mem,
-			RootDisk:             hardwareCharacteristics.RootDisk,
-			RootDiskSource:       hardwareCharacteristics.RootDiskSource,
-			CPUCores:             hardwareCharacteristics.CpuCores,
-			CPUPower:             hardwareCharacteristics.CpuPower,
-			AvailabilityZoneUUID: hardwareCharacteristics.AvailabilityZone,
-			VirtType:             hardwareCharacteristics.VirtType,
+			MachineUUID: machineUUID,
+			InstanceID:  string(instanceID),
+		}
+		if hardwareCharacteristics != nil {
+			instanceData.Arch = hardwareCharacteristics.Arch
+			instanceData.Mem = hardwareCharacteristics.Mem
+			instanceData.RootDisk = hardwareCharacteristics.RootDisk
+			instanceData.RootDiskSource = hardwareCharacteristics.RootDiskSource
+			instanceData.CPUCores = hardwareCharacteristics.CpuCores
+			instanceData.CPUPower = hardwareCharacteristics.CpuPower
+			instanceData.VirtType = hardwareCharacteristics.VirtType
+			if hardwareCharacteristics.AvailabilityZone != nil {
+				azUUID := availabilityZoneName{}
+				if err := tx.Query(ctx, retrieveAZUUIDStmt, azName).Get(&azUUID); err != nil {
+					if errors.Is(err, sql.ErrNoRows) {
+						return internalerrors.Errorf("%w %q for machine %q", networkerrors.AvailabilityZoneNotFound, *hardwareCharacteristics.AvailabilityZone, machineUUID)
+					}
+					return internalerrors.Errorf("cannot retrieve availability zone %q for machine uuid %q: %w", *hardwareCharacteristics.AvailabilityZone, machineUUID, err)
+				}
+				instanceData.AvailabilityZoneUUID = &azUUID.UUID
+			}
 		}
 		if err := tx.Query(ctx, setInstanceDataStmt, instanceData).Run(); err != nil {
+			if database.IsErrConstraintPrimaryKey(err) {
+				return internalerrors.Errorf("%w for machine %q", machineerrors.MachineCloudInstanceAlreadyExists, machineUUID)
+			}
 			return errors.Annotatef(err, "inserting machine cloud instance for machine %q", machineUUID)
 		}
-		if instanceTags := tagsFromHardwareCharacteristics(machineUUID, &hardwareCharacteristics); len(instanceTags) > 0 {
+		if instanceTags := tagsFromHardwareCharacteristics(machineUUID, hardwareCharacteristics); len(instanceTags) > 0 {
 			if err := tx.Query(ctx, setInstanceTagStmt, instanceTags).Run(); err != nil {
 				return errors.Annotatef(err, "inserting instance tags for machine %q", machineUUID)
 			}
@@ -122,7 +154,7 @@ func (st *State) DeleteMachineCloudInstance(
 
 	// Prepare query for deleting machine cloud instance.
 	deleteInstanceQuery := `
-DELETE FROM machine_cloud_instance 
+DELETE FROM machine_cloud_instance
 WHERE machine_uuid=$machineUUID.uuid
 `
 	machineUUIDParam := machineUUID{
@@ -135,7 +167,7 @@ WHERE machine_uuid=$machineUUID.uuid
 
 	// Prepare query for deleting instance tags.
 	deleteInstanceTagsQuery := `
-DELETE FROM instance_tag 
+DELETE FROM instance_tag
 WHERE machine_uuid=$machineUUID.uuid
 `
 	deleteInstanceTagStmt, err := st.Prepare(deleteInstanceTagsQuery, machineUUIDParam)

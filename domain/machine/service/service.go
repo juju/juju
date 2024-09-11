@@ -91,7 +91,7 @@ type State interface {
 
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
-	SetMachineCloudInstance(context.Context, string, instance.Id, instance.HardwareCharacteristics) error
+	SetMachineCloudInstance(context.Context, string, instance.Id, *instance.HardwareCharacteristics) error
 
 	// DeleteMachineCloudInstance removes an entry in the machine cloud instance
 	// table along with the instance tags and the link to a lxd profile if any.

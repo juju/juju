@@ -17,8 +17,11 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/provisionertask"
@@ -87,6 +90,7 @@ type environProvisioner struct {
 	environ                 Environ
 	configObserver          configObserver
 	controllerAPI           ControllerAPI
+	machineService          MachineService
 	machinesAPI             MachinesAPI
 	agentConfig             agent.Config
 	logger                  logger.Logger
@@ -158,18 +162,19 @@ func (p *environProvisioner) getStartTask(ctx context.Context, harvestMode confi
 	}
 
 	task, err := provisionertask.NewProvisionerTask(provisionertask.TaskConfig{
-		ControllerUUID:          controllerCfg.ControllerUUID(),
-		HostTag:                 hostTag,
-		Logger:                  p.logger,
-		HarvestMode:             harvestMode,
-		ControllerAPI:           p.controllerAPI,
-		MachinesAPI:             p.machinesAPI,
-		DistributionGroupFinder: p.distributionGroupFinder,
-		ToolsFinder:             p.toolsFinder,
-		MachineWatcher:          machineWatcher,
-		RetryWatcher:            retryWatcher,
-		Broker:                  p.broker,
-		ImageStream:             modelCfg.ImageStream(),
+		ControllerUUID:               controllerCfg.ControllerUUID(),
+		HostTag:                      hostTag,
+		Logger:                       p.logger,
+		HarvestMode:                  harvestMode,
+		ControllerAPI:                p.controllerAPI,
+		MachinesAPI:                  p.machinesAPI,
+		GetMachineInstanceInfoSetter: p.machineInstanceInfoSetter,
+		DistributionGroupFinder:      p.distributionGroupFinder,
+		ToolsFinder:                  p.toolsFinder,
+		MachineWatcher:               machineWatcher,
+		RetryWatcher:                 retryWatcher,
+		Broker:                       p.broker,
+		ImageStream:                  modelCfg.ImageStream(),
 		RetryStartInstanceStrategy: provisionertask.RetryStrategy{
 			RetryDelay: retryStrategyDelay,
 			RetryCount: retryStrategyCount,
@@ -183,11 +188,76 @@ func (p *environProvisioner) getStartTask(ctx context.Context, harvestMode confi
 	return task, nil
 }
 
+// machineInstanceInfoSetter provides the mechanism for setting instance info
+// for compute (machine) resources.
+// This implementation uses the machine service, because the compute
+// provisioner is used on the controller where it's available.
+func (p *environProvisioner) machineInstanceInfoSetter(machineProvisioner apiprovisioner.MachineProvisioner) func(
+	ctx context.Context,
+	id instance.Id, displayName string, nonce string, hc *instance.HardwareCharacteristics,
+	networkConfig []params.NetworkConfig, volumes []params.Volume,
+	volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
+) error {
+	return func(
+		ctx context.Context,
+		id instance.Id, displayName string, nonce string, hc *instance.HardwareCharacteristics,
+		networkConfig []params.NetworkConfig, volumes []params.Volume,
+		volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
+	) error {
+		if err := machineProvisioner.SetInstanceInfo(
+			ctx,
+			id,
+			displayName,
+			nonce,
+			hc,
+			networkConfig,
+			volumes,
+			volumeAttachments,
+			charmProfiles,
+		); err != nil {
+			return errors.Annotatef(err, "setting instance info for machine %q", machineProvisioner.Id())
+		}
+
+		machineUUID, err := p.machineService.GetMachineUUID(ctx, coremachine.Name(machineProvisioner.Id()))
+		if err != nil {
+			return errors.Annotatef(err, "retrieving machineUUID for machine %q", machineProvisioner.Id())
+		}
+
+		instanceID, err := machineProvisioner.InstanceId(ctx)
+		if err != nil {
+			return errors.Annotatef(err, "retrieving instance ID for machine %q", id)
+		}
+		if err := p.machineService.SetMachineCloudInstance(
+			ctx,
+			machineUUID,
+			instanceID,
+			hc,
+		); err != nil {
+			// TODO(nvinuesa): We deliberately hide this error
+			// because we are still double writing and therefore
+			// the call to set machine cloud instance happens twice:
+			// - First at the call through the API, see 29 lines
+			//   above.
+			// - Second on this same method.
+			// This means that the second call returns a error
+			// because we're trying to add another machine instance
+			// with the same machine UUID.
+			// This will all solve when we stop double writing and
+			// the following error be uncommented.
+			if !errors.Is(err, machineerrors.MachineCloudInstanceAlreadyExists) {
+				return errors.Annotatef(err, "setting machine cloud instance for machine uuid %q", machineUUID)
+			}
+		}
+		return nil
+	}
+}
+
 // NewEnvironProvisioner returns a new Provisioner for an environment.
 // When new machines are added to the state, it allocates instances
 // from the environment and allocates them to the new machines.
 func NewEnvironProvisioner(
 	controllerAPI ControllerAPI,
+	machineService MachineService,
 	machinesAPI MachinesAPI,
 	toolsFinder ToolsFinder,
 	distributionGroupFinder DistributionGroupFinder,
@@ -203,6 +273,7 @@ func NewEnvironProvisioner(
 		agentConfig:             agentConfig,
 		logger:                  logger,
 		controllerAPI:           controllerAPI,
+		machineService:          machineService,
 		machinesAPI:             machinesAPI,
 		toolsFinder:             toolsFinder,
 		distributionGroupFinder: distributionGroupFinder,

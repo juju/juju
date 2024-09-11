@@ -630,13 +630,15 @@ func (e *environ) StartInstance(_ envcontext.ProviderCallContext, args environs.
 		// We will just assume the instance hardware characteristics exactly matches
 		// the supplied constraints (if specified).
 		hc = &instance.HardwareCharacteristics{
-			Arch:             args.Constraints.Arch,
-			Mem:              args.Constraints.Mem,
-			RootDisk:         args.Constraints.RootDisk,
-			CpuCores:         args.Constraints.CpuCores,
-			CpuPower:         args.Constraints.CpuPower,
-			Tags:             args.Constraints.Tags,
-			AvailabilityZone: &zone,
+			Arch:     args.Constraints.Arch,
+			Mem:      args.Constraints.Mem,
+			RootDisk: args.Constraints.RootDisk,
+			CpuCores: args.Constraints.CpuCores,
+			CpuPower: args.Constraints.CpuPower,
+			Tags:     args.Constraints.Tags,
+		}
+		if zone != "" {
+			hc.AvailabilityZone = &zone
 		}
 		// Fill in some expected instance hardware characteristics if constraints not specified.
 		if hc.Arch == nil {

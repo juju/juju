@@ -28,6 +28,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
@@ -49,9 +50,10 @@ import (
 type CommonProvisionerSuite struct {
 	jujutesting.IsolationSuite
 
-	controllerAPI *MockControllerAPI
-	machinesAPI   *MockMachinesAPI
-	broker        *environmocks.MockEnviron
+	controllerAPI  *MockControllerAPI
+	machineService *MockMachineService
+	machinesAPI    *MockMachinesAPI
+	broker         *environmocks.MockEnviron
 
 	modelConfigCh chan struct{}
 	machinesCh    chan []string
@@ -63,6 +65,7 @@ func (s *CommonProvisionerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerAPI = NewMockControllerAPI(ctrl)
 	s.machinesAPI = NewMockMachinesAPI(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 	s.broker = environmocks.NewMockEnviron(ctrl)
 	s.expectAuth()
 	s.expectStartup(c)
@@ -251,7 +254,7 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) computeprovision
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := computeprovisioner.NewEnvironProvisioner(
-		s.controllerAPI, s.machinesAPI,
+		s.controllerAPI, s.machineService, s.machinesAPI,
 		mockToolsFinder{},
 		&mockDistributionGroupFinder{},
 		agentConfig,
@@ -358,6 +361,13 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *gc.C) {
 	s.broker.EXPECT().StartInstance(gomock.Any(), newDefaultStartInstanceParamsMatcher(c, startArg)).Return(&environs.StartInstanceResult{
 		Instance: &testInstance{id: "inst-666"},
 	}, nil)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return("machine-666-uuid", nil)
+	s.machineService.EXPECT().SetMachineCloudInstance(
+		gomock.Any(),
+		"machine-666-uuid",
+		instance.Id("inst-666"),
+		nil,
+	)
 
 	s.sendModelMachinesChange(c, mTag.Id())
 	s.checkStartInstance(c, m666)

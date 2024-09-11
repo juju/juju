@@ -35,7 +35,7 @@ type instanceTag struct {
 }
 
 func tagsFromHardwareCharacteristics(machineUUID string, hc *instance.HardwareCharacteristics) []instanceTag {
-	if hc.Tags == nil {
+	if hc == nil || hc.Tags == nil {
 		return nil
 	}
 	res := make([]instanceTag, len(*hc.Tags))
@@ -86,6 +86,13 @@ type machineStatusWithData struct {
 }
 
 type machineStatusData []machineStatusWithData
+
+// availabilityZoneName represents the struct to be used for the name column
+// within the sqlair statements in the availability_zone table.
+type availabilityZoneName struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
+}
 
 // machineName represents the struct to be used for the name column
 // within the sqlair statements in the machine domain.

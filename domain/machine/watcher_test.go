@@ -96,7 +96,7 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *gc.C) {
 	// Create a machineUUID and set its cloud instance.
 	machineUUID, err := s.svc.CreateMachine(context.Background(), "machine-1")
 	c.Assert(err, gc.IsNil)
-	hc := instance.HardwareCharacteristics{
+	hc := &instance.HardwareCharacteristics{
 		Mem:      uintptr(1024),
 		RootDisk: uintptr(256),
 		CpuCores: uintptr(4),
@@ -121,7 +121,7 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *gc.C) {
 	// Create a machineUUID and set its cloud instance.
 	machineUUID, err := s.svc.CreateMachine(context.Background(), "machine-1")
 	c.Assert(err, gc.IsNil)
-	hc := instance.HardwareCharacteristics{
+	hc := &instance.HardwareCharacteristics{
 		Mem:      uintptr(1024),
 		RootDisk: uintptr(256),
 		CpuCores: uintptr(4),

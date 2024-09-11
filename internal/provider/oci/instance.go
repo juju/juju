@@ -269,12 +269,15 @@ func (o *ociInstance) hardwareCharacteristics() *instance.HardwareCharacteristic
 	if o.raw.AvailabilityDomain != nil {
 		az = *o.raw.AvailabilityDomain
 	}
-	return &instance.HardwareCharacteristics{
-		Arch:             &archType,
-		Mem:              mem,
-		CpuCores:         cpus,
-		AvailabilityZone: &az,
+	hc := &instance.HardwareCharacteristics{
+		Arch:     &archType,
+		Mem:      mem,
+		CpuCores: cpus,
 	}
+	if az != "" {
+		hc.AvailabilityZone = &az
+	}
+	return hc
 }
 
 func (o *ociInstance) waitForMachineStatus(state ociCore.InstanceLifecycleStateEnum, timeout time.Duration) error {

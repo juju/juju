@@ -932,7 +932,7 @@ func (c *MockStateSetKeepInstanceCall) DoAndReturn(f func(context.Context, machi
 }
 
 // SetMachineCloudInstance mocks base method.
-func (m *MockState) SetMachineCloudInstance(arg0 context.Context, arg1 string, arg2 instance.Id, arg3 instance.HardwareCharacteristics) error {
+func (m *MockState) SetMachineCloudInstance(arg0 context.Context, arg1 string, arg2 instance.Id, arg3 *instance.HardwareCharacteristics) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetMachineCloudInstance", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -958,13 +958,13 @@ func (c *MockStateSetMachineCloudInstanceCall) Return(arg0 error) *MockStateSetM
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetMachineCloudInstanceCall) Do(f func(context.Context, string, instance.Id, instance.HardwareCharacteristics) error) *MockStateSetMachineCloudInstanceCall {
+func (c *MockStateSetMachineCloudInstanceCall) Do(f func(context.Context, string, instance.Id, *instance.HardwareCharacteristics) error) *MockStateSetMachineCloudInstanceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetMachineCloudInstanceCall) DoAndReturn(f func(context.Context, string, instance.Id, instance.HardwareCharacteristics) error) *MockStateSetMachineCloudInstanceCall {
+func (c *MockStateSetMachineCloudInstanceCall) DoAndReturn(f func(context.Context, string, instance.Id, *instance.HardwareCharacteristics) error) *MockStateSetMachineCloudInstanceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

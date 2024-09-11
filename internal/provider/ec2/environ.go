@@ -748,7 +748,9 @@ func (e *environ) StartInstance(
 		CpuPower: spec.InstanceType.CpuPower,
 		RootDisk: &rootDiskSize,
 		// Tags currently not supported by EC2
-		AvailabilityZone: &instAZ,
+	}
+	if instAZ != "" {
+		hc.AvailabilityZone = &instAZ
 	}
 
 	if err := e.maybeAttachInstanceProfile(ctx, callback, inst, args.Constraints); err != nil {

@@ -143,9 +143,11 @@ func (m *containerManager) CreateContainer(
 	virtType := string(spec.VirtType)
 	arch := c.Arch()
 	hardware := &instance.HardwareCharacteristics{
-		Arch:             &arch,
-		AvailabilityZone: &m.availabilityZone,
-		VirtType:         &virtType,
+		Arch:     &arch,
+		VirtType: &virtType,
+	}
+	if m.availabilityZone != "" {
+		hardware.AvailabilityZone = &m.availabilityZone
 	}
 
 	return &lxdInstance{

@@ -45,7 +45,7 @@ func (s *serviceSuite) TestRetrieveHardwareCharacteristicsFails(c *gc.C) {
 func (s *serviceSuite) TestSetMachineCloudInstance(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hc := instance.HardwareCharacteristics{
+	hc := &instance.HardwareCharacteristics{
 		Mem:      uintptr(1024),
 		RootDisk: uintptr(256),
 		CpuCores: uintptr(4),
@@ -65,7 +65,7 @@ func (s *serviceSuite) TestSetMachineCloudInstance(c *gc.C) {
 func (s *serviceSuite) TestSetMachineCloudInstanceFails(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hc := instance.HardwareCharacteristics{
+	hc := &instance.HardwareCharacteristics{
 		Mem:      uintptr(1024),
 		RootDisk: uintptr(256),
 		CpuCores: uintptr(4),

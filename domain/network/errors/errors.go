@@ -3,7 +3,9 @@
 
 package errors
 
-import "github.com/juju/errors"
+import (
+	"github.com/juju/errors"
+)
 
 const (
 	// SpaceAlreadyExists is returned when a space already exists.
@@ -17,4 +19,8 @@ const (
 
 	// SpaceNameNotValid is returned when a space name is not valid.
 	SpaceNameNotValid = errors.ConstError("space name is not valid")
+
+	// AvailabilityZoneNotFound is returned when an availability zone is
+	// not found.
+	AvailabilityZoneNotFound = errors.ConstError("availability zone not found")
 )

@@ -39,11 +39,13 @@ func (mi *maasInstance) hardwareCharacteristics() (*instance.HardwareCharacteris
 	zone, _ := mi.zone()
 	tags := mi.machine.Tags()
 	hc := &instance.HardwareCharacteristics{
-		Arch:             &nodeArch,
-		CpuCores:         &nodeCpuCount,
-		Mem:              &nodeMemoryMB,
-		AvailabilityZone: &zone,
-		Tags:             &tags,
+		Arch:     &nodeArch,
+		CpuCores: &nodeCpuCount,
+		Mem:      &nodeMemoryMB,
+		Tags:     &tags,
+	}
+	if zone != "" {
+		hc.AvailabilityZone = &zone
 	}
 	return hc, nil
 }
