@@ -74,8 +74,33 @@ func (r *relationsResolver) NextOp(
 		return nil, errors.Trace(err)
 	}
 
-	// Check whether we need to fire a hook for any of the relations.
+	// Collect peer relations and defer their processing until after other
+	// relations. This is simpler than implementing a sort based on the type.
+	// Processing them last ensures that upon application removal, the hooks
+	// for other relations can rely on the peer relations still being present.
+	var peerRelations []int
+
+	// Check whether we need to fire a hook for any of the non-peer relations.
 	for relationID, relationSnapshot := range remoteState.Relations {
+		if isPeer, _ := r.stateTracker.IsPeerRelation(relationID); isPeer {
+			peerRelations = append(peerRelations, relationID)
+			continue
+		}
+
+		op, err := r.processRelationSnapshot(relationID, relationSnapshot, remoteState, opFactory)
+		if err != nil {
+			if errors.Is(err, resolver.ErrNoOperation) {
+				continue
+			}
+			return nil, errors.Trace(err)
+		}
+		return op, nil
+	}
+
+	// Process the deferred peer relations.
+	for _, relationID := range peerRelations {
+		relationSnapshot := remoteState.Relations[relationID]
+
 		op, err := r.processRelationSnapshot(relationID, relationSnapshot, remoteState, opFactory)
 		if err != nil {
 			if errors.Is(err, resolver.ErrNoOperation) {
