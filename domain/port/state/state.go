@@ -79,8 +79,8 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 	return groupedPortRanges, nil
 }
 
-// GetMachineOpenedPorts returns the opened ports for all the units on the machine.
-// Opened ports are grouped first by unit and then by endpoint.
+// GetMachineOpenedPorts returns the opened ports for all the units on the given
+// machine. Opened ports are grouped first by unit and then by endpoint.
 //
 // NOTE: In the ddl machines and units both share 1-to-1 relations with net_nodes.
 // So to join units to machines we go via their net_nodes.
@@ -117,16 +117,58 @@ WHERE machine.uuid = $machineUUID.machine_uuid
 		return nil, errors.Errorf("getting opened ports for machine %q: %w", machine, err)
 	}
 
+	return groupPortRangesByUnitByEndpoint(results), nil
+}
+
+// GetApplicationOpenedPorts returns the opened ports for all the units of the
+// given application. Opened ports are grouped first by unit and then by endpoint.
+func (st *State) GetApplicationOpenedPorts(ctx context.Context, application string) (map[string]network.GroupedPortRanges, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, jujuerrors.Trace(err)
+	}
+
+	applicationUUID := applicationUUID{UUID: application}
+
+	query, err := st.Prepare(`
+SELECT &unitEndpointPortRange.*
+FROM port_range
+JOIN protocol ON port_range.protocol_id = protocol.id
+JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
+JOIN unit ON unit_endpoint.unit_uuid = unit.uuid
+WHERE unit.application_uuid = $applicationUUID.application_uuid
+`, unitEndpointPortRange{}, applicationUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing get application opened ports statement: %w", err)
+	}
+
+	results := []unitEndpointPortRange{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, query, applicationUUID).GetAll(&results)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return jujuerrors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting opened ports for application %q: %w", application, err)
+	}
+
+	return groupPortRangesByUnitByEndpoint(results), nil
+}
+
+func groupPortRangesByUnitByEndpoint(portRanges []unitEndpointPortRange) map[string]network.GroupedPortRanges {
 	groupedPortRanges := map[string]network.GroupedPortRanges{}
-	for _, endpointPortRange := range results {
-		unitUUID := endpointPortRange.UnitUUID
+	for _, portRange := range portRanges {
+		unitUUID := portRange.UnitUUID
+		endpoint := portRange.Endpoint
 		if _, ok := groupedPortRanges[unitUUID]; !ok {
 			groupedPortRanges[unitUUID] = network.GroupedPortRanges{}
 		}
-		if _, ok := groupedPortRanges[unitUUID][endpointPortRange.Endpoint]; !ok {
-			groupedPortRanges[unitUUID][endpointPortRange.Endpoint] = []network.PortRange{}
+		if _, ok := groupedPortRanges[unitUUID][endpoint]; !ok {
+			groupedPortRanges[unitUUID][endpoint] = []network.PortRange{}
 		}
-		groupedPortRanges[unitUUID][endpointPortRange.Endpoint] = append(groupedPortRanges[unitUUID][endpointPortRange.Endpoint], endpointPortRange.decode())
+		groupedPortRanges[unitUUID][endpoint] = append(groupedPortRanges[unitUUID][endpoint], portRange.decode())
 	}
 
 	for _, grp := range groupedPortRanges {
@@ -135,7 +177,7 @@ WHERE machine.uuid = $machineUUID.machine_uuid
 		}
 	}
 
-	return groupedPortRanges, nil
+	return groupedPortRanges
 }
 
 // GetColocatedOpenedPorts returns all the open ports for all units co-located with

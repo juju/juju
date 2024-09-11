@@ -123,3 +123,8 @@ type unitUUID struct {
 type machineUUID struct {
 	UUID string `db:"machine_uuid"`
 }
+
+// applicationUUID represents an application's UUID.
+type applicationUUID struct {
+	UUID string `db:"application_uuid"`
+}
