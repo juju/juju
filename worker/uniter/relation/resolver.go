@@ -51,7 +51,9 @@ type relationsResolver struct {
 }
 
 // NextOp implements resolver.Resolver.
-func (r *relationsResolver) NextOp(localState resolver.LocalState, remoteState remotestate.Snapshot, opFactory operation.Factory) (_ operation.Operation, err error) {
+func (r *relationsResolver) NextOp(
+	localState resolver.LocalState, remoteState remotestate.Snapshot, opFactory operation.Factory,
+) (_ operation.Operation, err error) {
 	if r.logger.IsTraceEnabled() {
 		r.logger.Tracef("relation resolver next op for new remote relations %# v", pretty.Formatter(remoteState.Relations))
 		defer func() {
@@ -72,40 +74,53 @@ func (r *relationsResolver) NextOp(localState resolver.LocalState, remoteState r
 		return nil, errors.Trace(err)
 	}
 
-	// Check whether we need to fire a hook for any of the relations
-	for relationId, relationSnapshot := range remoteState.Relations {
-		if !r.stateTracker.IsKnown(relationId) {
-			r.logger.Tracef("unknown relation %d resolving next op", relationId)
-			continue
-		} else if isImplicit, _ := r.stateTracker.IsImplicit(relationId); isImplicit {
-			continue
-		}
-
-		// If either the unit or the relation are Dying, or the
-		// relation becomes suspended, then the relation should be
-		// broken.
-		var remoteBroken bool
-		if remoteState.Life == life.Dying || relationSnapshot.Life == life.Dying || relationSnapshot.Suspended {
-			relationSnapshot = remotestate.RelationSnapshot{}
-			remoteBroken = true
-			// TODO(axw) if relation is implicit, leave scope & remove.
-		}
-
-		// Examine local/remote states and figure out if a hook needs
-		// to be fired for this relation.
-		relState, err := r.stateTracker.State(relationId)
+	// Check whether we need to fire a hook for any of the relations.
+	for relationID, relationSnapshot := range remoteState.Relations {
+		op, err := r.processRelationSnapshot(relationID, relationSnapshot, remoteState, opFactory)
 		if err != nil {
-			//
-			relState = NewState(relationId)
+			if errors.Is(err, resolver.ErrNoOperation) {
+				continue
+			}
+			return nil, errors.Trace(err)
 		}
-		hInfo, err := r.nextHookForRelation(relState, relationSnapshot, remoteBroken)
-		if errors.Is(err, resolver.ErrNoOperation) {
-			continue
-		}
-		return opFactory.NewRunHook(hInfo)
+		return op, nil
 	}
 
 	return nil, resolver.ErrNoOperation
+}
+
+func (r *relationsResolver) processRelationSnapshot(
+	relationID int,
+	relationSnapshot remotestate.RelationSnapshot,
+	remoteState remotestate.Snapshot,
+	opFactory operation.Factory,
+) (operation.Operation, error) {
+	if !r.stateTracker.IsKnown(relationID) {
+		r.logger.Infof("unknown relation %d resolving next op", relationID)
+		return nil, resolver.ErrNoOperation
+	} else if isImplicit, _ := r.stateTracker.IsImplicit(relationID); isImplicit {
+		return nil, resolver.ErrNoOperation
+	}
+
+	// If either the unit or the relation are Dying, or the relation
+	// becomes suspended, then the relation should be broken.
+	var remoteBroken bool
+	if remoteState.Life == life.Dying || relationSnapshot.Life == life.Dying || relationSnapshot.Suspended {
+		relationSnapshot = remotestate.RelationSnapshot{}
+		remoteBroken = true
+	}
+
+	// Examine local/remote states and figure out if a hook needs
+	// to be fired for this relation.
+	relState, err := r.stateTracker.State(relationID)
+	if err != nil {
+		relState = NewState(relationID)
+	}
+	hInfo, err := r.nextHookForRelation(relState, relationSnapshot, remoteBroken)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return opFactory.NewRunHook(hInfo)
 }
 
 // maybeDestroySubordinates checks whether the remote state indicates that the
