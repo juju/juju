@@ -22,7 +22,7 @@ CREATE TABLE user_public_ssh_key (
     FOREIGN KEY (fingerprint_hash_algorithm_id)
     REFERENCES ssh_fingerprint_hash_algorithm (id),
     FOREIGN KEY (user_id)
-    REFERENCES user(uuid)
+    REFERENCES user (uuid)
 );
 
 CREATE UNIQUE INDEX idx_user_public_ssh_key_user_fingerprint

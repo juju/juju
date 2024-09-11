@@ -23,8 +23,8 @@ CREATE VIEW v_model_authorized_keys AS
 SELECT mak.model_id,
        upsk.public_key
 FROM model_authorized_keys AS mak
-INNER JOIN user_public_ssh_key AS upsk ON mak.user_public_ssh_key_id = upsk.id
-INNER JOIN user AS u ON upsk.user_id = u.uuid
+INNER JOIN user_public_ssh_key AS upsk ON upsk.id = mak.user_public_ssh_key_id
+INNER JOIN user AS u ON u.uuid = upsk.user_id
 INNER JOIN user_authentication AS ua ON ua.user_uuid = u.uuid
 WHERE u.removed = FALSE
 AND ua.disabled = FALSE;
