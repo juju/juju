@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -189,6 +190,9 @@ func (f *FirewallerAPI) Life(ctx context.Context, args params.Entities) (params.
 		switch tag.Kind() {
 		case names.UnitTagKind:
 			lifeValue, err = f.applicationService.GetUnitLife(ctx, tag.Id())
+			if errors.Is(err, applicationerrors.UnitNotFound) {
+				err = errors.NotFoundf("unit %q", tag.Id())
+			}
 		default:
 			lifeValue, err = f.LifeGetter.OneLife(tag)
 		}

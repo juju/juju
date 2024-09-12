@@ -223,8 +223,14 @@ func (a *APIGroup) Life(ctx context.Context, args params.Entities) (params.LifeR
 		switch tag.Kind() {
 		case names.ApplicationTagKind:
 			lifeValue, err = a.applicationService.GetApplicationLife(ctx, tag.Id())
+			if errors.Is(err, applicationerrors.ApplicationNotFound) {
+				err = errors.NotFoundf("application %s", tag.Id())
+			}
 		case names.UnitTagKind:
 			lifeValue, err = a.applicationService.GetUnitLife(ctx, tag.Id())
+			if errors.Is(err, applicationerrors.UnitNotFound) {
+				err = errors.NotFoundf("unit %s", tag.Id())
+			}
 		default:
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
@@ -1569,6 +1575,9 @@ func (a *API) SetProvisioningState(ctx context.Context, args params.CAASApplicat
 
 	err = a.applicationService.SetApplicationScalingState(ctx, appTag.Id(), args.ProvisioningState.ScaleTarget, args.ProvisioningState.Scaling)
 	if err != nil {
+		if errors.Is(err, applicationerrors.ScalingStateInconsistent) {
+			err = apiservererrors.ErrTryAgain
+		}
 		result.Error = apiservererrors.ServerError(err)
 	}
 

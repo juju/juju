@@ -61,10 +61,7 @@ func (m *stateManager) RemoveRelation(ctx context.Context, id int, unitGetter Un
 		unitExists, ok := knownUnits[unitName]
 		if !ok {
 			_, err := unitGetter.Unit(ctx, names.NewUnitTag(unitName))
-			ignoreError := params.IsCodeUnauthorized(err) || params.IsCodeUnitNotFound(err)
-			// TODO(units): when all apis are on dqlite, remove this.
-			ignoreError = ignoreError || params.IsCodeNotFound(err)
-			if err != nil && !ignoreError {
+			if err != nil && !params.IsCodeNotFoundOrCodeUnauthorized(err) {
 				return errors.Trace(err)
 			}
 			unitExists = err == nil

@@ -244,11 +244,11 @@ WHERE name = $applicationName.name
 	return applicationerrors.ApplicationAlreadyExists
 }
 
-func (st *ApplicationState) lookupApplication(ctx context.Context, tx *sqlair.TX, name string, deadOk bool) (coreapplication.ID, error) {
+func (st *ApplicationState) lookupApplication(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.ID, error) {
 	var appID applicationID
 	appName := applicationName{Name: name}
 	queryApplication := `
-SELECT (uuid, life_id) AS (&applicationID.*)
+SELECT (uuid) AS (&applicationID.*)
 FROM application
 WHERE name = $applicationName.name
 `
@@ -262,9 +262,6 @@ WHERE name = $applicationName.name
 			return "", errors.Annotatef(err, "looking up UUID for application %q", name)
 		}
 		return "", fmt.Errorf("%w: %s", applicationerrors.ApplicationNotFound, name)
-	}
-	if !deadOk && appID.LifeID == life.Dead {
-		return "", fmt.Errorf("%w: %s", applicationerrors.ApplicationIsDead, name)
 	}
 	return coreapplication.ID(appID.ID), nil
 }
@@ -295,7 +292,7 @@ func (st *ApplicationState) deleteApplication(ctx context.Context, tx *sqlair.TX
 		return errors.Trace(err)
 	}
 
-	appUUID, err := st.lookupApplication(ctx, tx, name, true)
+	appUUID, err := st.lookupApplication(ctx, tx, name)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -364,7 +361,7 @@ func (st *ApplicationState) AddUnits(ctx context.Context, applicationName string
 		return errors.Trace(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		appID, err := st.lookupApplication(ctx, tx, applicationName, false)
+		appID, err := st.lookupApplication(ctx, tx, applicationName)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -777,7 +774,7 @@ func (st *ApplicationState) GetApplicationID(ctx domain.AtomicContext, name stri
 	var appID coreapplication.ID
 	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		appID, err = st.lookupApplication(ctx, tx, name, false)
+		appID, err = st.lookupApplication(ctx, tx, name)
 		if err != nil {
 			return fmt.Errorf("looking up application %q: %w", name, err)
 		}
@@ -1023,7 +1020,7 @@ ON CONFLICT(application_uuid) DO UPDATE
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		appID, err := st.lookupApplication(ctx, tx, name, false)
+		appID, err := st.lookupApplication(ctx, tx, name)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1142,7 +1139,7 @@ WHERE uuid = $applicationID.uuid
 		appPlatform application.Platform
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		appID, err := st.lookupApplication(ctx, tx, name, false)
+		appID, err := st.lookupApplication(ctx, tx, name)
 		if err != nil {
 			return fmt.Errorf("looking up application %q: %w", name, err)
 		}

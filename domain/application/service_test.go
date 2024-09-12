@@ -205,7 +205,7 @@ func (s *serviceSuite) TestEnsureApplicationDeadNotFound(c *gc.C) {
 	defer ctrl.Finish()
 
 	err := s.svc.EnsureApplicationDead(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestGetUnitLife(c *gc.C) {
@@ -281,7 +281,7 @@ func (s *serviceSuite) TestEnsureUnitDeadNotFound(c *gc.C) {
 	revoker := application.NewMockRevoker(ctrl)
 
 	err := s.svc.EnsureUnitDead(context.Background(), "foo/666", revoker)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestDeleteUnit(c *gc.C) {
@@ -333,7 +333,7 @@ func (s *serviceSuite) TestDeleteUnitNotFound(c *gc.C) {
 	s.createApplication(c, "foo")
 
 	err := s.svc.DeleteUnit(context.Background(), "foo/666")
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestRemoveUnit(c *gc.C) {

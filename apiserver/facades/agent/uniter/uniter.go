@@ -1104,8 +1104,14 @@ func (u *UniterAPI) Life(ctx context.Context, args params.Entities) (params.Life
 		switch tag.Kind() {
 		case names.ApplicationTagKind:
 			lifeValue, err = u.applicationService.GetApplicationLife(ctx, tag.Id())
+			if errors.Is(err, applicationerrors.ApplicationNotFound) {
+				err = errors.NotFoundf("application %s", tag.Id())
+			}
 		case names.UnitTagKind:
 			lifeValue, err = u.applicationService.GetUnitLife(ctx, tag.Id())
+			if errors.Is(err, applicationerrors.UnitNotFound) {
+				err = errors.NotFoundf("unit %s", tag.Id())
+			}
 		default:
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue

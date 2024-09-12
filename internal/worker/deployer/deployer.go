@@ -157,7 +157,7 @@ func (d *Deployer) changed(ctx context.Context, unitName string) error {
 	d.logger.Infof("checking unit %q", unitName)
 	var unitLife life.Value
 	unit, err := d.client.Unit(ctx, unitTag)
-	if params.IsCodeUnauthorized(err) || params.IsCodeUnitNotFound(err) {
+	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		unitLife = life.Dead
 	} else if err != nil {
 		return err

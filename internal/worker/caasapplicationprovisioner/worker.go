@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -181,10 +180,10 @@ func (p *provisioner) loop() error {
 			}
 			for _, appName := range apps {
 				_, err := p.facade.Life(ctx, appName)
-				if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
+				if err != nil && !errors.Is(err, errors.NotFound) {
 					return errors.Trace(err)
 				}
-				if errors.Is(err, applicationerrors.ApplicationNotFound) || errors.Is(err, applicationerrors.ApplicationIsDead) {
+				if errors.Is(err, errors.NotFound) {
 					p.logger.Debugf("application %q not found, ignoring", appName)
 					continue
 				}

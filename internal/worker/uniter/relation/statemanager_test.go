@@ -191,7 +191,7 @@ func (s *stateManagerSuite) TestRemoveIgnoresMissingUnits(c *gc.C) {
 	stateTwo.Members = map[string]int64{"foo/1": 0}
 	s.expectState(c, stateTwo)
 	s.expectSetStateEmpty(c)
-	s.mockUnitGetter.EXPECT().Unit(gomock.Any(), names.NewUnitTag("foo/1")).Return(nil, &params.Error{Code: "unit not found"})
+	s.mockUnitGetter.EXPECT().Unit(gomock.Any(), names.NewUnitTag("foo/1")).Return(nil, &params.Error{Code: "not found"})
 
 	logger := logger.GetLogger("test")
 	var tw loggo.TestWriter
@@ -215,7 +215,7 @@ func (s *stateManagerSuite) TestRemoveCachesUnits(c *gc.C) {
 	stateThree.Members = map[string]int64{"foo/1": 0}
 	s.expectState(c, stateTwo, stateThree)
 	s.expectSetState(c, stateThree)
-	s.mockUnitGetter.EXPECT().Unit(gomock.Any(), names.NewUnitTag("foo/1")).Return(nil, &params.Error{Code: "unit not found"})
+	s.mockUnitGetter.EXPECT().Unit(gomock.Any(), names.NewUnitTag("foo/1")).Return(nil, &params.Error{Code: "not found"})
 
 	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)

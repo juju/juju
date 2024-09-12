@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/upgrade"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -120,15 +119,9 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		params.CodeSecretNotFound,
 		params.CodeSecretRevisionNotFound,
 		params.CodeSecretConsumerNotFound,
-		params.CodeSecretBackendNotFound,
-		params.CodeApplicationNotFound,
-		params.CodeUnitNotFound:
+		params.CodeSecretBackendNotFound:
 		status = http.StatusNotFound
-	case params.CodeBadRequest,
-		params.CodeScalingStateInconsistent,
-		params.CodeApplicationAlreadyExists,
-		params.CodeApplicationIsDead,
-		params.CodeUnitAlreadyExists:
+	case params.CodeBadRequest:
 		status = http.StatusBadRequest
 	case params.CodeMethodNotAllowed:
 		status = http.StatusMethodNotAllowed
@@ -237,20 +230,6 @@ func ServerError(err error) *params.Error {
 		code = params.CodeSecretBackendNotSupported
 	case errors.Is(err, errors.BadRequest):
 		code = params.CodeBadRequest
-	case errors.Is(err, applicationerrors.ApplicationNotFound):
-		code = params.CodeApplicationNotFound
-	case errors.Is(err, applicationerrors.ScalingStateInconsistent):
-		code = params.CodeScalingStateInconsistent
-	case errors.Is(err, applicationerrors.UnitNotAssigned):
-		code = params.CodeNotAssigned
-	case errors.Is(err, applicationerrors.ApplicationAlreadyExists):
-		code = params.CodeApplicationAlreadyExists
-	case errors.Is(err, applicationerrors.ApplicationIsDead):
-		code = params.CodeApplicationIsDead
-	case errors.Is(err, applicationerrors.UnitAlreadyExists):
-		code = params.CodeUnitAlreadyExists
-	case errors.Is(err, applicationerrors.UnitNotFound):
-		code = params.CodeUnitNotFound
 	case errors.Is(err, errors.MethodNotAllowed):
 		code = params.CodeMethodNotAllowed
 	case errors.Is(err, errors.NotImplemented):

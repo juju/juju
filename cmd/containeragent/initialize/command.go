@@ -27,7 +27,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/containeragent/utils"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	pebbleidentity "github.com/juju/juju/internal/service/pebble/identity"
 	pebbleplan "github.com/juju/juju/internal/service/pebble/plan"
@@ -169,7 +168,7 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 			return errors.Trace(err)
 		},
 		IsFatalError: func(err error) bool {
-			return !errors.Is(err, applicationerrors.UnitNotAssigned) && !errors.Is(err, applicationerrors.UnitAlreadyExists)
+			return !errors.Is(err, errors.NotAssigned) && !errors.Is(err, errors.AlreadyExists)
 		},
 		Attempts: -1,
 		Delay:    10 * time.Second,

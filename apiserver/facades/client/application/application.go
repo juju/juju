@@ -2322,6 +2322,9 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			continue
 		}
 		appLife, err := api.applicationService.GetApplicationLife(ctx, tag.Name)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			err = errors.NotFoundf("application %q", tag.Name)
+		}
 		if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -2646,6 +2649,9 @@ func (api *APIBase) unitResultForUnit(ctx context.Context, unit Unit) (*params.U
 		return nil, err
 	}
 	unitLife, err := api.applicationService.GetUnitLife(ctx, unit.Name())
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		err = errors.NotFoundf("unit %s", unit.Name())
+	}
 	if err != nil {
 		return nil, err
 	}

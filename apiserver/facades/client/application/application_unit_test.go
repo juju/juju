@@ -2802,7 +2802,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 			"juju-info": "myspace",
 		},
 	})
-	c.Assert(result.Results[1].Error, gc.ErrorMatches, `application not found`)
+	c.Assert(result.Results[1].Error, gc.ErrorMatches, `application "wordpress" not found`)
 	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"unit-postgresql-0" is not a valid application tag`)
 }
 

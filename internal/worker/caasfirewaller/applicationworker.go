@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 )
 
 type applicationWorker struct {
@@ -113,8 +112,7 @@ func (w *applicationWorker) setUp(ctx context.Context) (err error) {
 func (w *applicationWorker) loop() (err error) {
 	defer func() {
 		// If the application has been deleted, we can return nil.
-		// TODO(units): remove generic not found error when everything is in dqlite
-		if errors.Is(err, errors.NotFound) || errors.Is(err, applicationerrors.ApplicationNotFound) {
+		if errors.Is(err, errors.NotFound) {
 			w.logger.Debugf("sidecar caas firewaller application %v has been removed", w.appName)
 			err = nil
 		}

@@ -409,7 +409,7 @@ func (c *Client) RemoveUnit(ctx context.Context, unitName string) error {
 		return err
 	}
 	resultErr := result.OneError()
-	if params.IsCodeUnitNotFound(resultErr) {
+	if params.IsCodeNotFound(resultErr) {
 		return nil
 	}
 	return resultErr

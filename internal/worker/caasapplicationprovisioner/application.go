@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/rpc/params"
 )
@@ -116,7 +115,7 @@ func (a *appWorker) loop() error {
 	// If the application no longer exists, return immediately. If it's in
 	// Dead state, ensure it's deleted and terminated.
 	appLife, err := a.facade.Life(ctx, a.name)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+	if errors.Is(err, errors.NotFound) {
 		a.logger.Debugf("application %q no longer exists", a.name)
 		return nil
 	} else if err != nil {
@@ -203,7 +202,7 @@ func (a *appWorker) loop() error {
 
 	handleChange := func() error {
 		appLife, err = a.facade.Life(ctx, a.name)
-		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		if errors.Is(err, errors.NotFound) {
 			appLife = life.Dead
 		} else if err != nil {
 			return errors.Trace(err)
@@ -371,7 +370,7 @@ func (a *appWorker) loop() error {
 				break
 			}
 			err := a.ops.ReconcileDeadUnitScale(ctx, a.name, app, a.facade, a.logger)
-			if errors.Is(err, applicationerrors.ApplicationNotFound) || errors.Is(err, applicationerrors.UnitNotFound) {
+			if errors.Is(err, errors.NotFound) {
 				reconcileDeadChan = a.clock.After(retryDelay)
 				shouldRefresh = false
 			} else if errors.Is(err, tryAgain) {

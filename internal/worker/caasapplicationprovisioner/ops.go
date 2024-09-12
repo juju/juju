@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/rpc/params"
@@ -279,15 +278,6 @@ func appDying(
 	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
 	logger logger.Logger,
 ) (err error) {
-	// TODO(units) - remove this once life mgmt fully across to dqlite
-	// Since life is still handled in both mongo and dqlite, it's possible
-	// that a mongo cleanup job can mark the app as dead.
-	defer func() {
-		if errors.Is(err, applicationerrors.ApplicationIsDead) {
-			err = nil
-		}
-	}()
-
 	logger.Debugf("application %q dying", appName)
 	err = ensureScale(ctx, appName, app, appLife, facade, unitFacade, logger)
 	if err != nil {
@@ -337,8 +327,7 @@ func checkCharmFormat(
 	logger logger.Logger,
 ) (isOk bool, err error) {
 	charmInfo, err := facade.ApplicationCharmInfo(ctx, appName)
-	// TODO(units) - remove the dead check once life mgmt fully across to dqlite
-	if errors.Is(err, errors.NotFound) || errors.Is(err, applicationerrors.ApplicationIsDead) {
+	if errors.Is(err, errors.NotFound) {
 		logger.Debugf("application %q no longer exists", appName)
 		return false, nil
 	} else if err != nil {
@@ -401,7 +390,7 @@ func updateState(
 			ProviderId:     svc.Id,
 			Addresses:      params.FromProviderAddresses(svc.Addresses...),
 		})
-		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		if errors.Is(err, errors.NotFound) {
 			// Do nothing
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -637,7 +626,7 @@ func reconcileDeadUnitScale(
 
 	for _, deadUnit := range deadUnits {
 		logger.Infof("removing dead unit %s", deadUnit.Tag.Id())
-		if err := facade.RemoveUnit(ctx, deadUnit.Tag.Id()); err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
+		if err := facade.RemoveUnit(ctx, deadUnit.Tag.Id()); err != nil && !errors.Is(err, errors.NotFound) {
 			return fmt.Errorf("removing dead unit %q: %w", deadUnit.Tag.Id(), err)
 		}
 	}
@@ -741,7 +730,7 @@ func updateProvisioningState(
 		ScaleTarget: scaleTarget,
 	}
 	err := facade.SetProvisioningState(ctx, appName, newPs)
-	if errors.Is(err, applicationerrors.ScalingStateInconsistent) {
+	if params.IsCodeTryAgain(err) {
 		return tryAgain
 	} else if err != nil {
 		return errors.Annotatef(err, "setting provisiong state for application %q", appName)

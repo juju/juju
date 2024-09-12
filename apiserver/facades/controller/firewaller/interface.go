@@ -43,6 +43,7 @@ type NetworkService interface {
 	WatchSubnets(ctx context.Context, subnetUUIDsToWatch set.Strings) (watcher.StringsWatcher, error)
 }
 
+// ApplicationService provides access to the application service.
 type ApplicationService interface {
 	GetUnitLife(context.Context, string) (life.Value, error)
 }

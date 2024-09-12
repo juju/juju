@@ -17,6 +17,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 	statewatcher "github.com/juju/juju/state/watcher"
 )
@@ -228,10 +229,16 @@ func (f *Facade) UpdateApplicationsService(ctx context.Context, args params.Upda
 
 		appName := appTag.Id()
 		if err := f.applicationService.UpdateCloudService(ctx, appName, appUpdate.ProviderId, sAddrs); err != nil {
+			if errors.Is(err, applicationerrors.ApplicationNotFound) {
+				err = errors.NotFoundf("application %s not found", appName)
+			}
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 		if appUpdate.Scale != nil {
 			if err := f.applicationService.SetApplicationScale(ctx, appName, *appUpdate.Scale); err != nil {
+				if errors.Is(err, applicationerrors.ApplicationNotFound) {
+					err = errors.NotFoundf("application %s not found", appName)
+				}
 				result.Results[i].Error = apiservererrors.ServerError(err)
 			}
 		}

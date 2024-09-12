@@ -385,6 +385,9 @@ func (s *ApplicationService) deleteUnit(ctx domain.AtomicContext, unitName strin
 	}
 
 	err = s.ensureUnitDead(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return cleanups, nil
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -423,6 +426,9 @@ func (s *ApplicationService) EnsureUnitDead(ctx context.Context, unitName string
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return s.ensureUnitDead(ctx, unitName)
 	})
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return nil
+	}
 	if err == nil {
 		appName, _ := names.UnitApplication(unitName)
 		if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
@@ -612,7 +618,7 @@ func (s *ApplicationService) DestroyApplication(ctx context.Context, appName str
 	// For now, all we do is advance the application's life to Dying.
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		appID, err := s.st.GetApplicationID(ctx, appName)
-		if errors.Is(err, applicationerrors.ApplicationIsDead) {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return nil
 		}
 		if err != nil {
@@ -629,7 +635,7 @@ func (s *ApplicationService) DestroyApplication(ctx context.Context, appName str
 func (s *ApplicationService) EnsureApplicationDead(ctx context.Context, appName string) error {
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		appID, err := s.st.GetApplicationID(ctx, appName)
-		if errors.Is(err, applicationerrors.ApplicationIsDead) {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return nil
 		}
 		if err != nil {

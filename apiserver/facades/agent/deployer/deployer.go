@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/objectstore"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -175,6 +176,9 @@ func (d *DeployerAPI) Life(ctx context.Context, args params.Entities) (params.Li
 			continue
 		}
 		lifeValue, err := d.applicationService.GetUnitLife(ctx, tag.Id())
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			err = errors.NotFoundf("unit %s", tag.Id())
+		}
 		result.Results[i].Life = lifeValue
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -242,12 +246,18 @@ func (d *DeployerAPI) Remove(ctx context.Context, args params.Entities) (params.
 
 		// Given the way dual write works, we need this for now.
 		if err = d.applicationService.EnsureUnitDead(ctx, tag.Id(), d.leadershipRevoker); err != nil {
+			if errors.Is(err, applicationerrors.UnitNotFound) {
+				err = errors.NotFoundf("unit %s", tag.Id())
+			}
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		// This is the call we will keep once mongo is removed.
 		// We will need to remove the alive check.
 		if err = d.applicationService.RemoveUnit(ctx, tag.Id(), d.leadershipRevoker); err != nil {
+			if errors.Is(err, applicationerrors.UnitNotFound) {
+				err = errors.NotFoundf("unit %s", tag.Id())
+			}
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

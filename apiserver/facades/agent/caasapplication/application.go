@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/rpc/params"
@@ -96,8 +97,16 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		return params.CAASUnitIntroductionResult{}, apiservererrors.ErrPerm
 	}
 
+	var unitName string
 	errResp := func(err error) (params.CAASUnitIntroductionResult, error) {
 		f.logger.Warningf("error introducing k8s pod %q: %v", args.PodName, err)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			err = errors.NotFoundf("appliction %s", tag.Name)
+		} else if errors.Is(err, applicationerrors.UnitAlreadyExists) {
+			err = errors.AlreadyExistsf("unit %s", unitName)
+		} else if errors.Is(err, applicationerrors.UnitNotAssigned) {
+			err = errors.NotAssignedf("unit %s", unitName)
+		}
 		return params.CAASUnitIntroductionResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 
@@ -137,8 +146,8 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		if err != nil {
 			return errResp(err)
 		}
-		n := fmt.Sprintf("%s/%d", appName, ord)
-		upsert.UnitName = &n
+		unitName = fmt.Sprintf("%s/%d", appName, ord)
+		upsert.UnitName = &unitName
 		upsert.OrderedId = ord
 		upsert.OrderedScale = true
 	default:
@@ -266,6 +275,9 @@ func (f *Facade) UnitTerminating(ctx context.Context, args params.Entity) (param
 	}
 
 	errResp := func(err error) (params.CAASUnitTerminationResult, error) {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			err = errors.NotFoundf("application %s", tag.Id())
+		}
 		return params.CAASUnitTerminationResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 

@@ -16,9 +16,6 @@ const (
 	// application being created already exists.
 	ApplicationAlreadyExists = errors.ConstError("application already exists")
 
-	// ApplicationIsDead describes an error that occurs when an application's life is Dead.
-	ApplicationIsDead = errors.ConstError("application is dead")
-
 	// ApplicationHasUnits describes an error that occurs when the application
 	// being deleted still has associated units.
 	ApplicationHasUnits = errors.ConstError("application has units")

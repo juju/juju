@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/life"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/status"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
@@ -256,6 +257,9 @@ func (c *precheckContext) checkApplications(ctx context.Context) (map[string][]P
 	for _, app := range apps {
 		appLife, err := c.applicationService.GetApplicationLife(ctx, app.Name())
 		if err != nil {
+			if errors.Is(err, applicationerrors.ApplicationNotFound) {
+				err = errors.NotFoundf("application %s", app.Name())
+			}
 			return nil, errors.Annotatef(err, "retrieving life for %q", app.Name())
 		}
 		if appLife != life.Alive {
@@ -285,7 +289,6 @@ func (c *precheckContext) checkUnits(ctx context.Context, app PrecheckApplicatio
 	}
 
 	for _, unit := range units {
-		//
 		if unit.Life() != state.Alive {
 			return errors.Errorf("unit %s is %s", unit.Name(), unit.Life())
 		}
