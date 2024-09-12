@@ -15,6 +15,7 @@ import (
 
 	network "github.com/juju/juju/core/network"
 	domain "github.com/juju/juju/domain"
+	port "github.com/juju/juju/domain/port"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,10 +43,10 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // GetApplicationOpenedPorts mocks base method.
-func (m *MockState) GetApplicationOpenedPorts(arg0 context.Context, arg1 string) (map[string]network.GroupedPortRanges, error) {
+func (m *MockState) GetApplicationOpenedPorts(arg0 context.Context, arg1 string) (port.UnitEndpointPortRanges, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationOpenedPorts", arg0, arg1)
-	ret0, _ := ret[0].(map[string]network.GroupedPortRanges)
+	ret0, _ := ret[0].(port.UnitEndpointPortRanges)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -63,19 +64,19 @@ type MockStateGetApplicationOpenedPortsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetApplicationOpenedPortsCall) Return(arg0 map[string]network.GroupedPortRanges, arg1 error) *MockStateGetApplicationOpenedPortsCall {
+func (c *MockStateGetApplicationOpenedPortsCall) Return(arg0 port.UnitEndpointPortRanges, arg1 error) *MockStateGetApplicationOpenedPortsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationOpenedPortsCall) Do(f func(context.Context, string) (map[string]network.GroupedPortRanges, error)) *MockStateGetApplicationOpenedPortsCall {
+func (c *MockStateGetApplicationOpenedPortsCall) Do(f func(context.Context, string) (port.UnitEndpointPortRanges, error)) *MockStateGetApplicationOpenedPortsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationOpenedPortsCall) DoAndReturn(f func(context.Context, string) (map[string]network.GroupedPortRanges, error)) *MockStateGetApplicationOpenedPortsCall {
+func (c *MockStateGetApplicationOpenedPortsCall) DoAndReturn(f func(context.Context, string) (port.UnitEndpointPortRanges, error)) *MockStateGetApplicationOpenedPortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

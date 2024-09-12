@@ -51,10 +51,10 @@ type State interface {
 	// given machine. Opened ports are grouped first by unit and then by endpoint.
 	GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error)
 
-	// GetApplicationOpenedPorts returns the opened ports for all the units of
-	// the given application. Opened ports are grouped first by unit and then by
-	// endpoint.
-	GetApplicationOpenedPorts(ctx context.Context, applicationUUID string) (map[string]network.GroupedPortRanges, error)
+	// GetApplicationOpenedPorts returns the opened ports for all the units of the
+	// given application. We return opened ports paired with the unit UUIDs, grouped
+	// by endpoint.
+	GetApplicationOpenedPorts(ctx context.Context, applicationUUID string) (port.UnitEndpointPortRanges, error)
 }
 
 // Service provides the API for managing the opened ports for units.
@@ -85,7 +85,11 @@ func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string)
 // GetApplicationOpenedPorts returns the opened ports for all the units of the
 // application. Opened ports are grouped first by unit and then by endpoint.
 func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID string) (map[string]network.GroupedPortRanges, error) {
-	return s.st.GetApplicationOpenedPorts(ctx, applicationUUID)
+	openedPorts, err := s.st.GetApplicationOpenedPorts(ctx, applicationUUID)
+	if err != nil {
+		return nil, errors.Errorf("failed to get opened ports for application %s: %w", applicationUUID, err)
+	}
+	return openedPorts.ByUnitByEndpoint(), nil
 }
 
 // GetApplicationOpenedPortsByEndpoint returns all the opened ports for the given
@@ -98,17 +102,14 @@ func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID
 func (s *Service) GetApplicationOpenedPortsByEndpoint(ctx context.Context, applicationUUID string) (network.GroupedPortRanges, error) {
 	openedPorts, err := s.st.GetApplicationOpenedPorts(ctx, applicationUUID)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("failed to get opened ports for application %s: %w", applicationUUID, err)
 	}
 	ret := network.GroupedPortRanges{}
 
-	// combine port ranges across all units & atomise the port ranges
-	for _, grp := range openedPorts {
-		for endpoint, portRanges := range grp {
-			for _, portRange := range portRanges {
-				ret[endpoint] = append(ret[endpoint], atomisePortRange(portRange)...)
-			}
-		}
+	// group port ranges by endpoint across all units and atomise them.
+	for _, openedPort := range openedPorts {
+		endpoint := openedPort.Endpoint
+		ret[endpoint] = append(ret[endpoint], atomisePortRange(openedPort.PortRange)...)
 	}
 
 	// de-dupe our port ranges

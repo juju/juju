@@ -91,7 +91,14 @@ func (s *serviceSuite) TestGetMachineOpenedPorts(c *gc.C) {
 func (s *serviceSuite) TestGetApplicationOpenedPorts(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	grp := map[string]network.GroupedPortRanges{
+	openedPorts := port.UnitEndpointPortRanges{
+		{Endpoint: "ep1", UnitUUID: "unit-uuid-1", PortRange: network.MustParsePortRange("80/tcp")},
+		{Endpoint: "ep1", UnitUUID: "unit-uuid-1", PortRange: network.MustParsePortRange("443/tcp")},
+		{Endpoint: "ep2", UnitUUID: "unit-uuid-1", PortRange: network.MustParsePortRange("8000-9000/udp")},
+		{Endpoint: "ep3", UnitUUID: "unit-uuid-2", PortRange: network.MustParsePortRange("8080/tcp")},
+	}
+
+	expected := map[string]network.GroupedPortRanges{
 		"unit-uuid-1": {
 			"ep1": {
 				network.MustParsePortRange("80/tcp"),
@@ -108,35 +115,25 @@ func (s *serviceSuite) TestGetApplicationOpenedPorts(c *gc.C) {
 		},
 	}
 
-	s.st.EXPECT().GetApplicationOpenedPorts(gomock.Any(), appUUID).Return(grp, nil)
+	s.st.EXPECT().GetApplicationOpenedPorts(gomock.Any(), appUUID).Return(openedPorts, nil)
 
 	srv := NewService(s.st)
 	res, err := srv.GetApplicationOpenedPorts(context.Background(), appUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, grp)
+	c.Assert(res, gc.DeepEquals, expected)
 }
 
 func (s *serviceSuite) TestGetApplicationOpenedPortsByEndpoint(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	grp := map[string]network.GroupedPortRanges{
-		"unit-uuid-1": {
-			"ep1": {
-				network.MustParsePortRange("80/tcp"),
-				network.MustParsePortRange("443/tcp"),
-			},
-			"ep2": {
-				network.MustParsePortRange("8000-8005/udp"),
-			},
-		},
-		"unit-uuid-2": {
-			"ep1": {
-				network.MustParsePortRange("8080/tcp"),
-			},
-		},
+	openedPorts := port.UnitEndpointPortRanges{
+		{Endpoint: "ep1", UnitUUID: "unit-uuid-1", PortRange: network.MustParsePortRange("80/tcp")},
+		{Endpoint: "ep1", UnitUUID: "unit-uuid-1", PortRange: network.MustParsePortRange("443/tcp")},
+		{Endpoint: "ep1", UnitUUID: "unit-uuid-2", PortRange: network.MustParsePortRange("8080/tcp")},
+		{Endpoint: "ep2", UnitUUID: "unit-uuid-1", PortRange: network.MustParsePortRange("8000-8005/udp")},
 	}
 
-	s.st.EXPECT().GetApplicationOpenedPorts(gomock.Any(), appUUID).Return(grp, nil)
+	s.st.EXPECT().GetApplicationOpenedPorts(gomock.Any(), appUUID).Return(openedPorts, nil)
 
 	expected := network.GroupedPortRanges{
 		"ep1": {
@@ -163,20 +160,12 @@ func (s *serviceSuite) TestGetApplicationOpenedPortsByEndpoint(c *gc.C) {
 func (s serviceSuite) TestGetApplicationOpenedPortsByEndpointOverlap(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	grp := map[string]network.GroupedPortRanges{
-		"unit-uuid-1": {
-			"ep1": {
-				network.MustParsePortRange("80-85/tcp"),
-			},
-		},
-		"unit-uuid-2": {
-			"ep1": {
-				network.MustParsePortRange("83-88/tcp"),
-			},
-		},
+	openedPorts := port.UnitEndpointPortRanges{
+		{Endpoint: "ep1", UnitUUID: "unit-uuid-1", PortRange: network.MustParsePortRange("80-85/tcp")},
+		{Endpoint: "ep1", UnitUUID: "unit-uuid-2", PortRange: network.MustParsePortRange("83-88/tcp")},
 	}
 
-	s.st.EXPECT().GetApplicationOpenedPorts(gomock.Any(), appUUID).Return(grp, nil)
+	s.st.EXPECT().GetApplicationOpenedPorts(gomock.Any(), appUUID).Return(openedPorts, nil)
 
 	expected := network.GroupedPortRanges{
 		"ep1": {

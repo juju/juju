@@ -18,6 +18,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	machinestate "github.com/juju/juju/domain/machine/state"
+	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/logger"
@@ -269,9 +270,9 @@ func (s *stateSuite) TestGetApplicationOpenedPortsBlankDB(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 
-	applicationGroupedPortRanges, err := st.GetApplicationOpenedPorts(ctx, "non-existent")
+	unitEndpointPortRanges, err := st.GetApplicationOpenedPorts(ctx, "non-existent")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(applicationGroupedPortRanges, gc.HasLen, 0)
+	c.Check(unitEndpointPortRanges, gc.HasLen, 0)
 }
 
 func (s *stateSuite) TestGetApplicationOpenedPorts(c *gc.C) {
@@ -279,20 +280,17 @@ func (s *stateSuite) TestGetApplicationOpenedPorts(c *gc.C) {
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	applicationGroupedPortRanges, err := st.GetApplicationOpenedPorts(ctx, s.appUUID)
+	expect := port.UnitEndpointPortRanges{
+		{Endpoint: "endpoint", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80}},
+		{Endpoint: "endpoint", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500}},
+		{Endpoint: "misc", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080}},
+	}
+	port.SortUnitEndpointPortRanges(expect)
+
+	unitEndpointPortRanges, err := st.GetApplicationOpenedPorts(ctx, s.appUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(applicationGroupedPortRanges, gc.HasLen, 1)
-
-	unit0PortRanges, ok := applicationGroupedPortRanges[s.unitUUID]
-	c.Assert(ok, jc.IsTrue)
-	c.Check(unit0PortRanges, gc.HasLen, 2)
-
-	c.Check(unit0PortRanges["endpoint"], gc.HasLen, 2)
-	c.Check(unit0PortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
-	c.Check(unit0PortRanges["endpoint"][1], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
-
-	c.Check(unit0PortRanges["misc"], gc.HasLen, 1)
-	c.Check(unit0PortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
+	c.Check(unitEndpointPortRanges, gc.HasLen, 3)
+	c.Check(unitEndpointPortRanges, jc.DeepEquals, expect)
 }
 
 func (s *stateSuite) TestGetApplicationOpenedPortsAcrossTwoUnits(c *gc.C) {
@@ -311,28 +309,19 @@ func (s *stateSuite) TestGetApplicationOpenedPortsAcrossTwoUnits(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	applicationGroupedPortRanges, err := st.GetApplicationOpenedPorts(ctx, s.appUUID)
+	expect := port.UnitEndpointPortRanges{
+		{Endpoint: "endpoint", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80}},
+		{Endpoint: "endpoint", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500}},
+		{Endpoint: "misc", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080}},
+		{Endpoint: "endpoint", UnitUUID: unit1UUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 443, ToPort: 443}},
+		{Endpoint: "endpoint", UnitUUID: unit1UUID, PortRange: network.PortRange{Protocol: "udp", FromPort: 2000, ToPort: 2500}},
+	}
+	port.SortUnitEndpointPortRanges(expect)
+
+	unitEndpointPortRanges, err := st.GetApplicationOpenedPorts(ctx, s.appUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(applicationGroupedPortRanges, gc.HasLen, 2)
-
-	unit0PortRanges, ok := applicationGroupedPortRanges[s.unitUUID]
-	c.Assert(ok, jc.IsTrue)
-	c.Check(unit0PortRanges, gc.HasLen, 2)
-
-	c.Check(unit0PortRanges["endpoint"], gc.HasLen, 2)
-	c.Check(unit0PortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
-	c.Check(unit0PortRanges["endpoint"][1], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
-
-	c.Check(unit0PortRanges["misc"], gc.HasLen, 1)
-	c.Check(unit0PortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
-
-	unit1PortRanges, ok := applicationGroupedPortRanges[unit1UUID]
-	c.Assert(ok, jc.IsTrue)
-	c.Check(unit1PortRanges, gc.HasLen, 1)
-
-	c.Check(unit1PortRanges["endpoint"], gc.HasLen, 2)
-	c.Check(unit1PortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 443, ToPort: 443})
-	c.Check(unit1PortRanges["endpoint"][1], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 2000, ToPort: 2500})
+	c.Check(unitEndpointPortRanges, gc.HasLen, 5)
+	c.Check(unitEndpointPortRanges, jc.DeepEquals, expect)
 }
 
 func (s *stateSuite) TestGetApplicationOpenedPortsAcrossTwoUnitsDifferentApplications(c *gc.C) {
@@ -351,32 +340,27 @@ func (s *stateSuite) TestGetApplicationOpenedPortsAcrossTwoUnitsDifferentApplica
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	applicationGroupedPortRanges, err := st.GetApplicationOpenedPorts(ctx, s.appUUID)
+	expect := port.UnitEndpointPortRanges{
+		{Endpoint: "endpoint", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80}},
+		{Endpoint: "endpoint", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500}},
+		{Endpoint: "misc", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080}},
+	}
+	port.SortUnitEndpointPortRanges(expect)
+
+	unitEndpointPortRanges, err := st.GetApplicationOpenedPorts(ctx, s.appUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(applicationGroupedPortRanges, gc.HasLen, 1)
+	c.Check(unitEndpointPortRanges, gc.HasLen, 3)
+	c.Check(unitEndpointPortRanges, jc.DeepEquals, expect)
 
-	unit0PortRanges, ok := applicationGroupedPortRanges[s.unitUUID]
-	c.Assert(ok, jc.IsTrue)
-	c.Check(unit0PortRanges, gc.HasLen, 2)
+	expect = port.UnitEndpointPortRanges{
+		{Endpoint: "endpoint", UnitUUID: unit1UUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 443, ToPort: 443}},
+		{Endpoint: "endpoint", UnitUUID: unit1UUID, PortRange: network.PortRange{Protocol: "udp", FromPort: 2000, ToPort: 2500}},
+	}
 
-	c.Check(unit0PortRanges["endpoint"], gc.HasLen, 2)
-	c.Check(unit0PortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
-	c.Check(unit0PortRanges["endpoint"][1], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
-
-	c.Check(unit0PortRanges["misc"], gc.HasLen, 1)
-	c.Check(unit0PortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
-
-	applicationGroupedPortRanges, err = st.GetApplicationOpenedPorts(ctx, app2UUID)
+	unitEndpointPortRanges, err = st.GetApplicationOpenedPorts(ctx, app2UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(applicationGroupedPortRanges, gc.HasLen, 1)
-
-	unit1PortRanges, ok := applicationGroupedPortRanges[unit1UUID]
-	c.Assert(ok, jc.IsTrue)
-	c.Check(unit1PortRanges, gc.HasLen, 1)
-
-	c.Check(unit1PortRanges["endpoint"], gc.HasLen, 2)
-	c.Check(unit1PortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 443, ToPort: 443})
-	c.Check(unit1PortRanges["endpoint"][1], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 2000, ToPort: 2500})
+	c.Check(unitEndpointPortRanges, gc.HasLen, 2)
+	c.Check(unitEndpointPortRanges, jc.DeepEquals, expect)
 }
 
 func (s *stateSuite) TestGetColocatedOpenedPortsSingleUnit(c *gc.C) {
