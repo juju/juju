@@ -34,8 +34,8 @@ func (s *serviceSuite) TestSetStateAllAttributes(c *gc.C) {
 	exp.UpdateUnitStateUniter(gomock.Any(), uuid, "some-uniter-state-yaml").Return(nil)
 	exp.UpdateUnitStateStorage(gomock.Any(), uuid, "some-storage-state-yaml").Return(nil)
 	exp.UpdateUnitStateSecret(gomock.Any(), uuid, "some-secret-state-yaml").Return(nil)
-	exp.UpdateUnitStateCharm(gomock.Any(), uuid, map[string]string{"one-key": "one-value"}).Return(nil)
-	exp.UpdateUnitStateRelation(gomock.Any(), uuid, map[int]string{1: "one-value"}).Return(nil)
+	exp.SetUnitStateCharm(gomock.Any(), uuid, map[string]string{"one-key": "one-value"}).Return(nil)
+	exp.SetUnitStateRelation(gomock.Any(), uuid, map[int]string{1: "one-value"}).Return(nil)
 
 	err := NewService(s.st).SetState(context.Background(), unitstate.AgentState{
 		Name:          "unit/0",
