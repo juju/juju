@@ -69,8 +69,8 @@ func (s *applicationOffersSuite) setupAPI(c *gc.C) {
 	}
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.mockModelService, s.mockAccessService,
-		s.mockApplicationService,
+		s.mockState, s.mockStatePool, s.mockAccessService,
+		s.mockModelServiceFactoryGetter,
 		s.authorizer, s.authContext,
 		c.MkDir(), loggertesting.WrapCheckLog(c),
 		testing.ControllerTag.Id(), model.UUID(testing.ModelTag.Id()))
@@ -100,9 +100,12 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 	s.mockState.applications = map[string]crossmodel.Application{
 		applicationName: &mockApplication{bindings: map[string]string{"db": "myspace"}},
 	}
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 
 	if expectedErr == nil {
+		modelUUID := model.UUID(testing.ModelTag.Id())
+		s.mockModelServiceFactoryGetter.EXPECT().ServiceFactoryForModel(modelUUID).Return(s.mockModelServiceFactory)
+		s.mockModelServiceFactory.EXPECT().Application().Return(s.mockApplicationService)
+
 		id := charmtesting.GenCharmID(c)
 		s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(id, nil)
 		s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), id).Return("A pretty popular blog engine", nil)
@@ -171,11 +174,14 @@ func (s *applicationOffersSuite) TestAddOfferUpdatesExistingOffer(c *gc.C) {
 		applicationName: &mockApplication{bindings: map[string]string{"db": "myspace"}},
 	}
 
+	modelUUID := model.UUID(testing.ModelTag.Id())
+	s.mockModelServiceFactoryGetter.EXPECT().ServiceFactoryForModel(modelUUID).Return(s.mockModelServiceFactory)
+	s.mockModelServiceFactory.EXPECT().Application().Return(s.mockApplicationService)
+
 	chID := charmtesting.GenCharmID(c)
 	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(chID, nil)
 	s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), gomock.Any()).Return("A pretty popular blog engine", nil)
 
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 	errs, err := s.api.Offer(context.Background(), all)
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -245,7 +251,10 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 	s.mockState.applications = map[string]crossmodel.Application{
 		applicationName: &mockApplication{bindings: map[string]string{"db": "myspace"}},
 	}
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
+
+	modelUUID := model.UUID(testing.ModelTag.Id())
+	s.mockModelServiceFactoryGetter.EXPECT().ServiceFactoryForModel(modelUUID).Return(s.mockModelServiceFactory)
+	s.mockModelServiceFactory.EXPECT().Application().Return(s.mockApplicationService)
 
 	chID := charmtesting.GenCharmID(c)
 	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(chID, nil)
@@ -425,7 +434,7 @@ func (s *applicationOffersSuite) TestListRequiresFilter(c *gc.C) {
 func (s *applicationOffersSuite) assertShow(c *gc.C, url, offerUUID string, expected []params.ApplicationOfferResult) {
 	s.setupOffersForUUID(c, offerUUID, "", false)
 
-	filter := params.OfferURLs{[]string{url}, bakery.LatestVersion}
+	filter := params.OfferURLs{OfferURLs: []string{url}, BakeryVersion: bakery.LatestVersion}
 
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -593,14 +602,13 @@ func (s *applicationOffersSuite) TestShowError(c *gc.C) {
 	s.setupAPI(c)
 
 	url := "fred@external/prod.hosted-db2"
-	filter := params.OfferURLs{[]string{url}, bakery.LatestVersion}
+	filter := params.OfferURLs{OfferURLs: []string{url}, BakeryVersion: bakery.LatestVersion}
 	msg := "fail"
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		return nil, errors.New(msg)
 	}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 
 	_, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
@@ -612,13 +620,12 @@ func (s *applicationOffersSuite) TestShowNotFound(c *gc.C) {
 	s.setupAPI(c)
 
 	urls := []string{"fred@external/prod.hosted-db2"}
-	filter := params.OfferURLs{urls, bakery.LatestVersion}
+	filter := params.OfferURLs{OfferURLs: urls, BakeryVersion: bakery.LatestVersion}
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		return nil, nil
 	}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 
 	// Expect getting api users display name from database.
 	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), coreuser.NameFromTag(s.authorizer.Tag.(names.UserTag))).Return(coreuser.User{
@@ -637,7 +644,7 @@ func (s *applicationOffersSuite) TestShowRejectsEndpoints(c *gc.C) {
 	s.setupAPI(c)
 
 	urls := []string{"fred@external/prod.hosted-db2:db"}
-	filter := params.OfferURLs{urls, bakery.LatestVersion}
+	filter := params.OfferURLs{OfferURLs: urls, BakeryVersion: bakery.LatestVersion}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
 
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
@@ -651,7 +658,7 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 	s.setupAPI(c)
 
 	urls := []string{"fred@external/prod.hosted-mysql", "fred@external/test.hosted-db2"}
-	filter := params.OfferURLs{urls, bakery.LatestVersion}
+	filter := params.OfferURLs{OfferURLs: urls, BakeryVersion: bakery.LatestVersion}
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		return nil, nil
@@ -663,7 +670,6 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 		model:     anotherModel,
 	}
 	s.mockState.allmodels = []applicationoffers.Model{s.mockState.model, anotherModel}
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()), "uuid2")
 
 	// Expect getting api users display name from database.
 	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), coreuser.NameFromTag(s.authorizer.Tag.(names.UserTag))).Return(coreuser.User{
@@ -702,7 +708,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 		Endpoints:              map[string]charm.Relation{"db2": {Name: "db2"}},
 	}
 
-	filter := params.OfferURLs{[]string{url, url2}, bakery.LatestVersion}
+	filter := params.OfferURLs{OfferURLs: []string{url, url2}, BakeryVersion: bakery.LatestVersion}
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		c.Assert(filters, gc.HasLen, 1)
@@ -735,7 +741,6 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 			curl: "ch:mysql-2", bindings: map[string]string{"db2": "anotherspace"}},
 	}
 	s.mockStatePool.st["uuid2"] = anotherState
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()), "uuid2")
 
 	// Read targets access level on the offer.
 	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), userName, permission.ID{
@@ -849,7 +854,6 @@ func (s *applicationOffersSuite) TestFind(c *gc.C) {
 			}},
 		},
 	}
-	s.registerKnownModels("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	s.assertFind(c, expected)
 }
 
@@ -1055,7 +1059,6 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		s.mockState.model,
 		anotherState.model,
 	}
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()), "uuid2")
 
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -1179,7 +1182,6 @@ func (s *applicationOffersSuite) TestFindError(c *gc.C) {
 		return nil, errors.New(msg)
 	}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 
 	_, err := s.api.FindApplicationOffers(context.Background(), filter)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
@@ -1239,8 +1241,8 @@ func (s *consumeSuite) setupAPI(c *gc.C) {
 	}
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.mockModelService, s.mockAccessService,
-		s.mockApplicationService,
+		s.mockState, s.mockStatePool, s.mockAccessService,
+		s.mockModelServiceFactoryGetter,
 		s.authorizer, s.authContext,
 		c.MkDir(),
 		loggertesting.WrapCheckLog(c),
@@ -1272,7 +1274,7 @@ func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
 	s.setupAPI(c)
 
 	offerUUID := s.setupOffer()
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
+
 	apiUser := names.NewUserTag("someone")
 	apiUserName := coreuser.NameFromTag(apiUser)
 
@@ -1345,7 +1347,7 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 	c *gc.C, configAuthorizer func(*apiservertesting.FakeAuthorizer, names.UserTag) string,
 ) {
 	offerUUID := s.setupOffer()
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
+
 	apiUser := names.NewUserTag("someone")
 
 	userTag := configAuthorizer(s.authorizer, apiUser)
@@ -1422,7 +1424,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	offerUUID := s.setupOffer()
 
 	st := s.mockStatePool.st[testing.ModelTag.Id()].(*mockState)
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
+
 	delete(st.applications["mysql"].(*mockApplication).bindings, "database")
 
 	// Add a default endpoint for the application.
@@ -1521,7 +1523,6 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 		Key:        offerUUID,
 	}).Return(permission.ConsumeAccess, nil)
 
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 	s.authorizer.Tag = user
 	results, err := s.api.RemoteApplicationInfo(context.Background(), params.OfferURLs{
 		OfferURLs: []string{"fred@external/prod.hosted-mysql", "fred@external/prod.unknown"},
@@ -1566,7 +1567,7 @@ func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C) {
 	}
 
 	s.authorizer.Tag = names.NewUserTag("admin")
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
+
 	results, err := s.api.DestroyOffers(context.Background(), params.DestroyApplicationOffers{
 		OfferURLs: []string{
 			"fred@external/prod.hosted-mysql"},
@@ -1599,7 +1600,7 @@ func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
 
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
+
 	st.(*mockState).connections = []applicationoffers.OfferConnection{
 		&mockOfferConnection{
 			username:    "fred@external",
@@ -1630,7 +1631,7 @@ func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
 	})
 
 	urls := []string{"fred@external/prod.hosted-db2"}
-	filter := params.OfferURLs{urls, bakery.LatestVersion}
+	filter := params.OfferURLs{OfferURLs: urls, BakeryVersion: bakery.LatestVersion}
 
 	// Get the api user from the database to retrieve their display name.
 	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(coreuser.User{
@@ -1649,7 +1650,6 @@ func (s *consumeSuite) TestDestroyOffersPermission(c *gc.C) {
 
 	s.setupOffer()
 	s.authorizer.Tag = names.NewUserTag("mary")
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 
 	results, err := s.api.DestroyOffers(context.Background(), params.DestroyApplicationOffers{
 		OfferURLs: []string{"fred@external/prod.hosted-mysql"},

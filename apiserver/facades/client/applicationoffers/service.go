@@ -6,18 +6,15 @@ package applicationoffers
 import (
 	"context"
 
+	"github.com/juju/juju/apiserver/facade"
 	corecharm "github.com/juju/juju/core/charm"
-	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/model"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
+	"github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/internal/servicefactory"
 )
-
-// ModelService provides information about currently deployed models.
-type ModelService interface {
-	// Model returns the model associated with the provided uuid.
-	Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error)
-}
 
 // AccessService provides information about users and permissions.
 type AccessService interface {
@@ -67,4 +64,38 @@ type ApplicationService interface {
 	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 	// returned.
 	GetCharmMetadataDescription(ctx context.Context, id corecharm.ID) (string, error)
+}
+
+// ModelServiceFactory is an interface that provides a way to get model
+// scoped services.
+type ModelServiceFactory interface {
+	Application() ApplicationService
+}
+
+// ModelServiceFactoryGetter is an interface that provides a way to get a
+// ModelServiceFactory based on a model UUID.
+type ModelServiceFactoryGetter interface {
+	ServiceFactoryForModel(modelUUID model.UUID) ModelServiceFactory
+}
+
+type modelServiceFactoryGetter struct {
+	facadeContext facade.MultiModelContext
+}
+
+func newModelServiceFactoryGetter(facadeContext facade.MultiModelContext) ModelServiceFactoryGetter {
+	return &modelServiceFactoryGetter{
+		facadeContext: facadeContext,
+	}
+}
+
+func (f *modelServiceFactoryGetter) ServiceFactoryForModel(modelUUID model.UUID) ModelServiceFactory {
+	return &modelServiceFactory{serviceFactory: f.facadeContext.ServiceFactoryForModel(modelUUID)}
+}
+
+type modelServiceFactory struct {
+	serviceFactory servicefactory.ServiceFactory
+}
+
+func (f *modelServiceFactory) Application() ApplicationService {
+	return f.serviceFactory.Application(service.ApplicationServiceParams{})
 }
