@@ -95,7 +95,7 @@ run_user_secrets() {
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.revision)" '3'
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.owner)" "<model>"
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.description)" 'info'
-	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '3'
+	check_num_secret_revisions "$secret_uri" "$secret_short_uri" 3
 
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 1 | yq .${secret_short_uri}.content)" "owned-by: $model_name-1"
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 2 | yq .${secret_short_uri}.content)" "owned-by: $model_name-2"
@@ -107,7 +107,7 @@ run_user_secrets() {
 	# revision 1 should be pruned.
 	# revision 2 is still been used by the app, so it should not be pruned.
 	# revision 3 is the latest revision, so it should not be pruned.
-	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '2'
+	check_num_secret_revisions "$secret_uri" "$secret_short_uri" 2
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 2 | yq .${secret_short_uri}.content)" "owned-by: $model_name-2"
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
@@ -117,7 +117,7 @@ run_user_secrets() {
 
 	# revision 2 should be pruned.
 	# revision 3 is the latest revision, so it should not be pruned.
-	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '1'
+	check_num_secret_revisions "$secret_uri" "$secret_short_uri" 1
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
 	juju --show-log revoke-secret mysecret "$app_name"
