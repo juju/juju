@@ -48,8 +48,13 @@ type State interface {
 	GetUnitOpenedPorts(ctx context.Context, unitUUID string) (network.GroupedPortRanges, error)
 
 	// GetMachineOpenedPorts returns the opened ports for all the units on the
-	// machine. Opened ports are grouped first by unit and then by endpoint.
+	// given machine. Opened ports are grouped first by unit and then by endpoint.
 	GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error)
+
+	// GetApplicationOpenedPorts returns the opened ports for all the units of the
+	// given application. We return opened ports paired with the unit UUIDs, grouped
+	// by endpoint.
+	GetApplicationOpenedPorts(ctx context.Context, applicationUUID string) (port.UnitEndpointPortRanges, error)
 }
 
 // Service provides the API for managing the opened ports for units.
@@ -65,7 +70,8 @@ func NewService(st State) *Service {
 	}
 }
 
-// GetUnitOpenedPorts returns the opened ports for a given unit uuid, grouped by endpoint.
+// GetUnitOpenedPorts returns the opened ports for a given unit uuid, grouped by
+// endpoint.
 func (s *Service) GetUnitOpenedPorts(ctx context.Context, unitUUID string) (network.GroupedPortRanges, error) {
 	return s.st.GetUnitOpenedPorts(ctx, unitUUID)
 }
@@ -74,6 +80,58 @@ func (s *Service) GetUnitOpenedPorts(ctx context.Context, unitUUID string) (netw
 // Opened ports are grouped first by unit and then by endpoint.
 func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error) {
 	return s.st.GetMachineOpenedPorts(ctx, machineUUID)
+}
+
+// GetApplicationOpenedPorts returns the opened ports for all the units of the
+// application. Opened ports are grouped first by unit and then by endpoint.
+func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID string) (map[string]network.GroupedPortRanges, error) {
+	openedPorts, err := s.st.GetApplicationOpenedPorts(ctx, applicationUUID)
+	if err != nil {
+		return nil, errors.Errorf("failed to get opened ports for application %s: %w", applicationUUID, err)
+	}
+	return openedPorts.ByUnitByEndpoint(), nil
+}
+
+// GetApplicationOpenedPortsByEndpoint returns all the opened ports for the given
+// application, across all units, grouped by endpoint.
+//
+// NOTE: The returned port ranges are atomised, meaning that each port range
+// we guarantee that each port range is of unit length. This is useful for
+// down-stream consumers such as k8s, which can only reason with unit-length
+// port ranges.
+func (s *Service) GetApplicationOpenedPortsByEndpoint(ctx context.Context, applicationUUID string) (network.GroupedPortRanges, error) {
+	openedPorts, err := s.st.GetApplicationOpenedPorts(ctx, applicationUUID)
+	if err != nil {
+		return nil, errors.Errorf("failed to get opened ports for application %s: %w", applicationUUID, err)
+	}
+	ret := network.GroupedPortRanges{}
+
+	// group port ranges by endpoint across all units and atomise them.
+	for _, openedPort := range openedPorts {
+		endpoint := openedPort.Endpoint
+		ret[endpoint] = append(ret[endpoint], atomisePortRange(openedPort.PortRange)...)
+	}
+
+	// de-dupe our port ranges
+	for endpoint, portRanges := range ret {
+		ret[endpoint] = network.UniquePortRanges(portRanges)
+	}
+
+	return ret, nil
+}
+
+// atomisePortRange breaks down the input port range into a slice of unit-length
+// port ranges.
+func atomisePortRange(portRange network.PortRange) []network.PortRange {
+	ret := make([]network.PortRange, portRange.Length())
+	for i := 0; i < portRange.Length(); i++ {
+		ret[i] = network.PortRange{
+			Protocol: portRange.Protocol,
+			FromPort: portRange.FromPort + i,
+			ToPort:   portRange.FromPort + i,
+		}
+	}
+	return ret
 }
 
 // UpdateUnitPorts opens and closes ports for the endpoints of a given unit.

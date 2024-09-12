@@ -3,7 +3,10 @@
 
 package state
 
-import "github.com/juju/juju/core/network"
+import (
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/port"
+)
 
 // protocol represents a network protocol type and its ID in DQLite.
 type protocol struct {
@@ -72,8 +75,15 @@ type unitEndpointPortRange struct {
 	Endpoint string `db:"endpoint"`
 }
 
-// decode returns the network.PortRange representation of the unitEndpointPortRange.
-func (p unitEndpointPortRange) decode() network.PortRange {
+func (p unitEndpointPortRange) decodeToUnitEndpointPortRange() port.UnitEndpointPortRange {
+	return port.UnitEndpointPortRange{
+		UnitUUID:  p.UnitUUID,
+		Endpoint:  p.Endpoint,
+		PortRange: p.decodeToPortRange(),
+	}
+}
+
+func (p unitEndpointPortRange) decodeToPortRange() network.PortRange {
 	return network.PortRange{
 		Protocol: p.Protocol,
 		FromPort: p.FromPort,
@@ -122,4 +132,9 @@ type unitUUID struct {
 // machineUUID represents a machine's UUID.
 type machineUUID struct {
 	UUID string `db:"machine_uuid"`
+}
+
+// applicationUUID represents an application's UUID.
+type applicationUUID struct {
+	UUID string `db:"application_uuid"`
 }
