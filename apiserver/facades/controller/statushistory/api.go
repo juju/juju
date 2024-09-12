@@ -6,7 +6,6 @@ package statushistory
 import (
 	"context"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
@@ -15,14 +14,8 @@ import (
 
 // API is the concrete implementation of the Pruner endpoint.
 type API struct {
-	*common.MongoModelWatcher
 	st         *state.State
 	authorizer facade.Authorizer
-}
-
-// Model returns the model for a context (override for tests).
-var Model = func(ctx facade.ModelContext) (state.ModelAccessor, error) {
-	return ctx.State().Model()
 }
 
 // Prune performs the status history pruner operation (override for tests).

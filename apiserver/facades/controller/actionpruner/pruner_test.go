@@ -10,7 +10,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/actionpruner"
 	"github.com/juju/juju/apiserver/testing"
@@ -30,10 +29,6 @@ type ActionPrunerSuite struct {
 
 func (s *ActionPrunerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-
-	s.PatchValue(&actionpruner.Model, func(_ facade.ModelContext) (state.ModelAccessor, error) {
-		return nil, nil
-	})
 	s.context.Auth_ = testing.FakeAuthorizer{Controller: true}
 
 	var err error

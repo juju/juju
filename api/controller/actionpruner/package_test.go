@@ -1,7 +1,7 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package action
+package actionpruner
 
 import (
 	"testing"
@@ -15,8 +15,8 @@ func TestAll(t *testing.T) {
 	gc.TestingT(t)
 }
 
-func NewClientFromCaller(caller base.FacadeCaller) *Client {
-	return &Client{
+func NewPrunerFromCaller(caller base.FacadeCaller) *Facade {
+	return &Facade{
 		facade: caller,
 	}
 }

@@ -7,9 +7,6 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
-
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -22,13 +19,8 @@ func Register(registry facade.FacadeRegistry) {
 
 // newAPI returns an action pruner API.
 func newAPI(ctx facade.ModelContext) (*API, error) {
-	m, err := Model(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return &API{
-		MongoModelWatcher: common.NewMongoModelWatcher(m, ctx.Resources()),
-		st:                ctx.State(),
-		authorizer:        ctx.Auth(),
+		st:         ctx.State(),
+		authorizer: ctx.Auth(),
 	}, nil
 }
