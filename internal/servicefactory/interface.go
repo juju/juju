@@ -33,6 +33,7 @@ import (
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
+	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	"github.com/juju/juju/internal/storage"
 )
@@ -114,6 +115,10 @@ type ModelServiceFactory interface {
 	ModelSecretBackend() *secretbackendservice.ModelSecretBackendService
 	// Proxy returns the proxy service.
 	Proxy() *proxyservice.Service
+	// UnitState returns the service for persisting and retrieving remote unit
+	// state. This is used to reconcile with local state to determine which
+	// hooks to run, and is saved upon hook completion.
+	UnitState() *unitstateservice.Service
 }
 
 // ServiceFactory provides access to the services required by the apiserver.
