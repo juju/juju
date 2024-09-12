@@ -27,10 +27,14 @@ func (c *GoalStateCommand) Info() *cmd.Info {
 	doc := `
 'goal-state' command will list the charm units and relations, specifying their status and their relations to other units in different charms.
 `
+	examples := `
+    goal-state
+`
 	return jujucmd.Info(&cmd.Info{
-		Name:    "goal-state",
-		Purpose: "Print the status of the charm's peers and related units.",
-		Doc:     doc,
+		Name:     "goal-state",
+		Purpose:  "Print the status of the charm's peers and related units.",
+		Doc:      doc,
+		Examples: examples,
 	})
 }
 

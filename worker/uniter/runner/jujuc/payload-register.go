@@ -47,7 +47,18 @@ provided when "register" is run.
 The payload class must correspond to one of the payloads defined in
 the charm's metadata.yaml.
 
-		`,
+An example fragment from metadata.yaml:
+
+payloads:
+    monitoring:
+        type: docker
+    kvm-guest:
+        type: kvm
+
+`,
+		Examples: `
+    payload-register monitoring docker 0fcgaba
+`,
 	})
 }
 

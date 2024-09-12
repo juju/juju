@@ -36,6 +36,9 @@ that a payload has been manually stopped. The <class> and <id> provided
 must match a payload that has been previously registered with juju using
 payload-register.
 `,
+		Examples: `
+    payload-unregister monitoring 0fcgaba
+`,
 	})
 }
 

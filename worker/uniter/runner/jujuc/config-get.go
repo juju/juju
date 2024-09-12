@@ -27,15 +27,28 @@ func NewConfigGetCommand(ctx Context) (cmd.Command, error) {
 
 func (c *ConfigGetCommand) Info() *cmd.Info {
 	doc := `
-When no <key> is supplied, all keys with values or defaults are printed. If
---all is set, all known keys are printed; those without defaults or values are
-reported as null. <key> and --all are mutually exclusive.
+config-get returns information about the application configuration
+(as defined by config.yaml). If called without arguments, it returns
+a dictionary containing all config settings that are either explicitly
+set, or which have a non-nil default value. If the --all flag is passed,
+it returns a dictionary containing all defined config settings including
+nil values (for those without defaults). If called with a single argument,
+it returns the value of that config key. Missing config keys are reported
+as nulls, and do not return an error.
+
+<key> and --all are mutually exclusive.
+`
+	examples := `
+    INTERVAL=$(config-get interval)
+
+    config-get --all
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    "config-get",
-		Args:    "[<key>]",
-		Purpose: "Print application configuration.",
-		Doc:     doc,
+		Name:     "config-get",
+		Args:     "[<key>]",
+		Purpose:  "Print application configuration.",
+		Doc:      doc,
+		Examples: examples,
 	})
 }
 

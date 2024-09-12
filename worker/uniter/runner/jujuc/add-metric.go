@@ -40,10 +40,14 @@ func NewAddMetricCommand(ctx Context) (cmd.Command, error) {
 
 // Info returns the command info structure for the add-metric command.
 func (c *AddMetricCommand) Info() *cmd.Info {
+	examples := `
+    add-metric metric1=value1 [metric2=value2 …]
+`
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-metric",
-		Args:    "key1=value1 [key2=value2 ...]",
-		Purpose: "Add metrics.",
+		Name:     "add-metric",
+		Args:     "key1=value1 [key2=value2 ...]",
+		Purpose:  "Add metrics.",
+		Examples: examples,
 	})
 }
 

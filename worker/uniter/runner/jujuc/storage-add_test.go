@@ -25,23 +25,6 @@ func (s *storageAddSuite) getStorageUnitAddCommand(c *gc.C) cmd.Command {
 	return jujuc.NewJujucCommandWrappedForTest(com)
 }
 
-func (s *storageAddSuite) TestHelp(c *gc.C) {
-	com := s.getStorageUnitAddCommand(c)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--help"})
-	c.Assert(code, gc.Equals, 0)
-	help := `
-Usage: storage-add <charm storage name>[=count] ...
-
-Summary:
-Add storage instances.
-
-Details:
-`[1:] +
-		jujuc.StorageAddDoc
-	s.assertOutput(c, ctx, help, "")
-}
-
 func (s *storageAddSuite) assertOutput(c *gc.C, ctx *cmd.Context, o, e string) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, o)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, e)

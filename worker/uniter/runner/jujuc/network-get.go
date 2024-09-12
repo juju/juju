@@ -61,11 +61,16 @@ If more than one flag is specified, a map of values is returned.
     --ingress-address: the address the local unit should advertise as being used for incoming connections.
     --egress-subnets: subnets (in CIDR notation) from which traffic on this relation will originate.
 `
+	examples := `
+    network-get dbserver
+    network-get dbserver --bind-address
+`
 	return jujucmd.Info(&cmd.Info{
-		Name:    "network-get",
-		Args:    args,
-		Purpose: "Get network config.",
-		Doc:     doc,
+		Name:     "network-get",
+		Args:     args,
+		Purpose:  "Get network config.",
+		Doc:      doc,
+		Examples: examples,
 	})
 }
 

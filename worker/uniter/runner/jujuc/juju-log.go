@@ -39,10 +39,14 @@ func NewJujuLogCommand(ctx Context) (cmd.Command, error) {
 }
 
 func (c *JujuLogCommand) Info() *cmd.Info {
+	examples := `
+    juju-log -l 'WARN' Something has transpired
+`
 	return jujucmd.Info(&cmd.Info{
-		Name:    "juju-log",
-		Args:    "<message>",
-		Purpose: "Write a message to the juju log.",
+		Name:     "juju-log",
+		Args:     "<message>",
+		Purpose:  "Write a message to the juju log.",
+		Examples: examples,
 	})
 }
 
