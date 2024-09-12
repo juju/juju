@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -198,25 +197,10 @@ func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
 	s.setupAPI(c)
 
 	s.authorizer.Tag = names.NewUserTag("admin")
-	s.addApplication(c, "one")
-	s.addApplication(c, "two")
-	s.addApplication(c, "paramsfail")
 	one := params.AddApplicationOffer{
 		ModelTag:        testing.ModelTag.String(),
 		OfferName:       "offer-one",
 		ApplicationName: "one",
-		Endpoints:       map[string]string{"db": "db"},
-	}
-	bad := params.AddApplicationOffer{
-		ModelTag:        testing.ModelTag.String(),
-		OfferName:       "offer-bad",
-		ApplicationName: "notthere",
-		Endpoints:       map[string]string{"db": "db"},
-	}
-	bad2 := params.AddApplicationOffer{
-		ModelTag:        testing.ModelTag.String(),
-		OfferName:       "offer-bad",
-		ApplicationName: "paramsfail",
 		Endpoints:       map[string]string{"db": "db"},
 	}
 	two := params.AddApplicationOffer{
@@ -225,47 +209,17 @@ func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
 		ApplicationName: "two",
 		Endpoints:       map[string]string{"db": "db"},
 	}
-	all := params.AddApplicationOffers{Offers: []params.AddApplicationOffer{one, bad, bad2, two}}
+	all := params.AddApplicationOffers{Offers: []params.AddApplicationOffer{one, two}}
 	s.applicationOffers.addOffer = func(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
 		if offer.ApplicationName == "paramsfail" {
 			return nil, errors.New("params fail")
 		}
 		return &jujucrossmodel.ApplicationOffer{}, nil
 	}
-	s.mockState.applications = map[string]crossmodel.Application{
-		"one":        &mockApplication{bindings: map[string]string{"db": "myspace"}},
-		"two":        &mockApplication{bindings: map[string]string{"db": "myspace"}},
-		"paramsfail": &mockApplication{bindings: map[string]string{"db": "myspace"}},
-	}
 
-	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
-	// Expect the creator getting admin access on the offer.
-	s.mockAccessService.EXPECT().CreatePermission(gomock.Any(), permission.UserAccessSpec{
-		AccessSpec: offerAccessSpec("", permission.AdminAccess),
-		User:       coreuser.AdminUserName,
-	}).Times(2)
-	// Expect everyone@external getting read access. everyone@exteral gets
-	// read access on all offers.
-	s.mockAccessService.EXPECT().CreatePermission(gomock.Any(), permission.UserAccessSpec{
-		AccessSpec: offerAccessSpec("", permission.ReadAccess),
-		User:       usertesting.GenNewName(c, "everyone@external"),
-	}).Times(2)
-
-	chID := charmtesting.GenCharmID(c)
-	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "one").Return(chID, nil)
-	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "notthere").Return(chID, applicationerrors.ApplicationNotFound)
-	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "paramsfail").Return(chID, nil)
-	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "two").Return(chID, nil)
-	s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), gomock.Any()).Return("A pretty popular blog engine", nil).Times(3)
-
-	errs, err := s.api.Offer(context.Background(), all)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
-	c.Assert(errs.Results[0].Error, gc.IsNil)
-	c.Assert(errs.Results[3].Error, gc.IsNil)
-	c.Assert(errs.Results[1].Error, gc.ErrorMatches, `getting charm ID for application notthere: application not found`)
-	c.Assert(errs.Results[2].Error, gc.ErrorMatches, `params fail`)
-	s.applicationOffers.CheckCallNames(c, offerCall, addOffersBackendCall, offerCall, addOffersBackendCall, offerCall, addOffersBackendCall)
+	_, err := s.api.Offer(context.Background(), all)
+	c.Assert(err, gc.ErrorMatches, `expected exactly one offer, got 2`)
+	s.applicationOffers.CheckCallNames(c)
 }
 
 func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
