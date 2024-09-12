@@ -75,7 +75,24 @@ func createOffersAPI(
 
 // Offer makes application endpoints available for consumption at a specified URL.
 func (api *OffersAPIv5) Offer(all params.AddApplicationOffers) (params.ErrorResults, error) {
-	result := make([]params.ErrorResult, len(all.Offers))
+	// Although this API is offering adding offers in bulk, we only want to
+	// support adding one offer at a time. This is because we're jumping into
+	// other models using the state pool, in the context of a model facade.
+	// There is no limit, nor pagination, on the number of offers that can be
+	// added in one call, so any nefarious user could add a large number of
+	// offers in one call, and potentially exhaust the state pool. This becomes
+	// more of a problem when we move to dqlite (4.0 and beyond), as each
+	// model is within a different database. By limiting the number of offers
+	// we force the clients to make multiple calls and if required we can
+	// enforce rate limiting.
+	// This API will be deprecated in the future and replaced once we refactor
+	// the API (5.0 and beyond).
+	numOffers := len(all.Offers)
+	if numOffers != 1 {
+		return params.ErrorResults{}, errors.Errorf("expected exactly one offer, got %d", numOffers)
+	}
+
+	result := make([]params.ErrorResult, numOffers)
 
 	apiUser := api.Authorizer.GetAuthTag().(names.UserTag)
 	for i, one := range all.Offers {
