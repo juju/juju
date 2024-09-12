@@ -40,10 +40,14 @@ const (
 	// leaderSnippet is a regular expression for unit ID-like syntax that is used
 	// to indicate the current leader for an application.
 	leaderSnippet = "(" + names.ApplicationSnippet + ")/leader"
+	// unitOrLeaderSnippet is a regular expression to match either a standard unit
+	// unit ID or the unit ID-like syntax for the leader of an application
+	unitOrLeaderSnippet = "(" + names.ApplicationSnippet + ")/(" + names.NumberSnippet + "|leader)"
 )
 
 var (
-	validLeader = regexp.MustCompile("^" + leaderSnippet + "$")
+	validLeader       = regexp.MustCompile("^" + leaderSnippet + "$")
+	validUnitOrLeader = regexp.MustCompile("^" + unitOrLeaderSnippet + "$")
 
 	// nameRule describes the name format of an action or keyName must match to be valid.
 	nameRule = charm.GetActionNameRule()
