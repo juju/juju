@@ -14,7 +14,7 @@ permissions:
 jobs:
   checks:
     name: Checks
-    runs-on: [self-hosted, linux, arm64, aws, xxlarge]
+    runs-on: [self-hosted, linux, arm64, aws, quad-xlarge]
     if: github.event.pull_request.draft == false
     steps:
     - name: Checkout

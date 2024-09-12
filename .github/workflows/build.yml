@@ -9,7 +9,7 @@ permissions:
 jobs:
   build:
     name: Build
-    runs-on: [self-hosted, linux, "${{ matrix.platform.host_arch }}", aws, large]
+    runs-on: [self-hosted, linux, "${{ matrix.platform.host_arch }}", aws, xxlarge]
     strategy:
       fail-fast: false
       matrix:
