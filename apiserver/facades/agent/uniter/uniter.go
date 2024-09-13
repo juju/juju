@@ -1078,7 +1078,7 @@ func (u *UniterAPI) RelationsStatus(ctx context.Context, args params.Entities) (
 	return result, nil
 }
 
-// Life returns the life status of the specified units.
+// Life returns the life status of the specified applications or units.
 func (u *UniterAPI) Life(ctx context.Context, args params.Entities) (params.LifeResults, error) {
 	result := params.LifeResults{
 		Results: make([]params.LifeResult, len(args.Entities)),

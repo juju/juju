@@ -918,7 +918,6 @@ func (a *API) UpdateApplicationsUnits(ctx context.Context, args params.UpdateApp
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		//
 		app, err := a.state.Application(appTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)

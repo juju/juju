@@ -26,5 +26,5 @@ func (l Life) Value() corelife.Value {
 	case Dead:
 		return corelife.Dead
 	}
-	return corelife.Alive
+	return ""
 }

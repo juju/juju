@@ -8204,7 +8204,7 @@
                             "$ref": "#/definitions/LifeResults"
                         }
                     },
-                    "description": "Life returns the life status of the specified units."
+                    "description": "Life returns the life status of the specified applications or units."
                 },
                 "Watch": {
                     "type": "object",
@@ -39658,7 +39658,7 @@
                             "$ref": "#/definitions/LifeResults"
                         }
                     },
-                    "description": "Life returns the life status of the specified units."
+                    "description": "Life returns the life status of the specified applications or units."
                 },
                 "LogActionsMessages": {
                     "type": "object",
