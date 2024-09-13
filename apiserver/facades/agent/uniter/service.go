@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -59,6 +60,13 @@ type ApplicationService interface {
 	EnsureUnitDead(ctx context.Context, unitName string, leadershipRevoker leadership.Revoker) error
 	DeleteUnit(ctx context.Context, unitName string) error
 	DestroyUnit(ctx context.Context, unitName string) error
+}
+
+// UnitStateService describes the ability to retrieve and persist
+// remote state for informing hook reconciliation.
+type UnitStateService interface {
+	// SetState persists the input agent state.
+	SetState(context.Context, unitstate.AgentState) error
 }
 
 // NetworkService is the interface that is used to interact with the

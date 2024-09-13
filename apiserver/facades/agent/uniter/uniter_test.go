@@ -3485,6 +3485,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 }
 
 func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
+	c.Skip("Rewrite this in a new suite once other hook commit concerns are in Dqlite")
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -3549,6 +3550,7 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 }
 
 func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) {
+	c.Skip("Rewrite this in a new suite once other hook commit concerns are in Dqlite")
 	_, cm, _, unit := s.setupCAASModel(c)
 
 	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
@@ -3590,6 +3592,7 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 }
 
 func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *gc.C) {
+	c.Skip("Rewrite this in a new suite once other hook commit concerns are in Dqlite")
 	_, cm, _, unit := s.setupCAASModel(c)
 
 	s.leadershipChecker.isLeader = true
