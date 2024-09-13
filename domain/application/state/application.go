@@ -392,6 +392,29 @@ func (st *ApplicationState) getUnit(ctx context.Context, tx *sqlair.TX, unitName
 	return &unit, nil
 }
 
+// InsertUnit insert the specified application unit, returning an error
+// satisfying [applicationerrors.UnitAlreadyExists]
+// if the unit exists.
+func (st *ApplicationState) InsertUnit(
+	ctx domain.AtomicContext, appID coreapplication.ID, args application.UpsertUnitArg,
+) error {
+	// Should not happen, defensive check.
+	if args.UnitName == nil {
+		return errors.New("unit name must be provided inserting a unit")
+	}
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		_, err := st.getUnit(ctx, tx, *args.UnitName)
+		if err == nil {
+			return fmt.Errorf("unit %q already exists%w", *args.UnitName, errors.Hide(applicationerrors.UnitAlreadyExists))
+		}
+		if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
+			return errors.Annotatef(err, "looking up unit %q", *args.UnitName)
+		}
+		return st.insertUnit(ctx, tx, appID, args)
+	})
+	return errors.Annotatef(err, "inserting unit for application %q", appID)
+}
+
 func (st *ApplicationState) insertUnit(
 	ctx context.Context, tx *sqlair.TX, appID coreapplication.ID, args application.UpsertUnitArg,
 ) error {
@@ -448,35 +471,45 @@ func (st *ApplicationState) insertUnit(
 	return nil
 }
 
-func (st *ApplicationState) upsertUnit(
-	ctx context.Context, tx *sqlair.TX, toUpdate unitDetails, args application.UpsertUnitArg,
+// UpdateUnit updates the specified application unit, returning an error
+// satisfying [applicationerrors.UnitNotFoundError] if the unit doesn't exist.
+func (st *ApplicationState) UpdateUnit(
+	ctx domain.AtomicContext, appID coreapplication.ID, args application.UpsertUnitArg,
 ) error {
-	if args.PasswordHash != nil {
-		toUpdate.PasswordHash = *args.PasswordHash
-		toUpdate.PasswordHashAlgorithmID = 0 //currently we only use sha256
-	}
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		toUpdate, err := st.getUnit(ctx, tx, *args.UnitName)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
-	updateUnit := `
+		if args.PasswordHash != nil {
+			toUpdate.PasswordHash = *args.PasswordHash
+			toUpdate.PasswordHashAlgorithmID = 0 //currently we only use sha256
+		}
+
+		updateUnit := `
 UPDATE unit SET
     life_id = $unitDetails.life_id,
     password_hash = $unitDetails.password_hash,
     password_hash_algorithm_id = $unitDetails.password_hash_algorithm_id
 WHERE uuid = $unitDetails.uuid
 `
-	updateUnitStmt, err := st.Prepare(updateUnit, toUpdate)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := tx.Query(ctx, updateUnitStmt, toUpdate).Run(); err != nil {
-		return errors.Annotatef(err, "updating unit row for unit %q", toUpdate.Name)
-	}
-	if args.CloudContainer != nil {
-		if err := st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.NetNodeID, args.CloudContainer); err != nil {
-			return errors.Annotatef(err, "creating cloud container row for unit %q", toUpdate.Name)
+		updateUnitStmt, err := st.Prepare(updateUnit, *toUpdate)
+		if err != nil {
+			return errors.Trace(err)
 		}
-	}
-	return nil
+
+		if err := tx.Query(ctx, updateUnitStmt, toUpdate).Run(); err != nil {
+			return errors.Annotatef(err, "updating unit row for unit %q", toUpdate.Name)
+		}
+		if args.CloudContainer != nil {
+			if err := st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.NetNodeID, args.CloudContainer); err != nil {
+				return errors.Annotatef(err, "updating cloud container row for unit %q", toUpdate.Name)
+			}
+		}
+		return nil
+	})
+	return errors.Annotatef(err, "updating unit %q for application %q", *args.UnitName, appID)
 }
 
 func (st *ApplicationState) upsertUnitCloudContainer(
@@ -781,24 +814,6 @@ func (st *ApplicationState) GetApplicationID(ctx domain.AtomicContext, name stri
 		return nil
 	})
 	return appID, errors.Annotatef(err, "getting ID for %q", name)
-}
-
-// UpsertUnit creates or updates the specified application unit, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-func (st *ApplicationState) UpsertUnit(
-	ctx domain.AtomicContext, appID coreapplication.ID, args application.UpsertUnitArg,
-) error {
-	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		unit, err := st.getUnit(ctx, tx, *args.UnitName)
-		if err != nil {
-			if errors.Is(err, applicationerrors.UnitNotFound) {
-				return st.insertUnit(ctx, tx, appID, args)
-			}
-			return errors.Trace(err)
-		}
-		return st.upsertUnit(ctx, tx, *unit, args)
-	})
-	return errors.Annotatef(err, "upserting unit %q for application %q", *args.UnitName, appID)
 }
 
 // GetUnitLife looks up the life of the specified unit, returning an error
