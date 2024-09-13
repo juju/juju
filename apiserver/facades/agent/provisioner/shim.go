@@ -6,7 +6,6 @@ package provisioner
 import (
 	"github.com/juju/errors"
 
-	jujucharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/network/containerizer"
 	"github.com/juju/juju/state"
 )
@@ -101,33 +100,3 @@ type applicationShim struct {
 }
 
 var _ Application = (*applicationShim)(nil)
-
-// Charm implements Application by wrapping each
-// state.Charm reference in returned collection with
-// the Charm implementation.
-func (a *applicationShim) Charm() (Charm, bool, error) {
-	charm, ok, err := a.Application.Charm()
-	if err != nil {
-		return nil, ok, errors.Trace(err)
-	}
-	newCharm := &charmShim{
-		Charm: charm,
-	}
-	return newCharm, ok, nil
-}
-
-type charmShim struct {
-	*state.Charm
-}
-
-func (s *charmShim) LXDProfile() *jujucharm.LXDProfile {
-	profile := s.Charm.LXDProfile()
-	if profile == nil {
-		return nil
-	}
-	return &jujucharm.LXDProfile{
-		Description: profile.Description,
-		Config:      profile.Config,
-		Devices:     profile.Devices,
-	}
-}

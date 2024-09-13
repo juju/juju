@@ -80,10 +80,6 @@ type applicationShim struct {
 	*state.Application
 }
 
-func (a applicationShim) Charm() (Charm, bool, error) {
-	return a.Application.Charm()
-}
-
 func (a applicationShim) AllUnits() ([]Unit, error) {
 	all, err := a.Application.AllUnits()
 	if err != nil {

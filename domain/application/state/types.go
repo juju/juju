@@ -431,6 +431,7 @@ type setCharmManifest struct {
 type charmLXDProfile struct {
 	UUID       string `db:"uuid"`
 	LXDProfile []byte `db:"lxd_profile"`
+	Revision   int    `db:"revision"`
 }
 
 // charmConfig is used to get the config of a charm.

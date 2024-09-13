@@ -251,6 +251,47 @@ func (s *charmServiceSuite) TestGetCharmMetadataInvalidUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
+func (s *charmServiceSuite) TestGetCharmLXDProfile(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmLXDProfile(gomock.Any(), id).Return([]byte(`{"config": {"foo":"bar"}, "description": "description", "devices": {"gpu":{"baz": "x"}}}`), 42, nil)
+
+	profile, revision, err := s.service.GetCharmLXDProfile(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(profile, gc.DeepEquals, internalcharm.LXDProfile{
+		Config: map[string]string{
+			"foo": "bar",
+		},
+		Description: "description",
+		Devices: map[string]map[string]string{
+			"gpu": {
+				"baz": "x",
+			},
+		},
+	})
+	c.Check(revision, gc.Equals, 42)
+}
+
+func (s *charmServiceSuite) TestGetCharmLXDProfileCharmNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmLXDProfile(gomock.Any(), id).Return(nil, -1, applicationerrors.CharmNotFound)
+
+	_, _, err := s.service.GetCharmLXDProfile(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *charmServiceSuite) TestGetCharmLXDProfileInvalidUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, _, err := s.service.GetCharmLXDProfile(context.Background(), "")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
 func (s *charmServiceSuite) TestGetCharmMetadataDescription(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

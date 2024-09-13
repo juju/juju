@@ -60,6 +60,11 @@ type SetCharmArgs struct {
 	Version string
 }
 
+// Revision is the charm revision.
+// This type alias just exists to help understand what an int represents in
+// the context of return arguments.
+type Revision = int
+
 // SetStateArgs holds the arguments for the SetState method.
 type SetStateArgs struct {
 	// Source is the source of the charm.
@@ -77,7 +82,7 @@ type SetStateArgs struct {
 	// name is use the proxy name.
 	ReferenceName string
 	// Revision is the revision of the charm.
-	Revision int
+	Revision Revision
 	// Hash is the hash of the charm.
 	Hash string
 	// ArchivePath is the path to the charm archive path.

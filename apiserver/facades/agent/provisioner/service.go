@@ -7,13 +7,16 @@ import (
 	"context"
 
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/environs/config"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -95,4 +98,16 @@ type KeyUpdaterService interface {
 	// GetInitialAuthorisedKeysForContainer returns the authorised keys to be used
 	// when provisioning a new container.
 	GetInitialAuthorisedKeysForContainer(ctx context.Context) ([]string, error)
+}
+
+// ApplicationService instances implement an application service.
+type ApplicationService interface {
+	// GetCharmIDByApplicationName returns a charm ID by application name. It
+	// returns an error if the charm can not be found by the name. This can also be
+	// used as a cheap way to see if a charm exists without needing to load the
+	// charm metadata.
+	GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error)
+
+	// GetCharmLXDProfile returns the LXD profile for the charm using the charm ID.
+	GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (internalcharm.LXDProfile, charm.Revision, error)
 }

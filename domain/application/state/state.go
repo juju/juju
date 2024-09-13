@@ -569,7 +569,7 @@ func (s *commonStateBase) getCharm(ctx context.Context, tx *sqlair.TX, ident cha
 		return charm, errors.Trace(err)
 	}
 
-	if charm.LXDProfile, err = s.getCharmLXDProfile(ctx, tx, ident); err != nil {
+	if charm.LXDProfile, _, err = s.getCharmLXDProfile(ctx, tx, ident); err != nil {
 		return charm, errors.Trace(err)
 	}
 	return charm, nil
@@ -698,7 +698,7 @@ ORDER BY array_index ASC, nested_array_index ASC;
 // It's safe to do this in the transaction loop, the query will cached against
 // the state base, and if the decode fails, the retry logic won't be triggered,
 // as it doesn't satisfy the retry error types.
-func (s *commonStateBase) getCharmLXDProfile(ctx context.Context, tx *sqlair.TX, ident charmID) ([]byte, error) {
+func (s *commonStateBase) getCharmLXDProfile(ctx context.Context, tx *sqlair.TX, ident charmID) ([]byte, charm.Revision, error) {
 	charmQuery := `
 SELECT &charmID.*
 FROM charm
@@ -709,34 +709,35 @@ WHERE uuid = $charmID.uuid;
 SELECT &charmLXDProfile.*
 FROM charm
 JOIN charm_metadata AS cm ON charm.uuid = cm.charm_uuid
+JOIN charm_origin AS co ON charm.uuid = co.charm_uuid
 WHERE uuid = $charmID.uuid;
 	`
 
 	charmStmt, err := s.Prepare(charmQuery, ident)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare charm query: %w", err)
+		return nil, -1, fmt.Errorf("failed to prepare charm query: %w", err)
 	}
 	var profile charmLXDProfile
 	lxdProfileStmt, err := s.Prepare(lxdProfileQuery, profile, ident)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare lxd profile query: %w", err)
+		return nil, -1, fmt.Errorf("failed to prepare lxd profile query: %w", err)
 	}
 
 	if err := tx.Query(ctx, charmStmt, ident).Get(&ident); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil, applicationerrors.CharmNotFound
+			return nil, -1, applicationerrors.CharmNotFound
 		}
-		return nil, fmt.Errorf("failed to get charm: %w", err)
+		return nil, -1, fmt.Errorf("failed to get charm: %w", err)
 	}
 
 	if err := tx.Query(ctx, lxdProfileStmt, ident).Get(&profile); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil, applicationerrors.LXDProfileNotFound
+			return nil, -1, applicationerrors.LXDProfileNotFound
 		}
-		return nil, fmt.Errorf("failed to get charm lxd profile: %w", err)
+		return nil, -1, fmt.Errorf("failed to get charm lxd profile: %w", err)
 	}
 
-	return profile.LXDProfile, nil
+	return profile.LXDProfile, profile.Revision, nil
 }
 
 // getCharmConfig returns the config for the charm using the charm ID.

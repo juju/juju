@@ -11,6 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
@@ -43,16 +44,16 @@ import (
 type provisionerMockSuite struct {
 	coretesting.BaseSuite
 
-	environ      *environtesting.MockNetworkingEnviron
-	policy       *MockBridgePolicy
-	host         *MockMachine
-	container    *MockMachine
-	device       *MockLinkLayerDevice
-	parentDevice *MockLinkLayerDevice
+	environ            *environtesting.MockNetworkingEnviron
+	policy             *MockBridgePolicy
+	host               *MockMachine
+	container          *MockMachine
+	applicationService *MockApplicationService
+	device             *MockLinkLayerDevice
+	parentDevice       *MockLinkLayerDevice
 
 	unit        *MockUnit
 	application *MockApplication
-	charm       *MockCharm
 }
 
 var _ = gc.Suite(&provisionerMockSuite{})
@@ -67,11 +68,11 @@ func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(
 	res := params.MachineNetworkConfigResults{
 		Results: []params.MachineNetworkConfigResult{{}},
 	}
-	ctx := prepareOrGetContext{result: res, maintain: false}
+	ctx := prepareOrGetHandler{result: res, maintain: false, logger: loggertesting.WrapCheckLog(c)}
 	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 
 	// ProviderCallContext is not required by this logical path and can be nil
-	err := ctx.ProcessOneContainer(s.environ, callCtx, s.policy, 0, s.host, s.container, loggertesting.WrapCheckLog(c), nil)
+	err := ctx.ProcessOneContainer(context.Background(), s.environ, callCtx, s.policy, 0, s.host, s.container, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Config, gc.HasLen, 1)
 
@@ -121,12 +122,16 @@ func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *gc.C) {
 	res := params.MachineNetworkConfigResults{
 		Results: []params.MachineNetworkConfigResult{{}},
 	}
-	ctx := prepareOrGetContext{result: res, maintain: true}
+	ctx := prepareOrGetHandler{
+		result:   res,
+		maintain: true,
+		logger:   loggertesting.WrapCheckLog(c),
+	}
 	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(s.environ, callCtx, nil, 0, s.host, s.container, loggertesting.WrapCheckLog(c), nil)
+	err := ctx.ProcessOneContainer(context.Background(), s.environ, callCtx, nil, 0, s.host, s.container, nil)
 	c.Assert(err, gc.ErrorMatches, `container "0/lxd/0" already provisioned as "juju-8ebd6c-0"`)
 }
 
@@ -139,24 +144,30 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *gc.C) {
 	s.expectCharmLXDProfiles(ctrl)
 
 	s.application.EXPECT().Name().Return("application")
-	s.charm.EXPECT().Revision().Return(3)
-	s.charm.EXPECT().LXDProfile().Return(
-		&charm.LXDProfile{
-			Config: map[string]string{
-				"security.nesting":    "true",
-				"security.privileged": "true",
-			},
-		})
+
+	charmUUID := testing.GenCharmID(c)
+	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "application").Return(charmUUID, nil)
+	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), charmUUID).Return(charm.LXDProfile{
+		Config: map[string]string{
+			"security.nesting":    "true",
+			"security.privileged": "true",
+		},
+	}, 3, nil)
 
 	res := params.ContainerProfileResults{
 		Results: []params.ContainerProfileResult{{}},
 	}
-	ctx := containerProfileContext{result: res, modelName: "testme"}
+	ctx := containerProfileHandler{
+		applicationService: s.applicationService,
+		result:             res,
+		modelName:          "testme",
+		logger:             loggertesting.WrapCheckLog(c),
+	}
 	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(s.environ, callCtx, nil, 0, s.host, s.container, loggertesting.WrapCheckLog(c), nil)
+	err := ctx.ProcessOneContainer(context.Background(), s.environ, callCtx, nil, 0, s.host, s.container, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
 	c.Assert(res.Results[0].Error, gc.IsNil)
@@ -176,18 +187,27 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *gc.C) {
 	defer ctrl.Finish()
 	s.expectCharmLXDProfiles(ctrl)
 
-	s.charm.EXPECT().LXDProfile().Return(nil)
 	s.unit.EXPECT().Name().Return("application/0")
+	s.application.EXPECT().Name().Return("application")
+
+	charmUUID := testing.GenCharmID(c)
+	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "application").Return(charmUUID, nil)
+	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), charmUUID).Return(charm.LXDProfile{}, -1, nil)
 
 	res := params.ContainerProfileResults{
 		Results: []params.ContainerProfileResult{{}},
 	}
-	ctx := containerProfileContext{result: res, modelName: "testme"}
+	ctx := containerProfileHandler{
+		applicationService: s.applicationService,
+		result:             res,
+		modelName:          "testme",
+		logger:             loggertesting.WrapCheckLog(c),
+	}
 	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(s.environ, callCtx, nil, 0, s.host, s.container, loggertesting.WrapCheckLog(c), nil)
+	err := ctx.ProcessOneContainer(context.Background(), s.environ, callCtx, nil, 0, s.host, s.container, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
 	c.Assert(res.Results[0].Error, gc.IsNil)
@@ -195,13 +215,8 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *gc.C) {
 }
 
 func (s *provisionerMockSuite) expectCharmLXDProfiles(ctrl *gomock.Controller) {
-	s.unit = NewMockUnit(ctrl)
-	s.application = NewMockApplication(ctrl)
-	s.charm = NewMockCharm(ctrl)
-
 	s.container.EXPECT().Units().Return([]Unit{s.unit}, nil)
 	s.unit.EXPECT().Application().Return(s.application, nil)
-	s.application.EXPECT().Charm().Return(s.charm, false, nil)
 }
 
 func (s *provisionerMockSuite) setup(c *gc.C) *gomock.Controller {
@@ -213,6 +228,10 @@ func (s *provisionerMockSuite) setup(c *gc.C) *gomock.Controller {
 	s.container = NewMockMachine(ctrl)
 	s.device = NewMockLinkLayerDevice(ctrl)
 	s.parentDevice = NewMockLinkLayerDevice(ctrl)
+
+	s.applicationService = NewMockApplicationService(ctrl)
+	s.application = NewMockApplication(ctrl)
+	s.unit = NewMockUnit(ctrl)
 
 	return ctrl
 }

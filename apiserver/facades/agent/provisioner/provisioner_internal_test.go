@@ -59,7 +59,7 @@ func (s *provisionerSuite) TestContainerManagerConfig(c *gc.C) {
 		params.ContainerManagerConfigParams{Type: instance.LXD},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(containerManagerConfig, jc.DeepEquals, params.ContainerManagerConfig{map[string]string{
+	c.Check(containerManagerConfig, jc.DeepEquals, params.ContainerManagerConfig{ManagerConfig: map[string]string{
 		"model-uuid":                                 modelID.String(),
 		"lxd-snap-channel":                           "5.0/stable",
 		"container-image-metadata-url":               "https://images.linuxcontainers.org/",
