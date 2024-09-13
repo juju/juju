@@ -90,7 +90,7 @@ func ControllerDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForSecretBackendRotation("backend_uuid", tableSecretBackendRotation),
 		triggers.ChangeLogTriggersForModelSecretBackend("model_uuid", tableModelSecretBackend),
 		triggers.ChangeLogTriggersForModel("uuid", tableModelMetadata),
-		triggers.ChangeLogTriggersForModelAuthorizedKeys("model_id", tableModelAuthorizedKeys),
+		triggers.ChangeLogTriggersForModelAuthorizedKeys("model_uuid", tableModelAuthorizedKeys),
 		triggers.ChangeLogTriggersForUserAuthentication("user_uuid", tableUserAuthentication),
 	)
 

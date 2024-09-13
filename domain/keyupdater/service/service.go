@@ -55,7 +55,7 @@ type WatcherFactory interface {
 // to authorised key values.
 type WatchableService struct {
 	// Service is the inherited service to extend upon.
-	*Service
+	Service
 
 	// watcherFactory is the factory to use for generating new watchers for
 	// authorised key changes.
@@ -65,8 +65,8 @@ type WatchableService struct {
 // State provides the access layer the [Service] needs for persisting and
 // retrieving a models authorised keys.
 type State interface {
-	// GetModelId returns the unique id for the model represented by this state.
-	GetModelId(context.Context) (model.UUID, error)
+	// GetModelUUID returns the unique uuid for the model represented by this state.
+	GetModelUUID(context.Context) (model.UUID, error)
 
 	// CheckMachineExists check to see if the given machine exists in the model. If
 	// the machine does not exist an error satisfying
@@ -107,7 +107,7 @@ func NewWatchableService(
 	watcherFactory WatcherFactory,
 ) *WatchableService {
 	return &WatchableService{
-		Service:        NewService(controllerKeyProvider, controllerState, st),
+		Service:        *NewService(controllerKeyProvider, controllerState, st),
 		watcherFactory: watcherFactory,
 	}
 }
@@ -140,7 +140,7 @@ func (s *Service) GetAuthorisedKeysForMachine(
 		)
 	}
 
-	modelId, err := s.st.GetModelId(ctx)
+	modelId, err := s.st.GetModelUUID(ctx)
 	if err != nil {
 		return nil, errors.Errorf(
 			"getting model id when establishing authorized keys for machine %q: %w",
@@ -189,7 +189,7 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 		).Add(machineerrors.MachineNotFound)
 	}
 
-	modelId, err := s.st.GetModelId(ctx)
+	modelId, err := s.st.GetModelUUID(ctx)
 	if err != nil {
 		return nil, errors.Errorf(
 			"cannot get model id for machine %q while watching authorized key changes: %w",
@@ -234,7 +234,7 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 // GetInitialAuthorisedKeysForContainer returns the authorised keys to be used
 // when provisioning a new container for the model.
 func (s *Service) GetInitialAuthorisedKeysForContainer(ctx context.Context) ([]string, error) {
-	modelId, err := s.st.GetModelId(ctx)
+	modelId, err := s.st.GetModelUUID(ctx)
 	if err != nil {
 		return nil, errors.Errorf(
 			"getting model id when establishing initial authorized keys for container: %w",

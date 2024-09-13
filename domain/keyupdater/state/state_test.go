@@ -98,9 +98,9 @@ func (s *stateSuite) TestCheckMachineDoesNotExist(c *gc.C) {
 func (s *stateSuite) TestGetModelId(c *gc.C) {
 	mst := modelstate.NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	id := modeltesting.GenModelUUID(c)
+	modelUUID := modeltesting.GenModelUUID(c)
 	args := model.ReadOnlyModelCreationArgs{
-		UUID:            id,
+		UUID:            modelUUID,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  uuid.MustNewUUID(),
 		Name:            "my-awesome-model",
@@ -114,7 +114,7 @@ func (s *stateSuite) TestGetModelId(c *gc.C) {
 	err := mst.Create(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelId, err := NewState(s.TxnRunnerFactory()).GetModelId(context.Background())
+	rval, err := NewState(s.TxnRunnerFactory()).GetModelUUID(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(modelId, gc.Equals, id)
+	c.Check(rval, gc.Equals, modelUUID)
 }

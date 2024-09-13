@@ -19,13 +19,7 @@ type machineName struct {
 	Name string `db:"name"`
 }
 
-// modelIdValue represents a model id for associating public keys with.
-type modelIdValue struct {
-	ModelId string `db:"model_id"`
-}
-
-// modelUUIDValue represents a model uuid for reading the model's id from the
-// model database.
+// modelUUIDValue represents a model id for associating public keys with.
 type modelUUIDValue struct {
-	UUID string `db:"uuid"`
+	UUID string `db:"model_uuid"`
 }

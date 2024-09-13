@@ -395,17 +395,17 @@ func (st *UserState) RemoveUser(ctx context.Context, name user.Name) error {
 	m := make(sqlair.M, 1)
 
 	deleteModelAuthorizedKeysStmt, err := st.Prepare(`
-	DELETE FROM model_authorized_keys
-	WHERE user_public_ssh_key_id IN (SELECT id
-	                                 FROM user_public_ssh_key as upsk
-	                                 WHERE upsk.user_id = $M.uuid)
+DELETE FROM model_authorized_keys
+WHERE user_public_ssh_key_id IN (SELECT id
+								 FROM user_public_ssh_key as upsk
+								 WHERE upsk.user_uuid = $M.uuid)
 	`, m)
 	if err != nil {
 		return errors.Annotate(err, "preparing delete model authorized keys query for user")
 	}
 
 	deleteUserPublicSSHKeysStmt, err := st.Prepare(
-		"DELETE FROM user_public_ssh_key WHERE user_id = $M.uuid", m,
+		"DELETE FROM user_public_ssh_key WHERE user_uuid = $M.uuid", m,
 	)
 	if err != nil {
 		return errors.Annotate(err, "preparing delete user public ssh keys")

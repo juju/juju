@@ -83,63 +83,63 @@ WHERE key IN ($S[:])
 // - [modelerrors.NotFound] if the model does not exist.
 func (s *ControllerState) GetUserAuthorizedKeysForModel(
 	ctx context.Context,
-	modelId model.UUID,
+	modelUUID model.UUID,
 ) ([]string, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Errorf(
 			"cannot get database when getting all user public keys for model %q: %w",
-			modelId, err,
+			modelUUID, err,
 		)
 	}
 
-	modelIdVal := modelIdValue{modelId.String()}
+	modelUUIDVal := modelUUIDValue{modelUUID.String()}
 
 	modelExistsStmt, err := s.Prepare(`
-SELECT (uuid) AS (&modelIdValue.model_id)
+SELECT (uuid) AS (&modelUUIDValue.model_uuid)
 FROM v_model
-WHERE uuid = $modelIdValue.model_id
-`, modelIdVal)
+WHERE uuid = $modelUUIDValue.model_uuid
+`, modelUUIDVal)
 	if err != nil {
 		return nil, errors.Errorf(
 			"cannot prepare model exists statement when getting public keys for model %q: %w",
-			modelId, err,
+			modelUUID, err,
 		)
 	}
 
 	stmt, err := s.Prepare(`
 SELECT (public_key) AS (&authorizedKey.*)
 FROM v_model_authorized_keys
-WHERE model_id = $modelIdValue.model_id
-`, modelIdVal, authorizedKey{})
+WHERE model_uuid = $modelUUIDValue.model_uuid
+`, modelUUIDVal, authorizedKey{})
 	if err != nil {
 		return nil, errors.Errorf(
 			"cannot prepare model authorized keys statement when getting public keys for model %q: %w",
-			modelId, err,
+			modelUUID, err,
 		)
 	}
 
 	authorizedKeys := []authorizedKey{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, modelExistsStmt, modelIdVal).Get(&modelIdVal)
+		err := tx.Query(ctx, modelExistsStmt, modelUUIDVal).Get(&modelUUIDVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"cannot get user authorized keys for model %q because the model does not exist",
-				modelId,
+				modelUUID,
 			).Add(modelerrors.NotFound)
 		}
 		if err != nil {
 			return errors.Errorf(
 				"cannot check that model %q exists when getting user authorized keys: %w",
-				modelId, err,
+				modelUUID, err,
 			)
 		}
 
-		err = tx.Query(ctx, stmt, modelIdVal).GetAll(&authorizedKeys)
+		err = tx.Query(ctx, stmt, modelUUIDVal).GetAll(&authorizedKeys)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"cannot get user authorized keys on model %q: %w",
-				modelId, err,
+				modelUUID, err,
 			)
 		}
 

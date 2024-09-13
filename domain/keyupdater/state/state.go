@@ -71,19 +71,19 @@ WHERE name = $machineName.name
 	return nil
 }
 
-// GetModelId returns the unique id for the model represented by this state.
-func (s *State) GetModelId(ctx context.Context) (model.UUID, error) {
+// GetModelUUID returns the unique id for the model represented by this state.
+func (s *State) GetModelUUID(ctx context.Context) (model.UUID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return model.UUID(""), errors.Errorf(
-			"cannot get database to get the model id: %w", err,
+			"cannot get database to get the model uuid: %w", err,
 		)
 	}
 
 	modelUUIDVal := modelUUIDValue{}
 
 	stmt, err := s.Prepare(`
-SELECT (uuid) AS (&modelUUIDValue.*)
+SELECT (uuid) AS (&modelUUIDValue.model_uuid)
 FROM model
 `, modelUUIDVal)
 	if err != nil {

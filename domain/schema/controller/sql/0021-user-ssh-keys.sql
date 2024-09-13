@@ -18,18 +18,18 @@ CREATE TABLE user_public_ssh_key (
     fingerprint_hash_algorithm_id INT NOT NULL,
     fingerprint TEXT NOT NULL,
     public_key TEXT NOT NULL,
-    user_id TEXT NOT NULL,
+    user_uuid TEXT NOT NULL,
     FOREIGN KEY (fingerprint_hash_algorithm_id)
     REFERENCES ssh_fingerprint_hash_algorithm (id),
-    FOREIGN KEY (user_id)
+    FOREIGN KEY (user_uuid)
     REFERENCES user (uuid)
 );
 
 CREATE UNIQUE INDEX idx_user_public_ssh_key_user_fingerprint
-ON user_public_ssh_key (user_id, fingerprint);
+ON user_public_ssh_key (user_uuid, fingerprint);
 
 CREATE UNIQUE INDEX idx_user_public_ssh_key_user_public_key
-ON user_public_ssh_key (user_id, public_key);
+ON user_public_ssh_key (user_uuid, public_key);
 
 CREATE INDEX idx_user_public_ssh_key_user_comment
-ON user_public_ssh_key (user_id, comment);
+ON user_public_ssh_key (user_uuid, comment);

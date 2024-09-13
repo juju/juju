@@ -58,7 +58,7 @@ func (s *serviceSuite) TestAuthorisedKeysForMachine(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerKeyProvider.EXPECT().ControllerAuthorisedKeys(gomock.Any()).Return(controllerKeys, nil)
-	s.state.EXPECT().GetModelId(gomock.Any()).Return(s.modelId, nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelId, nil)
 	s.state.EXPECT().CheckMachineExists(gomock.Any(), coremachine.Name("0")).Return(nil)
 	s.controllerState.EXPECT().GetUserAuthorizedKeysForModel(gomock.Any(), s.modelId).Return(machineKeys, nil)
 
@@ -83,7 +83,7 @@ func (s *serviceSuite) TestAuthorisedKeysForMachineNoControllerKeys(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerKeyProvider.EXPECT().ControllerAuthorisedKeys(gomock.Any()).Return(nil, nil)
-	s.state.EXPECT().GetModelId(gomock.Any()).Return(s.modelId, nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelId, nil)
 	s.state.EXPECT().CheckMachineExists(gomock.Any(), coremachine.Name("0")).Return(nil)
 	s.controllerState.EXPECT().GetUserAuthorizedKeysForModel(gomock.Any(), s.modelId).Return(machineKeys, nil)
 
@@ -122,7 +122,7 @@ func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerSuccess(c *gc.C) 
 	defer s.setupMocks(c).Finish()
 
 	s.controllerKeyProvider.EXPECT().ControllerAuthorisedKeys(gomock.Any()).Return(nil, nil)
-	s.state.EXPECT().GetModelId(gomock.Any()).Return(s.modelId, nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelId, nil)
 	s.controllerState.EXPECT().GetUserAuthorizedKeysForModel(gomock.Any(), s.modelId).Return(controllerKeys, nil)
 
 	keys, err := NewService(s.controllerKeyProvider, s.controllerState, s.state).
@@ -139,7 +139,7 @@ func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerFailure(c *gc.C) 
 	boom := errors.New("boom")
 
 	s.controllerKeyProvider.EXPECT().ControllerAuthorisedKeys(gomock.Any()).Return(nil, nil).AnyTimes()
-	s.state.EXPECT().GetModelId(gomock.Any()).Return(s.modelId, nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelId, nil)
 	s.controllerState.EXPECT().GetUserAuthorizedKeysForModel(gomock.Any(), s.modelId).Return(
 		nil,
 		boom,

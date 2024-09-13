@@ -12,7 +12,7 @@ type userPublicKeyInsert struct {
 	FingerprintHashAlgorithm string `db:"algorithm"`
 	Fingerprint              string `db:"fingerprint"`
 	PublicKey                string `db:"public_key"`
-	UserId                   string `db:"user_id"`
+	UserId                   string `db:"user_uuid"`
 }
 
 // publicKey represents a single row from the user public key table.
@@ -36,21 +36,21 @@ type userPublicKeyId struct {
 // performing bulk in operations.
 type userPublicKeyIds []userPublicKeyId
 
-// userIdValue represents a user id for associating public keys with.
-type userIdValue struct {
-	UserId string `db:"user_id"`
+// userUUIDValue represents a user id for associating public keys with.
+type userUUIDValue struct {
+	UUID string `db:"user_uuid"`
 }
 
-// modelIdValue represents a model id for associating public keys with.
-type modelIdValue struct {
-	ModelId string `db:"model_id"`
+// modelUUIDValue represents a model id for associating public keys with.
+type modelUUIDValue struct {
+	UUID string `db:"model_uuid"`
 }
 
 // modelAuthorizedKey represents a single row from the model_authorized_keys
 // table.
 type modelAuthorizedKey struct {
 	UserPublicSSHKeyId int64  `db:"user_public_ssh_key_id"`
-	ModelId            string `db:"model_id"`
+	ModelUUID          string `db:"model_uuid"`
 }
 
 // Value returns the user id implementing the [driver.Valuer] interface.

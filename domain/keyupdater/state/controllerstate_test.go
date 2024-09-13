@@ -29,8 +29,8 @@ import (
 type controllerStateSuite struct {
 	schematesting.ControllerSuite
 
-	modelId model.UUID
-	userId  user.UUID
+	modelUUID model.UUID
+	userUUID  user.UUID
 }
 
 var (
@@ -74,13 +74,13 @@ func generatePublicKeys(c *gc.C, publicKeys []string) []keymanager.PublicKey {
 
 func (s *controllerStateSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
-	s.modelId = modelstatetesting.CreateTestModel(c, s.TxnRunnerFactory(), "keys")
+	s.modelUUID = modelstatetesting.CreateTestModel(c, s.TxnRunnerFactory(), "keys")
 
 	model, err := modelstate.NewState(s.TxnRunnerFactory()).GetModel(
-		context.Background(), s.modelId,
+		context.Background(), s.modelUUID,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.userId = model.Owner
+	s.userUUID = model.Owner
 }
 
 // TestControllerConfigKeysEmpty ensures that if we ask for keys that do not
@@ -122,7 +122,7 @@ func (s *controllerStateSuite) TestGetUserAuthorizedKeysForModel(c *gc.C) {
 	kmSt := keymanagerstate.NewState(s.TxnRunnerFactory())
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
-	err := kmSt.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd[0:1])
+	err := kmSt.AddPublicKeysForUser(context.Background(), s.modelUUID, s.userUUID, keysToAdd[0:1])
 	c.Check(err, jc.ErrorIsNil)
 
 	secondUserId := usertesting.GenUserUUID(c)
@@ -133,15 +133,15 @@ func (s *controllerStateSuite) TestGetUserAuthorizedKeysForModel(c *gc.C) {
 		usertesting.GenNewName(c, "second"),
 		"second",
 		false,
-		s.userId,
+		s.userUUID,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = kmSt.AddPublicKeysForUser(context.Background(), s.modelId, secondUserId, keysToAdd[1:3])
+	err = kmSt.AddPublicKeysForUser(context.Background(), s.modelUUID, secondUserId, keysToAdd[1:3])
 	c.Check(err, jc.ErrorIsNil)
 
 	st := NewControllerState(s.TxnRunnerFactory())
-	keys, err := st.GetUserAuthorizedKeysForModel(context.Background(), s.modelId)
+	keys, err := st.GetUserAuthorizedKeysForModel(context.Background(), s.modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
