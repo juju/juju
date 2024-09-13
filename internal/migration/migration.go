@@ -192,7 +192,7 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 	}
 	coordinator := modelmigration.NewCoordinator(i.logger)
 	migrations.ImportOperations(coordinator, i.logger, modelDefaultsProvider, registry)
-	if err := coordinator.Perform(ctx, i.scope(modelUUID.String()), model); err != nil {
+	if err := coordinator.Perform(ctx, i.scope(modelUUID), model); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 

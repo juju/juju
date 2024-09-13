@@ -206,7 +206,7 @@ func (c ModelContext) ServiceFactory() servicefactory.ServiceFactory {
 }
 
 // ModelExporter returns a model exporter for the current model.
-func (c ModelContext) ModelExporter(facade.LegacyStateExporter) facade.ModelExporter {
+func (c ModelContext) ModelExporter(model.UUID, facade.LegacyStateExporter) facade.ModelExporter {
 	return c.ModelExporter_
 }
 

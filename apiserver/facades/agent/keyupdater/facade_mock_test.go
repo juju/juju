@@ -660,17 +660,17 @@ func (c *MockModelContextMachineTagCall) DoAndReturn(f func() names.Tag) *MockMo
 }
 
 // ModelExporter mocks base method.
-func (m *MockModelContext) ModelExporter(arg0 facade.LegacyStateExporter) facade.ModelExporter {
+func (m *MockModelContext) ModelExporter(arg0 model.UUID, arg1 facade.LegacyStateExporter) facade.ModelExporter {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelExporter", arg0)
+	ret := m.ctrl.Call(m, "ModelExporter", arg0, arg1)
 	ret0, _ := ret[0].(facade.ModelExporter)
 	return ret0
 }
 
 // ModelExporter indicates an expected call of ModelExporter.
-func (mr *MockModelContextMockRecorder) ModelExporter(arg0 any) *MockModelContextModelExporterCall {
+func (mr *MockModelContextMockRecorder) ModelExporter(arg0, arg1 any) *MockModelContextModelExporterCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelExporter", reflect.TypeOf((*MockModelContext)(nil).ModelExporter), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelExporter", reflect.TypeOf((*MockModelContext)(nil).ModelExporter), arg0, arg1)
 	return &MockModelContextModelExporterCall{Call: call}
 }
 
@@ -686,13 +686,13 @@ func (c *MockModelContextModelExporterCall) Return(arg0 facade.ModelExporter) *M
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelContextModelExporterCall) Do(f func(facade.LegacyStateExporter) facade.ModelExporter) *MockModelContextModelExporterCall {
+func (c *MockModelContextModelExporterCall) Do(f func(model.UUID, facade.LegacyStateExporter) facade.ModelExporter) *MockModelContextModelExporterCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelContextModelExporterCall) DoAndReturn(f func(facade.LegacyStateExporter) facade.ModelExporter) *MockModelContextModelExporterCall {
+func (c *MockModelContextModelExporterCall) DoAndReturn(f func(model.UUID, facade.LegacyStateExporter) facade.ModelExporter) *MockModelContextModelExporterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

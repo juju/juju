@@ -14,6 +14,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/uuid"
@@ -87,7 +88,9 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 	return NewModelManagerAPI(
 		stdCtx,
 		backend.(StateBackend),
-		ctx.ModelExporter(backend),
+		func(modelUUID coremodel.UUID, legacyState facade.LegacyStateExporter) ModelExporter {
+			return ctx.ModelExporter(modelUUID, legacyState)
+		},
 		common.NewModelManagerBackend(configSchemaSource, ctrlModel, pool),
 		controllerUUID,
 		Services{
