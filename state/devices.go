@@ -4,13 +4,10 @@
 package state
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/txn"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 )
 
@@ -32,34 +29,6 @@ type DeviceConstraints struct {
 
 	// Attributes is a collection of key value pairs device related (node affinity labels/tags etc.).
 	Attributes map[string]string `bson:"attributes"`
-}
-
-// NewDeviceBackend creates a backend for managing device.
-func NewDeviceBackend(st *State) (*deviceBackend, error) {
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &deviceBackend{
-		mb:          st,
-		settings:    NewStateSettings(st),
-		modelType:   m.Type(),
-		config:      m.ModelConfig,
-		application: st.Application,
-		unit:        st.Unit,
-		machine:     st.Machine,
-	}, nil
-}
-
-type deviceBackend struct {
-	mb          modelBackend
-	config      func(context.Context) (*config.Config, error)
-	application func(string) (*Application, error)
-	unit        func(string) (*Unit, error)
-	machine     func(string) (*Machine, error)
-
-	modelType ModelType
-	settings  *StateSettings
 }
 
 // deviceConstraintsDoc contains device constraints for an entity.
@@ -87,17 +56,6 @@ func removeDeviceConstraintsOp(id string) txn.Op {
 	}
 }
 
-// DeviceConstraints returns the device constraints for the specified application.
-func (db *deviceBackend) DeviceConstraints(id string) (map[string]DeviceConstraints, error) {
-	devices, err := readDeviceConstraints(db.mb, id)
-	if err == nil {
-		return devices, nil
-	} else if errors.Is(err, errors.NotFound) {
-		return map[string]DeviceConstraints{}, nil
-	}
-	return nil, err
-}
-
 func readDeviceConstraints(mb modelBackend, id string) (map[string]DeviceConstraints, error) {
 	coll, closer := mb.db().GetCollection(deviceConstraintsC)
 	defer closer()
@@ -113,8 +71,8 @@ func readDeviceConstraints(mb modelBackend, id string) (map[string]DeviceConstra
 	return doc.Constraints, nil
 }
 
-func validateDeviceConstraints(db *deviceBackend, allCons map[string]DeviceConstraints, charmMeta *charm.Meta) error {
-	err := validateDeviceConstraintsAgainstCharm(db, allCons, charmMeta)
+func validateDeviceConstraints(allCons map[string]DeviceConstraints, charmMeta *charm.Meta) error {
+	err := validateDeviceConstraintsAgainstCharm(allCons, charmMeta)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -129,7 +87,6 @@ func validateDeviceConstraints(db *deviceBackend, allCons map[string]DeviceConst
 }
 
 func validateDeviceConstraintsAgainstCharm(
-	db *deviceBackend,
 	allCons map[string]DeviceConstraints,
 	charmMeta *charm.Meta,
 ) error {

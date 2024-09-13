@@ -13,9 +13,8 @@ import (
 type DevicesStateSuiteBase struct {
 	ConnSuite
 
-	series        string
-	st            *state.State
-	deviceBackend *state.DeviceBackend
+	series string
+	st     *state.State
 }
 
 func (s *DevicesStateSuiteBase) SetUpTest(c *gc.C) {
@@ -29,7 +28,6 @@ func (s *DevicesStateSuiteBase) SetUpTest(c *gc.C) {
 		s.series = "quantal"
 	}
 	var err error
-	s.deviceBackend, err = state.NewDeviceBackend(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
