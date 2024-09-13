@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -182,12 +181,6 @@ func (i ImportApplicationOffer) addApplicationOfferOps(src ApplicationOfferInput
 			Assert: txn.DocMissing,
 			Insert: args.applicationOfferDoc,
 		},
-	}
-	for userName, access := range args.acl {
-		user := names.NewUserTag(userName)
-		h := createPermissionOp(applicationOfferKey(
-			args.applicationOfferDoc.OfferUUID), userGlobalKey(userAccessID(user)), permission.Access(access))
-		ops = append(ops, h)
 	}
 	return ops, nil
 }

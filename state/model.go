@@ -30,11 +30,6 @@ import (
 // settings and constraints.
 const modelGlobalKey = "e"
 
-// modelKey will create the key for a given model using the modelGlobalKey.
-func modelKey(modelUUID string) string {
-	return fmt.Sprintf("%s#%s", modelGlobalKey, modelUUID)
-}
-
 // ModelType signals the type of a model - IAAS or CAAS
 type ModelType string
 

@@ -9,12 +9,10 @@ import (
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -67,12 +65,7 @@ func (s *MigrationImportTasksSuite) TestImportApplicationOffers(c *gc.C) {
 	runner.Add(runner.applicationOffersRefOp(refOp, 2))
 
 	entity.EXPECT().ACL().Return(map[string]string{"fred": "consume"}).Times(2)
-	permissionOp := createPermissionOp(applicationOfferKey(
-		offerUUID.String()), userGlobalKey(userAccessID(names.NewUserTag("fred"))), permission.ConsumeAccess)
-	permissionOp2 := createPermissionOp(applicationOfferKey(
-		offerUUID2.String()), userGlobalKey(userAccessID(names.NewUserTag("fred"))), permission.ConsumeAccess)
-
-	runner.Add(runner.transaction([]applicationOfferDoc{offerDoc, secondOfferDoc}, []txn.Op{permissionOp, permissionOp2}, refOp))
+	runner.Add(runner.transaction([]applicationOfferDoc{offerDoc, secondOfferDoc}, refOp))
 
 	err = runner.Run(ctrl)
 	c.Assert(err, jc.ErrorIsNil)
@@ -167,11 +160,11 @@ func (s *ImportApplicationOfferRunner) docID(offerName, docID string) func(ctrl 
 	}
 }
 
-func (s *ImportApplicationOfferRunner) transaction(offerDocs []applicationOfferDoc, permissionOps []txn.Op, ops ...txn.Op) func(ctrl *gomock.Controller) {
+func (s *ImportApplicationOfferRunner) transaction(offerDocs []applicationOfferDoc, ops ...txn.Op) func(ctrl *gomock.Controller) {
 	return func(ctrl *gomock.Controller) {
 		useOps := make([]txn.Op, 0)
 
-		for i, doc := range offerDocs {
+		for _, doc := range offerDocs {
 			useOps = append(useOps, []txn.Op{
 				{
 					C:      applicationOffersC,
@@ -179,7 +172,6 @@ func (s *ImportApplicationOfferRunner) transaction(offerDocs []applicationOfferD
 					Assert: txn.DocMissing,
 					Insert: doc,
 				},
-				permissionOps[i],
 			}...)
 		}
 		useOps = append(useOps, ops...)

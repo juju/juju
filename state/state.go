@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/upgrade"
 	jujuversion "github.com/juju/juju/core/version"
@@ -159,10 +158,6 @@ func (st *State) ControllerOwner() (names.UserTag, error) {
 	return names.NewUserTag(owner), nil
 }
 
-func ControllerAccess(st *State, tag names.Tag) (permission.UserAccess, error) {
-	return st.UserAccess(tag.(names.UserTag), st.controllerTag)
-}
-
 // setDyingModelToDead sets current dying model to dead.
 func (st *State) setDyingModelToDead() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -241,12 +236,6 @@ func (st *State) RemoveExportingModelDocs() error {
 }
 
 func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
-	// Remove permissions first, because we potentially
-	// remove parent documents in the following stage.
-	if err := st.removeAllModelPermissions(); err != nil {
-		return errors.Annotate(err, "removing permissions")
-	}
-
 	// TODO(secrets) - fix when ref counts are done.
 	//if err := cleanupSecretBackendRefCountAfterModelMigrationDone(st); err != nil {
 	//	// We have to do this before secrets get removed.
@@ -314,41 +303,6 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		ops = append(ops, decHostedModelCountOp())
 	}
 	return errors.Trace(st.db().RunTransaction(ops))
-}
-
-// removeAllModelPermissions removes all direct permissions documents for
-// this model, and all permissions for offers hosted by this model.
-func (st *State) removeAllModelPermissions() error {
-	var permOps []txn.Op
-	permPattern := bson.M{
-		"_id": bson.M{"$regex": "^" + permissionID(modelKey(st.ModelUUID()), "")},
-	}
-	ops, err := st.removeInCollectionOps(permissionsC, permPattern)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	permOps = append(permOps, ops...)
-
-	applicationOffersCollection, closer := st.db().GetCollection(applicationOffersC)
-	defer closer()
-
-	var offerDocs []applicationOfferDoc
-	if err := applicationOffersCollection.Find(bson.D{}).All(&offerDocs); err != nil {
-		return errors.Annotate(err, "getting application offer documents")
-	}
-
-	for _, offer := range offerDocs {
-		permPattern = bson.M{
-			"_id": bson.M{"$regex": "^" + permissionID(applicationOfferKey(offer.OfferUUID), "")},
-		}
-		ops, err = st.removeInCollectionOps(permissionsC, permPattern)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		permOps = append(permOps, ops...)
-	}
-	err = st.db().RunTransaction(permOps)
-	return errors.Trace(err)
 }
 
 // removeAllInCollectionRaw removes all the documents from the given
@@ -915,11 +869,7 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 		coll = unitsC
 		id = st.docID(id)
 	case names.UserTag:
-		coll = usersC
-		if !tag.IsLocal() {
-			return "", nil, fmt.Errorf("%q is not a local user", tag.Id())
-		}
-		id = tag.Name()
+		return "", nil, errors.NotImplementedf("users have been moved to domain")
 	case names.RelationTag:
 		coll = relationsC
 		id = st.docID(id)

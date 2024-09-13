@@ -114,17 +114,6 @@ func allCollections() CollectionSchema {
 		// migration minions.
 		migrationsMinionSyncC: {global: true},
 
-		// This collection holds user information that's not specific to any
-		// one model.
-		usersC: {
-			global: true,
-		},
-
-		// This collection holds users that are relative to controllers.
-		controllerUsersC: {
-			global: true,
-		},
-
 		// This collection is used as a unique key restraint. The _id field is
 		// a concatenation of multiple fields that form a compound index,
 		// allowing us to ensure users cannot have the same name for two
@@ -142,16 +131,6 @@ func allCollections() CollectionSchema {
 		// This collection holds storage items for a macaroon bakery.
 		bakeryStorageItemsC: {
 			global: true,
-		},
-
-		// This collection is basically a standard SQL intersection table; it
-		// references the global records of the users allowed access to a
-		// given operation.
-		permissionsC: {
-			global: true,
-			indexes: []mgo.Index{{
-				Key: []string{"object-global-key", "subject-global-key"},
-			}},
 		},
 
 		// -----------------
@@ -511,7 +490,6 @@ const (
 	containerRefsC         = "containerRefs"
 	controllersC           = "controllers"
 	controllerNodesC       = "controllerNodes"
-	controllerUsersC       = "controllerusers"
 	dockerResourcesC       = "dockerResources"
 	filesystemAttachmentsC = "filesystemAttachments"
 	filesystemsC           = "filesystems"
@@ -531,7 +509,6 @@ const (
 	openedPortsC           = "openedPorts"
 	operationsC            = "operations"
 	payloadsC              = "payloads"
-	permissionsC           = "permissions"
 	providerIDsC           = "providerIDs"
 	relationScopesC        = "relationscopes"
 	relationsC             = "relations"
@@ -556,7 +533,6 @@ const (
 	unitStatesC            = "unitstates"
 	upgradeInfoC           = "upgradeInfo"
 	usermodelnameC         = "usermodelname"
-	usersC                 = "users"
 	volumeAttachmentsC     = "volumeattachments"
 	volumeAttachmentPlanC  = "volumeattachmentplan"
 	volumesC               = "volumes"

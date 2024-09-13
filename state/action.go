@@ -682,8 +682,11 @@ func (m *Model) EnqueueAction(operationID string, receiver names.Tag,
 		return nil, errors.New("action name required")
 	}
 
+	checkNotDead := true
 	receiverCollectionName, receiverId, err := m.st.tagToCollectionAndId(receiver)
-	if err != nil {
+	if errors.Is(err, errors.NotImplemented) {
+		checkNotDead = false
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	doc, ndoc, err := newActionDoc(m.st, operationID, receiver, actionName, payload, parallel, executionGroup)
@@ -695,11 +698,16 @@ func (m *Model) EnqueueAction(operationID string, receiver names.Tag,
 		doc.Status = ActionError
 		doc.Message = actionError.Error()
 	}
-	ops := []txn.Op{{
-		C:      receiverCollectionName,
-		Id:     receiverId,
-		Assert: notDeadDoc,
-	}, {
+
+	var ops []txn.Op
+	if checkNotDead {
+		ops = append(ops, txn.Op{
+			C:      receiverCollectionName,
+			Id:     receiverId,
+			Assert: notDeadDoc,
+		})
+	}
+	ops = append(ops, []txn.Op{{
 		C:      operationsC,
 		Id:     m.st.docID(operationID),
 		Assert: txn.DocExists,
@@ -708,7 +716,7 @@ func (m *Model) EnqueueAction(operationID string, receiver names.Tag,
 		Id:     doc.DocId,
 		Assert: txn.DocMissing,
 		Insert: doc,
-	}}
+	}}...)
 	if actionError == nil {
 		ops = append(ops, txn.Op{
 			C:      actionNotificationsC,
@@ -719,11 +727,14 @@ func (m *Model) EnqueueAction(operationID string, receiver names.Tag,
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if notDead, err := isNotDead(m.st, receiverCollectionName, receiverId); err != nil {
-			return nil, err
-		} else if !notDead {
-			return nil, stateerrors.ErrDead
-		} else if attempt != 0 {
+		if checkNotDead {
+			if notDead, err := isNotDead(m.st, receiverCollectionName, receiverId); err != nil {
+				return nil, err
+			} else if !notDead {
+				return nil, stateerrors.ErrDead
+			}
+		}
+		if attempt != 0 {
 			_, err := m.Operation(operationID)
 			if err != nil {
 				return nil, errors.Trace(err)

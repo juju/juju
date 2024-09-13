@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -92,7 +91,6 @@ type Model interface {
 	// needs a Model with this model. Once this is gone ControllerUUID can be
 	// removed from this interface.
 	ControllerUUID() string
-	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
 	SetCloudCredential(tag names.CloudCredentialTag) (bool, error)
 }
 

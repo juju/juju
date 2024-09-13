@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/upgrade"
 	jujuversion "github.com/juju/juju/core/version"
@@ -2947,16 +2946,6 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(n, gc.Not(gc.Equals), 0)
 	}
-
-	// Add a model user whose permissions should get removed
-	// when the model is.
-	_, err := s.Model.AddUser(
-		state.UserAccessSpec{
-			User:      names.NewUserTag("amelia@external"),
-			CreatedBy: s.Owner,
-			Access:    permission.ReadAccess,
-		})
-	c.Assert(err, jc.ErrorIsNil)
 
 	return state.UserModelNameIndex(s.Model.Owner().Id(), s.Model.Name())
 }

@@ -1383,8 +1383,7 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) 
 	c.Assert(model.OwnerTag, gc.Equals, owner.String())
 	c.Assert(model.Name, gc.Equals, "test-model")
 	c.Assert(model.Type, gc.Equals, "iaas")
-	// Make sure that the environment created does actually have the correct
-	// owner, and that owner is actually allowed to use the environment.
+
 	newState, err := s.StatePool().Get(model.UUID)
 	c.Assert(err, jc.ErrorIsNil)
 	defer newState.Release()
@@ -1392,8 +1391,6 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) 
 	newModel, err := newState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newModel.Owner(), gc.Equals, owner)
-	_, err = newState.UserAccess(owner, newModel.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSomeoneElse(c *gc.C) {

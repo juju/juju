@@ -48,7 +48,6 @@ const (
 	ModelEntityRefsC  = modelEntityRefsC
 	ApplicationsC     = applicationsC
 	ControllersC      = controllersC
-	UsersC            = usersC
 	StorageInstancesC = storageInstancesC
 	GlobalSettingsC   = globalSettingsC
 	SettingsC         = settingsC
