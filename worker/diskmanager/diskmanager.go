@@ -64,7 +64,7 @@ func doWork(listf ListBlockDevicesFunc, b BlockDeviceSetter, old *[]storage.Bloc
 		logger.Tracef("no changes to block devices detected")
 		return nil
 	}
-	logger.Infof("block devices changed: %#v", blockDevices)
+	logger.Tracef("block devices changed: %#v", blockDevices)
 	if err := b.SetMachineBlockDevices(blockDevices); err != nil {
 		return err
 	}
