@@ -26,7 +26,7 @@ END;
 CREATE TRIGGER trg_log_model_authorized_keys_update
 AFTER UPDATE ON model_authorized_keys FOR EACH ROW
 WHEN 
-	NEW.model_id != OLD.model_id OR
+	NEW.model_uuid != OLD.model_uuid OR
 	NEW.user_public_ssh_key_id != OLD.user_public_ssh_key_id 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
