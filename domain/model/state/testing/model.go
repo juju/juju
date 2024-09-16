@@ -29,7 +29,7 @@ import (
 // This should only ever be used from within other state packages.
 // This avoids the need for introducing cyclic imports with tests.
 func CreateInternalSecretBackend(c *gc.C, runner database.TxnRunner) {
-	backendUUID, err := corecredential.NewID()
+	backendUUID, err := corecredential.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -48,7 +48,7 @@ func CreateInternalSecretBackend(c *gc.C, runner database.TxnRunner) {
 // This should only ever be used from within other state packages.
 // This avoids the need for introducing cyclic imports with tests.
 func CreateKubernetesSecretBackend(c *gc.C, runner database.TxnRunner) {
-	backendUUID, err := corecredential.NewID()
+	backendUUID, err := corecredential.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -80,7 +80,7 @@ func CreateTestModel(
 	cloudUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	credId, err := corecredential.NewID()
+	credId, err := corecredential.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	userName := usertesting.GenNewName(c, "test-user"+name)

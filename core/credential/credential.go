@@ -79,33 +79,33 @@ func (k Key) Validate() error {
 	return nil
 }
 
-// ID represents a unique id within the juju controller for a cloud credential.
-type ID string
+// UUID represents a unique id within the juju controller for a cloud credential.
+type UUID string
 
-// NewID generates a new credential [ID]
-func NewID() (ID, error) {
+// NewUUID generates a new credential [UUID]
+func NewUUID() (UUID, error) {
 	uuid, err := uuid.NewUUID()
 	if err != nil {
-		return ID(""), fmt.Errorf("creating new credential id: %w", err)
+		return UUID(""), fmt.Errorf("creating new credential id: %w", err)
 	}
-	return ID(uuid.String()), nil
+	return UUID(uuid.String()), nil
 }
 
 // String implements the stringer interface returning a string representation of
-// the credential ID.
-func (i ID) String() string {
-	return string(i)
+// the credential UUID.
+func (u UUID) String() string {
+	return string(u)
 }
 
-// Validate ensures the consistency of the id. If the [ID] is invalid an error
-// satisfying [errors.NotValid] will be returned.
-func (i ID) Validate() error {
-	if i == "" {
-		return fmt.Errorf("credential id cannot be empty%w", errors.Hide(errors.NotValid))
+// Validate ensures the consistency of the uuid. If the [UUID] is invalid an
+// error satisfying [errors.NotValid] will be returned.
+func (u UUID) Validate() error {
+	if u == "" {
+		return fmt.Errorf("credential uuid cannot be empty%w", errors.Hide(errors.NotValid))
 	}
 
-	if !uuid.IsValidUUIDString(string(i)) {
-		return fmt.Errorf("credential id %q %w", i, errors.NotValid)
+	if !uuid.IsValidUUIDString(string(u)) {
+		return fmt.Errorf("credential uuid %q %w", u, errors.NotValid)
 	}
 	return nil
 }

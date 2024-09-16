@@ -185,7 +185,7 @@ func agentVersionSelector() version.Number {
 // DefaultModelCloudNameAndCredential returns the default cloud name and
 // credential that should be used for newly created models that haven't had
 // either cloud or credential specified. If no default credential is available
-// the zero value of [credential.ID] will be returned.
+// the zero value of [credential.UUID] will be returned.
 //
 // The defaults that are sourced come from the controller's default model. If
 // there is a no controller model a [modelerrors.NotFound] error will be

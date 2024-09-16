@@ -414,7 +414,7 @@ func (b *AgentBootstrap) getCloudCredential() (cloud.Credential, names.CloudCred
 			stateParams.ControllerCloudCredentialName,
 		)
 		if !names.IsValidCloudCredential(id) {
-			return cloud.Credential{}, cloudCredentialTag, errors.NotValidf("cloud credential ID %q", id)
+			return cloud.Credential{}, cloudCredentialTag, errors.NotValidf("cloud credential UUID %q", id)
 		}
 		cloudCredentialTag = names.NewCloudCredentialTag(id)
 		return *stateParams.ControllerCloudCredential, cloudCredentialTag, nil

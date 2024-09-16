@@ -96,7 +96,7 @@ func (s *typeSuite) TestCredentialKeyValidate(c *gc.C) {
 	}
 }
 
-func (*typeSuite) TestIDValidate(c *gc.C) {
+func (*typeSuite) TestUUIDValidate(c *gc.C) {
 	tests := []struct {
 		id  string
 		err error
@@ -116,7 +116,7 @@ func (*typeSuite) TestIDValidate(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("test %d: %q", i, test.id)
-		err := ID(test.id).Validate()
+		err := UUID(test.id).Validate()
 
 		if test.err == nil {
 			c.Check(err, gc.IsNil)
