@@ -80,32 +80,38 @@ AND public_key = $userPublicKeyInsert.public_key
 		key userPublicKeyInsert,
 		tx *sqlair.TX,
 	) (int64, error) {
-		outcome := sqlair.Outcome{}
-		err := tx.Query(ctx, insertStatement, key).Get(&outcome)
-		if err != nil && !jujudb.IsErrConstraintUnique(err) {
-			return 0, errors.Errorf(
-				"cannot insert public key for user %q: %w", key.UserId, err,
-			)
-		}
+		row := userPublicKeyId{}
+		err = tx.Query(ctx, selectExistingIdStatement, key).Get(&row)
 
-		var keyId int64
-		if jujudb.IsErrConstraintUnique(err) {
-			row := userPublicKeyId{}
-			err = tx.Query(ctx, selectExistingIdStatement, key).Get(&row)
-			keyId = row.Id
-		} else {
-			var lastInsertId int64
-			lastInsertId, err = outcome.Result().LastInsertId()
-			keyId = lastInsertId
-		}
-
-		if err != nil {
+		// If there is no errors then we can safely assume the key already
+		// exists and nothing more needs to be done.
+		if err == nil {
+			return row.Id, nil
+		} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return 0, errors.Errorf(
-				"cannot get unique id for user %q public key: %w",
+				"fetching existing user %q key id when ensuring public key: %w",
 				key.UserId, err,
 			)
 		}
-		return keyId, nil
+
+		outcome := sqlair.Outcome{}
+		err := tx.Query(ctx, insertStatement, key).Get(&outcome)
+		if err != nil {
+			return 0, errors.Errorf(
+				"inserting public key for user %q: %w", key.UserId, err,
+			)
+		}
+
+		var lastInsertId int64
+		lastInsertId, err = outcome.Result().LastInsertId()
+
+		if err != nil {
+			return 0, errors.Errorf(
+				"fetching id for newly inserted public key on user %q: %w",
+				key.UserId, err,
+			)
+		}
+		return lastInsertId, nil
 	}, nil
 }
 
