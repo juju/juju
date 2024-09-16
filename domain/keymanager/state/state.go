@@ -39,7 +39,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 // transaction to ensure that a public key exists for a user returning the
 // unique id to represents that key within the database.
 func (s *State) ensureUserPublicKey() (func(context.Context, userPublicKeyInsert, *sqlair.TX) (int64, error), error) {
-	insertStatement, err := s.Prepare(`
+	insertStmt, err := s.Prepare(`
 INSERT INTO user_public_ssh_key (comment,
                                  fingerprint,
 						         public_key,
@@ -61,7 +61,7 @@ WHERE s.algorithm = $userPublicKeyInsert.algorithm
 		)
 	}
 
-	selectExistingIdStatement, err := s.Prepare(`
+	selectExistingIdStmt, err := s.Prepare(`
 SELECT (id) AS (&userPublicKeyId.*)
 FROM user_public_ssh_key
 WHERE user_uuid = $userPublicKeyInsert.user_uuid
@@ -81,7 +81,7 @@ AND public_key = $userPublicKeyInsert.public_key
 		tx *sqlair.TX,
 	) (int64, error) {
 		row := userPublicKeyId{}
-		err = tx.Query(ctx, selectExistingIdStatement, key).Get(&row)
+		err = tx.Query(ctx, selectExistingIdStmt, key).Get(&row)
 
 		// If there is no errors then we can safely assume the key already
 		// exists and nothing more needs to be done.
@@ -95,7 +95,7 @@ AND public_key = $userPublicKeyInsert.public_key
 		}
 
 		outcome := sqlair.Outcome{}
-		err := tx.Query(ctx, insertStatement, key).Get(&outcome)
+		err := tx.Query(ctx, insertStmt, key).Get(&outcome)
 		if err != nil {
 			return 0, errors.Errorf(
 				"inserting public key for user %q: %w", key.UserId, err,
@@ -140,7 +140,7 @@ func (s *State) AddPublicKeysForUser(
 
 	userUUIDVal := userUUIDValue{UUID: userUUID.String()}
 
-	userRemovedStatement, err := s.Prepare(`
+	userActiveStmt, err := s.Prepare(`
 SELECT (uuid) AS (&userUUIDValue.user_uuid)
 FROM v_user_auth
 WHERE uuid = $userUUIDValue.user_uuid
@@ -161,7 +161,7 @@ AND removed = false
 		)
 	}
 
-	insertModelStatement, err := s.Prepare(`
+	insertModelAuthorisedKeyStmt, err := s.Prepare(`
 	INSERT INTO model_authorized_keys (*)
 	VALUES ($modelAuthorizedKey.*)
 	`, modelAuthorizedKey{})
@@ -173,7 +173,7 @@ AND removed = false
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, userRemovedStatement, userUUIDVal).Get(&userUUIDVal)
+		err := tx.Query(ctx, userActiveStmt, userUUIDVal).Get(&userUUIDVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"cannot add keys for user %q to model %q because the user does not exist",
@@ -213,7 +213,7 @@ AND removed = false
 				UserPublicSSHKeyId: keyId,
 				ModelUUID:          modelUUID.String(),
 			}
-			err := tx.Query(ctx, insertModelStatement, row).Run()
+			err := tx.Query(ctx, insertModelAuthorisedKeyStmt, row).Run()
 			if jujudb.IsErrConstraintForeignKey(err) {
 				return errors.Errorf(
 					"cannot add public key %d for user %q to model %q, model does not exist",
@@ -263,7 +263,7 @@ func (s *State) EnsurePublicKeysForUser(
 
 	userUUIDVal := userUUIDValue{UUID: userUUID.String()}
 
-	userRemovedStatement, err := s.Prepare(`
+	userActiveStmt, err := s.Prepare(`
 SELECT (uuid) AS (&userUUIDValue.user_uuid)
 FROM v_user_auth
 WHERE uuid = $userUUIDValue.user_uuid
@@ -284,7 +284,7 @@ AND removed = false
 		)
 	}
 
-	insertModelStatement, err := s.Prepare(`
+	insertModelAuthorisedKeyStmt, err := s.Prepare(`
 INSERT INTO model_authorized_keys (*)
 VALUES ($modelAuthorizedKey.*)
 ON CONFLICT DO NOTHING
@@ -298,7 +298,7 @@ ON CONFLICT DO NOTHING
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, userRemovedStatement, userUUIDVal).Get(&userUUIDVal)
+		err := tx.Query(ctx, userActiveStmt, userUUIDVal).Get(&userUUIDVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"cannot ensure keys for user %q on model %q because the user does not exist",
@@ -341,7 +341,7 @@ ON CONFLICT DO NOTHING
 				ModelUUID:          modelUUID.String(),
 			}
 
-			err := tx.Query(ctx, insertModelStatement, row).Run()
+			err := tx.Query(ctx, insertModelAuthorisedKeyStmt, row).Run()
 			if jujudb.IsErrConstraintForeignKey(err) {
 				return errors.Errorf(
 					"cannot ensure public key %d for user %q on model %q: model does not exist",
@@ -380,7 +380,7 @@ func (s *State) GetPublicKeysForUser(
 	modelUUIDVal := modelUUIDValue{UUID: modelUUID.String()}
 	userUUIDVal := userUUIDValue{UUID: userUUID.String()}
 
-	userRemovedStatement, err := s.Prepare(`
+	userActiveStmt, err := s.Prepare(`
 SELECT (uuid) AS (&userUUIDValue.user_uuid)
 FROM v_user_auth
 WHERE uuid = $userUUIDValue.user_uuid
@@ -393,7 +393,7 @@ AND removed = false
 		)
 	}
 
-	modelExistsStatement, err := s.Prepare(`
+	modelExistsStmt, err := s.Prepare(`
 SELECT (uuid) AS (&modelUUIDValue.model_uuid)
 FROM v_model
 WHERE uuid = $modelUUIDValue.model_uuid
@@ -421,7 +421,7 @@ AND model_uuid = $modelUUIDValue.model_uuid
 
 	publicKeys := []publicKey{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, userRemovedStatement, userUUIDVal).Get(&userUUIDVal)
+		err := tx.Query(ctx, userActiveStmt, userUUIDVal).Get(&userUUIDVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"cannot get public keys for user %q on model %q because the user does not exist",
@@ -435,7 +435,7 @@ AND model_uuid = $modelUUIDValue.model_uuid
 			)
 		}
 
-		err = tx.Query(ctx, modelExistsStatement, modelUUIDVal).Get(&modelUUIDVal)
+		err = tx.Query(ctx, modelExistsStmt, modelUUIDVal).Get(&modelUUIDVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"cannot get public keys for user %q on model %q because the model does not exists",
@@ -491,7 +491,7 @@ func (s *State) GetPublicKeysDataForUser(
 	userUUIDVal := userUUIDValue{userUUID.String()}
 	modelUUIDVal := modelUUIDValue{modelUUID.String()}
 
-	userRemovedStatement, err := s.Prepare(`
+	userActiveStmt, err := s.Prepare(`
 SELECT (uuid) AS (&userUUIDValue.user_uuid)
 FROM v_user_auth
 WHERE uuid = $userUUIDValue.user_uuid
@@ -504,7 +504,7 @@ AND removed = false
 		)
 	}
 
-	modelExistsStatement, err := s.Prepare(`
+	modelExistsStmt, err := s.Prepare(`
 SELECT (uuid) AS (&modelUUIDValue.model_uuid)
 FROM v_model
 WHERE uuid = $modelUUIDValue.model_uuid
@@ -532,7 +532,7 @@ AND model_uuid = $modelUUIDValue.model_uuid
 
 	publicKeys := []publicKeyData{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, userRemovedStatement, userUUIDVal).Get(&userUUIDVal)
+		err := tx.Query(ctx, userActiveStmt, userUUIDVal).Get(&userUUIDVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"cannot get public keys data for user %q on model %q because the user does not exist",
@@ -546,7 +546,7 @@ AND model_uuid = $modelUUIDValue.model_uuid
 			)
 		}
 
-		err = tx.Query(ctx, modelExistsStatement, modelUUIDVal).Get(&modelUUIDVal)
+		err = tx.Query(ctx, modelExistsStmt, modelUUIDVal).Get(&modelUUIDVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"cannot get public keys data for user %q on model %q because the model does not exist",
@@ -602,7 +602,7 @@ func (s *State) DeletePublicKeysForUser(
 	userUUIDVal := userUUIDValue{UUID: userUUID.String()}
 	modelUUIDVal := modelUUIDValue{UUID: modelUUID.String()}
 
-	userRemovedStatement, err := s.Prepare(`
+	userActiveStmt, err := s.Prepare(`
 SELECT (uuid) AS (&userUUIDValue.user_uuid)
 FROM v_user_auth
 WHERE uuid = $userUUIDValue.user_uuid
@@ -616,7 +616,7 @@ AND removed = false
 		)
 	}
 
-	modelExistsStatement, err := s.Prepare(`
+	modelExistsStmt, err := s.Prepare(`
 SELECT (uuid) AS (&modelUUIDValue.model_uuid)
 FROM v_model
 WHERE uuid = $modelUUIDValue.model_uuid
@@ -633,7 +633,7 @@ WHERE uuid = $modelUUIDValue.model_uuid
 		input = append(input, keyId)
 	}
 
-	findKeysStatement, err := s.Prepare(`
+	findKeysStmt, err := s.Prepare(`
 SELECT (id) AS (&userPublicKeyId.*)
 FROM user_public_ssh_key
 WHERE user_uuid = $userUUIDValue.user_uuid
@@ -648,7 +648,7 @@ AND (comment IN ($S[:])
 		)
 	}
 
-	deleteFromModelStatement, err := s.Prepare(`
+	deleteFromModelStmt, err := s.Prepare(`
 DELETE FROM model_authorized_keys
 WHERE user_public_ssh_key_id IN ($userPublicKeyIds[:])
 AND model_uuid = $modelUUIDValue.model_uuid
@@ -669,7 +669,7 @@ AND id IN (SELECT id
            FROM user_public_ssh_key AS upsk
            LEFT JOIN model_authorized_keys AS mak ON upsk.id = mak.user_public_ssh_key_id
            GROUP BY (id)
-		   HAVING count(user_public_ssh_key_id) == 0)
+           HAVING count(user_public_ssh_key_id) == 0)
 `, userUUIDVal)
 
 	if err != nil {
@@ -681,7 +681,7 @@ AND id IN (SELECT id
 
 	foundKeyIds := userPublicKeyIds{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, userRemovedStatement, userUUIDVal).Get(&userUUIDVal)
+		err := tx.Query(ctx, userActiveStmt, userUUIDVal).Get(&userUUIDVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"cannot delete public keys for user %q on model %q, user does not exist",
@@ -695,7 +695,7 @@ AND id IN (SELECT id
 			)
 		}
 
-		err = tx.Query(ctx, modelExistsStatement, modelUUIDVal).Get(&modelUUIDVal)
+		err = tx.Query(ctx, modelExistsStmt, modelUUIDVal).Get(&modelUUIDVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"cannot delete public keys for user %q on model %q because the model does not exist",
@@ -709,7 +709,7 @@ AND id IN (SELECT id
 			)
 		}
 
-		err = tx.Query(ctx, findKeysStatement, userUUIDVal, input).GetAll(&foundKeyIds)
+		err = tx.Query(ctx, findKeysStmt, userUUIDVal, input).GetAll(&foundKeyIds)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// Nothing was found so we can safely bail out and give this
 			// transaction back to the pool early.
@@ -722,7 +722,7 @@ AND id IN (SELECT id
 			)
 		}
 
-		err = tx.Query(ctx, deleteFromModelStatement, modelUUIDVal, foundKeyIds).Run()
+		err = tx.Query(ctx, deleteFromModelStmt, modelUUIDVal, foundKeyIds).Run()
 		if err != nil {
 			return errors.Errorf(
 				"cannot delete public keys for user %q on model %q: %w",

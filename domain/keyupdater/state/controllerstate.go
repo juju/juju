@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 
@@ -63,7 +62,7 @@ WHERE key IN ($S[:])
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf(
+		return nil, errors.Errorf(
 			"cannot get controller config for keys %v: %w",
 			keys, err,
 		)
