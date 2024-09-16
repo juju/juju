@@ -21,6 +21,7 @@ import (
 	coreuser "github.com/juju/juju/core/user"
 	access "github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -187,12 +188,18 @@ func (api *OffersAPIv5) makeAddOfferArgsFromParams(ctx context.Context, user nam
 	}
 
 	charmID, err := applicationService.GetCharmIDByApplicationName(context.Background(), result.ApplicationName)
-	if err != nil {
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return result, errors.NotFoundf("getting offered application %q", result.ApplicationName)
+	} else if err != nil {
 		return result, errors.Annotatef(err, "getting charm ID for application %v", result.ApplicationName)
 	}
 
 	description, err := applicationService.GetCharmMetadataDescription(ctx, charmID)
-	if err != nil {
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return result, errors.NotFoundf("getting offered application %q", result.ApplicationName)
+	} else if errors.Is(err, applicationerrors.CharmNotFound) {
+		return result, errors.NotFoundf("getting offered application %q charm", result.ApplicationName)
+	} else if err != nil {
 		return result, errors.Annotatef(err, "getting charm description for application %v", result.ApplicationName)
 	}
 

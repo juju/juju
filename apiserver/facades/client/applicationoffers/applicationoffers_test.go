@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -265,6 +266,79 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 	s.applicationOffers.CheckCallNames(c, offerCall, addOffersBackendCall)
+}
+
+func (s *applicationOffersSuite) TestOfferErrorApplicationError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
+	s.authorizer.Tag = names.NewUserTag("admin")
+	applicationName := "test"
+	s.addApplication(c, applicationName)
+	one := params.AddApplicationOffer{
+		ModelTag:        testing.ModelTag.String(),
+		OfferName:       "offer-test",
+		ApplicationName: applicationName,
+		Endpoints:       map[string]string{"db": "db"},
+	}
+	all := params.AddApplicationOffers{Offers: []params.AddApplicationOffer{one}}
+
+	s.applicationOffers.addOffer = func(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
+		return &jujucrossmodel.ApplicationOffer{}, nil
+	}
+	s.mockState.applications = map[string]crossmodel.Application{
+		applicationName: &mockApplication{bindings: map[string]string{"db": "myspace"}},
+	}
+
+	modelUUID := model.UUID(testing.ModelTag.Id())
+	s.mockModelServiceFactoryGetter.EXPECT().ServiceFactoryForModel(modelUUID).Return(s.mockModelServiceFactory)
+	s.mockModelServiceFactory.EXPECT().Application().Return(s.mockApplicationService)
+
+	chID := charmtesting.GenCharmID(c)
+	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(chID, applicationerrors.ApplicationNotFound)
+
+	errs, err := s.api.Offer(context.Background(), all)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
+	c.Assert(errs.Results[0].Error, gc.ErrorMatches, `getting offered application "test" not found`)
+	s.applicationOffers.CheckCallNames(c)
+}
+
+func (s *applicationOffersSuite) TestOfferErrorApplicationCharmError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
+	s.authorizer.Tag = names.NewUserTag("admin")
+	applicationName := "test"
+	s.addApplication(c, applicationName)
+	one := params.AddApplicationOffer{
+		ModelTag:        testing.ModelTag.String(),
+		OfferName:       "offer-test",
+		ApplicationName: applicationName,
+		Endpoints:       map[string]string{"db": "db"},
+	}
+	all := params.AddApplicationOffers{Offers: []params.AddApplicationOffer{one}}
+
+	s.applicationOffers.addOffer = func(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
+		return &jujucrossmodel.ApplicationOffer{}, nil
+	}
+	s.mockState.applications = map[string]crossmodel.Application{
+		applicationName: &mockApplication{bindings: map[string]string{"db": "myspace"}},
+	}
+
+	modelUUID := model.UUID(testing.ModelTag.Id())
+	s.mockModelServiceFactoryGetter.EXPECT().ServiceFactoryForModel(modelUUID).Return(s.mockModelServiceFactory)
+	s.mockModelServiceFactory.EXPECT().Application().Return(s.mockApplicationService)
+
+	chID := charmtesting.GenCharmID(c)
+	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(chID, nil)
+	s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), gomock.Any()).Return("", applicationerrors.CharmNotFound)
+
+	errs, err := s.api.Offer(context.Background(), all)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
+	c.Assert(errs.Results[0].Error, gc.ErrorMatches, `getting offered application "test" charm not found`)
+	s.applicationOffers.CheckCallNames(c)
 }
 
 func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedCIDRS []string) {

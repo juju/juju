@@ -1133,7 +1133,7 @@ WHERE uuid = $applicationID.uuid
 
 	var result charmID
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		appID, err := st.lookupApplication(ctx, tx, name, false)
+		appID, err := st.lookupApplication(ctx, tx, name)
 		if err != nil {
 			return internalerrors.Errorf("looking up application %q: %w", name, err)
 		}

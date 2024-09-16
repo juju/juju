@@ -15,7 +15,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	// Registering as a multi-model facade, to paper of the add-offer API.
+	// Registering as a multi-model facade, to paper over the add-offer API.
 	// This shouldn't be required, instead we should be in the context of a
 	// model facade. Rather than rewriting this and the client for both 3.6
 	// and 4.0, we're conceding. We lost.

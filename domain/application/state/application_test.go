@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -892,7 +893,7 @@ func (s *applicationStateSuite) TestStorageDefaults(c *gc.C) {
 	})
 }
 
-func (s *applicationStateSuite) TestCreateApplicationThenGetCharmIDByApplicationName(c *gc.C) {
+func (s *applicationStateSuite) TestGetCharmIDByApplicationName(c *gc.C) {
 	origin := charm.CharmOrigin{
 		Source:   charm.LocalSource,
 		Revision: 42,
@@ -965,6 +966,11 @@ func (s *applicationStateSuite) TestCreateApplicationThenGetCharmIDByApplication
 	chID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(chID.Validate(), jc.ErrorIsNil)
+}
+
+func (s *applicationStateSuite) TestGetCharmIDByApplicationNameError(c *gc.C) {
+	_, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestCreateApplicationThenGetCharmByApplicationName(c *gc.C) {
@@ -1216,6 +1222,16 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 
 	_, _, _, err = s.state.GetCharmByApplicationName(context.Background(), "bar")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestCheckCharmExistsNotFound(c *gc.C) {
+	id := uuid.MustNewUUID().String()
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.checkCharmExists(ctx, tx, charmID{
+			UUID: id,
+		})
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *applicationStateSuite) assertApplication(
