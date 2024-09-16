@@ -976,23 +976,23 @@ FROM v_permission
 }
 
 func (s *stateSuite) TestGetCloudForNonExistentID(c *gc.C) {
-	fakeID := cloudtesting.GenCloudID(c)
+	fakeID := cloudtesting.GenCloudUUID(c)
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetCloudForID(context.Background(), fakeID)
+	_, err := st.GetCloudForUUID(context.Background(), fakeID)
 	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
 }
 
-func (s *stateSuite) TestGetCloudForID(c *gc.C) {
+func (s *stateSuite) TestGetCloudForUUID(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	s.assertInsertCloud(c, st, testCloud)
 
 	db := s.DB()
-	var id corecloud.ID
-	err := db.QueryRow("SELECT uuid FROM v_cloud where name = ?", testCloud.Name).Scan(&id)
+	var uuid corecloud.UUID
+	err := db.QueryRow("SELECT uuid FROM v_cloud where name = ?", testCloud.Name).Scan(&uuid)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(err, jc.ErrorIsNil)
-	cloud, err := st.GetCloudForID(context.Background(), id)
+	cloud, err := st.GetCloudForUUID(context.Background(), uuid)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cloud, jc.DeepEquals, testCloud)
 }

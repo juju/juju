@@ -141,9 +141,10 @@ func (st *State) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
 	return result, errors.Trace(err)
 }
 
-// GetCloudForID returns the cloud associated with the provided id. If no cloud is
-// found for the given id then a [clouderrors.NotFound] error is returned.
-func (st *State) GetCloudForID(ctx context.Context, id corecloud.ID) (cloud.Cloud, error) {
+// GetCloudForUUID returns the cloud associated with the provided uuid. If no
+// cloud is found for the given uuid then a [clouderrors.NotFound] error is
+// returned.
+func (st *State) GetCloudForUUID(ctx context.Context, id corecloud.UUID) (cloud.Cloud, error) {
 	db, err := st.DB()
 	if err != nil {
 		return cloud.Cloud{}, errors.Trace(err)
@@ -151,21 +152,22 @@ func (st *State) GetCloudForID(ctx context.Context, id corecloud.ID) (cloud.Clou
 
 	var rval cloud.Cloud
 	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		rval, err = GetCloudForID(ctx, st, tx, id)
+		rval, err = GetCloudForUUID(ctx, st, tx, id)
 		return err
 	})
 }
 
-// GetCloudForID returns the cloud associated with the provided id. If no cloud is
-// found for the given id then a [clouderrors.NotFound] error is returned.
-func GetCloudForID(
+// GetCloudForUUID returns the cloud associated with the provided uuid. If no
+// cloud is found for the given id then a [clouderrors.NotFound] error is
+// returned.
+func GetCloudForUUID(
 	ctx context.Context,
 	st domain.Preparer,
 	tx *sqlair.TX,
-	id corecloud.ID,
+	uuid corecloud.UUID,
 ) (cloud.Cloud, error) {
 	cloudID := cloudID{
-		UUID: id.String(),
+		UUID: uuid.String(),
 	}
 
 	q := `
@@ -182,9 +184,9 @@ func GetCloudForID(
 	var records []cloudWithAuthType
 	err = tx.Query(ctx, stmt, cloudID).GetAll(&records)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return cloud.Cloud{}, fmt.Errorf("%w for uuid %q", clouderrors.NotFound, id)
+		return cloud.Cloud{}, fmt.Errorf("%w for uuid %q", clouderrors.NotFound, uuid)
 	} else if err != nil {
-		return cloud.Cloud{}, fmt.Errorf("getting cloud %q: %w", id, err)
+		return cloud.Cloud{}, fmt.Errorf("getting cloud %q: %w", uuid, err)
 	}
 
 	cld := cloud.Cloud{
@@ -203,17 +205,17 @@ func GetCloudForID(
 		cld.AuthTypes = append(cld.AuthTypes, cloud.AuthType(record.AuthType))
 	}
 
-	caCerts, err := loadCACerts(ctx, tx, []string{id.String()})
+	caCerts, err := loadCACerts(ctx, tx, []string{uuid.String()})
 	if err != nil {
-		return cloud.Cloud{}, fmt.Errorf("loading cloud %q ca certificates: %w", id, err)
+		return cloud.Cloud{}, fmt.Errorf("loading cloud %q ca certificates: %w", uuid, err)
 	}
-	cld.CACertificates = caCerts[id.String()]
+	cld.CACertificates = caCerts[uuid.String()]
 
-	regions, err := loadRegions(ctx, tx, []string{id.String()})
+	regions, err := loadRegions(ctx, tx, []string{uuid.String()})
 	if err != nil {
-		return cloud.Cloud{}, fmt.Errorf("loading cloud %q regions: %w", id, err)
+		return cloud.Cloud{}, fmt.Errorf("loading cloud %q regions: %w", uuid, err)
 	}
-	cld.Regions = regions[id.String()]
+	cld.Regions = regions[uuid.String()]
 
 	return cld, nil
 }
