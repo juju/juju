@@ -647,6 +647,13 @@ WHERE model_type.type = ?
 // Delete will remove all data associated with the provided model uuid removing
 // the models existence from Juju. If the model does not exist then a error
 // satisfying modelerrors.NotFound will be returned.
+// The following items are removed as part of deleting a model:
+// - Authorized keys for a model.
+// - Secret backends
+// - Secret backend ref counting
+// - Model agent information
+// - Model permissions
+// - Model login information
 func (s *State) Delete(
 	ctx context.Context,
 	uuid coremodel.UUID,
@@ -658,6 +665,7 @@ func (s *State) Delete(
 
 	deleteSecretBackend := `DELETE FROM model_secret_backend WHERE model_uuid = ?`
 	deleteSecretBackendRefCount := `DELETE FROM secret_backend_reference WHERE model_uuid = ?`
+	deleteModelAuthorizedKeys := `DELETE FROM model_authorized_keys WHERE model_uuid = ?`
 	deleteModelAgent := `DELETE FROM model_agent WHERE model_uuid = ?`
 	deletePermissionStmt := `DELETE FROM permission WHERE grant_on = ?;`
 	deleteModelLogin := `DELETE FROM model_last_login WHERE model_uuid = ?`
@@ -675,6 +683,11 @@ func (s *State) Delete(
 		_, err = tx.ExecContext(ctx, deleteSecretBackendRefCount, uuid)
 		if err != nil {
 			return fmt.Errorf("deleting secret backend reference count for model %q: %w", uuid, err)
+		}
+
+		_, err = tx.ExecContext(ctx, deleteModelAuthorizedKeys, uuid)
+		if err != nil {
+			return fmt.Errorf("deleting model %q authorized keys: %w", uuid, err)
 		}
 
 		_, err = tx.ExecContext(ctx, deleteModelAgent, uuid)
