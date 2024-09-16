@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
 )
@@ -27,7 +28,7 @@ func SetPrecheckResult(p patcher, err error) {
 		credentialService common.CredentialService,
 		upgradeService UpgradeService,
 		modelService ModelService,
-		modelExporter ModelExporter,
+		modelExporter func(model.UUID, facade.LegacyStateExporter) ModelExporter,
 		store objectstore.ObjectStore,
 		leaders map[string]string) error {
 		return err

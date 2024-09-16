@@ -18,6 +18,7 @@ import (
 
 	// Register the providers for the field check test
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -231,7 +232,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) {
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
-		s.st, s.modelExporter, s.ctlrSt,
+		s.st, modelExporter(s.modelExporter), s.ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: s.serviceFactoryGetter,
@@ -252,7 +253,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) {
 	caasCred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	caasApi, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
-		s.caasSt, s.modelExporter, s.ctlrSt,
+		s.caasSt, modelExporter(s.modelExporter), s.ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: s.serviceFactoryGetter,
@@ -288,7 +289,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	}
 	mm, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
-		s.st, s.modelExporter, s.ctlrSt,
+		s.st, modelExporter(s.modelExporter), s.ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: s.serviceFactoryGetter,
@@ -896,7 +897,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 	s.setUpAPI(c)
 	api, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
-		s.st, s.modelExporter, s.ctlrSt,
+		s.st, modelExporter(s.modelExporter), s.ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: s.serviceFactoryGetter,
@@ -1972,6 +1973,12 @@ func (s *modelManagerSuite) TestChangeModelCredentialNotUpdated(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `model deadbeef-0bad-400d-8000-4b1d0d06f00d already uses credential foo/bob/bar`)
+}
+
+func modelExporter(exporter *mocks.MockModelExporter) func(coremodel.UUID, facade.LegacyStateExporter) modelmanager.ModelExporter {
+	return func(_ coremodel.UUID, _ facade.LegacyStateExporter) modelmanager.ModelExporter {
+		return exporter
+	}
 }
 
 type fakeProvider struct {

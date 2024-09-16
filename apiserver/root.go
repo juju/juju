@@ -932,10 +932,10 @@ var storageRegistryGetter = func(ctx *facadeContext) func() (storage.ProviderReg
 }
 
 // ModelExporter returns a model exporter for the current model.
-func (ctx *facadeContext) ModelExporter(backend facade.LegacyStateExporter) facade.ModelExporter {
+func (ctx *facadeContext) ModelExporter(modelUUID model.UUID, backend facade.LegacyStateExporter) facade.ModelExporter {
 	return migration.NewModelExporter(
 		backend,
-		ctx.migrationScope(ctx.ModelUUID().String()),
+		ctx.migrationScope(modelUUID),
 		storageRegistryGetter(ctx),
 		ctx.Logger(),
 	)
@@ -1007,15 +1007,15 @@ func (ctx *facadeContext) controllerDB() (changestream.WatchableDB, error) {
 // modelDB is a protected method, do not expose this directly in to the
 // facade context. It is expected that users of the facade context will use the
 // higher level abstractions.
-func (ctx *facadeContext) modelDB(modelUUID string) (changestream.WatchableDB, error) {
-	db, err := ctx.r.shared.dbGetter.GetWatchableDB(modelUUID)
+func (ctx *facadeContext) modelDB(modelUUID model.UUID) (changestream.WatchableDB, error) {
+	db, err := ctx.r.shared.dbGetter.GetWatchableDB(modelUUID.String())
 	return db, errors.Trace(err)
 }
 
 // migrationScope is a protected method, do not expose this directly in to the
 // facade context. It is expect that users of the facade context will use the
 // higher level abstractions.
-func (ctx *facadeContext) migrationScope(modelUUID string) modelmigration.Scope {
+func (ctx *facadeContext) migrationScope(modelUUID model.UUID) modelmigration.Scope {
 	return modelmigration.NewScope(
 		changestream.NewTxnRunnerFactory(ctx.controllerDB),
 		changestream.NewTxnRunnerFactory(func() (changestream.WatchableDB, error) {

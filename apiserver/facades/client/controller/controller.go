@@ -130,7 +130,7 @@ type ControllerAPI struct {
 	modelService             ModelService
 	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService
 	proxyService             ProxyService
-	modelExporter            ModelExporter
+	modelExporter            func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
 	store                    objectstore.ObjectStore
 	leadership               leadership.Reader
 
@@ -163,7 +163,7 @@ func NewControllerAPI(
 	modelService ModelService,
 	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService,
 	proxyService ProxyService,
-	modelExporter ModelExporter,
+	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
 	store objectstore.ObjectStore,
 	leadership leadership.Reader,
 ) (*ControllerAPI, error) {
@@ -895,7 +895,7 @@ var runMigrationPrechecks = func(
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
 	modelService ModelService,
-	modelExporter ModelExporter,
+	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
 	store objectstore.ObjectStore,
 	leaders map[string]string,
 ) error {
@@ -1022,7 +1022,7 @@ users to the destination controller or remove them from the current model:
 func makeModelInfo(ctx context.Context, st *state.State,
 	controllerConfigService ControllerConfigService,
 	modelService ModelService,
-	modelExporter ModelExporter,
+	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
 	store objectstore.ObjectStore,
 	leaders map[string]string,
 ) (coremigration.ModelInfo, userList, error) {
@@ -1034,7 +1034,7 @@ func makeModelInfo(ctx context.Context, st *state.State,
 		return empty, ul, errors.Trace(err)
 	}
 
-	description, err := modelExporter.ExportModel(ctx, leaders, store)
+	description, err := modelExporter(coremodel.UUID(model.UUID()), st).ExportModel(ctx, leaders, store)
 	if err != nil {
 		return empty, ul, errors.Trace(err)
 	}

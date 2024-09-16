@@ -82,7 +82,7 @@ type ModelManagerAPI struct {
 	networkService       NetworkService
 	configSchemaSource   config.ConfigSchemaSourceGetter
 	accessService        AccessService
-	modelExporter        ModelExporter
+	modelExporter        func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
 	store                objectstore.ObjectStore
 	secretBackendService SecretBackendService
 
@@ -99,7 +99,7 @@ type ModelManagerAPI struct {
 func NewModelManagerAPI(
 	ctx context.Context,
 	st StateBackend,
-	modelExporter ModelExporter,
+	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
 	ctlrSt common.ModelManagerBackend,
 	controllerUUID uuid.UUID,
 	services Services,
@@ -687,7 +687,7 @@ func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity, sim
 		}
 	}
 
-	_, release, err := m.state.GetBackend(modelTag.Id())
+	modelState, release, err := m.state.GetBackend(modelTag.Id())
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(apiservererrors.ErrBadId)
@@ -709,7 +709,7 @@ func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity, sim
 		exportConfig.SkipLinkLayerDevices = true
 	}
 
-	model, err := m.modelExporter.ExportModelPartial(ctx, exportConfig, m.store)
+	model, err := m.modelExporter(coremodel.UUID(modelTag.Id()), modelState).ExportModelPartial(ctx, exportConfig, m.store)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

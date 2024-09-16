@@ -49,7 +49,7 @@ func newMigrationMasterFacade(ctx facade.ModelContext) (*API, error) {
 	return NewAPI(
 		controllerState,
 		backend,
-		ctx.ModelExporter(backend),
+		ctx.ModelExporter(ctx.ModelUUID(), backend),
 		ctx.ObjectStore(),
 		preCheckBackend,
 		migration.PoolShim(pool),
