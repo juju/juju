@@ -10,10 +10,10 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 )
 
-// GenUnitID can be used in testing for generating a unit id that is checked
+// GenUnitUUID can be used in testing for generating a unit uuid that is checked
 // for subsequent errors using the test suits go check instance.
-func GenUnitID(c *gc.C) coreunit.ID {
-	uuid, err := coreunit.NewID()
+func GenUnitUUID(c *gc.C) coreunit.UUID {
+	uuid, err := coreunit.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return uuid
 }

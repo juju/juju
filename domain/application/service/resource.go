@@ -44,7 +44,7 @@ type ResourceState interface {
 	// OpenResourceForUniter returns the metadata for a resource and a reader
 	// for the resource. A unit resource is created to track the given unit and
 	// which resource its using.
-	OpenResourceForUniter(ctx context.Context, resourceID resources.ID, unitID coreunit.ID) (resource.Resource, io.ReadCloser, error)
+	OpenResourceForUniter(ctx context.Context, resourceID resources.ID, unitID coreunit.UUID) (resource.Resource, io.ReadCloser, error)
 	// OpenUnitResource?
 
 	// SetRepositoryResources sets the "polled" resources for the
@@ -143,7 +143,7 @@ func (s *ResourceService) SetResource(ctx context.Context, args resource.SetReso
 // SetUnitResource sets the resource metadata for a specific unit.
 //
 // The following error types can be expected to be returned:
-//   - errors.NotValid is returned if the unit ID is not valid.
+//   - errors.NotValid is returned if the unit UUID is not valid.
 //   - errors.NotValid is returned if the resource is not valid.
 //   - errors.NotValid is returned if the SuppliedByType is unknown while
 //     SuppliedBy has a value.
@@ -180,14 +180,14 @@ func (s *ResourceService) OpenResource(ctx context.Context, resourceID resources
 // completely exhausted. Read progress is stored until the reader is completely
 // exhausted. Typically used for File resources.
 //
-// The following error types can be expected to be returned:
+// The following error types can be returned:
 //   - errors.NotValid is returned if the resource ID is not valid.
-//   - errors.NotValid is returned if the unit ID is not valid.
+//   - errors.NotValid is returned if the unit UUID is not valid.
 //   - application.ResourceNotFound if the specified resource does
 //     not exist.
 //   - application.UnitNotFound if the specified unit does
 //     not exist.
-func (s *ResourceService) OpenResourceForUniter(ctx context.Context, resourceID resources.ID, unitID coreunit.ID) (resource.Resource, io.ReadCloser, error) {
+func (s *ResourceService) OpenResourceForUniter(ctx context.Context, resourceID resources.ID, unitID coreunit.UUID) (resource.Resource, io.ReadCloser, error) {
 	if err := unitID.Validate(); err != nil {
 		return resource.Resource{}, nil, fmt.Errorf("unit id: %w", err)
 	}

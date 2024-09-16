@@ -398,7 +398,7 @@ func (st *ApplicationState) getUnit(ctx context.Context, tx *sqlair.TX, unitName
 func (st *ApplicationState) insertUnit(
 	ctx context.Context, tx *sqlair.TX, appID coreapplication.ID, args application.UpsertUnitArg,
 ) error {
-	unitUUID, err := coreunit.NewID()
+	unitUUID, err := coreunit.NewUUID()
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -18,7 +18,7 @@ type unitSuite struct {
 
 var _ = gc.Suite(&unitSuite{})
 
-func (*unitSuite) TestIDValidate(c *gc.C) {
+func (*unitSuite) TestUUIDValidate(c *gc.C) {
 	tests := []struct {
 		uuid string
 		err  error
@@ -38,7 +38,7 @@ func (*unitSuite) TestIDValidate(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("test %d: %q", i, test.uuid)
-		err := ID(test.uuid).Validate()
+		err := UUID(test.uuid).Validate()
 
 		if test.err == nil {
 			c.Check(err, gc.IsNil)
@@ -49,7 +49,7 @@ func (*unitSuite) TestIDValidate(c *gc.C) {
 	}
 }
 
-func (*unitSuite) TestParseID(c *gc.C) {
+func (*unitSuite) TestParseUUID(c *gc.C) {
 	tests := []struct {
 		uuid string
 		err  error

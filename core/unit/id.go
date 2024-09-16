@@ -11,40 +11,40 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// ID represents a unit unique identifier.
-type ID string
+// UUID represents a unit unique identifier.
+type UUID string
 
-// NewID is a convince function for generating a new unit uuid.
-func NewID() (ID, error) {
+// NewUUID is a convince function for generating a new unit uuid.
+func NewUUID() (UUID, error) {
 	id, err := uuid.NewUUID()
 	if err != nil {
-		return ID(""), err
+		return UUID(""), err
 	}
-	return ID(id.String()), nil
+	return UUID(id.String()), nil
 }
 
-// ParseID returns a new ID from the given string. If the string is not a valid
+// ParseID returns a new UUID from the given string. If the string is not a valid
 // uuid an error satisfying [errors.NotValid] will be returned.
-func ParseID(value string) (ID, error) {
+func ParseID(value string) (UUID, error) {
 	if !uuid.IsValidUUIDString(value) {
 		return "", fmt.Errorf("id %q %w", value, errors.NotValid)
 	}
-	return ID(value), nil
+	return UUID(value), nil
 }
 
-// String implements the stringer interface for ID.
-func (u ID) String() string {
+// String implements the stringer interface for UUID.
+func (u UUID) String() string {
 	return string(u)
 }
 
-// Validate ensures the consistency of the ID. If the uuid is invalid an error
+// Validate ensures the consistency of the UUID. If the uuid is invalid an error
 // satisfying [errors.NotValid] will be returned.
-func (u ID) Validate() error {
+func (u UUID) Validate() error {
 	if u == "" {
-		return fmt.Errorf("%wid cannot be empty", errors.Hide(errors.NotValid))
+		return fmt.Errorf("%wuuid cannot be empty", errors.Hide(errors.NotValid))
 	}
 	if !uuid.IsValidUUIDString(string(u)) {
-		return fmt.Errorf("id %q %w", u, errors.NotValid)
+		return fmt.Errorf("uuid %q %w", u, errors.NotValid)
 	}
 	return nil
 }
