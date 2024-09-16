@@ -1673,7 +1673,7 @@ func (c *MockResourceStateOpenResourceCall) DoAndReturn(f func(context.Context, 
 }
 
 // OpenResourceForUniter mocks base method.
-func (m *MockResourceState) OpenResourceForUniter(arg0 context.Context, arg1 resources.ID, arg2 unit.ID) (resource.Resource, io.ReadCloser, error) {
+func (m *MockResourceState) OpenResourceForUniter(arg0 context.Context, arg1 resources.ID, arg2 unit.UUID) (resource.Resource, io.ReadCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenResourceForUniter", arg0, arg1, arg2)
 	ret0, _ := ret[0].(resource.Resource)
@@ -1701,13 +1701,13 @@ func (c *MockResourceStateOpenResourceForUniterCall) Return(arg0 resource.Resour
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourceStateOpenResourceForUniterCall) Do(f func(context.Context, resources.ID, unit.ID) (resource.Resource, io.ReadCloser, error)) *MockResourceStateOpenResourceForUniterCall {
+func (c *MockResourceStateOpenResourceForUniterCall) Do(f func(context.Context, resources.ID, unit.UUID) (resource.Resource, io.ReadCloser, error)) *MockResourceStateOpenResourceForUniterCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceStateOpenResourceForUniterCall) DoAndReturn(f func(context.Context, resources.ID, unit.ID) (resource.Resource, io.ReadCloser, error)) *MockResourceStateOpenResourceForUniterCall {
+func (c *MockResourceStateOpenResourceForUniterCall) DoAndReturn(f func(context.Context, resources.ID, unit.UUID) (resource.Resource, io.ReadCloser, error)) *MockResourceStateOpenResourceForUniterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

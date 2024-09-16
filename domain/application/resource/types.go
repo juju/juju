@@ -106,7 +106,7 @@ const (
 // UnitResources contains the list of resources used by a unit.
 type UnitResources struct {
 	// ID is the ID of the unit.
-	ID unit.ID
+	ID unit.UUID
 
 	// Resources are the resource versions currently in use by this unit.
 	Resources []Resource
@@ -138,7 +138,7 @@ type SetResourceArgs struct {
 
 // SetUnitResourceArgs holds the arguments for the SetUnitResource method.
 type SetUnitResourceArgs struct {
-	UnitID         unit.ID
+	UnitID         unit.UUID
 	SuppliedBy     string
 	SuppliedByType SuppliedByType
 	Resource       resource.Resource

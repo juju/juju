@@ -193,7 +193,7 @@ func (s *resourceServiceSuite) TestSetUnitResource(c *gc.C) {
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
 	args := resource.SetUnitResourceArgs{
-		UnitID:         unittesting.GenUnitID(c),
+		UnitID:         unittesting.GenUnitUUID(c),
 		SuppliedBy:     "admin",
 		SuppliedByType: resource.User,
 		Resource: charmresource.Resource{
@@ -243,7 +243,7 @@ func (s *resourceServiceSuite) TestOpenResourceBadID(c *gc.C) {
 func (s *resourceServiceSuite) TestOpenResourceForUniter(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	resourceID := resourcestesting.GenResourceID(c)
-	unitID := unittesting.GenUnitID(c)
+	unitID := unittesting.GenUnitUUID(c)
 	expectedRes := resource.Resource{
 		ID:            resourceID,
 		ApplicationID: applicationtesting.GenApplicationUUID(c),
