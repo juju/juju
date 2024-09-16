@@ -51,8 +51,6 @@ func (s *stateShim) Model() (Model, error) {
 // Model defines the needed methods of state.Model for
 // the work of the undertaker API.
 type Model interface {
-	state.ModelAccessor
-
 	// Owner returns tag representing the owner of the model.
 	// The owner is the user that created the model.
 	Owner() names.UserTag

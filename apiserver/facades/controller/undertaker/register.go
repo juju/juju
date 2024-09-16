@@ -40,5 +40,13 @@ func newUndertakerFacade(ctx facade.ModelContext) (*UndertakerAPI, error) {
 		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, serviceFactory.Credential()),
 		common.AuthFuncForTag(model.ModelTag()),
 	)
-	return newUndertakerAPI(&stateShim{st}, ctx.Resources(), ctx.Auth(), cloudSpecAPI, backendService)
+	return newUndertakerAPI(
+		&stateShim{st},
+		ctx.Resources(),
+		ctx.Auth(),
+		cloudSpecAPI,
+		backendService,
+		serviceFactory.Config(),
+		ctx.WatcherRegistry(),
+	)
 }

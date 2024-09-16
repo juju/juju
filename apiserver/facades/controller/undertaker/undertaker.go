@@ -33,15 +33,20 @@ type UndertakerAPI struct {
 	resources facade.Resources
 
 	*common.StatusSetter
-	*common.MongoModelWatcher
+	*common.ModelWatcher
 	cloudspec.CloudSpecer
 
 	secretBackendService SecretBackendService
 }
 
 func newUndertakerAPI(
-	st State, resources facade.Resources, authorizer facade.Authorizer,
-	cloudSpecer cloudspec.CloudSpecer, secretBackendService SecretBackendService,
+	st State,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	cloudSpecer cloudspec.CloudSpecer,
+	secretBackendService SecretBackendService,
+	modelConfigService common.ModelConfigService,
+	watcherRegistry facade.WatcherRegistry,
 ) (*UndertakerAPI, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -68,7 +73,7 @@ func newUndertakerAPI(
 		resources:            resources,
 		secretBackendService: secretBackendService,
 		StatusSetter:         common.NewStatusSetter(st, getCanModifyModel),
-		MongoModelWatcher:    common.NewMongoModelWatcher(model, resources),
+		ModelWatcher:         common.NewModelWatcher(modelConfigService, watcherRegistry),
 		CloudSpecer:          cloudSpecer,
 	}, nil
 }
