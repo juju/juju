@@ -44,31 +44,31 @@ func credentialKeyMap(key corecredential.Key) sqlair.M {
 	}
 }
 
-// CredentialIDForKey finds and returns the id for the cloud credential
+// CredentialUUIDForKey finds and returns the uuid for the cloud credential
 // identified by key. If no credential is found then an error of
 // [credentialerrors.NotFound] is returned.
-func (st *State) CredentialIDForKey(ctx context.Context, key corecredential.Key) (corecredential.ID, error) {
+func (st *State) CredentialUUIDForKey(ctx context.Context, key corecredential.Key) (corecredential.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
-		return corecredential.ID(""), errors.Trace(err)
+		return corecredential.UUID(""), errors.Trace(err)
 	}
 
-	var rval corecredential.ID
+	var rval corecredential.UUID
 	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		rval, err = st.credentialIDForKey(ctx, tx, key)
+		rval, err = st.credentialUUIDForKey(ctx, tx, key)
 		return err
 	})
 }
 
-// credentialIDForKey finds and returns the id for the cloud credential
+// credentialUUIDForKey finds and returns the uuid for the cloud credential
 // identified by key. If no credential is found then an error of
 // [credentialerrors.NotFound] is returned.
-func (st *State) credentialIDForKey(
+func (st *State) credentialUUIDForKey(
 	ctx context.Context,
 	tx *sqlair.TX,
 	key corecredential.Key,
-) (corecredential.ID, error) {
+) (corecredential.UUID, error) {
 	selectQ := `
 SELECT &M.uuid
 FROM v_cloud_credential
@@ -96,7 +96,7 @@ AND cloud_name = $M.cloud_name
 		)
 	}
 
-	return corecredential.ID(uuidStr.(string)), nil
+	return corecredential.UUID(uuidStr.(string)), nil
 }
 
 // UpsertCloudCredential adds or updates a cloud credential with the given name,
@@ -138,23 +138,23 @@ AND owner_name = $M.owner
 		if ok {
 			existingInvalid = &invalid
 		}
-		credentialID, ok := result["uuid"].(string)
+		credentialUUID, ok := result["uuid"].(string)
 		if !ok {
 			if credential.Invalid || credential.InvalidReason != "" {
 				return fmt.Errorf("adding invalid credential %w", errors.NotSupported)
 			}
-			id, err := corecredential.NewID()
+			id, err := corecredential.NewUUID()
 			if err != nil {
 				return fmt.Errorf("generating new credential uuid: %w", err)
 			}
-			credentialID = id.String()
+			credentialUUID = id.String()
 		}
 
-		if err := upsertCredential(ctx, tx, credentialID, key, credential); err != nil {
+		if err := upsertCredential(ctx, tx, credentialUUID, key, credential); err != nil {
 			return fmt.Errorf("updating credential: %w", err)
 		}
 
-		if err := updateCredentialAttributes(ctx, tx, credentialID, credential.Attributes); err != nil {
+		if err := updateCredentialAttributes(ctx, tx, credentialUUID, credential.Attributes); err != nil {
 			return fmt.Errorf("updating credential %q attributes: %w", key.Name, err)
 		}
 
@@ -502,7 +502,7 @@ FROM   cloud_credential cc
 // [credentialerrors.NotFound] error will be returned.
 func (st *State) GetCloudCredential(
 	ctx context.Context,
-	id corecredential.ID,
+	id corecredential.UUID,
 ) (credential.CloudCredentialResult, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -524,7 +524,7 @@ func GetCloudCredential(
 	ctx context.Context,
 	st domain.Preparer,
 	tx *sqlair.TX,
-	id corecredential.ID,
+	id corecredential.UUID,
 ) (credential.CloudCredentialResult, error) {
 	q := `
 SELECT (uuid,
@@ -631,7 +631,7 @@ WHERE  cloud_credential.uuid = $M.uuid
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		id, err := st.credentialIDForKey(ctx, tx, key)
+		id, err := st.credentialUUIDForKey(ctx, tx, key)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -655,10 +655,10 @@ func (st *State) WatchCredential(
 		return nil, errors.Trace(err)
 	}
 
-	var id corecredential.ID
+	var id corecredential.UUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		id, err = st.credentialIDForKey(ctx, tx, key)
+		id, err = st.credentialUUIDForKey(ctx, tx, key)
 		return errors.Trace(err)
 	})
 	if err != nil {

@@ -547,7 +547,7 @@ INSERT INTO model_secret_backend (model_uuid, secret_backend_uuid) VALUES (?, ?)
 }
 
 // createModel is responsible for creating a new model record
-// for the given model ID. If a model record already exists for the
+// for the given model UUID. If a model record already exists for the
 // given model id then an error satisfying modelerrors.AlreadyExists is
 // returned. Conversely, should the owner already have a model that exists with
 // the provided name then a modelerrors.AlreadyExists error will be returned. If
@@ -1377,7 +1377,7 @@ WHERE model_uuid = ?
 `
 	_, err = tx.ExecContext(ctx, deleteBadStateModelNamespace, modelID)
 	if err != nil {
-		return fmt.Errorf("cleaning up bad model namespace for model with ID %q: %w",
+		return fmt.Errorf("cleaning up bad model namespace for model with UUID %q: %w",
 			modelID, err,
 		)
 	}
@@ -1389,7 +1389,7 @@ WHERE model_uuid = ?
 `
 	_, err = tx.ExecContext(ctx, deleteBrokenModelAgent, modelID)
 	if err != nil {
-		return fmt.Errorf("cleaning up model agent entry for model with ID %q: %w",
+		return fmt.Errorf("cleaning up model agent entry for model with UUID %q: %w",
 			modelID, err,
 		)
 	}
@@ -1401,7 +1401,7 @@ WHERE model_uuid = ?
 `
 	_, err = tx.ExecContext(ctx, deleteBrokenModelSecretBackend, modelID)
 	if err != nil {
-		return fmt.Errorf("cleaning up model secret backend for model with ID %q: %w",
+		return fmt.Errorf("cleaning up model secret backend for model with UUID %q: %w",
 			modelID, err,
 		)
 	}
@@ -1413,7 +1413,7 @@ WHERE model_uuid = ?
 `
 	_, err = tx.ExecContext(ctx, deleteBrokenModelLastLogin, modelID)
 	if err != nil {
-		return fmt.Errorf("cleaning up model last login for model with ID %q: %w",
+		return fmt.Errorf("cleaning up model last login for model with UUID %q: %w",
 			modelID, err,
 		)
 	}
@@ -1425,7 +1425,7 @@ WHERE uuid = ?
 `
 	_, err = tx.ExecContext(ctx, deleteBadStateModel, modelID)
 	if err != nil {
-		return fmt.Errorf("cleaning up bad model state for model with ID %q: %w",
+		return fmt.Errorf("cleaning up bad model state for model with UUID %q: %w",
 			modelID, err,
 		)
 	}

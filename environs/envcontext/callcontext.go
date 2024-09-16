@@ -18,10 +18,10 @@ type (
 	// ModelCredentialInvalidatorGetter returns a function which records a credential as being invalid.
 	ModelCredentialInvalidatorGetter func() (ModelCredentialInvalidatorFunc, error)
 
-	// CredentialIDGetter is a function which returns a credential ID.
+	// CredentialKeyGetter is a function which returns a credential key.
 	CredentialKeyGetter func() (credential.Key, error)
 
-	// InvalidateCredentialFunc records a credential with the given ID as being invalid.
+	// InvalidateCredentialFunc records a credential with the given key as being invalid.
 	InvalidateCredentialFunc func(ctx context.Context, key credential.Key, reason string) error
 )
 

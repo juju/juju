@@ -111,9 +111,9 @@ func (s *credentialSuite) TestUpdateCloudCredentialNew(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(existingInvalid, gc.IsNil)
 
-	id, err := st.CredentialIDForKey(context.Background(), key)
+	id, err := st.CredentialUUIDForKey(context.Background(), key)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(id != corecredential.ID(""), jc.IsTrue)
+	c.Check(id != corecredential.UUID(""), jc.IsTrue)
 
 	credResult := credential.CloudCredentialResult{
 		CloudCredentialInfo: credInfo,
@@ -528,15 +528,15 @@ func (s *credentialSuite) TestWatchCredential(c *gc.C) {
 	key := corecredential.Key{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	s.createCloudCredential(c, st, key)
 
-	var id corecredential.ID
+	var uuid corecredential.UUID
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		id, err = st.credentialIDForKey(ctx, tx, key)
+		uuid, err = st.credentialUUIDForKey(ctx, tx, key)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err := st.WatchCredential(context.Background(), s.watcherFunc(c, id.String()), key)
+	w, err := st.WatchCredential(context.Background(), s.watcherFunc(c, uuid.String()), key)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
 
@@ -647,7 +647,7 @@ func (s *credentialSuite) TestGetCloudCredential(c *gc.C) {
 	keyOne := corecredential.Key{Cloud: "cirrus", Owner: s.userName, Name: "foobar"}
 	one := s.createCloudCredential(c, st, keyOne)
 
-	id, err := st.CredentialIDForKey(context.Background(), keyOne)
+	id, err := st.CredentialUUIDForKey(context.Background(), keyOne)
 	c.Assert(err, jc.ErrorIsNil)
 
 	res, err := st.GetCloudCredential(context.Background(), id)
@@ -657,7 +657,7 @@ func (s *credentialSuite) TestGetCloudCredential(c *gc.C) {
 }
 
 func (s *credentialSuite) TestGetCloudCredentialNonExistent(c *gc.C) {
-	id, err := corecredential.NewID()
+	id, err := corecredential.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
