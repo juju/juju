@@ -161,7 +161,7 @@ func defaultRetryStrategy(clock clock.Clock, logger Logger) func(context.Context
 			Delay:       time.Millisecond,
 			MaxDelay:    time.Millisecond * 100,
 			MaxDuration: time.Second * 25,
-			BackoffFunc: retry.ExpBackoff(time.Millisecond, time.Millisecond*100, 0.8, true),
+			BackoffFunc: retry.ExpBackoff(time.Millisecond, time.Millisecond*100, 1.2, true),
 			Clock:       clock,
 			Stop:        ctx.Done(),
 		})
