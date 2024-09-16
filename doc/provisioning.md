@@ -1,17 +1,24 @@
-What We Run, and Why
-====================
+# Provisioning
 
-Expressed as compactly as possible, the Provisioner is responsible for making
-sure that non-Dead machine entities in state have agents running on live
-instances; and for making sure that Dead machines, and stray instances, are
-removed and cleaned up.
+Provisioning in juju is done performed by two separate workers:
+- The compute provisioner, which is responsible for provisioning
+machine instances on the underying provider.
+- The container provisioner, which is responsible for creating
+containers managed by the container broker on the underlying machine.
 
-However, the choice of exactly what we deploy involves some subtleties. At the
-Provisioner level, it's simple: the base and the constraints we pass to the
-Environ.StartInstance come from the machine entity. But how did they get there?
+Both of these workers are at the heart of the juju provisioning model,
+which takes machines/containers already created in the database, and
+actually perform the action of creating them. Seamlessly splitting the
+ressource creation in two stages.
 
-Bases
------
+Both workers will gather all the necessary information and then create
+a provisioner_task which contains all the bussiness logic for creating
+and updating instances, as well as keeping track of all the instances.
+
+The following sub-sections will describe in more details the different
+parts that take part in the provisioning process.
+
+## Bases
 
 Individual charms are released for different possible target base; juju
 should guarantee that charms for base X are only ever run on base X.
@@ -24,8 +31,7 @@ by their principals, on the same machine, in response to the creation of
 subordinate relations. We therefore restrict subordinate relations such that
 they can only be created between services with matching bases.
 
-Constraints
------------
+## Constraints
 
 Constraints are stored for models, services, units, and machines, but
 unit constraints are not currently exposed because they're not needed outside
@@ -65,8 +71,7 @@ controlled by their principal units. There's only ever one machine to which
 that subordinate could (and must) be deployed, and to restrict that further
 by means of constraints will only confuse people.
 
-Placement
----------
+## Placement directives
 
 Placement is the term given to allocating a unit to a specific machine.
 This is achieved with the `--to` option in the `deploy` and `add-unit`
@@ -84,28 +89,27 @@ At the time of writing, the currently implemented provider-specific placement di
   - Availability Zone: both the AWS and OpenStack providers support `zone=<zone>`, directing the provisioner to start an instance in the specified availability zone.
   - MAAS: `<hostname>` directs the MAAS provider to acquire the node with the specified hostname.
 
-Availability Zone Spread
-------------------------
+## Availability Zones
 
-For Juju providers that know about Availability Zones, instances will be 
-automatically spread across the healthy availability zones to maximise service 
+For Juju providers that know about Availability Zones, instances will be
+automatically spread across the healthy availability zones to maximise service
 availability. This is achieved by having Juju:
 
   - be able to enumerate each of the availability zones and their current status,
   - calculate the "distribution group" for each instance at provisioning time.
 
-The distribution group of a nascent instance is the set of instances for which 
-the availability zone spread will be computed. The new instance will be 
+The distribution group of a nascent instance is the set of instances for which
+the availability zone spread will be computed. The new instance will be
 allocated to the zone with the fewest members of its group.
 
-Distribution groups are intentionally opaque to the providers. There are 
+Distribution groups are intentionally opaque to the providers. There are
 currently two types of groups: controllers and everything else. controllers are
 always allocated to the same distribution group; other instances are grouped
-according to the units assigned at provisioning time. A non-controller 
+according to the units assigned at provisioning time. A non-controller
 instance's group consists of all instances with units of the same services.
 
 Unless a placement directive is specified, the provider's `StartInstance` must
-allocate an instance to one of the healthy availability zones. Some providers 
-may restrict availability zones in ways that cannot be detected ahead of time, 
-so it may be necessary to attempt each zone in turn (in order of least-to-most 
+allocate an instance to one of the healthy availability zones. Some providers
+may restrict availability zones in ways that cannot be detected ahead of time,
+so it may be necessary to attempt each zone in turn (in order of least-to-most
 populous);
