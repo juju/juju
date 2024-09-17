@@ -176,25 +176,10 @@ func (s *applicationOffersSuite) TestOfferPermission(c *gc.C) {
 
 func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin")
-	s.addApplication(c, "one")
-	s.addApplication(c, "two")
-	s.addApplication(c, "paramsfail")
 	one := params.AddApplicationOffer{
 		ModelTag:        testing.ModelTag.String(),
 		OfferName:       "offer-one",
 		ApplicationName: "one",
-		Endpoints:       map[string]string{"db": "db"},
-	}
-	bad := params.AddApplicationOffer{
-		ModelTag:        testing.ModelTag.String(),
-		OfferName:       "offer-bad",
-		ApplicationName: "notthere",
-		Endpoints:       map[string]string{"db": "db"},
-	}
-	bad2 := params.AddApplicationOffer{
-		ModelTag:        testing.ModelTag.String(),
-		OfferName:       "offer-bad",
-		ApplicationName: "paramsfail",
 		Endpoints:       map[string]string{"db": "db"},
 	}
 	two := params.AddApplicationOffer{
@@ -203,28 +188,17 @@ func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
 		ApplicationName: "two",
 		Endpoints:       map[string]string{"db": "db"},
 	}
-	all := params.AddApplicationOffers{Offers: []params.AddApplicationOffer{one, bad, bad2, two}}
+	all := params.AddApplicationOffers{Offers: []params.AddApplicationOffer{one, two}}
 	s.applicationOffers.addOffer = func(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
 		if offer.ApplicationName == "paramsfail" {
 			return nil, errors.New("params fail")
 		}
 		return &jujucrossmodel.ApplicationOffer{}, nil
 	}
-	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
-	s.mockState.applications = map[string]crossmodel.Application{
-		"one":        &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
-		"two":        &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
-		"paramsfail": &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
-	}
 
-	errs, err := s.api.Offer(all)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
-	c.Assert(errs.Results[0].Error, gc.IsNil)
-	c.Assert(errs.Results[3].Error, gc.IsNil)
-	c.Assert(errs.Results[1].Error, gc.ErrorMatches, `getting offered application notthere: application "notthere" not found`)
-	c.Assert(errs.Results[2].Error, gc.ErrorMatches, `params fail`)
-	s.applicationOffers.CheckCallNames(c, offerCall, addOffersBackendCall, offerCall, addOffersBackendCall, offerCall, addOffersBackendCall)
+	_, err := s.api.Offer(all)
+	c.Assert(err, gc.ErrorMatches, `expected exactly one offer, got 2`)
+	s.applicationOffers.CheckCallNames(c)
 }
 
 func (s *applicationOffersSuite) TestOfferError(c *gc.C) {

@@ -75,51 +75,67 @@ func createOffersAPI(
 
 // Offer makes application endpoints available for consumption at a specified URL.
 func (api *OffersAPIv5) Offer(all params.AddApplicationOffers) (params.ErrorResults, error) {
-	result := make([]params.ErrorResult, len(all.Offers))
+	// Although this API is offering adding offers in bulk, we only want to
+	// support adding one offer at a time. This is because we're jumping into
+	// other models using the state pool, in the context of a model facade.
+	// There is no limit, nor pagination, on the number of offers that can be
+	// added in one call, so any nefarious user could add a large number of
+	// offers in one call, and potentially exhaust the state pool. This becomes
+	// more of a problem when we move to dqlite (4.0 and beyond), as each
+	// model is within a different database. By limiting the number of offers
+	// we force the clients to make multiple calls and if required we can
+	// enforce rate limiting.
+	// This API will be deprecated in the future and replaced once we refactor
+	// the API (5.0 and beyond).
+	numOffers := len(all.Offers)
+	if numOffers != 1 {
+		return params.ErrorResults{}, errors.Errorf("expected exactly one offer, got %d", numOffers)
+	}
+
+	handleErr := func(err error) params.ErrorResults {
+		return params.ErrorResults{Results: []params.ErrorResult{{
+			Error: apiservererrors.ServerError(err),
+		}}}
+	}
 
 	apiUser := api.Authorizer.GetAuthTag().(names.UserTag)
-	for i, one := range all.Offers {
-		modelTag, err := names.ParseModelTag(one.ModelTag)
-		if err != nil {
-			result[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		backend, releaser, err := api.StatePool.Get(modelTag.Id())
-		if err != nil {
-			result[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		defer releaser()
 
-		if err := api.checkAdmin(apiUser, backend); err != nil {
-			result[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		owner := apiUser
-		// The V4 version of the api includes the offer owner in the params.
-		if one.OwnerTag != "" {
-			var err error
-			if owner, err = names.ParseUserTag(one.OwnerTag); err != nil {
-				result[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-		}
-		applicationOfferParams, err := api.makeAddOfferArgsFromParams(owner, backend, one)
-		if err != nil {
-			result[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		offerBackend := api.GetApplicationOffers(backend)
-		if _, err = offerBackend.ApplicationOffer(applicationOfferParams.OfferName); err == nil {
-			_, err = offerBackend.UpdateOffer(applicationOfferParams)
-		} else {
-			_, err = offerBackend.AddOffer(applicationOfferParams)
-		}
-		result[i].Error = apiservererrors.ServerError(err)
+	one := all.Offers[0]
+	modelTag, err := names.ParseModelTag(one.ModelTag)
+	if err != nil {
+		return handleErr(err), nil
 	}
-	return params.ErrorResults{Results: result}, nil
+
+	backend, releaser, err := api.StatePool.Get(modelTag.Id())
+	if err != nil {
+		return handleErr(err), nil
+	}
+	defer releaser()
+
+	if err := api.checkAdmin(apiUser, backend); err != nil {
+		return handleErr(err), nil
+	}
+
+	owner := apiUser
+	// The V4 version of the api includes the offer owner in the params.
+	if one.OwnerTag != "" {
+		var err error
+		if owner, err = names.ParseUserTag(one.OwnerTag); err != nil {
+			return handleErr(err), nil
+		}
+	}
+	applicationOfferParams, err := api.makeAddOfferArgsFromParams(owner, backend, one)
+	if err != nil {
+		return handleErr(err), nil
+	}
+
+	offerBackend := api.GetApplicationOffers(backend)
+	if _, err = offerBackend.ApplicationOffer(applicationOfferParams.OfferName); err == nil {
+		_, err = offerBackend.UpdateOffer(applicationOfferParams)
+	} else {
+		_, err = offerBackend.AddOffer(applicationOfferParams)
+	}
+	return handleErr(err), nil
 }
 
 func (api *OffersAPIv5) makeAddOfferArgsFromParams(user names.UserTag, backend Backend, addOfferParams params.AddApplicationOffer) (jujucrossmodel.AddApplicationOfferArgs, error) {
