@@ -230,7 +230,7 @@ WHERE uuid = $modelUUIDValue.model_uuid
 				ModelUUID:          modelUUID.String(),
 			}
 			err := tx.Query(ctx, insertModelAuthorisedKeyStmt, row).Run()
-			if jujudb.IsErrConstraintUnique(err) {
+			if jujudb.IsErrConstraintPrimaryKey(err) {
 				return errors.Errorf(
 					"cannot add key %d for user %q to model %q, key already exists",
 					i, userUUID, modelUUID,

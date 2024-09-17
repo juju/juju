@@ -1,14 +1,15 @@
 CREATE TABLE model_authorized_keys (
     model_uuid TEXT NOT NULL,
     user_public_ssh_key_id INTEGER NOT NULL,
+    PRIMARY KEY (model_uuid, user_public_ssh_key_id),
     FOREIGN KEY (user_public_ssh_key_id)
     REFERENCES user_public_ssh_key (id),
     FOREIGN KEY (model_uuid)
     REFERENCES model (uuid)
 );
 
-CREATE UNIQUE INDEX idx_model_authorized_keys_composite
-ON model_authorized_keys (model_uuid, user_public_ssh_key_id);
+--CREATE UNIQUE INDEX idx_model_authorized_keys_composite
+--ON model_authorized_keys (model_uuid, user_public_ssh_key_id);
 
 CREATE INDEX idx_model_authorized_keys_model_uuid
 ON model_authorized_keys (model_uuid);

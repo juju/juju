@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForModelAuthorizedKeys(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ModelAuthorizedKeys
+INSERT INTO change_log_namespace VALUES (%[2]d, 'model_authorized_keys', 'ModelAuthorizedKeys changes based on %[1]s');
+
 -- insert trigger for ModelAuthorizedKeys
 CREATE TRIGGER trg_log_model_authorized_keys_insert
 AFTER INSERT ON model_authorized_keys FOR EACH ROW
@@ -32,7 +35,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for ModelAuthorizedKeys
 CREATE TRIGGER trg_log_model_authorized_keys_delete
 AFTER DELETE ON model_authorized_keys FOR EACH ROW
