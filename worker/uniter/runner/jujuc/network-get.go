@@ -64,6 +64,9 @@ If more than one flag is specified, a map of values is returned.
 	examples := `
     network-get dbserver
     network-get dbserver --bind-address
+
+    See https://discourse.charmhub.io/t/charm-network-primitives/1126 for more
+    in depth examples and explanation of usage.
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:     "network-get",

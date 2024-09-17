@@ -59,7 +59,7 @@ Valid status codes are:
 	  the services it is primarily installed to provide)
 
 For more extensive explanations of these status codes, please see
-the status reference page.
+the status reference page https://juju.is/docs/juju/status.
 
 The second argument is a user-facing message, which will be displayed
 to any users viewing the status, and will also be visible in the status

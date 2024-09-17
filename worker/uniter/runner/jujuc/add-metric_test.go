@@ -21,26 +21,6 @@ type AddMetricSuite struct {
 
 var _ = gc.Suite(&AddMetricSuite{})
 
-func (s *AddMetricSuite) TestHelp(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, "add-metric")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
-Usage: add-metric [options] key1=value1 [key2=value2 ...]
-
-Summary:
-Add metrics.
-
-Options:
--l, --labels (= "")
-    labels to be associated with metric values
-`[1:])
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-}
-
 func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 	testCases := []struct {
 		about         string

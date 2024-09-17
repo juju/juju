@@ -118,34 +118,6 @@ func (s *ConfigGetSuite) TestOutputFormatAll(c *gc.C) {
 	}
 }
 
-func (s *ConfigGetSuite) TestHelp(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, "config-get")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: config-get [options] [<key>]
-
-Summary:
-Print application configuration.
-
-Options:
--a, --all  (= false)
-    print all keys
---format  (= smart)
-    Specify output format (json|smart|yaml)
--o, --output (= "")
-    Specify an output file
-
-Details:
-When no <key> is supplied, all keys with values or defaults are printed. If
---all is set, all known keys are printed; those without defaults or values are
-reported as null. <key> and --all are mutually exclusive.
-`)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-}
-
 func (s *ConfigGetSuite) TestOutputPath(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "config-get")

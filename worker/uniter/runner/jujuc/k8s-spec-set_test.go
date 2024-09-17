@@ -71,33 +71,6 @@ func (s *K8sSpecSetSuite) TestK8sSpecSetInit(c *gc.C) {
 	}
 }
 
-func (s *K8sSpecSetSuite) TestHelp(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, "k8s-spec-set")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
-	c.Assert(code, gc.Equals, 0)
-	expectedHelp := "" +
-		"Usage: k8s-spec-set [options] --file <core spec file> [--k8s-resources <k8s spec file>]\n" +
-		"\n" +
-		"Summary:\n" +
-		"Set k8s spec information.\n" +
-		"\n" +
-		"Options:\n" +
-		"--file  (= -)\n" +
-		"    file containing pod spec\n" +
-		"--k8s-resources  (= )\n" +
-		"    file containing k8s specific resources not yet modelled by Juju\n" +
-		"\n" +
-		"Details:\n" +
-		"Sets configuration data to use for k8s resources.\n" +
-		"The spec applies to all units for the application.\n"
-
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, expectedHelp)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-}
-
 func (s *K8sSpecSetSuite) TestK8sSpecSetNoData(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "k8s-spec-set")

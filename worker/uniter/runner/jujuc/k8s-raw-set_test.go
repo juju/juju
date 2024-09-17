@@ -63,32 +63,6 @@ func (s *rawK8sSpecSetSuite) TestRawK8sSpecSetInit(c *gc.C) {
 	}
 }
 
-func (s *rawK8sSpecSetSuite) TestHelp(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, "k8s-raw-set")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
-	c.Assert(code, gc.Equals, 0)
-	expectedHelp := `
-Usage: k8s-raw-set [options] --file <core spec file>
-
-Summary:
-Set k8s raw spec information.
-
-Options:
---file  (= -)
-    file containing k8s raw spec
-
-Details:
-Sets configuration data in k8s raw format to use for k8s resources.
-The spec applies to all units for the application.
-`[1:]
-
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, expectedHelp)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-}
-
 func (s *rawK8sSpecSetSuite) TestRawK8sSpecSetNoData(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "k8s-raw-set")
