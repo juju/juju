@@ -35,7 +35,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
 	cfg = s.getConfig()
-	cfg.ServiceFactoryName = ""
+	cfg.ObjectStoreServicesName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -53,16 +53,16 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
-		"http-client":     s.httpClient,
-		"service-factory": servicefactorytesting.NewTestingServiceFactory(),
+		"http-client":           s.httpClient,
+		"object-store-services": servicefactorytesting.NewTestingServiceFactory(),
 	}
 	return dependencytesting.StubGetter(resources)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		HTTPClientName:     "http-client",
-		ServiceFactoryName: "service-factory",
+		HTTPClientName:          "http-client",
+		ObjectStoreServicesName: "object-store-services",
 		NewClient: func(string, s3client.HTTPClient, s3client.Credentials, logger.Logger) (objectstore.Session, error) {
 			return s.session, nil
 		},
@@ -77,7 +77,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 	}
 }
 
-var expectedInputs = []string{"http-client", "service-factory"}
+var expectedInputs = []string{"http-client", "object-store-services"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)

@@ -29,7 +29,13 @@ func AssertManifoldsDependencies(c *gc.C, manifolds dependency.Manifolds, expect
 	c.Assert(expectedNames.Difference(names), gc.DeepEquals, empty)
 
 	for _, n := range manifoldNames.SortedValues() {
-		c.Check(dependencies[n], jc.SameContents, expected[n], gc.Commentf("mismatched dependencies for worker %q", n))
+		if !c.Check(dependencies[n], jc.SameContents, expected[n], gc.Commentf("mismatched dependencies for worker %q", n)) {
+			// Make life easier when attempting to interpret the output.
+			// We already know the answer, just tell us what to do!
+			add := set.NewStrings(dependencies[n]...).Difference(set.NewStrings(expected[n]...)).SortedValues()
+			remove := set.NewStrings(expected[n]...).Difference(set.NewStrings(dependencies[n]...)).SortedValues()
+			c.Logf(" > changes requires for %q\n    - add dependencies: %v\n    - remove dependencies %v\n", n, add, remove)
+		}
 	}
 }
 

@@ -158,6 +158,8 @@ type ProviderServiceFactoryGetter interface {
 // ObjectStoreServices provides access to the services required by the
 // apiserver.
 type ObjectStoreServices interface {
+	// ControllerConfig returns the controller configuration service.
+	ControllerConfig() *controllerconfigservice.WatchableService
 	// ObjectStore returns the object store service.
 	ObjectStore() *objectstoreservice.WatchableService
 }
@@ -166,5 +168,5 @@ type ObjectStoreServices interface {
 // for a given model.
 type ObjectStoreServicesGetter interface {
 	// FactoryForModel returns a ObjectStoreServices for the given model.
-	FactoryForModel(modelUUID string) ObjectStoreServices
+	FactoryForModel(modelUUID model.UUID) ObjectStoreServices
 }

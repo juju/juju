@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
@@ -136,6 +137,7 @@ func NewObjectStoreServices(
 	logger logger.Logger,
 ) servicefactory.ObjectStoreServices {
 	return domainservicefactory.NewObjectStoreServices(
+		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		logger,
 	)

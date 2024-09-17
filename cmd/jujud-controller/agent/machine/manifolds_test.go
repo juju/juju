@@ -73,7 +73,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"audit-config-updater",
 			"bootstrap",
 			"broker-tracker",
-
 			"central-hub",
 			"certificate-updater",
 			"certificate-watcher",
@@ -91,7 +90,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"host-key-reporter",
 			"http-server-args",
 			"http-server",
-			"provider-tracker",
 			"instance-mutater",
 			"is-bootstrap-flag",
 			"is-bootstrap-gate",
@@ -112,10 +110,12 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"migration-minion",
 			"model-worker-manager",
 			"object-store-s3-caller",
+			"object-store-services",
 			"object-store",
 			"peer-grouper",
 			"presence",
 			"provider-service-factory",
+			"provider-tracker",
 			"proxy-config-updater",
 			"pubsub-forwarder",
 			"query-logger",
@@ -161,7 +161,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"api-server",
 			"audit-config-updater",
 			"bootstrap",
-
 			"caas-units-manager",
 			"central-hub",
 			"certificate-watcher",
@@ -176,7 +175,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"file-notify-watcher",
 			"http-server-args",
 			"http-server",
-			"provider-tracker",
 			"is-bootstrap-flag",
 			"is-bootstrap-gate",
 			"is-controller-flag",
@@ -191,10 +189,12 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"migration-minion",
 			"model-worker-manager",
 			"object-store-s3-caller",
+			"object-store-services",
 			"object-store",
 			"peer-grouper",
 			"presence",
 			"provider-service-factory",
+			"provider-tracker",
 			"proxy-config-updater",
 			"pubsub-forwarder",
 			"query-logger",
@@ -265,7 +265,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"global-clock-updater",
 		"http-server-args",
 		"http-server",
-		"provider-tracker",
 		"is-bootstrap-flag",
 		"is-bootstrap-gate",
 		"is-controller-flag",
@@ -279,10 +278,12 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"migration-minion",
 		"model-worker-manager",
 		"object-store-s3-caller",
+		"object-store-services",
 		"object-store",
 		"peer-grouper",
 		"presence",
 		"provider-service-factory",
+		"provider-tracker",
 		"pubsub-forwarder",
 		"query-logger",
 		"s3-http-client",
@@ -383,6 +384,54 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
 		}
 	}
+}
+
+func (*ManifoldsSuite) TestObjectStoreDoesNotUseServiceFactory(c *gc.C) {
+	// The object-store is a dependency of the service-factory, so we can't have
+	// circular dependencies between the two. Ensuring that the dependencies is
+	// a good way to check that the service-factory isn't a dependency of the
+	// object-store.
+
+	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
+		Agent:           &mockAgent{},
+		PreUpgradeSteps: preUpgradeSteps,
+	})
+
+	// Ensure that the object-store doesn't have a hard dependency on the
+	// service-factory.
+
+	manifold := manifolds["object-store"]
+	checkNotContains(c, manifold.Inputs, "service-factory")
+
+	// Also check that it doesn't have a transitive dependency on the
+	// service-factory.
+
+	dependencies := agenttest.ManifoldDependencies(manifolds, manifold)
+	c.Check(dependencies.Contains("service-factory"), jc.IsFalse)
+}
+
+func (*ManifoldsSuite) TestProviderTrackerDoesNotUseServiceFactory(c *gc.C) {
+	// The provider-tracker is a dependency of the service-factory, so we can't
+	// have circular dependencies between the two. Ensuring that the
+	// dependencies is a good way to check that the service-factory isn't a
+	// dependency of the provider-tracker.
+
+	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
+		Agent:           &mockAgent{},
+		PreUpgradeSteps: preUpgradeSteps,
+	})
+
+	// Ensure that the provider-tracker doesn't have a hard dependency on the
+	// service-factory.
+
+	manifold := manifolds["provider-tracker"]
+	checkNotContains(c, manifold.Inputs, "service-factory")
+
+	// Also check that it doesn't have a transitive dependency on the
+	// service-factory.
+
+	dependencies := agenttest.ManifoldDependencies(manifolds, manifold)
+	c.Check(dependencies.Contains("service-factory"), jc.IsFalse)
 }
 
 func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *gc.C) {
@@ -524,21 +573,22 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"db-accessor",
 		"file-notify-watcher",
 		"http-server-args",
-		"provider-tracker",
 		"is-bootstrap-flag",
 		"is-bootstrap-gate",
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
-		"object-store",
 		"object-store-s3-caller",
+		"object-store-services",
+		"object-store",
 		"provider-service-factory",
+		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
 		"service-factory",
 		"ssh-importer-http-client",
-		"state",
 		"state-config-watcher",
+		"state",
 		"trace",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
@@ -574,6 +624,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"object-store",
+		"object-store-services",
 		"object-store-s3-caller",
 		"provider-service-factory",
 		"query-logger",
@@ -759,6 +810,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"lease-manager",
 		"log-sink",
 		"object-store",
+		"object-store-services",
 		"object-store-s3-caller",
 		"provider-service-factory",
 		"query-logger",
@@ -1058,18 +1110,27 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
-		"provider-tracker",
 		"is-controller-flag",
 		"lease-manager",
 		"object-store-s3-caller",
-		"provider-service-factory",
+		"object-store-services",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
 		"state-config-watcher",
 		"trace",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+	},
+
+	"object-store-services": {
+		"agent",
+		"change-stream",
+		"controller-agent-config",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"query-logger",
+		"state-config-watcher",
 	},
 
 	"object-store-s3-caller": {
@@ -1078,12 +1139,10 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
-		"provider-tracker",
 		"is-controller-flag",
-		"provider-service-factory",
+		"object-store-services",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
 		"state-config-watcher",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
@@ -1338,6 +1397,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"lease-manager",
 		"log-sink",
 		"object-store",
+		"object-store-services",
 		"object-store-s3-caller",
 		"provider-service-factory",
 		"query-logger",
@@ -1381,6 +1441,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"object-store",
+		"object-store-services",
 		"object-store-s3-caller",
 		"provider-service-factory",
 		"query-logger",
@@ -1502,6 +1563,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"lease-manager",
 		"log-sink",
 		"object-store",
+		"object-store-services",
 		"object-store-s3-caller",
 		"provider-service-factory",
 		"query-logger",
@@ -1738,18 +1800,27 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
-		"provider-tracker",
 		"is-controller-flag",
 		"lease-manager",
 		"object-store-s3-caller",
-		"provider-service-factory",
+		"object-store-services",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
 		"state-config-watcher",
 		"trace",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+	},
+
+	"object-store-services": {
+		"agent",
+		"change-stream",
+		"controller-agent-config",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"query-logger",
+		"state-config-watcher",
 	},
 
 	"object-store-s3-caller": {
@@ -1758,12 +1829,10 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
-		"provider-tracker",
 		"is-controller-flag",
-		"provider-service-factory",
+		"object-store-services",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
 		"state-config-watcher",
 		"upgrade-database-flag",
 		"upgrade-database-gate",

@@ -103,10 +103,10 @@ type serviceFactoryGetter struct {
 // FactoryForModel returns a object store services for the given model
 // uuid. This will late bind the object store services to the actual
 // services.
-func (s *serviceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.ObjectStoreServices {
+func (s *serviceFactoryGetter) FactoryForModel(modelUUID coremodel.UUID) servicefactory.ObjectStoreServices {
 	return &services{
 		ObjectStoreServices: s.newObjectStoreServices(
-			coremodel.UUID(modelUUID), s.dbGetter, s.logger,
+			modelUUID, s.dbGetter, s.logger,
 		),
 	}
 }

@@ -12,7 +12,9 @@ package objectstoreservices
 import (
 	reflect "reflect"
 
-	service "github.com/juju/juju/domain/objectstore/service"
+	model "github.com/juju/juju/core/model"
+	service "github.com/juju/juju/domain/controllerconfig/service"
+	service0 "github.com/juju/juju/domain/objectstore/service"
 	servicefactory "github.com/juju/juju/internal/servicefactory"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -40,11 +42,49 @@ func (m *MockObjectStoreServices) EXPECT() *MockObjectStoreServicesMockRecorder 
 	return m.recorder
 }
 
+// ControllerConfig mocks base method.
+func (m *MockObjectStoreServices) ControllerConfig() *service.WatchableService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret0, _ := ret[0].(*service.WatchableService)
+	return ret0
+}
+
+// ControllerConfig indicates an expected call of ControllerConfig.
+func (mr *MockObjectStoreServicesMockRecorder) ControllerConfig() *MockObjectStoreServicesControllerConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockObjectStoreServices)(nil).ControllerConfig))
+	return &MockObjectStoreServicesControllerConfigCall{Call: call}
+}
+
+// MockObjectStoreServicesControllerConfigCall wrap *gomock.Call
+type MockObjectStoreServicesControllerConfigCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockObjectStoreServicesControllerConfigCall) Return(arg0 *service.WatchableService) *MockObjectStoreServicesControllerConfigCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockObjectStoreServicesControllerConfigCall) Do(f func() *service.WatchableService) *MockObjectStoreServicesControllerConfigCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockObjectStoreServicesControllerConfigCall) DoAndReturn(f func() *service.WatchableService) *MockObjectStoreServicesControllerConfigCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ObjectStore mocks base method.
-func (m *MockObjectStoreServices) ObjectStore() *service.WatchableService {
+func (m *MockObjectStoreServices) ObjectStore() *service0.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ObjectStore")
-	ret0, _ := ret[0].(*service.WatchableService)
+	ret0, _ := ret[0].(*service0.WatchableService)
 	return ret0
 }
 
@@ -61,19 +101,19 @@ type MockObjectStoreServicesObjectStoreCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockObjectStoreServicesObjectStoreCall) Return(arg0 *service.WatchableService) *MockObjectStoreServicesObjectStoreCall {
+func (c *MockObjectStoreServicesObjectStoreCall) Return(arg0 *service0.WatchableService) *MockObjectStoreServicesObjectStoreCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockObjectStoreServicesObjectStoreCall) Do(f func() *service.WatchableService) *MockObjectStoreServicesObjectStoreCall {
+func (c *MockObjectStoreServicesObjectStoreCall) Do(f func() *service0.WatchableService) *MockObjectStoreServicesObjectStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockObjectStoreServicesObjectStoreCall) DoAndReturn(f func() *service.WatchableService) *MockObjectStoreServicesObjectStoreCall {
+func (c *MockObjectStoreServicesObjectStoreCall) DoAndReturn(f func() *service0.WatchableService) *MockObjectStoreServicesObjectStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -102,7 +142,7 @@ func (m *MockObjectStoreServicesGetter) EXPECT() *MockObjectStoreServicesGetterM
 }
 
 // FactoryForModel mocks base method.
-func (m *MockObjectStoreServicesGetter) FactoryForModel(arg0 string) servicefactory.ObjectStoreServices {
+func (m *MockObjectStoreServicesGetter) FactoryForModel(arg0 model.UUID) servicefactory.ObjectStoreServices {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FactoryForModel", arg0)
 	ret0, _ := ret[0].(servicefactory.ObjectStoreServices)
@@ -128,13 +168,13 @@ func (c *MockObjectStoreServicesGetterFactoryForModelCall) Return(arg0 servicefa
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockObjectStoreServicesGetterFactoryForModelCall) Do(f func(string) servicefactory.ObjectStoreServices) *MockObjectStoreServicesGetterFactoryForModelCall {
+func (c *MockObjectStoreServicesGetterFactoryForModelCall) Do(f func(model.UUID) servicefactory.ObjectStoreServices) *MockObjectStoreServicesGetterFactoryForModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockObjectStoreServicesGetterFactoryForModelCall) DoAndReturn(f func(string) servicefactory.ObjectStoreServices) *MockObjectStoreServicesGetterFactoryForModelCall {
+func (c *MockObjectStoreServicesGetterFactoryForModelCall) DoAndReturn(f func(model.UUID) servicefactory.ObjectStoreServices) *MockObjectStoreServicesGetterFactoryForModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -41,7 +41,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg.TraceName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg.ServiceFactoryName = ""
+	cfg.ObjectStoreServicesName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -66,13 +66,13 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:          "agent",
-		TraceName:          "trace",
-		ServiceFactoryName: "service-factory",
-		LeaseManagerName:   "lease-manager",
-		S3ClientName:       "s3-client",
-		Clock:              s.clock,
-		Logger:             s.logger,
+		AgentName:               "agent",
+		TraceName:               "trace",
+		ObjectStoreServicesName: "object-store-services",
+		LeaseManagerName:        "lease-manager",
+		S3ClientName:            "s3-client",
+		Clock:                   s.clock,
+		Logger:                  s.logger,
 		NewObjectStoreWorker: func(context.Context, objectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
 			return nil, nil
 		},
@@ -90,16 +90,16 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
-		"agent":           s.agent,
-		"trace":           &stubTracerGetter{},
-		"service-factory": &stubServiceFactoryGetter{},
-		"lease-manager":   s.leaseManager,
-		"s3-client":       s.s3Client,
+		"agent":                 s.agent,
+		"trace":                 &stubTracerGetter{},
+		"object-store-services": &stubObjectStoreServicesGetter{},
+		"lease-manager":         s.leaseManager,
+		"s3-client":             s.s3Client,
 	}
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"agent", "trace", "service-factory", "lease-manager", "s3-client"}
+var expectedInputs = []string{"agent", "trace", "object-store-services", "lease-manager", "s3-client"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
@@ -133,23 +133,23 @@ func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.Tracer
 
 // Note: This replicates the ability to get a controller service factory and
 // a model service factory from the service factory getter.
-type stubServiceFactoryGetter struct {
-	servicefactory.ServiceFactory
-	servicefactory.ServiceFactoryGetter
+type stubObjectStoreServicesGetter struct {
+	servicefactory.ObjectStoreServices
+	servicefactory.ObjectStoreServicesGetter
 }
 
-func (s *stubServiceFactoryGetter) FactoryForModel(model.UUID) servicefactory.ServiceFactory {
-	return &stubServiceFactory{}
+func (s *stubObjectStoreServicesGetter) FactoryForModel(model.UUID) servicefactory.ObjectStoreServices {
+	return &stubObjectStoreServices{}
 }
 
-func (s *stubServiceFactoryGetter) ControllerConfig() *controllerconfigservice.Service {
+func (s *stubObjectStoreServicesGetter) ControllerConfig() *controllerconfigservice.WatchableService {
 	return nil
 }
 
-type stubServiceFactory struct {
+type stubObjectStoreServices struct {
 	servicefactory.ServiceFactory
 }
 
-func (s *stubServiceFactory) ControllerConfig() *controllerconfigservice.WatchableService {
+func (s *stubObjectStoreServices) ControllerConfig() *controllerconfigservice.WatchableService {
 	return nil
 }
