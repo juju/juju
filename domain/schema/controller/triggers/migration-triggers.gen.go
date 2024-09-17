@@ -29,6 +29,7 @@ END;
 CREATE TRIGGER trg_log_model_migration_minion_sync_update
 AFTER UPDATE ON model_migration_minion_sync FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	NEW.migration_uuid != OLD.migration_uuid OR
 	(NEW.phase != OLD.phase OR (NEW.phase IS NOT NULL AND OLD.phase IS NULL) OR (NEW.phase IS NULL AND OLD.phase IS NOT NULL)) OR
 	(NEW.entity_key != OLD.entity_key OR (NEW.entity_key IS NOT NULL AND OLD.entity_key IS NULL) OR (NEW.entity_key IS NULL AND OLD.entity_key IS NOT NULL)) OR
@@ -38,7 +39,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for ModelMigrationMinionSync
 CREATE TRIGGER trg_log_model_migration_minion_sync_delete
 AFTER DELETE ON model_migration_minion_sync FOR EACH ROW
@@ -69,6 +69,7 @@ END;
 CREATE TRIGGER trg_log_model_migration_status_update
 AFTER UPDATE ON model_migration_status FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	(NEW.start_time != OLD.start_time OR (NEW.start_time IS NOT NULL AND OLD.start_time IS NULL) OR (NEW.start_time IS NULL AND OLD.start_time IS NOT NULL)) OR
 	(NEW.success_time != OLD.success_time OR (NEW.success_time IS NOT NULL AND OLD.success_time IS NULL) OR (NEW.success_time IS NULL AND OLD.success_time IS NOT NULL)) OR
 	(NEW.end_time != OLD.end_time OR (NEW.end_time IS NOT NULL AND OLD.end_time IS NULL) OR (NEW.end_time IS NULL AND OLD.end_time IS NOT NULL)) OR
@@ -79,7 +80,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for ModelMigrationStatus
 CREATE TRIGGER trg_log_model_migration_status_delete
 AFTER DELETE ON model_migration_status FOR EACH ROW

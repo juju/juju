@@ -29,6 +29,7 @@ END;
 CREATE TRIGGER trg_log_machine_cloud_instance_update
 AFTER UPDATE ON machine_cloud_instance FOR EACH ROW
 WHEN 
+	NEW.machine_uuid != OLD.machine_uuid OR
 	NEW.instance_id != OLD.instance_id OR
 	(NEW.arch != OLD.arch OR (NEW.arch IS NOT NULL AND OLD.arch IS NULL) OR (NEW.arch IS NULL AND OLD.arch IS NOT NULL)) OR
 	(NEW.mem != OLD.mem OR (NEW.mem IS NOT NULL AND OLD.mem IS NULL) OR (NEW.mem IS NULL AND OLD.mem IS NOT NULL)) OR
@@ -42,7 +43,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for MachineCloudInstance
 CREATE TRIGGER trg_log_machine_cloud_instance_delete
 AFTER DELETE ON machine_cloud_instance FOR EACH ROW

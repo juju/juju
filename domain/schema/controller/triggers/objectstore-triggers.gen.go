@@ -29,12 +29,12 @@ END;
 CREATE TRIGGER trg_log_object_store_metadata_path_update
 AFTER UPDATE ON object_store_metadata_path FOR EACH ROW
 WHEN 
+	NEW.path != OLD.path OR
 	NEW.metadata_uuid != OLD.metadata_uuid 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for ObjectStoreMetadataPath
 CREATE TRIGGER trg_log_object_store_metadata_path_delete
 AFTER DELETE ON object_store_metadata_path FOR EACH ROW

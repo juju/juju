@@ -29,6 +29,7 @@ END;
 CREATE TRIGGER trg_log_machine_update
 AFTER UPDATE ON machine FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	NEW.name != OLD.name OR
 	NEW.net_node_uuid != OLD.net_node_uuid OR
 	NEW.life_id != OLD.life_id OR
@@ -47,7 +48,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for Machine
 CREATE TRIGGER trg_log_machine_delete
 AFTER DELETE ON machine FOR EACH ROW

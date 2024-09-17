@@ -29,6 +29,7 @@ END;
 CREATE TRIGGER trg_log_cloud_update
 AFTER UPDATE ON cloud FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	NEW.name != OLD.name OR
 	NEW.cloud_type_id != OLD.cloud_type_id OR
 	NEW.endpoint != OLD.endpoint OR
@@ -39,7 +40,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for Cloud
 CREATE TRIGGER trg_log_cloud_delete
 AFTER DELETE ON cloud FOR EACH ROW
@@ -70,6 +70,7 @@ END;
 CREATE TRIGGER trg_log_cloud_credential_update
 AFTER UPDATE ON cloud_credential FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	NEW.cloud_uuid != OLD.cloud_uuid OR
 	NEW.auth_type_id != OLD.auth_type_id OR
 	NEW.owner_uuid != OLD.owner_uuid OR
@@ -81,7 +82,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for CloudCredential
 CREATE TRIGGER trg_log_cloud_credential_delete
 AFTER DELETE ON cloud_credential FOR EACH ROW
@@ -112,13 +112,13 @@ END;
 CREATE TRIGGER trg_log_external_controller_update
 AFTER UPDATE ON external_controller FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	(NEW.alias != OLD.alias OR (NEW.alias IS NOT NULL AND OLD.alias IS NULL) OR (NEW.alias IS NULL AND OLD.alias IS NOT NULL)) OR
 	NEW.ca_cert != OLD.ca_cert 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for ExternalController
 CREATE TRIGGER trg_log_external_controller_delete
 AFTER DELETE ON external_controller FOR EACH ROW

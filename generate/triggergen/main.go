@@ -168,11 +168,6 @@ func readTableColumns(ctx context.Context, runner *txnRunner, tables []string) (
 					return errors.Errorf("column %q not found in table %q", column, table)
 				}
 
-				// We don't want to generate triggers for primary keys.
-				if info.PK > 0 {
-					continue
-				}
-
 				columnInfos = append(columnInfos, columnInfo{
 					Name:       column,
 					Type:       info.Type,
@@ -322,7 +317,7 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
-{{$total := len .ColumnInfos}}{{if gt $total 0}}
+{{$total := len .ColumnInfos}}
 -- update trigger for {{title .Name}}
 CREATE TRIGGER trg_log_{{.Name}}_update
 AFTER UPDATE ON {{.Name}} FOR EACH ROW
@@ -332,10 +327,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-{{else}}
--- no update trigger for {{title .Name}}
--- either the table has no columns or all columns are primary keys
-{{end}}
 -- delete trigger for {{title .Name}}
 CREATE TRIGGER trg_log_{{.Name}}_delete
 AFTER DELETE ON {{.Name}} FOR EACH ROW

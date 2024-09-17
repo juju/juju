@@ -29,6 +29,7 @@ END;
 CREATE TRIGGER trg_log_secret_metadata_update
 AFTER UPDATE ON secret_metadata FOR EACH ROW
 WHEN 
+	NEW.secret_id != OLD.secret_id OR
 	NEW.version != OLD.version OR
 	(NEW.description != OLD.description OR (NEW.description IS NOT NULL AND OLD.description IS NULL) OR (NEW.description IS NULL AND OLD.description IS NOT NULL)) OR
 	NEW.rotate_policy_id != OLD.rotate_policy_id OR
@@ -40,7 +41,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for SecretMetadata
 CREATE TRIGGER trg_log_secret_metadata_delete
 AFTER DELETE ON secret_metadata FOR EACH ROW
@@ -71,12 +71,12 @@ END;
 CREATE TRIGGER trg_log_secret_reference_update
 AFTER UPDATE ON secret_reference FOR EACH ROW
 WHEN 
+	NEW.secret_id != OLD.secret_id OR
 	NEW.latest_revision != OLD.latest_revision 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for SecretReference
 CREATE TRIGGER trg_log_secret_reference_delete
 AFTER DELETE ON secret_reference FOR EACH ROW
@@ -107,6 +107,7 @@ END;
 CREATE TRIGGER trg_log_secret_revision_update
 AFTER UPDATE ON secret_revision FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	NEW.secret_id != OLD.secret_id OR
 	NEW.revision != OLD.revision OR
 	NEW.create_time != OLD.create_time 
@@ -114,7 +115,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for SecretRevision
 CREATE TRIGGER trg_log_secret_revision_delete
 AFTER DELETE ON secret_revision FOR EACH ROW
@@ -145,12 +145,12 @@ END;
 CREATE TRIGGER trg_log_secret_revision_expire_update
 AFTER UPDATE ON secret_revision_expire FOR EACH ROW
 WHEN 
+	NEW.revision_uuid != OLD.revision_uuid OR
 	NEW.expire_time != OLD.expire_time 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for SecretRevisionExpire
 CREATE TRIGGER trg_log_secret_revision_expire_delete
 AFTER DELETE ON secret_revision_expire FOR EACH ROW
@@ -181,13 +181,13 @@ END;
 CREATE TRIGGER trg_log_secret_revision_obsolete_update
 AFTER UPDATE ON secret_revision_obsolete FOR EACH ROW
 WHEN 
+	NEW.revision_uuid != OLD.revision_uuid OR
 	NEW.obsolete != OLD.obsolete OR
 	NEW.pending_delete != OLD.pending_delete 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for SecretRevisionObsolete
 CREATE TRIGGER trg_log_secret_revision_obsolete_delete
 AFTER DELETE ON secret_revision_obsolete FOR EACH ROW
@@ -218,12 +218,12 @@ END;
 CREATE TRIGGER trg_log_secret_rotation_update
 AFTER UPDATE ON secret_rotation FOR EACH ROW
 WHEN 
+	NEW.secret_id != OLD.secret_id OR
 	NEW.next_rotation_time != OLD.next_rotation_time 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for SecretRotation
 CREATE TRIGGER trg_log_secret_rotation_delete
 AFTER DELETE ON secret_rotation FOR EACH ROW
