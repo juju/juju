@@ -35,10 +35,13 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
-// ensureUserPublicKey provides a closure that can be run from within a
-// transaction to ensure that a public key exists for a user returning the
-// unique id to represents that key within the database.
-func (s *State) ensureUserPublicKey() (func(context.Context, userPublicKeyInsert, *sqlair.TX) (int64, error), error) {
+// ensureUserPublicKey ensures that a public key exists for a user returning the
+// unique id to represent that key within the database.
+func (s *State) ensureUserPublicKey(
+	ctx context.Context,
+	key userPublicKeyInsert,
+	tx *sqlair.TX,
+) (int64, error) {
 	insertStmt, err := s.Prepare(`
 INSERT INTO user_public_ssh_key (comment,
                                  fingerprint,
@@ -55,7 +58,7 @@ WHERE s.algorithm = $userPublicKeyInsert.algorithm
 `, userPublicKeyInsert{})
 
 	if err != nil {
-		return nil, errors.Errorf(
+		return 0, errors.Errorf(
 			"cannot prepare insert statement for ensuring user public key: %w",
 			err,
 		)
@@ -69,50 +72,44 @@ AND public_key = $userPublicKeyInsert.public_key
 `, userPublicKeyId{}, userPublicKeyInsert{})
 
 	if err != nil {
-		return nil, errors.Errorf(
+		return 0, errors.Errorf(
 			"cannot prepare select existing id statement for ensuring user public key: %w",
 			err,
 		)
 	}
 
-	return func(
-		ctx context.Context,
-		key userPublicKeyInsert,
-		tx *sqlair.TX,
-	) (int64, error) {
-		row := userPublicKeyId{}
-		err = tx.Query(ctx, selectExistingIdStmt, key).Get(&row)
+	row := userPublicKeyId{}
+	err = tx.Query(ctx, selectExistingIdStmt, key).Get(&row)
 
-		// If there is no errors then we can safely assume the key already
-		// exists and nothing more needs to be done.
-		if err == nil {
-			return row.Id, nil
-		} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return 0, errors.Errorf(
-				"fetching existing user %q key id when ensuring public key: %w",
-				key.UserId, err,
-			)
-		}
+	// If there is no errors then we can safely assume the key already
+	// exists and nothing more needs to be done.
+	if err == nil {
+		return row.Id, nil
+	} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return 0, errors.Errorf(
+			"fetching existing user %q key id when ensuring public key: %w",
+			key.UserId, err,
+		)
+	}
 
-		outcome := sqlair.Outcome{}
-		err := tx.Query(ctx, insertStmt, key).Get(&outcome)
-		if err != nil {
-			return 0, errors.Errorf(
-				"inserting public key for user %q: %w", key.UserId, err,
-			)
-		}
+	outcome := sqlair.Outcome{}
+	err = tx.Query(ctx, insertStmt, key).Get(&outcome)
+	if err != nil {
+		return 0, errors.Errorf(
+			"inserting public key for user %q: %w", key.UserId, err,
+		)
+	}
 
-		var lastInsertId int64
-		lastInsertId, err = outcome.Result().LastInsertId()
+	var lastInsertId int64
+	lastInsertId, err = outcome.Result().LastInsertId()
 
-		if err != nil {
-			return 0, errors.Errorf(
-				"fetching id for newly inserted public key on user %q: %w",
-				key.UserId, err,
-			)
-		}
-		return lastInsertId, nil
-	}, nil
+	if err != nil {
+		return 0, errors.Errorf(
+			"fetching id for newly inserted public key on user %q: %w",
+			key.UserId, err,
+		)
+	}
+	return lastInsertId, nil
 }
 
 // AddPublicKeyForUser is responsible for adding one or more ssh public keys for
@@ -153,14 +150,6 @@ AND removed = false
 		)
 	}
 
-	ensurePublicKeyFunc, err := s.ensureUserPublicKey()
-	if err != nil {
-		return errors.Errorf(
-			"cannot get ensure user public key closure when adding public keys for user %q to model %q: %w",
-			userUUID, modelUUID, err,
-		)
-	}
-
 	insertModelAuthorisedKeyStmt, err := s.Prepare(`
 	INSERT INTO model_authorized_keys (*)
 	VALUES ($modelAuthorizedKey.*)
@@ -197,7 +186,7 @@ AND removed = false
 				UserId:                   userUUID.String(),
 			}
 
-			keyId, err := ensurePublicKeyFunc(ctx, row, tx)
+			keyId, err := s.ensureUserPublicKey(ctx, row, tx)
 			if err != nil {
 				return errors.Errorf(
 					"cannot ensure user %q public key %d on model %q: %w",
@@ -276,14 +265,6 @@ AND removed = false
 		)
 	}
 
-	ensurePublicKeyFunc, err := s.ensureUserPublicKey()
-	if err != nil {
-		return errors.Errorf(
-			"cannot get ensure user public key closure when adding public keys for user %q to model %q: %w",
-			userUUID, modelUUID, err,
-		)
-	}
-
 	insertModelAuthorisedKeyStmt, err := s.Prepare(`
 INSERT INTO model_authorized_keys (*)
 VALUES ($modelAuthorizedKey.*)
@@ -325,7 +306,7 @@ ON CONFLICT DO NOTHING
 				UserId:                   userUUID.String(),
 			}
 
-			keyId, err := ensurePublicKeyFunc(ctx, row, tx)
+			keyId, err := s.ensureUserPublicKey(ctx, row, tx)
 			if err != nil {
 				return errors.Errorf(
 					"cannot ensure user %q public key %d on model %q: %w",
