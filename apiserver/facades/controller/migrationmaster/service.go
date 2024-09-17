@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 )
@@ -40,4 +41,9 @@ type ModelInfoService interface {
 type ModelService interface {
 	// ControllerModel returns the model used for housing the Juju controller.
 	ControllerModel(ctx context.Context) (model.Model, error)
+}
+
+// ApplicationService provides access to the application service.
+type ApplicationService interface {
+	GetApplicationLife(context.Context, string) (life.Value, error)
 }

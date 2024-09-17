@@ -15,6 +15,7 @@ import (
 
 	controller "github.com/juju/juju/controller"
 	leadership "github.com/juju/juju/core/leadership"
+	life "github.com/juju/juju/core/life"
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/core/watcher"
 	service "github.com/juju/juju/domain/application/service"
@@ -203,6 +204,21 @@ func (mr *MockApplicationServiceMockRecorder) DestroyUnit(arg0, arg1 any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyUnit", reflect.TypeOf((*MockApplicationService)(nil).DestroyUnit), arg0, arg1)
 }
 
+// GetApplicationLife mocks base method.
+func (m *MockApplicationService) GetApplicationLife(arg0 context.Context, arg1 string) (life.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationLife indicates an expected call of GetApplicationLife.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationLife(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationLife", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationLife), arg0, arg1)
+}
+
 // GetApplicationScale mocks base method.
 func (m *MockApplicationService) GetApplicationScale(arg0 context.Context, arg1 string) (int, error) {
 	m.ctrl.T.Helper()
@@ -231,6 +247,21 @@ func (m *MockApplicationService) GetApplicationScalingState(arg0 context.Context
 func (mr *MockApplicationServiceMockRecorder) GetApplicationScalingState(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationScalingState", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationScalingState), arg0, arg1)
+}
+
+// GetUnitLife mocks base method.
+func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 string) (life.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitLife indicates an expected call of GetUnitLife.
+func (mr *MockApplicationServiceMockRecorder) GetUnitLife(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitLife", reflect.TypeOf((*MockApplicationService)(nil).GetUnitLife), arg0, arg1)
 }
 
 // RemoveUnit mocks base method.

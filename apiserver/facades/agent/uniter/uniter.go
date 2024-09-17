@@ -38,7 +38,6 @@ import (
 
 // UniterAPI implements the latest version (v18) of the Uniter API.
 type UniterAPI struct {
-	*common.LifeGetter
 	*StatusAPI
 	*common.AgentEntityWatcher
 	*common.APIAddresser
@@ -65,6 +64,7 @@ type UniterAPI struct {
 	leadershipRevoker       leadership.Revoker
 	accessUnit              common.GetAuthFunc
 	accessApplication       common.GetAuthFunc
+	accessUnitOrApplication common.GetAuthFunc
 	accessMachine           common.GetAuthFunc
 	containerBrokerFunc     caas.NewContainerBrokerFunc
 	*StorageAPI
@@ -1078,6 +1078,50 @@ func (u *UniterAPI) RelationsStatus(ctx context.Context, args params.Entities) (
 	return result, nil
 }
 
+// Life returns the life status of the specified applications or units.
+func (u *UniterAPI) Life(ctx context.Context, args params.Entities) (params.LifeResults, error) {
+	result := params.LifeResults{
+		Results: make([]params.LifeResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canRead, err := u.accessUnitOrApplication()
+	if err != nil {
+		return params.LifeResults{}, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canRead(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		var lifeValue life.Value
+		switch tag.Kind() {
+		case names.ApplicationTagKind:
+			lifeValue, err = u.applicationService.GetApplicationLife(ctx, tag.Id())
+			if errors.Is(err, applicationerrors.ApplicationNotFound) {
+				err = errors.NotFoundf("application %s", tag.Id())
+			}
+		case names.UnitTagKind:
+			lifeValue, err = u.applicationService.GetUnitLife(ctx, tag.Id())
+			if errors.Is(err, applicationerrors.UnitNotFound) {
+				err = errors.NotFoundf("unit %s", tag.Id())
+			}
+		default:
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		result.Results[i].Life = lifeValue
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
 // Refresh retrieves the latest values for attributes on this unit.
 func (u *UniterAPI) Refresh(ctx context.Context, args params.Entities) (params.UnitRefreshResults, error) {
 	result := params.UnitRefreshResults{
@@ -1098,6 +1142,7 @@ func (u *UniterAPI) Refresh(ctx context.Context, args params.Entities) (params.U
 		}
 		err = apiservererrors.ErrPerm
 		if canRead(tag) {
+			// TODO(units) - read unit details from dqlite
 			var unit *state.Unit
 			if unit, err = u.getUnit(tag); err == nil {
 				result.Results[i].Life = life.Value(unit.Life().String())
@@ -2218,6 +2263,7 @@ func (u *UniterAPI) goalStateRelations(appName, principalName string, allRelatio
 // and stores the goal state status in UnitsGoalState.
 func (u *UniterAPI) goalStateUnits(app *state.Application, principalName string) (params.UnitsGoalState, error) {
 
+	// TODO(units) - add service method for AllUnits
 	allUnits, err := app.AllUnits()
 	if err != nil {
 		return nil, err

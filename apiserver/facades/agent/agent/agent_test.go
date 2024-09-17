@@ -89,6 +89,7 @@ func (s *agentSuite) agentAPI(c *gc.C, auth facade.Authorizer, credentialService
 		nil,
 		nil,
 		nil,
+		nil,
 	)
 }
 

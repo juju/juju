@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/rpc/params"
@@ -278,9 +277,9 @@ func appDying(
 	appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
 	logger logger.Logger,
-) error {
+) (err error) {
 	logger.Debugf("application %q dying", appName)
-	err := ensureScale(ctx, appName, app, appLife, facade, unitFacade, logger)
+	err = ensureScale(ctx, appName, app, appLife, facade, unitFacade, logger)
 	if err != nil {
 		return errors.Annotate(err, "cannot scale dying application to 0")
 	}
@@ -391,7 +390,7 @@ func updateState(
 			ProviderId:     svc.Id,
 			Addresses:      params.FromProviderAddresses(svc.Addresses...),
 		})
-		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		if errors.Is(err, errors.NotFound) {
 			// Do nothing
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -627,7 +626,7 @@ func reconcileDeadUnitScale(
 
 	for _, deadUnit := range deadUnits {
 		logger.Infof("removing dead unit %s", deadUnit.Tag.Id())
-		if err := facade.RemoveUnit(ctx, deadUnit.Tag.Id()); err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
+		if err := facade.RemoveUnit(ctx, deadUnit.Tag.Id()); err != nil && !errors.Is(err, errors.NotFound) {
 			return fmt.Errorf("removing dead unit %q: %w", deadUnit.Tag.Id(), err)
 		}
 	}
@@ -687,7 +686,7 @@ func ensureScale(
 		return updateProvisioningState(ctx, appName, false, 0, facade)
 	}
 
-	unitsToDestroy, err := app.UnitsToRemove(context.TODO(), ps.ScaleTarget)
+	unitsToDestroy, err := app.UnitsToRemove(ctx, ps.ScaleTarget)
 	if err != nil && errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
@@ -731,7 +730,7 @@ func updateProvisioningState(
 		ScaleTarget: scaleTarget,
 	}
 	err := facade.SetProvisioningState(ctx, appName, newPs)
-	if errors.Is(err, applicationerrors.ScalingStateInconsistent) {
+	if params.IsCodeTryAgain(err) {
 		return tryAgain
 	} else if err != nil {
 		return errors.Annotatef(err, "setting provisiong state for application %q", appName)

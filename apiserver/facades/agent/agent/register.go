@@ -10,7 +10,10 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/internal/storage"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -22,6 +25,11 @@ func Register(registry facade.FacadeRegistry) {
 
 type CredentialService interface {
 	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
+}
+
+// ApplicationService provides access to the application service.
+type ApplicationService interface {
+	GetUnitLife(ctx context.Context, name string) (life.Value, error)
 }
 
 // NewAgentAPIV3 returns an object implementing version 3 of the Agent API
@@ -42,6 +50,10 @@ func NewAgentAPIV3(ctx facade.ModelContext) (*AgentAPI, error) {
 		ctx.ServiceFactory().Credential(),
 		ctx.ServiceFactory().Machine(),
 		ctx.ServiceFactory().Config(),
+		ctx.ServiceFactory().Application(service.ApplicationServiceParams{
+			StorageRegistry: storage.NotImplementedProviderRegistry{},
+			Secrets:         service.NotImplementedSecretService{},
+		}),
 		ctx.WatcherRegistry(),
 	)
 }

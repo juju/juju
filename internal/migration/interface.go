@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -45,6 +46,11 @@ type CredentialService interface {
 // UpgradeService provides access to upgrade information.
 type UpgradeService interface {
 	IsUpgrading(context.Context) (bool, error)
+}
+
+// ApplicationService provides access to the application service.
+type ApplicationService interface {
+	GetApplicationLife(context.Context, string) (life.Value, error)
 }
 
 // ControllerConfigService describes the method needed to get the
@@ -88,7 +94,6 @@ type PrecheckMachine interface {
 // application needed by migration prechecks.
 type PrecheckApplication interface {
 	Name() string
-	Life() state.Life
 	CharmURL() (*string, bool)
 	AllUnits() ([]PrecheckUnit, error)
 	MinUnits() int

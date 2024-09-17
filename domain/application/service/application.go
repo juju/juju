@@ -19,6 +19,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
+	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -325,6 +326,18 @@ func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ..
 	return errors.Annotatef(err, "adding units to application %q", name)
 }
 
+// GetUnitLife looks up the life of the specified unit, returning an error
+// satisfying [applicationerrors.UnitNotFoundError] if the unit is not found.
+func (s *ApplicationService) GetUnitLife(ctx context.Context, unitName string) (corelife.Value, error) {
+	var result corelife.Value
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		unitLife, err := s.st.GetUnitLife(ctx, unitName)
+		result = unitLife.Value()
+		return errors.Annotatef(err, "getting life for %q", unitName)
+	})
+	return result, errors.Trace(err)
+}
+
 // DeleteUnit deletes the specified unit.
 // TODO(units) - rework when dual write is refactored
 // This method is called (mostly during cleanup) after a unit
@@ -372,6 +385,9 @@ func (s *ApplicationService) deleteUnit(ctx domain.AtomicContext, unitName strin
 	}
 
 	err = s.ensureUnitDead(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return cleanups, nil
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -410,6 +426,9 @@ func (s *ApplicationService) EnsureUnitDead(ctx context.Context, unitName string
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return s.ensureUnitDead(ctx, unitName)
 	})
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return nil
+	}
 	if err == nil {
 		appName, _ := names.UnitApplication(unitName)
 		if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
@@ -516,7 +535,7 @@ func (s *ApplicationService) RegisterCAASUnit(ctx context.Context, appName strin
 			return s.insertCAASUnit(ctx, appID, args.OrderedId, unitArg)
 		}
 		if unitLife == life.Dead {
-			return fmt.Errorf("dead unit %q already exists%w", args.UnitName, errors.Hide(applicationerrors.ApplicationIsDead))
+			return fmt.Errorf("dead unit %q already exists%w", args.UnitName, errors.Hide(applicationerrors.UnitAlreadyExists))
 		}
 		return s.st.UpsertUnit(ctx, appID, unitArg)
 	})
@@ -599,7 +618,7 @@ func (s *ApplicationService) DestroyApplication(ctx context.Context, appName str
 	// For now, all we do is advance the application's life to Dying.
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		appID, err := s.st.GetApplicationID(ctx, appName)
-		if errors.Is(err, applicationerrors.ApplicationIsDead) {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return nil
 		}
 		if err != nil {
@@ -608,6 +627,23 @@ func (s *ApplicationService) DestroyApplication(ctx context.Context, appName str
 		return s.st.SetApplicationLife(ctx, appID, life.Dying)
 	})
 	return errors.Annotatef(err, "destroying application %q", appName)
+}
+
+// EnsureApplicationDead is called by the cleanup worker if a mongo
+// destroy operation sets the application to dead.
+// TODO(units): remove when everything is in dqlite.
+func (s *ApplicationService) EnsureApplicationDead(ctx context.Context, appName string) error {
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		appID, err := s.st.GetApplicationID(ctx, appName)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			return nil
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return s.st.SetApplicationLife(ctx, appID, life.Dead)
+	})
+	return errors.Annotatef(err, "setting application %q life to Dead", appName)
 }
 
 // UpdateApplicationCharm sets a new charm for the application, validating that aspects such
@@ -756,6 +792,18 @@ func (s *ApplicationService) CAASUnitTerminating(ctx context.Context, appName st
 		return false, errors.NotSupportedf("unknown deployment type")
 	}
 	return restart, nil
+}
+
+// GetApplicationLife looks up the life of the specified application, returning an error
+// satisfying [applicationerrors.ApplicationNotFoundError] if the application is not found.
+func (s *ApplicationService) GetApplicationLife(ctx context.Context, appName string) (corelife.Value, error) {
+	var result corelife.Value
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		_, appLife, err := s.st.GetApplicationLife(ctx, appName)
+		result = appLife.Value()
+		return errors.Annotatef(err, "getting life for %q", appName)
+	})
+	return result, errors.Trace(err)
 }
 
 // SetApplicationScale sets the application's desired scale value, returning an error

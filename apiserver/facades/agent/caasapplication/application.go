@@ -19,9 +19,11 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/rpc/params"
@@ -37,6 +39,8 @@ type ControllerConfigService interface {
 type ApplicationService interface {
 	RegisterCAASUnit(ctx context.Context, appName string, unit applicationservice.RegisterCAASUnitParams) error
 	CAASUnitTerminating(ctx context.Context, appName string, unitNum int, broker applicationservice.Broker) (bool, error)
+	GetApplicationLife(ctx context.Context, appName string) (life.Value, error)
+	GetUnitLife(ctx context.Context, unitName string) (life.Value, error)
 }
 
 // Facade defines the API methods on the CAASApplication facade.
@@ -93,8 +97,16 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		return params.CAASUnitIntroductionResult{}, apiservererrors.ErrPerm
 	}
 
+	var unitName string
 	errResp := func(err error) (params.CAASUnitIntroductionResult, error) {
 		f.logger.Warningf("error introducing k8s pod %q: %v", args.PodName, err)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			err = errors.NotFoundf("appliction %s", tag.Name)
+		} else if errors.Is(err, applicationerrors.UnitAlreadyExists) {
+			err = errors.AlreadyExistsf("unit %s", unitName)
+		} else if errors.Is(err, applicationerrors.UnitNotAssigned) {
+			err = errors.NotAssignedf("unit %s", unitName)
+		}
 		return params.CAASUnitIntroductionResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 
@@ -107,12 +119,13 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 
 	f.logger.Debugf("introducing pod %q (%q)", args.PodName, args.PodUUID)
 
-	application, err := f.state.Application(tag.Name)
+	appName := tag.Name
+	appLife, err := f.applicationService.GetApplicationLife(ctx, appName)
 	if err != nil {
 		return errResp(err)
 	}
 
-	if application.Life() != state.Alive {
+	if appLife != life.Alive {
 		return errResp(errors.NotProvisionedf("application"))
 	}
 
@@ -133,8 +146,8 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		if err != nil {
 			return errResp(err)
 		}
-		n := fmt.Sprintf("%s/%d", application.Name(), ord)
-		upsert.UnitName = &n
+		unitName = fmt.Sprintf("%s/%d", appName, ord)
+		upsert.UnitName = &unitName
 		upsert.OrderedId = ord
 		upsert.OrderedScale = true
 	default:
@@ -142,7 +155,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	}
 
 	// Find the pod/unit in the provider.
-	caasApp := f.broker.Application(application.Name(), caas.DeploymentStateful)
+	caasApp := f.broker.Application(appName, caas.DeploymentStateful)
 	pods, err := caasApp.Units()
 	if err != nil {
 		return errResp(err)
@@ -176,13 +189,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	passwordHash := password.AgentPasswordHash(pass)
 	upsert.PasswordHash = &passwordHash
 
-	// TODO(units) - remove dual write to state
-	_, err = application.UpsertCAASUnit(upsert)
-	if err != nil {
-		return errResp(err)
-	}
-
-	if err := f.applicationService.RegisterCAASUnit(ctx, application.Name(), applicationservice.RegisterCAASUnitParams{
+	if err := f.applicationService.RegisterCAASUnit(ctx, appName, applicationservice.RegisterCAASUnitParams{
 		UnitName:     *upsert.UnitName,
 		ProviderId:   upsert.ProviderId,
 		Address:      upsert.Address,
@@ -191,6 +198,16 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		OrderedScale: upsert.OrderedScale,
 		OrderedId:    upsert.OrderedId,
 	}); err != nil {
+		return errResp(err)
+	}
+
+	// TODO(units) - remove dual write to state
+	application, err := f.state.Application(tag.Name)
+	if err != nil {
+		return errResp(err)
+	}
+	_, err = application.UpsertCAASUnit(upsert)
+	if err != nil {
 		return errResp(err)
 	}
 
@@ -258,6 +275,9 @@ func (f *Facade) UnitTerminating(ctx context.Context, args params.Entity) (param
 	}
 
 	errResp := func(err error) (params.CAASUnitTerminationResult, error) {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			err = errors.NotFoundf("application %s", tag.Id())
+		}
 		return params.CAASUnitTerminationResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 
@@ -269,12 +289,11 @@ func (f *Facade) UnitTerminating(ctx context.Context, args params.Entity) (param
 		return params.CAASUnitTerminationResult{}, apiservererrors.ErrPerm
 	}
 
-	// TODO(units): should be in service but we don't keep life up to date yet
-	unit, err := f.state.Unit(unitTag.Id())
+	unitLife, err := f.applicationService.GetUnitLife(ctx, unitTag.Id())
 	if err != nil {
 		return errResp(err)
 	}
-	if unit.Life() != state.Alive {
+	if unitLife != life.Alive {
 		return params.CAASUnitTerminationResult{WillRestart: false}, nil
 	}
 

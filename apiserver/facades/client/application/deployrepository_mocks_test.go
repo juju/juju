@@ -1945,44 +1945,6 @@ func (c *MockApplicationIsRemoteCall) DoAndReturn(f func() bool) *MockApplicatio
 	return c
 }
 
-// Life mocks base method.
-func (m *MockApplication) Life() state.Life {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Life")
-	ret0, _ := ret[0].(state.Life)
-	return ret0
-}
-
-// Life indicates an expected call of Life.
-func (mr *MockApplicationMockRecorder) Life() *MockApplicationLifeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Life", reflect.TypeOf((*MockApplication)(nil).Life))
-	return &MockApplicationLifeCall{Call: call}
-}
-
-// MockApplicationLifeCall wrap *gomock.Call
-type MockApplicationLifeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationLifeCall) Return(arg0 state.Life) *MockApplicationLifeCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationLifeCall) Do(f func() state.Life) *MockApplicationLifeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationLifeCall) DoAndReturn(f func() state.Life) *MockApplicationLifeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MergeBindings mocks base method.
 func (m *MockApplication) MergeBindings(arg0 *state.Bindings, arg1 bool) error {
 	m.ctrl.T.Helper()

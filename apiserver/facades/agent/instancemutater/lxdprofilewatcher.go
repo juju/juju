@@ -171,6 +171,9 @@ func (w *machineLXDProfileWatcher) loop() error {
 				}
 			}
 		case units := <-unitWatcher.Changes():
+			// TODO(units) - use service to read unit info
+			// We could read life from dqlite but don't yet
+			// support getting all the other attributes.
 			w.logger.Debugf("unit changes on %v: %v", w.machine.Id(), units)
 			for _, unitName := range units {
 				u, err := w.backend.Unit(unitName)

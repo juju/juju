@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/deployer/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -260,6 +261,10 @@ func (s *deployerSuite) TestLife(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeDeployerAPI(c)
 
+	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), "mysql/0").Return(life.Alive, nil)
+	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), "logging/0").Return(life.Dead, nil)
+	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), "logging/0").Return("", apiservererrors.ErrPerm)
+
 	err := s.subordinate0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.subordinate0.Refresh()
@@ -312,17 +317,12 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	s.makeDeployerAPI(c)
 
 	gomock.InOrder(
-		s.applicationService.EXPECT().RemoveUnit(gomock.Any(), "mysql/0", gomock.Any()).
-			Return(errors.New(`cannot remove unit "mysql/0": still alive`)),
-		s.applicationService.EXPECT().RemoveUnit(gomock.Any(), "logging/0", gomock.Any()).
-			Return(errors.New(`cannot remove unit "logging/0": still alive`)),
+		s.applicationService.EXPECT().EnsureUnitDead(gomock.Any(), "logging/0", gomock.Any()),
 		s.applicationService.EXPECT().RemoveUnit(gomock.Any(), "logging/0", gomock.Any()).
 			DoAndReturn(func(ctx context.Context, unitName string, revoker leadership.Revoker) error {
 				appName, _ := names.UnitApplication(unitName)
 				return revoker.RevokeLeadership(appName, unitName)
 			}),
-		s.applicationService.EXPECT().RemoveUnit(gomock.Any(), "logging/0", gomock.Any()).
-			Return(apiservererrors.ErrPerm),
 	)
 
 	c.Assert(s.principal0.Life(), gc.Equals, state.Alive)

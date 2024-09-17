@@ -781,16 +781,6 @@ func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
 	c.Check(unitID, gc.Equals, "foo/666")
 }
 
-func (s *applicationStateSuite) TestAddUnitsDead(c *gc.C) {
-	s.createApplication(c, "foo", life.Dead)
-
-	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
-	}
-	err := s.state.AddUnits(context.Background(), "foo", u)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationIsDead)
-}
-
 func (s *applicationStateSuite) TestAddUnitsMissingApplication(c *gc.C) {
 	u := application.UpsertUnitArg{
 		UnitName: ptr("foo/666"),

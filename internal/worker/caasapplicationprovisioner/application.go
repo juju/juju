@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/rpc/params"
 )
@@ -371,10 +370,7 @@ func (a *appWorker) loop() error {
 				break
 			}
 			err := a.ops.ReconcileDeadUnitScale(ctx, a.name, app, a.facade, a.logger)
-			// TODO(units): this probably needs to check UnitNotFound as well
-			if errors.Is(err, applicationerrors.ApplicationNotFound) ||
-				// TODO(units) - remove this when Life() uses the service.
-				errors.Is(err, errors.NotFound) {
+			if errors.Is(err, errors.NotFound) {
 				reconcileDeadChan = a.clock.After(retryDelay)
 				shouldRefresh = false
 			} else if errors.Is(err, tryAgain) {

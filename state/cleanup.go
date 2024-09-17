@@ -175,6 +175,7 @@ type MachineRemover interface {
 type ApplicationService interface {
 	DestroyApplication(context.Context, string) error
 	DeleteApplication(context.Context, string) error
+	EnsureApplicationDead(ctx context.Context, appName string) error
 	EnsureUnitDead(context.Context, string, leadership.Revoker) error
 	DestroyUnit(context.Context, string) error
 	DeleteUnit(context.Context, string) error
@@ -624,8 +625,13 @@ func (st *State) cleanupApplication(ctx context.Context, store objectstore.Objec
 	err = st.ApplyOperation(op)
 	if len(op.Errors) != 0 {
 		logger.Warningf("operational errors cleaning up application %v: %v", appName, op.Errors)
-	} else if err == nil && op.Removed {
-		err = appService.DeleteApplication(ctx, appName)
+	} else if err == nil {
+		if op.Removed {
+			err = appService.DeleteApplication(ctx, appName)
+		}
+		if op.PostDestroyAppLife == Dead {
+			err = appService.EnsureApplicationDead(ctx, appName)
+		}
 	}
 	return err
 }

@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corelife "github.com/juju/juju/core/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
@@ -39,4 +40,10 @@ func (s *lifeSuite) TestLifeDBValues(c *gc.C) {
 		Dying: "dying",
 		Dead:  "dead",
 	})
+}
+
+func (s *lifeSuite) TestValue(c *gc.C) {
+	c.Assert(Alive.Value(), gc.Equals, corelife.Alive)
+	c.Assert(Dying.Value(), gc.Equals, corelife.Dying)
+	c.Assert(Dead.Value(), gc.Equals, corelife.Dead)
 }

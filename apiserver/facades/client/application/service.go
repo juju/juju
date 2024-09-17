@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -79,6 +80,15 @@ type ApplicationService interface {
 	// returning an error  satisfying [applicationerrors.UnitNotFoundError]
 	// if the unit doesn't exist.
 	DestroyUnit(ctx context.Context, name string) error
+
+	// GetApplicationLife looks up the life of the specified application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the application is not found.
+	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
+
+	// GetUnitLife looks up the life of the specified unit, returning an error
+	// satisfying [applicationerrors.UnitNotFoundError] if the unit is not found.
+	GetUnitLife(ctx context.Context, name string) (life.Value, error)
+
 	// GetSupportedFeatures returns the set of features that the model makes
 	// available for charms to use.
 	GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error)

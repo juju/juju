@@ -28,6 +28,7 @@ func SetPrecheckResult(p patcher, err error) {
 		credentialService common.CredentialService,
 		upgradeService UpgradeService,
 		modelService ModelService,
+		applicationService ApplicationService,
 		modelExporter func(model.UUID, facade.LegacyStateExporter) ModelExporter,
 		store objectstore.ObjectStore,
 		leaders map[string]string) error {

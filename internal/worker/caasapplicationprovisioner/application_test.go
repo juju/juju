@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
@@ -199,7 +198,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		}),
 
 		// appUnitsChan fired
-		ops.EXPECT().ReconcileDeadUnitScale(gomock.Any(), "test", app, facade, s.logger).Return(applicationerrors.ApplicationNotFound),
+		ops.EXPECT().ReconcileDeadUnitScale(gomock.Any(), "test", app, facade, s.logger).Return(errors.NotFound),
 		ops.EXPECT().ReconcileDeadUnitScale(gomock.Any(), "test", app, facade, s.logger).Return(errors.ConstError("try again")),
 		ops.EXPECT().ReconcileDeadUnitScale(gomock.Any(), "test", app, facade, s.logger).DoAndReturn(func(_ context.Context, _ string, _ caas.Application, _ caasapplicationprovisioner.CAASProvisionerFacade, _ logger.Logger) error {
 			appChan <- struct{}{}

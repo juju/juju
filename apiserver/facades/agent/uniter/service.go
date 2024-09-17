@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -53,6 +54,8 @@ type CredentialService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
+	GetApplicationLife(ctx context.Context, unitName string) (life.Value, error)
+	GetUnitLife(ctx context.Context, unitName string) (life.Value, error)
 	EnsureUnitDead(ctx context.Context, unitName string, leadershipRevoker leadership.Revoker) error
 	DeleteUnit(ctx context.Context, unitName string) error
 	DestroyUnit(ctx context.Context, unitName string) error

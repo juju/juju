@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -40,6 +41,7 @@ type AgentAPI struct {
 
 	credentialService       CredentialService
 	controllerConfigService ControllerConfigService
+	applicationService      ApplicationService
 	st                      *state.State
 	auth                    facade.Authorizer
 	resources               facade.Resources
@@ -56,6 +58,7 @@ func NewAgentAPI(
 	credentialService common.CredentialService,
 	rebootMachineService common.MachineRebootService,
 	modelConfigService common.ModelConfigService,
+	applicationService ApplicationService,
 	watcherRegistry facade.WatcherRegistry,
 ) (*AgentAPI, error) {
 	getCanChange := func() (common.AuthFunc, error) {
@@ -85,6 +88,7 @@ func NewAgentAPI(
 		),
 		credentialService:       credentialService,
 		controllerConfigService: controllerConfigService,
+		applicationService:      applicationService,
 		st:                      st,
 		auth:                    auth,
 		resources:               resources,
@@ -101,6 +105,24 @@ func (api *AgentAPI) GetEntities(ctx context.Context, args params.Entities) para
 			results.Entities[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		// Allow only for the owner agent.
+		// Note: having a bulk API call for this is utter madness, given that
+		// this check means we can only ever return a single object.
+		if !api.auth.AuthOwner(tag) {
+			results.Entities[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		// Handle units using the domain service.
+		// Eventually all entities will be supported via dqlite.
+		if tag.Kind() == names.UnitTagKind {
+			lifeValue, err := api.applicationService.GetUnitLife(ctx, tag.Id())
+			if errors.Is(err, applicationerrors.UnitNotFound) {
+				err = errors.NotFoundf("unit %s", tag.Id())
+			}
+			results.Entities[i].Life = lifeValue
+			results.Entities[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 		result, err := api.getEntity(tag)
 		result.Error = apiservererrors.ServerError(err)
 		results.Entities[i] = result
@@ -109,13 +131,6 @@ func (api *AgentAPI) GetEntities(ctx context.Context, args params.Entities) para
 }
 
 func (api *AgentAPI) getEntity(tag names.Tag) (result params.AgentGetEntitiesResult, err error) {
-	// Allow only for the owner agent.
-	// Note: having a bulk API call for this is utter madness, given that
-	// this check means we can only ever return a single object.
-	if !api.auth.AuthOwner(tag) {
-		err = apiservererrors.ErrPerm
-		return
-	}
 	entity0, err := api.st.FindEntity(tag)
 	if err != nil {
 		return

@@ -50,5 +50,6 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		&stateShim{State: ctx.State()},
 		commonCharmsAPI,
 		appCharmInfoAPI,
+		applicationService,
 	)
 }

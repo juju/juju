@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -57,7 +56,6 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	appExposedWatcher := statetesting.NewMockNotifyWatcher(s.appExposedChanges)
 	s.st = &mockState{
 		application: mockApplication{
-			life:    state.Alive,
 			watcher: appExposedWatcher,
 		},
 		applicationsWatcher: statetesting.NewMockStringsWatcher(s.applicationsChanges),
@@ -152,6 +150,7 @@ func (s *firewallerSuite) TestPermission(c *gc.C) {
 		s.st,
 		commonCharmsAPI,
 		appCharmInfoAPI,
+		s.appService,
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -217,6 +216,8 @@ func (s *firewallerSuite) TestIsExposed(c *gc.C) {
 func (s *firewallerSuite) TestLife(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.appService.EXPECT().GetApplicationLife(gomock.Any(), "gitlab").Return(life.Alive, nil)
+
 	results, err := s.facade.Life(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -271,6 +272,7 @@ func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 		s.st,
 		commonCharmsAPI,
 		appCharmInfoAPI,
+		s.appService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

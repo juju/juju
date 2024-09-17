@@ -19,10 +19,12 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -53,16 +55,18 @@ type FirewallerAPI struct {
 	ControllerConfigAPI
 	cloudspec.CloudSpecer
 
-	st                State
-	networkService    NetworkService
-	resources         facade.Resources
-	watcherRegistry   facade.WatcherRegistry
-	authorizer        facade.Authorizer
-	accessUnit        common.GetAuthFunc
-	accessApplication common.GetAuthFunc
-	accessMachine     common.GetAuthFunc
-	accessModel       common.GetAuthFunc
-	logger            corelogger.Logger
+	st                                       State
+	networkService                           NetworkService
+	applicationService                       ApplicationService
+	resources                                facade.Resources
+	watcherRegistry                          facade.WatcherRegistry
+	authorizer                               facade.Authorizer
+	accessUnit                               common.GetAuthFunc
+	accessApplication                        common.GetAuthFunc
+	accessMachine                            common.GetAuthFunc
+	accessModel                              common.GetAuthFunc
+	accessUnitApplicationOrMachineOrRelation common.GetAuthFunc
+	logger                                   corelogger.Logger
 
 	// Fetched on demand and memoized
 	appEndpointBindings map[string]map[string]string
@@ -82,6 +86,7 @@ func NewStateFirewallerAPI(
 	controllerConfigAPI ControllerConfigAPI,
 	controllerConfigService ControllerConfigService,
 	modelConfigService ModelConfigService,
+	applicationService ApplicationService,
 	logger corelogger.Logger,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
@@ -131,27 +136,70 @@ func NewStateFirewallerAPI(
 	)
 
 	return &FirewallerAPI{
-		LifeGetter:              lifeGetter,
-		ModelWatcher:            modelWatcher,
-		AgentEntityWatcher:      entityWatcher,
-		UnitsWatcher:            unitsWatcher,
-		ModelMachinesWatcher:    machinesWatcher,
-		InstanceIdGetter:        instanceIdGetter,
-		CloudSpecer:             cloudSpecAPI,
-		ControllerConfigAPI:     controllerConfigAPI,
-		st:                      st,
-		resources:               resources,
-		watcherRegistry:         watcherRegistry,
-		authorizer:              authorizer,
-		accessUnit:              accessUnit,
-		accessApplication:       accessApplication,
-		accessMachine:           accessMachine,
-		accessModel:             accessModel,
-		controllerConfigService: controllerConfigService,
-		modelConfigService:      modelConfigService,
-		networkService:          networkService,
-		logger:                  logger,
+		LifeGetter:                               lifeGetter,
+		ModelWatcher:                             modelWatcher,
+		AgentEntityWatcher:                       entityWatcher,
+		UnitsWatcher:                             unitsWatcher,
+		ModelMachinesWatcher:                     machinesWatcher,
+		InstanceIdGetter:                         instanceIdGetter,
+		CloudSpecer:                              cloudSpecAPI,
+		ControllerConfigAPI:                      controllerConfigAPI,
+		st:                                       st,
+		resources:                                resources,
+		watcherRegistry:                          watcherRegistry,
+		authorizer:                               authorizer,
+		accessUnit:                               accessUnit,
+		accessApplication:                        accessApplication,
+		accessMachine:                            accessMachine,
+		accessUnitApplicationOrMachineOrRelation: accessUnitApplicationOrMachineOrRelation,
+		accessModel:                              accessModel,
+		controllerConfigService:                  controllerConfigService,
+		modelConfigService:                       modelConfigService,
+		networkService:                           networkService,
+		applicationService:                       applicationService,
+		logger:                                   logger,
 	}, nil
+}
+
+// Life returns the life status of the specified entities.
+func (f *FirewallerAPI) Life(ctx context.Context, args params.Entities) (params.LifeResults, error) {
+	result := params.LifeResults{
+		Results: make([]params.LifeResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canRead, err := f.accessUnitApplicationOrMachineOrRelation()
+	if err != nil {
+		return params.LifeResults{}, errors.Trace(err)
+	}
+	// Entities will be machine, relation, or unit.
+	// For units, we use the domain application service.
+	// The other entity types are not ported across to dqlite yet.
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canRead(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		var lifeValue life.Value
+		switch tag.Kind() {
+		case names.UnitTagKind:
+			lifeValue, err = f.applicationService.GetUnitLife(ctx, tag.Id())
+			if errors.Is(err, applicationerrors.UnitNotFound) {
+				err = errors.NotFoundf("unit %q", tag.Id())
+			}
+		default:
+			lifeValue, err = f.LifeGetter.OneLife(tag)
+		}
+		result.Results[i].Life = lifeValue
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
 }
 
 // WatchOpenedPorts returns a new StringsWatcher for each given

@@ -90,7 +90,6 @@ type Application interface {
 	IsExposed() bool
 	IsPrincipal() bool
 	IsRemote() bool
-	Life() state.Life
 	SetCharm(state.SetCharmConfig, objectstore.ObjectStore) error
 	SetConstraints(constraints.Value) error
 	MergeExposeSettings(map[string]state.ExposedEndpoint) error
@@ -181,7 +180,6 @@ type Unit interface {
 	Destroy(objectstore.ObjectStore) error
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyUnitOperation
 	IsPrincipal() bool
-	Life() state.Life
 	Resolve(retryHooks bool) error
 	AgentTools() (*tools.Tools, error)
 

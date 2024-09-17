@@ -21,12 +21,13 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/facades"
+	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
-	modelmigration "github.com/juju/juju/domain/modelmigration"
+	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/rpc/params"
@@ -57,6 +58,11 @@ type ExternalControllerService interface {
 type ControllerConfigService interface {
 	// ControllerConfig returns the controller config.
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// ApplicationService provides access to the application service.
+type ApplicationService interface {
+	GetApplicationLife(context.Context, string) (life.Value, error)
 }
 
 // ModelManagerService describes the method needed to update model metadata.
@@ -96,6 +102,7 @@ type API struct {
 	modelImporter  ModelImporter
 	upgradeService UpgradeService
 
+	applicationService          ApplicationService
 	controllerConfigService     ControllerConfigService
 	externalControllerService   ExternalControllerService
 	modelMigrationServiceGetter ModelMigrationServiceGetter
@@ -116,6 +123,7 @@ func NewAPI(
 	authorizer facade.Authorizer,
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
+	applicationService ApplicationService,
 	upgradeService UpgradeService,
 	modelMigrationServiceGetter ModelMigrationServiceGetter,
 	requiredMigrationFacadeVersions facades.FacadeVersions,
@@ -127,6 +135,7 @@ func NewAPI(
 		pool:                            ctx.StatePool(),
 		controllerConfigService:         controllerConfigService,
 		externalControllerService:       externalControllerService,
+		applicationService:              applicationService,
 		upgradeService:                  upgradeService,
 		modelMigrationServiceGetter:     modelMigrationServiceGetter,
 		authorizer:                      authorizer,
@@ -226,6 +235,7 @@ with an earlier version of the target controller and try again.
 		},
 		api.presence.ModelPresence(controllerState.ModelUUID()),
 		api.upgradeService,
+		api.applicationService,
 	); err != nil {
 		return errors.Errorf("migration target prechecks failed: %w", err)
 	}

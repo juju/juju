@@ -38,10 +38,6 @@ func newMockState() *mockState {
 			controllerTag: names.NewControllerTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
 			tag:           names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
 		},
-		app: mockApplication{
-			name: "gitlab",
-			life: state.Alive,
-		},
 		controllerConfig: jujucontroller.Config{
 			jujucontroller.CACertKey: jtesting.CACert,
 		},
@@ -130,23 +126,7 @@ func (st *mockModel) Tag() names.Tag {
 
 type mockApplication struct {
 	testing.Stub
-	life state.Life
-	name string
 	unit *mockUnit
-}
-
-func (*mockApplication) Tag() names.Tag {
-	return names.NewApplicationTag("gitlab")
-}
-
-func (a *mockApplication) Life() state.Life {
-	a.MethodCall(a, "Life")
-	return a.life
-}
-
-func (a *mockApplication) Name() string {
-	a.MethodCall(a, "Name")
-	return a.name
 }
 
 func (a *mockApplication) UpsertCAASUnit(args state.UpsertCAASUnitParams) (caasapplication.Unit, error) {

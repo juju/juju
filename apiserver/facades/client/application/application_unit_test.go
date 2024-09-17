@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
@@ -38,6 +39,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/config"
@@ -290,8 +292,8 @@ func (s *ApplicationSuite) expectApplication(ctrl *gomock.Controller, name strin
 	app.EXPECT().IsPrincipal().Return(true).AnyTimes()
 	app.EXPECT().IsExposed().Return(false).AnyTimes()
 	app.EXPECT().IsRemote().Return(false).AnyTimes()
-	app.EXPECT().Life().Return(state.Alive).AnyTimes()
 	app.EXPECT().Constraints().Return(constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"), nil).AnyTimes()
+	s.applicationService.EXPECT().GetApplicationLife(gomock.Any(), name).Return(life.Alive, nil).AnyTimes()
 	return app
 }
 
@@ -858,7 +860,7 @@ func (s *ApplicationSuite) expectUnit(ctrl *gomock.Controller, name string) *moc
 	unit.EXPECT().ApplicationName().Return(appName).AnyTimes()
 	unit.EXPECT().AssignedMachineId().Return(machineId, nil).AnyTimes()
 	unit.EXPECT().WorkloadVersion().Return("666", nil).AnyTimes()
-	unit.EXPECT().Life().Return(state.Alive).AnyTimes()
+	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), name).Return(life.Alive, nil).AnyTimes()
 	return unit
 }
 
@@ -2782,7 +2784,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
 
 	// wordpress
-	s.backend.EXPECT().Application("wordpress").Return(nil, errors.NotFoundf(`application "wordpress"`))
+	s.applicationService.EXPECT().GetApplicationLife(gomock.Any(), "wordpress").Return("", applicationerrors.ApplicationNotFound)
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Times(2)
 
 	entities := []params.Entity{{Tag: "application-postgresql"}, {Tag: "application-wordpress"}, {Tag: "unit-postgresql-0"}}

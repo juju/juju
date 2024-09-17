@@ -52,6 +52,7 @@ type Suite struct {
 	serviceFactory            *MockServiceFactory
 	serviceFactoryGetter      *MockServiceFactoryGetter
 	externalControllerService *MockExternalControllerService
+	applicationService        *MockApplicationService
 	upgradeService            *MockUpgradeService
 	modelImporter             *MockModelImporter
 	modelMigrationService     *MockModelMigrationService
@@ -543,6 +544,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.serviceFactoryGetter = NewMockServiceFactoryGetter(ctrl)
 
 	s.externalControllerService = NewMockExternalControllerService(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
 	s.upgradeService = NewMockUpgradeService(ctrl)
 
 	s.modelImporter = NewMockModelImporter(ctrl)
@@ -575,6 +577,7 @@ func (s *Suite) newAPI(versions facades.FacadeVersions, logDir string) (*migrati
 		s.authorizer,
 		s.controllerConfigService,
 		s.externalControllerService,
+		s.applicationService,
 		s.upgradeService,
 		s.migrationServiceGetter,
 		versions,

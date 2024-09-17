@@ -2321,6 +2321,15 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		appLife, err := api.applicationService.GetApplicationLife(ctx, tag.Name)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			err = errors.NotFoundf("application %q", tag.Name)
+		}
+		if err != nil {
+			out[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
 		app, err := api.backend.Application(tag.Name)
 		if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
@@ -2369,7 +2378,7 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			Principal:        app.IsPrincipal(),
 			Exposed:          app.IsExposed(),
 			Remote:           app.IsRemote(),
-			Life:             app.Life().String(),
+			Life:             string(appLife),
 			EndpointBindings: bindingsMap,
 			ExposedEndpoints: exposedEndpoints,
 		}
@@ -2585,7 +2594,7 @@ func (api *APIBase) UnitsInfo(ctx context.Context, in params.Entities) (params.U
 			continue
 		}
 		for _, unit := range units {
-			result, err := api.unitResultForUnit(unit)
+			result, err := api.unitResultForUnit(ctx, unit)
 			if err != nil {
 				results = append(results, params.UnitInfoResult{Error: apiservererrors.ServerError(err)})
 				continue
@@ -2625,7 +2634,7 @@ func (api *APIBase) unitsFromTag(tag string) ([]Unit, error) {
 }
 
 // Builds a *params.UnitResult describing the unit argument.
-func (api *APIBase) unitResultForUnit(unit Unit) (*params.UnitResult, error) {
+func (api *APIBase) unitResultForUnit(ctx context.Context, unit Unit) (*params.UnitResult, error) {
 	app, err := api.backend.Application(unit.ApplicationName())
 	if err != nil {
 		return nil, err
@@ -2639,13 +2648,20 @@ func (api *APIBase) unitResultForUnit(unit Unit) (*params.UnitResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	unitLife, err := api.applicationService.GetUnitLife(ctx, unit.Name())
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		err = errors.NotFoundf("unit %s", unit.Name())
+	}
+	if err != nil {
+		return nil, err
+	}
 
 	result := &params.UnitResult{
 		Tag:             unit.Tag().String(),
 		WorkloadVersion: workloadVersion,
 		Machine:         machineId,
 		Charm:           *curl,
-		Life:            unit.Life().String(),
+		Life:            string(unitLife),
 	}
 	if machineId != "" {
 		machine, err := api.backend.Machine(machineId)
