@@ -488,7 +488,6 @@ var (
 		// TODO Juju 3.0: ControllerAPIPort should be required and treated
 		// more like api-port.
 		ControllerAPIPort,
-		ControllerName,
 		ControllerResourceDownloadLimit,
 		Features,
 		JujuHASpace,

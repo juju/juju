@@ -286,6 +286,17 @@ func (c *Controller) Name() string {
 	return ""
 }
 
+// Config returns the current controller config.
+func (c *Controller) Config() map[string]interface{} {
+	c.configMu.Lock()
+	defer c.configMu.Unlock()
+	cfg := make(map[string]interface{}, len(c.config))
+	for k, v := range c.config {
+		cfg[k] = v
+	}
+	return cfg
+}
+
 // Model returns the model for the specified UUID.
 // If the model isn't found, a NotFoundError is returned.
 func (c *Controller) Model(uuid string) (*Model, error) {
