@@ -303,19 +303,14 @@ func (st State) CreateCharmUnitSecret(
 // It also returns an error satisfying [secreterrors.SecretLabelAlreadyExists]
 // if the secret owner already has a secret with the same label.
 func (st State) UpdateSecret(
-	ctx context.Context, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams,
+	ctx domain.AtomicContext, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams,
 ) error {
 	if !secret.HasUpdate() {
 		return errors.New("must specify a new value or metadata to update a secret")
 	}
 
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = st.updateSecret(ctx, tx, uri, secret)
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.updateSecret(ctx, tx, uri, secret)
 		if err != nil {
 			return errors.Annotatef(err, "updating secret records for secret %q", uri)
 		}
@@ -1146,11 +1141,7 @@ WHERE  sr.secret_id = $secretInfo.secret_id
 }
 
 // GetRotationExpiryInfo returns the rotation expiry information for the specified secret.
-func (st State) GetRotationExpiryInfo(ctx context.Context, uri *coresecrets.URI) (*domainsecret.RotationExpiryInfo, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func (st State) GetRotationExpiryInfo(ctx domain.AtomicContext, uri *coresecrets.URI) (*domainsecret.RotationExpiryInfo, error) {
 	input := secretID{ID: uri.ID}
 	result := secretInfo{}
 	stmt, err := st.Prepare(`
@@ -1170,7 +1161,7 @@ GROUP BY sr.secret_id`, input, result)
 		return nil, errors.Trace(err)
 	}
 
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, input).Get(&result)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("secret %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
@@ -1193,11 +1184,7 @@ GROUP BY sr.secret_id`, input, result)
 }
 
 // GetRotatePolicy returns the rotate policy for the specified secret.
-func (st State) GetRotatePolicy(ctx context.Context, uri *coresecrets.URI) (coresecrets.RotatePolicy, error) {
-	db, err := st.DB()
-	if err != nil {
-		return coresecrets.RotateNever, errors.Trace(err)
-	}
+func (st State) GetRotatePolicy(ctx domain.AtomicContext, uri *coresecrets.URI) (coresecrets.RotatePolicy, error) {
 	stmt, err := st.Prepare(`
 SELECT srp.policy AS &secretInfo.policy
 FROM   secret_metadata sm
@@ -1208,7 +1195,7 @@ WHERE  sm.secret_id = $secretID.id`, secretID{}, secretInfo{})
 	}
 
 	var info secretInfo
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, secretID{ID: uri.ID}).Get(&info)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("rotate policy for %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
@@ -1752,13 +1739,8 @@ WHERE  secret_id = $secretRevision.secret_id
 // given secret revision, returning an error satisfying
 // [secreterrors.SecretRevisionNotFound] if the secret revision does not exist.
 func (st State) GetSecretValue(
-	ctx context.Context, uri *coresecrets.URI, revision int) (coresecrets.SecretData, *coresecrets.ValueRef, error,
+	ctx domain.AtomicContext, uri *coresecrets.URI, revision int) (coresecrets.SecretData, *coresecrets.ValueRef, error,
 ) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
 	// We look for either content or a value reference, which ever is present.
 	contentQuery := `
 SELECT (*) AS (&secretContent.*)
@@ -1790,7 +1772,7 @@ AND    rev.revision = $secretRevision.revision`
 		dbSecretValues    secretValues
 		dbSecretValueRefs []secretValueRef
 	)
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, contentQueryStmt, want).GetAll(&dbSecretValues)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotatef(err, "retrieving secret value for %q revision %d", uri, revision)
@@ -2371,12 +2353,7 @@ FROM   secret_unit_consumer suc
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 // If an attempt is made to change an existing permission's scope or subject type, an error
 // satisfying [secreterrors.InvalidSecretPermissionChange] is returned.
-func (st State) GrantAccess(ctx context.Context, uri *coresecrets.URI, params domainsecret.GrantParams) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
+func (st State) GrantAccess(ctx domain.AtomicContext, uri *coresecrets.URI, params domainsecret.GrantParams) error {
 	checkInvariantQuery := `
 SELECT sp.secret_id AS &secretID.id
 FROM   secret_permission sp
@@ -2391,7 +2368,7 @@ AND    (sp.subject_type_id <> $secretPermission.subject_type_id
 		return errors.Trace(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		perm := secretPermission{
 			SecretID: uri.ID,
 			RoleID:   params.RoleID,
@@ -2554,12 +2531,7 @@ ON CONFLICT(secret_id, subject_uuid) DO UPDATE SET
 // RevokeAccess revokes access to the secret for the specified subject.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the
 // secret is not found.
-func (st State) RevokeAccess(ctx context.Context, uri *coresecrets.URI, params domainsecret.AccessParams) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
+func (st State) RevokeAccess(ctx domain.AtomicContext, uri *coresecrets.URI, params domainsecret.AccessParams) error {
 	deleteQuery := `
 DELETE FROM secret_permission
 WHERE  secret_id = $secretPermission.secret_id
@@ -2575,7 +2547,7 @@ AND    subject_uuid = $secretPermission.subject_uuid`
 		return errors.Trace(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
 			return errors.Trace(err)
 		} else if !isLocal {
@@ -2598,13 +2570,8 @@ AND    subject_uuid = $secretPermission.subject_uuid`
 // It returns an error satisfying [secreterrors.SecretNotFound]
 // if the secret is not found.
 func (st State) GetSecretAccess(
-	ctx context.Context, uri *coresecrets.URI, params domainsecret.AccessParams,
+	ctx domain.AtomicContext, uri *coresecrets.URI, params domainsecret.AccessParams,
 ) (string, error) {
-	db, err := st.DB()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
 	query := `
 SELECT sr.role AS &M.role
 FROM   v_secret_permission sp
@@ -2624,7 +2591,7 @@ AND    subject_id = $secretAccessor.subject_id`
 	}
 
 	var role string
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
 			return errors.Trace(err)
 		} else if !isLocal {
@@ -3612,17 +3579,11 @@ DELETE FROM secret WHERE id = $secretID.id`
 }
 
 // SecretRotated updates the next rotation time for the specified secret.
-func (st State) SecretRotated(ctx context.Context, uri *coresecrets.URI, next time.Time) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+func (st State) SecretRotated(ctx domain.AtomicContext, uri *coresecrets.URI, next time.Time) error {
+	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := st.upsertSecretNextRotateTime(ctx, tx, uri, next)
 		return errors.Trace(err)
 	})
-	return errors.Trace(err)
 }
 
 func (st State) getSecretsRotationChanges(
@@ -3723,7 +3684,7 @@ GROUP BY sro.secret_id`
 
 // ChangeSecretBackend changes the secret backend for the specified secret.
 func (st State) ChangeSecretBackend(
-	ctx context.Context, revisionID uuid.UUID,
+	ctx domain.AtomicContext, revisionID uuid.UUID,
 	valueRef *coresecrets.ValueRef, data coresecrets.SecretData,
 ) (err error) {
 	if valueRef != nil && len(data) > 0 {
@@ -3731,10 +3692,6 @@ func (st State) ChangeSecretBackend(
 	}
 	if valueRef == nil && len(data) == 0 {
 		return errors.New("either valueRef or data must be set")
-	}
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
 	}
 
 	input := revisionUUID{
@@ -3753,7 +3710,7 @@ WHERE revision_uuid = $revisionUUID.uuid`, input)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if valueRef != nil {
 			if err := st.upsertSecretValueRef(ctx, tx, input.UUID, valueRef); err != nil {
 				return errors.Trace(err)
