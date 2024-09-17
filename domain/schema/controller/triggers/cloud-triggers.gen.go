@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForCloud(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for Cloud
+INSERT INTO change_log_namespace VALUES (%[2]d, 'cloud', 'Cloud changes based on %[1]s');
+
 -- insert trigger for Cloud
 CREATE TRIGGER trg_log_cloud_insert
 AFTER INSERT ON cloud FOR EACH ROW
@@ -52,6 +55,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForCloudCredential(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for CloudCredential
+INSERT INTO change_log_namespace VALUES (%[2]d, 'cloud_credential', 'CloudCredential changes based on %[1]s');
+
 -- insert trigger for CloudCredential
 CREATE TRIGGER trg_log_cloud_credential_insert
 AFTER INSERT ON cloud_credential FOR EACH ROW
@@ -91,6 +97,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForExternalController(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ExternalController
+INSERT INTO change_log_namespace VALUES (%[2]d, 'external_controller', 'ExternalController changes based on %[1]s');
+
 -- insert trigger for ExternalController
 CREATE TRIGGER trg_log_external_controller_insert
 AFTER INSERT ON external_controller FOR EACH ROW

@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForModelConfig(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ModelConfig
+INSERT INTO change_log_namespace VALUES (%[2]d, 'model_config', 'ModelConfig changes based on %[1]s');
+
 -- insert trigger for ModelConfig
 CREATE TRIGGER trg_log_model_config_insert
 AFTER INSERT ON model_config FOR EACH ROW

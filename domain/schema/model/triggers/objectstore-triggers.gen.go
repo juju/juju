@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForObjectStoreMetadataPath(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ObjectStoreMetadataPath
+INSERT INTO change_log_namespace VALUES (%[2]d, 'object_store_metadata_path', 'ObjectStoreMetadataPath changes based on %[1]s');
+
 -- insert trigger for ObjectStoreMetadataPath
 CREATE TRIGGER trg_log_object_store_metadata_path_insert
 AFTER INSERT ON object_store_metadata_path FOR EACH ROW

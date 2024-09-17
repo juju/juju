@@ -312,6 +312,9 @@ import (
 func ChangeLogTriggersFor{{title .Name}}(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(` + "`" + `
+-- insert namespace for {{title .Name}}
+INSERT INTO change_log_namespace VALUES (%[2]d, '{{.Name}}', '{{title .Name}} changes based on %[1]s');
+
 -- insert trigger for {{title .Name}}
 CREATE TRIGGER trg_log_{{.Name}}_insert
 AFTER INSERT ON {{.Name}} FOR EACH ROW

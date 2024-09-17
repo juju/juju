@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForUnit(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for Unit
+INSERT INTO change_log_namespace VALUES (%[2]d, 'unit', 'Unit changes based on %[1]s');
+
 -- insert trigger for Unit
 CREATE TRIGGER trg_log_unit_insert
 AFTER INSERT ON unit FOR EACH ROW

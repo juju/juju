@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForApplicationScale(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ApplicationScale
+INSERT INTO change_log_namespace VALUES (%[2]d, 'application_scale', 'ApplicationScale changes based on %[1]s');
+
 -- insert trigger for ApplicationScale
 CREATE TRIGGER trg_log_application_scale_insert
 AFTER INSERT ON application_scale FOR EACH ROW

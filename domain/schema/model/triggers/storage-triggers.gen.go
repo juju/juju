@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForBlockDevice(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for BlockDevice
+INSERT INTO change_log_namespace VALUES (%[2]d, 'block_device', 'BlockDevice changes based on %[1]s');
+
 -- insert trigger for BlockDevice
 CREATE TRIGGER trg_log_block_device_insert
 AFTER INSERT ON block_device FOR EACH ROW
@@ -58,6 +61,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForStorageAttachment(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for StorageAttachment
+INSERT INTO change_log_namespace VALUES (%[2]d, 'storage_attachment', 'StorageAttachment changes based on %[1]s');
+
 -- insert trigger for StorageAttachment
 CREATE TRIGGER trg_log_storage_attachment_insert
 AFTER INSERT ON storage_attachment FOR EACH ROW
@@ -92,6 +98,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForStorageFilesystem(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for StorageFilesystem
+INSERT INTO change_log_namespace VALUES (%[2]d, 'storage_filesystem', 'StorageFilesystem changes based on %[1]s');
+
 -- insert trigger for StorageFilesystem
 CREATE TRIGGER trg_log_storage_filesystem_insert
 AFTER INSERT ON storage_filesystem FOR EACH ROW
@@ -129,6 +138,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForStorageFilesystemAttachment(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for StorageFilesystemAttachment
+INSERT INTO change_log_namespace VALUES (%[2]d, 'storage_filesystem_attachment', 'StorageFilesystemAttachment changes based on %[1]s');
+
 -- insert trigger for StorageFilesystemAttachment
 CREATE TRIGGER trg_log_storage_filesystem_attachment_insert
 AFTER INSERT ON storage_filesystem_attachment FOR EACH ROW
@@ -167,6 +179,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForStorageVolume(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for StorageVolume
+INSERT INTO change_log_namespace VALUES (%[2]d, 'storage_volume', 'StorageVolume changes based on %[1]s');
+
 -- insert trigger for StorageVolume
 CREATE TRIGGER trg_log_storage_volume_insert
 AFTER INSERT ON storage_volume FOR EACH ROW
@@ -208,6 +223,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForStorageVolumeAttachment(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for StorageVolumeAttachment
+INSERT INTO change_log_namespace VALUES (%[2]d, 'storage_volume_attachment', 'StorageVolumeAttachment changes based on %[1]s');
+
 -- insert trigger for StorageVolumeAttachment
 CREATE TRIGGER trg_log_storage_volume_attachment_insert
 AFTER INSERT ON storage_volume_attachment FOR EACH ROW
@@ -246,6 +264,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForStorageVolumeAttachmentPlan(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for StorageVolumeAttachmentPlan
+INSERT INTO change_log_namespace VALUES (%[2]d, 'storage_volume_attachment_plan', 'StorageVolumeAttachmentPlan changes based on %[1]s');
+
 -- insert trigger for StorageVolumeAttachmentPlan
 CREATE TRIGGER trg_log_storage_volume_attachment_plan_insert
 AFTER INSERT ON storage_volume_attachment_plan FOR EACH ROW

@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForModelSecretBackend(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ModelSecretBackend
+INSERT INTO change_log_namespace VALUES (%[2]d, 'model_secret_backend', 'ModelSecretBackend changes based on %[1]s');
+
 -- insert trigger for ModelSecretBackend
 CREATE TRIGGER trg_log_model_secret_backend_insert
 AFTER INSERT ON model_secret_backend FOR EACH ROW
@@ -47,6 +50,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForSecretBackendRotation(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for SecretBackendRotation
+INSERT INTO change_log_namespace VALUES (%[2]d, 'secret_backend_rotation', 'SecretBackendRotation changes based on %[1]s');
+
 -- insert trigger for SecretBackendRotation
 CREATE TRIGGER trg_log_secret_backend_rotation_insert
 AFTER INSERT ON secret_backend_rotation FOR EACH ROW

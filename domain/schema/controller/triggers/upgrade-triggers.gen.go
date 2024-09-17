@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForUpgradeInfo(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for UpgradeInfo
+INSERT INTO change_log_namespace VALUES (%[2]d, 'upgrade_info', 'UpgradeInfo changes based on %[1]s');
+
 -- insert trigger for UpgradeInfo
 CREATE TRIGGER trg_log_upgrade_info_insert
 AFTER INSERT ON upgrade_info FOR EACH ROW
@@ -49,6 +52,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForUpgradeInfoControllerNode(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for UpgradeInfoControllerNode
+INSERT INTO change_log_namespace VALUES (%[2]d, 'upgrade_info_controller_node', 'UpgradeInfoControllerNode changes based on %[1]s');
+
 -- insert trigger for UpgradeInfoControllerNode
 CREATE TRIGGER trg_log_upgrade_info_controller_node_insert
 AFTER INSERT ON upgrade_info_controller_node FOR EACH ROW

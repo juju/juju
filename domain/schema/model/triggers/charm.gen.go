@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForCharm(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for Charm
+INSERT INTO change_log_namespace VALUES (%[2]d, 'charm', 'Charm changes based on %[1]s');
+
 -- insert trigger for Charm
 CREATE TRIGGER trg_log_charm_insert
 AFTER INSERT ON charm FOR EACH ROW

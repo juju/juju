@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForUserPublicSshKey(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for UserPublicSshKey
+INSERT INTO change_log_namespace VALUES (%[2]d, 'user_public_ssh_key', 'UserPublicSshKey changes based on %[1]s');
+
 -- insert trigger for UserPublicSshKey
 CREATE TRIGGER trg_log_user_public_ssh_key_insert
 AFTER INSERT ON user_public_ssh_key FOR EACH ROW

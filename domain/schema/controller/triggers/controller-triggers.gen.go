@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForControllerConfig(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ControllerConfig
+INSERT INTO change_log_namespace VALUES (%[2]d, 'controller_config', 'ControllerConfig changes based on %[1]s');
+
 -- insert trigger for ControllerConfig
 CREATE TRIGGER trg_log_controller_config_insert
 AFTER INSERT ON controller_config FOR EACH ROW
@@ -47,6 +50,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForControllerNode(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ControllerNode
+INSERT INTO change_log_namespace VALUES (%[2]d, 'controller_node', 'ControllerNode changes based on %[1]s');
+
 -- insert trigger for ControllerNode
 CREATE TRIGGER trg_log_controller_node_insert
 AFTER INSERT ON controller_node FOR EACH ROW

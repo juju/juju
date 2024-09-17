@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForModelMigrationMinionSync(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ModelMigrationMinionSync
+INSERT INTO change_log_namespace VALUES (%[2]d, 'model_migration_minion_sync', 'ModelMigrationMinionSync changes based on %[1]s');
+
 -- insert trigger for ModelMigrationMinionSync
 CREATE TRIGGER trg_log_model_migration_minion_sync_insert
 AFTER INSERT ON model_migration_minion_sync FOR EACH ROW
@@ -51,6 +54,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForModelMigrationStatus(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ModelMigrationStatus
+INSERT INTO change_log_namespace VALUES (%[2]d, 'model_migration_status', 'ModelMigrationStatus changes based on %[1]s');
+
 -- insert trigger for ModelMigrationStatus
 CREATE TRIGGER trg_log_model_migration_status_insert
 AFTER INSERT ON model_migration_status FOR EACH ROW

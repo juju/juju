@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForMachineCloudInstance(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for MachineCloudInstance
+INSERT INTO change_log_namespace VALUES (%[2]d, 'machine_cloud_instance', 'MachineCloudInstance changes based on %[1]s');
+
 -- insert trigger for MachineCloudInstance
 CREATE TRIGGER trg_log_machine_cloud_instance_insert
 AFTER INSERT ON machine_cloud_instance FOR EACH ROW

@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForMachine(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for Machine
+INSERT INTO change_log_namespace VALUES (%[2]d, 'machine', 'Machine changes based on %[1]s');
+
 -- insert trigger for Machine
 CREATE TRIGGER trg_log_machine_insert
 AFTER INSERT ON machine FOR EACH ROW

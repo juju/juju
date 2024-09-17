@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForSubnet(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for Subnet
+INSERT INTO change_log_namespace VALUES (%[2]d, 'subnet', 'Subnet changes based on %[1]s');
+
 -- insert trigger for Subnet
 CREATE TRIGGER trg_log_subnet_insert
 AFTER INSERT ON subnet FOR EACH ROW

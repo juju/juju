@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForSecretMetadata(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for SecretMetadata
+INSERT INTO change_log_namespace VALUES (%[2]d, 'secret_metadata', 'SecretMetadata changes based on %[1]s');
+
 -- insert trigger for SecretMetadata
 CREATE TRIGGER trg_log_secret_metadata_insert
 AFTER INSERT ON secret_metadata FOR EACH ROW
@@ -53,6 +56,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForSecretReference(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for SecretReference
+INSERT INTO change_log_namespace VALUES (%[2]d, 'secret_reference', 'SecretReference changes based on %[1]s');
+
 -- insert trigger for SecretReference
 CREATE TRIGGER trg_log_secret_reference_insert
 AFTER INSERT ON secret_reference FOR EACH ROW
@@ -86,6 +92,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForSecretRevision(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for SecretRevision
+INSERT INTO change_log_namespace VALUES (%[2]d, 'secret_revision', 'SecretRevision changes based on %[1]s');
+
 -- insert trigger for SecretRevision
 CREATE TRIGGER trg_log_secret_revision_insert
 AFTER INSERT ON secret_revision FOR EACH ROW
@@ -121,6 +130,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForSecretRevisionExpire(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for SecretRevisionExpire
+INSERT INTO change_log_namespace VALUES (%[2]d, 'secret_revision_expire', 'SecretRevisionExpire changes based on %[1]s');
+
 -- insert trigger for SecretRevisionExpire
 CREATE TRIGGER trg_log_secret_revision_expire_insert
 AFTER INSERT ON secret_revision_expire FOR EACH ROW
@@ -154,6 +166,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForSecretRevisionObsolete(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for SecretRevisionObsolete
+INSERT INTO change_log_namespace VALUES (%[2]d, 'secret_revision_obsolete', 'SecretRevisionObsolete changes based on %[1]s');
+
 -- insert trigger for SecretRevisionObsolete
 CREATE TRIGGER trg_log_secret_revision_obsolete_insert
 AFTER INSERT ON secret_revision_obsolete FOR EACH ROW
@@ -188,6 +203,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForSecretRotation(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for SecretRotation
+INSERT INTO change_log_namespace VALUES (%[2]d, 'secret_rotation', 'SecretRotation changes based on %[1]s');
+
 -- insert trigger for SecretRotation
 CREATE TRIGGER trg_log_secret_rotation_insert
 AFTER INSERT ON secret_rotation FOR EACH ROW
