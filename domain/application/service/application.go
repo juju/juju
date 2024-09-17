@@ -302,11 +302,13 @@ func makeUpsertUnitArgs(in AddUnitArg) application.UpsertUnitArg {
 			Ports:      in.CloudContainer.Ports,
 		}
 		if in.CloudContainer.Address != nil {
+			// TODO(units) - handle the in.CloudContainer.Address space ID
+			// For k8s we'll initially create a /32 subnet off the container address
+			// and add that to the default space.
 			result.CloudContainer.Address = &application.Address{
 				Value:       in.CloudContainer.Address.Value,
 				AddressType: string(in.CloudContainer.Address.AddressType()),
 				Scope:       string(in.CloudContainer.Address.Scope),
-				SpaceID:     in.CloudContainer.Address.SpaceID,
 				Origin:      string(network.OriginProvider),
 			}
 			if in.CloudContainer.AddressOrigin != nil {
@@ -520,8 +522,6 @@ func (s *ApplicationService) RegisterCAASUnit(ctx context.Context, appName strin
 	}
 	if args.Address != nil {
 		addr := network.NewSpaceAddress(*args.Address, network.WithScope(network.ScopeMachineLocal))
-		// k8s doesn't support spaces yet.
-		addr.SpaceID = network.AlphaSpaceId
 		p.CloudContainer.Address = &addr
 		origin := network.OriginProvider
 		p.CloudContainer.AddressOrigin = &origin

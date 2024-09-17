@@ -75,7 +75,6 @@ type Address struct {
 	AddressType string
 	Scope       string
 	Origin      string
-	SpaceID     string
 }
 
 // UpsertUnitArg contains parameters for adding a unit to state.
