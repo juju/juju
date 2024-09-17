@@ -226,7 +226,7 @@ func (st *ApplicationState) checkApplicationExists(ctx context.Context, tx *sqla
 	var appID applicationID
 	appName := applicationName{Name: name}
 	query := `
-SELECT application.uuid AS &applicationID.*
+SELECT &applicationID.uuid
 FROM application
 WHERE name = $applicationName.name
 `
@@ -248,7 +248,7 @@ func (st *ApplicationState) lookupApplication(ctx context.Context, tx *sqlair.TX
 	var appID applicationID
 	appName := applicationName{Name: name}
 	queryApplication := `
-SELECT (uuid) AS (&applicationID.*)
+SELECT &applicationID.*
 FROM application
 WHERE name = $applicationName.name
 `
@@ -377,7 +377,7 @@ func (st *ApplicationState) AddUnits(ctx context.Context, applicationName string
 
 func (st *ApplicationState) getUnit(ctx context.Context, tx *sqlair.TX, unitName string) (*unitDetails, error) {
 	unit := unitDetails{Name: unitName}
-	getUnit := `SELECT (*) AS (&unitDetails.*) FROM unit WHERE name = $unitDetails.name`
+	getUnit := `SELECT &unitDetails.* FROM unit WHERE name = $unitDetails.name`
 	getUnitStmt, err := st.Prepare(getUnit, unit)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -519,7 +519,7 @@ func (st *ApplicationState) upsertUnitCloudContainer(
 		NetNodeID: netNodeID,
 	}
 	queryCloudContainer := `
-SELECT (*) AS (&cloudContainer.*)
+SELECT &cloudContainer.*
 FROM cloud_container
 WHERE net_node_uuid = $cloudContainer.net_node_uuid
 `
@@ -629,7 +629,7 @@ func (st *ApplicationState) deleteUnit(ctx context.Context, tx *sqlair.TX, unitN
 
 	unit := coreUnit{Name: unitName}
 
-	queryUnit := `SELECT uuid as &coreUnit.uuid FROM unit WHERE name = $coreUnit.name`
+	queryUnit := `SELECT &coreUnit.uuid FROM unit WHERE name = $coreUnit.name`
 	queryUnitStmt, err := st.Prepare(queryUnit, unit)
 	if err != nil {
 		return errors.Trace(err)
@@ -821,7 +821,7 @@ func (st *ApplicationState) GetApplicationID(ctx domain.AtomicContext, name stri
 func (st *ApplicationState) GetUnitLife(ctx domain.AtomicContext, unitName string) (life.Life, error) {
 	unit := coreUnit{Name: unitName}
 	queryUnit := `
-SELECT unit.life_id AS &coreUnit.*
+SELECT &coreUnit.life_id
 FROM unit
 WHERE name = $coreUnit.name
 `
@@ -848,7 +848,7 @@ WHERE name = $coreUnit.name
 func (st *ApplicationState) SetUnitLife(ctx domain.AtomicContext, unitName string, l life.Life) error {
 	unit := coreUnit{Name: unitName, LifeID: l}
 	query := `
-SELECT uuid AS &coreUnit.uuid
+SELECT &coreUnit.uuid
 FROM unit
 WHERE name = $coreUnit.name
 `
@@ -887,7 +887,7 @@ AND life_id < $coreUnit.life_id
 func (st *ApplicationState) GetApplicationScaleState(ctx domain.AtomicContext, appID coreapplication.ID) (application.ScaleState, error) {
 	appScale := applicationScale{ApplicationID: appID.String()}
 	queryScale := `
-SELECT (*) AS (&applicationScale.*)
+SELECT &applicationScale.*
 FROM application_scale
 WHERE application_uuid = $applicationScale.application_uuid
 `
@@ -914,7 +914,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 func (st *ApplicationState) GetApplicationLife(ctx domain.AtomicContext, appName string) (coreapplication.ID, life.Life, error) {
 	app := applicationName{Name: appName}
 	query := `
-SELECT (*) AS (&applicationID.*)
+SELECT &applicationID.*
 FROM application a
 WHERE name = $applicationName.name
 `
