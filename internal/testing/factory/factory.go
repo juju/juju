@@ -147,6 +147,7 @@ type RelationParams struct {
 
 type ModelParams struct {
 	Type                    state.ModelType
+	UUID                    *uuid.UUID
 	Name                    string
 	Owner                   names.Tag
 	ConfigAttrs             testing.Attrs
@@ -748,11 +749,15 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		cfgType = "kubernetes"
 	}
 
-	uuid, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	var modelUUID uuid.UUID
+	if params.UUID != nil {
+		modelUUID = *params.UUID
+	} else {
+		modelUUID = uuid.MustNewUUID()
+	}
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": params.Name,
-		"uuid": uuid.String(),
+		"uuid": modelUUID.String(),
 		"type": cfgType,
 	}.Merge(params.ConfigAttrs))
 	controller := state.NewController(factory.pool)
