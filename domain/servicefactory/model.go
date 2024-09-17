@@ -36,7 +36,6 @@ import (
 	networkservice "github.com/juju/juju/domain/network/service"
 	networkstate "github.com/juju/juju/domain/network/state"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
-	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 	proxy "github.com/juju/juju/domain/proxy/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretstate "github.com/juju/juju/domain/secret/state"
@@ -102,13 +101,7 @@ func (s *ModelFactory) Config() *modelconfigservice.WatchableService {
 
 // ObjectStore returns the model's object store service.
 func (s *ModelFactory) ObjectStore() *objectstoreservice.WatchableService {
-	return objectstoreservice.NewWatchableService(
-		objectstorestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		domain.NewWatcherFactory(
-			s.modelDB,
-			s.logger.Child("objectstore"),
-		),
-	)
+	return nil
 }
 
 // Machine returns the model's machine service.
