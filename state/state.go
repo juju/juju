@@ -40,6 +40,7 @@ import (
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/charm"
+	interrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
@@ -804,17 +805,7 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 			if utils.IsValidUUIDString(id) {
 				return nil, errors.NotFoundf("model %q", id)
 			}
-			// TODO(axw) 2013-12-04 #1257587
-			// We should not accept model tags that do not match the
-			// model's UUID. We accept anything for now, to cater
-			// both for past usage, and for potentially supporting aliases.
-			logger.Warningf("model-tag does not match current model UUID: %q != %q", id, model.UUID())
-			conf, err := model.ModelConfig(context.Background())
-			if err != nil {
-				logger.Warningf("ModelConfig failed: %v", err)
-			} else if id != conf.Name() {
-				logger.Warningf("model-tag does not match current model name: %q != %q", id, conf.Name())
-			}
+			return nil, interrors.Errorf("model-tag %q does not match current model UUID %q", id, model.UUID())
 		}
 		return model, nil
 	case names.RelationTag:
