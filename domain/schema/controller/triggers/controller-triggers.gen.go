@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForControllerConfig(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ControllerConfig
+INSERT INTO change_log_namespace VALUES (%[2]d, 'controller_config', 'ControllerConfig changes based on %[1]s');
+
 -- insert trigger for ControllerConfig
 CREATE TRIGGER trg_log_controller_config_insert
 AFTER INSERT ON controller_config FOR EACH ROW
@@ -26,12 +29,12 @@ END;
 CREATE TRIGGER trg_log_controller_config_update
 AFTER UPDATE ON controller_config FOR EACH ROW
 WHEN 
+	NEW.key != OLD.key OR
 	(NEW.value != OLD.value OR (NEW.value IS NOT NULL AND OLD.value IS NULL) OR (NEW.value IS NULL AND OLD.value IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for ControllerConfig
 CREATE TRIGGER trg_log_controller_config_delete
 AFTER DELETE ON controller_config FOR EACH ROW
@@ -47,6 +50,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForControllerNode(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ControllerNode
+INSERT INTO change_log_namespace VALUES (%[2]d, 'controller_node', 'ControllerNode changes based on %[1]s');
+
 -- insert trigger for ControllerNode
 CREATE TRIGGER trg_log_controller_node_insert
 AFTER INSERT ON controller_node FOR EACH ROW
@@ -59,13 +65,13 @@ END;
 CREATE TRIGGER trg_log_controller_node_update
 AFTER UPDATE ON controller_node FOR EACH ROW
 WHEN 
+	NEW.controller_id != OLD.controller_id OR
 	(NEW.dqlite_node_id != OLD.dqlite_node_id OR (NEW.dqlite_node_id IS NOT NULL AND OLD.dqlite_node_id IS NULL) OR (NEW.dqlite_node_id IS NULL AND OLD.dqlite_node_id IS NOT NULL)) OR
 	(NEW.bind_address != OLD.bind_address OR (NEW.bind_address IS NOT NULL AND OLD.bind_address IS NULL) OR (NEW.bind_address IS NULL AND OLD.bind_address IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for ControllerNode
 CREATE TRIGGER trg_log_controller_node_delete
 AFTER DELETE ON controller_node FOR EACH ROW

@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForMachineCloudInstance(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for MachineCloudInstance
+INSERT INTO change_log_namespace VALUES (%[2]d, 'machine_cloud_instance', 'MachineCloudInstance changes based on %[1]s');
+
 -- insert trigger for MachineCloudInstance
 CREATE TRIGGER trg_log_machine_cloud_instance_insert
 AFTER INSERT ON machine_cloud_instance FOR EACH ROW
@@ -26,6 +29,7 @@ END;
 CREATE TRIGGER trg_log_machine_cloud_instance_update
 AFTER UPDATE ON machine_cloud_instance FOR EACH ROW
 WHEN 
+	NEW.machine_uuid != OLD.machine_uuid OR
 	NEW.instance_id != OLD.instance_id OR
 	(NEW.arch != OLD.arch OR (NEW.arch IS NOT NULL AND OLD.arch IS NULL) OR (NEW.arch IS NULL AND OLD.arch IS NOT NULL)) OR
 	(NEW.mem != OLD.mem OR (NEW.mem IS NOT NULL AND OLD.mem IS NULL) OR (NEW.mem IS NULL AND OLD.mem IS NOT NULL)) OR
@@ -39,7 +43,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for MachineCloudInstance
 CREATE TRIGGER trg_log_machine_cloud_instance_delete
 AFTER DELETE ON machine_cloud_instance FOR EACH ROW

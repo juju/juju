@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForModel(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for Model
+INSERT INTO change_log_namespace VALUES (%[2]d, 'model', 'Model changes based on %[1]s');
+
 -- insert trigger for Model
 CREATE TRIGGER trg_log_model_insert
 AFTER INSERT ON model FOR EACH ROW
@@ -26,6 +29,7 @@ END;
 CREATE TRIGGER trg_log_model_update
 AFTER UPDATE ON model FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	NEW.activated != OLD.activated OR
 	NEW.cloud_uuid != OLD.cloud_uuid OR
 	(NEW.cloud_region_uuid != OLD.cloud_region_uuid OR (NEW.cloud_region_uuid IS NOT NULL AND OLD.cloud_region_uuid IS NULL) OR (NEW.cloud_region_uuid IS NULL AND OLD.cloud_region_uuid IS NOT NULL)) OR
@@ -38,7 +42,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for Model
 CREATE TRIGGER trg_log_model_delete
 AFTER DELETE ON model FOR EACH ROW

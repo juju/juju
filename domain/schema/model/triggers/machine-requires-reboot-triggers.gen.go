@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForMachineRequiresReboot(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for MachineRequiresReboot
+INSERT INTO change_log_namespace VALUES (%[2]d, 'machine_requires_reboot', 'MachineRequiresReboot changes based on %[1]s');
+
 -- insert trigger for MachineRequiresReboot
 CREATE TRIGGER trg_log_machine_requires_reboot_insert
 AFTER INSERT ON machine_requires_reboot FOR EACH ROW
@@ -26,12 +29,12 @@ END;
 CREATE TRIGGER trg_log_machine_requires_reboot_update
 AFTER UPDATE ON machine_requires_reboot FOR EACH ROW
 WHEN 
+	NEW.machine_uuid != OLD.machine_uuid OR
 	NEW.created_at != OLD.created_at 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for MachineRequiresReboot
 CREATE TRIGGER trg_log_machine_requires_reboot_delete
 AFTER DELETE ON machine_requires_reboot FOR EACH ROW

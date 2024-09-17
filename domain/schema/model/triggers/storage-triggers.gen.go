@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForBlockDevice(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for BlockDevice
+INSERT INTO change_log_namespace VALUES (%[2]d, 'block_device', 'BlockDevice changes based on %[1]s');
+
 -- insert trigger for BlockDevice
 CREATE TRIGGER trg_log_block_device_insert
 AFTER INSERT ON block_device FOR EACH ROW
@@ -26,6 +29,7 @@ END;
 CREATE TRIGGER trg_log_block_device_update
 AFTER UPDATE ON block_device FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	NEW.machine_uuid != OLD.machine_uuid OR
 	NEW.name != OLD.name OR
 	(NEW.label != OLD.label OR (NEW.label IS NOT NULL AND OLD.label IS NULL) OR (NEW.label IS NULL AND OLD.label IS NOT NULL)) OR
@@ -42,7 +46,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for BlockDevice
 CREATE TRIGGER trg_log_block_device_delete
 AFTER DELETE ON block_device FOR EACH ROW
@@ -58,6 +61,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForStorageAttachment(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for StorageAttachment
+INSERT INTO change_log_namespace VALUES (%[2]d, 'storage_attachment', 'StorageAttachment changes based on %[1]s');
+
 -- insert trigger for StorageAttachment
 CREATE TRIGGER trg_log_storage_attachment_insert
 AFTER INSERT ON storage_attachment FOR EACH ROW
@@ -70,13 +76,13 @@ END;
 CREATE TRIGGER trg_log_storage_attachment_update
 AFTER UPDATE ON storage_attachment FOR EACH ROW
 WHEN 
+	NEW.storage_instance_uuid != OLD.storage_instance_uuid OR
 	NEW.unit_uuid != OLD.unit_uuid OR
 	NEW.life_id != OLD.life_id 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for StorageAttachment
 CREATE TRIGGER trg_log_storage_attachment_delete
 AFTER DELETE ON storage_attachment FOR EACH ROW
@@ -92,6 +98,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForStorageFilesystem(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for StorageFilesystem
+INSERT INTO change_log_namespace VALUES (%[2]d, 'storage_filesystem', 'StorageFilesystem changes based on %[1]s');
+
 -- insert trigger for StorageFilesystem
 CREATE TRIGGER trg_log_storage_filesystem_insert
 AFTER INSERT ON storage_filesystem FOR EACH ROW
@@ -104,6 +113,7 @@ END;
 CREATE TRIGGER trg_log_storage_filesystem_update
 AFTER UPDATE ON storage_filesystem FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	NEW.life_id != OLD.life_id OR
 	(NEW.provider_id != OLD.provider_id OR (NEW.provider_id IS NOT NULL AND OLD.provider_id IS NULL) OR (NEW.provider_id IS NULL AND OLD.provider_id IS NOT NULL)) OR
 	(NEW.storage_pool_uuid != OLD.storage_pool_uuid OR (NEW.storage_pool_uuid IS NOT NULL AND OLD.storage_pool_uuid IS NULL) OR (NEW.storage_pool_uuid IS NULL AND OLD.storage_pool_uuid IS NOT NULL)) OR
@@ -113,7 +123,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for StorageFilesystem
 CREATE TRIGGER trg_log_storage_filesystem_delete
 AFTER DELETE ON storage_filesystem FOR EACH ROW
@@ -129,6 +138,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForStorageFilesystemAttachment(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for StorageFilesystemAttachment
+INSERT INTO change_log_namespace VALUES (%[2]d, 'storage_filesystem_attachment', 'StorageFilesystemAttachment changes based on %[1]s');
+
 -- insert trigger for StorageFilesystemAttachment
 CREATE TRIGGER trg_log_storage_filesystem_attachment_insert
 AFTER INSERT ON storage_filesystem_attachment FOR EACH ROW
@@ -141,6 +153,7 @@ END;
 CREATE TRIGGER trg_log_storage_filesystem_attachment_update
 AFTER UPDATE ON storage_filesystem_attachment FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	NEW.storage_filesystem_uuid != OLD.storage_filesystem_uuid OR
 	NEW.net_node_uuid != OLD.net_node_uuid OR
 	NEW.life_id != OLD.life_id OR
@@ -151,7 +164,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for StorageFilesystemAttachment
 CREATE TRIGGER trg_log_storage_filesystem_attachment_delete
 AFTER DELETE ON storage_filesystem_attachment FOR EACH ROW
@@ -167,6 +179,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForStorageVolume(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for StorageVolume
+INSERT INTO change_log_namespace VALUES (%[2]d, 'storage_volume', 'StorageVolume changes based on %[1]s');
+
 -- insert trigger for StorageVolume
 CREATE TRIGGER trg_log_storage_volume_insert
 AFTER INSERT ON storage_volume FOR EACH ROW
@@ -179,6 +194,7 @@ END;
 CREATE TRIGGER trg_log_storage_volume_update
 AFTER UPDATE ON storage_volume FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	NEW.life_id != OLD.life_id OR
 	NEW.name != OLD.name OR
 	(NEW.provider_id != OLD.provider_id OR (NEW.provider_id IS NOT NULL AND OLD.provider_id IS NULL) OR (NEW.provider_id IS NULL AND OLD.provider_id IS NOT NULL)) OR
@@ -192,7 +208,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for StorageVolume
 CREATE TRIGGER trg_log_storage_volume_delete
 AFTER DELETE ON storage_volume FOR EACH ROW
@@ -208,6 +223,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForStorageVolumeAttachment(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for StorageVolumeAttachment
+INSERT INTO change_log_namespace VALUES (%[2]d, 'storage_volume_attachment', 'StorageVolumeAttachment changes based on %[1]s');
+
 -- insert trigger for StorageVolumeAttachment
 CREATE TRIGGER trg_log_storage_volume_attachment_insert
 AFTER INSERT ON storage_volume_attachment FOR EACH ROW
@@ -220,6 +238,7 @@ END;
 CREATE TRIGGER trg_log_storage_volume_attachment_update
 AFTER UPDATE ON storage_volume_attachment FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	NEW.storage_volume_uuid != OLD.storage_volume_uuid OR
 	NEW.net_node_uuid != OLD.net_node_uuid OR
 	NEW.life_id != OLD.life_id OR
@@ -230,7 +249,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for StorageVolumeAttachment
 CREATE TRIGGER trg_log_storage_volume_attachment_delete
 AFTER DELETE ON storage_volume_attachment FOR EACH ROW
@@ -246,6 +264,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForStorageVolumeAttachmentPlan(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for StorageVolumeAttachmentPlan
+INSERT INTO change_log_namespace VALUES (%[2]d, 'storage_volume_attachment_plan', 'StorageVolumeAttachmentPlan changes based on %[1]s');
+
 -- insert trigger for StorageVolumeAttachmentPlan
 CREATE TRIGGER trg_log_storage_volume_attachment_plan_insert
 AFTER INSERT ON storage_volume_attachment_plan FOR EACH ROW
@@ -258,6 +279,7 @@ END;
 CREATE TRIGGER trg_log_storage_volume_attachment_plan_update
 AFTER UPDATE ON storage_volume_attachment_plan FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	NEW.storage_volume_uuid != OLD.storage_volume_uuid OR
 	NEW.net_node_uuid != OLD.net_node_uuid OR
 	NEW.life_id != OLD.life_id OR
@@ -268,7 +290,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for StorageVolumeAttachmentPlan
 CREATE TRIGGER trg_log_storage_volume_attachment_plan_delete
 AFTER DELETE ON storage_volume_attachment_plan FOR EACH ROW

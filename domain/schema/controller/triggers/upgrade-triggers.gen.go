@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForUpgradeInfo(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for UpgradeInfo
+INSERT INTO change_log_namespace VALUES (%[2]d, 'upgrade_info', 'UpgradeInfo changes based on %[1]s');
+
 -- insert trigger for UpgradeInfo
 CREATE TRIGGER trg_log_upgrade_info_insert
 AFTER INSERT ON upgrade_info FOR EACH ROW
@@ -26,6 +29,7 @@ END;
 CREATE TRIGGER trg_log_upgrade_info_update
 AFTER UPDATE ON upgrade_info FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	NEW.previous_version != OLD.previous_version OR
 	NEW.target_version != OLD.target_version OR
 	NEW.state_type_id != OLD.state_type_id 
@@ -33,7 +37,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for UpgradeInfo
 CREATE TRIGGER trg_log_upgrade_info_delete
 AFTER DELETE ON upgrade_info FOR EACH ROW
@@ -49,6 +52,9 @@ END;`, columnName, namespaceID))
 func ChangeLogTriggersForUpgradeInfoControllerNode(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for UpgradeInfoControllerNode
+INSERT INTO change_log_namespace VALUES (%[2]d, 'upgrade_info_controller_node', 'UpgradeInfoControllerNode changes based on %[1]s');
+
 -- insert trigger for UpgradeInfoControllerNode
 CREATE TRIGGER trg_log_upgrade_info_controller_node_insert
 AFTER INSERT ON upgrade_info_controller_node FOR EACH ROW
@@ -61,6 +67,7 @@ END;
 CREATE TRIGGER trg_log_upgrade_info_controller_node_update
 AFTER UPDATE ON upgrade_info_controller_node FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	NEW.controller_node_id != OLD.controller_node_id OR
 	NEW.upgrade_info_uuid != OLD.upgrade_info_uuid OR
 	(NEW.node_upgrade_completed_at != OLD.node_upgrade_completed_at OR (NEW.node_upgrade_completed_at IS NOT NULL AND OLD.node_upgrade_completed_at IS NULL) OR (NEW.node_upgrade_completed_at IS NULL AND OLD.node_upgrade_completed_at IS NOT NULL)) 
@@ -68,7 +75,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for UpgradeInfoControllerNode
 CREATE TRIGGER trg_log_upgrade_info_controller_node_delete
 AFTER DELETE ON upgrade_info_controller_node FOR EACH ROW

@@ -14,6 +14,9 @@ import (
 func ChangeLogTriggersForCharm(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for Charm
+INSERT INTO change_log_namespace VALUES (%[2]d, 'charm', 'Charm changes based on %[1]s');
+
 -- insert trigger for Charm
 CREATE TRIGGER trg_log_charm_insert
 AFTER INSERT ON charm FOR EACH ROW
@@ -26,13 +29,13 @@ END;
 CREATE TRIGGER trg_log_charm_update
 AFTER UPDATE ON charm FOR EACH ROW
 WHEN 
+	NEW.uuid != OLD.uuid OR
 	(NEW.archive_path != OLD.archive_path OR (NEW.archive_path IS NOT NULL AND OLD.archive_path IS NULL) OR (NEW.archive_path IS NULL AND OLD.archive_path IS NOT NULL)) OR
 	(NEW.available != OLD.available OR (NEW.available IS NOT NULL AND OLD.available IS NULL) OR (NEW.available IS NULL AND OLD.available IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
-
 -- delete trigger for Charm
 CREATE TRIGGER trg_log_charm_delete
 AFTER DELETE ON charm FOR EACH ROW
