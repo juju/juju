@@ -32,11 +32,15 @@ func (c *leaderGetCommand) Info() *cmd.Info {
 leader-get prints the value of a leadership setting specified by key. If no key
 is given, or if the key is "-", all keys and values will be printed.
 `
+	examples := `
+    ADDRESSS=$(leader-get cluster-leader-address)
+`
 	return jujucmd.Info(&cmd.Info{
-		Name:    "leader-get",
-		Args:    "[<key>]",
-		Purpose: "Print application leadership settings.",
-		Doc:     doc,
+		Name:     "leader-get",
+		Args:     "[<key>]",
+		Purpose:  "Print application leadership settings.",
+		Doc:      doc,
+		Examples: examples,
 	})
 }
 

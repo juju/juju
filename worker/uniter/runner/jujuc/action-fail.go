@@ -29,11 +29,15 @@ action-fail sets the fail state of the action with a given error message.  Using
 action-fail without a failure message will set a default message indicating a
 problem with the action.
 `
+	examples := `
+    action-fail 'unable to contact remote service'
+`
 	return jujucmd.Info(&cmd.Info{
-		Name:    "action-fail",
-		Args:    "[\"<failure message>\"]",
-		Purpose: "Set action fail status with message.",
-		Doc:     doc,
+		Name:     "action-fail",
+		Args:     "[\"<failure message>\"]",
+		Purpose:  "Set action fail status with message.",
+		Doc:      doc,
+		Examples: examples,
 	})
 }
 

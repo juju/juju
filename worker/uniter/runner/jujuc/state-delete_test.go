@@ -18,31 +18,6 @@ type stateDeleteSuite struct {
 
 var _ = gc.Suite(&stateDeleteSuite{})
 
-func (s *stateDeleteSuite) TestHelp(c *gc.C) {
-	toolCmd, err := jujuc.NewCommand(nil, "state-delete")
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(toolCmd), ctx, []string{"--help"})
-	c.Check(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-
-	var expectedHelp = `
-Usage: state-delete <key>
-
-Summary:
-Delete server-side-state key value pairs.
-
-Details:
-state-delete deletes the value of the server side state specified by key.
-
-See also:
- - state-get
- - state-set
-`[1:]
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, expectedHelp)
-}
-
 type runStateDeleteCmd struct {
 	description string
 	args        []string

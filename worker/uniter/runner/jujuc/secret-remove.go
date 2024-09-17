@@ -29,16 +29,16 @@ func NewSecretRemoveCommand(ctx Context) (cmd.Command, error) {
 func (c *secretRemoveCommand) Info() *cmd.Info {
 	doc := `
 Remove a secret with the specified URI.
-
-Examples:
-
+`
+	examples := `
     secret-remove secret:9m4e2mr0ui3e8a215n4g
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    "secret-remove",
-		Args:    "<ID>",
-		Purpose: "Remove an existing secret.",
-		Doc:     doc,
+		Name:     "secret-remove",
+		Args:     "<ID>",
+		Purpose:  "Remove an existing secret.",
+		Doc:      doc,
+		Examples: examples,
 	})
 }
 

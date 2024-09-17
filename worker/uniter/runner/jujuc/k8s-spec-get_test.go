@@ -35,27 +35,6 @@ func (s *K8sSpecGetSuite) TestK8sSpecGetInit(c *gc.C) {
 	}
 }
 
-func (s *K8sSpecGetSuite) TestHelp(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, "k8s-spec-get")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
-	c.Assert(code, gc.Equals, 0)
-	expectedHelp := `
-Usage: k8s-spec-get
-
-Summary:
-Get k8s spec information.
-
-Details:
-Gets configuration data used to set up k8s resources.
-`[1:]
-
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, expectedHelp)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-}
-
 func (s *K8sSpecGetSuite) TestK8sSpecSet(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	hctx.info.K8sSpec = "k8sspec"

@@ -29,12 +29,30 @@ func (c *StatusGetCommand) Info() *cmd.Info {
 	doc := `
 By default, only the status value is printed.
 If the --include-data flag is passed, the associated data are printed also.
+
+Further details:
+status-get allows charms to query the current workload status.
+
+Without arguments, it just prints the status code e.g. ‘maintenance’.
+With --include-data specified, it prints YAML which contains the status
+value plus any data associated with the status.
+
+Include the --application option to get the overall status for the application, rather than an individual unit.
+`
+	examples := `
+    # Access the unit’s status:
+    status-get
+    status-get --include-data
+
+    # Access the application’s status:
+    status-get --application
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    "status-get",
-		Args:    "[--include-data] [--application]",
-		Purpose: "Print status information.",
-		Doc:     doc,
+		Name:     "status-get",
+		Args:     "[--include-data] [--application]",
+		Purpose:  "Print status information.",
+		Doc:      doc,
+		Examples: examples,
 	})
 }
 

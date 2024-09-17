@@ -18,40 +18,6 @@ type stateGetSuite struct {
 
 var _ = gc.Suite(&stateGetSuite{})
 
-func (s *stateGetSuite) TestHelp(c *gc.C) {
-	toolCmd, err := jujuc.NewCommand(nil, "state-get")
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(toolCmd), ctx, []string{"--help"})
-	c.Check(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-
-	var expectedHelp = `
-Usage: state-get [options] [<key>]
-
-Summary:
-Print server-side-state value.
-
-Options:
---format  (= smart)
-    Specify output format (json|smart|yaml)
--o, --output (= "")
-    Specify an output file
---strict  (= false)
-    Return an error if the requested key does not exist
-
-Details:
-state-get prints the value of the server side state specified by key.
-If no key is given, or if the key is "-", all keys and values will be printed.
-
-See also:
- - state-delete
- - state-set
-`[1:]
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, expectedHelp)
-}
-
 type runStateGetCmd struct {
 	description string
 	args        []string

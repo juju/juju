@@ -5,6 +5,7 @@ package jujuc
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -37,11 +38,15 @@ The spec applies to all units for the application.
 	if c.name == "pod-spec-set" {
 		purpose += " (deprecated)"
 	}
+	examples := fmt.Sprintf(`
+    %s [options] --file <core spec file> [--k8s-resources <k8s spec file>]"
+`, c.name)
 	return jujucmd.Info(&cmd.Info{
-		Name:    c.name,
-		Args:    "--file <core spec file> [--k8s-resources <k8s spec file>]",
-		Purpose: purpose,
-		Doc:     doc,
+		Name:     c.name,
+		Args:     "--file <core spec file> [--k8s-resources <k8s spec file>]",
+		Purpose:  purpose,
+		Doc:      doc,
+		Examples: examples,
 	})
 }
 

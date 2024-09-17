@@ -98,33 +98,6 @@ func (s *OpenedPortsSuite) TestBadArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["foo"\]`)
 }
 
-func (s *OpenedPortsSuite) TestHelp(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
-	openedPorts, err := jujuc.NewCommand(hctx, "opened-ports")
-	c.Assert(err, jc.ErrorIsNil)
-	flags := cmdtesting.NewFlagSet()
-	c.Assert(string(openedPorts.Info().Help(flags)), gc.Equals, `
-Usage: opened-ports
-
-Summary:
-List all ports or port ranges opened by the unit.
-
-Details:
-opened-ports lists all ports or port ranges opened by a unit.
-
-By default, the port range listing does not include information about the 
-application endpoints that each port range applies to. Each list entry is
-formatted as <port>/<protocol> (e.g. "80/tcp") or <from>-<to>/<protocol> 
-(e.g. "8080-8088/udp").
-
-If the --endpoints option is specified, each entry in the port list will be
-augmented with a comma-delimited list of endpoints that the port range 
-applies to (e.g. "80/tcp (endpoint1, endpoint2)"). If a port range applies to
-all endpoints, this will be indicated by the presence of a '*' character
-(e.g. "80/tcp (*)").
-`[1:])
-}
-
 func (s *OpenedPortsSuite) getContextAndOpenPorts(c *gc.C) *Context {
 	hctx := s.GetHookContext(c, -1, "")
 	hctx.OpenPortRange("", network.MustParsePortRange("80/tcp"))

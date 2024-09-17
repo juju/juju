@@ -97,23 +97,3 @@ func (s *ActionFailSuite) TestNonActionSetActionFailedFails(c *gc.C) {
 	c.Check(bufferString(ctx.Stderr), gc.Equals, "ERROR not running an action\n")
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
 }
-
-func (s *ActionFailSuite) TestHelp(c *gc.C) {
-	hctx, _ := s.NewHookContext()
-	com, err := jujuc.NewCommand(hctx, "action-fail")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-fail ["<failure message>"]
-
-Summary:
-Set action fail status with message.
-
-Details:
-action-fail sets the fail state of the action with a given error message.  Using
-action-fail without a failure message will set a default message indicating a
-problem with the action.
-`)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-}

@@ -57,9 +57,8 @@ If a key has the '#file' suffix, the value is read from the corresponding file.
 By default, a secret is owned by the application, meaning only the unit
 leader can manage it. Use "--owner unit" to create a secret owned by the
 specific unit which created it.
-
-Examples:
-
+`
+	examples := `
     secret-add token=34ae35facd4
     secret-add key#base64=AA==
     secret-add key#file=/path/to/file another-key=s3cret
@@ -75,10 +74,11 @@ Examples:
         --file=/path/to/file
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    "secret-add",
-		Args:    "[key[#base64|#file]=value...]",
-		Purpose: "Add a new secret.",
-		Doc:     doc,
+		Name:     "secret-add",
+		Args:     "[key[#base64|#file]=value...]",
+		Purpose:  "Add a new secret.",
+		Doc:      doc,
+		Examples: examples,
 	})
 }
 

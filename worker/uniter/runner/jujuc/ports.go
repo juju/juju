@@ -70,6 +70,43 @@ open-port registers a request to open the specified port or port range.
 By default, the specified port or port range will be opened for all defined
 application endpoints. The --endpoints option can be used to constrain the
 open request to a comma-delimited list of application endpoints.
+
+The behavior differs a little bit between machine charms and Kubernetes charms.
+
+Machine charms
+On public clouds the port will only be open while the application is exposed.
+It accepts a single port or range of ports with an optional protocol, which
+may be icmp, udp, or tcp. tcp is the default.
+
+open-port will not have any effect if the application is not exposed, and may
+have a somewhat delayed effect even if it is. This operation is transactional,
+so changes will not be made unless the hook exits successfully.
+
+Prior to Juju 2.9, when charms requested a particular port range to be opened,
+Juju would automatically mark that port range as opened for all defined
+application endpoints. As of Juju 2.9, charms can constrain opened port ranges
+to a set of application endpoints by providing the --endpoints flag followed by
+a comma-delimited list of application endpoints.
+
+Kubernetes charms
+The port will open directly regardless of whether the application is exposed or not.
+This connects to the fact that juju expose currently has no effect on sidecar charms.
+Additionally, it is currently not possible to designate a range of ports to open for
+Kubernetes charms; to open a range, you will have to run open-port multiple times.
+`,
+	Examples: `
+    # Open port 80 to TCP traffic:
+    open-port 80/tcp
+
+    # Open port 1234 to UDP traffic:
+    open-port 1234/udp
+
+    # Open a range of ports to UDP traffic:
+    open-port 1000-2000/udp
+
+    # Open a range of ports to TCP traffic for specific
+    # application endpoints (since Juju 2.9):
+    open-port 1000-2000/tcp --endpoints dmz,monitoring
 `,
 }
 
@@ -90,6 +127,19 @@ close-port registers a request to close the specified port or port range.
 By default, the specified port or port range will be closed for all defined
 application endpoints. The --endpoints option can be used to constrain the
 close request to a comma-delimited list of application endpoints.
+`,
+	Examples: `
+    # Close single port
+    close-port 80
+
+    # Close a range of ports
+    close-port 9000-9999/udp
+
+    # Disable ICMP
+    close-port icmp
+
+    # Close a range of ports for a set of endpoints (since Juju 2.9)
+    close-port 80-90 --endpoints dmz,public
 `,
 }
 

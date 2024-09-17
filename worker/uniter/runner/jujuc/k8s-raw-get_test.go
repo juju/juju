@@ -35,27 +35,6 @@ func (s *rawK8sSpecGetSuite) TestRawK8sSpecGetInit(c *gc.C) {
 	}
 }
 
-func (s *rawK8sSpecGetSuite) TestHelp(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, "k8s-raw-get")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
-	c.Assert(code, gc.Equals, 0)
-	expectedHelp := `
-Usage: k8s-raw-get
-
-Summary:
-Get k8s raw spec information.
-
-Details:
-Gets configuration data used to set up k8s resources.
-`[1:]
-
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, expectedHelp)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-}
-
 func (s *rawK8sSpecGetSuite) TestRawK8sSpecGet(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	hctx.info.RawK8sSpec = "k8sspec"

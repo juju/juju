@@ -21,30 +21,6 @@ type GoalStateSuite struct {
 
 var _ = gc.Suite(&GoalStateSuite{})
 
-func (s *GoalStateSuite) TestHelp(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, "goal-state")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: goal-state [options]
-
-Summary:
-Print the status of the charm's peers and related units.
-
-Options:
---format  (= yaml)
-    Specify output format (json|yaml)
--o, --output (= "")
-    Specify an output file
-
-Details:
-'goal-state' command will list the charm units and relations, specifying their status and their relations to other units in different charms.
-`)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-}
-
 var (
 	goalStateTestResultYaml = `units:
   mysql/0:

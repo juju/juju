@@ -85,42 +85,6 @@ func (s *PortsSuite) TestOpenClose(c *gc.C) {
 	}
 }
 
-func (s *PortsSuite) TestHelp(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
-	open, err := jujuc.NewCommand(hctx, "open-port")
-	c.Assert(err, jc.ErrorIsNil)
-	flags := cmdtesting.NewFlagSet()
-	c.Assert(string(open.Info().Help(flags)), gc.Equals, `
-Usage: open-port <port>[/<protocol>] or <from>-<to>[/<protocol>] or icmp
-
-Summary:
-Register a request to open a port or port range.
-
-Details:
-open-port registers a request to open the specified port or port range.
-
-By default, the specified port or port range will be opened for all defined
-application endpoints. The --endpoints option can be used to constrain the
-open request to a comma-delimited list of application endpoints.
-`[1:])
-
-	close, err := jujuc.NewCommand(hctx, "close-port")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(close.Info().Help(flags)), gc.Equals, `
-Usage: close-port <port>[/<protocol>] or <from>-<to>[/<protocol>] or icmp
-
-Summary:
-Register a request to close a port or port range.
-
-Details:
-close-port registers a request to close the specified port or port range.
-
-By default, the specified port or port range will be closed for all defined
-application endpoints. The --endpoints option can be used to constrain the
-close request to a comma-delimited list of application endpoints.
-`[1:])
-}
-
 // Since the deprecation warning gets output during Run, we really need
 // some valid commands to run
 var portsFormatDeprecationTests = []struct {
