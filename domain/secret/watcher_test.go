@@ -89,7 +89,9 @@ func createNewRevision(c *gc.C, st *state.State, uri *coresecrets.URI) {
 		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 	}
-	err := st.UpdateSecret(context.Background(), uri, sp)
+	err := st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return st.UpdateSecret(ctx, uri, sp)
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -342,8 +344,10 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	createNewRevision(c, st, uri2)
 	wc.AssertNChanges(2)
 
-	err = st.UpdateSecret(context.Background(), uri1, secret.UpsertSecretParams{
-		AutoPrune: ptr(true),
+	err = st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return st.UpdateSecret(ctx, uri1, secret.UpsertSecretParams{
+			AutoPrune: ptr(true),
+		})
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
@@ -629,9 +633,13 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	wc.AssertNoChange()
 
 	now := time.Now()
-	err = st.SecretRotated(ctx, uri1, now.Add(1*time.Hour))
+	err = st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return st.SecretRotated(ctx, uri1, now.Add(1*time.Hour))
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.SecretRotated(ctx, uri2, now.Add(2*time.Hour))
+	err = st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return st.SecretRotated(ctx, uri2, now.Add(2*time.Hour))
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(
@@ -729,10 +737,12 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.UpdateSecret(context.Background(), uri2, secret.UpsertSecretParams{
-		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
-		ExpireTime: ptr(now.Add(2 * time.Hour)),
-		RevisionID: ptr(uuid.MustNewUUID().String()),
+	err = st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return st.UpdateSecret(ctx, uri2, secret.UpsertSecretParams{
+			Data:       coresecrets.SecretData{"foo-new": "bar-new"},
+			ExpireTime: ptr(now.Add(2 * time.Hour)),
+			RevisionID: ptr(uuid.MustNewUUID().String()),
+		})
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

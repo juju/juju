@@ -10,6 +10,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/secret"
 )
 
@@ -56,9 +57,14 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport,
 			if rev.ValueRef != nil {
 				continue
 			}
-			data, _, err := s.secretState.GetSecretValue(ctx, md.URI, rev.Revision)
+			var data coresecrets.SecretData
+			err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+				var err error
+				data, _, err = s.secretState.GetSecretValue(ctx, md.URI, rev.Revision)
+				return err
+			})
 			if err != nil {
-				return nil, errors.Annotatef(err, "loading secret content for %q", md.URI.ID)
+				return nil, errors.Annotatef(err, "loading secret content for %s/%d", md.URI.ID, rev.Revision)
 			}
 			if len(data) == 0 {
 				// Should not happen.
@@ -189,7 +195,10 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 				},
 				Role: access.Role,
 			})
-			if err := s.secretState.GrantAccess(ctx, md.URI, p); err != nil {
+			err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+				return s.secretState.GrantAccess(ctx, md.URI, p)
+			})
+			if err != nil {
 				return errors.Annotatef(err, "saving secret access for %s-%s for secret %q",
 					access.Subject.Kind, access.Subject.ID, md.URI.ID)
 			}
@@ -243,7 +252,10 @@ func (s *SecretService) importSecretRevisions(
 				return errors.Trace(err)
 			}
 		}
-		if err := s.secretState.UpdateSecret(ctx, md.URI, params); err != nil {
+		err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+			return s.secretState.UpdateSecret(ctx, md.URI, params)
+		})
+		if err != nil {
 			if err := rollBack(); err != nil {
 				s.logger.Warningf("failed to roll back secret reference count: %v", err)
 			}

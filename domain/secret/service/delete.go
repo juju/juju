@@ -33,13 +33,13 @@ func (s *SecretService) DeleteObsoleteUserSecretRevisions(ctx context.Context) e
 // If revisions is nil or the last remaining revisions are removed.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, params DeleteSecretParams) error {
-	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
-		return errors.Trace(err)
-	}
 	var cleanExternal func(context.Context)
 	if err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
+			return errors.Trace(err)
+		}
 		var err error
-		cleanExternal, err = s.InternalDeleteSecret(ctx, uri, params)
+		cleanExternal, err = s.internalDeleteSecret(ctx, uri, params)
 		return errors.Trace(err)
 	}); err != nil {
 		return errors.Annotatef(err, "deleting secret %q", uri.ID)
@@ -56,7 +56,7 @@ func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, para
 // secrets owned by a unit or application being deleted. No permission checks are done.
 // It returns a function which can be called to delete any external content and also remove
 // any references from the affected backend(s).
-func (s *SecretService) InternalDeleteSecret(ctx domain.AtomicContext, uri *secrets.URI, params DeleteSecretParams) (func(context.Context), error) {
+func (s *SecretService) internalDeleteSecret(ctx domain.AtomicContext, uri *secrets.URI, params DeleteSecretParams) (func(context.Context), error) {
 	external, err := s.secretState.ListExternalSecretRevisions(ctx, uri, params.Revisions...)
 	if err != nil {
 		return nil, errors.Annotatef(err, "listing external revisions for %q", uri.ID)
