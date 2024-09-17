@@ -5,6 +5,7 @@ package network
 
 import (
 	"encoding/binary"
+	"net"
 	"net/netip"
 )
 
@@ -17,8 +18,8 @@ type IPAddress struct {
 // AsInts returns the MSB and LSB uint64 values for the specified address.
 func (a IPAddress) AsInts() (msb uint64, lsb uint64) {
 	addrB := a.AsSlice()
-	if a.Is4() {
-		lsb = uint64(binary.BigEndian.Uint32(addrB[:4]))
+	if len(addrB) == net.IPv4len {
+		lsb = uint64(binary.BigEndian.Uint32(addrB[:net.IPv4len]))
 	} else {
 		msb = binary.BigEndian.Uint64(addrB[:8])
 		lsb = binary.BigEndian.Uint64(addrB[8:])

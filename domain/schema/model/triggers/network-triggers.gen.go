@@ -27,9 +27,9 @@ CREATE TRIGGER trg_log_subnet_update
 AFTER UPDATE ON subnet FOR EACH ROW
 WHEN 
 	NEW.cidr != OLD.cidr OR
-	(NEW.start_address_msb != OLD.start_address_msb OR (NEW.start_address_msb IS NOT NULL AND OLD.start_address_msb IS NULL) OR (NEW.start_address_msb IS NULL AND OLD.start_address_msb IS NOT NULL)) OR
+	NEW.start_address_msb != OLD.start_address_msb OR
 	NEW.start_address_lsb != OLD.start_address_lsb OR
-	(NEW.end_address_msb != OLD.end_address_msb OR (NEW.end_address_msb IS NOT NULL AND OLD.end_address_msb IS NULL) OR (NEW.end_address_msb IS NULL AND OLD.end_address_msb IS NOT NULL)) OR
+	NEW.end_address_msb != OLD.end_address_msb OR
 	NEW.end_address_lsb != OLD.end_address_lsb OR
 	(NEW.vlan_tag != OLD.vlan_tag OR (NEW.vlan_tag IS NOT NULL AND OLD.vlan_tag IS NULL) OR (NEW.vlan_tag IS NULL AND OLD.vlan_tag IS NOT NULL)) OR
 	(NEW.space_uuid != OLD.space_uuid OR (NEW.space_uuid IS NOT NULL AND OLD.space_uuid IS NULL) OR (NEW.space_uuid IS NULL AND OLD.space_uuid IS NOT NULL)) 

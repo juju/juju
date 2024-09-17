@@ -54,7 +54,8 @@ func ParseCIDR(cidr string) (*CIDR, error) {
 		return nil, errors.Errorf("parsing CIDR %q: %w", cidr, err)
 	}
 	if prefix.Masked().Addr() != prefix.Addr() {
-		return nil, errors.Errorf("CIDR %q is not valid", cidr)
+		return nil, errors.Errorf(
+			"CIDR %q is not valid: %q is not the start address (%s) of the range", cidr, prefix.Addr(), prefix.Masked().Addr())
 	}
 	return &CIDR{Prefix: prefix}, nil
 }

@@ -170,7 +170,7 @@ CREATE TABLE ip_address (
     -- e.g. 192.168.1.2 or 2001:db8:0000:0000:0000:0000:0000:00001.
     address_value TEXT NOT NULL,
     -- the most significant 64 bits of the address.
-    address_msb UNSIGNED BIG INT,
+    address_msb UNSIGNED BIG INT NOT NULL DEFAULT 0,
     -- the least significant 64 bits of the address.
     address_lsb UNSIGNED BIG INT NOT NULL,
     -- one of ipv4, ipv6 etc.

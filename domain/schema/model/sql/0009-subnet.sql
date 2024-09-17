@@ -3,13 +3,13 @@ CREATE TABLE subnet (
     cidr TEXT NOT NULL,
     -- the most significant 64 bits of the cidr
     -- start ip address.
-    start_address_msb UNSIGNED BIG INT,
+    start_address_msb UNSIGNED BIG INT NOT NULL DEFAULT 0,
     -- the least significant 64 bits of the cidr
     -- start ip address.
     start_address_lsb UNSIGNED BIG INT NOT NULL,
     -- the most significant 64 bits of the cidr
     -- end ip address.
-    end_address_msb UNSIGNED BIG INT,
+    end_address_msb UNSIGNED BIG INT NOT NULL DEFAULT 0,
     -- the least significant 64 bits of the cidr
     -- end ip address.
     end_address_lsb UNSIGNED BIG INT NOT NULL,

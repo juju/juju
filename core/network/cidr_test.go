@@ -5,6 +5,7 @@ package network_test
 
 import (
 	"net"
+	"net/netip"
 	"regexp"
 
 	jc "github.com/juju/testing/checkers"
@@ -102,7 +103,7 @@ func (s *CIDRSuite) TestNetworkCIDRFromIPAndMask(c *gc.C) {
 
 func (s *CIDRSuite) TestParseCIDRError(c *gc.C) {
 	_, err := network.ParseCIDR("192.168.0.0/12")
-	c.Assert(err, gc.ErrorMatches, `CIDR "192.168.0.0/12" is not valid`)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`CIDR "192.168.0.0/12" is not valid: "192.168.0.0" is not the start address (192.160.0.0) of the range`))
 }
 
 func (s *CIDRSuite) TestParseCIDR(c *gc.C) {
@@ -163,4 +164,14 @@ func (*CIDRSuite) TestAddressRangeForCIDR(c *gc.C) {
 		c.Assert(gotFirst.String(), gc.Equals, spec.expFirst)
 		c.Assert(gotLast.String(), gc.Equals, spec.expLast)
 	}
+}
+
+func (*CIDRSuite) TestAddressRangeFromNonCanonicalCIDR(c *gc.C) {
+	prefix, err := netip.ParsePrefix("10.1.1.32/24")
+	c.Assert(err, jc.ErrorIsNil)
+
+	cidr := network.CIDR{prefix}
+	start, end := cidr.AddressRange()
+	c.Check(start.String(), gc.Equals, "10.1.1.0")
+	c.Check(end.String(), gc.Equals, "10.1.1.255")
 }

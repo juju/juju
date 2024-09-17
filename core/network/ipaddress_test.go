@@ -19,15 +19,15 @@ type IPAddressSuite struct {
 var _ = gc.Suite(&IPAddressSuite{})
 
 func (s *IPAddressSuite) TestIPv4AddressSplit(c *gc.C) {
-	addr := network.IPAddress{netip.MustParseAddr("192.168.0.0")}
+	addr := network.IPAddress{netip.MustParseAddr("192.168.1.1")}
 	msb, lsb := addr.AsInts()
 	c.Assert(msb, gc.Equals, uint64(0))
-	c.Assert(lsb, gc.Equals, uint64(0xc0a80000))
+	c.Assert(lsb, gc.Equals, uint64(0xc0a80101))
 }
 
 func (s *IPAddressSuite) TestIPv6AddressSplit(c *gc.C) {
-	addr := network.IPAddress{netip.MustParseAddr("fd7a:115c:a1e0:ab12:4843:cd96:626b:430b")}
+	addr := network.IPAddress{netip.MustParseAddr("2001:0db8:85a3:0000:0000:8a2e:0370:7666")}
 	msb, lsb := addr.AsInts()
-	c.Assert(msb, gc.Equals, uint64(0xfd7a115ca1e0ab12))
-	c.Assert(lsb, gc.Equals, uint64(0x4843cd96626b430b))
+	c.Assert(msb, gc.Equals, uint64(0x20010db885a30000))
+	c.Assert(lsb, gc.Equals, uint64(0x8a2e03707666))
 }
