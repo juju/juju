@@ -33,10 +33,11 @@ type ExportService interface {
 	// If the machine is not provisioned, it returns a NotProvisionedError.
 	InstanceID(ctx context.Context, machineUUID string) (string, error)
 	// HardwareCharacteristics returns the hardware characteristics of the
-	// of the specified machine.
+	// specified machine.
 	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
 	// GetMachineUUID returns the UUID of a machine identified by its name.
-	// It returns a MachineNotFound if the machine does not exist.
+	// It returns a [github.com/juju/juju/domain/machine/errors.MachineNotFound]
+	// if the machine does not exist.
 	GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error)
 }
 
@@ -63,7 +64,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 
 	for _, machine := range model.Machines() {
 		// TODO(nvinuesa): We must check if the machine cloud instance is already
-		// set and in that case don't ovewrite anything. This check can be removed
+		// set and in that case don't overwrite anything. This check can be removed
 		// once we fully move machines over to dqlite.
 		if instance := machine.Instance(); instance != nil {
 			continue

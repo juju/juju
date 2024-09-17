@@ -99,15 +99,15 @@ func (s *exportSuite) TestExport(c *gc.C) {
 		Return(machineUUIDs[0], nil)
 	tags := []string{"tag0", "tag1"}
 	hc := instance.HardwareCharacteristics{
-		Arch:             strPtr("amd64"),
-		Mem:              uintptr(1024),
-		RootDisk:         uintptr(2048),
-		RootDiskSource:   strPtr("/"),
-		CpuCores:         uintptr(4),
-		CpuPower:         uintptr(16),
+		Arch:             ptr("amd64"),
+		Mem:              ptr(uint64(1024)),
+		RootDisk:         ptr(uint64(2048)),
+		RootDiskSource:   ptr("/"),
+		CpuCores:         ptr(uint64(4)),
+		CpuPower:         ptr(uint64(16)),
 		Tags:             &tags,
-		AvailabilityZone: strPtr("az-1"),
-		VirtType:         strPtr("vm"),
+		AvailabilityZone: ptr("az-1"),
+		VirtType:         ptr("vm"),
 	}
 	s.service.EXPECT().HardwareCharacteristics(gomock.Any(), machineUUIDs[0]).
 		Return(&hc, nil)
@@ -132,10 +132,6 @@ func (s *exportSuite) TestExport(c *gc.C) {
 	c.Check(cloudInstance.VirtType(), gc.Equals, "vm")
 }
 
-func strPtr(s string) *string {
-	return &s
-}
-
-func uintptr(u uint64) *uint64 {
+func ptr[T any](u T) *T {
 	return &u
 }

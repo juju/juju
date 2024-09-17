@@ -216,7 +216,8 @@ WHERE machine_uuid=$machineUUID.uuid
 }
 
 // InstanceID returns the cloud specific instance id for this machine.
-// If the machine is not provisioned, it returns a NotProvisionedError.
+// If the machine is not provisioned, it returns a
+// [machineerrors.NotProvisionedError].
 func (st *State) InstanceID(ctx context.Context, mUUID string) (string, error) {
 	db, err := st.DB()
 	if err != nil {

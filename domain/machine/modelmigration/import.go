@@ -68,29 +68,18 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		// Import the machine's cloud instance.
 		cloudInstance := m.Instance()
 		if cloudInstance != nil {
-			arch := cloudInstance.Architecture()
-			mem := cloudInstance.Memory()
-			rootDisk := cloudInstance.RootDisk()
-			rootDiskSource := cloudInstance.RootDiskSource()
-			cpuCores := cloudInstance.CpuCores()
-			cpuPower := cloudInstance.CpuPower()
-			tags := cloudInstance.Tags()
-			virtType := cloudInstance.VirtType()
 			hardwareCharacteristics := &instance.HardwareCharacteristics{
-				Arch:           &arch,
-				Mem:            &mem,
-				RootDisk:       &rootDisk,
-				RootDiskSource: &rootDiskSource,
-				CpuCores:       &cpuCores,
-				CpuPower:       &cpuPower,
-				Tags:           &tags,
-				VirtType:       &virtType,
+				Arch:             nilZeroPtr(cloudInstance.Architecture()),
+				Mem:              nilZeroPtr(cloudInstance.Memory()),
+				RootDisk:         nilZeroPtr(cloudInstance.RootDisk()),
+				RootDiskSource:   nilZeroPtr(cloudInstance.RootDiskSource()),
+				CpuCores:         nilZeroPtr(cloudInstance.CpuCores()),
+				CpuPower:         nilZeroPtr(cloudInstance.CpuPower()),
+				AvailabilityZone: nilZeroPtr(cloudInstance.AvailabilityZone()),
+				VirtType:         nilZeroPtr(cloudInstance.VirtType()),
 			}
-			// Only add the availability zone if it is not empty. It can be empty
-			// because we are deserializing from a description.Model and we
-			// lose the pointer reference since it returns a string.
-			if availabilityZone := cloudInstance.AvailabilityZone(); availabilityZone != "" {
-				hardwareCharacteristics.AvailabilityZone = &availabilityZone
+			if tags := cloudInstance.Tags(); len(tags) != 0 {
+				hardwareCharacteristics.Tags = &tags
 			}
 			if err := i.service.SetMachineCloudInstance(
 				ctx,
@@ -103,4 +92,12 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		}
 	}
 	return nil
+}
+
+func nilZeroPtr[T comparable](v T) *T {
+	var zero T
+	if v == zero {
+		return nil
+	}
+	return &v
 }
