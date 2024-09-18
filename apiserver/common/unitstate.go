@@ -12,6 +12,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -19,7 +20,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/unitstate.go github.com/juju/juju/apiserver/common UnitStateBackend,UnitStateUnit
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/modeloperation.go github.com/juju/juju/state ModelOperation
 
-// UnitStateUnit describes unit-receiver state methods required
+// UnitStateBackend describes unit-receiver state methods required
 // for UnitStateAPI.
 type UnitStateBackend interface {
 	ApplyOperation(state.ModelOperation) error
@@ -47,10 +48,19 @@ func (s UnitStateState) Unit(name string) (UnitStateUnit, error) {
 	return s.St.Unit(name)
 }
 
+// UnitStateService describes the ability to retrieve and persist
+// remote state for informing hook reconciliation.
+type UnitStateService interface {
+	// SetState persists the input agent state.
+	SetState(context.Context, unitstate.AgentState) error
+}
+
 type UnitStateAPI struct {
 	controllerConfigService ControllerConfigService
-	backend                 UnitStateBackend
-	resources               facade.Resources
+	unitStateService        UnitStateService
+
+	backend   UnitStateBackend
+	resources facade.Resources
 
 	logger corelogger.Logger
 
@@ -61,19 +71,22 @@ type UnitStateAPI struct {
 // NewExternalUnitStateAPI can be used for API registration.
 func NewExternalUnitStateAPI(
 	controllerConfigService ControllerConfigService,
+	unitStateService UnitStateService,
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	accessUnit GetAuthFunc,
 	logger corelogger.Logger,
 ) *UnitStateAPI {
-	return NewUnitStateAPI(controllerConfigService, UnitStateState{St: st}, resources, authorizer, accessUnit, logger)
+	return NewUnitStateAPI(
+		controllerConfigService, unitStateService, UnitStateState{St: st}, resources, authorizer, accessUnit, logger)
 }
 
 // NewUnitStateAPI returns a new UnitStateAPI. Currently both
 // GetAuthFuncs can used to determine current permissions.
 func NewUnitStateAPI(
 	controllerConfigService ControllerConfigService,
+	unitStateService UnitStateService,
 	backend UnitStateBackend,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -82,6 +95,7 @@ func NewUnitStateAPI(
 ) *UnitStateAPI {
 	return &UnitStateAPI{
 		controllerConfigService: controllerConfigService,
+		unitStateService:        unitStateService,
 		backend:                 backend,
 		resources:               resources,
 		accessUnit:              accessUnit,
@@ -192,6 +206,17 @@ func (u *UnitStateAPI) SetState(ctx context.Context, args params.SetUnitStateArg
 			if errors.Is(err, errors.QuotaLimitExceeded) {
 				logger.Errorf("%s: %v", unitTag, err)
 			}
+			res[i].Error = apiservererrors.ServerError(err)
+		}
+
+		if err := u.unitStateService.SetState(ctx, unitstate.AgentState{
+			Name:          unitTag.Id(),
+			CharmState:    arg.CharmState,
+			UniterState:   arg.UniterState,
+			RelationState: arg.RelationState,
+			StorageState:  arg.StorageState,
+			SecretState:   arg.SecretState,
+		}); err != nil {
 			res[i].Error = apiservererrors.ServerError(err)
 		}
 	}

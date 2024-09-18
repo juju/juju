@@ -5,6 +5,7 @@ package common_test
 
 import (
 	"context"
+	"github.com/juju/juju/domain/unitstate"
 
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -32,6 +33,7 @@ type unitStateSuite struct {
 	mockOp      *mocks.MockModelOperation
 
 	controllerConfigGetter *mocks.MockControllerConfigService
+	unitStateService       *MockUnitStateService
 }
 
 var _ = gc.Suite(&unitStateSuite{})
@@ -51,6 +53,7 @@ func (s *unitStateSuite) assertBackendApi(c *gc.C) *gomock.Controller {
 	s.mockUnit = mocks.NewMockUnitStateUnit(ctrl)
 	s.mockOp = mocks.NewMockModelOperation(ctrl)
 	s.controllerConfigGetter = mocks.NewMockControllerConfigService(ctrl)
+	s.unitStateService = NewMockUnitStateService(ctrl)
 
 	unitAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
@@ -62,7 +65,14 @@ func (s *unitStateSuite) assertBackendApi(c *gc.C) *gomock.Controller {
 	}
 
 	s.api = common.NewUnitStateAPI(
-		s.controllerConfigGetter, s.mockBackend, resources, authorizer, unitAuthFunc, loggertesting.WrapCheckLog(c))
+		s.controllerConfigGetter,
+		s.unitStateService,
+		s.mockBackend,
+		resources,
+		authorizer,
+		unitAuthFunc,
+		loggertesting.WrapCheckLog(c),
+	)
 	return ctrl
 }
 
@@ -171,6 +181,12 @@ func (s *unitStateSuite) TestSetStateUniterState(c *gc.C) {
 			{Tag: "unit-notfound-0", UniterState: &expUniterState},
 		},
 	}
+
+	expectedState := unitstate.AgentState{
+		Name:        "wordpress/0",
+		UniterState: &expUniterState,
+	}
+	s.unitStateService.EXPECT().SetState(gomock.Any(), expectedState).Return(nil)
 
 	result, err := s.api.SetState(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
