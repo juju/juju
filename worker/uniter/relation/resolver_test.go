@@ -1714,7 +1714,7 @@ func (s *mockRelationResolverSuite) expectIsImplicitFalse(id int) {
 
 func (s *mockRelationResolverSuite) expectStateUnknown(id int) {
 	exp := s.mockRelStTracker.EXPECT()
-	exp.State(id).Return(nil, errors.Errorf("unknown relation: %d", id))
+	exp.State(id).Return(nil, errors.NotFoundf("relation: %d", id))
 }
 
 func (s *mockRelationResolverSuite) expectState(st relation.State) {

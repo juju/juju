@@ -114,6 +114,8 @@ func (r *relationsResolver) NextOp(
 	return nil, resolver.ErrNoOperation
 }
 
+// processRelationSnapshot reconciles the local and remote states for a
+// single relation and determines what hoof (if any) should be fired.
 func (r *relationsResolver) processRelationSnapshot(
 	relationID int,
 	relationSnapshot remotestate.RelationSnapshot,
@@ -139,6 +141,9 @@ func (r *relationsResolver) processRelationSnapshot(
 	// to be fired for this relation.
 	relState, err := r.stateTracker.State(relationID)
 	if err != nil {
+		if !errors.Is(err, errors.NotFound) {
+			return nil, errors.Trace(err)
+		}
 		relState = NewState(relationID)
 	}
 	hInfo, err := r.nextHookForRelation(relState, relationSnapshot, remoteBroken)
