@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/names/v5"
@@ -13,7 +12,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/tools"
 )
 
@@ -69,13 +67,6 @@ type Authenticator interface {
 // can be watched.
 type NotifyWatcherFactory interface {
 	Watch() NotifyWatcher
-}
-
-// ModelAccessor defines the methods needed to watch for model
-// config changes, and read the model config.
-type ModelAccessor interface {
-	WatchForModelConfigChanges() NotifyWatcher
-	ModelConfig(context.Context) (*config.Config, error)
 }
 
 // UnitsWatcher defines the methods needed to retrieve an entity (a

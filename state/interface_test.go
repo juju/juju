@@ -34,9 +34,8 @@ var (
 	_ NotifyWatcherFactory = (*Application)(nil)
 	_ NotifyWatcherFactory = (*Model)(nil)
 
-	_ ModelAccessor = (*Model)(nil)
-	_ UnitsWatcher  = (*Machine)(nil)
-	_ UnitsWatcher  = (*Application)(nil)
+	_ UnitsWatcher = (*Machine)(nil)
+	_ UnitsWatcher = (*Application)(nil)
 
 	_ ModelMachinesWatcher = (*State)(nil)
 
