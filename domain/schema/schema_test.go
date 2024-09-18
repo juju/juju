@@ -461,7 +461,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 
 		// Status
 		"machine_status_value",
-		"instance_status_value",
+		"cloud_instance_status_value",
 		"unit_agent_status_value",
 		"unit_workload_status_value",
 

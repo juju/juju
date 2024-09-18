@@ -193,7 +193,7 @@ func fromCoreMachineStatusValue(s status.Status) int {
 }
 
 // toCoreInstanceStatusValue converts an internal status used by machine cloud
-// instances (per the instance_status_value table) into a core type
+// instances (per the cloud_instance_status_value table) into a core type
 // status.Status.
 func (s *machineStatusWithData) toCoreInstanceStatusValue() status.Status {
 	var out status.Status
@@ -211,7 +211,7 @@ func (s *machineStatusWithData) toCoreInstanceStatusValue() status.Status {
 }
 
 // fromCoreInstanceStatusValue converts a status.Status to an internal status
-// used by machine cloud instances (per the instance_status_value table).
+// used by machine cloud instances (per the cloud_instance_status_value table).
 func fromCoreInstanceStatusValue(s status.Status) int {
 	var internalStatus int
 	switch s {

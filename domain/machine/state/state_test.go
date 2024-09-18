@@ -302,7 +302,7 @@ func (s *stateSuite) TestGetMachineStatusSuccess(c *gc.C) {
 
 	// Add a status value for this machine into the
 	// machine_status table using the machineUUID and the status
-	// value 2 for "running" (from instance_status_value table).
+	// value 2 for "running" (from cloud_instance_status_value table).
 	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_status VALUES('123', '1', 'started', '2024-07-12 12:00:00')")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -323,7 +323,7 @@ func (s *stateSuite) TestGetMachineStatusSuccessWithData(c *gc.C) {
 
 	// Add a status value for this machine into the
 	// machine_status table using the machineUUID and the status
-	// value 2 for "running" (from instance_status_value table).
+	// value 2 for "running" (from cloud_instance_status_value table).
 	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_status VALUES('123', '1', 'started', '2024-07-12 12:00:00')")
 	c.Assert(err, jc.ErrorIsNil)
 

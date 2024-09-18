@@ -330,7 +330,7 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 		Data:    statusDataResult,
 	}
 
-	// Convert the internal status id from the (instance_status_value table)
+	// Convert the internal status id from the (cloud_instance_status_value table)
 	// into the core status.Status type.
 	instanceStatus.Status = instanceStatusWithData[0].toCoreInstanceStatusValue()
 

@@ -104,6 +104,18 @@ CREATE TABLE machine_requires_reboot (
     REFERENCES machine (uuid)
 );
 
+CREATE TABLE machine_status_value (
+    id INT PRIMARY KEY,
+    status TEXT NOT NULL
+);
+
+INSERT INTO machine_status_value VALUES
+(0, 'error'),
+(1, 'started'),
+(2, 'pending'),
+(3, 'stopped'),
+(4, 'down');
+
 CREATE TABLE machine_status (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     status_id INT NOT NULL,
