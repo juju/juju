@@ -106,15 +106,15 @@ CREATE TABLE machine_requires_reboot (
 
 CREATE TABLE machine_status (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
-    status INT NOT NULL,
+    status_id INT NOT NULL,
     message TEXT,
     updated_at DATETIME,
     CONSTRAINT fk_machine_constraint_machine
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid),
     CONSTRAINT fk_machine_constraint_status
-    FOREIGN KEY (status)
-    REFERENCES machine_status_values (id)
+    FOREIGN KEY (status_id)
+    REFERENCES machine_status_value (id)
 );
 
 /*
@@ -127,9 +127,9 @@ CREATE TABLE machine_status_data (
     machine_uuid TEXT NOT NULL,
     "key" TEXT,
     data TEXT,
-    CONSTRAINT fk_machine_status_data_machine
+    CONSTRAINT fk_machine_status_data_machine_status
     FOREIGN KEY (machine_uuid)
-    REFERENCES machine (uuid),
+    REFERENCES machine_status (machine_uuid),
     PRIMARY KEY (machine_uuid, "key")
 );
 

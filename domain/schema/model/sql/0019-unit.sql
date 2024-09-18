@@ -119,3 +119,49 @@ CREATE TABLE unit_state_relation (
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid)
 );
+
+CREATE TABLE unit_agent_status (
+    unit_uuid TEXT NOT NULL PRIMARY KEY,
+    status_id INT NOT NULL,
+    message TEXT,
+    updated_at DATETIME,
+    CONSTRAINT fk_unit_agent_status_unit
+    FOREIGN KEY (unit_uuid)
+    REFERENCES unit (uuid),
+    CONSTRAINT fk_unit_agent_status_status
+    FOREIGN KEY (status_id)
+    REFERENCES unit_agent_status_value (id)
+);
+
+CREATE TABLE unit_agent_status_data (
+    unit_uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    data TEXT,
+    CONSTRAINT fk_unit_agent_status_data_unit
+    FOREIGN KEY (unit_uuid)
+    REFERENCES unit_agent_status (unit_uuid),
+    PRIMARY KEY (unit_uuid, "key")
+);
+
+CREATE TABLE unit_workload_status (
+    unit_uuid TEXT NOT NULL PRIMARY KEY,
+    status_id INT NOT NULL,
+    message TEXT,
+    updated_at DATETIME,
+    CONSTRAINT fk_unit_workload_status_unit
+    FOREIGN KEY (unit_uuid)
+    REFERENCES unit (uuid),
+    CONSTRAINT fk_unit_workload_status_status
+    FOREIGN KEY (status_id)
+    REFERENCES unit_workload_status_value (id)
+);
+
+CREATE TABLE unit_workload_status_data (
+    unit_uuid TEXT NOT NULL,
+    "key" TEXT,
+    data TEXT,
+    CONSTRAINT fk_unit_workload_status_data_unit
+    FOREIGN KEY (unit_uuid)
+    REFERENCES unit_workload_status (unit_uuid),
+    PRIMARY KEY (unit_uuid, "key")
+);

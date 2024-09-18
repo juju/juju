@@ -334,6 +334,10 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"unit_state",
 		"unit_agent",
 		"unit_principal",
+		"unit_agent_status",
+		"unit_agent_status_data",
+		"unit_workload_status",
+		"unit_workload_status_data",
 
 		// Constraint
 		"constraint",
@@ -456,8 +460,10 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"secret_grant_scope_type",
 
 		// Status
-		"machine_status_values",
-		"instance_status_values",
+		"machine_status_value",
+		"instance_status_value",
+		"unit_agent_status_value",
+		"unit_workload_status_value",
 
 		// Opened Ports
 		"protocol",
