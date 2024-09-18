@@ -253,6 +253,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"application_platform",
 		"application_setting",
 		"application_scale",
+		"cloud_service",
 
 		// User Public Keys
 		"ssh_fingerprint_hash_algorithm",
@@ -292,15 +293,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"object_store_metadata_hash_type",
 
 		// Node
-		"machine",
 		"net_node",
-		"cloud_service",
-		"cloud_container",
-		"cloud_container_port",
-		"machine_cloud_instance",
-		"machine_cloud_instance_status",
-		"machine_cloud_instance_status_data",
-		"machine_lxd_profile",
 		"instance_tag",
 		"fqdn_address",
 		"net_node_fqdn_address",
@@ -334,10 +327,17 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"unit_state",
 		"unit_agent",
 		"unit_principal",
+		"cloud_container",
+		"cloud_container_port",
 		"unit_agent_status",
 		"unit_agent_status_data",
 		"unit_workload_status",
 		"unit_workload_status_data",
+		"cloud_container_status",
+		"cloud_container_status_data",
+		"unit_agent_status_value",
+		"unit_workload_status_value",
+		"cloud_container_status_value",
 
 		// Constraint
 		"constraint",
@@ -353,9 +353,15 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"machine_volume",
 		"machine_filesystem",
 		"machine_requires_reboot",
+		"machine_removals",
 		"machine_status",
 		"machine_status_data",
-		"machine_removals",
+		"machine_status_value",
+		"machine_cloud_instance",
+		"machine_cloud_instance_status_value",
+		"machine_cloud_instance_status",
+		"machine_cloud_instance_status_data",
+		"machine_lxd_profile",
 
 		// Charm
 		"architecture",
@@ -458,12 +464,6 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"secret_role",
 		"secret_grant_subject_type",
 		"secret_grant_scope_type",
-
-		// Status
-		"machine_status_value",
-		"cloud_instance_status_value",
-		"unit_agent_status_value",
-		"unit_workload_status_value",
 
 		// Opened Ports
 		"protocol",

@@ -120,6 +120,28 @@ CREATE TABLE unit_state_relation (
     REFERENCES unit (uuid)
 );
 
+CREATE TABLE cloud_container (
+    -- one cloud container per net node.
+    net_node_uuid TEXT NOT NULL PRIMARY KEY,
+    -- provider_id comes from the provider, no FK.
+    provider_id TEXT NOT NULL,
+    CONSTRAINT fk_cloud_container_net_node
+    FOREIGN KEY (net_node_uuid)
+    REFERENCES net_node (uuid)
+);
+
+CREATE UNIQUE INDEX idx_cloud_container_provider
+ON cloud_container (provider_id);
+
+CREATE TABLE cloud_container_port (
+    cloud_container_uuid TEXT NOT NULL,
+    port TEXT NOT NULL,
+    CONSTRAINT fk_cloud_container_port_net_node
+    FOREIGN KEY (cloud_container_uuid)
+    REFERENCES cloud_container (net_node_uuid),
+    PRIMARY KEY (cloud_container_uuid, port)
+);
+
 -- Status values for unit agents.
 CREATE TABLE unit_agent_status_value (
     id INT PRIMARY KEY,
@@ -148,6 +170,17 @@ INSERT INTO unit_workload_status_value VALUES
 (4, 'blocked'),
 (5, 'active'),
 (6, 'terminated');
+
+-- Status values for cloud containers.
+CREATE TABLE cloud_container_status_value (
+    id INT PRIMARY KEY,
+    status TEXT NOT NULL
+);
+
+INSERT INTO cloud_container_status_value VALUES
+(0, 'waiting'),
+(1, 'blocked'),
+(2, 'running');
 
 CREATE TABLE unit_agent_status (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
@@ -192,5 +225,28 @@ CREATE TABLE unit_workload_status_data (
     CONSTRAINT fk_unit_workload_status_data_unit
     FOREIGN KEY (unit_uuid)
     REFERENCES unit_workload_status (unit_uuid),
+    PRIMARY KEY (unit_uuid, "key")
+);
+
+CREATE TABLE cloud_container_status (
+    unit_uuid TEXT NOT NULL PRIMARY KEY,
+    status_id INT NOT NULL,
+    message TEXT,
+    updated_at DATETIME,
+    CONSTRAINT fk_cloud_container_status_unit
+    FOREIGN KEY (unit_uuid)
+    REFERENCES unit (uuid),
+    CONSTRAINT fk_cloud_container_status_status
+    FOREIGN KEY (status_id)
+    REFERENCES cloud_container_status_value (id)
+);
+
+CREATE TABLE cloud_container_status_data (
+    unit_uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    data TEXT,
+    CONSTRAINT fk_cloud_container_status_data_unit
+    FOREIGN KEY (unit_uuid)
+    REFERENCES cloud_container_status (unit_uuid),
     PRIMARY KEY (unit_uuid, "key")
 );

@@ -23,6 +23,17 @@ CREATE TABLE application (
 CREATE UNIQUE INDEX idx_application_name
 ON application (name);
 
+CREATE TABLE cloud_service (
+    application_uuid TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    CONSTRAINT fk_cloud_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid)
+);
+
+CREATE UNIQUE INDEX idx_cloud_service_application
+ON cloud_service (application_uuid);
+
 -- Application scale is currently only targeting k8s applications.
 CREATE TABLE application_scale (
     application_uuid TEXT NOT NULL PRIMARY KEY,

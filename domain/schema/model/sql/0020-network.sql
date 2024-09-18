@@ -2,39 +2,6 @@ CREATE TABLE net_node (
     uuid TEXT PRIMARY KEY
 );
 
-CREATE TABLE cloud_service (
-    application_uuid TEXT NOT NULL,
-    provider_id TEXT NOT NULL,
-    CONSTRAINT fk_cloud_application
-    FOREIGN KEY (application_uuid)
-    REFERENCES application (uuid)
-);
-
-CREATE UNIQUE INDEX idx_cloud_service_application
-ON cloud_service (application_uuid);
-
-CREATE TABLE cloud_container (
-    -- one cloud container per net node.
-    net_node_uuid TEXT NOT NULL PRIMARY KEY,
-    -- provider_id comes from the provider, no FK.
-    provider_id TEXT NOT NULL,
-    CONSTRAINT fk_cloud_container_net_node
-    FOREIGN KEY (net_node_uuid)
-    REFERENCES net_node (uuid)
-);
-
-CREATE UNIQUE INDEX idx_cloud_container_provider
-ON cloud_container (provider_id);
-
-CREATE TABLE cloud_container_port (
-    cloud_container_uuid TEXT NOT NULL,
-    port TEXT NOT NULL,
-    CONSTRAINT fk_cloud_container_port_net_node
-    FOREIGN KEY (cloud_container_uuid)
-    REFERENCES cloud_container (net_node_uuid),
-    PRIMARY KEY (cloud_container_uuid, port)
-);
-
 CREATE TABLE link_layer_device_type (
     id INT PRIMARY KEY,
     name TEXT NOT NULL

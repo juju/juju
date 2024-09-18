@@ -38,12 +38,12 @@ CREATE TABLE machine_lxd_profile (
     REFERENCES machine (uuid)
 );
 
-CREATE TABLE cloud_instance_status_value (
+CREATE TABLE machine_cloud_instance_status_value (
     id INT PRIMARY KEY,
     status TEXT NOT NULL
 );
 
-INSERT INTO cloud_instance_status_value VALUES
+INSERT INTO machine_cloud_instance_status_value VALUES
 (0, 'unknown'),
 (1, 'allocating'),
 (2, 'running'),
@@ -59,7 +59,7 @@ CREATE TABLE machine_cloud_instance_status (
     REFERENCES machine_cloud_instance (machine_uuid),
     CONSTRAINT fk_machine_constraint_status
     FOREIGN KEY (status_id)
-    REFERENCES cloud_instance_status_value (id)
+    REFERENCES machine_cloud_instance_status_value (id)
 );
 
 /*
