@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/version/v2"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -59,6 +60,9 @@ type Service struct {
 // the model during migration.
 type State interface {
 	GetControllerUUID(context.Context) (string, error)
+	// GetAllInstanceIDs returns all instance IDs from the current model as
+	// juju/collections set.
+	GetAllInstanceIDs(ctx context.Context) (set.Strings, error)
 }
 
 // NewService is responsible for constructing a new [Service] to handle model migration
@@ -137,27 +141,33 @@ func (s *Service) CheckMachines(
 		return nil, nil
 	}
 
-	_, err = provider.AllInstances(envcontext.WithoutCredentialInvalidator(ctx))
+	providerInstances, err := provider.AllInstances(envcontext.WithoutCredentialInvalidator(ctx))
 	if err != nil {
 		return nil, errors.Errorf(
 			"cannot get all provider instances for model when checking machines: %w",
 			err,
 		)
 	}
+	var providerInstanceIDs []string
+	for _, instance := range providerInstances {
+		providerInstanceIDs = append(providerInstanceIDs, string(instance.Id()))
+	}
 
-	// TODO(instancedata) (tlm) 28/7/2024: This function is incomplete at the moment till we
-	// fully have machines/instance data moved over into Dqlite.
-	//
-	// The algorithm we need to implement here is:
-	// 1. Get all machines for the model and build a mapping of the machines
-	// based on instance id to machine name.
-	// 2. Get a list of all the instances from the provider.
-	// 3. Build a set for the instance ids from the provider and while iterating
-	// over each instance id check to see if we have a machine that is using this
-	// instance id. If we don't have a machine this is a discrepancy.
-	// 4. For each machine we have in the model check to see the corresponding
-	// instance id is in the set returned from the provider. If it doesn't exist
-	// this is a discrepancy as well.
+	// Build the sets of provider instance IDs and model machine instance IDs.
+	providerInstanceIDsSet := set.NewStrings(providerInstanceIDs...)
+	instanceIDsSet, err := s.st.GetAllInstanceIDs(ctx)
+	if err != nil {
+		return nil, errors.Errorf("cannot get all instance IDs for model when checking machines: %w", err)
+	}
+	// First check that all the instance IDs in the model are in the provider.
+	if difference := instanceIDsSet.Difference(providerInstanceIDsSet); difference.Size() > 0 {
+		return nil, errors.Errorf("instance IDs %q are not part of the provider instance IDs", difference.Values())
+	}
+	// Then check that all the instance ids in the provider correspond to model
+	// machines instance IDs
+	if difference := providerInstanceIDsSet.Difference(instanceIDsSet); difference.Size() > 0 {
+		return nil, errors.Errorf("provider instance IDs %q are not part of the model machines instance IDs", difference.Values())
+	}
 
 	return nil, nil
 }

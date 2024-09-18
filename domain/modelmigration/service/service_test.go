@@ -6,13 +6,19 @@ package service
 import (
 	"context"
 
+	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs/instances"
 )
 
 type serviceSuite struct {
@@ -124,17 +130,70 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *gc.C) {
 
 // TestMachinesFromProviderDiscrepancy is testing the return value from
 // [Service.CheckMachines] and that it reports discrepancies from the cloud.
-// TODO (tlm): This test is not fully implemented and will be done when instance
-// data is moved over to DQlite.
-func (s *serviceSuite) TestMachinesFromProviderDiscrepancy(c *gc.C) {
+func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.instanceProvider.EXPECT().AllInstances(gomock.Any()).Return(nil, nil)
+	s.instanceProvider.EXPECT().AllInstances(gomock.Any()).
+		Return([]instances.Instance{
+			&instanceStub{
+				id: "instance0",
+			},
+			&instanceStub{
+				id: "instance1",
+			},
+		},
+			nil)
+	s.state.EXPECT().GetAllInstanceIDs(context.Background()).
+		Return(set.NewStrings("instance0"), nil)
 
 	_, err := NewService(
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.state,
 	).CheckMachines(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, gc.ErrorMatches, "provider instance IDs.*instance1.*")
+}
+
+// TestMachineInstanceIDsNotInProvider is testing the return value from
+// [Service.CheckMachines] and that it reports discrepancies from the model
+// on the DB.
+func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.instanceProvider.EXPECT().AllInstances(gomock.Any()).
+		Return([]instances.Instance{
+			&instanceStub{
+				id: "instance0",
+			},
+		},
+			nil)
+	s.state.EXPECT().GetAllInstanceIDs(context.Background()).
+		Return(set.NewStrings("instance0", "instance1"), nil)
+
+	_, err := NewService(
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+		s.state,
+	).CheckMachines(context.Background())
+	c.Check(err, gc.ErrorMatches, "instance IDs.*instance1.*")
+}
+
+type instanceStub struct {
+	instances.Instance
+	id string
+}
+
+func (i *instanceStub) Id() instance.Id {
+	return instance.Id(i.id)
+}
+
+func (i *instanceStub) Status(envcontext.ProviderCallContext) instance.Status {
+	return instance.Status{
+		Status:  status.Maintenance,
+		Message: "some message",
+	}
+}
+
+func (i *instanceStub) Addresses(envcontext.ProviderCallContext) (network.ProviderAddresses, error) {
+	return network.ProviderAddresses{}, nil
 }
