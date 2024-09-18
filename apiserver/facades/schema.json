@@ -549,7 +549,7 @@
     {
         "Name": "ActionPruner",
         "Description": "API provides access to the action pruner API.",
-        "Version": 1,
+        "Version": 2,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -35410,7 +35410,7 @@
     {
         "Name": "StatusHistory",
         "Description": "API is the concrete implementation of the Pruner endpoint.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
