@@ -9,7 +9,12 @@ import "context"
 type contextKey string
 
 const (
+	// metricsKey is the context key used to store the metrics collector.
 	metricsKey contextKey = "metrics"
+
+	// txnIDKey is the context key used to store the transaction id on the
+	// context.
+	txnIDKey contextKey = "txnID"
 )
 
 // MetricErrorType is the type of error that should be recorded.
