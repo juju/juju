@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	cmachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/internal/testing"
@@ -23,14 +22,14 @@ import (
 
 type MachineRebootTestSuite struct {
 	testing.BaseSuite
-	mockRebootService *mocks.MockMachineRebootService
+	mockRebootService *MockMachineRebootService
 }
 
 var _ = gc.Suite(&MachineRebootTestSuite{})
 
 func (s *MachineRebootTestSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.mockRebootService = mocks.NewMockMachineRebootService(ctrl)
+	s.mockRebootService = NewMockMachineRebootService(ctrl)
 	return ctrl
 }
 
