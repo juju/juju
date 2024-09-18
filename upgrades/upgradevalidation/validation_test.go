@@ -424,3 +424,26 @@ func (s *upgradeValidationSuite) TestCheckForCharmStoreCharmsError(c *gc.C) {
 	_, err := upgradevalidation.CheckForCharmStoreCharms("", nil, st, nil)
 	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
 }
+
+func (s *upgradeValidationSuite) TestCheckForCharmsWithNoManifestNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	st.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls"))
+
+	blocker, err := upgradevalidation.CheckForCharmsWithNoManifest("", nil, st, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker, gc.IsNil)
+}
+
+func (s *upgradeValidationSuite) TestCheckForCharmsWithNoManifestError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	st.EXPECT().AllCharmURLs().Return([]*string{}, errors.BadRequestf("charm urls"))
+
+	_, err := upgradevalidation.CheckForCharmsWithNoManifest("", nil, st, nil)
+	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
+}

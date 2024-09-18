@@ -120,7 +120,7 @@ func (s *migrateSuite) setupMocks(c *gc.C) (*gomock.Controller, environscloudspe
 	s.st.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
 	s.st.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(nil, nil)
 	// - check no charm store charms
-	s.st.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls"))
+	s.st.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls")).Times(2)
 
 	return ctrl, cloudSpec.CloudSpec
 }

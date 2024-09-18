@@ -936,6 +936,10 @@ func (b *fakeBackend) AllCharmURLs() ([]*string, error) {
 	return nil, errors.NotFoundf("charms")
 }
 
+func (b *fakeBackend) Charm(string) (*state.Charm, error) {
+	return nil, errors.NotFoundf("charms")
+}
+
 type fakePool struct {
 	models []migration.PrecheckModel
 }

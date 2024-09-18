@@ -34,6 +34,7 @@ type State interface {
 	AbortCurrentUpgrade() error
 	ControllerConfig() (controller.Config, error)
 	AllCharmURLs() ([]*string, error)
+	Charm(curl string) (*state.Charm, error)
 }
 
 type SystemState interface {

@@ -156,6 +156,21 @@ func (mr *MockStateMockRecorder) AllModelUUIDs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelUUIDs", reflect.TypeOf((*MockState)(nil).AllModelUUIDs))
 }
 
+// Charm mocks base method.
+func (m *MockState) Charm(arg0 string) (*state.Charm, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Charm", arg0)
+	ret0, _ := ret[0].(*state.Charm)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Charm indicates an expected call of Charm.
+func (mr *MockStateMockRecorder) Charm(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Charm", reflect.TypeOf((*MockState)(nil).Charm), arg0)
+}
+
 // ControllerConfig mocks base method.
 func (m *MockState) ControllerConfig() (controller.Config, error) {
 	m.ctrl.T.Helper()

@@ -249,6 +249,44 @@ func checkForCharmStoreCharms(_ string, _ StatePool, st State, _ Model) (*Blocke
 	return nil, nil
 }
 
+func checkForCharmsWithNoManifest(_ string, _ StatePool, st State, _ Model) (*Blocker, error) {
+	curls, err := st.AllCharmURLs()
+	if errors.Is(err, errors.NotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	result := set.NewStrings()
+	for _, curl := range curls {
+		if curl == nil {
+			return nil, errors.New("malformed charm in database with no URL")
+		}
+		ch, err := st.Charm(*curl)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting charm %q", *curl)
+		}
+		if ch.IsPlaceholder() || !ch.IsUploaded() {
+			continue
+		}
+		manifest := ch.Manifest()
+		if manifest == nil || len(manifest.Bases) == 0 {
+			parsedCURL, err := charm.ParseURL(*curl)
+			if err != nil {
+				logger.Errorf("error from ParseURL: %s", err)
+				return nil, errors.New(fmt.Sprintf("malformed charm url in database: %q", *curl))
+			}
+			result.Add(parsedCURL.Name)
+		}
+	}
+	if !result.IsEmpty() {
+		return NewBlocker("All charms now require a manifest.yaml file. This model hosts charm(s) with no manifest.yaml file: %s",
+			strings.Join(result.SortedValues(), ", "),
+		), nil
+	}
+	return nil, nil
+}
+
 func getCheckTargetVersionForControllerModel(
 	targetVersion version.Number,
 ) Validator {

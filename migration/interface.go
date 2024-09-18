@@ -28,6 +28,7 @@ type PrecheckBackend interface {
 	AllApplications() ([]PrecheckApplication, error)
 	AllRelations() ([]PrecheckRelation, error)
 	AllCharmURLs() ([]*string, error)
+	Charm(curl string) (*state.Charm, error)
 	ControllerBackend() (PrecheckBackend, error)
 	CloudCredential(tag names.CloudCredentialTag) (state.Credential, error)
 	HasUpgradeSeriesLocks() (bool, error)
