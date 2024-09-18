@@ -1,28 +1,30 @@
 # Provisioning
 
-Provisioning in juju is done performed by two separate workers:
-- The compute provisioner, which is responsible for provisioning
-machine instances on the underying provider.
-- The container provisioner, which is responsible for creating
-containers managed by the container broker on the underlying machine.
+Provisioning in Juju is performed by one of two separate workers:
+- The [compute provisioner](https://github.com/juju/juju/blob/main/internal/worker/computeprovisioner/doc.go),
+which is responsible for provisioning machine instances on the underlying
+provider.
+- The [container provisioner](https://github.com/juju/juju/blob/main/internal/worker/containerprovisioner/doc.go),
+which is responsible for creating containers managed by the container
+broker on the underlying machine.
 
-Both of these workers are at the heart of the juju provisioning model,
-which takes machines/containers already created in the database, and
-actually perform the action of creating them. Seamlessly splitting the
-ressource creation in two stages.
+Juju splits the resource creation in two stages. When a new machine
+is being created (either by the user explicitly or because a new unit
+is deployed) the machine is first stored in the database, and then
+one of the provisioners (compute or container) workers will pick it
+up and start the provisioning process. Both workers will gather all the
+necessary information and then create a [provisioner_task](https://github.com/juju/juju/blob/main/internal/provisionertask/provisioner_task.go)
+worker. Provisioner task workers contain all the business logic for creating and updating
+instances, as well as keeping track of all the instances.
 
-Both workers will gather all the necessary information and then create
-a provisioner_task which contains all the bussiness logic for creating
-and updating instances, as well as keeping track of all the instances.
-
-The following sub-sections will describe in more details the different
-parts that take part in the provisioning process.
+The following sections will describe in more detail the different
+pieces that participate in the provisioning process.
 
 ## Bases
 
-Individual charms are released for different possible target base; juju
+Individual charms are released for different possible target bases; Juju
 should guarantee that charms for base X are only ever run on base X.
-Every service, unit, and machine has a base that's set at creation time and
+Every application, unit, and machine has a base that's set at creation time and
 subsequently immutable. Units take their base from their service, and can
 only be assigned to machines with matching bases.
 
@@ -37,7 +39,7 @@ Constraints are stored for models, services, units, and machines, but
 unit constraints are not currently exposed because they're not needed outside
 state, and are likely to just cause trouble and confusion if we expose them.
 
-From the point of a user, there are model constraints and service
+From the point of view of a user, there are model constraints and service
 constraints, and sensible manipulations of them lead to predictable unit
 deployment decisions. The mechanism is as follows:
 
@@ -45,7 +47,7 @@ deployment decisions. The mechanism is as follows:
     are collapsed into a single value and stored for the unit. (To be clear:
     at the moment the unit is created, the current service and model
     constraints will be combined such that every constraint not set on the
-    service is taken from the model (or left unset, if not specified
+    service is taken from the model, or left unset if not specified
     at all).
   * when a machine is being added in order to host a given unit, it copies
     its constraints directly from the unit.
@@ -89,11 +91,11 @@ At the time of writing, the currently implemented provider-specific placement di
   - Availability Zone: both the AWS and OpenStack providers support `zone=<zone>`, directing the provisioner to start an instance in the specified availability zone.
   - MAAS: `<hostname>` directs the MAAS provider to acquire the node with the specified hostname.
 
-## Availability Zones
+## Availability zones
 
-For Juju providers that know about Availability Zones, instances will be
-automatically spread across the healthy availability zones to maximise service
-availability. This is achieved by having Juju:
+For Juju providers that know about [Availability zones](https://juju.is/docs/juju/availability-zone),
+instances will be automatically spread across the healthy availability zones
+to maximise service availability. This is achieved by having Juju:
 
   - be able to enumerate each of the availability zones and their current status,
   - calculate the "distribution group" for each instance at provisioning time.
