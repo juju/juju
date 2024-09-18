@@ -2,7 +2,7 @@
 /core/changestream/**           @manadart @SimonRichardson
 /core/database/**               @manadart @SimonRichardson
 /core/watcher/**                @manadart @SimonRichardson
-/database/**                    @manadart @SimonRichardson
+/internal/database/**           @manadart @SimonRichardson
 /worker/dbaccessor/**           @manadart @SimonRichardson
 /worker/changestream/**         @manadart @SimonRichardson
 /worker/changestreampruner/**   @manadart @SimonRichardson
