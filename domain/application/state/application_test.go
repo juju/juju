@@ -18,7 +18,9 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/linklayerdevice"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
@@ -73,7 +75,7 @@ func (s *applicationStateSuite) TestCreateApplicationNoUnits(c *gc.C) {
 
 func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	platform := application.Platform{
 		Channel:      "666",
@@ -162,7 +164,7 @@ func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
 
 func (s *applicationStateSuite) TestCreateApplicationWithoutChannel(c *gc.C) {
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	platform := application.Platform{
 		Channel:      "666",
@@ -200,7 +202,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithoutChannel(c *gc.C) {
 
 func (s *applicationStateSuite) TestCreateApplicationWithEmptyChannel(c *gc.C) {
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	platform := application.Platform{
 		Channel:      "666",
@@ -286,51 +288,151 @@ func (s *applicationStateSuite) TestUpsertCloudServiceNotFound(c *gc.C) {
 
 func (s *applicationStateSuite) TestCreateUnitCloudContainer(c *gc.C) {
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 		CloudContainer: &application.CloudContainer{
 			ProviderId: ptr("some-id"),
+			Ports:      ptr([]string{"666", "667"}),
+			Address: ptr(application.ContainerAddress{
+				Device: application.ContainerDevice{
+					Name:              "placeholder",
+					DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
+					VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
+				},
+				Value:       "10.6.6.6",
+				AddressType: ipaddress.AddressTypeIPv4,
+				ConfigType:  ipaddress.ConfigTypeDHCP,
+				Scope:       ipaddress.ScopeMachineLocal,
+				Origin:      ipaddress.OriginHost,
+			}),
 		},
 	}
 	s.createApplication(c, "foo", life.Alive, u)
+	s.assertContainerAddressValues(c, "foo/666", "some-id", "10.6.6.6",
+		ipaddress.AddressTypeIPv4, ipaddress.OriginHost, ipaddress.ScopeMachineLocal, ipaddress.ConfigTypeDHCP)
+	s.assertContainerPortValues(c, "foo/666", []string{"666", "667"})
 
+}
+
+func (s *applicationStateSuite) assertContainerAddressValues(
+	c *gc.C,
+	unitName, providerID, addressValue string,
+	addressType ipaddress.AddressType,
+	addressOrigin ipaddress.Origin,
+	addressScope ipaddress.Scope,
+	configType ipaddress.ConfigType,
+) {
 	var (
-		providerId string
+		gotProviderId string
+		gotValue      string
+		gotType       int
+		gotOrigin     int
+		gotScope      int
+		gotConfigType int
 	)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, `
-SELECT provider_id FROM cloud_container cc
+SELECT cc.provider_id, a.address_value, a.type_id, a.origin_id,a.scope_id,a.config_type_id
+FROM cloud_container cc
 JOIN unit u ON cc.net_node_uuid = u.net_node_uuid
+JOIN link_layer_device lld ON lld.net_node_uuid = u.net_node_uuid
+JOIN ip_address a ON a.device_uuid = lld.uuid
 WHERE u.name=?`,
-			"foo/666").Scan(&providerId)
+			unitName).Scan(
+			&gotProviderId,
+			&gotValue,
+			&gotType,
+			&gotOrigin,
+			&gotScope,
+			&gotConfigType,
+		)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotProviderId, gc.Equals, providerID)
+	c.Assert(gotValue, gc.Equals, addressValue)
+	c.Assert(gotType, gc.Equals, int(addressType))
+	c.Assert(gotOrigin, gc.Equals, int(addressOrigin))
+	c.Assert(gotScope, gc.Equals, int(addressScope))
+	c.Assert(gotConfigType, gc.Equals, int(configType))
+}
+
+func (s *applicationStateSuite) assertContainerPortValues(c *gc.C, unitName string, ports []string) {
+	var gotPorts []string
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT ccp.port
+FROM cloud_container cc
+JOIN unit u ON cc.net_node_uuid = u.net_node_uuid
+JOIN cloud_container_port ccp ON ccp.cloud_container_uuid = cc.net_node_uuid
+WHERE u.name=?`,
+			unitName)
 		if err != nil {
 			return err
 		}
-		return nil
+		defer rows.Close()
+
+		for rows.Next() {
+			var port string
+			if err := rows.Scan(&port); err != nil {
+				return err
+			}
+			gotPorts = append(gotPorts, port)
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		return rows.Close()
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(providerId, gc.Equals, "some-id")
+	c.Assert(gotPorts, jc.SameContents, ports)
 }
 
 func (s *applicationStateSuite) TestUpdateUnit(c *gc.C) {
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 		CloudContainer: &application.CloudContainer{
 			ProviderId: ptr("some-id"),
+			Ports:      ptr([]string{"666", "668"}),
+			Address: ptr(application.ContainerAddress{
+				Device: application.ContainerDevice{
+					Name:              "placeholder",
+					DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
+					VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
+				},
+				Value:       "10.6.6.6",
+				AddressType: ipaddress.AddressTypeIPv4,
+				ConfigType:  ipaddress.ConfigTypeDHCP,
+				Scope:       ipaddress.ScopeMachineLocal,
+				Origin:      ipaddress.OriginHost,
+			}),
 		},
 	}
 	appID := s.createApplication(c, "foo", life.Alive, u)
 
 	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		return s.state.UpdateUnit(ctx, appID, application.UpsertUnitArg{
-			UnitName: ptr("foo/667"),
+			UnitName: "foo/667",
 		})
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 
 	u = application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 		CloudContainer: &application.CloudContainer{
 			ProviderId: ptr("another-id"),
+			Ports:      ptr([]string{"666", "667"}),
+			Address: ptr(application.ContainerAddress{
+				Device: application.ContainerDevice{
+					Name:              "placeholder",
+					DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
+					VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
+				},
+				Value:       "2001:db8::1",
+				AddressType: ipaddress.AddressTypeIPv6,
+				ConfigType:  ipaddress.ConfigTypeDHCP,
+				Scope:       ipaddress.ScopeCloudLocal,
+				Origin:      ipaddress.OriginProvider,
+			}),
 		},
 	}
 	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
@@ -354,13 +456,17 @@ WHERE u.name=?`,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(providerId, gc.Equals, "another-id")
+
+	s.assertContainerAddressValues(c, "foo/666", "another-id", "2001:db8::1",
+		ipaddress.AddressTypeIPv6, ipaddress.OriginProvider, ipaddress.ScopeCloudLocal, ipaddress.ConfigTypeDHCP)
+	s.assertContainerPortValues(c, "foo/666", []string{"666", "667"})
 }
 
 func (s *applicationStateSuite) TestInsertUnit(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 		CloudContainer: &application.CloudContainer{
 			ProviderId: ptr("some-id"),
 		},
@@ -395,7 +501,7 @@ WHERE u.name=?`,
 
 func (s *applicationStateSuite) TestGetUnitLife(c *gc.C) {
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u)
 
@@ -419,7 +525,7 @@ func (s *applicationStateSuite) TestGetUnitLifeNotFound(c *gc.C) {
 
 func (s *applicationStateSuite) TestSetUnitLife(c *gc.C) {
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u)
 
@@ -462,19 +568,42 @@ func (s *applicationStateSuite) TestSetUnitLifeNotFound(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
-	// TODO(units) - add references to ports, agents etc when those are fully cooked
+	// TODO(units) - add references to agents etc when those are fully cooked
 	u1 := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 		CloudContainer: &application.CloudContainer{
 			ProviderId: ptr("provider-id"),
+			Ports:      ptr([]string{"666", "668"}),
+			Address: ptr(application.ContainerAddress{
+				Device: application.ContainerDevice{
+					Name:              "placeholder",
+					DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
+					VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
+				},
+				Value:       "10.6.6.6",
+				AddressType: ipaddress.AddressTypeIPv4,
+				ConfigType:  ipaddress.ConfigTypeDHCP,
+				Scope:       ipaddress.ScopeMachineLocal,
+				Origin:      ipaddress.OriginHost,
+			}),
 		},
 	}
 	u2 := application.UpsertUnitArg{
-		UnitName: ptr("foo/667"),
+		UnitName: "foo/667",
 	}
 	s.createApplication(c, "foo", life.Alive, u1, u2)
+	var (
+		netNodeUUID string
+		deviceUUID  string
+	)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id=2 WHERE name=?", u1.UnitName); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM unit WHERE name=?", u1.UnitName).Scan(&netNodeUUID); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT uuid FROM link_layer_device WHERE net_node_uuid=?", netNodeUUID).Scan(&deviceUUID); err != nil {
 			return err
 		}
 		return nil
@@ -490,21 +619,42 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotIsLast, jc.IsFalse)
 
-	var unitCount int
+	var (
+		unitCount      int
+		containerCount int
+		deviceCount    int
+		addressCount   int
+		portCount      int
+	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name=?", u1.UnitName).Scan(&unitCount)
-		if err != nil {
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name=?", u1.UnitName).Scan(&unitCount); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container WHERE net_node_uuid=?", netNodeUUID).Scan(&containerCount); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM link_layer_device WHERE net_node_uuid=?", netNodeUUID).Scan(&deviceCount); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM ip_address WHERE device_uuid=?", deviceUUID).Scan(&addressCount); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_port ccp WHERE cloud_container_uuid=?", netNodeUUID).Scan(&portCount); err != nil {
 			return err
 		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addressCount, gc.Equals, 0)
+	c.Assert(portCount, gc.Equals, 0)
+	c.Assert(deviceCount, gc.Equals, 0)
+	c.Assert(containerCount, gc.Equals, 0)
 	c.Assert(unitCount, gc.Equals, 0)
 }
 
 func (s *applicationStateSuite) TestDeleteUnitLastUnitAppAlive(c *gc.C) {
 	u1 := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -538,7 +688,7 @@ func (s *applicationStateSuite) TestDeleteUnitLastUnitAppAlive(c *gc.C) {
 
 func (s *applicationStateSuite) TestDeleteUnitLastUnit(c *gc.C) {
 	u1 := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Dying, u1)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -572,7 +722,7 @@ func (s *applicationStateSuite) TestDeleteUnitLastUnit(c *gc.C) {
 
 func (s *applicationStateSuite) TestGetApplicationScaleState(c *gc.C) {
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	appID := s.createApplication(c, "foo", life.Alive, u)
 
@@ -616,7 +766,7 @@ func (s *applicationStateSuite) TestSetDesiredApplicationScale(c *gc.C) {
 
 func (s *applicationStateSuite) TestSetApplicationScalingState(c *gc.C) {
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	appID := s.createApplication(c, "foo", life.Alive, u)
 
@@ -783,7 +933,7 @@ func (s *applicationStateSuite) TestDeleteDeadApplication(c *gc.C) {
 
 func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *gc.C) {
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u)
 
@@ -809,7 +959,7 @@ func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	err := s.state.AddUnits(context.Background(), "foo", u)
 	c.Assert(err, jc.ErrorIsNil)
@@ -828,7 +978,7 @@ func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
 
 func (s *applicationStateSuite) TestAddUnitsMissingApplication(c *gc.C) {
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	err := s.state.AddUnits(context.Background(), "foo", u)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
@@ -836,13 +986,13 @@ func (s *applicationStateSuite) TestAddUnitsMissingApplication(c *gc.C) {
 
 func (s *applicationStateSuite) TestGetApplicationUnitLife(c *gc.C) {
 	u1 := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	u2 := application.UpsertUnitArg{
-		UnitName: ptr("foo/667"),
+		UnitName: "foo/667",
 	}
 	u3 := application.UpsertUnitArg{
-		UnitName: ptr("bar/667"),
+		UnitName: "bar/667",
 	}
 	s.createApplication(c, "foo", life.Alive, u1, u2)
 	s.createApplication(c, "bar", life.Alive, u3)
@@ -889,10 +1039,10 @@ func (s *applicationStateSuite) TestGetApplicationUnitLife(c *gc.C) {
 
 func (s *applicationStateSuite) TestInitialWatchStatementUnitLife(c *gc.C) {
 	u1 := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	u2 := application.UpsertUnitArg{
-		UnitName: ptr("foo/667"),
+		UnitName: "foo/667",
 	}
 	s.createApplication(c, "foo", life.Alive, u1, u2)
 
@@ -1193,11 +1343,10 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 	ch, origin, _, err := s.state.GetCharmByApplicationName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ch, gc.DeepEquals, charm.Charm{
-		Metadata:   expectedMetadata,
-		Manifest:   expectedManifest,
-		Actions:    expectedActions,
-		Config:     expectedConfig,
-		LXDProfile: []byte{},
+		Metadata: expectedMetadata,
+		Manifest: expectedManifest,
+		Actions:  expectedActions,
+		Config:   expectedConfig,
 	})
 	c.Check(origin, gc.DeepEquals, charm.CharmOrigin{
 		Source:   charm.CharmHubSource,

@@ -160,8 +160,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 	if addApplicationErr == nil {
 		unitArgs := make([]applicationservice.AddUnitArg, dt.numUnits)
 		for i := 0; i < dt.numUnits; i++ {
-			n := fmt.Sprintf("%s/%d", dt.applicationName, nextUnitNum+i)
-			unitArgs[i].UnitName = &n
+			unitArgs[i].UnitName = fmt.Sprintf("%s/%d", dt.applicationName, nextUnitNum+i)
 		}
 		_, addApplicationErr = api.applicationService.CreateApplication(ctx, dt.applicationName, ch, dt.origin, applicationservice.AddApplicationArgs{
 			ReferenceName: dt.charmURL.Name,

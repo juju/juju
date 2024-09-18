@@ -73,9 +73,10 @@ type unitDetails struct {
 }
 
 type coreUnit struct {
-	ID     string    `db:"uuid"`
-	Name   string    `db:"name"`
-	LifeID life.Life `db:"life_id"`
+	ID        string    `db:"uuid"`
+	NetNodeID string    `db:"net_node_uuid"`
+	Name      string    `db:"name"`
+	LifeID    life.Life `db:"life_id"`
 }
 
 type unitCount struct {
@@ -96,6 +97,29 @@ type cloudService struct {
 
 type applicationCharmUUID struct {
 	CharmUUID string `db:"charm_uuid"`
+}
+
+type cloudContainerDevice struct {
+	UUID              string `db:"uuid"`
+	Name              string `db:"name"`
+	NetNodeID         string `db:"net_node_uuid"`
+	DeviceTypeID      int    `db:"device_type_id"`
+	VirtualPortTypeID int    `db:"virtual_port_type_id"`
+}
+
+type cloudContainerPort struct {
+	CloudContainerUUID string `db:"cloud_container_uuid"`
+	Port               string `db:"port"`
+}
+
+type ipAddress struct {
+	AddressUUID  string `db:"uuid"`
+	Value        string `db:"address_value"`
+	ConfigTypeID int    `db:"config_type_id"`
+	TypeID       int    `db:"type_id"`
+	OriginID     int    `db:"origin_id"`
+	ScopeID      int    `db:"scope_id"`
+	DeviceID     string `db:"device_uuid"`
 }
 
 // These structs represent the persistent charm schema in the database.

@@ -53,7 +53,7 @@ type AddressParams struct {
 
 // AddUnitArg contains parameters for adding a unit to the model.
 type AddUnitArg struct {
-	UnitName       *string
+	UnitName       string
 	PasswordHash   *string
 	CloudContainer *CloudContainerParams
 

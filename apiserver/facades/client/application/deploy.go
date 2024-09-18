@@ -148,8 +148,7 @@ func DeployApplication(
 	}
 	unitArgs := make([]applicationservice.AddUnitArg, args.NumUnits)
 	for i := 0; i < args.NumUnits; i++ {
-		n := fmt.Sprintf("%s/%d", args.ApplicationName, nextUnitNum+i)
-		unitArgs[i].UnitName = &n
+		unitArgs[i].UnitName = fmt.Sprintf("%s/%d", args.ApplicationName, nextUnitNum+i)
 	}
 	app, err := st.AddApplication(asa, store)
 
@@ -199,7 +198,7 @@ func (api *APIBase) addUnits(
 			return nil, errors.Annotatef(err, "cannot add unit %d/%d to application %q", i+1, n, appName)
 		}
 		unitName := unit.Name()
-		if err := api.applicationService.AddUnits(ctx, appName, applicationservice.AddUnitArg{UnitName: &unitName}); err != nil {
+		if err := api.applicationService.AddUnits(ctx, appName, applicationservice.AddUnitArg{UnitName: unitName}); err != nil {
 			return nil, errors.Annotatef(err, "cannot add unit %q to application %q", unitName, appName)
 		}
 		units[i] = unit

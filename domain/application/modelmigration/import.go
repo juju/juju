@@ -85,7 +85,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		unitArgs := make([]service.AddUnitArg, 0, len(app.Units()))
 		for _, unit := range app.Units() {
 			arg := service.AddUnitArg{
-				UnitName: ptr(unit.Name()),
+				UnitName: unit.Name(),
 			}
 			if unit.PasswordHash() != "" {
 				arg.PasswordHash = ptr(unit.PasswordHash())

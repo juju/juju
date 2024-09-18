@@ -278,7 +278,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 		applicationservice.AddApplicationArgs{
 			ReferenceName: bootstrap.ControllerApplicationName,
 		},
-		applicationservice.AddUnitArg{UnitName: &unitName},
+		applicationservice.AddUnitArg{UnitName: unitName},
 	)
 
 	deployer := s.newBaseDeployer(c, cfg)

@@ -76,7 +76,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 		context.Background(), "gitlab", &stubCharm{}, origin, service.AddApplicationArgs{
 			ReferenceName: "gitlab",
 		}, service.AddUnitArg{
-			UnitName: &unitName,
+			UnitName: unitName,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 

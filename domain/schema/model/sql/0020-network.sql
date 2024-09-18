@@ -36,7 +36,8 @@ CREATE TABLE link_layer_device (
     net_node_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
     mtu INT,
-    mac_address TEXT NOT NULL,
+    -- will be NULL for a placeholder link layer device.
+    mac_address TEXT,
     -- provider_id comes from the provider, no FK.
     provider_id TEXT,
     -- one of loopback, ethernet, bridge etc.

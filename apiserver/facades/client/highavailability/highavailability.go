@@ -182,9 +182,8 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	}
 	if len(addedUnits) > 0 {
 		addUnitArgs := make([]applicationservice.AddUnitArg, len(addedUnits))
-		for i := range addUnitArgs {
-			n := addedUnits[i]
-			addUnitArgs[i].UnitName = &n
+		for i := range addedUnits {
+			addUnitArgs[i].UnitName = addedUnits[i]
 		}
 		if err := api.applicationService.AddUnits(ctx, application.ControllerApplicationName, addUnitArgs...); err != nil {
 			return params.ControllersChanges{}, err

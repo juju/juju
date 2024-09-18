@@ -115,7 +115,7 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 			ReferenceName: "prometheus",
 		},
 		[]service.AddUnitArg{{
-			UnitName:     ptr("prometheus/0"),
+			UnitName:     "prometheus/0",
 			PasswordHash: ptr("passwordhash"),
 			CloudContainer: ptr(service.CloudContainerParams{
 				ProviderId: ptr("provider-id"),
