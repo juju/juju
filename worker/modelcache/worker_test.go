@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
+	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/cache/cachetest"
 	"github.com/juju/juju/core/life"
@@ -250,9 +251,10 @@ func (s *WorkerSuite) TestInitialModel(c *gc.C) {
 func (s *WorkerSuite) TestControllerConfigOnInit(c *gc.C) {
 	systemState, err := s.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
+	expected := []any{"debug", "test-feature"}
 	err = systemState.UpdateControllerConfig(
 		map[string]interface{}{
-			"controller-name": "test-controller",
+			jujucontroller.Features: expected,
 		}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -261,7 +263,7 @@ func (s *WorkerSuite) TestControllerConfigOnInit(c *gc.C) {
 	controller := s.getController(c, w)
 	// discard initial event
 	s.nextChange(c, changes)
-	c.Assert(controller.Name(), gc.Equals, "test-controller")
+	c.Assert(controller.Config()[jujucontroller.Features], gc.DeepEquals, expected)
 }
 
 func (s *WorkerSuite) TestControllerConfigPubsubChange(c *gc.C) {
