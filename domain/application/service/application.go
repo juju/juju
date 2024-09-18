@@ -143,6 +143,12 @@ type ApplicationState interface {
 	// If the charm for the application does not exist, an error satisfying
 	// [applicationerrors.CharmNotFoundError] is returned.
 	GetCharmByApplicationName(context.Context, string) (domaincharm.Charm, domaincharm.CharmOrigin, application.Platform, error)
+
+	// GetCharmIDByApplicationName returns a charm ID by application name. It
+	// returns an error if the charm can not be found by the name. This can also
+	// be used as a cheap way to see if a charm exists without needing to load
+	// the charm metadata.
+	GetCharmIDByApplicationName(context.Context, string) (corecharm.ID, error)
 }
 
 const (
@@ -655,6 +661,21 @@ func (s *ApplicationService) EnsureApplicationDead(ctx context.Context, appName 
 func (s *ApplicationService) UpdateApplicationCharm(ctx context.Context, name string, params UpdateCharmParams) error {
 	//TODO(storage) - update charm and storage directive for app
 	return nil
+}
+
+// GetCharmIDByApplicationName returns a charm ID by application name. It
+// returns an error if the charm can not be found by the name. This can also be
+// used as a cheap way to see if a charm exists without needing to load the
+// charm metadata.
+//
+// Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid, and
+// [applicationerrors.CharmNotFound] if the charm is not found.
+func (s *ApplicationService) GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error) {
+	if !isValidApplicationName(name) {
+		return "", applicationerrors.ApplicationNameNotValid
+	}
+
+	return s.st.GetCharmIDByApplicationName(ctx, name)
 }
 
 // GetCharmByApplicationName returns the charm for the specified application

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	"github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/charm"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -32,13 +31,15 @@ type baseSuite struct {
 
 	authorizer *testing.FakeAuthorizer
 
-	mockState         *mockState
-	mockStatePool     *mockStatePool
-	bakery            *mockBakeryService
-	authContext       *crossmodel.AuthContext
-	applicationOffers *stubApplicationOffers
-	mockModelService  *MockModelService
-	mockAccessService *MockAccessService
+	mockState                     *mockState
+	mockStatePool                 *mockStatePool
+	bakery                        *mockBakeryService
+	authContext                   *crossmodel.AuthContext
+	applicationOffers             *stubApplicationOffers
+	mockAccessService             *MockAccessService
+	mockModelServiceFactoryGetter *MockModelServiceFactoryGetter
+	mockModelServiceFactory       *MockModelServiceFactory
+	mockApplicationService        *MockApplicationService
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
@@ -59,16 +60,11 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.mockModelService = NewMockModelService(ctrl)
 	s.mockAccessService = NewMockAccessService(ctrl)
+	s.mockApplicationService = NewMockApplicationService(ctrl)
+	s.mockModelServiceFactoryGetter = NewMockModelServiceFactoryGetter(ctrl)
+	s.mockModelServiceFactory = NewMockModelServiceFactory(ctrl)
 	return ctrl
-}
-
-func (s *baseSuite) registerKnownModels(modelIDs ...model.UUID) {
-	for _, modelID := range modelIDs {
-		s.mockModelService.EXPECT().Model(gomock.Any(), modelID).AnyTimes().
-			Return(model.Model{UUID: modelID}, nil)
-	}
 }
 
 func (s *baseSuite) addApplication(c *gc.C, name string) jujucrossmodel.ApplicationOffer {
@@ -117,15 +113,9 @@ func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string,
 		c.Assert(filters[0], jc.DeepEquals, expectedFilter)
 		return []jujucrossmodel.ApplicationOffer{anOffer}, nil
 	}
-	ch := &mockCharm{
-		meta: &charm.Meta{
-			Description: "A pretty popular database",
-		},
-	}
 	s.mockState.applications = map[string]crossmodel.Application{
 		"test": &mockApplication{
 			name:     "test",
-			charm:    ch,
 			curl:     "ch:db2-2",
 			bindings: map[string]string{"db2": "myspace"}, // myspace
 		},
@@ -136,7 +126,6 @@ func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string,
 		owner:     "fred@external",
 		modelType: state.ModelTypeIAAS,
 	}
-	s.registerKnownModels(model.UUID(coretesting.ModelTag.Id()))
 	s.mockState.relations["hosted-db2:db wordpress:db"] = &mockRelation{
 		id: 1,
 		endpoint: state.Endpoint{

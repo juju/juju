@@ -68,6 +68,10 @@ type CharmState interface {
 	// If the charm does not exist, a NotFound error is returned.
 	GetCharmManifest(ctx context.Context, charmID corecharm.ID) (charm.Manifest, error)
 
+	// GetCharmMetadataDescription returns the description for the charm using
+	// the charm ID.
+	GetCharmMetadataDescription(ctx context.Context, charmID corecharm.ID) (string, error)
+
 	// GetCharmActions returns the actions for the charm using the charm ID.
 	// If the charm does not exist, a NotFound error is returned.
 	GetCharmActions(ctx context.Context, charmID corecharm.ID) (charm.Actions, error)
@@ -129,6 +133,8 @@ func NewCharmService(st CharmState, logger logger.Logger) *CharmService {
 // can not be found by the name.
 // This can also be used as a cheap way to see if a charm exists without
 // needing to load the charm metadata.
+// Returns [applicationerrors.CharmNameNotValid] if the name is not valid, and
+// [applicationerrors.CharmNotFound] if the charm is not found.
 func (s *CharmService) GetCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error) {
 	if !isValidCharmName(args.Name) {
 		return "", applicationerrors.CharmNameNotValid
@@ -141,10 +147,9 @@ func (s *CharmService) GetCharmID(ctx context.Context, args charm.GetCharmArgs) 
 	return "", applicationerrors.CharmNotFound
 }
 
-// IsControllerCharm returns whether the charm is a controller charm.
-// This will return true if the charm is a controller charm, and false
-// otherwise.
-// If the charm does not exist, a NotFound error is returned.
+// IsControllerCharm returns whether the charm is a controller charm. This will
+// return true if the charm is a controller charm, and false otherwise. If the
+// charm does not exist, a [applicationerrors.CharmNotFound] error is returned.
 func (s *CharmService) IsControllerCharm(ctx context.Context, id corecharm.ID) (bool, error) {
 	if err := id.Validate(); err != nil {
 		return false, fmt.Errorf("charm id: %w", err)
@@ -160,7 +165,9 @@ func (s *CharmService) IsControllerCharm(ctx context.Context, id corecharm.ID) (
 // currently means that the charm is a kubernetes charm.
 // This will return true if the charm is a controller charm, and false
 // otherwise.
-// If the charm does not exist, a NotFound error is returned.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
 func (s *CharmService) SupportsContainers(ctx context.Context, id corecharm.ID) (bool, error) {
 	if err := id.Validate(); err != nil {
 		return false, fmt.Errorf("charm id: %w", err)
@@ -175,7 +182,9 @@ func (s *CharmService) SupportsContainers(ctx context.Context, id corecharm.ID) 
 // IsSubordinateCharm returns whether the charm is a subordinate charm.
 // This will return true if the charm is a subordinate charm, and false
 // otherwise.
-// If the charm does not exist, a NotFound error is returned.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
 func (s *CharmService) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool, error) {
 	if err := id.Validate(); err != nil {
 		return false, fmt.Errorf("charm id: %w", err)
@@ -194,7 +203,8 @@ func (s *CharmService) IsSubordinateCharm(ctx context.Context, id corecharm.ID) 
 // to call. This is implemented for the cases where all the charm data is
 // needed; model migration, charm export, etc.
 //
-// If the charm does not exist, a NotFound error is returned.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
 func (s *CharmService) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmOrigin, error) {
 	if err := id.Validate(); err != nil {
 		return nil, charm.CharmOrigin{}, fmt.Errorf("charm id: %w", err)
@@ -242,7 +252,9 @@ func (s *CharmService) GetCharm(ctx context.Context, id corecharm.ID) (internalc
 }
 
 // GetCharmMetadata returns the metadata for the charm using the charm ID.
-// If the charm does not exist, a NotFound error is returned.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
 func (s *CharmService) GetCharmMetadata(ctx context.Context, id corecharm.ID) (internalcharm.Meta, error) {
 	if err := id.Validate(); err != nil {
 		return internalcharm.Meta{}, fmt.Errorf("charm id: %w", err)
@@ -260,8 +272,27 @@ func (s *CharmService) GetCharmMetadata(ctx context.Context, id corecharm.ID) (i
 	return decoded, nil
 }
 
+// GetCharmMetadataDescription returns the description for the charm using the
+// charm ID.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
+func (s *CharmService) GetCharmMetadataDescription(ctx context.Context, id corecharm.ID) (string, error) {
+	if err := id.Validate(); err != nil {
+		return "", fmt.Errorf("charm id: %w", err)
+	}
+
+	description, err := s.st.GetCharmMetadataDescription(ctx, id)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return description, nil
+}
+
 // GetCharmManifest returns the manifest for the charm using the charm ID.
-// If the charm does not exist, a NotFound error is returned.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
 func (s *CharmService) GetCharmManifest(ctx context.Context, id corecharm.ID) (internalcharm.Manifest, error) {
 	if err := id.Validate(); err != nil {
 		return internalcharm.Manifest{}, fmt.Errorf("charm id: %w", err)
@@ -280,7 +311,9 @@ func (s *CharmService) GetCharmManifest(ctx context.Context, id corecharm.ID) (i
 }
 
 // GetCharmActions returns the actions for the charm using the charm ID.
-// If the charm does not exist, a NotFound error is returned.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
 func (s *CharmService) GetCharmActions(ctx context.Context, id corecharm.ID) (internalcharm.Actions, error) {
 	if err := id.Validate(); err != nil {
 		return internalcharm.Actions{}, fmt.Errorf("charm id: %w", err)
@@ -299,7 +332,9 @@ func (s *CharmService) GetCharmActions(ctx context.Context, id corecharm.ID) (in
 }
 
 // GetCharmConfig returns the config for the charm using the charm ID.
-// If the charm does not exist, a NotFound error is returned.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
 func (s *CharmService) GetCharmConfig(ctx context.Context, id corecharm.ID) (internalcharm.Config, error) {
 	if err := id.Validate(); err != nil {
 		return internalcharm.Config{}, fmt.Errorf("charm id: %w", err)
@@ -318,7 +353,9 @@ func (s *CharmService) GetCharmConfig(ctx context.Context, id corecharm.ID) (int
 }
 
 // GetCharmLXDProfile returns the LXD profile for the charm using the charm ID.
-// If the charm does not exist, a NotFound error is returned.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
 func (s *CharmService) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (internalcharm.LXDProfile, error) {
 	if err := id.Validate(); err != nil {
 		return internalcharm.LXDProfile{}, fmt.Errorf("charm id: %w", err)
@@ -338,7 +375,9 @@ func (s *CharmService) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) 
 
 // GetCharmArchivePath returns the archive storage path for the charm using the
 // charm ID.
-// If the charm does not exist, a NotFound error is returned.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
 func (s *CharmService) GetCharmArchivePath(ctx context.Context, id corecharm.ID) (string, error) {
 	if err := id.Validate(); err != nil {
 		return "", fmt.Errorf("charm id: %w", err)
@@ -354,7 +393,9 @@ func (s *CharmService) GetCharmArchivePath(ctx context.Context, id corecharm.ID)
 // IsCharmAvailable returns whether the charm is available for use. This
 // indicates if the charm has been uploaded to the controller.
 // This will return true if the charm is available, and false otherwise.
-// If the charm does not exist, a NotFound error is returned.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
 func (s *CharmService) IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, error) {
 	if err := id.Validate(); err != nil {
 		return false, fmt.Errorf("charm id: %w", err)
@@ -367,7 +408,9 @@ func (s *CharmService) IsCharmAvailable(ctx context.Context, id corecharm.ID) (b
 }
 
 // SetCharmAvailable sets the charm as available for use.
-// If the charm does not exist, a NotFound error is returned.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
 func (s *CharmService) SetCharmAvailable(ctx context.Context, id corecharm.ID) error {
 	if err := id.Validate(); err != nil {
 		return fmt.Errorf("charm id: %w", err)
@@ -382,7 +425,9 @@ func (s *CharmService) SetCharmAvailable(ctx context.Context, id corecharm.ID) e
 // This is useful for when a new charm revision becomes available. The essential
 // charm documents might be available, but the blob or associated non-essential
 // documents will not be.
-// If the charm does not exist, then a NotFound error is returned.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
 func (s *CharmService) ReserveCharmRevision(ctx context.Context, id corecharm.ID, revision int) (corecharm.ID, error) {
 	if err := id.Validate(); err != nil {
 		return "", fmt.Errorf("charm id: %w", err)

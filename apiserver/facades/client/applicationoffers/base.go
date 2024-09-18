@@ -25,16 +25,16 @@ import (
 
 // BaseAPI provides various boilerplate methods used by the facade business logic.
 type BaseAPI struct {
-	Authorizer           facade.Authorizer
-	GetApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers
-	ControllerModel      Backend
-	StatePool            StatePool
-	modelService         ModelService
-	accessService        AccessService
-	getControllerInfo    func(context.Context) (apiAddrs []string, caCert string, _ error)
-	logger               corelogger.Logger
-	controllerUUID       string
-	modelUUID            model.UUID
+	Authorizer                facade.Authorizer
+	GetApplicationOffers      func(interface{}) jujucrossmodel.ApplicationOffers
+	ControllerModel           Backend
+	StatePool                 StatePool
+	accessService             AccessService
+	modelServiceFactoryGetter ModelServiceFactoryGetter
+	getControllerInfo         func(context.Context) (apiAddrs []string, caCert string, _ error)
+	logger                    corelogger.Logger
+	controllerUUID            string
+	modelUUID                 model.UUID
 }
 
 // checkAdmin ensures that the specified in user is a model or controller admin.
@@ -106,16 +106,10 @@ func (api *BaseAPI) applicationOffersFromModel(
 	}
 	defer releaser()
 
-	// Get model information for the specified model
-	modelInfo, err := api.modelService.Model(ctx, model.UUID(modelUUID))
-	if err != nil {
-		return nil, fmt.Errorf("retrieving model info for ID %s: %w", modelUUID, err)
-	}
-
 	// If requireAdmin is true, the user must be a controller superuser
 	// or model admin to proceed.
 	var isAdmin bool
-	err = api.checkAdmin(ctx, user, modelInfo.UUID, backend)
+	err = api.checkAdmin(ctx, user, model.UUID(modelUUID), backend)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return nil, err
 	}
@@ -157,7 +151,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 			}
 			isAdmin = userAccess == permission.AdminAccess
 		}
-		offerParams, app, err := api.makeOfferParams(ctx, modelInfo.UUID, backend, &appOffer)
+		offerParams, app, err := api.makeOfferParams(ctx, model.UUID(modelUUID), backend, &appOffer)
 		// Just because we can't compose the result for one offer, log
 		// that and move on to the next one.
 		if err != nil {

@@ -57,10 +57,6 @@ type applicationShim struct {
 	*state.Application
 }
 
-func (a applicationShim) Charm() (ch Charm, force bool, err error) {
-	return a.Application.Charm()
-}
-
 func (a applicationShim) EndpointBindings() (Bindings, error) {
 	return a.Application.EndpointBindings()
 }

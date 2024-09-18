@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // State represents a type for interacting with the underlying state.
@@ -28,7 +29,33 @@ type commonStateBase struct {
 	*domain.StateBase
 }
 
-func (s *commonStateBase) checkChamReferenceExists(ctx context.Context, tx *sqlair.TX, referenceName string, revision int) (corecharm.ID, error) {
+func (s *commonStateBase) checkCharmExists(ctx context.Context, tx *sqlair.TX, id charmID) error {
+	selectQuery := `
+SELECT &charmID.*
+FROM charm
+WHERE uuid = $charmID.uuid;
+	`
+
+	result := charmID{UUID: id.UUID}
+	selectStmt, err := s.Prepare(selectQuery, result)
+	if err != nil {
+		return internalerrors.Errorf("failed to prepare query: %w", err)
+	}
+	if err := tx.Query(ctx, selectStmt, result).Get(&result); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.CharmNotFound
+		}
+		return internalerrors.Errorf("failed to check charm exists: %w", err)
+	}
+
+	if _, err := corecharm.ParseID(result.UUID); err != nil {
+		return internalerrors.Errorf("failed to parse charm ID: %w", err)
+	}
+
+	return nil
+}
+
+func (s *commonStateBase) checkCharmReferenceExists(ctx context.Context, tx *sqlair.TX, referenceName string, revision int) (corecharm.ID, error) {
 	selectQuery := `
 SELECT &charmID.*
 FROM charm

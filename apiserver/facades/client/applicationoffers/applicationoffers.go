@@ -21,6 +21,7 @@ import (
 	coreuser "github.com/juju/juju/core/user"
 	access "github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -38,8 +39,8 @@ func createOffersAPI(
 	getControllerInfo func(context.Context) ([]string, string, error),
 	backend Backend,
 	statePool StatePool,
-	modelService ModelService,
 	accessService AccessService,
+	modelServiceFactoryGetter ModelServiceFactoryGetter,
 	authorizer facade.Authorizer,
 	authContext *commoncrossmodel.AuthContext,
 	dataDir string,
@@ -55,16 +56,16 @@ func createOffersAPI(
 		dataDir:     dataDir,
 		authContext: authContext,
 		BaseAPI: BaseAPI{
-			Authorizer:           authorizer,
-			GetApplicationOffers: getApplicationOffers,
-			ControllerModel:      backend,
-			modelService:         modelService,
-			accessService:        accessService,
-			StatePool:            statePool,
-			getControllerInfo:    getControllerInfo,
-			logger:               logger,
-			controllerUUID:       controllerUUID,
-			modelUUID:            modelUUID,
+			Authorizer:                authorizer,
+			GetApplicationOffers:      getApplicationOffers,
+			ControllerModel:           backend,
+			accessService:             accessService,
+			modelServiceFactoryGetter: modelServiceFactoryGetter,
+			StatePool:                 statePool,
+			getControllerInfo:         getControllerInfo,
+			logger:                    logger,
+			controllerUUID:            controllerUUID,
+			modelUUID:                 modelUUID,
 		},
 	}
 	return api, nil
@@ -72,7 +73,24 @@ func createOffersAPI(
 
 // Offer makes application endpoints available for consumption at a specified URL.
 func (api *OffersAPIv5) Offer(ctx context.Context, all params.AddApplicationOffers) (params.ErrorResults, error) {
-	result := make([]params.ErrorResult, len(all.Offers))
+	// Although this API is offering adding offers in bulk, we only want to
+	// support adding one offer at a time. This is because we're jumping into
+	// other models using the state pool, in the context of a model facade.
+	// There is no limit, nor pagination, on the number of offers that can be
+	// added in one call, so any nefarious user could add a large number of
+	// offers in one call, and potentially exhaust the state pool. This becomes
+	// more of a problem when we move to dqlite (4.0 and beyond), as each
+	// model is within a different database. By limiting the number of offers
+	// we force the clients to make multiple calls and if required we can
+	// enforce rate limiting.
+	// This API will be deprecated in the future and replaced once we refactor
+	// the API (5.0 and beyond).
+	numOffers := len(all.Offers)
+	if numOffers != 1 {
+		return params.ErrorResults{}, errors.Errorf("expected exactly one offer, got %d", numOffers)
+	}
+
+	result := make([]params.ErrorResult, numOffers)
 
 	apiUser := api.Authorizer.GetAuthTag().(names.UserTag)
 	for i, one := range all.Offers {
@@ -88,14 +106,9 @@ func (api *OffersAPIv5) Offer(ctx context.Context, all params.AddApplicationOffe
 		}
 		defer releaser()
 
-		// Get model information for the specified model
-		modelInfo, err := api.modelService.Model(ctx, model.UUID(modelTag.Id()))
-		if err != nil {
-			result[i].Error = apiservererrors.ServerError(fmt.Errorf("retrieving model info for ID %s: %w", modelTag.Id(), err))
-			continue
-		}
+		modelUUID := model.UUID(modelTag.Id())
 
-		if err := api.checkAdmin(ctx, apiUser, modelInfo.UUID, backend); err != nil {
+		if err := api.checkAdmin(ctx, apiUser, modelUUID, backend); err != nil {
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -109,7 +122,9 @@ func (api *OffersAPIv5) Offer(ctx context.Context, all params.AddApplicationOffe
 				continue
 			}
 		}
-		applicationOfferParams, err := api.makeAddOfferArgsFromParams(owner, backend, one)
+
+		modelServiceFactory := api.modelServiceFactoryGetter.ServiceFactoryForModel(modelUUID)
+		applicationOfferParams, err := api.makeAddOfferArgsFromParams(ctx, owner, modelServiceFactory.Application(), one)
 		if err != nil {
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -154,7 +169,7 @@ func (api *OffersAPIv5) Offer(ctx context.Context, all params.AddApplicationOffe
 	return params.ErrorResults{Results: result}, nil
 }
 
-func (api *OffersAPIv5) makeAddOfferArgsFromParams(user names.UserTag, backend Backend, addOfferParams params.AddApplicationOffer) (jujucrossmodel.AddApplicationOfferArgs, error) {
+func (api *OffersAPIv5) makeAddOfferArgsFromParams(ctx context.Context, user names.UserTag, applicationService ApplicationService, addOfferParams params.AddApplicationOffer) (jujucrossmodel.AddApplicationOfferArgs, error) {
 	result := jujucrossmodel.AddApplicationOfferArgs{
 		OfferName:              addOfferParams.OfferName,
 		ApplicationName:        addOfferParams.ApplicationName,
@@ -166,19 +181,30 @@ func (api *OffersAPIv5) makeAddOfferArgsFromParams(user names.UserTag, backend B
 	if result.OfferName == "" {
 		result.OfferName = result.ApplicationName
 	}
-	application, err := backend.Application(addOfferParams.ApplicationName)
-	if err != nil {
-		return result, errors.Annotatef(err, "getting offered application %v", addOfferParams.ApplicationName)
+
+	// If we have the full result, just return early.
+	if result.ApplicationDescription != "" {
+		return result, nil
 	}
 
-	if result.ApplicationDescription == "" {
-		ch, _, err := application.Charm()
-		if err != nil {
-			return result,
-				errors.Annotatef(err, "getting charm for application %v", addOfferParams.ApplicationName)
-		}
-		result.ApplicationDescription = ch.Meta().Description
+	charmID, err := applicationService.GetCharmIDByApplicationName(context.Background(), result.ApplicationName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return result, errors.NotFoundf("getting offered application %q", result.ApplicationName)
+	} else if err != nil {
+		return result, errors.Annotatef(err, "getting charm ID for application %v", result.ApplicationName)
 	}
+
+	description, err := applicationService.GetCharmMetadataDescription(ctx, charmID)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return result, errors.NotFoundf("getting offered application %q", result.ApplicationName)
+	} else if errors.Is(err, applicationerrors.CharmNotFound) {
+		return result, errors.NotFoundf("getting offered application %q charm", result.ApplicationName)
+	} else if err != nil {
+		return result, errors.Annotatef(err, "getting charm description for application %v", result.ApplicationName)
+	}
+
+	result.ApplicationDescription = description
+
 	return result, nil
 }
 
@@ -486,14 +512,7 @@ func (api *OffersAPIv5) getConsumeDetails(ctx context.Context, user names.UserTa
 		}
 		defer releaser()
 
-		// Get model information for the specified model
-		modelInfo, err := api.modelService.Model(ctx, model.UUID(modelTag.Id()))
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(fmt.Errorf("retrieving model info for ID %s: %w", modelTag.Id(), err))
-			continue
-		}
-
-		err = api.checkAdmin(ctx, user, modelInfo.UUID, backend)
+		err = api.checkAdmin(ctx, user, model.UUID(modelTag.Id()), backend)
 		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -615,14 +634,8 @@ func (api *OffersAPIv5) DestroyOffers(ctx context.Context, args params.DestroyAp
 		}
 		defer releaser()
 
-		// Get model information for the specified model
-		modelInfo, err := api.modelService.Model(ctx, model.UUID(models[i].model.UUID()))
-		if err != nil {
-			result[i].Error = apiservererrors.ServerError(fmt.Errorf("retrieving model info for ID %s: %w", models[i].model.UUID(), err))
-			continue
-		}
-
-		if err := api.checkAdmin(ctx, user, modelInfo.UUID, backend); err != nil {
+		modelUUID := model.UUID(models[i].model.UUID())
+		if err := api.checkAdmin(ctx, user, modelUUID, backend); err != nil {
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

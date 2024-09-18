@@ -6,17 +6,15 @@ package applicationoffers
 import (
 	"context"
 
-	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/apiserver/facade"
+	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/model"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
+	"github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/internal/servicefactory"
 )
-
-// ModelService provides information about currently deployed models.
-type ModelService interface {
-	// Model returns the model associated with the provided uuid.
-	Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error)
-}
 
 // AccessService provides information about users and permissions.
 type AccessService interface {
@@ -51,4 +49,53 @@ type AccessService interface {
 	// If the user does not exist an error that satisfies
 	// accesserrors.UserNotFound will be returned.
 	GetUserByName(ctx context.Context, name user.Name) (user.User, error)
+}
+
+type ApplicationService interface {
+	// GetCharmIDByApplicationName returns a charm ID by name. It returns an
+	// error if the charm can not be found by the name. This can also be used as
+	// a cheap way to see if a charm exists without needing to load the charm
+	// metadata.
+	GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error)
+
+	// GetCharmMetadataDescription returns the description for the charm using
+	// the charm ID.
+	//
+	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+	// returned.
+	GetCharmMetadataDescription(ctx context.Context, id corecharm.ID) (string, error)
+}
+
+// ModelServiceFactory is an interface that provides a way to get model
+// scoped services.
+type ModelServiceFactory interface {
+	Application() ApplicationService
+}
+
+// ModelServiceFactoryGetter is an interface that provides a way to get a
+// ModelServiceFactory based on a model UUID.
+type ModelServiceFactoryGetter interface {
+	ServiceFactoryForModel(modelUUID model.UUID) ModelServiceFactory
+}
+
+type modelServiceFactoryGetter struct {
+	facadeContext facade.MultiModelContext
+}
+
+func newModelServiceFactoryGetter(facadeContext facade.MultiModelContext) ModelServiceFactoryGetter {
+	return &modelServiceFactoryGetter{
+		facadeContext: facadeContext,
+	}
+}
+
+func (f *modelServiceFactoryGetter) ServiceFactoryForModel(modelUUID model.UUID) ModelServiceFactory {
+	return &modelServiceFactory{serviceFactory: f.facadeContext.ServiceFactoryForModel(modelUUID)}
+}
+
+type modelServiceFactory struct {
+	serviceFactory servicefactory.ServiceFactory
+}
+
+func (f *modelServiceFactory) Application() ApplicationService {
+	return f.serviceFactory.Application(service.ApplicationServiceParams{})
 }

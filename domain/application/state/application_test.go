@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -936,6 +937,86 @@ func (s *applicationStateSuite) TestStorageDefaults(c *gc.C) {
 	})
 }
 
+func (s *applicationStateSuite) TestGetCharmIDByApplicationName(c *gc.C) {
+	origin := charm.CharmOrigin{
+		Source:   charm.LocalSource,
+		Revision: 42,
+	}
+
+	expectedMetadata := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+	}
+	expectedManifest := charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Track: "latest",
+					Risk:  charm.RiskEdge,
+				},
+				Architectures: []string{"amd64", "arm64"},
+			},
+		},
+	}
+	expectedActions := charm.Actions{
+		Actions: map[string]charm.Action{
+			"action1": {
+				Description:    "description",
+				Parallel:       true,
+				ExecutionGroup: "group",
+				Params:         []byte(`{}`),
+			},
+		},
+	}
+	expectedConfig := charm.Config{
+		Options: map[string]charm.Option{
+			"option1": {
+				Type:        "string",
+				Description: "description",
+				Default:     "default",
+			},
+		},
+	}
+	expectedLXDProfile := []byte("[{}]")
+
+	_, err := s.state.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
+		Charm: charm.Charm{
+			Metadata:   expectedMetadata,
+			Manifest:   expectedManifest,
+			Actions:    expectedActions,
+			Config:     expectedConfig,
+			LXDProfile: expectedLXDProfile,
+		},
+		Origin: origin,
+		Channel: &application.Channel{
+			Track:  "track",
+			Risk:   "stable",
+			Branch: "branch",
+		},
+		Platform: application.Platform{
+			OSType:       charm.Ubuntu,
+			Architecture: charm.AMD64,
+			Channel:      "22.04",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	chID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(chID.Validate(), jc.ErrorIsNil)
+}
+
+func (s *applicationStateSuite) TestGetCharmIDByApplicationNameError(c *gc.C) {
+	_, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
 func (s *applicationStateSuite) TestCreateApplicationThenGetCharmByApplicationName(c *gc.C) {
 	origin := charm.CharmOrigin{
 		Source:   charm.LocalSource,
@@ -1185,6 +1266,16 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 
 	_, _, _, err = s.state.GetCharmByApplicationName(context.Background(), "bar")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestCheckCharmExistsNotFound(c *gc.C) {
+	id := uuid.MustNewUUID().String()
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.checkCharmExists(ctx, tx, charmID{
+			UUID: id,
+		})
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *applicationStateSuite) assertApplication(
