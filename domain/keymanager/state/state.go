@@ -136,7 +136,6 @@ func (s *State) AddPublicKeysForUser(
 	}
 
 	userUUIDVal := userUUIDValue{UUID: userUUID.String()}
-	modelUUIDVal := modelUUIDValue{UUID: modelUUID.String()}
 
 	userActiveStmt, err := s.Prepare(`
 SELECT (uuid) AS (&userUUIDValue.user_uuid)
@@ -147,18 +146,6 @@ AND removed = false
 	if err != nil {
 		return errors.Errorf(
 			"cannot prepare user removed statement when preparing to add public keys for user %q to model %q: %w",
-			userUUID, modelUUID, err,
-		)
-	}
-
-	modelExistsStmt, err := s.Prepare(`
-SELECT (uuid) AS (&modelUUIDValue.model_uuid)
-FROM v_model
-WHERE uuid = $modelUUIDValue.model_uuid
-`, modelUUIDVal)
-	if err != nil {
-		return errors.Errorf(
-			"cannot prepare model exists statement when preparing to add public keys for user %q to model %q: %w",
 			userUUID, modelUUID, err,
 		)
 	}
@@ -189,20 +176,6 @@ WHERE uuid = $modelUUIDValue.model_uuid
 			)
 		}
 
-		err = tx.Query(ctx, modelExistsStmt, modelUUIDVal).Get(&modelUUIDVal)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"cannot add keys for user %q to model %q because the model does not exist",
-				userUUID, modelUUID,
-			).Add(modelerrors.NotFound)
-		}
-		if err != nil {
-			return errors.Errorf(
-				"cannot check that model %q exists when adding public keys for user %q: %w",
-				modelUUID, userUUID, err,
-			)
-		}
-
 		keyIds := []int64{}
 		for i, publicKey := range publicKeys {
 			row := userPublicKeyInsert{
@@ -230,7 +203,11 @@ WHERE uuid = $modelUUIDValue.model_uuid
 				ModelUUID:          modelUUID.String(),
 			}
 			err := tx.Query(ctx, insertModelAuthorisedKeyStmt, row).Run()
-			if jujudb.IsErrConstraintPrimaryKey(err) {
+			if jujudb.IsErrConstraintForeignKey(err) {
+				return errors.Errorf(
+					"adding key %d for user %q to model %q, model does not exist",
+				).Add(modelerrors.NotFound)
+			} else if jujudb.IsErrConstraintPrimaryKey(err) {
 				return errors.Errorf(
 					"cannot add key %d for user %q to model %q, key already exists",
 					i, userUUID, modelUUID,
