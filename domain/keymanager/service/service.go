@@ -247,17 +247,17 @@ func (s *ImporterService) ImportPublicKeysForUser(
 	switch {
 	case errors.Is(err, importererrors.NoResolver):
 		return fmt.Errorf(
-			"cannot import public keys for user %q, unknown public key source %q%w",
+			"importing public keys for user %q, unknown public key source %q%w",
 			userUUID, subject.Scheme, errors.Hide(keyerrors.UnknownImportSource),
 		)
 	case errors.Is(err, importererrors.SubjectNotFound):
 		return fmt.Errorf(
-			"cannot import public keys for user %q, import subject %q not found%w",
+			"importing public keys for user %q, import subject %q not found%w",
 			userUUID, subject.String(), errors.Hide(keyerrors.ImportSubjectNotFound),
 		)
 	case err != nil:
 		return fmt.Errorf(
-			"cannot import public keys for user %q using subject %q: %w",
+			"importing public keys for user %q using subject %q: %w",
 			userUUID, subject.String(), err,
 		)
 	}
@@ -267,14 +267,14 @@ func (s *ImporterService) ImportPublicKeysForUser(
 		parsedKey, err := ssh.ParsePublicKey(key)
 		if err != nil {
 			return fmt.Errorf(
-				"cannot parse key %d for subject %q when importing keys for user %q: %w%w",
+				"parsing key %d for subject %q when importing keys for user %q: %w%w",
 				i, subject.String(), userUUID, err, errors.Hide(keyerrors.InvalidPublicKey),
 			)
 		}
 
 		if reservedPublicKeyComments.Contains(parsedKey.Comment) {
 			return fmt.Errorf(
-				"cannot import key %d for user %q with subject %q because the comment %q is reserved%w",
+				"importing key %d for user %q with subject %q because the comment %q is reserved%w",
 				i,
 				userUUID,
 				subject.String(),

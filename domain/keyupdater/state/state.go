@@ -32,7 +32,7 @@ func (s *State) CheckMachineExists(
 	db, err := s.DB()
 	if err != nil {
 		return errors.Errorf(
-			"cannot get database to check if machine %q exists: %w",
+			"getting database to check if machine %q exists: %w",
 			name, err,
 		)
 	}
@@ -45,7 +45,7 @@ WHERE name = $machineName.name
 `, machineArg)
 	if err != nil {
 		return errors.Errorf(
-			"cannot prepare statement for checking if machine %q exists: %w",
+			"preparing statement for checking if machine %q exists: %w",
 			name, err,
 		)
 	}
@@ -58,7 +58,7 @@ WHERE name = $machineName.name
 			).Add(machineerrors.MachineNotFound)
 		} else if err != nil {
 			return errors.Errorf(
-				"cannot check if machine %q exists: %w", name, err,
+				"checking if machine %q exists: %w", name, err,
 			)
 		}
 		return nil
@@ -76,7 +76,7 @@ func (s *State) GetModelUUID(ctx context.Context) (model.UUID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return model.UUID(""), errors.Errorf(
-			"cannot get database to get the model uuid: %w", err,
+			"getting database to get the model uuid: %w", err,
 		)
 	}
 
@@ -88,7 +88,7 @@ FROM model
 `, modelUUIDVal)
 	if err != nil {
 		return model.UUID(""), errors.Errorf(
-			"cannot prepare model uuid selection statement: %w", err,
+			"preparing model uuid selection statement: %w", err,
 		)
 	}
 
@@ -96,11 +96,11 @@ FROM model
 		err := tx.Query(ctx, stmt).Get(&modelUUIDVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.New(
-				"cannot get model uuid from database, read only model records don't exist",
+				"getting model uuid from database, read only model records don't exist",
 			)
 		} else if err != nil {
 			return errors.Errorf(
-				"cannot get model uuid from database: %w", err,
+				"getting model uuid from database: %w", err,
 			)
 		}
 		return nil

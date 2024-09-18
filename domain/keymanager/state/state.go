@@ -134,7 +134,7 @@ WHERE s.algorithm = $userPublicKeyInsert.algorithm
 
 	if err != nil {
 		return 0, errors.Errorf(
-			"cannot prepare insert statement for ensuring user public key: %w",
+			"preparing insert statement for ensuring user public key: %w",
 			err,
 		)
 	}
@@ -148,7 +148,7 @@ AND public_key = $userPublicKeyInsert.public_key
 
 	if err != nil {
 		return 0, errors.Errorf(
-			"cannot prepare select existing id statement for ensuring user public key: %w",
+			"preparing select existing id statement for ensuring user public key: %w",
 			err,
 		)
 	}
@@ -203,7 +203,7 @@ func (s *State) AddPublicKeysForUser(
 	db, err := s.DB()
 	if err != nil {
 		return errors.Errorf(
-			"cannot get database for adding public keys to user %q on model %q: %w",
+			"getting database for adding public keys to user %q on model %q: %w",
 			userUUID,
 			modelUUID,
 			err,
@@ -216,7 +216,7 @@ func (s *State) AddPublicKeysForUser(
 	`, modelAuthorizedKey{})
 	if err != nil {
 		return errors.Errorf(
-			"cannot prepare insert statement for adding user %q public keys to model %q: %w",
+			"preparing insert statement for adding user %q public keys to model %q: %w",
 			userUUID, modelUUID, err,
 		)
 	}
@@ -243,7 +243,7 @@ func (s *State) AddPublicKeysForUser(
 			keyId, err := s.ensureUserPublicKey(ctx, row, tx)
 			if err != nil {
 				return errors.Errorf(
-					"cannot ensure user %q public key %d on model %q: %w",
+					"ensuring user %q public key %d on model %q: %w",
 					userUUID, i, modelUUID, err,
 				)
 			}
@@ -264,12 +264,12 @@ func (s *State) AddPublicKeysForUser(
 				).Add(modelerrors.NotFound)
 			} else if jujudb.IsErrConstraintPrimaryKey(err) {
 				return errors.Errorf(
-					"cannot add key %d for user %q to model %q, key already exists",
+					"adding key %d for user %q to model %q, key already exists",
 					i, userUUID, modelUUID,
 				).Add(keyerrors.PublicKeyAlreadyExists)
 			} else if err != nil {
 				return errors.Errorf(
-					"cannot add key %d for user %q to model %q: %w",
+					"adding key %d for user %q to model %q: %w",
 					i, userUUID, modelUUID, err,
 				)
 			}
@@ -297,7 +297,7 @@ func (s *State) EnsurePublicKeysForUser(
 	db, err := s.DB()
 	if err != nil {
 		return errors.Errorf(
-			"cannot get database for ensuring public keys on user %q in model %q: %w",
+			"getting database for ensuring public keys on user %q in model %q: %w",
 			userUUID,
 			modelUUID,
 			err,
@@ -312,7 +312,7 @@ ON CONFLICT DO NOTHING
 
 	if err != nil {
 		return errors.Errorf(
-			"cannot prepare insert statement for ensuring user %q public keys on model %q: %w",
+			"preparing insert statement for ensuring user %q public keys on model %q: %w",
 			userUUID, modelUUID, err,
 		)
 	}
@@ -342,7 +342,7 @@ ON CONFLICT DO NOTHING
 			keyId, err := s.ensureUserPublicKey(ctx, row, tx)
 			if err != nil {
 				return errors.Errorf(
-					"cannot ensure user %q public key %d on model %q: %w",
+					"ensuring user %q public key %d on model %q: %w",
 					userUUID, i, modelUUID, err,
 				)
 			}
@@ -358,12 +358,12 @@ ON CONFLICT DO NOTHING
 			err := tx.Query(ctx, insertModelAuthorisedKeyStmt, row).Run()
 			if jujudb.IsErrConstraintForeignKey(err) {
 				return errors.Errorf(
-					"cannot ensure public key %d for user %q on model %q: model does not exist",
+					"ensuring public key %d for user %q on model %q: model does not exist",
 					i, userUUID, modelUUID,
 				).Add(modelerrors.NotFound)
 			} else if err != nil {
 				return errors.Errorf(
-					"cannot ensure key %d for user %q on model %q: %w",
+					"ensuring key %d for user %q on model %q: %w",
 					i, userUUID, modelUUID, err,
 				)
 			}
@@ -429,7 +429,7 @@ AND model_uuid = $modelUUIDValue.model_uuid
 		err = tx.Query(ctx, stmt, userUUIDVal, modelUUIDVal).GetAll(&publicKeys)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
-				"cannot get public keys for user %q on model %q: %w",
+				"getting public keys for user %q on model %q: %w",
 				userUUID, modelUUID, err,
 			)
 		}
@@ -477,7 +477,7 @@ AND model_uuid = $modelUUIDValue.model_uuid
 `, userUUIDVal, modelUUIDVal, publicKeyData{})
 	if err != nil {
 		return nil, errors.Errorf(
-			"cannot prepare user %q public keys data statement on model %q: %w",
+			"preparing user %q public keys data statement on model %q: %w",
 			userUUID, modelUUID, err,
 		)
 	}
@@ -503,7 +503,7 @@ AND model_uuid = $modelUUIDValue.model_uuid
 		err = tx.Query(ctx, stmt, userUUIDVal, modelUUIDVal).GetAll(&publicKeys)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
-				"cannot get public keys data for user %q on model %q: %w",
+				"getting public keys data for user %q on model %q: %w",
 				userUUID, modelUUID, err,
 			)
 		}
@@ -542,18 +542,6 @@ func (s *State) DeletePublicKeysForUser(
 	userUUIDVal := userUUIDValue{UUID: userUUID.String()}
 	modelUUIDVal := modelUUIDValue{UUID: modelUUID.String()}
 
-	modelExistsStmt, err := s.Prepare(`
-SELECT (uuid) AS (&modelUUIDValue.model_uuid)
-FROM v_model
-WHERE uuid = $modelUUIDValue.model_uuid
-`, modelUUIDVal)
-	if err != nil {
-		return errors.Errorf(
-			"cannot prepare model exists statement when deleting public keys for user %q on model %q: %w",
-			userUUID, modelUUID, err,
-		)
-	}
-
 	input := make(sqlair.S, 0, len(keyIds))
 	for _, keyId := range keyIds {
 		input = append(input, keyId)
@@ -569,7 +557,7 @@ AND (comment IN ($S[:])
 `, userUUIDVal, userPublicKeyId{}, input)
 	if err != nil {
 		return errors.Errorf(
-			"cannot prepare find keys statement when deleting public keys for user %q on model %q: %w",
+			"preparing find keys statement when deleting public keys for user %q on model %q: %w",
 			userUUID, modelUUID, err,
 		)
 	}
@@ -581,7 +569,7 @@ AND model_uuid = $modelUUIDValue.model_uuid
 `, modelUUIDVal, userPublicKeyIds{})
 	if err != nil {
 		return errors.Errorf(
-			"cannot prepare delete keys statement when deleting public keys for user %q on model %q: %w",
+			"preparing delete keys statement when deleting public keys for user %q on model %q: %w",
 			userUUID, modelUUID, err,
 		)
 	}
@@ -600,7 +588,7 @@ AND id IN (SELECT id
 
 	if err != nil {
 		return errors.Errorf(
-			"cannot prepare delete unused user keys statement when deleting public keys for user %q on model %q: %w",
+			"preparing delete unused user keys statement when deleting public keys for user %q on model %q: %w",
 			userUUID, modelUUID, err,
 		)
 	}
@@ -615,17 +603,11 @@ AND id IN (SELECT id
 			)
 		}
 
-		err = tx.Query(ctx, modelExistsStmt, modelUUIDVal).Get(&modelUUIDVal)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"cannot delete public keys for user %q on model %q because the model does not exist",
-				userUUID, modelUUID,
-			).Add(modelerrors.NotFound)
-		}
+		err = s.checkModelExists(ctx, modelUUID, tx)
 		if err != nil {
 			return errors.Errorf(
-				"cannot check that model %q exists when deleting public keys for user %q: %w",
-				modelUUID, userUUID, err,
+				"deleting public keys for user %q on model %q: %w",
+				userUUID, modelUUID, err,
 			)
 		}
 
@@ -637,7 +619,7 @@ AND id IN (SELECT id
 		}
 		if err != nil {
 			return errors.Errorf(
-				"cannot find public keys to delete for user %q on model %q: %w",
+				"finding public keys to delete for user %q on model %q: %w",
 				userUUID, modelUUID, err,
 			)
 		}
@@ -645,7 +627,7 @@ AND id IN (SELECT id
 		err = tx.Query(ctx, deleteFromModelStmt, modelUUIDVal, foundKeyIds).Run()
 		if err != nil {
 			return errors.Errorf(
-				"cannot delete public keys for user %q on model %q: %w",
+				"deleting public keys for user %q on model %q: %w",
 				userUUID, modelUUID, err,
 			)
 		}
@@ -657,7 +639,7 @@ AND id IN (SELECT id
 		err = tx.Query(ctx, deleteUnusedUserKeys, userUUIDVal).Run()
 		if err != nil {
 			return errors.Errorf(
-				"cannot delete unused public keys for user %q: %w",
+				"deleting unused public keys for user %q: %w",
 				userUUID, err,
 			)
 		}
@@ -666,7 +648,7 @@ AND id IN (SELECT id
 
 	if err != nil {
 		return errors.Errorf(
-			"cannot delete public keys for user %q: %w",
+			"deleting public keys for user %q: %w",
 			userUUID, err,
 		)
 	}

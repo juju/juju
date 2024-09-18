@@ -31,7 +31,7 @@ func (st *ControllerState) GetControllerConfigKeys(
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Errorf(
-			"cannot get database when getting controller config keys: %w", err,
+			"getting database when getting controller config keys: %w", err,
 		)
 	}
 
@@ -47,7 +47,7 @@ WHERE key IN ($S[:])
 `, keyValue{}, sqlKeys)
 	if err != nil {
 		return nil, errors.Errorf(
-			"cannot prepare statement for getting keys from controller config: %w",
+			"preparing statement for getting keys from controller config: %w",
 			err,
 		)
 	}
@@ -63,7 +63,7 @@ WHERE key IN ($S[:])
 
 	if err != nil {
 		return nil, errors.Errorf(
-			"cannot get controller config for keys %v: %w",
+			"getting controller config for keys %v: %w",
 			keys, err,
 		)
 	}
@@ -87,7 +87,7 @@ func (s *ControllerState) GetUserAuthorizedKeysForModel(
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Errorf(
-			"cannot get database when getting all user public keys for model %q: %w",
+			"getting database when getting all user public keys for model %q: %w",
 			modelUUID, err,
 		)
 	}
@@ -101,7 +101,7 @@ WHERE uuid = $modelUUIDValue.model_uuid
 `, modelUUIDVal)
 	if err != nil {
 		return nil, errors.Errorf(
-			"cannot prepare model exists statement when getting public keys for model %q: %w",
+			"preparing model exists statement when getting public keys for model %q: %w",
 			modelUUID, err,
 		)
 	}
@@ -113,7 +113,7 @@ WHERE model_uuid = $modelUUIDValue.model_uuid
 `, modelUUIDVal, authorizedKey{})
 	if err != nil {
 		return nil, errors.Errorf(
-			"cannot prepare model authorized keys statement when getting public keys for model %q: %w",
+			"preparing model authorized keys statement when getting public keys for model %q: %w",
 			modelUUID, err,
 		)
 	}
@@ -123,13 +123,13 @@ WHERE model_uuid = $modelUUIDValue.model_uuid
 		err := tx.Query(ctx, modelExistsStmt, modelUUIDVal).Get(&modelUUIDVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
-				"cannot get user authorized keys for model %q because the model does not exist",
+				"getting user authorized keys for model %q because the model does not exist",
 				modelUUID,
 			).Add(modelerrors.NotFound)
 		}
 		if err != nil {
 			return errors.Errorf(
-				"cannot check that model %q exists when getting user authorized keys: %w",
+				"checking that model %q exists when getting user authorized keys: %w",
 				modelUUID, err,
 			)
 		}
@@ -137,7 +137,7 @@ WHERE model_uuid = $modelUUIDValue.model_uuid
 		err = tx.Query(ctx, stmt, modelUUIDVal).GetAll(&authorizedKeys)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
-				"cannot get user authorized keys on model %q: %w",
+				"getting user authorized keys on model %q: %w",
 				modelUUID, err,
 			)
 		}

@@ -123,8 +123,8 @@ func (s *Service) GetAuthorisedKeysForMachine(
 ) ([]string, error) {
 	if err := machineName.Validate(); err != nil {
 		return nil, fmt.Errorf(
-			"cannot get authorised keys for machine %q: %w",
-			machineName, err,
+			"validating machine name when getting authorized keys for machine: %w",
+			err,
 		)
 	}
 
@@ -135,7 +135,7 @@ func (s *Service) GetAuthorisedKeysForMachine(
 		).Add(machineerrors.MachineNotFound)
 	} else if err != nil {
 		return nil, errors.Errorf(
-			"cannot determine if machine %q exists when getting authorized keys for machine: %w",
+			"determining if machine %q exists when getting authorized keys for machine: %w",
 			machineName, err,
 		)
 	}
@@ -151,7 +151,7 @@ func (s *Service) GetAuthorisedKeysForMachine(
 	userKeys, err := s.controllerSt.GetUserAuthorizedKeysForModel(ctx, modelId)
 	if err != nil {
 		return nil, errors.Errorf(
-			"cannot get authorized keys for machine %q: %w",
+			"getting authorized keys for machine %q: %w",
 			machineName, err,
 		)
 	}
@@ -177,14 +177,15 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 ) (watcher.NotifyWatcher, error) {
 	if err := machineName.Validate(); err != nil {
 		return nil, fmt.Errorf(
-			"cannot watch authorised keys for machine %q: %w", machineName, err,
+			"validating machine name when getting authorized keys for machine: %w",
+			err,
 		)
 	}
 
 	err := s.st.CheckMachineExists(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return nil, errors.Errorf(
-			"cannot watch authorized keys for machine %q because it does not exist",
+			"watching authorized keys for machine %q, machine does not exist",
 			machineName,
 		).Add(machineerrors.MachineNotFound)
 	}
@@ -192,7 +193,7 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 	modelId, err := s.st.GetModelUUID(ctx)
 	if err != nil {
 		return nil, errors.Errorf(
-			"cannot get model id for machine %q while watching authorized key changes: %w",
+			"getting model id for machine %q while watching authorized key changes: %w",
 			machineName, err,
 		)
 	}
@@ -204,7 +205,7 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 	)
 	if err != nil {
 		return nil, errors.Errorf(
-			"cannot make watcher for machine %q authorized keys when watching model %q authorized key changes: %w",
+			"making watcher for machine %q authorized keys when watching model %q authorized key changes: %w",
 			machineName, modelId, err,
 		)
 	}
@@ -215,7 +216,7 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 	)
 	if err != nil {
 		return nil, errors.Errorf(
-			"cannot make watcher for machine %q authorized keys when watching user authentication changes: %w",
+			"making watcher for machine %q authorized keys when watching user authentication changes: %w",
 			machineName, err,
 		)
 	}
@@ -223,7 +224,7 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 	watcher, err := eventsource.NewMultiNotifyWatcher(ctx, modelKeysWatcher, userAuthWatcher)
 	if err != nil {
 		return nil, errors.Errorf(
-			"cannot make watcher for machine %q when combining user authentication and model authorized keys watcher: %w",
+			"making watcher for machine %q when combining user authentication and model authorized keys watcher: %w",
 			machineName, err,
 		)
 	}
@@ -245,7 +246,7 @@ func (s *Service) GetInitialAuthorisedKeysForContainer(ctx context.Context) ([]s
 	userKeys, err := s.controllerSt.GetUserAuthorizedKeysForModel(ctx, modelId)
 	if err != nil {
 		return nil, errors.Errorf(
-			"cannot get initial authorized keys for container: %w", err,
+			"getting initial authorized keys for container: %w", err,
 		)
 	}
 
