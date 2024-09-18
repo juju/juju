@@ -361,14 +361,10 @@ func (st *State) GetMachineStatus(ctx context.Context, mName machine.Name) (stat
 	// them both in one transaction, as this a a relatively frequent retrieval).
 	machineStatusDataParam := machineStatusWithData{}
 	statusCombinedQuery := `
-SELECT (st.status_id,
-		st.message,
-		st.updated_at,
-		st_data.key,
-		st_data.data) as (&machineStatusWithData.*)
-FROM 	machine_status AS st
-		LEFT JOIN machine_status_data AS st_data
-		ON st.machine_uuid = st_data.machine_uuid
+SELECT &machineStatusWithData.*
+FROM machine_status AS st
+LEFT JOIN machine_status_data AS st_data
+ON st.machine_uuid = st_data.machine_uuid
 WHERE st.machine_uuid = $machineUUID.uuid`
 	statusCombinedQueryStmt, err := st.Prepare(statusCombinedQuery, machineUUIDout, machineStatusDataParam)
 	if err != nil {
@@ -429,7 +425,7 @@ func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newSt
 	// Prepare the new status to be set.
 	machineStatus := machineStatusWithData{}
 
-	machineStatus.Status = fromCoreMachineStatusValue(newStatus.Status)
+	machineStatus.StatusID = fromCoreMachineStatusValue(newStatus.Status)
 	machineStatus.Message = newStatus.Message
 	machineStatus.Updated = newStatus.Since
 	machineStatusData := transform.MapToSlice(newStatus.Data, dataSliceTransformFunc)

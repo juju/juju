@@ -282,14 +282,10 @@ func (st *State) GetInstanceStatus(ctx context.Context, mName machine.Name) (sta
 	// frequent retrieval).
 	machineStatusParam := machineStatusWithData{}
 	statusCombinedQuery := `
-SELECT (st.status_id,
-		st.message,
-		st.updated_at,
-		st_data.key,
-		st_data.data) as (&machineStatusWithData.*)
-FROM 	machine_cloud_instance_status AS st
-		LEFT JOIN machine_cloud_instance_status_data AS st_data
-		ON st.machine_uuid = st_data.machine_uuid
+SELECT &machineStatusWithData.*
+FROM machine_cloud_instance_status AS st
+LEFT JOIN machine_cloud_instance_status_data AS st_data
+ON st.machine_uuid = st_data.machine_uuid
 WHERE st.machine_uuid = $machineUUID.uuid`
 	statusCombinedQueryStmt, err := st.Prepare(statusCombinedQuery, machineUUID, machineStatusParam)
 	if err != nil {
@@ -353,7 +349,7 @@ func (st *State) SetInstanceStatus(ctx context.Context, mName machine.Name, newS
 	// Prepare the new status to be set.
 	instanceStatus := machineStatusWithData{}
 
-	instanceStatus.Status = fromCoreInstanceStatusValue(newStatus.Status)
+	instanceStatus.StatusID = fromCoreInstanceStatusValue(newStatus.Status)
 	instanceStatus.Message = newStatus.Message
 	instanceStatus.Updated = newStatus.Since
 	instanceStatusData := transform.MapToSlice(newStatus.Data, func(key string, value interface{}) []machineStatusWithData {
