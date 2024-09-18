@@ -5,7 +5,6 @@ package common_test
 
 import (
 	"context"
-	"github.com/juju/juju/domain/unitstate"
 
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/domain/unitstate"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
