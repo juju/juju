@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"context"
+	"errors"
 
 	"github.com/juju/description/v8"
 	"github.com/juju/names/v5"
@@ -12,6 +13,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -32,9 +35,10 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *importSuite) newImportOperation() *importOperation {
+func (s *importSuite) newImportOperation(c *gc.C) *importOperation {
 	return &importOperation{
 		service: s.service,
+		logger:  loggertesting.WrapCheckLog(c),
 	}
 }
 
@@ -52,7 +56,7 @@ func (s *importSuite) TestNoMachines(c *gc.C) {
 	// Empty model.
 	model := description.NewModel(description.ModelArgs{})
 
-	op := s.newImportOperation()
+	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -66,7 +70,132 @@ func (s *importSuite) TestImport(c *gc.C) {
 	})
 	s.service.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("666")).Times(1)
 
-	op := s.newImportOperation()
+	op := s.newImportOperation(c)
+	err := op.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *importSuite) TestFailImportMachineWithoutCloudInstance(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddMachine(description.MachineArgs{
+		Id: names.NewMachineTag("0"),
+	})
+
+	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0")).
+		Return("", errors.New("boom"))
+
+	op := s.newImportOperation(c)
+	err := op.Execute(context.Background(), model)
+	c.Assert(err, gc.ErrorMatches, "importing machine(.*)boom")
+}
+
+func (s *importSuite) TestImportMachineWithoutCloudInstance(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddMachine(description.MachineArgs{
+		Id: names.NewMachineTag("0"),
+	})
+
+	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0"))
+
+	op := s.newImportOperation(c)
+	err := op.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *importSuite) TestFailImportMachineWithCloudInstance(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	machine0 := model.AddMachine(description.MachineArgs{
+		Id: names.NewMachineTag("0"),
+	})
+	cloudInstanceArgs := description.CloudInstanceArgs{
+		InstanceId:       "inst-0",
+		Architecture:     "amd64",
+		Memory:           1024,
+		RootDisk:         2048,
+		RootDiskSource:   "/",
+		CpuCores:         4,
+		CpuPower:         16,
+		Tags:             []string{"tag0", "tag1"},
+		AvailabilityZone: "az-1",
+		VirtType:         "vm",
+	}
+	machine0.SetInstance(cloudInstanceArgs)
+
+	expectedMachineUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
+	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0")).
+		Return(expectedMachineUUID, nil)
+	expectedHardwareCharacteristics := &instance.HardwareCharacteristics{
+		Arch:             &cloudInstanceArgs.Architecture,
+		Mem:              &cloudInstanceArgs.Memory,
+		RootDisk:         &cloudInstanceArgs.RootDisk,
+		RootDiskSource:   &cloudInstanceArgs.RootDiskSource,
+		CpuCores:         &cloudInstanceArgs.CpuCores,
+		CpuPower:         &cloudInstanceArgs.CpuPower,
+		Tags:             &cloudInstanceArgs.Tags,
+		AvailabilityZone: &cloudInstanceArgs.AvailabilityZone,
+		VirtType:         &cloudInstanceArgs.VirtType,
+	}
+	s.service.EXPECT().SetMachineCloudInstance(
+		gomock.Any(),
+		expectedMachineUUID,
+		instance.Id("inst-0"),
+		expectedHardwareCharacteristics,
+	).Return(errors.New("boom"))
+
+	op := s.newImportOperation(c)
+	err := op.Execute(context.Background(), model)
+	c.Assert(err, gc.ErrorMatches, "importing machine cloud instance(.*)boom")
+}
+
+func (s *importSuite) TestImportMachineWithCloudInstance(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	machine0 := model.AddMachine(description.MachineArgs{
+		Id: names.NewMachineTag("0"),
+	})
+	cloudInstanceArgs := description.CloudInstanceArgs{
+		InstanceId:       "inst-0",
+		Architecture:     "amd64",
+		Memory:           1024,
+		RootDisk:         2048,
+		RootDiskSource:   "/",
+		CpuCores:         4,
+		CpuPower:         16,
+		Tags:             []string{"tag0", "tag1"},
+		AvailabilityZone: "az-1",
+		VirtType:         "vm",
+	}
+	machine0.SetInstance(cloudInstanceArgs)
+
+	expectedMachineUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
+	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0")).
+		Return(expectedMachineUUID, nil)
+	expectedHardwareCharacteristics := &instance.HardwareCharacteristics{
+		Arch:             &cloudInstanceArgs.Architecture,
+		Mem:              &cloudInstanceArgs.Memory,
+		RootDisk:         &cloudInstanceArgs.RootDisk,
+		RootDiskSource:   &cloudInstanceArgs.RootDiskSource,
+		CpuCores:         &cloudInstanceArgs.CpuCores,
+		CpuPower:         &cloudInstanceArgs.CpuPower,
+		Tags:             &cloudInstanceArgs.Tags,
+		AvailabilityZone: &cloudInstanceArgs.AvailabilityZone,
+		VirtType:         &cloudInstanceArgs.VirtType,
+	}
+	s.service.EXPECT().SetMachineCloudInstance(
+		gomock.Any(),
+		expectedMachineUUID,
+		instance.Id("inst-0"),
+		expectedHardwareCharacteristics,
+	).Return(nil)
+
+	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 }

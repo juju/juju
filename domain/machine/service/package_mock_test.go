@@ -662,41 +662,41 @@ func (c *MockStateInitialWatchStatementCall) DoAndReturn(f func() (string, strin
 	return c
 }
 
-// InstanceId mocks base method.
-func (m *MockState) InstanceId(arg0 context.Context, arg1 machine.Name) (string, error) {
+// InstanceID mocks base method.
+func (m *MockState) InstanceID(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InstanceId", arg0, arg1)
+	ret := m.ctrl.Call(m, "InstanceID", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// InstanceId indicates an expected call of InstanceId.
-func (mr *MockStateMockRecorder) InstanceId(arg0, arg1 any) *MockStateInstanceIdCall {
+// InstanceID indicates an expected call of InstanceID.
+func (mr *MockStateMockRecorder) InstanceID(arg0, arg1 any) *MockStateInstanceIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceId", reflect.TypeOf((*MockState)(nil).InstanceId), arg0, arg1)
-	return &MockStateInstanceIdCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceID", reflect.TypeOf((*MockState)(nil).InstanceID), arg0, arg1)
+	return &MockStateInstanceIDCall{Call: call}
 }
 
-// MockStateInstanceIdCall wrap *gomock.Call
-type MockStateInstanceIdCall struct {
+// MockStateInstanceIDCall wrap *gomock.Call
+type MockStateInstanceIDCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateInstanceIdCall) Return(arg0 string, arg1 error) *MockStateInstanceIdCall {
+func (c *MockStateInstanceIDCall) Return(arg0 string, arg1 error) *MockStateInstanceIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInstanceIdCall) Do(f func(context.Context, machine.Name) (string, error)) *MockStateInstanceIdCall {
+func (c *MockStateInstanceIDCall) Do(f func(context.Context, string) (string, error)) *MockStateInstanceIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInstanceIdCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockStateInstanceIdCall {
+func (c *MockStateInstanceIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockStateInstanceIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
