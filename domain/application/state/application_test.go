@@ -310,7 +310,7 @@ WHERE u.name=?`,
 	c.Assert(providerId, gc.Equals, "some-id")
 }
 
-func (s *applicationStateSuite) TestUpsertUnit(c *gc.C) {
+func (s *applicationStateSuite) TestUpdateUnit(c *gc.C) {
 	u := application.UpsertUnitArg{
 		UnitName: ptr("foo/666"),
 		CloudContainer: &application.CloudContainer{
@@ -319,14 +319,21 @@ func (s *applicationStateSuite) TestUpsertUnit(c *gc.C) {
 	}
 	appID := s.createApplication(c, "foo", life.Alive, u)
 
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.UpdateUnit(ctx, appID, application.UpsertUnitArg{
+			UnitName: ptr("foo/667"),
+		})
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+
 	u = application.UpsertUnitArg{
 		UnitName: ptr("foo/666"),
 		CloudContainer: &application.CloudContainer{
 			ProviderId: ptr("another-id"),
 		},
 	}
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.UpsertUnit(ctx, appID, u)
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.UpdateUnit(ctx, appID, u)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -346,6 +353,43 @@ WHERE u.name=?`,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(providerId, gc.Equals, "another-id")
+}
+
+func (s *applicationStateSuite) TestInsertUnit(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
+
+	u := application.UpsertUnitArg{
+		UnitName: ptr("foo/666"),
+		CloudContainer: &application.CloudContainer{
+			ProviderId: ptr("some-id"),
+		},
+	}
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.InsertUnit(ctx, appID, u)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		providerId string
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err = tx.QueryRowContext(ctx, `
+SELECT provider_id FROM cloud_container cc
+JOIN unit u ON cc.net_node_uuid = u.net_node_uuid
+WHERE u.name=?`,
+			"foo/666").Scan(&providerId)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(providerId, gc.Equals, "some-id")
+
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.InsertUnit(ctx, appID, u)
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitAlreadyExists)
 }
 
 func (s *applicationStateSuite) TestGetUnitLife(c *gc.C) {

@@ -226,7 +226,7 @@ func (st *ApplicationState) checkApplicationExists(ctx context.Context, tx *sqla
 	var appID applicationID
 	appName := applicationName{Name: name}
 	query := `
-SELECT application.uuid AS &applicationID.*
+SELECT &applicationID.uuid
 FROM application
 WHERE name = $applicationName.name
 `
@@ -248,7 +248,7 @@ func (st *ApplicationState) lookupApplication(ctx context.Context, tx *sqlair.TX
 	var appID applicationID
 	appName := applicationName{Name: name}
 	queryApplication := `
-SELECT (uuid) AS (&applicationID.*)
+SELECT &applicationID.*
 FROM application
 WHERE name = $applicationName.name
 `
@@ -377,7 +377,7 @@ func (st *ApplicationState) AddUnits(ctx context.Context, applicationName string
 
 func (st *ApplicationState) getUnit(ctx context.Context, tx *sqlair.TX, unitName string) (*unitDetails, error) {
 	unit := unitDetails{Name: unitName}
-	getUnit := `SELECT (*) AS (&unitDetails.*) FROM unit WHERE name = $unitDetails.name`
+	getUnit := `SELECT &unitDetails.* FROM unit WHERE name = $unitDetails.name`
 	getUnitStmt, err := st.Prepare(getUnit, unit)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -390,6 +390,29 @@ func (st *ApplicationState) getUnit(ctx context.Context, tx *sqlair.TX, unitName
 		return nil, fmt.Errorf("querying unit %q: %w", unitName, err)
 	}
 	return &unit, nil
+}
+
+// InsertUnit insert the specified application unit, returning an error
+// satisfying [applicationerrors.UnitAlreadyExists]
+// if the unit exists.
+func (st *ApplicationState) InsertUnit(
+	ctx domain.AtomicContext, appID coreapplication.ID, args application.UpsertUnitArg,
+) error {
+	// Should not happen, defensive check.
+	if args.UnitName == nil {
+		return errors.New("unit name must be provided inserting a unit")
+	}
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		_, err := st.getUnit(ctx, tx, *args.UnitName)
+		if err == nil {
+			return fmt.Errorf("unit %q already exists%w", *args.UnitName, errors.Hide(applicationerrors.UnitAlreadyExists))
+		}
+		if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
+			return errors.Annotatef(err, "looking up unit %q", *args.UnitName)
+		}
+		return st.insertUnit(ctx, tx, appID, args)
+	})
+	return errors.Annotatef(err, "inserting unit for application %q", appID)
 }
 
 func (st *ApplicationState) insertUnit(
@@ -448,35 +471,45 @@ func (st *ApplicationState) insertUnit(
 	return nil
 }
 
-func (st *ApplicationState) upsertUnit(
-	ctx context.Context, tx *sqlair.TX, toUpdate unitDetails, args application.UpsertUnitArg,
+// UpdateUnit updates the specified application unit, returning an error
+// satisfying [applicationerrors.UnitNotFoundError] if the unit doesn't exist.
+func (st *ApplicationState) UpdateUnit(
+	ctx domain.AtomicContext, appID coreapplication.ID, args application.UpsertUnitArg,
 ) error {
-	if args.PasswordHash != nil {
-		toUpdate.PasswordHash = *args.PasswordHash
-		toUpdate.PasswordHashAlgorithmID = 0 //currently we only use sha256
-	}
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		toUpdate, err := st.getUnit(ctx, tx, *args.UnitName)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
-	updateUnit := `
+		if args.PasswordHash != nil {
+			toUpdate.PasswordHash = *args.PasswordHash
+			toUpdate.PasswordHashAlgorithmID = 0 //currently we only use sha256
+		}
+
+		updateUnit := `
 UPDATE unit SET
     life_id = $unitDetails.life_id,
     password_hash = $unitDetails.password_hash,
     password_hash_algorithm_id = $unitDetails.password_hash_algorithm_id
 WHERE uuid = $unitDetails.uuid
 `
-	updateUnitStmt, err := st.Prepare(updateUnit, toUpdate)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := tx.Query(ctx, updateUnitStmt, toUpdate).Run(); err != nil {
-		return errors.Annotatef(err, "updating unit row for unit %q", toUpdate.Name)
-	}
-	if args.CloudContainer != nil {
-		if err := st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.NetNodeID, args.CloudContainer); err != nil {
-			return errors.Annotatef(err, "creating cloud container row for unit %q", toUpdate.Name)
+		updateUnitStmt, err := st.Prepare(updateUnit, *toUpdate)
+		if err != nil {
+			return errors.Trace(err)
 		}
-	}
-	return nil
+
+		if err := tx.Query(ctx, updateUnitStmt, toUpdate).Run(); err != nil {
+			return errors.Annotatef(err, "updating unit row for unit %q", toUpdate.Name)
+		}
+		if args.CloudContainer != nil {
+			if err := st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.NetNodeID, args.CloudContainer); err != nil {
+				return errors.Annotatef(err, "updating cloud container row for unit %q", toUpdate.Name)
+			}
+		}
+		return nil
+	})
+	return errors.Annotatef(err, "updating unit %q for application %q", *args.UnitName, appID)
 }
 
 func (st *ApplicationState) upsertUnitCloudContainer(
@@ -486,7 +519,7 @@ func (st *ApplicationState) upsertUnitCloudContainer(
 		NetNodeID: netNodeID,
 	}
 	queryCloudContainer := `
-SELECT (*) AS (&cloudContainer.*)
+SELECT &cloudContainer.*
 FROM cloud_container
 WHERE net_node_uuid = $cloudContainer.net_node_uuid
 `
@@ -596,7 +629,7 @@ func (st *ApplicationState) deleteUnit(ctx context.Context, tx *sqlair.TX, unitN
 
 	unit := coreUnit{Name: unitName}
 
-	queryUnit := `SELECT uuid as &coreUnit.uuid FROM unit WHERE name = $coreUnit.name`
+	queryUnit := `SELECT &coreUnit.uuid FROM unit WHERE name = $coreUnit.name`
 	queryUnitStmt, err := st.Prepare(queryUnit, unit)
 	if err != nil {
 		return errors.Trace(err)
@@ -783,30 +816,12 @@ func (st *ApplicationState) GetApplicationID(ctx domain.AtomicContext, name stri
 	return appID, errors.Annotatef(err, "getting ID for %q", name)
 }
 
-// UpsertUnit creates or updates the specified application unit, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-func (st *ApplicationState) UpsertUnit(
-	ctx domain.AtomicContext, appID coreapplication.ID, args application.UpsertUnitArg,
-) error {
-	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		unit, err := st.getUnit(ctx, tx, *args.UnitName)
-		if err != nil {
-			if errors.Is(err, applicationerrors.UnitNotFound) {
-				return st.insertUnit(ctx, tx, appID, args)
-			}
-			return errors.Trace(err)
-		}
-		return st.upsertUnit(ctx, tx, *unit, args)
-	})
-	return errors.Annotatef(err, "upserting unit %q for application %q", *args.UnitName, appID)
-}
-
 // GetUnitLife looks up the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit is not found.
 func (st *ApplicationState) GetUnitLife(ctx domain.AtomicContext, unitName string) (life.Life, error) {
 	unit := coreUnit{Name: unitName}
 	queryUnit := `
-SELECT unit.life_id AS &coreUnit.*
+SELECT &coreUnit.life_id
 FROM unit
 WHERE name = $coreUnit.name
 `
@@ -833,7 +848,7 @@ WHERE name = $coreUnit.name
 func (st *ApplicationState) SetUnitLife(ctx domain.AtomicContext, unitName string, l life.Life) error {
 	unit := coreUnit{Name: unitName, LifeID: l}
 	query := `
-SELECT uuid AS &coreUnit.uuid
+SELECT &coreUnit.uuid
 FROM unit
 WHERE name = $coreUnit.name
 `
@@ -872,7 +887,7 @@ AND life_id < $coreUnit.life_id
 func (st *ApplicationState) GetApplicationScaleState(ctx domain.AtomicContext, appID coreapplication.ID) (application.ScaleState, error) {
 	appScale := applicationScale{ApplicationID: appID.String()}
 	queryScale := `
-SELECT (*) AS (&applicationScale.*)
+SELECT &applicationScale.*
 FROM application_scale
 WHERE application_uuid = $applicationScale.application_uuid
 `
@@ -899,7 +914,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 func (st *ApplicationState) GetApplicationLife(ctx domain.AtomicContext, appName string) (coreapplication.ID, life.Life, error) {
 	app := applicationName{Name: appName}
 	query := `
-SELECT (*) AS (&applicationID.*)
+SELECT &applicationID.*
 FROM application a
 WHERE name = $applicationName.name
 `

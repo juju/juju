@@ -39,13 +39,13 @@ const (
 	// does not exist.
 	UnitNotFound = errors.ConstError("unit not found")
 
-	// UnitNotAssigned describes an error that occurs when the unit being operated on
-	// is not assigned.
-	UnitNotAssigned = errors.ConstError("unit not assigned")
-
 	// UnitAlreadyExists describes an error that occurs when the
 	// unit being created already exists.
 	UnitAlreadyExists = errors.ConstError("unit already exists")
+
+	// UnitNotAssigned describes an error that occurs when the unit being operated on
+	// is not assigned.
+	UnitNotAssigned = errors.ConstError("unit not assigned")
 
 	// UnitHasSubordinates describes an error that occurs when trying to set a unit's life
 	// to Dead but it still has subordinates.

@@ -49,10 +49,14 @@ type AtomicApplicationState interface {
 	// application is not found.
 	GetApplicationID(ctx domain.AtomicContext, name string) (coreapplication.ID, error)
 
-	// UpsertUnit creates or updates the specified application unit, returning
-	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
-	// application doesn't exist.
-	UpsertUnit(domain.AtomicContext, coreapplication.ID, application.UpsertUnitArg) error
+	// InsertUnit insert the specified application unit, returning an error
+	// satisfying [applicationerrors.UnitAlreadyExists]
+	// if the unit exists.
+	InsertUnit(domain.AtomicContext, coreapplication.ID, application.UpsertUnitArg) error
+
+	// UpdateUnit updates the specified application unit, returning an error
+	// satisfying [applicationerrors.UnitNotFoundError] if the unit doesn't exist.
+	UpdateUnit(domain.AtomicContext, coreapplication.ID, application.UpsertUnitArg) error
 
 	// GetApplicationLife looks up the life of the specified application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application is not found.
@@ -298,11 +302,13 @@ func makeUpsertUnitArgs(in AddUnitArg) application.UpsertUnitArg {
 			Ports:      in.CloudContainer.Ports,
 		}
 		if in.CloudContainer.Address != nil {
+			// TODO(units) - handle the in.CloudContainer.Address space ID
+			// For k8s we'll initially create a /32 subnet off the container address
+			// and add that to the default space.
 			result.CloudContainer.Address = &application.Address{
 				Value:       in.CloudContainer.Address.Value,
 				AddressType: string(in.CloudContainer.Address.AddressType()),
 				Scope:       string(in.CloudContainer.Address.Scope),
-				SpaceID:     in.CloudContainer.Address.SpaceID,
 				Origin:      string(network.OriginProvider),
 			}
 			if in.CloudContainer.AddressOrigin != nil {
@@ -516,8 +522,6 @@ func (s *ApplicationService) RegisterCAASUnit(ctx context.Context, appName strin
 	}
 	if args.Address != nil {
 		addr := network.NewSpaceAddress(*args.Address, network.WithScope(network.ScopeMachineLocal))
-		// k8s doesn't support spaces yet.
-		addr.SpaceID = network.AlphaSpaceId
 		p.CloudContainer.Address = &addr
 		origin := network.OriginProvider
 		p.CloudContainer.AddressOrigin = &origin
@@ -537,7 +541,7 @@ func (s *ApplicationService) RegisterCAASUnit(ctx context.Context, appName strin
 		if unitLife == life.Dead {
 			return fmt.Errorf("dead unit %q already exists%w", args.UnitName, errors.Hide(applicationerrors.UnitAlreadyExists))
 		}
-		return s.st.UpsertUnit(ctx, appID, unitArg)
+		return s.st.UpdateUnit(ctx, appID, unitArg)
 	})
 	return errors.Annotatef(err, "saving caas unit %q", args.UnitName)
 }
@@ -553,7 +557,7 @@ func (s *ApplicationService) insertCAASUnit(
 		(appScale.Scaling && orderedID >= appScale.ScaleTarget) {
 		return fmt.Errorf("unrequired unit %s is not assigned%w", *args.UnitName, errors.Hide(applicationerrors.UnitNotAssigned))
 	}
-	return s.st.UpsertUnit(ctx, appID, args)
+	return s.st.InsertUnit(ctx, appID, args)
 }
 
 // DeleteApplication deletes the specified application, returning an error
