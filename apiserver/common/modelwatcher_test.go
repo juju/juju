@@ -67,7 +67,7 @@ func (s *modelWatcherSuite) TestWatchSuccess(c *gc.C) {
 	})
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
-	facade := common.NewModelWatcher(s.modelConfigService, s.watcherRegistry)
+	facade := common.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.WatchForModelConfigChanges(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "1", Error: nil})
@@ -92,7 +92,7 @@ func (s *modelWatcherSuite) TestWatchFailure(c *gc.C) {
 		return w, nil
 	})
 
-	facade := common.NewModelWatcher(s.modelConfigService, s.watcherRegistry)
+	facade := common.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.WatchForModelConfigChanges(context.Background())
 	c.Assert(err, gc.ErrorMatches, "bad watcher")
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
@@ -105,7 +105,7 @@ func (s *modelWatcherSuite) TestModelConfigSuccess(c *gc.C) {
 	testingModelConfig := testingEnvConfig(c)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(testingModelConfig, nil)
 
-	facade := common.NewModelWatcher(s.modelConfigService, s.watcherRegistry)
+	facade := common.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	// Make sure we can read the secret attribute (i.e. it's not masked).
@@ -119,7 +119,7 @@ func (s *modelWatcherSuite) TestModelConfigFetchError(c *gc.C) {
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(nil, fmt.Errorf("nope"))
 
-	facade := common.NewModelWatcher(s.modelConfigService, s.watcherRegistry)
+	facade := common.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.ModelConfig(context.Background())
 	c.Assert(err, gc.ErrorMatches, "nope")
 	c.Check(result.Config, gc.IsNil)

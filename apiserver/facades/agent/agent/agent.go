@@ -35,7 +35,7 @@ type ControllerConfigService interface {
 type AgentAPI struct {
 	*common.PasswordChanger
 	*common.RebootFlagClearer
-	*common.ModelWatcher
+	*common.ModelConfigWatcher
 	*common.ControllerConfigAPI
 	cloudspec.CloudSpecer
 
@@ -70,9 +70,9 @@ func NewAgentAPI(
 		return nil, errors.Trace(err)
 	}
 	return &AgentAPI{
-		PasswordChanger:   common.NewPasswordChanger(st, getCanChange),
-		RebootFlagClearer: common.NewRebootFlagClearer(rebootMachineService, getCanChange),
-		ModelWatcher:      common.NewModelWatcher(modelConfigService, watcherRegistry),
+		PasswordChanger:    common.NewPasswordChanger(st, getCanChange),
+		RebootFlagClearer:  common.NewRebootFlagClearer(rebootMachineService, getCanChange),
+		ModelConfigWatcher: common.NewModelConfigWatcher(modelConfigService, watcherRegistry),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
 			controllerConfigService,

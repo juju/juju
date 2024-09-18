@@ -16,21 +16,21 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// ModelWatcher provides common client-side API functions
-// to call into apiserver.common.ModelWatcher.
-type ModelWatcher struct {
+// ModelConfigWatcher provides common client-side API functions
+// to call into apiserver.common.ModelConfigWatcher.
+type ModelConfigWatcher struct {
 	facade base.FacadeCaller
 }
 
-// NewModelWatcher creates a ModelWatcher on the specified facade,
+// NewModelConfigWatcher creates a ModelConfigWatcher on the specified facade,
 // and uses this name when calling through the caller.
-func NewModelWatcher(facade base.FacadeCaller) *ModelWatcher {
-	return &ModelWatcher{facade}
+func NewModelConfigWatcher(facade base.FacadeCaller) *ModelConfigWatcher {
+	return &ModelConfigWatcher{facade}
 }
 
 // WatchForModelConfigChanges return a NotifyWatcher waiting for the
 // model configuration to change.
-func (e *ModelWatcher) WatchForModelConfigChanges(ctx context.Context) (watcher.NotifyWatcher, error) {
+func (e *ModelConfigWatcher) WatchForModelConfigChanges(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
 	err := e.facade.FacadeCall(ctx, "WatchForModelConfigChanges", nil, &result)
 	if err != nil {
@@ -40,7 +40,7 @@ func (e *ModelWatcher) WatchForModelConfigChanges(ctx context.Context) (watcher.
 }
 
 // ModelConfig returns the current model configuration.
-func (e *ModelWatcher) ModelConfig(ctx context.Context) (*config.Config, error) {
+func (e *ModelConfigWatcher) ModelConfig(ctx context.Context) (*config.Config, error) {
 	var result params.ModelConfigResult
 	err := e.facade.FacadeCall(ctx, "ModelConfig", nil, &result)
 	if err != nil {
@@ -54,7 +54,7 @@ func (e *ModelWatcher) ModelConfig(ctx context.Context) (*config.Config, error) 
 }
 
 // UpdateStatusHookInterval returns the current update status hook interval.
-func (e *ModelWatcher) UpdateStatusHookInterval(ctx context.Context) (time.Duration, error) {
+func (e *ModelConfigWatcher) UpdateStatusHookInterval(ctx context.Context) (time.Duration, error) {
 	// TODO(wallyworld) - lp:1602237 - this needs to have it's own backend implementation.
 	// For now, we'll piggyback off the ModelConfig API.
 	modelConfig, err := e.ModelConfig(ctx)
@@ -66,7 +66,7 @@ func (e *ModelWatcher) UpdateStatusHookInterval(ctx context.Context) (time.Durat
 
 // WatchUpdateStatusHookInterval returns a NotifyWatcher that fires when the
 // update status hook interval changes.
-func (e *ModelWatcher) WatchUpdateStatusHookInterval(ctx context.Context) (watcher.NotifyWatcher, error) {
+func (e *ModelConfigWatcher) WatchUpdateStatusHookInterval(ctx context.Context) (watcher.NotifyWatcher, error) {
 	// TODO(wallyworld) - lp:1602237 - this needs to have it's own backend implementation.
 	// For now, we'll piggyback off the ModelConfig API.
 	return e.WatchForModelConfigChanges(ctx)

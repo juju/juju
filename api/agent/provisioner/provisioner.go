@@ -24,7 +24,7 @@ import (
 
 // Client provides access to the Provisioner API facade.
 type Client struct {
-	*common.ModelWatcher
+	*common.ModelConfigWatcher
 	*common.APIAddresser
 	*common.ControllerConfigAPI
 
@@ -73,7 +73,7 @@ const provisionerFacade = "Provisioner"
 func NewClient(caller base.APICaller, options ...Option) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, provisionerFacade, options...)
 	return &Client{
-		ModelWatcher:        common.NewModelWatcher(facadeCaller),
+		ModelConfigWatcher:  common.NewModelConfigWatcher(facadeCaller),
 		APIAddresser:        common.NewAPIAddresser(facadeCaller),
 		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
 		facade:              facadeCaller,

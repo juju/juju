@@ -30,7 +30,7 @@ type NewWatcherFunc func(base.APICaller, params.NotifyWatchResult) watcher.Notif
 // Client provides access to the undertaker API
 type Client struct {
 	*cloudspec.CloudSpecAPI
-	*common.ModelWatcher
+	*common.ModelConfigWatcher
 	modelTag   names.ModelTag
 	caller     base.FacadeCaller
 	newWatcher NewWatcherFunc
@@ -44,11 +44,11 @@ func NewClient(caller base.APICaller, newWatcher NewWatcherFunc, options ...Opti
 	}
 	facadeCaller := base.NewFacadeCaller(caller, "Undertaker", options...)
 	return &Client{
-		modelTag:     modelTag,
-		caller:       facadeCaller,
-		newWatcher:   newWatcher,
-		CloudSpecAPI: cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
-		ModelWatcher: common.NewModelWatcher(facadeCaller),
+		modelTag:           modelTag,
+		caller:             facadeCaller,
+		newWatcher:         newWatcher,
+		CloudSpecAPI:       cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
+		ModelConfigWatcher: common.NewModelConfigWatcher(facadeCaller),
 	}, nil
 }
 

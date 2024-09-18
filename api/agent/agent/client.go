@@ -29,7 +29,7 @@ var WithTracer = base.WithTracer
 // Client provides access to an agent's view of the state.
 type Client struct {
 	facade base.FacadeCaller
-	*common.ModelWatcher
+	*common.ModelConfigWatcher
 	*cloudspec.CloudSpecAPI
 	*common.ControllerConfigAPI
 }
@@ -45,7 +45,7 @@ func NewClient(caller base.APICaller, options ...Option) (*Client, error) {
 	facadeCaller := base.NewFacadeCaller(caller, "Agent", options...)
 	return &Client{
 		facade:              facadeCaller,
-		ModelWatcher:        common.NewModelWatcher(facadeCaller),
+		ModelConfigWatcher:  common.NewModelConfigWatcher(facadeCaller),
 		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
 		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
 	}, nil

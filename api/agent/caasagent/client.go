@@ -22,7 +22,7 @@ var WithTracer = base.WithTracer
 type Client struct {
 	facade base.FacadeCaller
 	*cloudspec.CloudSpecAPI
-	*common.ModelWatcher
+	*common.ModelConfigWatcher
 	*common.ControllerConfigAPI
 }
 
@@ -37,7 +37,7 @@ func NewClient(caller base.APICaller, options ...Option) (*Client, error) {
 	return &Client{
 		facade:              facadeCaller,
 		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
-		ModelWatcher:        common.NewModelWatcher(facadeCaller),
+		ModelConfigWatcher:  common.NewModelConfigWatcher(facadeCaller),
 		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
 	}, nil
 }
