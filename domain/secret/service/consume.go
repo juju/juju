@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 )
@@ -20,6 +21,22 @@ import (
 // If there's not currently a consumer record for the secret, the latest revision is still returned,
 // along with an error satisfying [secreterrors.SecretConsumerNotFound].
 func (s *SecretService) GetSecretConsumerAndLatest(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error) {
+	var (
+		consumerMetadata *secrets.SecretConsumerMetadata
+		latestRevision   int
+	)
+	err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		consumerMetadata, latestRevision, err = s.getSecretConsumerAndLatest(ctx, uri, unitName)
+		return err
+	})
+	if err != nil {
+		return nil, latestRevision, errors.Trace(err)
+	}
+	return consumerMetadata, latestRevision, nil
+}
+
+func (s *SecretService) getSecretConsumerAndLatest(ctx domain.AtomicContext, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error) {
 	consumerMetadata, latestRevision, err := s.secretState.GetSecretConsumer(ctx, uri, unitName)
 	if err != nil {
 		return nil, latestRevision, errors.Trace(err)
@@ -35,7 +52,7 @@ func (s *SecretService) GetSecretConsumerAndLatest(ctx context.Context, uri *sec
 		return consumerMetadata, latestRevision, nil
 	}
 	if err != nil {
-		return nil, 0, errors.Annotatef(err, "cannot get secret metadata for %q", uri)
+		return nil, latestRevision, errors.Annotatef(err, "cannot get secret metadata for %q", uri)
 	}
 	consumerMetadata.Label = md.Label
 	return consumerMetadata, latestRevision, nil
@@ -55,7 +72,9 @@ func (s *SecretService) GetSecretConsumer(ctx context.Context, uri *secrets.URI,
 // If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound] is returned.
 // If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
 func (s *SecretService) SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error {
-	return s.secretState.SaveSecretConsumer(ctx, uri, unitName, md)
+	return s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return s.secretState.SaveSecretConsumer(ctx, uri, unitName, md)
+	})
 }
 
 // GetURIByConsumerLabel looks up the secret URI using the label previously registered by the specified unit,
@@ -68,36 +87,42 @@ func (s *SecretService) GetURIByConsumerLabel(ctx context.Context, label string,
 // GetConsumedRevision returns the secret revision number for the specified consumer, possibly updating
 // the label associated with the secret for the consumer.
 func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.URI, unitName string, refresh, peek bool, labelToUpdate *string) (int, error) {
-	consumerInfo, latestRevision, err := s.GetSecretConsumerAndLatest(ctx, uri, unitName)
-	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
-		return 0, errors.Trace(err)
-	}
-	refresh = refresh ||
-		err != nil // Not found, so need to create one.
-
 	var wantRevision int
-	if err == nil {
-		wantRevision = consumerInfo.CurrentRevision
-	}
+	err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		consumerInfo, latestRevision, err := s.getSecretConsumerAndLatest(ctx, uri, unitName)
+		if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
+			return errors.Trace(err)
+		}
+		refresh = refresh ||
+			err != nil // Not found, so need to create one.
 
-	// Use the latest revision as the current one if --refresh or --peek.
-	if refresh || peek {
-		if consumerInfo == nil {
-			consumerInfo = &secrets.SecretConsumerMetadata{}
+		if err == nil {
+			wantRevision = consumerInfo.CurrentRevision
 		}
-		if refresh {
-			consumerInfo.CurrentRevision = latestRevision
+
+		// Use the latest revision as the current one if --refresh or --peek.
+		if refresh || peek {
+			if consumerInfo == nil {
+				consumerInfo = &secrets.SecretConsumerMetadata{}
+			}
+			if refresh {
+				consumerInfo.CurrentRevision = latestRevision
+			}
+			wantRevision = latestRevision
 		}
-		wantRevision = latestRevision
-	}
-	// Save the latest consumer info if required.
-	if refresh || labelToUpdate != nil {
-		if labelToUpdate != nil {
-			consumerInfo.Label = *labelToUpdate
+		// Save the latest consumer info if required.
+		if refresh || labelToUpdate != nil {
+			if labelToUpdate != nil {
+				consumerInfo.Label = *labelToUpdate
+			}
+			if err := s.secretState.SaveSecretConsumer(ctx, uri, unitName, consumerInfo); err != nil {
+				return errors.Trace(err)
+			}
 		}
-		if err := s.SaveSecretConsumer(ctx, uri, unitName, consumerInfo); err != nil {
-			return 0, errors.Trace(err)
-		}
+		return nil
+	})
+	if err != nil {
+		return 0, errors.Trace(err)
 	}
 	return wantRevision, nil
 }
@@ -131,21 +156,32 @@ func (s *SecretService) ListGrantedSecretsForBackend(
 // UpdateRemoteConsumedRevision returns the latest revision for the specified secret,
 // updating the tracked revision for the specified consumer if refresh is true.
 func (s *SecretService) UpdateRemoteConsumedRevision(ctx context.Context, uri *secrets.URI, unitName string, refresh bool) (int, error) {
-	consumerInfo, latestRevision, err := s.secretState.GetSecretRemoteConsumer(ctx, uri, unitName)
-	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
-		return 0, errors.Trace(err)
-	}
-	refresh = refresh ||
-		err != nil // Not found, so need to create one.
+	var latestRevision int
+	err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var (
+			consumerInfo *secrets.SecretConsumerMetadata
+			err          error
+		)
+		consumerInfo, latestRevision, err = s.secretState.GetSecretRemoteConsumer(ctx, uri, unitName)
+		if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
+			return errors.Trace(err)
+		}
+		refresh = refresh ||
+			err != nil // Not found, so need to create one.
 
-	if refresh {
-		if consumerInfo == nil {
-			consumerInfo = &secrets.SecretConsumerMetadata{}
+		if refresh {
+			if consumerInfo == nil {
+				consumerInfo = &secrets.SecretConsumerMetadata{}
+			}
+			consumerInfo.CurrentRevision = latestRevision
+			if err := s.secretState.SaveSecretRemoteConsumer(ctx, uri, unitName, consumerInfo); err != nil {
+				return errors.Trace(err)
+			}
 		}
-		consumerInfo.CurrentRevision = latestRevision
-		if err := s.secretState.SaveSecretRemoteConsumer(ctx, uri, unitName, consumerInfo); err != nil {
-			return 0, errors.Trace(err)
-		}
+		return nil
+	})
+	if err != nil {
+		return 0, errors.Trace(err)
 	}
 	return latestRevision, nil
 }

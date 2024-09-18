@@ -38,6 +38,50 @@ func (st *State) getSecretValueForTest(ctx context.Context, uri *coresecrets.URI
 	return data, ref, err
 }
 
+func (st *State) getSecretConsumerForTest(ctx context.Context, uri *coresecrets.URI, unitName string) (*coresecrets.SecretConsumerMetadata, int, error) {
+	var (
+		consumerMetadata *coresecrets.SecretConsumerMetadata
+		latestRevision   int
+	)
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		consumerMetadata, latestRevision, err = st.GetSecretConsumer(ctx, uri, unitName)
+		return err
+	})
+	if err != nil {
+		return nil, latestRevision, err
+	}
+	return consumerMetadata, latestRevision, err
+}
+
+func (st *State) saveSecretConsumerForTest(ctx context.Context, uri *coresecrets.URI, unitName string, md *coresecrets.SecretConsumerMetadata) error {
+	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.SaveSecretConsumer(ctx, uri, unitName, md)
+	})
+}
+
+func (st *State) getSecretRemoteConsumerForTest(ctx context.Context, uri *coresecrets.URI, unitName string) (*coresecrets.SecretConsumerMetadata, int, error) {
+	var (
+		consumerMetadata *coresecrets.SecretConsumerMetadata
+		latestRevision   int
+	)
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		consumerMetadata, latestRevision, err = st.GetSecretRemoteConsumer(ctx, uri, unitName)
+		return err
+	})
+	if err != nil {
+		return nil, latestRevision, err
+	}
+	return consumerMetadata, latestRevision, err
+}
+
+func (st *State) saveSecretRemoteConsumerForTest(ctx context.Context, uri *coresecrets.URI, unitName string, md *coresecrets.SecretConsumerMetadata) error {
+	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.SaveSecretRemoteConsumer(ctx, uri, unitName, md)
+	})
+}
+
 func (st *State) getRotationExpiryInfoForTest(ctx context.Context, uri *coresecrets.URI) (*domainsecret.RotationExpiryInfo, error) {
 	var info *domainsecret.RotationExpiryInfo
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
@@ -84,6 +128,20 @@ func (st *State) revokeAccessForTest(ctx context.Context, uri *coresecrets.URI, 
 	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.RevokeAccess(ctx, uri, params)
 	})
+}
+
+func (st *State) listCharmSecretsForTest(ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+) ([]*coresecrets.SecretMetadata, [][]*coresecrets.SecretRevisionMetadata, error) {
+	var (
+		mds  []*coresecrets.SecretMetadata
+		revs [][]*coresecrets.SecretRevisionMetadata
+	)
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		mds, revs, err = st.ListCharmSecrets(ctx, appOwners, unitOwners)
+		return err
+	})
+	return mds, revs, err
 }
 
 func (st *State) changeSecretBackendForTest(

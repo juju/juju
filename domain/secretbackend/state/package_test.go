@@ -7,10 +7,11 @@ import (
 	"context"
 	"testing"
 
+	gc "gopkg.in/check.v1"
+
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/secretbackend"
-	gc "gopkg.in/check.v1"
 )
 
 func TestPackage(t *testing.T) {

@@ -564,7 +564,12 @@ func (s *serviceSuite) TestGetSecretValue(c *gc.C) {
 }
 
 func (s *serviceSuite) TestGetSecretConsumer(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	uri := coresecrets.NewURI()
 	consumer := &coresecrets.SecretConsumerMetadata{
@@ -580,7 +585,12 @@ func (s *serviceSuite) TestGetSecretConsumer(c *gc.C) {
 }
 
 func (s *serviceSuite) TestGetSecretConsumerAndLatest(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	uri := coresecrets.NewURI()
 	consumer := &coresecrets.SecretConsumerMetadata{
@@ -597,7 +607,12 @@ func (s *serviceSuite) TestGetSecretConsumerAndLatest(c *gc.C) {
 }
 
 func (s *serviceSuite) TestSaveSecretConsumer(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	uri := coresecrets.NewURI()
 	consumer := &coresecrets.SecretConsumerMetadata{
@@ -673,7 +688,12 @@ func (s *serviceSuite) TestListUserSecretsToDrain(c *gc.C) {
 }
 
 func (s *serviceSuite) TestListCharmSecrets(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	owners := []CharmSecretOwner{{
 		Kind: ApplicationOwner,
@@ -695,7 +715,12 @@ func (s *serviceSuite) TestListCharmSecrets(c *gc.C) {
 }
 
 func (s *serviceSuite) TestListCharmJustApplication(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	owners := []CharmSecretOwner{{
 		Kind: ApplicationOwner,
@@ -714,7 +739,12 @@ func (s *serviceSuite) TestListCharmJustApplication(c *gc.C) {
 }
 
 func (s *serviceSuite) TestListCharmJustUnit(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	owners := []CharmSecretOwner{{
 		Kind: UnitOwner,
@@ -754,7 +784,12 @@ func (s *serviceSuite) TestUpdateRemoteSecretRevision(c *gc.C) {
 }
 
 func (s *serviceSuite) TestUpdateRemoteConsumedRevision(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	uri := coresecrets.NewURI()
 	s.state.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, "remote-app/0").
@@ -766,7 +801,12 @@ func (s *serviceSuite) TestUpdateRemoteConsumedRevision(c *gc.C) {
 }
 
 func (s *serviceSuite) TestUpdateRemoteConsumedRevisionRefresh(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	consumer := &coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
@@ -782,7 +822,12 @@ func (s *serviceSuite) TestUpdateRemoteConsumedRevisionRefresh(c *gc.C) {
 }
 
 func (s *serviceSuite) TestUpdateRemoteConsumedRevisionFirstTimeRefresh(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	consumer := &coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
@@ -1484,7 +1529,12 @@ func (s *serviceSuite) TestSecretsRotatedThenNever(c *gc.C) {
 }
 
 func (s *serviceSuite) TestGetConsumedRevisionFirstTime(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	uri := coresecrets.NewURI()
 
@@ -1499,7 +1549,12 @@ func (s *serviceSuite) TestGetConsumedRevisionFirstTime(c *gc.C) {
 }
 
 func (s *serviceSuite) TestGetConsumedRevisionFirstTimeUpdateLabel(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	uri := coresecrets.NewURI()
 
@@ -1515,7 +1570,12 @@ func (s *serviceSuite) TestGetConsumedRevisionFirstTimeUpdateLabel(c *gc.C) {
 }
 
 func (s *serviceSuite) TestGetSecretConsumedRevisionUpdateLabel(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	uri := coresecrets.NewURI()
 
@@ -1534,7 +1594,12 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionUpdateLabel(c *gc.C) {
 }
 
 func (s *serviceSuite) TestGetSecretConsumedRevisionRefresh(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	uri := coresecrets.NewURI()
 
@@ -1553,7 +1618,12 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionRefresh(c *gc.C) {
 }
 
 func (s *serviceSuite) TestGetSecretConsumedRevisionPeek(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	uri := coresecrets.NewURI()
 
@@ -1568,7 +1638,12 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionPeek(c *gc.C) {
 }
 
 func (s *serviceSuite) TestGetSecretConsumedRevisionSecretNotFound(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	uri := coresecrets.NewURI()
 
@@ -1601,7 +1676,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretUpda
 
 	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
 		return f(NewMockAtomicContext(ctrl))
-	})
+	}).AnyTimes()
 
 	uri := coresecrets.NewURI()
 	md := []*coresecrets.SecretMetadata{{
@@ -1630,7 +1705,12 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretUpda
 }
 
 func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretLookupURI(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	uri := coresecrets.NewURI()
 	md := []*coresecrets.SecretMetadata{{
@@ -1651,7 +1731,12 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretLook
 }
 
 func (s *serviceSuite) TestProcessCharmSecretConsumerLabelLookupURI(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	uri := coresecrets.NewURI()
 	md := []*coresecrets.SecretMetadata{{
@@ -1673,7 +1758,12 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelLookupURI(c *gc.C) {
 }
 
 func (s *serviceSuite) TestProcessCharmSecretConsumerLabelUpdateLabel(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(NewMockAtomicContext(ctrl))
+	})
 
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()

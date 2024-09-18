@@ -39,7 +39,7 @@ func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, para
 			return errors.Trace(err)
 		}
 		var err error
-		cleanExternal, err = s.internalDeleteSecret(ctx, uri, params)
+		cleanExternal, err = s.InternalDeleteSecret(ctx, uri, params)
 		return errors.Trace(err)
 	}); err != nil {
 		return errors.Annotatef(err, "deleting secret %q", uri.ID)
@@ -56,7 +56,7 @@ func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, para
 // secrets owned by a unit or application being deleted. No permission checks are done.
 // It returns a function which can be called to delete any external content and also remove
 // any references from the affected backend(s).
-func (s *SecretService) internalDeleteSecret(ctx domain.AtomicContext, uri *secrets.URI, params DeleteSecretParams) (func(context.Context), error) {
+func (s *SecretService) InternalDeleteSecret(ctx domain.AtomicContext, uri *secrets.URI, params DeleteSecretParams) (func(context.Context), error) {
 	external, err := s.secretState.ListExternalSecretRevisions(ctx, uri, params.Revisions...)
 	if err != nil {
 		return nil, errors.Annotatef(err, "listing external revisions for %q", uri.ID)

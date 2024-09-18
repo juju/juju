@@ -166,19 +166,25 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 			return errors.Annotatef(err, "saving secret %q", md.URI.ID)
 		}
 		for _, sc := range modelSecrets.Consumers[md.URI.ID] {
-			if err := s.secretState.SaveSecretConsumer(ctx, md.URI, sc.Accessor.ID, &coresecrets.SecretConsumerMetadata{
-				Label:           sc.Label,
-				CurrentRevision: sc.CurrentRevision,
-			}); err != nil {
+			err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+				return s.secretState.SaveSecretConsumer(ctx, md.URI, sc.Accessor.ID, &coresecrets.SecretConsumerMetadata{
+					Label:           sc.Label,
+					CurrentRevision: sc.CurrentRevision,
+				})
+			})
+			if err != nil {
 				return errors.Annotatef(err, "saving secret consumer %q for %q", sc.Accessor.ID, md.URI.ID)
 			}
 		}
 
 		for _, rc := range modelSecrets.RemoteConsumers[md.URI.ID] {
-			if err := s.secretState.SaveSecretRemoteConsumer(ctx, md.URI, rc.Accessor.ID, &coresecrets.SecretConsumerMetadata{
-				Label:           rc.Label,
-				CurrentRevision: rc.CurrentRevision,
-			}); err != nil {
+			err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+				return s.secretState.SaveSecretRemoteConsumer(ctx, md.URI, rc.Accessor.ID, &coresecrets.SecretConsumerMetadata{
+					Label:           rc.Label,
+					CurrentRevision: rc.CurrentRevision,
+				})
+			})
+			if err != nil {
 				return errors.Annotatef(err, "saving secret remote consumer %q for %q", rc.Accessor.ID, md.URI.ID)
 			}
 		}
@@ -325,10 +331,13 @@ func (s *SecretService) importRemoteSecrets(ctx context.Context, remoteSecrets [
 		}
 	}
 	for _, rs := range remoteSecrets {
-		if err := s.secretState.SaveSecretConsumer(ctx, rs.URI, rs.Accessor.ID, &coresecrets.SecretConsumerMetadata{
-			Label:           rs.Label,
-			CurrentRevision: rs.CurrentRevision,
-		}); err != nil {
+		err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+			return s.secretState.SaveSecretConsumer(ctx, rs.URI, rs.Accessor.ID, &coresecrets.SecretConsumerMetadata{
+				Label:           rs.Label,
+				CurrentRevision: rs.CurrentRevision,
+			})
+		})
+		if err != nil {
 			return errors.Annotatef(err, "saving remote consumer %s-%s for secret %q",
 				rs.Accessor.Kind, rs.Accessor.ID, rs.URI.ID)
 		}

@@ -1277,19 +1277,15 @@ FROM   secret_metadata sm
 
 // ListCharmSecrets returns charm secrets owned by the specified applications and/or units.
 // At least one owner must be specified.
-func (st State) ListCharmSecrets(ctx context.Context,
+func (st State) ListCharmSecrets(ctx domain.AtomicContext,
 	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 ) ([]*coresecrets.SecretMetadata, [][]*coresecrets.SecretRevisionMetadata, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
 
 	var (
 		secrets        []*coresecrets.SecretMetadata
 		revisionResult [][]*coresecrets.SecretRevisionMetadata
 	)
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		secrets, err = st.listCharmSecrets(ctx, tx, appOwners, unitOwners)
 		if err != nil {
@@ -1858,13 +1854,8 @@ FROM (SELECT * FROM local UNION SELECT * FROM remote)`
 // revision is still returned,along with an error satisfying
 // [secreterrors.SecretConsumerNotFound].
 func (st State) GetSecretConsumer(
-	ctx context.Context, uri *coresecrets.URI, unitName string,
+	ctx domain.AtomicContext, uri *coresecrets.URI, unitName string,
 ) (*coresecrets.SecretConsumerMetadata, int, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, 0, errors.Trace(err)
-	}
-
 	consumer := secretUnitConsumer{
 		SecretID: uri.ID,
 	}
@@ -1909,7 +1900,7 @@ WHERE  ref.secret_id = $secretRef.secret_id`
 		dbSecretConsumers secretUnitConsumers
 		latestRevision    int
 	)
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		isLocal, err := st.checkExistsIfLocal(ctx, tx, uri)
 		if err != nil {
 			return errors.Trace(err)
@@ -1965,13 +1956,8 @@ WHERE  ref.secret_id = $secretRef.secret_id`
 // If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound] is returned.
 // If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
 func (st State) SaveSecretConsumer(
-	ctx context.Context, uri *coresecrets.URI, unitName string, md *coresecrets.SecretConsumerMetadata,
+	ctx domain.AtomicContext, uri *coresecrets.URI, unitName string, md *coresecrets.SecretConsumerMetadata,
 ) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	insertQuery := `
 INSERT INTO secret_unit_consumer (*)
 VALUES ($secretUnitConsumer.*)
@@ -2021,7 +2007,7 @@ ON CONFLICT DO NOTHING`
 		Label:           md.Label,
 		CurrentRevision: md.CurrentRevision,
 	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		isLocal, err := st.checkExistsIfLocal(ctx, tx, uri)
 		if err != nil {
 			return errors.Trace(err)
@@ -2106,13 +2092,8 @@ FROM   secret_unit_consumer suc
 // If there's not currently a consumer record for the secret, the latest revision is still returned,
 // along with an error satisfying [secreterrors.SecretConsumerNotFound].
 func (st State) GetSecretRemoteConsumer(
-	ctx context.Context, uri *coresecrets.URI, unitName string,
+	ctx domain.AtomicContext, uri *coresecrets.URI, unitName string,
 ) (*coresecrets.SecretConsumerMetadata, int, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, 0, errors.Trace(err)
-	}
-
 	consumer := secretRemoteUnitConsumer{
 		SecretID: uri.ID,
 		UnitName: unitName,
@@ -2142,7 +2123,7 @@ WHERE  rev.secret_id = $secretInfo.secret_id`
 		dbSecretConsumers secretRemoteUnitConsumers
 		latestRevision    int
 	)
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
 			return errors.Trace(err)
 		} else if !isLocal {
@@ -2182,13 +2163,8 @@ WHERE  rev.secret_id = $secretInfo.secret_id`
 // SaveSecretRemoteConsumer saves the consumer metadata for the given secret and unit.
 // If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
 func (st State) SaveSecretRemoteConsumer(
-	ctx context.Context, uri *coresecrets.URI, unitName string, md *coresecrets.SecretConsumerMetadata,
+	ctx domain.AtomicContext, uri *coresecrets.URI, unitName string, md *coresecrets.SecretConsumerMetadata,
 ) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	insertQuery := `
 INSERT INTO secret_remote_unit_consumer (*)
 VALUES ($secretRemoteUnitConsumer.*)
@@ -2205,7 +2181,7 @@ ON CONFLICT(secret_id, unit_name) DO UPDATE SET
 		UnitName:        unitName,
 		CurrentRevision: md.CurrentRevision,
 	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
 			return errors.Trace(err)
 		} else if !isLocal {

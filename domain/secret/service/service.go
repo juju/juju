@@ -505,9 +505,8 @@ func (s *SecretService) GetSecretsForOwners(ctx domain.AtomicContext, owners ...
 // ListSecrets returns the secrets matching the specified terms.
 // If multiple values for a given term are specified, secrets matching any of the
 // values for that term are included.
-func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
-	revision *int,
-	labels domainsecret.Labels,
+func (s *SecretService) ListSecrets(
+	ctx context.Context, uri *secrets.URI, revision *int, labels domainsecret.Labels,
 ) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
 	return s.secretState.ListSecrets(ctx, uri, revision, labels)
 }
@@ -532,7 +531,20 @@ func splitCharmSecretOwners(owners ...CharmSecretOwner) (domainsecret.Applicatio
 // The count of secret and revisions in the result must match.
 func (s *SecretService) ListCharmSecrets(ctx context.Context, owners ...CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
-	return s.secretState.ListCharmSecrets(ctx, appOwners, unitOwners)
+
+	var (
+		mds  []*secrets.SecretMetadata
+		revs [][]*secrets.SecretRevisionMetadata
+	)
+	err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		mds, revs, err = s.secretState.ListCharmSecrets(ctx, appOwners, unitOwners)
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return mds, revs, nil
 }
 
 // GetSecret returns the secret with the specified URI.
@@ -664,10 +676,18 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 
 	// For local secrets, check those which may be owned by the caller.
 	if uri == nil || uri.IsLocal(modelUUID) {
-		md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(ctx, uri, unitName, label)
-		if err != nil && !errors.Is(err, secreterrors.SecretNotFound) {
+		var md *secrets.SecretMetadata
+		err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+			md, err = s.getAppOwnedOrUnitOwnedSecretMetadata(ctx, uri, unitName, label)
+			if err != nil && !errors.Is(err, secreterrors.SecretNotFound) {
+				return errors.Trace(err)
+			}
+			return nil
+		})
+		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
+
 		if md != nil {
 			// If the label has is to be changed by the secret owner, update the secret metadata.
 			// TODO(wallyworld) - the label staying the same should be asserted in a txn.
@@ -709,7 +729,7 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 
 	if uri == nil {
 		var err error
-		uri, err = s.GetURIByConsumerLabel(ctx, label, unitName)
+		uri, err = s.secretState.GetURIByConsumerLabel(ctx, label, unitName)
 		if errors.Is(err, secreterrors.SecretNotFound) {
 			return nil, nil, errors.NotFoundf("secret URI for consumer label %q", label)
 		}
@@ -737,7 +757,7 @@ func checkUnitOwner(unitName string, owner secrets.Owner, token leadership.Token
 	return true, nil
 }
 
-func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx context.Context, uri *secrets.URI, unitName, label string) (*secrets.SecretMetadata, error) {
+func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx domain.AtomicContext, uri *secrets.URI, unitName, label string) (*secrets.SecretMetadata, error) {
 	notFoundErr := fmt.Errorf("secret %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
 	if label != "" {
 		notFoundErr = fmt.Errorf("secret with label %q not found%w", label, errors.Hide(secreterrors.SecretNotFound))
@@ -748,14 +768,10 @@ func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx context.Context
 		// Should never happen.
 		return nil, errors.Trace(err)
 	}
-	owners := []CharmSecretOwner{{
-		Kind: ApplicationOwner,
-		ID:   appName,
-	}, {
-		Kind: UnitOwner,
-		ID:   unitName,
-	}}
-	metadata, _, err := s.ListCharmSecrets(ctx, owners...)
+	metadata, _, err := s.secretState.ListCharmSecrets(ctx,
+		domainsecret.ApplicationOwners{appName},
+		domainsecret.UnitOwners{unitName},
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -372,8 +372,11 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		consumer := &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		err := st.SaveSecretConsumer(ctx, uri, consumerID, consumer)
-		c.Assert(err, jc.ErrorIsNil)
+		_ = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+			err := st.SaveSecretConsumer(ctx, uri, consumerID, consumer)
+			c.Assert(err, jc.ErrorIsNil)
+			return nil
+		})
 	}
 
 	sp := secret.UpsertSecretParams{
@@ -452,8 +455,11 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
 		consumer := &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		err := st.SaveSecretConsumer(ctx, uri, consumerID, consumer)
-		c.Assert(err, jc.ErrorIsNil)
+		_ = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+			err := st.SaveSecretConsumer(ctx, uri, consumerID, consumer)
+			c.Assert(err, jc.ErrorIsNil)
+			return nil
+		})
 	}
 
 	sourceModelUUID := uuid.MustNewUUID()
@@ -519,8 +525,11 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 		consumer := &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		err := st.SaveSecretRemoteConsumer(ctx, uri, consumerID, consumer)
-		c.Assert(err, jc.ErrorIsNil)
+		_ = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+			err := st.SaveSecretRemoteConsumer(ctx, uri, consumerID, consumer)
+			c.Assert(err, jc.ErrorIsNil)
+			return nil
+		})
 	}
 
 	sp := secret.UpsertSecretParams{

@@ -29,6 +29,10 @@ type AtomicState interface {
 	GetSecretsForOwners(
 		ctx domain.AtomicContext, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) ([]*secrets.URI, error)
+	GetSecretConsumer(ctx domain.AtomicContext, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
+	SaveSecretConsumer(ctx domain.AtomicContext, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
+	GetSecretRemoteConsumer(ctx domain.AtomicContext, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
+	SaveSecretRemoteConsumer(ctx domain.AtomicContext, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
 
 	GetRotationExpiryInfo(ctx domain.AtomicContext, uri *secrets.URI) (*domainsecret.RotationExpiryInfo, error)
 	GetRotatePolicy(ctx domain.AtomicContext, uri *secrets.URI) (secrets.RotatePolicy, error)
@@ -37,6 +41,10 @@ type AtomicState interface {
 	GetSecretAccess(ctx domain.AtomicContext, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
 	GrantAccess(ctx domain.AtomicContext, uri *secrets.URI, params domainsecret.GrantParams) error
 	RevokeAccess(ctx domain.AtomicContext, uri *secrets.URI, params domainsecret.AccessParams) error
+
+	ListCharmSecrets(ctx domain.AtomicContext,
+		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
 
 	ChangeSecretBackend(
 		ctx domain.AtomicContext, revisionID uuid.UUID, valueRef *secrets.ValueRef, data secrets.SecretData,
@@ -64,15 +72,8 @@ type State interface {
 	ListSecrets(ctx context.Context, uri *secrets.URI,
 		revision *int, labels domainsecret.Labels,
 	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
-	ListCharmSecrets(ctx context.Context,
-		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
-	GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
-	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
 	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
 	GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*secrets.URI, error)
-	GetSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
-	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
 	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error
 	GetSecretAccessScope(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (*domainsecret.AccessScope, error)
 	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]domainsecret.GrantParams, error)
