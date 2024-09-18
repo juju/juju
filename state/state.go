@@ -1151,12 +1151,8 @@ func (st *State) AddApplication(prechecker environs.InstancePrechecker, args Add
 	if args.Devices == nil {
 		args.Devices = make(map[string]DeviceConstraints)
 	}
-	deviceb, err := NewDeviceBackend(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
-	if err := validateDeviceConstraints(deviceb, args.Devices, args.Charm.Meta()); err != nil {
+	if err := validateDeviceConstraints(args.Devices, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
 
