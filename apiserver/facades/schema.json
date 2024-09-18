@@ -549,7 +549,7 @@
     {
         "Name": "ActionPruner",
         "Description": "API provides access to the action pruner API.",
-        "Version": 1,
+        "Version": 2,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -559,15 +559,6 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "ModelConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/ModelConfigResult"
-                        }
-                    },
-                    "description": "ModelConfig returns the current model's configuration."
-                },
                 "Prune": {
                     "type": "object",
                     "properties": {
@@ -576,15 +567,6 @@
                         }
                     },
                     "description": "Prune endpoint removes action entries until\nonly the ones newer than now - p.MaxHistoryTime remain and\nthe history is smaller than p.MaxHistoryMB."
-                },
-                "WatchForModelConfigChanges": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResult"
-                        }
-                    },
-                    "description": "WatchForModelConfigChanges returns a NotifyWatcher that observes\nchanges to the model configuration.\nNote that although the NotifyWatchResult contains an Error field,\nit's not used because we are only returning a single watcher,\nso we use the regular error return."
                 }
             },
             "definitions": {
@@ -602,64 +584,6 @@
                     "required": [
                         "max-history-time",
                         "max-history-mb"
-                    ]
-                },
-                "Error": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "info": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "message": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "message",
-                        "code"
-                    ]
-                },
-                "ModelConfigResult": {
-                    "type": "object",
-                    "properties": {
-                        "config": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "config"
-                    ]
-                },
-                "NotifyWatchResult": {
-                    "type": "object",
-                    "properties": {
-                        "NotifyWatcherId": {
-                            "type": "string"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "NotifyWatcherId"
                     ]
                 }
             }
@@ -35486,7 +35410,7 @@
     {
         "Name": "StatusHistory",
         "Description": "API is the concrete implementation of the Pruner endpoint.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -35496,15 +35420,6 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "ModelConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/ModelConfigResult"
-                        }
-                    },
-                    "description": "ModelConfig returns the current model's configuration."
-                },
                 "Prune": {
                     "type": "object",
                     "properties": {
@@ -35513,76 +35428,9 @@
                         }
                     },
                     "description": "Prune endpoint removes status history entries until\nonly the ones newer than now - p.MaxHistoryTime remain and\nthe history is smaller than p.MaxHistoryMB."
-                },
-                "WatchForModelConfigChanges": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResult"
-                        }
-                    },
-                    "description": "WatchForModelConfigChanges returns a NotifyWatcher that observes\nchanges to the model configuration.\nNote that although the NotifyWatchResult contains an Error field,\nit's not used because we are only returning a single watcher,\nso we use the regular error return."
                 }
             },
             "definitions": {
-                "Error": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "info": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "message": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "message",
-                        "code"
-                    ]
-                },
-                "ModelConfigResult": {
-                    "type": "object",
-                    "properties": {
-                        "config": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "config"
-                    ]
-                },
-                "NotifyWatchResult": {
-                    "type": "object",
-                    "properties": {
-                        "NotifyWatcherId": {
-                            "type": "string"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "NotifyWatcherId"
-                    ]
-                },
                 "StatusHistoryPruneArgs": {
                     "type": "object",
                     "properties": {

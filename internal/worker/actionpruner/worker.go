@@ -11,7 +11,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/client/action"
+	"github.com/juju/juju/api/controller/actionpruner"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/worker/pruner"
 )
@@ -29,7 +29,7 @@ type Worker struct {
 
 // NewClient returns a new pruner facade.
 func NewClient(caller base.APICaller) pruner.Facade {
-	return action.NewPruner(caller)
+	return actionpruner.NewPruner(caller)
 }
 
 func (w *Worker) loop() error {
