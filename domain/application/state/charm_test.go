@@ -2014,9 +2014,10 @@ WHERE charm_uuid = ?
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	profile, err := st.GetCharmLXDProfile(context.Background(), id)
+	profile, revision, err := st.GetCharmLXDProfile(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(profile, gc.DeepEquals, []byte(`{"profile": []}`))
+	c.Check(revision, gc.Equals, 42)
 
 	err = st.DeleteCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2029,7 +2030,7 @@ func (s *charmStateSuite) TestGetCharmLXDProfileCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
-	_, err := st.GetCharmLXDProfile(context.Background(), id)
+	_, _, err := st.GetCharmLXDProfile(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
@@ -2048,7 +2049,7 @@ func (s *charmStateSuite) TestGetCharmLXDProfileLXDProfileNotFound(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.GetCharmLXDProfile(context.Background(), id)
+	_, _, err = st.GetCharmLXDProfile(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, applicationerrors.LXDProfileNotFound)
 }
 
@@ -2361,6 +2362,13 @@ func insertCharmState(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) err
 	_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_metadata (charm_uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
 VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_origin (charm_uuid, revision, reference_name)
+VALUES (?, 42, 'ubuntu')`, uuid)
 	if err != nil {
 		return errors.Trace(err)
 	}

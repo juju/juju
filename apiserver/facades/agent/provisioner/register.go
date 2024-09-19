@@ -25,5 +25,5 @@ func newProvisionerAPIV11(stdCtx context.Context, ctx facade.ModelContext) (*Pro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &ProvisionerAPIV11{provisionerAPI}, nil
+	return &ProvisionerAPIV11{ProvisionerAPI: provisionerAPI}, nil
 }

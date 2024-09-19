@@ -25,11 +25,11 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
@@ -66,6 +66,7 @@ type ProvisionerAPI struct {
 	modelConfigService          ModelConfigService
 	modelInfoService            ModelInfoService
 	machineService              MachineService
+	applicationService          ApplicationService
 	resources                   facade.Resources
 	authorizer                  facade.Authorizer
 	storageProviderRegistry     storage.ProviderRegistry
@@ -193,6 +194,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		modelConfigService:          serviceFactory.Config(),
 		modelInfoService:            modelInfoService,
 		machineService:              serviceFactory.Machine(),
+		applicationService:          serviceFactory.Application(service.ApplicationServiceParams{}),
 		resources:                   resources,
 		authorizer:                  authorizer,
 		configGetter:                configGetter,
@@ -507,7 +509,7 @@ func (api *ProvisionerAPI) KeepInstance(ctx context.Context, args params.Entitie
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		keep, err := api.machineService.ShouldKeepInstance(ctx, machine.Name(tag.Id()))
+		keep, err := api.machineService.ShouldKeepInstance(ctx, coremachine.Name(tag.Id()))
 		result.Results[i].Result = keep
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -868,8 +870,9 @@ type perContainerHandler interface {
 	// Any errors that are returned from ProcessOneContainer will be turned
 	// into ServerError and handed to SetError
 	ProcessOneContainer(
+		ctx context.Context,
 		env environs.Environ, callContext envcontext.ProviderCallContext,
-		policy BridgePolicy, idx int, host, guest Machine, logger logger.Logger,
+		policy BridgePolicy, idx int, host, guest Machine,
 		allSubnets network.SubnetInfos,
 	) error
 
@@ -947,10 +950,10 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		}
 
 		if err := handler.ProcessOneContainer(
+			ctx,
 			env, callCtx, policy, i,
 			NewMachine(hostMachine),
 			NewMachine(guest),
-			api.logger,
 			allSubnets,
 		); err != nil {
 			handler.SetError(i, err)
@@ -960,27 +963,30 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 	return nil
 }
 
-type prepareOrGetContext struct {
+type prepareOrGetHandler struct {
 	result   params.MachineNetworkConfigResults
 	maintain bool
+	logger   logger.Logger
 }
 
 // SetError implements perContainerHandler.SetError
-func (ctx *prepareOrGetContext) SetError(idx int, err error) {
-	ctx.result.Results[idx].Error = apiservererrors.ServerError(err)
+func (h *prepareOrGetHandler) SetError(idx int, err error) {
+	h.result.Results[idx].Error = apiservererrors.ServerError(err)
 }
 
 // ConfigType implements perContainerHandler.ConfigType
-func (ctx *prepareOrGetContext) ConfigType() string {
+func (h *prepareOrGetHandler) ConfigType() string {
 	return "network"
 }
 
 // ProcessOneContainer implements perContainerHandler.ProcessOneContainer
-func (ctx *prepareOrGetContext) ProcessOneContainer(
-	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger logger.Logger, _ network.SubnetInfos,
+func (h *prepareOrGetHandler) ProcessOneContainer(
+	ctx context.Context,
+	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy,
+	idx int, host, guest Machine, _ network.SubnetInfos,
 ) error {
 	instanceId, err := guest.InstanceId()
-	if ctx.maintain {
+	if h.maintain {
 		if err == nil {
 			// Since we want to configure and create NICs on the
 			// container before it starts, it must also be not
@@ -1024,14 +1030,14 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		logger.Debugf("got allocated info from provider: %+v", allocatedInfo)
+		h.logger.Debugf("got allocated info from provider: %+v", allocatedInfo)
 	} else {
-		logger.Debugf("using dhcp allocated addresses")
+		h.logger.Debugf("using dhcp allocated addresses")
 	}
 
 	allocatedConfig := params.NetworkConfigFromInterfaceInfo(allocatedInfo)
-	logger.Debugf("allocated network config: %+v", allocatedConfig)
-	ctx.result.Results[idx].Config = allocatedConfig
+	h.logger.Debugf("allocated network config: %+v", allocatedConfig)
+	h.result.Results[idx].Config = allocatedConfig
 	return nil
 }
 
@@ -1039,11 +1045,12 @@ func (api *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 	ctx context.Context,
 	args params.Entities, maintain bool,
 ) (params.MachineNetworkConfigResults, error) {
-	c := &prepareOrGetContext{
+	c := &prepareOrGetHandler{
 		result: params.MachineNetworkConfigResults{
 			Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
 		},
 		maintain: maintain,
+		logger:   api.logger,
 	}
 
 	if err := api.processEachContainer(ctx, args, c); err != nil {
@@ -1079,23 +1086,25 @@ func (api *ProvisionerAPI) prepareContainerAccessEnvironment(ctx context.Context
 	return env, host, canAccess, nil
 }
 
-type hostChangesContext struct {
+type hostChangesHandler struct {
 	result params.HostNetworkChangeResults
 }
 
 // Implements perContainerHandler.ProcessOneContainer
-func (ctx *hostChangesContext) ProcessOneContainer(
-	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger logger.Logger, allSubnets network.SubnetInfos,
+func (h *hostChangesHandler) ProcessOneContainer(
+	ctx context.Context,
+	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy,
+	idx int, host, guest Machine, allSubnets network.SubnetInfos,
 ) error {
 	bridges, reconfigureDelay, err := policy.FindMissingBridgesForContainer(host, guest, allSubnets)
 	if err != nil {
 		return err
 	}
 
-	ctx.result.Results[idx].ReconfigureDelay = reconfigureDelay
+	h.result.Results[idx].ReconfigureDelay = reconfigureDelay
 	for _, bridgeInfo := range bridges {
-		ctx.result.Results[idx].NewBridges = append(
-			ctx.result.Results[idx].NewBridges,
+		h.result.Results[idx].NewBridges = append(
+			h.result.Results[idx].NewBridges,
 			params.DeviceBridgeInfo{
 				HostDeviceName: bridgeInfo.DeviceName,
 				BridgeName:     bridgeInfo.BridgeName,
@@ -1106,12 +1115,12 @@ func (ctx *hostChangesContext) ProcessOneContainer(
 }
 
 // Implements perContainerHandler.SetError
-func (ctx *hostChangesContext) SetError(idx int, err error) {
-	ctx.result.Results[idx].Error = apiservererrors.ServerError(err)
+func (h *hostChangesHandler) SetError(idx int, err error) {
+	h.result.Results[idx].Error = apiservererrors.ServerError(err)
 }
 
 // Implements perContainerHandler.ConfigType
-func (ctx *hostChangesContext) ConfigType() string {
+func (h *hostChangesHandler) ConfigType() string {
 	return "network"
 }
 
@@ -1119,7 +1128,7 @@ func (ctx *hostChangesContext) ConfigType() string {
 // to the host machine to prepare it for the containers to be created.
 // Pass in a list of the containers that you want the changes for.
 func (api *ProvisionerAPI) HostChangesForContainers(ctx context.Context, args params.Entities) (params.HostNetworkChangeResults, error) {
-	c := &hostChangesContext{
+	c := &hostChangesHandler{
 		result: params.HostNetworkChangeResults{
 			Results: make([]params.HostNetworkChange, len(args.Entities)),
 		},
@@ -1130,35 +1139,46 @@ func (api *ProvisionerAPI) HostChangesForContainers(ctx context.Context, args pa
 	return c.result, nil
 }
 
-type containerProfileContext struct {
-	result    params.ContainerProfileResults
-	modelName string
+type containerProfileHandler struct {
+	applicationService ApplicationService
+	result             params.ContainerProfileResults
+	modelName          string
+	logger             logger.Logger
 }
 
 // Implements perContainerHandler.ProcessOneContainer
-func (ctx *containerProfileContext) ProcessOneContainer(
-	_ environs.Environ, _ envcontext.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine, logger logger.Logger, _ network.SubnetInfos,
+func (h *containerProfileHandler) ProcessOneContainer(
+	ctx context.Context,
+	_ environs.Environ, _ envcontext.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine, _ network.SubnetInfos,
 ) error {
 	units, err := guest.Units()
 	if err != nil {
-		ctx.result.Results[idx].Error = apiservererrors.ServerError(err)
+		h.result.Results[idx].Error = apiservererrors.ServerError(err)
 		return errors.Trace(err)
 	}
 	var resPro []*params.ContainerLXDProfile
 	for _, unit := range units {
 		app, err := unit.Application()
 		if err != nil {
-			ctx.SetError(idx, err)
+			h.SetError(idx, err)
 			return errors.Trace(err)
 		}
-		ch, _, err := app.Charm()
+
+		appName := app.Name()
+		uuid, err := h.applicationService.GetCharmIDByApplicationName(ctx, appName)
 		if err != nil {
-			ctx.SetError(idx, err)
+			h.SetError(idx, err)
 			return errors.Trace(err)
 		}
-		profile := ch.LXDProfile()
-		if profile == nil || profile.Empty() {
-			logger.Tracef("no profile to return for %q", unit.Name())
+
+		profile, revision, err := h.applicationService.GetCharmLXDProfile(ctx, uuid)
+		if err != nil {
+			h.SetError(idx, err)
+			return errors.Trace(err)
+		}
+
+		if profile.Empty() {
+			h.logger.Tracef("no profile to return for %q", unit.Name())
 			continue
 		}
 		resPro = append(resPro, &params.ContainerLXDProfile{
@@ -1167,21 +1187,21 @@ func (ctx *containerProfileContext) ProcessOneContainer(
 				Description: profile.Description,
 				Devices:     profile.Devices,
 			},
-			Name: lxdprofile.Name(ctx.modelName, app.Name(), ch.Revision()),
+			Name: lxdprofile.Name(h.modelName, appName, revision),
 		})
 	}
 
-	ctx.result.Results[idx].LXDProfiles = resPro
+	h.result.Results[idx].LXDProfiles = resPro
 	return nil
 }
 
 // Implements perContainerHandler.SetError
-func (ctx *containerProfileContext) SetError(idx int, err error) {
-	ctx.result.Results[idx].Error = apiservererrors.ServerError(err)
+func (h *containerProfileHandler) SetError(idx int, err error) {
+	h.result.Results[idx].Error = apiservererrors.ServerError(err)
 }
 
 // Implements perContainerHandler.ConfigType
-func (ctx *containerProfileContext) ConfigType() string {
+func (h *containerProfileHandler) ConfigType() string {
 	return "LXD profile"
 }
 
@@ -1190,10 +1210,12 @@ func (ctx *containerProfileContext) ConfigType() string {
 // tags as arguments. Unlike machineLXDProfileNames which has the environ
 // write the lxd profiles and returns the names of profiles already written.
 func (api *ProvisionerAPI) GetContainerProfileInfo(ctx context.Context, args params.Entities) (params.ContainerProfileResults, error) {
-	c := &containerProfileContext{
+	c := &containerProfileHandler{
+		applicationService: api.applicationService,
 		result: params.ContainerProfileResults{
 			Results: make([]params.ContainerProfileResult, len(args.Entities)),
 		},
+		logger: api.logger,
 	}
 
 	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)

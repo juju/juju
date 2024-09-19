@@ -490,24 +490,27 @@ func (s *CharmState) GetCharmManifest(ctx context.Context, id corecharm.ID) (cha
 // GetCharmLXDProfile returns the LXD profile for the charm using the
 // charm ID.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([]byte, error) {
+func (s *CharmState) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([]byte, charm.Revision, error) {
 	db, err := s.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, -1, errors.Trace(err)
 	}
 
 	ident := charmID{UUID: id.String()}
 
-	var profile []byte
+	var (
+		profile  []byte
+		revision charm.Revision
+	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		profile, err = s.getCharmLXDProfile(ctx, tx, ident)
+		profile, revision, err = s.getCharmLXDProfile(ctx, tx, ident)
 		return errors.Trace(err)
 	}); err != nil {
-		return nil, errors.Trace(err)
+		return nil, -1, errors.Trace(err)
 	}
 
-	return profile, nil
+	return profile, revision, nil
 }
 
 // GetCharmConfig returns the config for the charm using the charm ID.

@@ -44,58 +44,68 @@ type WatcherFactory interface {
 // CharmState describes retrieval and persistence methods for charms.
 type CharmState interface {
 	// GetCharmIDByRevision returns the charm ID by the natural key, for a
-	// specific revision.
-	// If the charm does not exist, a NotFound error is returned.
+	// specific revision. If the charm does not exist, a
+	// [applicationerrors.CharmNotFound] error is returned.
 	GetCharmIDByRevision(ctx context.Context, name string, revision int) (corecharm.ID, error)
 
-	// IsControllerCharm returns whether the charm is a controller charm.
-	// If the charm does not exist, a NotFound error is returned.
+	// IsControllerCharm returns whether the charm is a controller charm. If the
+	// charm does not exist, a [applicationerrors.CharmNotFound] error is
+	// returned.
 	IsControllerCharm(ctx context.Context, id corecharm.ID) (bool, error)
 
-	// IsSubordinateCharm returns whether the charm is a subordinate charm.
-	// If the charm does not exist, a NotFound error is returned.
+	// IsSubordinateCharm returns whether the charm is a subordinate charm. If
+	// the charm does not exist, a [applicationerrors.CharmNotFound] error is
+	// returned.
 	IsSubordinateCharm(ctx context.Context, charmID corecharm.ID) (bool, error)
 
-	// SupportsContainers returns whether the charm supports containers.
-	// If the charm does not exist, a NotFound error is returned.
+	// SupportsContainers returns whether the charm supports containers. If the
+	// charm does not exist, a [applicationerrors.CharmNotFound] error is
+	// returned.
 	SupportsContainers(ctx context.Context, charmID corecharm.ID) (bool, error)
 
 	// GetCharmMetadata returns the metadata for the charm using the charm ID.
-	// If the charm does not exist, a NotFound error is returned.
+	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+	// returned.
 	GetCharmMetadata(ctx context.Context, charmID corecharm.ID) (charm.Metadata, error)
 
 	// GetCharmManifest returns the manifest for the charm using the charm ID.
-	// If the charm does not exist, a NotFound error is returned.
+	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+	// returned.
 	GetCharmManifest(ctx context.Context, charmID corecharm.ID) (charm.Manifest, error)
 
 	// GetCharmMetadataDescription returns the description for the charm using
 	// the charm ID.
 	GetCharmMetadataDescription(ctx context.Context, charmID corecharm.ID) (string, error)
 
-	// GetCharmActions returns the actions for the charm using the charm ID.
-	// If the charm does not exist, a NotFound error is returned.
+	// GetCharmActions returns the actions for the charm using the charm ID. If
+	// the charm does not exist, a [applicationerrors.CharmNotFound] error is
+	// returned.
 	GetCharmActions(ctx context.Context, charmID corecharm.ID) (charm.Actions, error)
 
-	// GetCharmConfig returns the config for the charm using the charm ID.
-	// If the charm does not exist, a NotFound error is returned.
+	// GetCharmConfig returns the config for the charm using the charm ID. If
+	// the charm does not exist, a [applicationerrors.CharmNotFound] error is
+	// returned.
 	GetCharmConfig(ctx context.Context, charmID corecharm.ID) (charm.Config, error)
 
-	// GetCharmLXDProfile returns the LXD profile for the charm using the
-	// charm ID.
-	// If the charm does not exist, a NotFound error is returned.
-	GetCharmLXDProfile(ctx context.Context, charmID corecharm.ID) ([]byte, error)
+	// GetCharmLXDProfile returns the LXD profile along with the revision of the
+	// charm using the charm ID. The revision
+	//
+	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+	// returned.
+	GetCharmLXDProfile(ctx context.Context, charmID corecharm.ID) ([]byte, charm.Revision, error)
 
 	// GetCharmArchivePath returns the archive storage path for the charm using
-	// the charm ID.
-	// If the charm does not exist, a NotFound error is returned.
+	// the charm ID. If the charm does not exist, a
+	// [applicationerrors.CharmNotFound] error is returned.
 	GetCharmArchivePath(ctx context.Context, charmID corecharm.ID) (string, error)
 
-	// IsCharmAvailable returns whether the charm is available for use.
-	// If the charm does not exist, a NotFound error is returned.
+	// IsCharmAvailable returns whether the charm is available for use. If the
+	// charm does not exist, a [applicationerrors.CharmNotFound] error is
+	// returned.
 	IsCharmAvailable(ctx context.Context, charmID corecharm.ID) (bool, error)
 
-	// SetCharmAvailable sets the charm as available for use.
-	// If the charm does not exist, a NotFound error is returned.
+	// SetCharmAvailable sets the charm as available for use. If the charm does
+	// not exist, a [applicationerrors.CharmNotFound] error is returned.
 	SetCharmAvailable(ctx context.Context, charmID corecharm.ID) error
 
 	// ReserveCharmRevision defines a placeholder for a new charm revision.
@@ -110,8 +120,8 @@ type CharmState interface {
 	// state.
 	SetCharm(ctx context.Context, charm charm.Charm, state charm.SetStateArgs) (corecharm.ID, error)
 
-	// DeleteCharm removes the charm from the state.
-	// If the charm does not exist, a NotFound error is returned.
+	// DeleteCharm removes the charm from the state. If the charm does not
+	// exist, a [applicationerrors.CharmNotFound]  error is returned.
 	DeleteCharm(ctx context.Context, id corecharm.ID) error
 }
 
@@ -352,25 +362,26 @@ func (s *CharmService) GetCharmConfig(ctx context.Context, id corecharm.ID) (int
 	return decoded, nil
 }
 
-// GetCharmLXDProfile returns the LXD profile for the charm using the charm ID.
+// GetCharmLXDProfile returns the LXD profile along with the revision of the
+// charm using the charm ID. The revision
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *CharmService) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (internalcharm.LXDProfile, error) {
+func (s *CharmService) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (internalcharm.LXDProfile, charm.Revision, error) {
 	if err := id.Validate(); err != nil {
-		return internalcharm.LXDProfile{}, fmt.Errorf("charm id: %w", err)
+		return internalcharm.LXDProfile{}, -1, fmt.Errorf("charm id: %w", err)
 	}
 
-	profile, err := s.st.GetCharmLXDProfile(ctx, id)
+	profile, revision, err := s.st.GetCharmLXDProfile(ctx, id)
 	if err != nil {
-		return internalcharm.LXDProfile{}, errors.Trace(err)
+		return internalcharm.LXDProfile{}, -1, errors.Trace(err)
 	}
 
 	decoded, err := decodeLXDProfile(profile)
 	if err != nil {
-		return internalcharm.LXDProfile{}, errors.Trace(err)
+		return internalcharm.LXDProfile{}, -1, errors.Trace(err)
 	}
-	return decoded, nil
+	return decoded, revision, nil
 }
 
 // GetCharmArchivePath returns the archive storage path for the charm using the

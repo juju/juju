@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -97,7 +96,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	for i := 0; i < 5; i++ {
 		m, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
-		_, err = s.serviceFactory.Machine().CreateMachine(context.Background(), machine.Name(m.Id()))
+		_, err = s.serviceFactory.Machine().CreateMachine(context.Background(), coremachine.Name(m.Id()))
 		c.Assert(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, m)
 	}
@@ -649,9 +648,9 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 }
 
 func (s *withoutControllerSuite) TestEnsureDead(c *gc.C) {
-	machineName0 := machine.Name(s.machines[0].Id())
-	machineName1 := machine.Name(s.machines[1].Id())
-	machineName2 := machine.Name(s.machines[2].Id())
+	machineName0 := coremachine.Name(s.machines[0].Id())
+	machineName1 := coremachine.Name(s.machines[1].Id())
+	machineName2 := coremachine.Name(s.machines[2].Id())
 
 	err := s.serviceFactory.Machine().SetMachineLife(context.Background(), machineName0, life.Alive)
 	c.Assert(err, jc.ErrorIsNil)
@@ -682,13 +681,13 @@ func (s *withoutControllerSuite) TestEnsureDead(c *gc.C) {
 	})
 
 	// Verify the changes.
-	obtainedLife, err := s.serviceFactory.Machine().GetMachineLife(context.Background(), machine.Name(s.machines[0].Id()))
+	obtainedLife, err := s.serviceFactory.Machine().GetMachineLife(context.Background(), coremachine.Name(s.machines[0].Id()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*obtainedLife, gc.Equals, life.Dead)
-	obtainedLife, err = s.serviceFactory.Machine().GetMachineLife(context.Background(), machine.Name(s.machines[1].Id()))
+	obtainedLife, err = s.serviceFactory.Machine().GetMachineLife(context.Background(), coremachine.Name(s.machines[1].Id()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*obtainedLife, gc.Equals, life.Dead)
-	obtainedLife, err = s.serviceFactory.Machine().GetMachineLife(context.Background(), machine.Name(s.machines[2].Id()))
+	obtainedLife, err = s.serviceFactory.Machine().GetMachineLife(context.Background(), coremachine.Name(s.machines[2].Id()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*obtainedLife, gc.Equals, life.Dead)
 }
@@ -1318,7 +1317,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	machineService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Machine()
-	machineService.CreateMachine(context.Background(), machine.Name(volumesMachine.Id()))
+	machineService.CreateMachine(context.Background(), coremachine.Name(volumesMachine.Id()))
 
 	args := params.InstancesInfo{Machines: []params.InstanceInfo{{
 		Tag:        s.machines[0].Tag().String(),

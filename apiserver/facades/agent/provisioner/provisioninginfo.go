@@ -480,16 +480,20 @@ func (api *ProvisionerAPI) machineLXDProfileNames(
 			return nil, errors.Trace(err)
 		}
 
-		ch, _, err := app.Charm()
+		appName := app.Name()
+		uuid, err := api.applicationService.GetCharmIDByApplicationName(ctx, appName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		profile := ch.LXDProfile()
-		if profile == nil || profile.Empty() {
+		profile, revision, err := api.applicationService.GetCharmLXDProfile(ctx, uuid)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if profile.Empty() {
 			continue
 		}
-		pName := lxdprofile.Name(modelName, app.Name(), ch.Revision())
+		pName := lxdprofile.Name(modelName, app.Name(), revision)
 		// Lock here, we get a new env for every call to ProvisioningInfo().
 		api.mu.Lock()
 		if err := profileEnv.MaybeWriteLXDProfile(pName, lxdprofile.Profile{

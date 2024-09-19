@@ -128,7 +128,7 @@ func (s *ImageMetadataSuite) convertCloudImageMetadata(all []params.CloudImageMe
 	expected := make([]cloudimagemetadata.Metadata, len(all))
 	for i, one := range all {
 		expected[i] = cloudimagemetadata.Metadata{
-			cloudimagemetadata.MetadataAttributes{
+			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Region:          one.Region,
 				Version:         one.Version,
 				Arch:            one.Arch,
@@ -137,9 +137,9 @@ func (s *ImageMetadataSuite) convertCloudImageMetadata(all []params.CloudImageMe
 				Source:          one.Source,
 				Stream:          one.Stream,
 			},
-			one.Priority,
-			one.ImageId,
-			0,
+			Priority:    one.Priority,
+			ImageId:     one.ImageId,
+			DateCreated: 0,
 		}
 	}
 	return expected

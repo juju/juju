@@ -475,6 +475,10 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
+
+	ch, _, err := application.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+
 	if factory.applicationService != nil {
 		directives := make(map[string]storage.Directive)
 		for name, sc := range params.Storage {
@@ -492,12 +496,14 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 				Branch: params.CharmOrigin.Channel.Branch,
 			}
 		}
+
+		revision := ch.Revision()
 		_, err = factory.applicationService.CreateApplication(context.Background(), params.Name, params.Charm, corecharm.Origin{
 			Source:   corecharm.Source(params.CharmOrigin.Source),
 			Type:     params.CharmOrigin.Type,
 			ID:       params.CharmOrigin.ID,
 			Hash:     params.CharmOrigin.Hash,
-			Revision: params.CharmOrigin.Revision,
+			Revision: &revision,
 			Channel:  channel,
 			Platform: corecharm.Platform{
 				Architecture: params.CharmOrigin.Platform.Architecture,

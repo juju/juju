@@ -129,11 +129,6 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		return errResp(errors.NotProvisionedf("application"))
 	}
 
-	// TODO(sidecar): handle deployment other than statefulset
-	// ch, _, err := application.Charm()
-	// if err != nil {
-	// 	return errResp(err)
-	// }
 	deploymentType := caas.DeploymentStateful
 
 	upsert := state.UpsertCAASUnitParams{}

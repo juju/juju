@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
-	jujucharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/network/containerizer"
 )
@@ -48,12 +47,5 @@ type Unit interface {
 
 // Application is an indirection for state.Application.
 type Application interface {
-	Charm() (Charm, bool, error)
 	Name() string
-}
-
-// Charm is an indirection for state.Charm.
-type Charm interface {
-	LXDProfile() *jujucharm.LXDProfile
-	Revision() int
 }
