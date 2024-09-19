@@ -49,6 +49,14 @@ func (EnvironProvider) Schema() environschema.Fields {
 	return fields
 }
 
+// ModelConfigDefaults provides a set of default model config attributes that
+// should be set on a models config if they have not been specified by the user.
+func (p EnvironProvider) ModelConfigDefaults(_ context.Context) (map[string]any, error) {
+	return map[string]any{
+		config.StorageDefaultBlockSourceKey: maasStorageProviderType,
+	}, nil
+}
+
 // ConfigSchema returns extra config attributes specific
 // to this provider only.
 func (p EnvironProvider) ConfigSchema() schema.Fields {
