@@ -23,7 +23,8 @@ import (
 
 var (
 	modelTypeFlag      = flag.String("model-type", "iaas", "model type to use (iaas|caas)")
-	transitiveDepsFlag = flag.Bool("transitive-deps", false, "include transitive dependencies, not just direct ones")
+	transitiveDepsFlag = flag.Int("transitive-deps", 0, "include transitive dependencies and how many levels to include")
+	manifoldFlag       = flag.String("manifold", "", "manifold to select (empty indicates all)")
 )
 
 func main() {
@@ -48,10 +49,14 @@ func main() {
 
 	root := NewDAG()
 
-	includeTransitive := *transitiveDepsFlag
+	transativeDepth := *transitiveDepsFlag
+	selectedManifold := *manifoldFlag
 	for name, manifold := range manifolds {
+		if selectedManifold != "" && name != selectedManifold {
+			continue
+		}
 		node := root.AddVertex(name)
-		dependencies := manifoldDependencies(manifolds, manifold, includeTransitive)
+		dependencies := manifoldDependencies(manifolds, manifold, transativeDepth)
 		for _, dep := range dependencies.Values() {
 			node.AddEdge(dep)
 		}
@@ -60,15 +65,15 @@ func main() {
 	fmt.Println(root.Render())
 }
 
-func manifoldDependencies(all dependency.Manifolds, manifold dependency.Manifold, includeTransitive bool) set.Strings {
+func manifoldDependencies(all dependency.Manifolds, manifold dependency.Manifold, transativeDepth int) set.Strings {
 	result := set.NewStrings()
 	for _, input := range manifold.Inputs {
 		result.Add(input)
-		if !includeTransitive {
+		if transativeDepth == 0 {
 			continue
 		}
 
-		result = result.Union(manifoldDependencies(all, all[input], true))
+		result = result.Union(manifoldDependencies(all, all[input], transativeDepth-1))
 	}
 	return result
 }
@@ -118,12 +123,16 @@ func (n *DagNode) AddEdge(to string) {
 
 func (n *DagNode) Render(b Writer) {
 	if len(n.children) == 0 {
-		b.WriteString(fmt.Sprintf("\t\"%s\"\n", n.name))
+		if _, err := b.WriteString(fmt.Sprintf("\t\"%s\"\n", n.name)); err != nil {
+			panic(err)
+		}
 		return
 	}
 
 	for _, v := range n.children {
-		b.WriteString(fmt.Sprintf("\t\"%s\" -> \"%s\"\n", n.name, v))
+		if _, err := b.WriteString(fmt.Sprintf("\t\"%s\" -> \"%s\"\n", n.name, v)); err != nil {
+			panic(err)
+		}
 	}
 }
 
