@@ -120,7 +120,10 @@ func Is(err, target error) bool {
 // Join is a proxy for [pkg/errors.Join] with the difference being that the
 // resultant error is of type [Error]
 func Join(errs ...error) Error {
-	return link{stderrors.Join(errs...)}
+	if err := stderrors.Join(errs...); err != nil {
+		return link{err}
+	}
+	return nil
 }
 
 // New returns an error that formats as the given text. Each call to New returns

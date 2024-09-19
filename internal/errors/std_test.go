@@ -266,10 +266,39 @@ func TestIs(t *testing.T) {
 	t.SkipNow()
 }
 
-// TestJoin is a placeholder for Join testing. We skip this test for now as we
-// are just proxying stdlib.
+// TestJoin tests the Join function to ensure it correctly combines errors and verifies their presence using the Is function.
 func TestJoin(t *testing.T) {
-	t.SkipNow()
+	fooErr := fmt.Errorf("foo")
+	barErr := fmt.Errorf("bar")
+	err := Join(fooErr, barErr)
+	if !Is(err, fooErr) || !Is(err, barErr) {
+		t.Errorf("Join(%v, %v) = %v, want: Is(%v, fooErr) && Is(%v, barErr)", fooErr, barErr, err, err, err)
+	}
+}
+
+// TestJoinWithMixedNil validates the Join function when given a mix of non-nil and nil errors,
+// ensuring that nil errors are discarded and the resultant error wraps all non-nil errors correctly.
+func TestJoinWithMixedNil(t *testing.T) {
+	fooErr := fmt.Errorf("foo")
+	barErr := fmt.Errorf("bar")
+	err := Join(fooErr, nil, barErr)
+	if !Is(err, fooErr) || !Is(err, barErr) {
+		t.Errorf("Join(%v, %v) = %v, want: Is(%v, fooErr) && Is(%v, barErr)", fooErr, barErr, err, err, err)
+	}
+}
+
+// TestJoinWithEmptyArray verifies that calling Join with a nil or empty array results in a nil error.
+func TestJoinWithEmptyArray(t *testing.T) {
+	if err := Join(); err != nil {
+		t.Errorf("Join(nil) = %v, want: nil", err)
+	}
+}
+
+// TestJoinWithArrayOfNil verifies that the Join function correctly handles an array of nil errors by returning nil.
+func TestJoinWithArrayOfNil(t *testing.T) {
+	if err := Join(nil, nil, nil); err != nil {
+		t.Errorf("Join(nil,nil,nil) = %v, want: nil", err)
+	}
 }
 
 // TestNew is a placeholder for New testing. We skip this test for now as we
