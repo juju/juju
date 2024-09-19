@@ -34,7 +34,11 @@ func AssertManifoldsDependencies(c *gc.C, manifolds dependency.Manifolds, expect
 			// We already know the answer, just tell us what to do!
 			add := set.NewStrings(dependencies[n]...).Difference(set.NewStrings(expected[n]...)).SortedValues()
 			remove := set.NewStrings(expected[n]...).Difference(set.NewStrings(dependencies[n]...)).SortedValues()
-			c.Logf(" > changes requires for %q\n    - add dependencies: %v\n    - remove dependencies %v\n", n, add, remove)
+			if len(add) == 0 && len(remove) == 0 {
+				c.Logf(" > changes required for %q:\n    - remove duplicate dependencies\n", n)
+			} else {
+				c.Logf(" > changes required for %q:\n    - add dependencies: %v\n    - remove dependencies %v\n", n, add, remove)
+			}
 		}
 	}
 }

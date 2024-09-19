@@ -102,6 +102,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ChangeStreamName,
 			config.DBAccessorName,
 			config.ProviderFactoryName,
+			config.ObjectStoreName,
 		},
 		Start:  config.start,
 		Output: config.output,
