@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/juju/core/changestream"
 	coremachine "github.com/juju/juju/core/machine"
@@ -122,7 +121,7 @@ func (s *Service) GetAuthorisedKeysForMachine(
 	machineName coremachine.Name,
 ) ([]string, error) {
 	if err := machineName.Validate(); err != nil {
-		return nil, fmt.Errorf(
+		return nil, errors.Errorf(
 			"validating machine name when getting authorized keys for machine: %w",
 			err,
 		)
@@ -158,7 +157,7 @@ func (s *Service) GetAuthorisedKeysForMachine(
 
 	controllerKeys, err := s.controllerKeyProvider.ControllerAuthorisedKeys(ctx)
 	if err != nil {
-		return nil, fmt.Errorf(
+		return nil, errors.Errorf(
 			"getting controller authorised keys for machine %q: %w",
 			machineName, err,
 		)
@@ -176,7 +175,7 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 	machineName coremachine.Name,
 ) (watcher.NotifyWatcher, error) {
 	if err := machineName.Validate(); err != nil {
-		return nil, fmt.Errorf(
+		return nil, errors.Errorf(
 			"validating machine name when getting authorized keys for machine: %w",
 			err,
 		)
@@ -252,7 +251,7 @@ func (s *Service) GetInitialAuthorisedKeysForContainer(ctx context.Context) ([]s
 
 	controllerKeys, err := s.controllerKeyProvider.ControllerAuthorisedKeys(ctx)
 	if err != nil {
-		return nil, fmt.Errorf(
+		return nil, errors.Errorf(
 			"getting controller authorised keys for container: %w", err,
 		)
 	}

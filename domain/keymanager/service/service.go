@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 
 	"github.com/juju/collections/set"
@@ -145,7 +144,7 @@ func (s *Service) AddPublicKeysForUser(
 	keys ...string,
 ) error {
 	if err := userUUID.Validate(); err != nil {
-		return fmt.Errorf("validating user uuid %q when adding public keys: %w", userUUID, err)
+		return errors.Errorf("validating user uuid %q when adding public keys: %w", userUUID, err)
 	}
 
 	if len(keys) == 0 {
@@ -156,14 +155,14 @@ func (s *Service) AddPublicKeysForUser(
 	for i, keyToAdd := range keys {
 		parsedKey, err := ssh.ParsePublicKey(keyToAdd)
 		if err != nil {
-			return fmt.Errorf(
+			return errors.Errorf(
 				"%w %q at index %d: %w",
 				keyerrors.InvalidPublicKey, keyToAdd, i, err,
 			)
 		}
 
 		if reservedPublicKeyComments.Contains(parsedKey.Comment) {
-			return fmt.Errorf(
+			return errors.Errorf(
 				"public key %q at index %d contains a reserved comment %q that cannot be used: %w",
 				keyToAdd,
 				i,
@@ -202,7 +201,7 @@ func (s *Service) DeleteKeysForUser(
 	targets ...string,
 ) error {
 	if err := userUUID.Validate(); err != nil {
-		return fmt.Errorf(
+		return errors.Errorf(
 			"validating user uuid %q when deleting public keys: %w",
 			userUUID, err,
 		)
@@ -236,7 +235,7 @@ func (s *ImporterService) ImportPublicKeysForUser(
 	subject *url.URL,
 ) error {
 	if err := userUUID.Validate(); err != nil {
-		return fmt.Errorf(
+		return errors.Errorf(
 			"validating user uuid %q when importing public keys from %q: %w",
 			userUUID, subject.String(), err,
 		)
@@ -246,17 +245,17 @@ func (s *ImporterService) ImportPublicKeysForUser(
 
 	switch {
 	case errors.Is(err, importererrors.NoResolver):
-		return fmt.Errorf(
+		return errors.Errorf(
 			"importing public keys for user %q, unknown public key source %q%w",
 			userUUID, subject.Scheme, errors.Hide(keyerrors.UnknownImportSource),
 		)
 	case errors.Is(err, importererrors.SubjectNotFound):
-		return fmt.Errorf(
+		return errors.Errorf(
 			"importing public keys for user %q, import subject %q not found%w",
 			userUUID, subject.String(), errors.Hide(keyerrors.ImportSubjectNotFound),
 		)
 	case err != nil:
-		return fmt.Errorf(
+		return errors.Errorf(
 			"importing public keys for user %q using subject %q: %w",
 			userUUID, subject.String(), err,
 		)
@@ -266,14 +265,14 @@ func (s *ImporterService) ImportPublicKeysForUser(
 	for i, key := range keys {
 		parsedKey, err := ssh.ParsePublicKey(key)
 		if err != nil {
-			return fmt.Errorf(
+			return errors.Errorf(
 				"parsing key %d for subject %q when importing keys for user %q: %w%w",
 				i, subject.String(), userUUID, err, errors.Hide(keyerrors.InvalidPublicKey),
 			)
 		}
 
 		if reservedPublicKeyComments.Contains(parsedKey.Comment) {
-			return fmt.Errorf(
+			return errors.Errorf(
 				"importing key %d for user %q with subject %q because the comment %q is reserved%w",
 				i,
 				userUUID,
@@ -306,7 +305,7 @@ func (s *Service) ListPublicKeysForUser(
 	userUUID user.UUID,
 ) ([]coressh.PublicKey, error) {
 	if err := userUUID.Validate(); err != nil {
-		return nil, fmt.Errorf(
+		return nil, errors.Errorf(
 			"validating user uuid %q when listing public keys: %w",
 			userUUID, err,
 		)
