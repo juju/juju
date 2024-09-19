@@ -8,7 +8,6 @@ import (
 	"net/url"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/model"
 	coressh "github.com/juju/juju/core/ssh"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/domain/keymanager"
 	keyerrors "github.com/juju/juju/domain/keymanager/errors"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/ssh"
 	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
 )
@@ -163,12 +163,11 @@ func (s *Service) AddPublicKeysForUser(
 
 		if reservedPublicKeyComments.Contains(parsedKey.Comment) {
 			return errors.Errorf(
-				"public key %q at index %d contains a reserved comment %q that cannot be used: %w",
+				"public key %q at index %d contains a reserved comment %q that cannot be used",
 				keyToAdd,
 				i,
 				parsedKey.Comment,
-				errors.Hide(keyerrors.ReservedCommentViolation),
-			)
+			).Add(keyerrors.ReservedCommentViolation)
 		}
 
 		toAdd = append(toAdd, keymanager.PublicKey{
@@ -246,14 +245,14 @@ func (s *ImporterService) ImportPublicKeysForUser(
 	switch {
 	case errors.Is(err, importererrors.NoResolver):
 		return errors.Errorf(
-			"importing public keys for user %q, unknown public key source %q%w",
-			userUUID, subject.Scheme, errors.Hide(keyerrors.UnknownImportSource),
-		)
+			"importing public keys for user %q, unknown public key source %q",
+			userUUID, subject.Scheme,
+		).Add(keyerrors.UnknownImportSource)
 	case errors.Is(err, importererrors.SubjectNotFound):
 		return errors.Errorf(
-			"importing public keys for user %q, import subject %q not found%w",
-			userUUID, subject.String(), errors.Hide(keyerrors.ImportSubjectNotFound),
-		)
+			"importing public keys for user %q, import subject %q not found",
+			userUUID, subject.String(),
+		).Add(keyerrors.ImportSubjectNotFound)
 	case err != nil:
 		return errors.Errorf(
 			"importing public keys for user %q using subject %q: %w",
@@ -266,20 +265,19 @@ func (s *ImporterService) ImportPublicKeysForUser(
 		parsedKey, err := ssh.ParsePublicKey(key)
 		if err != nil {
 			return errors.Errorf(
-				"parsing key %d for subject %q when importing keys for user %q: %w%w",
-				i, subject.String(), userUUID, err, errors.Hide(keyerrors.InvalidPublicKey),
-			)
+				"parsing key %d for subject %q when importing keys for user %q: %w",
+				i, subject.String(), userUUID, err,
+			).Add(keyerrors.InvalidPublicKey)
 		}
 
 		if reservedPublicKeyComments.Contains(parsedKey.Comment) {
 			return errors.Errorf(
-				"importing key %d for user %q with subject %q because the comment %q is reserved%w",
+				"importing key %d for user %q with subject %q because the comment %q is reserved",
 				i,
 				userUUID,
 				subject.String(),
 				parsedKey.Comment,
-				errors.Hide(keyerrors.ReservedCommentViolation),
-			)
+			).Add(keyerrors.ReservedCommentViolation)
 		}
 
 		keysToAdd = append(keysToAdd, keymanager.PublicKey{
