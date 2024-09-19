@@ -211,8 +211,7 @@ func (s *State) AddPublicKeysForUser(
 	}
 
 	insertModelAuthorisedKeyStmt, err := s.Prepare(`
-	INSERT INTO model_authorized_keys (*)
-	VALUES ($modelAuthorizedKey.*)
+INSERT INTO model_authorized_keys (*) VALUES ($modelAuthorizedKey.*)
 	`, modelAuthorizedKey{})
 	if err != nil {
 		return errors.Errorf(
@@ -419,7 +418,7 @@ AND model_uuid = $modelUUIDValue.model_uuid
 		err := s.checkUserExists(ctx, userUUID, tx)
 		if err != nil {
 			return errors.Errorf(
-				"getting public keys for user %q on model %q: %w",
+				"checking user %q exists when adding getting public keys on model %q: %w",
 				userUUID, modelUUID, err,
 			)
 		}
