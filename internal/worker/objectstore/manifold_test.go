@@ -147,7 +147,7 @@ func (s *stubObjectStoreServicesGetter) ControllerConfig() *controllerconfigserv
 }
 
 type stubObjectStoreServices struct {
-	servicefactory.ServiceFactory
+	servicefactory.ObjectStoreServices
 }
 
 func (s *stubObjectStoreServices) ControllerConfig() *controllerconfigservice.WatchableService {

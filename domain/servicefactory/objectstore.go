@@ -46,6 +46,17 @@ func (s *ObjectStoreServices) ControllerConfig() *controllerconfigservice.Watcha
 	)
 }
 
+// AgentObjectStore returns the object store service.
+func (s *ObjectStoreServices) AgentObjectStore() *objectstoreservice.WatchableService {
+	return objectstoreservice.NewWatchableService(
+		objectstorestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		domain.NewWatcherFactory(
+			s.controllerDB,
+			s.logger.Child("objectstore"),
+		),
+	)
+}
+
 // ObjectStore returns the model's object store service.
 func (s *ObjectStoreServices) ObjectStore() *objectstoreservice.WatchableService {
 	return objectstoreservice.NewWatchableService(

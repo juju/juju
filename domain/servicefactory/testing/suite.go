@@ -225,6 +225,18 @@ func (s *ServiceFactorySuite) ServiceFactoryGetter(c *gc.C) ServiceFactoryGetter
 	}
 }
 
+// ObjectStoreServicesGetter provides an implementation of the
+// ObjectStoreServicesGetter interface to use in tests.
+func (s *ServiceFactorySuite) ObjectStoreServicesGetter(c *gc.C) ObjectStoreServicesGetterFunc {
+	return func(modelUUID coremodel.UUID) servicefactory.ObjectStoreServices {
+		return domainservicefactory.NewObjectStoreServices(
+			databasetesting.ConstFactory(s.TxnRunner()),
+			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String())),
+			loggertesting.WrapCheckLog(c),
+		)
+	}
+}
+
 // SetUpTest creates the controller and default model unique identifiers if they
 // have not already been set. Also seeds the initial database with the models.
 func (s *ServiceFactorySuite) SetUpTest(c *gc.C) {
@@ -250,5 +262,14 @@ type ServiceFactoryGetterFunc func(coremodel.UUID) servicefactory.ServiceFactory
 
 // FactoryForModel implements the ServiceFactoryGetter interface.
 func (s ServiceFactoryGetterFunc) FactoryForModel(modelUUID coremodel.UUID) servicefactory.ServiceFactory {
+	return s(modelUUID)
+}
+
+// ObjectStoreServicesGetterFunc is a convenience type for translating a getter
+// function into the ObjectStoreServicesGetter interface.
+type ObjectStoreServicesGetterFunc func(coremodel.UUID) servicefactory.ObjectStoreServices
+
+// FactoryForModel implements the ObjectStoreServicesGetter interface.
+func (s ObjectStoreServicesGetterFunc) FactoryForModel(modelUUID coremodel.UUID) servicefactory.ObjectStoreServices {
 	return s(modelUUID)
 }

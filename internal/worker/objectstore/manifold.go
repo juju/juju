@@ -224,7 +224,7 @@ func bucketName(config controller.Config) (string, error) {
 }
 
 type controllerMetadataService struct {
-	factory servicefactory.ControllerServiceFactory
+	factory servicefactory.ControllerObjectStoreServices
 }
 
 // ObjectStore returns the object store metadata for the controller model.
@@ -322,7 +322,7 @@ func (l claimExtender) Duration() time.Duration {
 // GetControllerConfigService is a helper function that gets a service from the
 // manifold.
 func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) ControllerConfigService {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerObjectStoreServices) ControllerConfigService {
 		return factory.ControllerConfig()
 	})
 }
@@ -330,7 +330,7 @@ func GetControllerConfigService(getter dependency.Getter, name string) (Controll
 // GetMetadataService is a helper function that gets a service from the
 // manifold.
 func GetMetadataService(getter dependency.Getter, name string) (MetadataService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) MetadataService {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerObjectStoreServices) MetadataService {
 		return controllerMetadataService{
 			factory: factory,
 		}

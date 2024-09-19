@@ -348,9 +348,9 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	}
 
 	cfg.ObjectStoreGetter = &stubObjectStoreGetter{
-		rootDir:              c.MkDir(),
-		claimer:              objectstoretesting.MemoryClaimer(),
-		serviceFactoryGetter: cfg.ServiceFactoryGetter,
+		rootDir:                   c.MkDir(),
+		claimer:                   objectstoretesting.MemoryClaimer(),
+		objectStoreServicesGetter: s.ObjectStoreServicesGetter(c),
 	}
 	s.ObjectStoreGetter = cfg.ObjectStoreGetter
 
@@ -716,30 +716,30 @@ func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.Tracer
 }
 
 type stubObjectStoreGetter struct {
-	rootDir              string
-	claimer              internalobjectstore.Claimer
-	serviceFactoryGetter servicefactory.ServiceFactoryGetter
+	rootDir                   string
+	claimer                   internalobjectstore.Claimer
+	objectStoreServicesGetter servicefactory.ObjectStoreServicesGetter
 }
 
 func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace string) (objectstore.ObjectStore, error) {
-	serviceFactory := s.serviceFactoryGetter.FactoryForModel(coremodel.UUID(namespace))
+	services := s.objectStoreServicesGetter.FactoryForModel(coremodel.UUID(namespace))
 
 	return internalobjectstore.ObjectStoreFactory(ctx,
 		internalobjectstore.DefaultBackendType(),
 		namespace,
 		internalobjectstore.WithRootDir(s.rootDir),
-		internalobjectstore.WithMetadataService(&stubMetadataService{serviceFactory: serviceFactory}),
+		internalobjectstore.WithMetadataService(&stubMetadataService{services: services}),
 		internalobjectstore.WithClaimer(s.claimer),
 		internalobjectstore.WithLogger(internallogger.GetLogger("juju.objectstore")),
 	)
 }
 
 type stubMetadataService struct {
-	serviceFactory servicefactory.ServiceFactory
+	services servicefactory.ObjectStoreServices
 }
 
 func (s *stubMetadataService) ObjectStore() objectstore.ObjectStoreMetadata {
-	return s.serviceFactory.ObjectStore()
+	return s.services.ObjectStore()
 }
 
 type stubWatchableDB struct {

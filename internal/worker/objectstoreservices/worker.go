@@ -76,6 +76,13 @@ func (w *servicesWorker) ServicesGetter() servicefactory.ObjectStoreServicesGett
 	return w.servicesGetter
 }
 
+// ControllerServices returns the controller object store services.
+// Attempting to use anything other than the controller services will
+// result in a panic.
+func (w *servicesWorker) ControllerServices() servicefactory.ControllerObjectStoreServices {
+	return w.servicesGetter.FactoryForModel(coremodel.ControllerModelName)
+}
+
 // Kill kills the services worker.
 func (w *servicesWorker) Kill() {
 	w.tomb.Kill(nil)

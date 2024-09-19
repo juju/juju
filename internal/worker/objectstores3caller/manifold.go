@@ -150,7 +150,7 @@ func NewS3Client(endpoint string, client s3client.HTTPClient, creds s3client.Cre
 // GetControllerConfigService is a helper function that gets a service from the
 // manifold.
 func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ObjectStoreServices) ControllerConfigService {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerObjectStoreServices) ControllerConfigService {
 		return factory.ControllerConfig()
 	})
 }

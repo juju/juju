@@ -110,7 +110,10 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 
 	switch out := out.(type) {
 	case *servicefactory.ObjectStoreServicesGetter:
-		*out = w.servicesGetter
+		*out = w.ServicesGetter()
+
+	case *servicefactory.ControllerObjectStoreServices:
+		*out = w.ControllerServices()
 	default:
 		return errors.Errorf("unsupported output type %T", out)
 	}
