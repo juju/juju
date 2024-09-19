@@ -334,6 +334,12 @@ func (p *environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint stri
 	return errors.NotImplementedf("Ping")
 }
 
+// ModelConfigDefaults provides a set of default model config attributes that
+// should be set on a models config if they have not been specified by the user.
+func (p *environProvider) ModelConfigDefaults(_ context.Context) (map[string]any, error) {
+	return nil, nil
+}
+
 // PrepareConfig is specified in the EnvironProvider interface.
 func (p *environProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	if _, err := dummy.newConfig(ctx, args.Config); err != nil {
