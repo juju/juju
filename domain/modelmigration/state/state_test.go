@@ -58,7 +58,7 @@ func (s *migrationSuite) SetUpTest(c *gc.C) {
 // uuid from the database.
 func (s *migrationSuite) TestGetControllerUUID(c *gc.C) {
 	controllerId, err := New(s.TxnRunnerFactory()).GetControllerUUID(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(controllerId, gc.Equals, s.controllerUUID.String())
 }
 
@@ -97,7 +97,15 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	instanceIDs, err := New(s.TxnRunnerFactory()).GetAllInstanceIDs(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instanceIDs, gc.HasLen, 2)
 	c.Check(instanceIDs.Values(), jc.SameContents, []string{"instance-0", "instance-1"})
+}
+
+// TestEmptyInstanceIDs tests that no error is returned when there are no
+// instances in the model.
+func (s *migrationSuite) TestEmptyInstanceIDs(c *gc.C) {
+	instanceIDs, err := New(s.TxnRunnerFactory()).GetAllInstanceIDs(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(instanceIDs, gc.HasLen, 0)
 }

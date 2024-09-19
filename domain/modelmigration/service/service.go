@@ -148,13 +148,13 @@ func (s *Service) CheckMachines(
 			err,
 		)
 	}
-	var providerInstanceIDs []string
-	for _, instance := range providerInstances {
-		providerInstanceIDs = append(providerInstanceIDs, string(instance.Id()))
-	}
 
 	// Build the sets of provider instance IDs and model machine instance IDs.
-	providerInstanceIDsSet := set.NewStrings(providerInstanceIDs...)
+	providerInstanceIDsSet := make(set.Strings, len(providerInstances))
+	for _, instance := range providerInstances {
+		providerInstanceIDsSet.Add(string(instance.Id()))
+	}
+
 	instanceIDsSet, err := s.st.GetAllInstanceIDs(ctx)
 	if err != nil {
 		return nil, errors.Errorf("cannot get all instance IDs for model when checking machines: %w", err)

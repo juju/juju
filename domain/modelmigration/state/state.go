@@ -8,7 +8,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
-	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
@@ -87,17 +86,19 @@ FROM   machine_cloud_instance`
 	}
 
 	var result []instanceID
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, queryStmt).GetAll(&result)
-		if err != nil {
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("retrieving all instance IDs: %w", err)
 		}
 		return nil
-	})
+	}); err != nil {
+		return nil, err
+	}
 
-	instanceIDs := transform.Slice[instanceID, string](
-		result,
-		func(i instanceID) string { return i.ID },
-	)
-	return set.NewStrings(instanceIDs...), nil
+	instanceIDs := make(set.Strings, len(result))
+	for _, instanceID := range result {
+		instanceIDs.Add(instanceID.ID)
+	}
+	return instanceIDs, nil
 }
