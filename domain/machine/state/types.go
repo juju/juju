@@ -78,11 +78,11 @@ type instanceID struct {
 // data columns of status and status_data tables for both machine and machine
 // cloud instances within the sqlair statements in the machine domain.
 type machineStatusWithData struct {
-	Status  int        `db:"status"`
-	Message string     `db:"message"`
-	Updated *time.Time `db:"updated_at"`
-	Key     string     `db:"key"`
-	Data    string     `db:"data"`
+	StatusID int        `db:"status_id"`
+	Message  string     `db:"message"`
+	Updated  *time.Time `db:"updated_at"`
+	Key      string     `db:"key"`
+	Data     string     `db:"data"`
 }
 
 type machineStatusData []machineStatusWithData
@@ -158,7 +158,7 @@ func dataSliceTransformFunc(key string, value interface{}) []machineStatusWithDa
 // the machine_status_value table) into a core type status.Status.
 func (s *machineStatusWithData) toCoreMachineStatusValue() status.Status {
 	var out status.Status
-	switch s.Status {
+	switch s.StatusID {
 	case 0:
 		out = status.Error
 	case 1:
@@ -193,11 +193,11 @@ func fromCoreMachineStatusValue(s status.Status) int {
 }
 
 // toCoreInstanceStatusValue converts an internal status used by machine cloud
-// instances (per the instance_status_values table) into a core type
+// instances (per the machine_cloud_instance_status_value table) into a core type
 // status.Status.
 func (s *machineStatusWithData) toCoreInstanceStatusValue() status.Status {
 	var out status.Status
-	switch s.Status {
+	switch s.StatusID {
 	case 0:
 		out = status.Empty
 	case 1:
@@ -211,7 +211,7 @@ func (s *machineStatusWithData) toCoreInstanceStatusValue() status.Status {
 }
 
 // fromCoreInstanceStatusValue converts a status.Status to an internal status
-// used by machine cloud instances (per the instance_status_value table).
+// used by machine cloud instances (per the machine_cloud_instance_status_value table).
 func fromCoreInstanceStatusValue(s status.Status) int {
 	var internalStatus int
 	switch s {

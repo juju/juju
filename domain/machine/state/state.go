@@ -262,16 +262,16 @@ DELETE FROM net_node WHERE uuid IN
 			return errors.Annotatef(err, "deleting block devices for machine %q", mName)
 		}
 
-		// Remove the status for the machine. No need to return error if no
-		// status is set for the machine while deleting.
-		if err := tx.Query(ctx, deleteStatusStmt, machineUUIDParam).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(err, "deleting status for machine %q", mName)
-		}
-
 		// Remove the status data for the machine. No need to return error if no
 		// status data is set for the machine.
 		if err := tx.Query(ctx, deleteStatusDataStmt, machineUUIDParam).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotatef(err, "deleting status data for machine %q", mName)
+		}
+
+		// Remove the status for the machine. No need to return error if no
+		// status is set for the machine while deleting.
+		if err := tx.Query(ctx, deleteStatusStmt, machineUUIDParam).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(err, "deleting status for machine %q", mName)
 		}
 
 		// Remove the machine.
@@ -361,14 +361,10 @@ func (st *State) GetMachineStatus(ctx context.Context, mName machine.Name) (stat
 	// them both in one transaction, as this a a relatively frequent retrieval).
 	machineStatusDataParam := machineStatusWithData{}
 	statusCombinedQuery := `
-SELECT (st.status,
-		st.message,
-		st.updated_at,
-		st_data.key,
-		st_data.data) as (&machineStatusWithData.*)
-FROM 	machine_status AS st
-		LEFT JOIN machine_status_data AS st_data
-		ON st.machine_uuid = st_data.machine_uuid
+SELECT &machineStatusWithData.*
+FROM machine_status AS st
+LEFT JOIN machine_status_data AS st_data
+ON st.machine_uuid = st_data.machine_uuid
 WHERE st.machine_uuid = $machineUUID.uuid`
 	statusCombinedQueryStmt, err := st.Prepare(statusCombinedQuery, machineUUIDout, machineStatusDataParam)
 	if err != nil {
@@ -411,7 +407,7 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 		Data:    statusDataResult,
 	}
 
-	// Convert the internal status id from the (machine_status_values table)
+	// Convert the internal status id from the (machine_status_value table)
 	// into the core status.Status type.
 	machineStatus.Status = machineStatusWithAllData[0].toCoreMachineStatusValue()
 
@@ -429,7 +425,7 @@ func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newSt
 	// Prepare the new status to be set.
 	machineStatus := machineStatusWithData{}
 
-	machineStatus.Status = fromCoreMachineStatusValue(newStatus.Status)
+	machineStatus.StatusID = fromCoreMachineStatusValue(newStatus.Status)
 	machineStatus.Message = newStatus.Message
 	machineStatus.Updated = newStatus.Since
 	machineStatusData := transform.MapToSlice(newStatus.Data, dataSliceTransformFunc)
@@ -445,10 +441,10 @@ func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newSt
 
 	// Prepare query for setting machine status
 	statusQuery := `
-INSERT INTO machine_status (machine_uuid, status, message, updated_at)
-VALUES ($machineUUID.uuid, $machineStatusWithData.status, $machineStatusWithData.message, $machineStatusWithData.updated_at)
+INSERT INTO machine_status (machine_uuid, status_id, message, updated_at)
+VALUES ($machineUUID.uuid, $machineStatusWithData.status_id, $machineStatusWithData.message, $machineStatusWithData.updated_at)
   ON CONFLICT (machine_uuid)
-  DO UPDATE SET status = excluded.status, message = excluded.message, updated_at = excluded.updated_at
+  DO UPDATE SET status_id = excluded.status_id, message = excluded.message, updated_at = excluded.updated_at
 `
 	statusQueryStmt, err := st.Prepare(statusQuery, mUUID, machineStatus)
 	if err != nil {

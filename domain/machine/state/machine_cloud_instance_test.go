@@ -227,7 +227,7 @@ func (s *stateSuite) TestGetInstanceStatusSuccess(c *gc.C) {
 
 	// Add a status value for this machine into the
 	// machine_cloud_instance_status table using the machineUUID and the status
-	// value 2 for "running" (from instance_status_values table).
+	// value 2 for "running" (from machine_cloud_instance_status_value table).
 	_, err := db.ExecContext(context.Background(), "INSERT INTO machine_cloud_instance_status VALUES('"+machineUUID+"', '2', 'running', '2024-07-12 12:00:00')")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -246,12 +246,12 @@ func (s *stateSuite) TestGetInstanceStatusSuccessWithData(c *gc.C) {
 
 	// Add a status value for this machine into the
 	// machine_cloud_instance_status table using the machineUUID and the status
-	// value 2 for "running" (from instance_status_values table).
+	// value 2 for "running" (from machine_cloud_instance_status_value table).
 	_, err := db.ExecContext(context.Background(), "INSERT INTO machine_cloud_instance_status VALUES('"+machineUUID+"', '2', 'running', '2024-07-12 12:00:00')")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add some status data for this machine into the
-	// machine_clud_instance_status_data table.
+	// machine_cloud_instance_status_data table.
 	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_cloud_instance_status_data VALUES('"+machineUUID+"', 'key', 'data')")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -321,16 +321,16 @@ func (s *stateSuite) TestSetInstanceStatusError(c *gc.C) {
 }
 
 // TestInstanceStatusValues asserts the keys and values in the
-// instance_status_values table, because we convert between core.status values
-// and instance_status_values based on these associations. This test will catch
+// machine_cloud_instance_status_value table, because we convert between core.status values
+// and machine_cloud_instance_status_value based on these associations. This test will catch
 // any discrepancies between the two sets of values, and error if/when any of
 // them ever change.
 func (s *stateSuite) TestInstanceStatusValues(c *gc.C) {
 	db := s.DB()
 
-	// Check that the status values in the instance_status_values table match
+	// Check that the status values in the machine_cloud_instance_status_value table match
 	// the instance status values in core status.
-	rows, err := db.QueryContext(context.Background(), "SELECT id, status FROM instance_status_values")
+	rows, err := db.QueryContext(context.Background(), "SELECT id, status FROM machine_cloud_instance_status_value")
 	defer rows.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	var statusValues []struct {

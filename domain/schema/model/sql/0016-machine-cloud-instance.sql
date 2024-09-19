@@ -38,17 +38,28 @@ CREATE TABLE machine_lxd_profile (
     REFERENCES machine (uuid)
 );
 
+CREATE TABLE machine_cloud_instance_status_value (
+    id INT PRIMARY KEY,
+    status TEXT NOT NULL
+);
+
+INSERT INTO machine_cloud_instance_status_value VALUES
+(0, 'unknown'),
+(1, 'allocating'),
+(2, 'running'),
+(3, 'provisioning error');
+
 CREATE TABLE machine_cloud_instance_status (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
-    status INT NOT NULL,
+    status_id INT NOT NULL,
     message TEXT,
     updated_at DATETIME,
     CONSTRAINT fk_machine_constraint_instance
     FOREIGN KEY (machine_uuid)
     REFERENCES machine_cloud_instance (machine_uuid),
     CONSTRAINT fk_machine_constraint_status
-    FOREIGN KEY (status)
-    REFERENCES instance_status_values (id)
+    FOREIGN KEY (status_id)
+    REFERENCES machine_cloud_instance_status_value (id)
 );
 
 /*
@@ -62,8 +73,8 @@ CREATE TABLE machine_cloud_instance_status_data (
     machine_uuid TEXT NOT NULL,
     "key" TEXT,
     data TEXT,
-    CONSTRAINT fk_machine_cloud_instance_status_data_instance
+    CONSTRAINT fk_machine_cloud_instance_status_data_machine_cloud_instance_status
     FOREIGN KEY (machine_uuid)
-    REFERENCES machine (uuid),
+    REFERENCES machine_cloud_instance_status (machine_uuid),
     PRIMARY KEY (machine_uuid, "key")
 );
