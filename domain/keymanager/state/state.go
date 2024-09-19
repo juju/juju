@@ -230,6 +230,14 @@ func (s *State) AddPublicKeysForUser(
 			)
 		}
 
+		err = s.checkModelExists(ctx, modelUUID, tx)
+		if err != nil {
+			return errors.Errorf(
+				"adding public keys for user %q to model %q: %w",
+				userUUID, modelUUID, err,
+			)
+		}
+
 		keyIds := []int64{}
 		for i, publicKey := range publicKeys {
 			row := userPublicKeyInsert{
@@ -257,12 +265,7 @@ func (s *State) AddPublicKeysForUser(
 				ModelUUID:          modelUUID.String(),
 			}
 			err := tx.Query(ctx, insertModelAuthorisedKeyStmt, row).Run()
-			if jujudb.IsErrConstraintForeignKey(err) {
-				return errors.Errorf(
-					"adding key %d for user %q to model %q, model does not exist",
-					i, userUUID, modelUUID,
-				).Add(modelerrors.NotFound)
-			} else if jujudb.IsErrConstraintPrimaryKey(err) {
+			if jujudb.IsErrConstraintPrimaryKey(err) {
 				return errors.Errorf(
 					"adding key %d for user %q to model %q, key already exists",
 					i, userUUID, modelUUID,
@@ -326,6 +329,14 @@ ON CONFLICT DO NOTHING
 			)
 		}
 
+		err = s.checkModelExists(ctx, modelUUID, tx)
+		if err != nil {
+			return errors.Errorf(
+				"ensuring public keys for user %q to model %q: %w",
+				userUUID, modelUUID, err,
+			)
+		}
+
 		keyIds := []int64{}
 		// We can't perform a bulk insert here because of the foreign key lookup
 		// for the algorithm. It could be done with a temp table but this is not
@@ -356,12 +367,7 @@ ON CONFLICT DO NOTHING
 			}
 
 			err := tx.Query(ctx, insertModelAuthorisedKeyStmt, row).Run()
-			if jujudb.IsErrConstraintForeignKey(err) {
-				return errors.Errorf(
-					"ensuring public key %d for user %q on model %q: model does not exist",
-					i, userUUID, modelUUID,
-				).Add(modelerrors.NotFound)
-			} else if err != nil {
+			if err != nil && !jujudb.IsErrConstraintPrimaryKey(err) {
 				return errors.Errorf(
 					"ensuring key %d for user %q on model %q: %w",
 					i, userUUID, modelUUID, err,
