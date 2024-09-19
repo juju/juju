@@ -58,6 +58,14 @@ func (p environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint strin
 	return errors.NotImplementedf("Ping")
 }
 
+// ModelConfigDefaults provides a set of default model config attributes that
+// should be set on a models config if they have not been specified by the user.
+func (p environProvider) ModelConfigDefaults(_ context.Context) (map[string]any, error) {
+	return map[string]any{
+		config.StorageDefaultBlockSourceKey: storageProviderType,
+	}, nil
+}
+
 // PrepareConfig implements environs.EnvironProvider.
 func (p environProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
