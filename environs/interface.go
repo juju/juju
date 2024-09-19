@@ -9,6 +9,7 @@ import (
 	"io"
 
 	"github.com/juju/jsonschema"
+	"github.com/juju/schema"
 	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
@@ -58,6 +59,24 @@ type EnvironProvider interface {
 	// "uuid" attribute of the base configuration. This is called for the
 	// controller model during bootstrap, and also for new hosted models.
 	PrepareConfig(context.Context, PrepareConfigParams) (*config.Config, error)
+}
+
+// ModelConfigProvider represents an interface that a [EnvironProvider] can
+// implement to provide opinions and defaults into a models config.
+type ModelConfigProvider interface {
+	// ConfigDefaults returns the default values for the
+	// provider specific config attributes.
+	ConfigDefaults() schema.Defaults
+
+	// ConfigSchema returns extra config attributes specific
+	// to this provider only.
+	ConfigSchema() schema.Fields
+
+	// ModelConfigDefaults provides a set of default model config attributes
+	// that
+	// should be set on a models config if they have not been specified by the
+	// user.
+	ModelConfigDefaults(context.Context) (map[string]any, error)
 }
 
 // A CloudEnvironProvider represents a computing and storage provider
