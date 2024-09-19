@@ -6,17 +6,20 @@ package state
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/cloudimagemetadata"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/cloudimagemetadata"
 	cloudmetadataerrors "github.com/juju/juju/domain/cloudimagemetadata/errors"
 	dberrors "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/uuid"
@@ -49,6 +52,11 @@ type State struct {
 	logger logger.Logger
 }
 
+// SupportedArchitectures retrieves the set of supported architecture names.
+func (s *State) SupportedArchitectures(context.Context) set.Strings {
+	return set.NewStrings(slices.Collect(maps.Keys(architectureIDsByName))...)
+}
+
 // NewState creates a new State instance using the provided database transaction factory and logger.
 func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logger.Logger) *State {
 	state := &State{
@@ -67,7 +75,7 @@ func getArchitectureID(name string) (int, bool) {
 
 // SaveMetadata stores the provided list of cloud image metadata into the database.
 //
-// Returns [cloudmetadataerrors.Invalid] if the provided metadata omits required fields.
+// Returns any errors occurred during db transaction.
 //
 // It also fires a cleanup for old images, if any.
 //

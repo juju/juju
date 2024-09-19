@@ -10,7 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/cloudimagemetadata"
+	"github.com/juju/juju/domain/cloudimagemetadata"
 )
 
 // retrieveMetadataFromDB retrieves all metadata from the cloud_image_metadata database table.
