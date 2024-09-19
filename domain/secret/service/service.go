@@ -334,6 +334,10 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 // the secret owner already has a secret with the same label.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, params UpdateUserSecretParams) (errOut error) {
+	if err := s.canManage(ctx, uri, params.Accessor, nil); err != nil {
+		return errors.Trace(err)
+	}
+
 	p := domainsecret.UpsertSecretParams{
 		Description: params.Description,
 		Label:       params.Label,
@@ -407,10 +411,6 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 	}
 
 	return s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		if err := s.canManage(ctx, uri, params.Accessor, nil); err != nil {
-			return errors.Trace(err)
-		}
-
 		if err := s.secretState.UpdateSecret(ctx, uri, p); err != nil {
 			return errors.Annotatef(err, "cannot update user secret %q", uri.ID)
 		}
@@ -426,6 +426,10 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI, params UpdateCharmSecretParams) (errOut error) {
 	if len(params.Data) > 0 && params.ValueRef != nil {
 		return errors.New("must specify either content or a value reference but not both")
+	}
+
+	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
+		return errors.Trace(err)
 	}
 
 	p := domainsecret.UpsertSecretParams{
@@ -468,10 +472,6 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 	}
 
 	err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
-			return errors.Trace(err)
-		}
-
 		rotatePolicy := domainsecret.MarshallRotatePolicy(params.RotatePolicy)
 		p.RotatePolicy = &rotatePolicy
 		if params.RotatePolicy.WillRotate() {
@@ -577,23 +577,11 @@ func (s *SecretService) ListUserSecretsToDrain(ctx context.Context) ([]*secrets.
 // GetSecretValue returns the value of the specified secret revision.
 // If returns [secreterrors.SecretRevisionNotFound] is there's no such secret revision.
 func (s *SecretService) GetSecretValue(ctx context.Context, uri *secrets.URI, rev int, accessor SecretAccessor) (secrets.SecretValue, *secrets.ValueRef, error) {
-	var (
-		data secrets.SecretData
-		ref  *secrets.ValueRef
-	)
-
-	err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		if err := s.canRead(ctx, uri, accessor); err != nil {
-			return errors.Trace(err)
-		}
-		var err error
-		data, ref, err = s.secretState.GetSecretValue(ctx, uri, rev)
-		return errors.Trace(err)
-	})
-	if err != nil {
+	if err := s.canRead(ctx, uri, accessor); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return secrets.NewSecretValue(data), ref, nil
+	data, ref, err := s.secretState.GetSecretValue(ctx, uri, rev)
+	return secrets.NewSecretValue(data), ref, errors.Trace(err)
 }
 
 // GetSecretContentFromBackend retrieves the content for the specified secret revision.
@@ -608,15 +596,8 @@ func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *se
 	}
 	lastBackendID := ""
 	for {
-		var (
-			data secrets.SecretData
-			ref  *secrets.ValueRef
-		)
-		err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-			var err error
-			data, ref, err = s.secretState.GetSecretValue(ctx, uri, rev)
-			return errors.Trace(err)
-		})
+		data, ref, err := s.secretState.GetSecretValue(ctx, uri, rev)
+		val := secrets.NewSecretValue(data)
 		if err != nil {
 			notFound := errors.Is(err, secreterrors.SecretNotFound) || errors.Is(err, secreterrors.SecretRevisionNotFound)
 			if notFound {
@@ -624,7 +605,6 @@ func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *se
 			}
 			return nil, errors.Trace(err)
 		}
-		val := secrets.NewSecretValue(data)
 		if ref == nil {
 			return val, nil
 		}
@@ -791,6 +771,9 @@ func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx domain.AtomicCo
 // It returns [secreterrors.SecretNotFound] is there's no such secret.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params ChangeSecretBackendParams) (errOut error) {
+	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
+		return errors.Trace(err)
+	}
 	revisionIDStr, err := s.secretState.GetSecretRevisionID(ctx, uri, revision)
 	if err != nil {
 		return errors.Trace(err)
@@ -816,21 +799,17 @@ func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.UR
 		}
 	}()
 
-	return s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
-			return errors.Trace(err)
-		}
-		return s.secretState.ChangeSecretBackend(ctx, revisionID, params.ValueRef, params.Data)
-	})
+	err = s.secretState.ChangeSecretBackend(ctx, revisionID, params.ValueRef, params.Data)
+	return errors.Trace(err)
 }
 
 // SecretRotated rotates the secret with the specified URI.
 func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, params SecretRotatedParams) error {
-	return s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
-			return errors.Trace(err)
-		}
+	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
+		return errors.Trace(err)
+	}
 
+	return s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		info, err := s.secretState.GetRotationExpiryInfo(ctx, uri)
 		if err != nil {
 			return errors.Trace(err)

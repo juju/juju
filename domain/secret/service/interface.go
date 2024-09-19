@@ -25,7 +25,6 @@ type AtomicState interface {
 	ListExternalSecretRevisions(ctx domain.AtomicContext, uri *secrets.URI, revisions ...int) ([]secrets.ValueRef, error)
 	DeleteSecret(ctx domain.AtomicContext, uri *secrets.URI, revs []int) ([]string, error)
 	UpdateSecret(ctx domain.AtomicContext, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
-	GetSecretValue(ctx domain.AtomicContext, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
 	GetSecretsForOwners(
 		ctx domain.AtomicContext, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) ([]*secrets.URI, error)
@@ -38,17 +37,9 @@ type AtomicState interface {
 	GetRotatePolicy(ctx domain.AtomicContext, uri *secrets.URI) (secrets.RotatePolicy, error)
 	SecretRotated(ctx domain.AtomicContext, uri *secrets.URI, next time.Time) error
 
-	GetSecretAccess(ctx domain.AtomicContext, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
-	GrantAccess(ctx domain.AtomicContext, uri *secrets.URI, params domainsecret.GrantParams) error
-	RevokeAccess(ctx domain.AtomicContext, uri *secrets.URI, params domainsecret.AccessParams) error
-
 	ListCharmSecrets(ctx domain.AtomicContext,
 		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
-
-	ChangeSecretBackend(
-		ctx domain.AtomicContext, revisionID uuid.UUID, valueRef *secrets.ValueRef, data secrets.SecretData,
-	) error
 }
 
 // State describes retrieval and persistence methods needed for
@@ -69,6 +60,7 @@ type State interface {
 	DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string, error)
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetLatestRevision(ctx context.Context, uri *secrets.URI) (int, error)
+	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
 	ListSecrets(ctx context.Context, uri *secrets.URI,
 		revision *int, labels domainsecret.Labels,
 	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
@@ -76,6 +68,9 @@ type State interface {
 	GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*secrets.URI, error)
 	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error
 	GetSecretAccessScope(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (*domainsecret.AccessScope, error)
+	GetSecretAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
+	GrantAccess(ctx context.Context, uri *secrets.URI, params domainsecret.GrantParams) error
+	RevokeAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) error
 	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]domainsecret.GrantParams, error)
 	ListGrantedSecretsForBackend(
 		ctx context.Context, backendID string, accessors []domainsecret.AccessParams, role secrets.SecretRole,
@@ -86,6 +81,9 @@ type State interface {
 	) ([]*secrets.SecretMetadataForDrain, error)
 	ListUserSecretsToDrain(ctx context.Context) ([]*secrets.SecretMetadataForDrain, error)
 	GetSecretRevisionID(ctx context.Context, uri *secrets.URI, revision int) (string, error)
+	ChangeSecretBackend(
+		ctx context.Context, revisionID uuid.UUID, valueRef *secrets.ValueRef, data secrets.SecretData,
+	) error
 
 	// For watching obsolete secret revision changes.
 	InitialWatchStatementForObsoleteRevision(

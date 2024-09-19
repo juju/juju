@@ -52,7 +52,7 @@ func (s *SecretService) getSecretConsumerAndLatest(ctx domain.AtomicContext, uri
 		return consumerMetadata, latestRevision, nil
 	}
 	if err != nil {
-		return nil, latestRevision, errors.Annotatef(err, "cannot get secret metadata for %q", uri)
+		return nil, 0, errors.Annotatef(err, "cannot get secret metadata for %q", uri)
 	}
 	consumerMetadata.Label = md.Label
 	return consumerMetadata, latestRevision, nil

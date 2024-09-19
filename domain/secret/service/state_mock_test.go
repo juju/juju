@@ -202,7 +202,7 @@ func (c *MockStateAllSecretRemoteConsumersCall) DoAndReturn(f func(context.Conte
 }
 
 // ChangeSecretBackend mocks base method.
-func (m *MockState) ChangeSecretBackend(arg0 domain.AtomicContext, arg1 uuid.UUID, arg2 *secrets.ValueRef, arg3 secrets.SecretData) error {
+func (m *MockState) ChangeSecretBackend(arg0 context.Context, arg1 uuid.UUID, arg2 *secrets.ValueRef, arg3 secrets.SecretData) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ChangeSecretBackend", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -228,13 +228,13 @@ func (c *MockStateChangeSecretBackendCall) Return(arg0 error) *MockStateChangeSe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateChangeSecretBackendCall) Do(f func(domain.AtomicContext, uuid.UUID, *secrets.ValueRef, secrets.SecretData) error) *MockStateChangeSecretBackendCall {
+func (c *MockStateChangeSecretBackendCall) Do(f func(context.Context, uuid.UUID, *secrets.ValueRef, secrets.SecretData) error) *MockStateChangeSecretBackendCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateChangeSecretBackendCall) DoAndReturn(f func(domain.AtomicContext, uuid.UUID, *secrets.ValueRef, secrets.SecretData) error) *MockStateChangeSecretBackendCall {
+func (c *MockStateChangeSecretBackendCall) DoAndReturn(f func(context.Context, uuid.UUID, *secrets.ValueRef, secrets.SecretData) error) *MockStateChangeSecretBackendCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -842,7 +842,7 @@ func (c *MockStateGetSecretCall) DoAndReturn(f func(context.Context, *secrets.UR
 }
 
 // GetSecretAccess mocks base method.
-func (m *MockState) GetSecretAccess(arg0 domain.AtomicContext, arg1 *secrets.URI, arg2 secret.AccessParams) (string, error) {
+func (m *MockState) GetSecretAccess(arg0 context.Context, arg1 *secrets.URI, arg2 secret.AccessParams) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSecretAccess", arg0, arg1, arg2)
 	ret0, _ := ret[0].(string)
@@ -869,13 +869,13 @@ func (c *MockStateGetSecretAccessCall) Return(arg0 string, arg1 error) *MockStat
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetSecretAccessCall) Do(f func(domain.AtomicContext, *secrets.URI, secret.AccessParams) (string, error)) *MockStateGetSecretAccessCall {
+func (c *MockStateGetSecretAccessCall) Do(f func(context.Context, *secrets.URI, secret.AccessParams) (string, error)) *MockStateGetSecretAccessCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetSecretAccessCall) DoAndReturn(f func(domain.AtomicContext, *secrets.URI, secret.AccessParams) (string, error)) *MockStateGetSecretAccessCall {
+func (c *MockStateGetSecretAccessCall) DoAndReturn(f func(context.Context, *secrets.URI, secret.AccessParams) (string, error)) *MockStateGetSecretAccessCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1078,7 +1078,7 @@ func (c *MockStateGetSecretRevisionIDCall) DoAndReturn(f func(context.Context, *
 }
 
 // GetSecretValue mocks base method.
-func (m *MockState) GetSecretValue(arg0 domain.AtomicContext, arg1 *secrets.URI, arg2 int) (secrets.SecretData, *secrets.ValueRef, error) {
+func (m *MockState) GetSecretValue(arg0 context.Context, arg1 *secrets.URI, arg2 int) (secrets.SecretData, *secrets.ValueRef, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSecretValue", arg0, arg1, arg2)
 	ret0, _ := ret[0].(secrets.SecretData)
@@ -1106,13 +1106,13 @@ func (c *MockStateGetSecretValueCall) Return(arg0 secrets.SecretData, arg1 *secr
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetSecretValueCall) Do(f func(domain.AtomicContext, *secrets.URI, int) (secrets.SecretData, *secrets.ValueRef, error)) *MockStateGetSecretValueCall {
+func (c *MockStateGetSecretValueCall) Do(f func(context.Context, *secrets.URI, int) (secrets.SecretData, *secrets.ValueRef, error)) *MockStateGetSecretValueCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetSecretValueCall) DoAndReturn(f func(domain.AtomicContext, *secrets.URI, int) (secrets.SecretData, *secrets.ValueRef, error)) *MockStateGetSecretValueCall {
+func (c *MockStateGetSecretValueCall) DoAndReturn(f func(context.Context, *secrets.URI, int) (secrets.SecretData, *secrets.ValueRef, error)) *MockStateGetSecretValueCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1323,7 +1323,7 @@ func (c *MockStateGetUserSecretURIByLabelCall) DoAndReturn(f func(context.Contex
 }
 
 // GrantAccess mocks base method.
-func (m *MockState) GrantAccess(arg0 domain.AtomicContext, arg1 *secrets.URI, arg2 secret.GrantParams) error {
+func (m *MockState) GrantAccess(arg0 context.Context, arg1 *secrets.URI, arg2 secret.GrantParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GrantAccess", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1349,13 +1349,13 @@ func (c *MockStateGrantAccessCall) Return(arg0 error) *MockStateGrantAccessCall 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGrantAccessCall) Do(f func(domain.AtomicContext, *secrets.URI, secret.GrantParams) error) *MockStateGrantAccessCall {
+func (c *MockStateGrantAccessCall) Do(f func(context.Context, *secrets.URI, secret.GrantParams) error) *MockStateGrantAccessCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGrantAccessCall) DoAndReturn(f func(domain.AtomicContext, *secrets.URI, secret.GrantParams) error) *MockStateGrantAccessCall {
+func (c *MockStateGrantAccessCall) DoAndReturn(f func(context.Context, *secrets.URI, secret.GrantParams) error) *MockStateGrantAccessCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1836,7 +1836,7 @@ func (c *MockStateListUserSecretsToDrainCall) DoAndReturn(f func(context.Context
 }
 
 // RevokeAccess mocks base method.
-func (m *MockState) RevokeAccess(arg0 domain.AtomicContext, arg1 *secrets.URI, arg2 secret.AccessParams) error {
+func (m *MockState) RevokeAccess(arg0 context.Context, arg1 *secrets.URI, arg2 secret.AccessParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RevokeAccess", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1862,13 +1862,13 @@ func (c *MockStateRevokeAccessCall) Return(arg0 error) *MockStateRevokeAccessCal
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateRevokeAccessCall) Do(f func(domain.AtomicContext, *secrets.URI, secret.AccessParams) error) *MockStateRevokeAccessCall {
+func (c *MockStateRevokeAccessCall) Do(f func(context.Context, *secrets.URI, secret.AccessParams) error) *MockStateRevokeAccessCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateRevokeAccessCall) DoAndReturn(f func(domain.AtomicContext, *secrets.URI, secret.AccessParams) error) *MockStateRevokeAccessCall {
+func (c *MockStateRevokeAccessCall) DoAndReturn(f func(context.Context, *secrets.URI, secret.AccessParams) error) *MockStateRevokeAccessCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

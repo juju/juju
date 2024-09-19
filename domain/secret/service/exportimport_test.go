@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coresecrets "github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/internal/testing"
 )
@@ -21,9 +20,7 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	}).AnyTimes()
+	s.expectRunAtomic(ctrl, true)
 
 	uri := coresecrets.NewURI()
 	secrets := []*coresecrets.SecretMetadata{{
@@ -142,9 +139,7 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	}).AnyTimes()
+	s.expectRunAtomic(ctrl, true)
 
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
