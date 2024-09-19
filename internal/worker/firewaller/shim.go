@@ -42,7 +42,10 @@ func (s *firewallerShim) Machine(ctx context.Context, tag names.MachineTag) (Mac
 
 func (s *firewallerShim) Unit(ctx context.Context, tag names.UnitTag) (Unit, error) {
 	u, err := s.Client.Unit(ctx, tag)
-	return &unitShim{Unit: u}, err
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &unitShim{Unit: u}, nil
 }
 
 type unitShim struct {
