@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	set "github.com/juju/collections/set"
 	envcontext "github.com/juju/juju/environs/envcontext"
 	instances "github.com/juju/juju/environs/instances"
 	version "github.com/juju/version/v2"
@@ -163,6 +164,45 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
+}
+
+// GetAllInstanceIDs mocks base method.
+func (m *MockState) GetAllInstanceIDs(arg0 context.Context) (set.Strings, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllInstanceIDs", arg0)
+	ret0, _ := ret[0].(set.Strings)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllInstanceIDs indicates an expected call of GetAllInstanceIDs.
+func (mr *MockStateMockRecorder) GetAllInstanceIDs(arg0 any) *MockStateGetAllInstanceIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllInstanceIDs", reflect.TypeOf((*MockState)(nil).GetAllInstanceIDs), arg0)
+	return &MockStateGetAllInstanceIDsCall{Call: call}
+}
+
+// MockStateGetAllInstanceIDsCall wrap *gomock.Call
+type MockStateGetAllInstanceIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllInstanceIDsCall) Return(arg0 set.Strings, arg1 error) *MockStateGetAllInstanceIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllInstanceIDsCall) Do(f func(context.Context) (set.Strings, error)) *MockStateGetAllInstanceIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllInstanceIDsCall) DoAndReturn(f func(context.Context) (set.Strings, error)) *MockStateGetAllInstanceIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // GetControllerUUID mocks base method.

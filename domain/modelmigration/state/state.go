@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
@@ -65,4 +66,39 @@ FROM model`, ModelInfo{})
 	}
 
 	return result.ControllerUUID, nil
+}
+
+// GetAllInstanceIDs returns all instance IDs from the current model as
+// juju/collections set.
+func (s *State) GetAllInstanceIDs(ctx context.Context) (set.Strings, error) {
+
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Errorf("cannot get database to retrieve instance IDs: %w", err)
+	}
+
+	query := `
+SELECT &instanceID.instance_id
+FROM   machine_cloud_instance`
+	queryStmt, err := s.Prepare(query, instanceID{})
+	if err != nil {
+		return nil, errors.Errorf("preparing retrieve all instance IDs statement: %w", err)
+	}
+
+	var result []instanceID
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt).GetAll(&result)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("retrieving all instance IDs: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	instanceIDs := make(set.Strings, len(result))
+	for _, instanceID := range result {
+		instanceIDs.Add(instanceID.ID)
+	}
+	return instanceIDs, nil
 }
