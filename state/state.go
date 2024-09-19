@@ -622,13 +622,8 @@ func (st *State) ModelConstraints() (constraints.Value, error) {
 
 // SetModelConstraints replaces the current model constraints.
 func (st *State) SetModelConstraints(cons constraints.Value) error {
-	unsupported, err := st.validateConstraints(cons)
-	if len(unsupported) > 0 {
-		logger.Warningf(
-			"setting model constraints: unsupported constraints: %v", strings.Join(unsupported, ","))
-	} else if err != nil {
-		return errors.Trace(err)
-	}
+	// TODO: validateConstraints when implementing SetModelConstraints
+	// in the model domain.
 	return writeConstraints(st, modelGlobalKey, cons)
 }
 

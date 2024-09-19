@@ -2437,12 +2437,14 @@ func (s *StateSuite) TestModelConstraints(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetInvalidConstraints(c *gc.C) {
+	c.Skip("No model config available. Reimplemented during JUJU-6802 and remove.")
 	cons := constraints.MustParse("mem=4G instance-type=foo")
 	err := s.State.SetModelConstraints(cons)
 	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "instance-type" overlaps with "mem"`)
 }
 
 func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
+	c.Skip("No model config available. Reimplemented during JUJU-6802 and remove.")
 	defer loggo.ResetWriters()
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.DEBUG)
