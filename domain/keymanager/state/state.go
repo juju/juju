@@ -426,8 +426,8 @@ AND model_uuid = $modelUUIDValue.model_uuid
 		err = s.checkModelExists(ctx, modelUUID, tx)
 		if err != nil {
 			return errors.Errorf(
-				"getting public keys for user %q on model %q: %w",
-				userUUID, modelUUID, err,
+				"checking model %q exists when getting public keys for user %q: %w",
+				modelUUID, userUUID, err,
 			)
 		}
 
