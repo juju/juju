@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"strings"
 
@@ -20,18 +21,37 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func main() {
+var (
+	modelTypeFlag      = flag.String("model-type", "iaas", "model type to use (iaas|caas)")
+	transitiveDepsFlag = flag.Bool("transitive-deps", false, "include transitive dependencies, not just direct ones")
+)
 
-	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
-		Agent:           &mockAgent{},
-		PreUpgradeSteps: preUpgradeSteps,
-	})
+func main() {
+	flag.Parse()
+
+	var manifolds dependency.Manifolds
+	switch *modelTypeFlag {
+	case "iaas":
+
+		manifolds = machine.IAASManifolds(machine.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		})
+	case "caas":
+		manifolds = machine.CAASManifolds(machine.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		})
+	default:
+		panic("unknown model type")
+	}
 
 	root := NewDAG()
 
+	includeTransitive := *transitiveDepsFlag
 	for name, manifold := range manifolds {
 		node := root.AddVertex(name)
-		dependencies := manifoldDependencies(manifolds, manifold)
+		dependencies := manifoldDependencies(manifolds, manifold, includeTransitive)
 		for _, dep := range dependencies.Values() {
 			node.AddEdge(dep)
 		}
@@ -40,11 +60,15 @@ func main() {
 	fmt.Println(root.Render())
 }
 
-func manifoldDependencies(all dependency.Manifolds, manifold dependency.Manifold) set.Strings {
+func manifoldDependencies(all dependency.Manifolds, manifold dependency.Manifold, includeTransitive bool) set.Strings {
 	result := set.NewStrings()
 	for _, input := range manifold.Inputs {
 		result.Add(input)
-		result = result.Union(manifoldDependencies(all, all[input]))
+		if !includeTransitive {
+			continue
+		}
+
+		result = result.Union(manifoldDependencies(all, all[input], true))
 	}
 	return result
 }
