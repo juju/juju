@@ -52,7 +52,7 @@ image_id
 				&dbMetadata.RootStorageSize,
 				&dbMetadata.Priority,
 				&dbMetadata.Arch,
-				&dbMetadata.ImageId,
+				&dbMetadata.ImageID,
 			); err != nil {
 				return errors.Trace(err)
 			}

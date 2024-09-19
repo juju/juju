@@ -42,8 +42,8 @@ type Metadata struct {
 	// This will allow to sort metadata by importance.
 	Priority int
 
-	// ImageId contains image identifier.
-	ImageId string
+	// ImageID contains image identifier.
+	ImageID string
 
 	// CreationTime contains the time and date the image was created. This
 	// is populated when the Metadata is saved.

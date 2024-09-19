@@ -134,7 +134,7 @@ func (s *State) SaveMetadata(ctx context.Context, metadata []cloudimagemetadata.
 			RootStorageType: m.RootStorageType,
 			RootStorageSize: m.RootStorageSize,
 			Priority:        m.Priority,
-			ImageID:         m.ImageId,
+			ImageID:         m.ImageID,
 		})
 	}
 
@@ -317,7 +317,7 @@ WHERE %s;`, strings.Join(clauses, ` AND `))
 				Source:          m.Source,
 			},
 			Priority:     m.Priority,
-			ImageId:      m.ImageID,
+			ImageID:      m.ImageID,
 			CreationTime: m.CreatedAt,
 		}
 	}
