@@ -91,7 +91,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.ServiceFactorySuite.ControllerConfig = controllerCfg
 	s.ServiceFactorySuite.SetUpTest(c)
-	jujujujutesting.SeedDatabase(c, s.ControllerSuite.TxnRunner(), s.ServiceFactoryGetter(c)(s.ControllerModelUUID), controllerCfg)
+	jujujujutesting.SeedDatabase(c, s.ControllerSuite.TxnRunner(), s.ServiceFactoryGetter(c, s.NoopObjectStore(c))(s.ControllerModelUUID), controllerCfg)
 
 	s.hub = pubsub.NewStructuredHub(nil)
 

@@ -1292,7 +1292,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	}
-	serviceFactoryGetter := s.ServiceFactoryGetter(c)
+	serviceFactoryGetter := s.ServiceFactoryGetter(c, s.NoopObjectStore(c))
 
 	st := s.ControllerModel(c).State()
 	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Storage(registry)

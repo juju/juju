@@ -14,6 +14,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/servicefactory"
 )
@@ -43,6 +44,14 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.ProviderFactory = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.ObjectStoreGetter = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.NewServiceFactoryGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -57,17 +66,18 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 
 func (s *workerSuite) getConfig() Config {
 	return Config{
-		DBGetter:        s.dbGetter,
-		DBDeleter:       s.dbDeleter,
-		ProviderFactory: s.providerFactory,
-		Logger:          s.logger,
-		NewServiceFactoryGetter: func(_ servicefactory.ControllerServiceFactory, _ changestream.WatchableDBGetter, _ logger.Logger, _ ModelServiceFactoryFn, _ providertracker.ProviderFactory) servicefactory.ServiceFactoryGetter {
+		DBGetter:          s.dbGetter,
+		DBDeleter:         s.dbDeleter,
+		ProviderFactory:   s.providerFactory,
+		ObjectStoreGetter: s.objectStoreGetter,
+		Logger:            s.logger,
+		NewServiceFactoryGetter: func(servicefactory.ControllerServiceFactory, changestream.WatchableDBGetter, logger.Logger, ModelServiceFactoryFn, providertracker.ProviderFactory, objectstore.ObjectStoreGetter) servicefactory.ServiceFactoryGetter {
 			return s.serviceFactoryGetter
 		},
 		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, logger.Logger) servicefactory.ControllerServiceFactory {
 			return s.controllerServiceFactory
 		},
-		NewModelServiceFactory: func(_ coremodel.UUID, _ changestream.WatchableDBGetter, _ providertracker.ProviderFactory, _ logger.Logger) servicefactory.ModelServiceFactory {
+		NewModelServiceFactory: func(coremodel.UUID, changestream.WatchableDBGetter, providertracker.ProviderFactory, objectstore.SingularObjectStoreGetter, logger.Logger) servicefactory.ModelServiceFactory {
 			return s.modelServiceFactory
 		},
 	}

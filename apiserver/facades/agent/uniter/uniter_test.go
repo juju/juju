@@ -218,7 +218,7 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	c.Assert(relStatus.Status, gc.Equals, status.Joining)
 
 	// We need to dual write to dqlite.
-	sf := s.ServiceFactorySuite.ServiceFactoryGetter(c).FactoryForModel(s.ServiceFactorySuite.ControllerModelUUID)
+	sf := s.ServiceFactorySuite.ServiceFactoryGetter(c, s.NoopObjectStore(c)).FactoryForModel(s.ServiceFactorySuite.ControllerModelUUID)
 	applicationService := sf.Application(service.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
 		Secrets:         service.NotImplementedSecretService{},

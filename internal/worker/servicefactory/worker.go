@@ -4,6 +4,8 @@
 package servicefactory
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
@@ -12,6 +14,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/servicefactory"
 )
@@ -26,6 +29,9 @@ type Config struct {
 
 	// ProviderFactory is used to get provider instances.
 	ProviderFactory providertracker.ProviderFactory
+
+	// ObjectStoreGetter is used to get object store instances.
+	ObjectStoreGetter objectstore.ObjectStoreGetter
 
 	// Logger is used to log messages.
 	Logger logger.Logger
@@ -45,6 +51,9 @@ func (config Config) Validate() error {
 	}
 	if config.ProviderFactory == nil {
 		return errors.NotValidf("nil ProviderFactory")
+	}
+	if config.ObjectStoreGetter == nil {
+		return errors.NotValidf("nil ObjectStoreGetter")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -76,6 +85,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 			config.Logger,
 			config.NewModelServiceFactory,
 			config.ProviderFactory,
+			config.ObjectStoreGetter,
 		),
 	}
 	w.tomb.Go(func() error {
@@ -137,6 +147,7 @@ type serviceFactoryGetter struct {
 	logger                 logger.Logger
 	newModelServiceFactory ModelServiceFactoryFn
 	providerFactory        providertracker.ProviderFactory
+	objectStoreGetter      objectstore.ObjectStoreGetter
 }
 
 // FactoryForModel returns a service factory for the given model uuid.
@@ -147,7 +158,24 @@ func (s *serviceFactoryGetter) FactoryForModel(modelUUID coremodel.UUID) service
 		ModelServiceFactory: s.newModelServiceFactory(
 			modelUUID, s.dbGetter,
 			s.providerFactory,
+			singularObjectStoreGetter{
+				modelUUID:         modelUUID,
+				objectStoreGetter: s.objectStoreGetter,
+			},
 			s.logger,
 		),
 	}
+}
+
+// singularObjectStoreGetter is an object store getter that returns a singular
+// object store for the given model uuid. This is to ensure that service
+// factories can't access object stores for other models.
+type singularObjectStoreGetter struct {
+	modelUUID         coremodel.UUID
+	objectStoreGetter objectstore.ObjectStoreGetter
+}
+
+// GetObjectStore returns a singular object store for the given namespace.
+func (s singularObjectStoreGetter) GetObjectStore(ctx context.Context) (objectstore.ObjectStore, error) {
+	return s.objectStoreGetter.GetObjectStore(ctx, s.modelUUID.String())
 }

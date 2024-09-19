@@ -286,7 +286,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		MongoSession:  session,
 		AdminPassword: AdminSecret,
 		NewPolicy: stateenvirons.GetNewPolicyFunc(serviceFactory.Cloud(), serviceFactory.Credential(), func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter {
-			return s.ServiceFactoryGetter(c).FactoryForModel(modelUUID).Storage(registry)
+			return s.ServiceFactoryGetter(c, s.NoopObjectStore(c)).FactoryForModel(modelUUID).Storage(registry)
 		}),
 	}, environs.ProviderConfigSchemaSource(serviceFactory.Cloud()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -321,7 +321,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	cfg.Mux = s.mux
 	cfg.DBGetter = stubDBGetter{db: stubWatchableDB{TxnRunner: s.TxnRunner()}}
 	cfg.DBDeleter = stubDBDeleter{}
-	cfg.ServiceFactoryGetter = s.ServiceFactoryGetter(c)
+	cfg.ServiceFactoryGetter = s.ServiceFactoryGetter(c, s.NoopObjectStore(c))
 	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
 
@@ -554,7 +554,7 @@ func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	modelServiceFactory := s.ServiceFactoryGetter(c).FactoryForModel(coremodel.UUID(modelUUID))
+	modelServiceFactory := s.ServiceFactoryGetter(c, s.NoopObjectStore(c)).FactoryForModel(coremodel.UUID(modelUUID))
 	var registry storage.ProviderRegistry
 	if model.Type() == state.ModelTypeIAAS {
 		registry = storage.ChainedProviderRegistry{

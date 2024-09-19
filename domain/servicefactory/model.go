@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/domain"
 	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
@@ -53,6 +54,7 @@ type ModelFactory struct {
 	modelUUID       model.UUID
 	modelDB         changestream.WatchableDBFactory
 	providerFactory providertracker.ProviderFactory
+	objectstore     objectstore.SingularObjectStoreGetter
 }
 
 // NewModelFactory returns a new registry which uses the provided modelDB
@@ -62,6 +64,7 @@ func NewModelFactory(
 	controllerDB changestream.WatchableDBFactory,
 	modelDB changestream.WatchableDBFactory,
 	providerFactory providertracker.ProviderFactory,
+	objectStore objectstore.SingularObjectStoreGetter,
 	logger logger.Logger,
 ) *ModelFactory {
 	return &ModelFactory{
@@ -70,6 +73,7 @@ func NewModelFactory(
 		modelUUID:       modelUUID,
 		modelDB:         modelDB,
 		providerFactory: providerFactory,
+		objectstore:     objectStore,
 	}
 }
 

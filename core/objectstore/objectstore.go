@@ -73,6 +73,13 @@ type ObjectStoreGetter interface {
 	GetObjectStore(context.Context, string) (ObjectStore, error)
 }
 
+// SingularObjectStoreGetter is the interface that is used to get a singular
+// object store.
+type SingularObjectStoreGetter interface {
+	// GetObjectStore returns a object store for the given namespace.
+	GetObjectStore(context.Context) (ObjectStore, error)
+}
+
 // ObjectStore represents a full object store for both read and write access.
 type ObjectStore interface {
 	ReadObjectStore

@@ -6,7 +6,9 @@ package testing
 import (
 	"context"
 	"database/sql"
+	"io"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/providertracker"
 	coreuser "github.com/juju/juju/core/user"
@@ -82,13 +85,13 @@ func (s stubDBDeleter) DeleteDB(namespace string) error {
 // ControllerServiceFactory conveniently constructs a service factory for the
 // controller model.
 func (s *ServiceFactorySuite) ControllerServiceFactory(c *gc.C) servicefactory.ServiceFactory {
-	return s.ServiceFactoryGetter(c)(s.ControllerModelUUID)
+	return s.ServiceFactoryGetter(c, TestingObjectStore{})(s.ControllerModelUUID)
 }
 
 // DefaultModelServiceFactory conveniently constructs a service factory for the
 // default model.
 func (s *ServiceFactorySuite) DefaultModelServiceFactory(c *gc.C) servicefactory.ServiceFactory {
-	return s.ServiceFactoryGetter(c)(s.ControllerModelUUID)
+	return s.ServiceFactoryGetter(c, TestingObjectStore{})(s.ControllerModelUUID)
 }
 
 func (s *ServiceFactorySuite) SeedControllerConfig(c *gc.C) {
@@ -212,7 +215,7 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 
 // ServiceFactoryGetter provides an implementation of the ServiceFactoryGetter
 // interface to use in tests.
-func (s *ServiceFactorySuite) ServiceFactoryGetter(c *gc.C) ServiceFactoryGetterFunc {
+func (s *ServiceFactorySuite) ServiceFactoryGetter(c *gc.C, objectStore coreobjectstore.ObjectStore) ServiceFactoryGetterFunc {
 	return func(modelUUID coremodel.UUID) servicefactory.ServiceFactory {
 		return domainservicefactory.NewServiceFactory(
 			databasetesting.ConstFactory(s.TxnRunner()),
@@ -220,6 +223,9 @@ func (s *ServiceFactorySuite) ServiceFactoryGetter(c *gc.C) ServiceFactoryGetter
 			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String())),
 			stubDBDeleter{DB: s.DB()},
 			s.ProviderTracker,
+			singularObjectStoreGetter(func(ctx context.Context) (coreobjectstore.ObjectStore, error) {
+				return objectStore, nil
+			}),
 			loggertesting.WrapCheckLog(c),
 		)
 	}
@@ -235,6 +241,12 @@ func (s *ServiceFactorySuite) ObjectStoreServicesGetter(c *gc.C) ObjectStoreServ
 			loggertesting.WrapCheckLog(c),
 		)
 	}
+}
+
+// NoopObjectStore returns a no-op implementation of the ObjectStore interface.
+// This is useful when the test does not require any object store functionality.
+func (s *ServiceFactorySuite) NoopObjectStore(c *gc.C) coreobjectstore.ObjectStore {
+	return TestingObjectStore{}
 }
 
 // SetUpTest creates the controller and default model unique identifiers if they
@@ -272,4 +284,35 @@ type ObjectStoreServicesGetterFunc func(coremodel.UUID) servicefactory.ObjectSto
 // FactoryForModel implements the ObjectStoreServicesGetter interface.
 func (s ObjectStoreServicesGetterFunc) FactoryForModel(modelUUID coremodel.UUID) servicefactory.ObjectStoreServices {
 	return s(modelUUID)
+}
+
+type singularObjectStoreGetter func(context.Context) (coreobjectstore.ObjectStore, error)
+
+func (s singularObjectStoreGetter) GetObjectStore(ctx context.Context) (coreobjectstore.ObjectStore, error) {
+	return s(ctx)
+}
+
+// TestingObjectStore is a testing implementation of the ObjectStore interface.
+type TestingObjectStore struct{}
+
+// Get returns an io.ReadCloser for data at path, namespaced to the
+// model.
+func (TestingObjectStore) Get(ctx context.Context, name string) (io.ReadCloser, int64, error) {
+	return nil, 0, errors.NotFoundf(name)
+}
+
+// Put stores data from reader at path, namespaced to the model.
+func (TestingObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) error {
+	return nil
+}
+
+// Put stores data from reader at path, namespaced to the model.
+// It also ensures the stored data has the correct hash.
+func (TestingObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, hash string) error {
+	return nil
+}
+
+// Remove removes data at path, namespaced to the model.
+func (TestingObjectStore) Remove(ctx context.Context, path string) error {
+	return nil
 }
