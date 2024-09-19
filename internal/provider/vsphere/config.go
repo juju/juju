@@ -189,6 +189,12 @@ func (p environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
 }
 
+// ModelConfigDefaults provides a set of default model config attributes that
+// should be set on a models config if they have not been specified by the user.
+func (p *environProvider) ModelConfigDefaults(_ context.Context) (map[string]any, error) {
+	return nil, nil
+}
+
 // validate checks vmware-specific config values.
 func (c environConfig) validate() error {
 	// All fields must be populated, even with just the default.
