@@ -21,9 +21,8 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
-	userservice "github.com/juju/juju/domain/access/service"
+	accessservice "github.com/juju/juju/domain/access/service"
 	accessstate "github.com/juju/juju/domain/access/state"
-	userstate "github.com/juju/juju/domain/access/state"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
@@ -147,62 +146,78 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *gc.C) {
 	keyManagerSt := keymanagerstate.NewState(s.ControllerSuite.TxnRunnerFactory())
 	keyManagerSvc := keymanagerservice.NewService(s.modelID, keyManagerSt)
 
-	err = keyManagerSvc.AddPublicKeysForUser(
-		ctx,
-		s.userID,
-		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC one@juju.is",
-		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe two@juju.is",
-	)
-	c.Assert(err, jc.ErrorIsNil)
+	harness := watchertest.NewHarness(&s.ControllerSuite, watchertest.NewWatcherC(c, watcher))
 
-	w := watchertest.NewNotifyWatcherC(c, watcher)
-	w.AssertOneChange()
-	s.ControllerSuite.AssertChangeStreamIdle(c)
-
-	err = keyManagerSvc.DeleteKeysForUser(
-		ctx,
-		s.userID,
-		"one@juju.is",
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	w.AssertOneChange()
-	s.ControllerSuite.AssertChangeStreamIdle(c)
-
-	keys, err := svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(keys, jc.DeepEquals, []string{
-		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe two@juju.is",
+	harness.AddTest(func(c *gc.C) {
+		err = keyManagerSvc.AddPublicKeysForUser(
+			ctx,
+			s.userID,
+			"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC one@juju.is",
+			"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe two@juju.is",
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
 	})
 
-	userSvc := userservice.NewUserService(
-		userstate.NewUserState(s.ControllerSuite.TxnRunnerFactory()),
-	)
-
-	err = userSvc.DisableUserAuthentication(ctx, coreuser.AdminUserName)
-	c.Assert(err, jc.ErrorIsNil)
-	w.AssertOneChange()
-	s.ControllerSuite.AssertChangeStreamIdle(c)
-
-	keys, err = svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(keys), gc.Equals, 0)
-
-	err = userSvc.EnableUserAuthentication(ctx, coreuser.AdminUserName)
-	c.Assert(err, jc.ErrorIsNil)
-	w.AssertOneChange()
-	s.ControllerSuite.AssertChangeStreamIdle(c)
-
-	keys, err = svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(keys, jc.DeepEquals, []string{
-		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe two@juju.is",
+	harness.AddTest(func(c *gc.C) {
+		err = keyManagerSvc.DeleteKeysForUser(
+			ctx,
+			s.userID,
+			"one@juju.is",
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
 	})
 
-	err = userSvc.RemoveUser(ctx, coreuser.AdminUserName)
-	c.Assert(err, jc.ErrorIsNil)
-	w.AssertOneChange()
+	userSvc := accessservice.NewUserService(
+		accessstate.NewUserState(s.ControllerSuite.TxnRunnerFactory()),
+	)
 
-	keys, err = svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(keys), gc.Equals, 0)
+	harness.AddTest(func(c *gc.C) {
+		err = userSvc.DisableUserAuthentication(ctx, coreuser.AdminUserName)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.AddTest(func(c *gc.C) {
+		keys, err := svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(len(keys), gc.Equals, 0)
+	}, func(_ watchertest.WatcherC[struct{}]) {
+	})
+
+	harness.AddTest(func(c *gc.C) {
+		err = userSvc.EnableUserAuthentication(ctx, coreuser.AdminUserName)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.AddTest(func(c *gc.C) {
+		keys, err := svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(keys, jc.DeepEquals, []string{
+			"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe two@juju.is",
+		})
+	}, func(_ watchertest.WatcherC[struct{}]) {
+	})
+
+	harness.AddTest(func(c *gc.C) {
+		err = userSvc.RemoveUser(ctx, coreuser.AdminUserName)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.AddTest(func(c *gc.C) {
+		keys, err := svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(len(keys), gc.Equals, 0)
+	}, func(_ watchertest.WatcherC[struct{}]) {
+	})
+
+	harness.Run(c)
 }
