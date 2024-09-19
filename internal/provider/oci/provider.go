@@ -189,6 +189,12 @@ func validateCloudSpec(c environscloudspec.CloudSpec) error {
 	return nil
 }
 
+// ModelConfigDefaults provides a set of default model config attributes that
+// should be set on a models config if they have not been specified by the user.
+func (e EnvironProvider) ModelConfigDefaults(_ context.Context) (map[string]any, error) {
+	return nil, nil
+}
+
 // PrepareConfig implements environs.EnvironProvider.
 func (e EnvironProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
