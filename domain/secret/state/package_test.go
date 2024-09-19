@@ -19,14 +19,14 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-func (st *State) updateSecretForTest(ctx context.Context, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams,
+func updateSecret(ctx context.Context, st *State, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams,
 ) error {
 	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateSecret(ctx, uri, secret)
 	})
 }
 
-func (st *State) getSecretConsumerForTest(ctx context.Context, uri *coresecrets.URI, unitName string) (*coresecrets.SecretConsumerMetadata, int, error) {
+func getSecretConsumer(ctx context.Context, st *State, uri *coresecrets.URI, unitName string) (*coresecrets.SecretConsumerMetadata, int, error) {
 	var (
 		consumerMetadata *coresecrets.SecretConsumerMetadata
 		latestRevision   int
@@ -42,13 +42,13 @@ func (st *State) getSecretConsumerForTest(ctx context.Context, uri *coresecrets.
 	return consumerMetadata, latestRevision, err
 }
 
-func (st *State) saveSecretConsumerForTest(ctx context.Context, uri *coresecrets.URI, unitName string, md *coresecrets.SecretConsumerMetadata) error {
+func saveSecretConsumer(ctx context.Context, st *State, uri *coresecrets.URI, unitName string, md *coresecrets.SecretConsumerMetadata) error {
 	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.SaveSecretConsumer(ctx, uri, unitName, md)
 	})
 }
 
-func (st *State) getSecretRemoteConsumerForTest(ctx context.Context, uri *coresecrets.URI, unitName string) (*coresecrets.SecretConsumerMetadata, int, error) {
+func getSecretRemoteConsumer(ctx context.Context, st *State, uri *coresecrets.URI, unitName string) (*coresecrets.SecretConsumerMetadata, int, error) {
 	var (
 		consumerMetadata *coresecrets.SecretConsumerMetadata
 		latestRevision   int
@@ -64,13 +64,13 @@ func (st *State) getSecretRemoteConsumerForTest(ctx context.Context, uri *corese
 	return consumerMetadata, latestRevision, err
 }
 
-func (st *State) saveSecretRemoteConsumerForTest(ctx context.Context, uri *coresecrets.URI, unitName string, md *coresecrets.SecretConsumerMetadata) error {
+func saveSecretRemoteConsumer(ctx context.Context, st *State, uri *coresecrets.URI, unitName string, md *coresecrets.SecretConsumerMetadata) error {
 	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.SaveSecretRemoteConsumer(ctx, uri, unitName, md)
 	})
 }
 
-func (st *State) getRotationExpiryInfoForTest(ctx context.Context, uri *coresecrets.URI) (*domainsecret.RotationExpiryInfo, error) {
+func getRotationExpiryInfo(ctx context.Context, st *State, uri *coresecrets.URI) (*domainsecret.RotationExpiryInfo, error) {
 	var info *domainsecret.RotationExpiryInfo
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
@@ -80,7 +80,7 @@ func (st *State) getRotationExpiryInfoForTest(ctx context.Context, uri *coresecr
 	return info, err
 }
 
-func (st *State) getRotatePolicyForTest(ctx context.Context, uri *coresecrets.URI) (coresecrets.RotatePolicy, error) {
+func getRotatePolicy(ctx context.Context, st *State, uri *coresecrets.URI) (coresecrets.RotatePolicy, error) {
 	var policy coresecrets.RotatePolicy
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
@@ -90,13 +90,13 @@ func (st *State) getRotatePolicyForTest(ctx context.Context, uri *coresecrets.UR
 	return policy, err
 }
 
-func (st *State) secretRotatedForTest(ctx context.Context, uri *coresecrets.URI, next time.Time) error {
+func secretRotated(ctx context.Context, st *State, uri *coresecrets.URI, next time.Time) error {
 	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.SecretRotated(ctx, uri, next)
 	})
 }
 
-func (st *State) listCharmSecretsForTest(ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+func listCharmSecrets(ctx context.Context, st *State, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 ) ([]*coresecrets.SecretMetadata, [][]*coresecrets.SecretRevisionMetadata, error) {
 	var (
 		mds  []*coresecrets.SecretMetadata

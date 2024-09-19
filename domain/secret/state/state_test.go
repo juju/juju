@@ -93,7 +93,7 @@ func (s *stateSuite) TestGetLatestRevision(c *gc.C) {
 	ctx := context.Background()
 	err := st.CreateUserSecret(ctx, 1, uri, sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.updateSecretForTest(ctx, uri, domainsecret.UpsertSecretParams{
+	err = updateSecret(ctx, st, uri, domainsecret.UpsertSecretParams{
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo": "bar1"},
 	})
@@ -124,7 +124,7 @@ func (s *stateSuite) TestGetRotatePolicy(c *gc.C) {
 	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := st.getRotatePolicyForTest(context.Background(), uri)
+	result, err := getRotatePolicy(context.Background(), st, uri)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, coresecrets.RotateYearly)
 }
@@ -132,7 +132,7 @@ func (s *stateSuite) TestGetRotatePolicy(c *gc.C) {
 func (s *stateSuite) TestGetRotatePolicyNotFound(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	_, err := st.getRotatePolicyForTest(context.Background(), coresecrets.NewURI())
+	_, err := getRotatePolicy(context.Background(), st, coresecrets.NewURI())
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
 }
 
@@ -157,7 +157,7 @@ func (s *stateSuite) TestGetRotationExpiryInfo(c *gc.C) {
 	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := st.getRotationExpiryInfoForTest(context.Background(), uri)
+	result, err := getRotationExpiryInfo(context.Background(), st, uri)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, &domainsecret.RotationExpiryInfo{
 		RotatePolicy:     coresecrets.RotateYearly,
@@ -167,14 +167,14 @@ func (s *stateSuite) TestGetRotationExpiryInfo(c *gc.C) {
 	})
 
 	newExpireTime := expireTime.Add(2 * time.Hour)
-	err = st.updateSecretForTest(ctx, uri, domainsecret.UpsertSecretParams{
+	err = updateSecret(ctx, st, uri, domainsecret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo": "bar1"},
 		ExpireTime: ptr(newExpireTime),
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err = st.getRotationExpiryInfoForTest(context.Background(), uri)
+	result, err = getRotationExpiryInfo(context.Background(), st, uri)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, &domainsecret.RotationExpiryInfo{
 		RotatePolicy:     coresecrets.RotateYearly,
@@ -187,7 +187,7 @@ func (s *stateSuite) TestGetRotationExpiryInfo(c *gc.C) {
 func (s *stateSuite) TestGetRotationExpiryInfoNotFound(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	_, err := st.getRotationExpiryInfoForTest(context.Background(), coresecrets.NewURI())
+	_, err := getRotationExpiryInfo(context.Background(), st, coresecrets.NewURI())
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
 }
 
@@ -399,7 +399,7 @@ func (s *stateSuite) TestListExternalSecretRevisions(c *gc.C) {
 		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend2", RevisionID: "some-revision2"},
 		RevisionID:  ptr(uuid.MustNewUUID().String()),
 	}
-	err = st.updateSecretForTest(ctx, uri, sp2)
+	err = updateSecret(ctx, st, uri, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp3 := domainsecret.UpsertSecretParams{
@@ -1110,7 +1110,7 @@ func (s *stateSuite) TestCreateManyUnitSecretsNoLabelClash(c *gc.C) {
 
 func (s *stateSuite) TestListCharmSecretsMissingOwners(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
-	_, _, err := st.listCharmSecretsForTest(context.Background(),
+	_, _, err := listCharmSecrets(context.Background(), st,
 		domainsecret.NilApplicationOwners, domainsecret.NilUnitOwners)
 	c.Assert(err, gc.ErrorMatches, "querying charm secrets: must supply at least one app owner or unit owner")
 }
@@ -1147,7 +1147,7 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *gc.C) {
 	err = st.CreateCharmUnitSecret(ctx, 1, uri[1], "mysql/0", sp[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	secrets, revisions, err := st.listCharmSecretsForTest(ctx,
+	secrets, revisions, err := listCharmSecrets(ctx, st,
 		domainsecret.NilApplicationOwners, domainsecret.UnitOwners{"mysql/0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(secrets), gc.Equals, 1)
@@ -1204,7 +1204,7 @@ func (s *stateSuite) TestListCharmSecretsByApplication(c *gc.C) {
 	err = st.CreateCharmApplicationSecret(ctx, 1, uri[1], "mysql", sp[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	secrets, revisions, err := st.listCharmSecretsForTest(ctx,
+	secrets, revisions, err := listCharmSecrets(ctx, st,
 		domainsecret.ApplicationOwners{"mysql"}, domainsecret.NilUnitOwners)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(secrets), gc.Equals, 1)
@@ -1278,7 +1278,7 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
 	err = st.CreateCharmUnitSecret(ctx, 1, uri[3], "postgresql/0", sp[3])
 	c.Assert(err, jc.ErrorIsNil)
 
-	secrets, revisions, err := st.listCharmSecretsForTest(ctx,
+	secrets, revisions, err := listCharmSecrets(ctx, st,
 		domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mysql/0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(secrets), gc.Equals, 2)
@@ -1356,19 +1356,19 @@ func (s *stateSuite) TestAllSecretConsumers(c *gc.C) {
 		Label:           "my label",
 		CurrentRevision: 666,
 	}
-	err = st.saveSecretConsumerForTest(ctx, uri, "mysql/0", consumer)
+	err = saveSecretConsumer(ctx, st, uri, "mysql/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 	consumer = &coresecrets.SecretConsumerMetadata{
 		Label:           "my label2",
 		CurrentRevision: 668,
 	}
-	err = st.saveSecretConsumerForTest(ctx, uri2, "mysql/1", consumer)
+	err = saveSecretConsumer(ctx, st, uri2, "mysql/1", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 	consumer = &coresecrets.SecretConsumerMetadata{
 		Label:           "my label3",
 		CurrentRevision: 667,
 	}
-	err = st.saveSecretConsumerForTest(ctx, uri, "mysql/1", consumer)
+	err = saveSecretConsumer(ctx, st, uri, "mysql/1", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.AllSecretConsumers(ctx)
@@ -1416,10 +1416,10 @@ func (s *stateSuite) TestSaveSecretConsumer(c *gc.C) {
 		CurrentRevision: 666,
 	}
 
-	err = st.saveSecretConsumerForTest(ctx, uri, "mysql/0", consumer)
+	err = saveSecretConsumer(ctx, st, uri, "mysql/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	got, latest, err := st.getSecretConsumerForTest(ctx, uri, "mysql/0")
+	got, latest, err := getSecretConsumer(ctx, st, uri, "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, consumer)
 	c.Assert(latest, gc.Equals, 1)
@@ -1445,10 +1445,10 @@ func (s *stateSuite) TestSaveSecretConsumerMarksObsolete(c *gc.C) {
 	consumer := &coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 1,
 	}
-	err = st.saveSecretConsumerForTest(ctx, uri, "mysql/0", consumer)
+	err = saveSecretConsumer(ctx, st, uri, "mysql/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	got, latest, err := st.getSecretConsumerForTest(ctx, uri, "mysql/0")
+	got, latest, err := getSecretConsumer(ctx, st, uri, "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, consumer)
 	c.Assert(latest, gc.Equals, 1)
@@ -1461,7 +1461,7 @@ func (s *stateSuite) TestSaveSecretConsumerMarksObsolete(c *gc.C) {
 		},
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 	}
-	err = st.updateSecretForTest(context.Background(), uri, sp2)
+	err = updateSecret(context.Background(), st, uri, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 	content, valueRef, err := st.GetSecretValue(ctx, uri, 2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1489,7 +1489,7 @@ func (s *stateSuite) TestSaveSecretConsumerMarksObsolete(c *gc.C) {
 		Label:           "my label",
 		CurrentRevision: 2,
 	}
-	err = st.saveSecretConsumerForTest(ctx, uri, "mysql/0", consumer)
+	err = saveSecretConsumer(ctx, st, uri, "mysql/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obsolete, pendingDelete = s.getObsolete(c, uri, 1)
@@ -1512,7 +1512,7 @@ func (s *stateSuite) TestSaveSecretConsumerSecretNotExists(c *gc.C) {
 		CurrentRevision: 666,
 	}
 
-	err := st.saveSecretConsumerForTest(ctx, uri, "mysql/0", consumer)
+	err := saveSecretConsumer(ctx, st, uri, "mysql/0", consumer)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
 }
 
@@ -1537,7 +1537,7 @@ func (s *stateSuite) TestSaveSecretConsumerUnitNotExists(c *gc.C) {
 		CurrentRevision: 666,
 	}
 
-	err = st.saveSecretConsumerForTest(ctx, uri, "mysql/0", consumer)
+	err = saveSecretConsumer(ctx, st, uri, "mysql/0", consumer)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -1558,10 +1558,10 @@ func (s *stateSuite) TestSaveSecretConsumerDifferentModel(c *gc.C) {
 		CurrentRevision: 666,
 	}
 
-	err = st.saveSecretConsumerForTest(ctx, uri, "mysql/0", consumer)
+	err = saveSecretConsumer(ctx, st, uri, "mysql/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	got, _, err := st.getSecretConsumerForTest(ctx, uri, "mysql/0")
+	got, _, err := getSecretConsumer(ctx, st, uri, "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, consumer)
 }
@@ -1582,10 +1582,10 @@ func (s *stateSuite) TestSaveSecretConsumerDifferentModelFirstTime(c *gc.C) {
 		CurrentRevision: 666,
 	}
 
-	err := st.saveSecretConsumerForTest(ctx, uri, "mysql/0", consumer)
+	err := saveSecretConsumer(ctx, st, uri, "mysql/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	got, _, err := st.getSecretConsumerForTest(ctx, uri, "mysql/0")
+	got, _, err := getSecretConsumer(ctx, st, uri, "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, consumer)
 
@@ -1619,14 +1619,14 @@ func (s *stateSuite) TestAllRemoteSecrets(c *gc.C) {
 		Label:           "my label",
 		CurrentRevision: 1,
 	}
-	err = st.saveSecretConsumerForTest(ctx, uri, "mysql/0", consumer)
+	err = saveSecretConsumer(ctx, st, uri, "mysql/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consumer = &coresecrets.SecretConsumerMetadata{
 		Label:           "my label2",
 		CurrentRevision: 2,
 	}
-	err = st.saveSecretConsumerForTest(ctx, uri, "mysql/1", consumer)
+	err = saveSecretConsumer(ctx, st, uri, "mysql/1", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.AllRemoteSecrets(ctx)
@@ -1666,7 +1666,7 @@ func (s *stateSuite) TestGetSecretConsumerFirstTime(c *gc.C) {
 	err := st.CreateUserSecret(ctx, 1, uri, sp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, latest, err := st.getSecretConsumerForTest(ctx, uri, "mysql/0")
+	_, latest, err := getSecretConsumer(ctx, st, uri, "mysql/0")
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretConsumerNotFound)
 	c.Assert(latest, gc.Equals, 1)
 }
@@ -1682,7 +1682,7 @@ func (s *stateSuite) TestGetSecretConsumerRemoteSecretFirstTime(c *gc.C) {
 	err := st.UpdateRemoteSecretRevision(ctx, uri, 666)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, latest, err := st.getSecretConsumerForTest(ctx, uri, "mysql/0")
+	_, latest, err := getSecretConsumer(ctx, st, uri, "mysql/0")
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretConsumerNotFound)
 	c.Assert(latest, gc.Equals, 666)
 }
@@ -1692,7 +1692,7 @@ func (s *stateSuite) TestGetSecretConsumerSecretNotExists(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 
-	_, _, err := st.getSecretConsumerForTest(context.Background(), uri, "mysql/0")
+	_, _, err := getSecretConsumer(context.Background(), st, uri, "mysql/0")
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
 }
 
@@ -1712,7 +1712,7 @@ func (s *stateSuite) TestGetSecretConsumerUnitNotExists(c *gc.C) {
 	err := st.CreateUserSecret(ctx, 1, uri, sp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, _, err = st.getSecretConsumerForTest(ctx, uri, "mysql/0")
+	_, _, err = getSecretConsumer(ctx, st, uri, "mysql/0")
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -1758,7 +1758,7 @@ func (s *stateSuite) TestGetURIByConsumerLabel(c *gc.C) {
 	ctx := context.Background()
 	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.saveSecretConsumerForTest(ctx, uri, "mysql/0", &coresecrets.SecretConsumerMetadata{
+	err = saveSecretConsumer(ctx, st, uri, "mysql/0", &coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 666,
 	})
@@ -1787,7 +1787,7 @@ func (s *stateSuite) TestUpdateSecretNotFound(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
 	uri := coresecrets.NewURI()
-	err := st.updateSecretForTest(context.Background(), uri, domainsecret.UpsertSecretParams{
+	err := updateSecret(context.Background(), st, uri, domainsecret.UpsertSecretParams{
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 		Label:      ptr("label"),
 	})
@@ -1798,7 +1798,7 @@ func (s *stateSuite) TestUpdateSecretNothingToDo(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
 	uri := coresecrets.NewURI()
-	err := st.updateSecretForTest(context.Background(), uri, domainsecret.UpsertSecretParams{
+	err := updateSecret(context.Background(), st, uri, domainsecret.UpsertSecretParams{
 		RevisionID: ptr(uuid.MustNewUUID().String())})
 	c.Assert(err, gc.ErrorMatches, "must specify a new value or metadata to update a secret")
 }
@@ -1824,7 +1824,7 @@ func (s *stateSuite) TestUpdateUserSecretMetadataOnly(c *gc.C) {
 		Description: ptr("my secretMetadata"),
 		Label:       ptr("my label2"),
 	}
-	err = st.updateSecretForTest(context.Background(), uri, sp2)
+	err = updateSecret(context.Background(), st, uri, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, err := st.GetSecret(ctx, uri)
@@ -1867,7 +1867,7 @@ func (s *stateSuite) TestUpdateUserSecretLabelAlreadyExists(c *gc.C) {
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 		Label:      ptr("my label2"),
 	}
-	err = st.updateSecretForTest(ctx, uri, sp)
+	err = updateSecret(ctx, st, uri, sp)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 }
 
@@ -1890,7 +1890,7 @@ func (s *stateSuite) TestUpdateUserSecretFailedRevisionIDMissing(c *gc.C) {
 	sp = domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "something-else"},
 	}
-	err = st.updateSecretForTest(ctx, uri, sp)
+	err = updateSecret(ctx, st, uri, sp)
 	c.Assert(err, gc.ErrorMatches, `*.revision ID must be provided`)
 }
 
@@ -1915,7 +1915,7 @@ func (s *stateSuite) TestUpdateCharmApplicationSecretMetadataOnly(c *gc.C) {
 		Description: ptr("my secretMetadata"),
 		Label:       ptr("my label2"),
 	}
-	err = st.updateSecretForTest(context.Background(), uri, sp2)
+	err = updateSecret(context.Background(), st, uri, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, err := st.GetSecret(ctx, uri)
@@ -1950,7 +1950,7 @@ func (s *stateSuite) TestUpdateCharmUnitSecretMetadataOnly(c *gc.C) {
 		Description: ptr("my secretMetadata"),
 		Label:       ptr("my label2"),
 	}
-	err = st.updateSecretForTest(context.Background(), uri, sp2)
+	err = updateSecret(context.Background(), st, uri, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, err := st.GetSecret(ctx, uri)
@@ -1990,7 +1990,7 @@ func (s *stateSuite) TestUpdateCharmApplicationSecretLabelAlreadyExists(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp.Label = ptr("my label2")
-	err = st.updateSecretForTest(ctx, uri, sp)
+	err = updateSecret(ctx, st, uri, sp)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 }
 
@@ -2020,7 +2020,7 @@ func (s *stateSuite) TestUpdateCharmUnitSecretLabelAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp.Label = ptr("my label2")
-	err = st.updateSecretForTest(ctx, uri, sp)
+	err = updateSecret(ctx, st, uri, sp)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 }
 
@@ -2045,7 +2045,7 @@ func (s *stateSuite) TestUpdateSecretContentNoOpsIfNoContentChange(c *gc.C) {
 	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.updateSecretForTest(context.Background(), uri, sp)
+	err = updateSecret(context.Background(), st, uri, sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, revs, err := st.ListSecrets(ctx, uri, ptr(1), domainsecret.NilLabels)
@@ -2079,7 +2079,7 @@ func (s *stateSuite) TestUpdateSecretContent(c *gc.C) {
 		ExpireTime: &expireTime,
 	}
 	fillDataForUpsertSecretParams(c, &sp2, coresecrets.SecretData{"foo2": "bar2", "hello": "world"})
-	err = st.updateSecretForTest(context.Background(), uri, sp2)
+	err = updateSecret(context.Background(), st, uri, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, revs, err := st.ListSecrets(ctx, uri, ptr(2), domainsecret.NilLabels)
@@ -2136,7 +2136,7 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *gc.C) {
 		CurrentRevision: 1,
 	}
 
-	err = st.saveSecretConsumerForTest(ctx, uri, "mysql/0", consumer)
+	err = saveSecretConsumer(ctx, st, uri, "mysql/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expireTime := time.Now().Add(2 * time.Hour)
@@ -2145,7 +2145,7 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *gc.C) {
 		ExpireTime: &expireTime,
 		Data:       coresecrets.SecretData{"foo2": "bar2", "hello": "world"},
 	}
-	err = st.updateSecretForTest(context.Background(), uri, sp2)
+	err = updateSecret(context.Background(), st, uri, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, revs, err := st.ListSecrets(ctx, uri, ptr(2), domainsecret.NilLabels)
@@ -2176,7 +2176,7 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *gc.C) {
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo3": "bar3", "hello": "world"},
 	}
-	err = st.updateSecretForTest(context.Background(), uri, sp3)
+	err = updateSecret(context.Background(), st, uri, sp3)
 	c.Assert(err, jc.ErrorIsNil)
 	content, valueRef, err = st.GetSecretValue(ctx, uri, 3)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2248,7 +2248,7 @@ func (s *stateSuite) TestUpdateSecretContentValueRef(c *gc.C) {
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 		ValueRef:   &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "revision-id"},
 	}
-	err = st.updateSecretForTest(context.Background(), uri, sp2)
+	err = updateSecret(context.Background(), st, uri, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, revs, err := st.ListSecrets(ctx, uri, ptr(2), domainsecret.NilLabels)
@@ -2293,7 +2293,7 @@ func (s *stateSuite) TestUpdateSecretNoRotate(c *gc.C) {
 		RevisionID:   ptr(uuid.MustNewUUID().String()),
 		RotatePolicy: ptr(domainsecret.RotateNever),
 	}
-	err = st.updateSecretForTest(context.Background(), uri, sp2)
+	err = updateSecret(context.Background(), st, uri, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	md, err := st.GetSecret(ctx, uri)
@@ -2335,7 +2335,7 @@ func (s *stateSuite) TestUpdateCharmSecretAutoPrune(c *gc.C) {
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 		AutoPrune:  ptr(true),
 	}
-	err = st.updateSecretForTest(context.Background(), uri, sp2)
+	err = updateSecret(context.Background(), st, uri, sp2)
 	c.Assert(err, jc.ErrorIs, secreterrors.AutoPruneNotSupported)
 }
 
@@ -2358,10 +2358,10 @@ func (s *stateSuite) TestSaveSecretRemoteConsumer(c *gc.C) {
 		CurrentRevision: 666,
 	}
 
-	err = st.saveSecretRemoteConsumerForTest(ctx, uri, "remote-app/0", consumer)
+	err = saveSecretRemoteConsumer(ctx, st, uri, "remote-app/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	got, latest, err := st.getSecretRemoteConsumerForTest(ctx, uri, "remote-app/0")
+	got, latest, err := getSecretRemoteConsumer(ctx, st, uri, "remote-app/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, consumer)
 	c.Assert(latest, gc.Equals, 1)
@@ -2392,17 +2392,17 @@ func (s *stateSuite) TestAllSecretRemoteConsumers(c *gc.C) {
 	consumer := &coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
 	}
-	err = st.saveSecretRemoteConsumerForTest(ctx, uri, "remote-app/0", consumer)
+	err = saveSecretRemoteConsumer(ctx, st, uri, "remote-app/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 	consumer = &coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 668,
 	}
-	err = st.saveSecretRemoteConsumerForTest(ctx, uri2, "remote-app/1", consumer)
+	err = saveSecretRemoteConsumer(ctx, st, uri2, "remote-app/1", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 	consumer = &coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 667,
 	}
-	err = st.saveSecretRemoteConsumerForTest(ctx, uri, "remote-app/1", consumer)
+	err = saveSecretRemoteConsumer(ctx, st, uri, "remote-app/1", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.AllSecretRemoteConsumers(ctx)
@@ -2441,18 +2441,18 @@ func (s *stateSuite) TestSaveSecretRemoteConsumerMarksObsolete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	sp.Label = ptr("")
 	sp.RevisionID = ptr(uuid.MustNewUUID().String())
-	err = st.updateSecretForTest(ctx, uri, sp)
+	err = updateSecret(ctx, st, uri, sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consumer := &coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 1,
 	}
 
-	err = st.saveSecretRemoteConsumerForTest(ctx, uri, "remote-app/0", consumer)
+	err = saveSecretRemoteConsumer(ctx, st, uri, "remote-app/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consumer.CurrentRevision = 2
-	err = st.saveSecretRemoteConsumerForTest(ctx, uri, "remote-app/0", consumer)
+	err = saveSecretRemoteConsumer(ctx, st, uri, "remote-app/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Revision 1 is obsolete.
@@ -2475,7 +2475,7 @@ func (s *stateSuite) TestSaveSecretRemoteConsumerSecretNotExists(c *gc.C) {
 		CurrentRevision: 666,
 	}
 
-	err := st.saveSecretConsumerForTest(ctx, uri, "remote-app/0", consumer)
+	err := saveSecretConsumer(ctx, st, uri, "remote-app/0", consumer)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
 }
 
@@ -2495,7 +2495,7 @@ func (s *stateSuite) TestGetSecretRemoteConsumerFirstTime(c *gc.C) {
 	err := st.CreateUserSecret(ctx, 1, uri, sp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, latest, err := st.getSecretRemoteConsumerForTest(ctx, uri, "remote-app/0")
+	_, latest, err := getSecretRemoteConsumer(ctx, st, uri, "remote-app/0")
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretConsumerNotFound)
 	c.Assert(latest, gc.Equals, 1)
 }
@@ -2505,7 +2505,7 @@ func (s *stateSuite) TestGetSecretRemoteConsumerSecretNotExists(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 
-	_, _, err := st.getSecretRemoteConsumerForTest(context.Background(), uri, "remite-app/0")
+	_, _, err := getSecretRemoteConsumer(context.Background(), st, uri, "remite-app/0")
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
 }
 
@@ -3220,7 +3220,7 @@ func (s *stateSuite) TestListGrantedSecrets(c *gc.C) {
 	uri3 := coresecrets.NewURI()
 	err = st.CreateUserSecret(ctx, 1, uri3, sp3)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.updateSecretForTest(ctx, uri3, domainsecret.UpsertSecretParams{
+	err = updateSecret(ctx, st, uri3, domainsecret.UpsertSecretParams{
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 		ValueRef: &coresecrets.ValueRef{
 			BackendID:  "backend-id2",
@@ -3331,7 +3331,7 @@ func updateSecretContent(c *gc.C, st *State, uri *coresecrets.URI) {
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
 	}
-	err := st.updateSecretForTest(context.Background(), uri, sp)
+	err := updateSecret(context.Background(), st, uri, sp)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3536,13 +3536,13 @@ func (s *stateSuite) TestDeleteObsoleteUserSecretRevisions(c *gc.C) {
 		Data: coresecrets.SecretData{"foo-new": "bar-new"},
 	}
 	sp.RevisionID = ptr(uuid.MustNewUUID().String())
-	err = st.updateSecretForTest(context.Background(), uriUser1, sp)
+	err = updateSecret(context.Background(), st, uriUser1, sp)
 	c.Assert(err, jc.ErrorIsNil)
 	sp.RevisionID = ptr(uuid.MustNewUUID().String())
-	err = st.updateSecretForTest(context.Background(), uriUser2, sp)
+	err = updateSecret(context.Background(), st, uriUser2, sp)
 	c.Assert(err, jc.ErrorIsNil)
 	sp.RevisionID = ptr(uuid.MustNewUUID().String())
-	err = st.updateSecretForTest(context.Background(), uriCharm, sp)
+	err = updateSecret(context.Background(), st, uriCharm, sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedToBeDeleted := []string{
@@ -3603,13 +3603,13 @@ func (s *stateSuite) TestDeleteSomeRevisions(c *gc.C) {
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo": "bar2"},
 	}
-	err = st.updateSecretForTest(ctx, uri, sp2)
+	err = updateSecret(ctx, st, uri, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 	sp3 := domainsecret.UpsertSecretParams{
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo": "bar3"},
 	}
-	err = st.updateSecretForTest(ctx, uri, sp3)
+	err = updateSecret(ctx, st, uri, sp3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedToBeDeleted := []string{
@@ -3659,21 +3659,21 @@ func (s *stateSuite) assertDeleteAllRevisions(c *gc.C, revs []int) {
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo": "bar2"},
 	}
-	err = st.updateSecretForTest(ctx, uri, sp2)
+	err = updateSecret(ctx, st, uri, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 	sp3 := domainsecret.UpsertSecretParams{
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo": "bar3"},
 	}
-	err = st.updateSecretForTest(ctx, uri, sp3)
+	err = updateSecret(ctx, st, uri, sp3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consumer := &coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
 	}
-	err = st.saveSecretConsumerForTest(ctx, uri, "mysql/0", consumer)
+	err = saveSecretConsumer(ctx, st, uri, "mysql/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.saveSecretRemoteConsumerForTest(ctx, uri, "remote-app/0", consumer)
+	err = saveSecretRemoteConsumer(ctx, st, uri, "remote-app/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
@@ -3700,7 +3700,7 @@ func (s *stateSuite) assertDeleteAllRevisions(c *gc.C, revs []int) {
 	}
 	_, err = st.GetSecret(ctx, uri)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
-	_, _, err = st.getSecretConsumerForTest(ctx, uri, "someunit/0")
+	_, _, err = getSecretConsumer(ctx, st, uri, "someunit/0")
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
 
 	_, err = st.GetSecret(ctx, uri2)
@@ -3756,7 +3756,7 @@ func (s *stateSuite) prepareWatchForConsumedSecrets(c *gc.C, ctx context.Context
 		consumer := &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		err := st.saveSecretConsumerForTest(ctx, uri, consumerID, consumer)
+		err := saveSecretConsumer(ctx, st, uri, consumerID, consumer)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -3821,7 +3821,7 @@ func (s *stateSuite) prepareWatchForRemoteConsumedSecrets(c *gc.C, ctx context.C
 		consumer := &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		err := st.saveSecretConsumerForTest(ctx, uri, consumerID, consumer)
+		err := saveSecretConsumer(ctx, st, uri, consumerID, consumer)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -3879,7 +3879,7 @@ func (s *stateSuite) prepareWatchForRemoteConsumedSecretsChangesFromOfferingSide
 		consumer := &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		err := st.saveSecretRemoteConsumerForTest(ctx, uri, consumerID, consumer)
+		err := saveSecretRemoteConsumer(ctx, st, uri, consumerID, consumer)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -3961,9 +3961,9 @@ func (s *stateSuite) prepareWatchForWatchStatementForSecretsRotationChanges(c *g
 	updateSecretContent(c, st, uri2)
 
 	now := time.Now()
-	err = st.secretRotatedForTest(ctx, uri1, now.Add(1*time.Hour))
+	err = secretRotated(ctx, st, uri1, now.Add(1*time.Hour))
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.secretRotatedForTest(ctx, uri2, now.Add(2*time.Hour))
+	err = secretRotated(ctx, st, uri2, now.Add(2*time.Hour))
 	c.Assert(err, jc.ErrorIsNil)
 
 	return now, uri1, uri2
@@ -4117,7 +4117,7 @@ func (s *stateSuite) prepareWatchForWatchStatementForSecretsRevisionExpiryChange
 		Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.updateSecretForTest(context.Background(), uri2, domainsecret.UpsertSecretParams{
+	err = updateSecret(context.Background(), st, uri2, domainsecret.UpsertSecretParams{
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
 		ExpireTime: ptr(now.Add(2 * time.Hour)),
@@ -4283,7 +4283,7 @@ func (s *stateSuite) TestSecretRotated(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	next := time.Now().Add(1 * time.Hour)
-	err = st.secretRotatedForTest(ctx, uri, next)
+	err = secretRotated(ctx, st, uri, next)
 	c.Assert(err, jc.ErrorIsNil)
 
 	row := s.DB().QueryRowContext(context.Background(), `
@@ -4318,7 +4318,7 @@ func (s *stateSuite) TestGetObsoleteUserSecretRevisionsReadyToPrune(c *gc.C) {
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
 	}
-	err = st.updateSecretForTest(context.Background(), uri, sp)
+	err = updateSecret(context.Background(), st, uri, sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = st.GetObsoleteUserSecretRevisionsReadyToPrune(ctx)
@@ -4329,7 +4329,7 @@ func (s *stateSuite) TestGetObsoleteUserSecretRevisionsReadyToPrune(c *gc.C) {
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 		AutoPrune:  ptr(true),
 	}
-	err = st.updateSecretForTest(context.Background(), uri, sp)
+	err = updateSecret(context.Background(), st, uri, sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = st.GetObsoleteUserSecretRevisionsReadyToPrune(ctx)
