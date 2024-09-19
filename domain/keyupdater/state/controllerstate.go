@@ -107,7 +107,7 @@ WHERE uuid = $modelUUIDValue.model_uuid
 	}
 
 	stmt, err := s.Prepare(`
-SELECT (public_key) AS (&authorizedKey.*)
+SELECT &authorizedKey.*
 FROM v_model_authorized_keys
 WHERE model_uuid = $modelUUIDValue.model_uuid
 `, modelUUIDVal, authorizedKey{})

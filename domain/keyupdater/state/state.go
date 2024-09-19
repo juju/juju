@@ -39,7 +39,7 @@ func (s *State) CheckMachineExists(
 
 	machineArg := machineName{name.String()}
 	machineStmt, err := s.Prepare(`
-SELECT name AS &machineName.*
+SELECT &machineName.*
 FROM machine
 WHERE name = $machineName.name
 `, machineArg)
@@ -71,7 +71,7 @@ WHERE name = $machineName.name
 	return nil
 }
 
-// GetModelUUID returns the unique id for the model represented by this state.
+// GetModelUUID returns the uuid for the model represented by this state.
 func (s *State) GetModelUUID(ctx context.Context) (model.UUID, error) {
 	db, err := s.DB()
 	if err != nil {

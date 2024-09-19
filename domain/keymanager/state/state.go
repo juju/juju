@@ -140,7 +140,7 @@ WHERE s.algorithm = $userPublicKeyInsert.algorithm
 	}
 
 	selectExistingIdStmt, err := s.Prepare(`
-SELECT (id) AS (&userPublicKeyId.*)
+SELECT &userPublicKeyId.id
 FROM user_public_ssh_key
 WHERE user_uuid = $userPublicKeyInsert.user_uuid
 AND public_key = $userPublicKeyInsert.public_key
@@ -324,7 +324,7 @@ ON CONFLICT DO NOTHING
 		err := s.checkUserExists(ctx, userUUID, tx)
 		if err != nil {
 			return errors.Errorf(
-				"ensuring public keys for user %q to model %q: %w",
+				"ensuring public keys for user %q on model %q: %w",
 				userUUID, modelUUID, err,
 			)
 		}
@@ -332,7 +332,7 @@ ON CONFLICT DO NOTHING
 		err = s.checkModelExists(ctx, modelUUID, tx)
 		if err != nil {
 			return errors.Errorf(
-				"ensuring public keys for user %q to model %q: %w",
+				"ensuring public keys for user %q on model %q: %w",
 				userUUID, modelUUID, err,
 			)
 		}
@@ -401,7 +401,7 @@ func (s *State) GetPublicKeysForUser(
 	userUUIDVal := userUUIDValue{UUID: userUUID.String()}
 
 	stmt, err := s.Prepare(`
-SELECT (upsk.public_key, upsk.fingerprint) AS (&publicKey.*)
+SELECT &publicKey.*
 FROM user_public_ssh_key AS upsk
 INNER JOIN model_authorized_keys AS m ON upsk.user_public_ssh_key_id = m.user_public_ssh_key_id
 WHERE user_uuid = $userUUIDValue.user_uuid
@@ -475,7 +475,7 @@ func (s *State) GetPublicKeysDataForUser(
 	modelUUIDVal := modelUUIDValue{modelUUID.String()}
 
 	stmt, err := s.Prepare(`
-SELECT (public_key) AS (&publicKeyData.*)
+SELECT &publicKeyData.public_key
 FROM user_public_ssh_key AS upsk
 INNER JOIN model_authorized_keys AS m ON upsk.id = m.user_public_ssh_key_id
 WHERE user_uuid = $userUUIDValue.user_uuid
@@ -554,7 +554,7 @@ func (s *State) DeletePublicKeysForUser(
 	}
 
 	findKeysStmt, err := s.Prepare(`
-SELECT (id) AS (&userPublicKeyId.*)
+SELECT &userPublicKeyId.*
 FROM user_public_ssh_key
 WHERE user_uuid = $userUUIDValue.user_uuid
 AND (comment IN ($S[:])
