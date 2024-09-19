@@ -47,7 +47,7 @@ func (s *provisionerSuite) TestNew(c *gc.C) {
 	caller := s.setupCaller(ctrl)
 	client := provisioner.NewClient(caller)
 	c.Assert(client.APIAddresser, gc.NotNil)
-	c.Assert(client.ModelWatcher, gc.NotNil)
+	c.Assert(client.ModelConfigWatcher, gc.NotNil)
 	c.Assert(client.ControllerConfigAPI, gc.NotNil)
 }
 

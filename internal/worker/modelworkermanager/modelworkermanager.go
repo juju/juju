@@ -130,7 +130,7 @@ func (config Config) Validate() error {
 		return errors.NotValidf("empty MachineID")
 	}
 	if config.ModelWatcher == nil {
-		return errors.NotValidf("nil ModelWatcher")
+		return errors.NotValidf("nil ModelConfigWatcher")
 	}
 	if config.ModelMetrics == nil {
 		return errors.NotValidf("nil ModelMetrics")

@@ -36,7 +36,7 @@ const uniterFacade = "Uniter"
 
 // Client provides access to the Uniter API facade.
 type Client struct {
-	*common.ModelWatcher
+	*common.ModelConfigWatcher
 	*common.APIAddresser
 	*common.UnitStateAPI
 	*StorageAccessor
@@ -59,12 +59,12 @@ func NewClient(
 		options...,
 	)
 	client := &Client{
-		ModelWatcher:    common.NewModelWatcher(facadeCaller),
-		APIAddresser:    common.NewAPIAddresser(facadeCaller),
-		UnitStateAPI:    common.NewUniterStateAPI(facadeCaller, authTag),
-		StorageAccessor: NewStorageAccessor(facadeCaller),
-		facade:          facadeCaller,
-		unitTag:         authTag,
+		ModelConfigWatcher: common.NewModelConfigWatcher(facadeCaller),
+		APIAddresser:       common.NewAPIAddresser(facadeCaller),
+		UnitStateAPI:       common.NewUniterStateAPI(facadeCaller, authTag),
+		StorageAccessor:    NewStorageAccessor(facadeCaller),
+		facade:             facadeCaller,
+		unitTag:            authTag,
 	}
 
 	newWatcher := func(result params.NotifyWatchResult) watcher.NotifyWatcher {

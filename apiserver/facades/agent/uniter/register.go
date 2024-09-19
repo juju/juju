@@ -136,7 +136,7 @@ func newUniterAPIWithServices(
 	return &UniterAPI{
 		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrApplication),
 		APIAddresser:               common.NewAPIAddresser(systemState, resources),
-		ModelWatcher:               common.NewModelWatcher(modelConfigService, context.WatcherRegistry()),
+		ModelConfigWatcher:         common.NewModelConfigWatcher(modelConfigService, context.WatcherRegistry()),
 		RebootRequester:            common.NewRebootRequester(machineService, accessMachine),
 		UnitStateAPI:               common.NewExternalUnitStateAPI(controllerConfigService, st, resources, authorizer, accessUnit, logger),
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),

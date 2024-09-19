@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/bootstrap"
@@ -26,7 +25,6 @@ import (
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type modelWatcherSuite struct {
@@ -69,7 +67,7 @@ func (s *modelWatcherSuite) TestWatchSuccess(c *gc.C) {
 	})
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
-	facade := common.NewModelWatcher(s.modelConfigService, s.watcherRegistry)
+	facade := common.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.WatchForModelConfigChanges(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "1", Error: nil})
@@ -94,7 +92,7 @@ func (s *modelWatcherSuite) TestWatchFailure(c *gc.C) {
 		return w, nil
 	})
 
-	facade := common.NewModelWatcher(s.modelConfigService, s.watcherRegistry)
+	facade := common.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.WatchForModelConfigChanges(context.Background())
 	c.Assert(err, gc.ErrorMatches, "bad watcher")
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
@@ -107,7 +105,7 @@ func (s *modelWatcherSuite) TestModelConfigSuccess(c *gc.C) {
 	testingModelConfig := testingEnvConfig(c)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(testingModelConfig, nil)
 
-	facade := common.NewModelWatcher(s.modelConfigService, s.watcherRegistry)
+	facade := common.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	// Make sure we can read the secret attribute (i.e. it's not masked).
@@ -121,69 +119,10 @@ func (s *modelWatcherSuite) TestModelConfigFetchError(c *gc.C) {
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(nil, fmt.Errorf("nope"))
 
-	facade := common.NewModelWatcher(s.modelConfigService, s.watcherRegistry)
+	facade := common.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.ModelConfig(context.Background())
 	c.Assert(err, gc.ErrorMatches, "nope")
 	c.Check(result.Config, gc.IsNil)
-}
-
-type mongoModelWatcherSuite struct {
-	testing.BaseSuite
-}
-
-var _ = gc.Suite(&mongoModelWatcherSuite{})
-
-type fakeModelAccessor struct {
-	modelConfig      *config.Config
-	modelConfigError error
-}
-
-func (*fakeModelAccessor) WatchForModelConfigChanges() state.NotifyWatcher {
-	return apiservertesting.NewFakeNotifyWatcher()
-}
-
-func (f *fakeModelAccessor) ModelConfig(ctx context.Context) (*config.Config, error) {
-	if f.modelConfigError != nil {
-		return nil, f.modelConfigError
-	}
-	return f.modelConfig, nil
-}
-
-func (s *mongoModelWatcherSuite) TestWatchSuccess(c *gc.C) {
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-	e := common.NewMongoModelWatcher(
-		&fakeModelAccessor{},
-		resources,
-	)
-	result, err := e.WatchForModelConfigChanges(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "1", Error: nil})
-	c.Assert(resources.Count(), gc.Equals, 1)
-}
-
-func (*mongoModelWatcherSuite) TestModelConfigSuccess(c *gc.C) {
-	testingModelConfig := testingEnvConfig(c)
-	e := common.NewMongoModelWatcher(
-		&fakeModelAccessor{modelConfig: testingModelConfig},
-		nil,
-	)
-	result, err := e.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	// Make sure we can read the secret attribute (i.e. it's not masked).
-	c.Check(result.Config["secret"], gc.Equals, "pork")
-	c.Check(map[string]any(result.Config), jc.DeepEquals, testingModelConfig.AllAttrs())
-}
-
-func (*mongoModelWatcherSuite) TestModelConfigFetchError(c *gc.C) {
-	e := common.NewMongoModelWatcher(
-		&fakeModelAccessor{
-			modelConfigError: fmt.Errorf("pow"),
-		},
-		nil,
-	)
-	_, err := e.ModelConfig(context.Background())
-	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
 func testingEnvConfig(c *gc.C) *config.Config {
