@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
@@ -322,14 +321,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	// "Added '<model>' model [on <cloud>/<region>] [with credential '<credential>'] for user '<user namePart>'"
 	ctx.Infof(messageFormat, messageArgs...)
 
-	if _, ok := attrs[config.AuthorizedKeysKey]; !ok {
-		// It is not an error to have no authorized-keys when adding a
-		// model, though this should never happen since we generate
-		// juju-specific SSH keys.
-		ctx.Infof(`
-No SSH authorized-keys were found. You must use "juju add-ssh-key"
-before "juju ssh", "juju scp", or "juju debug-hooks" will work.`)
-	}
+	ctx.Infof("To use \"juju ssh\", \"juju scp\" and \"juju debug-hooks\" ssh public keys need to be added to the model with \"juju add-ssh-key\"")
 
 	return nil
 }
