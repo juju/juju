@@ -13,6 +13,31 @@ run_api_imports() {
 	done
 }
 
+run_domain_imports() {
+	dirs=$(find ./domain -mindepth 1 -maxdepth 3 -type d | grep -E "/service$|/state$" | awk '{split($0,a,"/"); print "./"a[2]"/"a[3]}' | sort -u)
+	for dir in $dirs; do
+		if [[ ! -d $dir ]]; then
+			continue
+		fi
+
+		echo "Checking $dir"
+
+		if [[ -d "$dir/service" ]]; then
+			# Serice domain packages should not import state domain packages.
+			got=$(go run ./scripts/import-inspector "$dir/service" 2>/dev/null | jq -r ".[]")
+			disallowed="github.com/juju/juju/${dir#*/}/state"
+			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${got}" || (echo "Error: domain service import failure in $dir" && exit 1)
+		fi
+
+		if [[ -d "$dir/state" ]]; then
+			# State domain packages should not import service domain packages.
+			got=$(go run ./scripts/import-inspector "$dir/state" 2>/dev/null | jq -r ".[]")
+			disallowed="github.com/juju/juju/${dir#*/}/service"
+			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${got}" || (echo "Error: domain state import failure in $dir" && exit 1)
+		fi
+	done
+}
+
 run_go() {
 	VER=$(golangci-lint --version | tr -s ' ' | cut -d ' ' -f 4 | cut -d '.' -f 1,2)
 	if [[ ${VER} != "1.60" ]] && [[ ${VER} != "v1.60" ]]; then
@@ -78,7 +103,9 @@ test_static_analysis_go() {
 
 		cd .. || exit
 
-		run_linter "run_api_imports"
+		run "run_api_imports"
+		run "run_domain_imports"
+
 		run_linter "run_go"
 		run_linter "run_go_tidy"
 		run_linter "run_go_fanout"
