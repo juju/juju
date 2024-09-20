@@ -24,5 +24,5 @@ type KeyUpdaterService interface {
 	// WatchAuthorisedKeysForMachine will watch for authorised key changes for a
 	// give machine name. The following errors can be expected:
 	// - [github.com/juju/errors.NotValid] if the machine id is not valid.
-	WatchAuthorisedKeysForMachine(context.Context, coremachine.Name) (watcher.StringsWatcher, error)
+	WatchAuthorisedKeysForMachine(context.Context, coremachine.Name) (watcher.NotifyWatcher, error)
 }

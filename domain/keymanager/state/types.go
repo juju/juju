@@ -3,6 +3,8 @@
 
 package state
 
+import "database/sql/driver"
+
 // userPublicKeyInsert describes the data input needed for inserting new public
 // keys for a user.
 type userPublicKeyInsert struct {
@@ -10,7 +12,7 @@ type userPublicKeyInsert struct {
 	FingerprintHashAlgorithm string `db:"algorithm"`
 	Fingerprint              string `db:"fingerprint"`
 	PublicKey                string `db:"public_key"`
-	UserId                   string `db:"user_id"`
+	UserId                   string `db:"user_uuid"`
 }
 
 // publicKey represents a single row from the user public key table.
@@ -25,7 +27,33 @@ type publicKeyData struct {
 	PublicKey string `db:"public_key"`
 }
 
-// userId represents a user id for associating public keys with.
-type userId struct {
-	UserId string `db:"user_id"`
+// userPublicKeyId represents a single raw user public key id from the database.
+type userPublicKeyId struct {
+	Id int64 `db:"id"`
+}
+
+// userPublicKeyIds represents an aggregate slice of [userPublicKeyId] for
+// performing bulk in operations.
+type userPublicKeyIds []userPublicKeyId
+
+// userUUIDValue represents a user id for associating public keys with.
+type userUUIDValue struct {
+	UUID string `db:"user_uuid"`
+}
+
+// modelUUIDValue represents a model id for associating public keys with.
+type modelUUIDValue struct {
+	UUID string `db:"model_uuid"`
+}
+
+// modelAuthorizedKey represents a single row from the model_authorized_keys
+// table.
+type modelAuthorizedKey struct {
+	UserPublicSSHKeyId int64  `db:"user_public_ssh_key_id"`
+	ModelUUID          string `db:"model_uuid"`
+}
+
+// Value returns the user id implementing the [driver.Valuer] interface.
+func (u userPublicKeyId) Value() (driver.Value, error) {
+	return u.Id, nil
 }

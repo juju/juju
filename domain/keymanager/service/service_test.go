@@ -13,12 +13,15 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/keymanager"
 	keyserrors "github.com/juju/juju/domain/keymanager/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/ssh"
 	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
 )
@@ -30,6 +33,7 @@ type serviceSuite struct {
 	state       *MockState
 	userID      user.UUID
 	subjectURI  *url.URL
+	modelId     model.UUID
 }
 
 var (
@@ -72,6 +76,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	uri, err := url.Parse("gh:tlm")
 	c.Check(err, jc.ErrorIsNil)
 	s.subjectURI = uri
+	s.modelId = modeltesting.GenModelUUID(c)
 }
 
 // TestAddKeysForInvalidUser is asserting that if we pass in an invalid user id
@@ -79,7 +84,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 func (s *serviceSuite) TestAddKeysForInvalidUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewService(s.state).
+	err := NewService(s.modelId, s.state).
 		AddPublicKeysForUser(context.Background(), user.UUID("notvalid"), "key")
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
@@ -102,12 +107,39 @@ func (s *serviceSuite) TestAddKeysForNonExistentUser(c *gc.C) {
 	}
 
 	s.state.EXPECT().AddPublicKeysForUser(
-		gomock.Any(), s.userID, expectedKeys,
+		gomock.Any(), s.modelId, s.userID, expectedKeys,
 	).Return(accesserrors.UserNotFound)
 
-	svc := NewService(s.state)
+	svc := NewService(s.modelId, s.state)
 	err = svc.AddPublicKeysForUser(context.Background(), s.userID, testingPublicKeys[0])
 	c.Check(err, jc.ErrorIs, accesserrors.UserNotFound)
+}
+
+// TestAddKeysForNonExistentModel is testing that if we add keys for a model
+// that doesn't exist we get back a [modelerrors.NotFound] error.
+func (s *serviceSuite) TestAddKeysForNonExistentModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	badModelId := modeltesting.GenModelUUID(c)
+
+	keyInfo, err := ssh.ParsePublicKey(testingPublicKeys[0])
+	c.Assert(err, jc.ErrorIsNil)
+	expectedKeys := []keymanager.PublicKey{
+		{
+			Comment:         keyInfo.Comment,
+			FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+			Fingerprint:     keyInfo.Fingerprint(),
+			Key:             testingPublicKeys[0],
+		},
+	}
+
+	s.state.EXPECT().AddPublicKeysForUser(
+		gomock.Any(), badModelId, s.userID, expectedKeys,
+	).Return(modelerrors.NotFound)
+
+	svc := NewService(badModelId, s.state)
+	err = svc.AddPublicKeysForUser(context.Background(), s.userID, testingPublicKeys[0])
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
 // TestAddInvalidPublicKeys is testing that if we try and add one or more keys
@@ -116,7 +148,7 @@ func (s *serviceSuite) TestAddKeysForNonExistentUser(c *gc.C) {
 func (s *serviceSuite) TestAddInvalidPublicKeys(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := NewService(s.state)
+	svc := NewService(s.modelId, s.state)
 
 	err := svc.AddPublicKeysForUser(context.Background(), s.userID, "notvalid")
 	c.Check(err, jc.ErrorIs, keyserrors.InvalidPublicKey)
@@ -143,7 +175,7 @@ func (s *serviceSuite) TestAddInvalidPublicKeys(c *gc.C) {
 func (s *serviceSuite) TestAddReservedPublicKeys(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := NewService(s.state)
+	svc := NewService(s.modelId, s.state)
 
 	err := svc.AddPublicKeysForUser(context.Background(), s.userID, reservedPublicKeys...)
 	c.Check(err, jc.ErrorIs, keyserrors.ReservedCommentViolation)
@@ -163,7 +195,7 @@ func (s *serviceSuite) TestAddReservedPublicKeys(c *gc.C) {
 func (s *serviceSuite) TestAddExistingKeysForUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := NewService(s.state)
+	svc := NewService(s.modelId, s.state)
 
 	keyInfo1, err := ssh.ParsePublicKey(existingUserPublicKeys[1])
 	c.Assert(err, jc.ErrorIsNil)
@@ -179,7 +211,7 @@ func (s *serviceSuite) TestAddExistingKeysForUser(c *gc.C) {
 	}
 
 	s.state.EXPECT().AddPublicKeysForUser(
-		gomock.Any(), s.userID, expectedKeys,
+		gomock.Any(), s.modelId, s.userID, expectedKeys,
 	).Return(keyserrors.PublicKeyAlreadyExists)
 
 	err = svc.AddPublicKeysForUser(
@@ -206,6 +238,7 @@ func (s *serviceSuite) TestAddExistingKeysForUser(c *gc.C) {
 
 	s.state.EXPECT().AddPublicKeysForUser(
 		gomock.Any(),
+		s.modelId,
 		s.userID,
 		expectedKeys,
 	).Return(keyserrors.PublicKeyAlreadyExists)
@@ -237,11 +270,12 @@ func (s *serviceSuite) TestAddKeysForUser(c *gc.C) {
 
 	s.state.EXPECT().AddPublicKeysForUser(
 		gomock.Any(),
+		s.modelId,
 		s.userID,
 		expectedKeys,
 	).Return(nil)
 
-	svc := NewService(s.state)
+	svc := NewService(s.modelId, s.state)
 
 	err := svc.AddPublicKeysForUser(context.Background(), s.userID, testingPublicKeys...)
 	c.Check(err, jc.ErrorIsNil)
@@ -252,7 +286,7 @@ func (s *serviceSuite) TestAddKeysForUser(c *gc.C) {
 func (s *serviceSuite) TestListKeysForInvalidUserId(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := NewService(s.state)
+	svc := NewService(s.modelId, s.state)
 
 	_, err := svc.ListPublicKeysForUser(context.Background(), user.UUID("not-valid"))
 	c.Check(err, jc.ErrorIs, errors.NotValid)
@@ -264,9 +298,9 @@ func (s *serviceSuite) TestListKeysForInvalidUserId(c *gc.C) {
 func (s *serviceSuite) TestListKeysForNonExistentUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetPublicKeysForUser(gomock.Any(), s.userID).
+	s.state.EXPECT().GetPublicKeysForUser(gomock.Any(), s.modelId, s.userID).
 		Return(nil, accesserrors.UserNotFound).AnyTimes()
-	svc := NewService(s.state)
+	svc := NewService(s.modelId, s.state)
 
 	_, err := svc.ListPublicKeysForUser(context.Background(), s.userID)
 	c.Check(err, jc.ErrorIs, accesserrors.UserNotFound)
@@ -285,9 +319,9 @@ func (s *serviceSuite) TestListKeysForUser(c *gc.C) {
 		})
 	}
 
-	s.state.EXPECT().GetPublicKeysForUser(gomock.Any(), s.userID).
+	s.state.EXPECT().GetPublicKeysForUser(gomock.Any(), s.modelId, s.userID).
 		Return(publicKeys, nil)
-	svc := NewService(s.state)
+	svc := NewService(s.modelId, s.state)
 
 	keys, err := svc.ListPublicKeysForUser(context.Background(), s.userID)
 	c.Check(err, jc.ErrorIsNil)
@@ -299,7 +333,7 @@ func (s *serviceSuite) TestListKeysForUser(c *gc.C) {
 func (s *serviceSuite) TestDeleteKeysForInvalidUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewService(s.state).
+	err := NewService(s.modelId, s.state).
 		DeleteKeysForUser(context.Background(), user.UUID("notvalid"), "key")
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
@@ -312,11 +346,12 @@ func (s *serviceSuite) TestDeleteKeysForUserNotFound(c *gc.C) {
 
 	s.state.EXPECT().DeletePublicKeysForUser(
 		gomock.Any(),
+		s.modelId,
 		s.userID,
 		[]string{testingPublicKeys[0]},
 	).Return(accesserrors.UserNotFound)
 
-	err := NewService(s.state).
+	err := NewService(s.modelId, s.state).
 		DeleteKeysForUser(context.Background(), s.userID, testingPublicKeys[0])
 	c.Check(err, jc.ErrorIs, accesserrors.UserNotFound)
 }
@@ -330,10 +365,10 @@ func (s *serviceSuite) TestDeleteKeysForUserWithFingerprint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.state.EXPECT().DeletePublicKeysForUser(
-		gomock.Any(), s.userID, []string{key.Fingerprint()},
+		gomock.Any(), s.modelId, s.userID, []string{key.Fingerprint()},
 	).Return(nil)
 
-	err = NewService(s.state).
+	err = NewService(s.modelId, s.state).
 		DeleteKeysForUser(context.Background(), s.userID, key.Fingerprint())
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -348,11 +383,12 @@ func (s *serviceSuite) TestDeleteKeysForUserWithComment(c *gc.C) {
 
 	s.state.EXPECT().DeletePublicKeysForUser(
 		gomock.Any(),
+		s.modelId,
 		s.userID,
 		[]string{key.Comment},
 	).Return(nil)
 
-	err = NewService(s.state).
+	err = NewService(s.modelId, s.state).
 		DeleteKeysForUser(context.Background(), s.userID, key.Comment)
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -364,11 +400,12 @@ func (s *serviceSuite) TestDeleteKeysForUserData(c *gc.C) {
 
 	s.state.EXPECT().DeletePublicKeysForUser(
 		gomock.Any(),
+		s.modelId,
 		s.userID,
 		[]string{existingUserPublicKeys[0]},
 	).Return(nil)
 
-	err := NewService(s.state).
+	err := NewService(s.modelId, s.state).
 		DeleteKeysForUser(context.Background(), s.userID, existingUserPublicKeys[0])
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -384,11 +421,12 @@ func (s *serviceSuite) TestDeleteKeysForUserCombination(c *gc.C) {
 
 	s.state.EXPECT().DeletePublicKeysForUser(
 		gomock.Any(),
+		s.modelId,
 		s.userID,
 		[]string{key.Comment, existingUserPublicKeys[1]},
 	).Return(nil)
 
-	err = NewService(s.state).
+	err = NewService(s.modelId, s.state).
 		DeleteKeysForUser(
 			context.Background(),
 			s.userID,
@@ -408,7 +446,7 @@ func (s *serviceSuite) TestImportKeysForUnknownSource(c *gc.C) {
 		s.subjectURI,
 	).Return(nil, importererrors.NoResolver)
 
-	err := NewImporterService(s.keyImporter, s.state).
+	err := NewImporterService(s.modelId, s.keyImporter, s.state).
 		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
 	c.Check(err, jc.ErrorIs, keyserrors.UnknownImportSource)
 }
@@ -424,7 +462,7 @@ func (s *serviceSuite) TestImportKeysForUnknownSubject(c *gc.C) {
 		s.subjectURI,
 	).Return(nil, importererrors.SubjectNotFound)
 
-	err := NewImporterService(s.keyImporter, s.state).
+	err := NewImporterService(s.modelId, s.keyImporter, s.state).
 		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
 	c.Check(err, jc.ErrorIs, keyserrors.ImportSubjectNotFound)
 }
@@ -439,7 +477,7 @@ func (s *serviceSuite) TestImportKeysInvalidPublicKeys(c *gc.C) {
 		s.subjectURI,
 	).Return([]string{"bad"}, nil)
 
-	err := NewImporterService(s.keyImporter, s.state).
+	err := NewImporterService(s.modelId, s.keyImporter, s.state).
 		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
 	c.Check(err, jc.ErrorIs, keyserrors.InvalidPublicKey)
 }
@@ -455,7 +493,7 @@ func (s *serviceSuite) TestImportKeysWithReservedComment(c *gc.C) {
 		s.subjectURI,
 	).Return(reservedPublicKeys, nil)
 
-	err := NewImporterService(s.keyImporter, s.state).
+	err := NewImporterService(s.modelId, s.keyImporter, s.state).
 		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
 	c.Check(err, jc.ErrorIs, keyserrors.ReservedCommentViolation)
 }
@@ -482,13 +520,14 @@ func (s *serviceSuite) TestImportPublicKeysForUser(c *gc.C) {
 		})
 	}
 
-	s.state.EXPECT().AddPublicKeyForUserIfNotFound(
+	s.state.EXPECT().EnsurePublicKeysForUser(
 		gomock.Any(),
+		s.modelId,
 		s.userID,
 		expectedKeys,
 	).Return(nil)
 
-	err := NewImporterService(s.keyImporter, s.state).
+	err := NewImporterService(s.modelId, s.keyImporter, s.state).
 		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
 	c.Check(err, jc.ErrorIsNil)
 }

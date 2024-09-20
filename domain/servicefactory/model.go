@@ -152,7 +152,8 @@ func (s *ModelFactory) Application(params applicationservice.ApplicationServiceP
 // when wanting to modify a user's public ssh keys within a model.
 func (s *ModelFactory) KeyManager() *keymanagerservice.Service {
 	return keymanagerservice.NewService(
-		keymanagerstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.modelUUID,
+		keymanagerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }
 
@@ -163,6 +164,7 @@ func (s *ModelFactory) KeyManagerWithImporter(
 	importer keymanagerservice.PublicKeyImporter,
 ) *keymanagerservice.ImporterService {
 	return keymanagerservice.NewImporterService(
+		s.modelUUID,
 		importer,
 		keymanagerstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
@@ -171,13 +173,14 @@ func (s *ModelFactory) KeyManagerWithImporter(
 // KeyUpdater returns the model's key updater service. Use this service when
 // wanting to retrieve the authorised ssh public keys for a model.
 func (s *ModelFactory) KeyUpdater() *keyupdaterservice.WatchableService {
-	// The keyupdater service requires information from both the model and
-	// controller databases. We supply the controller DB dependency via a
-	// provider service to abstract the source of the information.
+	controllerState := keyupdaterstate.NewControllerState(
+		changestream.NewTxnRunnerFactory(s.controllerDB),
+	)
 	return keyupdaterservice.NewWatchableService(
 		keyupdaterservice.NewControllerKeyService(
-			keyupdaterstate.NewControllerKeyState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+			controllerState,
 		),
+		controllerState,
 		keyupdaterstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		domain.NewWatcherFactory(s.modelDB, s.logger.Child("keyupdater")),
 	)

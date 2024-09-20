@@ -19,6 +19,8 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	usererrors "github.com/juju/juju/domain/access/errors"
+	"github.com/juju/juju/domain/keymanager"
+	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -739,6 +741,105 @@ func (s *userStateSuite) TestRemoveUser(c *gc.C) {
 
 	// Check that the user password was removed
 	row := db.QueryRow(`
+SELECT user_uuid
+FROM user_password
+WHERE user_uuid = ?
+	`, userToRemoveUUID)
+	// ErrNoRows is not returned by row.Err, it is deferred until row.Scan
+	// is called.
+	c.Assert(row.Scan(nil), jc.ErrorIs, sql.ErrNoRows)
+
+	// Check that the user activation key was removed
+	row = db.QueryRow(`
+SELECT user_uuid
+FROM user_activation_key
+WHERE user_uuid = ?
+	`, userToRemoveUUID)
+	// ErrNoRows is not returned by row.Err, it is deferred until row.Scan
+	// is called.
+	c.Assert(row.Scan(nil), jc.ErrorIs, sql.ErrNoRows)
+
+	// Check that the user was marked as removed.
+	row = db.QueryRow(`
+SELECT removed
+FROM user
+WHERE uuid = ?
+	`, userToRemoveUUID)
+	c.Assert(row.Err(), jc.ErrorIsNil)
+	var removed bool
+	err = row.Scan(&removed)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(removed, gc.Equals, true)
+
+}
+
+// TestRemoveUserSSHKeys is here to test that when we remove a user from the
+// Juju database we delete all ssh keys for the user.
+func (s *userStateSuite) TestRemoveUserSSHKeys(c *gc.C) {
+	st := NewUserState(s.TxnRunnerFactory())
+
+	// Add admin user.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	adminName := usertesting.GenNewName(c, "admin")
+	err = st.AddUser(
+		context.Background(), adminUUID,
+		adminName, "admin",
+		false,
+		adminUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add userToRemove.
+	userToRemoveUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	userToRemoveName := usertesting.GenNewName(c, "userToRemove")
+	err = st.AddUser(
+		context.Background(), userToRemoveUUID,
+		userToRemoveName, "userToRemove",
+		false,
+		adminUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelId := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model")
+
+	// Add a public key onto a model for the user.
+	km := keymanagerstate.NewState(s.TxnRunnerFactory())
+	err = km.AddPublicKeysForUser(context.Background(), modelId, userToRemoveUUID, []keymanager.PublicKey{
+		{
+			Comment:         "test",
+			FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+			Fingerprint:     "something",
+			Key:             "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR juju2@example.com",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Remove userToRemove.
+	err = st.RemoveUser(context.Background(), userToRemoveName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the user has been successfully removed.
+	db := s.DB()
+
+	row := db.QueryRow(`
+SELECT model_uuid
+FROM model_authorized_keys
+`)
+	c.Assert(row.Scan(nil), jc.ErrorIs, sql.ErrNoRows)
+
+	row = db.QueryRow(`
+SELECT id
+FROM user_public_ssh_key
+WHERE user_uuid = ?
+`, userToRemoveUUID)
+	c.Assert(row.Scan(nil), jc.ErrorIs, sql.ErrNoRows)
+
+	// Check that the user password was removed
+	row = db.QueryRow(`
 SELECT user_uuid
 FROM user_password
 WHERE user_uuid = ?

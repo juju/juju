@@ -30,6 +30,8 @@ import (
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
+	"github.com/juju/juju/domain/keymanager"
+	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -727,9 +729,29 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 // TestDeleteModel tests that we can delete a model that is already created in
 // the system. We also confirm that list models returns no models after the
 // deletion.
+//
+// This test is also confirming cleaning up of other resources related to the
+// model. Specifically:
+// - Authorized keys onto the model.
 func (m *stateSuite) TestDeleteModel(c *gc.C) {
+	keyManagerState := keymanagerstate.NewState(m.TxnRunnerFactory())
+	err := keyManagerState.AddPublicKeysForUser(
+		context.Background(),
+		m.uuid,
+		m.userUUID,
+		[]keymanager.PublicKey{
+			{
+				Comment:         "juju2@example.com",
+				FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+				Fingerprint:     "SHA256:+xUEnDVz0S//+1etL4rHjyopargd+HV78r0iRyx0cYw",
+				Key:             "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR juju2@example.com",
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	modelSt := NewState(m.TxnRunnerFactory())
-	err := modelSt.Delete(
+	err = modelSt.Delete(
 		context.Background(),
 		m.uuid,
 	)
@@ -754,6 +776,17 @@ func (m *stateSuite) TestDeleteModel(c *gc.C) {
 	modelUUIDS, err := modelSt.ListModelIDs(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(modelUUIDS, gc.HasLen, 0)
+
+	db := m.DB()
+
+	row := db.QueryRow(`
+SELECT model_uuid
+FROM model_authorized_keys
+WHERE model_uuid = ?
+	`, m.uuid)
+	// ErrNoRows is not returned by row.Err, it is deferred until row.Scan
+	// is called.
+	c.Assert(row.Scan(nil), jc.ErrorIs, sql.ErrNoRows)
 }
 
 func (m *stateSuite) TestDeleteModelNotFound(c *gc.C) {

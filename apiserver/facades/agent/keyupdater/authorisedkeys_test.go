@@ -86,19 +86,19 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 	defer close(done)
 	wg := sync.WaitGroup{}
 	defer wg.Wait()
-	ch := make(chan []string)
-	w := watchertest.NewMockStringsWatcher(ch)
+	ch := make(chan struct{})
+	w := watchertest.NewMockNotifyWatcher(ch)
 
 	s.keyUpdaterService.EXPECT().WatchAuthorisedKeysForMachine(
 		gomock.Any(),
 		coremachine.Name("0"),
-	).DoAndReturn(func(_ context.Context, _ coremachine.Name) (watcher.Watcher[[]string], error) {
+	).DoAndReturn(func(_ context.Context, _ coremachine.Name) (watcher.Watcher[struct{}], error) {
 		wg.Add(1)
 		time.AfterFunc(testing.ShortWait, func() {
 			defer wg.Done()
 			// Send initial event.
 			select {
-			case ch <- []string{}:
+			case ch <- struct{}{}:
 			case <-done:
 				c.ExpectFailure("watcher did not fire")
 			}

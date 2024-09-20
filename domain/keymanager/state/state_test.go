@@ -10,18 +10,25 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/keymanager"
 	keyerrors "github.com/juju/juju/domain/keymanager/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	modelstate "github.com/juju/juju/domain/model/state"
+	statemodeltesting "github.com/juju/juju/domain/model/state/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/ssh"
 )
 
 type stateSuite struct {
-	schematesting.ModelSuite
+	schematesting.ControllerSuite
 
-	userId user.UUID
+	userId  user.UUID
+	modelId model.UUID
 }
 
 var _ = gc.Suite(&stateSuite{})
@@ -57,153 +64,171 @@ func generatePublicKeys(c *gc.C, publicKeys []string) []keymanager.PublicKey {
 }
 
 func (s *stateSuite) SetUpTest(c *gc.C) {
-	s.ModelSuite.SetUpTest(c)
-	s.userId = usertesting.GenUserUUID(c)
+	s.ControllerSuite.SetUpTest(c)
+
+	s.modelId = statemodeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "keys")
+
+	model, err := modelstate.NewState(s.TxnRunnerFactory()).GetModel(
+		context.Background(), s.modelId,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.userId = model.Owner
 }
 
 // TestAddPublicKeyForUser is asserting the happy path of adding a public key
-// for a user.
+// for a user. Specifically we want to see that inserting the same key across
+// multiple models doesn't result in constraint violations for the users public
+// ssh keys.
 func (s *stateSuite) TestAddPublicKeyForUser(c *gc.C) {
 	state := NewState(s.TxnRunnerFactory())
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
-	err := state.AddPublicKeysForUser(context.Background(), s.userId, keysToAdd)
+	err := state.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
 	c.Check(err, jc.ErrorIsNil)
 
-	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
 	c.Assert(err, jc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
-	c.Check(testingPublicKeys, jc.DeepEquals, keys)
-}
+	c.Check(keys, jc.DeepEquals, testingPublicKeys)
 
-// TestAddPublicKeyForUserIfNotFound is asserting the happy path for adding a
-// public key for a user.
-func (s *stateSuite) TestAddPublicKeyForUserIfNotFound(c *gc.C) {
-	state := NewState(s.TxnRunnerFactory())
-	keysToAdd := generatePublicKeys(c, testingPublicKeys)
+	// Create a second model to add keys onto
+	modelId := statemodeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "second-model")
 
-	err := state.AddPublicKeyForUserIfNotFound(context.Background(), s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
-
-	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
+	// Confirm that the users public ssh keys don't show up on the second model
+	// yet
+	keys, err = state.GetPublicKeysDataForUser(context.Background(), modelId, s.userId)
 	c.Assert(err, jc.ErrorIsNil)
-	slices.Sort(keys)
-	slices.Sort(testingPublicKeys)
-	c.Check(testingPublicKeys, jc.DeepEquals, keys)
-}
-
-// TestAddExistingPublicKey is asserting that if we try and add a public key
-// that already exists for the same user we get back a error that satisfies.
-func (s *stateSuite) TestAddExistingPublicKey(c *gc.C) {
-	state := NewState(s.TxnRunnerFactory())
-	keysToAdd := generatePublicKeys(c, testingPublicKeys)
-
-	err := state.AddPublicKeysForUser(context.Background(), s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
-
-	err = state.AddPublicKeysForUser(context.Background(), s.userId, keysToAdd[:1])
-	c.Check(err, jc.ErrorIs, keyerrors.PublicKeyAlreadyExists)
-
-	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
-	c.Assert(err, jc.ErrorIsNil)
-	slices.Sort(keys)
-	slices.Sort(testingPublicKeys)
-	c.Check(testingPublicKeys, jc.DeepEquals, keys)
-}
-
-// TestAddExistingPublicKeyIfNotFound is asserting that we call
-// [State.AddPublicKeyForUserIfNotFound] with an already existing public key
-// that no operation takes place and no error is returned.
-func (s *stateSuite) TestAddExistingPublicKeyIfNotFound(c *gc.C) {
-	state := NewState(s.TxnRunnerFactory())
-	keysToAdd := generatePublicKeys(c, testingPublicKeys)
-
-	err := state.AddPublicKeysForUser(context.Background(), s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
-
-	err = state.AddPublicKeyForUserIfNotFound(context.Background(), s.userId, keysToAdd[:1])
-	c.Check(err, jc.ErrorIsNil)
-
-	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
-	c.Assert(err, jc.ErrorIsNil)
-	slices.Sort(keys)
-	slices.Sort(testingPublicKeys)
-	c.Check(testingPublicKeys, jc.DeepEquals, keys)
-}
-
-// TestAddExistingPublicKeyDifferentUser is asserting that different users can
-// have the same key registered with no resultant errors.
-func (s *stateSuite) TestAddExistingPublicKeyDifferentUser(c *gc.C) {
-	state := NewState(s.TxnRunnerFactory())
-	keysToAdd := generatePublicKeys(c, testingPublicKeys)
-
-	err := state.AddPublicKeysForUser(context.Background(), s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIsNil)
-
-	altUser := usertesting.GenUserUUID(c)
-	err = state.AddPublicKeysForUser(context.Background(), altUser, keysToAdd[:1])
-	c.Check(err, jc.ErrorIsNil)
-}
-
-// TestAddExistingKeySameFingerprint is a special test to assert the DDL for
-// user public keys. Theorectically it is possible to store the same key for a
-// user twice if the key data has a 1 byte difference. For example adding an
-// extra space or somment character. With this test we want to make sure that
-// even with different key data but the same fingerprint we get back a
-// [keyerrors.PublicKeyAlreadyExists] error.
-//
-// This is a very contrived situation but it is worth checking.
-func (s *stateSuite) TestAddExistingKeySameFingerprint(c *gc.C) {
-	state := NewState(s.TxnRunnerFactory())
-	publicKeys := []string{
-		testingPublicKeys[0],
-		testingPublicKeys[0],
-	}
-	keysToAdd := generatePublicKeys(c, publicKeys)
-	keysToAdd[1].Key = "different key data but same fingerprint"
-
-	err := state.AddPublicKeysForUser(context.Background(), s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIs, keyerrors.PublicKeyAlreadyExists)
-}
-
-// TestAddExistingKeyDifferentFingerprint is another test to make sure that we
-// can not add the same public key again for a user where small change could be
-// observed. In this test we are changing the fingerprints of two identical keys
-// to make sure that the unqiue index throws an error based on the key data it
-// self being the same data.
-//
-// This is a very contrived situation but it is worth checking.
-func (s *stateSuite) TestAddExistingKeyDifferentFingerprint(c *gc.C) {
-	state := NewState(s.TxnRunnerFactory())
-	publicKeys := []string{
-		testingPublicKeys[0],
-		testingPublicKeys[0],
-	}
-	keysToAdd := generatePublicKeys(c, publicKeys)
-	keysToAdd[1].Fingerprint = "different fingerprint"
-
-	err := state.AddPublicKeysForUser(context.Background(), s.userId, keysToAdd)
-	c.Check(err, jc.ErrorIs, keyerrors.PublicKeyAlreadyExists)
-}
-
-// TestGetPublicKeysForUserNoExist is asserting that if we ask for public keys
-// for a user that doesn't exist no error is returned.
-func (s *stateSuite) TestGetPublicKeysForUserNoExist(c *gc.C) {
-	userId := usertesting.GenUserUUID(c)
-	state := NewState(s.TxnRunnerFactory())
-	keys, err := state.GetPublicKeysForUser(context.Background(), userId)
-	c.Check(err, jc.ErrorIsNil)
 	c.Check(len(keys), gc.Equals, 0)
+
+	// Add the users keys onto the second model. We want to see here that this
+	// is a successful operation with no errors.
+	err = state.AddPublicKeysForUser(context.Background(), modelId, s.userId, keysToAdd)
+	c.Check(err, jc.ErrorIsNil)
+
+	// Confirm the keys exists on the second model
+	keys, err = state.GetPublicKeysDataForUser(context.Background(), modelId, s.userId)
+	c.Assert(err, jc.ErrorIsNil)
+	slices.Sort(keys)
+	slices.Sort(testingPublicKeys)
+	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+}
+
+// TestAddPublicKeysForUserAlreadyExists is asserting that if we try and add the
+// same public key for a user more then once to a model we get back an error
+// that satisfies [keyerrors.PublicKeyAlreadyExists].
+func (s *stateSuite) TestAddPublicKeyForUserAlreadyExists(c *gc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	keysToAdd := generatePublicKeys(c, testingPublicKeys)
+
+	err := state.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
+	c.Check(err, jc.ErrorIsNil)
+
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
+	c.Assert(err, jc.ErrorIsNil)
+	slices.Sort(keys)
+	slices.Sort(testingPublicKeys)
+	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+
+	// Add the users keys onto the second model. We want to see here that this
+	// is a successful operation with no errors.
+	err = state.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
+	c.Check(err, jc.ErrorIs, keyerrors.PublicKeyAlreadyExists)
+
+	// Confirm the key still exists on the model
+	keys, err = state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
+	c.Assert(err, jc.ErrorIsNil)
+	slices.Sort(keys)
+	slices.Sort(testingPublicKeys)
+	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+}
+
+// TestAddPublicKeyForUserNotFound is asserting that if we attempt to add a
+// public key to a model for a user that doesn't exist we get back a
+// [accesserrors.UserNotFound] error.
+func (s *stateSuite) TestAddPublicKeyForUserNotFound(c *gc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	keysToAdd := generatePublicKeys(c, testingPublicKeys)
+
+	badUserId := usertesting.GenUserUUID(c)
+
+	err := state.AddPublicKeysForUser(context.Background(), s.modelId, badUserId, keysToAdd)
+	c.Check(err, jc.ErrorIs, accesserrors.UserNotFound)
+}
+
+// TestAddPublicKeyForUserOnNotFoundModel is asserting that if we attempt to add
+// a public key for a user on a model that does not exist we get back a
+// [modelerrors.NotFound] error.
+func (s *stateSuite) TestAddPublicKeyForUserOnNotFoundModel(c *gc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	keysToAdd := generatePublicKeys(c, testingPublicKeys)
+
+	badModelId := modeltesting.GenModelUUID(c)
+
+	err := state.AddPublicKeysForUser(context.Background(), badModelId, s.userId, keysToAdd)
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestEnsurePublicKeysForUser is asserting the happy path of
+// [State.EnsurePublicKeysForUser].
+func (s *stateSuite) TestEnsurePublicKeysForUser(c *gc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	keysToAdd := generatePublicKeys(c, testingPublicKeys)
+
+	err := state.EnsurePublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
+	c.Check(err, jc.ErrorIsNil)
+
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
+	c.Assert(err, jc.ErrorIsNil)
+	slices.Sort(keys)
+	slices.Sort(testingPublicKeys)
+	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+
+	// Run all of the operations again and confirm that there exists no errors.
+	err = state.EnsurePublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
+	c.Check(err, jc.ErrorIsNil)
+
+	keys, err = state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
+	c.Assert(err, jc.ErrorIsNil)
+	slices.Sort(keys)
+	slices.Sort(testingPublicKeys)
+	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+}
+
+// TestEnsurePublicKeyForUserNotFound is asserting that if we attempt to add a
+// public key to a model for a user that doesn't exist we get back a
+// [accesserrors.UserNotFound] error.
+func (s *stateSuite) TestEnsurePublicKeyForUserNotFound(c *gc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	keysToAdd := generatePublicKeys(c, testingPublicKeys)
+
+	badUserId := usertesting.GenUserUUID(c)
+
+	err := state.EnsurePublicKeysForUser(context.Background(), s.modelId, badUserId, keysToAdd)
+	c.Check(err, jc.ErrorIs, accesserrors.UserNotFound)
+}
+
+// TestEnsurePublicKeyForUserOnNotFoundModel is asserting that if we attempt to
+// add a public key for a user on a model that does not exist we get back a
+// [modelerrors.NotFound] error.
+func (s *stateSuite) TestEnsurePublicKeyForUserOnNotFoundModel(c *gc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	keysToAdd := generatePublicKeys(c, testingPublicKeys)
+
+	badModelId := modeltesting.GenModelUUID(c)
+
+	err := state.EnsurePublicKeysForUser(context.Background(), badModelId, s.userId, keysToAdd)
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
 // TestDeletePublicKeysForNonExistentUser is asserting that if we try and
-// delete public keys for a user that doesn't exist we get back no error.
+// delete public keys for a user that doesn't exist we get an
+// [accesserrors.UserNotFound] error
 func (s *stateSuite) TestDeletePublicKeysForNonExistentUser(c *gc.C) {
 	userId := usertesting.GenUserUUID(c)
 	state := NewState(s.TxnRunnerFactory())
-	err := state.DeletePublicKeysForUser(context.Background(), userId, []string{"comment"})
-	c.Check(err, jc.ErrorIsNil)
+	err := state.DeletePublicKeysForUser(context.Background(), s.modelId, userId, []string{"comment"})
+	c.Check(err, jc.ErrorIs, accesserrors.UserNotFound)
 }
 
 // TestDeletePublicKeysForComment is testing that we can remove a users public
@@ -212,15 +237,15 @@ func (s *stateSuite) TestDeletePublicKeysForComment(c *gc.C) {
 	state := NewState(s.TxnRunnerFactory())
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
-	err := state.AddPublicKeysForUser(context.Background(), s.userId, keysToAdd)
+	err := state.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
 	c.Check(err, jc.ErrorIsNil)
 
-	err = state.DeletePublicKeysForUser(context.Background(), s.userId, []string{
+	err = state.DeletePublicKeysForUser(context.Background(), s.modelId, s.userId, []string{
 		keysToAdd[0].Comment,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
 	c.Assert(err, jc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
@@ -233,15 +258,15 @@ func (s *stateSuite) TestDeletePublicKeysForFingerprint(c *gc.C) {
 	state := NewState(s.TxnRunnerFactory())
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
-	err := state.AddPublicKeysForUser(context.Background(), s.userId, keysToAdd)
+	err := state.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
 	c.Check(err, jc.ErrorIsNil)
 
-	err = state.DeletePublicKeysForUser(context.Background(), s.userId, []string{
+	err = state.DeletePublicKeysForUser(context.Background(), s.modelId, s.userId, []string{
 		keysToAdd[0].Fingerprint,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
 	c.Assert(err, jc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
@@ -254,15 +279,15 @@ func (s *stateSuite) TestDeletePublicKeysForKeyData(c *gc.C) {
 	state := NewState(s.TxnRunnerFactory())
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
-	err := state.AddPublicKeysForUser(context.Background(), s.userId, keysToAdd)
+	err := state.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
 	c.Check(err, jc.ErrorIsNil)
 
-	err = state.DeletePublicKeysForUser(context.Background(), s.userId, []string{
+	err = state.DeletePublicKeysForUser(context.Background(), s.modelId, s.userId, []string{
 		keysToAdd[0].Key,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
 	c.Assert(err, jc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
@@ -275,16 +300,16 @@ func (s *stateSuite) TestDeletePublicKeysForCombination(c *gc.C) {
 	state := NewState(s.TxnRunnerFactory())
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
-	err := state.AddPublicKeysForUser(context.Background(), s.userId, keysToAdd)
+	err := state.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
 	c.Check(err, jc.ErrorIsNil)
 
-	err = state.DeletePublicKeysForUser(context.Background(), s.userId, []string{
+	err = state.DeletePublicKeysForUser(context.Background(), s.modelId, s.userId, []string{
 		keysToAdd[0].Comment,
 		keysToAdd[1].Fingerprint,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
 	c.Assert(err, jc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
@@ -298,18 +323,34 @@ func (s *stateSuite) TestDeleteSamePublicKeyByTwoMethods(c *gc.C) {
 	state := NewState(s.TxnRunnerFactory())
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
-	err := state.AddPublicKeysForUser(context.Background(), s.userId, keysToAdd)
+	err := state.AddPublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
 	c.Check(err, jc.ErrorIsNil)
 
-	err = state.DeletePublicKeysForUser(context.Background(), s.userId, []string{
+	err = state.DeletePublicKeysForUser(context.Background(), s.modelId, s.userId, []string{
 		keysToAdd[0].Comment,
 		keysToAdd[0].Fingerprint,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
 	c.Assert(err, jc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
 	c.Check(testingPublicKeys[1:], jc.DeepEquals, keys)
+}
+
+// TestDeletePublicKeysForNonExistentModel is asserting the if we try and delete
+// user keys off of a model that doesn't exist we get back a
+// [modelerrors.NotFound] error.
+func (s *stateSuite) TestDeletePublicKeysForNonExistentModel(c *gc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	keysToAdd := generatePublicKeys(c, testingPublicKeys)
+
+	badModelId := modeltesting.GenModelUUID(c)
+
+	err := state.DeletePublicKeysForUser(context.Background(), badModelId, s.userId, []string{
+		keysToAdd[0].Comment,
+		keysToAdd[0].Fingerprint,
+	})
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
