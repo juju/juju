@@ -89,12 +89,6 @@ type UserState interface {
 	// an error that satisfies accesserrors.UserNotFound will be returned.
 	GetUserByAuth(context.Context, user.Name, auth.Password) (user.User, error)
 
-	// GetUsernamesForIds is responsible for returning all of the usernames
-	// associated with a set of user id's. If one or more of the user ids
-	// doesn't exist the first not found user will be reported back as a
-	// [accesserrors.UserNotFound] error.
-	GetUsernamesForIds(context.Context, []user.UUID) (map[user.UUID]user.Name, error)
-
 	// RemoveUser marks the user as removed. This obviates the ability of a user
 	// to function, but keeps the user retaining provenance, i.e. auditing.
 	// RemoveUser will also remove any credentials and activation codes for the

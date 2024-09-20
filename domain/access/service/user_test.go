@@ -616,66 +616,6 @@ func (s *userServiceSuite) TestLastModelLoginBadUsername(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
 }
 
-// TestGetUsernamesForIds is asserting the happy path for
-// [UserService.GetUsernamesForIds] in that if we supply several valid user id's
-// we get back the correct corresponding user names.
-func (s *userServiceSuite) TestGetUsernamesForIds(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	userId1 := coreusertesting.GenUserUUID(c)
-	userId2 := coreusertesting.GenUserUUID(c)
-	name1 := coreusertesting.GenNewName(c, "wallyworld")
-	name2 := coreusertesting.GenNewName(c, "tlm")
-
-	s.state.EXPECT().GetUsernamesForIds(gomock.Any(), []user.UUID{
-		userId1, userId2,
-	}).Return(map[user.UUID]user.Name{
-		userId1: name1,
-		userId2: name2,
-	}, nil)
-
-	mapping, err := NewService(s.state).GetUsernamesForIds(
-		context.Background(),
-		userId1, userId2,
-	)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(mapping, jc.DeepEquals, map[user.UUID]user.Name{
-		userId1: name1,
-		userId2: name2,
-	})
-}
-
-// TestGetUsernamesForIdsZero is asserting that if we don't supply any user ids
-// to [UserService.GetUsernamesForIds] we get back no errors and an empty map.
-func (s *userServiceSuite) TestGetUsernamesForIdsZero(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	mapping, err := NewService(s.state).GetUsernamesForIds(
-		context.Background(),
-	)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(len(mapping), gc.Equals, 0)
-}
-
-// TestGetUsernamesForIdsNotFound is asserting that if ask for a user id mapping
-// for an id that doesn't exist we get back an error that satisfies
-// [usererrors.NotFound].
-func (s *userServiceSuite) TestGetUsernamesForIdsNotFound(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	userId1 := coreusertesting.GenUserUUID(c)
-
-	s.state.EXPECT().GetUsernamesForIds(gomock.Any(), []user.UUID{
-		userId1,
-	}).Return(nil, usererrors.UserNotFound)
-
-	_, err := NewService(s.state).GetUsernamesForIds(
-		context.Background(),
-		userId1,
-	)
-	c.Check(err, jc.ErrorIs, usererrors.UserNotFound)
-}
-
 type stringerNotEmpty struct{}
 
 func (s stringerNotEmpty) Matches(arg any) bool {
