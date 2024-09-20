@@ -62,7 +62,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	return w, nil
 }
 
-// servicesWorker is a worker that holds a reference to a object store services.
+// servicesWorker is a worker that holds a reference to a object store getter.
 // This doesn't actually create them dynamically, it just hands them out
 // when asked.
 type servicesWorker struct {

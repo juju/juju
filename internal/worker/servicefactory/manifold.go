@@ -58,7 +58,7 @@ type ModelServiceFactoryFn func(
 	coremodel.UUID,
 	changestream.WatchableDBGetter,
 	providertracker.ProviderFactory,
-	objectstore.SingularObjectStoreGetter,
+	objectstore.ModelObjectStoreGetter,
 	logger.Logger,
 ) servicefactory.ModelServiceFactory
 
@@ -188,7 +188,7 @@ func NewProviderTrackerModelServiceFactory(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
 	providerFactory providertracker.ProviderFactory,
-	objectStore objectstore.SingularObjectStoreGetter,
+	objectStore objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
 ) servicefactory.ModelServiceFactory {
 	return domainservicefactory.NewModelFactory(
@@ -207,7 +207,7 @@ func NewProviderTrackerModelServiceFactory(
 func NewModelServiceFactory(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
-	objectStore objectstore.SingularObjectStoreGetter,
+	objectStore objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
 ) servicefactory.ModelServiceFactory {
 	return domainservicefactory.NewModelFactory(

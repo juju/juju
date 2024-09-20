@@ -18,7 +18,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package servicefactory -destination database_mock_test.go github.com/juju/juju/core/database DBDeleter
 //go:generate go run go.uber.org/mock/mockgen -typed -package servicefactory -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package servicefactory -destination providertracker_mock_test.go github.com/juju/juju/core/providertracker Provider,ProviderFactory
-//go:generate go run go.uber.org/mock/mockgen -typed -package servicefactory -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore,ObjectStoreGetter,SingularObjectStoreGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package servicefactory -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore,ObjectStoreGetter,ModelObjectStoreGetter
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -38,9 +38,9 @@ type baseSuite struct {
 	provider        *MockProvider
 	providerFactory *MockProviderFactory
 
-	objectStore               *MockObjectStore
-	objectStoreGetter         *MockObjectStoreGetter
-	singluarObjectStoreGetter *MockSingularObjectStoreGetter
+	objectStore            *MockObjectStore
+	objectStoreGetter      *MockObjectStoreGetter
+	modelObjectStoreGetter *MockModelObjectStoreGetter
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -59,7 +59,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.objectStore = NewMockObjectStore(ctrl)
 	s.objectStoreGetter = NewMockObjectStoreGetter(ctrl)
-	s.singluarObjectStoreGetter = NewMockSingularObjectStoreGetter(ctrl)
+	s.modelObjectStoreGetter = NewMockModelObjectStoreGetter(ctrl)
 
 	return ctrl
 }

@@ -177,7 +177,7 @@ func (s *manifoldSuite) TestNewModelServiceFactory(c *gc.C) {
 	factory := NewModelServiceFactory(
 		"model",
 		s.dbGetter,
-		s.singluarObjectStoreGetter,
+		s.modelObjectStoreGetter,
 		s.logger,
 	)
 	c.Assert(factory, gc.NotNil)
@@ -215,7 +215,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, logger.Logger) servicefactory.ControllerServiceFactory {
 			return nil
 		},
-		NewModelServiceFactory: func(u coremodel.UUID, wd changestream.WatchableDBGetter, pf providertracker.ProviderFactory, sosg objectstore.SingularObjectStoreGetter, l logger.Logger) servicefactory.ModelServiceFactory {
+		NewModelServiceFactory: func(u coremodel.UUID, wd changestream.WatchableDBGetter, pf providertracker.ProviderFactory, sosg objectstore.ModelObjectStoreGetter, l logger.Logger) servicefactory.ModelServiceFactory {
 			return nil
 		},
 	}

@@ -26,7 +26,7 @@ func NewServiceFactory(
 	modelDB changestream.WatchableDBFactory,
 	deleterDB database.DBDeleter,
 	providerTracker providertracker.ProviderFactory,
-	objectStore objectstore.SingularObjectStoreGetter,
+	objectStore objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
 ) *ServiceFactory {
 	controllerFactory := NewControllerFactory(controllerDB, deleterDB, logger)

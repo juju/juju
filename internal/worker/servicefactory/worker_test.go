@@ -77,7 +77,7 @@ func (s *workerSuite) getConfig() Config {
 		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, logger.Logger) servicefactory.ControllerServiceFactory {
 			return s.controllerServiceFactory
 		},
-		NewModelServiceFactory: func(coremodel.UUID, changestream.WatchableDBGetter, providertracker.ProviderFactory, objectstore.SingularObjectStoreGetter, logger.Logger) servicefactory.ModelServiceFactory {
+		NewModelServiceFactory: func(coremodel.UUID, changestream.WatchableDBGetter, providertracker.ProviderFactory, objectstore.ModelObjectStoreGetter, logger.Logger) servicefactory.ModelServiceFactory {
 			return s.modelServiceFactory
 		},
 	}

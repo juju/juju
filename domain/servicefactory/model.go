@@ -54,7 +54,7 @@ type ModelFactory struct {
 	modelUUID       model.UUID
 	modelDB         changestream.WatchableDBFactory
 	providerFactory providertracker.ProviderFactory
-	objectstore     objectstore.SingularObjectStoreGetter
+	objectstore     objectstore.ModelObjectStoreGetter
 }
 
 // NewModelFactory returns a new registry which uses the provided modelDB
@@ -64,7 +64,7 @@ func NewModelFactory(
 	controllerDB changestream.WatchableDBFactory,
 	modelDB changestream.WatchableDBFactory,
 	providerFactory providertracker.ProviderFactory,
-	objectStore objectstore.SingularObjectStoreGetter,
+	objectStore objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
 ) *ModelFactory {
 	return &ModelFactory{

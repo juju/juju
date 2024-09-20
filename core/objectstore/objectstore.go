@@ -73,10 +73,11 @@ type ObjectStoreGetter interface {
 	GetObjectStore(context.Context, string) (ObjectStore, error)
 }
 
-// SingularObjectStoreGetter is the interface that is used to get a singular
+// ModelObjectStoreGetter is the interface that is used to get a model
 // object store.
-type SingularObjectStoreGetter interface {
-	// GetObjectStore returns a object store for the given namespace.
+type ModelObjectStoreGetter interface {
+	// GetObjectStore returns an object store for the given namespace, usually
+	// a model UUID or the global controller namespace.
 	GetObjectStore(context.Context) (ObjectStore, error)
 }
 
