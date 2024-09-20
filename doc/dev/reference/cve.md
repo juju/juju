@@ -20,7 +20,7 @@ in [Privately reporting a security vulnerability - GitHub Docs](https://docs.git
 with the following mention about solutions QA:
 
 - If the timing is such that it doesn’t align with the normal release cadence, the private branch is created from the
-  latest release tag and the fix is added to that. Because there’s low risk of regression, he candidate does not go
+  latest release tag and the fix is added to that. Because there’s low risk of regression, the candidate does not go
   through the usual Solutions QA verification. CI tests plus manual verification are deemed sufficient for release.
 - If the timing is such that it aligns with the normal release cadence, the fix is released as part of the normal
   release process (aside from being built from a private branch) and goes through Solutions QA.
