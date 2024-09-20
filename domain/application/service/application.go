@@ -291,7 +291,7 @@ func (s *ApplicationService) CreateApplication(
 	for i, u := range units {
 		unitArgs[i], err = makeUpsertUnitArgs(u)
 		if err != nil {
-			return "", errors.Annotatef(err, "composing application %q unit", name)
+			return "", errors.Annotatef(err, "composing unit %q", name)
 		}
 	}
 
@@ -550,7 +550,7 @@ func (s *ApplicationService) RegisterCAASUnit(ctx context.Context, appName strin
 
 	unitArg, err := makeUpsertUnitArgs(p)
 	if err != nil {
-		return errors.Annotatef(err, "composing unit %q: %v", args.UnitName, err)
+		return errors.Annotatef(err, "composing unit %q", args.UnitName)
 	}
 	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		appID, err := s.st.GetApplicationID(ctx, appName)

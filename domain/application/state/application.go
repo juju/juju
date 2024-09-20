@@ -398,10 +398,6 @@ func (st *ApplicationState) getUnit(ctx context.Context, tx *sqlair.TX, unitName
 func (st *ApplicationState) InsertUnit(
 	ctx domain.AtomicContext, appID coreapplication.ID, args application.UpsertUnitArg,
 ) error {
-	// Should not happen, defensive check.
-	if args.UnitName == "" {
-		return errors.New("unit name must be provided inserting a unit")
-	}
 	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		_, err := st.getUnit(ctx, tx, args.UnitName)
 		if err == nil {
@@ -588,12 +584,10 @@ func (st *ApplicationState) upsertCloudContainerAddress(
 		DeviceTypeID:      int(address.Device.DeviceTypeID),
 		VirtualPortTypeID: int(address.Device.VirtualPortTypeID),
 	}
-	if cloudContainerDeviceInfo.Name == "" {
-		return fmt.Errorf("cloud container placeholder device must have a name supplied")
-	}
 
 	selectCloudContainerDeviceStmt, err := st.Prepare(`
-SELECT &cloudContainerDevice.uuid FROM link_layer_device
+SELECT &cloudContainerDevice.uuid
+FROM link_layer_device
 WHERE net_node_uuid = $cloudContainerDevice.net_node_uuid
 `, cloudContainerDeviceInfo)
 	if err != nil {
@@ -608,8 +602,10 @@ INSERT INTO link_layer_device (*) VALUES ($cloudContainerDevice.*)
 	}
 
 	// See if the link layer device exists, if not insert it.
-	var deviceID string
 	err = tx.Query(ctx, selectCloudContainerDeviceStmt, cloudContainerDeviceInfo).Get(&cloudContainerDeviceInfo)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Annotatef(err, "querying cloud container link layer device for unit %q", unitName)
+	}
 	if errors.Is(err, sqlair.ErrNoRows) {
 		deviceUUID, err := uuid.NewUUID()
 		if err != nil {
@@ -619,10 +615,8 @@ INSERT INTO link_layer_device (*) VALUES ($cloudContainerDevice.*)
 		if err := tx.Query(ctx, insertCloudContainerDeviceStmt, cloudContainerDeviceInfo).Run(); err != nil {
 			return errors.Annotatef(err, "inserting cloud container device for unit %q", unitName)
 		}
-	} else if err != nil {
-		return errors.Annotatef(err, "querying cloud container link layer device for unit %q", unitName)
 	}
-	deviceID = cloudContainerDeviceInfo.UUID
+	deviceUUID := cloudContainerDeviceInfo.UUID
 
 	// Now process the address details.
 	ipAddr := ipAddress{
@@ -631,7 +625,7 @@ INSERT INTO link_layer_device (*) VALUES ($cloudContainerDevice.*)
 		TypeID:       int(address.AddressType),
 		OriginID:     int(address.Origin),
 		ScopeID:      int(address.Scope),
-		DeviceID:     deviceID,
+		DeviceID:     deviceUUID,
 	}
 
 	selectAddressUUIDStmt, err := st.Prepare(`
@@ -661,12 +655,11 @@ ON CONFLICT(uuid) DO UPDATE SET
 	// First see if there's an existing address recorded.
 	err = tx.Query(ctx, selectAddressUUIDStmt, ipAddr).Get(&ipAddr)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return fmt.Errorf("querying existing cloud container address for device %q: %w", deviceID, err)
+		return fmt.Errorf("querying existing cloud container address for device %q: %w", deviceUUID, err)
 	}
 
 	// Create a UUID for new addresses.
-	newAddr := ipAddr.AddressUUID == ""
-	if newAddr {
+	if errors.Is(err, sqlair.ErrNoRows) {
 		addrUUID, err := uuid.NewUUID()
 		if err != nil {
 			return errors.Trace(err)
@@ -676,7 +669,7 @@ ON CONFLICT(uuid) DO UPDATE SET
 
 	// Update the address values.
 	if err = tx.Query(ctx, upsertAddressStmt, ipAddr).Run(); err != nil {
-		return fmt.Errorf("updating cloud container address attributes for device %q: %w", deviceID, err)
+		return fmt.Errorf("updating cloud container address attributes for device %q: %w", deviceUUID, err)
 	}
 	return nil
 }
@@ -784,8 +777,9 @@ func (st *ApplicationState) deleteUnit(ctx context.Context, tx *sqlair.TX, unitN
 	}
 
 	deleteNode := `
-DELETE FROM net_node WHERE uuid =
-(SELECT net_node_uuid FROM unit WHERE name = $coreUnit.name)
+DELETE FROM net_node WHERE uuid = (
+    SELECT net_node_uuid FROM unit WHERE name = $coreUnit.name
+)
 `
 	deleteNodeStmt, err := st.Prepare(deleteNode, unit)
 	if err != nil {
@@ -854,9 +848,10 @@ func (st *ApplicationState) deleteCloudContainerAddresses(ctx context.Context, t
 	}
 	deleteAddressStmt, err := st.Prepare(`
 DELETE FROM ip_address
-WHERE device_uuid IN
-(SELECT device_uuid FROM link_layer_device lld
-WHERE lld.net_node_uuid = $coreUnit.net_node_uuid)
+WHERE device_uuid IN (
+    SELECT device_uuid FROM link_layer_device lld
+    WHERE lld.net_node_uuid = $coreUnit.net_node_uuid
+)
 `, unit)
 	if err != nil {
 		return errors.Trace(err)
@@ -898,9 +893,10 @@ func (st *ApplicationState) deletePorts(ctx context.Context, tx *sqlair.TX, unit
 
 	deletePortRange := `
 DELETE FROM port_range
-WHERE unit_endpoint_uuid IN
-(SELECT uuid FROM unit_endpoint ue
-WHERE ue.unit_uuid = $coreUnit.uuid)
+WHERE unit_endpoint_uuid IN (
+    SELECT uuid FROM unit_endpoint ue
+    WHERE ue.unit_uuid = $coreUnit.uuid
+)
 `
 	deletePortRangeStmt, err := st.Prepare(deletePortRange, unit)
 	if err != nil {
