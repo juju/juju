@@ -1279,13 +1279,37 @@ FROM   secret_metadata sm
 // At least one owner must be specified.
 func (st State) ListCharmSecrets(ctx domain.AtomicContext,
 	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+) ([]*coresecrets.SecretMetadata, error) {
+	var secrets []*coresecrets.SecretMetadata
+	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		secrets, err = st.listCharmSecrets(ctx, tx, appOwners, unitOwners)
+		if err != nil {
+			return errors.Annotate(err, "querying charm secrets")
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return secrets, nil
+}
+
+// ListCharmSecretsWithRevisions returns charm secrets owned by the specified applications and/or units with its revisions.
+// At least one owner must be specified.
+func (st State) ListCharmSecretsWithRevisions(ctx context.Context,
+	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 ) ([]*coresecrets.SecretMetadata, [][]*coresecrets.SecretRevisionMetadata, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
 	var (
 		secrets        []*coresecrets.SecretMetadata
 		revisionResult [][]*coresecrets.SecretRevisionMetadata
 	)
-	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		secrets, err = st.listCharmSecrets(ctx, tx, appOwners, unitOwners)
 		if err != nil {
@@ -1303,7 +1327,6 @@ func (st State) ListCharmSecrets(ctx domain.AtomicContext,
 	}); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-
 	return secrets, revisionResult, nil
 }
 
@@ -1735,12 +1758,8 @@ WHERE  secret_id = $secretRevision.secret_id
 // given secret revision, returning an error satisfying
 // [secreterrors.SecretRevisionNotFound] if the secret revision does not exist.
 func (st State) GetSecretValue(
-	ctx context.Context, uri *coresecrets.URI, revision int) (coresecrets.SecretData, *coresecrets.ValueRef, error,
+	ctx domain.AtomicContext, uri *coresecrets.URI, revision int) (coresecrets.SecretData, *coresecrets.ValueRef, error,
 ) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
 	// We look for either content or a value reference, which ever is present.
 	contentQuery := `
 SELECT (*) AS (&secretContent.*)
@@ -1772,7 +1791,7 @@ AND    rev.revision = $secretRevision.revision`
 		dbSecretValues    secretValues
 		dbSecretValueRefs []secretValueRef
 	)
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, contentQueryStmt, want).GetAll(&dbSecretValues)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotatef(err, "retrieving secret value for %q revision %d", uri, revision)
@@ -2333,12 +2352,7 @@ FROM   secret_unit_consumer suc
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 // If an attempt is made to change an existing permission's scope or subject type, an error
 // satisfying [secreterrors.InvalidSecretPermissionChange] is returned.
-func (st State) GrantAccess(ctx context.Context, uri *coresecrets.URI, params domainsecret.GrantParams) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
+func (st State) GrantAccess(ctx domain.AtomicContext, uri *coresecrets.URI, params domainsecret.GrantParams) error {
 	checkInvariantQuery := `
 SELECT sp.secret_id AS &secretID.id
 FROM   secret_permission sp
@@ -2353,7 +2367,7 @@ AND    (sp.subject_type_id <> $secretPermission.subject_type_id
 		return errors.Trace(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		perm := secretPermission{
 			SecretID: uri.ID,
 			RoleID:   params.RoleID,
@@ -2516,12 +2530,7 @@ ON CONFLICT(secret_id, subject_uuid) DO UPDATE SET
 // RevokeAccess revokes access to the secret for the specified subject.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the
 // secret is not found.
-func (st State) RevokeAccess(ctx context.Context, uri *coresecrets.URI, params domainsecret.AccessParams) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
+func (st State) RevokeAccess(ctx domain.AtomicContext, uri *coresecrets.URI, params domainsecret.AccessParams) error {
 	deleteQuery := `
 DELETE FROM secret_permission
 WHERE  secret_id = $secretPermission.secret_id
@@ -2537,7 +2546,7 @@ AND    subject_uuid = $secretPermission.subject_uuid`
 		return errors.Trace(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
 			return errors.Trace(err)
 		} else if !isLocal {
@@ -2560,12 +2569,8 @@ AND    subject_uuid = $secretPermission.subject_uuid`
 // It returns an error satisfying [secreterrors.SecretNotFound]
 // if the secret is not found.
 func (st State) GetSecretAccess(
-	ctx context.Context, uri *coresecrets.URI, params domainsecret.AccessParams,
+	ctx domain.AtomicContext, uri *coresecrets.URI, params domainsecret.AccessParams,
 ) (string, error) {
-	db, err := st.DB()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
 	query := `
 SELECT sr.role AS &M.role
 FROM   v_secret_permission sp
@@ -2585,7 +2590,7 @@ AND    subject_id = $secretAccessor.subject_id`
 	}
 
 	var role string
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
 			return errors.Trace(err)
 		} else if !isLocal {
@@ -3678,7 +3683,7 @@ GROUP BY sro.secret_id`
 
 // ChangeSecretBackend changes the secret backend for the specified secret.
 func (st State) ChangeSecretBackend(
-	ctx context.Context, revisionID uuid.UUID,
+	ctx domain.AtomicContext, revisionID uuid.UUID,
 	valueRef *coresecrets.ValueRef, data coresecrets.SecretData,
 ) (err error) {
 	if valueRef != nil && len(data) > 0 {
@@ -3686,11 +3691,6 @@ func (st State) ChangeSecretBackend(
 	}
 	if valueRef == nil && len(data) == 0 {
 		return errors.New("either valueRef or data must be set")
-	}
-
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
 	}
 
 	input := revisionUUID{
@@ -3709,7 +3709,7 @@ WHERE revision_uuid = $revisionUUID.uuid`, input)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if valueRef != nil {
 			if err := st.upsertSecretValueRef(ctx, tx, input.UUID, valueRef); err != nil {
 				return errors.Trace(err)

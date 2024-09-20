@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/juju/errors"
@@ -194,7 +195,7 @@ func (s *stateSuite) TestGetRotationExpiryInfoNotFound(c *gc.C) {
 func (s *stateSuite) TestGetSecretRevisionNotFound(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	_, _, err := st.GetSecretValue(context.Background(), coresecrets.NewURI(), 666)
+	_, _, err := getSecretValue(context.Background(), st, coresecrets.NewURI(), 666)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretRevisionNotFound)
 }
 
@@ -312,7 +313,7 @@ func (s *stateSuite) TestCreateUserSecretWithContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	owner := coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: s.modelUUID}
 	s.assertSecret(c, st, uri, sp, 1, owner)
-	data, ref, err := st.GetSecretValue(ctx, uri, 1)
+	data, ref, err := getSecretValue(ctx, st, uri, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ref, gc.IsNil)
 	c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
@@ -321,7 +322,7 @@ func (s *stateSuite) TestCreateUserSecretWithContent(c *gc.C) {
 		SubjectTypeID: domainsecret.SubjectModel,
 		SubjectID:     s.modelUUID,
 	}
-	access, err := st.GetSecretAccess(ctx, uri, ap)
+	access, err := getSecretAccess(ctx, st, uri, ap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, "manage")
 }
@@ -347,7 +348,7 @@ func (s *stateSuite) TestCreateManyUserSecretsNoLabelClash(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		owner := coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: s.modelUUID}
 		s.assertSecret(c, st, uri, sp, 1, owner)
-		data, ref, err := st.GetSecretValue(ctx, uri, 1)
+		data, ref, err := getSecretValue(ctx, st, uri, 1)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ref, gc.IsNil)
 		c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": content})
@@ -375,7 +376,7 @@ func (s *stateSuite) TestCreateUserSecretWithValueReference(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	owner := coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: s.modelUUID}
 	s.assertSecret(c, st, uri, sp, 1, owner)
-	data, ref, err := st.GetSecretValue(ctx, uri, 1)
+	data, ref, err := getSecretValue(ctx, st, uri, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.HasLen, 0)
 	c.Assert(ref, jc.DeepEquals, &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"})
@@ -870,7 +871,7 @@ func (s *stateSuite) TestCreateCharmApplicationSecretWithContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	owner := coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"}
 	s.assertSecret(c, st, uri, sp, 1, owner)
-	data, ref, err := st.GetSecretValue(ctx, uri, 1)
+	data, ref, err := getSecretValue(ctx, st, uri, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ref, gc.IsNil)
 	c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
@@ -879,7 +880,7 @@ func (s *stateSuite) TestCreateCharmApplicationSecretWithContent(c *gc.C) {
 		SubjectID:     "mysql",
 		SubjectTypeID: domainsecret.SubjectApplication,
 	}
-	access, err := st.GetSecretAccess(ctx, uri, ap)
+	access, err := getSecretAccess(ctx, st, uri, ap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, "manage")
 }
@@ -933,7 +934,7 @@ func (s *stateSuite) TestCreateCharmUnitSecretWithContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	owner := coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"}
 	s.assertSecret(c, st, uri, sp, 1, owner)
-	data, ref, err := st.GetSecretValue(ctx, uri, 1)
+	data, ref, err := getSecretValue(ctx, st, uri, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ref, gc.IsNil)
 	c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
@@ -942,7 +943,7 @@ func (s *stateSuite) TestCreateCharmUnitSecretWithContent(c *gc.C) {
 		SubjectID:     "mysql/0",
 		SubjectTypeID: domainsecret.SubjectUnit,
 	}
-	access, err := st.GetSecretAccess(ctx, uri, ap)
+	access, err := getSecretAccess(ctx, st, uri, ap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, "manage")
 }
@@ -1064,7 +1065,7 @@ func (s *stateSuite) TestCreateManyApplicationSecretsNoLabelClash(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		owner := coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"}
 		s.assertSecret(c, st, uri, sp, 1, owner)
-		data, ref, err := st.GetSecretValue(ctx, uri, 1)
+		data, ref, err := getSecretValue(ctx, st, uri, 1)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ref, gc.IsNil)
 		c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": content})
@@ -1097,7 +1098,7 @@ func (s *stateSuite) TestCreateManyUnitSecretsNoLabelClash(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		owner := coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"}
 		s.assertSecret(c, st, uri, sp, 1, owner)
-		data, ref, err := st.GetSecretValue(ctx, uri, 1)
+		data, ref, err := getSecretValue(ctx, st, uri, 1)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ref, gc.IsNil)
 		c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": content})
@@ -1108,9 +1109,231 @@ func (s *stateSuite) TestCreateManyUnitSecretsNoLabelClash(c *gc.C) {
 	createAndCheck("another label")
 }
 
+func (s *stateSuite) TestListCharmSecretsWithRevisionsMissingOwners(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	_, _, err := st.ListCharmSecretsWithRevisions(context.Background(),
+		domainsecret.NilApplicationOwners, domainsecret.NilUnitOwners)
+	c.Assert(err, gc.ErrorMatches, "querying charm secrets: must supply at least one app owner or unit owner")
+}
+
+func (s *stateSuite) TestListCharmSecretsWithRevisionsByUnit(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := []domainsecret.UpsertSecretParams{{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar"},
+		Checksum:    "checksum-1234",
+		RevisionID:  ptr(uuid.MustNewUUID().String()),
+	}, {
+		Description: ptr("my secretMetadata2"),
+		Label:       ptr("my label2"),
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "revision-id",
+		},
+		Checksum:   "checksum-5678",
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+	}}
+	uri := []*coresecrets.URI{
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+	}
+
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri[0], sp[0])
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri[1], "mysql/0", sp[1])
+	c.Assert(err, jc.ErrorIsNil)
+
+	secrets, revisions, err := st.ListCharmSecretsWithRevisions(ctx,
+		domainsecret.NilApplicationOwners, domainsecret.UnitOwners{"mysql/0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(secrets), gc.Equals, 1)
+	c.Assert(len(revisions), gc.Equals, 1)
+
+	now := time.Now()
+
+	md := secrets[0]
+	c.Assert(md.Version, gc.Equals, 1)
+	c.Assert(md.LatestRevisionChecksum, gc.Equals, sp[1].Checksum)
+	c.Assert(md.Label, gc.Equals, value(sp[1].Label))
+	c.Assert(md.Description, gc.Equals, value(sp[1].Description))
+	c.Assert(md.LatestRevision, gc.Equals, 1)
+	c.Assert(md.AutoPrune, jc.IsFalse)
+	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"})
+	c.Assert(md.CreateTime, jc.Almost, now)
+	c.Assert(md.UpdateTime, jc.Almost, now)
+
+	revs := revisions[0]
+	c.Assert(revs, gc.HasLen, 1)
+	c.Assert(revs[0].Revision, gc.Equals, 1)
+	c.Assert(revs[0].ValueRef, jc.DeepEquals, &coresecrets.ValueRef{
+		BackendID:  "backend-id",
+		RevisionID: "revision-id",
+	})
+	c.Assert(revs[0].CreateTime, jc.Almost, now)
+}
+
+func (s *stateSuite) TestListCharmSecretsWithRevisionsByApplication(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := []domainsecret.UpsertSecretParams{{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar"},
+		AutoPrune:   ptr(true),
+		RevisionID:  ptr(uuid.MustNewUUID().String()),
+	}, {
+		Description: ptr("my secretMetadata2"),
+		Label:       ptr("my label2"),
+		Data:        coresecrets.SecretData{"foo": "bar2"},
+		RevisionID:  ptr(uuid.MustNewUUID().String()),
+	}}
+	uri := []*coresecrets.URI{
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+	}
+
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri[0], sp[0])
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri[1], "mysql", sp[1])
+	c.Assert(err, jc.ErrorIsNil)
+
+	secrets, revisions, err := st.ListCharmSecretsWithRevisions(ctx,
+		domainsecret.ApplicationOwners{"mysql"}, domainsecret.NilUnitOwners)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(secrets), gc.Equals, 1)
+	c.Assert(len(revisions), gc.Equals, 1)
+
+	now := time.Now()
+
+	md := secrets[0]
+	c.Assert(md.Version, gc.Equals, 1)
+	c.Assert(md.Label, gc.Equals, value(sp[1].Label))
+	c.Assert(md.Description, gc.Equals, value(sp[1].Description))
+	c.Assert(md.LatestRevision, gc.Equals, 1)
+	c.Assert(md.AutoPrune, jc.IsFalse)
+	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"})
+	c.Assert(md.CreateTime, jc.Almost, now)
+	c.Assert(md.UpdateTime, jc.Almost, now)
+
+	revs := revisions[0]
+	c.Assert(revs, gc.HasLen, 1)
+	c.Assert(revs[0].Revision, gc.Equals, 1)
+	c.Assert(revs[0].CreateTime, jc.Almost, now)
+}
+
+func (s *stateSuite) TestListCharmSecretsWithRevisionsApplicationOrUnit(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+	s.setupUnits(c, "postgresql")
+
+	expireTime := time.Now().Add(2 * time.Hour)
+	rotateTime := time.Now().Add(time.Hour)
+	sp := []domainsecret.UpsertSecretParams{{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar"},
+		AutoPrune:   ptr(true),
+		RevisionID:  ptr(uuid.MustNewUUID().String()),
+	}, {
+		Description:    ptr("my secretMetadata2"),
+		Label:          ptr("my label2"),
+		Data:           coresecrets.SecretData{"foo": "bar2"},
+		RotatePolicy:   ptr(domainsecret.RotateDaily),
+		ExpireTime:     ptr(expireTime),
+		NextRotateTime: ptr(rotateTime),
+		RevisionID:     ptr(uuid.MustNewUUID().String()),
+	}, {
+		Description: ptr("my secretMetadata3"),
+		Label:       ptr("my label3"),
+		Data:        coresecrets.SecretData{"foo": "bar3"},
+		RevisionID:  ptr(uuid.MustNewUUID().String()),
+	}, {
+		Description: ptr("my secretMetadata4"),
+		Label:       ptr("my label4"),
+		Data:        coresecrets.SecretData{"foo": "bar4"},
+		RevisionID:  ptr(uuid.MustNewUUID().String()),
+	}}
+	uri := []*coresecrets.URI{
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+	}
+
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri[0], sp[0])
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri[1], "mysql", sp[1])
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri[2], "mysql/0", sp[2])
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri[3], "postgresql/0", sp[3])
+	c.Assert(err, jc.ErrorIsNil)
+
+	secrets, revisions, err := st.ListCharmSecretsWithRevisions(ctx,
+		domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mysql/0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(secrets), gc.Equals, 2)
+	c.Assert(len(revisions), gc.Equals, 2)
+
+	now := time.Now()
+
+	first := 0
+	second := 1
+	if secrets[first].Label != value(sp[1].Label) {
+		first = 1
+		second = 0
+	}
+
+	md := secrets[first]
+	c.Assert(md.Version, gc.Equals, 1)
+	c.Assert(md.Label, gc.Equals, value(sp[1].Label))
+	c.Assert(md.Description, gc.Equals, value(sp[1].Description))
+	c.Assert(md.LatestRevision, gc.Equals, 1)
+	c.Assert(md.AutoPrune, jc.IsFalse)
+	c.Assert(md.RotatePolicy, gc.Equals, coresecrets.RotateDaily)
+	c.Assert(*md.NextRotateTime, gc.Equals, rotateTime.UTC())
+	c.Assert(*md.LatestExpireTime, gc.Equals, expireTime.UTC())
+	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"})
+	c.Assert(md.CreateTime, jc.Almost, now)
+	c.Assert(md.UpdateTime, jc.Almost, now)
+
+	revs := revisions[first]
+	c.Assert(revs, gc.HasLen, 1)
+	c.Assert(revs[0].Revision, gc.Equals, 1)
+	c.Assert(*revs[0].ExpireTime, gc.Equals, expireTime.UTC())
+	c.Assert(revs[0].CreateTime, jc.Almost, now)
+
+	md = secrets[second]
+	c.Assert(md.Version, gc.Equals, 1)
+	c.Assert(md.Label, gc.Equals, value(sp[2].Label))
+	c.Assert(md.Description, gc.Equals, value(sp[2].Description))
+	c.Assert(md.LatestRevision, gc.Equals, 1)
+	c.Assert(md.AutoPrune, jc.IsFalse)
+	c.Assert(md.RotatePolicy, gc.Equals, coresecrets.RotateNever)
+	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"})
+	c.Assert(md.CreateTime, jc.Almost, now)
+	c.Assert(md.UpdateTime, jc.Almost, now)
+
+	revs = revisions[second]
+	c.Assert(revs, gc.HasLen, 1)
+	c.Assert(revs[0].Revision, gc.Equals, 1)
+	c.Assert(revs[0].ExpireTime, gc.IsNil)
+	c.Assert(revs[0].CreateTime, jc.Almost, now)
+}
+
 func (s *stateSuite) TestListCharmSecretsMissingOwners(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
-	_, _, err := listCharmSecrets(context.Background(), st,
+	_, err := listCharmSecrets(context.Background(), st,
 		domainsecret.NilApplicationOwners, domainsecret.NilUnitOwners)
 	c.Assert(err, gc.ErrorMatches, "querying charm secrets: must supply at least one app owner or unit owner")
 }
@@ -1147,11 +1370,10 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *gc.C) {
 	err = st.CreateCharmUnitSecret(ctx, 1, uri[1], "mysql/0", sp[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	secrets, revisions, err := listCharmSecrets(ctx, st,
+	secrets, err := listCharmSecrets(ctx, st,
 		domainsecret.NilApplicationOwners, domainsecret.UnitOwners{"mysql/0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(secrets), gc.Equals, 1)
-	c.Assert(len(revisions), gc.Equals, 1)
 
 	now := time.Now()
 
@@ -1165,15 +1387,6 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *gc.C) {
 	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"})
 	c.Assert(md.CreateTime, jc.Almost, now)
 	c.Assert(md.UpdateTime, jc.Almost, now)
-
-	revs := revisions[0]
-	c.Assert(revs, gc.HasLen, 1)
-	c.Assert(revs[0].Revision, gc.Equals, 1)
-	c.Assert(revs[0].ValueRef, jc.DeepEquals, &coresecrets.ValueRef{
-		BackendID:  "backend-id",
-		RevisionID: "revision-id",
-	})
-	c.Assert(revs[0].CreateTime, jc.Almost, now)
 }
 
 func (s *stateSuite) TestListCharmSecretsByApplication(c *gc.C) {
@@ -1204,11 +1417,10 @@ func (s *stateSuite) TestListCharmSecretsByApplication(c *gc.C) {
 	err = st.CreateCharmApplicationSecret(ctx, 1, uri[1], "mysql", sp[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	secrets, revisions, err := listCharmSecrets(ctx, st,
+	secrets, err := listCharmSecrets(ctx, st,
 		domainsecret.ApplicationOwners{"mysql"}, domainsecret.NilUnitOwners)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(secrets), gc.Equals, 1)
-	c.Assert(len(revisions), gc.Equals, 1)
 
 	now := time.Now()
 
@@ -1221,11 +1433,6 @@ func (s *stateSuite) TestListCharmSecretsByApplication(c *gc.C) {
 	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"})
 	c.Assert(md.CreateTime, jc.Almost, now)
 	c.Assert(md.UpdateTime, jc.Almost, now)
-
-	revs := revisions[0]
-	c.Assert(revs, gc.HasLen, 1)
-	c.Assert(revs[0].Revision, gc.Equals, 1)
-	c.Assert(revs[0].CreateTime, jc.Almost, now)
 }
 
 func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
@@ -1278,22 +1485,17 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
 	err = st.CreateCharmUnitSecret(ctx, 1, uri[3], "postgresql/0", sp[3])
 	c.Assert(err, jc.ErrorIsNil)
 
-	secrets, revisions, err := listCharmSecrets(ctx, st,
+	secrets, err := listCharmSecrets(ctx, st,
 		domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mysql/0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(secrets), gc.Equals, 2)
-	c.Assert(len(revisions), gc.Equals, 2)
 
+	sort.Slice(secrets, func(i, j int) bool {
+		return secrets[i].Label < secrets[j].Label
+	})
 	now := time.Now()
 
-	first := 0
-	second := 1
-	if secrets[first].Label != value(sp[1].Label) {
-		first = 1
-		second = 0
-	}
-
-	md := secrets[first]
+	md := secrets[0]
 	c.Assert(md.Version, gc.Equals, 1)
 	c.Assert(md.Label, gc.Equals, value(sp[1].Label))
 	c.Assert(md.Description, gc.Equals, value(sp[1].Description))
@@ -1306,13 +1508,7 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
 	c.Assert(md.CreateTime, jc.Almost, now)
 	c.Assert(md.UpdateTime, jc.Almost, now)
 
-	revs := revisions[first]
-	c.Assert(revs, gc.HasLen, 1)
-	c.Assert(revs[0].Revision, gc.Equals, 1)
-	c.Assert(*revs[0].ExpireTime, gc.Equals, expireTime.UTC())
-	c.Assert(revs[0].CreateTime, jc.Almost, now)
-
-	md = secrets[second]
+	md = secrets[1]
 	c.Assert(md.Version, gc.Equals, 1)
 	c.Assert(md.Label, gc.Equals, value(sp[2].Label))
 	c.Assert(md.Description, gc.Equals, value(sp[2].Description))
@@ -1322,12 +1518,6 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
 	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"})
 	c.Assert(md.CreateTime, jc.Almost, now)
 	c.Assert(md.UpdateTime, jc.Almost, now)
-
-	revs = revisions[second]
-	c.Assert(revs, gc.HasLen, 1)
-	c.Assert(revs[0].Revision, gc.Equals, 1)
-	c.Assert(revs[0].ExpireTime, gc.IsNil)
-	c.Assert(revs[0].CreateTime, jc.Almost, now)
 }
 
 func (s *stateSuite) TestAllSecretConsumers(c *gc.C) {
@@ -1463,7 +1653,7 @@ func (s *stateSuite) TestSaveSecretConsumerMarksObsolete(c *gc.C) {
 	}
 	err = updateSecret(context.Background(), st, uri, sp2)
 	c.Assert(err, jc.ErrorIsNil)
-	content, valueRef, err := st.GetSecretValue(ctx, uri, 2)
+	content, valueRef, err := getSecretValue(ctx, st, uri, 2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(content, gc.IsNil)
 	c.Assert(valueRef, jc.DeepEquals, &coresecrets.ValueRef{BackendID: "new-backend", RevisionID: "new-revision"})
@@ -2100,7 +2290,7 @@ func (s *stateSuite) TestUpdateSecretContent(c *gc.C) {
 	c.Assert(rev.ExpireTime, gc.NotNil)
 	c.Assert(*rev.ExpireTime, gc.Equals, expireTime.UTC())
 
-	content, valueRef, err := st.GetSecretValue(ctx, uri, 2)
+	content, valueRef, err := getSecretValue(ctx, st, uri, 2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(valueRef, gc.IsNil)
 	c.Assert(content, jc.DeepEquals, coresecrets.SecretData{"foo2": "bar2", "hello": "world"})
@@ -2166,7 +2356,7 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *gc.C) {
 	c.Assert(rev.ExpireTime, gc.NotNil)
 	c.Assert(*rev.ExpireTime, gc.Equals, expireTime.UTC())
 
-	content, valueRef, err := st.GetSecretValue(ctx, uri, 2)
+	content, valueRef, err := getSecretValue(ctx, st, uri, 2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(valueRef, gc.IsNil)
 	c.Assert(content, jc.DeepEquals, coresecrets.SecretData{"foo2": "bar2", "hello": "world"})
@@ -2178,7 +2368,7 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *gc.C) {
 	}
 	err = updateSecret(context.Background(), st, uri, sp3)
 	c.Assert(err, jc.ErrorIsNil)
-	content, valueRef, err = st.GetSecretValue(ctx, uri, 3)
+	content, valueRef, err = getSecretValue(ctx, st, uri, 3)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(valueRef, gc.IsNil)
 	c.Assert(content, jc.DeepEquals, coresecrets.SecretData{"foo3": "bar3", "hello": "world"})
@@ -2268,7 +2458,7 @@ func (s *stateSuite) TestUpdateSecretContentValueRef(c *gc.C) {
 	c.Assert(rev.Revision, gc.Equals, 2)
 	c.Assert(rev.ExpireTime, gc.IsNil)
 
-	content, valueRef, err := st.GetSecretValue(ctx, uri, 2)
+	content, valueRef, err := getSecretValue(ctx, st, uri, 2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(valueRef, jc.DeepEquals, &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "revision-id"})
 	c.Assert(content, gc.HasLen, 0)
@@ -2562,14 +2752,14 @@ func (s *stateSuite) TestGrantUnitAccess(c *gc.C) {
 		SubjectID:     "mysql/0",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ap := domainsecret.AccessParams{
 		SubjectTypeID: p.SubjectTypeID,
 		SubjectID:     p.SubjectID,
 	}
-	role, err := st.GetSecretAccess(ctx, uri, ap)
+	role, err := getSecretAccess(ctx, st, uri, ap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(role, gc.Equals, "view")
 }
@@ -2597,7 +2787,7 @@ func (s *stateSuite) TestGetUnitGrantAccessScope(c *gc.C) {
 		SubjectID:     "mysql/0",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ap := domainsecret.AccessParams{
@@ -2635,14 +2825,14 @@ func (s *stateSuite) TestGrantApplicationAccess(c *gc.C) {
 		SubjectID:     "mysql",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ap := domainsecret.AccessParams{
 		SubjectTypeID: p.SubjectTypeID,
 		SubjectID:     p.SubjectID,
 	}
-	role, err := st.GetSecretAccess(ctx, uri, ap)
+	role, err := getSecretAccess(ctx, st, uri, ap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(role, gc.Equals, "view")
 }
@@ -2670,7 +2860,7 @@ func (s *stateSuite) TestGetApplicationGrantAccessScope(c *gc.C) {
 		SubjectID:     "mysql",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ap := domainsecret.AccessParams{
@@ -2706,14 +2896,14 @@ func (s *stateSuite) TestGrantModelAccess(c *gc.C) {
 		SubjectID:     s.modelUUID,
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ap := domainsecret.AccessParams{
 		SubjectTypeID: p.SubjectTypeID,
 		SubjectID:     p.SubjectID,
 	}
-	role, err := st.GetSecretAccess(ctx, uri, ap)
+	role, err := getSecretAccess(ctx, st, uri, ap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(role, gc.Equals, "view")
 }
@@ -2741,14 +2931,14 @@ func (s *stateSuite) TestGrantRelationScope(c *gc.C) {
 		SubjectID:     "mysql/1",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ap := domainsecret.AccessParams{
 		SubjectTypeID: p.SubjectTypeID,
 		SubjectID:     p.SubjectID,
 	}
-	role, err := st.GetSecretAccess(ctx, uri, ap)
+	role, err := getSecretAccess(ctx, st, uri, ap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(role, gc.Equals, "view")
 }
@@ -2776,7 +2966,7 @@ func (s *stateSuite) TestGetRelationGrantAccessScope(c *gc.C) {
 		SubjectID:     "mysql/1",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ap := domainsecret.AccessParams{
@@ -2814,11 +3004,11 @@ func (s *stateSuite) TestGrantAccessInvariantScope(c *gc.C) {
 		SubjectID:     "mysql/0",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 	p.ScopeID = "mysql"
 	p.ScopeTypeID = domainsecret.ScopeApplication
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIs, secreterrors.InvalidSecretPermissionChange)
 }
 
@@ -2837,7 +3027,7 @@ func (s *stateSuite) TestGrantSecretNotFound(c *gc.C) {
 		SubjectID:     "mysql/0",
 		RoleID:        domainsecret.RoleView,
 	}
-	err := st.GrantAccess(ctx, uri, p)
+	err := grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
 }
 
@@ -2864,7 +3054,7 @@ func (s *stateSuite) TestGrantUnitNotFound(c *gc.C) {
 		SubjectID:     "mysql/2",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -2891,7 +3081,7 @@ func (s *stateSuite) TestGrantApplicationNotFound(c *gc.C) {
 		SubjectID:     "postgresql",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -2918,7 +3108,7 @@ func (s *stateSuite) TestGrantScopeNotFound(c *gc.C) {
 		SubjectID:     "mysql",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -2942,7 +3132,7 @@ func (s *stateSuite) TestGetAccessNoGrant(c *gc.C) {
 		SubjectTypeID: domainsecret.SubjectApplication,
 		SubjectID:     "mysql",
 	}
-	role, err := st.GetSecretAccess(ctx, uri, ap)
+	role, err := getSecretAccess(ctx, st, uri, ap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(role, gc.Equals, "")
 }
@@ -2989,7 +3179,7 @@ func (s *stateSuite) TestGetSecretGrantsAppUnit(c *gc.C) {
 		SubjectID:     "mysql/1",
 		RoleID:        domainsecret.RoleManage,
 	}
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p2 := domainsecret.GrantParams{
@@ -2999,7 +3189,7 @@ func (s *stateSuite) TestGetSecretGrantsAppUnit(c *gc.C) {
 		SubjectID:     "mysql/0",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p2)
+	err = grantAccess(ctx, st, uri, p2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	g, err := st.GetSecretGrants(ctx, uri, coresecrets.RoleView)
@@ -3036,7 +3226,7 @@ func (s *stateSuite) TestGetSecretGrantsModel(c *gc.C) {
 		SubjectID:     "mysql/1",
 		RoleID:        domainsecret.RoleManage,
 	}
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p2 := domainsecret.GrantParams{
@@ -3046,7 +3236,7 @@ func (s *stateSuite) TestGetSecretGrantsModel(c *gc.C) {
 		SubjectID:     "mysql/0",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p2)
+	err = grantAccess(ctx, st, uri, p2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	g, err := st.GetSecretGrants(ctx, uri, coresecrets.RoleView)
@@ -3088,7 +3278,7 @@ func (s *stateSuite) TestAllSecretGrants(c *gc.C) {
 		SubjectID:     "mysql/1",
 		RoleID:        domainsecret.RoleManage,
 	}
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p2 := domainsecret.GrantParams{
@@ -3098,7 +3288,7 @@ func (s *stateSuite) TestAllSecretGrants(c *gc.C) {
 		SubjectID:     "mysql/0",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p2)
+	err = grantAccess(ctx, st, uri, p2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	g, err := st.AllSecretGrants(ctx)
@@ -3155,7 +3345,7 @@ func (s *stateSuite) TestRevokeAccess(c *gc.C) {
 		SubjectID:     "mysql/1",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p2 := domainsecret.GrantParams{
@@ -3165,10 +3355,10 @@ func (s *stateSuite) TestRevokeAccess(c *gc.C) {
 		SubjectID:     "mysql/0",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p2)
+	err = grantAccess(ctx, st, uri, p2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.RevokeAccess(ctx, uri, domainsecret.AccessParams{
+	err = revokeAccess(ctx, st, uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/1",
 	})
@@ -3236,9 +3426,9 @@ func (s *stateSuite) TestListGrantedSecrets(c *gc.C) {
 		SubjectID:     "mysql/0",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri, p)
+	err = grantAccess(ctx, st, uri, p)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.GrantAccess(ctx, uri2, p)
+	err = grantAccess(ctx, st, uri2, p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p2 := domainsecret.GrantParams{
@@ -3248,7 +3438,7 @@ func (s *stateSuite) TestListGrantedSecrets(c *gc.C) {
 		SubjectID:     "mysql",
 		RoleID:        domainsecret.RoleView,
 	}
-	err = st.GrantAccess(ctx, uri3, p2)
+	err = grantAccess(ctx, st, uri3, p2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	accessors := []domainsecret.AccessParams{{
@@ -3594,7 +3784,7 @@ func (s *stateSuite) TestDeleteSomeRevisions(c *gc.C) {
 	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	data, ref, err := st.GetSecretValue(ctx, uri, 1)
+	data, ref, err := getSecretValue(ctx, st, uri, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ref, gc.IsNil)
 	c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
@@ -3705,7 +3895,7 @@ func (s *stateSuite) assertDeleteAllRevisions(c *gc.C, revs []int) {
 
 	_, err = st.GetSecret(ctx, uri2)
 	c.Assert(err, jc.ErrorIsNil)
-	data, _, err := st.GetSecretValue(ctx, uri2, 1)
+	data, _, err := getSecretValue(ctx, st, uri2, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
 }
@@ -4356,7 +4546,7 @@ func (s *stateSuite) TestChangeSecretBackend(c *gc.C) {
 		Data:       dataInput,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	data, valueRef, err := st.GetSecretValue(ctx, uriCharm, 1)
+	data, valueRef, err := getSecretValue(ctx, st, uriCharm, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, dataInput)
 	c.Assert(valueRef, gc.IsNil)
@@ -4366,39 +4556,39 @@ func (s *stateSuite) TestChangeSecretBackend(c *gc.C) {
 		Data:       dataInput,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	data, valueRef, err = st.GetSecretValue(ctx, uriUser, 1)
+	data, valueRef, err = getSecretValue(ctx, st, uriUser, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, dataInput)
 	c.Assert(valueRef, gc.IsNil)
 
 	// change to external backend.
-	err = st.ChangeSecretBackend(ctx, parseUUID(c, getRevUUID(c, s.DB(), uriCharm, 1)), valueRefInput, nil)
+	err = changeSecretBackend(ctx, st, parseUUID(c, getRevUUID(c, s.DB(), uriCharm, 1)), valueRefInput, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	data, valueRef, err = st.GetSecretValue(ctx, uriCharm, 1)
+	data, valueRef, err = getSecretValue(ctx, st, uriCharm, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.IsNil)
 	c.Assert(valueRef, gc.DeepEquals, valueRefInput)
 
 	// change back to internal backend.
-	err = st.ChangeSecretBackend(ctx, parseUUID(c, getRevUUID(c, s.DB(), uriCharm, 1)), nil, dataInput)
+	err = changeSecretBackend(ctx, st, parseUUID(c, getRevUUID(c, s.DB(), uriCharm, 1)), nil, dataInput)
 	c.Assert(err, jc.ErrorIsNil)
-	data, valueRef, err = st.GetSecretValue(ctx, uriCharm, 1)
+	data, valueRef, err = getSecretValue(ctx, st, uriCharm, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, dataInput)
 	c.Assert(valueRef, gc.IsNil)
 
 	// change to external backend for the user secret.
-	err = st.ChangeSecretBackend(ctx, parseUUID(c, getRevUUID(c, s.DB(), uriUser, 1)), valueRefInput, nil)
+	err = changeSecretBackend(ctx, st, parseUUID(c, getRevUUID(c, s.DB(), uriUser, 1)), valueRefInput, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	data, valueRef, err = st.GetSecretValue(ctx, uriUser, 1)
+	data, valueRef, err = getSecretValue(ctx, st, uriUser, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.IsNil)
 	c.Assert(valueRef, gc.DeepEquals, valueRefInput)
 
 	// change back to internal backend for the user secret.
-	err = st.ChangeSecretBackend(ctx, parseUUID(c, getRevUUID(c, s.DB(), uriUser, 1)), nil, dataInput)
+	err = changeSecretBackend(ctx, st, parseUUID(c, getRevUUID(c, s.DB(), uriUser, 1)), nil, dataInput)
 	c.Assert(err, jc.ErrorIsNil)
-	data, valueRef, err = st.GetSecretValue(ctx, uriUser, 1)
+	data, valueRef, err = getSecretValue(ctx, st, uriUser, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, dataInput)
 	c.Assert(valueRef, gc.IsNil)
@@ -4416,8 +4606,8 @@ func (s *stateSuite) TestChangeSecretBackendFailed(c *gc.C) {
 		RevisionID: "revision-id",
 	}
 
-	err := st.ChangeSecretBackend(ctx, uuid.MustNewUUID(), nil, nil)
+	err := changeSecretBackend(ctx, st, uuid.MustNewUUID(), nil, nil)
 	c.Assert(err, gc.ErrorMatches, "either valueRef or data must be set")
-	err = st.ChangeSecretBackend(ctx, uuid.MustNewUUID(), valueRefInput, dataInput)
+	err = changeSecretBackend(ctx, st, uuid.MustNewUUID(), valueRefInput, dataInput)
 	c.Assert(err, gc.ErrorMatches, "both valueRef and data cannot be set")
 }

@@ -548,6 +548,8 @@ func (s *serviceSuite) TestGetSecretValue(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	s.expectRunAtomic(ctrl, false)
+
 	uri := coresecrets.NewURI()
 
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
@@ -687,8 +689,6 @@ func (s *serviceSuite) TestListCharmSecrets(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectRunAtomic(ctrl, false)
-
 	owners := []CharmSecretOwner{{
 		Kind: ApplicationOwner,
 		ID:   "mysql",
@@ -699,7 +699,7 @@ func (s *serviceSuite) TestListCharmSecrets(c *gc.C) {
 	md := []*coresecrets.SecretMetadata{{Label: "one"}}
 	revs := [][]*coresecrets.SecretRevisionMetadata{{{Revision: 1}}}
 
-	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mysql/0"}).
+	s.state.EXPECT().ListCharmSecretsWithRevisions(gomock.Any(), domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mysql/0"}).
 		Return(md, revs, nil)
 
 	gotSecrets, gotRevisions, err := s.service.ListCharmSecrets(context.Background(), owners...)
@@ -712,8 +712,6 @@ func (s *serviceSuite) TestListCharmJustApplication(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectRunAtomic(ctrl, false)
-
 	owners := []CharmSecretOwner{{
 		Kind: ApplicationOwner,
 		ID:   "mysql",
@@ -721,7 +719,7 @@ func (s *serviceSuite) TestListCharmJustApplication(c *gc.C) {
 	md := []*coresecrets.SecretMetadata{{Label: "one"}}
 	revs := [][]*coresecrets.SecretRevisionMetadata{{{Revision: 1}}}
 
-	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mysql"}, domainsecret.NilUnitOwners).
+	s.state.EXPECT().ListCharmSecretsWithRevisions(gomock.Any(), domainsecret.ApplicationOwners{"mysql"}, domainsecret.NilUnitOwners).
 		Return(md, revs, nil)
 
 	gotSecrets, gotRevisions, err := s.service.ListCharmSecrets(context.Background(), owners...)
@@ -734,8 +732,6 @@ func (s *serviceSuite) TestListCharmJustUnit(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectRunAtomic(ctrl, false)
-
 	owners := []CharmSecretOwner{{
 		Kind: UnitOwner,
 		ID:   "mysql/0",
@@ -743,7 +739,7 @@ func (s *serviceSuite) TestListCharmJustUnit(c *gc.C) {
 	md := []*coresecrets.SecretMetadata{{Label: "one"}}
 	revs := [][]*coresecrets.SecretRevisionMetadata{{{Revision: 1}}}
 
-	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.NilApplicationOwners, domainsecret.UnitOwners{"mysql/0"}).
+	s.state.EXPECT().ListCharmSecretsWithRevisions(gomock.Any(), domainsecret.NilApplicationOwners, domainsecret.UnitOwners{"mysql/0"}).
 		Return(md, revs, nil)
 
 	gotSecrets, gotRevisions, err := s.service.ListCharmSecrets(context.Background(), owners...)
@@ -830,6 +826,8 @@ func (s *serviceSuite) TestGrantSecretUnitAccess(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	s.expectRunAtomic(ctrl, false)
+
 	uri := coresecrets.NewURI()
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
@@ -865,6 +863,8 @@ func (s *serviceSuite) TestGrantSecretUnitAccess(c *gc.C) {
 func (s *serviceSuite) TestGrantSecretApplicationAccess(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
+
+	s.expectRunAtomic(ctrl, false)
 
 	uri := coresecrets.NewURI()
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
@@ -902,6 +902,8 @@ func (s *serviceSuite) TestGrantSecretModelAccess(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	s.expectRunAtomic(ctrl, false)
+
 	uri := coresecrets.NewURI()
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectModel,
@@ -933,6 +935,8 @@ func (s *serviceSuite) TestGrantSecretModelAccess(c *gc.C) {
 func (s *serviceSuite) TestGrantSecretRelationScope(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
+
+	s.expectRunAtomic(ctrl, false)
 
 	uri := coresecrets.NewURI()
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
@@ -970,6 +974,8 @@ func (s *serviceSuite) TestRevokeSecretUnitAccess(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	s.expectRunAtomic(ctrl, false)
+
 	uri := coresecrets.NewURI()
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
@@ -998,6 +1004,8 @@ func (s *serviceSuite) TestRevokeSecretApplicationAccess(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	s.expectRunAtomic(ctrl, false)
+
 	uri := coresecrets.NewURI()
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
@@ -1025,6 +1033,8 @@ func (s *serviceSuite) TestRevokeSecretApplicationAccess(c *gc.C) {
 func (s *serviceSuite) TestRevokeSecretModelAccess(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
+
+	s.expectRunAtomic(ctrl, false)
 
 	uri := coresecrets.NewURI()
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
@@ -1060,7 +1070,7 @@ func (s *serviceSuite) TestGetSecretAccess(c *gc.C) {
 		SubjectID:     "mysql",
 	}).Return("manage", nil)
 
-	role, err := s.service.getSecretAccess(context.Background(), uri, SecretAccessor{
+	role, err := s.service.getSecretAccess(NewMockAtomicContext(ctrl), uri, SecretAccessor{
 		Kind: ApplicationAccessor,
 		ID:   "mysql",
 	})
@@ -1078,7 +1088,7 @@ func (s *serviceSuite) TestGetSecretAccessNone(c *gc.C) {
 		SubjectID:     "mysql",
 	}).Return("", nil)
 
-	role, err := s.service.getSecretAccess(context.Background(), uri, SecretAccessor{
+	role, err := s.service.getSecretAccess(NewMockAtomicContext(ctrl), uri, SecretAccessor{
 		Kind: ApplicationAccessor,
 		ID:   "mysql",
 	})
@@ -1163,6 +1173,8 @@ func (s *serviceSuite) TestChangeSecretBackendToExternalBackend(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	s.expectRunAtomic(ctrl, false)
+
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
 	valueRef := &coresecrets.ValueRef{
@@ -1199,6 +1211,8 @@ func (s *serviceSuite) TestChangeSecretBackendToInternalBackend(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	s.expectRunAtomic(ctrl, false)
+
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
 
@@ -1231,6 +1245,8 @@ func (s *serviceSuite) TestChangeSecretBackendFailedAndRollback(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	s.expectRunAtomic(ctrl, false)
+
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
 
@@ -1260,7 +1276,10 @@ func (s *serviceSuite) TestChangeSecretBackendFailedAndRollback(c *gc.C) {
 }
 
 func (s *serviceSuite) TestChangeSecretBackendFailedPermissionDenied(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.expectRunAtomic(ctrl, false)
 
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
@@ -1269,6 +1288,13 @@ func (s *serviceSuite) TestChangeSecretBackendFailedPermissionDenied(c *gc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("view", nil)
+	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	rollbackCalled := false
+	s.secretBackendReferenceMutator.EXPECT().UpdateSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
+		rollbackCalled = true
+		return nil
+	}, nil)
 
 	err := s.service.ChangeSecretBackend(ctx, uri, 1, ChangeSecretBackendParams{
 		Accessor: SecretAccessor{
@@ -1278,11 +1304,14 @@ func (s *serviceSuite) TestChangeSecretBackendFailedPermissionDenied(c *gc.C) {
 		Data: map[string]string{"foo": "bar"},
 	})
 	c.Assert(err, jc.ErrorIs, secreterrors.PermissionDenied)
+	c.Assert(rollbackCalled, jc.IsTrue)
 }
 
 func (s *serviceSuite) TestChangeSecretBackendFailedSecretNotFound(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
+
+	s.expectRunAtomic(ctrl, false)
 
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
@@ -1567,10 +1596,9 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionSecretNotFound(c *gc.C) {
 		LatestRevision: 668,
 		Label:          "foz",
 	}}
-	revs := [][]*coresecrets.SecretRevisionMetadata{{{Revision: 1}}}
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
-		Return(md, revs, nil)
+		Return(md, nil)
 
 	rev, err := s.service.GetConsumedRevision(context.Background(), uri, "mariadb/0", true, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1589,10 +1617,9 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretUpda
 		LatestRevision: 668,
 		Label:          "foz",
 	}}
-	revs := [][]*coresecrets.SecretRevisionMetadata{{{Revision: 1}}}
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
-		Return(md, revs, nil)
+		Return(md, nil)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectID:     "mariadb/0",
@@ -1621,10 +1648,9 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretLook
 		LatestRevision: 668,
 		Label:          "foo",
 	}}
-	revs := [][]*coresecrets.SecretRevisionMetadata{{{Revision: 1}}}
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
-		Return(md, revs, nil)
+		Return(md, nil)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil)
 
 	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", nil, "foo", successfulToken{})
@@ -1645,10 +1671,9 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelLookupURI(c *gc.C) {
 		LatestRevision: 668,
 		Label:          "foz",
 	}}
-	revs := [][]*coresecrets.SecretRevisionMetadata{{{Revision: 1}}}
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
-		Return(md, revs, nil)
+		Return(md, nil)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil)
 	s.state.EXPECT().GetURIByConsumerLabel(gomock.Any(), "foo", "mariadb/0").Return(uri, nil)
 
@@ -1671,10 +1696,9 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelUpdateLabel(c *gc.C) {
 		LatestRevision: 668,
 		Label:          "foz",
 	}}
-	revs := [][]*coresecrets.SecretRevisionMetadata{{{Revision: 1}}}
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
-		Return(md, revs, nil)
+		Return(md, nil)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil)
 
 	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", uri, "foo", successfulToken{})

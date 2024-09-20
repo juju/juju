@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -25,12 +23,10 @@ func (s *serviceSuite) TestCanManageOwnerUnit(c *gc.C) {
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
 
-	token := NewMockToken(ctrl)
-
-	err := s.service.canManage(context.Background(), uri, SecretAccessor{
+	err := s.service.canManage(NewMockAtomicContext(ctrl), false, uri, SecretAccessor{
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
-	}, token)
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -49,13 +45,10 @@ func (s *serviceSuite) TestCanManageLeaderUnitAppSecret(c *gc.C) {
 		SubjectID:     "mariadb",
 	}).Return("manage", nil)
 
-	token := NewMockToken(ctrl)
-	token.EXPECT().Check().Return(nil)
-
-	err := s.service.canManage(context.Background(), uri, SecretAccessor{
+	err := s.service.canManage(NewMockAtomicContext(ctrl), true, uri, SecretAccessor{
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
-	}, token)
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -70,12 +63,10 @@ func (s *serviceSuite) TestCanManageUserSecrets(c *gc.C) {
 		SubjectID:     "model-uuid",
 	}).Return("manage", nil)
 
-	token := NewMockToken(ctrl)
-
-	err := s.service.canManage(context.Background(), uri, SecretAccessor{
+	err := s.service.canManage(NewMockAtomicContext(ctrl), false, uri, SecretAccessor{
 		Kind: ModelAccessor,
 		ID:   "model-uuid",
-	}, token)
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -94,7 +85,7 @@ func (s *serviceSuite) TestCanReadAppSecret(c *gc.C) {
 		SubjectID:     "mariadb",
 	}).Return("view", nil)
 
-	err := s.service.canRead(context.Background(), uri, SecretAccessor{
+	err := s.service.canRead(NewMockAtomicContext(ctrl), uri, SecretAccessor{
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
 	})

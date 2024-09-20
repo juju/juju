@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 )
@@ -98,7 +99,7 @@ func (s *SecretService) GetSecretAccessScope(ctx context.Context, uri *secrets.U
 
 // getSecretAccess returns the access to the secret for the specified accessor.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
-func (s *SecretService) getSecretAccess(ctx context.Context, uri *secrets.URI, accessor SecretAccessor) (secrets.SecretRole, error) {
+func (s *SecretService) getSecretAccess(ctx domain.AtomicContext, uri *secrets.URI, accessor SecretAccessor) (secrets.SecretRole, error) {
 	ap := domainsecret.AccessParams{
 		SubjectID: accessor.ID,
 	}
@@ -129,10 +130,16 @@ func (s *SecretService) getSecretAccess(ctx context.Context, uri *secrets.URI, a
 // satisfying [secreterrors.InvalidSecretPermissionChange] is returned.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) error {
-	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
+	isLeader, err := checkLeaderToken(params.LeaderToken, params.Accessor)
+	if err != nil {
 		return errors.Trace(err)
 	}
-	return s.secretState.GrantAccess(ctx, uri, grantParams(params))
+	return s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		if err := s.canManage(ctx, isLeader, uri, params.Accessor); err != nil {
+			return errors.Trace(err)
+		}
+		return s.secretState.GrantAccess(ctx, uri, grantParams(params))
+	})
 }
 
 func grantParams(in SecretAccessParams) domainsecret.GrantParams {
@@ -168,33 +175,47 @@ func grantParams(in SecretAccessParams) domainsecret.GrantParams {
 // RevokeSecretAccess revokes access to the secret for the specified subject.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 func (s *SecretService) RevokeSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) error {
-	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
+	isLeader, err := checkLeaderToken(params.LeaderToken, params.Accessor)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
-	p := domainsecret.AccessParams{
-		SubjectID: params.Subject.ID,
-	}
-	switch params.Subject.Kind {
-	case UnitAccessor:
-		p.SubjectTypeID = domainsecret.SubjectUnit
-	case ApplicationAccessor:
-		p.SubjectTypeID = domainsecret.SubjectApplication
-	case RemoteApplicationAccessor:
-		p.SubjectTypeID = domainsecret.SubjectRemoteApplication
-	case ModelAccessor:
-		p.SubjectTypeID = domainsecret.SubjectModel
-	}
+	return s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		if err := s.canManage(ctx, isLeader, uri, params.Accessor); err != nil {
+			return errors.Trace(err)
+		}
 
-	return s.secretState.RevokeAccess(ctx, uri, p)
+		p := domainsecret.AccessParams{
+			SubjectID: params.Subject.ID,
+		}
+		switch params.Subject.Kind {
+		case UnitAccessor:
+			p.SubjectTypeID = domainsecret.SubjectUnit
+		case ApplicationAccessor:
+			p.SubjectTypeID = domainsecret.SubjectApplication
+		case RemoteApplicationAccessor:
+			p.SubjectTypeID = domainsecret.SubjectRemoteApplication
+		case ModelAccessor:
+			p.SubjectTypeID = domainsecret.SubjectModel
+		}
+		return s.secretState.RevokeAccess(ctx, uri, p)
+	})
+}
+
+func checkLeaderToken(token leadership.Token, assessor SecretAccessor) (bool, error) {
+	if assessor.Kind != UnitAccessor {
+		return false, nil
+	}
+	if token == nil {
+		return false, nil
+	}
+	return token.Check() == nil, nil
 }
 
 // canManage checks that the accessor can manage the secret.
 // If the request is for a secret owned by an application, the unit must be the leader.
 func (s *SecretService) canManage(
-	ctx context.Context,
-	uri *secrets.URI, assessor SecretAccessor,
-	leaderToken leadership.Token,
+	ctx domain.AtomicContext, isLeader bool, uri *secrets.URI, assessor SecretAccessor,
 ) error {
 	hasRole, err := s.getSecretAccess(ctx, uri, assessor)
 	if err != nil {
@@ -206,10 +227,7 @@ func (s *SecretService) canManage(
 	}
 	// Units can manage app owned secrets if they are the leader.
 	if assessor.Kind == UnitAccessor {
-		if leaderToken == nil {
-			return secreterrors.PermissionDenied
-		}
-		if err := leaderToken.Check(); err == nil {
+		if isLeader {
 			appName, _ := names.UnitApplication(assessor.ID)
 			hasRole, err = s.getSecretAccess(ctx, uri, SecretAccessor{
 				Kind: ApplicationAccessor,
@@ -228,7 +246,7 @@ func (s *SecretService) canManage(
 }
 
 // canRead checks that the accessor can read the secret.
-func (s *SecretService) canRead(ctx context.Context, uri *secrets.URI, accessor SecretAccessor) error {
+func (s *SecretService) canRead(ctx domain.AtomicContext, uri *secrets.URI, accessor SecretAccessor) error {
 	// First try looking up unit access.
 	hasRole, err := s.getSecretAccess(ctx, uri, accessor)
 	if err != nil {
