@@ -8,22 +8,23 @@ import (
 
 	"github.com/juju/description/v8"
 
+	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/user"
-	accessservice "github.com/juju/juju/domain/access/service"
-	accessstate "github.com/juju/juju/domain/access/state"
 	"github.com/juju/juju/domain/keymanager/service"
 	"github.com/juju/juju/domain/keymanager/state"
 	"github.com/juju/juju/internal/errors"
 )
+
+type exportServiceGetterFunc func(model.UUID) ExportService
 
 // exportOperation is the type used to describe the export operation for a
 // model's authorized keys.
 type exportOperation struct {
 	modelmigration.BaseOperation
 
-	service     ExportService
-	userService UserService
+	serviceGetter exportServiceGetterFunc
 }
 
 // ExportService represents the service methods needed for exporting the
@@ -31,35 +32,30 @@ type exportOperation struct {
 type ExportService interface {
 	// GetAllUserPublicKeys returns all of the public keys in the model for each
 	// user grouped by [user.UUID].
-	GetAllUsersPublicKeys(context.Context) (map[user.UUID][]string, error)
+	GetAllUsersPublicKeys(context.Context) (map[user.Name][]string, error)
 }
 
 // Execute the migration of the model's authorized keys.
 func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
-	usersKeys, err := e.service.GetAllUsersPublicKeys(ctx)
+	modelUUID := coremodel.UUID(model.Tag().Id())
+	if err := modelUUID.Validate(); err != nil {
+		return errors.Errorf(
+			"exporting authorized keys for model %q: %w",
+			model.Tag(), err,
+		)
+	}
+
+	usersKeys, err := e.serviceGetter(modelUUID).GetAllUsersPublicKeys(ctx)
 	if err != nil {
 		return errors.Errorf(
-			"cannot export authorized keys for model while getting all user keys: %w",
+			"exporting authorized keys for model while getting all users keys: %w",
 			err,
 		)
 	}
 
-	userIds := make([]user.UUID, 0, len(usersKeys))
-	for userId := range usersKeys {
-		userIds = append(userIds, userId)
-	}
-
-	userIdNameMap, err := e.userService.GetUsernamesForIds(ctx, userIds...)
-	if err != nil {
-		return errors.Errorf(
-			"cannot export authorized keys for model while mapping user ids to user names: %w",
-			err,
-		)
-	}
-
-	for userId, userKeys := range usersKeys {
+	for userName, userKeys := range usersKeys {
 		model.AddAuthorizedKeys(description.UserAuthorizedKeysArgs{
-			Username:       userIdNameMap[userId].Name(),
+			Username:       userName.String(),
 			AuthorizedKeys: userKeys,
 		})
 	}
@@ -79,9 +75,11 @@ func (e *exportOperation) Name() string {
 // Setup the export operation, this will ensure the service is created and ready
 // to be used.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
-	e.service = service.NewService(
-		state.NewState(scope.ModelDB()),
-	)
-	e.userService = accessservice.NewUserService(accessstate.NewUserState(scope.ControllerDB()))
+	e.serviceGetter = func(modelUUID model.UUID) ExportService {
+		return service.NewService(
+			modelUUID,
+			state.NewState(scope.ControllerDB()),
+		)
+	}
 	return nil
 }

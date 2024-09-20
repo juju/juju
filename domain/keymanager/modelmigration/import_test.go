@@ -11,6 +11,8 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 )
@@ -41,7 +43,9 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 
 func (s *importSuite) newImportOperation() *importOperation {
 	return &importOperation{
-		service:     s.service,
+		serviceGetter: func(_ coremodel.UUID) ImportService {
+			return s.service
+		},
 		userService: s.userService,
 	}
 }
@@ -52,7 +56,9 @@ func (s *importSuite) TestImportFromModelConfig(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{
+
 		Config: map[string]any{
+			"uuid":            modeltesting.GenModelUUID(c).String(),
 			"authorized-keys": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1\nssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe existing2",
 		},
 	})
@@ -78,7 +84,11 @@ func (s *importSuite) TestImportFromModelConfig(c *gc.C) {
 func (s *importSuite) TestImportFromModelDescription(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Config: map[string]any{
+			"uuid": modeltesting.GenModelUUID(c).String(),
+		},
+	})
 	model.AddAuthorizedKeys(description.UserAuthorizedKeysArgs{
 		Username: "tlm",
 		AuthorizedKeys: []string{

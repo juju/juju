@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/description/v8"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -34,6 +35,8 @@ type Coordinator interface {
 	// Add adds the given operation to the migration.
 	Add(modelmigration.Operation)
 }
+
+type importServiceGetterFunc func(coremodel.UUID) ImportService
 
 // ImportService represents the service methods needed for importing the
 // authorized keys of a model during migration.
@@ -61,12 +64,6 @@ type UserService interface {
 	// [github.com/juju/juju/domain/access/errors].UserNameNotValid will be
 	// returned.
 	GetUserByName(context.Context, user.Name) (user.User, error)
-
-	// GetUsernamesForIds is responsible for returning all of the [user.Name]
-	// for each of the [user.UUID] passed to this function. Should one of the
-	// user id's not exist then the whole call fails with a
-	// [github.com/juju/juju/domain/access/errors].UserNotFound error returned.
-	GetUsernamesForIds(context.Context, ...user.UUID) (map[user.UUID]user.Name, error)
 }
 
 // importOperation is the type used to describe the import operation for
@@ -74,9 +71,8 @@ type UserService interface {
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	// service is the [ImportService] to use during this operation.
-	service     ImportService
-	userService UserService
+	serviceGetter importServiceGetterFunc
+	userService   UserService
 }
 
 // Execute the import of the model description authorized keys.
@@ -114,7 +110,14 @@ func (i *importOperation) Execute(
 			)
 		}
 
-		err = i.service.AddPublicKeysForUser(ctx, user.UUID, uak.AuthorizedKeys()...)
+		modelUUID := coremodel.UUID(model.Tag().Id())
+		if err := modelUUID.Validate(); err != nil {
+			return errors.Errorf(
+				"importing authorized keys for model %q: %w", modelUUID, err,
+			)
+		}
+
+		err = i.serviceGetter(modelUUID).AddPublicKeysForUser(ctx, user.UUID, uak.AuthorizedKeys()...)
 		if err != nil {
 			return errors.Errorf(
 				"cannot import authorized keys for user %q on model: %w",
@@ -183,7 +186,18 @@ func (i *importOperation) executeModelConfigAuthorizedKeys(
 		)
 	}
 
-	err = i.service.AddPublicKeysForUser(ctx, adminUser.UUID, cleansedKeys...)
+	modelUUID := coremodel.UUID(model.Tag().Id())
+	if err := modelUUID.Validate(); err != nil {
+		return errors.Errorf(
+			"importing authorized keys for model %q: %w", modelUUID, err,
+		)
+	}
+
+	err = i.serviceGetter(modelUUID).AddPublicKeysForUser(
+		ctx,
+		adminUser.UUID,
+		cleansedKeys...,
+	)
 	if err != nil {
 		return errors.Errorf(
 			"cannot add public keys for the admin user from model config: %w",
@@ -207,7 +221,12 @@ func RegisterImport(coordinator Coordinator) {
 // Setup the import operation, this will ensure the service is created and ready
 // to be used.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
-	i.service = service.NewService(state.NewState(scope.ModelDB()))
+	i.serviceGetter = func(modelUUID coremodel.UUID) ImportService {
+		return service.NewService(
+			modelUUID,
+			state.NewState(scope.ControllerDB()),
+		)
+	}
 	i.userService = accessservice.NewUserService(accessstate.NewUserState(scope.ControllerDB()))
 	return nil
 }
