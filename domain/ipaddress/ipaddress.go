@@ -5,9 +5,8 @@ package ipaddress
 
 import corenetwork "github.com/juju/juju/core/network"
 
-// ConfigType represents the means via which
-// an IP address is configured, as recorded in the
-// ip_address_config_type lookup table.
+// ConfigType represents the means via which an IP address is
+// configured, as recorded in the ip_address_config_type lookup table.
 type ConfigType int
 
 const (
@@ -35,8 +34,7 @@ func MarshallConfigType(configType corenetwork.AddressConfigType) ConfigType {
 	return ConfigTypeUnknown
 }
 
-// Scope represents the scope of
-// an IP address, as recorded in
+// Scope represents the scope of an IP address, as recorded in
 // the ip_address_scope lookup table.
 type Scope int
 
@@ -63,9 +61,8 @@ func MarshallScope(scope corenetwork.Scope) Scope {
 	return ScopeUnknown
 }
 
-// AddressType represents the type of
-// an IP address, as recorded in the
-// ip_address_type lookup table.
+// AddressType represents the type of an IP address, as recorded in
+// the ip_address_type lookup table.
 type AddressType int
 
 const (
@@ -84,9 +81,8 @@ func MarshallAddressType(addressType corenetwork.AddressType) AddressType {
 	return AddressTypeIPv4
 }
 
-// Origin represents the origin of
-// an IP address, as recorded in the
-// ip_address_origin lookup table.
+// Origin represents the origin of an IP address, as recorded in
+// the ip_address_origin lookup table.
 type Origin int
 
 const (

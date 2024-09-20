@@ -619,12 +619,10 @@ INSERT INTO link_layer_device (*) VALUES ($cloudContainerDevice.*)
 		if err := tx.Query(ctx, insertCloudContainerDeviceStmt, cloudContainerDeviceInfo).Run(); err != nil {
 			return errors.Annotatef(err, "inserting cloud container device for unit %q", unitName)
 		}
-		deviceID = cloudContainerDeviceInfo.UUID
 	} else if err != nil {
 		return errors.Annotatef(err, "querying cloud container link layer device for unit %q", unitName)
-	} else {
-		deviceID = cloudContainerDeviceInfo.UUID
 	}
+	deviceID = cloudContainerDeviceInfo.UUID
 
 	// Now process the address details.
 	ipAddr := ipAddress{
@@ -661,10 +659,9 @@ ON CONFLICT(uuid) DO UPDATE SET
 
 	// Container addresses are never deleted unless the container itself is deleted.
 	// First see if there's an existing address recorded.
-	if err := tx.Query(ctx, selectAddressUUIDStmt, ipAddr).Get(&ipAddr); err != nil {
-		if !errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("querying existing cloud container address for device %q: %w", deviceID, err)
-		}
+	err = tx.Query(ctx, selectAddressUUIDStmt, ipAddr).Get(&ipAddr)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return fmt.Errorf("querying existing cloud container address for device %q: %w", deviceID, err)
 	}
 
 	// Create a UUID for new addresses.
@@ -855,18 +852,18 @@ func (st *ApplicationState) deleteCloudContainerAddresses(ctx context.Context, t
 	unit := coreUnit{
 		NetNodeID: netNodeID,
 	}
-	deleteDeviceStmt, err := st.Prepare(`
-DELETE FROM link_layer_device
-WHERE net_node_uuid = $coreUnit.net_node_uuid`, unit)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	deleteAddressStmt, err := st.Prepare(`
 DELETE FROM ip_address
 WHERE device_uuid IN
 (SELECT device_uuid FROM link_layer_device lld
 WHERE lld.net_node_uuid = $coreUnit.net_node_uuid)
 `, unit)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	deleteDeviceStmt, err := st.Prepare(`
+DELETE FROM link_layer_device
+WHERE net_node_uuid = $coreUnit.net_node_uuid`, unit)
 	if err != nil {
 		return errors.Trace(err)
 	}

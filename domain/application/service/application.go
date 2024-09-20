@@ -318,7 +318,7 @@ func makeUpsertUnitArgs(in AddUnitArg) (application.UpsertUnitArg, error) {
 			// and add that to the default space.
 			result.CloudContainer.Address = &application.ContainerAddress{
 				// For cloud containers, the device is a placeholder without
-				// a MAC address and once inserted, not updated. It just exits
+				// a MAC address and once inserted, not updated. It just exists
 				// to tie the address to the net node corresponding to the
 				// cloud container.
 				Device: application.ContainerDevice{
