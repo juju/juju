@@ -10,7 +10,7 @@ great.
   - Check that your patch is [targeting the correct branch](#branches) -
     if not, please rebase it.
   - Please [sign the CLA](#contributor-licence-agreement) if you haven't already.
-  - Use the checklist on the [pull request template](./PULL_REQUEST_TEMPLATE.md#checklist)
+  - Use the checklist on the [pull request template](../PULL_REQUEST_TEMPLATE.md#checklist)
     to check you haven't forgotten anything.
 
 Contents
@@ -305,7 +305,7 @@ Conventional commits
 --------------------
 
 Once you have written some code and have tested the changes, the next step is to
-`git commit` it. For commit messages Juju follows [conventional commits guidelines](doc/conventional-commits.md).
+`git commit` it. For commit messages Juju follows [conventional commits guidelines](conventional-commits.md).
 In short the commits should be of the following form:
 ```
 <type>(optional <scope>): <description>
