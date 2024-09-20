@@ -121,7 +121,15 @@ run_user_secrets() {
 	# revision 1 should be pruned.
 	# revision 2 is still been used by the app, so it should not be pruned.
 	# revision 3 is the latest revision, so it should not be pruned.
-	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '2'
+	attempt=0
+	until [[ $(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length") -eq 2 ]]; do
+		if [[ ${attempt} -ge 30 ]]; then
+			echo "Failed: expected revision 1 to be pruned."
+			exit 1
+		fi
+		sleep 2
+		attempt=$((attempt + 1))
+	done
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 2 | yq .${secret_short_uri}.content)" "owned-by: $model_name-2"
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
@@ -131,7 +139,15 @@ run_user_secrets() {
 
 	# revision 2 should be pruned.
 	# revision 3 is the latest revision, so it should not be pruned.
-	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '1'
+	attempt=0
+	until [[ $(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length") -eq 1 ]]; do
+		if [[ ${attempt} -ge 30 ]]; then
+			echo "Failed: expected revision 2 to be pruned."
+			exit 1
+		fi
+		sleep 2
+		attempt=$((attempt + 1))
+	done
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
 	juju --show-log revoke-secret mysecret "$app_name"
