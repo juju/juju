@@ -16,18 +16,16 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/application"
-	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
-	GetCharmByApplicationName(context.Context, string) (charm.Charm, applicationcharm.CharmOrigin, application.Platform, error)
+	// GetApplicationLife looks up the life of the specified application.
 	GetApplicationLife(context.Context, string) (life.Value, error)
+	// GetUnitLife looks up the life of the specified unit.
 	GetUnitLife(context.Context, string) (life.Value, error)
 }
 type Facade struct {

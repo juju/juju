@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -1470,7 +1471,7 @@ func (s *applicationStateSuite) TestGetCharmIDByApplicationNameError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *applicationStateSuite) TestCreateApplicationThenGetCharmByApplicationName(c *gc.C) {
+func (s *applicationStateSuite) TestGetCharmByApplicationID(c *gc.C) {
 	origin := charm.CharmOrigin{
 		Source:   charm.LocalSource,
 		Revision: 42,
@@ -1541,7 +1542,7 @@ func (s *applicationStateSuite) TestCreateApplicationThenGetCharmByApplicationNa
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	ch, origin, platform, err := s.state.GetCharmByApplicationName(context.Background(), "foo")
+	ch, origin, platform, err := s.state.GetCharmByApplicationID(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ch, gc.DeepEquals, charm.Charm{
 		Metadata:   expectedMetadata,
@@ -1627,7 +1628,7 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 	}
 
 	revision := 42
-	_, err := s.state.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
+	appID, err := s.state.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
 		Charm: charm.Charm{
 			Metadata: expectedMetadata,
 			Manifest: expectedManifest,
@@ -1643,7 +1644,7 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	ch, origin, _, err := s.state.GetCharmByApplicationName(context.Background(), "foo")
+	ch, origin, _, err := s.state.GetCharmByApplicationID(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ch, gc.DeepEquals, charm.Charm{
 		Metadata: expectedMetadata,
@@ -1672,51 +1673,17 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 		MinJujuVersion: version.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	}
-	expectedManifest := charm.Manifest{
-		Bases: []charm.Base{
-			{
-				Name: "ubuntu",
-				Channel: charm.Channel{
-					Track: "latest",
-					Risk:  charm.RiskEdge,
-				},
-				Architectures: []string{"amd64", "arm64"},
-			},
-		},
-	}
-	expectedActions := charm.Actions{
-		Actions: map[string]charm.Action{
-			"action1": {
-				Description:    "description",
-				Parallel:       true,
-				ExecutionGroup: "group",
-				Params:         []byte(`{}`),
-			},
-		},
-	}
-	expectedConfig := charm.Config{
-		Options: map[string]charm.Option{
-			"option1": {
-				Type:        "string",
-				Description: "description",
-				Default:     "default",
-			},
-		},
-	}
-	expectedLXDProfile := []byte("[{}]")
 
 	_, err := s.state.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
 		Charm: charm.Charm{
-			Metadata:   expectedMetadata,
-			Manifest:   expectedManifest,
-			Actions:    expectedActions,
-			Config:     expectedConfig,
-			LXDProfile: expectedLXDProfile,
+			Metadata: expectedMetadata,
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, _, _, err = s.state.GetCharmByApplicationName(context.Background(), "bar")
+	id := applicationtesting.GenApplicationUUID(c)
+
+	_, _, _, err = s.state.GetCharmByApplicationID(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 

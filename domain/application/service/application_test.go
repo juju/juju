@@ -746,10 +746,26 @@ func (s *applicationServiceSuite) TestRegisterCAASUnitMissingPasswordHash(c *gc.
 	c.Assert(err, gc.ErrorMatches, "password hash not valid")
 }
 
-func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
+func (s *applicationServiceSuite) TestGetApplicationIDByName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetCharmByApplicationName(gomock.Any(), "foo").Return(domaincharm.Charm{
+	s.setupRunAtomic(c, 1)
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationID(gomock.Any(), "foo").Return(id, nil)
+
+	applicationID, err := s.service.GetApplicationIDByName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(applicationID, gc.DeepEquals, id)
+}
+
+func (s *applicationServiceSuite) TestGetCharmByApplicationID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), id).Return(domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
 			Name: "foo",
 
@@ -765,7 +781,7 @@ func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
 		Architecture: domaincharm.AMD64,
 	}, nil)
 
-	metadata, origin, platform, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
+	metadata, origin, platform, err := s.service.GetCharmByApplicationID(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(metadata.Meta(), gc.DeepEquals, &charm.Meta{
 		Name: "foo",
@@ -813,6 +829,12 @@ func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	}).AnyTimes()
 
 	return ctrl
+}
+
+func (s *applicationServiceSuite) setupRunAtomic(c *gc.C, attempts int) {
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(ctx domain.AtomicContext) error) error {
+		return f(domaintesting.NewAtomicContext(ctx))
+	}).Times(attempts)
 }
 
 type providerApplicationServiceSuite struct {
