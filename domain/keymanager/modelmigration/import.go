@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/description/v8"
 
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/user"
@@ -67,10 +68,11 @@ type UserService interface {
 }
 
 // importOperation is the type used to describe the import operation for
-// authorized keys between models.
+// authorized keys between model's.
 type importOperation struct {
 	modelmigration.BaseOperation
 
+	logger        logger.Logger
 	serviceGetter importServiceGetterFunc
 	userService   UserService
 }
@@ -91,7 +93,7 @@ func (i *importOperation) Execute(
 		userName, err := user.NewName(uak.Username())
 		if err != nil {
 			return errors.Errorf(
-				"cannot import authorized keys for user %q on model when constructing user name: %w",
+				"importing authorized keys for user %q when constructing user name: %w",
 				uak.Username(), err,
 			)
 		}
@@ -99,12 +101,12 @@ func (i *importOperation) Execute(
 		user, err := i.userService.GetUserByName(ctx, userName)
 		if errors.Is(err, accesserrors.UserNotFound) {
 			return errors.Errorf(
-				"cannot import authorized keys for user %q on model, user does not exist in the model",
+				"importing authorized keys for user %q, user does not exist in the model",
 				userName,
 			).Add(err)
 		} else if err != nil {
 			return errors.Errorf(
-				"cannot import authorized keys for user %q on model when finding user: %w",
+				"importing authorized keys for user %q when finding user: %w",
 				userName,
 				err,
 			)
@@ -120,7 +122,7 @@ func (i *importOperation) Execute(
 		err = i.serviceGetter(modelUUID).AddPublicKeysForUser(ctx, user.UUID, uak.AuthorizedKeys()...)
 		if err != nil {
 			return errors.Errorf(
-				"cannot import authorized keys for user %q on model: %w",
+				"importing authorized keys for user %q: %w",
 				userName,
 				err,
 			)
@@ -130,8 +132,8 @@ func (i *importOperation) Execute(
 	return nil
 }
 
-// executeModelConfigAuthorizedKeys is responsible for importing a models
-// authorized keys when they are still contained with the models config. When we
+// executeModelConfigAuthorizedKeys is responsible for importing a model's
+// authorized keys when they are still contained with the model's config. When we
 // detect that we are importing a model that has still been storing authorized
 // keys within model config we want to pull these keys out and import them into
 // the model under the admin user.
@@ -144,28 +146,28 @@ func (i *importOperation) executeModelConfigAuthorizedKeys(
 	ctx context.Context,
 	model description.Model,
 ) error {
-	authKeysI, has := model.Config()[modelConfigKeyAuthorizeKeys]
+	authKeysAny, has := model.Config()[modelConfigKeyAuthorizeKeys]
 	if !has {
 		// No authorized keys in model config so we can safely just get out of
 		// here.
 		return nil
 	}
-	authKeys, isString := authKeysI.(string)
+	authKeys, isString := authKeysAny.(string)
 	if !isString {
-		return errors.New("cannot import authorized keys from model config, expected a string")
+		return errors.New("importing authorized keys from model config, expected a string")
 	}
 
-	// Because of bugs over time there are Juju controllers out in the wild that
-	// have the controllers ssh key baked into each and every models authorized
-	// keys. We can't fix this now as the damage is done.
+	// Because of bugs over time there are Juju controller's out in the wild
+	// that have the controllers ssh key baked into each and every model's
+	// authorized keys. We can't fix this now as the damage is done.
 	//
-	// But we can do our best to stop it coming across when importing models. It
-	// would be a security bug if an old controller could still access the
+	// But we can do our best to stop it coming across when importing model's.
+	// It would be a security bug if an old controller could still access the
 	// machines of a model that it does not own anymore.
 	publicKeys, err := ssh.SplitAuthorizedKeys(authKeys)
 	if err != nil {
 		return errors.Errorf(
-			"cannot split authorized keys in model config during import: %w",
+			"splitting authorized keys in model config during import: %w",
 			err,
 		)
 	}
@@ -173,6 +175,14 @@ func (i *importOperation) executeModelConfigAuthorizedKeys(
 	cleansedKeys := make([]string, 0, len(publicKeys))
 	for _, pk := range publicKeys {
 		if strings.Contains(pk, controller.ControllerSSHKeyComment) {
+			// We throw away any keys that come across with the controller key
+			// comment. This stops a security leak allowing the source
+			// controller ssh access after migration. We only need to worry
+			// about this case for when the keys are coming from model config.
+			i.logger.Warningf(
+				"disregarding authorized key during model migration because it has a comment containing %q",
+				controller.ControllerSSHKeyComment,
+			)
 			continue
 		}
 		cleansedKeys = append(cleansedKeys, pk)
@@ -181,7 +191,7 @@ func (i *importOperation) executeModelConfigAuthorizedKeys(
 	adminUser, err := i.userService.GetUserByName(ctx, user.AdminUserName)
 	if err != nil {
 		return errors.New(
-			"cannot import authorized keys from model config. " +
+			"importing authorized keys from model config. " +
 				"Finding admin user to assign owner ship of keys",
 		)
 	}
@@ -200,7 +210,7 @@ func (i *importOperation) executeModelConfigAuthorizedKeys(
 	)
 	if err != nil {
 		return errors.Errorf(
-			"cannot add public keys for the admin user from model config: %w",
+			"adding public keys for the admin user from model config: %w",
 			err,
 		)
 	}
@@ -214,8 +224,10 @@ func (i *importOperation) Name() string {
 
 // RegisterImport register's a new model authorized keys importer into the
 // supplied coordinator.
-func RegisterImport(coordinator Coordinator) {
-	coordinator.Add(&importOperation{})
+func RegisterImport(coordinator Coordinator, logger logger.Logger) {
+	coordinator.Add(&importOperation{
+		logger: logger,
+	})
 }
 
 // Setup the import operation, this will ensure the service is created and ready

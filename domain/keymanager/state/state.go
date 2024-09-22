@@ -398,7 +398,7 @@ func (s *State) GetAllUsersPublicKeys(
 	stmt, err := s.Prepare(`
 SELECT (u.name, mak.public_key) AS (&userPublicKey.*)
 FROM v_model_authorized_keys AS mak
-INNER JOIN user AS u ON u.uuid = mak.user_uuid
+JOIN user AS u ON u.uuid = mak.user_uuid
 WHERE mak.model_uuid = $modelUUIDValue.model_uuid
 `, modelUUIDVal, userPublicKey{})
 
@@ -441,10 +441,6 @@ WHERE mak.model_uuid = $modelUUIDValue.model_uuid
 			)
 		}
 
-		if _, exists := rval[userName]; !exists {
-			rval[userName] = []string{}
-		}
-
 		rval[userName] = append(rval[userName], userKey.PublicKey)
 	}
 
@@ -452,7 +448,7 @@ WHERE mak.model_uuid = $modelUUIDValue.model_uuid
 }
 
 // GetPublicKeysForUser is responsible for returning all of the public keys for
-// the user id in this model. If the user does not exist no error is returned.
+// the user uuid in this model. If the user does not exist no error is returned.
 func (s *State) GetPublicKeysForUser(
 	ctx context.Context,
 	modelUUID model.UUID,
@@ -469,7 +465,7 @@ func (s *State) GetPublicKeysForUser(
 	stmt, err := s.Prepare(`
 SELECT &publicKey.*
 FROM user_public_ssh_key AS upsk
-INNER JOIN model_authorized_keys AS m ON upsk.user_public_ssh_key_id = m.user_public_ssh_key_id
+JOIN model_authorized_keys AS m ON upsk.user_public_ssh_key_id = m.user_public_ssh_key_id
 WHERE user_uuid = $userUUIDValue.user_uuid
 AND model_uuid = $modelUUIDValue.model_uuid
 `, userUUIDVal, publicKey{}, modelUUIDVal)
@@ -543,7 +539,7 @@ func (s *State) GetPublicKeysDataForUser(
 	stmt, err := s.Prepare(`
 SELECT &publicKeyData.public_key
 FROM user_public_ssh_key AS upsk
-INNER JOIN model_authorized_keys AS m ON upsk.id = m.user_public_ssh_key_id
+JOIN model_authorized_keys AS m ON upsk.id = m.user_public_ssh_key_id
 WHERE user_uuid = $userUUIDValue.user_uuid
 AND model_uuid = $modelUUIDValue.model_uuid
 `, userUUIDVal, modelUUIDVal, publicKeyData{})

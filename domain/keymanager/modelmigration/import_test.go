@@ -15,6 +15,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type importSuite struct {
@@ -38,7 +39,7 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 
 	s.coordinator.EXPECT().Add(gomock.Any())
 
-	RegisterImport(s.coordinator)
+	RegisterImport(s.coordinator, loggertesting.WrapCheckLog(c))
 }
 
 func (s *importSuite) newImportOperation() *importOperation {
