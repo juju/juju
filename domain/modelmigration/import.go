@@ -11,6 +11,7 @@ import (
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
 	credential "github.com/juju/juju/domain/credential/modelmigration"
 	externalcontroller "github.com/juju/juju/domain/externalcontroller/modelmigration"
+	keymanager "github.com/juju/juju/domain/keymanager/modelmigration"
 	lease "github.com/juju/juju/domain/lease/modelmigration"
 	machine "github.com/juju/juju/domain/machine/modelmigration"
 	model "github.com/juju/juju/domain/model/modelmigration"
@@ -43,6 +44,7 @@ func ImportOperations(
 	externalcontroller.RegisterImport(coordinator)
 	credential.RegisterImport(coordinator, logger.Child("credential"))
 	model.RegisterImport(coordinator, logger.Child("model"))
+	keymanager.RegisterImport(coordinator, logger.Child("keymanager"))
 	modelconfig.RegisterImport(coordinator, modelDefaultsProvider)
 	access.RegisterImport(coordinator, logger.Child("access"))
 	network.RegisterImport(coordinator, logger.Child("network"))

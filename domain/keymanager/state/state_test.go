@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	accessstate "github.com/juju/juju/domain/access/state"
 	"github.com/juju/juju/domain/keymanager"
 	keyerrors "github.com/juju/juju/domain/keymanager/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -27,8 +28,9 @@ import (
 type stateSuite struct {
 	schematesting.ControllerSuite
 
-	userId  user.UUID
-	modelId model.UUID
+	userId   user.UUID
+	userName user.Name
+	modelId  model.UUID
 }
 
 var _ = gc.Suite(&stateSuite{})
@@ -73,6 +75,7 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.userId = model.Owner
+	s.userName = model.OwnerName
 }
 
 // TestAddPublicKeyForUser is asserting the happy path of adding a public key
@@ -352,5 +355,81 @@ func (s *stateSuite) TestDeletePublicKeysForNonExistentModel(c *gc.C) {
 		keysToAdd[0].Comment,
 		keysToAdd[0].Fingerprint,
 	})
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestGetAllUsersPublicKeys is responsible for testing the happy path of
+// getting all user keys in the model.
+func (s *stateSuite) TestGetAllUsersPublicKeys(c *gc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	keysToAdd := generatePublicKeys(c, testingPublicKeys)
+
+	err := state.AddPublicKeysForUser(
+		context.Background(),
+		s.modelId,
+		s.userId,
+		keysToAdd,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	secondUserId := usertesting.GenUserUUID(c)
+	secondUserName := usertesting.GenNewName(c, "tlm")
+	userSt := accessstate.NewUserState(s.TxnRunnerFactory())
+	err = userSt.AddUser(
+		context.Background(),
+		secondUserId,
+		secondUserName,
+		"tlm",
+		false,
+		s.userId,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = state.AddPublicKeysForUser(
+		context.Background(),
+		s.modelId,
+		secondUserId,
+		keysToAdd,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	allKeys, err := state.GetAllUsersPublicKeys(context.Background(), s.modelId)
+	c.Check(err, jc.ErrorIsNil)
+
+	for k := range allKeys {
+		slices.Sort(allKeys[k])
+	}
+	expected := []string{
+		"ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBG00bYFLb/sxPcmVRMg8NXZK/ldefElAkC9wD41vABdHZiSRvp+2y9BMNVYzE/FnzKObHtSvGRX65YQgRn7k5p0= juju1@example.com",
+		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR juju2@example.com",
+		"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDvplNOK3UBpULZKvZf/I5JHci/DufpSxj8yR4yKE2grescJxu6754jPT3xztSeLGD31/oJApJZGkMUAMRenvDqIaq+taRfOUo/l19AlGZc+Edv4bTlJzZ1Lzwex1vvL1doaLb/f76IIUHClGUgIXRceQH1ovHiIWj6nGltuLanG8YTWxlzzK33yhitmZt142DmpX1VUVF5c/Hct6Rav5lKmwej1TDed1KmHzXVoTHEsmWhKsOK27ue5yTuq0GX6LrAYDucF+2MqZCsuddXsPAW1tj5GNZSR7RrKW5q1CI0G7k9gSomuCsRMlCJ3BqID/vUSs/0qOWg4he0HUsYKQSrXIhckuZu+jYP8B80MoXT50ftRidoG/zh/PugBdXTk46FloVClQopG5A2fbqrphADcUUbRUxZ2lWQN+OVHKfEsfV2b8L2aSqZUGlryfW1cirB5JCTDvtv7rUy9/ny9iKA+8tAyKSDF0I901RDDqKc9dSkrHCg2bLnJZDoiRoWczE= juju3@example.com",
+	}
+	slices.Sort(expected)
+
+	c.Check(allKeys, jc.DeepEquals, map[user.Name][]string{
+		s.userName:     expected,
+		secondUserName: expected,
+	})
+}
+
+// TestGetAllUserPublicKeysEmpty is asserting that if there exists no public
+// keys for any user in the model and we call [State.GetAllUsersPublicKeys] we
+// get back an empty map and no errors.
+func (s *stateSuite) TestGetAllUserPublicKeysEmpty(c *gc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	allKeys, err := state.GetAllUsersPublicKeys(context.Background(), s.modelId)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(len(allKeys), gc.Equals, 0)
+}
+
+// TestGetAllUserPublicKeysModelNotFound is asserting that is we ask for all the
+// user public keys on a model that does not exist we get back a
+// [modelerrors.NotFound] error.
+func (s *stateSuite) TestGetAllUserPublicKeysModelNotFound(c *gc.C) {
+	badModelUUID := modeltesting.GenModelUUID(c)
+	_, err := NewState(s.TxnRunnerFactory()).GetAllUsersPublicKeys(
+		context.Background(),
+		badModelUUID,
+	)
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }

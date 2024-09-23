@@ -220,6 +220,45 @@ func (c *MockStateEnsurePublicKeysForUserCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// GetAllUsersPublicKeys mocks base method.
+func (m *MockState) GetAllUsersPublicKeys(arg0 context.Context, arg1 model.UUID) (map[user.Name][]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllUsersPublicKeys", arg0, arg1)
+	ret0, _ := ret[0].(map[user.Name][]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllUsersPublicKeys indicates an expected call of GetAllUsersPublicKeys.
+func (mr *MockStateMockRecorder) GetAllUsersPublicKeys(arg0, arg1 any) *MockStateGetAllUsersPublicKeysCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUsersPublicKeys", reflect.TypeOf((*MockState)(nil).GetAllUsersPublicKeys), arg0, arg1)
+	return &MockStateGetAllUsersPublicKeysCall{Call: call}
+}
+
+// MockStateGetAllUsersPublicKeysCall wrap *gomock.Call
+type MockStateGetAllUsersPublicKeysCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllUsersPublicKeysCall) Return(arg0 map[user.Name][]string, arg1 error) *MockStateGetAllUsersPublicKeysCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllUsersPublicKeysCall) Do(f func(context.Context, model.UUID) (map[user.Name][]string, error)) *MockStateGetAllUsersPublicKeysCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllUsersPublicKeysCall) DoAndReturn(f func(context.Context, model.UUID) (map[user.Name][]string, error)) *MockStateGetAllUsersPublicKeysCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetPublicKeysForUser mocks base method.
 func (m *MockState) GetPublicKeysForUser(arg0 context.Context, arg1 model.UUID, arg2 user.UUID) ([]ssh.PublicKey, error) {
 	m.ctrl.T.Helper()

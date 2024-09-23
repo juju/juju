@@ -86,7 +86,8 @@ var (
 	validName            = regexp.MustCompile(fmt.Sprintf("^(?P<name>%s)(?:@(?P<domain>%s))?$", validUserNameSnippet, validUserNameSnippet))
 )
 
-// NewName validates the name and returns a new Name object.
+// NewName validates the name and returns a new Name object. If the name is not
+// valid an error satisfying [errors.NotValid] will be returned.
 func NewName(name string) (Name, error) {
 	parts := validName.FindStringSubmatch(name)
 	if len(parts) != 3 {

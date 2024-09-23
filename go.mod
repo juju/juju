@@ -48,7 +48,7 @@ require (
 	github.com/juju/clock v1.1.1
 	github.com/juju/cmd/v4 v4.0.1
 	github.com/juju/collections v1.0.4
-	github.com/juju/description/v8 v8.0.0-20240805151822-0d2b0feb1553
+	github.com/juju/description/v8 v8.0.0-20240822021617-3dc4379e0192
 	github.com/juju/errors v1.0.0
 	github.com/juju/gnuflag v1.0.0
 	github.com/juju/gojsonschema v1.0.0
@@ -216,7 +216,7 @@ require (
 	github.com/juju/lru v1.0.0 // indirect
 	github.com/juju/mgo/v2 v2.0.2 // indirect
 	github.com/juju/usso v1.0.1 // indirect
-	github.com/juju/utils/v3 v3.1.1 // indirect
+	github.com/juju/utils/v3 v3.2.0 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kr/fs v0.1.0 // indirect
