@@ -123,7 +123,5 @@ type MockConfigService struct {
 }
 
 func (m *MockConfigService) ModelConfig(_ stdcontext.Context) (*config.Config, error) {
-	// name (model name)
-	// uuid (model uuid)
 	return m.Config, nil
 }
