@@ -198,7 +198,6 @@ type Model interface {
 	OpenedPortRangesForMachine(string) (state.MachinePortRanges, error)
 	// The following methods are required for querying the featureset
 	// supported by the model.
-	//Config() (*config.Config, error)
 	CloudName() string
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
 	CloudRegion() string
