@@ -21,6 +21,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/state"
+	workerstate "github.com/juju/juju/worker/state"
 )
 
 // ModelWatcher provides an interface for watching the additiona and
@@ -76,6 +77,7 @@ type NewModelConfig struct {
 	ModelMetrics     engine.MetricSink
 	Mux              *apiserverhttp.Mux
 	ControllerConfig controller.Config
+	StateTracker     workerstate.StateTracker
 }
 
 // NewModelWorkerFunc should return a worker responsible for running
@@ -96,6 +98,7 @@ type Config struct {
 	Controller     Controller
 	NewModelWorker NewModelWorkerFunc
 	ErrorDelay     time.Duration
+	StateTracker   workerstate.StateTracker
 }
 
 // Validate returns an error if config cannot be expected to drive
@@ -127,6 +130,9 @@ func (config Config) Validate() error {
 	}
 	if config.ErrorDelay <= 0 {
 		return errors.NotValidf("non-positive ErrorDelay")
+	}
+	if config.StateTracker == nil {
+		return errors.NotValidf("nil StateTracker")
 	}
 	return nil
 }
@@ -218,6 +224,7 @@ func (m *modelWorkerManager) loop() error {
 			ModelMetrics:     m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
 			Mux:              m.config.Mux,
 			ControllerConfig: controllerConfig,
+			StateTracker:     m.config.StateTracker,
 		}
 		return errors.Trace(m.ensure(cfg))
 	}

@@ -1060,6 +1060,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		NewEnvironFunc:              newEnvirons,
 		NewContainerBrokerFunc:      newCAASBroker,
 		NewMigrationMaster:          migrationmaster.NewWorker,
+		StateTracker:                cfg.StateTracker,
 	}
 	if wrench.IsActive("charmrevision", "shortinterval") {
 		interval := 10 * time.Second

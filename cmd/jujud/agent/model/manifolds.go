@@ -61,12 +61,14 @@ import (
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationmaster"
+	"github.com/juju/juju/worker/perf"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/pruner"
 	"github.com/juju/juju/worker/remoterelations"
 	"github.com/juju/juju/worker/secretsdrainworker"
 	"github.com/juju/juju/worker/secretspruner"
 	"github.com/juju/juju/worker/singular"
+	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/undertaker"
@@ -131,6 +133,8 @@ type ManifoldsConfig struct {
 	// NewMigrationMaster is called to create a new migrationmaster
 	// worker.
 	NewMigrationMaster func(migrationmaster.Config) (worker.Worker, error)
+
+	StateTracker workerstate.StateTracker
 }
 
 // commonManifolds returns a set of interdependent dependency manifolds that will
@@ -214,6 +218,20 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:     credentialvalidator.NewFacade,
 			NewWorker:     credentialvalidator.NewWorker,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.credentialvalidator"),
+		}),
+
+		stateName: dependency.Manifold{
+			Start: func(ctx dependency.Context) (worker.Worker, error) {
+				return engine.NewValueWorker(config.StateTracker)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
+
+		perfWorkerName: perf.Manifold(perf.ManifoldConfig{
+			AgentName: agentName,
+			Clock:     config.Clock,
+			Logger:    config.LoggingContext.GetLogger("juju.worker.perf"),
+			StateName: stateName,
 		}),
 
 		// The migration workers collaborate to run migrations;
@@ -751,4 +769,7 @@ const (
 	userSecretsDrainWorker = "user-secrets-drain-worker"
 
 	validCredentialFlagName = "valid-credential-flag"
+
+	perfWorkerName = "perf-worker"
+	stateName      = "state"
 )

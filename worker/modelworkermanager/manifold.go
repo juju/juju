@@ -141,6 +141,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		},
 		NewModelWorker: config.NewModelWorker,
 		ErrorDelay:     jworker.RestartDelay,
+		StateTracker:   stTracker,
 	})
 	if err != nil {
 		_ = stTracker.Done()
