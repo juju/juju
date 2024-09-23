@@ -45,7 +45,7 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		return nil, errors.Trace(err)
 	}
 
-	backend, storageBackend, err := NewStateBackends(st)
+	backend, storageBackend, err := NewStateBackends(st, serviceFactory.Config())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

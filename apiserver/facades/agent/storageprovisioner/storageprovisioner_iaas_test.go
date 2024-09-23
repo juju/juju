@@ -77,7 +77,7 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.st)
+	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.st, serviceFactory.Config())
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageBackend = storageBackend
 	api, err := storageprovisioner.NewStorageProvisionerAPIv4(

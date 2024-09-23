@@ -84,12 +84,12 @@ type stateShim struct {
 }
 
 // NewStateBackends creates a Backend from the given *state.State.
-func NewStateBackends(st *state.State) (Backend, StorageBackend, error) {
+func NewStateBackends(st *state.State, modelConfigService ModelConfigService) (Backend, StorageBackend, error) {
 	m, err := st.Model()
 	if err != nil {
 		return nil, nil, err
 	}
-	sb, err := state.NewStorageBackend(st)
+	sb, err := state.NewStorageBackendFromServices(st, modelConfigService)
 	if err != nil {
 		return nil, nil, err
 	}

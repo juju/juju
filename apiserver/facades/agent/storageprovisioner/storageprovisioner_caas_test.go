@@ -68,7 +68,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.st)
+	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.st, serviceFactory.Config())
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageBackend = storageBackend
 	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(

@@ -39,7 +39,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
-	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.st)
+	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.st, s.ControllerServiceFactory(c).Config())
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelInfo, err := s.ControllerServiceFactory(c).ModelInfo().GetModelInfo(context.Background())
