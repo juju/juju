@@ -33,6 +33,7 @@ func main() {
 		modelTypeFlag      = flags.String("model-type", "iaas", "model type to use (iaas|caas)")
 		useModelFlag       = flags.Bool("model", false, "use model manifolds")
 		transitiveDepsFlag = flags.Int("dependency-depth", 0, "include transitive dependencies and how many levels to include")
+		listManifoldsFlag  = flags.Bool("list-manifolds", false, "list all manifolds")
 
 		manifoldsFlag = stringslice{}
 	)
@@ -47,9 +48,27 @@ func main() {
 
 	root := NewDAG()
 
+	selectedManifolds := set.NewStrings(manifoldsFlag.Slice()...)
+
 	manifolds := getManifolds(*useModelFlag, *modelTypeFlag)
 
-	selectedManifolds := set.NewStrings(manifoldsFlag.Slice()...)
+	if *listManifoldsFlag {
+		if *transitiveDepsFlag > 0 {
+			fmt.Fprintf(os.Stderr, "cannot include transitive dependencies with listing manifolds\n")
+			os.Exit(1)
+		}
+		if !selectedManifolds.IsEmpty() {
+			fmt.Fprintf(os.Stderr, "cannot select a manifold whilst listing all manifolds\n")
+			os.Exit(1)
+		}
+
+		for name := range manifolds {
+			root.AddVertex(name)
+		}
+		fmt.Fprintln(os.Stdout, root.Render())
+		os.Exit(0)
+	}
+
 	if selectedManifolds.IsEmpty() {
 		// Spit out all the manifolds, with or without transitive dependencies,
 		// depending on the flag.
@@ -67,8 +86,7 @@ func main() {
 	}
 
 	// Transitive dependencies are not supported with manifold selection.
-	transativeDepth := *transitiveDepsFlag
-	if transativeDepth > 0 {
+	if *transitiveDepsFlag > 0 {
 		fmt.Fprintf(os.Stderr, "cannot include transitive dependencies with manifold selection\n")
 		os.Exit(1)
 	}
@@ -122,12 +140,16 @@ type Dag struct {
 }
 
 func NewDAG() *Dag {
-	root := new(Dag)
-	root.nodes = make(map[string]*DagNode)
-	return root
+	return &Dag{
+		nodes: make(map[string]*DagNode),
+	}
 }
 
 func (d *Dag) AddVertex(name string) *DagNode {
+	if node, ok := d.nodes[name]; ok {
+		return node
+	}
+
 	node := new(DagNode)
 	node.name = name
 	d.nodes[name] = node
