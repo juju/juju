@@ -125,7 +125,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 		),
 	})
 
-	sb, err := state.NewStorageBackend(ctx.State())
+	sb, err := state.NewStorageBackendFromServices(ctx.State(), modelConfigService)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
