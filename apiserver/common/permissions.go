@@ -61,7 +61,7 @@ func HasPermission(
 		ObjectType: objectType,
 		Key:        target.Id(),
 	})
-	if err != nil && !(errors.Is(err, accesserrors.PermissionNotFound) || errors.Is(err, accesserrors.UserNotFound)) {
+	if err != nil && !(errors.Is(err, accesserrors.AccessNotFound) || errors.Is(err, accesserrors.UserNotFound)) {
 		return false, errors.Annotatef(err, "while obtaining %s user", target.Kind())
 	}
 	if userAccess == permission.NoAccess {

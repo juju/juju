@@ -52,8 +52,8 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 			return "", errors.NotValidf("%q as a target", target.ObjectType)
 		}
 
-		access, err := accessService.ReadUserAccessForTarget(ctx, userName, target)
-		return access.Access, errors.Trace(err)
+		access, err := accessService.ReadUserAccessLevelForTarget(ctx, userName, target)
+		return access, errors.Trace(err)
 	}
 
 	ok, err := common.HasPermission(

@@ -171,7 +171,7 @@ func (r *PermissionSuite) TestUserGetterErrorReturns(c *gc.C) {
 	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
 	userGetter := &fakeUserAccess{
 		access: permission.NoAccess,
-		err:    accesserrors.PermissionNotFound,
+		err:    accesserrors.AccessNotFound,
 	}
 	hasPermission, err := common.HasPermission(context.Background(), userGetter.call, userTag, permission.ReadAccess, target)
 	c.Assert(err, jc.ErrorIsNil)
