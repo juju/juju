@@ -535,6 +535,11 @@ func (s *caasToolsSuite) TestToolDownloadNotSharedCAASController(c *gc.C) {
 
 	const n = 8
 	states := []*state.State{}
+
+	// For the test to run properly with part of the model in mongo and
+	// part in a service domain, a model with the same uuid is required
+	// in both places for the test to work. Necessary after model config
+	// was move to the domain services.
 	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
 	c.Assert(err, jc.ErrorIsNil)
 	testState := f.MakeModel(c, &factory.ModelParams{UUID: &modelUUID})

@@ -184,6 +184,10 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.Client, *state.CAA
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
+	// For the test to run properly with part of the model in mongo and
+	// part in a service domain, a model with the same uuid is required
+	// in both places for the test to work. Necessary after model config
+	// was move to the domain services.
 	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
 	c.Assert(err, jc.ErrorIsNil)
 

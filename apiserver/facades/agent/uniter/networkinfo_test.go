@@ -341,9 +341,12 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
+	// For the test to run properly with part of the model in mongo and
+	// part in a service domain, a model with the same uuid is required
+	// in both places for the test to work. Necessary after model config
+	// was move to the domain services.
 	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
 	c.Assert(err, jc.ErrorIsNil)
-
 	st := f.MakeCAASModel(c, &factory.ModelParams{UUID: &modelUUID})
 	defer func() { _ = st.Close() }()
 
@@ -627,9 +630,12 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
+	// For the test to run properly with part of the model in mongo and
+	// part in a service domain, a model with the same uuid is required
+	// in both places for the test to work. Necessary after model config
+	// was move to the domain services.
 	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
 	c.Assert(err, jc.ErrorIsNil)
-
 	st := f.MakeCAASModel(c, &factory.ModelParams{UUID: &modelUUID})
 	defer func() { _ = st.Close() }()
 
@@ -683,9 +689,12 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
+	// For the test to run properly with part of the model in mongo and
+	// part in a service domain, a model with the same uuid is required
+	// in both places for the test to work. Necessary after model config
+	// was move to the domain services.
 	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
 	c.Assert(err, jc.ErrorIsNil)
-
 	st := f.MakeCAASModel(c, &factory.ModelParams{UUID: &modelUUID})
 	defer func() { _ = st.Close() }()
 
@@ -715,9 +724,12 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
+	// For the test to run properly with part of the model in mongo and
+	// part in a service domain, a model with the same uuid is required
+	// in both places for the test to work. Necessary after model config
+	// was move to the domain services.
 	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
 	c.Assert(err, jc.ErrorIsNil)
-
 	st := f.MakeCAASModel(c, &factory.ModelParams{UUID: &modelUUID})
 	defer func() { _ = st.Close() }()
 

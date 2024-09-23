@@ -782,6 +782,10 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
+	// For the test to run properly with part of the model in mongo and
+	// part in a service domain, a model with the same uuid is required
+	// in both places for the test to work. Necessary after model config
+	// was move to the domain services.
 	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -808,6 +812,11 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+
+	// For the test to run properly with part of the model in mongo and
+	// part in a service domain, a model with the same uuid is required
+	// in both places for the test to work. Necessary after model config
+	// was move to the domain services.
 	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
 	c.Assert(err, jc.ErrorIsNil)
 	modelState := f.MakeModel(c, &factory.ModelParams{
@@ -869,14 +878,19 @@ func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 
-	// Create a hosted model with an unprovisioned machine that has the
-	// same tag as the manager machine.
+	// For the test to run properly with part of the model in mongo and
+	// part in a service domain, a model with the same uuid is required
+	// in both places for the test to work. Necessary after model config
+	// was move to the domain services.
 	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
 	c.Assert(err, jc.ErrorIsNil)
 	hostedModelState := f.MakeModel(c, &factory.ModelParams{UUID: &modelUUID})
 	defer hostedModelState.Close()
 	f2, release := s.NewFactory(c, hostedModelState.ModelUUID())
 	defer release()
+
+	// Create a hosted model with an unprovisioned machine that has the
+	// same tag as the manager machine.
 	workloadMachine, _ := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
 	c.Assert(managerMachine.Tag(), gc.Equals, workloadMachine.Tag())
 
