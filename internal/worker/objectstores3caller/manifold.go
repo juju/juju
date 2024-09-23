@@ -31,8 +31,8 @@ type NewWorkerFunc = func(workerConfig) (worker.Worker, error)
 
 // ManifoldConfig defines a Manifold's dependencies.
 type ManifoldConfig struct {
-	HTTPClientName     string
-	ServiceFactoryName string
+	HTTPClientName          string
+	ObjectStoreServicesName string
 
 	// NewClient is used to create a new object store client.
 	NewClient NewClientFunc
@@ -50,8 +50,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.HTTPClientName == "" {
 		return errors.NotValidf("nil HTTPClientName")
 	}
-	if cfg.ServiceFactoryName == "" {
-		return errors.NotValidf("nil ServiceFactoryName")
+	if cfg.ObjectStoreServicesName == "" {
+		return errors.NotValidf("nil ObjectStoreServicesName")
 	}
 	if cfg.NewClient == nil {
 		return errors.NotValidf("nil NewClient")
@@ -70,7 +70,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.HTTPClientName,
-			config.ServiceFactoryName,
+			config.ObjectStoreServicesName,
 		},
 		Output: outputFunc,
 		Start:  config.start,
@@ -84,7 +84,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfigService, err := config.GetControllerConfigService(getter, config.ServiceFactoryName)
+	controllerConfigService, err := config.GetControllerConfigService(getter, config.ObjectStoreServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -150,7 +150,7 @@ func NewS3Client(endpoint string, client s3client.HTTPClient, creds s3client.Cre
 // GetControllerConfigService is a helper function that gets a service from the
 // manifold.
 func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) ControllerConfigService {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerObjectStoreServices) ControllerConfigService {
 		return factory.ControllerConfig()
 	})
 }

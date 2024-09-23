@@ -70,7 +70,7 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	s.st = s.ControllerModel(c).State()
-	serviceFactoryGetter := s.ServiceFactoryGetter(c)
+	serviceFactoryGetter := s.ServiceFactoryGetter(c, s.NoopObjectStore(c))
 	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(s.st.ModelUUID())).Storage(registry)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{

@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 )
 
@@ -25,6 +26,7 @@ func NewServiceFactory(
 	modelDB changestream.WatchableDBFactory,
 	deleterDB database.DBDeleter,
 	providerTracker providertracker.ProviderFactory,
+	objectStore objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
 ) *ServiceFactory {
 	controllerFactory := NewControllerFactory(controllerDB, deleterDB, logger)
@@ -35,6 +37,7 @@ func NewServiceFactory(
 			controllerDB,
 			modelDB,
 			providerTracker,
+			objectStore,
 			logger,
 		),
 	}

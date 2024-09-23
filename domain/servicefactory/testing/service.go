@@ -28,7 +28,6 @@ import (
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	networkservice "github.com/juju/juju/domain/network/service"
-	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	proxyservice "github.com/juju/juju/domain/proxy/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -123,16 +122,6 @@ func (s *TestingServiceFactory) Cloud() *cloudservice.WatchableService {
 
 // Upgrade returns the upgrade service.
 func (s *TestingServiceFactory) Upgrade() *upgradeservice.WatchableService {
-	return nil
-}
-
-// AgentObjectStore returns the agent object store service.
-func (s *TestingServiceFactory) AgentObjectStore() *objectstoreservice.WatchableService {
-	return nil
-}
-
-// ObjectStore returns the object store service.
-func (s *TestingServiceFactory) ObjectStore() *objectstoreservice.WatchableService {
 	return nil
 }
 

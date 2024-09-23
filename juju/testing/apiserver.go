@@ -286,7 +286,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		MongoSession:  session,
 		AdminPassword: AdminSecret,
 		NewPolicy: stateenvirons.GetNewPolicyFunc(serviceFactory.Cloud(), serviceFactory.Credential(), func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter {
-			return s.ServiceFactoryGetter(c).FactoryForModel(modelUUID).Storage(registry)
+			return s.ServiceFactoryGetter(c, s.NoopObjectStore(c)).FactoryForModel(modelUUID).Storage(registry)
 		}),
 	}, environs.ProviderConfigSchemaSource(serviceFactory.Cloud()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -321,7 +321,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	cfg.Mux = s.mux
 	cfg.DBGetter = stubDBGetter{db: stubWatchableDB{TxnRunner: s.TxnRunner()}}
 	cfg.DBDeleter = stubDBDeleter{}
-	cfg.ServiceFactoryGetter = s.ServiceFactoryGetter(c)
+	cfg.ServiceFactoryGetter = s.ServiceFactoryGetter(c, s.NoopObjectStore(c))
 	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
 
@@ -348,9 +348,9 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	}
 
 	cfg.ObjectStoreGetter = &stubObjectStoreGetter{
-		rootDir:              c.MkDir(),
-		claimer:              objectstoretesting.MemoryClaimer(),
-		serviceFactoryGetter: cfg.ServiceFactoryGetter,
+		rootDir:                   c.MkDir(),
+		claimer:                   objectstoretesting.MemoryClaimer(),
+		objectStoreServicesGetter: s.ObjectStoreServicesGetter(c),
 	}
 	s.ObjectStoreGetter = cfg.ObjectStoreGetter
 
@@ -554,7 +554,7 @@ func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	modelServiceFactory := s.ServiceFactoryGetter(c).FactoryForModel(coremodel.UUID(modelUUID))
+	modelServiceFactory := s.ServiceFactoryGetter(c, s.NoopObjectStore(c)).FactoryForModel(coremodel.UUID(modelUUID))
 	var registry storage.ProviderRegistry
 	if model.Type() == state.ModelTypeIAAS {
 		registry = storage.ChainedProviderRegistry{
@@ -716,30 +716,30 @@ func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.Tracer
 }
 
 type stubObjectStoreGetter struct {
-	rootDir              string
-	claimer              internalobjectstore.Claimer
-	serviceFactoryGetter servicefactory.ServiceFactoryGetter
+	rootDir                   string
+	claimer                   internalobjectstore.Claimer
+	objectStoreServicesGetter servicefactory.ObjectStoreServicesGetter
 }
 
 func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace string) (objectstore.ObjectStore, error) {
-	serviceFactory := s.serviceFactoryGetter.FactoryForModel(coremodel.UUID(namespace))
+	services := s.objectStoreServicesGetter.FactoryForModel(coremodel.UUID(namespace))
 
 	return internalobjectstore.ObjectStoreFactory(ctx,
 		internalobjectstore.DefaultBackendType(),
 		namespace,
 		internalobjectstore.WithRootDir(s.rootDir),
-		internalobjectstore.WithMetadataService(&stubMetadataService{serviceFactory: serviceFactory}),
+		internalobjectstore.WithMetadataService(&stubMetadataService{services: services}),
 		internalobjectstore.WithClaimer(s.claimer),
 		internalobjectstore.WithLogger(internallogger.GetLogger("juju.objectstore")),
 	)
 }
 
 type stubMetadataService struct {
-	serviceFactory servicefactory.ServiceFactory
+	services servicefactory.ObjectStoreServices
 }
 
 func (s *stubMetadataService) ObjectStore() objectstore.ObjectStoreMetadata {
-	return s.serviceFactory.ObjectStore()
+	return s.services.ObjectStore()
 }
 
 type stubWatchableDB struct {

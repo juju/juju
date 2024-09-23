@@ -34,8 +34,6 @@ import (
 	modelstate "github.com/juju/juju/domain/model/state"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
-	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
-	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
@@ -154,17 +152,6 @@ func (s *ControllerFactory) Upgrade() *upgradeservice.WatchableService {
 		domain.NewWatcherFactory(
 			s.controllerDB,
 			s.logger.Child("upgrade"),
-		),
-	)
-}
-
-// AgentObjectStore returns the object store service.
-func (s *ControllerFactory) AgentObjectStore() *objectstoreservice.WatchableService {
-	return objectstoreservice.NewWatchableService(
-		objectstorestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		domain.NewWatcherFactory(
-			s.controllerDB,
-			s.logger.Child("objectstore"),
 		),
 	)
 }

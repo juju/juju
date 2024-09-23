@@ -418,7 +418,7 @@ func (m *MockModelClaimGetter) EXPECT() *MockModelClaimGetterMockRecorder {
 }
 
 // ForModelUUID mocks base method.
-func (m *MockModelClaimGetter) ForModelUUID(arg0 string) (objectstore0.Claimer, error) {
+func (m *MockModelClaimGetter) ForModelUUID(arg0 model.UUID) (objectstore0.Claimer, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ForModelUUID", arg0)
 	ret0, _ := ret[0].(objectstore0.Claimer)
@@ -445,13 +445,13 @@ func (c *MockModelClaimGetterForModelUUIDCall) Return(arg0 objectstore0.Claimer,
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelClaimGetterForModelUUIDCall) Do(f func(string) (objectstore0.Claimer, error)) *MockModelClaimGetterForModelUUIDCall {
+func (c *MockModelClaimGetterForModelUUIDCall) Do(f func(model.UUID) (objectstore0.Claimer, error)) *MockModelClaimGetterForModelUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelClaimGetterForModelUUIDCall) DoAndReturn(f func(string) (objectstore0.Claimer, error)) *MockModelClaimGetterForModelUUIDCall {
+func (c *MockModelClaimGetterForModelUUIDCall) DoAndReturn(f func(model.UUID) (objectstore0.Claimer, error)) *MockModelClaimGetterForModelUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -111,7 +111,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 		Type: model.IAAS,
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(env)
-	serviceFactoryGetter := s.ServiceFactoryGetter(c)
+	serviceFactoryGetter := s.ServiceFactoryGetter(c, s.NoopObjectStore(c))
 	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Storage(registry)
 	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
 		StorageRegistry: registry,

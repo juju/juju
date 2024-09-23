@@ -271,7 +271,7 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 		}
 
 		// Grab the claimer for the model.
-		claimer, err := w.cfg.ModelClaimGetter.ForModelUUID(namespace)
+		claimer, err := w.cfg.ModelClaimGetter.ForModelUUID(model.UUID(namespace))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

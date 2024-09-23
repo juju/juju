@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/domain"
 	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
@@ -35,8 +36,6 @@ import (
 	modelmigrationstate "github.com/juju/juju/domain/modelmigration/state"
 	networkservice "github.com/juju/juju/domain/network/service"
 	networkstate "github.com/juju/juju/domain/network/state"
-	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
-	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 	proxy "github.com/juju/juju/domain/proxy/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretstate "github.com/juju/juju/domain/secret/state"
@@ -55,6 +54,7 @@ type ModelFactory struct {
 	modelUUID       model.UUID
 	modelDB         changestream.WatchableDBFactory
 	providerFactory providertracker.ProviderFactory
+	objectstore     objectstore.ModelObjectStoreGetter
 }
 
 // NewModelFactory returns a new registry which uses the provided modelDB
@@ -64,6 +64,7 @@ func NewModelFactory(
 	controllerDB changestream.WatchableDBFactory,
 	modelDB changestream.WatchableDBFactory,
 	providerFactory providertracker.ProviderFactory,
+	objectStore objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
 ) *ModelFactory {
 	return &ModelFactory{
@@ -72,6 +73,7 @@ func NewModelFactory(
 		modelUUID:       modelUUID,
 		modelDB:         modelDB,
 		providerFactory: providerFactory,
+		objectstore:     objectStore,
 	}
 }
 
@@ -97,17 +99,6 @@ func (s *ModelFactory) Config() *modelconfigservice.WatchableService {
 		config.ModelValidator(),
 		modelconfigstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		domain.NewWatcherFactory(s.modelDB, s.logger.Child("modelconfig")),
-	)
-}
-
-// ObjectStore returns the model's object store service.
-func (s *ModelFactory) ObjectStore() *objectstoreservice.WatchableService {
-	return objectstoreservice.NewWatchableService(
-		objectstorestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		domain.NewWatcherFactory(
-			s.modelDB,
-			s.logger.Child("objectstore"),
-		),
 	)
 }
 

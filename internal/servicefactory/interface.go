@@ -60,10 +60,6 @@ type ControllerServiceFactory interface {
 	Cloud() *cloudservice.WatchableService
 	// Upgrade returns the upgrade service.
 	Upgrade() *upgradeservice.WatchableService
-	// AgentObjectStore returns the object store service.
-	// Primarily used for agent blob store. Although can be used for other
-	// blob related operations.
-	AgentObjectStore() *objectstoreservice.WatchableService
 	// Flag returns the flag service.
 	Flag() *flagservice.Service
 	// Access returns the access service. This includes the user and permission
@@ -86,8 +82,6 @@ type ModelServiceFactory interface {
 	Annotation() *annotationService.Service
 	// Config returns the model config service.
 	Config() *modelconfigservice.WatchableService
-	// ObjectStore returns the object store service.
-	ObjectStore() *objectstoreservice.WatchableService
 	// Machine returns the machine service.
 	Machine() *machineservice.WatchableService
 	// BlockDevice returns the block device service.
@@ -153,4 +147,37 @@ type ProviderServiceFactory interface {
 type ProviderServiceFactoryGetter interface {
 	// FactoryForModel returns a ProviderServiceFactory for the given model.
 	FactoryForModel(modelUUID string) ProviderServiceFactory
+}
+
+// ControllerObjectStoreServices provides access to the services required by the
+// apiserver.
+// This is a subset of the ObjectStoreServices interface, for use only be
+// object store workers, that want to operate in a controller context. Think
+// s3caller, which wants the controller config service. We could use the
+// controller service factory, but that would re-introduce a circular
+// dependency. This isn't pretty, but is a necessary evil.
+type ControllerObjectStoreServices interface {
+	// ControllerConfig returns the controller configuration service.
+	ControllerConfig() *controllerconfigservice.WatchableService
+
+	// AgentObjectStore returns the object store service.
+	// Primarily used for agent blob store. Although can be used for other
+	// blob related operations.
+	AgentObjectStore() *objectstoreservice.WatchableService
+}
+
+// ObjectStoreServices provides access to the services required by the
+// apiserver.
+type ObjectStoreServices interface {
+	ControllerObjectStoreServices
+
+	// ObjectStore returns the object store service.
+	ObjectStore() *objectstoreservice.WatchableService
+}
+
+// ObjectStoreServicesGetter represents a way to get a ObjectStoreServices
+// for a given model.
+type ObjectStoreServicesGetter interface {
+	// FactoryForModel returns a ObjectStoreServices for the given model.
+	FactoryForModel(modelUUID model.UUID) ObjectStoreServices
 }

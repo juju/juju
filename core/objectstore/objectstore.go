@@ -73,6 +73,14 @@ type ObjectStoreGetter interface {
 	GetObjectStore(context.Context, string) (ObjectStore, error)
 }
 
+// ModelObjectStoreGetter is the interface that is used to get a model
+// object store.
+type ModelObjectStoreGetter interface {
+	// GetObjectStore returns an object store for the given namespace, usually
+	// a model UUID or the global controller namespace.
+	GetObjectStore(context.Context) (ObjectStore, error)
+}
+
 // ObjectStore represents a full object store for both read and write access.
 type ObjectStore interface {
 	ReadObjectStore

@@ -35,7 +35,7 @@ type MetadataServiceGetter interface {
 
 // ModelClaimGetter is the interface that is used to get a model claimer.
 type ModelClaimGetter interface {
-	ForModelUUID(string) (objectstore.Claimer, error)
+	ForModelUUID(model.UUID) (objectstore.Claimer, error)
 }
 
 // MetadataService is the interface that is used to get a object store.
@@ -64,11 +64,11 @@ type IsBootstrapControllerFunc func(dataDir string) bool
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
-	AgentName          string
-	TraceName          string
-	ServiceFactoryName string
-	LeaseManagerName   string
-	S3ClientName       string
+	AgentName               string
+	TraceName               string
+	ObjectStoreServicesName string
+	LeaseManagerName        string
+	S3ClientName            string
 
 	Clock                      clock.Clock
 	Logger                     logger.Logger
@@ -86,8 +86,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.TraceName == "" {
 		return errors.NotValidf("empty TraceName")
 	}
-	if cfg.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
+	if cfg.ObjectStoreServicesName == "" {
+		return errors.NotValidf("empty ObjectStoreServicesName")
 	}
 	if cfg.GetControllerConfigService == nil {
 		return errors.NotValidf("nil GetControllerConfigService")
@@ -122,7 +122,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.TraceName,
-			config.ServiceFactoryName,
+			config.ObjectStoreServicesName,
 			config.LeaseManagerName,
 			config.S3ClientName,
 		},
@@ -142,11 +142,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			controllerConfigService, err := config.GetControllerConfigService(getter, config.ServiceFactoryName)
+			controllerConfigService, err := config.GetControllerConfigService(getter, config.ObjectStoreServicesName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			metadataService, err := config.GetMetadataService(getter, config.ServiceFactoryName)
+			metadataService, err := config.GetMetadataService(getter, config.ObjectStoreServicesName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -156,8 +156,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var modelServiceFactoryGetter servicefactory.ServiceFactoryGetter
-			if err := getter.Get(config.ServiceFactoryName, &modelServiceFactoryGetter); err != nil {
+			var objectStoreServicesGetter servicefactory.ObjectStoreServicesGetter
+			if err := getter.Get(config.ObjectStoreServicesName, &objectStoreServicesGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -187,7 +187,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ObjectStoreType:            controllerConfig.ObjectStoreType(),
 				S3Client:                   s3Client,
 				ControllerMetadataService:  metadataService,
-				ModelMetadataServiceGetter: modelMetadataServiceGetter{factoryGetter: modelServiceFactoryGetter},
+				ModelMetadataServiceGetter: modelMetadataServiceGetter{servicesGetter: objectStoreServicesGetter},
 				ModelClaimGetter:           modelClaimGetter{manager: leaseManager},
 				AllowDraining:              AllowDraining(controllerConfig, config.IsBootstrapController(dataDir)),
 			})
@@ -224,7 +224,7 @@ func bucketName(config controller.Config) (string, error) {
 }
 
 type controllerMetadataService struct {
-	factory servicefactory.ControllerServiceFactory
+	factory servicefactory.ControllerObjectStoreServices
 }
 
 // ObjectStore returns the object store metadata for the controller model.
@@ -234,16 +234,16 @@ func (s controllerMetadataService) ObjectStore() coreobjectstore.ObjectStoreMeta
 }
 
 type modelMetadataServiceGetter struct {
-	factoryGetter servicefactory.ServiceFactoryGetter
+	servicesGetter servicefactory.ObjectStoreServicesGetter
 }
 
 // ForModelUUID returns the MetadataService for the given model UUID.
 func (s modelMetadataServiceGetter) ForModelUUID(modelUUID model.UUID) MetadataService {
-	return modelMetadataService{factory: s.factoryGetter.FactoryForModel(modelUUID)}
+	return modelMetadataService{factory: s.servicesGetter.FactoryForModel(modelUUID)}
 }
 
 type modelMetadataService struct {
-	factory servicefactory.ServiceFactory
+	factory servicefactory.ObjectStoreServices
 }
 
 // ObjectStore returns the object store metadata for the given model UUID
@@ -256,12 +256,12 @@ type modelClaimGetter struct {
 }
 
 // ForModelUUID returns the Locker for the given model UUID.
-func (s modelClaimGetter) ForModelUUID(modelUUID string) (objectstore.Claimer, error) {
-	leaseClaimer, err := s.manager.Claimer(lease.ObjectStoreNamespace, modelUUID)
+func (s modelClaimGetter) ForModelUUID(modelUUID model.UUID) (objectstore.Claimer, error) {
+	leaseClaimer, err := s.manager.Claimer(lease.ObjectStoreNamespace, modelUUID.String())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	leaseRevoker, err := s.manager.Revoker(lease.ObjectStoreNamespace, modelUUID)
+	leaseRevoker, err := s.manager.Revoker(lease.ObjectStoreNamespace, modelUUID.String())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -322,7 +322,7 @@ func (l claimExtender) Duration() time.Duration {
 // GetControllerConfigService is a helper function that gets a service from the
 // manifold.
 func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) ControllerConfigService {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerObjectStoreServices) ControllerConfigService {
 		return factory.ControllerConfig()
 	})
 }
@@ -330,7 +330,7 @@ func GetControllerConfigService(getter dependency.Getter, name string) (Controll
 // GetMetadataService is a helper function that gets a service from the
 // manifold.
 func GetMetadataService(getter dependency.Getter, name string) (MetadataService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) MetadataService {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerObjectStoreServices) MetadataService {
 		return controllerMetadataService{
 			factory: factory,
 		}

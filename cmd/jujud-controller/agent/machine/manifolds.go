@@ -90,6 +90,7 @@ import (
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/internal/worker/objectstores3caller"
+	"github.com/juju/juju/internal/worker/objectstoreservices"
 	"github.com/juju/juju/internal/worker/peergrouper"
 	prworker "github.com/juju/juju/internal/worker/presence"
 	"github.com/juju/juju/internal/worker/providerservicefactory"
@@ -729,6 +730,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DBAccessorName:              dbAccessorName,
 			ChangeStreamName:            changeStreamName,
 			ProviderFactoryName:         providerTrackerName,
+			ObjectStoreName:             objectStoreName,
 			Logger:                      internallogger.GetLogger("juju.worker.servicefactory"),
 			NewWorker:                   workerservicefactory.NewWorker,
 			NewServiceFactoryGetter:     workerservicefactory.NewServiceFactoryGetter,
@@ -851,7 +853,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
 			AgentName:                  agentName,
 			TraceName:                  traceName,
-			ServiceFactoryName:         serviceFactoryName,
+			ObjectStoreServicesName:    objectStoreServicesName,
 			LeaseManagerName:           leaseManagerName,
 			S3ClientName:               objectStoreS3CallerName,
 			Clock:                      config.Clock,
@@ -862,9 +864,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			IsBootstrapController:      internalbootstrap.IsBootstrapController,
 		})),
 
+		objectStoreServicesName: objectstoreservices.Manifold(objectstoreservices.ManifoldConfig{
+			ChangeStreamName:             changeStreamName,
+			Logger:                       internallogger.GetLogger("juju.worker.objectstoreservices"),
+			NewWorker:                    objectstoreservices.NewWorker,
+			NewObjectStoreServices:       objectstoreservices.NewObjectStoreServices,
+			NewObjectStoreServicesGetter: objectstoreservices.NewObjectStoreServicesGetter,
+		}),
+
 		objectStoreS3CallerName: ifDatabaseUpgradeComplete(objectstores3caller.Manifold(objectstores3caller.ManifoldConfig{
 			HTTPClientName:             s3HTTPClientName,
-			ServiceFactoryName:         serviceFactoryName,
+			ObjectStoreServicesName:    objectStoreServicesName,
 			NewClient:                  objectstores3caller.NewS3Client,
 			Logger:                     internallogger.GetLogger("juju.worker.s3caller"),
 			Clock:                      config.Clock,
@@ -1338,6 +1348,7 @@ const (
 	lxdContainerProvisioner       = "lxd-container-provisioner"
 	controllerAgentConfigName     = "controller-agent-config"
 	objectStoreName               = "object-store"
+	objectStoreServicesName       = "object-store-services"
 	objectStoreS3CallerName       = "object-store-s3-caller"
 
 	secretBackendRotateName = "secret-backend-rotate"
