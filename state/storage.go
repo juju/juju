@@ -86,18 +86,62 @@ const (
 )
 
 // NewStorageBackend creates a backend for managing storage.
+//
+// Deprecated: storage backends created using this function will not be able to
+// access model config. Where possible, use NewStorageBackendFromServices
+// instead.
 func NewStorageBackend(st *State) (*storageBackend, error) {
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// We don't have a model config service available, so we just return a
+	// default model config.
+	configFunc := func(ctx context.Context) (*config.Config, error) {
+		return config.New(config.NoDefaults, map[string]any{
+			config.NameKey: m.Name(),
+			config.TypeKey: "TODO",
+			config.UUIDKey: m.UUID(),
+		})
+	}
+
+	return newStorageBackend(st, configFunc)
+}
+
+// ModelConfigService provides access to the model configuration.
+type ModelConfigService interface {
+	// ModelConfig returns the current config for the model.
+	ModelConfig(context.Context) (*config.Config, error)
+}
+
+// NewStorageBackendFromServices creates a backend for managing storage using
+// domain services.
+func NewStorageBackendFromServices(
+	st *State,
+	modelConfigService ModelConfigService,
+) (*storageBackend, error) {
+	return newStorageBackend(st, modelConfigService.ModelConfig)
+}
+
+// newStorageBackend is the internal implementation of NewStorageBackend and
+// NewStorageBackendFromServices.
+func newStorageBackend(
+	st *State,
+	configFunc func(context.Context) (*config.Config, error),
+) (*storageBackend, error) {
 	// TODO(wallyworld) - we should be passing in a Model not a State
 	// (but need to move stuff off State first)
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	sb := &storageBackend{
 		mb:              st,
 		settings:        NewStateSettings(st),
 		modelType:       m.Type(),
-		config:          m.ModelConfig,
+		config:          configFunc,
 		application:     st.Application,
 		allApplications: st.AllApplications,
 		unit:            st.Unit,
