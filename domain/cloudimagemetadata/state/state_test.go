@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/cloudimagemetadata"
+	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/domain/cloudimagemetadata/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	dberrors "github.com/juju/juju/internal/database"
@@ -76,7 +76,7 @@ func (s *stateSuite) TestSaveMetadata(c *gc.C) {
 		Source:          "test",
 	}
 	expected := []cloudimagemetadata.Metadata{
-		{MetadataAttributes: attrs, Priority: 42, ImageId: "42"},
+		{MetadataAttributes: attrs, Priority: 42, ImageID: "42"},
 	}
 
 	//  Act
@@ -107,7 +107,7 @@ func (s *stateSuite) TestSaveMetadataWithDateCreated(c *gc.C) {
 		Source:          "test",
 	}
 	expected := []cloudimagemetadata.Metadata{
-		{MetadataAttributes: attrs, Priority: 42, ImageId: "42", CreationTime: testBeginTime},
+		{MetadataAttributes: attrs, Priority: 42, ImageID: "42", CreationTime: testBeginTime},
 	}
 
 	//  Act
@@ -142,8 +142,8 @@ func (s *stateSuite) TestSaveMetadataSeveralMetadata(c *gc.C) {
 		RootStorageSize: ptr(uint64(1024)),
 	}
 	expected := []cloudimagemetadata.Metadata{
-		{MetadataAttributes: attrs1, ImageId: "1"},
-		{MetadataAttributes: attrs2, ImageId: "2"},
+		{MetadataAttributes: attrs1, ImageID: "1"},
+		{MetadataAttributes: attrs2, ImageID: "2"},
 	}
 
 	//  Act
@@ -177,11 +177,11 @@ func (s *stateSuite) TestSaveMetadataUpdateMetadata(c *gc.C) {
 
 	//  Act
 	err := s.state.SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{
-		{MetadataAttributes: attrs1, ImageId: "1"},
+		{MetadataAttributes: attrs1, ImageID: "1"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.state.SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{
-		{MetadataAttributes: attrs2, ImageId: "2"},
+		{MetadataAttributes: attrs2, ImageID: "2"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -193,7 +193,7 @@ func (s *stateSuite) TestSaveMetadataUpdateMetadata(c *gc.C) {
 	}
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, jc.SameContents, []cloudimagemetadata.Metadata{
-		{MetadataAttributes: attrs1, ImageId: "2"}, // Imageid has been updated, but other attributes don't.
+		{MetadataAttributes: attrs1, ImageID: "2"}, // Imageid has been updated, but other attributes don't.
 	})
 }
 
@@ -213,8 +213,8 @@ func (s *stateSuite) TestSaveMetadataWithSameAttributes(c *gc.C) {
 
 	//  Act
 	err := s.state.SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{
-		{MetadataAttributes: attrs1, ImageId: "1"},
-		{MetadataAttributes: attrs2, ImageId: "2"},
+		{MetadataAttributes: attrs1, ImageID: "1"},
+		{MetadataAttributes: attrs2, ImageID: "2"},
 	})
 
 	// Assert
@@ -242,9 +242,9 @@ func (s *stateSuite) TestSaveMetadataSeveralMetadataWithInvalidArchitecture(c *g
 	attrIncorrectArch.Arch = "unknownArch"
 
 	inserted := []cloudimagemetadata.Metadata{
-		{MetadataAttributes: attr1, ImageId: "1"},
-		{MetadataAttributes: attrIncorrectArch, ImageId: "2"},
-		{MetadataAttributes: attr2, ImageId: "3"},
+		{MetadataAttributes: attr1, ImageID: "1"},
+		{MetadataAttributes: attrIncorrectArch, ImageID: "2"},
+		{MetadataAttributes: attr2, ImageID: "3"},
 	}
 
 	//  Act
@@ -284,7 +284,7 @@ VALUES
 			VirtType:        "virtType-test",
 			RootStorageType: "rootStorageType-test",
 			Source:          "custom",
-		}, Priority: 42, ImageId: "to-keep"},
+		}, Priority: 42, ImageID: "to-keep"},
 	})
 }
 
@@ -414,7 +414,7 @@ VALUES
 			Source:          "custom",
 		},
 		Priority: 42,
-		ImageId:  "id",
+		ImageID:  "id",
 	},
 	})
 }
@@ -453,7 +453,7 @@ VALUES
 				Source:          "custom",
 			},
 			Priority: 42,
-			ImageId:  "id",
+			ImageID:  "id",
 		},
 		{
 			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
@@ -466,7 +466,7 @@ VALUES
 				Source:          "custom",
 			},
 			Priority: 42,
-			ImageId:  "id",
+			ImageID:  "id",
 		},
 	})
 }
@@ -513,7 +513,7 @@ VALUES
 		Source:          "test",
 	}
 	expected := []cloudimagemetadata.Metadata{
-		{MetadataAttributes: attrs, Priority: 42, ImageId: "42"},
+		{MetadataAttributes: attrs, Priority: 42, ImageID: "42"},
 	}
 
 	//  Act
@@ -537,5 +537,5 @@ VALUES
 			RootStorageType: "storage",
 			RootStorageSize: ptr(uint64(1024)),
 			Source:          "custom",
-		}, Priority: 42, ImageId: "id"}))
+		}, Priority: 42, ImageID: "id"}))
 }
