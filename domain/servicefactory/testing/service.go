@@ -32,6 +32,7 @@ import (
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
+	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/storage"
@@ -231,5 +232,9 @@ func (s *TestingServiceFactory) ModelInfo() *modelservice.ModelService {
 }
 
 func (s *TestingServiceFactory) Proxy() *proxyservice.Service {
+	return nil
+}
+
+func (s *TestingServiceFactory) UnitState() *unitstateservice.Service {
 	return nil
 }

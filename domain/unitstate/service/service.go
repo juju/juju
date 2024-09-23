@@ -35,13 +35,13 @@ type State interface {
 	// state for the unit with the input UUID.
 	UpdateUnitStateSecret(domain.AtomicContext, string, string) error
 
-	// UpdateUnitStateCharm updates the agent charm
+	// SetUnitStateCharm replaces the agent charm
 	// state for the unit with the input UUID.
-	UpdateUnitStateCharm(domain.AtomicContext, string, map[string]string) error
+	SetUnitStateCharm(domain.AtomicContext, string, map[string]string) error
 
-	// UpdateUnitStateRelation updates the agent relation
+	// SetUnitStateRelation replaces the agent relation
 	// state for the unit with the input UUID.
-	UpdateUnitStateRelation(domain.AtomicContext, string, map[int]string) error
+	SetUnitStateRelation(domain.AtomicContext, string, map[int]string) error
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -88,13 +88,13 @@ func (s *Service) SetState(ctx context.Context, as unitstate.AgentState) error {
 		}
 
 		if as.CharmState != nil {
-			if err = s.st.UpdateUnitStateCharm(ctx, uuid, *as.CharmState); err != nil {
+			if err = s.st.SetUnitStateCharm(ctx, uuid, *as.CharmState); err != nil {
 				return errors.Errorf("setting charm state for %s: %w", as.Name, err)
 			}
 		}
 
 		if as.RelationState != nil {
-			if err = s.st.UpdateUnitStateRelation(ctx, uuid, *as.RelationState); err != nil {
+			if err = s.st.SetUnitStateRelation(ctx, uuid, *as.RelationState); err != nil {
 				return errors.Errorf("setting relation state for %s: %w", as.Name, err)
 			}
 		}

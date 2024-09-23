@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -39,6 +40,8 @@ import (
 // UniterAPI implements the latest version (v18) of the Uniter API.
 type UniterAPI struct {
 	*StatusAPI
+	*StorageAPI
+
 	*common.AgentEntityWatcher
 	*common.APIAddresser
 	*common.ModelConfigWatcher
@@ -49,14 +52,6 @@ type UniterAPI struct {
 	lxdProfileAPI           *LXDProfileAPIv2
 	m                       *state.Model
 	st                      *state.State
-	cloudService            CloudService
-	credentialService       CredentialService
-	controllerConfigService ControllerConfigService
-	modelConfigService      ModelConfigService
-	modelInfoService        ModelInfoService
-	secretService           SecretService
-	networkService          NetworkService
-	applicationService      ApplicationService
 	clock                   clock.Clock
 	auth                    facade.Authorizer
 	resources               facade.Resources
@@ -67,8 +62,17 @@ type UniterAPI struct {
 	accessUnitOrApplication common.GetAuthFunc
 	accessMachine           common.GetAuthFunc
 	containerBrokerFunc     caas.NewContainerBrokerFunc
-	*StorageAPI
-	store objectstore.ObjectStore
+
+	cloudService            CloudService
+	credentialService       CredentialService
+	controllerConfigService ControllerConfigService
+	modelConfigService      ModelConfigService
+	modelInfoService        ModelInfoService
+	secretService           SecretService
+	networkService          NetworkService
+	applicationService      ApplicationService
+	unitStateService        UnitStateService
+	store                   objectstore.ObjectStore
 
 	// A cloud spec can only be accessed for the model of the unit or
 	// application that is authorised for this API facade.
@@ -2628,24 +2632,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 			newUS.SetCharmState(*changes.SetUnitState.CharmState)
 		}
 
-		// NOTE(achilleasa): The following state fields are not
-		// presently populated by the uniter calls to this API as they
-		// get persisted after the hook changes get committed. However,
-		// they are still checked here for future use and for ensuring
-		// symmetry with the SetState call (see apiserver/common).
-		if changes.SetUnitState.UniterState != nil {
-			newUS.SetUniterState(*changes.SetUnitState.UniterState)
-		}
-		if changes.SetUnitState.RelationState != nil {
-			newUS.SetRelationState(*changes.SetUnitState.RelationState)
-		}
-		if changes.SetUnitState.StorageState != nil {
-			newUS.SetStorageState(*changes.SetUnitState.StorageState)
-		}
-		if changes.SetUnitState.SecretState != nil {
-			newUS.SetSecretState(*changes.SetUnitState.SecretState)
-		}
-
 		modelOp := unit.SetStateOperation(
 			newUS,
 			state.UnitStateSizeLimits{
@@ -2654,6 +2640,17 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 			},
 		)
 		modelOps = append(modelOps, modelOp)
+
+		// TODO (manadart 2024-10-12): Only charm state is ever set here.
+		// The full state is set in the call to SetState (apiserver/common).
+		// Integrate this into a transaction with other setters and delete the
+		// block above once we are also reading the state from Dqlite.
+		if err := u.unitStateService.SetState(ctx, unitstate.AgentState{
+			Name:       unitTag.Id(),
+			CharmState: changes.SetUnitState.CharmState,
+		}); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	for _, addParams := range changes.AddStorage {

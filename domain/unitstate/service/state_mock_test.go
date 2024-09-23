@@ -155,78 +155,78 @@ func (c *MockStateRunAtomicCall) DoAndReturn(f func(context.Context, func(domain
 	return c
 }
 
-// UpdateUnitStateCharm mocks base method.
-func (m *MockState) UpdateUnitStateCharm(arg0 domain.AtomicContext, arg1 string, arg2 map[string]string) error {
+// SetUnitStateCharm mocks base method.
+func (m *MockState) SetUnitStateCharm(arg0 domain.AtomicContext, arg1 string, arg2 map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateUnitStateCharm", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetUnitStateCharm", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateUnitStateCharm indicates an expected call of UpdateUnitStateCharm.
-func (mr *MockStateMockRecorder) UpdateUnitStateCharm(arg0, arg1, arg2 any) *MockStateUpdateUnitStateCharmCall {
+// SetUnitStateCharm indicates an expected call of SetUnitStateCharm.
+func (mr *MockStateMockRecorder) SetUnitStateCharm(arg0, arg1, arg2 any) *MockStateSetUnitStateCharmCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUnitStateCharm", reflect.TypeOf((*MockState)(nil).UpdateUnitStateCharm), arg0, arg1, arg2)
-	return &MockStateUpdateUnitStateCharmCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitStateCharm", reflect.TypeOf((*MockState)(nil).SetUnitStateCharm), arg0, arg1, arg2)
+	return &MockStateSetUnitStateCharmCall{Call: call}
 }
 
-// MockStateUpdateUnitStateCharmCall wrap *gomock.Call
-type MockStateUpdateUnitStateCharmCall struct {
+// MockStateSetUnitStateCharmCall wrap *gomock.Call
+type MockStateSetUnitStateCharmCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateUpdateUnitStateCharmCall) Return(arg0 error) *MockStateUpdateUnitStateCharmCall {
+func (c *MockStateSetUnitStateCharmCall) Return(arg0 error) *MockStateSetUnitStateCharmCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateUnitStateCharmCall) Do(f func(domain.AtomicContext, string, map[string]string) error) *MockStateUpdateUnitStateCharmCall {
+func (c *MockStateSetUnitStateCharmCall) Do(f func(domain.AtomicContext, string, map[string]string) error) *MockStateSetUnitStateCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateUnitStateCharmCall) DoAndReturn(f func(domain.AtomicContext, string, map[string]string) error) *MockStateUpdateUnitStateCharmCall {
+func (c *MockStateSetUnitStateCharmCall) DoAndReturn(f func(domain.AtomicContext, string, map[string]string) error) *MockStateSetUnitStateCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// UpdateUnitStateRelation mocks base method.
-func (m *MockState) UpdateUnitStateRelation(arg0 domain.AtomicContext, arg1 string, arg2 map[int]string) error {
+// SetUnitStateRelation mocks base method.
+func (m *MockState) SetUnitStateRelation(arg0 domain.AtomicContext, arg1 string, arg2 map[int]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateUnitStateRelation", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetUnitStateRelation", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateUnitStateRelation indicates an expected call of UpdateUnitStateRelation.
-func (mr *MockStateMockRecorder) UpdateUnitStateRelation(arg0, arg1, arg2 any) *MockStateUpdateUnitStateRelationCall {
+// SetUnitStateRelation indicates an expected call of SetUnitStateRelation.
+func (mr *MockStateMockRecorder) SetUnitStateRelation(arg0, arg1, arg2 any) *MockStateSetUnitStateRelationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUnitStateRelation", reflect.TypeOf((*MockState)(nil).UpdateUnitStateRelation), arg0, arg1, arg2)
-	return &MockStateUpdateUnitStateRelationCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitStateRelation", reflect.TypeOf((*MockState)(nil).SetUnitStateRelation), arg0, arg1, arg2)
+	return &MockStateSetUnitStateRelationCall{Call: call}
 }
 
-// MockStateUpdateUnitStateRelationCall wrap *gomock.Call
-type MockStateUpdateUnitStateRelationCall struct {
+// MockStateSetUnitStateRelationCall wrap *gomock.Call
+type MockStateSetUnitStateRelationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateUpdateUnitStateRelationCall) Return(arg0 error) *MockStateUpdateUnitStateRelationCall {
+func (c *MockStateSetUnitStateRelationCall) Return(arg0 error) *MockStateSetUnitStateRelationCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateUnitStateRelationCall) Do(f func(domain.AtomicContext, string, map[int]string) error) *MockStateUpdateUnitStateRelationCall {
+func (c *MockStateSetUnitStateRelationCall) Do(f func(domain.AtomicContext, string, map[int]string) error) *MockStateSetUnitStateRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateUnitStateRelationCall) DoAndReturn(f func(domain.AtomicContext, string, map[int]string) error) *MockStateUpdateUnitStateRelationCall {
+func (c *MockStateSetUnitStateRelationCall) DoAndReturn(f func(domain.AtomicContext, string, map[int]string) error) *MockStateSetUnitStateRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

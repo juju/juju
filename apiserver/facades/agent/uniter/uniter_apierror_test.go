@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -34,7 +35,8 @@ func (s *uniterAPIErrorSuite) SetupTest(c *gc.C) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
-	serviceFactory.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialId, cred)
+	err := serviceFactory.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialId, cred)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
@@ -73,6 +75,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		applicationService,
+		serviceFactory.UnitState(),
 	)
 	c.Assert(err, gc.ErrorMatches, "kaboom")
 }

@@ -43,6 +43,8 @@ import (
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storagestate "github.com/juju/juju/domain/storage/state"
+	unitstateservice "github.com/juju/juju/domain/unitstate/service"
+	unitstatestate "github.com/juju/juju/domain/unitstate/state"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
 )
@@ -258,5 +260,14 @@ func (s *ModelFactory) ModelInfo() *modelservice.ModelService {
 func (s *ModelFactory) Proxy() *proxy.Service {
 	return proxy.NewService(
 		providertracker.ProviderRunner[proxy.Provider](s.providerFactory, s.modelUUID.String()),
+	)
+}
+
+// UnitState returns the service for persisting and retrieving remote unit
+// state. This is used to reconcile with local state to determine which
+// hooks to run, and is saved upon hook completion.
+func (s *ModelFactory) UnitState() *unitstateservice.Service {
+	return unitstateservice.NewService(
+		unitstatestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }

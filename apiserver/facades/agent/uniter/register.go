@@ -60,6 +60,7 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		applicationService,
+		serviceFactory.UnitState(),
 	)
 }
 
@@ -76,6 +77,7 @@ func newUniterAPIWithServices(
 	cloudService CloudService,
 	credentialService CredentialService,
 	applicationService ApplicationService,
+	unitStateService UnitStateService,
 ) (*UniterAPI, error) {
 	authorizer := context.Auth()
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
@@ -138,7 +140,7 @@ func newUniterAPIWithServices(
 		APIAddresser:               common.NewAPIAddresser(systemState, resources),
 		ModelConfigWatcher:         common.NewModelConfigWatcher(modelConfigService, context.WatcherRegistry()),
 		RebootRequester:            common.NewRebootRequester(machineService, accessMachine),
-		UnitStateAPI:               common.NewExternalUnitStateAPI(controllerConfigService, st, resources, authorizer, accessUnit, logger),
+		UnitStateAPI:               common.NewExternalUnitStateAPI(controllerConfigService, unitStateService, st, resources, authorizer, accessUnit, logger),
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
 		lxdProfileAPI:              NewExternalLXDProfileAPIv2(st, resources, authorizer, accessUnit, logger, modelInfoService),
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
@@ -155,6 +157,7 @@ func newUniterAPIWithServices(
 		cloudService:            cloudService,
 		credentialService:       credentialService,
 		applicationService:      applicationService,
+		unitStateService:        unitStateService,
 		clock:                   aClock,
 		auth:                    authorizer,
 		resources:               resources,
