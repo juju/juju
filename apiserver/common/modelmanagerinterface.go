@@ -57,8 +57,8 @@ type ModelManagerBackend interface {
 	ModelTag() names.ModelTag
 	AllMachines() (machines []Machine, err error)
 	AllApplications() (applications []Application, err error)
-	AllFilesystems() ([]state.Filesystem, error)
-	AllVolumes() ([]state.Volume, error)
+	AllFilesystems(ModelConfigService) ([]state.Filesystem, error)
+	AllVolumes(ModelConfigService) ([]state.Volume, error)
 	ControllerTag() names.ControllerTag
 	Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
 	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
@@ -307,16 +307,16 @@ func (st modelManagerStateShim) AllApplications() ([]Application, error) {
 	return all, nil
 }
 
-func (st modelManagerStateShim) AllFilesystems() ([]state.Filesystem, error) {
-	sb, err := state.NewStorageBackend(st.State)
+func (st modelManagerStateShim) AllFilesystems(modelConfigService ModelConfigService) ([]state.Filesystem, error) {
+	sb, err := state.NewStorageBackendFromServices(st.State, modelConfigService)
 	if err != nil {
 		return nil, err
 	}
 	return sb.AllFilesystems()
 }
 
-func (st modelManagerStateShim) AllVolumes() ([]state.Volume, error) {
-	sb, err := state.NewStorageBackend(st.State)
+func (st modelManagerStateShim) AllVolumes(modelConfigService ModelConfigService) ([]state.Volume, error) {
+	sb, err := state.NewStorageBackendFromServices(st.State, modelConfigService)
 	if err != nil {
 		return nil, err
 	}

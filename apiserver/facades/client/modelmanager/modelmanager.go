@@ -125,7 +125,12 @@ func NewModelManagerAPI(
 	isAdmin := err == nil
 
 	return &ModelManagerAPI{
-		ModelStatusAPI:       common.NewModelStatusAPI(st, authorizer, apiUser),
+		ModelStatusAPI: common.NewModelStatusAPI(
+			st, authorizer, apiUser,
+			func(modelID coremodel.UUID) common.ModelConfigService {
+				return services.ServiceFactoryGetter.ServiceFactoryForModel(modelID).Config()
+			},
+		),
 		state:                st,
 		serviceFactoryGetter: services.ServiceFactoryGetter,
 		modelExporter:        modelExporter,

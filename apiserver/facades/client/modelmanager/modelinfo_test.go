@@ -887,12 +887,12 @@ func (st *mockState) AllApplications() ([]common.Application, error) {
 	return nil, st.NextErr()
 }
 
-func (st *mockState) AllVolumes() ([]state.Volume, error) {
+func (st *mockState) AllVolumes(common.ModelConfigService) ([]state.Volume, error) {
 	st.MethodCall(st, "AllVolumes")
 	return nil, st.NextErr()
 }
 
-func (st *mockState) AllFilesystems() ([]state.Filesystem, error) {
+func (st *mockState) AllFilesystems(common.ModelConfigService) ([]state.Filesystem, error) {
 	st.MethodCall(st, "AllFilesystems")
 	return nil, st.NextErr()
 }

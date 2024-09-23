@@ -13,6 +13,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -22,6 +23,8 @@ type ModelStatusAPI struct {
 	authorizer facade.Authorizer
 	apiUser    names.UserTag
 	backend    ModelManagerBackend
+
+	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService
 }
 
 // ModelApplicationInfo returns information about applications.
@@ -33,11 +36,17 @@ func ModelApplicationInfo(applications []Application) ([]params.ModelApplication
 }
 
 // NewModelStatusAPI creates an implementation providing the ModelStatus() API.
-func NewModelStatusAPI(backend ModelManagerBackend, authorizer facade.Authorizer, apiUser names.UserTag) *ModelStatusAPI {
+func NewModelStatusAPI(
+	backend ModelManagerBackend,
+	authorizer facade.Authorizer,
+	apiUser names.UserTag,
+	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService,
+) *ModelStatusAPI {
 	return &ModelStatusAPI{
-		authorizer: authorizer,
-		apiUser:    apiUser,
-		backend:    backend,
+		authorizer:               authorizer,
+		apiUser:                  apiUser,
+		backend:                  backend,
+		modelConfigServiceGetter: modelConfigServiceGetter,
 	}
 }
 
@@ -119,13 +128,15 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		return status, errors.Trace(err)
 	}
 
-	volumes, err := st.AllVolumes()
+	modelConfigService := c.modelConfigServiceGetter(coremodel.UUID(modelTag.Id()))
+
+	volumes, err := st.AllVolumes(modelConfigService)
 	if err != nil {
 		return status, errors.Trace(err)
 	}
 	modelVolumes := ModelVolumeInfo(volumes)
 
-	filesystems, err := st.AllFilesystems()
+	filesystems, err := st.AllFilesystems(modelConfigService)
 	if err != nil {
 		return status, errors.Trace(err)
 	}

@@ -14,12 +14,14 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/mocks"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
@@ -65,6 +67,11 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
 		s.authorizer,
 		s.authorizer.GetAuthTag().(names.UserTag),
+		func(uuid model.UUID) common.ModelConfigService {
+			// For these tests, we just need something of the right type. It
+			// doesn't actually have to do anything (yet).
+			return mocks.NewMockModelConfigService(nil)
+		},
 	)
 
 	loggo.GetLogger("juju.apiserver.controller").SetLogLevel(loggo.TRACE)
@@ -81,6 +88,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
 		anAuthoriser,
 		anAuthoriser.GetAuthTag().(names.UserTag),
+		nil,
 	)
 	controllerModelTag := s.Model.ModelTag().String()
 
@@ -104,6 +112,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
 		anAuthoriser,
 		anAuthoriser.GetAuthTag().(names.UserTag),
+		nil,
 	)
 
 	model, err := st.Model()

@@ -41,7 +41,6 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/proxy"
@@ -92,12 +91,6 @@ type ApplicationService interface {
 	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
 }
 
-// ModelConfigService provides access to the model configuration.
-type ModelConfigService interface {
-	// ModelConfig returns the current config for the model.
-	ModelConfig(context.Context) (*config.Config, error)
-}
-
 // ProxyService provides access to the proxy service.
 type ProxyService interface {
 	// GetProxyToApplication returns the proxy information for the application
@@ -134,7 +127,7 @@ type ControllerAPI struct {
 	accessService            ControllerAccessService
 	modelService             ModelService
 	applicationServiceGetter func(coremodel.UUID) ApplicationService
-	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService
+	modelConfigServiceGetter func(coremodel.UUID) common.ModelConfigService
 	proxyService             ProxyService
 	modelExporter            func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
 	store                    objectstore.ObjectStore
@@ -168,7 +161,7 @@ func NewControllerAPI(
 	accessService ControllerAccessService,
 	modelService ModelService,
 	applicationServiceGetter func(coremodel.UUID) ApplicationService,
-	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService,
+	modelConfigServiceGetter func(coremodel.UUID) common.ModelConfigService,
 	proxyService ProxyService,
 	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
 	store objectstore.ObjectStore,
@@ -196,6 +189,7 @@ func NewControllerAPI(
 			common.NewModelManagerBackend(environs.ProviderConfigSchemaSource(cloudService), model, pool),
 			authorizer,
 			apiUser,
+			modelConfigServiceGetter,
 		),
 		CloudSpecer: cloudspec.NewCloudSpecV2(
 			resources,

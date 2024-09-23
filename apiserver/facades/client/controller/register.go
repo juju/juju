@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application/service"
@@ -44,7 +45,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		return nil, errors.Trace(err)
 	}
 
-	modelConfigServiceGetter := func(modelID model.UUID) ModelConfigService {
+	modelConfigServiceGetter := func(modelID model.UUID) common.ModelConfigService {
 		return ctx.ServiceFactoryForModel(modelID).Config()
 	}
 	applicationServiceGetter := func(modelID model.UUID) ApplicationService {

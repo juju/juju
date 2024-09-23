@@ -18,10 +18,12 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/model"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
@@ -46,6 +48,11 @@ type ModelConfigServiceGetter func(coremodel.UUID) (ModelConfigService, error)
 // ModelConfigService describes the set of functions needed for working with a
 // model's config.
 type ModelConfigService interface {
+	// ModelConfig returns the current config for the model.
+	ModelConfig(context.Context) (*config.Config, error)
+	// Watch returns a watcher that returns keys for any changes to model
+	// config.
+	Watch() (watcher.StringsWatcher, error)
 	// SetModelConfig sets the models config.
 	SetModelConfig(context.Context, map[string]any) error
 }
