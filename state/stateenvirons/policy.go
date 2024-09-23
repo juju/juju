@@ -23,11 +23,13 @@ import (
 // environStatePolicy implements state.Policy in
 // terms of environs.Environ and related types.
 type environStatePolicy struct {
-	st                       *state.State
-	cloudService             CloudService
-	credentialService        CredentialService
+	st                *state.State
+	cloudService      CloudService
+	credentialService CredentialService
+	// environStatePolicy is used in both model and multimodel facades.
+	// Allow either to be used though prefer modelConfigService in code.
 	modelConfigService       ModelConfigService
-	modelConfigServiceGetter modelServiceGetter
+	modelConfigServiceGetter modelConfigServiceGetter
 	getEnviron               NewEnvironFunc
 	getBroker                NewCAASBrokerFunc
 	checkerMu                sync.Mutex
@@ -43,12 +45,17 @@ type deployChecker interface {
 }
 
 type storageServiceGetter func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter
-type modelServiceGetter func(modelUUID coremodel.UUID) ModelConfigService
+type modelConfigServiceGetter func(modelUUID coremodel.UUID) ModelConfigService
 
 // GetNewPolicyFunc returns a state.NewPolicyFunc that will return
 // a state.Policy implemented in terms of either environs.Environ
 // or caas.Broker and related types.
-func GetNewPolicyFunc(cloudService CloudService, credentialService CredentialService, modelConfigServiceGetter modelServiceGetter, storageServiceGetter storageServiceGetter) state.NewPolicyFunc {
+func GetNewPolicyFunc(
+	cloudService CloudService,
+	credentialService CredentialService,
+	modelConfigServiceGetter modelConfigServiceGetter,
+	storageServiceGetter storageServiceGetter,
+) state.NewPolicyFunc {
 	return func(st *state.State) state.Policy {
 		return &environStatePolicy{
 			st:                       st,
