@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -79,7 +80,26 @@ func NewAuthenticatorWithHTTPClient(
 
 // Authenticate implements EntityAuthenticator
 func (j *JWTAuthenticator) Authenticate(req *http.Request) (authentication.AuthInfo, error) {
-	return authentication.AuthInfo{}, fmt.Errorf("jwt authenticate %w", errors.NotImplemented)
+	authHeader := req.Header.Get("Authorization")
+	if authHeader == "" {
+		return authentication.AuthInfo{}, errors.NotFoundf("authorization header missing")
+	}
+
+	parts := strings.Fields(authHeader)
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		// Invalid header format or no header provided.
+		return authentication.AuthInfo{}, errors.NotFoundf("authorization header format")
+	}
+
+	token, entity, err := j.Parse(req.Context(), parts[1])
+	if err != nil {
+		return authentication.AuthInfo{}, fmt.Errorf("parsing jwt: %w", err)
+	}
+
+	return authentication.AuthInfo{
+		Entity:    entity,
+		Delegator: &PermissionDelegator{token},
+	}, nil
 }
 
 // AuthenticateLoginRequest implements LoginAuthenticator
