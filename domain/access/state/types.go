@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
@@ -117,13 +116,19 @@ func (u dbPermissionUser) toCoreUserAccess() (corepermission.UserAccess, error) 
 	if err != nil {
 		return corepermission.UserAccess{}, errors.Trace(err)
 	}
+	var creatorName coreuser.Name
+	if u.CreatorName != "" {
+		creatorName, err = coreuser.NewName(u.CreatorName)
+		if err != nil {
+			return corepermission.UserAccess{}, errors.Trace(err)
+		}
+	}
 
 	return corepermission.UserAccess{
 		UserID:      u.UUID,
-		UserTag:     names.NewUserTag(u.Name),
 		DisplayName: u.DisplayName,
 		UserName:    name,
-		CreatedBy:   names.NewUserTag(u.CreatorName),
+		CreatedBy:   creatorName,
 		DateCreated: u.CreatedAt,
 	}, nil
 }
@@ -157,10 +162,10 @@ func (r dbPermission) toUserAccess(u dbPermissionUser) (corepermission.UserAcces
 	}
 
 	userAccess.PermissionID = r.UUID
-	userAccess.Object = objectTag(corepermission.ID{
+	userAccess.Object = corepermission.ID{
 		ObjectType: corepermission.ObjectType(r.ObjectType),
 		Key:        r.GrantOn,
-	})
+	}
 	userAccess.Access = corepermission.Access(r.AccessType)
 	return userAccess, nil
 }

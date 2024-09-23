@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -84,10 +85,15 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		if err != nil && !errors.Is(err, accesserrors.UserNeverAccessedModel) {
 			return errors.Annotatef(err, "getting user last login on model")
 		}
+		userName := names.NewUserTag(userAccess.UserName.Name())
+		var createdBy names.UserTag
+		if !userAccess.CreatedBy.IsZero() {
+			createdBy = names.NewUserTag(userAccess.CreatedBy.Name())
+		}
 		arg := description.UserArgs{
-			Name:           userAccess.UserTag,
+			Name:           userName,
 			DisplayName:    userAccess.DisplayName,
-			CreatedBy:      userAccess.CreatedBy,
+			CreatedBy:      createdBy,
 			DateCreated:    userAccess.DateCreated,
 			LastConnection: lastModelLogin,
 			Access:         string(userAccess.Access),

@@ -16,6 +16,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 )
 
 type exportSuite struct {
@@ -49,19 +50,17 @@ func (s *exportSuite) TestExport(c *gc.C) {
 	bobName := user.NameFromTag(bobTag)
 	bazzaTag := names.NewUserTag("bazza")
 	bazzaName := user.NameFromTag(bazzaTag)
-	steveTag := names.NewUserTag("steve")
+	steveName := usertesting.GenNewName(c, "steve")
 
 	userAccesses := []permission.UserAccess{{
-		UserTag:     bazzaTag,
 		Access:      permission.ReadAccess,
-		CreatedBy:   bobTag,
+		CreatedBy:   bobName,
 		DateCreated: time.Now(),
 		DisplayName: bazzaName.Name(),
 		UserName:    bazzaName,
 	}, {
-		UserTag:     bobTag,
 		Access:      permission.AdminAccess,
-		CreatedBy:   steveTag,
+		CreatedBy:   steveName,
 		DateCreated: time.Now(),
 		DisplayName: bobName.Name(),
 		UserName:    bobName,
@@ -87,15 +86,15 @@ func (s *exportSuite) TestExport(c *gc.C) {
 
 	users := dst.Users()
 	c.Assert(users, gc.HasLen, 2)
-	c.Check(users[0].Name(), gc.Equals, userAccesses[0].UserTag)
+	c.Check(users[0].Name(), gc.Equals, names.NewUserTag(userAccesses[0].UserName.Name()))
 	c.Check(users[0].Access(), gc.Equals, string(userAccesses[0].Access))
-	c.Check(users[0].CreatedBy(), gc.Equals, userAccesses[0].CreatedBy)
+	c.Check(users[0].CreatedBy(), gc.Equals, names.NewUserTag(userAccesses[0].CreatedBy.Name()))
 	c.Check(users[0].DateCreated(), gc.Equals, userAccesses[0].DateCreated)
 	c.Check(users[0].DisplayName(), gc.Equals, userAccesses[0].DisplayName)
 	c.Check(users[0].LastConnection(), gc.Equals, bazzaTime)
-	c.Check(users[1].Name(), gc.Equals, userAccesses[1].UserTag)
+	c.Check(users[1].Name(), gc.Equals, names.NewUserTag(userAccesses[1].UserName.Name()))
 	c.Check(users[1].Access(), gc.Equals, string(userAccesses[1].Access))
-	c.Check(users[1].CreatedBy(), gc.Equals, userAccesses[1].CreatedBy)
+	c.Check(users[1].CreatedBy(), gc.Equals, names.NewUserTag(userAccesses[1].CreatedBy.Name()))
 	c.Check(users[1].DateCreated(), gc.Equals, userAccesses[1].DateCreated)
 	c.Check(users[1].DisplayName(), gc.Equals, userAccesses[1].DisplayName)
 	c.Check(users[1].LastConnection(), gc.Equals, bobTime)

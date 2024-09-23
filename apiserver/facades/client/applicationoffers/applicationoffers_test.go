@@ -1179,7 +1179,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	s.mockAccessService.EXPECT().ReadAllUserAccessForTarget(gomock.Any(), permission.ID{
 		ObjectType: permission.Offer,
 		Key:        "hosted-postgresql-uuid",
-	}).Return([]permission.UserAccess{{UserName: userName, UserTag: user, DisplayName: "someone", Access: "read"}}, nil)
+	}).Return([]permission.UserAccess{{UserName: userName, DisplayName: "someone", Access: "read"}}, nil)
 	// Get the user from the database to retrieve their display name.
 	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), userName).Return(coreuser.User{
 		DisplayName: "someone",

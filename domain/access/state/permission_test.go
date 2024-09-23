@@ -9,7 +9,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -72,12 +71,12 @@ func (s *permissionStateSuite) TestCreatePermissionModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(userAccess.UserID, gc.Equals, "123")
-	c.Check(userAccess.UserTag, gc.Equals, names.NewUserTag("bob"))
-	c.Check(userAccess.Object.Id(), gc.Equals, s.modelUUID.String())
+	c.Check(userAccess.UserName, gc.Equals, name)
+	c.Check(userAccess.Object.ObjectType, gc.Equals, corepermission.Model)
+	c.Check(userAccess.Object.Key, gc.Equals, s.modelUUID.String())
 	c.Check(userAccess.Access, gc.Equals, corepermission.WriteAccess)
 	c.Check(userAccess.DisplayName, gc.Equals, "bob")
-	c.Check(userAccess.UserName, gc.Equals, name)
-	c.Check(userAccess.CreatedBy, gc.Equals, names.NewUserTag("admin"))
+	c.Check(userAccess.CreatedBy, gc.Equals, user.AdminUserName)
 
 	s.checkPermissionRow(c, userAccess.UserID, spec)
 }
@@ -100,12 +99,12 @@ func (s *permissionStateSuite) TestCreatePermissionCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(userAccess.UserID, gc.Equals, "123")
-	c.Check(userAccess.UserTag, gc.Equals, names.NewUserTag("bob"))
-	c.Check(userAccess.Object.Id(), gc.Equals, "test-cloud")
+	c.Check(userAccess.UserName, gc.Equals, name)
+	c.Check(userAccess.Object.ObjectType, gc.Equals, corepermission.Cloud)
+	c.Check(userAccess.Object.Key, gc.Equals, "test-cloud")
 	c.Check(userAccess.Access, gc.Equals, corepermission.AddModelAccess)
 	c.Check(userAccess.DisplayName, gc.Equals, "bob")
-	c.Check(userAccess.UserName, gc.Equals, name)
-	c.Check(userAccess.CreatedBy, gc.Equals, names.NewUserTag("admin"))
+	c.Check(userAccess.CreatedBy, gc.Equals, user.AdminUserName)
 
 	s.checkPermissionRow(c, userAccess.UserID, spec)
 }
@@ -128,12 +127,12 @@ func (s *permissionStateSuite) TestCreatePermissionController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(userAccess.UserID, gc.Equals, "123")
-	c.Check(userAccess.UserTag, gc.Equals, names.NewUserTag("bob"))
-	c.Check(userAccess.Object.Id(), gc.Equals, s.controllerUUID)
+	c.Check(userAccess.UserName, gc.Equals, name)
+	c.Check(userAccess.Object.ObjectType, gc.Equals, corepermission.Controller)
+	c.Check(userAccess.Object.Key, gc.Equals, s.controllerUUID)
 	c.Check(userAccess.Access, gc.Equals, corepermission.SuperuserAccess)
 	c.Check(userAccess.DisplayName, gc.Equals, "bob")
-	c.Check(userAccess.UserName, gc.Equals, name)
-	c.Check(userAccess.CreatedBy, gc.Equals, names.NewUserTag("admin"))
+	c.Check(userAccess.CreatedBy, gc.Equals, user.AdminUserName)
 
 	s.checkPermissionRow(c, userAccess.UserID, spec)
 }
@@ -579,7 +578,7 @@ func (s *permissionStateSuite) TestReadAllUserAccessForUser(c *gc.C) {
 	c.Assert(userAccesses, gc.HasLen, 4)
 	for _, access := range userAccesses {
 		c.Assert(access.UserName, gc.Equals, name)
-		c.Assert(access.CreatedBy.Id(), gc.Equals, "admin")
+		c.Assert(access.CreatedBy, gc.Equals, user.AdminUserName)
 	}
 }
 
@@ -709,10 +708,10 @@ func (s *permissionStateSuite) TestReadAllUserAccessForTarget(c *gc.C) {
 	c.Assert(userAccesses, gc.HasLen, 2)
 	accessZero := userAccesses[0]
 	c.Check(accessZero.Access, gc.Equals, corepermission.AddModelAccess)
-	c.Check(accessZero.Object, gc.Equals, names.NewCloudTag("test-cloud"))
+	c.Check(accessZero.Object, gc.Equals, targetCloud)
 	accessOne := userAccesses[1]
 	c.Check(accessOne.Access, gc.Equals, corepermission.AddModelAccess)
-	c.Check(accessOne.Object, gc.Equals, names.NewCloudTag("test-cloud"))
+	c.Check(accessOne.Object, gc.Equals, targetCloud)
 
 	c.Check(accessZero.UserID, gc.Not(gc.Equals), accessOne.UserID)
 }
@@ -815,15 +814,15 @@ func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeCloud(c *gc.
 
 	var foundTestCloud, foundAnotherCloud bool
 	for _, userAccess := range users {
-		c.Check(userAccess.UserTag.Id(), gc.Equals, "bob")
 		c.Check(userAccess.UserName, gc.Equals, name)
-		c.Check(userAccess.CreatedBy.Id(), gc.Equals, "admin")
+		c.Check(userAccess.CreatedBy, gc.Equals, user.AdminUserName)
 		c.Check(userAccess.UserID, gc.Equals, "123")
 		c.Check(userAccess.Access, gc.Equals, corepermission.AddModelAccess)
-		if userAccess.Object.Id() == "test-cloud" {
+		c.Check(userAccess.Object.ObjectType, gc.Equals, corepermission.Cloud)
+		if userAccess.Object.Key == "test-cloud" {
 			foundTestCloud = true
 		}
-		if userAccess.Object.Id() == "another-cloud" {
+		if userAccess.Object.Key == "another-cloud" {
 			foundAnotherCloud = true
 		}
 	}
@@ -842,17 +841,17 @@ func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeModel(c *gc.
 
 	var admin, write bool
 	for _, userAccess := range users {
-		c.Check(userAccess.UserTag.Id(), gc.Equals, "bob")
 		c.Check(userAccess.UserName, gc.Equals, name)
-		c.Check(userAccess.CreatedBy.Id(), gc.Equals, "admin")
+		c.Check(userAccess.CreatedBy, gc.Equals, user.AdminUserName)
 		c.Check(userAccess.UserID, gc.Equals, "123")
+		c.Check(userAccess.Object.ObjectType, gc.Equals, corepermission.Model)
 		if userAccess.Access == corepermission.WriteAccess {
 			write = true
-			c.Check(userAccess.Object.Id(), gc.Equals, s.defaultModelUUID.String())
+			c.Check(userAccess.Object.Key, gc.Equals, s.defaultModelUUID.String())
 		}
 		if userAccess.Access == corepermission.AdminAccess {
 			admin = true
-			c.Check(userAccess.Object.Id(), gc.Equals, s.modelUUID.String())
+			c.Check(userAccess.Object.Key, gc.Equals, s.modelUUID.String())
 		}
 	}
 	c.Assert(admin && write, jc.IsTrue, gc.Commentf("%+v", users))
@@ -868,9 +867,8 @@ func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeController(c
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(users, gc.HasLen, 1)
 	userAccess := users[0]
-	c.Check(userAccess.UserTag.Id(), gc.Equals, "admin", gc.Commentf("%+v", users))
 	c.Check(userAccess.UserName, gc.Equals, name, gc.Commentf("%+v", users))
-	c.Check(userAccess.CreatedBy.Id(), gc.Equals, "admin", gc.Commentf("%+v", users))
+	c.Check(userAccess.CreatedBy, gc.Equals, user.AdminUserName, gc.Commentf("%+v", users))
 	c.Check(userAccess.UserID, gc.Equals, "42", gc.Commentf("%+v", users))
 	c.Check(userAccess.Access, gc.Equals, corepermission.SuperuserAccess, gc.Commentf("%+v", users))
 }
@@ -1026,12 +1024,12 @@ func (s *permissionStateSuite) TestUpdatePermissionGrantNewExternalUser(c *gc.C)
 
 	obtainedUserAccess, err := st.ReadUserAccessForTarget(context.Background(), tomName, target)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedUserAccess.UserTag.Id(), gc.Equals, "tom@external")
 	c.Check(obtainedUserAccess.UserName, gc.Equals, tomName)
-	c.Check(obtainedUserAccess.CreatedBy.Id(), gc.Equals, "everyone@external")
+	c.Check(obtainedUserAccess.CreatedBy, gc.Equals, corepermission.EveryoneUserName)
 	c.Check(obtainedUserAccess.UserID, gc.Not(gc.Equals), "")
 	c.Check(obtainedUserAccess.Access, gc.Equals, corepermission.WriteAccess)
-	c.Check(obtainedUserAccess.Object.Id(), gc.Equals, s.modelUUID.String())
+	c.Check(obtainedUserAccess.Object.ObjectType, gc.Equals, corepermission.Model)
+	c.Check(obtainedUserAccess.Object.Key, gc.Equals, s.modelUUID.String())
 }
 
 func (s *permissionStateSuite) TestUpdatePermissionGrantExistingUser(c *gc.C) {
@@ -1057,7 +1055,7 @@ func (s *permissionStateSuite) TestUpdatePermissionGrantExistingUser(c *gc.C) {
 
 	obtainedUserAccess, err := st.ReadUserAccessForTarget(context.Background(), name, target)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedUserAccess.UserTag.Id(), gc.Equals, "bob")
+	c.Check(obtainedUserAccess.UserName, gc.Equals, name)
 	c.Check(obtainedUserAccess.Access, gc.Equals, corepermission.AdminAccess)
 }
 
@@ -1132,7 +1130,7 @@ func (s *permissionStateSuite) TestUpdatePermissionRevoke(c *gc.C) {
 
 	obtainedUserAccess, err := st.ReadUserAccessForTarget(context.Background(), name, target)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedUserAccess.UserTag.Id(), gc.Equals, "sue")
+	c.Check(obtainedUserAccess.UserName, gc.Equals, name)
 	c.Check(obtainedUserAccess.Access, gc.Equals, corepermission.AddModelAccess)
 }
 
