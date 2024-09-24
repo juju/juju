@@ -46,9 +46,9 @@ type ProviderCredentialService interface {
 	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
 }
 
-// ProviderServiceFactory provides access to the services required by the
+// ProviderServices provides access to the services required by the
 // provider.
-type ProviderServiceFactory interface {
+type ProviderServices interface {
 	// Model returns the provider model service.
 	Model() ProviderModelService
 	// Cloud returns the cloud service.
@@ -59,9 +59,9 @@ type ProviderServiceFactory interface {
 	Credential() ProviderCredentialService
 }
 
-// ProviderServiceFactoryGetter represents a way to get a ProviderServiceFactory
+// ProviderServicesGetter represents a way to get a ProviderServices
 // for a given model.
-type ProviderServiceFactoryGetter interface {
-	// FactoryForModel returns a ProviderServiceFactory for the given model.
-	FactoryForModel(modelUUID string) ProviderServiceFactory
+type ProviderServicesGetter interface {
+	// ServicesForModel returns a ProviderServices for the given model.
+	ServicesForModel(modelUUID string) ProviderServices
 }

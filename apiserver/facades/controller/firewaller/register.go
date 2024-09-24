@@ -31,33 +31,33 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	serviceFactory := ctx.ServiceFactory()
+	domainServices := ctx.DomainServices()
 	cloudSpecAPI := cloudspec.NewCloudSpecV2(
 		ctx.Resources(),
-		cloudspec.MakeCloudSpecGetterForModel(st, serviceFactory.Cloud(), serviceFactory.Credential()),
-		cloudspec.MakeCloudSpecWatcherForModel(st, serviceFactory.Cloud()),
+		cloudspec.MakeCloudSpecGetterForModel(st, domainServices.Cloud(), domainServices.Credential()),
+		cloudspec.MakeCloudSpecWatcherForModel(st, domainServices.Cloud()),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, serviceFactory.Credential()),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, domainServices.Credential()),
 		common.AuthFuncForTag(m.ModelTag()),
 	)
 	controllerConfigAPI := common.NewControllerConfigAPI(
 		st,
-		serviceFactory.ControllerConfig(),
-		serviceFactory.ExternalController(),
+		domainServices.ControllerConfig(),
+		domainServices.ExternalController(),
 	)
 
 	stShim := stateShim{st: st, State: firewall.StateShim(st, m)}
 	return NewStateFirewallerAPI(
 		stShim,
-		serviceFactory.Network(),
+		domainServices.Network(),
 		ctx.Resources(),
 		ctx.WatcherRegistry(),
 		ctx.Auth(),
 		cloudSpecAPI,
 		controllerConfigAPI,
-		serviceFactory.ControllerConfig(),
-		serviceFactory.Config(),
-		serviceFactory.Application(service.ApplicationServiceParams{
+		domainServices.ControllerConfig(),
+		domainServices.Config(),
+		domainServices.Application(service.ApplicationServiceParams{
 			StorageRegistry: storage.NotImplementedProviderRegistry{},
 			Secrets:         service.NotImplementedSecretService{},
 		}),

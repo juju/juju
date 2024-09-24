@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/caas"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/domain/servicefactory/testing"
+	"github.com/juju/juju/domain/services/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc/params"
@@ -30,7 +30,7 @@ import (
 var _ = gc.Suite(&CAASApplicationSuite{})
 
 type CAASApplicationSuite struct {
-	testing.ServiceFactorySuite
+	testing.DomainServicesSuite
 
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
@@ -43,7 +43,7 @@ type CAASApplicationSuite struct {
 }
 
 func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
-	s.ServiceFactorySuite.SetUpTest(c)
+	s.DomainServicesSuite.SetUpTest(c)
 
 	s.clock = testclock.NewClock(time.Now())
 
@@ -56,9 +56,9 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 
 	// Seed the model with an application, this will be used to allow the
 	// upserting of units.
-	serviceFactory := s.DefaultModelServiceFactory(c)
+	domainServices := s.DefaultModelDomainServices(c)
 	unitName := "gitlab/0"
-	s.applicationService = serviceFactory.Application(service.ApplicationServiceParams{
+	s.applicationService = domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -87,7 +87,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 		s.resources,
 		s.authorizer,
 		s.st, s.st,
-		s.ControllerServiceFactory(c).ControllerConfig(),
+		s.ControllerDomainServices(c).ControllerConfig(),
 		s.applicationService,
 		s.broker,
 		s.clock,

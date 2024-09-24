@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package servicefactory
+package services
 
 import (
 	"github.com/juju/clock"
@@ -40,21 +40,21 @@ import (
 	upgradestate "github.com/juju/juju/domain/upgrade/state"
 )
 
-// ControllerFactory provides access to the services required by the apiserver.
-type ControllerFactory struct {
+// ControllerServices provides access to the services required by the apiserver.
+type ControllerServices struct {
 	controllerDB changestream.WatchableDBFactory
 	dbDeleter    database.DBDeleter
 	logger       logger.Logger
 }
 
-// NewControllerFactory returns a new registry which uses the provided controllerDB
+// NewControllerServices returns a new registry which uses the provided controllerDB
 // function to obtain a controller database.
-func NewControllerFactory(
+func NewControllerServices(
 	controllerDB changestream.WatchableDBFactory,
 	dbDeleter database.DBDeleter,
 	logger logger.Logger,
-) *ControllerFactory {
-	return &ControllerFactory{
+) *ControllerServices {
+	return &ControllerServices{
 		controllerDB: controllerDB,
 		dbDeleter:    dbDeleter,
 		logger:       logger,
@@ -62,14 +62,14 @@ func NewControllerFactory(
 }
 
 // Controller returns the controller service.
-func (s *ControllerFactory) Controller() *controllerservice.Service {
+func (s *ControllerServices) Controller() *controllerservice.Service {
 	return controllerservice.NewService(
 		controllerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }
 
 // ControllerConfig returns the controller configuration service.
-func (s *ControllerFactory) ControllerConfig() *controllerconfigservice.WatchableService {
+func (s *ControllerServices) ControllerConfig() *controllerconfigservice.WatchableService {
 	return controllerconfigservice.NewWatchableService(
 		controllerconfigstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
@@ -80,14 +80,14 @@ func (s *ControllerFactory) ControllerConfig() *controllerconfigservice.Watchabl
 }
 
 // ControllerNode returns the controller node service.
-func (s *ControllerFactory) ControllerNode() *controllernodeservice.Service {
+func (s *ControllerServices) ControllerNode() *controllernodeservice.Service {
 	return controllernodeservice.NewService(
 		controllernodestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }
 
 // Model returns the model service.
-func (s *ControllerFactory) Model() *modelservice.Service {
+func (s *ControllerServices) Model() *modelservice.Service {
 	return modelservice.NewService(
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.dbDeleter,
@@ -97,14 +97,14 @@ func (s *ControllerFactory) Model() *modelservice.Service {
 }
 
 // ModelDefaults returns the model defaults service.
-func (s *ControllerFactory) ModelDefaults() *modeldefaultsservice.Service {
+func (s *ControllerServices) ModelDefaults() *modeldefaultsservice.Service {
 	return modeldefaultsservice.NewService(
 		modeldefaultsstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }
 
 // ExternalController returns the external controller service.
-func (s *ControllerFactory) ExternalController() *externalcontrollerservice.WatchableService {
+func (s *ControllerServices) ExternalController() *externalcontrollerservice.WatchableService {
 	return externalcontrollerservice.NewWatchableService(
 		externalcontrollerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
@@ -115,7 +115,7 @@ func (s *ControllerFactory) ExternalController() *externalcontrollerservice.Watc
 }
 
 // Credential returns the credential service.
-func (s *ControllerFactory) Credential() *credentialservice.WatchableService {
+func (s *ControllerServices) Credential() *credentialservice.WatchableService {
 	return credentialservice.NewWatchableService(
 		credentialstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
@@ -127,7 +127,7 @@ func (s *ControllerFactory) Credential() *credentialservice.WatchableService {
 }
 
 // Cloud returns the cloud service.
-func (s *ControllerFactory) Cloud() *cloudservice.WatchableService {
+func (s *ControllerServices) Cloud() *cloudservice.WatchableService {
 	return cloudservice.NewWatchableService(
 		cloudstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
@@ -138,7 +138,7 @@ func (s *ControllerFactory) Cloud() *cloudservice.WatchableService {
 }
 
 // AutocertCache returns the autocert cache service.
-func (s *ControllerFactory) AutocertCache() *autocertcacheservice.Service {
+func (s *ControllerServices) AutocertCache() *autocertcacheservice.Service {
 	return autocertcacheservice.NewService(
 		autocertcachestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.logger.Child("autocertcache"),
@@ -146,7 +146,7 @@ func (s *ControllerFactory) AutocertCache() *autocertcacheservice.Service {
 }
 
 // Upgrade returns the upgrade service.
-func (s *ControllerFactory) Upgrade() *upgradeservice.WatchableService {
+func (s *ControllerServices) Upgrade() *upgradeservice.WatchableService {
 	return upgradeservice.NewWatchableService(
 		upgradestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
@@ -157,20 +157,20 @@ func (s *ControllerFactory) Upgrade() *upgradeservice.WatchableService {
 }
 
 // Flag returns the flag service.
-func (s *ControllerFactory) Flag() *flagservice.Service {
+func (s *ControllerServices) Flag() *flagservice.Service {
 	return flagservice.NewService(
 		flagstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.logger.Child("flag")),
 	)
 }
 
 // Access returns the access service, this includes users and permissions.
-func (s *ControllerFactory) Access() *accessservice.Service {
+func (s *ControllerServices) Access() *accessservice.Service {
 	return accessservice.NewService(
 		accessstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.logger.Child("access")),
 	)
 }
 
-func (s *ControllerFactory) SecretBackend() *secretbackendservice.WatchableService {
+func (s *ControllerServices) SecretBackend() *secretbackendservice.WatchableService {
 	logger := s.logger.Child("secretbackend")
 	state := secretbackendstate.NewState(
 		changestream.NewTxnRunnerFactory(s.controllerDB),
@@ -186,7 +186,7 @@ func (s *ControllerFactory) SecretBackend() *secretbackendservice.WatchableServi
 	)
 }
 
-func (s *ControllerFactory) Macaroon() *macaroonservice.Service {
+func (s *ControllerServices) Macaroon() *macaroonservice.Service {
 	return macaroonservice.NewService(
 		macaroonstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		clock.WallClock,

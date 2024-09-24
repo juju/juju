@@ -23,7 +23,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	jujutesting "github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
@@ -33,13 +33,13 @@ import (
 type ManifoldSuite struct {
 	jujutesting.BaseSuite
 
-	authority                    pki.Authority
-	manifold                     dependency.Manifold
-	getter                       dependency.Getter
-	stateTracker                 stubStateTracker
-	modelLogger                  dummyModelLogger
-	serviceFactoryGetter         servicefactory.ServiceFactoryGetter
-	providerServiceFactoryGetter servicefactory.ProviderServiceFactoryGetter
+	authority              pki.Authority
+	manifold               dependency.Manifold
+	getter                 dependency.Getter
+	stateTracker           stubStateTracker
+	modelLogger            dummyModelLogger
+	domainServicesGetter   services.DomainServicesGetter
+	providerServicesGetter services.ProviderServicesGetter
 
 	logger logger.Logger
 
@@ -61,8 +61,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.state = &state.State{}
 	s.pool = &state.StatePool{}
 	s.stateTracker = stubStateTracker{pool: s.pool, state: s.state}
-	s.serviceFactoryGetter = stubServiceFactoryGetter{}
-	s.providerServiceFactoryGetter = stubProviderServiceFactoryGetter{}
+	s.domainServicesGetter = stubDomainServicesGetter{}
+	s.providerServicesGetter = stubProviderServicesGetter{}
 	s.stub.ResetCalls()
 
 	s.modelLogger = dummyModelLogger{}
@@ -74,18 +74,18 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AuthorityName:                "authority",
 		StateName:                    "state",
 		LogSinkName:                  "log-sink",
-		ServiceFactoryName:           "service-factory",
-		ProviderServiceFactoriesName: "provider-service-factory",
+		DomainServicesName:           "domain-services",
+		ProviderServiceFactoriesName: "provider-services",
 		NewWorker:                    s.newWorker,
 		NewModelWorker:               s.newModelWorker,
 		ModelMetrics:                 dummyModelMetrics{},
 		Logger:                       s.logger,
-		GetProviderServiceFactoryGetter: func(getter dependency.Getter, name string) (modelworkermanager.ProviderServiceFactoryGetter, error) {
+		GetProviderServicesGetter: func(getter dependency.Getter, name string) (modelworkermanager.ProviderServicesGetter, error) {
 			var a any
 			if err := getter.Get(name, &a); err != nil {
 				return nil, errors.Trace(err)
 			}
-			return providerServiceFactoryGetter{}, nil
+			return providerServicesGetter{}, nil
 		},
 		GetControllerConfig: func(ctx context.Context, controllerConfigService modelworkermanager.ControllerConfigService) (controller.Config, error) {
 			return jujutesting.FakeControllerConfig(), nil
@@ -95,12 +95,12 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
-		"agent":                    &fakeAgent{},
-		"authority":                s.authority,
-		"state":                    &s.stateTracker,
-		"log-sink":                 s.modelLogger,
-		"service-factory":          s.serviceFactoryGetter,
-		"provider-service-factory": s.providerServiceFactoryGetter,
+		"agent":             &fakeAgent{},
+		"authority":         s.authority,
+		"state":             &s.stateTracker,
+		"log-sink":          s.modelLogger,
+		"domain-services":   s.domainServicesGetter,
+		"provider-services": s.providerServicesGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -124,7 +124,7 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"agent", "authority", "state", "log-sink", "service-factory", "provider-service-factory"}
+var expectedInputs = []string{"agent", "authority", "state", "log-sink", "domain-services", "provider-services"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -174,12 +174,12 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Controller: modelworkermanager.StatePoolController{
 			StatePool: s.pool,
 		},
-		ErrorDelay:                   jworker.RestartDelay,
-		Logger:                       s.logger,
-		MachineID:                    "1",
-		LogSink:                      dummyModelLogger{},
-		ProviderServiceFactoryGetter: providerServiceFactoryGetter{},
-		ServiceFactoryGetter:         s.serviceFactoryGetter,
+		ErrorDelay:             jworker.RestartDelay,
+		Logger:                 s.logger,
+		MachineID:              "1",
+		LogSink:                dummyModelLogger{},
+		ProviderServicesGetter: providerServicesGetter{},
+		DomainServicesGetter:   s.domainServicesGetter,
 	})
 }
 
@@ -238,18 +238,18 @@ type stubLogger struct {
 	corelogger.LogWriterCloser
 }
 
-type stubServiceFactoryGetter struct {
-	servicefactory.ServiceFactoryGetter
+type stubDomainServicesGetter struct {
+	services.DomainServicesGetter
 }
 
-type stubProviderServiceFactoryGetter struct {
-	servicefactory.ProviderServiceFactoryGetter
+type stubProviderServicesGetter struct {
+	services.ProviderServicesGetter
 }
 
-type providerServiceFactoryGetter struct {
-	modelworkermanager.ProviderServiceFactoryGetter
+type providerServicesGetter struct {
+	modelworkermanager.ProviderServicesGetter
 }
 
-func (s providerServiceFactoryGetter) FactoryForModel(_ string) modelworkermanager.ProviderServiceFactory {
+func (s providerServicesGetter) ServicesForModel(_ string) modelworkermanager.ProviderServices {
 	return nil
 }

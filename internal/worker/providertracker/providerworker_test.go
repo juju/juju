@@ -38,7 +38,7 @@ func (s *providerWorkerSuite) TestKilledSingularWorkerProviderErrDying(c *gc.C) 
 	// Ensure that a killed worker returns the correct error when
 	// Provider is called.
 
-	s.expectServiceFactory("hunter2")
+	s.expectDomainServices("hunter2")
 
 	w := s.newSingularWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -96,7 +96,7 @@ func (s *providerWorkerSuite) TestSingularFailsForMultiModels(c *gc.C) {
 	// If we're running in singular mode, ensure that we get an error if
 	// we're in a multi-model environment.
 
-	s.expectServiceFactory("hunter2")
+	s.expectDomainServices("hunter2")
 
 	w := s.newSingularWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -113,7 +113,7 @@ func (s *providerWorkerSuite) TestControllerNamespaceFails(c *gc.C) {
 
 	// Prevent requests to the controller namespace.
 
-	s.expectServiceFactory("hunter2")
+	s.expectDomainServices("hunter2")
 
 	w := s.newSingularWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -130,7 +130,7 @@ func (s *providerWorkerSuite) TestProvider(c *gc.C) {
 
 	// Ensure that the provider is returned correctly.
 
-	s.expectServiceFactory("hunter2")
+	s.expectDomainServices("hunter2")
 
 	w := s.newSingularWorker(c)
 	defer workertest.CleanKill(c, w)
@@ -149,7 +149,7 @@ func (s *providerWorkerSuite) TestProviderIsCached(c *gc.C) {
 	// Ensure that calling the provider multiple times returns the same
 	// provider.
 
-	s.expectServiceFactory("hunter2")
+	s.expectDomainServices("hunter2")
 
 	w := s.newSingularWorker(c)
 	defer workertest.CleanKill(c, w)
@@ -172,7 +172,7 @@ func (s *providerWorkerSuite) TestProviderForModel(c *gc.C) {
 
 	// Ensure that the provider for a model is returned correctly.
 
-	s.expectServiceFactory("hunter2")
+	s.expectDomainServices("hunter2")
 
 	w := s.newMultiWorker(c)
 	defer workertest.CleanKill(c, w)
@@ -192,7 +192,7 @@ func (s *providerWorkerSuite) TestProviderForModelIsCached(c *gc.C) {
 	// Ensure that calling the provider multiple times returns the same
 	// provider.
 
-	s.expectServiceFactory("hunter2")
+	s.expectDomainServices("hunter2")
 
 	w := s.newSingularWorker(c)
 	defer workertest.CleanKill(c, w)
@@ -218,7 +218,7 @@ func (s *providerWorkerSuite) TestProviderForModelIsNotCachedForDifferentNamespa
 
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("hunter-%d", i)
-		s.expectServiceFactory(name)
+		s.expectDomainServices(name)
 	}
 
 	w := s.newMultiWorker(c)
@@ -247,7 +247,7 @@ func (s *providerWorkerSuite) TestProviderForModelConcurrently(c *gc.C) {
 
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("hunter-%d", i)
-		s.expectServiceFactory(name)
+		s.expectDomainServices(name)
 	}
 
 	w := s.newMultiWorker(c)
@@ -290,7 +290,7 @@ func (s *providerWorkerSuite) newMultiWorker(c *gc.C) worker.Worker {
 func (s *providerWorkerSuite) newWorker(c *gc.C, trackerType TrackerType) worker.Worker {
 	w, err := newWorker(Config{
 		TrackerType:          trackerType,
-		ServiceFactoryGetter: s.serviceFactoryGetter,
+		DomainServicesGetter: s.domainServicesGetter,
 		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
 			return s.environ, cloudspec.CloudSpec{}, nil
 		},

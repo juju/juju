@@ -31,10 +31,10 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 
 	st := ctx.State()
 
-	serviceFactory := ctx.ServiceFactory()
-	cloudService := serviceFactory.Cloud()
-	credentialService := serviceFactory.Credential()
-	networkService := serviceFactory.Network()
+	domainServices := ctx.DomainServices()
+	cloudService := domainServices.Cloud()
+	credentialService := domainServices.Credential()
+	networkService := domainServices.Network()
 
 	stateShim, err := NewStateShim(st, cloudService, credentialService)
 	if err != nil {

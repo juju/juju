@@ -107,7 +107,7 @@ func (s *rateLimitSuite) infoForNewUser(c *gc.C, info *api.Info, name string) *a
 	// Make a copy
 	newInfo := *info
 
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 
 	userTag := names.NewUserTag(name)
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{

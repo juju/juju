@@ -203,7 +203,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccessAndAllo
 func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.C, allowModelAccess bool) {
 	apiserver.SetAllowModelAccess(s.Server, allowModelAccess)
 
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 	err := accessService.UpdatePermission(context.Background(), access.UpdatePermissionArgs{
 		Subject: s.remoteUser,
 		Change:  permission.Grant,

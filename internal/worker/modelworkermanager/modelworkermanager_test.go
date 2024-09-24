@@ -19,11 +19,11 @@ import (
 
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
-	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	servicefactorytesting "github.com/juju/juju/domain/services/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/state"
@@ -34,9 +34,9 @@ var _ = gc.Suite(&suite{})
 type suite struct {
 	authority pki.Authority
 	testing.IsolationSuite
-	workerC                      chan *mockWorker
-	providerServiceFactoryGetter modelworkermanager.ProviderServiceFactoryGetter
-	serviceFactoryGetter         servicefactory.ServiceFactoryGetter
+	workerC                chan *mockWorker
+	providerServicesGetter modelworkermanager.ProviderServicesGetter
+	domainServicesGetter   services.DomainServicesGetter
 }
 
 func (s *suite) SetUpTest(c *gc.C) {
@@ -45,8 +45,8 @@ func (s *suite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.authority = authority
 	s.workerC = make(chan *mockWorker, 100)
-	s.providerServiceFactoryGetter = providerServiceFactoryGetter{}
-	s.serviceFactoryGetter = servicefactorytesting.NewTestingServiceFactory()
+	s.providerServicesGetter = providerServicesGetter{}
+	s.domainServicesGetter = servicefactorytesting.NewTestingDomainServices()
 }
 
 func (s *suite) TestStartEmpty(c *gc.C) {
@@ -195,17 +195,17 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	watcher := newMockModelWatcher()
 	mockController := newMockController()
 	config := modelworkermanager.Config{
-		Authority:                    s.authority,
-		Logger:                       loggertesting.WrapCheckLog(c),
-		MachineID:                    "1",
-		ModelWatcher:                 watcher,
-		Controller:                   mockController,
-		NewModelWorker:               s.startModelWorker,
-		ModelMetrics:                 dummyModelMetrics{},
-		ErrorDelay:                   time.Millisecond,
-		LogSink:                      dummyModelLogger{},
-		ProviderServiceFactoryGetter: s.providerServiceFactoryGetter,
-		ServiceFactoryGetter:         s.serviceFactoryGetter,
+		Authority:              s.authority,
+		Logger:                 loggertesting.WrapCheckLog(c),
+		MachineID:              "1",
+		ModelWatcher:           watcher,
+		Controller:             mockController,
+		NewModelWorker:         s.startModelWorker,
+		ModelMetrics:           dummyModelMetrics{},
+		ErrorDelay:             time.Millisecond,
+		LogSink:                dummyModelLogger{},
+		ProviderServicesGetter: s.providerServicesGetter,
+		DomainServicesGetter:   s.domainServicesGetter,
 		GetControllerConfig: func(ctx context.Context, controllerConfigService modelworkermanager.ControllerConfigService) (controller.Config, error) {
 			return coretesting.FakeControllerConfig(), nil
 		},

@@ -67,7 +67,7 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 
-	networkService := s.ControllerServiceFactory(c).Network()
+	networkService := s.ControllerDomainServices(c).Network()
 	mgmtSpaceID, err := networkService.AddSpace(context.Background(), network.SpaceInfo{
 		Name: "mgmt01",
 	})
@@ -79,7 +79,7 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 		corecontroller.JujuManagementSpace: "mgmt01",
 	}
 
-	configService := s.ControllerServiceFactory(c).ControllerConfig()
+	configService := s.ControllerDomainServices(c).ControllerConfig()
 	err = configService.UpdateControllerConfig(context.Background(), cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -180,7 +180,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	name := user.NameFromTag(userTag)
 	pass := "totally-secure-password"
 
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 	_, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
 		Name:        name,
 		DisplayName: "Charlie Brown",
@@ -221,7 +221,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	name := user.NameFromTag(userTag)
 	pass := "totally-secure-password"
 
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 	_, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
 		Name:        name,
 		DisplayName: "Charlie Brown",
@@ -255,7 +255,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 
 func (s *loginSuite) setupManagementSpace(c *gc.C) *network.SpaceInfo {
 
-	networkService := s.ControllerServiceFactory(c).Network()
+	networkService := s.ControllerDomainServices(c).Network()
 	mgmtSpaceID, err := networkService.AddSpace(context.Background(), network.SpaceInfo{
 		Name: "mgmt01",
 	})
@@ -267,11 +267,11 @@ func (s *loginSuite) setupManagementSpace(c *gc.C) *network.SpaceInfo {
 		corecontroller.JujuManagementSpace: "mgmt01",
 	}
 
-	configService := s.ControllerServiceFactory(c).ControllerConfig()
+	configService := s.ControllerDomainServices(c).ControllerConfig()
 	err = configService.UpdateControllerConfig(context.Background(), cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.ControllerServiceFactory(c).ControllerConfig().UpdateControllerConfig(context.Background(), cfg, nil)
+	err = s.ControllerDomainServices(c).ControllerConfig().UpdateControllerConfig(context.Background(), cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return mgmtSpace
@@ -322,7 +322,7 @@ func (s *loginSuite) loginHostPorts(
 func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info, mgmtSpace *network.SpaceInfo) {
 	st := s.ControllerModel(c).State()
 
-	cfg, err := s.ControllerServiceFactory(c).ControllerConfig().ControllerConfig(context.Background())
+	cfg, err := s.ControllerDomainServices(c).ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.SetAPIHostPorts(cfg, nil, nil)
@@ -449,7 +449,7 @@ func (s *loginSuite) infoForNewUser(c *gc.C, info *api.Info) *api.Info {
 	name := user.NameFromTag(userTag)
 	pass := "shhh..."
 
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 
 	// Add a user with permission to log into this controller.
 	_, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
@@ -488,7 +488,7 @@ func (s *loginSuite) infoForNewUser(c *gc.C, info *api.Info) *api.Info {
 
 func (s *loginSuite) TestNoLoginPermissions(c *gc.C) {
 	info := s.ControllerModelApiInfo()
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 	password := "dummy-password"
 	tag := names.NewUserTag("charliebrown")
 	// Add a user with permission to log into this controller.
@@ -736,7 +736,7 @@ func (s *loginSuite) TestOtherModel(c *gc.C) {
 	name := user.NameFromTag(userTag)
 	pass := "shhh..."
 
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 
 	_, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
 		Name:        name,
@@ -908,7 +908,7 @@ func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (names.UserTag, par
 	name := user.NameFromTag(userTag)
 	pass := "shhh..."
 
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 
 	// Add a user with permission to log into this controller.
 	_, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
@@ -999,7 +999,7 @@ func (s *loginSuite) assertRemoteModel(c *gc.C, conn api.Connection, expected na
 }
 
 func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 
 	name := usertesting.GenNewName(c, "bobbrown")
 	userUUID, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
@@ -1050,7 +1050,7 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 }
 
 func (s *loginSuite) setEveryoneAccess(c *gc.C, accessLevel permission.Access) {
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 	err := accessService.AddExternalUser(context.Background(), permission.EveryoneUserName, "", s.AdminUserUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	err = accessService.UpdatePermission(context.Background(), access.UpdatePermissionArgs{
@@ -1152,7 +1152,7 @@ func (s *loginV3Suite) TestClientLoginToController(c *gc.C) {
 }
 
 func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *gc.C) {
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 	name := usertesting.GenNewName(c, "bobbrown")
 	uuid, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
 		Name:        name,

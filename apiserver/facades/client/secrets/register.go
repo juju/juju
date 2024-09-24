@@ -39,16 +39,16 @@ func newSecretsAPI(stdCtx context.Context, ctx facade.ModelContext) (*SecretsAPI
 		return nil, apiservererrors.ErrPerm
 	}
 
-	serviceFactory := ctx.ServiceFactory()
-	backendService := serviceFactory.SecretBackend()
+	domainServices := ctx.DomainServices()
+	backendService := domainServices.SecretBackend()
 
-	modelInfoService := serviceFactory.ModelInfo()
+	modelInfoService := domainServices.ModelInfo()
 	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	secretService := serviceFactory.Secret(
+	secretService := domainServices.Secret(
 		secretservice.SecretServiceParams{
 			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
 				backendService, ctx.ModelUUID(),

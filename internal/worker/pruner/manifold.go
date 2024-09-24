@@ -14,14 +14,14 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 )
 
 // ManifoldConfig describes the resources and configuration on which the
 // statushistorypruner worker depends.
 type ManifoldConfig struct {
 	APICallerName      string
-	ServiceFactoryName string
+	DomainServicesName string
 	Clock              clock.Clock
 	PruneInterval      time.Duration
 	NewWorker          func(Config) (worker.Worker, error)
@@ -34,8 +34,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
 	}
-	if config.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
+	if config.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -57,7 +57,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.APICallerName,
-			config.ServiceFactoryName,
+			config.DomainServicesName,
 		},
 		Start: config.start,
 	}
@@ -73,15 +73,15 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	var serviceFactory servicefactory.ServiceFactory
-	if err := getter.Get(config.ServiceFactoryName, &serviceFactory); err != nil {
+	var domainServices services.DomainServices
+	if err := getter.Get(config.DomainServicesName, &domainServices); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	facade := config.NewClient(apiCaller)
 	prunerConfig := Config{
 		Facade:             facade,
-		ModelConfigService: serviceFactory.Config(),
+		ModelConfigService: domainServices.Config(),
 		PruneInterval:      config.PruneInterval,
 		Clock:              config.Clock,
 		Logger:             config.Logger,

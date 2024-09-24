@@ -55,8 +55,8 @@ type uniterSuite struct {
 var _ = gc.Suite(&uniterSuite{})
 
 func (s *uniterSuite) controllerConfig(c *gc.C) (controller.Config, error) {
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerDomainServices := s.ControllerDomainServices(c)
+	controllerConfigService := controllerDomainServices.ControllerConfig()
 	return controllerConfigService.ControllerConfig(context.Background())
 }
 
@@ -218,7 +218,7 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	c.Assert(relStatus.Status, gc.Equals, status.Joining)
 
 	// We need to dual write to dqlite.
-	sf := s.ServiceFactorySuite.ServiceFactoryGetter(c, s.NoopObjectStore(c)).FactoryForModel(s.ServiceFactorySuite.ControllerModelUUID)
+	sf := s.DomainServicesSuite.DomainServicesGetter(c, s.NoopObjectStore(c)).ServicesForModel(s.DomainServicesSuite.ControllerModelUUID)
 	applicationService := sf.Application(service.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
 		Secrets:         service.NotImplementedSecretService{},
@@ -480,7 +480,7 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.ControllerServiceFactory(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	err = s.ControllerDomainServices(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.NetworkInfoParams{
@@ -1847,7 +1847,7 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 }
 
 func (s *uniterSuite) TestProviderType(c *gc.C) {
-	modelInfo, err := s.ControllerServiceFactory(c).ModelInfo().GetModelInfo(context.Background())
+	modelInfo, err := s.ControllerDomainServices(c).ModelInfo().GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.uniter.ProviderType(context.Background())
@@ -3216,7 +3216,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 	relTag, relUnit := s.setupRemoteRelationScenario(c)
 
 	// Check model attributes are overridden by setting up a value.
-	err := s.ControllerServiceFactory(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
+	err := s.ControllerDomainServices(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	egress := state.NewRelationEgressNetworks(s.ControllerModel(c).State())
@@ -3248,7 +3248,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 func (s *uniterSuite) TestModelEgressSubnets(c *gc.C) {
 	relTag, relUnit := s.setupRemoteRelationScenario(c)
 
-	err := s.ControllerServiceFactory(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
+	err := s.ControllerDomainServices(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	thisUniter := s.makeMysqlUniter(c)
@@ -3569,7 +3569,7 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.leadershipChecker,
-		ServiceFactory_:    s.DefaultModelServiceFactory(c),
+		DomainServices_:    s.DefaultModelDomainServices(c),
 		Logger_:            loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -15,7 +15,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/gate"
 )
 
@@ -23,7 +23,7 @@ import (
 type ManifoldConfig struct {
 	AgentName          string
 	UpgradeDBGateName  string
-	ServiceFactoryName string
+	DomainServicesName string
 	DBAccessorName     string
 	Logger             logger.Logger
 	Clock              clock.Clock
@@ -38,8 +38,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.UpgradeDBGateName == "" {
 		return errors.NotValidf("empty UpgradeDBGateName")
 	}
-	if cfg.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
+	if cfg.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if cfg.DBAccessorName == "" {
 		return errors.NotValidf("empty DBAccessorName")
@@ -60,7 +60,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			cfg.AgentName,
 			cfg.UpgradeDBGateName,
-			cfg.ServiceFactoryName,
+			cfg.DomainServicesName,
 			cfg.DBAccessorName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -78,8 +78,8 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 
 			// Service factory is used to get the upgrade service and
 			// then we can locate all the model uuids.
-			var serviceFactoryGetter servicefactory.ControllerServiceFactory
-			if err := getter.Get(cfg.ServiceFactoryName, &serviceFactoryGetter); err != nil {
+			var domainServicesGetter services.ControllerDomainServices
+			if err := getter.Get(cfg.DomainServicesName, &domainServicesGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -98,8 +98,8 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 			return cfg.NewWorker(Config{
 				DBUpgradeCompleteLock: dbUpgradeCompleteLock,
 				Agent:                 controllerAgent,
-				ModelService:          serviceFactoryGetter.Model(),
-				UpgradeService:        serviceFactoryGetter.Upgrade(),
+				ModelService:          domainServicesGetter.Model(),
+				UpgradeService:        domainServicesGetter.Upgrade(),
 				DBGetter:              dbGetter,
 				Tag:                   currentConfig.Tag(),
 				FromVersion:           fromVersion,

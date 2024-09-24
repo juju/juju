@@ -26,7 +26,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
-	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	domainservicestesting "github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
@@ -49,8 +49,8 @@ type Suite struct {
 	authorizer *apiservertesting.FakeAuthorizer
 
 	controllerConfigService   *MockControllerConfigService
-	serviceFactory            *MockServiceFactory
-	serviceFactoryGetter      *MockServiceFactoryGetter
+	domainServices            *MockDomainServices
+	domainServicesGetter      *MockDomainServicesGetter
 	externalControllerService *MockExternalControllerService
 	applicationService        *MockApplicationService
 	upgradeService            *MockUpgradeService
@@ -69,7 +69,7 @@ func (s *Suite) SetUpSuite(c *gc.C) {
 Skip added by tlm. The reason we are skipping these tests is currently they are
 introducing a mock for model import call but then the mock proceeds to actually
 call the model import code in internal and do a full end to end tests. These
-tests are then running off of service factory mocks.
+tests are then running off of domain services mocks.
 
 Eventually we are ending up at a state where we are 6 levels deep in the call
 stack writing expect statements. All of these tests need to be refactored
@@ -99,7 +99,7 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 		ModelContext: facadetest.ModelContext{
 			State_:          s.State,
 			Auth_:           s.authorizer,
-			ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+			DomainServices_: domainservicestesting.NewTestingDomainServices(),
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -540,8 +540,8 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil).AnyTimes()
 
-	s.serviceFactory = NewMockServiceFactory(ctrl)
-	s.serviceFactoryGetter = NewMockServiceFactoryGetter(ctrl)
+	s.domainServices = NewMockDomainServices(ctrl)
+	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
 
 	s.externalControllerService = NewMockExternalControllerService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
@@ -632,12 +632,12 @@ func (s *Suite) controllerVersion(c *gc.C) version.Number {
 }
 
 func (s *Suite) expectImportModel(c *gc.C) {
-	s.serviceFactoryGetter.EXPECT().FactoryForModel(gomock.Any()).Return(s.serviceFactory)
+	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any()).Return(s.domainServices)
 	s.modelImporter.EXPECT().ImportModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, bytes []byte) (*state.Model, *state.State, error) {
 		scope := func(model.UUID) modelmigration.Scope { return modelmigration.NewScope(nil, nil, nil) }
 		controller := state.NewController(s.StatePool)
 		return migration.NewModelImporter(
-			controller, scope, s.controllerConfigService, s.serviceFactoryGetter, cloudSchemaSource,
+			controller, scope, s.controllerConfigService, s.domainServicesGetter, cloudSchemaSource,
 			func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
 			loggertesting.WrapCheckLog(c),
 		).ImportModel(ctx, bytes)

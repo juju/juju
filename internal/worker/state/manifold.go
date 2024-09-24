@@ -15,7 +15,7 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/state"
 )
 
@@ -25,8 +25,8 @@ var logger = internallogger.GetLogger("juju.worker.state")
 type ManifoldConfig struct {
 	AgentName              string
 	StateConfigWatcherName string
-	ServiceFactoryName     string
-	OpenStatePool          func(stdcontext.Context, coreagent.Config, servicefactory.ControllerServiceFactory, servicefactory.ServiceFactoryGetter) (*state.StatePool, error)
+	DomainServicesName     string
+	OpenStatePool          func(stdcontext.Context, coreagent.Config, services.ControllerDomainServices, services.DomainServicesGetter) (*state.StatePool, error)
 	PingInterval           time.Duration
 
 	// SetStatePool is called with the state pool when it is created,
@@ -45,8 +45,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.StateConfigWatcherName == "" {
 		return errors.NotValidf("empty StateConfigWatcherName")
 	}
-	if config.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
+	if config.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if config.OpenStatePool == nil {
 		return errors.NotValidf("nil OpenStatePool")
@@ -67,7 +67,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.StateConfigWatcherName,
-			config.ServiceFactoryName,
+			config.DomainServicesName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
@@ -90,15 +90,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Annotate(dependency.ErrMissing, "no StateServingInfo in config")
 			}
 
-			var controllerServiceFactory servicefactory.ControllerServiceFactory
-			if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+			var controllerDomainServices services.ControllerDomainServices
+			if err := getter.Get(config.DomainServicesName, &controllerDomainServices); err != nil {
 				return nil, err
 			}
-			var serviceFactoryGetter servicefactory.ServiceFactoryGetter
-			if err := getter.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
+			var domainServicesGetter services.DomainServicesGetter
+			if err := getter.Get(config.DomainServicesName, &domainServicesGetter); err != nil {
 				return nil, err
 			}
-			pool, err := config.OpenStatePool(stdcontext.Background(), agent.CurrentConfig(), controllerServiceFactory, serviceFactoryGetter)
+			pool, err := config.OpenStatePool(stdcontext.Background(), agent.CurrentConfig(), controllerDomainServices, domainServicesGetter)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

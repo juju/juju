@@ -57,7 +57,7 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 		Auth_:               s.auth,
 		State_:              s.ControllerModel(c).State(),
 		Logger_:             loggertesting.WrapCheckLog(c),
-		ServiceFactory_:     s.DefaultModelServiceFactory(c),
+		DomainServices_:     s.DefaultModelDomainServices(c),
 		CharmhubHTTPClient_: &http.Client{},
 	})
 	c.Assert(err, jc.ErrorIsNil)

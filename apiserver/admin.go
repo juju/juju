@@ -104,7 +104,7 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 		return fail, errors.Trace(err)
 	}
 
-	controllerConfigService := a.root.ServiceFactory().ControllerConfig()
+	controllerConfigService := a.root.DomainServices().ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return fail, errors.Trace(err)

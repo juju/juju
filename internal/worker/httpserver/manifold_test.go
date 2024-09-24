@@ -28,7 +28,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/httpserver"
 	"github.com/juju/juju/state"
 )
@@ -47,7 +47,7 @@ type ManifoldSuite struct {
 	prometheusRegisterer   stubPrometheusRegisterer
 	tlsConfig              *tls.Config
 	controllerConfig       controller.Config
-	serviceFactory         servicefactory.ServiceFactory
+	domainServices         services.DomainServices
 	autocertCacheGetter    *autocertcacheservice.Service
 	controllerConfigGetter *controllerconfigservice.WatchableService
 
@@ -76,7 +76,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.autocertCacheGetter = &autocertcacheservice.Service{}
 	s.controllerConfigGetter = &controllerconfigservice.WatchableService{}
-	s.serviceFactory = stubServiceFactory{
+	s.domainServices = stubDomainServices{
 		controllerConfigGetter: s.controllerConfigGetter,
 		autocertCacheGetter:    s.autocertCacheGetter,
 	}
@@ -88,7 +88,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AuthorityName:        "authority",
 		HubName:              "hub",
 		StateName:            "state",
-		ServiceFactoryName:   "service-factory",
+		DomainServicesName:   "domain-services",
 		MuxName:              "mux",
 		APIServerName:        "api-server",
 		Clock:                s.clock,
@@ -114,7 +114,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 		"hub":             s.hub,
 		"mux":             s.mux,
 		"api-server":      nil,
-		"service-factory": s.serviceFactory,
+		"domain-services": s.domainServices,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -155,7 +155,7 @@ var expectedInputs = []string{
 	"mux",
 	"hub",
 	"api-server",
-	"service-factory",
+	"domain-services",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -213,8 +213,8 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		f:      func(cfg *httpserver.ManifoldConfig) { cfg.StateName = "" },
 		expect: "empty StateName not valid",
 	}, {
-		f:      func(cfg *httpserver.ManifoldConfig) { cfg.ServiceFactoryName = "" },
-		expect: "empty ServiceFactoryName not valid",
+		f:      func(cfg *httpserver.ManifoldConfig) { cfg.DomainServicesName = "" },
+		expect: "empty DomainServicesName not valid",
 	}, {
 		f:      func(cfg *httpserver.ManifoldConfig) { cfg.MuxName = "" },
 		expect: "empty MuxName not valid",
@@ -258,16 +258,16 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 	return w
 }
 
-type stubServiceFactory struct {
-	servicefactory.ServiceFactory
+type stubDomainServices struct {
+	services.DomainServices
 	controllerConfigGetter *controllerconfigservice.WatchableService
 	autocertCacheGetter    *autocertcacheservice.Service
 }
 
-func (s stubServiceFactory) AutocertCache() *autocertcacheservice.Service {
+func (s stubDomainServices) AutocertCache() *autocertcacheservice.Service {
 	return s.autocertCacheGetter
 }
 
-func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.WatchableService {
+func (s stubDomainServices) ControllerConfig() *controllerconfigservice.WatchableService {
 	return s.controllerConfigGetter
 }

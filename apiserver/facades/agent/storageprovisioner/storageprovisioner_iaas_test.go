@@ -57,21 +57,21 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	s.api = s.newApi(c, s.DefaultModelServiceFactory(c).BlockDevice(), nil)
+	s.api = s.newApi(c, s.DefaultModelDomainServices(c).BlockDevice(), nil)
 	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID())
 }
 
 func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisioner.BlockDeviceService, watcherRegistry facade.WatcherRegistry) *storageprovisioner.StorageProvisionerAPIv4 {
-	serviceFactory := s.ControllerServiceFactory(c)
-	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(context.Background())
+	domainServices := s.ControllerDomainServices(c)
+	modelInfo, err := domainServices.ModelInfo().GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), serviceFactory.Cloud(), serviceFactory.Credential())
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), domainServices.Cloud(), domainServices.Credential())
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	s.st = s.ControllerModel(c).State()
-	serviceFactoryGetter := s.ServiceFactoryGetter(c, s.NoopObjectStore(c))
-	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(s.st.ModelUUID())).Storage(registry)
+	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
+	storageService := domainServicesGetter.ServicesForModel(model.UUID(s.st.ModelUUID())).Storage(registry)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -86,8 +86,8 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 		backend,
 		storageBackend,
 		blockDeviceService,
-		s.ControllerServiceFactory(c).Config(),
-		s.DefaultModelServiceFactory(c).Machine(),
+		s.ControllerDomainServices(c).Config(),
+		s.DefaultModelDomainServices(c).Machine(),
 		s.resources,
 		s.authorizer,
 		registry,
@@ -377,7 +377,7 @@ func (s *iaasProvisionerSuite) TestFilesystemAttachments(c *gc.C) {
 func (s *iaasProvisionerSuite) TestVolumeParams(c *gc.C) {
 	// Set custom resource-tags in model config, and check they show up in the
 	// returned volume params
-	err := s.ControllerServiceFactory(c).Config().UpdateModelConfig(
+	err := s.ControllerDomainServices(c).Config().UpdateModelConfig(
 		context.Background(), map[string]any{
 			config.ResourceTagsKey: "origin=v2 owner=Canonical",
 		}, nil)
@@ -553,7 +553,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 func (s *iaasProvisionerSuite) TestFilesystemParams(c *gc.C) {
 	// Set custom resource-tags in model config, and check they show up in the
 	// returned filesystem params
-	err := s.ControllerServiceFactory(c).Config().UpdateModelConfig(
+	err := s.ControllerDomainServices(c).Config().UpdateModelConfig(
 		context.Background(), map[string]any{
 			config.ResourceTagsKey: "origin=v2 owner=Canonical",
 		}, nil)

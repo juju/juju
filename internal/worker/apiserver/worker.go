@@ -26,7 +26,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/state"
 )
@@ -57,7 +57,7 @@ type Config struct {
 	// DBGetter supplies WatchableDB implementations by namespace.
 	DBGetter                changestream.WatchableDBGetter
 	DBDeleter               database.DBDeleter
-	ServiceFactoryGetter    servicefactory.ServiceFactoryGetter
+	DomainServicesGetter    services.DomainServicesGetter
 	TracerGetter            trace.TracerGetter
 	ObjectStoreGetter       objectstore.ObjectStoreGetter
 	ControllerConfigService ControllerConfigService
@@ -119,8 +119,8 @@ func (config Config) Validate() error {
 	if config.SSHImporterHTTPClient == nil {
 		return errors.NotValidf("nil SSHImporterHTTPClient")
 	}
-	if config.ServiceFactoryGetter == nil {
-		return errors.NotValidf("nil ServiceFactoryGetter")
+	if config.DomainServicesGetter == nil {
+		return errors.NotValidf("nil DomainServicesGetter")
 	}
 	if config.DBGetter == nil {
 		return errors.NotValidf("nil DBGetter")
@@ -206,7 +206,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		CharmhubHTTPClient:            config.CharmhubHTTPClient,
 		DBGetter:                      config.DBGetter,
 		DBDeleter:                     config.DBDeleter,
-		ServiceFactoryGetter:          config.ServiceFactoryGetter,
+		DomainServicesGetter:          config.DomainServicesGetter,
 		TracerGetter:                  config.TracerGetter,
 		ObjectStoreGetter:             config.ObjectStoreGetter,
 		SSHImporterHTTPClient:         config.SSHImporterHTTPClient,

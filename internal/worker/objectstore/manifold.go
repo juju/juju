@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/core/model"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/objectstore"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/trace"
 )
@@ -156,7 +156,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var objectStoreServicesGetter servicefactory.ObjectStoreServicesGetter
+			var objectStoreServicesGetter services.ObjectStoreServicesGetter
 			if err := getter.Get(config.ObjectStoreServicesName, &objectStoreServicesGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -224,7 +224,7 @@ func bucketName(config controller.Config) (string, error) {
 }
 
 type controllerMetadataService struct {
-	factory servicefactory.ControllerObjectStoreServices
+	factory services.ControllerObjectStoreServices
 }
 
 // ObjectStore returns the object store metadata for the controller model.
@@ -234,16 +234,16 @@ func (s controllerMetadataService) ObjectStore() coreobjectstore.ObjectStoreMeta
 }
 
 type modelMetadataServiceGetter struct {
-	servicesGetter servicefactory.ObjectStoreServicesGetter
+	servicesGetter services.ObjectStoreServicesGetter
 }
 
 // ForModelUUID returns the MetadataService for the given model UUID.
 func (s modelMetadataServiceGetter) ForModelUUID(modelUUID model.UUID) MetadataService {
-	return modelMetadataService{factory: s.servicesGetter.FactoryForModel(modelUUID)}
+	return modelMetadataService{factory: s.servicesGetter.ServicesForModel(modelUUID)}
 }
 
 type modelMetadataService struct {
-	factory servicefactory.ObjectStoreServices
+	factory services.ObjectStoreServices
 }
 
 // ObjectStore returns the object store metadata for the given model UUID
@@ -322,7 +322,7 @@ func (l claimExtender) Duration() time.Duration {
 // GetControllerConfigService is a helper function that gets a service from the
 // manifold.
 func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerObjectStoreServices) ControllerConfigService {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerObjectStoreServices) ControllerConfigService {
 		return factory.ControllerConfig()
 	})
 }
@@ -330,7 +330,7 @@ func GetControllerConfigService(getter dependency.Getter, name string) (Controll
 // GetMetadataService is a helper function that gets a service from the
 // manifold.
 func GetMetadataService(getter dependency.Getter, name string) (MetadataService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerObjectStoreServices) MetadataService {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerObjectStoreServices) MetadataService {
 		return controllerMetadataService{
 			factory: factory,
 		}

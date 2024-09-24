@@ -127,21 +127,21 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	}
 	blockChecker := common.NewBlockChecker(ctx.State())
 	stateCharm := CharmToStateCharm
-	serviceFactory := ctx.ServiceFactory()
+	domainServices := ctx.DomainServices()
 
 	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-		m, serviceFactory.Cloud(), serviceFactory.Credential(),
+		m, domainServices.Cloud(), domainServices.Credential(),
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage provider registry")
 	}
-	storagePoolGetter := serviceFactory.Storage(registry)
+	storagePoolGetter := domainServices.Storage(registry)
 
 	var caasBroker caas.Broker
 	if model.Type() == state.ModelTypeCAAS {
-		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, serviceFactory.Cloud(), serviceFactory.Credential())
+		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, domainServices.Cloud(), domainServices.Credential())
 		if err != nil {
 			return nil, errors.Annotate(err, "getting caas client")
 		}
@@ -153,7 +153,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		return nil, errors.Trace(err)
 	}
 
-	prechecker, err := stateenvirons.NewInstancePrechecker(ctx.State(), serviceFactory.Cloud(), serviceFactory.Credential())
+	prechecker, err := stateenvirons.NewInstancePrechecker(ctx.State(), domainServices.Cloud(), domainServices.Credential())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -169,15 +169,15 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	}
 
 	repoLogger := ctx.Logger().Child("deployfromrepo")
-	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
+	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, fmt.Errorf("getting model info: %w", err)
 	}
 
-	backendService := serviceFactory.SecretBackend()
-	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
+	backendService := domainServices.SecretBackend()
+	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: registry,
-		Secrets: serviceFactory.Secret(
+		Secrets: domainServices.Secret(
 			secretservice.SecretServiceParams{
 				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
 					backendService, ctx.ModelUUID(),
@@ -194,7 +194,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		caasBroker:         caasBroker,
 		model:              m,
 		modelInfo:          modelInfo,
-		modelConfigService: serviceFactory.Config(),
+		modelConfigService: domainServices.Config(),
 		applicationService: applicationService,
 		registry:           registry,
 		state:              state,
@@ -212,19 +212,19 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 
 	return NewAPIBase(
 		state,
-		serviceFactory.ExternalController(),
-		serviceFactory.Network(),
+		domainServices.ExternalController(),
+		domainServices.Network(),
 		storageAccess,
 		ctx.Auth(),
 		repoDeploy,
 		blockChecker,
 		model,
 		modelInfo,
-		serviceFactory.Config(),
-		serviceFactory.Agent(),
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
-		serviceFactory.Machine(),
+		domainServices.Config(),
+		domainServices.Agent(),
+		domainServices.Cloud(),
+		domainServices.Credential(),
+		domainServices.Machine(),
 		applicationService,
 		leadershipReader,
 		stateCharm,

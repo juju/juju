@@ -53,14 +53,14 @@ func newHighAvailabilityAPI(ctx facade.ModelContext) (*HighAvailabilityAPI, erro
 		return nil, errors.NotSupportedf("high availability on kubernetes controllers")
 	}
 
-	serviceFactory := ctx.ServiceFactory()
-	prechecker, err := stateenvirons.NewInstancePrechecker(st, serviceFactory.Cloud(), serviceFactory.Credential())
+	domainServices := ctx.DomainServices()
+	prechecker, err := stateenvirons.NewInstancePrechecker(st, domainServices.Cloud(), domainServices.Credential())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// For adding additional controller units, we don't need a storage registry.
-	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
+	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
 		Secrets:         applicationservice.NotImplementedSecretService{},
 	})
@@ -68,11 +68,11 @@ func newHighAvailabilityAPI(ctx facade.ModelContext) (*HighAvailabilityAPI, erro
 	return &HighAvailabilityAPI{
 		st:                      st,
 		prechecker:              prechecker,
-		nodeService:             serviceFactory.ControllerNode(),
-		machineService:          serviceFactory.Machine(),
+		nodeService:             domainServices.ControllerNode(),
+		machineService:          domainServices.Machine(),
 		applicationService:      applicationService,
-		controllerConfigService: serviceFactory.ControllerConfig(),
-		networkService:          serviceFactory.Network(),
+		controllerConfigService: domainServices.ControllerConfig(),
+		networkService:          domainServices.Network(),
 		authorizer:              authorizer,
 		logger:                  ctx.Logger().Child("highavailability"),
 	}, nil

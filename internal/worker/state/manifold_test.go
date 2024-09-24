@@ -17,7 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreagent "github.com/juju/juju/agent"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	coretesting "github.com/juju/juju/internal/testing"
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/state"
@@ -46,7 +46,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.config = workerstate.ManifoldConfig{
 		AgentName:              "agent",
 		StateConfigWatcherName: "state-config-watcher",
-		ServiceFactoryName:     "service-factory",
+		DomainServicesName:     "domain-services",
 		OpenStatePool:          s.fakeOpenState,
 		PingInterval:           10 * time.Millisecond,
 		SetStatePool: func(pool *state.StatePool) {
@@ -57,11 +57,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.resources = dt.StubResources{
 		"agent":                dt.NewStubResource(new(mockAgent)),
 		"state-config-watcher": dt.NewStubResource(true),
-		"service-factory":      dt.NewStubResource(new(mockServiceFactory)),
+		"domain-services":      dt.NewStubResource(new(mockDomainServices)),
 	}
 }
 
-func (s *ManifoldSuite) fakeOpenState(context.Context, coreagent.Config, servicefactory.ControllerServiceFactory, servicefactory.ServiceFactoryGetter) (*state.StatePool, error) {
+func (s *ManifoldSuite) fakeOpenState(context.Context, coreagent.Config, services.ControllerDomainServices, services.DomainServicesGetter) (*state.StatePool, error) {
 	s.openStateCalled = true
 	if s.openStateErr != nil {
 		return nil, s.openStateErr
@@ -74,7 +74,7 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, []string{
 		"agent",
 		"state-config-watcher",
-		"service-factory",
+		"domain-services",
 	})
 }
 
@@ -92,8 +92,8 @@ func (s *ManifoldSuite) TestStateConfigWatcherMissing(c *gc.C) {
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestServiceFactoryMissing(c *gc.C) {
-	s.resources["service-factory"] = dt.StubResource{Error: dependency.ErrMissing}
+func (s *ManifoldSuite) TestDomainServicesMissing(c *gc.C) {
+	s.resources["domain-services"] = dt.StubResource{Error: dependency.ErrMissing}
 	w, err := s.startManifold(c)
 	c.Check(w, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
@@ -269,7 +269,7 @@ type dummyWorker struct {
 	worker.Worker
 }
 
-type mockServiceFactory struct {
-	servicefactory.ControllerServiceFactory
-	servicefactory.ServiceFactoryGetter
+type mockDomainServices struct {
+	services.ControllerDomainServices
+	services.DomainServicesGetter
 }

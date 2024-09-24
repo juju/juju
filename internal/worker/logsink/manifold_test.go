@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/logsink"
 )
@@ -34,7 +34,7 @@ type ManifoldSuite struct {
 
 	manifold               dependency.Manifold
 	getter                 dependency.Getter
-	serviceFactory         servicefactory.ServiceFactory
+	domainServices         services.DomainServices
 	controllerConfigGetter *controllerconfigservice.WatchableService
 
 	logger logger.Logger
@@ -52,7 +52,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.controllerConfigGetter = &controllerconfigservice.WatchableService{
 		Service: *service,
 	}
-	s.serviceFactory = stubServiceFactory{
+	s.domainServices = stubDomainServices{
 		controllerConfigGetter: s.controllerConfigGetter,
 	}
 	s.clock = testclock.NewDilatedWallClock(time.Millisecond)
@@ -65,7 +65,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.manifold = logsink.Manifold(logsink.ManifoldConfig{
 		ClockName:          "clock",
 		AgentName:          "agent",
-		ServiceFactoryName: "service-factory",
+		DomainServicesName: "domain-services",
 		DebugLogger:        s.logger,
 		NewWorker:          s.newWorker,
 	})
@@ -76,7 +76,7 @@ func (s *ManifoldSuite) newGetter(c *gc.C, overlay map[string]any) dependency.Ge
 		"agent": &fakeAgent{
 			logDir: c.MkDir(),
 		},
-		"service-factory": s.serviceFactory,
+		"domain-services": s.domainServices,
 		"clock":           s.clock,
 	}
 	for k, v := range overlay {
@@ -93,7 +93,7 @@ func (s *ManifoldSuite) newWorker(config logsink.Config) (worker.Worker, error) 
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"service-factory", "agent", "clock"}
+var expectedInputs = []string{"domain-services", "agent", "clock"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -163,12 +163,12 @@ func (f *fakeAgent) LogDir() string {
 	return f.logDir
 }
 
-type stubServiceFactory struct {
-	servicefactory.ServiceFactory
+type stubDomainServices struct {
+	services.DomainServices
 	controllerConfigGetter *controllerconfigservice.WatchableService
 }
 
-func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.WatchableService {
+func (s stubDomainServices) ControllerConfig() *controllerconfigservice.WatchableService {
 	return s.controllerConfigGetter
 }
 

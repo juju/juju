@@ -21,5 +21,5 @@ func Register(registry facade.FacadeRegistry) {
 func newLoggerAPIV1(ctx facade.ModelContext) (*LoggerAPI, error) {
 	return NewLoggerAPI(ctx.Auth(),
 		ctx.WatcherRegistry(),
-		ctx.ServiceFactory().Config())
+		ctx.DomainServices().Config())
 }

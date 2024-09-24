@@ -39,8 +39,8 @@ func newFacadeBase(ctx facade.ModelContext) (*API, error) {
 
 	return NewAPIV2(
 		systemState,
-		ctx.ServiceFactory().ControllerConfig(),
-		ctx.ServiceFactory().Config(),
+		ctx.DomainServices().ControllerConfig(),
+		ctx.DomainServices().Config(),
 		ctx.Resources(),
 		ctx.Auth(),
 	)

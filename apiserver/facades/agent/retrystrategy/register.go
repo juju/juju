@@ -19,5 +19,5 @@ func Register(registry facade.FacadeRegistry) {
 
 // newRetryStrategyAPI creates a new API endpoint for getting retry strategies.
 func newRetryStrategyAPI(ctx facade.ModelContext) (*RetryStrategyAPI, error) {
-	return NewRetryStrategyAPI(ctx.Auth(), ctx.ServiceFactory().Config(), ctx.WatcherRegistry())
+	return NewRetryStrategyAPI(ctx.Auth(), ctx.DomainServices().Config(), ctx.WatcherRegistry())
 }

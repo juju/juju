@@ -72,7 +72,7 @@ func (s *watcherSuite) facadeContext(c *gc.C, id string, dispose func()) facadet
 			Resources_:       s.resources,
 			WatcherRegistry_: s.watcherRegistry,
 			Auth_:            s.authorizer,
-			ServiceFactory_:  s.ControllerServiceFactory(c),
+			DomainServices_:  s.ControllerDomainServices(c),
 			ID_:              id,
 			Dispose_:         dispose,
 		},

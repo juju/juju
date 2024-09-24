@@ -40,7 +40,7 @@ func newFacadeV1(ctx facade.ModelContext) (*CharmDownloaderAPI, error) {
 		authorizer,
 		resourcesBackend,
 		stateBackend,
-		ctx.ServiceFactory().Config(),
+		ctx.DomainServices().Config(),
 		clock.WallClock,
 		charmhubHTTPClient,
 		ctx.ObjectStore(),

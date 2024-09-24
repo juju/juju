@@ -99,21 +99,21 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential())
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, ctx.DomainServices().Cloud(), ctx.DomainServices().Credential())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting caas client")
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 
-	serviceFactory := ctx.ServiceFactory()
-	controllerConfigService := serviceFactory.ControllerConfig()
-	modelConfigService := serviceFactory.Config()
-	modelInfoService := serviceFactory.ModelInfo()
-	storageService := serviceFactory.Storage(registry)
-	backendService := serviceFactory.SecretBackend()
-	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
+	domainServices := ctx.DomainServices()
+	controllerConfigService := domainServices.ControllerConfig()
+	modelConfigService := domainServices.Config()
+	modelInfoService := domainServices.ModelInfo()
+	storageService := domainServices.Storage(registry)
+	backendService := domainServices.SecretBackend()
+	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: registry,
-		Secrets: serviceFactory.Secret(
+		Secrets: domainServices.Secret(
 			secretservice.SecretServiceParams{
 				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
 					backendService, ctx.ModelUUID(),

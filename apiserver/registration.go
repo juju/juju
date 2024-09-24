@@ -49,14 +49,14 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	defer st.Release()
 
 	// TODO (stickupkid): Remove this nonsense, we should be able to get the
-	// service factory from the handler.
-	serviceFactory := h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(h.ctxt.srv.shared.controllerModelUUID)
+	// domain services from the handler.
+	domainServices := h.ctxt.srv.shared.domainServicesGetter.ServicesForModel(h.ctxt.srv.shared.controllerModelUUID)
 	userTag, response, err := h.processPost(
 		req,
 		st.State,
-		serviceFactory.Proxy(),
-		serviceFactory.ControllerConfig(),
-		serviceFactory.Access(),
+		domainServices.Proxy(),
+		domainServices.ControllerConfig(),
+		domainServices.Access(),
 	)
 	if err != nil {
 		if err := sendError(w, err); err != nil {

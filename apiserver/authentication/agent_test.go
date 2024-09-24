@@ -38,7 +38,7 @@ var _ = gc.Suite(&agentAuthenticatorSuite{})
 func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
-	userService := s.ControllerServiceFactory(c).Access()
+	userService := s.ControllerDomainServices(c).Access()
 	userUUID, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        usertesting.GenNewName(c, "bobbrown"),
 		DisplayName: "Bob Brown",

@@ -29,7 +29,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
 	workerstate "github.com/juju/juju/internal/worker/state"
@@ -44,7 +44,7 @@ type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) 
 // GetControllerConfigService is a helper function that gets a
 // [ControllerConfigService] from the manifold.
 func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) ControllerConfigService {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerDomainServices) ControllerConfigService {
 		return factory.ControllerConfig()
 	})
 }
@@ -56,7 +56,7 @@ type GetModelServiceFunc func(getter dependency.Getter, name string) (ModelServi
 // GetModelService is a helper function that gets a [ModelService] from the
 // manifold.
 func GetModelService(getter dependency.Getter, name string) (ModelService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) ModelService {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerDomainServices) ModelService {
 		return factory.Model()
 	})
 }
@@ -80,7 +80,7 @@ type ManifoldConfig struct {
 	SSHImporterHTTPClientName string
 	DBAccessorName            string
 	ChangeStreamName          string
-	ServiceFactoryName        string
+	DomainServicesName        string
 	TraceName                 string
 	ObjectStoreName           string
 
@@ -142,8 +142,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.ChangeStreamName == "" {
 		return errors.NotValidf("empty ChangeStreamName")
 	}
-	if config.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
+	if config.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if config.TraceName == "" {
 		return errors.NotValidf("empty TraceName")
@@ -190,7 +190,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.SSHImporterHTTPClientName,
 			config.DBAccessorName,
 			config.ChangeStreamName,
-			config.ServiceFactoryName,
+			config.DomainServicesName,
 			config.TraceName,
 			config.ObjectStoreName,
 			config.LogSinkName,
@@ -270,8 +270,8 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	var serviceFactoryGetter servicefactory.ServiceFactoryGetter
-	if err := getter.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
+	var domainServicesGetter services.DomainServicesGetter
+	if err := getter.Get(config.DomainServicesName, &domainServicesGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -285,12 +285,12 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfigService, err := config.GetControllerConfigService(getter, config.ServiceFactoryName)
+	controllerConfigService, err := config.GetControllerConfigService(getter, config.DomainServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	modelService, err := config.GetModelService(getter, config.ServiceFactoryName)
+	modelService, err := config.GetModelService(getter, config.DomainServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -333,7 +333,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		SSHImporterHTTPClient:             sshImporterHTTPClient,
 		DBGetter:                          dbGetter,
 		DBDeleter:                         dbDeleter,
-		ServiceFactoryGetter:              serviceFactoryGetter,
+		DomainServicesGetter:              domainServicesGetter,
 		TracerGetter:                      tracerGetter,
 		ObjectStoreGetter:                 objectStoreGetter,
 		ControllerConfigService:           controllerConfigService,

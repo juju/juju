@@ -38,9 +38,9 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 	}
 
 	st := ctx.State()
-	serviceFactory := ctx.ServiceFactory()
+	domainServices := ctx.DomainServices()
 
-	prechecker, err := stateenvirons.NewInstancePrechecker(st, serviceFactory.Cloud(), serviceFactory.Credential())
+	prechecker, err := stateenvirons.NewInstancePrechecker(st, domainServices.Cloud(), domainServices.Credential())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -63,18 +63,18 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 
 	logger := ctx.Logger().Child("machinemanager")
 
-	model, err := ctx.ServiceFactory().ModelInfo().GetModelInfo(stdCtx)
+	model, err := ctx.DomainServices().ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, fmt.Errorf("getting model information for constructing machine manager facade: %w", err)
 	}
 
 	return NewMachineManagerAPI(
 		model,
-		serviceFactory.ControllerConfig(),
+		domainServices.ControllerConfig(),
 		backend,
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
-		serviceFactory.Machine(),
+		domainServices.Cloud(),
+		domainServices.Credential(),
+		domainServices.Machine(),
 		ctx.ObjectStore(),
 		ctx.ControllerObjectStore(),
 		storageAccess,
@@ -87,8 +87,8 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		ctx.Resources(),
 		leadership,
 		logger,
-		ctx.ServiceFactory().Network(),
-		ctx.ServiceFactory().KeyUpdater(),
-		ctx.ServiceFactory().Config(),
+		ctx.DomainServices().Network(),
+		ctx.DomainServices().KeyUpdater(),
+		ctx.DomainServices().Config(),
 	), nil
 }

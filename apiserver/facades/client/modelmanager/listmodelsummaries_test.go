@@ -81,7 +81,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 		s.st, nil, &mockState{},
 		s.controllerUUID,
 		modelmanager.Services{
-			ServiceFactoryGetter: nil,
+			DomainServicesGetter: nil,
 			CloudService: &mockCloudService{
 				clouds: map[string]cloud.Cloud{"dummy": jtesting.DefaultCloud},
 			},
@@ -108,7 +108,7 @@ func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
 		s.st, nil, &mockState{},
 		s.controllerUUID,
 		modelmanager.Services{
-			ServiceFactoryGetter: nil,
+			DomainServicesGetter: nil,
 			CloudService: &mockCloudService{
 				clouds: map[string]cloud.Cloud{"dummy": jtesting.DefaultCloud},
 			},
@@ -146,7 +146,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.st, nil, &mockState{},
 		s.controllerUUID,
 		modelmanager.Services{
-			ServiceFactoryGetter: nil,
+			DomainServicesGetter: nil,
 			CloudService: &mockCloudService{
 				clouds: map[string]cloud.Cloud{"dummy": jtesting.DefaultCloud},
 			},

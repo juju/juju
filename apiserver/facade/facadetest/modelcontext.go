@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 )
 
 // MultiModelContext implements facade.MultiModelContext in the simplest
@@ -16,13 +16,13 @@ import (
 type MultiModelContext struct {
 	ModelContext
 
-	ServiceFactoryForModel_ servicefactory.ServiceFactory
+	DomainServicesForModel_ services.DomainServices
 	ObjectStoreForModel_    objectstore.ObjectStore
 }
 
-// ServiceFactoryForModel returns the services factory for a given model uuid.
-func (c MultiModelContext) ServiceFactoryForModel(uuid model.UUID) servicefactory.ServiceFactory {
-	return c.ServiceFactoryForModel_
+// DomainServicesForModel returns the services factory for a given model uuid.
+func (c MultiModelContext) DomainServicesForModel(uuid model.UUID) services.DomainServices {
+	return c.DomainServicesForModel_
 }
 
 // ObjectStoreForModel returns the object store for a given model uuid.

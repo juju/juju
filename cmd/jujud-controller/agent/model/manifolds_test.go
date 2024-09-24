@@ -35,7 +35,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 	}
 	// NOTE: if this test failed, the cmd/jujud-controller/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
-	c.Check(actual.SortedValues(), jc.DeepEquals, []string{
+	c.Check(actual.SortedValues(), jc.SameContents, []string{
 		"action-pruner",
 		"agent",
 		"api-caller",
@@ -45,6 +45,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"charm-revision-updater",
 		"clock",
 		"compute-provisioner",
+		"domain-services",
 		"firewaller",
 		"instance-mutater",
 		"instance-poller",
@@ -63,7 +64,6 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"provider-upgrader",
 		"remote-relations",
 		"secrets-pruner",
-		"service-factory",
 		"state-cleaner",
 		"status-history-pruner",
 		"storage-provisioner",
@@ -85,7 +85,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 	}
 	// NOTE: if this test failed, the cmd/jujud-controller/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
-	c.Check(actual.SortedValues(), jc.DeepEquals, []string{
+	c.Check(actual.SortedValues(), jc.SameContents, []string{
 		"action-pruner",
 		"agent",
 		"api-caller",
@@ -98,6 +98,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"charm-downloader",
 		"charm-revision-updater",
 		"clock",
+		"domain-services",
 		"is-responsible-flag",
 		"logging-config-updater",
 		"migration-fortress",
@@ -112,7 +113,6 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"provider-upgrader",
 		"remote-relations",
 		"secrets-pruner",
-		"service-factory",
 		"state-cleaner",
 		"status-history-pruner",
 		"undertaker",
@@ -136,7 +136,7 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
 		"provider-upgrader",
-		"service-factory",
+		"domain-services",
 		"valid-credential-flag",
 	)
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
@@ -220,7 +220,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
-		"service-factory",
+		"domain-services",
 	},
 
 	"secrets-pruner": {
@@ -416,7 +416,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"provider-upgraded-flag",
 	},
 
-	"service-factory": {},
+	"domain-services": {},
 
 	"state-cleaner": {
 		"agent",
@@ -438,7 +438,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
-		"service-factory",
+		"domain-services",
 	},
 
 	"undertaker": {
@@ -462,7 +462,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
-		"service-factory",
+		"domain-services",
 	},
 
 	"secrets-pruner": {
@@ -537,7 +537,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
-		"service-factory",
+		"domain-services",
 		"valid-credential-flag",
 	},
 
@@ -676,7 +676,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 	},
 
-	"service-factory": {},
+	"domain-services": {},
 
 	"state-cleaner": {
 		"agent",
@@ -697,7 +697,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
-		"service-factory",
+		"domain-services",
 	},
 
 	"storage-provisioner": {

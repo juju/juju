@@ -220,7 +220,7 @@ func (s *modelInfoSuite) getAPI(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock
 		s.st, nil, s.ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
-			ServiceFactoryGetter: nil,
+			DomainServicesGetter: nil,
 			CloudService: &mockCloudService{
 				clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
 			},
@@ -258,7 +258,7 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 		s.st, nil, s.ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
-			ServiceFactoryGetter: nil,
+			DomainServicesGetter: nil,
 			CloudService: &mockCloudService{
 				clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
 			},

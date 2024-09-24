@@ -36,23 +36,23 @@ func newStateFacadeV2(ctx facade.ModelContext) (*FacadeV2, error) {
 		return nil, errors.Trace(err)
 	}
 
-	serviceFactory := ctx.ServiceFactory()
+	domainServices := ctx.DomainServices()
 
 	cloudSpecAPI := cloudspec.NewCloudSpecV2(
 		resources,
-		cloudspec.MakeCloudSpecGetterForModel(ctx.State(), serviceFactory.Cloud(), serviceFactory.Credential()),
-		cloudspec.MakeCloudSpecWatcherForModel(ctx.State(), serviceFactory.Cloud()),
+		cloudspec.MakeCloudSpecGetterForModel(ctx.State(), domainServices.Cloud(), domainServices.Credential()),
+		cloudspec.MakeCloudSpecWatcherForModel(ctx.State(), domainServices.Cloud()),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(ctx.State()),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(ctx.State(), serviceFactory.Credential()),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(ctx.State(), domainServices.Credential()),
 		common.AuthFuncForTag(model.ModelTag()),
 	)
 	return &FacadeV2{
 		CloudSpecer:        cloudSpecAPI,
-		ModelConfigWatcher: common.NewModelConfigWatcher(serviceFactory.Config(), ctx.WatcherRegistry()),
+		ModelConfigWatcher: common.NewModelConfigWatcher(domainServices.Config(), ctx.WatcherRegistry()),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			ctx.State(),
-			serviceFactory.ControllerConfig(),
-			serviceFactory.ExternalController(),
+			domainServices.ControllerConfig(),
+			domainServices.ExternalController(),
 		),
 	}, nil
 }

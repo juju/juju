@@ -124,8 +124,8 @@ func (s *controllerInfoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
-	serviceFactory := s.ControllerServiceFactory(c)
-	controllerConfig := common.NewControllerConfigAPI(s.localState, serviceFactory.ControllerConfig(), serviceFactory.ExternalController())
+	domainServices := s.ControllerDomainServices(c)
+	controllerConfig := common.NewControllerConfigAPI(s.localState, domainServices.ControllerConfig(), domainServices.ExternalController())
 
 	results, err := controllerConfig.ControllerAPIInfoForModels(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: s.localModel.ModelTag().String()}}})
@@ -148,10 +148,10 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
 		CACert:        testing.CACert,
 		ModelUUIDs:    []string{modelUUID},
 	}
-	serviceFactory := s.ControllerServiceFactory(c)
-	serviceFactory.ExternalController().UpdateExternalController(context.Background(), info)
+	domainServices := s.ControllerDomainServices(c)
+	domainServices.ExternalController().UpdateExternalController(context.Background(), info)
 
-	controllerConfig := common.NewControllerConfigAPI(s.localState, serviceFactory.ControllerConfig(), serviceFactory.ExternalController())
+	controllerConfig := common.NewControllerConfigAPI(s.localState, domainServices.ControllerConfig(), domainServices.ExternalController())
 	results, err := controllerConfig.ControllerAPIInfoForModels(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(modelUUID).String()}}})
 
@@ -162,8 +162,8 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
 }
 
 func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
-	serviceFactory := s.ControllerServiceFactory(c)
-	controllerConfig := common.NewControllerConfigAPI(s.localState, serviceFactory.ControllerConfig(), serviceFactory.ExternalController())
+	domainServices := s.ControllerDomainServices(c)
+	controllerConfig := common.NewControllerConfigAPI(s.localState, domainServices.ControllerConfig(), domainServices.ExternalController())
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()

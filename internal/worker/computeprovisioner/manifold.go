@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 )
 
@@ -39,7 +39,7 @@ type GetMachineServiceFunc func(getter dependency.Getter, name string) (MachineS
 // GetMachineService is a helper function that gets a service from the
 // manifold.
 func GetMachineService(getter dependency.Getter, name string) (MachineService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ModelServiceFactory) MachineService {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.ModelDomainServices) MachineService {
 		return factory.Machine()
 	})
 }
@@ -53,7 +53,7 @@ type ManifoldConfig struct {
 	AgentName          string
 	APICallerName      string
 	EnvironName        string
-	ServiceFactoryName string
+	DomainServicesName string
 	GetMachineService  GetMachineServiceFunc
 	Logger             logger.Logger
 
@@ -69,7 +69,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.APICallerName,
 			config.EnvironName,
-			config.ServiceFactoryName,
+			config.DomainServicesName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
@@ -98,7 +98,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			machineService, err := config.GetMachineService(getter, config.ServiceFactoryName)
+			machineService, err := config.GetMachineService(getter, config.DomainServicesName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -123,8 +123,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.EnvironName == "" {
 		return errors.NotValidf("empty EnvironName")
 	}
-	if config.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
+	if config.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if config.GetMachineService == nil {
 		return errors.NotValidf("nil GetMachineService")

@@ -100,8 +100,8 @@ func (s *serverSuite) TestStop(c *gc.C) {
 }
 
 func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
-	serviceFactory := s.ControllerServiceFactory(c)
-	controllerConfig, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
+	domainServices := s.ControllerDomainServices(c)
+	controllerConfig, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
@@ -263,7 +263,7 @@ func (r *fakeResource) Wait() error {
 func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (state.Entity, names.ControllerTag) {
 	uTag := names.NewUserTag("foobar")
 
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 	userUUID, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        user.NameFromTag(uTag),
 		DisplayName: "Foo Bar",
@@ -291,10 +291,10 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (state.Entity, names.C
 func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	st := s.ControllerModel(c).State()
-	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), st, serviceFactory, u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), st, domainServices, u)
 	defer handler.Kill()
 
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
@@ -304,12 +304,12 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 
 func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
-	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), s.ControllerModel(c).State(), serviceFactory, u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), s.ControllerModel(c).State(), domainServices, u)
 	defer handler.Kill()
 
-	err := serviceFactory.Access().UpdatePermission(context.Background(), access.UpdatePermissionArgs{
+	err := domainServices.Access().UpdatePermission(context.Background(), access.UpdatePermissionArgs{
 		AccessSpec: permission.AccessSpec{
 			Access: permission.SuperuserAccess,
 			Target: permission.ID{
@@ -338,11 +338,11 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLoginToken(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	delegator := &jwt.PermissionDelegator{Token: token}
 	st := s.ControllerModel(c).State()
-	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool(), st, serviceFactory, token, delegator)
+	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool(), st, domainServices, token, delegator)
 	defer handler.Kill()
 
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, coretesting.ControllerTag, true)
@@ -362,11 +362,11 @@ func (s *serverSuite) TestAPIHandlerMissingPermissionLoginToken(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	delegator := &jwt.PermissionDelegator{token}
 	st := s.ControllerModel(c).State()
-	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool(), st, serviceFactory, token, delegator)
+	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool(), st, domainServices, token, delegator)
 	defer handler.Kill()
 	err = handler.HasPermission(context.Background(), permission.AdminAccess, coretesting.ModelTag)
 	var reqError *errors.AccessRequiredError
@@ -442,9 +442,9 @@ func assertStateBecomesClosed(c *gc.C, st *state.State) {
 }
 
 func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, st *state.State) {
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
-	handler, resources := apiserver.TestingAPIHandler(c, s.StatePool(), st, serviceFactory)
+	handler, resources := apiserver.TestingAPIHandler(c, s.StatePool(), st, domainServices)
 	resource := new(fakeResource)
 	resources.Register(resource)
 

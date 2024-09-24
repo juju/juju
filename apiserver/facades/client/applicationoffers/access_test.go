@@ -62,7 +62,7 @@ func (s *offerAccessSuite) setupAPI(c *gc.C) {
 		getApplicationOffers, getFakeControllerInfo,
 		s.mockState, s.mockStatePool,
 		s.mockAccessService,
-		s.mockModelServiceFactoryGetter,
+		s.mockModelDomainServicesGetter,
 		s.authorizer, s.authContext,
 		c.MkDir(), loggertesting.WrapCheckLog(c),
 		testing.ControllerTag.Id(), model.UUID(testing.ModelTag.Id()),

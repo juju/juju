@@ -34,12 +34,12 @@ func makeFacadeV1(stdCtx context.Context, ctx facade.ModelContext) (*KeyManagerA
 		return nil, apiservererrors.ErrPerm
 	}
 
-	model, err := ctx.ServiceFactory().ModelInfo().GetModelInfo(stdCtx)
+	model, err := ctx.DomainServices().ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, fmt.Errorf("retrieving model info: %w", err)
 	}
 
-	cfg, err := ctx.ServiceFactory().ControllerConfig().ControllerConfig(stdCtx)
+	cfg, err := ctx.DomainServices().ControllerConfig().ControllerConfig(stdCtx)
 	if err != nil {
 		return nil, fmt.Errorf("retrieving controller config: %w", err)
 	}
@@ -59,8 +59,8 @@ func makeFacadeV1(stdCtx context.Context, ctx facade.ModelContext) (*KeyManagerA
 
 	keyImporter := sshimporter.NewImporter(keyImporterHTTPClient)
 	return newKeyManagerAPI(
-		ctx.ServiceFactory().KeyManagerWithImporter(keyImporter),
-		ctx.ServiceFactory().Access(),
+		ctx.DomainServices().KeyManagerWithImporter(keyImporter),
+		ctx.DomainServices().Access(),
 		authorizer,
 		common.NewBlockChecker(ctx.State()),
 		cfg.ControllerUUID(),

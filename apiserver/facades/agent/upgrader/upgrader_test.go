@@ -80,15 +80,15 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID())
 
 	s.upgrader, err = upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, s.authorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
-		serviceFactory.Agent(),
+		domainServices.Cloud(), domainServices.Credential(),
+		domainServices.Agent(),
 		s.store,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -148,13 +148,13 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.DefaultModelServiceFactory(c)
+	domainServices := s.DefaultModelDomainServices(c)
 
 	upgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
-		serviceFactory.Agent(),
+		domainServices.Cloud(), domainServices.Credential(),
+		domainServices.Agent(),
 		s.store,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -196,13 +196,13 @@ func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.DefaultModelServiceFactory(c)
+	domainServices := s.DefaultModelDomainServices(c)
 
 	upgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
-		serviceFactory.Agent(),
+		domainServices.Cloud(), domainServices.Credential(),
+		domainServices.Agent(),
 		s.store,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -239,13 +239,13 @@ func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.DefaultModelServiceFactory(c)
+	domainServices := s.DefaultModelDomainServices(c)
 
 	upgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
-		serviceFactory.Agent(),
+		domainServices.Cloud(), domainServices.Credential(),
+		domainServices.Agent(),
 		s.store,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -281,13 +281,13 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.DefaultModelServiceFactory(c)
+	domainServices := s.DefaultModelDomainServices(c)
 
 	anUpgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
-		serviceFactory.Agent(),
+		domainServices.Cloud(), domainServices.Credential(),
+		domainServices.Agent(),
 		s.store,
 	)
 	c.Check(err, jc.ErrorIsNil)
@@ -317,13 +317,13 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.DefaultModelServiceFactory(c)
+	domainServices := s.DefaultModelDomainServices(c)
 
 	anUpgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
-		serviceFactory.Agent(),
+		domainServices.Cloud(), domainServices.Credential(),
+		domainServices.Agent(),
 		s.store,
 	)
 	c.Check(err, jc.ErrorIsNil)
@@ -402,13 +402,13 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.DefaultModelServiceFactory(c)
+	domainServices := s.DefaultModelDomainServices(c)
 
 	anUpgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
-		serviceFactory.Agent(),
+		domainServices.Cloud(), domainServices.Credential(),
+		domainServices.Agent(),
 		s.store,
 	)
 	c.Check(err, jc.ErrorIsNil)
@@ -472,13 +472,13 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.DefaultModelServiceFactory(c)
+	domainServices := s.DefaultModelDomainServices(c)
 
 	anUpgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
-		serviceFactory.Agent(),
+		domainServices.Cloud(), domainServices.Credential(),
+		domainServices.Agent(),
 		s.store,
 	)
 	c.Check(err, jc.ErrorIsNil)
@@ -561,13 +561,13 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.DefaultModelServiceFactory(c)
+	domainServices := s.DefaultModelDomainServices(c)
 
 	upgraderAPI, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
 		loggertesting.WrapCheckLog(c),
-		serviceFactory.Cloud(), serviceFactory.Credential(),
-		serviceFactory.Agent(),
+		domainServices.Cloud(), domainServices.Credential(),
+		domainServices.Agent(),
 		s.store,
 	)
 	c.Assert(err, jc.ErrorIsNil)

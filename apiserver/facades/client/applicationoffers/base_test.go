@@ -37,8 +37,8 @@ type baseSuite struct {
 	authContext                   *crossmodel.AuthContext
 	applicationOffers             *stubApplicationOffers
 	mockAccessService             *MockAccessService
-	mockModelServiceFactoryGetter *MockModelServiceFactoryGetter
-	mockModelServiceFactory       *MockModelServiceFactory
+	mockModelDomainServicesGetter *MockModelDomainServicesGetter
+	mockModelDomainServices       *MockModelDomainServices
 	mockApplicationService        *MockApplicationService
 }
 
@@ -62,8 +62,8 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockAccessService = NewMockAccessService(ctrl)
 	s.mockApplicationService = NewMockApplicationService(ctrl)
-	s.mockModelServiceFactoryGetter = NewMockModelServiceFactoryGetter(ctrl)
-	s.mockModelServiceFactory = NewMockModelServiceFactory(ctrl)
+	s.mockModelDomainServicesGetter = NewMockModelDomainServicesGetter(ctrl)
+	s.mockModelDomainServices = NewMockModelDomainServices(ctrl)
 	return ctrl
 }
 

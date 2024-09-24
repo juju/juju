@@ -33,20 +33,20 @@ import (
 	modeldefaultsbootstrap "github.com/juju/juju/domain/modeldefaults/bootstrap"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	backendbootstrap "github.com/juju/juju/domain/secretbackend/bootstrap"
-	domainservicefactory "github.com/juju/juju/domain/servicefactory"
+	domainservicefactory "github.com/juju/juju/domain/services"
 	"github.com/juju/juju/internal/auth"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
-// ServiceFactorySuite is a test suite that can be composed into tests that
-// require a Juju ServiceFactory and database access. It holds the notion of a
+// DomainServicesSuite is a test suite that can be composed into tests that
+// require a Juju DomainServices and database access. It holds the notion of a
 // controller model uuid and that of a default model uuid. Both of these models
 // will be instantiated into the database upon test setup.
-type ServiceFactorySuite struct {
+type DomainServicesSuite struct {
 	schematesting.ControllerModelSuite
 
 	// AdminUserUUID is the uuid of the admin user made during the setup of this
@@ -70,7 +70,7 @@ type ServiceFactorySuite struct {
 	// will be set during test set up.
 	DefaultModelUUID coremodel.UUID
 
-	// ProviderTracker is the provider tracker to use in the service factory.
+	// ProviderTracker is the provider tracker to use in the domain services.
 	ProviderTracker providertracker.ProviderFactory
 }
 
@@ -82,19 +82,19 @@ func (s stubDBDeleter) DeleteDB(namespace string) error {
 	return nil
 }
 
-// ControllerServiceFactory conveniently constructs a service factory for the
+// ControllerDomainServices conveniently constructs a domain services for the
 // controller model.
-func (s *ServiceFactorySuite) ControllerServiceFactory(c *gc.C) servicefactory.ServiceFactory {
-	return s.ServiceFactoryGetter(c, TestingObjectStore{})(s.ControllerModelUUID)
+func (s *DomainServicesSuite) ControllerDomainServices(c *gc.C) services.DomainServices {
+	return s.DomainServicesGetter(c, TestingObjectStore{})(s.ControllerModelUUID)
 }
 
-// DefaultModelServiceFactory conveniently constructs a service factory for the
+// DefaultModelDomainServices conveniently constructs a domain services for the
 // default model.
-func (s *ServiceFactorySuite) DefaultModelServiceFactory(c *gc.C) servicefactory.ServiceFactory {
-	return s.ServiceFactoryGetter(c, TestingObjectStore{})(s.ControllerModelUUID)
+func (s *DomainServicesSuite) DefaultModelDomainServices(c *gc.C) services.DomainServices {
+	return s.DomainServicesGetter(c, TestingObjectStore{})(s.ControllerModelUUID)
 }
 
-func (s *ServiceFactorySuite) SeedControllerConfig(c *gc.C) {
+func (s *DomainServicesSuite) SeedControllerConfig(c *gc.C) {
 	fn := controllerconfigbootstrap.InsertInitialControllerConfig(
 		s.ControllerConfig,
 		s.ControllerModelUUID,
@@ -103,7 +103,7 @@ func (s *ServiceFactorySuite) SeedControllerConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ServiceFactorySuite) SeedAdminUser(c *gc.C) {
+func (s *DomainServicesSuite) SeedAdminUser(c *gc.C) {
 	password := auth.NewPassword("dummy-secret")
 	uuid, fn := userbootstrap.AddUserWithPassword(
 		coreuser.AdminUserName,
@@ -121,7 +121,7 @@ func (s *ServiceFactorySuite) SeedAdminUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ServiceFactorySuite) SeedCloudAndCredential(c *gc.C) {
+func (s *DomainServicesSuite) SeedCloudAndCredential(c *gc.C) {
 	ctx := context.Background()
 
 	err := cloudstate.AllowCloudType(ctx, s.ControllerTxnRunner(), 99, "dummy")
@@ -157,7 +157,7 @@ func (s *ServiceFactorySuite) SeedCloudAndCredential(c *gc.C) {
 
 // SeedModelDatabases makes sure that model's for both the controller and default
 // model have been created in the database.
-func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
+func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 	ctx := context.Background()
 
 	controllerUUID, err := uuid.UUIDFromString(jujutesting.ControllerTag.Id())
@@ -213,11 +213,11 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// ServiceFactoryGetter provides an implementation of the ServiceFactoryGetter
+// DomainServicesGetter provides an implementation of the DomainServicesGetter
 // interface to use in tests.
-func (s *ServiceFactorySuite) ServiceFactoryGetter(c *gc.C, objectStore coreobjectstore.ObjectStore) ServiceFactoryGetterFunc {
-	return func(modelUUID coremodel.UUID) servicefactory.ServiceFactory {
-		return domainservicefactory.NewServiceFactory(
+func (s *DomainServicesSuite) DomainServicesGetter(c *gc.C, objectStore coreobjectstore.ObjectStore) DomainServicesGetterFunc {
+	return func(modelUUID coremodel.UUID) services.DomainServices {
+		return domainservicefactory.NewDomainServices(
 			databasetesting.ConstFactory(s.TxnRunner()),
 			modelUUID,
 			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String())),
@@ -233,8 +233,8 @@ func (s *ServiceFactorySuite) ServiceFactoryGetter(c *gc.C, objectStore coreobje
 
 // ObjectStoreServicesGetter provides an implementation of the
 // ObjectStoreServicesGetter interface to use in tests.
-func (s *ServiceFactorySuite) ObjectStoreServicesGetter(c *gc.C) ObjectStoreServicesGetterFunc {
-	return func(modelUUID coremodel.UUID) servicefactory.ObjectStoreServices {
+func (s *DomainServicesSuite) ObjectStoreServicesGetter(c *gc.C) ObjectStoreServicesGetterFunc {
+	return func(modelUUID coremodel.UUID) services.ObjectStoreServices {
 		return domainservicefactory.NewObjectStoreServices(
 			databasetesting.ConstFactory(s.TxnRunner()),
 			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String())),
@@ -245,13 +245,13 @@ func (s *ServiceFactorySuite) ObjectStoreServicesGetter(c *gc.C) ObjectStoreServ
 
 // NoopObjectStore returns a no-op implementation of the ObjectStore interface.
 // This is useful when the test does not require any object store functionality.
-func (s *ServiceFactorySuite) NoopObjectStore(c *gc.C) coreobjectstore.ObjectStore {
+func (s *DomainServicesSuite) NoopObjectStore(c *gc.C) coreobjectstore.ObjectStore {
 	return TestingObjectStore{}
 }
 
 // SetUpTest creates the controller and default model unique identifiers if they
 // have not already been set. Also seeds the initial database with the models.
-func (s *ServiceFactorySuite) SetUpTest(c *gc.C) {
+func (s *DomainServicesSuite) SetUpTest(c *gc.C) {
 	s.ControllerModelSuite.SetUpTest(c)
 	if s.ControllerModelUUID == "" {
 		s.ControllerModelUUID = modeltesting.GenModelUUID(c)
@@ -268,21 +268,21 @@ func (s *ServiceFactorySuite) SetUpTest(c *gc.C) {
 	s.SeedModelDatabases(c)
 }
 
-// ServiceFactoryGetterFunc is a convenience type for translating a getter
-// function into the ServiceFactoryGetter interface.
-type ServiceFactoryGetterFunc func(coremodel.UUID) servicefactory.ServiceFactory
+// DomainServicesGetterFunc is a convenience type for translating a getter
+// function into the DomainServicesGetter interface.
+type DomainServicesGetterFunc func(coremodel.UUID) services.DomainServices
 
-// FactoryForModel implements the ServiceFactoryGetter interface.
-func (s ServiceFactoryGetterFunc) FactoryForModel(modelUUID coremodel.UUID) servicefactory.ServiceFactory {
+// ServicesForModel implements the DomainServicesGetter interface.
+func (s DomainServicesGetterFunc) ServicesForModel(modelUUID coremodel.UUID) services.DomainServices {
 	return s(modelUUID)
 }
 
 // ObjectStoreServicesGetterFunc is a convenience type for translating a getter
 // function into the ObjectStoreServicesGetter interface.
-type ObjectStoreServicesGetterFunc func(coremodel.UUID) servicefactory.ObjectStoreServices
+type ObjectStoreServicesGetterFunc func(coremodel.UUID) services.ObjectStoreServices
 
-// FactoryForModel implements the ObjectStoreServicesGetter interface.
-func (s ObjectStoreServicesGetterFunc) FactoryForModel(modelUUID coremodel.UUID) servicefactory.ObjectStoreServices {
+// ServicesForModel implements the ObjectStoreServicesGetter interface.
+func (s ObjectStoreServicesGetterFunc) ServicesForModel(modelUUID coremodel.UUID) services.ObjectStoreServices {
 	return s(modelUUID)
 }
 

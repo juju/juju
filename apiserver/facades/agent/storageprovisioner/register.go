@@ -29,9 +29,9 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	serviceFactory := ctx.ServiceFactory()
+	domainServices := ctx.DomainServices()
 	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-		model, serviceFactory.Cloud(), serviceFactory.Credential(),
+		model, domainServices.Cloud(), domainServices.Credential(),
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 	)
@@ -40,7 +40,7 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 	}
 
 	// Get model UUID
-	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
+	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -54,13 +54,13 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		ctx.WatcherRegistry(),
 		backend,
 		storageBackend,
-		serviceFactory.BlockDevice(),
-		serviceFactory.Config(),
-		serviceFactory.Machine(),
+		domainServices.BlockDevice(),
+		domainServices.Config(),
+		domainServices.Machine(),
 		ctx.Resources(),
 		ctx.Auth(),
 		registry,
-		serviceFactory.Storage(registry),
+		domainServices.Storage(registry),
 		ctx.Logger().Child("storageprovisioner"),
 		modelInfo.UUID,
 		ctx.ControllerUUID(),

@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/cloud"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	jujuversion "github.com/juju/juju/core/version"
-	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	servicefactorytesting "github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
@@ -33,7 +33,7 @@ import (
 )
 
 type updaterSuite struct {
-	servicefactorytesting.ServiceFactorySuite
+	servicefactorytesting.DomainServicesSuite
 	model              *mocks.MockModel
 	state              *mocks.MockState
 	objectStore        *mocks.MockObjectStore
@@ -48,7 +48,7 @@ type updaterSuite struct {
 var _ = gc.Suite(&updaterSuite{})
 
 func (s *updaterSuite) SetUpTest(c *gc.C) {
-	s.ServiceFactorySuite.SetUpTest(c)
+	s.DomainServicesSuite.SetUpTest(c)
 	s.clock = testclock.NewClock(time.Now())
 }
 
@@ -59,7 +59,7 @@ func (s *updaterSuite) TestNewAuthSuccess(c *gc.C) {
 		authorizer:     authoriser,
 		logger:         loggertesting.WrapCheckLog(c),
 		httpClient:     &http.Client{},
-		serviceFactory: s.DefaultModelServiceFactory(c),
+		domainServices: s.DefaultModelDomainServices(c),
 	}
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPI(facadeCtx)
 	c.Assert(err, jc.ErrorIsNil)

@@ -24,7 +24,7 @@ import (
 	accessservice "github.com/juju/juju/domain/access/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	macaroonservice "github.com/juju/juju/domain/macaroon/service"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/httpserverargs"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -39,7 +39,7 @@ type ManifoldSuite struct {
 	clock          *testclock.Clock
 	stateTracker   stubStateTracker
 	authenticator  mockLocalMacaroonAuthenticator
-	serviceFactory stubServiceFactory
+	domainServices stubDomainServices
 
 	stub testing.Stub
 }
@@ -53,14 +53,14 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.stateTracker = stubStateTracker{
 		pool: s.StatePool,
 	}
-	s.serviceFactory = stubServiceFactory{}
+	s.domainServices = stubDomainServices{}
 	s.stub.ResetCalls()
 
 	s.getter = s.newGetter(nil)
 	s.config = httpserverargs.ManifoldConfig{
 		ClockName:             "clock",
 		StateName:             "state",
-		ServiceFactoryName:    "service-factory",
+		DomainServicesName:    "domain-services",
 		NewStateAuthenticator: s.newStateAuthenticator,
 	}
 	s.manifold = httpserverargs.Manifold(s.config)
@@ -70,7 +70,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
 		"clock":           s.clock,
 		"state":           &s.stateTracker,
-		"service-factory": &s.serviceFactory,
+		"domain-services": &s.domainServices,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -96,7 +96,7 @@ func (s *ManifoldSuite) newStateAuthenticator(
 	return &s.authenticator, nil
 }
 
-var expectedInputs = []string{"state", "clock", "service-factory"}
+var expectedInputs = []string{"state", "clock", "domain-services"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -187,8 +187,8 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.ClockName = "" },
 		expect: "empty ClockName not valid",
 	}, {
-		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.ServiceFactoryName = "" },
-		expect: "empty ServiceFactoryName not valid",
+		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.DomainServicesName = "" },
+		expect: "empty DomainServicesName not valid",
 	}, {
 		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.NewStateAuthenticator = nil },
 		expect: "nil NewStateAuthenticator not valid",
@@ -232,22 +232,22 @@ func (s *stubStateTracker) Report() map[string]any {
 	return nil
 }
 
-type stubServiceFactory struct {
+type stubDomainServices struct {
 	testing.Stub
-	servicefactory.ControllerServiceFactory
+	services.ControllerDomainServices
 }
 
-func (s *stubServiceFactory) ControllerConfig() *controllerconfigservice.WatchableService {
+func (s *stubDomainServices) ControllerConfig() *controllerconfigservice.WatchableService {
 	s.MethodCall(s, "ControllerConfig")
 	return nil
 }
 
-func (s *stubServiceFactory) Access() *accessservice.Service {
+func (s *stubDomainServices) Access() *accessservice.Service {
 	s.MethodCall(s, "Access")
 	return nil
 }
 
-func (s *stubServiceFactory) Macaroon() *macaroonservice.Service {
+func (s *stubDomainServices) Macaroon() *macaroonservice.Service {
 	s.MethodCall(s, "Macaroon")
 	return nil
 }

@@ -48,7 +48,7 @@ func (s *ManifoldSuite) makeManifold(c *gc.C) dependency.Manifold {
 		APICallerName:                "api-caller",
 		Logger:                       loggertesting.WrapCheckLog(c),
 		EnvironName:                  "environ",
-		ServiceFactoryName:           "fake-service-factory",
+		DomainServicesName:           "fake-domain-services",
 		GetMachineService:            fakeGetMachineServiceFunc,
 		NewProvisionerFunc:           fakeNewProvFunc,
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
@@ -61,7 +61,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) TestManifold(c *gc.C) {
 	manifold := s.makeManifold(c)
-	c.Check(manifold.Inputs, jc.SameContents, []string{"agent", "api-caller", "environ", "fake-service-factory"})
+	c.Check(manifold.Inputs, jc.SameContents, []string{"agent", "api-caller", "environ", "fake-domain-services"})
 	c.Check(manifold.Output, gc.IsNil)
 	c.Check(manifold.Start, gc.NotNil)
 }

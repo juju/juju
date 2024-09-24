@@ -46,8 +46,8 @@ func newMigrationMasterFacade(ctx facade.ModelContext) (*API, error) {
 
 	backend := newBacked(modelState)
 
-	serviceFactory := ctx.ServiceFactory()
-	credentialService := serviceFactory.Credential()
+	domainServices := ctx.DomainServices()
+	credentialService := domainServices.Credential()
 	return NewAPI(
 		controllerState,
 		backend,
@@ -58,17 +58,17 @@ func newMigrationMasterFacade(ctx facade.ModelContext) (*API, error) {
 		ctx.Resources(),
 		ctx.Auth(),
 		ctx.Presence(),
-		cloudspec.MakeCloudSpecGetter(pool, serviceFactory.Cloud(), credentialService),
+		cloudspec.MakeCloudSpecGetter(pool, domainServices.Cloud(), credentialService),
 		leadership,
 		credentialService,
-		serviceFactory.ControllerConfig(),
-		serviceFactory.Config(),
-		serviceFactory.ModelInfo(),
-		serviceFactory.Model(),
-		serviceFactory.Application(service.ApplicationServiceParams{
+		domainServices.ControllerConfig(),
+		domainServices.Config(),
+		domainServices.ModelInfo(),
+		domainServices.Model(),
+		domainServices.Application(service.ApplicationServiceParams{
 			StorageRegistry: storage.NotImplementedProviderRegistry{},
 			Secrets:         service.NotImplementedSecretService{},
 		}),
-		serviceFactory.Upgrade(),
+		domainServices.Upgrade(),
 	)
 }

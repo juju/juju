@@ -44,21 +44,21 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	serviceFactory := ctx.ServiceFactory()
+	domainServices := ctx.DomainServices()
 	client := &Client{
 		stateAccessor: &stateShim{
 			State:                    st,
 			model:                    model,
 			session:                  nil,
-			configSchemaSourceGetter: environs.ProviderConfigSchemaSource(serviceFactory.Cloud()),
+			configSchemaSourceGetter: environs.ProviderConfigSchemaSource(domainServices.Cloud()),
 		},
 		storageAccessor:    storageAccessor,
-		blockDeviceService: serviceFactory.BlockDevice(),
+		blockDeviceService: domainServices.BlockDevice(),
 		auth:               authorizer,
 		presence:           ctx.Presence(),
 		leadershipReader:   leadershipReader,
-		networkService:     serviceFactory.Network(),
-		modelInfoService:   serviceFactory.ModelInfo(),
+		networkService:     domainServices.Network(),
+		modelInfoService:   domainServices.ModelInfo(),
 	}
 	return client, nil
 }

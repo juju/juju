@@ -49,7 +49,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		logger:                loggertesting.WrapCheckLog(c),
 		dbGetter:              StubDBGetter{},
 		dbDeleter:             StubDBDeleter{},
-		serviceFactoryGetter:  &StubServiceFactoryGetter{},
+		domainServicesGetter:  &StubDomainServicesGetter{},
 		tracerGetter:          &StubTracerGetter{},
 		objectStoreGetter:     &StubObjectStoreGetter{},
 		machineTag:            names.NewMachineTag("0"),

@@ -36,7 +36,7 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/domain/access"
-	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	servicefactorytesting "github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -54,7 +54,7 @@ import (
 
 type controllerSuite struct {
 	statetesting.StateSuite
-	servicefactorytesting.ServiceFactorySuite
+	servicefactorytesting.DomainServicesSuite
 
 	controllerConfigAttrs map[string]any
 
@@ -71,7 +71,7 @@ var _ = gc.Suite(&controllerSuite{})
 
 func (s *controllerSuite) SetUpSuite(c *gc.C) {
 	s.StateSuite.SetUpSuite(c)
-	s.ServiceFactorySuite.SetUpSuite(c)
+	s.DomainServicesSuite.SetUpSuite(c)
 }
 
 func (s *controllerSuite) SetUpTest(c *gc.C) {
@@ -89,9 +89,9 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 
 	s.StateSuite.ControllerConfig = controllerCfg
 	s.StateSuite.SetUpTest(c)
-	s.ServiceFactorySuite.ControllerConfig = controllerCfg
-	s.ServiceFactorySuite.SetUpTest(c)
-	jujujujutesting.SeedDatabase(c, s.ControllerSuite.TxnRunner(), s.ServiceFactoryGetter(c, s.NoopObjectStore(c))(s.ControllerModelUUID), controllerCfg)
+	s.DomainServicesSuite.ControllerConfig = controllerCfg
+	s.DomainServicesSuite.SetUpTest(c)
+	jujujujutesting.SeedDatabase(c, s.ControllerSuite.TxnRunner(), s.DomainServicesGetter(c, s.NoopObjectStore(c))(s.ControllerModelUUID), controllerCfg)
 
 	s.hub = pubsub.NewStructuredHub(nil)
 
@@ -117,11 +117,11 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 			WatcherRegistry_:  s.watcherRegistry,
 			Auth_:             s.authorizer,
 			Hub_:              s.hub,
-			ServiceFactory_:   s.ControllerServiceFactory(c),
+			DomainServices_:   s.ControllerDomainServices(c),
 			Logger_:           loggertesting.WrapCheckLog(c),
 			LeadershipReader_: s.leadershipReader,
 		},
-		ServiceFactoryForModel_: s.ControllerServiceFactory(c),
+		DomainServicesForModel_: s.ControllerDomainServices(c),
 	}
 	controller, err := controller.LatestAPI(context.Background(), s.context)
 	c.Assert(err, jc.ErrorIsNil)
@@ -132,7 +132,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 
 func (s *controllerSuite) TearDownTest(c *gc.C) {
 	s.StateSuite.TearDownTest(c)
-	s.ServiceFactorySuite.TearDownTest(c)
+	s.DomainServicesSuite.TearDownTest(c)
 }
 
 func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
@@ -144,7 +144,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 			State_:          s.State,
 			Resources_:      s.resources,
 			Auth_:           anAuthoriser,
-			ServiceFactory_: s.ControllerServiceFactory(c),
+			DomainServices_: s.ControllerDomainServices(c),
 			Logger_:         loggertesting.WrapCheckLog(c),
 		},
 	})
@@ -268,7 +268,7 @@ func (s *controllerSuite) TestControllerConfig(c *gc.C) {
 	cfg, err := s.controller.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 
 	cfgFromDB, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -290,7 +290,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 				State_:          st,
 				Resources_:      common.NewResources(),
 				Auth_:           authorizer,
-				ServiceFactory_: s.ControllerServiceFactory(c),
+				DomainServices_: s.ControllerDomainServices(c),
 				Logger_:         loggertesting.WrapCheckLog(c),
 			},
 		})
@@ -298,7 +298,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 	cfg, err := controller.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 
 	cfgFromDB, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -639,7 +639,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 }
 
 func (s *controllerSuite) TestConfigSet(c *gc.C) {
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 
 	config, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -667,7 +667,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 				State_:          s.State,
 				Resources_:      s.resources,
 				Auth_:           anAuthoriser,
-				ServiceFactory_: s.ControllerServiceFactory(c),
+				DomainServices_: s.ControllerDomainServices(c),
 				Logger_:         loggertesting.WrapCheckLog(c),
 			},
 		})
@@ -705,7 +705,7 @@ func (s *controllerSuite) TestConfigSetPublishesEvent(c *gc.C) {
 
 func (s *controllerSuite) TestConfigSetCAASImageRepo(c *gc.C) {
 	// TODO(dqlite): move this test when ConfigSet CAASImageRepo logic moves.
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 
 	config, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -852,7 +852,7 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 				State_:          s.State,
 				Resources_:      s.resources,
 				Auth_:           anAuthoriser,
-				ServiceFactory_: s.ControllerServiceFactory(c),
+				DomainServices_: s.ControllerDomainServices(c),
 				Logger_:         loggertesting.WrapCheckLog(c),
 			},
 		})

@@ -148,7 +148,7 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *gc.C) {
 	password := "shhh..."
 	user := names.NewUserTag("username")
 
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 
 	err := controllerConfigService.UpdateControllerConfig(context.Background(), map[string]interface{}{
 		"audit-log-exclude-methods": "Client.FullStatus",
@@ -286,8 +286,8 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *g
 	uuid := st.ModelUUID()
 
 	// invalidate cloud credential for this model
-	serviceFactory := s.ControllerServiceFactory(c)
-	err := serviceFactory.Credential().InvalidateCredential(context.Background(), testing.DefaultCredentialId, "coz i can")
+	domainServices := s.ControllerDomainServices(c)
+	err := domainServices.Credential().InvalidateCredential(context.Background(), testing.DefaultCredentialId, "coz i can")
 	c.Assert(err, jc.ErrorIsNil)
 
 	tracker := agenttest.NewEngineTracker()
@@ -321,8 +321,8 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *g
 		Owner: user.AdminUserName,
 		Name:  "another",
 	}
-	serviceFactory := s.ControllerServiceFactory(c)
-	err := serviceFactory.Credential().UpdateCloudCredential(ctx, key, cloud.NewCredential(cloud.UserPassAuthType, nil))
+	domainServices := s.ControllerDomainServices(c)
+	err := domainServices.Credential().UpdateCloudCredential(ctx, key, cloud.NewCredential(cloud.UserPassAuthType, nil))
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -345,7 +345,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *g
 	uuid := st.ModelUUID()
 
 	// remove cloud credential used by this model but keep model reference to it
-	err = serviceFactory.Credential().RemoveCloudCredential(ctx, key)
+	err = domainServices.Credential().RemoveCloudCredential(ctx, key)
 	c.Assert(err, jc.ErrorIsNil)
 
 	tracker := agenttest.NewEngineTracker()

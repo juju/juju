@@ -11,21 +11,21 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 )
 
-// Config is the configuration required for service factory worker.
+// Config is the configuration required for domain services worker.
 type Config struct {
 	// DBGetter supplies WatchableDB implementations by namespace.
 	DBGetter changestream.WatchableDBGetter
 
 	Logger logger.Logger
 
-	NewProviderServiceFactoryGetter ProviderServiceFactoryGetterFn
-	NewProviderServiceFactory       ProviderServiceFactoryFn
+	NewProviderServicesGetter ProviderServicesGetterFn
+	NewProviderServices       ProviderServicesFn
 }
 
-// Validate validates the service factory configuration.
+// Validate validates the domain services configuration.
 func (config Config) Validate() error {
 	if config.DBGetter == nil {
 		return errors.NotValidf("nil DBGetter")
@@ -33,24 +33,24 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if config.NewProviderServiceFactory == nil {
-		return errors.NotValidf("nil NewProviderServiceFactory")
+	if config.NewProviderServices == nil {
+		return errors.NotValidf("nil NewProviderServices")
 	}
-	if config.NewProviderServiceFactoryGetter == nil {
-		return errors.NotValidf("nil NewProviderServiceFactoryGetter")
+	if config.NewProviderServicesGetter == nil {
+		return errors.NotValidf("nil NewProviderServicesGetter")
 	}
 	return nil
 }
 
-// NewWorker returns a new service factory worker, with the given configuration.
+// NewWorker returns a new domain services worker, with the given configuration.
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	w := &serviceFactoryWorker{
-		factoryGetter: config.NewProviderServiceFactoryGetter(
-			config.NewProviderServiceFactory,
+	w := &domainServicesWorker{
+		servicesGetter: config.NewProviderServicesGetter(
+			config.NewProviderServices,
 			config.DBGetter,
 			config.Logger,
 		),
@@ -62,50 +62,50 @@ func NewWorker(config Config) (worker.Worker, error) {
 	return w, nil
 }
 
-// serviceFactoryWorker is a worker that holds a reference to a service factory.
+// domainServicesWorker is a worker that holds a reference to a domain services.
 // This doesn't actually create them dynamically, it just hands them out
 // when asked.
-type serviceFactoryWorker struct {
+type domainServicesWorker struct {
 	tomb tomb.Tomb
 
-	factoryGetter servicefactory.ProviderServiceFactoryGetter
+	servicesGetter services.ProviderServicesGetter
 }
 
-// FactoryGetter returns the provider service factory getter.
-func (w *serviceFactoryWorker) FactoryGetter() servicefactory.ProviderServiceFactoryGetter {
-	return w.factoryGetter
+// ServicesGetter returns the provider domain services getter.
+func (w *domainServicesWorker) ServicesGetter() services.ProviderServicesGetter {
+	return w.servicesGetter
 }
 
-// Kill kills the service factory worker.
-func (w *serviceFactoryWorker) Kill() {
+// Kill kills the domain services worker.
+func (w *domainServicesWorker) Kill() {
 	w.tomb.Kill(nil)
 }
 
-// Wait waits for the service factory worker to stop.
-func (w *serviceFactoryWorker) Wait() error {
+// Wait waits for the domain services worker to stop.
+func (w *domainServicesWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
-// serviceFactory is a provider service factory type.
-type serviceFactory struct {
-	servicefactory.ProviderServiceFactory
+// domainServices is a provider domain services type.
+type domainServices struct {
+	services.ProviderServices
 }
 
-// serviceFactoryGetter is a provider service factory getter that returns a
-// provider service factory for the given model uuid. This is late binding,
-// so the provider service factory is created on demand.
-type serviceFactoryGetter struct {
-	newProviderServiceFactory ProviderServiceFactoryFn
-	dbGetter                  changestream.WatchableDBGetter
-	logger                    logger.Logger
+// domainServicesGetter is a provider domain services getter that returns a
+// provider domain services for the given model uuid. This is late binding,
+// so the provider domain services is created on demand.
+type domainServicesGetter struct {
+	newProviderServices ProviderServicesFn
+	dbGetter            changestream.WatchableDBGetter
+	logger              logger.Logger
 }
 
-// FactoryForModel returns a provider service factory for the given model uuid.
-// This will late bind the provider service factory to the actual service
+// ServicesForModel returns a provider domain services for the given model uuid.
+// This will late bind the provider domain services to the actual service
 // factory.
-func (s *serviceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.ProviderServiceFactory {
-	return &serviceFactory{
-		ProviderServiceFactory: s.newProviderServiceFactory(
+func (s *domainServicesGetter) ServicesForModel(modelUUID string) services.ProviderServices {
+	return &domainServices{
+		ProviderServices: s.newProviderServices(
 			coremodel.UUID(modelUUID), s.dbGetter, s.logger,
 		),
 	}

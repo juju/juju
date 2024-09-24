@@ -32,6 +32,6 @@ func NewCredentialManagerAPI(ctx facade.ModelContext) (*CredentialManagerAPI, er
 	}
 	return internalNewCredentialManagerAPI(
 		st,
-		ctx.ServiceFactory().Credential(),
+		ctx.DomainServices().Credential(),
 		ctx.Resources(), ctx.Auth())
 }

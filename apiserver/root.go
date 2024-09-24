@@ -34,7 +34,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/rpcreflect"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
@@ -65,15 +65,15 @@ type apiHandler struct {
 	// the request model UUID is empty.
 	tracer trace.Tracer
 
-	// serviceFactory is the service factory for the resolved model UUID. This
+	// domainServices is the domain services for the resolved model UUID. This
 	// is either the request model UUID, or it's the system state model UUID, if
 	// the request model UUID is empty.
-	serviceFactory servicefactory.ServiceFactory
+	domainServices services.DomainServices
 
-	// serviceFactoryGetter allows the retrieval of an service factory for a
+	// domainServicesGetter allows the retrieval of an domain services for a
 	// given model UUID. This should not be used unless you're sure you need to
-	// access a different model's service factory.
-	serviceFactoryGetter servicefactory.ServiceFactoryGetter
+	// access a different model's domain services.
+	domainServicesGetter services.DomainServicesGetter
 
 	// objectStore is the object store for the resolved model UUID. This is
 	// either the request model UUID, or it's the system state model UUID, if
@@ -138,8 +138,8 @@ func newAPIHandler(
 	srv *Server,
 	st *state.State,
 	rpcConn *rpc.Conn,
-	serviceFactory servicefactory.ServiceFactory,
-	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
+	domainServices services.DomainServices,
+	domainServicesGetter services.DomainServicesGetter,
 	tracer trace.Tracer,
 	objectStore objectstore.ObjectStore,
 	objectStoreGetter objectstore.ObjectStoreGetter,
@@ -171,8 +171,8 @@ func newAPIHandler(
 
 	r := &apiHandler{
 		state:                 st,
-		serviceFactory:        serviceFactory,
-		serviceFactoryGetter:  serviceFactoryGetter,
+		domainServices:        domainServices,
+		domainServicesGetter:  domainServicesGetter,
 		tracer:                tracer,
 		objectStore:           objectStore,
 		objectStoreGetter:     objectStoreGetter,
@@ -196,7 +196,7 @@ func newAPIHandler(
 		Path:   localOfferAccessLocationPath,
 	}
 
-	contollerConfigService := serviceFactory.ControllerConfig()
+	contollerConfigService := domainServices.ControllerConfig()
 	controllerConfig, err := contollerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
@@ -238,14 +238,14 @@ func (r *apiHandler) State() *state.State {
 	return r.state
 }
 
-// ServiceFactory returns the service factory.
-func (r *apiHandler) ServiceFactory() servicefactory.ServiceFactory {
-	return r.serviceFactory
+// DomainServices returns the domain services.
+func (r *apiHandler) DomainServices() services.DomainServices {
+	return r.domainServices
 }
 
-// ServiceFactoryGetter returns the service factory getter.
-func (r *apiHandler) ServiceFactoryGetter() servicefactory.ServiceFactoryGetter {
-	return r.serviceFactoryGetter
+// DomainServicesGetter returns the domain services getter.
+func (r *apiHandler) DomainServicesGetter() services.DomainServicesGetter {
+	return r.domainServicesGetter
 }
 
 // Tracer returns the tracer for opentelemetry.
@@ -432,10 +432,10 @@ type apiRootHandler interface {
 	rpc.Killer
 	// State returns the underlying state.
 	State() *state.State
-	// ServiceFactory returns the service factory.
-	ServiceFactory() servicefactory.ServiceFactory
-	// ServiceFactoryGetter returns the service factory getter.
-	ServiceFactoryGetter() servicefactory.ServiceFactoryGetter
+	// DomainServices returns the domain services.
+	DomainServices() services.DomainServices
+	// DomainServicesGetter returns the domain services getter.
+	DomainServicesGetter() services.DomainServicesGetter
 	// Tracer returns the tracer for opentelemetry.
 	Tracer() trace.Tracer
 	// ObjectStore returns the object store.
@@ -464,8 +464,8 @@ type apiRoot struct {
 	rpc.Killer
 	clock                 clock.Clock
 	state                 *state.State
-	serviceFactory        servicefactory.ServiceFactory
-	serviceFactoryGetter  servicefactory.ServiceFactoryGetter
+	domainServices        services.DomainServices
+	domainServicesGetter  services.DomainServicesGetter
 	tracer                trace.Tracer
 	objectStore           objectstore.ObjectStore
 	objectStoreGetter     objectstore.ObjectStoreGetter
@@ -500,8 +500,8 @@ func newAPIRoot(
 		Killer:                root,
 		clock:                 clock,
 		state:                 root.State(),
-		serviceFactory:        root.ServiceFactory(),
-		serviceFactoryGetter:  root.ServiceFactoryGetter(),
+		domainServices:        root.DomainServices(),
+		domainServicesGetter:  root.DomainServicesGetter(),
 		tracer:                root.Tracer(),
 		objectStore:           root.ObjectStore(),
 		objectStoreGetter:     root.ObjectStoreGetter(),
@@ -924,7 +924,7 @@ var storageRegistryGetter = func(ctx *facadeContext) func() (storage.ProviderReg
 			return nil, errors.Trace(err)
 		}
 		return stateenvirons.NewStorageProviderRegistryForModel(
-			dbModel, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential(),
+			dbModel, ctx.DomainServices().Cloud(), ctx.DomainServices().Credential(),
 			stateenvirons.GetNewEnvironFunc(environs.New),
 			stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		)
@@ -947,17 +947,17 @@ func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
 	return migration.NewModelImporter(
 		state.NewController(pool),
 		ctx.migrationScope,
-		ctx.ServiceFactory().ControllerConfig(),
-		ctx.r.serviceFactoryGetter,
+		ctx.DomainServices().ControllerConfig(),
+		ctx.r.domainServicesGetter,
 		environs.ProviderConfigSchemaSource,
 		storageRegistryGetter(ctx),
 		ctx.Logger(),
 	)
 }
 
-// ServiceFactory returns the services factory for the current model.
-func (ctx *facadeContext) ServiceFactory() servicefactory.ServiceFactory {
-	return ctx.r.serviceFactory
+// DomainServices returns the services factory for the current model.
+func (ctx *facadeContext) DomainServices() services.DomainServices {
+	return ctx.r.domainServices
 }
 
 // Tracer returns the tracer for the current model.
@@ -1025,10 +1025,10 @@ func (ctx *facadeContext) migrationScope(modelUUID model.UUID) modelmigration.Sc
 	)
 }
 
-// ServiceFactoryForModel returns the services factory for a given
+// DomainServicesForModel returns the services factory for a given
 // model uuid.
-func (ctx *facadeContext) ServiceFactoryForModel(uuid model.UUID) servicefactory.ServiceFactory {
-	return ctx.r.serviceFactoryGetter.FactoryForModel(uuid)
+func (ctx *facadeContext) DomainServicesForModel(uuid model.UUID) services.DomainServices {
+	return ctx.r.domainServicesGetter.ServicesForModel(uuid)
 }
 
 // ObjectStoreForModel returns the object store for a given model uuid.

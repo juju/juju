@@ -28,16 +28,16 @@ func newUndertakerFacade(ctx facade.ModelContext) (*UndertakerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	serviceFactory := ctx.ServiceFactory()
-	cloudService := serviceFactory.Cloud()
-	credentialService := serviceFactory.Credential()
-	backendService := serviceFactory.SecretBackend()
+	domainServices := ctx.DomainServices()
+	cloudService := domainServices.Cloud()
+	credentialService := domainServices.Credential()
+	backendService := domainServices.SecretBackend()
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		ctx.Resources(),
 		cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService),
 		cloudspec.MakeCloudSpecWatcherForModel(st, cloudService),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, serviceFactory.Credential()),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, domainServices.Credential()),
 		common.AuthFuncForTag(model.ModelTag()),
 	)
 	return newUndertakerAPI(
@@ -46,7 +46,7 @@ func newUndertakerFacade(ctx facade.ModelContext) (*UndertakerAPI, error) {
 		ctx.Auth(),
 		cloudSpecAPI,
 		backendService,
-		serviceFactory.Config(),
+		domainServices.Config(),
 		ctx.WatcherRegistry(),
 	)
 }

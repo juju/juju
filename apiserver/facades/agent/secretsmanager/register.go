@@ -36,14 +36,14 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 	if !ctx.Auth().AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
-	serviceFactory := ctx.ServiceFactory()
+	domainServices := ctx.DomainServices()
 	leadershipChecker, err := ctx.LeadershipChecker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	backendService := serviceFactory.SecretBackend()
-	secretService := serviceFactory.Secret(
+	backendService := domainServices.SecretBackend()
+	secretService := domainServices.Secret(
 		secretservice.SecretServiceParams{
 			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
 				backendService, ctx.ModelUUID(),
@@ -56,8 +56,8 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 
 	controllerAPI := common.NewControllerConfigAPI(
 		ctx.State(),
-		serviceFactory.ControllerConfig(),
-		serviceFactory.ExternalController(),
+		domainServices.ControllerConfig(),
+		domainServices.ExternalController(),
 	)
 	remoteClientGetter := func(stdCtx context.Context, uri *coresecrets.URI) (CrossModelSecretsClient, error) {
 		info, err := controllerAPI.ControllerAPIInfoForModels(stdCtx, params.Entities{Entities: []params.Entity{{

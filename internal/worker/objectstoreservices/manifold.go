@@ -14,8 +14,8 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	domainservicefactory "github.com/juju/juju/domain/servicefactory"
-	"github.com/juju/juju/internal/servicefactory"
+	domainservicefactory "github.com/juju/juju/domain/services"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 )
 
@@ -41,14 +41,14 @@ type ObjectStoreServicesGetterFn func(
 	ObjectStoreServicesFn,
 	changestream.WatchableDBGetter,
 	logger.Logger,
-) servicefactory.ObjectStoreServicesGetter
+) services.ObjectStoreServicesGetter
 
 // ObjectStoreServicesFn is a function that returns a object store services.
 type ObjectStoreServicesFn func(
 	coremodel.UUID,
 	changestream.WatchableDBGetter,
 	logger.Logger,
-) servicefactory.ObjectStoreServices
+) services.ObjectStoreServices
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
@@ -109,10 +109,10 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 	}
 
 	switch out := out.(type) {
-	case *servicefactory.ObjectStoreServicesGetter:
+	case *services.ObjectStoreServicesGetter:
 		*out = w.ServicesGetter()
 
-	case *servicefactory.ControllerObjectStoreServices:
+	case *services.ControllerObjectStoreServices:
 		*out = w.ControllerServices()
 	default:
 		return errors.Errorf("unsupported output type %T", out)
@@ -125,8 +125,8 @@ func NewObjectStoreServicesGetter(
 	newObjectStoreServices ObjectStoreServicesFn,
 	dbGetter changestream.WatchableDBGetter,
 	logger logger.Logger,
-) servicefactory.ObjectStoreServicesGetter {
-	return &serviceFactoryGetter{
+) services.ObjectStoreServicesGetter {
+	return &domainServicesGetter{
 		newObjectStoreServices: newObjectStoreServices,
 		dbGetter:               dbGetter,
 		logger:                 logger,
@@ -138,7 +138,7 @@ func NewObjectStoreServices(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
 	logger logger.Logger,
-) servicefactory.ObjectStoreServices {
+) services.ObjectStoreServices {
 	return domainservicefactory.NewObjectStoreServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),

@@ -34,7 +34,7 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 
 	return &API{
 		modelTag:          m.ModelTag(),
-		annotationService: ctx.ServiceFactory().Annotation(),
+		annotationService: ctx.DomainServices().Annotation(),
 		authorizer:        authorizer,
 	}, nil
 }

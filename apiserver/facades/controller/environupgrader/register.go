@@ -39,5 +39,5 @@ func NewStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		ctx.State(),
 		common.AuthFuncForTagKind(names.ModelTagKind),
 	)
-	return NewFacade(ctx.ServiceFactory().Cloud(), pool, registry, watcher, statusSetter)
+	return NewFacade(ctx.DomainServices().Cloud(), pool, registry, watcher, statusSetter)
 }

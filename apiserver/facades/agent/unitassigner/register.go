@@ -23,9 +23,9 @@ func Register(registry facade.FacadeRegistry) {
 func newFacade(ctx facade.ModelContext) (*API, error) {
 	st := ctx.State()
 
-	serviceFactory := ctx.ServiceFactory()
+	domainServices := ctx.DomainServices()
 
-	prechecker, err := stateenvirons.NewInstancePrechecker(st, serviceFactory.Cloud(), serviceFactory.Credential())
+	prechecker, err := stateenvirons.NewInstancePrechecker(st, domainServices.Cloud(), domainServices.Credential())
 	if err != nil {
 		return nil, err
 	}
@@ -33,8 +33,8 @@ func newFacade(ctx facade.ModelContext) (*API, error) {
 	setter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, common.AuthAlways())
 	return &API{
 		st:             stateShim{State: st, prechecker: prechecker},
-		machineService: serviceFactory.Machine(),
-		networkService: serviceFactory.Network(),
+		machineService: domainServices.Machine(),
+		networkService: domainServices.Network(),
 		res:            ctx.Resources(),
 		statusSetter:   setter,
 	}, nil

@@ -24,8 +24,8 @@ type clientSuite struct {
 func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerService := controllerServiceFactory.ControllerConfig()
+	controllerDomainServices := s.ControllerDomainServices(c)
+	controllerService := controllerDomainServices.ControllerConfig()
 
 	err := controllerService.UpdateControllerConfig(context.Background(), map[string]interface{}{controller.JujuManagementSpace: "mgmt01"}, nil)
 	c.Assert(err, jc.ErrorIsNil)

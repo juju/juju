@@ -13,7 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/state"
@@ -25,7 +25,7 @@ type ManifoldConfig struct {
 	AgentName          string
 	ClockName          string
 	StateName          string
-	ServiceFactoryName string
+	DomainServicesName string
 	Hub                Hub
 
 	PrometheusRegisterer prometheus.Registerer
@@ -43,8 +43,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
 	}
-	if config.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
+	if config.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
@@ -65,7 +65,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.ClockName,
 			config.StateName,
-			config.ServiceFactoryName,
+			config.DomainServicesName,
 		},
 		Start: config.start,
 	}
@@ -87,12 +87,12 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	var serviceFactory servicefactory.ControllerServiceFactory
-	if err := getter.Get(config.ServiceFactoryName, &serviceFactory); err != nil {
+	var domainServices services.ControllerDomainServices
+	if err := getter.Get(config.DomainServicesName, &domainServices); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfigService := serviceFactory.ControllerConfig()
+	controllerConfigService := domainServices.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context)
 	if err != nil {
 		return nil, errors.Trace(err)

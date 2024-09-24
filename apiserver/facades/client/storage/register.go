@@ -35,14 +35,14 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 	storageMetadata := func() (StorageService, storage.ProviderRegistry, error) {
 		registry, err := stateenvirons.NewStorageProviderRegistryForModel(
 			model,
-			ctx.ServiceFactory().Cloud(),
-			ctx.ServiceFactory().Credential(),
+			ctx.DomainServices().Cloud(),
+			ctx.DomainServices().Credential(),
 			stateenvirons.GetNewEnvironFunc(environs.New),
 			stateenvirons.GetNewCAASBrokerFunc(caas.New))
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		return ctx.ServiceFactory().Storage(registry), registry, nil
+		return ctx.DomainServices().Storage(registry), registry, nil
 	}
 	storageAccessor, err := getStorageAccessor(st)
 	if err != nil {
@@ -56,6 +56,6 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 
 	return NewStorageAPI(
 		stateShim{st}, model.Type(),
-		storageAccessor, ctx.ServiceFactory().BlockDevice(), storageMetadata, authorizer,
+		storageAccessor, ctx.DomainServices().BlockDevice(), storageMetadata, authorizer,
 		credentialcommon.CredentialInvalidatorGetter(ctx)), nil
 }

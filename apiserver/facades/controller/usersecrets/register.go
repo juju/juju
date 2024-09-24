@@ -25,12 +25,12 @@ func NewUserSecretsManager(stdCtx stdcontext.Context, ctx facade.ModelContext) (
 	if !ctx.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
-	serviceFactory := ctx.ServiceFactory()
-	backendService := serviceFactory.SecretBackend()
+	domainServices := ctx.DomainServices()
+	backendService := domainServices.SecretBackend()
 
 	return &UserSecretsManager{
 		watcherRegistry: ctx.WatcherRegistry(),
-		secretService: serviceFactory.Secret(
+		secretService: domainServices.Secret(
 			secretservice.SecretServiceParams{
 				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
 					backendService, ctx.ModelUUID(),

@@ -46,7 +46,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.ServiceFactoryName = ""
+	cfg.DomainServicesName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -66,7 +66,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		AgentName:          "agent",
 		UpgradeDBGateName:  "upgrade-database-lock",
-		ServiceFactoryName: "service-factory",
+		DomainServicesName: "domain-services",
 		DBAccessorName:     "db-accessor",
 		Logger:             s.logger,
 		Clock:              clock.WallClock,
@@ -78,13 +78,13 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
 		"agent":                 s.agent,
 		"upgrade-database-lock": s.lock,
-		"service-factory":       s.serviceFactory,
+		"domain-services":       s.domainServices,
 		"db-accessor":           s.dbGetter,
 	}
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"agent", "upgrade-database-lock", "service-factory", "db-accessor"}
+var expectedInputs = []string{"agent", "upgrade-database-lock", "domain-services", "db-accessor"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
@@ -109,9 +109,9 @@ func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.agentConfig.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
 	s.agentConfig.EXPECT().UpgradedToVersion().Return(version.MustParse("1.0.0")).AnyTimes()
 
-	s.serviceFactory.EXPECT().Upgrade().Return(&upgradeservice.WatchableService{}).AnyTimes()
-	s.serviceFactory.EXPECT().Model().Return(&modelservice.Service{}).AnyTimes()
-	s.serviceFactory.EXPECT().ControllerNode().Return(&controllernodeservice.Service{}).AnyTimes()
+	s.domainServices.EXPECT().Upgrade().Return(&upgradeservice.WatchableService{}).AnyTimes()
+	s.domainServices.EXPECT().Model().Return(&modelservice.Service{}).AnyTimes()
+	s.domainServices.EXPECT().ControllerNode().Return(&controllernodeservice.Service{}).AnyTimes()
 
 	return ctrl
 }

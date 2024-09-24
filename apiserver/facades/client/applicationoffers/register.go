@@ -30,10 +30,10 @@ func Register(registry facade.FacadeRegistry) {
 
 // makeOffersAPI returns a new application offers OffersAPI facade.
 func makeOffersAPI(ctx context.Context, facadeContext facade.MultiModelContext) (*OffersAPIv5, error) {
-	serviceFactory := facadeContext.ServiceFactory()
+	domainServices := facadeContext.DomainServices()
 	st := facadeContext.State()
 	getControllerInfo := func(ctx context.Context) ([]string, string, error) {
-		return common.ControllerAPIInfo(ctx, st, serviceFactory.ControllerConfig())
+		return common.ControllerAPIInfo(ctx, st, domainServices.ControllerConfig())
 	}
 
 	authContext := facadeContext.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
@@ -42,8 +42,8 @@ func makeOffersAPI(ctx context.Context, facadeContext facade.MultiModelContext) 
 		getControllerInfo,
 		GetStateAccess(st),
 		GetStatePool(facadeContext.StatePool()),
-		serviceFactory.Access(),
-		newModelServiceFactoryGetter(facadeContext),
+		domainServices.Access(),
+		newModelDomainServicesGetter(facadeContext),
 		facadeContext.Auth(),
 		authContext.(*commoncrossmodel.AuthContext),
 		facadeContext.DataDir(),

@@ -41,12 +41,12 @@ func makeFacade(stdCtx context.Context, ctx facade.ModelContext) (*ModelConfigAP
 		return nil, errors.Trace(err)
 	}
 
-	serviceFactory := ctx.ServiceFactory()
-	modelSecretBackend := serviceFactory.ModelSecretBackend()
+	domainServices := ctx.DomainServices()
+	modelSecretBackend := domainServices.ModelSecretBackend()
 
-	configService := serviceFactory.Config()
-	configSchemaSourceGetter := environs.ProviderConfigSchemaSource(ctx.ServiceFactory().Cloud())
-	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
+	configService := domainServices.Config()
+	configSchemaSourceGetter := environs.ProviderConfigSchemaSource(ctx.DomainServices().Cloud())
+	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

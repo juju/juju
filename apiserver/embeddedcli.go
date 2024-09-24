@@ -164,8 +164,8 @@ func (h *embeddedCLIHandler) runEmbeddedCommands(
 	// TODO (stickupkid): This is actually terrible. We should refactor
 	// this out, so we can just pass an interface the handler, that hides
 	// all of this nonsense.
-	controllerServiceFactory := h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(h.ctxt.srv.shared.controllerModelUUID)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerDomainServices := h.ctxt.srv.shared.domainServicesGetter.ServicesForModel(h.ctxt.srv.shared.controllerModelUUID)
+	controllerConfigService := controllerDomainServices.ControllerConfig()
 
 	// Make a pipe to stream the stdout/stderr of the commands.
 	errCh := make(chan error, 1)

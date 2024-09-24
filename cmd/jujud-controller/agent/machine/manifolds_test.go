@@ -114,7 +114,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"object-store",
 			"peer-grouper",
 			"presence",
-			"provider-service-factory",
+			"provider-services",
 			"provider-tracker",
 			"proxy-config-updater",
 			"pubsub-forwarder",
@@ -122,7 +122,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"reboot-executor",
 			"s3-http-client",
 			"secret-backend-rotate",
-			"service-factory",
+			"domain-services",
 			"ssh-authkeys-updater",
 			"ssh-identity-writer",
 			"ssh-importer-http-client",
@@ -193,14 +193,14 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"object-store",
 			"peer-grouper",
 			"presence",
-			"provider-service-factory",
+			"provider-services",
 			"provider-tracker",
 			"proxy-config-updater",
 			"pubsub-forwarder",
 			"query-logger",
 			"s3-http-client",
 			"secret-backend-rotate",
-			"service-factory",
+			"domain-services",
 			"ssh-identity-writer",
 			"ssh-importer-http-client",
 			"state-config-watcher",
@@ -282,13 +282,13 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"object-store",
 		"peer-grouper",
 		"presence",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"pubsub-forwarder",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
-		"service-factory",
+		"domain-services",
+		"domain-services",
 		"ssh-importer-http-client",
 		"state-config-watcher",
 		"state",
@@ -386,10 +386,10 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	}
 }
 
-func (*ManifoldsSuite) TestObjectStoreDoesNotUseServiceFactory(c *gc.C) {
-	// The object-store is a dependency of the service-factory, so we can't have
+func (*ManifoldsSuite) TestObjectStoreDoesNotUseDomainServices(c *gc.C) {
+	// The object-store is a dependency of the domain-services, so we can't have
 	// circular dependencies between the two. Ensuring that the dependencies is
-	// a good way to check that the service-factory isn't a dependency of the
+	// a good way to check that the domain-services isn't a dependency of the
 	// object-store.
 
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
@@ -398,22 +398,22 @@ func (*ManifoldsSuite) TestObjectStoreDoesNotUseServiceFactory(c *gc.C) {
 	})
 
 	// Ensure that the object-store doesn't have a hard dependency on the
-	// service-factory.
+	// domain-services.
 
 	manifold := manifolds["object-store"]
-	checkNotContains(c, manifold.Inputs, "service-factory")
+	checkNotContains(c, manifold.Inputs, "domain-services")
 
 	// Also check that it doesn't have a transitive dependency on the
-	// service-factory.
+	// domain-services.
 
 	dependencies := agenttest.ManifoldDependencies(manifolds, manifold)
-	c.Check(dependencies.Contains("service-factory"), jc.IsFalse)
+	c.Check(dependencies.Contains("domain-services"), jc.IsFalse)
 }
 
-func (*ManifoldsSuite) TestProviderTrackerDoesNotUseServiceFactory(c *gc.C) {
-	// The provider-tracker is a dependency of the service-factory, so we can't
+func (*ManifoldsSuite) TestProviderTrackerDoesNotUseDomainServices(c *gc.C) {
+	// The provider-tracker is a dependency of the domain-services, so we can't
 	// have circular dependencies between the two. Ensuring that the
-	// dependencies is a good way to check that the service-factory isn't a
+	// dependencies is a good way to check that the domain-services isn't a
 	// dependency of the provider-tracker.
 
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
@@ -422,16 +422,16 @@ func (*ManifoldsSuite) TestProviderTrackerDoesNotUseServiceFactory(c *gc.C) {
 	})
 
 	// Ensure that the provider-tracker doesn't have a hard dependency on the
-	// service-factory.
+	// domain-services.
 
 	manifold := manifolds["provider-tracker"]
-	checkNotContains(c, manifold.Inputs, "service-factory")
+	checkNotContains(c, manifold.Inputs, "domain-services")
 
 	// Also check that it doesn't have a transitive dependency on the
-	// service-factory.
+	// domain-services.
 
 	dependencies := agenttest.ManifoldDependencies(manifolds, manifold)
-	c.Check(dependencies.Contains("service-factory"), jc.IsFalse)
+	c.Check(dependencies.Contains("domain-services"), jc.IsFalse)
 }
 
 func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *gc.C) {
@@ -581,11 +581,11 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"ssh-importer-http-client",
 		"state-config-watcher",
 		"state",
@@ -607,11 +607,11 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"trace",
 		"upgrade-database-flag",
@@ -633,10 +633,10 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"object-store",
 		"object-store-services",
 		"object-store-s3-caller",
-		"provider-service-factory",
+		"provider-services",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state",
 		"state-config-watcher",
 		"trace",
@@ -671,11 +671,11 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"state",
 		"trace",
@@ -731,11 +731,11 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"trace",
 		"upgrade-database-flag",
@@ -833,10 +833,10 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"object-store",
 		"object-store-services",
 		"object-store-s3-caller",
-		"provider-service-factory",
+		"provider-services",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"ssh-importer-http-client",
 		"state",
 		"state-config-watcher",
@@ -860,11 +860,11 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"state",
 		"trace",
@@ -879,7 +879,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"db-accessor",
 		"file-notify-watcher",
 		"is-controller-flag",
-		"provider-service-factory",
+		"provider-services",
 		"query-logger",
 		"state-config-watcher",
 	},
@@ -988,11 +988,11 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"trace",
 		"upgrade-database-flag",
@@ -1073,11 +1073,11 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"state",
 		"trace",
@@ -1101,11 +1101,11 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"state",
 		"trace",
@@ -1119,7 +1119,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"presence": {"agent", "central-hub", "state-config-watcher"},
 
-	"provider-service-factory": {
+	"provider-services": {
 		"agent",
 		"change-stream",
 		"controller-agent-config",
@@ -1232,7 +1232,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"service-factory": {
+	"domain-services": {
 		"agent",
 		"change-stream",
 		"clock",
@@ -1244,7 +1244,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
@@ -1295,11 +1295,11 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"trace",
 		"upgrade-database-flag",
@@ -1382,11 +1382,11 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"trace",
 		"upgrade-database-flag",
@@ -1411,11 +1411,11 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"trace",
 		"upgrade-database-flag",
@@ -1480,10 +1480,10 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"object-store",
 		"object-store-services",
 		"object-store-s3-caller",
-		"provider-service-factory",
+		"provider-services",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"ssh-importer-http-client",
 		"state",
 		"state-config-watcher",
@@ -1505,11 +1505,11 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"trace",
 		"upgrade-database-flag",
@@ -1531,10 +1531,10 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"object-store",
 		"object-store-services",
 		"object-store-s3-caller",
-		"provider-service-factory",
+		"provider-services",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state",
 		"state-config-watcher",
 		"trace",
@@ -1588,11 +1588,11 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"trace",
 		"upgrade-database-flag",
@@ -1660,11 +1660,11 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"object-store",
 		"object-store-services",
 		"object-store-s3-caller",
-		"provider-service-factory",
+		"provider-services",
 		"query-logger",
 		"s3-http-client",
 		"ssh-importer-http-client",
-		"service-factory",
+		"domain-services",
 		"state",
 		"state-config-watcher",
 		"trace",
@@ -1687,11 +1687,11 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"state",
 		"trace",
@@ -1706,7 +1706,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"db-accessor",
 		"file-notify-watcher",
 		"is-controller-flag",
-		"provider-service-factory",
+		"provider-services",
 		"query-logger",
 		"state-config-watcher",
 	},
@@ -1776,11 +1776,11 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"trace",
 		"upgrade-database-flag",
@@ -1837,11 +1837,11 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"state",
 		"trace",
@@ -1865,11 +1865,11 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"state",
 		"trace",
@@ -1883,7 +1883,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"presence": {"agent", "central-hub", "state-config-watcher"},
 
-	"provider-service-factory": {
+	"provider-services": {
 		"agent",
 		"change-stream",
 		"controller-agent-config",
@@ -1984,7 +1984,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"service-factory": {
+	"domain-services": {
 		"agent",
 		"change-stream",
 		"clock",
@@ -1996,7 +1996,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
@@ -2035,11 +2035,11 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"trace",
 		"upgrade-database-flag",
@@ -2079,11 +2079,11 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"trace",
 		"upgrade-database-flag",
@@ -2108,11 +2108,11 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
-		"provider-service-factory",
+		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"s3-http-client",
-		"service-factory",
+		"domain-services",
 		"state-config-watcher",
 		"trace",
 		"upgrade-database-flag",

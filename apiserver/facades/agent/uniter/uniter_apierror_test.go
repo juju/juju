@@ -32,10 +32,10 @@ var _ = gc.Suite(&uniterAPIErrorSuite{})
 func (s *uniterAPIErrorSuite) SetupTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
-	err := serviceFactory.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialId, cred)
+	err := domainServices.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialId, cred)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -54,28 +54,28 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 		Logger_:            loggertesting.WrapCheckLog(c),
 	}
 
-	serviceFactory := s.ControllerServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.ControllerDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
 		Secrets:         service.NotImplementedSecretService{},
 	})
 	_, err := uniter.NewUniterAPIWithServices(
 		context.Background(), facadeContext,
-		serviceFactory.ControllerConfig(),
-		serviceFactory.Config(),
-		serviceFactory.ModelInfo(),
-		serviceFactory.Secret(
+		domainServices.ControllerConfig(),
+		domainServices.Config(),
+		domainServices.ModelInfo(),
+		domainServices.Secret(
 			secretservice.SecretServiceParams{
 				BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
 				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
 			},
 		),
-		serviceFactory.Network(),
-		serviceFactory.Machine(),
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
+		domainServices.Network(),
+		domainServices.Machine(),
+		domainServices.Cloud(),
+		domainServices.Credential(),
 		applicationService,
-		serviceFactory.UnitState(),
+		domainServices.UnitState(),
 	)
 	c.Assert(err, gc.ErrorMatches, "kaboom")
 }

@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/pubsub/controller"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/state"
 )
@@ -61,9 +61,9 @@ type sharedServerContext struct {
 	// and the model is being removed.
 	dbDeleter database.DBDeleter
 
-	// ServiceFactoryGetter is used to get the service factory for controllers
+	// DomainServicesGetter is used to get the domain services for controllers
 	// and models.
-	serviceFactoryGetter servicefactory.ServiceFactoryGetter
+	domainServicesGetter services.DomainServicesGetter
 
 	// TraceGetter is used to get the tracer for the API server.
 	tracerGetter trace.TracerGetter
@@ -106,7 +106,7 @@ type sharedServerConfig struct {
 
 	dbGetter             changestream.WatchableDBGetter
 	dbDeleter            database.DBDeleter
-	serviceFactoryGetter servicefactory.ServiceFactoryGetter
+	domainServicesGetter services.DomainServicesGetter
 	tracerGetter         trace.TracerGetter
 	objectStoreGetter    objectstore.ObjectStoreGetter
 	machineTag           names.Tag
@@ -139,8 +139,8 @@ func (c *sharedServerConfig) validate() error {
 	if c.dbDeleter == nil {
 		return errors.NotValidf("nil dbDeleter")
 	}
-	if c.serviceFactoryGetter == nil {
-		return errors.NotValidf("nil serviceFactoryGetter")
+	if c.domainServicesGetter == nil {
+		return errors.NotValidf("nil domainServicesGetter")
 	}
 	if c.tracerGetter == nil {
 		return errors.NotValidf("nil tracerGetter")
@@ -174,7 +174,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		sshImporterHTTPClient: config.sshImporterHTTPClient,
 		dbGetter:              config.dbGetter,
 		dbDeleter:             config.dbDeleter,
-		serviceFactoryGetter:  config.serviceFactoryGetter,
+		domainServicesGetter:  config.domainServicesGetter,
 		tracerGetter:          config.tracerGetter,
 		objectStoreGetter:     config.objectStoreGetter,
 		machineTag:            config.machineTag,

@@ -28,7 +28,7 @@ const (
 // use of model config in this package.
 type Config struct {
 	TrackerType          TrackerType
-	ServiceFactoryGetter ServiceFactoryGetter
+	DomainServicesGetter DomainServicesGetter
 	GetIAASProvider      GetProviderFunc
 	GetCAASProvider      GetProviderFunc
 	NewTrackerWorker     NewTrackerWorkerFunc
@@ -38,8 +38,8 @@ type Config struct {
 
 // Validate returns an error if the config cannot be used to start a Worker.
 func (config Config) Validate() error {
-	if config.ServiceFactoryGetter == nil {
-		return errors.NotValidf("nil ServiceFactoryGetter")
+	if config.DomainServicesGetter == nil {
+		return errors.NotValidf("nil DomainServicesGetter")
 	}
 	if config.GetIAASProvider == nil {
 		return errors.NotValidf("nil GetIAASProvider")
@@ -287,13 +287,13 @@ func (w *providerWorker) initTrackerWorker(namespace string) error {
 		defer cancel()
 
 		// Create the tracker worker based on the namespace.
-		serviceFactory := w.config.ServiceFactoryGetter.FactoryForModel(namespace)
+		domainServices := w.config.DomainServicesGetter.ServicesForModel(namespace)
 
 		tracker, err := w.config.NewTrackerWorker(ctx, TrackerConfig{
-			ModelService:      serviceFactory.Model(),
-			CloudService:      serviceFactory.Cloud(),
-			ConfigService:     serviceFactory.Config(),
-			CredentialService: serviceFactory.Credential(),
+			ModelService:      domainServices.Model(),
+			CloudService:      domainServices.Cloud(),
+			ConfigService:     domainServices.Config(),
+			CredentialService: domainServices.Credential(),
 			GetProviderForType: getProviderForType(
 				w.config.GetIAASProvider,
 				w.config.GetCAASProvider,

@@ -60,7 +60,7 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
 
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
@@ -46,9 +46,9 @@ type CAASProviderFunc func(ctx context.Context, args environs.OpenParams) (caas.
 // GetProviderFunc is a helper function that gets a provider from the manifold.
 type GetProviderFunc func(context.Context, ProviderConfigGetter) (Provider, environscloudspec.CloudSpec, error)
 
-// GetProviderServiceFactoryGetterFunc is a helper function that gets a service
+// GetProviderServicesGetterFunc is a helper function that gets a service
 // factory getter from the manifold.
-type GetProviderServiceFactoryGetterFunc func(dependency.Getter, string) (ServiceFactoryGetter, error)
+type GetProviderServicesGetterFunc func(dependency.Getter, string) (DomainServicesGetter, error)
 
 // NewWorkerFunc is a function that creates a new Worker.
 type NewWorkerFunc func(cfg Config) (worker.Worker, error)
@@ -58,7 +58,7 @@ type NewTrackerWorkerFunc func(ctx context.Context, cfg TrackerConfig) (worker.W
 
 // ManifoldConfig describes the resources used by a Worker.
 type ManifoldConfig struct {
-	// ProviderServiceFactoriesName is the name of the service factory getter
+	// ProviderServiceFactoriesName is the name of the domain services getter
 	// that provides the services required by the provider.
 	ProviderServiceFactoriesName string
 	// NewWorker is a function that creates a new Worker.
@@ -71,9 +71,9 @@ type ManifoldConfig struct {
 	// GetCAASProvider is a helper function that gets a CAAS provider from the
 	// manifold.
 	GetCAASProvider GetProviderFunc
-	// GetProviderServiceFactoryGetter is a helper function that gets a service
+	// GetProviderServicesGetter is a helper function that gets a service
 	// factory getter from the dependency engine.
-	GetProviderServiceFactoryGetter GetProviderServiceFactoryGetterFunc
+	GetProviderServicesGetter GetProviderServicesGetterFunc
 	// Logger represents the methods used by the worker to log details.
 	Logger logger.Logger
 	// Clock is used by the runner.
@@ -96,8 +96,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.GetCAASProvider == nil {
 		return errors.NotValidf("nil GetCAASProvider")
 	}
-	if cfg.GetProviderServiceFactoryGetter == nil {
-		return errors.NotValidf("nil GetProviderServiceFactoryGetter")
+	if cfg.GetProviderServicesGetter == nil {
+		return errors.NotValidf("nil GetProviderServicesGetter")
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -129,14 +129,14 @@ func manifold(trackerType TrackerType, config ManifoldConfig) dependency.Manifol
 		},
 		Output: manifoldOutput,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
-			serviceFactoryGetter, err := config.GetProviderServiceFactoryGetter(getter, config.ProviderServiceFactoriesName)
+			domainServicesGetter, err := config.GetProviderServicesGetter(getter, config.ProviderServiceFactoriesName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			w, err := config.NewWorker(Config{
 				TrackerType:          trackerType,
-				ServiceFactoryGetter: serviceFactoryGetter,
+				DomainServicesGetter: domainServicesGetter,
 				GetIAASProvider:      config.GetIAASProvider,
 				GetCAASProvider:      config.GetCAASProvider,
 				NewTrackerWorker:     config.NewTrackerWorker,
@@ -232,106 +232,106 @@ func manifoldOutput(in worker.Worker, out any) error {
 	return errors.Trace(err)
 }
 
-// GetProviderServiceFactoryGetter is a helper function that gets a service from the
+// GetProviderServicesGetter is a helper function that gets a service from the
 // manifold.
-// This returns a ServiceFactoryGetter that is constructed directly from the
-// service factory.
-func GetProviderServiceFactoryGetter(getter dependency.Getter, name string) (ServiceFactoryGetter, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ProviderServiceFactoryGetter) ServiceFactoryGetter {
-		return serviceFactoryGetter{
+// This returns a DomainServicesGetter that is constructed directly from the
+// domain services.
+func GetProviderServicesGetter(getter dependency.Getter, name string) (DomainServicesGetter, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.ProviderServicesGetter) DomainServicesGetter {
+		return domainServicesGetter{
 			factory: factory,
 		}
 	})
 }
 
-// serviceFactoryGetter is a simple implementation of ServiceFactoryGetter.
-type serviceFactoryGetter struct {
-	factory servicefactory.ProviderServiceFactoryGetter
+// domainServicesGetter is a simple implementation of DomainServicesGetter.
+type domainServicesGetter struct {
+	factory services.ProviderServicesGetter
 }
 
-// FactoryForModel returns a ProviderServiceFactory for the given model.
-func (g serviceFactoryGetter) FactoryForModel(modelUUID string) ServiceFactory {
-	return serviceFactory{
-		factory: g.factory.FactoryForModel(modelUUID),
+// ServicesForModel returns a ProviderServices for the given model.
+func (g domainServicesGetter) ServicesForModel(modelUUID string) DomainServices {
+	return domainServices{
+		factory: g.factory.ServicesForModel(modelUUID),
 	}
 }
 
-// serviceFactory is a simple implementation of ServiceFactory.
-type serviceFactory struct {
-	factory servicefactory.ProviderServiceFactory
+// domainServices is a simple implementation of DomainServices.
+type domainServices struct {
+	factory services.ProviderServices
 }
 
 // Model returns the provider model service.
-func (f serviceFactory) Model() ModelService {
+func (f domainServices) Model() ModelService {
 	return f.factory.Model()
 }
 
 // Cloud returns the provider cloud service.
-func (f serviceFactory) Cloud() CloudService {
+func (f domainServices) Cloud() CloudService {
 	return f.factory.Cloud()
 }
 
 // Config returns the provider config service.
-func (f serviceFactory) Config() ConfigService {
+func (f domainServices) Config() ConfigService {
 	return f.factory.Config()
 }
 
 // Credential returns the provider credential service.
-func (f serviceFactory) Credential() CredentialService {
+func (f domainServices) Credential() CredentialService {
 	return f.factory.Credential()
 }
 
-// GetModelProviderServiceFactoryGetter is a helper function that gets a service
+// GetModelProviderServicesGetter is a helper function that gets a service
 // from the manifold.
-// This is a model specific version of GetProviderServiceFactoryGetter. As
-// the service factory is plucked out of the provider service factory already,
-// we have to use a different getter. Ideally we would use the servicefactory
+// This is a model specific version of GetProviderServicesGetter. As
+// the domain services is plucked out of the provider domain services already,
+// we have to use a different getter. Ideally we would use the services
 // directly, but that's plumbed through the model worker manager config.
 // We can't use generics here, as although the types are the same, the nested
 // interfaces are not (invariance).
-// If the provider service factory returned interfaces, we could just point the
-// getter at the service factory directly.
-func GetModelProviderServiceFactoryGetter(getter dependency.Getter, name string) (ServiceFactoryGetter, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory modelworkermanager.ProviderServiceFactoryGetter) ServiceFactoryGetter {
-		return modelServiceFactoryGetter{
+// If the provider domain services returned interfaces, we could just point the
+// getter at the domain services directly.
+func GetModelProviderServicesGetter(getter dependency.Getter, name string) (DomainServicesGetter, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory modelworkermanager.ProviderServicesGetter) DomainServicesGetter {
+		return modelDomainServicesGetter{
 			factory: factory,
 		}
 	})
 }
 
-// modelServiceFactoryGetter is a simple implementation of ServiceFactoryGetter.
-type modelServiceFactoryGetter struct {
-	factory modelworkermanager.ProviderServiceFactoryGetter
+// modelDomainServicesGetter is a simple implementation of DomainServicesGetter.
+type modelDomainServicesGetter struct {
+	factory modelworkermanager.ProviderServicesGetter
 }
 
-// FactoryForModel returns a ProviderServiceFactory for the given model.
-func (g modelServiceFactoryGetter) FactoryForModel(modelUUID string) ServiceFactory {
-	return modelServiceFactory{
-		factory: g.factory.FactoryForModel(modelUUID),
+// ServicesForModel returns a ProviderServices for the given model.
+func (g modelDomainServicesGetter) ServicesForModel(modelUUID string) DomainServices {
+	return modelDomainServices{
+		factory: g.factory.ServicesForModel(modelUUID),
 	}
 }
 
-// modelServiceFactory is a simple implementation of ServiceFactory.
-type modelServiceFactory struct {
-	factory modelworkermanager.ProviderServiceFactory
+// modelDomainServices is a simple implementation of DomainServices.
+type modelDomainServices struct {
+	factory modelworkermanager.ProviderServices
 }
 
 // Model returns the provider model service.
-func (f modelServiceFactory) Model() ModelService {
+func (f modelDomainServices) Model() ModelService {
 	return f.factory.Model()
 }
 
 // Cloud returns the provider cloud service.
-func (f modelServiceFactory) Cloud() CloudService {
+func (f modelDomainServices) Cloud() CloudService {
 	return f.factory.Cloud()
 }
 
 // Config returns the provider config service.
-func (f modelServiceFactory) Config() ConfigService {
+func (f modelDomainServices) Config() ConfigService {
 	return f.factory.Config()
 }
 
 // Credential returns the provider credential service.
-func (f modelServiceFactory) Credential() CredentialService {
+func (f modelDomainServices) Credential() CredentialService {
 	return f.factory.Credential()
 }

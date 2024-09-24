@@ -29,12 +29,12 @@ func newCleanerAPI(ctx facade.ModelContext) (*CleanerAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	serviceFactory := ctx.ServiceFactory()
-	backendService := serviceFactory.SecretBackend()
-	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
+	domainServices := ctx.DomainServices()
+	backendService := domainServices.SecretBackend()
+	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
 		// For removing applications, we don't need a storage registry.
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets: serviceFactory.Secret(
+		Secrets: domainServices.Secret(
 			secretservice.SecretServiceParams{
 				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
 					backendService, ctx.ModelUUID(),
@@ -49,7 +49,7 @@ func newCleanerAPI(ctx facade.ModelContext) (*CleanerAPI, error) {
 		st:             getState(ctx.State()),
 		resources:      ctx.Resources(),
 		objectStore:    ctx.ObjectStore(),
-		machineRemover: serviceFactory.Machine(),
+		machineRemover: domainServices.Machine(),
 		appService:     applicationService,
 	}, nil
 }

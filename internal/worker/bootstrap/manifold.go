@@ -21,7 +21,7 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/bootstrap"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
 	workerstate "github.com/juju/juju/internal/worker/state"
@@ -68,7 +68,7 @@ type ManifoldConfig struct {
 	StateName              string
 	ObjectStoreName        string
 	BootstrapGateName      string
-	ServiceFactoryName     string
+	DomainServicesName     string
 	CharmhubHTTPClientName string
 	ProviderFactoryName    string
 
@@ -95,8 +95,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.BootstrapGateName == "" {
 		return errors.NotValidf("empty BootstrapGateName")
 	}
-	if cfg.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
+	if cfg.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if cfg.CharmhubHTTPClientName == "" {
 		return errors.NotValidf("empty CharmhubHTTPClientName")
@@ -133,7 +133,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.StateName,
 			config.ObjectStoreName,
 			config.BootstrapGateName,
-			config.ServiceFactoryName,
+			config.DomainServicesName,
 			config.CharmhubHTTPClientName,
 			config.ProviderFactoryName,
 		},
@@ -152,15 +152,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
-			var controllerServiceFactory servicefactory.ControllerServiceFactory
-			if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+			var controllerDomainServices services.ControllerDomainServices
+			if err := getter.Get(config.DomainServicesName, &controllerDomainServices); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			// If the controller application exists, then we don't need to
 			// bootstrap. Uninstall the worker, as we don't need it running
 			// anymore.
-			flagService := controllerServiceFactory.Flag()
+			flagService := controllerDomainServices.Flag()
 			if ok, err := config.RequiresBootstrap(ctx, flagService); err != nil {
 				return nil, errors.Trace(err)
 			} else if !ok {
@@ -179,7 +179,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			controllerModel, err := controllerServiceFactory.Model().ControllerModel(ctx)
+			controllerModel, err := controllerDomainServices.Model().ControllerModel(ctx)
 			if err != nil {
 				return nil, fmt.Errorf(
 					"cannot get controller model when making bootstrap worker: %w",
@@ -220,19 +220,19 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var serviceFactoryGetter servicefactory.ServiceFactoryGetter
-			if err := getter.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
+			var domainServicesGetter services.DomainServicesGetter
+			if err := getter.Get(config.DomainServicesName, &domainServicesGetter); err != nil {
 				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
-			controllerModelServiceFactory := serviceFactoryGetter.FactoryForModel(controllerModel.UUID)
+			controllerModelDomainServices := domainServicesGetter.ServicesForModel(controllerModel.UUID)
 
 			// TODO (stickupkid): This should be removed once we get rid of
-			// the policy and move it into the service factory.
+			// the policy and move it into the domain services.
 			prechecker, err := stateenvirons.NewInstancePrechecker(
 				systemState,
-				controllerModelServiceFactory.Cloud(),
-				controllerModelServiceFactory.Credential(),
+				controllerModelDomainServices.Cloud(),
+				controllerModelDomainServices.Credential(),
 			)
 			if err != nil {
 				_ = stTracker.Done()
@@ -245,7 +245,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 			registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-				model, controllerServiceFactory.Cloud(), controllerServiceFactory.Credential(),
+				model, controllerDomainServices.Cloud(), controllerDomainServices.Credential(),
 				stateenvirons.GetNewEnvironFunc(environs.New),
 				stateenvirons.GetNewCAASBrokerFunc(caas.New),
 			)
@@ -254,7 +254,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			applicationService := controllerModelServiceFactory.Application(applicationservice.ApplicationServiceParams{
+			applicationService := controllerModelDomainServices.Application(applicationservice.ApplicationServiceParams{
 				StorageRegistry: registry,
 				Secrets:         applicationservice.NotImplementedSecretService{},
 			})
@@ -262,18 +262,18 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w, err := NewWorker(WorkerConfig{
 				Agent:                   a,
 				ObjectStoreGetter:       objectStoreGetter,
-				ControllerConfigService: controllerServiceFactory.ControllerConfig(),
-				CloudService:            controllerServiceFactory.Cloud(),
-				UserService:             controllerServiceFactory.Access(),
-				StorageService:          controllerModelServiceFactory.Storage(registry),
+				ControllerConfigService: controllerDomainServices.ControllerConfig(),
+				CloudService:            controllerDomainServices.Cloud(),
+				UserService:             controllerDomainServices.Access(),
+				StorageService:          controllerModelDomainServices.Storage(registry),
 				ProviderRegistry:        registry,
 				ApplicationService:      applicationService,
 				ControllerModel:         controllerModel,
-				ModelConfigService:      controllerModelServiceFactory.Config(),
-				KeyManagerService:       controllerModelServiceFactory.KeyManager(),
+				ModelConfigService:      controllerModelDomainServices.Config(),
+				KeyManagerService:       controllerModelDomainServices.KeyManager(),
 				FlagService:             flagService,
-				NetworkService:          controllerModelServiceFactory.Network(),
-				BakeryConfigService:     controllerServiceFactory.Macaroon(),
+				NetworkService:          controllerModelDomainServices.Network(),
+				BakeryConfigService:     controllerDomainServices.Macaroon(),
 				SystemState: &stateShim{
 					State:      systemState,
 					prechecker: prechecker,

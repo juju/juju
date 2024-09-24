@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/core/auditlog"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 )
 
 type manifoldSuite struct {
@@ -35,11 +35,11 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg.AgentName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg.ServiceFactoryName = ""
+	cfg.DomainServicesName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
-var expectedInputs = []string{"agent", "service-factory"}
+var expectedInputs = []string{"agent", "domain-services"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
@@ -64,7 +64,7 @@ func (s *manifoldSuite) expectAgentConfig(c *gc.C) {
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		AgentName:          "agent",
-		ServiceFactoryName: "service-factory",
+		DomainServicesName: "domain-services",
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
@@ -77,18 +77,18 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]interface{}{
 		"agent":           s.agent,
-		"service-factory": &stubServiceFactoryGetter{},
+		"domain-services": &stubDomainServicesGetter{},
 	}
 	return dt.StubGetter(resources)
 }
 
-// Note: This replicates the ability to get a controller service factory and
-// a model service factory from the service factory getter.
-type stubServiceFactoryGetter struct {
-	servicefactory.ServiceFactory
+// Note: This replicates the ability to get a controller domain services and
+// a model domain services from the domain services getter.
+type stubDomainServicesGetter struct {
+	services.DomainServices
 }
 
-func (s *stubServiceFactoryGetter) ControllerConfig() *controllerconfigservice.Service {
+func (s *stubDomainServicesGetter) ControllerConfig() *controllerconfigservice.Service {
 	return nil
 }
 

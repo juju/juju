@@ -32,8 +32,8 @@ func newSecretsDrainAPI(stdCtx context.Context, ctx facade.ModelContext) (*commo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	serviceFactory := ctx.ServiceFactory()
-	backendService := serviceFactory.SecretBackend()
+	domainServices := ctx.DomainServices()
+	backendService := domainServices.SecretBackend()
 
 	authTag := ctx.Auth().GetAuthTag()
 
@@ -43,7 +43,7 @@ func newSecretsDrainAPI(stdCtx context.Context, ctx facade.ModelContext) (*commo
 		ctx.Logger().Child("secretsdrain"),
 		leadershipChecker,
 		ctx.ModelUUID(),
-		serviceFactory.Secret(secretservice.SecretServiceParams{
+		domainServices.Secret(secretservice.SecretServiceParams{
 			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
 				backendService, ctx.ModelUUID(),
 			),

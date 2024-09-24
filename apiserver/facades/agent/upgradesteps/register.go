@@ -35,7 +35,7 @@ func newFacadeV2(ctx facade.ModelContext) (*UpgradeStepsAPIV2, error) {
 func newFacadeV3(ctx facade.ModelContext) (*UpgradeStepsAPI, error) {
 	return NewUpgradeStepsAPI(
 		ctx.State(),
-		ctx.ServiceFactory().ControllerConfig(),
+		ctx.DomainServices().ControllerConfig(),
 		ctx.Resources(),
 		ctx.Auth(),
 		ctx.Logger().Child("upgradesteps"),

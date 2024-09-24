@@ -37,7 +37,7 @@ func makeStateCrossModelRelationsAPI(stdCtx context.Context, ctx facade.ModelCon
 		return nil, err
 	}
 
-	modelInfo, err := ctx.ServiceFactory().ModelInfo().GetModelInfo(stdCtx)
+	modelInfo, err := ctx.DomainServices().ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, fmt.Errorf("retrieving model info: %w", err)
 	}
@@ -51,13 +51,13 @@ func makeStateCrossModelRelationsAPI(stdCtx context.Context, ctx facade.ModelCon
 		firewall.StateShim(st, m),
 		ctx.Resources(), ctx.Auth(),
 		authCtxt.(*commoncrossmodel.AuthContext),
-		ctx.ServiceFactory().Secret(
+		ctx.DomainServices().Secret(
 			secretservice.SecretServiceParams{
 				BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
 				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
 			},
 		),
-		ctx.ServiceFactory().Config(),
+		ctx.DomainServices().Config(),
 		firewall.WatchEgressAddressesForRelations,
 		watchRelationLifeSuspendedStatus,
 		watchOfferStatus,

@@ -23,7 +23,7 @@ func Register(registry facade.FacadeRegistry) {
 
 // newStateFacade provides the signature required for facade registration.
 func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
-	applicationService := ctx.ServiceFactory().Application(applicationservice.ApplicationServiceParams{
+	applicationService := ctx.DomainServices().Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
 		Secrets:         applicationservice.NotImplementedSecretService{},
 	})
@@ -31,7 +31,7 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		ctx.WatcherRegistry(),
 		ctx.Resources(),
 		ctx.Auth(),
-		ctx.ServiceFactory().Network(),
+		ctx.DomainServices().Network(),
 		applicationService,
 		stateShim{ctx.State()},
 		clock.WallClock,

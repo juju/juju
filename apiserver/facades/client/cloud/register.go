@@ -21,12 +21,12 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacadeV7 is used for API registration.
 func newFacadeV7(stdCtx stdcontext.Context, context facade.ModelContext) (*CloudAPI, error) {
-	serviceFactory := context.ServiceFactory()
+	domainServices := context.DomainServices()
 	systemState, err := context.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	credentialService := serviceFactory.Credential().
+	credentialService := domainServices.Credential().
 		WithLegacyUpdater(systemState.CloudCredentialUpdated).
 		WithLegacyRemover(systemState.RemoveModelsCredential)
 
@@ -39,8 +39,8 @@ func newFacadeV7(stdCtx stdcontext.Context, context facade.ModelContext) (*Cloud
 		stdCtx,
 		systemState.ControllerTag(),
 		controllerInfo.CloudName,
-		serviceFactory.Cloud(),
-		serviceFactory.Access(),
+		domainServices.Cloud(),
+		domainServices.Access(),
 		credentialService,
 		context.Auth(), context.Logger().Child("cloud"),
 	)

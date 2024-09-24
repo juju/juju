@@ -66,7 +66,7 @@ func (s *pubsubSuite) TestNoAuth(c *gc.C) {
 }
 
 func (s *pubsubSuite) TestRejectsUserLogins(c *gc.C) {
-	userService := s.ControllerServiceFactory(c).Access()
+	userService := s.ControllerDomainServices(c).Access()
 	userTag := names.NewUserTag("bobbrown")
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        user.NameFromTag(userTag),

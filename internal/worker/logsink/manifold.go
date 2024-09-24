@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 )
 
@@ -35,7 +35,7 @@ type ManifoldConfig struct {
 	// These attributes are the named workers this worker depends on.
 
 	ClockName          string
-	ServiceFactoryName string
+	DomainServicesName string
 	AgentName          string
 }
 
@@ -50,8 +50,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
 	}
-	if config.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
+	if config.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
@@ -65,17 +65,17 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.ServiceFactoryName,
+			config.DomainServicesName,
 			config.AgentName,
 			config.ClockName,
 		},
 		Output: outputFunc,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
-			var controllerServiceFactory servicefactory.ControllerServiceFactory
-			if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+			var controllerDomainServices services.ControllerDomainServices
+			if err := getter.Get(config.DomainServicesName, &controllerDomainServices); err != nil {
 				return nil, errors.Trace(err)
 			}
-			controllerCfg, err := controllerServiceFactory.ControllerConfig().ControllerConfig(ctx)
+			controllerCfg, err := controllerDomainServices.ControllerConfig().ControllerConfig(ctx)
 			if err != nil {
 				return nil, errors.Annotate(err, "cannot read controller config")
 			}

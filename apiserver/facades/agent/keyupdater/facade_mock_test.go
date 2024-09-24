@@ -18,7 +18,7 @@ import (
 	logger "github.com/juju/juju/core/logger"
 	model "github.com/juju/juju/core/model"
 	objectstore "github.com/juju/juju/core/objectstore"
-	servicefactory "github.com/juju/juju/internal/servicefactory"
+	services "github.com/juju/juju/internal/services"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
@@ -231,6 +231,44 @@ func (c *MockModelContextDisposeCall) Do(f func()) *MockModelContextDisposeCall 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelContextDisposeCall) DoAndReturn(f func()) *MockModelContextDisposeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DomainServices mocks base method.
+func (m *MockModelContext) DomainServices() services.DomainServices {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DomainServices")
+	ret0, _ := ret[0].(services.DomainServices)
+	return ret0
+}
+
+// DomainServices indicates an expected call of DomainServices.
+func (mr *MockModelContextMockRecorder) DomainServices() *MockModelContextDomainServicesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainServices", reflect.TypeOf((*MockModelContext)(nil).DomainServices))
+	return &MockModelContextDomainServicesCall{Call: call}
+}
+
+// MockModelContextDomainServicesCall wrap *gomock.Call
+type MockModelContextDomainServicesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelContextDomainServicesCall) Return(arg0 services.DomainServices) *MockModelContextDomainServicesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelContextDomainServicesCall) Do(f func() services.DomainServices) *MockModelContextDomainServicesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelContextDomainServicesCall) DoAndReturn(f func() services.DomainServices) *MockModelContextDomainServicesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -921,44 +959,6 @@ func (c *MockModelContextResourcesCall) Do(f func() facade.Resources) *MockModel
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelContextResourcesCall) DoAndReturn(f func() facade.Resources) *MockModelContextResourcesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ServiceFactory mocks base method.
-func (m *MockModelContext) ServiceFactory() servicefactory.ServiceFactory {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ServiceFactory")
-	ret0, _ := ret[0].(servicefactory.ServiceFactory)
-	return ret0
-}
-
-// ServiceFactory indicates an expected call of ServiceFactory.
-func (mr *MockModelContextMockRecorder) ServiceFactory() *MockModelContextServiceFactoryCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServiceFactory", reflect.TypeOf((*MockModelContext)(nil).ServiceFactory))
-	return &MockModelContextServiceFactoryCall{Call: call}
-}
-
-// MockModelContextServiceFactoryCall wrap *gomock.Call
-type MockModelContextServiceFactoryCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelContextServiceFactoryCall) Return(arg0 servicefactory.ServiceFactory) *MockModelContextServiceFactoryCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelContextServiceFactoryCall) Do(f func() servicefactory.ServiceFactory) *MockModelContextServiceFactoryCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelContextServiceFactoryCall) DoAndReturn(f func() servicefactory.ServiceFactory) *MockModelContextServiceFactoryCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -15,7 +15,7 @@ import (
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
 	"github.com/juju/juju/internal/worker/gate"
@@ -53,7 +53,7 @@ type ManifoldConfig struct {
 	AgentName            string
 	APICallerName        string
 	UpgradeStepsGateName string
-	ServiceFactoryName   string
+	DomainServicesName   string
 	PreUpgradeSteps      upgrades.PreUpgradeStepsFunc
 	UpgradeSteps         upgrades.UpgradeStepsFunc
 	NewAgentStatusSetter func(context.Context, base.APICaller) (upgradesteps.StatusSetter, error)
@@ -74,8 +74,8 @@ func (c ManifoldConfig) Validate() error {
 	if c.UpgradeStepsGateName == "" {
 		return errors.NotValidf("empty UpgradeStepsGateName")
 	}
-	if c.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
+	if c.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if c.PreUpgradeSteps == nil {
 		return errors.NotValidf("nil PreUpgradeSteps")
@@ -100,8 +100,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		config.APICallerName,
 		config.UpgradeStepsGateName,
 	}
-	if config.ServiceFactoryName != "" {
-		inputs = append(inputs, config.ServiceFactoryName)
+	if config.DomainServicesName != "" {
+		inputs = append(inputs, config.DomainServicesName)
 	}
 	return dependency.Manifold{
 		Inputs: inputs,
@@ -159,8 +159,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			// Service factory is used to get the upgrade service and
 			// then we can locate all the model uuids.
-			var serviceFactoryGetter servicefactory.ControllerServiceFactory
-			if err := getter.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
+			var domainServicesGetter services.ControllerDomainServices
+			if err := getter.Get(config.DomainServicesName, &domainServicesGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -168,7 +168,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				upgradeStepsLock,
 				agent,
 				apiCaller,
-				serviceFactoryGetter.Upgrade(),
+				domainServicesGetter.Upgrade(),
 				config.PreUpgradeSteps,
 				config.UpgradeSteps,
 				statusSetter,

@@ -1,7 +1,7 @@
 // Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package servicefactory
+package domainservices
 
 import (
 	"github.com/juju/errors"
@@ -16,7 +16,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 )
 
 type workerSuite struct {
@@ -52,15 +52,15 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.NewServiceFactoryGetter = nil
+	cfg.NewDomainServicesGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.NewControllerServiceFactory = nil
+	cfg.NewControllerDomainServices = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.NewModelServiceFactory = nil
+	cfg.NewModelDomainServices = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
@@ -71,43 +71,43 @@ func (s *workerSuite) getConfig() Config {
 		ProviderFactory:   s.providerFactory,
 		ObjectStoreGetter: s.objectStoreGetter,
 		Logger:            s.logger,
-		NewServiceFactoryGetter: func(servicefactory.ControllerServiceFactory, changestream.WatchableDBGetter, logger.Logger, ModelServiceFactoryFn, providertracker.ProviderFactory, objectstore.ObjectStoreGetter) servicefactory.ServiceFactoryGetter {
-			return s.serviceFactoryGetter
+		NewDomainServicesGetter: func(services.ControllerDomainServices, changestream.WatchableDBGetter, logger.Logger, ModelDomainServicesFn, providertracker.ProviderFactory, objectstore.ObjectStoreGetter) services.DomainServicesGetter {
+			return s.domainServicesGetter
 		},
-		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, logger.Logger) servicefactory.ControllerServiceFactory {
-			return s.controllerServiceFactory
+		NewControllerDomainServices: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, logger.Logger) services.ControllerDomainServices {
+			return s.controllerDomainServices
 		},
-		NewModelServiceFactory: func(coremodel.UUID, changestream.WatchableDBGetter, providertracker.ProviderFactory, objectstore.ModelObjectStoreGetter, logger.Logger) servicefactory.ModelServiceFactory {
-			return s.modelServiceFactory
+		NewModelDomainServices: func(coremodel.UUID, changestream.WatchableDBGetter, providertracker.ProviderFactory, objectstore.ModelObjectStoreGetter, logger.Logger) services.ModelDomainServices {
+			return s.modelDomainServices
 		},
 	}
 }
 
-func (s *workerSuite) TestWorkerControllerFactory(c *gc.C) {
+func (s *workerSuite) TestWorkerControllerServices(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	srvFact, ok := w.(*serviceFactoryWorker)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement serviceFactoryWorker"))
+	srvFact, ok := w.(*domainServicesWorker)
+	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement domainServicesWorker"))
 
-	factory := srvFact.ControllerFactory()
+	factory := srvFact.ControllerServices()
 	c.Assert(factory, gc.NotNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerFactoryGetter(c *gc.C) {
+func (s *workerSuite) TestWorkerServicesGetter(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	srvFact, ok := w.(*serviceFactoryWorker)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement serviceFactoryWorker"))
+	srvFact, ok := w.(*domainServicesWorker)
+	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement domainServicesWorker"))
 
-	factory := srvFact.FactoryGetter()
+	factory := srvFact.ServicesGetter()
 	c.Assert(factory, gc.NotNil)
 
 	workertest.CleanKill(c, w)

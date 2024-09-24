@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	coredependency "github.com/juju/juju/core/dependency"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 )
 
@@ -26,7 +26,7 @@ type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) 
 // auditconfigupdater in a dependency.Engine.
 type ManifoldConfig struct {
 	AgentName                  string
-	ServiceFactoryName         string
+	DomainServicesName         string
 	NewWorker                  func(ControllerConfigService, auditlog.Config, AuditLogFactory) (worker.Worker, error)
 	GetControllerConfigService GetControllerConfigServiceFunc
 }
@@ -36,8 +36,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
-	if config.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
+	if config.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -54,7 +54,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.ServiceFactoryName,
+			config.DomainServicesName,
 		},
 		Start:  config.start,
 		Output: output,
@@ -71,7 +71,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfigService, err := config.GetControllerConfigService(getter, config.ServiceFactoryName)
+	controllerConfigService, err := config.GetControllerConfigService(getter, config.DomainServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -134,7 +134,7 @@ func initialConfig(cfg controller.Config) (auditlog.Config, error) {
 // GetControllerConfigService is a helper function that gets a service from the
 // manifold.
 func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) ControllerConfigService {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerDomainServices) ControllerConfigService {
 		return factory.ControllerConfig()
 	})
 }

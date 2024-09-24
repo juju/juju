@@ -24,6 +24,6 @@ func newFacade(ctx facade.ModelContext) (*API, error) {
 		&backendShim{State: ctx.State()},
 		ctx.Resources(),
 		ctx.Auth(),
-		ctx.ServiceFactory().Machine(),
+		ctx.DomainServices().Machine(),
 	)
 }

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -131,14 +131,14 @@ func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.Tracer
 	return trace.NoopTracer{}, nil
 }
 
-// Note: This replicates the ability to get a controller service factory and
-// a model service factory from the service factory getter.
+// Note: This replicates the ability to get a controller domain services and
+// a model domain services from the domain services getter.
 type stubObjectStoreServicesGetter struct {
-	servicefactory.ObjectStoreServices
-	servicefactory.ObjectStoreServicesGetter
+	services.ObjectStoreServices
+	services.ObjectStoreServicesGetter
 }
 
-func (s *stubObjectStoreServicesGetter) FactoryForModel(model.UUID) servicefactory.ObjectStoreServices {
+func (s *stubObjectStoreServicesGetter) ServicesForModel(model.UUID) services.ObjectStoreServices {
 	return &stubObjectStoreServices{}
 }
 
@@ -147,7 +147,7 @@ func (s *stubObjectStoreServicesGetter) ControllerConfig() *controllerconfigserv
 }
 
 type stubObjectStoreServices struct {
-	servicefactory.ObjectStoreServices
+	services.ObjectStoreServices
 }
 
 func (s *stubObjectStoreServices) ControllerConfig() *controllerconfigservice.WatchableService {

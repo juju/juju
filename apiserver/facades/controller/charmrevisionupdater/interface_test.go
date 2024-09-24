@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/state"
 )
 
@@ -178,7 +178,7 @@ type facadeContextShim struct {
 	authorizer          facade.Authorizer
 	logger              corelogger.Logger
 	httpClient          facade.HTTPClient
-	serviceFactory      servicefactory.ServiceFactory
+	domainServices      services.DomainServices
 }
 
 func (s facadeContextShim) HTTPClient(_ facade.HTTPClientPurpose) (facade.HTTPClient, error) {
@@ -201,6 +201,6 @@ func (s facadeContextShim) ObjectStore() objectstore.ObjectStore {
 	return nil
 }
 
-func (s facadeContextShim) ServiceFactory() servicefactory.ServiceFactory {
-	return s.serviceFactory
+func (s facadeContextShim) DomainServices() services.DomainServices {
+	return s.domainServices
 }

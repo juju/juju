@@ -51,10 +51,10 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 		return nil, errors.Trace(err)
 	}
 	resources := ctx.Resources()
-	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
-	cloudService := ctx.ServiceFactory().Cloud()
-	credentialService := ctx.ServiceFactory().Credential()
-	modelAgentService := ctx.ServiceFactory().Agent()
+	controllerConfigGetter := ctx.DomainServices().ControllerConfig()
+	cloudService := ctx.DomainServices().Cloud()
+	credentialService := ctx.DomainServices().Credential()
+	modelAgentService := ctx.DomainServices().Agent()
 	switch tag.(type) {
 	case names.MachineTag, names.ControllerAgentTag, names.ApplicationTag, names.ModelTag:
 		return NewUpgraderAPI(controllerConfigGetter, ctrlSt, st, resources, auth, ctx.Logger().Child("upgrader"), cloudService, credentialService, modelAgentService, ctx.ControllerObjectStore())

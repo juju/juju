@@ -54,15 +54,15 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	serviceFactory := s.ControllerServiceFactory(c)
-	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(context.Background())
+	domainServices := s.ControllerDomainServices(c)
+	modelInfo, err := domainServices.ModelInfo().GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(m, serviceFactory.Cloud(), serviceFactory.Credential())
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(m, domainServices.Cloud(), domainServices.Credential())
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
-	serviceFactoryGetter := s.ServiceFactoryGetter(c, s.NoopObjectStore(c))
-	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(s.st.ModelUUID())).Storage(registry)
+	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
+	storageService := domainServicesGetter.ServicesForModel(model.UUID(s.st.ModelUUID())).Storage(registry)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -76,9 +76,9 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 		nil, // tests which need a watcher factory need to create an api with a non nil value.
 		backend,
 		storageBackend,
-		s.DefaultModelServiceFactory(c).BlockDevice(),
-		s.ControllerServiceFactory(c).Config(),
-		s.DefaultModelServiceFactory(c).Machine(),
+		s.DefaultModelDomainServices(c).BlockDevice(),
+		s.ControllerDomainServices(c).Config(),
+		s.DefaultModelDomainServices(c).Machine(),
 		s.resources,
 		s.authorizer,
 		registry,
@@ -186,7 +186,7 @@ func (s *caasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 	s.setupFilesystems(c)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	modelInfo, err := s.ControllerServiceFactory(c).ModelInfo().GetModelInfo(context.Background())
+	modelInfo, err := s.ControllerDomainServices(c).ModelInfo().GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "application-mariadb"},

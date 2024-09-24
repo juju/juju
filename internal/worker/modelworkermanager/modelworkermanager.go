@@ -22,7 +22,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/pki"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/state"
 )
 
@@ -82,16 +82,16 @@ type GetControllerConfigFunc func(ctx context.Context, controllerConfigService C
 // NewModelConfig holds the information required by the NewModelWorkerFunc
 // to start the workers for the specified model
 type NewModelConfig struct {
-	Authority                    pki.Authority
-	ModelName                    string
-	ModelOwner                   string
-	ModelUUID                    string
-	ModelType                    state.ModelType
-	ModelLogger                  ModelLogger
-	ModelMetrics                 MetricSink
-	ControllerConfig             controller.Config
-	ProviderServiceFactoryGetter ProviderServiceFactoryGetter
-	ServiceFactory               servicefactory.ServiceFactory
+	Authority              pki.Authority
+	ModelName              string
+	ModelOwner             string
+	ModelUUID              string
+	ModelType              state.ModelType
+	ModelLogger            ModelLogger
+	ModelMetrics           MetricSink
+	ControllerConfig       controller.Config
+	ProviderServicesGetter ProviderServicesGetter
+	DomainServices         services.DomainServices
 }
 
 // NewModelWorkerFunc should return a worker responsible for running
@@ -102,19 +102,19 @@ type NewModelWorkerFunc func(config NewModelConfig) (worker.Worker, error)
 // Config holds the dependencies and configuration necessary to run
 // a model worker manager.
 type Config struct {
-	Authority                    pki.Authority
-	Logger                       corelogger.Logger
-	MachineID                    string
-	ModelWatcher                 ModelWatcher
-	ModelMetrics                 ModelMetrics
-	Mux                          *apiserverhttp.Mux
-	Controller                   Controller
-	NewModelWorker               NewModelWorkerFunc
-	ErrorDelay                   time.Duration
-	LogSink                      corelogger.ModelLogger
-	ProviderServiceFactoryGetter ProviderServiceFactoryGetter
-	ServiceFactoryGetter         servicefactory.ServiceFactoryGetter
-	GetControllerConfig          GetControllerConfigFunc
+	Authority              pki.Authority
+	Logger                 corelogger.Logger
+	MachineID              string
+	ModelWatcher           ModelWatcher
+	ModelMetrics           ModelMetrics
+	Mux                    *apiserverhttp.Mux
+	Controller             Controller
+	NewModelWorker         NewModelWorkerFunc
+	ErrorDelay             time.Duration
+	LogSink                corelogger.ModelLogger
+	ProviderServicesGetter ProviderServicesGetter
+	DomainServicesGetter   services.DomainServicesGetter
+	GetControllerConfig    GetControllerConfigFunc
 }
 
 // Validate returns an error if config cannot be expected to drive
@@ -147,11 +147,11 @@ func (config Config) Validate() error {
 	if config.ErrorDelay <= 0 {
 		return errors.NotValidf("non-positive ErrorDelay")
 	}
-	if config.ProviderServiceFactoryGetter == nil {
-		return errors.NotValidf("nil ProviderServiceFactoryGetter")
+	if config.ProviderServicesGetter == nil {
+		return errors.NotValidf("nil ProviderServicesGetter")
 	}
-	if config.ServiceFactoryGetter == nil {
-		return errors.NotValidf("nil ServiceFactoryGetter")
+	if config.DomainServicesGetter == nil {
+		return errors.NotValidf("nil DomainServicesGetter")
 	}
 	if config.GetControllerConfig == nil {
 		return errors.NotValidf("nil GetControllerConfig")
@@ -282,16 +282,16 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 		modelName := fmt.Sprintf("%q (%s)", corelogger.ModelFilePrefix(cfg.ModelOwner, cfg.ModelName), cfg.ModelUUID)
 		m.config.Logger.Debugf("starting workers for model %s", modelName)
 
-		// Get the provider service factory for the model.
-		cfg.ProviderServiceFactoryGetter = m.config.ProviderServiceFactoryGetter
-		cfg.ServiceFactory = m.config.ServiceFactoryGetter.FactoryForModel(model.UUID(modelUUID))
+		// Get the provider domain services for the model.
+		cfg.ProviderServicesGetter = m.config.ProviderServicesGetter
+		cfg.DomainServices = m.config.DomainServicesGetter.ServicesForModel(model.UUID(modelUUID))
 
 		// Get the controller config for the model worker so that we correctly
 		// handle the case where the controller config changes between model
 		// worker restarts.
 		ctx := m.catacomb.Context(context.Background())
 
-		controllerConfigService := cfg.ServiceFactory.ControllerConfig()
+		controllerConfigService := cfg.DomainServices.ControllerConfig()
 		controllerConfig, err := m.config.GetControllerConfig(ctx, controllerConfigService)
 		if err != nil {
 			return nil, errors.Annotate(err, "unable to get controller config")

@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 )
 
 type manifoldSuite struct {
@@ -87,7 +87,7 @@ func (s *manifoldSuite) TestOutputObjectStoreServicesGetter(c *gc.C) {
 
 	manifold := ManifoldConfig{}
 
-	var factory servicefactory.ObjectStoreServicesGetter
+	var factory services.ObjectStoreServicesGetter
 	err = manifold.output(w, &factory)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -118,10 +118,10 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewWorker: func(Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewObjectStoreServices: func(model.UUID, changestream.WatchableDBGetter, logger.Logger) servicefactory.ObjectStoreServices {
+		NewObjectStoreServices: func(model.UUID, changestream.WatchableDBGetter, logger.Logger) services.ObjectStoreServices {
 			return nil
 		},
-		NewObjectStoreServicesGetter: func(ObjectStoreServicesFn, changestream.WatchableDBGetter, logger.Logger) servicefactory.ObjectStoreServicesGetter {
+		NewObjectStoreServicesGetter: func(ObjectStoreServicesFn, changestream.WatchableDBGetter, logger.Logger) services.ObjectStoreServicesGetter {
 			return nil
 		},
 	}

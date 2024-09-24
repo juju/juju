@@ -33,15 +33,15 @@ func newMachinerAPI(stdCtx context.Context, ctx facade.ModelContext) (*MachinerA
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	serviceFactory := ctx.ServiceFactory()
+	domainServices := ctx.DomainServices()
 	return NewMachinerAPIForState(
 		stdCtx,
 		systemState,
 		ctx.State(),
-		serviceFactory.ControllerConfig(),
-		serviceFactory.Cloud(),
-		serviceFactory.Network(),
-		serviceFactory.Machine(),
+		domainServices.ControllerConfig(),
+		domainServices.Cloud(),
+		domainServices.Network(),
+		domainServices.Machine(),
 		ctx.Resources(),
 		ctx.Auth(),
 	)

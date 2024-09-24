@@ -42,16 +42,16 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelInfo, err := s.ControllerServiceFactory(c).ModelInfo().GetModelInfo(context.Background())
+	modelInfo, err := s.ControllerDomainServices(c).ModelInfo().GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = storageprovisioner.NewStorageProvisionerAPIv4(
 		context.Background(),
 		nil,
 		backend,
 		storageBackend,
-		s.DefaultModelServiceFactory(c).BlockDevice(),
-		s.ControllerServiceFactory(c).Config(),
-		s.DefaultModelServiceFactory(c).Machine(),
+		s.DefaultModelDomainServices(c).BlockDevice(),
+		s.ControllerDomainServices(c).Config(),
+		s.DefaultModelDomainServices(c).Machine(),
 		common.NewResources(),
 		authorizer,
 		nil, nil,

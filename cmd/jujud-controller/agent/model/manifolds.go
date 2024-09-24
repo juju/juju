@@ -23,7 +23,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/pki"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/actionpruner"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/apicaller"
@@ -121,11 +121,11 @@ type ManifoldsConfig struct {
 	// worker.
 	NewMigrationMaster func(migrationmaster.Config) (worker.Worker, error)
 
-	// ProviderServiceFactoryGetter is used to access the provider service.
-	ProviderServiceFactoryGetter modelworkermanager.ProviderServiceFactoryGetter
+	// ProviderServicesGetter is used to access the provider service.
+	ProviderServicesGetter modelworkermanager.ProviderServicesGetter
 
-	// ServiceFactory is used to access the service factory.
-	ServiceFactory servicefactory.ServiceFactory
+	// DomainServices is used to access the domain services.
+	DomainServices services.DomainServices
 }
 
 // commonManifolds returns a set of interdependent dependency manifolds that will
@@ -155,20 +155,20 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:        config.LoggingContext.GetLogger("juju.worker.apicaller"),
 		}),
 
-		// The provider service factory is used to access the provider service.
+		// The provider domain services is used to access the provider service.
 		// It's injected into the model worker manager so that it can be used
 		// by the provider and broker workers.
 		providerServiceFactoriesName: dependency.Manifold{
 			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
-				return engine.NewValueWorker(config.ProviderServiceFactoryGetter)
+				return engine.NewValueWorker(config.ProviderServicesGetter)
 			},
 			Output: engine.ValueWorkerOutput,
 		},
 
-		// ServiceFactory is used to access the service factory.
-		serviceFactoryName: dependency.Manifold{
+		// DomainServices is used to access the domain services.
+		domainServicesName: dependency.Manifold{
 			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
-				return engine.NewValueWorker(config.ServiceFactory)
+				return engine.NewValueWorker(config.DomainServices)
 			},
 			Output: engine.ValueWorkerOutput,
 		},
@@ -309,7 +309,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		statusHistoryPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
 			APICallerName:      apiCallerName,
-			ServiceFactoryName: serviceFactoryName,
+			DomainServicesName: domainServicesName,
 			Clock:              config.Clock,
 			NewWorker:          statushistorypruner.New,
 			NewClient:          statushistorypruner.NewClient,
@@ -318,7 +318,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		actionPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
 			APICallerName:      apiCallerName,
-			ServiceFactoryName: serviceFactoryName,
+			DomainServicesName: domainServicesName,
 			Clock:              config.Clock,
 			NewWorker:          actionpruner.New,
 			NewClient:          actionpruner.NewClient,
@@ -339,10 +339,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.SingularTrackerManifold(modelTag, providertracker.ManifoldConfig{
-			ProviderServiceFactoriesName:    providerServiceFactoriesName,
-			NewWorker:                       providertracker.NewWorker,
-			NewTrackerWorker:                providertracker.NewTrackerWorker,
-			GetProviderServiceFactoryGetter: providertracker.GetModelProviderServiceFactoryGetter,
+			ProviderServiceFactoriesName: providerServiceFactoriesName,
+			NewWorker:                    providertracker.NewWorker,
+			NewTrackerWorker:             providertracker.NewTrackerWorker,
+			GetProviderServicesGetter:    providertracker.GetModelProviderServicesGetter,
 			GetIAASProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
 				return config.NewEnvironFunc(ctx, args)
 			}),
@@ -419,7 +419,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:          agentName,
 			APICallerName:      apiCallerName,
 			EnvironName:        providerTrackerName,
-			ServiceFactoryName: serviceFactoryName,
+			DomainServicesName: domainServicesName,
 			GetMachineService:  provisioner.GetMachineService,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.provisioner"),
 
@@ -706,7 +706,7 @@ const (
 	loggingConfigUpdaterName     = "logging-config-updater"
 	instanceMutaterName          = "instance-mutater"
 	providerServiceFactoriesName = "provider-service-factories"
-	serviceFactoryName           = "service-factory"
+	domainServicesName           = "domain-services"
 
 	caasFirewallerName             = "caas-firewaller"
 	caasModelOperatorName          = "caas-model-operator"

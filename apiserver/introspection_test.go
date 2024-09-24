@@ -41,7 +41,7 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 func (s *introspectionSuite) TestAccess(c *gc.C) {
 	s.testAccess(c, testing.AdminUser.String(), testing.AdminSecret)
 
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 	userTag := names.NewUserTag("bobbrown")
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        user.NameFromTag(userTag),
@@ -74,7 +74,7 @@ func (s *introspectionSuite) TestAccess(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestAccessDenied(c *gc.C) {
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 	userTag := names.NewUserTag("bobbrown")
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        user.NameFromTag(userTag),

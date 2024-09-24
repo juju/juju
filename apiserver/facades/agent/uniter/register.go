@@ -30,11 +30,11 @@ func Register(registry facade.FacadeRegistry) {
 
 // newUniterAPI creates a new instance of the core Uniter API.
 func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, error) {
-	serviceFactory := ctx.ServiceFactory()
-	modelInfoService := serviceFactory.ModelInfo()
+	domainServices := ctx.DomainServices()
+	modelInfoService := domainServices.ModelInfo()
 
-	backendService := serviceFactory.SecretBackend()
-	secretService := serviceFactory.Secret(
+	backendService := domainServices.SecretBackend()
+	secretService := domainServices.Secret(
 		secretservice.SecretServiceParams{
 			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
 				backendService, ctx.ModelUUID(),
@@ -44,23 +44,23 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 			),
 		},
 	)
-	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
+	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
 		Secrets:         secretService,
 	})
 
 	return newUniterAPIWithServices(
 		stdCtx, ctx,
-		serviceFactory.ControllerConfig(),
-		serviceFactory.Config(),
+		domainServices.ControllerConfig(),
+		domainServices.Config(),
 		modelInfoService,
 		secretService,
-		serviceFactory.Network(),
-		serviceFactory.Machine(),
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
+		domainServices.Network(),
+		domainServices.Machine(),
+		domainServices.Cloud(),
+		domainServices.Credential(),
 		applicationService,
-		serviceFactory.UnitState(),
+		domainServices.UnitState(),
 	)
 }
 
@@ -111,7 +111,7 @@ func newUniterAPIWithServices(
 		return nil, errors.Trace(err)
 	}
 	storageAPI, err := newStorageAPI(
-		stateShim{st}, storageAccessor, context.ServiceFactory().BlockDevice(), resources, accessUnit)
+		stateShim{st}, storageAccessor, context.DomainServices().BlockDevice(), resources, accessUnit)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
