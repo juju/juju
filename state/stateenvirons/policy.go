@@ -23,12 +23,9 @@ import (
 // environStatePolicy implements state.Policy in
 // terms of environs.Environ and related types.
 type environStatePolicy struct {
-	st                *state.State
-	cloudService      CloudService
-	credentialService CredentialService
-	// environStatePolicy is used in both model and multimodel facades.
-	// Allow either to be used though prefer modelConfigService in code.
-	modelConfigService       ModelConfigService
+	st                       *state.State
+	cloudService             CloudService
+	credentialService        CredentialService
 	modelConfigServiceGetter modelConfigServiceGetter
 	getEnviron               NewEnvironFunc
 	getBroker                NewCAASBrokerFunc
@@ -78,8 +75,8 @@ func (p *environStatePolicy) getDeployChecker() (deployChecker, error) {
 	if p.credentialService == nil {
 		return nil, errors.NotSupportedf("deploy check without credential service")
 	}
-	if p.modelConfigServiceGetter == nil && p.modelConfigService == nil {
-		return nil, errors.NotSupportedf("deploy check without model config or model config getter")
+	if p.modelConfigServiceGetter == nil {
+		return nil, errors.NotSupportedf("deploy check without model config service getter")
 	}
 	if p.checker != nil {
 		return p.checker, nil
@@ -90,10 +87,7 @@ func (p *environStatePolicy) getDeployChecker() (deployChecker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	modelConfigService := p.modelConfigService
-	if modelConfigService == nil {
-		modelConfigService = p.modelConfigServiceGetter(coremodel.UUID(model.UUID()))
-	}
+	modelConfigService := p.modelConfigServiceGetter(coremodel.UUID(model.UUID()))
 	if model.Type() == state.ModelTypeIAAS {
 		p.checker, err = p.getEnviron(model, p.cloudService, p.credentialService, modelConfigService)
 	} else {
@@ -132,8 +126,8 @@ func (p *environStatePolicy) StorageServices() (state.StoragePoolGetter, storage
 	if p.storageServiceGetter == nil {
 		return nil, nil, errors.NotSupportedf("StorageServices check without storage pool getter")
 	}
-	if p.modelConfigServiceGetter == nil && p.modelConfigService == nil {
-		return nil, nil, errors.NotSupportedf("StorageServices check without model config or model config getter")
+	if p.modelConfigServiceGetter == nil {
+		return nil, nil, errors.NotSupportedf("StorageServices check without model config service getter")
 	}
 
 	model, err := p.st.Model()
@@ -141,10 +135,7 @@ func (p *environStatePolicy) StorageServices() (state.StoragePoolGetter, storage
 		return nil, nil, errors.Trace(err)
 	}
 
-	modelConfigService := p.modelConfigService
-	if modelConfigService == nil {
-		modelConfigService = p.modelConfigServiceGetter(coremodel.UUID(model.UUID()))
-	}
+	modelConfigService := p.modelConfigServiceGetter(coremodel.UUID(model.UUID()))
 
 	// ProviderRegistry doesn't make any calls to fetch instance types,
 	// so it doesn't help to use getDeployChecker() here.
