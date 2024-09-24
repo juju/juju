@@ -24,7 +24,7 @@ func EnvironFuncForModel(model stateenvirons.Model, cloudService CloudService,
 	if model.Type() == state.ModelTypeCAAS {
 		return func(ctx context.Context) (environs.BootstrapEnviron, error) {
 			f := stateenvirons.GetNewCAASBrokerFunc(caas.New)
-			return f(model, cloudService, credentialService)
+			return f(model, cloudService, credentialService, configGetter)
 		}
 	}
 	return func(ctx context.Context) (environs.BootstrapEnviron, error) {

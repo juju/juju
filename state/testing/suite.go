@@ -100,9 +100,6 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 
 	s.Factory = factory.NewFactory(s.State, s.StatePool, s.ControllerConfig)
 
-	s.InstancePrechecker = func(c *gc.C, st *state.State) environs.InstancePrechecker {
-		return state.NoopInstancePrechecker{}
-	}
 	s.ConfigSchemaSourceGetter = func(c *gc.C) config.ConfigSchemaSourceGetter {
 		return state.NoopConfigSchemaSource
 	}

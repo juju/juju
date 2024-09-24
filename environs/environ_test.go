@@ -4,6 +4,8 @@
 package environs_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -30,6 +32,10 @@ func (m *mockModel) Config() (*config.Config, error) {
 	return m.cfg, nil
 }
 
+func (m *mockModel) ModelConfig(ctx context.Context) (*config.Config, error) {
+	return m.cfg, nil
+}
+
 func (m *mockModel) CloudName() string {
 	return jujutesting.DefaultCloud.Name
 }
@@ -45,7 +51,7 @@ func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 func (s *environSuite) TestGetEnvironment(c *gc.C) {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{"name": "testmodel-foo"})
 	m := &mockModel{cfg: cfg}
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(m, apiservertesting.ConstCloudGetter(&jujutesting.DefaultCloud), nil)
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(m, apiservertesting.ConstCloudGetter(&jujutesting.DefaultCloud), nil, m)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Config().UUID(), jc.DeepEquals, cfg.UUID())
 }

@@ -219,7 +219,7 @@ func (st *State) buildAndValidateModelConfig(updateAttrs attrValues, removeAttrs
 	if err := checkModelConfig(newConfig); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return st.validate(newConfig, oldConfig)
+	return newConfig, nil
 }
 
 type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error

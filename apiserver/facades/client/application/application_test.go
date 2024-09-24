@@ -99,12 +99,8 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 
 	envFunc := stateenvirons.GetNewEnvironFunc(environs.New)
-	env, err := envFunc(s.ControllerModel(c), domainServices.Cloud(), domainServices.Credential())
+	env, err := envFunc(s.ControllerModel(c), domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.InstancePrechecker = func(c *gc.C, st *state.State) environs.InstancePrechecker {
-		return env
-	}
 
 	modelInfo := model.ReadOnlyModel{
 		UUID: model.UUID(testing.ModelTag.Id()),
@@ -119,7 +115,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 	})
 
 	api, err := application.NewAPIBase(
-		application.GetState(st, env),
+		application.GetState(st),
 		nil,
 		s.networkService,
 		storageAccess,
@@ -300,7 +296,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 	curl, ch := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("22.04"), state.JobHostUnits)
+	machine, err := st.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -353,7 +349,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 	curl, ch := s.addCharmToState(c, "ch:jammy/lxd-profile-0", "lxd-profile")
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("22.04"), state.JobHostUnits)
+	machine, err := st.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -412,7 +408,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 	curl, ch := s.addCharmToState(c, "ch:jammy/lxd-profile-fail-0", "lxd-profile-fail")
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("22.04"), state.JobHostUnits)
+	machine, err := st.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -580,7 +576,7 @@ func (s *applicationSuite) TestAddApplicationUnitsToNewContainer(c *gc.C) {
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
 	})
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("22.04"), state.JobHostUnits)
+	machine, err := st.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.applicationAPI.AddUnits(context.Background(), params.AddApplicationUnits{
@@ -595,74 +591,6 @@ func (s *applicationSuite) TestAddApplicationUnitsToNewContainer(c *gc.C) {
 	mid, err := units[0].AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mid, gc.Equals, machine.Id()+"/lxd/0")
-}
-
-var addApplicationUnitTests = []struct {
-	about       string
-	application string // if not set, defaults to 'dummy'
-	expected    []string
-	machineIds  []string
-	placement   []*instance.Placement
-	err         string
-}{
-	/*{
-		about:      "valid placement directives",
-		expected:   []string{"dummy/0"},
-		placement:  []*instance.Placement{{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"}},
-		machineIds: []string{"1"},
-	}, {
-		about:      "direct machine assignment placement directive",
-		expected:   []string{"dummy/1", "dummy/2"},
-		placement:  []*instance.Placement{{Scope: "#", Directive: "1"}, {Scope: "lxd", Directive: "1"}},
-		machineIds: []string{"1", "1/lxd/0"},
-	},*/{
-		about:     "invalid placement directive",
-		err:       ".* invalid placement is invalid",
-		expected:  []string{"dummy/3"},
-		placement: []*instance.Placement{{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "invalid"}},
-	},
-}
-
-func (s *applicationSuite) TestAddApplicationUnits(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-	s.makeAPI(c)
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "dummy",
-		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
-	})
-
-	// Add a machine for the units to be placed on.
-	st := s.ControllerModel(c).State()
-	_, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("22.04"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	for i, t := range addApplicationUnitTests {
-		c.Logf("test %d. %s", i, t.about)
-		applicationName := t.application
-		if applicationName == "" {
-			applicationName = "dummy"
-		}
-		result, err := s.applicationAPI.AddUnits(context.Background(), params.AddApplicationUnits{
-			ApplicationName: applicationName,
-			NumUnits:        len(t.expected),
-			Placement:       t.placement,
-		})
-		if t.err != "" {
-			c.Assert(err, gc.ErrorMatches, t.err)
-			continue
-		}
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result.Units, gc.DeepEquals, t.expected)
-		for i, unitName := range result.Units {
-			u, err := s.ControllerModel(c).State().Unit(unitName)
-			c.Assert(err, jc.ErrorIsNil)
-			assignedMachine, err := u.AssignedMachineId()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(assignedMachine, gc.Equals, t.machineIds[i])
-		}
-	}
 }
 
 func (s *applicationSuite) assertAddApplicationUnits(c *gc.C) {

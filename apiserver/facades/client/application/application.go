@@ -130,7 +130,10 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	domainServices := ctx.DomainServices()
 
 	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-		m, domainServices.Cloud(), domainServices.Credential(),
+		m,
+		domainServices.Cloud(),
+		domainServices.Credential(),
+		domainServices.Config(),
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 	)
@@ -141,7 +144,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 
 	var caasBroker caas.Broker
 	if model.Type() == state.ModelTypeCAAS {
-		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, domainServices.Cloud(), domainServices.Credential())
+		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
 		if err != nil {
 			return nil, errors.Annotate(err, "getting caas client")
 		}
@@ -153,12 +156,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		return nil, errors.Trace(err)
 	}
 
-	prechecker, err := stateenvirons.NewInstancePrechecker(ctx.State(), domainServices.Cloud(), domainServices.Credential())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	state := &stateShim{State: ctx.State(), prechecker: prechecker}
+	state := &stateShim{State: ctx.State()}
 
 	charmhubHTTPClient, err := ctx.HTTPClient(facade.CharmhubHTTPClient)
 	if err != nil {

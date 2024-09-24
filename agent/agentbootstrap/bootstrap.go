@@ -76,7 +76,6 @@ type AgentBootstrap struct {
 	agentConfig              agent.ConfigSetter
 	mongoDialOpts            mongo.DialOpts
 	stateNewPolicy           state.NewPolicyFunc
-	precheckerGetter         func(*state.State) (environs.InstancePrechecker, error)
 	configSchemaSourceGetter config.ConfigSchemaSourceGetter
 	bootstrapDqlite          DqliteInitializerFunc
 
@@ -116,9 +115,6 @@ type AgentBootstrapArgs struct {
 	Provider                  ProviderFunc
 	Logger                    logger.Logger
 
-	// Deprecated: use InstancePrechecker
-	StateNewPolicy           state.NewPolicyFunc
-	InstancePrecheckerGetter func(*state.State) (environs.InstancePrechecker, error)
 	ConfigSchemaSourceGetter config.ConfigSchemaSourceGetter
 }
 
@@ -177,8 +173,6 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 		stateInitializationParams: args.StateInitializationParams,
 		storageProviderRegistry:   args.StorageProviderRegistry,
 
-		stateNewPolicy:           args.StateNewPolicy,
-		precheckerGetter:         args.InstancePrecheckerGetter,
 		configSchemaSourceGetter: args.ConfigSchemaSourceGetter,
 	}, nil
 }
@@ -484,12 +478,7 @@ func (b *AgentBootstrap) initBootstrapMachine(
 		return nil, errors.Trace(err)
 	}
 
-	prechecker, err := b.precheckerGetter(st)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting instance prechecker")
-	}
-
-	m, err := st.AddOneMachine(prechecker, state.MachineTemplate{
+	m, err := st.AddOneMachine(state.MachineTemplate{
 		Base:                    state.Base{OS: base.OS, Channel: base.Channel.String()},
 		Nonce:                   agent.BootstrapNonce,
 		Constraints:             stateParams.BootstrapMachineConstraints,

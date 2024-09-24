@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
 	mgoutils "github.com/juju/juju/internal/mongo/utils"
@@ -2002,7 +2001,6 @@ func (u *Unit) AssignToMachineRef(m MachineRef) (err error) {
 // assignToNewMachineOps returns txn.Ops to assign the unit to a machine
 // created according to the supplied params, with the supplied constraints.
 func (u *Unit) assignToNewMachineOps(
-	prechecker environs.InstancePrechecker,
 	template MachineTemplate,
 	parentId string,
 	containerType instance.ContainerType,
@@ -2025,7 +2023,7 @@ func (u *Unit) assignToNewMachineOps(
 	)
 	switch {
 	case parentId == "" && containerType == "":
-		mdoc, ops, err = u.st.addMachineOps(prechecker, template)
+		mdoc, ops, err = u.st.addMachineOps(template)
 	case parentId == "":
 		if containerType == "" {
 			return nil, nil, errors.New("assignToNewMachine called without container type (should never happen)")
@@ -2034,7 +2032,7 @@ func (u *Unit) assignToNewMachineOps(
 		// regardless of its child.
 		parentParams := template
 		parentParams.Jobs = []MachineJob{JobHostUnits}
-		mdoc, ops, err = u.st.addMachineInsideNewMachineOps(prechecker, template, parentParams, containerType)
+		mdoc, ops, err = u.st.addMachineInsideNewMachineOps(template, parentParams, containerType)
 	default:
 		mdoc, ops, err = u.st.addMachineInsideMachineOps(template, parentId, containerType)
 	}
@@ -2119,15 +2117,15 @@ func (u *Unit) Constraints() (*constraints.Value, error) {
 // AssignToNewMachine assigns the unit to a new machine, with constraints
 // determined according to the application and model constraints at the
 // time of unit creation.
-func (u *Unit) AssignToNewMachine(prechecker environs.InstancePrechecker) (err error) {
+func (u *Unit) AssignToNewMachine() (err error) {
 	defer assignContextf(&err, u.Name(), "new machine")
-	return u.assignToNewMachine(prechecker, "")
+	return u.assignToNewMachine("")
 }
 
 // assignToNewMachine assigns the unit to a new machine with the
 // optional placement directive, with constraints determined according
 // to the application and model constraints at the time of unit creation.
-func (u *Unit) assignToNewMachine(prechecker environs.InstancePrechecker, placement string) error {
+func (u *Unit) assignToNewMachine(placement string) error {
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
@@ -2168,7 +2166,7 @@ func (u *Unit) assignToNewMachine(prechecker environs.InstancePrechecker, placem
 		// machine doc that will be added with those operations
 		// (which includes the machine id).
 		var ops []txn.Op
-		m, ops, err = u.assignToNewMachineOps(prechecker, template, "", containerType)
+		m, ops, err = u.assignToNewMachineOps(template, "", containerType)
 		return ops, err
 	}
 	if err := u.st.db().Run(buildTxn); err != nil {

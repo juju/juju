@@ -1110,7 +1110,7 @@ func (s *MigrationExportSuite) TestInstanceDataSkipped(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestMissingInstanceDataIgnored(c *gc.C) {
-	_, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
+	_, err := s.State.AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("18.04"),
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
@@ -1143,7 +1143,7 @@ func (s *MigrationBaseSuite) TestMachineAgentBinariesSkipped(c *gc.C) {
 }
 
 func (s *MigrationBaseSuite) TestMissingMachineAgentBinariesIgnored(c *gc.C) {
-	_, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
+	_, err := s.State.AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("18.04"),
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/state/stateenvirons"
@@ -53,11 +54,13 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 	domainServices := ctx.DomainServices()
 	cloudService := domainServices.Cloud()
 	credentialService := domainServices.Credential()
+	modelConfigService := domainServices.Config()
 
 	configGetter := stateenvirons.EnvironConfigGetter{
-		Model:             model,
-		CloudService:      cloudService,
-		CredentialService: credentialService,
+		Model:              model,
+		CloudService:       cloudService,
+		CredentialService:  credentialService,
+		ModelConfigService: modelConfigService,
 	}
 	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
 
@@ -65,7 +68,11 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(controllerConfigService, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
-	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(pool, cloudService, credentialService)
+
+	modelConfigServiceGetter := func(modelID coremodel.UUID) common.ModelConfigService {
+		return domainServices.Config()
+	}
+	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(pool, cloudService, credentialService, modelConfigServiceGetter)
 
 	configSchemaSource := environs.ProviderConfigSchemaSource(cloudService)
 

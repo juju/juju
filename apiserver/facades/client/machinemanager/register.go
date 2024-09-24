@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -40,14 +39,8 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 	st := ctx.State()
 	domainServices := ctx.DomainServices()
 
-	prechecker, err := stateenvirons.NewInstancePrechecker(st, domainServices.Cloud(), domainServices.Credential())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	backend := &stateShim{
-		State:     st,
-		prechcker: prechecker,
+		State: st,
 	}
 	storageAccess, err := getStorageState(st)
 	if err != nil {

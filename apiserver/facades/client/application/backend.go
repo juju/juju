@@ -20,8 +20,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charm/services"
@@ -200,7 +198,6 @@ type Model interface {
 	OpenedPortRangesForMachine(string) (state.MachinePortRanges, error)
 	// The following methods are required for querying the featureset
 	// supported by the model.
-	Config() (*config.Config, error)
 	CloudName() string
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
 	CloudRegion() string
@@ -216,7 +213,6 @@ type Resources interface {
 
 type stateShim struct {
 	*state.State
-	prechecker environs.InstancePrechecker
 }
 
 type modelShim struct {
@@ -265,11 +261,10 @@ func (s *storageShim) FilesystemAccess() storagecommon.FilesystemAccess {
 }
 
 // NewStateApplication converts a state.Application into an Application.
-func NewStateApplication(st *state.State, prechecker environs.InstancePrechecker, app *state.Application) Application {
+func NewStateApplication(st *state.State, app *state.Application) Application {
 	return stateApplicationShim{
 		Application: app,
 		st:          st,
-		prechecker:  prechecker,
 	}
 }
 
@@ -289,7 +284,6 @@ func (s stateShim) Application(name string) (Application, error) {
 	return stateApplicationShim{
 		Application: a,
 		st:          s.State,
-		prechecker:  s.prechecker,
 	}, nil
 }
 
@@ -298,14 +292,13 @@ func (s stateShim) ReadSequence(name string) (int, error) {
 }
 
 func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore) (Application, error) {
-	a, err := s.State.AddApplication(s.prechecker, args, store)
+	a, err := s.State.AddApplication(args, store)
 	if err != nil {
 		return nil, err
 	}
 	return stateApplicationShim{
 		Application: a,
 		st:          s.State,
-		prechecker:  s.prechecker,
 	}, nil
 }
 
@@ -428,7 +421,7 @@ func (s stateShim) Unit(name string) (Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateUnitShim{Unit: u, st: s.State, prechecker: s.prechecker}, nil
+	return stateUnitShim{Unit: u, st: s.State}, nil
 }
 
 func (s stateShim) UnitsInError() ([]Unit, error) {
@@ -439,9 +432,8 @@ func (s stateShim) UnitsInError() ([]Unit, error) {
 	result := make([]Unit, len(units))
 	for i, u := range units {
 		result[i] = stateUnitShim{
-			Unit:       u,
-			st:         s.State,
-			prechecker: s.prechecker,
+			Unit: u,
+			st:   s.State,
 		}
 	}
 	return result, nil
@@ -467,8 +459,7 @@ func (s stateShim) ApplicationOfferForUUID(offerUUID string) (*crossmodel.Applic
 
 type stateApplicationShim struct {
 	*state.Application
-	st         *state.State
-	prechecker environs.InstancePrechecker
+	st *state.State
 }
 
 func (a stateApplicationShim) AddUnit(args state.AddUnitParams) (Unit, error) {
@@ -477,9 +468,8 @@ func (a stateApplicationShim) AddUnit(args state.AddUnitParams) (Unit, error) {
 		return nil, err
 	}
 	return stateUnitShim{
-		Unit:       u,
-		st:         a.st,
-		prechecker: a.prechecker,
+		Unit: u,
+		st:   a.st,
 	}, nil
 }
 
@@ -499,9 +489,8 @@ func (a stateApplicationShim) AllUnits() ([]Unit, error) {
 	out := make([]Unit, len(units))
 	for i, u := range units {
 		out[i] = stateUnitShim{
-			Unit:       u,
-			st:         a.st,
-			prechecker: a.prechecker,
+			Unit: u,
+			st:   a.st,
 		}
 	}
 	return out, nil
@@ -574,16 +563,15 @@ func (ru stateRelationUnitShim) Settings() (map[string]interface{}, error) {
 
 type stateUnitShim struct {
 	*state.Unit
-	st         *state.State
-	prechecker environs.InstancePrechecker
+	st *state.State
 }
 
 func (u stateUnitShim) AssignWithPolicy(policy state.AssignmentPolicy) error {
-	return u.st.AssignUnit(u.prechecker, u.Unit, policy)
+	return u.st.AssignUnit(u.Unit, policy)
 }
 
 func (u stateUnitShim) AssignWithPlacement(placement *instance.Placement, allSpaces network.SpaceInfos) error {
-	return u.st.AssignUnitWithPlacement(u.prechecker, u.Unit, placement, allSpaces)
+	return u.st.AssignUnitWithPlacement(u.Unit, placement, allSpaces)
 }
 
 type Subnet interface {

@@ -54,13 +54,13 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 		return validator, nil
 	}
 	var err error
-	s.machine0, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobManageModel)
+	s.machine0, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	controllerNode, err := s.State.ControllerNode(s.machine0.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerNode.HasVote(), jc.IsFalse)
 	c.Assert(controllerNode.SetHasVote(true), jc.ErrorIsNil)
-	s.machine, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.ControllerNode(s.machine.Id())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -164,7 +164,7 @@ func (s *MachineSuite) TestMachineIsManual(c *gc.C) {
 		{instanceId: "x", nonce: "manual", isManual: false},
 	}
 	for _, test := range tests {
-		m, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
+		m, err := s.State.AddOneMachine(state.MachineTemplate{
 			Base:       state.UbuntuBase("12.10"),
 			Jobs:       []state.MachineJob{state.JobHostUnits},
 			InstanceId: test.instanceId,
@@ -178,7 +178,7 @@ func (s *MachineSuite) TestMachineIsManual(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineIsContainer(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	template := state.MachineTemplate{
@@ -259,7 +259,7 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	c.Assert(s.machine.Life(), gc.Equals, state.Dead)
 
 	// A machine that has never had units assigned can advance lifecycle.
-	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -596,7 +596,7 @@ func (s *MachineSuite) TestSetPassword(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines.Update(
 		bson.D{{"_id", state.DocID(s.State, machine.Id())}},
@@ -618,7 +618,7 @@ func (s *MachineSuite) TestMachineInstanceIdMissing(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceIdBlank(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines.Update(
 		bson.D{{"_id", state.DocID(s.State, machine.Id())}},
@@ -960,7 +960,7 @@ func (s *MachineSuite) TestMachineSetModificationStatus(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
-	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	m0, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	oldTools, _ := m0.AgentTools()
 	m1, err := s.State.Machine(m0.Id())
@@ -999,9 +999,9 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 	// tells us the right thing.
 
 	m1 := s.machine
-	m2, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	m2, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	m3, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	m3, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	dummy := s.AddTestingCharm(c, "dummy")
@@ -1082,7 +1082,7 @@ func sortedUnitNames(units []*state.Unit) []string {
 }
 
 func (s *MachineSuite) assertMachineDirtyAfterAddingUnit(c *gc.C) (*state.Machine, *state.Application, *state.Unit) {
-	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Clean(), jc.IsTrue)
 
@@ -1542,7 +1542,7 @@ func (s *MachineSuite) TestConstraintsFromModel(c *gc.C) {
 	// A newly-created machine gets a copy of the model constraints.
 	err := s.State.SetModelConstraints(econs1)
 	c.Assert(err, jc.ErrorIsNil)
-	machine1, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine1, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	mcons1, err := machine1.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1551,7 +1551,7 @@ func (s *MachineSuite) TestConstraintsFromModel(c *gc.C) {
 	// Change model constraints and add a new machine.
 	err = s.State.SetModelConstraints(econs2)
 	c.Assert(err, jc.ErrorIsNil)
-	machine2, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine2, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	mcons2, err := machine2.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1564,7 +1564,7 @@ func (s *MachineSuite) TestConstraintsFromModel(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetConstraints(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Constraints can be set...
@@ -1594,7 +1594,7 @@ func (s *MachineSuite) TestSetConstraints(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetAmbiguousConstraints(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("mem=4G instance-type=foo")
 	err = machine.SetConstraints(cons)
@@ -1608,7 +1608,7 @@ func (s *MachineSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	var tw loggo.TestWriter
 	c.Assert(loggo.RegisterWriter("constraints-tester", &tw), gc.IsNil)
 
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("mem=4G cpu-power=10")
 	err = machine.SetConstraints(cons)
@@ -1642,7 +1642,7 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetProviderAddresses(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
@@ -1668,7 +1668,7 @@ func (s *MachineSuite) TestSetProviderAddresses(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetProviderAddressesWithContainers(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
@@ -1690,7 +1690,7 @@ func (s *MachineSuite) TestSetProviderAddressesWithContainers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetProviderAddressesOnContainer(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
@@ -1715,7 +1715,7 @@ func (s *MachineSuite) TestSetProviderAddressesOnContainer(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetMachineAddresses(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
@@ -1731,7 +1731,7 @@ func (s *MachineSuite) TestSetMachineAddresses(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetEmptyMachineAddresses(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
@@ -1754,7 +1754,7 @@ func (s *MachineSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 	controllerConfig := coretesting.FakeControllerConfig()
@@ -1807,7 +1807,7 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeDifferent(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
@@ -1829,7 +1829,7 @@ func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeDifferent(c *gc.C
 }
 
 func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeEqual(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 	machineDocID := state.DocID(s.State, machine.Id())
@@ -1863,7 +1863,7 @@ func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeEqual(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetProviderAddressesInvalidateMemory(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 	machineDocID := state.DocID(s.State, machine.Id())
@@ -1901,7 +1901,7 @@ func (s *MachineSuite) TestSetProviderAddressesInvalidateMemory(c *gc.C) {
 }
 
 func (s *MachineSuite) TestPublicAddressSetOnNewMachine(c *gc.C) {
-	m, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Base:      state.UbuntuBase("12.10"),
 		Jobs:      []state.MachineJob{state.JobHostUnits},
 		Addresses: network.NewSpaceAddresses("10.0.0.1", "8.8.8.8"),
@@ -1913,7 +1913,7 @@ func (s *MachineSuite) TestPublicAddressSetOnNewMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestPrivateAddressSetOnNewMachine(c *gc.C) {
-	m, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Base:      state.UbuntuBase("12.10"),
 		Jobs:      []state.MachineJob{state.JobHostUnits},
 		Addresses: network.NewSpaceAddresses("10.0.0.1", "8.8.8.8"),
@@ -1925,7 +1925,7 @@ func (s *MachineSuite) TestPrivateAddressSetOnNewMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestPublicAddressEmptyAddresses(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
@@ -1935,7 +1935,7 @@ func (s *MachineSuite) TestPublicAddressEmptyAddresses(c *gc.C) {
 }
 
 func (s *MachineSuite) TestPrivateAddressEmptyAddresses(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
@@ -1945,7 +1945,7 @@ func (s *MachineSuite) TestPrivateAddressEmptyAddresses(c *gc.C) {
 }
 
 func (s *MachineSuite) TestPublicAddress(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig := coretesting.FakeControllerConfig()
@@ -1959,7 +1959,7 @@ func (s *MachineSuite) TestPublicAddress(c *gc.C) {
 }
 
 func (s *MachineSuite) TestPrivateAddress(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig := coretesting.FakeControllerConfig()
@@ -1973,7 +1973,7 @@ func (s *MachineSuite) TestPrivateAddress(c *gc.C) {
 }
 
 func (s *MachineSuite) TestPublicAddressBetterMatch(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig := coretesting.FakeControllerConfig()
@@ -1994,7 +1994,7 @@ func (s *MachineSuite) TestPublicAddressBetterMatch(c *gc.C) {
 }
 
 func (s *MachineSuite) TestPrivateAddressBetterMatch(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig := coretesting.FakeControllerConfig()
@@ -2015,7 +2015,7 @@ func (s *MachineSuite) TestPrivateAddressBetterMatch(c *gc.C) {
 }
 
 func (s *MachineSuite) TestPublicAddressChanges(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig := coretesting.FakeControllerConfig()
@@ -2036,7 +2036,7 @@ func (s *MachineSuite) TestPublicAddressChanges(c *gc.C) {
 }
 
 func (s *MachineSuite) TestPrivateAddressChanges(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig := coretesting.FakeControllerConfig()
@@ -2057,7 +2057,7 @@ func (s *MachineSuite) TestPrivateAddressChanges(c *gc.C) {
 }
 
 func (s *MachineSuite) TestAddressesDeadMachine(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig := coretesting.FakeControllerConfig()
@@ -2087,7 +2087,7 @@ func (s *MachineSuite) TestAddressesDeadMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestStablePrivateAddress(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig := coretesting.FakeControllerConfig()
@@ -2111,7 +2111,7 @@ func (s *MachineSuite) TestStablePrivateAddress(c *gc.C) {
 }
 
 func (s *MachineSuite) TestStablePublicAddress(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig := coretesting.FakeControllerConfig()
@@ -2135,7 +2135,7 @@ func (s *MachineSuite) TestStablePublicAddress(c *gc.C) {
 }
 
 func (s *MachineSuite) TestAddressesRaceMachineFirst(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig := coretesting.FakeControllerConfig()
@@ -2168,7 +2168,7 @@ func (s *MachineSuite) TestAddressesRaceMachineFirst(c *gc.C) {
 }
 
 func (s *MachineSuite) TestAddressesRaceProviderFirst(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig := coretesting.FakeControllerConfig()
@@ -2201,7 +2201,7 @@ func (s *MachineSuite) TestAddressesRaceProviderFirst(c *gc.C) {
 }
 
 func (s *MachineSuite) TestPrivateAddressPrefersProvider(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig := coretesting.FakeControllerConfig()
@@ -2228,7 +2228,7 @@ func (s *MachineSuite) TestPrivateAddressPrefersProvider(c *gc.C) {
 }
 
 func (s *MachineSuite) TestPublicAddressPrefersProvider(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig := coretesting.FakeControllerConfig()
@@ -2255,7 +2255,7 @@ func (s *MachineSuite) TestPublicAddressPrefersProvider(c *gc.C) {
 }
 
 func (s *MachineSuite) TestAddressesPrefersProviderBoth(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig := coretesting.FakeControllerConfig()
@@ -2282,7 +2282,7 @@ func (s *MachineSuite) TestAddressesPrefersProviderBoth(c *gc.C) {
 }
 
 func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	containers := []instance.ContainerType{container}
 	err = machine.SetSupportedContainers(containers)
@@ -2313,13 +2313,13 @@ func assertSupportedContainersUnknown(c *gc.C, machine *state.Machine) {
 }
 
 func (s *MachineSuite) TestSupportedContainersInitiallyUnknown(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	assertSupportedContainersUnknown(c, machine)
 }
 
 func (s *MachineSuite) TestSupportsNoContainers(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SupportsNoContainers()
@@ -2328,7 +2328,7 @@ func (s *MachineSuite) TestSupportsNoContainers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetSupportedContainerTypeNoneIsError(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXD, instance.NONE})
@@ -2353,7 +2353,7 @@ func (s *MachineSuite) TestSupportsNoContainersOverwritesExisting(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetSupportedContainersSingle(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXD})
@@ -2372,7 +2372,7 @@ func (s *MachineSuite) TestSetSupportedContainersSame(c *gc.C) {
 
 func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
 	// Create a machine and add all container types prior to calling SupportsNoContainers
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	var containers []*state.Machine
 	template := state.MachineTemplate{
@@ -2402,13 +2402,13 @@ func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentTools(c *gc.C) {
-	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	testAgentTools(c, state.NewObjectStore(c, s.State.ModelUUID()), m, "machine "+m.Id())
 }
 
 func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
-	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("22.04"), state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var tests = []struct {
@@ -2448,7 +2448,7 @@ func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
 }
 
 func (s *MachineSuite) TestAddActionWithError(c *gc.C) {
-	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("22.04"), state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	operationID, err := s.Model.EnqueueOperation("a test", 1)
@@ -2462,7 +2462,7 @@ func (s *MachineSuite) TestAddActionWithError(c *gc.C) {
 
 func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
 	// Add a machine: reported.
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())

@@ -209,16 +209,16 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 func (s *CleanupSuite) testCleanupModelMachines(c *gc.C, force bool) {
 	// Create a controller machine, and manual and non-manual
 	// workload machine, the latter with a container workload machine.
-	stateMachine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobManageModel)
+	stateMachine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	modelMachine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	modelMachine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}, modelMachine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	manualMachine, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
+	manualMachine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Base:       state.UbuntuBase("12.10"),
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "inst-ance",
@@ -429,7 +429,7 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestDestroyControllerMachineErrors(c *gc.C) {
-	manager, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobManageModel)
+	manager, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(manager.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -447,7 +447,7 @@ func (s *CleanupSuite) TestDestroyControllerMachineHAWithControllerCharm(c *gc.C
 	cons := constraints.Value{
 		Mem: newUint64(100),
 	}
-	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, cons, state.UbuntuBase("12.04"), nil)
+	changes, _, err := s.State.EnableHA(3, cons, state.UbuntuBase("12.04"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 
@@ -497,7 +497,7 @@ const dontWait = time.Duration(0)
 
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	// Create a machine.
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -529,13 +529,13 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobManageModel)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	err = node.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
-	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
+	changes, _, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes.Added, gc.HasLen, 2)
 	c.Check(changes.Removed, gc.HasLen, 0)
@@ -579,7 +579,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
@@ -633,7 +633,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	// Create a machine with a container.
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -686,7 +686,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestForceDestroyMachineSchedulesRemove(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -754,7 +754,7 @@ func (s *CleanupSuite) TestRemoveApplicationRemovesAllCleanUps(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestForceDestroyMachineRemovesLinkLayerDevices(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
@@ -1022,7 +1022,7 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AssignUnit(defaultInstancePrechecker, unit, state.AssignNew)
+	err = s.State.AssignUnit(unit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1098,10 +1098,12 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 	c.Assert(err, jc.ErrorIsNil)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
+	testCfg, _ := createTestModelConfig(c, s.modelTag.Id())
 	broker, err := stateenvirons.GetNewCAASBrokerFunc(
 		caas.New)(model,
 		&testing.MockCloudService{CloudInfo: &cloud.Cloud{Name: "caascloud", Type: "kubernetes"}},
-		&testing.MockCredentialService{Credential: ptr(cloud.NewCredential(cloud.UserPassAuthType, nil))})
+		&testing.MockCredentialService{Credential: ptr(cloud.NewCredential(cloud.UserPassAuthType, nil))},
+		&testing.MockConfigService{Config: testCfg})
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	s.policy = testing.MockPolicy{
@@ -1204,7 +1206,7 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 }
 
 func (s *CleanupSuite) TestCleanupVolumeAttachments(c *gc.C) {
-	_, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
+	_, err := s.State.AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
@@ -1224,7 +1226,7 @@ func (s *CleanupSuite) TestCleanupVolumeAttachments(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupFilesystemAttachments(c *gc.C) {
-	_, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
+	_, err := s.State.AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.HostFilesystemParams{{
@@ -1315,7 +1317,7 @@ func (s *CleanupSuite) TestDyingUnitWithForceSchedulesForceFallback(c *gc.C) {
 	application := s.AddTestingApplication(c, "mysql", ch)
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AssignUnit(defaultInstancePrechecker, unit, state.AssignNew)
+	err = s.State.AssignUnit(unit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = unit.SetAgentStatus(status.StatusInfo{
@@ -1358,7 +1360,7 @@ func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
 	prr.allEnterScope(c)
 	for _, principal := range []*state.Unit{prr.pu0, prr.pu1} {
-		err := s.State.AssignUnit(defaultInstancePrechecker, principal, state.AssignNew)
+		err := s.State.AssignUnit(principal, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	for _, unit := range []*state.Unit{prr.pu0, prr.pu1, prr.ru0, prr.ru1} {
@@ -1419,7 +1421,7 @@ func (s *CleanupSuite) TestForceDestroyUnitLeavesRelations(c *gc.C) {
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	prr.allEnterScope(c)
 	for _, unit := range []*state.Unit{prr.pu0, prr.pu1, prr.ru0, prr.ru1} {
-		err := s.State.AssignUnit(defaultInstancePrechecker, unit, state.AssignNew)
+		err := s.State.AssignUnit(unit, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 		err = unit.SetAgentStatus(status.StatusInfo{
 			Status: status.Idle,
@@ -1462,7 +1464,7 @@ func (s *CleanupSuite) TestForceDestroyUnitRemovesStorageAttachments(c *gc.C) {
 	u, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)

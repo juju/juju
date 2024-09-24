@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
@@ -231,12 +230,12 @@ func (s *uniterGoalStateSuite) TestGoalStatesDeadUnitsExcluded(c *gc.C) {
 // is useful because several tests go through a unit's lifecycle step by step,
 // asserting the behaviour of a given method in each state, and the unit quick-
 // remove change caused many of these to fail.
-func preventUnitDestroyRemove(c *gc.C, u *state.Unit, prechecker environs.InstancePrechecker) {
+func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
 	// To have a non-allocating status, a unit needs to
 	// be assigned to a machine.
 	_, err := u.AssignedMachineId()
 	if errors.Is(err, errors.NotAssigned) {
-		err = u.AssignToNewMachine(prechecker)
+		err = u.AssignToNewMachine()
 	}
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
@@ -280,7 +279,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelationDyingUnits(c *gc.C) {
 			},
 		},
 	})
-	preventUnitDestroyRemove(c, mysqlUnit, s.InstancePrechecker(c, s.ControllerModel(c).State()))
+	preventUnitDestroyRemove(c, mysqlUnit)
 	err = mysqlUnit.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 

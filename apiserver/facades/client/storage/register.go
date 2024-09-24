@@ -33,10 +33,12 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	storageMetadata := func() (StorageService, storage.ProviderRegistry, error) {
+		domainServices := ctx.DomainServices()
 		registry, err := stateenvirons.NewStorageProviderRegistryForModel(
 			model,
-			ctx.DomainServices().Cloud(),
-			ctx.DomainServices().Credential(),
+			domainServices.Cloud(),
+			domainServices.Credential(),
+			domainServices.Config(),
 			stateenvirons.GetNewEnvironFunc(environs.New),
 			stateenvirons.GetNewCAASBrokerFunc(caas.New))
 		if err != nil {

@@ -41,7 +41,6 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/proxy"
@@ -92,12 +91,6 @@ type ApplicationService interface {
 	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
 }
 
-// ModelConfigService provides access to the model configuration.
-type ModelConfigService interface {
-	// ModelConfig returns the current config for the model.
-	ModelConfig(context.Context) (*config.Config, error)
-}
-
 // ProxyService provides access to the proxy service.
 type ProxyService interface {
 	// GetProxyToApplication returns the proxy information for the application
@@ -134,15 +127,13 @@ type ControllerAPI struct {
 	accessService            ControllerAccessService
 	modelService             ModelService
 	applicationServiceGetter func(coremodel.UUID) ApplicationService
-	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService
+	modelConfigServiceGetter func(coremodel.UUID) common.ModelConfigService
 	proxyService             ProxyService
 	modelExporter            func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
 	store                    objectstore.ObjectStore
 	leadership               leadership.Reader
-
-	logger corelogger.Logger
-
-	controllerTag names.ControllerTag
+	logger                   corelogger.Logger
+	controllerTag            names.ControllerTag
 }
 
 // LatestAPI is used for testing purposes to create the latest
@@ -168,7 +159,7 @@ func NewControllerAPI(
 	accessService ControllerAccessService,
 	modelService ModelService,
 	applicationServiceGetter func(coremodel.UUID) ApplicationService,
-	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService,
+	modelConfigServiceGetter func(coremodel.UUID) common.ModelConfigService,
 	proxyService ProxyService,
 	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
 	store objectstore.ObjectStore,
@@ -199,7 +190,7 @@ func NewControllerAPI(
 		),
 		CloudSpecer: cloudspec.NewCloudSpecV2(
 			resources,
-			cloudspec.MakeCloudSpecGetter(pool, cloudService, credentialService),
+			cloudspec.MakeCloudSpecGetter(pool, cloudService, credentialService, modelConfigServiceGetter),
 			cloudspec.MakeCloudSpecWatcherForModel(st, cloudService),
 			cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
@@ -740,6 +731,8 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		Macaroons:       macs,
 	}
 
+	modelConfigService := c.modelConfigServiceGetter(coremodel.UUID(modelTag.Id()))
+
 	// Check if the migration is likely to succeed.
 	systemState, err := c.statePool.SystemState()
 	if err != nil {
@@ -752,11 +745,14 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	applicationService := c.applicationServiceGetter(coremodel.UUID(hostedState.ModelUUID()))
 	if err := runMigrationPrechecks(
 		ctx,
-		hostedState.State, systemState,
-		&targetInfo, c.presence,
+		hostedState.State,
+		systemState,
+		&targetInfo,
+		c.presence,
 		c.controllerConfigService,
 		c.cloudService,
 		c.credentialService,
+		modelConfigService,
 		c.upgradeService,
 		c.modelService,
 		applicationService,
@@ -903,6 +899,7 @@ var runMigrationPrechecks = func(
 	controllerConfigService ControllerConfigService,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
+	modelConfigService common.ModelConfigService,
 	upgradeService UpgradeService,
 	modelService ModelService,
 	applicationService ApplicationService,
@@ -922,7 +919,7 @@ var runMigrationPrechecks = func(
 		ctx,
 		backend,
 		modelPresence, controllerPresence,
-		cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService),
+		cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService, modelConfigService),
 		credentialService,
 		upgradeService,
 		applicationService,

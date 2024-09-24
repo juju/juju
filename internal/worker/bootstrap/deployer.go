@@ -18,7 +18,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/services"
@@ -203,7 +202,6 @@ func (c charmUploader) ModelUUID() string {
 
 type stateShim struct {
 	*state.State
-	prechecker environs.InstancePrechecker
 }
 
 func (s *stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
@@ -215,7 +213,7 @@ func (s *stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.Uploaded
 }
 
 func (s *stateShim) AddApplication(args state.AddApplicationArgs, objectStore objectstore.ObjectStore) (bootstrap.Application, error) {
-	a, err := s.State.AddApplication(s.prechecker, args, objectStore)
+	a, err := s.State.AddApplication(args, objectStore)
 	if err != nil {
 		return nil, err
 	}

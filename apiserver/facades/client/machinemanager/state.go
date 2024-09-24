@@ -15,19 +15,10 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 )
-
-// StateBackend wraps a state.
-// TODO(juju3) - move to export_test
-// It's here because we need to for the client
-// facade for backwards compatibility.
-func StateBackend1(st *state.State, prechecker environs.InstancePrechecker) Backend {
-	return &stateShim{State: st, prechcker: prechecker}
-}
 
 type Backend interface {
 	// Application returns a application state by name.
@@ -86,7 +77,6 @@ type Charm interface {
 
 type stateShim struct {
 	*state.State
-	prechcker environs.InstancePrechecker
 }
 
 func (s stateShim) Application(name string) (Application, error) {
@@ -110,12 +100,12 @@ func (s stateShim) Machine(name string) (Machine, error) {
 }
 
 func (s stateShim) AddOneMachine(template state.MachineTemplate) (Machine, error) {
-	m, err := s.State.AddOneMachine(s.prechcker, template)
+	m, err := s.State.AddOneMachine(template)
 	return machineShim{Machine: m}, err
 }
 
 func (s stateShim) AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (Machine, error) {
-	m, err := s.State.AddMachineInsideNewMachine(s.prechcker, template, parentTemplate, containerType)
+	m, err := s.State.AddMachineInsideNewMachine(template, parentTemplate, containerType)
 	return machineShim{Machine: m}, err
 }
 
