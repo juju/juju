@@ -24,18 +24,10 @@ import (
 )
 
 type MockPolicy struct {
-	GetConfigValidator         func() (config.Validator, error)
 	GetConstraintsValidator    func() (constraints.Validator, error)
 	GetStorageProviderRegistry func() (storage.ProviderRegistry, error)
 
 	Providers map[string]domainstorage.StoragePoolDetails
-}
-
-func (p *MockPolicy) ConfigValidator() (config.Validator, error) {
-	if p.GetConfigValidator != nil {
-		return p.GetConfigValidator()
-	}
-	return nil, errors.NotImplementedf("ConfigValidator")
 }
 
 func (p *MockPolicy) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
