@@ -154,3 +154,14 @@ CREATE TABLE machine_removals (
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid)
 );
+
+-- lxd_profile table keeps track of the lxd profiles (previously charm-profiles)
+-- for a machine.
+CREATE TABLE lxd_profile (
+    machine_uuid TEXT NOT NULL,
+    name TEXT NOT NULL,
+    PRIMARY KEY (machine_uuid, name),
+    CONSTRAINT fk_lxd_profile_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid)
+);

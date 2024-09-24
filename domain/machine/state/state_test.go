@@ -100,7 +100,7 @@ func (s *stateSuite) TestCreateMachineWithParentSuccess(c *gc.C) {
 		machineName string
 	)
 	parentStmt := `
-SELECT  name 
+SELECT  name
 FROM    machine
         LEFT JOIN machine_parent AS parent
 	ON        parent.machine_uuid = machine.uuid
@@ -768,4 +768,31 @@ WHERE  name = $1`
 func (s *stateSuite) TestSetKeepInstanceNotFound(c *gc.C) {
 	err := s.state.SetKeepInstance(context.Background(), "666", true)
 	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestSetLXDProfiles(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.SetLXDProfiles(context.Background(), "deadbeef", []string{"profile1", "profile2"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	profiles, err := s.state.LXDProfiles(context.Background(), "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(profiles, jc.SameContents, []string{"profile1", "profile2"})
+}
+
+func (s *stateSuite) TestSetLXDProfilesNotFound(c *gc.C) {
+	err := s.state.SetLXDProfiles(context.Background(), "666", []string{"profile1", "profile2"})
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestSetLXDProfilesEmpty(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.SetLXDProfiles(context.Background(), "deadbeef", []string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	profiles, err := s.state.LXDProfiles(context.Background(), "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(profiles, gc.HasLen, 0)
 }

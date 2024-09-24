@@ -235,3 +235,16 @@ type createMachineArgs struct {
 	netNodeUUID string
 	parentName  machine.Name
 }
+
+// lxdProfile represents the struct to be used for the sqlair statements on the
+// lxd_profile table.
+type lxdProfile struct {
+	MachineUUID string `db:"machine_uuid"`
+	Name        string `db:"name"`
+}
+
+// machineExists is used to record if a row in the machine table exists by
+// selecting true into it.
+type machineExists struct {
+	Exists bool `db:"exists"`
+}
