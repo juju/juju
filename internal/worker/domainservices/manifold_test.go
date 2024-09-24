@@ -1,7 +1,7 @@
 // Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package servicefactory
+package domainservices
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 )
 
 type manifoldSuite struct {
@@ -59,15 +59,15 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.NewServiceFactoryGetter = nil
+	cfg.NewDomainServicesGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.NewControllerServiceFactory = nil
+	cfg.NewControllerDomainServices = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.NewModelServiceFactory = nil
+	cfg.NewModelDomainServices = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
@@ -88,9 +88,9 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		ObjectStoreName:             "objectstore",
 		Logger:                      s.logger,
 		NewWorker:                   NewWorker,
-		NewServiceFactoryGetter:     NewServiceFactoryGetter,
-		NewControllerServiceFactory: NewControllerServiceFactory,
-		NewModelServiceFactory:      NewProviderTrackerModelServiceFactory,
+		NewDomainServicesGetter:     NewDomainServicesGetter,
+		NewControllerDomainServices: NewControllerDomainServices,
+		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
 	})
 	w, err := manifold.Start(context.Background(), dt.StubGetter(getter))
 	c.Assert(err, jc.ErrorIsNil)
@@ -99,7 +99,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	workertest.CheckAlive(c, w)
 }
 
-func (s *manifoldSuite) TestOutputControllerServiceFactory(c *gc.C) {
+func (s *manifoldSuite) TestOutputControllerDomainServices(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewWorker(Config{
@@ -108,21 +108,21 @@ func (s *manifoldSuite) TestOutputControllerServiceFactory(c *gc.C) {
 		Logger:                      s.logger,
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
-		NewServiceFactoryGetter:     NewServiceFactoryGetter,
-		NewControllerServiceFactory: NewControllerServiceFactory,
-		NewModelServiceFactory:      NewProviderTrackerModelServiceFactory,
+		NewDomainServicesGetter:     NewDomainServicesGetter,
+		NewControllerDomainServices: NewControllerDomainServices,
+		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	manifold := ManifoldConfig{}
 
-	var factory servicefactory.ControllerServiceFactory
+	var factory services.ControllerDomainServices
 	err = manifold.output(w, &factory)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *manifoldSuite) TestOutputServiceFactoryGetter(c *gc.C) {
+func (s *manifoldSuite) TestOutputDomainServicesGetter(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewWorker(Config{
@@ -131,16 +131,16 @@ func (s *manifoldSuite) TestOutputServiceFactoryGetter(c *gc.C) {
 		Logger:                      s.logger,
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
-		NewServiceFactoryGetter:     NewServiceFactoryGetter,
-		NewControllerServiceFactory: NewControllerServiceFactory,
-		NewModelServiceFactory:      NewProviderTrackerModelServiceFactory,
+		NewDomainServicesGetter:     NewDomainServicesGetter,
+		NewControllerDomainServices: NewControllerDomainServices,
+		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	manifold := ManifoldConfig{}
 
-	var factory servicefactory.ServiceFactoryGetter
+	var factory services.DomainServicesGetter
 	err = manifold.output(w, &factory)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -154,9 +154,9 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 		Logger:                      s.logger,
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
-		NewServiceFactoryGetter:     NewServiceFactoryGetter,
-		NewControllerServiceFactory: NewControllerServiceFactory,
-		NewModelServiceFactory:      NewProviderTrackerModelServiceFactory,
+		NewDomainServicesGetter:     NewDomainServicesGetter,
+		NewControllerDomainServices: NewControllerDomainServices,
+		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -168,13 +168,13 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unsupported output type .*`)
 }
 
-func (s *manifoldSuite) TestNewControllerServiceFactory(c *gc.C) {
-	factory := NewControllerServiceFactory(s.dbGetter, s.dbDeleter, s.logger)
+func (s *manifoldSuite) TestNewControllerDomainServices(c *gc.C) {
+	factory := NewControllerDomainServices(s.dbGetter, s.dbDeleter, s.logger)
 	c.Assert(factory, gc.NotNil)
 }
 
-func (s *manifoldSuite) TestNewModelServiceFactory(c *gc.C) {
-	factory := NewModelServiceFactory(
+func (s *manifoldSuite) TestNewModelDomainServices(c *gc.C) {
+	factory := NewModelDomainServices(
 		"model",
 		s.dbGetter,
 		s.modelObjectStoreGetter,
@@ -183,19 +183,19 @@ func (s *manifoldSuite) TestNewModelServiceFactory(c *gc.C) {
 	c.Assert(factory, gc.NotNil)
 }
 
-func (s *manifoldSuite) TestNewServiceFactoryGetter(c *gc.C) {
-	ctrlFactory := NewControllerServiceFactory(s.dbGetter, s.dbDeleter, s.logger)
-	factory := NewServiceFactoryGetter(
+func (s *manifoldSuite) TestNewDomainServicesGetter(c *gc.C) {
+	ctrlFactory := NewControllerDomainServices(s.dbGetter, s.dbDeleter, s.logger)
+	factory := NewDomainServicesGetter(
 		ctrlFactory,
 		s.dbGetter,
 		s.logger,
-		NewProviderTrackerModelServiceFactory,
+		NewProviderTrackerModelDomainServices,
 		nil,
 		s.objectStoreGetter,
 	)
 	c.Assert(factory, gc.NotNil)
 
-	modelFactory := factory.FactoryForModel("model")
+	modelFactory := factory.ServicesForModel("model")
 	c.Assert(modelFactory, gc.NotNil)
 }
 
@@ -209,13 +209,13 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewWorker: func(Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewServiceFactoryGetter: func(csf servicefactory.ControllerServiceFactory, wd changestream.WatchableDBGetter, l logger.Logger, msff ModelServiceFactoryFn, pf providertracker.ProviderFactory, osg objectstore.ObjectStoreGetter) servicefactory.ServiceFactoryGetter {
+		NewDomainServicesGetter: func(csf services.ControllerDomainServices, wd changestream.WatchableDBGetter, l logger.Logger, msff ModelDomainServicesFn, pf providertracker.ProviderFactory, osg objectstore.ObjectStoreGetter) services.DomainServicesGetter {
 			return nil
 		},
-		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, logger.Logger) servicefactory.ControllerServiceFactory {
+		NewControllerDomainServices: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, logger.Logger) services.ControllerDomainServices {
 			return nil
 		},
-		NewModelServiceFactory: func(u coremodel.UUID, wd changestream.WatchableDBGetter, pf providertracker.ProviderFactory, sosg objectstore.ModelObjectStoreGetter, l logger.Logger) servicefactory.ModelServiceFactory {
+		NewModelDomainServices: func(u coremodel.UUID, wd changestream.WatchableDBGetter, pf providertracker.ProviderFactory, sosg objectstore.ModelObjectStoreGetter, l logger.Logger) services.ModelDomainServices {
 			return nil
 		},
 	}

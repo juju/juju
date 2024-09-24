@@ -36,7 +36,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		resources      = ctx.Resources()
 		presence       = ctx.Presence()
 		hub            = ctx.Hub()
-		serviceFactory = ctx.ServiceFactory()
+		domainServices = ctx.DomainServices()
 	)
 
 	leadership, err := ctx.LeadershipReader()
@@ -45,10 +45,10 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 	}
 
 	modelConfigServiceGetter := func(modelID model.UUID) ModelConfigService {
-		return ctx.ServiceFactoryForModel(modelID).Config()
+		return ctx.DomainServicesForModel(modelID).Config()
 	}
 	applicationServiceGetter := func(modelID model.UUID) ApplicationService {
-		return ctx.ServiceFactoryForModel(modelID).Application(service.ApplicationServiceParams{
+		return ctx.DomainServicesForModel(modelID).Application(service.ApplicationServiceParams{
 			StorageRegistry: storage.NotImplementedProviderRegistry{},
 			Secrets:         service.NotImplementedSecretService{},
 		})
@@ -63,16 +63,16 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		presence,
 		hub,
 		ctx.Logger().Child("controller"),
-		serviceFactory.ControllerConfig(),
-		serviceFactory.ExternalController(),
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
-		serviceFactory.Upgrade(),
-		serviceFactory.Access(),
-		serviceFactory.Model(),
+		domainServices.ControllerConfig(),
+		domainServices.ExternalController(),
+		domainServices.Cloud(),
+		domainServices.Credential(),
+		domainServices.Upgrade(),
+		domainServices.Access(),
+		domainServices.Model(),
 		applicationServiceGetter,
 		modelConfigServiceGetter,
-		serviceFactory.Proxy(),
+		domainServices.Proxy(),
 		func(modelUUID model.UUID, legacyState facade.LegacyStateExporter) ModelExporter {
 			return ctx.ModelExporter(modelUUID, legacyState)
 		},

@@ -14,8 +14,8 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	domainservicefactory "github.com/juju/juju/domain/servicefactory"
-	"github.com/juju/juju/internal/servicefactory"
+	domainservicefactory "github.com/juju/juju/domain/services"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 )
 
@@ -26,30 +26,30 @@ type ManifoldConfig struct {
 	Logger           logger.Logger
 	NewWorker        func(Config) (worker.Worker, error)
 
-	// NewProviderServiceFactoryGetter returns a new provider service factory
-	// getter, to select a provider service factory per model UUID.
-	NewProviderServiceFactoryGetter ProviderServiceFactoryGetterFn
+	// NewProviderServicesGetter returns a new provider domain services
+	// getter, to select a provider domain services per model UUID.
+	NewProviderServicesGetter ProviderServicesGetterFn
 
-	// NewProviderServiceFactory returns a new provider service factory for
+	// NewProviderServices returns a new provider domain services for
 	// the given model UUID.
-	NewProviderServiceFactory ProviderServiceFactoryFn
+	NewProviderServices ProviderServicesFn
 }
 
-// ProviderServiceFactoryGetterFn is a function that returns a provider service
+// ProviderServicesGetterFn is a function that returns a provider service
 // factory getter.
-type ProviderServiceFactoryGetterFn func(
-	ProviderServiceFactoryFn,
+type ProviderServicesGetterFn func(
+	ProviderServicesFn,
 	changestream.WatchableDBGetter,
 	logger.Logger,
-) servicefactory.ProviderServiceFactoryGetter
+) services.ProviderServicesGetter
 
-// ProviderServiceFactoryFn is a function that returns a provider service
+// ProviderServicesFn is a function that returns a provider service
 // factory.
-type ProviderServiceFactoryFn func(
+type ProviderServicesFn func(
 	coremodel.UUID,
 	changestream.WatchableDBGetter,
 	logger.Logger,
-) servicefactory.ProviderServiceFactory
+) services.ProviderServices
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
@@ -59,11 +59,11 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
-	if config.NewProviderServiceFactoryGetter == nil {
-		return errors.NotValidf("nil NewProviderServiceFactoryGetter")
+	if config.NewProviderServicesGetter == nil {
+		return errors.NotValidf("nil NewProviderServicesGetter")
 	}
-	if config.NewProviderServiceFactory == nil {
-		return errors.NotValidf("nil NewProviderServiceFactory")
+	if config.NewProviderServices == nil {
+		return errors.NotValidf("nil NewProviderServices")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -93,10 +93,10 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	}
 
 	return config.NewWorker(Config{
-		DBGetter:                        dbGetter,
-		Logger:                          config.Logger,
-		NewProviderServiceFactoryGetter: config.NewProviderServiceFactoryGetter,
-		NewProviderServiceFactory:       config.NewProviderServiceFactory,
+		DBGetter:                  dbGetter,
+		Logger:                    config.Logger,
+		NewProviderServicesGetter: config.NewProviderServicesGetter,
+		NewProviderServices:       config.NewProviderServices,
 	})
 }
 
@@ -104,39 +104,39 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 	if w, ok := in.(*common.CleanupWorker); ok {
 		in = w.Worker
 	}
-	w, ok := in.(*serviceFactoryWorker)
+	w, ok := in.(*domainServicesWorker)
 	if !ok {
 		return errors.Errorf("expected input of type dbWorker, got %T", in)
 	}
 
 	switch out := out.(type) {
-	case *servicefactory.ProviderServiceFactoryGetter:
-		*out = w.factoryGetter
+	case *services.ProviderServicesGetter:
+		*out = w.servicesGetter
 	default:
 		return errors.Errorf("unsupported output type %T", out)
 	}
 	return nil
 }
 
-// NewProviderServiceFactoryGetter returns a new service factory getter.
-func NewProviderServiceFactoryGetter(
-	newProviderServiceFactory ProviderServiceFactoryFn,
+// NewProviderServicesGetter returns a new domain services getter.
+func NewProviderServicesGetter(
+	newProviderServices ProviderServicesFn,
 	dbGetter changestream.WatchableDBGetter,
 	logger logger.Logger,
-) servicefactory.ProviderServiceFactoryGetter {
-	return &serviceFactoryGetter{
-		newProviderServiceFactory: newProviderServiceFactory,
-		dbGetter:                  dbGetter,
-		logger:                    logger,
+) services.ProviderServicesGetter {
+	return &domainServicesGetter{
+		newProviderServices: newProviderServices,
+		dbGetter:            dbGetter,
+		logger:              logger,
 	}
 }
 
-// NewProviderServiceFactory returns a new provider service factory.
-func NewProviderServiceFactory(
+// NewProviderServices returns a new provider domain services.
+func NewProviderServices(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
 	logger logger.Logger,
-) servicefactory.ProviderServiceFactory {
+) services.ProviderServices {
 	return domainservicefactory.NewProviderFactory(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),

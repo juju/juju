@@ -71,7 +71,7 @@ func (s *applicationOffersSuite) setupAPI(c *gc.C) {
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.mockAccessService,
-		s.mockModelServiceFactoryGetter,
+		s.mockModelDomainServicesGetter,
 		s.authorizer, s.authContext,
 		c.MkDir(), loggertesting.WrapCheckLog(c),
 		testing.ControllerTag.Id(), model.UUID(testing.ModelTag.Id()))
@@ -104,8 +104,8 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 
 	if expectedErr == nil {
 		modelUUID := model.UUID(testing.ModelTag.Id())
-		s.mockModelServiceFactoryGetter.EXPECT().ServiceFactoryForModel(modelUUID).Return(s.mockModelServiceFactory)
-		s.mockModelServiceFactory.EXPECT().Application().Return(s.mockApplicationService)
+		s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(modelUUID).Return(s.mockModelDomainServices)
+		s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
 		id := charmtesting.GenCharmID(c)
 		s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(id, nil)
@@ -176,8 +176,8 @@ func (s *applicationOffersSuite) TestAddOfferUpdatesExistingOffer(c *gc.C) {
 	}
 
 	modelUUID := model.UUID(testing.ModelTag.Id())
-	s.mockModelServiceFactoryGetter.EXPECT().ServiceFactoryForModel(modelUUID).Return(s.mockModelServiceFactory)
-	s.mockModelServiceFactory.EXPECT().Application().Return(s.mockApplicationService)
+	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(modelUUID).Return(s.mockModelDomainServices)
+	s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
 	chID := charmtesting.GenCharmID(c)
 	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(chID, nil)
@@ -254,8 +254,8 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 	}
 
 	modelUUID := model.UUID(testing.ModelTag.Id())
-	s.mockModelServiceFactoryGetter.EXPECT().ServiceFactoryForModel(modelUUID).Return(s.mockModelServiceFactory)
-	s.mockModelServiceFactory.EXPECT().Application().Return(s.mockApplicationService)
+	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(modelUUID).Return(s.mockModelDomainServices)
+	s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
 	chID := charmtesting.GenCharmID(c)
 	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(chID, nil)
@@ -291,8 +291,8 @@ func (s *applicationOffersSuite) TestOfferErrorApplicationError(c *gc.C) {
 	}
 
 	modelUUID := model.UUID(testing.ModelTag.Id())
-	s.mockModelServiceFactoryGetter.EXPECT().ServiceFactoryForModel(modelUUID).Return(s.mockModelServiceFactory)
-	s.mockModelServiceFactory.EXPECT().Application().Return(s.mockApplicationService)
+	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(modelUUID).Return(s.mockModelDomainServices)
+	s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
 	chID := charmtesting.GenCharmID(c)
 	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(chID, applicationerrors.ApplicationNotFound)
@@ -327,8 +327,8 @@ func (s *applicationOffersSuite) TestOfferErrorApplicationCharmError(c *gc.C) {
 	}
 
 	modelUUID := model.UUID(testing.ModelTag.Id())
-	s.mockModelServiceFactoryGetter.EXPECT().ServiceFactoryForModel(modelUUID).Return(s.mockModelServiceFactory)
-	s.mockModelServiceFactory.EXPECT().Application().Return(s.mockApplicationService)
+	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(modelUUID).Return(s.mockModelDomainServices)
+	s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
 	chID := charmtesting.GenCharmID(c)
 	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(chID, nil)
@@ -1316,7 +1316,7 @@ func (s *consumeSuite) setupAPI(c *gc.C) {
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.mockAccessService,
-		s.mockModelServiceFactoryGetter,
+		s.mockModelDomainServicesGetter,
 		s.authorizer, s.authContext,
 		c.MkDir(),
 		loggertesting.WrapCheckLog(c),

@@ -24,7 +24,7 @@ func Register(registry facade.FacadeRegistry) {
 // state.State backing.
 func newAPI(ctx facade.ModelContext) (*API, error) {
 	st := ctx.State()
-	stateShim, err := NewStateShim(st, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential())
+	stateShim, err := NewStateShim(st, ctx.DomainServices().Cloud(), ctx.DomainServices().Credential())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -35,6 +35,6 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 		ctx.Resources(),
 		ctx.Auth(),
 		ctx.Logger().Child("subnets"),
-		ctx.ServiceFactory().Network(),
+		ctx.DomainServices().Network(),
 	)
 }

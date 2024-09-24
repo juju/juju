@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 	pkitls "github.com/juju/juju/internal/pki/tls"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 	workerstate "github.com/juju/juju/internal/worker/state"
 )
@@ -34,7 +34,7 @@ type ManifoldConfig struct {
 	HubName            string
 	MuxName            string
 	StateName          string
-	ServiceFactoryName string
+	DomainServicesName string
 
 	// We don't use these in the worker, but we want to prevent the
 	// httpserver from starting until they're running so that all of
@@ -65,8 +65,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
 	}
-	if config.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
+	if config.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
@@ -113,7 +113,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AuthorityName,
 			config.HubName,
 			config.StateName,
-			config.ServiceFactoryName,
+			config.DomainServicesName,
 			config.MuxName,
 			config.APIServerName,
 		},
@@ -148,8 +148,8 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	var controllerServiceFactory servicefactory.ControllerServiceFactory
-	if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+	var controllerDomainServices services.ControllerDomainServices
+	if err := getter.Get(config.DomainServicesName, &controllerDomainServices); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -161,7 +161,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	newCtx, cancel := stdcontext.WithCancel(ctx)
 	defer cancel()
 
-	controllerConfig, err := config.GetControllerConfig(newCtx, controllerServiceFactory.ControllerConfig())
+	controllerConfig, err := config.GetControllerConfig(newCtx, controllerDomainServices.ControllerConfig())
 	if err != nil {
 		_ = stTracker.Done()
 		return nil, errors.Annotate(err, "unable to get controller config")
@@ -169,7 +169,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	tlsConfig := config.NewTLSConfig(
 		controllerConfig.AutocertDNSName(),
 		controllerConfig.AutocertURL(),
-		controllerServiceFactory.AutocertCache(),
+		controllerDomainServices.AutocertCache(),
 		pkitls.AuthoritySNITLSGetter(authority, config.Logger),
 		config.Logger,
 	)

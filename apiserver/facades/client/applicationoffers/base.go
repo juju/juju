@@ -30,7 +30,7 @@ type BaseAPI struct {
 	ControllerModel           Backend
 	StatePool                 StatePool
 	accessService             AccessService
-	modelServiceFactoryGetter ModelServiceFactoryGetter
+	modelDomainServicesGetter ModelDomainServicesGetter
 	getControllerInfo         func(context.Context) (apiAddrs []string, caCert string, _ error)
 	logger                    corelogger.Logger
 	controllerUUID            string

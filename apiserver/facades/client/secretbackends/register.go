@@ -23,8 +23,8 @@ func newSecretBackendsAPI(context facade.ModelContext) (*SecretBackendsAPI, erro
 	if !context.Auth().AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	serviceFactory := context.ServiceFactory()
-	secretBackendService := serviceFactory.SecretBackend()
+	domainServices := context.DomainServices()
+	secretBackendService := domainServices.SecretBackend()
 	return &SecretBackendsAPI{
 		authorizer:     context.Auth(),
 		controllerUUID: context.ControllerUUID(),

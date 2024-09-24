@@ -16,7 +16,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Lock
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination servicefactory_mock_test.go github.com/juju/juju/internal/servicefactory ControllerServiceFactory
+//go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination servicefactory_mock_test.go github.com/juju/juju/internal/services ControllerDomainServices
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination database_mock_test.go github.com/juju/juju/core/database DBGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination service_mock_test.go github.com/juju/juju/internal/worker/upgradedatabase UpgradeService,ModelService
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination worker_mock_test.go github.com/juju/worker/v4 Worker
@@ -31,7 +31,7 @@ type baseSuite struct {
 	lock           *MockLock
 	agent          *MockAgent
 	agentConfig    *MockConfig
-	serviceFactory *MockControllerServiceFactory
+	domainServices *MockControllerDomainServices
 
 	dbGetter *MockDBGetter
 
@@ -47,7 +47,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.lock = NewMockLock(ctrl)
 	s.agent = NewMockAgent(ctrl)
 	s.agentConfig = NewMockConfig(ctrl)
-	s.serviceFactory = NewMockControllerServiceFactory(ctrl)
+	s.domainServices = NewMockControllerDomainServices(ctrl)
 
 	s.dbGetter = NewMockDBGetter(ctrl)
 

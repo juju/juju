@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/state"
@@ -51,7 +51,7 @@ type workerFixture struct {
 	objectStoreGetter       stubObjectStoreGetter
 	controllerConfigService *MockControllerConfigService
 	modelService            *MockModelService
-	serviceFactoryGetter    servicefactory.ServiceFactoryGetter
+	domainServicesGetter    services.DomainServicesGetter
 	controllerUUID          string
 	controllerModelUUID     model.UUID
 }
@@ -74,7 +74,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.logSink = &mockModelLogger{}
 	s.charmhubHTTPClient = &http.Client{}
 	s.sshimporterHTTPClient = &http.Client{}
-	s.serviceFactoryGetter = &stubServiceFactoryGetter{}
+	s.domainServicesGetter = &stubDomainServicesGetter{}
 	s.controllerUUID = coretesting.ControllerTag.Id()
 	s.controllerModelUUID = modeltesting.GenModelUUID(c)
 	s.stub.ResetCalls()
@@ -99,7 +99,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		DBDeleter:                         s.dbDeleter,
 		ControllerConfigService:           s.controllerConfigService,
 		ModelService:                      s.modelService,
-		ServiceFactoryGetter:              s.serviceFactoryGetter,
+		DomainServicesGetter:              s.domainServicesGetter,
 		TracerGetter:                      s.tracerGetter,
 		ObjectStoreGetter:                 s.objectStoreGetter,
 	}
@@ -166,8 +166,8 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *apiserver.Config) { cfg.DBGetter = nil },
 		"nil DBGetter not valid",
 	}, {
-		func(cfg *apiserver.Config) { cfg.ServiceFactoryGetter = nil },
-		"nil ServiceFactoryGetter not valid",
+		func(cfg *apiserver.Config) { cfg.DomainServicesGetter = nil },
+		"nil DomainServicesGetter not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.TracerGetter = nil },
 		"nil TracerGetter not valid",

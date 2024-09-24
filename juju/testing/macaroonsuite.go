@@ -67,7 +67,7 @@ func (s *MacaroonSuite) SetUpTest(c *gc.C) {
 
 	s.ApiServerSuite.SetUpTest(c)
 
-	err := s.ControllerServiceFactory(c).Access().AddExternalUser(
+	err := s.ControllerDomainServices(c).Access().AddExternalUser(
 		context.Background(),
 		permission.EveryoneUserName,
 		"",
@@ -95,7 +95,7 @@ func (s *MacaroonSuite) AddModelUser(c *gc.C, username user.Name) {
 		panic("cannot use MacaroonSuite.AddModelUser to add a local name")
 	}
 
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 	err := accessService.UpdatePermission(context.Background(), access.UpdatePermissionArgs{
 		Subject: username,
 		Change:  permission.Grant,
@@ -113,7 +113,7 @@ func (s *MacaroonSuite) AddModelUser(c *gc.C, username user.Name) {
 // AddControllerUser is a convenience function that adds
 // a controller user with the specified access.
 func (s *MacaroonSuite) AddControllerUser(c *gc.C, username user.Name, accessLevel permission.Access) {
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 	perm := permission.AccessSpec{
 		Access: accessLevel,
 		Target: permission.ID{

@@ -40,7 +40,7 @@ func createOffersAPI(
 	backend Backend,
 	statePool StatePool,
 	accessService AccessService,
-	modelServiceFactoryGetter ModelServiceFactoryGetter,
+	modelDomainServicesGetter ModelDomainServicesGetter,
 	authorizer facade.Authorizer,
 	authContext *commoncrossmodel.AuthContext,
 	dataDir string,
@@ -60,7 +60,7 @@ func createOffersAPI(
 			GetApplicationOffers:      getApplicationOffers,
 			ControllerModel:           backend,
 			accessService:             accessService,
-			modelServiceFactoryGetter: modelServiceFactoryGetter,
+			modelDomainServicesGetter: modelDomainServicesGetter,
 			StatePool:                 statePool,
 			getControllerInfo:         getControllerInfo,
 			logger:                    logger,
@@ -123,8 +123,8 @@ func (api *OffersAPIv5) Offer(ctx context.Context, all params.AddApplicationOffe
 			}
 		}
 
-		modelServiceFactory := api.modelServiceFactoryGetter.ServiceFactoryForModel(modelUUID)
-		applicationOfferParams, err := api.makeAddOfferArgsFromParams(ctx, owner, modelServiceFactory.Application(), one)
+		modelDomainServices := api.modelDomainServicesGetter.DomainServicesForModel(modelUUID)
+		applicationOfferParams, err := api.makeAddOfferArgsFromParams(ctx, owner, modelDomainServices.Application(), one)
 		if err != nil {
 			result[i].Error = apiservererrors.ServerError(err)
 			continue

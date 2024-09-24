@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 )
 
 type workerSuite struct {
@@ -49,16 +49,16 @@ func (s *workerSuite) getConfig() Config {
 	return Config{
 		DBGetter: s.dbGetter,
 		Logger:   s.logger,
-		NewObjectStoreServices: func(coremodel.UUID, changestream.WatchableDBGetter, logger.Logger) servicefactory.ObjectStoreServices {
+		NewObjectStoreServices: func(coremodel.UUID, changestream.WatchableDBGetter, logger.Logger) services.ObjectStoreServices {
 			return s.objectStoreServices
 		},
-		NewObjectStoreServicesGetter: func(ObjectStoreServicesFn, changestream.WatchableDBGetter, logger.Logger) servicefactory.ObjectStoreServicesGetter {
+		NewObjectStoreServicesGetter: func(ObjectStoreServicesFn, changestream.WatchableDBGetter, logger.Logger) services.ObjectStoreServicesGetter {
 			return s.objectStoreServicesGetter
 		},
 	}
 }
 
-func (s *workerSuite) TestWorkerFactoryGetter(c *gc.C) {
+func (s *workerSuite) TestWorkerServicesGetter(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newWorker(c)

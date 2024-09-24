@@ -55,7 +55,7 @@ func NewFacade(ctx facade.ModelContext) (*API, error) {
 
 	st := ctx.State()
 	rst := st.Resources(ctx.ObjectStore())
-	modelConfigService := ctx.ServiceFactory().Config()
+	modelConfigService := ctx.DomainServices().Config()
 
 	charmhubHTTPClient, err := ctx.HTTPClient(facade.CharmhubHTTPClient)
 	if err != nil {

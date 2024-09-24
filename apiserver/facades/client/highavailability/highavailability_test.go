@@ -57,7 +57,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.haServer, err = highavailability.NewHighAvailabilityAPI(facadetest.ModelContext{
 		State_:          st,
 		Auth_:           s.authorizer,
-		ServiceFactory_: s.ControllerServiceFactory(c),
+		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,7 +91,7 @@ func (s *clientSuite) enableS3(c *gc.C) {
 		controller.ObjectStoreS3StaticKey:    "deadbeef",
 		controller.ObjectStoreS3StaticSecret: "shhh....",
 	}
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 	err := controllerConfigService.UpdateControllerConfig(context.Background(), attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -101,7 +101,7 @@ func (s *clientSuite) setMachineAddresses(c *gc.C, machineId string) {
 	m, err := st.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetMachineAddresses(
@@ -160,7 +160,7 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 	c.Assert(machines, gc.HasLen, 1)
 	c.Assert(machines[0].Base().DisplayString(), gc.Equals, "ubuntu@12.10")
 
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	err = machines[0].SetMachineAddresses(
@@ -182,7 +182,7 @@ func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Base().DisplayString(), gc.Equals, "ubuntu@12.10")
 
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -227,7 +227,7 @@ func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
 
 	s.setMachineAddresses(c, "1")
 
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -289,7 +289,7 @@ func (s *clientSuite) TestEnableHAEmptyConstraints(c *gc.C) {
 
 func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *gc.C) {
 	attrs := controller.Config{controller.JujuHASpace: "ha-space"}
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 	err := controllerConfigService.UpdateControllerConfig(context.Background(), attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -318,7 +318,7 @@ func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *gc.C) {
 
 func (s *clientSuite) TestEnableHAControllerConfigWithFileBackedObjectStore(c *gc.C) {
 	attrs := controller.Config{controller.ObjectStoreType: "file"}
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 	err := controllerConfigService.UpdateControllerConfig(context.Background(), attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -521,7 +521,7 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 	haServer, err := highavailability.NewHighAvailabilityAPI(facadetest.ModelContext{
 		State_:          st2,
 		Auth_:           s.authorizer,
-		ServiceFactory_: s.ControllerServiceFactory(c),
+		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -584,13 +584,13 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 	_, err := highavailability.NewHighAvailabilityAPI(facadetest.ModelContext{
 		State_:          st,
 		Auth_:           s.authorizer,
-		ServiceFactory_: s.ControllerServiceFactory(c),
+		DomainServices_: s.ControllerDomainServices(c),
 	})
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
 }
 
 func (s *clientSuite) TestControllerDetails(c *gc.C) {
-	cfg, err := s.ControllerServiceFactory(c).ControllerConfig().ControllerConfig(context.Background())
+	cfg, err := s.ControllerDomainServices(c).ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	apiPort := cfg.APIPort()
 

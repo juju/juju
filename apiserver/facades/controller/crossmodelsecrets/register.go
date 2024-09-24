@@ -32,23 +32,23 @@ func Register(registry facade.FacadeRegistry) {
 // backed by global state.
 func makeStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*CrossModelSecretsAPI, error) {
 	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
-	serviceFactory := ctx.ServiceFactory()
+	domainServices := ctx.DomainServices()
 
-	backendService := serviceFactory.SecretBackend()
+	backendService := domainServices.SecretBackend()
 	secretInfoGetter := func(modelUUID coremodel.UUID) SecretService {
-		return ctx.ServiceFactoryForModel(modelUUID).Secret(
+		return ctx.DomainServicesForModel(modelUUID).Secret(
 			secretservice.SecretServiceParams{
 				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
-					serviceFactory.SecretBackend(), modelUUID,
+					domainServices.SecretBackend(), modelUUID,
 				),
 				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
-					serviceFactory.SecretBackend(), modelUUID,
+					domainServices.SecretBackend(), modelUUID,
 				),
 			},
 		)
 	}
 
-	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
+	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, fmt.Errorf("retrieving model info: %w", err)
 	}

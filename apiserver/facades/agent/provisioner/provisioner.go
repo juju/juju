@@ -131,15 +131,15 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	serviceFactory := ctx.ServiceFactory()
+	domainServices := ctx.DomainServices()
 
 	configGetter := stateenvirons.EnvironConfigGetter{
 		Model:             model,
-		CloudService:      serviceFactory.Cloud(),
-		CredentialService: serviceFactory.Credential(),
+		CloudService:      domainServices.Cloud(),
+		CredentialService: domainServices.Credential(),
 	}
 
-	modelInfoService := serviceFactory.ModelInfo()
+	modelInfoService := domainServices.ModelInfo()
 	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -148,7 +148,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 
 	var env storage.ProviderRegistry
 	if isCaasModel {
-		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, serviceFactory.Cloud(), serviceFactory.Credential())
+		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, domainServices.Cloud(), domainServices.Credential())
 	} else {
 		env, err = environs.GetEnviron(stdCtx, configGetter, environs.New)
 	}
@@ -158,7 +158,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 
 	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(
-		stdCtx, st, serviceFactory.Cloud(), serviceFactory.Network(), getCanModify)
+		stdCtx, st, domainServices.Cloud(), domainServices.Network(), getCanModify)
 	if err != nil {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}
@@ -168,13 +168,13 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 	urlGetter := common.NewToolsURLGetter(string(modelInfo.UUID), systemState)
 
-	modelConfigWatcher := common.NewModelConfigWatcher(serviceFactory.Config(), ctx.WatcherRegistry())
+	modelConfigWatcher := common.NewModelConfigWatcher(domainServices.Config(), ctx.WatcherRegistry())
 
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{
 		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
 		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
-		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc, ctx.ServiceFactory().Machine()),
+		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc, ctx.DomainServices().Machine()),
 		PasswordChanger:      common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
 		APIAddresser:         common.NewAPIAddresser(systemState, resources),
@@ -182,24 +182,24 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
-			serviceFactory.ControllerConfig(),
-			serviceFactory.ExternalController(),
+			domainServices.ControllerConfig(),
+			domainServices.ExternalController(),
 		),
 		NetworkConfigAPI:            netConfigAPI,
-		networkService:              ctx.ServiceFactory().Network(),
+		networkService:              ctx.DomainServices().Network(),
 		st:                          st,
-		controllerConfigService:     serviceFactory.ControllerConfig(),
-		agentProvisionerService:     serviceFactory.AgentProvisioner(),
-		keyUpdaterService:           serviceFactory.KeyUpdater(),
-		modelConfigService:          serviceFactory.Config(),
+		controllerConfigService:     domainServices.ControllerConfig(),
+		agentProvisionerService:     domainServices.AgentProvisioner(),
+		keyUpdaterService:           domainServices.KeyUpdater(),
+		modelConfigService:          domainServices.Config(),
 		modelInfoService:            modelInfoService,
-		machineService:              serviceFactory.Machine(),
-		applicationService:          serviceFactory.Application(service.ApplicationServiceParams{}),
+		machineService:              domainServices.Machine(),
+		applicationService:          domainServices.Application(service.ApplicationServiceParams{}),
 		resources:                   resources,
 		authorizer:                  authorizer,
 		configGetter:                configGetter,
 		storageProviderRegistry:     storageProviderRegistry,
-		storagePoolGetter:           serviceFactory.Storage(storageProviderRegistry),
+		storagePoolGetter:           domainServices.Storage(storageProviderRegistry),
 		getAuthFunc:                 getAuthFunc,
 		getCanModify:                getCanModify,
 		credentialInvalidatorGetter: credentialcommon.CredentialInvalidatorGetter(ctx),
@@ -215,8 +215,8 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 
 	api.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)
-	api.toolsFinder = common.NewToolsFinder(serviceFactory.ControllerConfig(), st, urlGetter, newEnviron, ctx.ControllerObjectStore())
-	api.ToolsGetter = common.NewToolsGetter(st, serviceFactory.Agent(), st, urlGetter, api.toolsFinder, getAuthOwner)
+	api.toolsFinder = common.NewToolsFinder(domainServices.ControllerConfig(), st, urlGetter, newEnviron, ctx.ControllerObjectStore())
+	api.ToolsGetter = common.NewToolsGetter(st, domainServices.Agent(), st, urlGetter, api.toolsFinder, getAuthOwner)
 	return api, nil
 }
 

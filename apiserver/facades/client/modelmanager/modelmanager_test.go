@@ -76,7 +76,7 @@ type modelManagerSuite struct {
 	accessService        *mocks.MockAccessService
 	modelService         *mocks.MockModelService
 	modelExporter        *mocks.MockModelExporter
-	serviceFactoryGetter *mocks.MockServiceFactoryGetter
+	domainServicesGetter *mocks.MockDomainServicesGetter
 	applicationService   *mocks.MockApplicationService
 	authoriser           apiservertesting.FakeAuthorizer
 	api                  *modelmanager.ModelManagerAPI
@@ -92,7 +92,7 @@ func (s *modelManagerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	s.modelExporter = mocks.NewMockModelExporter(ctrl)
 	s.modelService = mocks.NewMockModelService(ctrl)
 	s.accessService = mocks.NewMockAccessService(ctrl)
-	s.serviceFactoryGetter = mocks.NewMockServiceFactoryGetter(ctrl)
+	s.domainServicesGetter = mocks.NewMockDomainServicesGetter(ctrl)
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	return ctrl
 }
@@ -235,7 +235,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) {
 		s.st, modelExporter(s.modelExporter), s.ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
-			ServiceFactoryGetter: s.serviceFactoryGetter,
+			DomainServicesGetter: s.domainServicesGetter,
 			CloudService:         s.cloudService,
 			CredentialService:    apiservertesting.ConstCredentialGetter(&cred),
 			ModelService:         s.modelService,
@@ -256,7 +256,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) {
 		s.caasSt, modelExporter(s.modelExporter), s.ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
-			ServiceFactoryGetter: s.serviceFactoryGetter,
+			DomainServicesGetter: s.domainServicesGetter,
 			CloudService: &mockCloudService{
 				clouds: map[string]cloud.Cloud{
 					"k8s-cloud": mockK8sCloud,
@@ -292,7 +292,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.st, modelExporter(s.modelExporter), s.ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
-			ServiceFactoryGetter: s.serviceFactoryGetter,
+			DomainServicesGetter: s.domainServicesGetter,
 			CloudService: &mockCloudService{
 				clouds: map[string]cloud.Cloud{"dummy": jujutesting.DefaultCloud},
 			},
@@ -364,17 +364,17 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 	ctrl *gomock.Controller,
 	modelConfig map[string]any,
 ) {
-	// Expect call to get the model service factory.
-	modelServiceFactory := mocks.NewMockModelServiceFactory(ctrl)
-	s.serviceFactoryGetter.EXPECT().ServiceFactoryForModel(gomock.Any()).Return(modelServiceFactory)
+	// Expect call to get the model domain services.
+	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(modelDomainServices)
 
 	// Expect calls to get various model services.
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	networkService := mocks.NewMockNetworkService(ctrl)
 	modelConfigService := mocks.NewMockModelConfigService(ctrl)
-	modelServiceFactory.EXPECT().ModelInfo().Return(modelInfoService)
-	modelServiceFactory.EXPECT().Network().Return(networkService)
-	modelServiceFactory.EXPECT().Config().Return(modelConfigService)
+	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+	modelDomainServices.EXPECT().Network().Return(networkService)
+	modelDomainServices.EXPECT().Config().Return(modelConfigService)
 
 	// Expect calls to functions of the model services.
 	modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
@@ -900,7 +900,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 		s.st, modelExporter(s.modelExporter), s.ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
-			ServiceFactoryGetter: s.serviceFactoryGetter,
+			DomainServicesGetter: s.domainServicesGetter,
 			CloudService: &mockCloudService{
 				clouds: map[string]cloud.Cloud{"dummy": jujutesting.DefaultCloud},
 			},
@@ -1152,7 +1152,7 @@ type modelManagerStateSuite struct {
 	accessService           *mocks.MockAccessService
 	modelService            *mocks.MockModelService
 	applicationService      *mocks.MockApplicationService
-	serviceFactoryGetter    *mocks.MockServiceFactoryGetter
+	domainServicesGetter    *mocks.MockDomainServicesGetter
 
 	store objectstore.ObjectStore
 
@@ -1189,7 +1189,7 @@ func (s *modelManagerStateSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.accessService = mocks.NewMockAccessService(ctrl)
 	s.modelService = mocks.NewMockModelService(ctrl)
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
-	s.serviceFactoryGetter = mocks.NewMockServiceFactoryGetter(ctrl)
+	s.domainServicesGetter = mocks.NewMockDomainServicesGetter(ctrl)
 
 	var fs assumes.FeatureSet
 	s.applicationService.EXPECT().GetSupportedFeatures(gomock.Any()).AnyTimes().Return(fs, nil)
@@ -1202,22 +1202,22 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	st := common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool())
 	ctlrSt := common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool())
 
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), ctlrSt)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	configGetter := stateenvirons.EnvironConfigGetter{Model: s.ControllerModel(c), CloudService: serviceFactory.Cloud(), CredentialService: serviceFactory.Credential()}
-	newEnviron := common.EnvironFuncForModel(model, serviceFactory.Cloud(), serviceFactory.Credential(), configGetter)
+	configGetter := stateenvirons.EnvironConfigGetter{Model: s.ControllerModel(c), CloudService: domainServices.Cloud(), CredentialService: domainServices.Credential()}
+	newEnviron := common.EnvironFuncForModel(model, domainServices.Cloud(), domainServices.Credential(), configGetter)
 	toolsFinder := common.NewToolsFinder(s.controllerConfigService, st, urlGetter, newEnviron, s.store)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
 		mockCredentialShim{st}, nil, ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
-			ServiceFactoryGetter: s.serviceFactoryGetter,
-			CloudService:         serviceFactory.Cloud(),
-			CredentialService:    serviceFactory.Credential(),
+			DomainServicesGetter: s.domainServicesGetter,
+			CloudService:         domainServices.Cloud(),
+			CredentialService:    domainServices.Credential(),
 			ModelService:         s.modelService,
 			ModelDefaultsService: nil,
 			AccessService:        s.accessService,
@@ -1270,17 +1270,17 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 		nil,
 	)
 
-	// Expect call to get the model service factory.
-	modelServiceFactory := mocks.NewMockModelServiceFactory(ctrl)
-	s.serviceFactoryGetter.EXPECT().ServiceFactoryForModel(gomock.Any()).Return(modelServiceFactory)
+	// Expect call to get the model domain services.
+	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(modelDomainServices)
 
 	// Expect calls to get various model services.
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	networkService := mocks.NewMockNetworkService(ctrl)
 	modelConfigService := mocks.NewMockModelConfigService(ctrl)
-	modelServiceFactory.EXPECT().ModelInfo().Return(modelInfoService)
-	modelServiceFactory.EXPECT().Network().Return(networkService)
-	modelServiceFactory.EXPECT().Config().Return(modelConfigService)
+	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+	modelDomainServices.EXPECT().Network().Return(networkService)
+	modelDomainServices.EXPECT().Config().Return(modelConfigService)
 
 	// Expect calls to functions of the model services.
 	modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
@@ -1296,7 +1296,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUserTag("external@remote")
 	st := common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool())
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
@@ -1305,9 +1305,9 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
 		modelmanager.Services{
-			ServiceFactoryGetter: s.serviceFactoryGetter,
-			CloudService:         serviceFactory.Cloud(),
-			CredentialService:    serviceFactory.Credential(),
+			DomainServicesGetter: s.domainServicesGetter,
+			CloudService:         domainServices.Cloud(),
+			CredentialService:    domainServices.Credential(),
 			ModelService:         s.modelService,
 			ModelDefaultsService: nil,
 			AccessService:        s.accessService,
@@ -1325,7 +1325,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
 	st := common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool())
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
@@ -1334,9 +1334,9 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
 		modelmanager.Services{
-			ServiceFactoryGetter: s.serviceFactoryGetter,
-			CloudService:         serviceFactory.Cloud(),
-			CredentialService:    serviceFactory.Credential(),
+			DomainServicesGetter: s.domainServicesGetter,
+			CloudService:         domainServices.Cloud(),
+			CredentialService:    domainServices.Credential(),
 			ModelService:         s.modelService,
 			ModelDefaultsService: nil,
 			AccessService:        s.accessService,
@@ -1572,7 +1572,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	backend := common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), model, s.StatePool())
 
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		context.Background(),
@@ -1581,9 +1581,9 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
 		modelmanager.Services{
-			ServiceFactoryGetter: s.serviceFactoryGetter,
-			CloudService:         serviceFactory.Cloud(),
-			CredentialService:    serviceFactory.Credential(),
+			DomainServicesGetter: s.domainServicesGetter,
+			CloudService:         domainServices.Cloud(),
+			CredentialService:    domainServices.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
 			AccessService:        s.accessService,
@@ -1640,7 +1640,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	s.authoriser.Tag = jujutesting.AdminUser
 	backend := common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), model, s.StatePool())
 
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		context.Background(),
@@ -1649,9 +1649,9 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
 		modelmanager.Services{
-			ServiceFactoryGetter: s.serviceFactoryGetter,
-			CloudService:         serviceFactory.Cloud(),
-			CredentialService:    serviceFactory.Credential(),
+			DomainServicesGetter: s.domainServicesGetter,
+			CloudService:         domainServices.Cloud(),
+			CredentialService:    domainServices.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
 			AccessService:        s.accessService,
@@ -1695,7 +1695,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	backend := common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), model, s.StatePool())
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
@@ -1705,9 +1705,9 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
 		modelmanager.Services{
-			ServiceFactoryGetter: s.serviceFactoryGetter,
-			CloudService:         serviceFactory.Cloud(),
-			CredentialService:    serviceFactory.Credential(),
+			DomainServicesGetter: s.domainServicesGetter,
+			CloudService:         domainServices.Cloud(),
+			CredentialService:    domainServices.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
 			AccessService:        s.accessService,
@@ -1797,7 +1797,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)
 
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = user
@@ -1809,9 +1809,9 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
 		modelmanager.Services{
-			ServiceFactoryGetter: s.serviceFactoryGetter,
-			CloudService:         serviceFactory.Cloud(),
-			CredentialService:    serviceFactory.Credential(),
+			DomainServicesGetter: s.domainServicesGetter,
+			CloudService:         domainServices.Cloud(),
+			CredentialService:    domainServices.Credential(),
 			ModelService:         s.modelService,
 			ModelDefaultsService: nil,
 			AccessService:        s.accessService,

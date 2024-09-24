@@ -36,10 +36,10 @@ func newUserSecretsDrainAPI(stdCtx context.Context, ctx facade.ModelContext) (*S
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	serviceFactory := ctx.ServiceFactory()
-	backendService := serviceFactory.SecretBackend()
+	domainServices := ctx.DomainServices()
+	backendService := domainServices.SecretBackend()
 
-	secretService := ctx.ServiceFactory().Secret(
+	secretService := ctx.DomainServices().Secret(
 		secretservice.SecretServiceParams{
 			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
 				backendService, ctx.ModelUUID(),

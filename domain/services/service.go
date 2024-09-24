@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package servicefactory
+package services
 
 import (
 	"github.com/juju/juju/core/changestream"
@@ -12,15 +12,15 @@ import (
 	"github.com/juju/juju/core/providertracker"
 )
 
-// ServiceFactory provides access to the services required by the apiserver.
-type ServiceFactory struct {
-	*ControllerFactory
+// DomainServices provides access to the services required by the apiserver.
+type DomainServices struct {
+	*ControllerServices
 	*ModelFactory
 }
 
-// NewServiceFactory returns a new service factory which can be used to
+// NewDomainServices returns a new domain services which can be used to
 // get new services from.
-func NewServiceFactory(
+func NewDomainServices(
 	controllerDB changestream.WatchableDBFactory,
 	modelUUID model.UUID,
 	modelDB changestream.WatchableDBFactory,
@@ -28,10 +28,10 @@ func NewServiceFactory(
 	providerTracker providertracker.ProviderFactory,
 	objectStore objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
-) *ServiceFactory {
-	controllerFactory := NewControllerFactory(controllerDB, deleterDB, logger)
-	return &ServiceFactory{
-		ControllerFactory: controllerFactory,
+) *DomainServices {
+	controllerServices := NewControllerServices(controllerDB, deleterDB, logger)
+	return &DomainServices{
+		ControllerServices: controllerServices,
 		ModelFactory: NewModelFactory(
 			modelUUID,
 			controllerDB,

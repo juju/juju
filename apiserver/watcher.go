@@ -542,7 +542,7 @@ func newMigrationStatusWatcher(_ context.Context, context facade.ModelContext) (
 		watcher:                 watcher,
 		st:                      getMigrationBackend(st),
 		ctrlSt:                  controllerBackend,
-		controllerConfigService: context.ServiceFactory().ControllerConfig(),
+		controllerConfigService: context.DomainServices().ControllerConfig(),
 	}, nil
 }
 
@@ -883,7 +883,7 @@ func newSecretsRevisionWatcher(_ context.Context, context facade.ModelContext) (
 
 	return &srvSecretsRevisionWatcher{
 		watcherCommon: newWatcherCommon(context),
-		secretService: context.ServiceFactory().Secret(
+		secretService: context.DomainServices().Secret(
 			secretservice.SecretServiceParams{
 				BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
 				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,

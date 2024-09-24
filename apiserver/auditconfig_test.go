@@ -220,7 +220,7 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 func (s *auditConfigSuite) TestNewServerValidatesConfig(c *gc.C) {
 	cfg := testing.DefaultServerConfig(c, nil)
 	cfg.GetAuditConfig = nil
-	cfg.ServiceFactoryGetter = s.ServiceFactoryGetter(c, s.NoopObjectStore(c))
+	cfg.DomainServicesGetter = s.DomainServicesGetter(c, s.NoopObjectStore(c))
 
 	srv, err := apiserver.NewServer(context.Background(), cfg)
 	c.Assert(err, gc.ErrorMatches, "missing GetAuditConfig not valid")
@@ -228,7 +228,7 @@ func (s *auditConfigSuite) TestNewServerValidatesConfig(c *gc.C) {
 }
 
 func (s *auditConfigSuite) createModelAdminUser(c *gc.C, userTag names.UserTag, password string) {
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        user.NameFromTag(userTag),

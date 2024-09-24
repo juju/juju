@@ -73,7 +73,7 @@ func newFacade(ctx facade.ModelContext) (*BundleAPI, error) {
 		ctx.ObjectStore(),
 		authorizer,
 		names.NewModelTag(st.ModelUUID()),
-		ctx.ServiceFactory().Network(),
+		ctx.DomainServices().Network(),
 		ctx.Logger().Child("bundlechanges"),
 	)
 }

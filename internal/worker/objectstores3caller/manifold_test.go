@@ -17,7 +17,7 @@ import (
 	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
-	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	servicefactorytesting "github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/testing"
 )
@@ -54,7 +54,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
 		"http-client":           s.httpClient,
-		"object-store-services": servicefactorytesting.NewTestingServiceFactory(),
+		"object-store-services": servicefactorytesting.NewTestingDomainServices(),
 	}
 	return dependencytesting.StubGetter(resources)
 }

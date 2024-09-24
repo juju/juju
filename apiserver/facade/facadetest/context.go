@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/state"
 )
 
@@ -41,8 +41,8 @@ type ModelContext struct {
 	SingularClaimer_       lease.Claimer
 	CharmhubHTTPClient_    facade.HTTPClient
 	SSHImporterHTTPClient_ facade.HTTPClient
-	ServiceFactory_        servicefactory.ServiceFactory
-	ServiceFactoryGetter_  servicefactory.ServiceFactoryGetter
+	DomainServices_        services.DomainServices
+	DomainServicesGetter_  services.DomainServicesGetter
 	ModelExporter_         facade.ModelExporter
 	ModelImporter_         facade.ModelImporter
 	ObjectStore_           objectstore.ObjectStore
@@ -200,9 +200,9 @@ func (c ModelContext) HTTPClient(purpose facade.HTTPClientPurpose) (facade.HTTPC
 	return client, nil
 }
 
-// ServiceFactory implements facade.ModelContext.
-func (c ModelContext) ServiceFactory() servicefactory.ServiceFactory {
-	return c.ServiceFactory_
+// DomainServices implements facade.ModelContext.
+func (c ModelContext) DomainServices() services.DomainServices {
+	return c.DomainServices_
 }
 
 // ModelExporter returns a model exporter for the current model.

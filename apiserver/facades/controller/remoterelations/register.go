@@ -34,10 +34,10 @@ func makeAPI(stdCtx context.Context, ctx facade.ModelContext) (*API, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	serviceFactory := ctx.ServiceFactory()
-	controllerConfigService := serviceFactory.ControllerConfig()
-	externalControllerService := serviceFactory.ExternalController()
-	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
+	domainServices := ctx.DomainServices()
+	controllerConfigService := domainServices.ControllerConfig()
+	externalControllerService := domainServices.ExternalController()
+	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, fmt.Errorf("retrieving model info: %w", err)
 	}
@@ -45,7 +45,7 @@ func makeAPI(stdCtx context.Context, ctx facade.ModelContext) (*API, error) {
 		modelInfo.UUID,
 		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
 		externalControllerService,
-		serviceFactory.Secret(
+		domainServices.Secret(
 			secretservice.SecretServiceParams{
 				BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
 				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,

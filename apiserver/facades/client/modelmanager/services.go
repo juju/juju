@@ -22,21 +22,21 @@ import (
 	"github.com/juju/juju/domain/model"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 )
 
-// ModelServiceFactory is a factory for creating model info services.
-type ModelServiceFactory interface {
+// ModelDomainServices is a factory for creating model info services.
+type ModelDomainServices interface {
 	ModelInfo() ModelInfoService
 	Config() ModelConfigService
 	Network() NetworkService
 }
 
-// ServiceFactoryGetter is a factory for creating model services.
-type ServiceFactoryGetter interface {
-	ServiceFactoryForModel(coremodel.UUID) ModelServiceFactory
+// DomainServicesGetter is a factory for creating model services.
+type DomainServicesGetter interface {
+	DomainServicesForModel(coremodel.UUID) ModelDomainServices
 }
 
 // ModelConfigServiceGetter provides a means to fetch the model config service
@@ -179,9 +179,9 @@ type ApplicationService interface {
 
 // Services holds the services needed by the model manager api.
 type Services struct {
-	// ServiceFactoryGetter is an interface for interacting with a factory for
+	// DomainServicesGetter is an interface for interacting with a factory for
 	// creating model services.
-	ServiceFactoryGetter ServiceFactoryGetter
+	DomainServicesGetter DomainServicesGetter
 	// CloudServices is an interface for interacting with the cloud service.
 	CloudService CloudService
 	// CredentialService is an interface for interacting with the credential
@@ -207,26 +207,26 @@ type Services struct {
 	ApplicationService ApplicationService
 }
 
-type serviceFactoryGetter struct {
+type domainServicesGetter struct {
 	ctx facade.MultiModelContext
 }
 
-func (s serviceFactoryGetter) ServiceFactoryForModel(uuid coremodel.UUID) ModelServiceFactory {
-	return serviceFactory{serviceFactory: s.ctx.ServiceFactoryForModel(uuid)}
+func (s domainServicesGetter) DomainServicesForModel(uuid coremodel.UUID) ModelDomainServices {
+	return domainServices{domainServices: s.ctx.DomainServicesForModel(uuid)}
 }
 
-type serviceFactory struct {
-	serviceFactory servicefactory.ServiceFactory
+type domainServices struct {
+	domainServices services.DomainServices
 }
 
-func (s serviceFactory) ModelInfo() ModelInfoService {
-	return s.serviceFactory.ModelInfo()
+func (s domainServices) ModelInfo() ModelInfoService {
+	return s.domainServices.ModelInfo()
 }
 
-func (s serviceFactory) Config() ModelConfigService {
-	return s.serviceFactory.Config()
+func (s domainServices) Config() ModelConfigService {
+	return s.domainServices.Config()
 }
 
-func (s serviceFactory) Network() NetworkService {
-	return s.serviceFactory.Network()
+func (s domainServices) Network() NetworkService {
+	return s.domainServices.Network()
 }

@@ -54,7 +54,7 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/resource"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -220,8 +220,8 @@ type ServerConfig struct {
 	// operations.
 	SSHImporterHTTPClient facade.HTTPClient
 
-	// ServiceFactoryGetter provides access to the services.
-	ServiceFactoryGetter servicefactory.ServiceFactoryGetter
+	// DomainServicesGetter provides access to the services.
+	DomainServicesGetter services.DomainServicesGetter
 
 	// DBGetter returns WatchableDB implementations based on namespace.
 	DBGetter changestream.WatchableDBGetter
@@ -290,8 +290,8 @@ func (c ServerConfig) Validate() error {
 	if c.DBDeleter == nil {
 		return errors.NotValidf("missing DBDeleter")
 	}
-	if c.ServiceFactoryGetter == nil {
-		return errors.NotValidf("missing ServiceFactoryGetter")
+	if c.DomainServicesGetter == nil {
+		return errors.NotValidf("missing DomainServicesGetter")
 	}
 	if c.TracerGetter == nil {
 		return errors.NotValidf("missing TracerGetter")
@@ -332,8 +332,8 @@ func NewServer(ctx context.Context, cfg ServerConfig) (*Server, error) {
 const readyTimeout = time.Second * 30
 
 func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
-	controllerServiceFactory := cfg.ServiceFactoryGetter.FactoryForModel(cfg.ControllerModelUUID)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerDomainServices := cfg.DomainServicesGetter.ServicesForModel(cfg.ControllerModelUUID)
+	controllerConfigService := controllerDomainServices.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
@@ -360,7 +360,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		sshImporterHTTPClient: cfg.SSHImporterHTTPClient,
 		dbGetter:              cfg.DBGetter,
 		dbDeleter:             cfg.DBDeleter,
-		serviceFactoryGetter:  cfg.ServiceFactoryGetter,
+		domainServicesGetter:  cfg.DomainServicesGetter,
 		tracerGetter:          cfg.TracerGetter,
 		objectStoreGetter:     cfg.ObjectStoreGetter,
 		machineTag:            cfg.Tag,
@@ -422,13 +422,13 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	macaroonService := controllerServiceFactory.Macaroon()
+	macaroonService := controllerDomainServices.Macaroon()
 
 	// The auth context for authenticating access to application offers.
 	srv.offerAuthCtxt, err = newOfferAuthContext(
 		ctx, cfg.StatePool,
-		controllerServiceFactory.Access(),
-		controllerServiceFactory.ModelInfo(),
+		controllerDomainServices.Access(),
+		controllerDomainServices.ModelInfo(),
 		controllerConfigService, macaroonService,
 	)
 	if err != nil {
@@ -835,14 +835,14 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
-			serviceFactory, err := httpCtxt.serviceFactoryForRequest(req.Context())
+			domainServices, err := httpCtxt.domainServicesForRequest(req.Context())
 			if err != nil {
-				return nil, nil, errors.Trace(errors.Annotate(err, "cannot get service factory for unit resource request"))
+				return nil, nil, errors.Trace(errors.Annotate(err, "cannot get domain services for unit resource request"))
 			}
 
 			args := resource.ResourceOpenerArgs{
 				State:              st.State,
-				ModelConfigService: serviceFactory.Config(),
+				ModelConfigService: domainServices.Config(),
 				Store:              store,
 			}
 			opener, err := resource.NewResourceOpener(args, srv.getResourceDownloadLimiter, tag.Id())
@@ -1146,7 +1146,7 @@ func (srv *Server) serveConn(
 		return errors.Annotatef(err, "getting controller object store")
 	}
 
-	serviceFactory := srv.shared.serviceFactoryGetter.FactoryForModel(modelUUID)
+	domainServices := srv.shared.domainServicesGetter.ServicesForModel(modelUUID)
 
 	var handler *apiHandler
 	st, err := srv.shared.statePool.Get(modelUUID.String())
@@ -1157,8 +1157,8 @@ func (srv *Server) serveConn(
 			srv,
 			st.State,
 			conn,
-			serviceFactory,
-			srv.shared.serviceFactoryGetter,
+			domainServices,
+			srv.shared.domainServicesGetter,
 			tracer,
 			objectStore,
 			srv.shared.objectStoreGetter,

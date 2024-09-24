@@ -20,8 +20,8 @@ import (
 // newAPI provides the required signature for facade registration.
 func newAPI(ctx facade.ModelContext) (*Facade, error) {
 	st := ctx.State()
-	serviceFactory := ctx.ServiceFactory()
-	prechecker, err := stateenvirons.NewInstancePrechecker(st, serviceFactory.Cloud(), serviceFactory.Credential())
+	domainServices := ctx.DomainServices()
+	prechecker, err := stateenvirons.NewInstancePrechecker(st, domainServices.Cloud(), domainServices.Credential())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

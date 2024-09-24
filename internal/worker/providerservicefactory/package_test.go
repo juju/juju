@@ -14,7 +14,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package providerservicefactory -destination servicefactory_mock_test.go github.com/juju/juju/internal/servicefactory ProviderServiceFactory,ProviderServiceFactoryGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package providerservicefactory -destination servicefactory_mock_test.go github.com/juju/juju/internal/services ProviderServices,ProviderServicesGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package providerservicefactory -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
 
 func TestPackage(t *testing.T) {
@@ -27,8 +27,8 @@ type baseSuite struct {
 	logger   logger.Logger
 	dbGetter *MockWatchableDBGetter
 
-	providerServiceFactory       *MockProviderServiceFactory
-	providerServiceFactoryGetter *MockProviderServiceFactoryGetter
+	providerServices       *MockProviderServices
+	providerServicesGetter *MockProviderServicesGetter
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -37,8 +37,8 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.logger = loggertesting.WrapCheckLog(c)
 	s.dbGetter = NewMockWatchableDBGetter(ctrl)
 
-	s.providerServiceFactory = NewMockProviderServiceFactory(ctrl)
-	s.providerServiceFactoryGetter = NewMockProviderServiceFactoryGetter(ctrl)
+	s.providerServices = NewMockProviderServices(ctrl)
+	s.providerServicesGetter = NewMockProviderServicesGetter(ctrl)
 
 	return ctrl
 }

@@ -37,7 +37,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
-	cfg.ServiceFactoryName = ""
+	cfg.DomainServicesName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
@@ -58,7 +58,7 @@ func (s *manifoldSuite) getConfig(c *gc.C) ManifoldConfig {
 		AgentName:            "agent",
 		APICallerName:        "api-caller",
 		UpgradeStepsGateName: "upgrade-steps-lock",
-		ServiceFactoryName:   "service-factory",
+		DomainServicesName:   "domain-services",
 		PreUpgradeSteps:      func(_ agent.Config, isController bool) error { return nil },
 		UpgradeSteps: func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
 			return nil
@@ -68,7 +68,7 @@ func (s *manifoldSuite) getConfig(c *gc.C) ManifoldConfig {
 	}
 }
 
-var expectedInputs = []string{"agent", "api-caller", "upgrade-steps-lock", "service-factory"}
+var expectedInputs = []string{"agent", "api-caller", "upgrade-steps-lock", "domain-services"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig(c)).Inputs, jc.SameContents, expectedInputs)

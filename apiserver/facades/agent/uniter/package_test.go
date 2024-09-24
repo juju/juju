@@ -144,7 +144,7 @@ func (s *uniterSuiteBase) facadeContext(c *gc.C) facadetest.ModelContext {
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.leadershipChecker,
-		ServiceFactory_:    s.DefaultModelServiceFactory(c),
+		DomainServices_:    s.DefaultModelDomainServices(c),
 		ObjectStore_:       testing.NewObjectStore(c, s.ControllerModelUUID()),
 		Logger_:            loggertesting.WrapCheckLog(c),
 	}

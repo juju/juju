@@ -25,8 +25,8 @@ func NewSecretBackendsManagerAPI(ctx facade.ModelContext) (*SecretBackendsManage
 	if !ctx.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
-	serviceFactory := ctx.ServiceFactory()
-	backendService := serviceFactory.SecretBackend()
+	domainServices := ctx.DomainServices()
+	backendService := domainServices.SecretBackend()
 	return &SecretBackendsManagerAPI{
 		watcherRegistry: ctx.WatcherRegistry(),
 		backendService:  backendService,

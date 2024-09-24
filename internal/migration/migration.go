@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
@@ -129,7 +129,7 @@ type ModelImporter struct {
 	// migration to dqlite is complete.
 	legacyStateImporter        legacyStateImporter
 	controllerConfigService    ControllerConfigService
-	serviceFactoryGetter       servicefactory.ServiceFactoryGetter
+	domainServices             services.DomainServicesGetter
 	configSchemaSourceProvider ConfigSchemaSourceProvider
 	storageRegistryGetter      storageRegistryGetter
 
@@ -144,7 +144,7 @@ func NewModelImporter(
 	stateImporter legacyStateImporter,
 	scope modelmigration.ScopeForModel,
 	controllerConfigService ControllerConfigService,
-	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
+	domainServices services.DomainServicesGetter,
 	configSchemaSourceProvider ConfigSchemaSourceProvider,
 	storageRegistryGetter storageRegistryGetter,
 	logger corelogger.Logger,
@@ -153,7 +153,7 @@ func NewModelImporter(
 		legacyStateImporter:        stateImporter,
 		scope:                      scope,
 		controllerConfigService:    controllerConfigService,
-		serviceFactoryGetter:       serviceFactoryGetter,
+		domainServices:             domainServices,
 		configSchemaSourceProvider: configSchemaSourceProvider,
 		storageRegistryGetter:      storageRegistryGetter,
 		logger:                     logger,
@@ -176,14 +176,14 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 
 	modelUUID := coremodel.UUID(model.Tag().Id())
 
-	serviceFactory := i.serviceFactoryGetter.FactoryForModel(modelUUID)
-	configSchemaSource := i.configSchemaSourceProvider(serviceFactory.Cloud())
+	domainServices := i.domainServices.ServicesForModel(modelUUID)
+	configSchemaSource := i.configSchemaSourceProvider(domainServices.Cloud())
 	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig, configSchemaSource)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	modelDefaults := serviceFactory.ModelDefaults()
+	modelDefaults := domainServices.ModelDefaults()
 	modelDefaultsProvider := modelDefaults.ModelDefaultsProvider(modelUUID)
 
 	registry, err := i.storageRegistryGetter()

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 )
 
 type workerSuite struct {
@@ -37,11 +37,11 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.NewProviderServiceFactory = nil
+	cfg.NewProviderServices = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.NewProviderServiceFactoryGetter = nil
+	cfg.NewProviderServicesGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
@@ -49,25 +49,25 @@ func (s *workerSuite) getConfig() Config {
 	return Config{
 		DBGetter: s.dbGetter,
 		Logger:   s.logger,
-		NewProviderServiceFactory: func(coremodel.UUID, changestream.WatchableDBGetter, logger.Logger) servicefactory.ProviderServiceFactory {
-			return s.providerServiceFactory
+		NewProviderServices: func(coremodel.UUID, changestream.WatchableDBGetter, logger.Logger) services.ProviderServices {
+			return s.providerServices
 		},
-		NewProviderServiceFactoryGetter: func(ProviderServiceFactoryFn, changestream.WatchableDBGetter, logger.Logger) servicefactory.ProviderServiceFactoryGetter {
-			return s.providerServiceFactoryGetter
+		NewProviderServicesGetter: func(ProviderServicesFn, changestream.WatchableDBGetter, logger.Logger) services.ProviderServicesGetter {
+			return s.providerServicesGetter
 		},
 	}
 }
 
-func (s *workerSuite) TestWorkerFactoryGetter(c *gc.C) {
+func (s *workerSuite) TestWorkerServicesGetter(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	srvFact, ok := w.(*serviceFactoryWorker)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement serviceFactoryWorker"))
+	srvFact, ok := w.(*domainServicesWorker)
+	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement domainServicesWorker"))
 
-	factory := srvFact.FactoryGetter()
+	factory := srvFact.ServicesGetter()
 	c.Assert(factory, gc.NotNil)
 
 	workertest.CleanKill(c, w)

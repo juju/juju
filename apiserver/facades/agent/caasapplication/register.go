@@ -34,9 +34,9 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		return nil, errors.Trace(err)
 	}
 
-	serviceFactory := ctx.ServiceFactory()
+	domainServices := ctx.DomainServices()
 
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, serviceFactory.Cloud(), serviceFactory.Credential())
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, domainServices.Cloud(), domainServices.Credential())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting caas client")
 	}
@@ -46,10 +46,10 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 	}
 
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
-	backendService := serviceFactory.SecretBackend()
-	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
+	backendService := domainServices.SecretBackend()
+	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: registry,
-		Secrets: serviceFactory.Secret(
+		Secrets: domainServices.Secret(
 			secretservice.SecretServiceParams{
 				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
 					backendService, ctx.ModelUUID(),
@@ -66,7 +66,7 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		authorizer,
 		systemState,
 		&stateShim{State: st},
-		serviceFactory.ControllerConfig(),
+		domainServices.ControllerConfig(),
 		applicationService,
 		broker,
 		ctx.StatePool().Clock(),

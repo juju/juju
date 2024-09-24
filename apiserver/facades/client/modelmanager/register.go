@@ -60,23 +60,23 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 		return nil, errors.Trace(err)
 	}
 
-	serviceFactory := ctx.ServiceFactory()
+	domainServices := ctx.DomainServices()
 
 	configGetter := stateenvirons.EnvironConfigGetter{
 		Model:             model,
-		CloudService:      serviceFactory.Cloud(),
-		CredentialService: serviceFactory.Credential(),
+		CloudService:      domainServices.Cloud(),
+		CredentialService: domainServices.Credential(),
 	}
-	newEnviron := common.EnvironFuncForModel(model, serviceFactory.Cloud(), serviceFactory.Credential(), configGetter)
+	newEnviron := common.EnvironFuncForModel(model, domainServices.Cloud(), domainServices.Credential(), configGetter)
 
 	ctrlModel, err := ctlrSt.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	configSchemaSource := environs.ProviderConfigSchemaSource(serviceFactory.Cloud())
+	configSchemaSource := environs.ProviderConfigSchemaSource(domainServices.Cloud())
 
-	controllerConfigService := serviceFactory.ControllerConfig()
+	controllerConfigService := domainServices.ControllerConfig()
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(controllerConfigService, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
@@ -84,7 +84,7 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := common.NewUserAwareModelManagerBackend(configSchemaSource, model, pool, apiUser)
 
-	secretBackendService := serviceFactory.SecretBackend()
+	secretBackendService := domainServices.SecretBackend()
 	return NewModelManagerAPI(
 		stdCtx,
 		backend.(StateBackend),
@@ -94,16 +94,16 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 		common.NewModelManagerBackend(configSchemaSource, ctrlModel, pool),
 		controllerUUID,
 		Services{
-			ServiceFactoryGetter: serviceFactoryGetter{ctx: ctx},
-			CloudService:         serviceFactory.Cloud(),
-			CredentialService:    serviceFactory.Credential(),
-			ModelService:         serviceFactory.Model(),
-			ModelDefaultsService: serviceFactory.ModelDefaults(),
-			AccessService:        serviceFactory.Access(),
+			DomainServicesGetter: domainServicesGetter{ctx: ctx},
+			CloudService:         domainServices.Cloud(),
+			CredentialService:    domainServices.Credential(),
+			ModelService:         domainServices.Model(),
+			ModelDefaultsService: domainServices.ModelDefaults(),
+			AccessService:        domainServices.Access(),
 			ObjectStore:          ctx.ObjectStore(),
 			SecretBackendService: secretBackendService,
-			NetworkService:       serviceFactory.Network(),
-			ApplicationService:   serviceFactory.Application(service.ApplicationServiceParams{}),
+			NetworkService:       domainServices.Network(),
+			ApplicationService:   domainServices.Application(service.ApplicationServiceParams{}),
 		},
 		configSchemaSource,
 		toolsFinder,

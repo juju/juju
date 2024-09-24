@@ -21,8 +21,8 @@ func Register(registry facade.FacadeRegistry) {
 func newCredentialValidatorAPI(ctx facade.ModelContext) (*CredentialValidatorAPI, error) {
 	st := &stateShim{ctx.State()}
 	return internalNewCredentialValidatorAPI(st,
-		ctx.ServiceFactory().Cloud(),
-		ctx.ServiceFactory().Credential(),
+		ctx.DomainServices().Cloud(),
+		ctx.DomainServices().Credential(),
 		ctx.Resources(), ctx.Auth(),
 		ctx.Logger().Child("credentialvalidator"))
 }

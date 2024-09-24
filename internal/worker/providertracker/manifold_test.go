@@ -20,7 +20,7 @@ import (
 	caas "github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	storage "github.com/juju/juju/internal/storage"
 )
 
@@ -57,7 +57,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.GetProviderServiceFactoryGetter = nil
+	cfg.GetProviderServicesGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -71,7 +71,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		ProviderServiceFactoriesName: "provider-service-factory",
+		ProviderServiceFactoriesName: "provider-services",
 		Logger:                       s.logger,
 		Clock:                        clock.WallClock,
 		NewWorker: func(cfg Config) (worker.Worker, error) {
@@ -86,20 +86,20 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		GetCAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
 			return s.broker, cloudspec.CloudSpec{}, nil
 		},
-		GetProviderServiceFactoryGetter: func(getter dependency.Getter, name string) (ServiceFactoryGetter, error) {
-			return s.serviceFactoryGetter, nil
+		GetProviderServicesGetter: func(getter dependency.Getter, name string) (DomainServicesGetter, error) {
+			return s.domainServicesGetter, nil
 		},
 	}
 }
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
-		"provider-service-factory": &stubProviderServiceFactory{},
+		"provider-services": &stubProviderServices{},
 	}
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"provider-service-factory"}
+var expectedInputs = []string{"provider-services"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(MultiTrackerManifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
@@ -116,11 +116,11 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 func (s *manifoldSuite) TestIAASManifoldOutput(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectServiceFactory("hunter2")
+	s.expectDomainServices("hunter2")
 
 	w, err := newWorker(Config{
 		TrackerType:          SingularType("hunter2"),
-		ServiceFactoryGetter: s.serviceFactoryGetter,
+		DomainServicesGetter: s.domainServicesGetter,
 		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
 			return s.environ, cloudspec.CloudSpec{}, nil
 		},
@@ -168,11 +168,11 @@ func (s *manifoldSuite) TestIAASManifoldOutput(c *gc.C) {
 func (s *manifoldSuite) TestCAASManifoldOutput(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectServiceFactory("hunter2")
+	s.expectDomainServices("hunter2")
 
 	w, err := newWorker(Config{
 		TrackerType:          SingularType("hunter2"),
-		ServiceFactoryGetter: s.serviceFactoryGetter,
+		DomainServicesGetter: s.domainServicesGetter,
 		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
 			return s.environ, cloudspec.CloudSpec{}, nil
 		},
@@ -238,6 +238,6 @@ func (w *stubWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
-type stubProviderServiceFactory struct {
-	servicefactory.ProviderServiceFactory
+type stubProviderServices struct {
+	services.ProviderServices
 }

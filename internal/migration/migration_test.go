@@ -40,8 +40,8 @@ type ImportSuite struct {
 	testing.IsolationSuite
 
 	controllerConfigService *MockControllerConfigService
-	serviceFactory          *MockServiceFactory
-	serviceFactoryGetter    *MockServiceFactoryGetter
+	domainServices          *MockDomainServices
+	domainServicesGetter    *MockDomainServicesGetter
 }
 
 var _ = gc.Suite(&ImportSuite{})
@@ -73,7 +73,7 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 		return state.NoopConfigSchemaSource
 	}
 	importer := migration.NewModelImporter(
-		controller, scope, s.controllerConfigService, s.serviceFactoryGetter, configSchemaSource,
+		controller, scope, s.controllerConfigService, s.domainServicesGetter, configSchemaSource,
 		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
 		loggertesting.WrapCheckLog(c),
 	)
@@ -150,7 +150,7 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 		return state.NoopConfigSchemaSource
 	}
 	importer := migration.NewModelImporter(
-		controller, scope, s.controllerConfigService, s.serviceFactoryGetter, configSchemaSource,
+		controller, scope, s.controllerConfigService, s.domainServicesGetter, configSchemaSource,
 		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
 		loggertesting.WrapCheckLog(c),
 	)
@@ -296,13 +296,13 @@ func (s *ImportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil).AnyTimes()
 
-	s.serviceFactory = NewMockServiceFactory(ctrl)
-	s.serviceFactory.EXPECT().Cloud().Return(nil).AnyTimes()
-	s.serviceFactory.EXPECT().Credential().Return(nil).AnyTimes()
-	s.serviceFactory.EXPECT().Machine().Return(nil)
-	s.serviceFactory.EXPECT().Application(gomock.Any()).Return(nil)
-	s.serviceFactoryGetter = NewMockServiceFactoryGetter(ctrl)
-	s.serviceFactoryGetter.EXPECT().FactoryForModel("bd3fae18-5ea1-4bc5-8837-45400cf1f8f6").Return(s.serviceFactory)
+	s.domainServices = NewMockDomainServices(ctrl)
+	s.domainServices.EXPECT().Cloud().Return(nil).AnyTimes()
+	s.domainServices.EXPECT().Credential().Return(nil).AnyTimes()
+	s.domainServices.EXPECT().Machine().Return(nil)
+	s.domainServices.EXPECT().Application(gomock.Any()).Return(nil)
+	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
+	s.domainServicesGetter.EXPECT().ServicesForModel("bd3fae18-5ea1-4bc5-8837-45400cf1f8f6").Return(s.domainServices)
 
 	return ctrl
 }

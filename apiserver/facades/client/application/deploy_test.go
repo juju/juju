@@ -61,8 +61,8 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -89,8 +89,8 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -121,8 +121,8 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -155,8 +155,8 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -225,8 +225,8 @@ func (s *DeployLocalSuite) assertBindings(c *gc.C, app application.Application, 
 }
 
 func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -283,8 +283,8 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames(c *gc.C) {
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -345,8 +345,8 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 }
 
 func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -381,8 +381,8 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -416,8 +416,8 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -459,8 +459,8 @@ func sampleApplicationConfigSchema() environschema.Fields {
 }
 
 func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -497,8 +497,8 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -531,8 +531,8 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -567,8 +567,8 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -606,8 +606,8 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -644,8 +644,8 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -690,8 +690,8 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 	s.ProviderTracker = fakeProviderTracker{}
 
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -734,8 +734,8 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C) {
 	s.ProviderTracker = fakeProviderTracker{}
 
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -775,8 +775,8 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 }
 
 func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
-	serviceFactory := s.DefaultModelServiceFactory(c)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := s.DefaultModelDomainServices(c)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},
 	})

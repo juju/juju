@@ -20,7 +20,7 @@ func Register(registry facade.FacadeRegistry) {
 // newFacade provides the required signature for facade registration.
 func newFacade(ctx facade.ModelContext) (*API, error) {
 	return NewAPI(
-		ctx.ServiceFactory().ControllerConfig(),
+		ctx.DomainServices().ControllerConfig(),
 		ctx.Auth(),
 		ctx.MachineTag(),
 		ctx.DataDir(),

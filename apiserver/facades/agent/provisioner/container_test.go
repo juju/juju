@@ -57,7 +57,7 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ControllerServiceFactory(c),
+		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -114,7 +114,7 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ControllerServiceFactory(c),
+		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)

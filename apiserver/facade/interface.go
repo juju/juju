@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/state"
 )
 
@@ -65,9 +65,9 @@ type LeadershipModelContext interface {
 type MultiModelContext interface {
 	ModelContext
 
-	// ServiceFactoryForModel returns the services factory for a given model
+	// DomainServicesForModel returns the services factory for a given model
 	// uuid.
-	ServiceFactoryForModel(model.UUID) servicefactory.ServiceFactory
+	DomainServicesForModel(model.UUID) services.DomainServices
 
 	// ObjectStoreForModel returns the object store for a given model uuid.
 	ObjectStoreForModel(ctx context.Context, modelUUID string) (objectstore.ObjectStore, error)
@@ -82,7 +82,7 @@ type ModelContext interface {
 	// types/objects.
 	LeadershipModelContext
 	ModelMigrationFactory
-	ServiceFactory
+	DomainServices
 	ObjectStoreFactory
 	Logger
 
@@ -213,10 +213,10 @@ type ModelMigrationFactory interface {
 	ModelImporter() ModelImporter
 }
 
-// ServiceFactory defines an interface for accessing all the services.
-type ServiceFactory interface {
-	// ServiceFactory returns the services factory for the current model.
-	ServiceFactory() servicefactory.ServiceFactory
+// DomainServices defines an interface for accessing all the services.
+type DomainServices interface {
+	// DomainServices returns the services factory for the current model.
+	DomainServices() services.DomainServices
 }
 
 // ObjectStoreFactory defines an interface for accessing the object store.

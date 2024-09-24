@@ -63,8 +63,8 @@ func (s *networkInfoSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	s.ApiServerSuite.SeedCAASCloud(c)
 
-	serviceFactory := s.ControllerServiceFactory(c)
-	s.networkService = serviceFactory.Network()
+	domainServices := s.ControllerDomainServices(c)
+	s.networkService = domainServices.Network()
 }
 
 func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
@@ -79,8 +79,8 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerDomainServices := s.ControllerDomainServices(c)
+	controllerConfigService := controllerDomainServices.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -167,8 +167,8 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerDomainServices := s.ControllerDomainServices(c)
+	controllerConfigService := controllerDomainServices.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -235,8 +235,8 @@ func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C)
 
 	ip := "10.2.3.4/16"
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerDomainServices := s.ControllerDomainServices(c)
+	controllerConfigService := controllerDomainServices.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -292,8 +292,8 @@ func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(
 	host := "host.at.somewhere"
 	ip := "100.2.3.4"
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerDomainServices := s.ControllerDomainServices(c)
+	controllerConfigService := controllerDomainServices.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -368,7 +368,7 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelConfigService := s.ControllerServiceFactory(c).Config()
+	modelConfigService := s.ControllerDomainServices(c).Config()
 	// We need to instantiate this with the new CAAS model state.
 	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, u.UnitTag(), nil, lookup, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
@@ -416,8 +416,8 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerDomainServices := s.ControllerDomainServices(c)
+	controllerConfigService := controllerDomainServices.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -460,8 +460,8 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerDomainServices := s.ControllerDomainServices(c)
+	controllerConfigService := controllerDomainServices.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -494,8 +494,8 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerDomainServices := s.ControllerDomainServices(c)
+	controllerConfigService := controllerDomainServices.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -527,8 +527,8 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerDomainServices := s.ControllerDomainServices(c)
+	controllerConfigService := controllerDomainServices.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -572,8 +572,8 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerDomainServices := s.ControllerDomainServices(c)
+	controllerConfigService := controllerDomainServices.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -638,7 +638,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 
 	prr := newProReqRelationForApps(c, st, mysql, gitlab)
 
-	modelConfigService := s.ControllerServiceFactory(c).Config()
+	modelConfigService := s.ControllerDomainServices(c).Config()
 	// We need to instantiate this with the new CAAS model state.
 	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.pu0.UnitTag(), nil, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
@@ -691,7 +691,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 
 	prr := newProReqRelationForApps(c, st, mySql, gitLab)
 
-	modelConfigService := s.ControllerServiceFactory(c).Config()
+	modelConfigService := s.ControllerDomainServices(c).Config()
 	// We need to instantiate this with the new CAAS model state.
 	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.pu0.UnitTag(), nil, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
@@ -765,7 +765,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 		}
 	}
 
-	modelConfigService := s.ControllerServiceFactory(c).Config()
+	modelConfigService := s.ControllerDomainServices(c).Config()
 	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.ru0.UnitTag(), retryFactory, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -831,8 +831,8 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	s.createNICWithIP(c, machine, network.EthernetDevice, "eth1", "10.10.0.20/24")
 	s.createNICWithIP(c, machine, network.EthernetDevice, "eth2", "10.20.0.20/24")
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerDomainServices := s.ControllerDomainServices(c)
+	controllerConfigService := controllerDomainServices.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -905,8 +905,8 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 	s.createNICWithIP(c, machine, network.EthernetDevice, "eth1", "10.10.0.20/24")
 	s.createNICWithIP(c, machine, network.EthernetDevice, "eth2", "10.20.0.20/24")
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerDomainServices := s.ControllerDomainServices(c)
+	controllerConfigService := controllerDomainServices.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1011,7 +1011,7 @@ func (s *networkInfoSuite) newNetworkInfo(
 		}
 	}
 
-	modelConfigService := s.ControllerServiceFactory(c).Config()
+	modelConfigService := s.ControllerDomainServices(c).Config()
 	ni, err := uniter.NewNetworkInfoForStrategy(context.Background(), s.ControllerModel(c).State(), s.networkService, modelConfigService, tag, retryFactory, lookupHost, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return ni

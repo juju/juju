@@ -31,7 +31,7 @@ func NewRebootApiFromModelContext(ctx facade.ModelContext) (*RebootAPI, error) {
 	return NewRebootAPI(
 		ctx.Auth(),
 		ctx.WatcherRegistry(),
-		ctx.ServiceFactory().Machine())
+		ctx.DomainServices().Machine())
 }
 
 // NewRebootAPI creates a new instance of the RebootAPI by initializing the various components needed for reboot functionality.

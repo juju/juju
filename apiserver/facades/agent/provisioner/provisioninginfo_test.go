@@ -33,10 +33,10 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	}
-	serviceFactoryGetter := s.ServiceFactoryGetter(c, s.NoopObjectStore(c))
+	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
 
 	st := s.ControllerModel(c).State()
-	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Storage(registry)
+	storageService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Storage(registry)
 	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -61,8 +61,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ControllerServiceFactory(c)
-	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
+	domainServices := s.ControllerDomainServices(c)
+	controllerCfg, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := params.ProvisioningInfoResults{
@@ -137,10 +137,10 @@ func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
 		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	}
-	serviceFactoryGetter := s.ServiceFactoryGetter(c, s.NoopObjectStore(c))
+	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
 
 	st := s.ControllerModel(c).State()
-	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Storage(registry)
+	storageService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Storage(registry)
 	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	template := state.MachineTemplate{
@@ -188,8 +188,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 
-	serviceFactory := s.ControllerServiceFactory(c)
-	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
+	domainServices := s.ControllerDomainServices(c)
+	controllerCfg, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := &params.ProvisioningInfo{
@@ -230,7 +230,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.C) {
 	spaces := s.addSpacesAndSubnets(c)
 
-	networkService := s.serviceFactory.Network()
+	networkService := s.domainServices.Network()
 	networkService.AddSubnet(context.Background(), network.SubnetInfo{
 		CIDR:              "10.10.4.0/24",
 		ProviderId:        "subnet-alpha",
@@ -270,8 +270,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ControllerServiceFactory(c)
-	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
+	domainServices := s.ControllerDomainServices(c)
+	controllerCfg, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := params.ProvisioningInfoResults{
@@ -366,7 +366,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAl
 func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingError(c *gc.C) {
 	spaces := s.addSpacesAndSubnets(c)
 
-	networkService := s.serviceFactory.Network()
+	networkService := s.domainServices.Network()
 	networkService.AddSubnet(context.Background(), network.SubnetInfo{
 		CIDR:              "10.10.4.0/24",
 		ProviderId:        "subnet-alpha",
@@ -457,7 +457,7 @@ func (s *withoutControllerSuite) TestAlphaSpaceConstraintsProvidedExplicitly(c *
 	s.addSpacesAndSubnets(c)
 	st := s.ControllerModel(c).State()
 
-	networkService := s.serviceFactory.Network()
+	networkService := s.domainServices.Network()
 	networkService.AddSubnet(context.Background(), network.SubnetInfo{
 		CIDR:              "10.10.4.0/24",
 		ProviderId:        "subnet-alpha",
@@ -503,7 +503,7 @@ func (s *withoutControllerSuite) TestAlphaSpaceConstraintsProvidedExplicitly(c *
 	c.Assert(result.Results[0].Result.ProvisioningNetworkTopology.SpaceSubnets, gc.DeepEquals, map[string][]string{"alpha": {"subnet-alpha"}})
 }
 func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) network.SpaceInfos {
-	networkService := s.serviceFactory.Network()
+	networkService := s.domainServices.Network()
 	// Add a couple of spaces.
 	space1 := network.SpaceInfo{
 		Name:       "space1",
@@ -585,7 +585,7 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) network.SpaceInfos
 func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstraints(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	// Add an empty space.
-	networkService := s.serviceFactory.Network()
+	networkService := s.domainServices.Network()
 	spaceEmpty := network.SpaceInfo{
 		Name: "empty",
 	}
@@ -653,8 +653,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ControllerServiceFactory(c)
-	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
+	domainServices := s.ControllerDomainServices(c)
+	controllerCfg, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	mod, err := st.Model()
@@ -704,8 +704,8 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ControllerServiceFactory(c)
-	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
+	domainServices := s.ControllerDomainServices(c)
+	controllerCfg, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResults{
@@ -803,7 +803,7 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 
 func (s *withoutControllerSuite) TestProviderInfoCloudInitUserData(c *gc.C) {
 	attrs := map[string]interface{}{"cloudinit-userdata": validCloudInitUserData}
-	err := s.serviceFactory.Config().UpdateModelConfig(context.Background(), attrs, nil)
+	err := s.domainServices.Config().UpdateModelConfig(context.Background(), attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	template := state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
@@ -839,7 +839,7 @@ package_upgrade: false
 `[1:]
 
 func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	// Login as a machine agent for machine 0.
 	anAuthorizer := s.authorizer
@@ -850,7 +850,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: serviceFactory,
+		DomainServices_: domainServices,
 		Logger_:         loggertesting.WrapCheckLog(c),
 		ControllerUUID_: coretesting.ControllerTag.Id(),
 	})
@@ -869,7 +869,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	results, err := aProvisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
+	controllerCfg, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results, jc.DeepEquals, params.ProvisioningInfoResults{

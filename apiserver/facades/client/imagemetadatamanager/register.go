@@ -50,12 +50,12 @@ func makeAPI(ctx context.Context, modelctx facade.ModelContext) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 	newEnviron := func() (environs.Environ, error) {
-		return stateenvirons.GetNewEnvironFunc(environs.New)(model, modelctx.ServiceFactory().Cloud(), modelctx.ServiceFactory().Credential())
+		return stateenvirons.GetNewEnvironFunc(environs.New)(model, modelctx.DomainServices().Cloud(), modelctx.DomainServices().Credential())
 	}
 	return newAPI(
 		getState(st),
-		modelctx.ServiceFactory().Config(),
-		modelctx.ServiceFactory().ModelInfo(),
+		modelctx.DomainServices().Config(),
+		modelctx.DomainServices().ModelInfo(),
 		newEnviron,
 	), nil
 }

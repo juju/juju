@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package servicefactory
+package services
 
 import (
 	"github.com/juju/juju/core/model"
@@ -38,9 +38,9 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
-// ControllerServiceFactory provides access to the services required by the
+// ControllerDomainServices provides access to the services required by the
 // apiserver.
-type ControllerServiceFactory interface {
+type ControllerDomainServices interface {
 	// Controller returns the controller service.
 	Controller() *controllerservice.Service
 	// ControllerConfig returns the controller configuration service.
@@ -72,9 +72,9 @@ type ControllerServiceFactory interface {
 	Macaroon() *macaroonservice.Service
 }
 
-// ModelServiceFactory provides access to the services required by the
+// ModelDomainServices provides access to the services required by the
 // apiserver for a given model.
-type ModelServiceFactory interface {
+type ModelDomainServices interface {
 	// Agent returns the model's agent service.
 	Agent() *modelagentservice.ModelService
 	// AgentProvisioner returns the agent provisioner service.
@@ -121,22 +121,22 @@ type ModelServiceFactory interface {
 	UnitState() *unitstateservice.Service
 }
 
-// ServiceFactory provides access to the services required by the apiserver.
-type ServiceFactory interface {
-	ControllerServiceFactory
-	ModelServiceFactory
+// DomainServices provides access to the services required by the apiserver.
+type DomainServices interface {
+	ControllerDomainServices
+	ModelDomainServices
 }
 
-// ServiceFactoryGetter represents a way to get a ServiceFactory for a given
+// DomainServicesGetter represents a way to get a DomainServices for a given
 // model.
-type ServiceFactoryGetter interface {
-	// FactoryForModel returns a ServiceFactory for the given model.
-	FactoryForModel(modelID model.UUID) ServiceFactory
+type DomainServicesGetter interface {
+	// ServicesForModel returns a DomainServices for the given model.
+	ServicesForModel(modelID model.UUID) DomainServices
 }
 
-// ProviderServiceFactory provides access to the services required by the
+// ProviderServices provides access to the services required by the
 // provider.
-type ProviderServiceFactory interface {
+type ProviderServices interface {
 	// Model returns the provider model service.
 	Model() *modelservice.ProviderService
 	// Cloud returns the provider cloud service.
@@ -147,11 +147,11 @@ type ProviderServiceFactory interface {
 	Credential() *credentialservice.WatchableProviderService
 }
 
-// ProviderServiceFactoryGetter represents a way to get a ProviderServiceFactory
+// ProviderServicesGetter represents a way to get a ProviderServices
 // for a given model.
-type ProviderServiceFactoryGetter interface {
-	// FactoryForModel returns a ProviderServiceFactory for the given model.
-	FactoryForModel(modelUUID string) ProviderServiceFactory
+type ProviderServicesGetter interface {
+	// ServicesForModel returns a ProviderServices for the given model.
+	ServicesForModel(modelUUID string) ProviderServices
 }
 
 // ControllerObjectStoreServices provides access to the services required by the
@@ -159,7 +159,7 @@ type ProviderServiceFactoryGetter interface {
 // This is a subset of the ObjectStoreServices interface, for use only be
 // object store workers, that want to operate in a controller context. Think
 // s3caller, which wants the controller config service. We could use the
-// controller service factory, but that would re-introduce a circular
+// controller domain services, but that would re-introduce a circular
 // dependency. This isn't pretty, but is a necessary evil.
 type ControllerObjectStoreServices interface {
 	// ControllerConfig returns the controller configuration service.
@@ -183,6 +183,6 @@ type ObjectStoreServices interface {
 // ObjectStoreServicesGetter represents a way to get a ObjectStoreServices
 // for a given model.
 type ObjectStoreServicesGetter interface {
-	// FactoryForModel returns a ObjectStoreServices for the given model.
-	FactoryForModel(modelUUID model.UUID) ObjectStoreServices
+	// ServicesForModel returns a ObjectStoreServices for the given model.
+	ServicesForModel(modelUUID model.UUID) ObjectStoreServices
 }

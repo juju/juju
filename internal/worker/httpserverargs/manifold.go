@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 	workerstate "github.com/juju/juju/internal/worker/state"
 )
@@ -24,7 +24,7 @@ import (
 type ManifoldConfig struct {
 	ClockName          string
 	StateName          string
-	ServiceFactoryName string
+	DomainServicesName string
 
 	NewStateAuthenticator NewStateAuthenticatorFunc
 }
@@ -37,8 +37,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
 	}
-	if config.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
+	if config.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if config.NewStateAuthenticator == nil {
 		return errors.NotValidf("nil NewStateAuthenticator")
@@ -56,8 +56,8 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	var controllerServiceFactory servicefactory.ControllerServiceFactory
-	if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+	var controllerDomainServices services.ControllerDomainServices
+	if err := getter.Get(config.DomainServicesName, &controllerDomainServices); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -72,9 +72,9 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 
 	w, err := newWorker(context, workerConfig{
 		statePool:               statePool,
-		controllerConfigService: controllerServiceFactory.ControllerConfig(),
-		accessService:           controllerServiceFactory.Access(),
-		macaroonService:         controllerServiceFactory.Macaroon(),
+		controllerConfigService: controllerDomainServices.ControllerConfig(),
+		accessService:           controllerDomainServices.Access(),
+		macaroonService:         controllerDomainServices.Macaroon(),
 		mux:                     apiserverhttp.NewMux(),
 		clock:                   clock,
 		newStateAuthenticatorFn: config.NewStateAuthenticator,
@@ -95,7 +95,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.ClockName,
 			config.StateName,
-			config.ServiceFactoryName,
+			config.DomainServicesName,
 		},
 		Start:  config.start,
 		Output: manifoldOutput,

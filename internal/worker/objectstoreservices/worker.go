@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 )
 
 // Config is the configuration required for services worker.
@@ -68,19 +68,19 @@ func NewWorker(config Config) (worker.Worker, error) {
 type servicesWorker struct {
 	tomb tomb.Tomb
 
-	servicesGetter servicefactory.ObjectStoreServicesGetter
+	servicesGetter services.ObjectStoreServicesGetter
 }
 
 // ServicesGetter returns the object store services getter.
-func (w *servicesWorker) ServicesGetter() servicefactory.ObjectStoreServicesGetter {
+func (w *servicesWorker) ServicesGetter() services.ObjectStoreServicesGetter {
 	return w.servicesGetter
 }
 
 // ControllerServices returns the controller object store services.
 // Attempting to use anything other than the controller services will
 // result in a panic.
-func (w *servicesWorker) ControllerServices() servicefactory.ControllerObjectStoreServices {
-	return w.servicesGetter.FactoryForModel(coremodel.ControllerModelName)
+func (w *servicesWorker) ControllerServices() services.ControllerObjectStoreServices {
+	return w.servicesGetter.ServicesForModel(coremodel.ControllerModelName)
 }
 
 // Kill kills the services worker.
@@ -94,24 +94,24 @@ func (w *servicesWorker) Wait() error {
 }
 
 // services is a object store services type.
-type services struct {
-	servicefactory.ObjectStoreServices
+type objectStoreServices struct {
+	services.ObjectStoreServices
 }
 
-// serviceFactoryGetter is a object store services getter that returns a
+// domainServicesGetter is a object store services getter that returns a
 // object store services for the given model uuid. This is late binding,
 // so the object store services is created on demand.
-type serviceFactoryGetter struct {
+type domainServicesGetter struct {
 	newObjectStoreServices ObjectStoreServicesFn
 	dbGetter               changestream.WatchableDBGetter
 	logger                 logger.Logger
 }
 
-// FactoryForModel returns a object store services for the given model
+// ServicesForModel returns a object store services for the given model
 // uuid. This will late bind the object store services to the actual
 // services.
-func (s *serviceFactoryGetter) FactoryForModel(modelUUID coremodel.UUID) servicefactory.ObjectStoreServices {
-	return &services{
+func (s *domainServicesGetter) ServicesForModel(modelUUID coremodel.UUID) services.ObjectStoreServices {
+	return &objectStoreServices{
 		ObjectStoreServices: s.newObjectStoreServices(
 			modelUUID, s.dbGetter, s.logger,
 		),

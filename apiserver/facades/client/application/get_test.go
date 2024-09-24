@@ -56,13 +56,13 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.DefaultModelServiceFactory(c)
+	domainServices := s.DefaultModelDomainServices(c)
 	envFunc := stateenvirons.GetNewEnvironFunc(environs.New)
-	env, err := envFunc(s.ControllerModel(c), serviceFactory.Cloud(), serviceFactory.Credential())
+	env, err := envFunc(s.ControllerModel(c), domainServices.Cloud(), domainServices.Credential())
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: registry,
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -70,23 +70,23 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	api, err := application.NewAPIBase(
 		application.GetState(st, state.NoopInstancePrechecker{}),
 		nil,
-		serviceFactory.Network(),
+		domainServices.Network(),
 		storageAccess,
 		s.authorizer,
 		nil,
 		blockChecker,
 		application.GetModel(m),
 		model.ReadOnlyModel{},
-		serviceFactory.Config(),
-		serviceFactory.Agent(),
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
-		serviceFactory.Machine(),
+		domainServices.Config(),
+		domainServices.Agent(),
+		domainServices.Cloud(),
+		domainServices.Credential(),
+		domainServices.Machine(),
 		applicationService,
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,
-		serviceFactory.Storage(registry),
+		domainServices.Storage(registry),
 		registry,
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
@@ -205,15 +205,15 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	mod, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.DefaultModelServiceFactory(c)
+	domainServices := s.DefaultModelDomainServices(c)
 	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-		mod, serviceFactory.Cloud(), serviceFactory.Credential(),
+		mod, domainServices.Cloud(), domainServices.Credential(),
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: registry,
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -221,23 +221,23 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	api, err := application.NewAPIBase(
 		application.GetState(st, state.NoopInstancePrechecker{}),
 		nil,
-		serviceFactory.Network(),
+		domainServices.Network(),
 		storageAccess,
 		s.authorizer,
 		nil,
 		blockChecker,
 		application.GetModel(mod),
 		model.ReadOnlyModel{},
-		serviceFactory.Config(),
-		serviceFactory.Agent(),
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
-		serviceFactory.Machine(),
+		domainServices.Config(),
+		domainServices.Agent(),
+		domainServices.Cloud(),
+		domainServices.Credential(),
+		domainServices.Machine(),
 		applicationService,
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,
-		serviceFactory.Storage(registry),
+		domainServices.Storage(registry),
 		registry,
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.

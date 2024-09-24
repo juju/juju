@@ -35,7 +35,7 @@ func newCharmRevisionUpdaterAPI(ctx facade.ModelContext) (*CharmRevisionUpdaterA
 			err,
 		)
 	}
-	modelConfigService := ctx.ServiceFactory().Config()
+	modelConfigService := ctx.DomainServices().Config()
 
 	newCharmhubClient := func(stdCtx context.Context) (CharmhubRefreshClient, error) {
 		httpClient := charmhubHTTPClient

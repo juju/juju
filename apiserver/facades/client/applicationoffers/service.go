@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 )
 
 // AccessService provides information about users and permissions.
@@ -66,36 +66,36 @@ type ApplicationService interface {
 	GetCharmMetadataDescription(ctx context.Context, id corecharm.ID) (string, error)
 }
 
-// ModelServiceFactory is an interface that provides a way to get model
+// ModelDomainServices is an interface that provides a way to get model
 // scoped services.
-type ModelServiceFactory interface {
+type ModelDomainServices interface {
 	Application() ApplicationService
 }
 
-// ModelServiceFactoryGetter is an interface that provides a way to get a
-// ModelServiceFactory based on a model UUID.
-type ModelServiceFactoryGetter interface {
-	ServiceFactoryForModel(modelUUID model.UUID) ModelServiceFactory
+// ModelDomainServicesGetter is an interface that provides a way to get a
+// ModelDomainServices based on a model UUID.
+type ModelDomainServicesGetter interface {
+	DomainServicesForModel(modelUUID model.UUID) ModelDomainServices
 }
 
-type modelServiceFactoryGetter struct {
+type modelDomainServicesGetter struct {
 	facadeContext facade.MultiModelContext
 }
 
-func newModelServiceFactoryGetter(facadeContext facade.MultiModelContext) ModelServiceFactoryGetter {
-	return &modelServiceFactoryGetter{
+func newModelDomainServicesGetter(facadeContext facade.MultiModelContext) ModelDomainServicesGetter {
+	return &modelDomainServicesGetter{
 		facadeContext: facadeContext,
 	}
 }
 
-func (f *modelServiceFactoryGetter) ServiceFactoryForModel(modelUUID model.UUID) ModelServiceFactory {
-	return &modelServiceFactory{serviceFactory: f.facadeContext.ServiceFactoryForModel(modelUUID)}
+func (f *modelDomainServicesGetter) DomainServicesForModel(modelUUID model.UUID) ModelDomainServices {
+	return &modelDomainServices{domainServices: f.facadeContext.DomainServicesForModel(modelUUID)}
 }
 
-type modelServiceFactory struct {
-	serviceFactory servicefactory.ServiceFactory
+type modelDomainServices struct {
+	domainServices services.DomainServices
 }
 
-func (f *modelServiceFactory) Application() ApplicationService {
-	return f.serviceFactory.Application(service.ApplicationServiceParams{})
+func (f *modelDomainServices) Application() ApplicationService {
+	return f.domainServices.Application(service.ApplicationServiceParams{})
 }

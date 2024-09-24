@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package servicefactory
+package domainservices
 
 import (
 	"context"
@@ -16,12 +16,12 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
-	domainservicefactory "github.com/juju/juju/domain/servicefactory"
-	"github.com/juju/juju/internal/servicefactory"
+	domainservicefactory "github.com/juju/juju/domain/services"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 )
 
-// ManifoldConfig holds the information necessary to run a service factory
+// ManifoldConfig holds the information necessary to run a domain services
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
 	DBAccessorName              string
@@ -30,37 +30,37 @@ type ManifoldConfig struct {
 	ObjectStoreName             string
 	Logger                      logger.Logger
 	NewWorker                   func(Config) (worker.Worker, error)
-	NewServiceFactoryGetter     ServiceFactoryGetterFn
-	NewControllerServiceFactory ControllerServiceFactoryFn
-	NewModelServiceFactory      ModelServiceFactoryFn
+	NewDomainServicesGetter     DomainServicesGetterFn
+	NewControllerDomainServices ControllerDomainServicesFn
+	NewModelDomainServices      ModelDomainServicesFn
 }
 
-// ServiceFactoryGetterFn is a function that returns a service factory getter.
-type ServiceFactoryGetterFn func(
-	servicefactory.ControllerServiceFactory,
+// DomainServicesGetterFn is a function that returns a domain services getter.
+type DomainServicesGetterFn func(
+	services.ControllerDomainServices,
 	changestream.WatchableDBGetter,
 	logger.Logger,
-	ModelServiceFactoryFn,
+	ModelDomainServicesFn,
 	providertracker.ProviderFactory,
 	objectstore.ObjectStoreGetter,
-) servicefactory.ServiceFactoryGetter
+) services.DomainServicesGetter
 
-// ControllerServiceFactoryFn is a function that returns a controller service
+// ControllerDomainServicesFn is a function that returns a controller service
 // factory.
-type ControllerServiceFactoryFn func(
+type ControllerDomainServicesFn func(
 	changestream.WatchableDBGetter,
 	coredatabase.DBDeleter,
 	logger.Logger,
-) servicefactory.ControllerServiceFactory
+) services.ControllerDomainServices
 
-// ModelServiceFactoryFn is a function that returns a model service factory.
-type ModelServiceFactoryFn func(
+// ModelDomainServicesFn is a function that returns a model domain services.
+type ModelDomainServicesFn func(
 	coremodel.UUID,
 	changestream.WatchableDBGetter,
 	providertracker.ProviderFactory,
 	objectstore.ModelObjectStoreGetter,
 	logger.Logger,
-) servicefactory.ModelServiceFactory
+) services.ModelDomainServices
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
@@ -79,14 +79,14 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
-	if config.NewServiceFactoryGetter == nil {
-		return errors.NotValidf("nil NewServiceFactoryGetter")
+	if config.NewDomainServicesGetter == nil {
+		return errors.NotValidf("nil NewDomainServicesGetter")
 	}
-	if config.NewControllerServiceFactory == nil {
-		return errors.NotValidf("nil NewControllerServiceFactory")
+	if config.NewControllerDomainServices == nil {
+		return errors.NotValidf("nil NewControllerDomainServices")
 	}
-	if config.NewModelServiceFactory == nil {
-		return errors.NotValidf("nil NewModelServiceFactory")
+	if config.NewModelDomainServices == nil {
+		return errors.NotValidf("nil NewModelDomainServices")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -94,7 +94,7 @@ func (config ManifoldConfig) Validate() error {
 	return nil
 }
 
-// Manifold returns a dependency.Manifold that will run a service factory
+// Manifold returns a dependency.Manifold that will run a domain services
 // worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
@@ -141,9 +141,9 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		ProviderFactory:             providerFactory,
 		ObjectStoreGetter:           objectStoreGetter,
 		Logger:                      config.Logger,
-		NewServiceFactoryGetter:     config.NewServiceFactoryGetter,
-		NewControllerServiceFactory: config.NewControllerServiceFactory,
-		NewModelServiceFactory:      config.NewModelServiceFactory,
+		NewDomainServicesGetter:     config.NewDomainServicesGetter,
+		NewControllerDomainServices: config.NewControllerDomainServices,
+		NewModelDomainServices:      config.NewModelDomainServices,
 	})
 }
 
@@ -151,17 +151,17 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 	if w, ok := in.(*common.CleanupWorker); ok {
 		in = w.Worker
 	}
-	w, ok := in.(*serviceFactoryWorker)
+	w, ok := in.(*domainServicesWorker)
 	if !ok {
-		return errors.Errorf("expected input of type serviceFactoryWorker, got %T", in)
+		return errors.Errorf("expected input of type domainServicesWorker, got %T", in)
 	}
 
 	switch out := out.(type) {
-	case *servicefactory.ControllerServiceFactory:
-		var target = w.ControllerFactory()
+	case *services.ControllerDomainServices:
+		var target = w.ControllerServices()
 		*out = target
-	case *servicefactory.ServiceFactoryGetter:
-		var target = w.FactoryGetter()
+	case *services.DomainServicesGetter:
+		var target = w.ServicesGetter()
 		*out = target
 	default:
 		return errors.Errorf("unsupported output type %T", out)
@@ -169,28 +169,28 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 	return nil
 }
 
-// NewControllerServiceFactory returns a new controller service factory.
-func NewControllerServiceFactory(
+// NewControllerDomainServices returns a new controller domain services.
+func NewControllerDomainServices(
 	dbGetter changestream.WatchableDBGetter,
 	dbDeleter coredatabase.DBDeleter,
 	logger logger.Logger,
-) servicefactory.ControllerServiceFactory {
-	return domainservicefactory.NewControllerFactory(
+) services.ControllerDomainServices {
+	return domainservicefactory.NewControllerServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		dbDeleter,
 		logger,
 	)
 }
 
-// NewProviderTrackerModelServiceFactory returns a new model service factory
+// NewProviderTrackerModelDomainServices returns a new model domain services
 // with a provider tracker.
-func NewProviderTrackerModelServiceFactory(
+func NewProviderTrackerModelDomainServices(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
 	providerFactory providertracker.ProviderFactory,
 	objectStore objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
-) servicefactory.ModelServiceFactory {
+) services.ModelDomainServices {
 	return domainservicefactory.NewModelFactory(
 		modelUUID,
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
@@ -201,15 +201,15 @@ func NewProviderTrackerModelServiceFactory(
 	)
 }
 
-// NewModelServiceFactory returns a new model service factory.
-// This creates a model service factory without a provider tracker. The provider
+// NewModelDomainServices returns a new model domain services.
+// This creates a model domain services without a provider tracker. The provider
 // tracker will return not supported errors for all methods.
-func NewModelServiceFactory(
+func NewModelDomainServices(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
 	objectStore objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
-) servicefactory.ModelServiceFactory {
+) services.ModelDomainServices {
 	return domainservicefactory.NewModelFactory(
 		modelUUID,
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
@@ -220,20 +220,20 @@ func NewModelServiceFactory(
 	)
 }
 
-// NewServiceFactoryGetter returns a new service factory getter.
-func NewServiceFactoryGetter(
-	ctrlFactory servicefactory.ControllerServiceFactory,
+// NewDomainServicesGetter returns a new domain services getter.
+func NewDomainServicesGetter(
+	ctrlFactory services.ControllerDomainServices,
 	dbGetter changestream.WatchableDBGetter,
 	logger logger.Logger,
-	newModelServiceFactory ModelServiceFactoryFn,
+	newModelDomainServices ModelDomainServicesFn,
 	providerFactory providertracker.ProviderFactory,
 	objectStoreGetter objectstore.ObjectStoreGetter,
-) servicefactory.ServiceFactoryGetter {
-	return &serviceFactoryGetter{
+) services.DomainServicesGetter {
+	return &domainServicesGetter{
 		ctrlFactory:            ctrlFactory,
 		dbGetter:               dbGetter,
 		logger:                 logger,
-		newModelServiceFactory: newModelServiceFactory,
+		newModelDomainServices: newModelDomainServices,
 		providerFactory:        providerFactory,
 		objectStoreGetter:      objectStoreGetter,
 	}

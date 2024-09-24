@@ -61,14 +61,14 @@ func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *firewallerSuite) setupAPI(c *gc.C) {
 	st := s.ControllerModel(c).State()
 
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		s.resources,
-		cloudspec.MakeCloudSpecGetterForModel(st, serviceFactory.Cloud(), serviceFactory.Credential()),
-		cloudspec.MakeCloudSpecWatcherForModel(st, serviceFactory.Cloud()),
+		cloudspec.MakeCloudSpecGetterForModel(st, domainServices.Cloud(), domainServices.Credential()),
+		cloudspec.MakeCloudSpecWatcherForModel(st, domainServices.Cloud()),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, serviceFactory.Credential()),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, domainServices.Credential()),
 		common.AuthFuncForTag(s.ControllerModel(c).ModelTag()),
 	)
 

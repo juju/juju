@@ -44,7 +44,7 @@ func newUserManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*UserMa
 	}
 	isAdmin := err == nil
 
-	accessService := ctx.ServiceFactory().Access()
+	accessService := ctx.DomainServices().Access()
 
 	apiUser, err := accessService.GetUserByName(stdCtx, coreuser.NameFromTag(apiUserTag))
 	if err != nil {
@@ -54,7 +54,7 @@ func newUserManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*UserMa
 	return NewAPI(
 		st,
 		accessService,
-		ctx.ServiceFactory().Model(),
+		ctx.DomainServices().Model(),
 		authorizer,
 		common.NewBlockChecker(st),
 		apiUserTag,

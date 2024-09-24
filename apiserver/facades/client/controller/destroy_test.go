@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	domainservicestesting "github.com/juju/juju/domain/services/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
@@ -69,7 +69,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 				StatePool_:      s.StatePool(),
 				Resources_:      s.resources,
 				Auth_:           s.authorizer,
-				ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+				DomainServices_: domainservicestesting.NewTestingDomainServices(),
 				Logger_:         loggertesting.WrapCheckLog(c),
 			},
 		})
@@ -191,7 +191,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFai
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified(c *gc.C) {
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -216,7 +216,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c *gc.C) {
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -25,11 +25,11 @@ func Register(registry facade.FacadeRegistry) {
 // backed by global state.
 func newStateCrossControllerAPI(ctx facade.ModelContext) (*CrossControllerAPI, error) {
 	st := ctx.State()
-	serviceFactory := ctx.ServiceFactory()
+	domainServices := ctx.DomainServices()
 	return NewCrossControllerAPI(
 		ctx.Resources(),
 		func(ctx context.Context) ([]string, string, error) {
-			controllerConfig := serviceFactory.ControllerConfig()
+			controllerConfig := domainServices.ControllerConfig()
 			config, err := controllerConfig.ControllerConfig(ctx)
 			if err != nil {
 				return nil, "", errors.Trace(err)
@@ -37,7 +37,7 @@ func newStateCrossControllerAPI(ctx facade.ModelContext) (*CrossControllerAPI, e
 			return controllerInfo(st, config)
 		},
 		func(ctx context.Context) (string, error) {
-			controllerConfig := serviceFactory.ControllerConfig()
+			controllerConfig := domainServices.ControllerConfig()
 			config, err := controllerConfig.ControllerConfig(ctx)
 			if err != nil {
 				return "", errors.Trace(err)

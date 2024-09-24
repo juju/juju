@@ -341,7 +341,7 @@ func (s *toolsSuite) TestMigrateToolsNotMigrating(c *gc.C) {
 
 func (s *toolsSuite) TestMigrateToolsForUser(c *gc.C) {
 	// Try uploading as a non controller admin.
-	userService := s.ControllerServiceFactory(c).Access()
+	userService := s.ControllerDomainServices(c).Access()
 	userTag := names.NewUserTag("bobbrown")
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        coreuser.NameFromTag(userTag),

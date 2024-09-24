@@ -96,10 +96,10 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(st)
 
-	serviceFactory := s.DefaultModelServiceFactory(c)
+	domainServices := s.DefaultModelDomainServices(c)
 
 	envFunc := stateenvirons.GetNewEnvironFunc(environs.New)
-	env, err := envFunc(s.ControllerModel(c), serviceFactory.Cloud(), serviceFactory.Credential())
+	env, err := envFunc(s.ControllerModel(c), domainServices.Cloud(), domainServices.Credential())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.InstancePrechecker = func(c *gc.C, st *state.State) environs.InstancePrechecker {
@@ -111,9 +111,9 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 		Type: model.IAAS,
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(env)
-	serviceFactoryGetter := s.ServiceFactoryGetter(c, s.NoopObjectStore(c))
-	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Storage(registry)
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
+	storageService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Storage(registry)
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: registry,
 		Secrets:         service.NotImplementedSecretService{},
 	})
@@ -130,9 +130,9 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 		modelInfo,
 		s.modelConfigService,
 		s.modelAgentService,
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
-		serviceFactory.Machine(),
+		domainServices.Cloud(),
+		domainServices.Credential(),
+		domainServices.Machine(),
 		applicationService,
 		nil, // leadership not used in these tests.
 		application.CharmToStateCharm,

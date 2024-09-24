@@ -46,18 +46,18 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	s.ApiServerSuite.SeedCAASCloud(c)
 
-	serviceFactory := s.ControllerServiceFactory(c)
-	cloudService := serviceFactory.Cloud()
+	domainServices := s.ControllerDomainServices(c)
+	cloudService := domainServices.Cloud()
 	err := cloudService.UpdateCloud(context.Background(), testing.DefaultCloud)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
-	serviceFactory.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialId, cred)
+	domainServices.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialId, cred)
 
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	s.st = s.ControllerModel(c).State()
-	networkService := serviceFactory.Network()
+	networkService := domainServices.Network()
 
 	spacePublic := network.SpaceInfo{
 		Name: "public",
@@ -207,8 +207,8 @@ func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c 
 		netAddrs[i] = network.NewSpaceAddress(addr.Value())
 	}
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerDomainServices := s.ControllerDomainServices(c)
+	controllerConfigService := controllerDomainServices.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -540,7 +540,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressNonDefaultBin
 	s.assertInScope(c, mysqlRelUnit, true)
 
 	// Relation specific egress subnets override model config.
-	err = s.ControllerServiceFactory(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	err = s.ControllerDomainServices(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	relEgress := state.NewRelationEgressNetworks(s.st)
 	_, err = relEgress.Save(rel.Tag().Id(), false, []string{"192.168.1.0/24"})
@@ -609,7 +609,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBindin
 	s.assertInScope(c, mysqlRelUnit, true)
 
 	// Relation specific egress subnets override model config.
-	err = s.ControllerServiceFactory(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	err = s.ControllerDomainServices(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	relEgress := state.NewRelationEgressNetworks(s.st)
 	_, err = relEgress.Save(rel.Tag().Id(), false, []string{"192.168.1.0/24"})

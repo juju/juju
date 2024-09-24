@@ -51,7 +51,7 @@ import (
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
-	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	servicefactorytesting "github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/environs"
 	environsconfig "github.com/juju/juju/environs/config"
 	databasetesting "github.com/juju/juju/internal/database/testing"
@@ -65,7 +65,7 @@ import (
 	"github.com/juju/juju/internal/password"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/pubsub/centralhub"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/storage/provider/dummy"
@@ -105,7 +105,7 @@ var (
 
 // ApiServerSuite is a text fixture which spins up an apiserver on top of a controller model.
 type ApiServerSuite struct {
-	servicefactorytesting.ServiceFactorySuite
+	servicefactorytesting.DomainServicesSuite
 
 	// MgoSuite is needed until we finally can
 	// represent the model fully in dqlite.
@@ -193,7 +193,7 @@ func leaseManager(c *gc.C, controllerUUID string, db database.DBGetter, clock cl
 
 func (s *ApiServerSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
-	s.ServiceFactorySuite.SetUpSuite(c)
+	s.DomainServicesSuite.SetUpSuite(c)
 	s.ControllerSuite.SetUpSuite(c)
 }
 
@@ -255,9 +255,9 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		modelAttrs[k] = v
 	}
 	controllerModelCfg := coretesting.CustomModelConfig(c, modelAttrs)
-	s.ServiceFactorySuite.ControllerConfig = controllerCfg
-	s.ServiceFactorySuite.ControllerModelUUID = coremodel.UUID(controllerModelCfg.UUID())
-	s.ServiceFactorySuite.SetUpTest(c)
+	s.DomainServicesSuite.ControllerConfig = controllerCfg
+	s.DomainServicesSuite.ControllerModelUUID = coremodel.UUID(controllerModelCfg.UUID())
+	s.DomainServicesSuite.SetUpTest(c)
 
 	modelType := state.ModelTypeIAAS
 	if s.WithControllerModelType == state.ModelTypeCAAS {
@@ -265,7 +265,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	}
 
 	// modelUUID param is not used so can pass in anything.
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
@@ -285,10 +285,10 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		CloudName:     DefaultCloud.Name,
 		MongoSession:  session,
 		AdminPassword: AdminSecret,
-		NewPolicy: stateenvirons.GetNewPolicyFunc(serviceFactory.Cloud(), serviceFactory.Credential(), func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter {
-			return s.ServiceFactoryGetter(c, s.NoopObjectStore(c)).FactoryForModel(modelUUID).Storage(registry)
+		NewPolicy: stateenvirons.GetNewPolicyFunc(domainServices.Cloud(), domainServices.Credential(), func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter {
+			return s.DomainServicesGetter(c, s.NoopObjectStore(c)).ServicesForModel(modelUUID).Storage(registry)
 		}),
-	}, environs.ProviderConfigSchemaSource(serviceFactory.Cloud()))
+	}, environs.ProviderConfigSchemaSource(domainServices.Cloud()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctrl
 
@@ -312,8 +312,8 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Seed the test database with the controller cloud and credential etc.
-	s.AdminUserUUID = s.ServiceFactorySuite.AdminUserUUID
-	SeedDatabase(c, s.TxnRunner(), serviceFactory, controllerCfg)
+	s.AdminUserUUID = s.DomainServicesSuite.AdminUserUUID
+	SeedDatabase(c, s.TxnRunner(), domainServices, controllerCfg)
 }
 
 func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config) {
@@ -321,7 +321,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	cfg.Mux = s.mux
 	cfg.DBGetter = stubDBGetter{db: stubWatchableDB{TxnRunner: s.TxnRunner()}}
 	cfg.DBDeleter = stubDBDeleter{}
-	cfg.ServiceFactoryGetter = s.ServiceFactoryGetter(c, s.NoopObjectStore(c))
+	cfg.DomainServicesGetter = s.DomainServicesGetter(c, s.NoopObjectStore(c))
 	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
 
@@ -355,7 +355,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	s.ObjectStoreGetter = cfg.ObjectStoreGetter
 
 	// Set up auth handler.
-	factory := s.ControllerServiceFactory(c)
+	factory := s.ControllerDomainServices(c)
 
 	systemState, err := cfg.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
@@ -424,7 +424,7 @@ func (s *ApiServerSuite) TearDownTest(c *gc.C) {
 	if s.httpServer != nil {
 		s.httpServer.Close()
 	}
-	s.ServiceFactorySuite.TearDownTest(c)
+	s.DomainServicesSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 }
 
@@ -469,7 +469,7 @@ func (s *ApiServerSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce strin
 // ControllerModelApiInfo returns the api address and ca cert needed to
 // connect to an api server's controller model endpoint. User and password are empty.
 func (s *ApiServerSuite) ControllerModelApiInfo() *api.Info {
-	return s.ModelApiInfo(s.ServiceFactorySuite.ControllerModelUUID.String())
+	return s.ModelApiInfo(s.DomainServicesSuite.ControllerModelUUID.String())
 }
 
 // ModelApiInfo returns the api address and ca cert needed to
@@ -498,7 +498,7 @@ func (s *ApiServerSuite) OpenModelAPIAs(c *gc.C, modelUUID string, tag names.Tag
 
 // OpenControllerModelAPI opens the controller model api connection for the admin user.
 func (s *ApiServerSuite) OpenControllerModelAPI(c *gc.C) api.Connection {
-	return s.openAPIAs(c, AdminUser, AdminSecret, "", s.ServiceFactorySuite.ControllerModelUUID.String())
+	return s.openAPIAs(c, AdminUser, AdminSecret, "", s.DomainServicesSuite.ControllerModelUUID.String())
 }
 
 // OpenModelAPI opens a model api connection for the admin user.
@@ -540,7 +540,7 @@ func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory
 		releaser func() bool
 		err      error
 	)
-	if modelUUID == s.ServiceFactorySuite.ControllerModelUUID.String() {
+	if modelUUID == s.DomainServicesSuite.ControllerModelUUID.String() {
 		st, err = s.controller.SystemState()
 		c.Assert(err, jc.ErrorIsNil)
 		model = s.ControllerModel(c)
@@ -554,7 +554,7 @@ func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	modelServiceFactory := s.ServiceFactoryGetter(c, s.NoopObjectStore(c)).FactoryForModel(coremodel.UUID(modelUUID))
+	modelDomainServices := s.DomainServicesGetter(c, s.NoopObjectStore(c)).ServicesForModel(coremodel.UUID(modelUUID))
 	var registry storage.ProviderRegistry
 	if model.Type() == state.ModelTypeIAAS {
 		registry = storage.ChainedProviderRegistry{
@@ -571,7 +571,7 @@ func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory
 			provider.CommonStorageProviders(),
 		}
 	}
-	applicationService := modelServiceFactory.Application(applicationservice.ApplicationServiceParams{
+	applicationService := modelDomainServices.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: registry,
 		Secrets:         applicationservice.NotImplementedSecretService{},
 	})
@@ -581,7 +581,7 @@ func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory
 
 // ControllerModelUUID returns the controller model uuid.
 func (s *ApiServerSuite) ControllerModelUUID() string {
-	return s.ServiceFactorySuite.ControllerModelUUID.String()
+	return s.DomainServicesSuite.ControllerModelUUID.String()
 }
 
 // ControllerModel returns the controller model.
@@ -652,8 +652,8 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 
 // SeedDatabase the database with a supplied controller config, and dummy
 // cloud and dummy credentials.
-func SeedDatabase(c *gc.C, controller database.TxnRunner, serviceFactory servicefactory.ServiceFactory, controllerConfig controller.Config) {
-	bakeryConfigService := serviceFactory.Macaroon()
+func SeedDatabase(c *gc.C, controller database.TxnRunner, domainServices services.DomainServices, controllerConfig controller.Config) {
+	bakeryConfigService := domainServices.Macaroon()
 	err := bakeryConfigService.InitialiseBakeryConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -680,7 +680,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		CharmhubHTTPClient:         &http.Client{},
 		SSHImporterHTTPClient:      &http.Client{},
 		DBGetter:                   stubDBGetter{},
-		ServiceFactoryGetter:       nil,
+		DomainServicesGetter:       nil,
 		TracerGetter:               &stubTracerGetter{},
 		ObjectStoreGetter:          &stubObjectStoreGetter{},
 		StatePool:                  &state.StatePool{},
@@ -718,11 +718,11 @@ func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.Tracer
 type stubObjectStoreGetter struct {
 	rootDir                   string
 	claimer                   internalobjectstore.Claimer
-	objectStoreServicesGetter servicefactory.ObjectStoreServicesGetter
+	objectStoreServicesGetter services.ObjectStoreServicesGetter
 }
 
 func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace string) (objectstore.ObjectStore, error) {
-	services := s.objectStoreServicesGetter.FactoryForModel(coremodel.UUID(namespace))
+	services := s.objectStoreServicesGetter.ServicesForModel(coremodel.UUID(namespace))
 
 	return internalobjectstore.ObjectStoreFactory(ctx,
 		internalobjectstore.DefaultBackendType(),
@@ -735,7 +735,7 @@ func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace st
 }
 
 type stubMetadataService struct {
-	services servicefactory.ObjectStoreServices
+	services services.ObjectStoreServices
 }
 
 func (s *stubMetadataService) ObjectStore() objectstore.ObjectStoreMetadata {

@@ -131,11 +131,11 @@ func (h *objectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Reques
 	}
 	defer st.Release()
 
-	serviceFactory, err := h.ctxt.serviceFactoryForRequest(r.Context())
+	domainServices, err := h.ctxt.domainServicesForRequest(r.Context())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{})
+	applicationService := domainServices.Application(service.ApplicationServiceParams{})
 
 	// Add a charm to the store provider.
 	charmURL, err := h.processPut(r, st.State, applicationService)

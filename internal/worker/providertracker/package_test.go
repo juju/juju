@@ -16,7 +16,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package providertracker -destination providertracker_mock_test.go github.com/juju/juju/internal/worker/providertracker ServiceFactoryGetter,ServiceFactory,ModelService,CloudService,ConfigService,CredentialService
+//go:generate go run go.uber.org/mock/mockgen -typed -package providertracker -destination providertracker_mock_test.go github.com/juju/juju/internal/worker/providertracker DomainServicesGetter,DomainServices,ModelService,CloudService,ConfigService,CredentialService
 //go:generate go run go.uber.org/mock/mockgen -typed -package providertracker -destination environs_mock_test.go github.com/juju/juju/environs Environ,CloudDestroyer,CloudSpecSetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package providertracker -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
 //go:generate go run go.uber.org/mock/mockgen -typed -package providertracker -destination caas_mock_test.go github.com/juju/juju/caas Broker
@@ -32,8 +32,8 @@ type baseSuite struct {
 
 	states chan string
 
-	serviceFactoryGetter *MockServiceFactoryGetter
-	serviceFactory       *MockServiceFactory
+	domainServicesGetter *MockDomainServicesGetter
+	domainServices       *MockDomainServices
 	modelService         *MockModelService
 	cloudService         *MockCloudService
 	configService        *MockConfigService
@@ -55,8 +55,8 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	ctrl := gomock.NewController(c)
 
-	s.serviceFactoryGetter = NewMockServiceFactoryGetter(ctrl)
-	s.serviceFactory = NewMockServiceFactory(ctrl)
+	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
+	s.domainServices = NewMockDomainServices(ctrl)
 	s.modelService = NewMockModelService(ctrl)
 	s.cloudService = NewMockCloudService(ctrl)
 	s.configService = NewMockConfigService(ctrl)
@@ -82,10 +82,10 @@ func (s *baseSuite) ensureStartup(c *gc.C) {
 	}
 }
 
-func (s *baseSuite) expectServiceFactory(namespace string) {
-	s.serviceFactoryGetter.EXPECT().FactoryForModel(namespace).Return(s.serviceFactory)
-	s.serviceFactory.EXPECT().Cloud().Return(s.cloudService)
-	s.serviceFactory.EXPECT().Config().Return(s.configService)
-	s.serviceFactory.EXPECT().Credential().Return(s.credentialService)
-	s.serviceFactory.EXPECT().Model().Return(s.modelService)
+func (s *baseSuite) expectDomainServices(namespace string) {
+	s.domainServicesGetter.EXPECT().ServicesForModel(namespace).Return(s.domainServices)
+	s.domainServices.EXPECT().Cloud().Return(s.cloudService)
+	s.domainServices.EXPECT().Config().Return(s.configService)
+	s.domainServices.EXPECT().Credential().Return(s.credentialService)
+	s.domainServices.EXPECT().Model().Return(s.modelService)
 }

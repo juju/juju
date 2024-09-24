@@ -28,8 +28,8 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 
-	serviceFactory := ctx.ServiceFactory()
-	applicationService := serviceFactory.Application(service.ApplicationServiceParams{
+	domainServices := ctx.DomainServices()
+	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
 		Secrets:         service.NotImplementedSecretService{},
 	})

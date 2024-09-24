@@ -11,13 +11,13 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/socketlistener"
 )
 
 // ManifoldConfig describes the dependencies required by the controlsocket worker.
 type ManifoldConfig struct {
-	ServiceFactoryName string
+	DomainServicesName string
 	Logger             logger.Logger
 	NewWorker          func(Config) (worker.Worker, error)
 	NewSocketListener  func(socketlistener.Config) (SocketListener, error)
@@ -28,7 +28,7 @@ type ManifoldConfig struct {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.ServiceFactoryName,
+			config.DomainServicesName,
 		},
 		Start: config.start,
 	}
@@ -36,8 +36,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // Validate is called by start to check for bad configuration.
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
+	if cfg.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -60,12 +60,12 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		return nil, errors.Trace(err)
 	}
 
-	var serviceFactory servicefactory.ControllerServiceFactory
-	if err = getter.Get(cfg.ServiceFactoryName, &serviceFactory); err != nil {
+	var domainServices services.ControllerDomainServices
+	if err = getter.Get(cfg.DomainServicesName, &domainServices); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	controllerSerivce := serviceFactory.Controller()
+	controllerSerivce := domainServices.Controller()
 	controllerModelUUID, err := controllerSerivce.ControllerModelUUID(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -73,7 +73,7 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 
 	var w worker.Worker
 	w, err = cfg.NewWorker(Config{
-		AccessService:       serviceFactory.Access(),
+		AccessService:       domainServices.Access(),
 		Logger:              cfg.Logger,
 		SocketName:          cfg.SocketName,
 		NewSocketListener:   cfg.NewSocketListener,

@@ -47,7 +47,7 @@ var _ = gc.Suite(&registrationSuite{})
 func (s *registrationSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
-	s.accessService = s.ControllerServiceFactory(c).Access()
+	s.accessService = s.ControllerDomainServices(c).Access()
 	var err error
 	s.userUUID, _, err = s.accessService.AddUser(context.Background(), accessservice.AddUserArg{
 		Name:        usertesting.GenNewName(c, "bob"),
@@ -91,9 +91,9 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	s.ProviderTracker = providerFactory
 
 	if hasProxy {
-		// This is a bit of a hack. We can't hack out the service factory,
+		// This is a bit of a hack. We can't hack out the domain services,
 		// but we can hack out the provider factory, which is the only thing
-		// that the service factory uses to get the provider.
+		// that the domain services uses to get the provider.
 		// By brute force, we can make the provider factory return a provider
 		// that implements the providertracker.Provider interface.
 		providerFactory.EXPECT().ProviderForModel(gomock.Any(), gomock.Any()).Return(struct {

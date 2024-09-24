@@ -41,22 +41,22 @@ func makeFacade(
 		return nil, err
 	}
 
-	serviceFactory := ctx.ServiceFactory()
+	domainServices := ctx.DomainServices()
 
 	modelMigrationServiceGetter := func(modelId model.UUID) ModelMigrationService {
-		return ctx.ServiceFactoryForModel(modelId).ModelMigration()
+		return ctx.DomainServicesForModel(modelId).ModelMigration()
 	}
 
 	return NewAPI(
 		ctx,
 		auth,
-		serviceFactory.ControllerConfig(),
-		serviceFactory.ExternalController(),
-		serviceFactory.Application(service.ApplicationServiceParams{
+		domainServices.ControllerConfig(),
+		domainServices.ExternalController(),
+		domainServices.Application(service.ApplicationServiceParams{
 			StorageRegistry: storage.NotImplementedProviderRegistry{},
 			Secrets:         service.NotImplementedSecretService{},
 		}),
-		serviceFactory.Upgrade(),
+		domainServices.Upgrade(),
 		modelMigrationServiceGetter,
 		facadeVersions,
 		ctx.LogDir(),

@@ -39,30 +39,30 @@ func (s *cloudSpecUniterSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	facadeContext := s.facadeContext(c)
-	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
+	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
 		Secrets:         applicationservice.NotImplementedSecretService{},
 	})
 	uniterAPI, err := uniter.NewUniterAPIWithServices(
 		context.Background(), facadeContext,
-		serviceFactory.ControllerConfig(),
-		serviceFactory.Config(),
-		serviceFactory.ModelInfo(),
-		serviceFactory.Secret(
+		domainServices.ControllerConfig(),
+		domainServices.Config(),
+		domainServices.ModelInfo(),
+		domainServices.Secret(
 			secretservice.SecretServiceParams{
 				BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
 				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
 			},
 		),
-		serviceFactory.Network(),
-		serviceFactory.Machine(),
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
+		domainServices.Network(),
+		domainServices.Machine(),
+		domainServices.Cloud(),
+		domainServices.Credential(),
 		applicationService,
-		serviceFactory.UnitState(),
+		domainServices.UnitState(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := uniterAPI.CloudSpec(context.Background())
@@ -83,29 +83,29 @@ func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
 	facadeContext := s.facadeContext(c)
 	facadeContext.State_ = cm.State()
 
-	serviceFactory := facadeContext.ServiceFactory()
-	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
+	domainServices := facadeContext.DomainServices()
+	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
 		Secrets:         applicationservice.NotImplementedSecretService{},
 	})
 
 	uniterAPI, err := uniter.NewUniterAPIWithServices(
 		context.Background(), facadeContext,
-		serviceFactory.ControllerConfig(),
-		serviceFactory.Config(),
-		serviceFactory.ModelInfo(),
-		serviceFactory.Secret(
+		domainServices.ControllerConfig(),
+		domainServices.Config(),
+		domainServices.ModelInfo(),
+		domainServices.Secret(
 			secretservice.SecretServiceParams{
 				BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
 				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
 			},
 		),
-		serviceFactory.Network(),
-		serviceFactory.Machine(),
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
+		domainServices.Network(),
+		domainServices.Machine(),
+		domainServices.Cloud(),
+		domainServices.Credential(),
 		applicationService,
-		serviceFactory.UnitState(),
+		domainServices.UnitState(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	uniter.SetNewContainerBrokerFunc(uniterAPI, func(context.Context, environs.OpenParams) (caas.Broker, error) {

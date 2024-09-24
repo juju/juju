@@ -44,8 +44,8 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 
 	modelTag := names.NewModelTag(ctx.ModelUUID().String())
 
-	serviceFactory := ctx.ServiceFactory()
-	applicationService := serviceFactory.Application(applicationservice.ApplicationServiceParams{
+	domainServices := ctx.DomainServices()
+	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
 		Secrets:         applicationservice.NotImplementedSecretService{},
 	})
@@ -55,7 +55,7 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 		return nil, errors.Trace(err)
 	}
 
-	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
+	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, fmt.Errorf("getting model info: %w", err)
 	}
@@ -71,7 +71,7 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 		charmInfoAPI:       charmInfoAPI,
 		authorizer:         authorizer,
 		backendState:       newStateShim(ctx.State()),
-		modelConfigService: serviceFactory.Config(),
+		modelConfigService: domainServices.Config(),
 		applicationService: applicationService,
 		charmhubHTTPClient: charmhubHTTPClient,
 		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {

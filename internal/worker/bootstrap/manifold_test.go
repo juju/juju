@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/domain/servicefactory/testing"
+	"github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/internal/bootstrap"
 )
 
@@ -39,7 +39,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg.ObjectStoreName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg.ServiceFactoryName = ""
+	cfg.DomainServicesName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg.BootstrapGateName = ""
@@ -78,7 +78,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		ObjectStoreName:        "object-store",
 		StateName:              "state",
 		BootstrapGateName:      "bootstrap-gate",
-		ServiceFactoryName:     "service-factory",
+		DomainServicesName:     "domain-services",
 		ProviderFactoryName:    "provider-factory",
 		CharmhubHTTPClientName: "charmhub-http-client",
 		Logger:                 s.logger,
@@ -107,7 +107,7 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 		"object-store":         s.objectStoreGetter,
 		"bootstrap-gate":       s.bootstrapUnlocker,
 		"charmhub-http-client": s.httpClient,
-		"service-factory":      testing.NewTestingServiceFactory(),
+		"domain-services":      testing.NewTestingDomainServices(),
 	}
 	return dependencytesting.StubGetter(resources)
 }
@@ -117,7 +117,7 @@ var expectedInputs = []string{
 	"state",
 	"object-store",
 	"bootstrap-gate",
-	"service-factory",
+	"domain-services",
 	"charmhub-http-client",
 	"provider-factory",
 }

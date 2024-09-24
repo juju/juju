@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
@@ -48,7 +48,7 @@ type provisionerSuite struct {
 	authorizer     apiservertesting.FakeAuthorizer
 	resources      *common.Resources
 	provisioner    *provisioner.ProvisionerAPIV11
-	serviceFactory servicefactory.ServiceFactory
+	domainServices services.DomainServices
 }
 
 var _ = gc.Suite(&provisionerSuite{})
@@ -67,8 +67,8 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	s.ApiServerSuite.ControllerModelConfigAttrs["image-stream"] = "daily"
 	s.ApiServerSuite.SetUpTest(c)
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	err := controllerServiceFactory.Config().UpdateModelConfig(context.Background(),
+	controllerDomainServices := s.ControllerDomainServices(c)
+	err := controllerDomainServices.Config().UpdateModelConfig(context.Background(),
 		map[string]any{
 			"image-stream": "daily",
 		},
@@ -84,19 +84,19 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	st := s.ControllerModel(c).State()
 
 	if withController {
-		controllerConfigService := controllerServiceFactory.ControllerConfig()
+		controllerConfigService := controllerDomainServices.ControllerConfig()
 		controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 
 		s.machines = append(s.machines, testing.AddControllerMachine(c, st, controllerConfig))
 	}
 
-	s.serviceFactory = s.ControllerServiceFactory(c)
+	s.domainServices = s.ControllerDomainServices(c)
 
 	for i := 0; i < 5; i++ {
 		m, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
-		_, err = s.serviceFactory.Machine().CreateMachine(context.Background(), coremachine.Name(m.Id()))
+		_, err = s.domainServices.Machine().CreateMachine(context.Background(), coremachine.Name(m.Id()))
 		c.Assert(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, m)
 	}
@@ -117,7 +117,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.serviceFactory,
+		DomainServices_: s.domainServices,
 		Logger_:         loggertesting.WrapCheckLog(c),
 		ControllerUUID_: coretesting.ControllerTag.Id(),
 	})
@@ -145,7 +145,7 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ControllerServiceFactory(c),
+		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -158,7 +158,7 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ControllerServiceFactory(c),
+		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, gc.NotNil)
@@ -237,7 +237,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ControllerServiceFactory(c),
+		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -598,7 +598,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ControllerServiceFactory(c),
+		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	},
 	)
@@ -652,11 +652,11 @@ func (s *withoutControllerSuite) TestEnsureDead(c *gc.C) {
 	machineName1 := coremachine.Name(s.machines[1].Id())
 	machineName2 := coremachine.Name(s.machines[2].Id())
 
-	err := s.serviceFactory.Machine().SetMachineLife(context.Background(), machineName0, life.Alive)
+	err := s.domainServices.Machine().SetMachineLife(context.Background(), machineName0, life.Alive)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.serviceFactory.Machine().SetMachineLife(context.Background(), machineName1, life.Dead)
+	err = s.domainServices.Machine().SetMachineLife(context.Background(), machineName1, life.Dead)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.serviceFactory.Machine().SetMachineLife(context.Background(), machineName2, life.Alive)
+	err = s.domainServices.Machine().SetMachineLife(context.Background(), machineName2, life.Alive)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -681,13 +681,13 @@ func (s *withoutControllerSuite) TestEnsureDead(c *gc.C) {
 	})
 
 	// Verify the changes.
-	obtainedLife, err := s.serviceFactory.Machine().GetMachineLife(context.Background(), coremachine.Name(s.machines[0].Id()))
+	obtainedLife, err := s.domainServices.Machine().GetMachineLife(context.Background(), coremachine.Name(s.machines[0].Id()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*obtainedLife, gc.Equals, life.Dead)
-	obtainedLife, err = s.serviceFactory.Machine().GetMachineLife(context.Background(), coremachine.Name(s.machines[1].Id()))
+	obtainedLife, err = s.domainServices.Machine().GetMachineLife(context.Background(), coremachine.Name(s.machines[1].Id()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*obtainedLife, gc.Equals, life.Dead)
-	obtainedLife, err = s.serviceFactory.Machine().GetMachineLife(context.Background(), coremachine.Name(s.machines[2].Id()))
+	obtainedLife, err = s.domainServices.Machine().GetMachineLife(context.Background(), coremachine.Name(s.machines[2].Id()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*obtainedLife, gc.Equals, life.Dead)
 }
@@ -958,9 +958,9 @@ func (s *withoutControllerSuite) TestKeepInstance(c *gc.C) {
 
 	// Add a machine with keep-instance = true.
 	foobarMachine := f.MakeMachine(c, &factory.MachineParams{InstanceId: "1234"})
-	_, err := s.serviceFactory.Machine().CreateMachine(context.Background(), coremachine.Name(foobarMachine.Tag().Id()))
+	_, err := s.domainServices.Machine().CreateMachine(context.Background(), coremachine.Name(foobarMachine.Tag().Id()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.serviceFactory.Machine().SetKeepInstance(context.Background(), coremachine.Name(foobarMachine.Tag().Id()), true)
+	err = s.domainServices.Machine().SetKeepInstance(context.Background(), coremachine.Name(foobarMachine.Tag().Id()), true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -1098,7 +1098,7 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ControllerServiceFactory(c),
+		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Check(err, jc.ErrorIsNil)
@@ -1225,7 +1225,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAut
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ControllerServiceFactory(c),
+		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Check(err, jc.ErrorIsNil)
@@ -1292,10 +1292,10 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	}
-	serviceFactoryGetter := s.ServiceFactoryGetter(c, s.NoopObjectStore(c))
+	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
 
 	st := s.ControllerModel(c).State()
-	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Storage(registry)
+	storageService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Storage(registry)
 	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]any{
@@ -1316,7 +1316,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	machineService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Machine()
+	machineService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Machine()
 	machineService.CreateMachine(context.Background(), coremachine.Name(volumesMachine.Id()))
 
 	args := params.InstancesInfo{Machines: []params.InstanceInfo{{
@@ -1470,7 +1470,7 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ControllerServiceFactory(c),
+		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1509,7 +1509,7 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ControllerServiceFactory(c),
+		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1591,7 +1591,7 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ControllerServiceFactory(c),
+		DomainServices_: s.ControllerDomainServices(c),
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)

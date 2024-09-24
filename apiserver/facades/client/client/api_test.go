@@ -400,7 +400,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 
 	add := func(e state.Entity) {
 		entities = append(entities, e.Tag())

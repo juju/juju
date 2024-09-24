@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	coretrace "github.com/juju/juju/core/trace"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -54,11 +54,11 @@ func (testingAPIRootHandler) State() *state.State {
 	return nil
 }
 
-func (testingAPIRootHandler) ServiceFactory() servicefactory.ServiceFactory {
+func (testingAPIRootHandler) DomainServices() services.DomainServices {
 	return nil
 }
 
-func (testingAPIRootHandler) ServiceFactoryGetter() servicefactory.ServiceFactoryGetter {
+func (testingAPIRootHandler) DomainServicesGetter() services.DomainServicesGetter {
 	return nil
 }
 
@@ -117,7 +117,7 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 
 // TestingAPIHandler gives you an APIHandler that isn't connected to
 // anything real. It's enough to let test some basic functionality though.
-func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servicefactory.ServiceFactory) (*apiHandler, *common.Resources) {
+func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf services.DomainServices) (*apiHandler, *common.Resources) {
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(st, loggertesting.WrapCheckLog(c))
 
 	authenticator, err := stateauthenticator.NewAuthenticator(
@@ -141,7 +141,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servi
 		offerAuthCtxt:       offerAuthCtxt,
 		shared: &sharedServerContext{
 			statePool:            pool,
-			serviceFactoryGetter: &StubServiceFactoryGetter{},
+			domainServicesGetter: &StubDomainServicesGetter{},
 		},
 		tag: names.NewMachineTag("0"),
 	}
@@ -166,9 +166,9 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servi
 	return h, h.Resources()
 }
 
-type StubServiceFactoryGetter struct{}
+type StubDomainServicesGetter struct{}
 
-func (s *StubServiceFactoryGetter) FactoryForModel(model.UUID) servicefactory.ServiceFactory {
+func (s *StubDomainServicesGetter) ServicesForModel(model.UUID) services.DomainServices {
 	return nil
 }
 
@@ -187,7 +187,7 @@ func TestingAPIHandlerWithEntity(
 	c *gc.C,
 	pool *state.StatePool,
 	st *state.State,
-	sf servicefactory.ServiceFactory,
+	sf services.DomainServices,
 	entity state.Entity,
 ) (*apiHandler, *common.Resources) {
 	h, hr := TestingAPIHandler(c, pool, st, sf)
@@ -203,7 +203,7 @@ func TestingAPIHandlerWithToken(
 	c *gc.C,
 	pool *state.StatePool,
 	st *state.State,
-	sf servicefactory.ServiceFactory,
+	sf services.DomainServices,
 	jwt jwt.Token,
 	delegator authentication.PermissionDelegator,
 ) (*apiHandler, *common.Resources) {

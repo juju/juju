@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
-	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	domainservicestesting "github.com/juju/juju/domain/services/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -57,7 +57,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	s.api, err = cleaner.NewCleanerAPI(facadetest.ModelContext{
 		Resources_: res,
 		Auth_:      s.authoriser,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory().
+		DomainServices_: domainservicestesting.NewTestingDomainServices().
 			WithMachineService(func() *machineservice.WatchableService {
 				return s.machineService
 			}).

@@ -132,7 +132,7 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithLocalLogin(c *gc.C) 
 	// Create a new local user that we can log in as
 	// using macaroon authentication.
 	password := "hunter2"
-	accessService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerDomainServices(c).Access()
 	userName := usertesting.GenNewName(c, "bobbrown")
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userName,

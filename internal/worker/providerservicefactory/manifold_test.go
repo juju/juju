@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 )
 
 type manifoldSuite struct {
@@ -44,11 +44,11 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.NewProviderServiceFactory = nil
+	cfg.NewProviderServices = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.NewProviderServiceFactoryGetter = nil
+	cfg.NewProviderServicesGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
@@ -60,11 +60,11 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	}
 
 	manifold := Manifold(ManifoldConfig{
-		ChangeStreamName:                "changestream",
-		Logger:                          s.logger,
-		NewWorker:                       NewWorker,
-		NewProviderServiceFactory:       NewProviderServiceFactory,
-		NewProviderServiceFactoryGetter: NewProviderServiceFactoryGetter,
+		ChangeStreamName:          "changestream",
+		Logger:                    s.logger,
+		NewWorker:                 NewWorker,
+		NewProviderServices:       NewProviderServices,
+		NewProviderServicesGetter: NewProviderServicesGetter,
 	})
 	w, err := manifold.Start(context.Background(), dt.StubGetter(getter))
 	c.Assert(err, jc.ErrorIsNil)
@@ -73,21 +73,21 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	workertest.CheckAlive(c, w)
 }
 
-func (s *manifoldSuite) TestOutputProviderServiceFactoryGetter(c *gc.C) {
+func (s *manifoldSuite) TestOutputProviderServicesGetter(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewWorker(Config{
-		DBGetter:                        s.dbGetter,
-		Logger:                          s.logger,
-		NewProviderServiceFactory:       NewProviderServiceFactory,
-		NewProviderServiceFactoryGetter: NewProviderServiceFactoryGetter,
+		DBGetter:                  s.dbGetter,
+		Logger:                    s.logger,
+		NewProviderServices:       NewProviderServices,
+		NewProviderServicesGetter: NewProviderServicesGetter,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	manifold := ManifoldConfig{}
 
-	var factory servicefactory.ProviderServiceFactoryGetter
+	var factory services.ProviderServicesGetter
 	err = manifold.output(w, &factory)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -96,10 +96,10 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewWorker(Config{
-		DBGetter:                        s.dbGetter,
-		Logger:                          s.logger,
-		NewProviderServiceFactory:       NewProviderServiceFactory,
-		NewProviderServiceFactoryGetter: NewProviderServiceFactoryGetter,
+		DBGetter:                  s.dbGetter,
+		Logger:                    s.logger,
+		NewProviderServices:       NewProviderServices,
+		NewProviderServicesGetter: NewProviderServicesGetter,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -118,10 +118,10 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewWorker: func(Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewProviderServiceFactory: func(model.UUID, changestream.WatchableDBGetter, logger.Logger) servicefactory.ProviderServiceFactory {
+		NewProviderServices: func(model.UUID, changestream.WatchableDBGetter, logger.Logger) services.ProviderServices {
 			return nil
 		},
-		NewProviderServiceFactoryGetter: func(ProviderServiceFactoryFn, changestream.WatchableDBGetter, logger.Logger) servicefactory.ProviderServiceFactoryGetter {
+		NewProviderServicesGetter: func(ProviderServicesFn, changestream.WatchableDBGetter, logger.Logger) services.ProviderServicesGetter {
 			return nil
 		},
 	}

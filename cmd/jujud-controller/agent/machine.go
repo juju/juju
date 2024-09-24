@@ -73,7 +73,7 @@ import (
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/service"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/looputil"
@@ -928,8 +928,8 @@ func mongoDialOptions(
 
 func (a *MachineAgent) initState(
 	ctx stdcontext.Context, agentConfig agent.Config,
-	serviceFactory servicefactory.ControllerServiceFactory,
-	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
+	domainServices services.ControllerDomainServices,
+	domainServicesGetter services.DomainServicesGetter,
 ) (*state.StatePool, error) {
 	// Start MongoDB server and dial.
 	if err := a.ensureMongoServer(ctx, agentConfig); err != nil {
@@ -947,8 +947,8 @@ func (a *MachineAgent) initState(
 	pool, err := openStatePool(
 		agentConfig,
 		dialOpts,
-		serviceFactory,
-		serviceFactoryGetter,
+		domainServices,
+		domainServicesGetter,
 		a.mongoTxnCollector.AfterRunTransaction,
 	)
 	if err != nil {
@@ -997,20 +997,20 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	}
 
 	manifoldsCfg := model.ManifoldsConfig{
-		Agent:                        modelAgent,
-		AgentConfigChanged:           a.configChangedVal,
-		Authority:                    cfg.Authority,
-		Clock:                        clock.WallClock,
-		LoggingContext:               loggingContext,
-		RunFlagDuration:              time.Minute,
-		CharmRevisionUpdateInterval:  24 * time.Hour,
-		StatusHistoryPrunerInterval:  5 * time.Minute,
-		ActionPrunerInterval:         24 * time.Hour,
-		NewEnvironFunc:               newEnvirons,
-		NewContainerBrokerFunc:       newCAASBroker,
-		NewMigrationMaster:           migrationmaster.NewWorker,
-		ServiceFactory:               cfg.ServiceFactory,
-		ProviderServiceFactoryGetter: cfg.ProviderServiceFactoryGetter,
+		Agent:                       modelAgent,
+		AgentConfigChanged:          a.configChangedVal,
+		Authority:                   cfg.Authority,
+		Clock:                       clock.WallClock,
+		LoggingContext:              loggingContext,
+		RunFlagDuration:             time.Minute,
+		CharmRevisionUpdateInterval: 24 * time.Hour,
+		StatusHistoryPrunerInterval: 5 * time.Minute,
+		ActionPrunerInterval:        24 * time.Hour,
+		NewEnvironFunc:              newEnvirons,
+		NewContainerBrokerFunc:      newCAASBroker,
+		NewMigrationMaster:          migrationmaster.NewWorker,
+		DomainServices:              cfg.DomainServices,
+		ProviderServicesGetter:      cfg.ProviderServicesGetter,
 	}
 	if wrench.IsActive("charmrevision", "shortinterval") {
 		interval := 10 * time.Second
@@ -1115,8 +1115,8 @@ func (a *MachineAgent) ensureMongoServer(ctx stdcontext.Context, agentConfig age
 func openStatePool(
 	agentConfig agent.Config,
 	dialOpts mongo.DialOpts,
-	serviceFactory servicefactory.ControllerServiceFactory,
-	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
+	domainServices services.ControllerDomainServices,
+	domainServicesGetter services.DomainServicesGetter,
 	runTransactionObserver state.RunTransactionObserverFunc,
 ) (_ *state.StatePool, err error) {
 	info, ok := agentConfig.MongoInfo()
@@ -1133,9 +1133,9 @@ func openStatePool(
 		credService  stateenvirons.CredentialService
 		cloudService stateenvirons.CloudService
 	)
-	if serviceFactory != nil {
-		credService = serviceFactory.Credential()
-		cloudService = serviceFactory.Cloud()
+	if domainServices != nil {
+		credService = domainServices.Credential()
+		cloudService = domainServices.Cloud()
 	}
 	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
@@ -1143,7 +1143,7 @@ func openStatePool(
 		ControllerModelTag: agentConfig.Model(),
 		MongoSession:       session,
 		NewPolicy: stateenvirons.GetNewPolicyFunc(cloudService, credService, func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter {
-			return serviceFactoryGetter.FactoryForModel(modelUUID).Storage(registry)
+			return domainServicesGetter.ServicesForModel(modelUUID).Storage(registry)
 		}),
 		RunTransactionObserver: runTransactionObserver,
 	})

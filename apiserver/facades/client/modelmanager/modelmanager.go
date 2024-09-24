@@ -73,7 +73,7 @@ type ModelManagerAPI struct {
 	check     common.BlockCheckerInterface
 
 	// Services required by the model manager.
-	serviceFactoryGetter ServiceFactoryGetter
+	domainServicesGetter DomainServicesGetter
 	modelService         ModelService
 	modelDefaultsService ModelDefaultsService
 	cloudService         CloudService
@@ -127,7 +127,7 @@ func NewModelManagerAPI(
 	return &ModelManagerAPI{
 		ModelStatusAPI:       common.NewModelStatusAPI(st, authorizer, apiUser),
 		state:                st,
-		serviceFactoryGetter: services.ServiceFactoryGetter,
+		domainServicesGetter: services.DomainServicesGetter,
 		modelExporter:        modelExporter,
 		ctlrState:            ctlrSt,
 		cloudService:         services.CloudService,
@@ -331,17 +331,17 @@ func (m *ModelManagerAPI) createModelNew(
 		return coremodel.UUID(""), errors.Annotatef(err, "failed to create model %q", modelID)
 	}
 
-	// We need to get the model service factory from the newly created model
-	// above. We should be able to directly access the model service factory
+	// We need to get the model domain services from the newly created model
+	// above. We should be able to directly access the model domain services
 	// because the model manager use the MultiModelContext to access other
 	// models.
 
 	// We use the returned model UUID as we can guarantee that's the one that
 	// was written to the database.
-	modelServiceFactory := m.serviceFactoryGetter.ServiceFactoryForModel(modelID)
-	modelInfoService := modelServiceFactory.ModelInfo()
+	modelDomainServices := m.domainServicesGetter.DomainServicesForModel(modelID)
+	modelInfoService := modelDomainServices.ModelInfo()
 
-	modelConfigService := modelServiceFactory.Config()
+	modelConfigService := modelDomainServices.Config()
 
 	if err := modelConfigService.SetModelConfig(ctx, args.Config); err != nil {
 		return modelID, errors.Annotatef(err, "failed to set model config for model %q", modelID)
@@ -362,7 +362,7 @@ func (m *ModelManagerAPI) createModelNew(
 	}
 
 	// Reload the substrate spaces for the newly created model.
-	return modelID, reloadSpaces(ctx, modelServiceFactory.Network())
+	return modelID, reloadSpaces(ctx, modelDomainServices.Network())
 }
 
 // reloadSpaces wraps the call to ReloadSpaces and its returned errors.
@@ -1060,8 +1060,8 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 		// TODO (tlm): The modelService nil check will go when the tests are
 		// moved from mongo.
 		if m.modelService != nil {
-			// We need to get the model service factory from the model
-			// We should be able to directly access the model service factory
+			// We need to get the model domain services from the model
+			// We should be able to directly access the model domain services
 			// because the model manager uses the MultiModelContext to access
 			// other models.
 			modelUUID := coremodel.UUID(stModel.UUID())
@@ -1073,8 +1073,8 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 			// We need to progress the life of the model, atm it goes from
 			// alive to dead, skipping dying.
 			//
-			// modelServiceFactory := m.serviceFactoryGetter.ServiceFactoryForModel(modelUUID)
-			// modelInfoService := modelServiceFactory.ModelInfo()
+			// modelDomainServices := m.domainServicesGetter.DomainServicesForModel(modelUUID)
+			// modelInfoService := modelDomainServices.ModelInfo()
 			// if err := modelInfoService.DeleteModel(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
 			// 	return errors.Annotatef(err, "failed to delete model info for model %q", modelUUID)
 			// }

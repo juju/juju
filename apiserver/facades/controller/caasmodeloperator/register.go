@@ -29,8 +29,8 @@ func newAPIFromContext(stdCtx context.Context, ctx facade.ModelContext) (*API, e
 		return nil, errors.Trace(err)
 	}
 
-	serviceFactory := ctx.ServiceFactory()
-	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
+	domainServices := ctx.DomainServices()
+	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -38,8 +38,8 @@ func newAPIFromContext(stdCtx context.Context, ctx facade.ModelContext) (*API, e
 	return NewAPI(authorizer, resources,
 		systemState,
 		ctx.State(),
-		ctx.ServiceFactory().ControllerConfig(),
-		ctx.ServiceFactory().Config(),
+		ctx.DomainServices().ControllerConfig(),
+		ctx.DomainServices().Config(),
 		ctx.Logger().Child("caasmodeloperator"),
 		modelInfo.UUID,
 	)

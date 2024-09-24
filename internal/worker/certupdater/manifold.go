@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/pki"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/state"
@@ -27,7 +27,7 @@ type ManifoldConfig struct {
 	AgentName                string
 	AuthorityName            string
 	StateName                string
-	ServiceFactoryName       string
+	DomainServicesName       string
 	NewWorker                func(Config) (worker.Worker, error)
 	NewMachineAddressWatcher func(st *state.State, machineId string) (AddressWatcher, error)
 	Logger                   logger.Logger
@@ -44,8 +44,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
 	}
-	if config.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
+	if config.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -66,7 +66,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.AuthorityName,
 			config.StateName,
-			config.ServiceFactoryName,
+			config.DomainServicesName,
 		},
 		Start: config.start,
 	}
@@ -88,8 +88,8 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	var controllerServiceFactory servicefactory.ControllerServiceFactory
-	if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+	var controllerDomainServices services.ControllerDomainServices
+	if err := getter.Get(config.DomainServicesName, &controllerDomainServices); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -115,7 +115,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		AddressWatcher:         addressWatcher,
 		Authority:              authority,
 		APIHostPortsGetter:     st,
-		ControllerConfigGetter: controllerServiceFactory.ControllerConfig(),
+		ControllerConfigGetter: controllerDomainServices.ControllerConfig(),
 		Logger:                 config.Logger,
 	})
 	if err != nil {

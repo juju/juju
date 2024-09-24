@@ -23,7 +23,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/certupdater"
 	"github.com/juju/juju/state"
 )
@@ -37,7 +37,7 @@ type ManifoldSuite struct {
 	agent                  *mockAgent
 	stateTracker           stubStateTracker
 	addressWatcher         fakeAddressWatcher
-	serviceFactory         servicefactory.ServiceFactory
+	domainServices         services.DomainServices
 	controllerConfigGetter *controllerconfigservice.WatchableService
 	logger                 logger.Logger
 
@@ -52,7 +52,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.agent = &mockAgent{}
 	s.stateTracker = stubStateTracker{}
 	s.controllerConfigGetter = &controllerconfigservice.WatchableService{}
-	s.serviceFactory = stubServiceFactory{
+	s.domainServices = stubDomainServices{
 		controllerConfigGetter: s.controllerConfigGetter,
 	}
 	s.logger = loggertesting.WrapCheckLog(c)
@@ -67,7 +67,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:                "agent",
 		AuthorityName:            "authority",
 		StateName:                "state",
-		ServiceFactoryName:       "service-factory",
+		DomainServicesName:       "domain-services",
 		NewWorker:                s.newWorker,
 		NewMachineAddressWatcher: s.newMachineAddressWatcher,
 		Logger:                   s.logger,
@@ -79,7 +79,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 		"agent":           s.agent,
 		"authority":       s.authority,
 		"state":           &s.stateTracker,
-		"service-factory": s.serviceFactory,
+		"domain-services": s.domainServices,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -102,7 +102,7 @@ func (s *ManifoldSuite) newMachineAddressWatcher(st *state.State, machineId stri
 	return &s.addressWatcher, nil
 }
 
-var expectedInputs = []string{"agent", "authority", "state", "service-factory"}
+var expectedInputs = []string{"agent", "authority", "state", "domain-services"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -230,11 +230,11 @@ type fakeAddressWatcher struct {
 	certupdater.AddressWatcher
 }
 
-type stubServiceFactory struct {
-	servicefactory.ServiceFactory
+type stubDomainServices struct {
+	services.DomainServices
 	controllerConfigGetter *controllerconfigservice.WatchableService
 }
 
-func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.WatchableService {
+func (s stubDomainServices) ControllerConfig() *controllerconfigservice.WatchableService {
 	return s.controllerConfigGetter
 }

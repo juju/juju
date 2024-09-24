@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -70,15 +70,15 @@ func (ctxt *httpContext) controllerObjectStoreForRequest(ctx context.Context) (o
 	return ctxt.srv.shared.objectStoreGetter.GetObjectStore(ctx, st.ControllerModelUUID())
 }
 
-// serviceFactoryForRequest returns a service factory appropriate for using
+// domainServicesForRequest returns a domain services appropriate for using
 // for the model implicit in the given context supplied from a request without
 // checking any authentication information.
-func (ctxt *httpContext) serviceFactoryForRequest(ctx context.Context) (servicefactory.ServiceFactory, error) {
+func (ctxt *httpContext) domainServicesForRequest(ctx context.Context) (services.DomainServices, error) {
 	modelUUID, valid := httpcontext.RequestModelUUID(ctx)
 	if !valid {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
 	}
-	return ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(model.UUID(modelUUID)), nil
+	return ctxt.srv.shared.domainServicesGetter.ServicesForModel(model.UUID(modelUUID)), nil
 }
 
 // statePool returns the StatePool for this controller.

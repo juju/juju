@@ -144,7 +144,7 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		SSHImporterHTTPClient:      s.sshimporterHTTPClient,
 		DBGetter:                   s.dbGetter,
 		DBDeleter:                  s.dbDeleter,
-		ServiceFactoryGetter:       s.serviceFactoryGetter,
+		DomainServicesGetter:       s.domainServicesGetter,
 		TracerGetter:               s.tracerGetter,
 		ObjectStoreGetter:          s.objectStoreGetter,
 		ControllerUUID:             s.controllerUUID,

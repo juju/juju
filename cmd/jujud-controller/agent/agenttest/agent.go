@@ -118,11 +118,11 @@ type AgentSuite struct {
 func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
-	serviceFactory := s.ControllerServiceFactory(c)
+	domainServices := s.ControllerDomainServices(c)
 
 	var err error
 	s.Environ, err = stateenvirons.GetNewEnvironFunc(environs.New)(
-		s.ControllerModel(c), serviceFactory.Cloud(), serviceFactory.Credential())
+		s.ControllerModel(c), domainServices.Cloud(), domainServices.Credential())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.DataDir = c.MkDir()
@@ -220,8 +220,8 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
-	serviceFactory := s.ControllerServiceFactory(c)
-	cfg, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
+	domainServices := s.ControllerDomainServices(c)
+	cfg, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	apiPort, ok := cfg[controller.APIPort].(int)
 	if !ok {
@@ -306,8 +306,8 @@ func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
 	hostPorts := network.SpaceHostPorts{
 		{SpaceAddress: network.SpaceAddress{MachineAddress: mHP.MachineAddress}, NetPort: mHP.NetPort}}
 
-	serviceFactory := s.ControllerServiceFactory(c)
-	controllerConfig, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
+	domainServices := s.ControllerDomainServices(c)
+	controllerConfig, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()

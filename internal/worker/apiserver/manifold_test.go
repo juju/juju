@@ -32,7 +32,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/services"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/gate"
@@ -63,7 +63,7 @@ type ManifoldSuite struct {
 	sshImporterHTTPClient   *http.Client
 	dbGetter                stubWatchableDBGetter
 	dbDeleter               stubDBDeleter
-	serviceFactoryGetter    *stubServiceFactoryGetter
+	domainServicesGetter    *stubDomainServicesGetter
 	controllerConfigService *MockControllerConfigService
 	modelService            *MockModelService
 	tracerGetter            stubTracerGetter
@@ -90,7 +90,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.charmhubHTTPClient = &http.Client{}
 	s.sshImporterHTTPClient = &http.Client{}
 	s.stub.ResetCalls()
-	s.serviceFactoryGetter = &stubServiceFactoryGetter{}
+	s.domainServicesGetter = &stubDomainServicesGetter{}
 	s.dbDeleter = stubDBDeleter{}
 
 	s.getter = s.newGetter(nil)
@@ -106,7 +106,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		LogSinkName:                       "log-sink",
 		CharmhubHTTPClientName:            "charmhub-http-client",
 		SSHImporterHTTPClientName:         "sshimporter-http-client",
-		ServiceFactoryName:                "service-factory",
+		DomainServicesName:                "domain-services",
 		TraceName:                         "trace",
 		ObjectStoreName:                   "object-store",
 		ChangeStreamName:                  "change-stream",
@@ -141,7 +141,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 		"sshimporter-http-client": s.sshImporterHTTPClient,
 		"change-stream":           s.dbGetter,
 		"db-accessor":             s.dbDeleter,
-		"service-factory":         s.serviceFactoryGetter,
+		"domain-services":         s.domainServicesGetter,
 		"trace":                   s.tracerGetter,
 		"object-store":            s.objectStoreGetter,
 	}
@@ -175,7 +175,7 @@ var expectedInputs = []string{
 	"agent", "authenticator", "clock", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
 	"charmhub-http-client", "sshimporter-http-client", "change-stream",
-	"service-factory", "trace", "object-store", "log-sink", "db-accessor",
+	"domain-services", "trace", "object-store", "log-sink", "db-accessor",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -245,7 +245,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		SSHImporterHTTPClient:      s.sshImporterHTTPClient,
 		DBGetter:                   s.dbGetter,
 		DBDeleter:                  s.dbDeleter,
-		ServiceFactoryGetter:       s.serviceFactoryGetter,
+		DomainServicesGetter:       s.domainServicesGetter,
 		TracerGetter:               s.tracerGetter,
 		ObjectStoreGetter:          s.objectStoreGetter,
 		ControllerConfigService:    s.controllerConfigService,
@@ -411,11 +411,11 @@ func (s stubDBDeleter) DeleteDB(namespace string) error {
 	return nil
 }
 
-type stubServiceFactoryGetter struct {
-	servicefactory.ServiceFactoryGetter
+type stubDomainServicesGetter struct {
+	services.DomainServicesGetter
 }
 
-func (s *stubServiceFactoryGetter) FactoryForModel(model.UUID) servicefactory.ServiceFactory {
+func (s *stubDomainServicesGetter) ServicesForModel(model.UUID) services.DomainServices {
 	return nil
 }
 
