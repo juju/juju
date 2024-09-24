@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -224,7 +225,31 @@ var ownerKindParam = ownerKind{
 
 type secretInfos []secretInfo
 
-func (rows secretInfos) toSecretMetadata(secretOwners []secretOwner) ([]*coresecrets.SecretMetadata, error) {
+func (rows secretInfos) toSecretMetadata(secretOwners []secretOwner) ([]*domainsecret.SecretMetadata, error) {
+	if len(rows) != len(secretOwners) {
+		// Should never happen.
+		return nil, errors.New("row length mismatch composing secret results")
+	}
+
+	result := make([]*domainsecret.SecretMetadata, len(rows))
+	for i, row := range rows {
+		uri, err := coresecrets.ParseURI(row.ID)
+		if err != nil {
+			return nil, errors.NotValidf("secret URI %q", row.ID)
+		}
+		result[i] = &domainsecret.SecretMetadata{
+			URI:   uri,
+			Label: secretOwners[i].Label,
+			Owner: coresecrets.Owner{
+				Kind: coresecrets.OwnerKind(secretOwners[i].OwnerKind),
+				ID:   secretOwners[i].OwnerID,
+			},
+		}
+	}
+	return result, nil
+}
+
+func (rows secretInfos) toCoreSecretMetadata(secretOwners []secretOwner) ([]*coresecrets.SecretMetadata, error) {
 	if len(rows) != len(secretOwners) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch composing secret results")
@@ -339,7 +364,7 @@ func (rows secretIDs) toSecretMetadataForDrain(revRows secretExternalRevisions) 
 type secretRevisions []secretRevision
 type secretRevisionsExpire []secretRevisionExpire
 
-func (rows secretRevisions) toSecretRevisions(
+func (rows secretRevisions) toCoreSecretRevisions(
 	valueRefs secretValueRefs, revExpire secretRevisionsExpire,
 ) ([]*coresecrets.SecretRevisionMetadata, error) {
 	if n := len(rows); n != len(valueRefs) || n != len(revExpire) {
@@ -364,6 +389,55 @@ func (rows secretRevisions) toSecretRevisions(
 				RevisionID: v.RevisionID,
 			}
 		}
+	}
+	return result, nil
+}
+
+func (rows secretRevisions) toSecretRevisions(
+	valueRefs secretValueRefs, dataItems []secretContent, revExpire secretRevisionsExpire,
+) ([]*domainsecret.SecretRevisionMetadata, error) {
+	if n := len(rows); n != len(valueRefs) || n != len(revExpire) {
+		// Should never happen.
+		return nil, errors.New("row length mismatch composing secret revision results")
+	}
+
+	var result []*domainsecret.SecretRevisionMetadata
+	revisionIDs := set.NewStrings()
+	for i, row := range rows {
+		if revisionIDs.Contains(row.ID) {
+			continue
+		}
+		revisionIDs.Add(row.ID)
+
+		md := &domainsecret.SecretRevisionMetadata{
+			SecretRevisionMetadata: coresecrets.SecretRevisionMetadata{
+				Revision:    row.Revision,
+				ValueRef:    nil,
+				CreateTime:  row.CreateTime,
+				BackendName: nil,
+			},
+		}
+		if tm := revExpire[i].ExpireTime; !tm.IsZero() {
+			md.ExpireTime = &tm
+		}
+		if v := valueRefs[i]; v.BackendUUID != "" {
+			md.ValueRef = &coresecrets.ValueRef{
+				BackendID:  v.BackendUUID,
+				RevisionID: v.RevisionID,
+			}
+			continue
+		}
+		var data secretValues
+		for _, d := range dataItems {
+			if d.RevisionUUID == row.ID {
+				data = append(data, d)
+			}
+		}
+		if len(data) == 0 {
+			return nil, errors.Errorf("missing data for secret revision %q", row.ID)
+		}
+		md.Data = data.toSecretData()
+		result = append(result, md)
 	}
 	return result, nil
 }

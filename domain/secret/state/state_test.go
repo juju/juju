@@ -505,6 +505,73 @@ func (s *stateSuite) TestGetSecretsNone(c *gc.C) {
 	c.Assert(gotURIs, gc.HasLen, 0)
 }
 
+func (s *stateSuite) TestListAllSecretsNone(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	ctx := context.Background()
+	secrets, revisions, err := st.ListAllSecrets(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(secrets), gc.Equals, 0)
+	c.Assert(len(revisions), gc.Equals, 0)
+}
+
+func (s *stateSuite) TestListAllSecrets(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	sp := []domainsecret.UpsertSecretParams{{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data: coresecrets.SecretData{
+			"foo": "bar",
+			"baz": "qux",
+		},
+		Checksum:   "checksum-1234",
+		AutoPrune:  ptr(true),
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+	}, {
+		Description: ptr("my secretMetadata2"),
+		Label:       ptr("my label2"),
+		Data:        coresecrets.SecretData{"foo": "bar2"},
+		Checksum:    "checksum-1234",
+		AutoPrune:   ptr(true),
+		RevisionID:  ptr(uuid.MustNewUUID().String()),
+	}}
+	uri := []*coresecrets.URI{
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+	}
+
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri[0], sp[0])
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateUserSecret(ctx, 1, uri[1], sp[1])
+	c.Assert(err, jc.ErrorIsNil)
+
+	secrets, revisions, err := st.ListAllSecrets(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(secrets), gc.Equals, 2)
+	c.Assert(len(revisions), gc.Equals, 2)
+
+	for i, md := range secrets {
+		c.Assert(md.Version, gc.Equals, 1)
+		c.Assert(md.LatestRevisionChecksum, gc.Equals, sp[i].Checksum)
+		c.Assert(md.Label, gc.Equals, value(sp[i].Label))
+		c.Assert(md.Description, gc.Equals, value(sp[i].Description))
+		c.Assert(md.LatestRevision, gc.Equals, 1)
+		c.Assert(md.AutoPrune, gc.Equals, value(sp[i].AutoPrune))
+		c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: s.modelUUID})
+		now := time.Now()
+		c.Assert(md.CreateTime, jc.Almost, now)
+		c.Assert(md.UpdateTime, jc.Almost, now)
+
+		revs := revisions[i]
+		c.Assert(revs, gc.HasLen, 1)
+		c.Assert(revs[0].Revision, gc.Equals, 1)
+		c.Assert(revs[0].CreateTime, jc.Almost, now)
+		c.Assert(revs[0].Data, jc.DeepEquals, sp[i].Data)
+	}
+}
+
 func (s *stateSuite) TestListSecretsNone(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
@@ -1335,7 +1402,7 @@ func (s *stateSuite) TestListCharmSecretsMissingOwners(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 	_, err := listCharmSecrets(context.Background(), st,
 		domainsecret.NilApplicationOwners, domainsecret.NilUnitOwners)
-	c.Assert(err, gc.ErrorMatches, "querying charm secrets: must supply at least one app owner or unit owner")
+	c.Assert(err, gc.ErrorMatches, "must supply at least one app owner or unit owner")
 }
 
 func (s *stateSuite) TestListCharmSecretsByUnit(c *gc.C) {
@@ -1375,18 +1442,9 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(secrets), gc.Equals, 1)
 
-	now := time.Now()
-
 	md := secrets[0]
-	c.Assert(md.Version, gc.Equals, 1)
-	c.Assert(md.LatestRevisionChecksum, gc.Equals, sp[1].Checksum)
 	c.Assert(md.Label, gc.Equals, value(sp[1].Label))
-	c.Assert(md.Description, gc.Equals, value(sp[1].Description))
-	c.Assert(md.LatestRevision, gc.Equals, 1)
-	c.Assert(md.AutoPrune, jc.IsFalse)
 	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"})
-	c.Assert(md.CreateTime, jc.Almost, now)
-	c.Assert(md.UpdateTime, jc.Almost, now)
 }
 
 func (s *stateSuite) TestListCharmSecretsByApplication(c *gc.C) {
@@ -1422,17 +1480,9 @@ func (s *stateSuite) TestListCharmSecretsByApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(secrets), gc.Equals, 1)
 
-	now := time.Now()
-
 	md := secrets[0]
-	c.Assert(md.Version, gc.Equals, 1)
 	c.Assert(md.Label, gc.Equals, value(sp[1].Label))
-	c.Assert(md.Description, gc.Equals, value(sp[1].Description))
-	c.Assert(md.LatestRevision, gc.Equals, 1)
-	c.Assert(md.AutoPrune, jc.IsFalse)
 	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"})
-	c.Assert(md.CreateTime, jc.Almost, now)
-	c.Assert(md.UpdateTime, jc.Almost, now)
 }
 
 func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
@@ -1493,31 +1543,14 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
 	sort.Slice(secrets, func(i, j int) bool {
 		return secrets[i].Label < secrets[j].Label
 	})
-	now := time.Now()
 
 	md := secrets[0]
-	c.Assert(md.Version, gc.Equals, 1)
 	c.Assert(md.Label, gc.Equals, value(sp[1].Label))
-	c.Assert(md.Description, gc.Equals, value(sp[1].Description))
-	c.Assert(md.LatestRevision, gc.Equals, 1)
-	c.Assert(md.AutoPrune, jc.IsFalse)
-	c.Assert(md.RotatePolicy, gc.Equals, coresecrets.RotateDaily)
-	c.Assert(*md.NextRotateTime, gc.Equals, rotateTime.UTC())
-	c.Assert(*md.LatestExpireTime, gc.Equals, expireTime.UTC())
 	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"})
-	c.Assert(md.CreateTime, jc.Almost, now)
-	c.Assert(md.UpdateTime, jc.Almost, now)
 
 	md = secrets[1]
-	c.Assert(md.Version, gc.Equals, 1)
 	c.Assert(md.Label, gc.Equals, value(sp[2].Label))
-	c.Assert(md.Description, gc.Equals, value(sp[2].Description))
-	c.Assert(md.LatestRevision, gc.Equals, 1)
-	c.Assert(md.AutoPrune, jc.IsFalse)
-	c.Assert(md.RotatePolicy, gc.Equals, coresecrets.RotateNever)
 	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"})
-	c.Assert(md.CreateTime, jc.Almost, now)
-	c.Assert(md.UpdateTime, jc.Almost, now)
 }
 
 func (s *stateSuite) TestAllSecretConsumers(c *gc.C) {

@@ -334,10 +334,6 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 // the secret owner already has a secret with the same label.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, params UpdateUserSecretParams) (errOut error) {
-	isLeader, err := checkLeaderToken(nil, params.Accessor)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	p := domainsecret.UpsertSecretParams{
 		Description: params.Description,
 		Label:       params.Label,
@@ -411,7 +407,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 	}
 
 	return s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		if err := s.canManage(ctx, isLeader, uri, params.Accessor); err != nil {
+		if err := s.canManage(ctx, false, uri, params.Accessor); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -432,7 +428,7 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 		return errors.New("must specify either content or a value reference but not both")
 	}
 
-	isLeader, err := checkLeaderToken(params.LeaderToken, params.Accessor)
+	isLeader, err := checkLeaderToken(params.LeaderToken)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -663,6 +659,11 @@ func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *se
 func (s *SecretService) ProcessCharmSecretConsumerLabel(
 	ctx context.Context, unitName string, uri *secrets.URI, label string, token leadership.Token,
 ) (_ *secrets.URI, _ *string, err error) {
+	isLeader, err := checkLeaderToken(token)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	modelUUID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting model uuid")
@@ -676,7 +677,7 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 
 	// For local secrets, check those which may be owned by the caller.
 	if uri == nil || uri.IsLocal(modelUUID) {
-		var md *secrets.SecretMetadata
+		var md *domainsecret.SecretMetadata
 		err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 			md, err = s.getAppOwnedOrUnitOwnedSecretMetadata(ctx, uri, unitName, label)
 			if err != nil && !errors.Is(err, secreterrors.SecretNotFound) {
@@ -692,7 +693,7 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 			// If the label has is to be changed by the secret owner, update the secret metadata.
 			// TODO(wallyworld) - the label staying the same should be asserted in a txn.
 			if labelToUpdate != nil && *labelToUpdate != md.Label {
-				isOwner, err := checkUnitOwner(unitName, md.Owner, token)
+				isOwner, err := checkUnitOwner(unitName, md.Owner, isLeader)
 				if err != nil {
 					return nil, nil, errors.Trace(err)
 				}
@@ -740,24 +741,14 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 	return uri, labelToUpdate, nil
 }
 
-func checkUnitOwner(unitName string, owner secrets.Owner, token leadership.Token) (bool, error) {
+func checkUnitOwner(unitName string, owner secrets.Owner, isLeader bool) (bool, error) {
 	if owner.Kind == secrets.UnitOwner && owner.ID == unitName {
 		return true, nil
 	}
-	// Only unit leaders can "own" application secrets.
-	if token == nil {
-		return false, secreterrors.PermissionDenied
-	}
-	if err := token.Check(); err != nil {
-		if leadership.IsNotLeaderError(err) {
-			return false, nil
-		}
-		return false, errors.Trace(err)
-	}
-	return true, nil
+	return isLeader, nil
 }
 
-func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx domain.AtomicContext, uri *secrets.URI, unitName, label string) (*secrets.SecretMetadata, error) {
+func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx domain.AtomicContext, uri *secrets.URI, unitName, label string) (*domainsecret.SecretMetadata, error) {
 	notFoundErr := fmt.Errorf("secret %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
 	if label != "" {
 		notFoundErr = fmt.Errorf("secret with label %q not found%w", label, errors.Hide(secreterrors.SecretNotFound))
@@ -791,7 +782,7 @@ func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx domain.AtomicCo
 // It returns [secreterrors.SecretNotFound] is there's no such secret.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params ChangeSecretBackendParams) (errOut error) {
-	isLeader, err := checkLeaderToken(params.LeaderToken, params.Accessor)
+	isLeader, err := checkLeaderToken(params.LeaderToken)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -831,7 +822,7 @@ func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.UR
 
 // SecretRotated rotates the secret with the specified URI.
 func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, params SecretRotatedParams) error {
-	isLeader, err := checkLeaderToken(params.LeaderToken, params.Accessor)
+	isLeader, err := checkLeaderToken(params.LeaderToken)
 	if err != nil {
 		return errors.Trace(err)
 	}

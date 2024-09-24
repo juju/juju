@@ -27,27 +27,26 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 		URI:                    uri,
 		LatestRevisionChecksum: "checksum-1234",
 	}}
-	revisions := [][]*coresecrets.SecretRevisionMetadata{{{
-		Revision: 1,
+	revisions := [][]*domainsecret.SecretRevisionMetadata{{{
+		SecretRevisionMetadata: coresecrets.SecretRevisionMetadata{Revision: 1},
+		Data:                   coresecrets.SecretData{"foo": "bar"},
 	}, {
-		Revision: 2,
-		ValueRef: &coresecrets.ValueRef{
-			BackendID:  "backend-id",
-			RevisionID: "revision-id",
+		SecretRevisionMetadata: coresecrets.SecretRevisionMetadata{
+			Revision: 2,
+			ValueRef: &coresecrets.ValueRef{
+				BackendID:  "backend-id",
+				RevisionID: "revision-id",
+			},
 		},
 	}, {
-		Revision: 3,
+		SecretRevisionMetadata: coresecrets.SecretRevisionMetadata{Revision: 3},
+		Data:                   coresecrets.SecretData{"baz": "qux"},
 	}}}
 
-	s.state.EXPECT().ListSecrets(gomock.Any(), nil, nil, domainsecret.NilLabels).Return(
+	s.state.EXPECT().ListAllSecrets(gomock.Any()).Return(
 		secrets, revisions, nil,
 	)
-	s.state.EXPECT().GetSecretValue(gomock.Any(), uri, 1).Return(
-		coresecrets.SecretData{"foo": "bar"}, nil, nil,
-	)
-	s.state.EXPECT().GetSecretValue(gomock.Any(), uri, 3).Return(
-		coresecrets.SecretData{"foo": "bar3"}, nil, nil,
-	)
+
 	s.state.EXPECT().AllSecretGrants(gomock.Any()).Return(
 		map[string][]domainsecret.GrantParams{
 			uri.ID: {{
@@ -87,12 +86,22 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 	c.Assert(got, jc.DeepEquals, &SecretExport{
 		Secrets: secrets,
 		Revisions: map[string][]*coresecrets.SecretRevisionMetadata{
-			uri.ID: revisions[0],
+			uri.ID: {
+				{Revision: 1},
+				{
+					Revision: 2,
+					ValueRef: &coresecrets.ValueRef{
+						BackendID:  "backend-id",
+						RevisionID: "revision-id",
+					},
+				},
+				{Revision: 3},
+			},
 		},
 		Content: map[string]map[int]coresecrets.SecretData{
 			uri.ID: {
 				1: {"foo": "bar"},
-				3: {"foo": "bar3"},
+				3: {"baz": "qux"},
 			},
 		},
 		Consumers: map[string][]ConsumerInfo{

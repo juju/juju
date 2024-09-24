@@ -505,7 +505,7 @@ GROUP BY sm.secret_id`
 		return errors.Trace(err)
 	}
 
-	existingResult, err := dbSecrets.toSecretMetadata(dbsecretOwners)
+	existingResult, err := dbSecrets.toCoreSecretMetadata(dbsecretOwners)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1035,8 +1035,8 @@ AND
 
 // ListSecrets returns the secrets matching the specified criteria.
 // If all terms are empty, then all secrets are returned.
-func (st State) ListSecrets(ctx context.Context, uri *coresecrets.URI,
-	revision *int,
+func (st State) ListSecrets(ctx context.Context,
+	uri *coresecrets.URI, revision *int,
 	// TODO(secrets) - use all filter terms
 	labels domainsecret.Labels,
 ) ([]*coresecrets.SecretMetadata, [][]*coresecrets.SecretRevisionMetadata, error) {
@@ -1080,6 +1080,37 @@ func (st State) ListSecrets(ctx context.Context, uri *coresecrets.URI,
 		return nil, nil, revisionNotFoundErr
 	}
 
+	return secrets, revisionResult, nil
+}
+
+// ListAllSecrets returns all secrets in the database.
+func (st State) ListAllSecrets(ctx context.Context) ([]*coresecrets.SecretMetadata, [][]*domainsecret.SecretRevisionMetadata, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	var (
+		secrets        []*coresecrets.SecretMetadata
+		revisionResult [][]*domainsecret.SecretRevisionMetadata
+	)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		secrets, err = st.listSecretsAnyOwner(ctx, tx, nil)
+		if err != nil {
+			return errors.Annotate(err, "querying secrets")
+		}
+		revisionResult = make([][]*domainsecret.SecretRevisionMetadata, len(secrets))
+		for i, secret := range secrets {
+			revisionResult[i], err = st.listSecretRevisionsWithData(ctx, tx, secret.URI)
+			if err != nil {
+				return errors.Annotatef(err, "querying secret revisions for %q", secret.URI.ID)
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	return secrets, revisionResult, nil
 }
 
@@ -1272,18 +1303,22 @@ FROM   secret_metadata sm
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Trace(err)
 	}
-	return dbSecrets.toSecretMetadata(dbsecretOwners)
+	return dbSecrets.toCoreSecretMetadata(dbsecretOwners)
 }
 
 // ListCharmSecrets returns charm secrets owned by the specified applications and/or units.
 // At least one owner must be specified.
 func (st State) ListCharmSecrets(ctx domain.AtomicContext,
 	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-) ([]*coresecrets.SecretMetadata, error) {
-	var secrets []*coresecrets.SecretMetadata
+) ([]*domainsecret.SecretMetadata, error) {
+	if len(appOwners) == 0 && len(unitOwners) == 0 {
+		return nil, errors.New("must supply at least one app owner or unit owner")
+	}
+
+	var secrets []*domainsecret.SecretMetadata
 	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		secrets, err = st.listCharmSecrets(ctx, tx, appOwners, unitOwners)
+		secrets, err = st.listCharmSecret(ctx, tx, appOwners, unitOwners)
 		if err != nil {
 			return errors.Annotate(err, "querying charm secrets")
 		}
@@ -1291,8 +1326,92 @@ func (st State) ListCharmSecrets(ctx domain.AtomicContext,
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	return secrets, nil
+}
+
+func (st State) listCharmSecret(
+	ctx context.Context, tx *sqlair.TX,
+	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+) ([]*domainsecret.SecretMetadata, error) {
+	if len(appOwners) == 0 && len(unitOwners) == 0 {
+		return nil, errors.New("must supply at least one app owner or unit owner")
+	}
+
+	var preQueryParts []string
+	appOwnerSelect := `
+app_owners AS
+    (SELECT $ownerKind.application_owner_kind AS owner_kind, application.name AS owner_id, label, secret_id
+     FROM   secret_application_owner so
+     JOIN   application ON application.uuid = so.application_uuid
+     AND application.name IN ($ApplicationOwners[:]))`[1:]
+
+	unitOwnerSelect := `
+unit_owners AS
+    (SELECT $ownerKind.unit_owner_kind AS owner_kind, unit.name AS owner_id, label, secret_id
+     FROM   secret_unit_owner so
+     JOIN   unit ON unit.uuid = so.unit_uuid
+     AND unit.name IN ($UnitOwners[:]))`[1:]
+
+	if len(appOwners) > 0 {
+		preQueryParts = append(preQueryParts, appOwnerSelect)
+	}
+	if len(unitOwners) > 0 {
+		preQueryParts = append(preQueryParts, unitOwnerSelect)
+	}
+	var queryParts []string
+	if len(preQueryParts) > 0 {
+		queryParts = append(queryParts, `WITH `+strings.Join(preQueryParts, ",\n"))
+	}
+
+	query := `
+SELECT sm.secret_id AS &secretInfo.secret_id,
+       (so.owner_kind,
+       so.owner_id,
+       so.label) AS (&secretOwner.*)
+FROM   secret_metadata sm
+`
+
+	queryParts = append(queryParts, query)
+
+	queryTypes := []any{
+		secretInfo{},
+		secretOwner{},
+		ownerKindParam,
+	}
+
+	queryParams := []any{ownerKindParam}
+	var ownerParts []string
+	if len(appOwners) > 0 {
+		ownerParts = append(ownerParts, "SELECT * FROM app_owners")
+		queryTypes = append(queryTypes, domainsecret.ApplicationOwners{})
+		queryParams = append(queryParams, appOwners)
+	}
+	if len(unitOwners) > 0 {
+		ownerParts = append(ownerParts, "SELECT * FROM unit_owners")
+		queryTypes = append(queryTypes, domainsecret.UnitOwners{})
+		queryParams = append(queryParams, unitOwners)
+	}
+	ownerJoin := fmt.Sprintf(`
+    JOIN (
+      %s
+    ) so ON so.secret_id = sm.secret_id
+`[1:], strings.Join(ownerParts, "\nUNION\n"))
+
+	queryParts = append(queryParts, ownerJoin, `GROUP BY sm.secret_id`)
+	queryStmt, err := st.Prepare(strings.Join(queryParts, "\n"), queryTypes...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var (
+		dbSecrets      secretInfos
+		dbsecretOwners []secretOwner
+	)
+	err = tx.Query(ctx, queryStmt, queryParams...).GetAll(&dbSecrets, &dbsecretOwners)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Trace(err)
+	}
+	return dbSecrets.toSecretMetadata(dbsecretOwners)
 }
 
 // ListCharmSecretsWithRevisions returns charm secrets owned by the specified applications and/or units with its revisions.
@@ -1311,7 +1430,7 @@ func (st State) ListCharmSecretsWithRevisions(ctx context.Context,
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		secrets, err = st.listCharmSecrets(ctx, tx, appOwners, unitOwners)
+		secrets, err = st.listCharmSecretMetadata(ctx, tx, appOwners, unitOwners)
 		if err != nil {
 			return errors.Annotate(err, "querying charm secrets")
 		}
@@ -1330,7 +1449,7 @@ func (st State) ListCharmSecretsWithRevisions(ctx context.Context,
 	return secrets, revisionResult, nil
 }
 
-func (st State) listCharmSecrets(
+func (st State) listCharmSecretMetadata(
 	ctx context.Context, tx *sqlair.TX,
 	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 ) ([]*coresecrets.SecretMetadata, error) {
@@ -1425,7 +1544,7 @@ FROM   secret_metadata sm
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Trace(err)
 	}
-	return dbSecrets.toSecretMetadata(dbsecretOwners)
+	return dbSecrets.toCoreSecretMetadata(dbsecretOwners)
 }
 
 // ListUserSecretsToDrain returns secret drain revision info for any user secrets.
@@ -1750,8 +1869,44 @@ WHERE  secret_id = $secretRevision.secret_id
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Annotatef(err, "retrieving secret revisions for %q", uri)
 	}
+	return dbSecretRevisions.toCoreSecretRevisions(dbSecretValueRefs, dbSecretRevisionsExpire)
+}
 
-	return dbSecretRevisions.toSecretRevisions(dbSecretValueRefs, dbSecretRevisionsExpire)
+func (st State) listSecretRevisionsWithData(
+	ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI,
+) ([]*domainsecret.SecretRevisionMetadata, error) {
+	query := `
+SELECT (sr.*) AS (&secretRevision.*),
+       (svr.*) AS (&secretValueRef.*),
+       (sc.*) AS (&secretContent.*),
+       (sre.*) AS (&secretRevisionExpire.*)
+FROM   secret_revision sr
+       LEFT JOIN secret_revision_expire sre ON sre.revision_uuid = sr.uuid
+       LEFT JOIN secret_value_ref svr ON svr.revision_uuid = sr.uuid
+       LEFT JOIN secret_content sc ON sc.revision_uuid = sr.uuid
+WHERE  secret_id = $secretRevision.secret_id
+GROUP BY sr.secret_id, sr.revision, sc.name
+`
+	want := secretRevision{SecretID: uri.ID}
+
+	queryStmt, err := st.Prepare(query, secretRevision{}, secretRevisionExpire{}, secretValueRef{}, secretContent{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var (
+		dbSecretRevisions       secretRevisions
+		dbSecretValueRefs       secretValueRefs
+		dbSecretData            secretValues
+		dbSecretRevisionsExpire secretRevisionsExpire
+	)
+	err = tx.Query(ctx, queryStmt, want).GetAll(&dbSecretRevisions, &dbSecretValueRefs, &dbSecretData, &dbSecretRevisionsExpire)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Annotatef(err, "retrieving secret revisions for %q", uri)
+	}
+	st.logger.Criticalf("dbSecretRevisions %#v, dbSecretData: %#v", dbSecretRevisions, dbSecretData)
+
+	return dbSecretRevisions.toSecretRevisions(dbSecretValueRefs, dbSecretData, dbSecretRevisionsExpire)
 }
 
 // GetSecretValue returns the contents - either data or value reference - of a
@@ -1789,7 +1944,7 @@ AND    rev.revision = $secretRevision.revision`
 
 	var (
 		dbSecretValues    secretValues
-		dbSecretValueRefs []secretValueRef
+		dbSecretValueRefs secretValueRefs
 	)
 	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, contentQueryStmt, want).GetAll(&dbSecretValues)

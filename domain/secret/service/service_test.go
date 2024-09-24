@@ -1591,10 +1591,9 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionSecretNotFound(c *gc.C) {
 	})
 
 	uri2 := coresecrets.NewURI()
-	md := []*coresecrets.SecretMetadata{{
-		URI:            uri2,
-		LatestRevision: 668,
-		Label:          "foz",
+	md := []*domainsecret.SecretMetadata{{
+		URI:   uri2,
+		Label: "foz",
 	}}
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
@@ -1612,10 +1611,9 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretUpda
 	s.expectRunAtomic(ctrl, true)
 
 	uri := coresecrets.NewURI()
-	md := []*coresecrets.SecretMetadata{{
-		URI:            uri,
-		LatestRevision: 668,
-		Label:          "foz",
+	md := []*domainsecret.SecretMetadata{{
+		URI:   uri,
+		Label: "foz",
 	}}
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
@@ -1643,10 +1641,9 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretLook
 	s.expectRunAtomic(ctrl, false)
 
 	uri := coresecrets.NewURI()
-	md := []*coresecrets.SecretMetadata{{
-		URI:            uri,
-		LatestRevision: 668,
-		Label:          "foo",
+	md := []*domainsecret.SecretMetadata{{
+		URI:   uri,
+		Label: "foo",
 	}}
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
@@ -1666,10 +1663,9 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelLookupURI(c *gc.C) {
 	s.expectRunAtomic(ctrl, false)
 
 	uri := coresecrets.NewURI()
-	md := []*coresecrets.SecretMetadata{{
-		URI:            uri,
-		LatestRevision: 668,
-		Label:          "foz",
+	md := []*domainsecret.SecretMetadata{{
+		URI:   uri,
+		Label: "foz",
 	}}
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
@@ -1691,10 +1687,9 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelUpdateLabel(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
-	md := []*coresecrets.SecretMetadata{{
-		URI:            uri2,
-		LatestRevision: 668,
-		Label:          "foz",
+	md := []*domainsecret.SecretMetadata{{
+		URI:   uri2,
+		Label: "foz",
 	}}
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).

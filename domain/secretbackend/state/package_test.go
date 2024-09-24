@@ -1,5 +1,5 @@
 // Copyright 2024 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
+// Licensed under the AGPLv3, see LICENCE file for detailst.
 
 package state
 
@@ -18,38 +18,38 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-func (s *State) getModelSecretBackendDetailsForTest(ctx context.Context, uuid coremodel.UUID) (secretbackend.ModelSecretBackend, error) {
+func getModelSecretBackendDetails(ctx context.Context, st *State, uuid coremodel.UUID) (secretbackend.ModelSecretBackend, error) {
 	var modelSecretBackend secretbackend.ModelSecretBackend
-	err := s.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
-		modelSecretBackend, err = s.GetModelSecretBackendDetails(ctx, uuid)
+		modelSecretBackend, err = st.GetModelSecretBackendDetails(ctx, uuid)
 		return err
 	})
 	return modelSecretBackend, err
 }
 
-func (s *State) getSecretBackendForTest(ctx context.Context, params secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error) {
+func getSecretBackend(ctx context.Context, st *State, params secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error) {
 	var secretBackend *secretbackend.SecretBackend
-	err := s.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
-		secretBackend, err = s.GetSecretBackend(ctx, params)
+		secretBackend, err = st.GetSecretBackend(ctx, params)
 		return err
 	})
 	return secretBackend, err
 }
 
-func (s *State) listSecretBackendsForModelForTest(ctx context.Context, modelUUID coremodel.UUID, includeEmpty bool) ([]*secretbackend.SecretBackend, error) {
+func listSecretBackendsForModel(ctx context.Context, st *State, modelUUID coremodel.UUID, includeEmpty bool) ([]*secretbackend.SecretBackend, error) {
 	var secretBackends []*secretbackend.SecretBackend
-	err := s.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
-		secretBackends, err = s.ListSecretBackendsForModel(ctx, modelUUID, includeEmpty)
+		secretBackends, err = st.ListSecretBackendsForModel(ctx, modelUUID, includeEmpty)
 		return err
 	})
 	return secretBackends, err
 }
 
-func (s *State) setModelSecretBackendForTest(ctx context.Context, modelUUID coremodel.UUID, secretBackendName string) error {
-	return s.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return s.SetModelSecretBackend(ctx, modelUUID, secretBackendName)
+func setModelSecretBackend(ctx context.Context, st *State, modelUUID coremodel.UUID, secretBackendName string) error {
+	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.SetModelSecretBackend(ctx, modelUUID, secretBackendName)
 	})
 }

@@ -44,7 +44,7 @@ type AtomicState interface {
 
 	ListCharmSecrets(ctx domain.AtomicContext,
 		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-	) ([]*secrets.SecretMetadata, error)
+	) ([]*domainsecret.SecretMetadata, error)
 
 	ChangeSecretBackend(
 		ctx domain.AtomicContext, revisionID uuid.UUID, valueRef *secrets.ValueRef, data secrets.SecretData,
@@ -72,6 +72,7 @@ type State interface {
 	ListSecrets(ctx context.Context, uri *secrets.URI,
 		revision *int, labels domainsecret.Labels,
 	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
+	ListAllSecrets(ctx context.Context) ([]*secrets.SecretMetadata, [][]*domainsecret.SecretRevisionMetadata, error)
 	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
 	GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*secrets.URI, error)
 	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error

@@ -17,7 +17,7 @@ import (
 // GetSecretsForExport returns a result containing all the information needed to
 // export secrets to a model description.
 func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport, error) {
-	secrets, secretRevisions, err := s.secretState.ListSecrets(ctx, nil, nil, secret.NilLabels)
+	secrets, secretRevisions, err := s.secretState.ListAllSecrets(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "loading secrets for export")
 	}
@@ -51,29 +51,19 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport,
 	}
 
 	for i, md := range secrets {
-		revs := secretRevisions[i]
-		allSecrets.Revisions[md.URI.ID] = revs
-		for _, rev := range revs {
+		for _, rev := range secretRevisions[i] {
+			allSecrets.Revisions[md.URI.ID] = append(allSecrets.Revisions[md.URI.ID], &rev.SecretRevisionMetadata)
 			if rev.ValueRef != nil {
 				continue
 			}
-			var data coresecrets.SecretData
-			err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-				var err error
-				data, _, err = s.secretState.GetSecretValue(ctx, md.URI, rev.Revision)
-				return err
-			})
-			if err != nil {
-				return nil, errors.Annotatef(err, "loading secret content for %s/%d", md.URI.ID, rev.Revision)
-			}
-			if len(data) == 0 {
+			if len(rev.Data) == 0 {
 				// Should not happen.
 				return nil, errors.Errorf("unexpected empty secret content for %q", md.URI.ID)
 			}
 			if _, ok := allSecrets.Content[md.URI.ID]; !ok {
 				allSecrets.Content[md.URI.ID] = make(map[int]coresecrets.SecretData)
 			}
-			allSecrets.Content[md.URI.ID][rev.Revision] = data
+			allSecrets.Content[md.URI.ID][rev.Revision] = rev.Data
 		}
 	}
 
@@ -165,52 +155,70 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 		if err := s.importSecretRevisions(ctx, modelID, md, revisions, content); err != nil {
 			return errors.Annotatef(err, "saving secret %q", md.URI.ID)
 		}
-		for _, sc := range modelSecrets.Consumers[md.URI.ID] {
-			err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-				return s.secretState.SaveSecretConsumer(ctx, md.URI, sc.Accessor.ID, &coresecrets.SecretConsumerMetadata{
-					Label:           sc.Label,
-					CurrentRevision: sc.CurrentRevision,
-				})
-			})
-			if err != nil {
-				return errors.Annotatef(err, "saving secret consumer %q for %q", sc.Accessor.ID, md.URI.ID)
-			}
-		}
 
-		for _, rc := range modelSecrets.RemoteConsumers[md.URI.ID] {
-			err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-				return s.secretState.SaveSecretRemoteConsumer(ctx, md.URI, rc.Accessor.ID, &coresecrets.SecretConsumerMetadata{
-					Label:           rc.Label,
-					CurrentRevision: rc.CurrentRevision,
-				})
-			})
-			if err != nil {
-				return errors.Annotatef(err, "saving secret remote consumer %q for %q", rc.Accessor.ID, md.URI.ID)
+		err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+			if err := s.importSecretConsumers(ctx, md.URI, modelSecrets.Consumers[md.URI.ID]); err != nil {
+				return errors.Annotatef(err, "saving secret consumer data for %q", md.URI.ID)
 			}
-		}
 
-		for _, access := range modelSecrets.Access[md.URI.ID] {
-			p := grantParams(SecretAccessParams{
-				Scope: SecretAccessScope{
-					Kind: access.Scope.Kind,
-					ID:   access.Scope.ID,
-				},
-				Subject: SecretAccessor{
-					Kind: access.Subject.Kind,
-					ID:   access.Subject.ID,
-				},
-				Role: access.Role,
-			})
-			err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-				return s.secretState.GrantAccess(ctx, md.URI, p)
-			})
-			if err != nil {
-				return errors.Annotatef(err, "saving secret access for %s-%s for secret %q",
-					access.Subject.Kind, access.Subject.ID, md.URI.ID)
+			if err := s.importSecretRemoteConsumers(ctx, md.URI, modelSecrets.RemoteConsumers[md.URI.ID]); err != nil {
+				return errors.Annotatef(err, "saving secret remote consumer data for %q", md.URI.ID)
 			}
+
+			if err := s.importSecretAccesses(ctx, md.URI, modelSecrets.Access[md.URI.ID]); err != nil {
+				return errors.Annotatef(err, "saving secret access data for %q", md.URI.ID)
+			}
+			return nil
+		})
+		if err != nil {
+			return errors.Annotatef(err, "importing secret %q", md.URI.ID)
 		}
 	}
+	return nil
+}
 
+func (s *SecretService) importSecretConsumers(ctx domain.AtomicContext, uri *coresecrets.URI, consumers []ConsumerInfo) error {
+	for _, sc := range consumers {
+		if err := s.secretState.SaveSecretConsumer(ctx, uri, sc.Accessor.ID, &coresecrets.SecretConsumerMetadata{
+			Label:           sc.Label,
+			CurrentRevision: sc.CurrentRevision,
+		}); err != nil {
+			return errors.Annotatef(err, "saving secret consumer %q for %q", sc.Accessor.ID, uri.ID)
+		}
+	}
+	return nil
+}
+
+func (s *SecretService) importSecretRemoteConsumers(ctx domain.AtomicContext, uri *coresecrets.URI, consumers []ConsumerInfo) error {
+	for _, sc := range consumers {
+		if err := s.secretState.SaveSecretRemoteConsumer(ctx, uri, sc.Accessor.ID, &coresecrets.SecretConsumerMetadata{
+			Label:           sc.Label,
+			CurrentRevision: sc.CurrentRevision,
+		}); err != nil {
+			return errors.Annotatef(err, "saving secret remote consumer %q for %q", sc.Accessor.ID, uri.ID)
+		}
+	}
+	return nil
+}
+
+func (s *SecretService) importSecretAccesses(ctx domain.AtomicContext, uri *coresecrets.URI, accesses []SecretAccess) error {
+	for _, access := range accesses {
+		p := grantParams(SecretAccessParams{
+			Scope: SecretAccessScope{
+				Kind: access.Scope.Kind,
+				ID:   access.Scope.ID,
+			},
+			Subject: SecretAccessor{
+				Kind: access.Subject.Kind,
+				ID:   access.Subject.ID,
+			},
+			Role: access.Role,
+		})
+		if err := s.secretState.GrantAccess(ctx, uri, p); err != nil {
+			return errors.Annotatef(err, "saving secret access for %s-%s for secret %q",
+				access.Subject.Kind, access.Subject.ID, uri.ID)
+		}
+	}
 	return nil
 }
 

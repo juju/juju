@@ -131,8 +131,8 @@ func revokeAccess(ctx context.Context, st *State, uri *coresecrets.URI, params d
 }
 
 func listCharmSecrets(ctx context.Context, st *State, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-) ([]*coresecrets.SecretMetadata, error) {
-	var mds []*coresecrets.SecretMetadata
+) ([]*domainsecret.SecretMetadata, error) {
+	var mds []*domainsecret.SecretMetadata
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
 		mds, err = st.ListCharmSecrets(ctx, appOwners, unitOwners)

@@ -4,6 +4,7 @@
 package secret
 
 import (
+	"errors"
 	"time"
 
 	"github.com/juju/juju/core/secrets"
@@ -120,4 +121,31 @@ type RemoteSecretInfo struct {
 	Label           string
 	CurrentRevision int
 	LatestRevision  int
+}
+
+// SecretMetadata holds metadata about a secret.
+type SecretMetadata struct {
+	// URI is the URI of the secret.
+	URI *secrets.URI
+	// Label is the label of the secret.
+	Label string
+	// Owner is the owner of the secret.
+	Owner secrets.Owner
+}
+
+// SecretRevisionMetadata holds metadata about a secret revision.
+type SecretRevisionMetadata struct {
+	secrets.SecretRevisionMetadata
+	Data secrets.SecretData
+}
+
+// Validate checks that the metadata is valid.
+func (md SecretRevisionMetadata) Validate() error {
+	if md.Data == nil && md.ValueRef == nil {
+		return errors.New("data or value reference must be set")
+	}
+	if md.Data != nil && md.ValueRef != nil {
+		return errors.New("only one of data or value reference can be set")
+	}
+	return nil
 }
