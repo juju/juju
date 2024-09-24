@@ -6,6 +6,8 @@ package txn_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	"golang.org/x/sync/semaphore"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/database/txn"
 )
@@ -38,6 +41,44 @@ func (s *transactionRunnerSuite) TestTxn(c *gc.C) {
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+type logRecorder struct {
+	logger.Logger
+
+	builder *strings.Builder
+}
+
+func (l logRecorder) IsLevelEnabled(level logger.Level) bool {
+	return true
+}
+
+func (l logRecorder) Tracef(format string, args ...interface{}) {
+	l.builder.WriteString(fmt.Sprintf(format, args...))
+	l.builder.WriteString("\n")
+}
+
+func (s *transactionRunnerSuite) TestTxnLogging(c *gc.C) {
+	buffer := new(strings.Builder)
+	runner := txn.NewRetryingTxnRunner(txn.WithLogger(logRecorder{
+		builder: buffer,
+	}))
+
+	err := runner.StdTxn(context.Background(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, "SELECT 1")
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer rows.Close()
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(buffer.String(), gc.Equals, `
+running txn (id: 1) with query: BEGIN
+running txn (id: 1) with query: SELECT 1
+running txn (id: 1) with query: COMMIT
+`[1:])
 }
 
 func (s *transactionRunnerSuite) TestTxnWithCancelledContext(c *gc.C) {

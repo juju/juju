@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/canonical/go-dqlite/tracing"
@@ -109,6 +110,8 @@ type RetryingTxnRunner struct {
 	retryStrategy RetryStrategy
 	semaphore     Semaphore
 	tracePool     sync.Pool
+	loggerPool    sync.Pool
+	txnID         uint64
 }
 
 // NewRetryingTxnRunner returns a new RetryingTxnRunner.
@@ -135,7 +138,15 @@ func NewRetryingTxnRunner(opts ...Option) *RetryingTxnRunner {
 		tracePool: sync.Pool{
 			New: func() any {
 				return &dqliteTracer{
-					pool: spanPool,
+					pool:   spanPool,
+					logger: o.logger,
+				}
+			},
+		},
+		loggerPool: sync.Pool{
+			New: func() any {
+				return &logTracer{
+					logger: o.logger,
 				}
 			},
 		},
@@ -199,6 +210,10 @@ func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(cont
 // enable tracing, we need to just wrap the commit call. All other traces are
 // done at the dqlite level.
 func (t *RetryingTxnRunner) commit(ctx context.Context, tx txn) (err error) {
+	if t.logger.IsLevelEnabled(logger.TRACE) {
+		t.logger.Tracef("running txn (id: %d) with query: COMMIT", ctx.Value(txnIDKey))
+	}
+
 	// Hardcode the name of the span
 	_, span := trace.Start(ctx, traceName("commit"))
 	defer func() {
@@ -244,6 +259,20 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 		return errors.Trace(err)
 	}
 
+	// Txn ID is used to track the whole transaction, from the start to the end.
+	// This also includes the BEGIN, COMMIT and ROLLBACK.
+	// As these are processed in real-time, it will require the user of the
+	// logging infrastructure to be able to track the txnID and to patch the
+	// log lines together. The alternative is to use the tracing infrastructure
+	// which will give it a context, but that's a lot of overhead to run in
+	// production for every query.
+	txnID := atomic.AddUint64(&t.txnID, 1)
+
+	// Put the txnID onto the context, so we can the retrieve it later on for
+	// the commit transaction logging. Without it, we'll have BEGIN, queries,
+	// but no COMMIT.
+	ctx = context.WithValue(ctx, txnIDKey, txnID)
+
 	// This is the last generic place that we can place a trace for the
 	// dqlite library. Ideally we would push this into the dqlite only code,
 	// but that requires a lot of abstractions, that I'm unsure is worth it.
@@ -254,8 +283,19 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 		// Force the tracer onto the pooled object. We guarantee that the trace
 		// should be done once the run has been completed.
 		dtracer.tracer = tracer
+		dtracer.txnID = txnID
 
 		ctx = tracing.WithTracer(ctx, dtracer)
+	} else if t.logger.IsLevelEnabled(logger.TRACE) {
+		// If the logger is trace enabled, then we can use the log tracer. The
+		// log tracer is a light weight tracer that just logs the query and the
+		// txnID. This is useful for debugging.
+		ltrace := t.loggerPool.Get().(*logTracer)
+		defer t.loggerPool.Put(ltrace)
+
+		ltrace.txnID = txnID
+
+		ctx = tracing.WithTracer(ctx, ltrace)
 	}
 	return fn(ctx)
 }
@@ -334,6 +374,24 @@ func traceName(name string) trace.Name {
 	return trace.Name(rootTraceName + name)
 }
 
+// logTracer is a pooled object for implementing a log tracing from a
+// per-transaction trace. This works by piggy backing off the OTEL tracing
+// implementation in go-dqlite package. The OTEL tracing already exposes the
+// query, we can create a log tracer that just logs the query and the txnID.
+type logTracer struct {
+	logger logger.Logger
+	txnID  uint64
+}
+
+func (d *logTracer) Start(ctx context.Context, name string, query string) (context.Context, tracing.Span) {
+	// Log the start of the transaction.
+	d.logger.Tracef("running txn (id: %d) with query: %s", d.txnID, query)
+
+	return ctx, d
+}
+
+func (d *logTracer) End() {}
+
 // dqliteTracer is a pooled object for implementing a dqlite tracing from a
 // juju tracing trace. The dqlite trace is just the lightest touch for
 // implementing tracing. The library doesn't need to include the full OTEL
@@ -343,12 +401,21 @@ func traceName(name string) trace.Name {
 type dqliteTracer struct {
 	tracer trace.Tracer
 	pool   *sync.Pool
+	logger logger.Logger
+	txnID  uint64
 }
 
 // Start creates a span and a context.Context containing the newly-created
 // span.
 func (d *dqliteTracer) Start(ctx context.Context, name string, query string) (context.Context, tracing.Span) {
+	// Log the start of the transaction.
+	d.logger.Tracef("running txn (id: %d) with query: %s", d.txnID, query)
+
+	// Start the span.
 	ctx, span := d.tracer.Start(ctx, name, trace.WithAttributes(trace.StringAttr("query", query)))
+
+	// Track the event, so it's possible to tie this back to the logs.
+	span.AddEvent("txn", trace.Int64Attr("id", int64(d.txnID)))
 
 	dspan := d.pool.Get().(*dqliteSpan)
 	defer d.pool.Put(dspan)
