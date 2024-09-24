@@ -9,6 +9,7 @@ import (
 	access "github.com/juju/juju/domain/access/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
+	cloudimagemetadata "github.com/juju/juju/domain/cloudimagemetadata/modelmigration"
 	credential "github.com/juju/juju/domain/credential/modelmigration"
 	externalcontroller "github.com/juju/juju/domain/externalcontroller/modelmigration"
 	keymanager "github.com/juju/juju/domain/keymanager/modelmigration"
@@ -54,4 +55,5 @@ func ImportOperations(
 	// TODO(storage) - we need to break out storage pools and import BEFORE applications.
 	storage.RegisterImport(coordinator, registry, logger.Child("storage"))
 	secret.RegisterImport(coordinator, logger.Child("secret"))
+	cloudimagemetadata.RegisterImport(coordinator, logger.Child("cloudimagemetadata"))
 }

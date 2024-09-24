@@ -8,6 +8,7 @@ import (
 	access "github.com/juju/juju/domain/access/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
+	cloudimagemetadata "github.com/juju/juju/domain/cloudimagemetadata/modelmigration"
 	credential "github.com/juju/juju/domain/credential/modelmigration"
 	externalcontroller "github.com/juju/juju/domain/externalcontroller/modelmigration"
 	keymanager "github.com/juju/juju/domain/keymanager/modelmigration"
@@ -38,4 +39,5 @@ func ExportOperations(
 	storage.RegisterExport(coordinator, registry, logger.Child("storage"))
 	secret.RegisterExport(coordinator, logger.Child("secret"))
 	application.RegisterExport(coordinator, logger.Child("application"))
+	cloudimagemetadata.RegisterExport(coordinator, logger.Child("cloudimagemetadata"))
 }
