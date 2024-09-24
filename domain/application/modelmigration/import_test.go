@@ -79,6 +79,13 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 	app.SetCharmMetadata(description.CharmMetadataArgs{
 		Name: "prometheus",
 	})
+	app.SetCharmManifest(description.CharmManifestArgs{
+		Bases: []description.CharmManifestBase{baseType{
+			name:          "ubuntu",
+			channel:       "24.04",
+			architectures: []string{"amd64"},
+		}},
+	})
 	app.SetCharmOrigin(description.CharmOriginArgs{
 		Source:   "charm-hub",
 		ID:       "1234",
@@ -507,9 +514,8 @@ func (s *importSuite) TestImportEmptyCharmManifest(c *gc.C) {
 		service: s.importService,
 	}
 
-	meta, err := importOp.importCharmManifest(s.charmManifest)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(meta, gc.DeepEquals, &internalcharm.Manifest{})
+	_, err := importOp.importCharmManifest(s.charmManifest)
+	c.Assert(err, gc.NotNil)
 }
 
 func (s *importSuite) TestImportCharmManifest(c *gc.C) {

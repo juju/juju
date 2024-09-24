@@ -201,6 +201,11 @@ with an earlier version of the target controller and try again.
 		}
 	}
 
+	err := migration.ImportPrecheck(ctx, modelDescription)
+	if err != nil {
+		return fmt.Errorf("migration import prechecks: %w", err)
+	}
+
 	ownerTag, err := names.ParseUserTag(model.OwnerTag)
 	if err != nil {
 		return errors.Errorf("cannot parse model %q owner during prechecks: %w", model.UUID, err)

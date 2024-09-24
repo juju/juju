@@ -643,6 +643,68 @@ func (s *SourcePrecheckSuite) TestCrossModelUnitsNotYetInScope(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unit remote-mysql/0 hasn't joined relation "foo:db remote-mysql:db" yet`)
 }
 
+type ImportPrecheckSuite struct {
+	precheckBaseSuite
+}
+
+var _ = gc.Suite(&ImportPrecheckSuite{})
+
+func (s *ImportPrecheckSuite) TestImportPrecheckEmpty(c *gc.C) {
+	model := description.NewModel(description.ModelArgs{})
+	err := migration.ImportPrecheck(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ImportPrecheckSuite) TestCharmsWithNoManifest(c *gc.C) {
+	model := description.NewModel(description.ModelArgs{})
+	// Add an app with a nil slice of bases.
+	model.AddApplication(description.ApplicationArgs{
+		Tag: names.NewApplicationTag("nil-bases-app"),
+	}).SetCharmManifest(description.CharmManifestArgs{})
+
+	// Add an app with an empty slice of bases.
+	model.AddApplication(description.ApplicationArgs{
+		Tag: names.NewApplicationTag("empty-bases-app"),
+	}).SetCharmManifest(description.CharmManifestArgs{
+		Bases: make([]description.CharmManifestBase, 0),
+	})
+
+	// Add an app with valid bases.
+	model.AddApplication(description.ApplicationArgs{
+		Tag: names.NewApplicationTag("valid-manifest-app"),
+	}).SetCharmManifest(description.CharmManifestArgs{
+		Bases: []description.CharmManifestBase{baseType{
+			name:          "ubuntu",
+			channel:       "24.04",
+			architectures: []string{"amd64"},
+		}},
+	})
+
+	err := migration.ImportPrecheck(context.Background(), model)
+	c.Assert(err, gc.ErrorMatches, ".* all charms now require a manifest.yaml file, this model hosts charm\\(s\\) with no manifest.yaml file: empty-bases-app, nil-bases-app")
+}
+
+type baseType struct {
+	name          string
+	channel       string
+	architectures []string
+}
+
+// Name returns the name of the base.
+func (b baseType) Name() string {
+	return b.name
+}
+
+// Channel returns the channel of the base.
+func (b baseType) Channel() string {
+	return b.channel
+}
+
+// Architectures returns the architectures of the base.
+func (b baseType) Architectures() []string {
+	return b.architectures
+}
+
 type TargetPrecheckSuite struct {
 	precheckBaseSuite
 	modelInfo coremigration.ModelInfo

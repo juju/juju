@@ -387,13 +387,12 @@ func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*
 }
 
 func (i *importOperation) importCharmManifest(data description.CharmManifest) (*internalcharm.Manifest, error) {
-	// Officially the manifest is optional, so if we don't have any data, we can
-	// just return nil.
-	if data == nil {
-		return nil, nil
+	charmBases := data.Bases()
+	if data == nil || len(charmBases) == 0 {
+		return nil, fmt.Errorf("manifest empty")
 	}
 
-	bases, err := importManifestBases(data.Bases())
+	bases, err := importManifestBases(charmBases)
 	if err != nil {
 		return nil, fmt.Errorf("import manifest bases: %w", err)
 	}
