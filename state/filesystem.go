@@ -922,13 +922,13 @@ func removeFilesystemOps(sb *storageBackend, filesystem Filesystem, release, for
 // the status "detached". The filesystem and associated backing
 // volume (if any) will be associated with the given storage
 // name, with the allocated storage tag being returned.
-func (sb *storageBackend) AddExistingFilesystem(
+func (sb *storageConfigBackend) AddExistingFilesystem(
 	info FilesystemInfo,
 	backingVolume *VolumeInfo,
 	storageName string,
 ) (_ names.StorageTag, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add existing filesystem")
-	if err := validateAddExistingFilesystem(sb, info, backingVolume, storageName); err != nil {
+	if err := validateAddExistingFilesystem(sb.storageBackend, info, backingVolume, storageName); err != nil {
 		return names.StorageTag{}, errors.Trace(err)
 	}
 	storageId, err := newStorageInstanceId(sb.mb, storageName)
@@ -1071,13 +1071,13 @@ func newFilesystemId(mb modelBackend, hostId string) (string, error) {
 // specified parameters. If the storage source cannot create filesystems
 // directly, a volume will be created and Juju will manage a filesystem
 // on it.
-func (sb *storageBackend) addFilesystemOps(params FilesystemParams, hostId string) ([]txn.Op, names.FilesystemTag, names.VolumeTag, error) {
+func (sb *storageConfigBackend) addFilesystemOps(params FilesystemParams, hostId string) ([]txn.Op, names.FilesystemTag, names.VolumeTag, error) {
 	var err error
 	params, err = sb.filesystemParamsWithDefaults(params)
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Trace(err)
 	}
-	detachable, err := isDetachableFilesystemPool(sb, params.Pool)
+	detachable, err := isDetachableFilesystemPool(sb.storageBackend, params.Pool)
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Trace(err)
 	}
@@ -1097,7 +1097,7 @@ func (sb *storageBackend) addFilesystemOps(params FilesystemParams, hostId strin
 	var volumeId string
 	var volumeTag names.VolumeTag
 	var ops []txn.Op
-	_, provider, _, err := poolStorageProvider(sb, params.Pool)
+	_, provider, _, err := poolStorageProvider(sb.storageBackend, params.Pool)
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Trace(err)
 	}
@@ -1166,9 +1166,9 @@ func (sb *storageBackend) newFilesystemOps(doc filesystemDoc, status statusDoc) 
 	}
 }
 
-func (sb *storageBackend) filesystemParamsWithDefaults(params FilesystemParams) (FilesystemParams, error) {
+func (sb *storageConfigBackend) filesystemParamsWithDefaults(params FilesystemParams) (FilesystemParams, error) {
 	if params.Pool == "" {
-		modelConfig, err := sb.config(context.Background())
+		modelConfig, err := sb.modelConfigService.ModelConfig(context.Background())
 		if err != nil {
 			return FilesystemParams{}, errors.Trace(err)
 		}

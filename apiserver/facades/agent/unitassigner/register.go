@@ -26,7 +26,7 @@ func newFacade(ctx facade.ModelContext) (*API, error) {
 
 	setter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, common.AuthAlways())
 	return &API{
-		st:             stateShim{State: st},
+		st:             stateShim{State: st, modelConfigService: domainServices.Config()},
 		machineService: domainServices.Machine(),
 		networkService: domainServices.Network(),
 		res:            ctx.Resources(),

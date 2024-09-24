@@ -567,7 +567,7 @@ func (s *MachineLegacySuite) TestManageModelRunsCleaner(c *gc.C) {
 			Name:  "wordpress",
 			Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 		})
-		unit, err := app.AddUnit(state.AddUnitParams{})
+		unit, err := app.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = app.Destroy(testing.NewObjectStore(c, s.ControllerModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
@@ -725,9 +725,9 @@ func (s *MachineLegacySuite) TestManageModelRunsInstancePoller(c *gc.C) {
 			}},
 		Constraints: constraints.MustParse("arch=" + arch),
 	})
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.ControllerModel(c).State().AssignUnit(unit, state.AssignNew)
+	err = s.ControllerModel(c).State().AssignUnit(s.modelConfigService(c), unit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, instId := s.waitProvisioned(c, unit)

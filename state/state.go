@@ -1056,7 +1056,11 @@ type AddApplicationArgs struct {
 // AddApplication creates a new application, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddApplication(args AddApplicationArgs, store objectstore.ObjectStore) (_ *Application, err error) {
+func (st *State) AddApplication(
+	modelConfigService ModelConfigService,
+	args AddApplicationArgs,
+	store objectstore.ObjectStore,
+) (_ *Application, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add application %q", args.Name)
 
 	// Sanity checks.
@@ -1124,14 +1128,14 @@ func (st *State) AddApplication(args AddApplicationArgs, store objectstore.Objec
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
 	}
-	sb, err := NewStorageBackend(st)
+	sb, err := NewStorageConfigBackend(st, modelConfigService)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := addDefaultStorageConstraints(sb, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := validateStorageConstraints(sb, args.Storage, args.Charm.Meta()); err != nil {
+	if err := validateStorageConstraints(sb.storageBackend, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
 	storagePools := make(set.Strings)
@@ -1328,11 +1332,14 @@ func (st *State) AddApplication(args AddApplicationArgs, store objectstore.Objec
 
 		// Collect unit-adding operations.
 		for x := 0; x < args.NumUnits; x++ {
-			unitName, unitOps, err := app.addUnitOpsWithCons(applicationAddUnitOpsArgs{
-				cons:          args.Constraints,
-				storageCons:   args.Storage,
-				attachStorage: args.AttachStorage,
-			})
+			unitName, unitOps, err := app.addUnitOpsWithCons(
+				modelConfigService,
+				applicationAddUnitOpsArgs{
+					cons:          args.Constraints,
+					storageCons:   args.Storage,
+					attachStorage: args.AttachStorage,
+				},
+			)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1504,7 +1511,11 @@ func assignUnitOps(unitName string, placement instance.Placement) []txn.Op {
 
 // AssignStagedUnits gets called by the UnitAssigner worker, and runs the given
 // assignments.
-func (st *State) AssignStagedUnits(allSpaces network.SpaceInfos, ids []string) ([]UnitAssignmentResult, error) {
+func (st *State) AssignStagedUnits(
+	modelConfigService ModelConfigService,
+	allSpaces network.SpaceInfos,
+	ids []string,
+) ([]UnitAssignmentResult, error) {
 	query := bson.D{{"_id", bson.D{{"$in", ids}}}}
 	unitAssignments, err := st.unitAssignments(query)
 	if err != nil {
@@ -1512,7 +1523,7 @@ func (st *State) AssignStagedUnits(allSpaces network.SpaceInfos, ids []string) (
 	}
 	results := make([]UnitAssignmentResult, len(unitAssignments))
 	for i, a := range unitAssignments {
-		err := st.assignStagedUnit(a, allSpaces)
+		err := st.assignStagedUnit(modelConfigService, a, allSpaces)
 		results[i].Unit = a.Unit
 		results[i].Error = err
 	}
@@ -1551,23 +1562,32 @@ func removeStagedAssignmentOp(id string) txn.Op {
 	}
 }
 
-func (st *State) assignStagedUnit(a UnitAssignment, allSpaces network.SpaceInfos) error {
+func (st *State) assignStagedUnit(
+	modelConfigService ModelConfigService,
+	a UnitAssignment,
+	allSpaces network.SpaceInfos,
+) error {
 	u, err := st.Unit(a.Unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if a.Scope == "" && a.Directive == "" {
-		return errors.Trace(st.AssignUnit(u, AssignNew))
+		return errors.Trace(st.AssignUnit(modelConfigService, u, AssignNew))
 	}
 
 	placement := &instance.Placement{Scope: a.Scope, Directive: a.Directive}
 
-	return errors.Trace(st.AssignUnitWithPlacement(u, placement, allSpaces))
+	return errors.Trace(st.AssignUnitWithPlacement(modelConfigService, u, placement, allSpaces))
 }
 
 // AssignUnitWithPlacement chooses a machine using the given placement directive
 // and then assigns the unit to it.
-func (st *State) AssignUnitWithPlacement(unit *Unit, placement *instance.Placement, allSpaces network.SpaceInfos) error {
+func (st *State) AssignUnitWithPlacement(
+	modelConfigService ModelConfigService,
+	unit *Unit,
+	placement *instance.Placement,
+	allSpaces network.SpaceInfos,
+) error {
 	// TODO(natefinch) this should be done as a single transaction, not two.
 	// Mark https://launchpad.net/bugs/1506994 fixed when done.
 
@@ -1576,14 +1596,14 @@ func (st *State) AssignUnitWithPlacement(unit *Unit, placement *instance.Placeme
 		return errors.Trace(err)
 	}
 	if data.placementType() == directivePlacement {
-		return unit.assignToNewMachine(data.directive)
+		return unit.assignToNewMachine(modelConfigService, data.directive)
 	}
 
-	m, err := st.addMachineWithPlacement(unit, data, allSpaces)
+	m, err := st.addMachineWithPlacement(modelConfigService, unit, data, allSpaces)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return unit.AssignToMachine(m)
+	return unit.AssignToMachine(modelConfigService, m)
 }
 
 // placementData is a helper type that encodes some of the logic behind how an
@@ -1634,7 +1654,12 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 
 // addMachineWithPlacement finds a machine that matches the given
 // placement directive for the given unit.
-func (st *State) addMachineWithPlacement(unit *Unit, data *placementData, lookup network.SpaceInfos) (*Machine, error) {
+func (st *State) addMachineWithPlacement(
+	modelConfigService ModelConfigService,
+	unit *Unit,
+	data *placementData,
+	lookup network.SpaceInfos,
+) (*Machine, error) {
 	unitCons, err := unit.Constraints()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1715,9 +1740,9 @@ func (st *State) addMachineWithPlacement(unit *Unit, data *placementData, lookup
 			Constraints: cons,
 		}
 		if mId != "" {
-			return st.AddMachineInsideMachine(template, mId, data.containerType)
+			return st.AddMachineInsideMachine(modelConfigService, template, mId, data.containerType)
 		}
-		return st.AddMachineInsideNewMachine(template, template, data.containerType)
+		return st.AddMachineInsideNewMachine(modelConfigService, template, template, data.containerType)
 	case directivePlacement:
 		return nil, errors.NotSupportedf(
 			"programming error: directly adding a machine for %s with a non-machine placement directive", unit.Name())
@@ -2341,7 +2366,11 @@ func (st *State) UnitsInError() ([]*Unit, error) {
 // AssignUnit places the unit on a machine. Depending on the policy, and the
 // state of the model, this may lead to new instances being launched
 // within the model.
-func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
+func (st *State) AssignUnit(
+	modelConfigService ModelConfigService,
+	u *Unit,
+	policy AssignmentPolicy,
+) (err error) {
 	if !u.IsPrincipal() {
 		return errors.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
@@ -2353,9 +2382,9 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		return u.AssignToMachine(m)
+		return u.AssignToMachine(modelConfigService, m)
 	case AssignNew:
-		return errors.Trace(u.AssignToNewMachine())
+		return errors.Trace(u.AssignToNewMachine(modelConfigService))
 	}
 	return errors.Errorf("unknown unit assignment policy: %q", policy)
 }

@@ -51,6 +51,7 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
 	f2, release := s.NewFactory(c, st.ModelUUID())
 	defer release()
+	f2 = f2.WithModelConfigService(s.modelConfigService(c))
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	s.model = m

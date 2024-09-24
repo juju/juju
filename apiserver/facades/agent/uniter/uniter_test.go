@@ -210,7 +210,7 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel.Life(), gc.Equals, state.Alive)
 	relStatus, err := rel.Status()
@@ -237,7 +237,7 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 
 	// Add another unit, so the service will stay dying when we
 	// destroy it later.
-	extraUnit, err := s.wordpress.AddUnit(state.AddUnitParams{})
+	extraUnit, err := s.wordpress.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(extraUnit, gc.NotNil)
 
@@ -1209,6 +1209,7 @@ func (s *uniterSuite) TestWatchUnitRelations(c *gc.C) {
 func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// The logging charm is subordinate (and the info endpoint is scope=container).
 	loggingCharm := f.MakeCharm(c, &factory.CharmParams{
@@ -1266,6 +1267,7 @@ func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// A subordinate unit should still be notified about changes to
 	// relations with applications that aren't the one this unit is
@@ -1328,6 +1330,7 @@ func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.
 func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// We should be notified about relations to other subordinates
 	// (since it's possible that they'll be colocated in the same
@@ -1407,6 +1410,7 @@ func (s *uniterSuite) makeSubordinateRelation(c *gc.C, subApp, principalApp *sta
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	rel := f.MakeRelation(c, &factory.RelationParams{
 		Endpoints: []state.Endpoint{subEndpoint, principalEndpoint},
@@ -1416,7 +1420,7 @@ func (s *uniterSuite) makeSubordinateRelation(c *gc.C, subApp, principalApp *sta
 	// on the principal unit.
 	ru, err := rel.Unit(principalUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return rel
@@ -1439,6 +1443,7 @@ func findSubordinateUnit(c *gc.C, subApp *state.Application, principalUnit *stat
 func (s *uniterSuite) TestCharmArchiveSha256(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	dummyCharm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
 
@@ -1916,6 +1921,7 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 func (s *uniterSuite) TestEnterScopeIgnoredForInvalidPrincipals(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	loggingCharm := f.MakeCharm(c, &factory.CharmParams{
 		Name: "logging",
@@ -1931,17 +1937,17 @@ func (s *uniterSuite) TestEnterScopeIgnoredForInvalidPrincipals(c *gc.C) {
 	// Create logging units for each of the mysql and wp units.
 	mysqlRU, err := mysqlRel.Unit(s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlRU.EnterScope(nil)
+	err = mysqlRU.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlLoggingU := findSubordinateUnit(c, logging, s.mysqlUnit)
 	mysqlLoggingRU, err := mysqlRel.Unit(mysqlLoggingU)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlLoggingRU.EnterScope(nil)
+	err = mysqlLoggingRU.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wpRU, err := wpRel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = wpRU.EnterScope(nil)
+	err = wpRU.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wpLoggingU := findSubordinateUnit(c, logging, s.wordpressUnit)
 	_, err = wpRel.Unit(wpLoggingU)
@@ -1999,7 +2005,7 @@ func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 	settings := map[string]interface{}{
 		"some": "settings",
 	}
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(s.modelConfigService(c), settings)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2045,11 +2051,12 @@ func (s *uniterSuite) TestRelationsSuspended(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
@@ -2104,7 +2111,7 @@ func (s *uniterSuite) TestSetRelationsStatusNotLeader(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.leadershipChecker.isLeader = false
@@ -2124,11 +2131,12 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
@@ -2189,7 +2197,7 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 	settings := map[string]interface{}{
 		"some": "settings",
 	}
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(s.modelConfigService(c), settings)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2243,7 +2251,7 @@ func (s *uniterSuite) TestReadSettingsForApplicationWhenNotLeader(c *gc.C) {
 	settings := map[string]interface{}{
 		"some": "settings",
 	}
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(s.modelConfigService(c), settings)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2269,6 +2277,7 @@ func (s *uniterSuite) TestReadSettingsForApplicationWhenNotLeader(c *gc.C) {
 func (s *uniterSuite) TestReadSettingsForApplicationInPeerRelation(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	riak := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "riak",
@@ -2292,7 +2301,7 @@ func (s *uniterSuite) TestReadSettingsForApplicationInPeerRelation(c *gc.C) {
 
 	relUnit, err := rel.Unit(riakUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
@@ -2320,7 +2329,7 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsWhenNotLeader(c *gc.C) {
 	settings := map[string]interface{}{
 		"some": "settings",
 	}
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(s.modelConfigService(c), settings)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2341,6 +2350,7 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsWhenNotLeader(c *gc.C) {
 func (s *uniterSuite) TestReadLocalApplicationSettingsInPeerRelation(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	riak := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "riak",
@@ -2364,7 +2374,7 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsInPeerRelation(c *gc.C) {
 
 	relUnit, err := rel.Unit(riakUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
@@ -2391,7 +2401,7 @@ func (s *uniterSuite) TestReadSettingsWithNonStringValuesFails(c *gc.C) {
 		"other":        "things",
 		"invalid-bool": false,
 	}
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(s.modelConfigService(c), settings)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2415,7 +2425,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	settings := map[string]interface{}{
 		"some": "settings",
 	}
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(s.modelConfigService(c), settings)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2471,7 +2481,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	err = relUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, false)
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(s.modelConfigService(c), settings)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2507,6 +2517,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 func (s *uniterSuite) TestReadRemoteSettingsForApplication(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
@@ -2518,7 +2529,7 @@ func (s *uniterSuite) TestReadRemoteSettingsForApplication(c *gc.C) {
 	settings := map[string]interface{}{
 		"some": "settings",
 	}
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(s.modelConfigService(c), settings)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2564,7 +2575,7 @@ func (s *uniterSuite) TestReadRemoteSettingsWithNonStringValuesFails(c *gc.C) {
 		"other":        "things",
 		"invalid-bool": false,
 	}
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(s.modelConfigService(c), settings)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2586,6 +2597,7 @@ func (s *uniterSuite) TestReadRemoteSettingsWithNonStringValuesFails(c *gc.C) {
 func (s *uniterSuite) TestReadRemoteApplicationSettingsForPeerRelation(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	riak := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "riak",
@@ -2609,7 +2621,7 @@ func (s *uniterSuite) TestReadRemoteApplicationSettingsForPeerRelation(c *gc.C) 
 
 	relUnit, err := rel.Unit(riakUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
@@ -2640,14 +2652,17 @@ func (s *uniterSuite) TestReadRemoteSettingsForCAASApplicationInPeerRelationSide
 	rel, err := cm.State().EndpointsRelation(ep)
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit2, err := app.AddUnit(state.AddUnitParams{})
+	unit2, err := app.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	relUnit, err := rel.Unit(unit2)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(map[string]interface{}{
-		"black midi": "ducter",
-	})
+	err = relUnit.EnterScope(
+		s.modelConfigService(c),
+		map[string]interface{}{
+			"black midi": "ducter",
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
@@ -2673,7 +2688,7 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	myRelUnit, err := rel.Unit(s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = myRelUnit.EnterScope(nil)
+	err = myRelUnit.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, true)
 
@@ -2887,6 +2902,7 @@ func (s *uniterSuite) TestWatchCAASUnitAddressesHash(c *gc.C) {
 func (s *uniterSuite) addRelatedApplication(c *gc.C, firstSvc, relatedApp string, unit *state.Unit) (*state.Relation, *state.Application, *state.Unit) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	relatedApplication := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  relatedApp,
@@ -2895,7 +2911,7 @@ func (s *uniterSuite) addRelatedApplication(c *gc.C, firstSvc, relatedApp string
 	rel := s.addRelation(c, firstSvc, relatedApp)
 	relUnit, err := rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	relatedUnit, err := s.ControllerModel(c).State().Unit(relatedApp + "/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2923,6 +2939,7 @@ func checkUnorderedActionIdsEqual(c *gc.C, ids []string, results params.StringsW
 func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// We need to set up a unit that has storage metadata defined.
 	sCons := map[string]state.StorageConstraints{
@@ -2933,10 +2950,10 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 		Charm:   f.MakeCharm(c, &factory.CharmParams{Name: "storage-block"}),
 		Storage: sCons,
 	})
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.ControllerModel(c).State()
-	err = st.AssignUnit(unit, state.AssignNew)
+	err = st.AssignUnit(s.modelConfigService(c), unit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3068,9 +3085,9 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	}
 
 	// Add another mysql unit on machine 0.
-	mysqlUnit1, err := s.mysql.AddUnit(state.AddUnitParams{})
+	mysqlUnit1, err := s.mysql.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlUnit1.AssignToMachine(s.machine0)
+	err = mysqlUnit1.AssignToMachine(s.modelConfigService(c), s.machine0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Open some ports on both units using different endpoints.
@@ -3488,16 +3505,17 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	c.Skip("Rewrite this in a new suite once other hook commit concerns are in Dqlite")
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// We need to set up a unit that has storage metadata defined.
 	application := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "storage-block2",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "storage-block2"}),
 	})
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.ControllerModel(c).State()
-	err = st.AssignUnit(unit, state.AssignNew)
+	err = st.AssignUnit(s.modelConfigService(c), unit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3627,6 +3645,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 
 	f, release := s.NewFactory(c, cm.UUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	st := cm.State()
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mariadb-k8s", Series: "focal"})
@@ -3637,7 +3656,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wpRelUnit, err := rel.Unit(gitlabUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = wpRelUnit.EnterScope(nil)
+	err = wpRelUnit.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var updateUnits state.UpdateUnitsOperation
@@ -3685,6 +3704,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 
 	f, release := s.NewFactory(c, cm.UUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mariadb-k8s", Series: "focal"})
 	_ = f.MakeApplication(c, &factory.ApplicationParams{Name: "mariadb", Charm: ch})

@@ -231,12 +231,15 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 	s.setupAPI(c)
 
 	st := s.ControllerModel(c).State()
-	m, err := st.AddOneMachine(state.MachineTemplate{
-		Base:       state.UbuntuBase("12.10"),
-		Jobs:       []state.MachineJob{state.JobHostUnits},
-		InstanceId: "2",
-		Nonce:      "manual:",
-	})
+	m, err := st.AddOneMachine(
+		s.modelConfigService,
+		state.MachineTemplate{
+			Base:       state.UbuntuBase("12.10"),
+			Jobs:       []state.MachineJob{state.JobHostUnits},
+			InstanceId: "2",
+			Nonce:      "manual:",
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{

@@ -40,7 +40,7 @@ var _ = gc.Suite(&userAuthenticatorSuite{})
 
 func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 	// add machine for testing machine agent authentication
-	machine, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.ControllerModel(c).State().AddMachine(s.ControllerDomainServices(c).Config(), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	nonce, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -65,13 +65,14 @@ func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
 
 	// add a unit for testing unit agent authentication
 	wordpress := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 	})
-	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	unit, err := wordpress.AddUnit(s.ControllerDomainServices(c).Config(), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -368,6 +369,7 @@ func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *gc.C) {
 func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
 
 	// add relation
 	wordpress := f.MakeApplication(c, &factory.ApplicationParams{

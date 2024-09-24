@@ -103,6 +103,7 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 	f, release := s.NewFactory(c, s.st.ModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	f.MakeMachine(c, &factory.MachineParams{
 		InstanceId: instance.Id("inst-id"),
@@ -139,19 +140,23 @@ func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 	// Make an unprovisioned machine with storage for tests to use.
 	// TODO(axw) extend testing/factory to allow creating unprovisioned
 	// machines.
-	_, err = s.st.AddOneMachine(state.MachineTemplate{
-		Base: state.UbuntuBase("12.10"),
-		Jobs: []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.HostVolumeParams{
-			{Volume: state.VolumeParams{Pool: "modelscoped", Size: 2048}},
+	_, err = s.st.AddOneMachine(
+		s.modelConfigService(c),
+		state.MachineTemplate{
+			Base: state.UbuntuBase("12.10"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
+			Volumes: []state.HostVolumeParams{
+				{Volume: state.VolumeParams{Pool: "modelscoped", Size: 2048}},
+			},
 		},
-	})
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 	f, release := s.NewFactory(c, s.st.ModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	f.MakeMachine(c, &factory.MachineParams{
 		InstanceId: instance.Id("inst-id"),
@@ -186,13 +191,16 @@ func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 	// Make an unprovisioned machine with storage for tests to use.
 	// TODO(axw) extend testing/factory to allow creating unprovisioned
 	// machines.
-	_, err = s.st.AddOneMachine(state.MachineTemplate{
-		Base: state.UbuntuBase("12.10"),
-		Jobs: []state.MachineJob{state.JobHostUnits},
-		Filesystems: []state.HostFilesystemParams{{
-			Filesystem: state.FilesystemParams{Pool: "modelscoped", Size: 2048},
-		}},
-	})
+	_, err = s.st.AddOneMachine(
+		s.modelConfigService(c),
+		state.MachineTemplate{
+			Base: state.UbuntuBase("12.10"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
+			Filesystems: []state.HostFilesystemParams{{
+				Filesystem: state.FilesystemParams{Pool: "modelscoped", Size: 2048},
+			}},
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -459,6 +467,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.st.ModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// Deploy an application that will create a storage instance,
 	// so we can release the storage and show the effects on the
@@ -598,6 +607,7 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.st.ModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// Deploy an application that will create a storage instance,
 	// so we can release the storage and show the effects on the
@@ -927,6 +937,7 @@ func (s *iaasProvisionerSuite) TestWatchVolumes(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.st.ModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	f.MakeMachine(c, nil)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
@@ -972,6 +983,7 @@ func (s *iaasProvisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.st.ModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	f.MakeMachine(c, nil)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
@@ -1139,6 +1151,7 @@ func (s *iaasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 func (s *iaasProvisionerSuite) TestWatchBlockDevices(c *gc.C) {
 	f, release := s.NewFactory(c, s.st.ModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	f.MakeMachine(c, nil)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
@@ -1185,6 +1198,7 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.st.ModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	f.MakeMachine(c, nil)
 
@@ -1239,6 +1253,7 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevicesPlanBlockInfoSet(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.st.ModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	f.MakeMachine(c, nil)
 

@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -37,13 +38,14 @@ var _ = gc.Suite(&remoteRelationsSuite{})
 type remoteRelationsSuite struct {
 	coretesting.BaseSuite
 
-	resources     *common.Resources
-	authorizer    *apiservertesting.FakeAuthorizer
-	st            *mocks.MockRemoteRelationsState
-	ecService     *mocks.MockExternalControllerService
-	secretService *mocks.MockSecretService
-	cc            *mocks.MockControllerConfigAPI
-	api           *remoterelations.API
+	resources          *common.Resources
+	authorizer         *apiservertesting.FakeAuthorizer
+	st                 *mocks.MockRemoteRelationsState
+	ecService          *mocks.MockExternalControllerService
+	secretService      *mocks.MockSecretService
+	modelConfigService *commonmocks.MockModelConfigService
+	cc                 *mocks.MockControllerConfigAPI
+	api                *remoterelations.API
 }
 
 func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
@@ -65,10 +67,17 @@ func (s *remoteRelationsSuite) setup(c *gc.C) *gomock.Controller {
 	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
 	s.ecService = mocks.NewMockExternalControllerService(ctrl)
 	s.secretService = mocks.NewMockSecretService(ctrl)
+	s.modelConfigService = commonmocks.NewMockModelConfigService(ctrl)
 	modelID := modeltesting.GenModelUUID(c)
 	api, err := remoterelations.NewRemoteRelationsAPI(
 		modelID,
-		s.st, s.ecService, s.secretService, s.cc, s.resources, s.authorizer,
+		s.st,
+		s.ecService,
+		s.secretService,
+		s.modelConfigService,
+		s.cc,
+		s.resources,
+		s.authorizer,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)

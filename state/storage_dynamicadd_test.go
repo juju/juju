@@ -30,7 +30,7 @@ func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) *state.Unit {
 		"multi1to10": makeStorageCons("persistent-block", 0, 3),
 	}
 	charm := s.AddTestingCharm(c, "storage-block2")
-	application, err := s.State.AddApplication(state.AddApplicationArgs{
+	application, err := s.State.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 		Name: "storage-block2", Charm: charm, Storage: storageCons,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -38,7 +38,7 @@ func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) *state.Unit {
 		}},
 	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	u, err := application.AddUnit(state.AddUnitParams{})
+	u, err := application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.unitTag = u.UnitTag()
 	all, err := s.storageBackend.AllStorageInstances()
@@ -49,7 +49,7 @@ func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) *state.Unit {
 
 func (s *storageAddSuite) assignUnit(c *gc.C, u *state.Unit) {
 	// Assign unit to machine to get volumes and filesystems
-	err := s.State.AssignUnit(u, state.AssignNew)
+	err := s.State.AssignUnit(state.StubModelConfigService(c), u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -154,7 +154,7 @@ func (s *storageAddSuite) TestAddStorageToUnitNotAssigned(c *gc.C) {
 	})
 }
 
-func allMachineVolumeParams(c *gc.C, sb *state.StorageBackend, m names.MachineTag) []state.VolumeParams {
+func allMachineVolumeParams(c *gc.C, sb *state.StorageConfigBackend, m names.MachineTag) []state.VolumeParams {
 	var allVolumeParams []state.VolumeParams
 	volumeAttachments, err := sb.MachineVolumeAttachments(m)
 	c.Assert(err, jc.ErrorIsNil)
@@ -235,7 +235,7 @@ func (s *storageAddSuite) createAndAssignUnitWithSingleStorage(c *gc.C) names.Un
 	s.assertStorageCount(c, 1)
 
 	// Assign unit to machine to get volumes and filesystems
-	err := s.State.AssignUnit(u, state.AssignNew)
+	err := s.State.AssignUnit(state.StubModelConfigService(c), u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	volumes, err := s.storageBackend.AllVolumes()
@@ -370,7 +370,7 @@ func (s *storageAddSuite) TestAddStorageFilesystem(c *gc.C) {
 	_, u, _ := s.setupSingleStorage(c, "filesystem", "loop-pool")
 
 	// Assign unit to machine to get volumes and filesystems
-	err := s.State.AssignUnit(u, state.AssignNew)
+	err := s.State.AssignUnit(state.StubModelConfigService(c), u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -396,7 +396,7 @@ func (s *storageAddSuite) TestAddStorageStatic(c *gc.C) {
 	s.assertStorageCount(c, 1)
 
 	// Assign unit to machine to get volumes and filesystems
-	err := s.State.AssignUnit(u, state.AssignNew)
+	err := s.State.AssignUnit(state.StubModelConfigService(c), u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)

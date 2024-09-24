@@ -97,7 +97,6 @@ func NewStorageBackend(st *State) (*storageBackend, error) {
 		mb:              st,
 		settings:        NewStateSettings(st),
 		modelType:       m.Type(),
-		config:          m.ModelConfig,
 		application:     st.Application,
 		allApplications: st.AllApplications,
 		unit:            st.Unit,
@@ -109,14 +108,37 @@ func NewStorageBackend(st *State) (*storageBackend, error) {
 	return sb, nil
 }
 
+// NewStorageConfigBackend creates a backend for managing storage with a model
+// config service.
+func NewStorageConfigBackend(
+	st *State,
+	modelConfigService ModelConfigService,
+) (*storageConfigBackend, error) {
+	sb, err := NewStorageBackend(st)
+	if err != nil {
+		return nil, err
+	}
+
+	return &storageConfigBackend{
+		storageBackend:     sb,
+		modelConfigService: modelConfigService,
+	}, nil
+}
+
 // StoragePoolGetter instances get a storage pool by name.
 type StoragePoolGetter interface {
 	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
 }
 
+// ModelConfigService provides access to the model configuration.
+type ModelConfigService interface {
+	// ModelConfig returns the current config for the model.
+	ModelConfig(context.Context) (*config.Config, error)
+}
+
+// storageBackend exposes storage-specific state utilities.
 type storageBackend struct {
 	mb              modelBackend
-	config          func(context.Context) (*config.Config, error)
 	application     func(string) (*Application, error)
 	allApplications func() ([]*Application, error)
 	unit            func(string) (*Unit, error)
@@ -130,6 +152,13 @@ type storageBackend struct {
 	spRegistryErr     error
 	registryOnce      sync.Once
 	registryInit      func()
+}
+
+// storageConfigBackend augments storageBackend with methods that require model
+// config access.
+type storageConfigBackend struct {
+	*storageBackend
+	modelConfigService ModelConfigService
 }
 
 type storageInstance struct {
@@ -717,7 +746,7 @@ type machineAssignable interface {
 // to a machine, then machine storage will be created.
 func createStorageOps(
 	st *State,
-	sb *storageBackend,
+	sb *storageConfigBackend,
 	entityTag names.Tag,
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
@@ -809,7 +838,7 @@ func createStorageOps(
 				doc.AttachmentCount = 1
 				ops = append(ops, createStorageAttachmentOp(storageTag, unitTag))
 				numStorageAttachments++
-				storageInstance := &storageInstance{sb, *doc}
+				storageInstance := &storageInstance{sb.storageBackend, *doc}
 
 				if maybeMachineAssignable != nil {
 					var err error
@@ -830,7 +859,7 @@ func createStorageOps(
 				// as there's no machine for the unit to be assigned to.
 				if sb.modelType == ModelTypeCAAS {
 					storageParams, err := storageParamsForStorageInstance(
-						sb, charmMeta, osname, storageInstance,
+						sb.storageBackend, charmMeta, osname, storageInstance,
 					)
 					if err != nil {
 						return fail(errors.Trace(err))
@@ -869,7 +898,7 @@ func createStorageOps(
 // this, and no error will be returned.
 func unitAssignedMachineStorageOps(
 	st *State,
-	sb *storageBackend,
+	sb *storageConfigBackend,
 	charmMeta *charm.Meta,
 	osname string,
 	storage *storageInstance,
@@ -887,12 +916,12 @@ func unitAssignedMachineStorageOps(
 	}
 
 	storageParams, err := storageParamsForStorageInstance(
-		sb, charmMeta, osname, storage,
+		sb.storageBackend, charmMeta, osname, storage,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
+	if err := validateDynamicMachineStorageParams(sb.modelConfigService, m, storageParams); err != nil {
 		return nil, errors.Trace(err)
 	}
 	storageOps, volumeAttachments, filesystemAttachments, err := sb.hostStorageOps(
@@ -986,7 +1015,7 @@ func (sb *storageBackend) storageAttachment(storage names.StorageTag, unit names
 
 // AttachStorage attaches storage to a unit, creating and attaching machine
 // storage as necessary.
-func (sb *storageBackend) AttachStorage(storage names.StorageTag, unit names.UnitTag) (err error) {
+func (sb *storageConfigBackend) AttachStorage(storage names.StorageTag, unit names.UnitTag) (err error) {
 	defer errors.DeferredAnnotatef(&err,
 		"cannot attach %s to %s",
 		names.ReadableString(storage),
@@ -1022,7 +1051,7 @@ func (sb *storageBackend) AttachStorage(storage names.StorageTag, unit names.Uni
 			// Make sure that we *can* assign another storage instance
 			// to the unit.
 			_, currentCountOp, err := validateStorageCountChange(
-				sb, u.UnitTag(), si.StorageName(), 1, ch.Meta(),
+				sb.storageBackend, u.UnitTag(), si.StorageName(), 1, ch.Meta(),
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -1051,7 +1080,7 @@ func (sb *storageBackend) AttachStorage(storage names.StorageTag, unit names.Uni
 //
 // The caller is responsible for incrementing the storage refcount for
 // the unit/storage name.
-func (sb *storageBackend) attachStorageOps(
+func (sb *storageConfigBackend) attachStorageOps(
 	st *State,
 	si *storageInstance,
 	unitTag names.UnitTag,
@@ -1139,7 +1168,7 @@ func (sb *storageBackend) attachStorageOps(
 	// Attach volumes and filesystems for reattached storage on CAAS.
 	if sb.modelType == ModelTypeCAAS {
 		storageParams, err := storageParamsForStorageInstance(
-			sb, charmMeta, osName, si,
+			sb.storageBackend, charmMeta, osName, si,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1908,8 +1937,8 @@ var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specified and no defau
 
 // addDefaultStorageConstraints fills in default constraint values, replacing any empty/missing values
 // in the specified constraints.
-func addDefaultStorageConstraints(sb *storageBackend, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
-	conf, err := sb.config(context.Background())
+func addDefaultStorageConstraints(sb *storageConfigBackend, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
+	conf, err := sb.modelConfigService.ModelConfig(context.Background())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2028,7 +2057,7 @@ func defaultStoragePool(modelType ModelType, cfg *config.Config, kind storage.St
 // for this store. Combination of existing storage instances and
 // anticipated additional storage instances is validated against the
 // store as specified in the charm.
-func (sb *storageBackend) AddStorageForUnit(
+func (sb *storageConfigBackend) AddStorageForUnit(
 	tag names.UnitTag, storageName string, cons StorageConstraints,
 ) ([]names.StorageTag, error) {
 	modelOp, err := sb.AddStorageForUnitOperation(tag, storageName, cons)
@@ -2051,7 +2080,7 @@ func (sb *storageBackend) AddStorageForUnit(
 // for this store. Combination of existing storage instances and
 // anticipated additional storage instances is validated against the
 // store as specified in the charm.
-func (sb *storageBackend) AddStorageForUnitOperation(tag names.UnitTag, storageName string, cons StorageConstraints) (ModelOperation, error) {
+func (sb *storageConfigBackend) AddStorageForUnitOperation(tag names.UnitTag, storageName string, cons StorageConstraints) (ModelOperation, error) {
 	u, err := sb.unit(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -2066,7 +2095,7 @@ func (sb *storageBackend) AddStorageForUnitOperation(tag names.UnitTag, storageN
 }
 
 // addStorage adds storage instances to given unit as specified.
-func (sb *storageBackend) addStorageForUnitOps(
+func (sb *storageConfigBackend) addStorageForUnitOps(
 	u *Unit,
 	storageName string,
 	cons StorageConstraints,
@@ -2107,7 +2136,7 @@ func (sb *storageBackend) addStorageForUnitOps(
 
 		// Populate missing configuration parameters with defaults.
 		if cons.Pool == "" || cons.Size == 0 {
-			modelConfig, err := sb.config(context.Background())
+			modelConfig, err := sb.modelConfigService.ModelConfig(context.Background())
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
@@ -2144,7 +2173,7 @@ func (sb *storageBackend) addStorageForUnitOps(
 // unit. If countMin is non-negative, the Count field of the constraints will
 // be ignored, and as many storage instances as necessary to make up the
 // shortfall will be created.
-func (sb *storageBackend) addUnitStorageOps(
+func (sb *storageConfigBackend) addUnitStorageOps(
 	st *State,
 	charmMeta *charm.Meta,
 	u *Unit,
@@ -2159,7 +2188,7 @@ func (sb *storageBackend) addUnitStorageOps(
 		// Validate that the requested number of storage
 		// instances can be added to the unit.
 		currentCount, currentCountOp, err := validateStorageCountChange(
-			sb, u.Tag(), storageName, int(cons.Count), charmMeta,
+			sb.storageBackend, u.Tag(), storageName, int(cons.Count), charmMeta,
 		)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
@@ -2178,7 +2207,7 @@ func (sb *storageBackend) addUnitStorageOps(
 		cons.Count = uint64(countMin)
 	}
 
-	if err := validateStorageConstraintsAgainstCharm(sb,
+	if err := validateStorageConstraintsAgainstCharm(sb.storageBackend,
 		map[string]StorageConstraints{storageName: consTotal},
 		charmMeta,
 	); err != nil {
@@ -2264,7 +2293,7 @@ func combineStorageParams(lhs, rhs *storageParams) *storageParams {
 // hostStorageOps creates txn.Ops for creating volumes, filesystems,
 // and attachments to the specified host. The results are the txn.Ops,
 // and the tags of volumes and filesystems newly attached to the host.
-func (sb *storageBackend) hostStorageOps(
+func (sb *storageConfigBackend) hostStorageOps(
 	hostId string, args *storageParams,
 ) ([]txn.Op, []volumeAttachmentTemplate, []filesystemAttachmentTemplate, error) {
 	var filesystemOps, volumeOps []txn.Op

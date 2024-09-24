@@ -668,12 +668,12 @@ func addUnit(c *gc.C, s ConnSuite, args unitArgs) *state.Unit {
 	ch := s.AddMetaCharm(c, args.charm, args.metadata, 2)
 
 	app := s.AddTestingApplication(c, args.application, ch)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO(ericsnow) Explicitly: call unit.AssignToMachine(m)?
 	c.Assert(args.machine, gc.Equals, "0")
-	err = unit.AssignToNewMachine() // machine "0"
+	err = unit.AssignToNewMachine(state.StubModelConfigService(c)) // machine "0"
 	c.Assert(err, jc.ErrorIsNil)
 
 	return unit

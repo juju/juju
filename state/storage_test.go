@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/stateenvirons"
@@ -35,7 +36,7 @@ type StorageStateSuiteBase struct {
 	series         string
 	base           state.Base
 	st             *state.State
-	storageBackend *state.StorageBackend
+	storageBackend *state.StorageConfigBackend
 }
 
 func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
@@ -98,7 +99,7 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.storageBackend, err = state.NewStorageBackend(s.st)
+	s.storageBackend, err = state.NewStorageConfigBackend(s.st, state.StubModelConfigService(c))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -110,8 +111,12 @@ func (s *StorageStateSuiteBase) AddTestingApplication(c *gc.C, name string, ch *
 	return state.AddTestingApplicationForBase(c, s.st, s.objectStore, s.base, name, ch)
 }
 
-func (s *StorageStateSuiteBase) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	return state.AddTestingApplicationWithStorage(c, s.st, s.objectStore, name, ch, storage)
+func (s *StorageStateSuiteBase) AddTestingApplicationWithStorage(
+	c *gc.C, name string, ch *state.Charm,
+	storage map[string]state.StorageConstraints,
+	customModelConfig map[string]any,
+) *state.Application {
+	return state.AddTestingApplicationWithStorage(c, s.st, s.objectStore, name, ch, storage, customModelConfig)
 }
 
 func (s *StorageStateSuiteBase) AddMetaCharm(c *gc.C, name, metaYaml string, revision int) *state.Charm {
@@ -125,15 +130,15 @@ func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (
 	testStorage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
-	app := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, testStorage)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, testStorage, nil)
+	unit, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")
 	return app, unit, storageTag
 }
 
 func (s *StorageStateSuiteBase) provisionStorageVolume(c *gc.C, u *state.Unit, storageTag names.StorageTag) {
-	err := s.st.AssignUnit(u, state.AssignNew)
+	err := s.st.AssignUnit(state.StubModelConfigService(c), u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machine := unitMachine(c, s.st, u)
 	volume := s.storageInstanceVolume(c, storageTag)
@@ -159,8 +164,8 @@ func (s *StorageStateSuiteBase) setupSingleStorageDetachable(c *gc.C, kind, pool
 	testStorage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
-	app := s.AddTestingApplicationWithStorage(c, charm.MustParseURL(ch.URL()).Name, ch, testStorage)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplicationWithStorage(c, charm.MustParseURL(ch.URL()).Name, ch, testStorage, nil)
+	unit, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")
 	return app, unit, storageTag
@@ -232,7 +237,7 @@ func (s *StorageStateSuiteBase) setupMixedScopeStorageApplication(
 		"multi2up":   makeStorageCons(pool1, 2048, 2),
 	}
 	ch := s.AddTestingCharm(c, "storage-"+kind+"2")
-	return s.AddTestingApplicationWithStorage(c, "storage-"+kind+"2", ch, storageCons)
+	return s.AddTestingApplicationWithStorage(c, "storage-"+kind+"2", ch, storageCons, nil)
 }
 
 func (s *StorageStateSuiteBase) storageInstanceExists(c *gc.C, tag names.StorageTag) bool {
@@ -424,7 +429,7 @@ func (s *StorageStateSuiteBase) obliterateFilesystemAttachment(c *gc.C, host nam
 // assertMachineStorageRefs ensures that the specified machine's set of volume
 // and filesystem references corresponds exactly to the volume and filesystem
 // attachments that relate to the machine.
-func assertMachineStorageRefs(c *gc.C, sb *state.StorageBackend, m names.MachineTag) {
+func assertMachineStorageRefs(c *gc.C, sb *state.StorageConfigBackend, m names.MachineTag) {
 	mb := state.ModelBackendFromStorageBackend(sb)
 	machines, closer := state.GetRawCollection(mb, state.MachinesC)
 	defer closer()
@@ -473,7 +478,7 @@ func (s *StorageStateSuite) TestBlockStorageNotSupportedOnCAAS(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 	ch := state.AddTestingCharmForSeries(c, st, "focal", "storage-block")
-	_, err := st.AddApplication(state.AddApplicationArgs{
+	_, err := st.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 		Name: "storage-block", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -485,7 +490,7 @@ func (s *StorageStateSuite) TestBlockStorageNotSupportedOnCAAS(c *gc.C) {
 
 func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	storageBlock, err := s.st.AddApplication(state.AddApplicationArgs{
+	storageBlock, err := s.st.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 		Name: "storage-block", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -509,7 +514,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 	})
 
 	ch = s.AddTestingCharm(c, "storage-filesystem")
-	storageFilesystem, err := s.st.AddApplication(state.AddApplicationArgs{
+	storageFilesystem, err := s.st.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 		Name: "storage-filesystem", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -539,7 +544,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsValidation(c *gc
 
 	ch := s.AddTestingCharm(c, "storage-block2")
 	addApplication := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
-		return s.st.AddApplication(state.AddApplicationArgs{
+		return s.st.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 			Name: "storage-block2", Charm: ch,
 			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 				OS:      "ubuntu",
@@ -571,14 +576,17 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsValidation(c *gc
 }
 
 func (s *StorageStateSuite) assertAddApplicationStorageConstraintsDefaults(c *gc.C, pool string, cons, expect map[string]state.StorageConstraints) {
+	modelConfig := coretesting.ModelConfig(c)
 	if pool != "" {
-		err := s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{
+		var err error
+		modelConfig, err = modelConfig.Apply(map[string]any{
 			"storage-default-block-source": pool,
-		}, nil)
+		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
+	modelConfigService := state.ModelConfigServiceWithCustom(modelConfig)
 	ch := s.AddTestingCharm(c, "storage-block")
-	app, err := s.st.AddApplication(state.AddApplicationArgs{
+	app, err := s.st.AddApplication(modelConfigService, state.AddApplicationArgs{
 		Name: "storage-block2", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -657,7 +665,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefaultSizeFromC
 		"multi2up":   makeStorageCons("loop", 2048, 2),
 	}
 	ch := s.AddTestingCharm(c, "storage-block2")
-	app, err := s.st.AddApplication(state.AddApplicationArgs{
+	app, err := s.st.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 		Name: "storage-block2", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -674,7 +682,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefaultSizeFromC
 func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
 	addApplication := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
-		return s.st.AddApplication(state.AddApplicationArgs{
+		return s.st.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 			Name: "storage-block", Charm: ch,
 			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 				OS:      "ubuntu",
@@ -707,9 +715,9 @@ func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
 		"multi1to10": makeStorageCons("", 1024, 1),
 		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
 	}
-	app := s.AddTestingApplicationWithStorage(c, "storage-block2", ch, testStorage)
+	app := s.AddTestingApplicationWithStorage(c, "storage-block2", ch, testStorage, nil)
 	for i := 0; i < 2; i++ {
-		u, err := app.AddUnit(state.AddUnitParams{})
+		u, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		storageAttachments, err := s.storageBackend.UnitStorageAttachments(u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
@@ -882,7 +890,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance
 	// volume attachment. When the storage is detached from
 	// the unit, the volume should be detached from the
 	// machine.
-	err = s.st.AssignUnit(u, state.AssignNew)
+	err = s.st.AssignUnit(state.StubModelConfigService(c), u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -909,7 +917,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance
 
 func (s *StorageStateSuite) TestAttachStorageTakesOwnership(c *gc.C) {
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
-	u2, err := app.AddUnit(state.AddUnitParams{})
+	u2, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Detach, but do not destroy, the storage.
@@ -928,7 +936,7 @@ func (s *StorageStateSuite) TestAttachStorageTakesOwnership(c *gc.C) {
 
 func (s *StorageStateSuite) TestAttachStorageIdempotent(c *gc.C) {
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
-	u2, err := app.AddUnit(state.AddUnitParams{})
+	u2, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Detach, but do not destroy, the storage.
@@ -946,7 +954,7 @@ func (s *StorageStateSuite) TestAttachStorageIdempotent(c *gc.C) {
 
 func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
-	u2, err := app.AddUnit(state.AddUnitParams{})
+	u2, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Detach, but do not destroy, the storage.
@@ -957,7 +965,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 	// attach the storage to the unit, it will create a volume
 	// and volume attachment.
 	defer state.SetBeforeHooks(c, s.st, func() {
-		err = s.st.AssignUnit(u2, state.AssignNew)
+		err = s.st.AssignUnit(state.StubModelConfigService(c), u2, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -976,7 +984,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc.C) {
 	// Create volume-backed filesystem storage.
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "filesystem", "modelscoped-block")
-	u2, err := app.AddUnit(state.AddUnitParams{})
+	u2, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the first unit to a machine so that we have a
@@ -985,7 +993,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 	// the storage from the first unit, the volume and
 	// filesystem should be detached from their assigned
 	// machine.
-	err = s.st.AssignUnit(u, state.AssignNew)
+	err = s.st.AssignUnit(state.StubModelConfigService(c), u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	oldMachineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1005,7 +1013,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 	// attach the storage to the unit, it will attach the
 	// existing volume/filesystem to the machine.
 	defer state.SetBeforeHooks(c, s.st, func() {
-		err = s.st.AssignUnit(u2, state.AssignNew)
+		err = s.st.AssignUnit(state.StubModelConfigService(c), u2, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -1023,20 +1031,20 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 
 func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolumeAttached(c *gc.C) {
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
-	u2, err := app.AddUnit(state.AddUnitParams{})
+	u2, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the first unit to a machine so that we have a
 	// volume and volume attachment initially. When we detach
 	// the storage from the first unit, the volume should be
 	// detached from its assigned machine.
-	err = s.st.AssignUnit(u, state.AssignNew)
+	err = s.st.AssignUnit(state.StubModelConfigService(c), u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the second unit to a machine so that when we
 	// attach the storage to the unit, it will attach the
 	// existing volume to the machine.
-	err = s.st.AssignUnit(u2, state.AssignNew)
+	err = s.st.AssignUnit(state.StubModelConfigService(c), u2, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Detach, but do not destroy, the storage. Leave the volume attachment
@@ -1060,7 +1068,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorage(c *gc.C) {
 
 	ch, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	app2, err := s.st.AddApplication(state.AddApplicationArgs{
+	app2, err := s.st.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 		Name: "secondwind",
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1095,7 +1103,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorage(c *gc.C) {
 func (s *StorageStateSuite) TestAddApplicationAttachStorageMultipleUnits(c *gc.C) {
 	app, _, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
 	ch, _, _ := app.Charm()
-	_, err := s.st.AddApplication(state.AddApplicationArgs{
+	_, err := s.st.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 		Name: "secondwind",
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1117,7 +1125,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
 	// application creation should fail.
 	var storageTags []names.StorageTag
 	for i := 0; i < 3; i++ {
-		u, err := app.AddUnit(state.AddUnitParams{})
+		u, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		storageTag := names.NewStorageTag("data/" + fmt.Sprint(i+1))
 		storageTags = append(storageTags, storageTag)
@@ -1129,7 +1137,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
 
 	ch, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.st.AddApplication(state.AddApplicationArgs{
+	_, err = s.st.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 		Name: "secondwind",
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1158,7 +1166,7 @@ func (s *StorageStateSuite) TestAddUnitAttachStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a new unit, attaching the existing storage.
-	u2, err := app.AddUnit(state.AddUnitParams{
+	u2, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{
 		AttachStorage: []names.StorageTag{storageTag},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1306,8 +1314,8 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 		"multi1to10": makeStorageCons("loop-pool", 1024, 2),
 		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
 	}
-	app := s.AddTestingApplicationWithStorage(c, "storage-block2", ch, testStorage)
-	u, err := app.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplicationWithStorage(c, "storage-block2", ch, testStorage, nil)
+	u, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure that all the creation events have flowed through the system.
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
@@ -1354,7 +1362,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
 
 func (s *StorageStateSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "block")
-	u, err := app.AddUnit(state.AddUnitParams{})
+	u, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -1446,9 +1454,9 @@ func (s *StorageStateSuite) testStorageLocationConflict(c *gc.C, first, second, 
 	app1 := s.AddTestingApplication(c, "storage-filesystem", ch1)
 	app2 := s.AddTestingApplication(c, "storage-filesystem2", ch2)
 
-	u1, err := app1.AddUnit(state.AddUnitParams{})
+	u1, err := app1.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.st.AssignUnit(u1, state.AssignNew)
+	err = s.st.AssignUnit(state.StubModelConfigService(c), u1, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineId, err := u1.AssignedMachineId()
@@ -1456,9 +1464,9 @@ func (s *StorageStateSuite) testStorageLocationConflict(c *gc.C, first, second, 
 	m, err := s.st.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	u2, err := app2.AddUnit(state.AddUnitParams{})
+	u2, err := app2.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = u2.AssignToMachine(m)
+	err = u2.AssignToMachine(state.StubModelConfigService(c), m)
 	if expectErr == "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
@@ -1492,7 +1500,7 @@ func (s *StorageStateSuiteCaas) TestDeployWrongStorageType(c *gc.C) {
 			"data": {Pool: "loop"},
 		},
 	}
-	_, err := s.st.AddApplication(args, state.NewObjectStore(c, s.st.ModelUUID()))
+	_, err := s.st.AddApplication(state.StubModelConfigService(c), args, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "foo": invalid storage config: storage provider type "loop" not valid`)
 }
 
@@ -1521,7 +1529,7 @@ func (s *StorageSubordinateStateSuite) SetUpTest(c *gc.C) {
 	storageCharm := s.AddTestingCharm(c, "storage-filesystem-subordinate")
 	s.subordinateApplication = s.AddTestingApplication(c, "storage-filesystem-subordinate", storageCharm)
 	s.mysql = s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	s.mysqlUnit, err = s.mysql.AddUnit(state.AddUnitParams{})
+	s.mysqlUnit, err = s.mysql.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	eps, err := s.st.InferEndpoints("mysql", "storage-filesystem-subordinate")
@@ -1537,7 +1545,7 @@ func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalUnassigned
 	exists := s.storageInstanceExists(c, storageTag)
 	c.Assert(exists, jc.IsFalse)
 
-	err := s.mysqlRelunit.EnterScope(nil)
+	err := s.mysqlRelunit.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The subordinate unit will have been created, along with its storage.
@@ -1551,16 +1559,16 @@ func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalUnassigned
 
 	// Assigning the principal unit to a machine should cause the subordinate
 	// unit's machine storage to be created.
-	err = s.st.AssignUnit(s.mysqlUnit, state.AssignNew)
+	err = s.st.AssignUnit(state.StubModelConfigService(c), s.mysqlUnit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	_ = s.storageInstanceFilesystem(c, storageTag)
 }
 
 func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalAssigned(c *gc.C) {
-	err := s.st.AssignUnit(s.mysqlUnit, state.AssignNew)
+	err := s.st.AssignUnit(state.StubModelConfigService(c), s.mysqlUnit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.mysqlRelunit.EnterScope(nil)
+	err = s.mysqlRelunit.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The subordinate unit will have been created, along with its storage.
@@ -1580,11 +1588,11 @@ func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalAssignRace
 	// and be reattempted with the knowledge of the subordinate, and
 	// add the subordinate's storage.
 	defer state.SetBeforeHooks(c, s.st, func() {
-		err := s.mysqlRelunit.EnterScope(nil)
+		err := s.mysqlRelunit.EnterScope(state.StubModelConfigService(c), nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err := s.st.AssignUnit(s.mysqlUnit, state.AssignNew)
+	err := s.st.AssignUnit(state.StubModelConfigService(c), s.mysqlUnit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	_ = s.storageInstanceFilesystem(c, names.NewStorageTag("data/0"))
 }

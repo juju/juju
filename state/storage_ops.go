@@ -10,7 +10,7 @@ import (
 )
 
 type addStorageForUnitOperation struct {
-	sb                 *storageBackend
+	sb                 *storageConfigBackend
 	u                  *Unit
 	storageName        string
 	storageConstraints StorageConstraints

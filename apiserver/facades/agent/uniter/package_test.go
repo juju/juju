@@ -102,6 +102,7 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 func (s *uniterSuiteBase) setupState(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	s.machine0 = f.MakeMachine(c, &factory.MachineParams{
 		Base: state.UbuntuBase("12.10"),
@@ -183,6 +184,7 @@ func (s *uniterSuiteBase) assertInScope(c *gc.C, relUnit *state.RelationUnit, in
 func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.Client, *state.CAASModel, *state.Application, *state.Unit) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// For the test to run properly with part of the model in mongo and
 	// part in a service domain, a model with the same uuid is required
@@ -201,6 +203,7 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.Client, *state.CAA
 
 	f2, release := s.NewFactory(c, m.UUID())
 	defer release()
+	f2 = f2.WithModelConfigService(s.modelConfigService(c))
 
 	app := f2.MakeApplication(
 		c, &factory.ApplicationParams{
@@ -224,6 +227,12 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.Client, *state.CAA
 	u, err := apiuniter.NewFromConnection(api)
 	c.Assert(err, jc.ErrorIsNil)
 	return u, cm, app, unit
+}
+
+// modelConfigService is a convenience function to get the controller model's
+// model config service inside a test.
+func (s *uniterSuiteBase) modelConfigService(c *gc.C) uniter.ModelConfigService {
+	return s.ControllerDomainServices(c).Config()
 }
 
 type fakeBroker struct {

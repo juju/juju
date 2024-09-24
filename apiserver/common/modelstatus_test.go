@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -157,7 +158,8 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Charm: s.Factory.MakeCharm(c, nil),
 	})
 
-	otherFactory := factory.NewFactory(otherSt, s.StatePool, testing.FakeControllerConfig())
+	otherFactory := factory.NewFactory(otherSt, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(&stubModelConfigService{cfg: testing.ModelConfig(c)})
 	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-8"})
 	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-9"})
 	otherFactory.MakeApplication(c, &factory.ApplicationParams{
@@ -234,7 +236,8 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 	})
 	defer otherSt.Close()
 
-	otherFactory := factory.NewFactory(otherSt, s.StatePool, testing.FakeControllerConfig())
+	otherFactory := factory.NewFactory(otherSt, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(&stubModelConfigService{cfg: testing.ModelConfig(c)})
 	app := otherFactory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: otherFactory.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"}),
 	})
@@ -320,4 +323,12 @@ func (statePolicy) StorageServices() (state.StoragePoolGetter, storage.ProviderR
 		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	}, nil
+}
+
+type stubModelConfigService struct {
+	cfg *config.Config
+}
+
+func (s *stubModelConfigService) ModelConfig(ctx context.Context) (*config.Config, error) {
+	return s.cfg, nil
 }

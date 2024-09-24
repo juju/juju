@@ -1073,12 +1073,12 @@ func newVolumeName(mb modelBackend, hostId string) (string, error) {
 // parameters. If the supplied host ID is non-empty, and the storage
 // provider is machine-scoped, then the volume will be scoped to that
 // machine.
-func (sb *storageBackend) addVolumeOps(params VolumeParams, hostId string) ([]txn.Op, names.VolumeTag, error) {
+func (sb *storageConfigBackend) addVolumeOps(params VolumeParams, hostId string) ([]txn.Op, names.VolumeTag, error) {
 	params, err := sb.volumeParamsWithDefaults(params)
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Trace(err)
 	}
-	detachable, err := isDetachableVolumePool(sb, params.Pool)
+	detachable, err := isDetachableVolumePool(sb.storageBackend, params.Pool)
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Trace(err)
 	}
@@ -1129,9 +1129,9 @@ func (sb *storageBackend) newVolumeOps(doc volumeDoc, status statusDoc) []txn.Op
 	}
 }
 
-func (sb *storageBackend) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, error) {
+func (sb *storageConfigBackend) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, error) {
 	if params.Pool == "" {
-		modelConfig, err := sb.config(context.Background())
+		modelConfig, err := sb.modelConfigService.ModelConfig(context.Background())
 		if err != nil {
 			return VolumeParams{}, errors.Trace(err)
 		}

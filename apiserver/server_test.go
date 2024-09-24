@@ -184,7 +184,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 
 	// Now add another machine, intentionally unprovisioned.
 	st1 := s.ControllerModel(c).State()
-	stm1, err := st1.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	stm1, err := st1.AddMachine(s.ControllerDomainServices(c).Config(), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = stm1.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)

@@ -39,6 +39,12 @@ type baseSuite struct {
 	commontesting.BlockHelper
 }
 
+// modelConfigService is a convenience function to get the controller model's
+// model config service inside a test.
+func (s *baseSuite) modelConfigService(c *gc.C) state.ModelConfigService {
+	return s.ControllerDomainServices(c).Config()
+}
+
 func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.WithLeaseManager = true
 	s.ApiServerSuite.SetUpTest(c)
@@ -397,10 +403,13 @@ var scenarioStatus = &params.FullStatus{
 // hopefully easier to remember as such.
 func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	st := s.ControllerModel(c).State()
+	domainServices := s.ControllerDomainServices(c)
+	accessService := domainServices.Access()
+	modelConfigService := domainServices.Config()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-
-	accessService := s.ControllerDomainServices(c).Access()
+	f = f.WithModelConfigService(modelConfigService)
 
 	add := func(e state.Entity) {
 		entities = append(entities, e.Tag())
@@ -451,7 +460,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 
 	add(taggedUser{tag: userTag})
 
-	m, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	m, err := st.AddMachine(modelConfigService, state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "", "fake_nonce", nil)
@@ -543,13 +552,13 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i := 0; i < 2; i++ {
-		wu, err := wordpress.AddUnit(state.AddUnitParams{})
+		wu, err := wordpress.AddUnit(modelConfigService, state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(wu.Tag(), gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		setDefaultPassword(c, wu)
 		add(wu)
 
-		m, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+		m, err := st.AddMachine(modelConfigService, state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Tag(), gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
 		if i == 1 {
@@ -562,7 +571,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		setDefaultStatus(c, m)
 		add(m)
 
-		err = wu.AssignToMachine(m)
+		err = wu.AssignToMachine(modelConfigService, m)
 		c.Assert(err, jc.ErrorIsNil)
 
 		wru, err := rel.Unit(wu)
@@ -590,7 +599,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 
 		// Create the subordinate unit as a side-effect of entering
 		// scope in the principal's relation-unit.
-		err = wru.EnterScope(nil)
+		err = wru.EnterScope(modelConfigService, nil)
 		c.Assert(err, jc.ErrorIsNil)
 
 		lu, err := st.Unit(fmt.Sprintf("logging/%d", i))

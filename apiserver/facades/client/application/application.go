@@ -156,7 +156,10 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		return nil, errors.Trace(err)
 	}
 
-	state := &stateShim{State: ctx.State()}
+	state := &stateShim{
+		State:              ctx.State(),
+		modelConfigService: domainServices.Config(),
+	}
 
 	charmhubHTTPClient, err := ctx.HTTPClient(facade.CharmhubHTTPClient)
 	if err != nil {

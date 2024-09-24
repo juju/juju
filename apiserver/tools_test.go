@@ -197,7 +197,7 @@ func (s *toolsSuite) TestRequiresPOST(c *gc.C) {
 func (s *toolsSuite) TestAuthRequiresUser(c *gc.C) {
 	// Add a machine and try to login.
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(s.ControllerDomainServices(c).Config(), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)

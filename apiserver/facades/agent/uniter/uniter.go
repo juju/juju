@@ -1260,7 +1260,7 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 		if len(egressSubnets) > 0 {
 			settings["egress-subnets"] = strings.Join(egressSubnets, ",")
 		}
-		return relUnit.EnterScope(settings)
+		return relUnit.EnterScope(u.modelConfigService, settings)
 	}
 	for i, arg := range args.RelationUnits {
 		tag, err := names.ParseUnitTag(arg.Unit)

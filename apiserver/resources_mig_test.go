@@ -60,6 +60,7 @@ func (s *resourcesUploadSuite) SetUpTest(c *gc.C) {
 
 	newFactory, release := s.NewFactory(c, s.importingModel.UUID())
 	defer release()
+	newFactory = newFactory.WithModelConfigService(s.ControllerDomainServices(c).Config())
 	app := newFactory.MakeApplication(c, nil)
 	s.appName = app.Name()
 

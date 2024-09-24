@@ -202,6 +202,7 @@ func (c charmUploader) ModelUUID() string {
 
 type stateShim struct {
 	*state.State
+	modelConfigService ModelConfigService
 }
 
 func (s *stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
@@ -213,7 +214,7 @@ func (s *stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.Uploaded
 }
 
 func (s *stateShim) AddApplication(args state.AddApplicationArgs, objectStore objectstore.ObjectStore) (bootstrap.Application, error) {
-	a, err := s.State.AddApplication(args, objectStore)
+	a, err := s.State.AddApplication(s.modelConfigService, args, objectStore)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +234,7 @@ func (s *stateShim) Unit(tag string) (bootstrap.Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &unitShim{Unit: u}, nil
+	return &unitShim{Unit: u, modelConfigService: s.modelConfigService}, nil
 }
 
 func (s *stateShim) Machine(name string) (bootstrap.Machine, error) {
@@ -262,6 +263,11 @@ type charmShim struct {
 
 type unitShim struct {
 	*state.Unit
+	modelConfigService ModelConfigService
+}
+
+func (u *unitShim) AssignToMachineRef(ref state.MachineRef) error {
+	return u.Unit.AssignToMachineRef(u.modelConfigService, ref)
 }
 
 type machineShim struct {

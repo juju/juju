@@ -77,7 +77,7 @@ func (s *ConnWithWallClockSuite) AddTestingApplication(c *gc.C, name string, ch 
 }
 
 func (s *ConnWithWallClockSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	return state.AddTestingApplicationWithStorage(c, s.State, s.objectStore, name, ch, storage)
+	return state.AddTestingApplicationWithStorage(c, s.State, s.objectStore, name, ch, storage, nil)
 }
 
 func (s *ConnWithWallClockSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {

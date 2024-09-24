@@ -42,6 +42,12 @@ type getSuite struct {
 
 var _ = gc.Suite(&getSuite{})
 
+// modelConfigService is a convenience function to get the controller model's
+// model config service inside a test.
+func (s *getSuite) modelConfigService(c *gc.C) application.ModelConfigService {
+	return s.ControllerDomainServices(c).Config()
+}
+
 func (s *getSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	s.ApiServerSuite.SeedCAASCloud(c)
@@ -68,7 +74,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	})
 
 	api, err := application.NewAPIBase(
-		application.GetState(st),
+		application.GetState(st, s.modelConfigService(c)),
 		nil,
 		domainServices.Network(),
 		storageAccess,
@@ -100,6 +106,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
@@ -152,6 +159,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	defer st.Close()
 	f2, release := s.NewFactory(c, st.ModelUUID())
 	defer release()
+	f2 = f2.WithModelConfigService(s.modelConfigService(c))
 	ch := f2.MakeCharm(c, &factory.CharmParams{Name: "dashboard4miner", Series: "focal"})
 	app := f2.MakeApplication(c, &factory.ApplicationParams{
 		Name: "dashboard4miner", Charm: ch,
@@ -222,7 +230,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	})
 
 	api, err := application.NewAPIBase(
-		application.GetState(st),
+		application.GetState(st, s.modelConfigService(c)),
 		nil,
 		domainServices.Network(),
 		storageAccess,
@@ -471,6 +479,7 @@ var getTests = []struct {
 func (s *getSuite) TestApplicationGet(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	for i, t := range getTests {
 		c.Logf("test %d. %s", i, t.about)
@@ -514,6 +523,7 @@ func (s *getSuite) TestGetMaxResolutionInt(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "test-application",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),

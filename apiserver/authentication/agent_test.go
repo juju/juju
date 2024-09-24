@@ -57,12 +57,14 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.user = authentication.TaggedUser(user, names.NewUserTag("bobbrown"))
 
+	modelConfigService := s.ControllerDomainServices(c).Config()
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(modelConfigService)
 
 	// add machine for testing machine agent authentication
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(modelConfigService, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	nonce, err := internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,7 +83,7 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 	})
-	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	unit, err := wordpress.AddUnit(modelConfigService, state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.unit = unit
 	password, err = internalpassword.RandomPassword()

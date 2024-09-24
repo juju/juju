@@ -39,11 +39,11 @@ func (s *linkLayerDevicesStateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine, err = s.State.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.otherState = s.NewStateForModelNamed(c, "other-model")
-	s.otherStateMachine, err = s.otherState.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.otherStateMachine, err = s.otherState.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.spaces = map[string]corenetwork.SpaceInfo{
@@ -808,7 +808,7 @@ func (s *linkLayerDevicesStateSuite) addContainerMachine(c *gc.C) {
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(containerTemplate, s.machine.Id(), instance.LXD)
+	container, err := s.State.AddMachineInsideMachine(state.StubModelConfigService(c), containerTemplate, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	s.containerMachine = container
 }

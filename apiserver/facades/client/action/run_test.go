@@ -31,6 +31,12 @@ type runSuite struct {
 
 var _ = gc.Suite(&runSuite{})
 
+// modelConfigService is a convenience function to get the controller model's
+// model config service inside a test.
+func (s *runSuite) modelConfigService(c *gc.C) state.ModelConfigService {
+	return s.ControllerDomainServices(c).Config()
+}
+
 func (s *runSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
@@ -46,15 +52,15 @@ func (s *runSuite) SetUpTest(c *gc.C) {
 
 func (s *runSuite) addMachine(c *gc.C) *state.Machine {
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(s.modelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
 
 func (s *runSuite) addUnit(c *gc.C, application *state.Application) *state.Unit {
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToNewMachine()
+	err = unit.AssignToNewMachine(s.modelConfigService(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
 }
@@ -117,10 +123,14 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	charm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
-	magic, err := st.AddApplication(state.AddApplicationArgs{
-		Name: "magic", Charm: charm,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
-	}, jujutesting.NewObjectStore(c, s.ControllerModelUUID()))
+	magic, err := st.AddApplication(
+		s.modelConfigService(c),
+		state.AddApplicationArgs{
+			Name: "magic", Charm: charm,
+			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
+		},
+		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
@@ -173,10 +183,14 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	charm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
-	magic, err := st.AddApplication(state.AddApplicationArgs{
-		Name: "magic", Charm: charm,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
-	}, jujutesting.NewObjectStore(c, s.ControllerModelUUID()))
+	magic, err := st.AddApplication(
+		s.modelConfigService(c),
+		state.AddApplicationArgs{
+			Name: "magic", Charm: charm,
+			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
+		},
+		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)

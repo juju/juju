@@ -51,7 +51,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 			{Volume: state.VolumeParams{Size: 2000, Pool: "static-pool"}},
 		},
 	}
-	placementMachine, err := st.AddOneMachine(template)
+	placementMachine, err := st.AddOneMachine(s.modelConfigService(c), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -148,7 +148,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
 		Constraints: constraints.MustParse("root-disk-source=static-pool"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 	}
-	machine, err := st.AddOneMachine(template)
+	machine, err := st.AddOneMachine(s.modelConfigService(c), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -176,7 +176,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 		Constraints: cons,
 		Placement:   "valid",
 	}
-	placementMachine, err := st.AddOneMachine(template)
+	placementMachine, err := st.AddOneMachine(s.modelConfigService(c), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -240,14 +240,18 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	})
 
 	st := s.ControllerModel(c).State()
-	wordpressMachine, err := st.AddOneMachine(state.MachineTemplate{
-		Base: state.UbuntuBase("12.10"),
-		Jobs: []state.MachineJob{state.JobHostUnits},
-	})
+	wordpressMachine, err := st.AddOneMachine(
+		s.modelConfigService(c),
+		state.MachineTemplate{
+			Base: state.UbuntuBase("12.10"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
@@ -259,9 +263,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 		EndpointBindings: bindings,
 	})
 
-	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
+	wordpressUnit, err := wordpressService.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = wordpressUnit.AssignToMachine(wordpressMachine)
+	err = wordpressUnit.AssignToMachine(s.modelConfigService(c), wordpressMachine)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -324,14 +328,18 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAl
 	spaces := s.addSpacesAndSubnets(c)
 
 	st := s.ControllerModel(c).State()
-	wordpressMachine, err := st.AddOneMachine(state.MachineTemplate{
-		Base: state.UbuntuBase("12.10"),
-		Jobs: []state.MachineJob{state.JobHostUnits},
-	})
+	wordpressMachine, err := st.AddOneMachine(
+		s.modelConfigService(c),
+		state.MachineTemplate{
+			Base: state.UbuntuBase("12.10"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
@@ -343,9 +351,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAl
 		EndpointBindings: bindings,
 	})
 
-	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
+	wordpressUnit, err := wordpressService.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = wordpressUnit.AssignToMachine(wordpressMachine)
+	err = wordpressUnit.AssignToMachine(s.modelConfigService(c), wordpressMachine)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -377,15 +385,19 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 
 	st := s.ControllerModel(c).State()
 	cons := constraints.MustParse("spaces=^space1")
-	wordpressMachine, err := st.AddOneMachine(state.MachineTemplate{
-		Base:        state.UbuntuBase("12.10"),
-		Jobs:        []state.MachineJob{state.JobHostUnits},
-		Constraints: cons,
-	})
+	wordpressMachine, err := st.AddOneMachine(
+		s.modelConfigService(c),
+		state.MachineTemplate{
+			Base:        state.UbuntuBase("12.10"),
+			Jobs:        []state.MachineJob{state.JobHostUnits},
+			Constraints: cons,
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
@@ -396,9 +408,9 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 		Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 		EndpointBindings: bindings,
 	})
-	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
+	wordpressUnit, err := wordpressService.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = wordpressUnit.AssignToMachine(wordpressMachine)
+	err = wordpressUnit.AssignToMachine(s.modelConfigService(c), wordpressMachine)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -418,14 +430,18 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 
 func (s *withoutControllerSuite) TestNoSpaceConstraintsProvidedSpaceTopologyEmpty(c *gc.C) {
 	st := s.ControllerModel(c).State()
-	wordpressMachine, err := st.AddOneMachine(state.MachineTemplate{
-		Base: state.UbuntuBase("12.10"),
-		Jobs: []state.MachineJob{state.JobHostUnits},
-	})
+	wordpressMachine, err := st.AddOneMachine(
+		s.modelConfigService(c),
+		state.MachineTemplate{
+			Base: state.UbuntuBase("12.10"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
@@ -436,9 +452,9 @@ func (s *withoutControllerSuite) TestNoSpaceConstraintsProvidedSpaceTopologyEmpt
 		Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 		EndpointBindings: bindings,
 	})
-	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
+	wordpressUnit, err := wordpressService.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = wordpressUnit.AssignToMachine(wordpressMachine)
+	err = wordpressUnit.AssignToMachine(s.modelConfigService(c), wordpressMachine)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -467,15 +483,19 @@ func (s *withoutControllerSuite) TestAlphaSpaceConstraintsProvidedExplicitly(c *
 	})
 
 	cons := constraints.MustParse("spaces=alpha")
-	wordpressMachine, err := st.AddOneMachine(state.MachineTemplate{
-		Base:        state.UbuntuBase("12.10"),
-		Jobs:        []state.MachineJob{state.JobHostUnits},
-		Constraints: cons,
-	})
+	wordpressMachine, err := st.AddOneMachine(
+		s.modelConfigService(c),
+		state.MachineTemplate{
+			Base:        state.UbuntuBase("12.10"),
+			Jobs:        []state.MachineJob{state.JobHostUnits},
+			Constraints: cons,
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
@@ -486,9 +506,9 @@ func (s *withoutControllerSuite) TestAlphaSpaceConstraintsProvidedExplicitly(c *
 		Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 		EndpointBindings: bindings,
 	})
-	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
+	wordpressUnit, err := wordpressService.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = wordpressUnit.AssignToMachine(wordpressMachine)
+	err = wordpressUnit.AssignToMachine(s.modelConfigService(c), wordpressMachine)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -605,7 +625,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 		Constraints: consMissingSpace,
 		Placement:   "valid",
 	}}
-	placementMachines, err := st.AddMachines(templates...)
+	placementMachines, err := st.AddMachines(s.modelConfigService(c), templates...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(placementMachines, gc.HasLen, 2)
 
@@ -629,22 +649,26 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 	st := s.ControllerModel(c).State()
-	profileMachine, err := st.AddOneMachine(state.MachineTemplate{
-		Base: state.UbuntuBase("12.10"),
-		Jobs: []state.MachineJob{state.JobHostUnits},
-	})
+	profileMachine, err := st.AddOneMachine(
+		s.modelConfigService(c),
+		state.MachineTemplate{
+			Base: state.UbuntuBase("12.10"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "lxd-profile"})
 	profileService := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "lxd-profile",
 		Charm: ch,
 	})
-	profileUnit, err := profileService.AddUnit(state.AddUnitParams{})
+	profileUnit, err := profileService.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = profileUnit.AssignToMachine(profileMachine)
+	err = profileUnit.AssignToMachine(s.modelConfigService(c), profileMachine)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -695,7 +719,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 		},
 	}
 	st := s.ControllerModel(c).State()
-	placementMachine, err := st.AddOneMachine(template)
+	placementMachine, err := st.AddOneMachine(s.modelConfigService(c), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -754,7 +778,7 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
 		},
 	}
-	machine, err := st.AddOneMachine(template)
+	machine, err := st.AddOneMachine(s.modelConfigService(c), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision just one of the volumes, but neither of the attachments.
@@ -810,7 +834,7 @@ func (s *withoutControllerSuite) TestProviderInfoCloudInitUserData(c *gc.C) {
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	st := s.ControllerModel(c).State()
-	m, err := st.AddOneMachine(template)
+	m, err := st.AddOneMachine(s.modelConfigService(c), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{

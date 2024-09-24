@@ -517,7 +517,7 @@ func (s *ApiServerSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) 
 	}
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), jobs...)
+	machine, err := st.AddMachine(s.ControllerDomainServices(c).Config(), state.UbuntuBase("12.10"), jobs...)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)

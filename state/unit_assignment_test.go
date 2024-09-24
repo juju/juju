@@ -20,7 +20,7 @@ var _ = gc.Suite(&UnitAssignmentSuite{})
 
 func (s *UnitAssignmentSuite) testAddApplicationUnitAssignment(c *gc.C) (*state.Application, []state.UnitAssignment) {
 	charm := s.AddTestingCharm(c, "dummy")
-	app, err := s.State.AddApplication(state.AddApplicationArgs{
+	app, err := s.State.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 		Name: "dummy", Charm: charm, NumUnits: 2,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -53,9 +53,13 @@ func (s *UnitAssignmentSuite) TestAddApplicationUnitAssignment(c *gc.C) {
 func (s *UnitAssignmentSuite) TestAssignStagedUnits(c *gc.C) {
 	app, _ := s.testAddApplicationUnitAssignment(c)
 
-	results, err := s.State.AssignStagedUnits(nil, []string{
-		"dummy/0", "dummy/1",
-	})
+	results, err := s.State.AssignStagedUnits(
+		state.StubModelConfigService(c),
+		nil,
+		[]string{
+			"dummy/0", "dummy/1",
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.SameContents, []state.UnitAssignmentResult{
 		{Unit: "dummy/0"},
@@ -82,7 +86,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementDirective(c *gc.C) {
 	// https://bugs.launchpad.net/juju-core/+bug/1590960
 	charm := s.AddTestingCharm(c, "dummy")
 	placement := instance.Placement{Scope: s.State.ModelUUID(), Directive: "zone=test"}
-	app, err := s.State.AddApplication(state.AddApplicationArgs{
+	app, err := s.State.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 		Name:  "dummy",
 		Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -98,7 +102,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementDirective(c *gc.C) {
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
 
-	err = s.State.AssignUnitWithPlacement(unit, &placement, nil)
+	err = s.State.AssignUnitWithPlacement(state.StubModelConfigService(c), unit, &placement, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineId, err := unit.AssignedMachineId()

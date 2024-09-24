@@ -51,6 +51,7 @@ func makeAPI(stdCtx context.Context, ctx facade.ModelContext) (*API, error) {
 				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
 			},
 		),
+		domainServices.Config(),
 		common.NewControllerConfigAPI(systemState, controllerConfigService, externalControllerService),
 		ctx.Resources(), ctx.Auth(),
 		ctx.Logger().Child("remoterelations", corelogger.CMR),

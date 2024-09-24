@@ -96,7 +96,7 @@ func (l *unitLife) id() (coll string, id interface{}) {
 }
 
 func (l *unitLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
-	unit, err := s.app.AddUnit(state.AddUnitParams{})
+	unit, err := s.app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 	l.unit = unit
@@ -121,7 +121,7 @@ func (l *machineLife) id() (coll string, id interface{}) {
 
 func (l *machineLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
 	var err error
-	l.machine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	l.machine, err = s.State.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	return l.machine
 }

@@ -68,6 +68,7 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		&stateShim{State: st},
 		domainServices.ControllerConfig(),
 		applicationService,
+		domainServices.Config(),
 		broker,
 		ctx.StatePool().Clock(),
 		ctx.Logger().Child("caasapplication"),

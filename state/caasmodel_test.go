@@ -96,10 +96,11 @@ func (s *CAASModelSuite) TestDestroyEmptyModel(c *gc.C) {
 func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 	model, st := s.newCAASModel(c)
 
-	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
+	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = model.Destroy(state.DestroyModelParams{})
@@ -144,7 +145,8 @@ func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 	sb, err := state.NewStorageBackend(st)
 	c.Assert(err, jc.ErrorIsNil)
 
-	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
+	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: state.AddTestingCharmForSeries(c, st, "focal", "storage-filesystem"),
 		Storage: map[string]state.StorageConstraints{
@@ -221,7 +223,8 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
 	st2 := s.Factory.MakeCAASModel(c, nil)
 	defer st2.Close()
 
-	f := factory.NewFactory(st2, s.StatePool, jujutesting.FakeControllerConfig())
+	f := factory.NewFactory(st2, s.StatePool, jujutesting.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
@@ -294,7 +297,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 		}},
 		Charm: ch,
 	}
-	application2, err := otherSt.AddApplication(args, state.NewObjectStore(c, otherSt.ModelUUID()))
+	application2, err := otherSt.AddApplication(state.StubModelConfigService(c), args, state.NewObjectStore(c, otherSt.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()
@@ -335,16 +338,17 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 
 func (s *CAASModelSuite) TestContainers(c *gc.C) {
 	m, st := s.newCAASModel(c)
-	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
+	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 	ch := f.MakeCharm(c, &factory.CharmParams{
 		Name:   "gitlab-k8s",
 		Series: "focal",
 	})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
-	_, err := app.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")})
+	_, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{ProviderId: strPtr("provider-id1")})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = app.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id2")})
+	_, err = app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{ProviderId: strPtr("provider-id2")})
 	c.Assert(err, jc.ErrorIsNil)
 
 	containers, err := m.Containers("provider-id1", "provider-id2")
@@ -359,7 +363,8 @@ func (s *CAASModelSuite) TestContainers(c *gc.C) {
 
 func (s *CAASModelSuite) TestUnitStatus(c *gc.C) {
 	m, st := s.newCAASModel(c)
-	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
+	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 	app := f.MakeApplication(c, nil)
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,
@@ -382,7 +387,8 @@ func (s *CAASModelSuite) TestUnitStatus(c *gc.C) {
 
 func (s *CAASModelSuite) TestCloudContainerStatus(c *gc.C) {
 	m, st := s.newCAASModel(c)
-	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
+	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 	app := f.MakeApplication(c, nil)
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/state"
@@ -97,8 +98,11 @@ type storageFile interface {
 	AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error)
 }
 
-var getStorageAccessor = func(st *state.State) (storageAccess, error) {
-	sb, err := state.NewStorageBackend(st)
+var getStorageAccessor = func(
+	st *state.State,
+	modelConfigService common.ModelConfigService,
+) (storageAccess, error) {
+	sb, err := state.NewStorageConfigBackend(st, modelConfigService)
 	if err != nil {
 		return nil, err
 	}
