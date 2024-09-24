@@ -12,7 +12,6 @@ import (
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -37,7 +35,6 @@ import (
 	environsContext "github.com/juju/juju/environs/envcontext"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
-	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -177,55 +174,6 @@ func (m *ModelManagerAPI) hasWriteAccess(ctx context.Context, modelTag names.Mod
 // Abstracted primarily for testing.
 type ConfigSource interface {
 	Config() (*config.Config, error)
-}
-
-func (m *ModelManagerAPI) newModelConfig(
-	ctx context.Context,
-	cloudSpec environscloudspec.CloudSpec,
-	args params.ModelCreateArgs,
-	source ConfigSource,
-) (*config.Config, error) {
-	// For now, we just smash to the two maps together as we store
-	// the account values and the model config together in the
-	// *config.Config instance.
-	joint := make(map[string]interface{})
-	for key, value := range args.Config {
-		joint[key] = value
-	}
-	if args.Name == "" {
-		return nil, errors.NewNotValid(nil, "Name must be specified")
-	}
-	if _, ok := joint[config.NameKey]; ok {
-		return nil, errors.New("name must not be specified in config")
-	}
-	joint[config.NameKey] = args.Name
-
-	baseConfig, err := source.Config()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	regionSpec := &environscloudspec.CloudRegionSpec{Cloud: cloudSpec.Name, Region: cloudSpec.Region}
-	if joint, err = m.state.ComposeNewModelConfig(m.configSchemaSource, joint, regionSpec); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	creator := modelmanager.ModelConfigCreator{
-		Provider: environs.Provider,
-		FindTools: func(n version.Number) (tools.List, error) {
-			if jujucloud.CloudTypeIsCAAS(cloudSpec.Type) {
-				return tools.List{&tools.Tools{Version: version.Binary{Number: n}}}, nil
-			}
-			toolsList, err := m.toolsFinder.FindAgents(ctx, common.FindAgentsParams{
-				Number: n,
-			})
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return toolsList, nil
-		},
-	}
-	return creator.NewModelConfig(ctx, cloudSpec, baseConfig, joint)
 }
 
 func (m *ModelManagerAPI) checkAddModelPermission(ctx context.Context, cloud string, userTag names.UserTag) (bool, error) {

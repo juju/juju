@@ -6,16 +6,16 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	interrors "github.com/juju/juju/internal/errors"
 )
 
 // State represents a type for interacting with the underlying model defaults
@@ -61,14 +61,14 @@ WHERE m.uuid = ?
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, cloudDefaultsStmt, uuid)
 		if err != nil {
-			return fmt.Errorf("fetching cloud defaults for model %q: %w", uuid, err)
+			return interrors.Errorf("fetching cloud defaults for model %q: %w", uuid, err)
 		}
 		defer rows.Close()
 
 		for rows.Next() {
 			var key, val string
 			if err := rows.Scan(&key, &val); err != nil {
-				return fmt.Errorf("reading cloud defaults for model %q: %w", uuid, err)
+				return interrors.Errorf("reading cloud defaults for model %q: %w", uuid, err)
 			}
 			rval[key] = val
 		}
@@ -109,7 +109,7 @@ WHERE m.uuid = ?
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, cloudDefaultsStmt, uuid)
 		if err != nil {
-			return fmt.Errorf("fetching cloud region defaults for model %q: %w", uuid, err)
+			return interrors.Errorf("fetching cloud region defaults for model %q: %w", uuid, err)
 		}
 		defer rows.Close()
 
@@ -118,7 +118,7 @@ WHERE m.uuid = ?
 		)
 		for rows.Next() {
 			if err := rows.Scan(&key, &val); err != nil {
-				return fmt.Errorf("reading cloud region defaults for model %q: %w", uuid, err)
+				return interrors.Errorf("reading cloud region defaults for model %q: %w", uuid, err)
 			}
 			rval[key] = val
 		}
@@ -129,6 +129,56 @@ WHERE m.uuid = ?
 		return nil, err
 	}
 	return rval, nil
+}
+
+// ModelCloudType returns the cloud type for model identified by the given model
+// uuid. If no model exists for the provided model uuid then an error satisfying
+// [modelerrors.NotFound] is returned.
+func (s *State) ModelCloudType(
+	ctx context.Context,
+	uuid coremodel.UUID,
+) (string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "'", errors.Trace(err)
+	}
+
+	modelUUIDVal := modelUUIDValue{UUID: uuid.String()}
+	result := modelCloudType{}
+
+	stmt, err := s.Prepare(`
+SELECT (ct.type) AS (&modelCloudType.cloud_type)
+FROM model AS m
+JOIN cloud AS c ON c.uuid = m.cloud_uuid
+JOIN cloud_type AS ct ON ct.id = c.cloud_type_id 
+WHERE m.uuid = $modelUUIDValue.model_uuid
+`, modelUUIDVal, result)
+
+	if err != nil {
+		return "", interrors.Errorf("preparing model cloud type select statement: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, modelUUIDVal).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return interrors.Errorf(
+				"cannot get cloud type for model %q because model does not exist",
+				uuid,
+			).Add(modelerrors.NotFound)
+		} else if err != nil {
+			return interrors.Errorf(
+				"cannot get cloud type for model %q: %w", uuid, err,
+			)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	return result.CloudType, nil
 }
 
 // ModelMetadataDefaults is responsible for providing metadata defaults for a
@@ -159,9 +209,9 @@ WHERE m.uuid = ?
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, stmt, uuid).Scan(&modelName, &cloudType)
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
+			return interrors.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
 		} else if err != nil {
-			return fmt.Errorf(
+			return interrors.Errorf(
 				"getting model metadata defaults for uuid %q: %w",
 				uuid,
 				err,
@@ -178,63 +228,6 @@ WHERE m.uuid = ?
 		config.UUIDKey: uuid.String(),
 		config.TypeKey: cloudType,
 	}, nil
-}
-
-// ModelProviderConfigSchema returns the providers config schema source based on
-// the cloud set for the model. If no provider or schema source is found then
-// an error satisfying errors.NotFound is returned. If the model is not found for
-// the provided uuid then a error satisfying modelerrors.NotFound is returned.
-func (s *State) ModelProviderConfigSchema(
-	ctx context.Context,
-	uuid coremodel.UUID,
-) (config.ConfigSchemaSource, error) {
-	db, err := s.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cloudTypeStmt := `
-SELECT cloud_type.type
-FROM cloud_type
-INNER JOIN cloud
-ON cloud.cloud_type_id = cloud_type.id
-INNER JOIN model m
-ON m.cloud_uuid = cloud.uuid
-WHERE m.uuid = ?
-`
-
-	var cloudType string
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, cloudTypeStmt, uuid).Scan(&cloudType)
-	})
-
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
-	} else if err != nil {
-		return nil, fmt.Errorf("getting cloud type of model %q cloud: %w", uuid, err)
-	}
-
-	provider, err := environs.Provider(cloudType)
-	if errors.Is(err, errors.NotFound) {
-		return nil, fmt.Errorf(
-			"model %q cloud type %q provider a schema source %w",
-			uuid,
-			cloudType,
-			errors.NotFound,
-		)
-	} else if err != nil {
-		return nil, fmt.Errorf("getting provider for model %q cloud type %q: %w", uuid, cloudType, err)
-	}
-
-	if cs, implements := provider.(config.ConfigSchemaSource); implements {
-		return cs, nil
-	}
-	return nil, fmt.Errorf(
-		"schema source for model %q with cloud type %q %w",
-		uuid,
-		cloudType,
-		errors.NotFound,
-	)
 }
 
 // NewState returns a new State for interacting with the underlying model
