@@ -10,7 +10,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
@@ -83,7 +82,7 @@ func (st *PermissionState) CreatePermission(ctx context.Context, newPermissionUU
 
 	userAccess.Access = spec.Access
 	userAccess.PermissionID = newPermissionUUID.String()
-	userAccess.Object = objectTag(spec.Target)
+	userAccess.Object = spec.Target
 	return userAccess, nil
 }
 
@@ -714,22 +713,6 @@ WHERE   name = $M.grant_on
 		return errors.Annotatef(err, "verifying %q target exists", target)
 	}
 	return nil
-}
-
-// objectTag returns a names.Tag for the given ID.
-func objectTag(id corepermission.ID) (result names.Tag) {
-	// The id has been validated already.
-	switch id.ObjectType {
-	case corepermission.Cloud:
-		result = names.NewCloudTag(id.Key)
-	case corepermission.Controller:
-		result = names.NewControllerTag(id.Key)
-	case corepermission.Model:
-		result = names.NewModelTag(id.Key)
-	case corepermission.Offer:
-		result = names.NewApplicationOfferTag(id.Key)
-	}
-	return
 }
 
 // userUUID returns the UUID for the associated name

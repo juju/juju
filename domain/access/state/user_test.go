@@ -262,7 +262,7 @@ func (s *userStateSuite) TestAddUserWithPermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(newUserAccess.Access, gc.Equals, loginAccess.Access)
 	c.Check(newUserAccess.UserName, gc.Equals, newUser.Name)
-	c.Check(newUserAccess.Object.Id(), gc.Equals, loginAccess.Target.Key)
+	c.Check(newUserAccess.Object, gc.Equals, loginAccess.Target)
 }
 
 // TestAddUserWithPermissionInvalid asserts that we can't add a user to the

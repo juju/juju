@@ -6,8 +6,6 @@ package permission
 import (
 	"time"
 
-	"github.com/juju/names/v5"
-
 	"github.com/juju/juju/core/user"
 )
 
@@ -27,14 +25,12 @@ type UserAccess struct {
 	UserID string
 	// PermissionID is the stored ID of the permission.
 	PermissionID string
-	// UserTag is the tag for the user.
-	UserTag names.UserTag
-	// Object is the tag for the object of this access grant.
-	Object names.Tag
+	// Object is the ID of the object of this access grant.
+	Object ID
 	// Access represents the level of access subject has over object.
 	Access Access
 	// CreatedBy is the tag of the user that granted the access.
-	CreatedBy names.UserTag
+	CreatedBy user.Name
 	// DateCreated is the date the user was created in UTC.
 	DateCreated time.Time
 	// DisplayName is the name we are showing for this user.
