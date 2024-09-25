@@ -283,7 +283,8 @@ func prepareForBootstrap(
 ) environs.Environ {
 	// Opening the environment should not incur network communication,
 	// so we don't set s.sender until after opening.
-	defaults, err := provider.ModelConfigDefaults(context.Background())
+	modelConfigProvider := provider.(environs.ModelConfigProvider)
+	defaults, err := modelConfigProvider.ModelConfigDefaults(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := makeTestModelConfig(c, append(attrs, defaults)...)
 

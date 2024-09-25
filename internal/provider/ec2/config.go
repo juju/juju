@@ -67,7 +67,7 @@ func (p environProvider) newConfig(ctx context.Context, cfg *config.Config) (*en
 // should be set on a models config if they have not been specified by the user.
 func (p environProvider) ModelConfigDefaults(_ context.Context) (map[string]any, error) {
 	return map[string]any{
-		config.StorageDefaultBlockSourceKey: EBS_ProviderType,
+		config.StorageDefaultBlockSourceKey: string(EBS_ProviderType),
 	}, nil
 }
 

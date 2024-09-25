@@ -349,6 +349,8 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 	source, ok := cfg.StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(source, gc.Equals, "ebs")
+}
+
 // TestModelConfigDefaults is asserting the default model config values returned
 // from the ec2 provider. If you have broken this test it means you have broken
 // business logic in Juju around this provider and this needs to be very
