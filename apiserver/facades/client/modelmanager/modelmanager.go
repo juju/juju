@@ -454,10 +454,10 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	// We check here if the modelService is nil. If it is then we are in testing
 	// mode and don't make the calls so test can keep passing.
 	// THIS IS VERY TEMPORARY.
-	var modelID coremodel.UUID
+	var modelUUID coremodel.UUID
 	if m.modelService != nil {
 		args.CloudRegion = cloudRegionName
-		modelID, err = m.createModelNew(ctx, args)
+		modelUUID, err = m.createModelNew(ctx, args)
 		if err != nil {
 			return result, err
 		}
@@ -465,10 +465,10 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		if args.Config == nil {
 			args.Config = map[string]any{}
 		}
-		args.Config[config.UUIDKey] = modelID.String()
+		args.Config[config.UUIDKey] = modelUUID.String()
 	}
 
-	configService := m.serviceFactoryGetter.ServiceFactoryForModel(modelID).Config()
+	configService := m.domainServicesGetter.DomainServicesForModel(modelUUID).Config()
 	newConfig, err := configService.ModelConfig(ctx)
 	if err != nil {
 		return result, errors.Annotate(err, "failed to get config")

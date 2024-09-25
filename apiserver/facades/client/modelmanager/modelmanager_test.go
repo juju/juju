@@ -385,7 +385,7 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 	// Expect calls to get various model services.
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	networkService := mocks.NewMockNetworkService(ctrl)
-	s.modelConfigService := mocks.NewMockModelConfigService(ctrl)
+	s.modelConfigService = mocks.NewMockModelConfigService(ctrl)
 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
 	modelDomainServices.EXPECT().Network().Return(networkService)
 	modelDomainServices.EXPECT().Config().Return(s.modelConfigService).AnyTimes()
