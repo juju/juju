@@ -6,6 +6,8 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"time"
 
 	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
@@ -593,6 +595,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	}
 	s.createApplication(c, "foo", life.Alive, u1, u2)
 	var (
+		unitUUID    string
 		netNodeUUID string
 		deviceUUID  string
 	)
@@ -600,10 +603,39 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 		if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id=2 WHERE name=?", u1.UnitName); err != nil {
 			return err
 		}
-		if err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM unit WHERE name=?", u1.UnitName).Scan(&netNodeUUID); err != nil {
+		if err := tx.QueryRowContext(ctx, "SELECT uuid, net_node_uuid FROM unit WHERE name=?", u1.UnitName).Scan(&unitUUID, &netNodeUUID); err != nil {
 			return err
 		}
 		if err := tx.QueryRowContext(ctx, "SELECT uuid FROM link_layer_device WHERE net_node_uuid=?", netNodeUUID).Scan(&deviceUUID); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		if err := s.state.SaveUnitAgentStatus(ctx, unitUUID, application.UnitAgentStatusInfo{
+			StatusID: application.UnitAgentStatusExecuting,
+			Message:  "test",
+			Data:     map[string]string{"foo": "bar"},
+			Since:    time.Now(),
+		}); err != nil {
+			return err
+		}
+		if err := s.state.SaveUnitWorkloadStatus(ctx, unitUUID, application.UnitWorkloadStatusInfo{
+			StatusID: application.UnitWorkloadStatusActive,
+			Message:  "test",
+			Data:     map[string]string{"foo": "bar"},
+			Since:    time.Now(),
+		}); err != nil {
+			return err
+		}
+		if err := s.state.SaveCloudContainerStatus(ctx, unitUUID, application.CloudContainerStatusStatusInfo{
+			StatusID: application.CloudContainerStatusBlocked,
+			Message:  "test",
+			Data:     map[string]string{"foo": "bar"},
+			Since:    time.Now(),
+		}); err != nil {
 			return err
 		}
 		return nil
@@ -620,11 +652,17 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	c.Assert(gotIsLast, jc.IsFalse)
 
 	var (
-		unitCount      int
-		containerCount int
-		deviceCount    int
-		addressCount   int
-		portCount      int
+		unitCount                     int
+		containerCount                int
+		deviceCount                   int
+		addressCount                  int
+		portCount                     int
+		agentStatusCount              int
+		agentStatusDataCount          int
+		workloadStatusCount           int
+		workloadStatusDataCount       int
+		cloudContainerStatusCount     int
+		cloudContainerStatusDataCount int
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name=?", u1.UnitName).Scan(&unitCount); err != nil {
@@ -639,7 +677,25 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM ip_address WHERE device_uuid=?", deviceUUID).Scan(&addressCount); err != nil {
 			return err
 		}
-		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_port ccp WHERE cloud_container_uuid=?", netNodeUUID).Scan(&portCount); err != nil {
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_port WHERE cloud_container_uuid=?", netNodeUUID).Scan(&portCount); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_agent_status WHERE unit_uuid=?", unitUUID).Scan(&agentStatusCount); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_agent_status_data WHERE unit_uuid=?", unitUUID).Scan(&agentStatusDataCount); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_workload_status WHERE unit_uuid=?", unitUUID).Scan(&workloadStatusCount); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_workload_status_data WHERE unit_uuid=?", unitUUID).Scan(&workloadStatusDataCount); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_status WHERE unit_uuid=?", unitUUID).Scan(&cloudContainerStatusCount); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_status_data WHERE unit_uuid=?", unitUUID).Scan(&cloudContainerStatusDataCount); err != nil {
 			return err
 		}
 		return nil
@@ -649,6 +705,12 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	c.Assert(portCount, gc.Equals, 0)
 	c.Assert(deviceCount, gc.Equals, 0)
 	c.Assert(containerCount, gc.Equals, 0)
+	c.Assert(agentStatusCount, gc.Equals, 0)
+	c.Assert(agentStatusDataCount, gc.Equals, 0)
+	c.Assert(workloadStatusCount, gc.Equals, 0)
+	c.Assert(workloadStatusDataCount, gc.Equals, 0)
+	c.Assert(cloudContainerStatusCount, gc.Equals, 0)
+	c.Assert(cloudContainerStatusDataCount, gc.Equals, 0)
 	c.Assert(unitCount, gc.Equals, 0)
 }
 
@@ -718,6 +780,165 @@ func (s *applicationStateSuite) TestDeleteUnitLastUnit(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitCount, gc.Equals, 0)
+}
+
+func (s *applicationStateSuite) TestGetUnitUUID(c *gc.C) {
+	u1 := application.UpsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u1)
+
+	var unitUUID string
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		unitUUID, err = s.state.GetUnitUUID(ctx, u1.UnitName)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var gotUUID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", u1.UnitName).
+			Scan(&gotUUID); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotUUID, gc.Equals, unitUUID)
+}
+
+func (s *applicationStateSuite) TestGetUnitUUIDNotFound(c *gc.C) {
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		_, err := s.state.GetUnitUUID(ctx, "foo/666")
+		return err
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *applicationStateSuite) assertUnitStatus(
+	c *gc.C, statusType, unitUUID string, statusID int, message string, since time.Time, data map[string]string,
+) {
+	var (
+		gotStatusID int
+		gotMessage  string
+		gotSince    time.Time
+		gotData     = make(map[string]string)
+	)
+	queryInfo := fmt.Sprintf(`
+SELECT status_id, message, updated_at FROM %s_status WHERE unit_uuid = ?
+	`, statusType)
+	queryData := fmt.Sprintf(`
+SELECT key, data FROM %s_status_data WHERE unit_uuid = ?
+	`, statusType)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, queryInfo, unitUUID).
+			Scan(&gotStatusID, &gotMessage, &gotSince); err != nil {
+			return err
+		}
+		rows, err := tx.QueryContext(context.Background(), queryData, unitUUID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var key, value string
+			if err := rows.Scan(&key, &value); err != nil {
+				return err
+			}
+			gotData[key] = value
+		}
+		return rows.Err()
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotStatusID, gc.Equals, statusID)
+	c.Assert(gotMessage, gc.Equals, message)
+	c.Assert(gotSince, jc.DeepEquals, since)
+	c.Assert(gotData, jc.DeepEquals, data)
+}
+
+func (s *applicationStateSuite) TestSaveCloudContainerStatus(c *gc.C) {
+	u1 := application.UpsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u1)
+
+	now := time.Now()
+	status := application.CloudContainerStatusStatusInfo{
+		StatusID: application.CloudContainerStatusRunning,
+		Message:  "it's running",
+		Data:     map[string]string{"foo": "bar"},
+		Since:    now,
+	}
+
+	var unitUUID string
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		unitUUID, err = s.state.GetUnitUUID(ctx, u1.UnitName)
+		if err != nil {
+			return err
+		}
+		return s.state.SaveCloudContainerStatus(ctx, unitUUID, status)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUnitStatus(
+		c, "cloud_container", unitUUID, int(status.StatusID), status.Message, status.Since, status.Data)
+}
+
+func (s *applicationStateSuite) TestSaveUnitAgentStatus(c *gc.C) {
+	u1 := application.UpsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u1)
+
+	now := time.Now()
+	status := application.UnitAgentStatusInfo{
+		StatusID: application.UnitAgentStatusExecuting,
+		Message:  "it's executing",
+		Data:     map[string]string{"foo": "bar"},
+		Since:    now,
+	}
+
+	var unitUUID string
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		unitUUID, err = s.state.GetUnitUUID(ctx, u1.UnitName)
+		if err != nil {
+			return err
+		}
+		return s.state.SaveUnitAgentStatus(ctx, unitUUID, status)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUnitStatus(
+		c, "unit_agent", unitUUID, int(status.StatusID), status.Message, status.Since, status.Data)
+}
+
+func (s *applicationStateSuite) TestSaveUnitWorkloadStatus(c *gc.C) {
+	u1 := application.UpsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u1)
+
+	now := time.Now()
+	status := application.UnitWorkloadStatusInfo{
+		StatusID: application.UnitWorkloadStatusTerminated,
+		Message:  "it's terminated",
+		Data:     map[string]string{"foo": "bar"},
+		Since:    now,
+	}
+
+	var unitUUID string
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		unitUUID, err = s.state.GetUnitUUID(ctx, u1.UnitName)
+		if err != nil {
+			return err
+		}
+		return s.state.SaveUnitWorkloadStatus(ctx, unitUUID, status)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUnitStatus(
+		c, "unit_workload", unitUUID, int(status.StatusID), status.Message, status.Since, status.Data)
 }
 
 func (s *applicationStateSuite) TestGetApplicationScaleState(c *gc.C) {

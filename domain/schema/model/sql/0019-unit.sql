@@ -152,9 +152,10 @@ INSERT INTO unit_agent_status_value VALUES
 (0, 'allocating'),
 (1, 'executing'),
 (2, 'idle'),
-(3, 'failed'),
-(4, 'lost'),
-(5, 'rebooting');
+(3, 'error'),
+(4, 'failed'),
+(5, 'lost'),
+(6, 'rebooting');
 
 -- Status values for unit workloads.
 CREATE TABLE unit_workload_status_value (

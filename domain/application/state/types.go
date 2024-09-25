@@ -4,6 +4,8 @@
 package state
 
 import (
+	"time"
+
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/life"
 )
@@ -83,6 +85,19 @@ type unitCount struct {
 	UnitLifeID        life.Life `db:"unit_life_id"`
 	ApplicationLifeID life.Life `db:"app_life_id"`
 	Count             int       `db:"count"`
+}
+
+type unitStatusInfo struct {
+	UnitUUID  string    `db:"unit_uuid"`
+	StatusID  int       `db:"status_id"`
+	Message   string    `db:"message"`
+	UpdatedAt time.Time `db:"updated_at"`
+}
+
+type unitStatusData struct {
+	UnitUUID string `db:"unit_uuid"`
+	Key      string `db:"key"`
+	Data     string `db:"data"`
 }
 
 type cloudContainer struct {

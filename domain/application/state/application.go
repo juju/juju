@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagestate "github.com/juju/juju/domain/storage/state"
+	jujudb "github.com/juju/juju/internal/database"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -373,6 +374,27 @@ func (st *ApplicationState) AddUnits(ctx context.Context, applicationName string
 		return nil
 	})
 	return errors.Annotatef(err, "adding units for application %q", applicationName)
+}
+
+// GetUnitUUID returns the UUID for the named unit, returning an error
+// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+func (st *ApplicationState) GetUnitUUID(ctx domain.AtomicContext, unitName string) (string, error) {
+	unit := unitDetails{Name: unitName}
+	getUnitStmt, err := st.Prepare(`SELECT &unitDetails.uuid FROM unit WHERE name = $unitDetails.name`, unit)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, getUnitStmt, unit).Get(&unit)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
+		}
+		if err != nil {
+			return fmt.Errorf("querying unit %q: %w", unitName, err)
+		}
+		return nil
+	})
+	return unit.UnitID, errors.Trace(err)
 }
 
 func (st *ApplicationState) getUnit(ctx context.Context, tx *sqlair.TX, unitName string) (*unitDetails, error) {
@@ -927,6 +949,12 @@ func (st *ApplicationState) deleteSimpleUnitReferences(ctx context.Context, tx *
 		"unit_state",
 		"unit_state_charm",
 		"unit_state_relation",
+		"unit_agent_status_data",
+		"unit_agent_status",
+		"unit_workload_status_data",
+		"unit_workload_status",
+		"cloud_container_status_data",
+		"cloud_container_status",
 	} {
 		deleteUnitReference := fmt.Sprintf(`DELETE FROM %s WHERE unit_uuid = $coreUnit.uuid`, table)
 		deleteUnitReferenceStmt, err := st.Prepare(deleteUnitReference, unit)
@@ -1240,6 +1268,147 @@ ON CONFLICT(application_uuid) DO UPDATE
 	return errors.Annotatef(err, "updating cloud service for application %q", name)
 }
 
+type statusKeys []string
+
+// saveStatusData saves the status key value data for the specified unit in the specified table.
+// It's called from each different SaveStatus method which previously has confirmed the unit UUID exists.
+func (st *ApplicationState) saveStatusData(ctx context.Context, tx *sqlair.TX, table, unitUUID string, data map[string]string) error {
+	unit := coreUnit{ID: unitUUID}
+	var keys statusKeys
+	for k := range data {
+		keys = append(keys, k)
+	}
+
+	deleteStmt, err := st.Prepare(fmt.Sprintf(`
+DELETE FROM %s
+WHERE key NOT IN ($statusKeys[:])
+AND unit_uuid = $coreUnit.uuid;
+`, table), keys, unit)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	statusData := unitStatusData{UnitUUID: unitUUID}
+	upsertStmt, err := sqlair.Prepare(fmt.Sprintf(`
+INSERT INTO %s (*)
+VALUES ($unitStatusData.*)
+ON CONFLICT(unit_uuid, key) DO UPDATE SET
+    data = excluded.data;
+`, table), statusData)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := tx.Query(ctx, deleteStmt, keys, coreUnit{}).Run(); err != nil {
+		return fmt.Errorf("removing %q status data for %q: %w", table, unitUUID, err)
+	}
+
+	for k, v := range data {
+		statusData.Key = k
+		statusData.Data = v
+		if err := tx.Query(ctx, upsertStmt, statusData).Run(); err != nil {
+			return fmt.Errorf("updating %q status data for %q: %w", table, unitUUID, err)
+		}
+	}
+	return nil
+}
+
+// SaveCloudContainerStatus saves the given cloud container status, overwriting any current status data.
+// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+func (st *ApplicationState) SaveCloudContainerStatus(ctx domain.AtomicContext, unitUUID string, status application.CloudContainerStatusStatusInfo) error {
+	statusInfo := unitStatusInfo{
+		UnitUUID:  unitUUID,
+		StatusID:  int(status.StatusID),
+		Message:   status.Message,
+		UpdatedAt: status.Since,
+	}
+	stmt, err := st.Prepare(`
+INSERT INTO cloud_container_status (*) VALUES ($unitStatusInfo.*)
+ON CONFLICT(unit_uuid) DO UPDATE SET
+    status_id = excluded.status_id,
+    message = excluded.message,
+    updated_at = excluded.updated_at;
+`, statusInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, statusInfo).Run()
+		// This is purely defensive and is not expected in practice - the unitUUID
+		// is expected to be validated earlier in the atomic txn workflow.
+		if jujudb.IsErrConstraintForeignKey(err) {
+			return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
+		}
+		err = st.saveStatusData(ctx, tx, "cloud_container_status_data", unitUUID, status.Data)
+		return errors.Trace(err)
+	})
+	return errors.Annotatef(err, "saving cloud container status for unit %q", unitUUID)
+}
+
+// SaveUnitAgentStatus saves the given unit agent status, overwriting any current status data.
+// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+func (st *ApplicationState) SaveUnitAgentStatus(ctx domain.AtomicContext, unitUUID string, status application.UnitAgentStatusInfo) error {
+	statusInfo := unitStatusInfo{
+		UnitUUID:  unitUUID,
+		StatusID:  int(status.StatusID),
+		Message:   status.Message,
+		UpdatedAt: status.Since,
+	}
+	stmt, err := st.Prepare(`
+INSERT INTO unit_agent_status (*) VALUES ($unitStatusInfo.*)
+ON CONFLICT(unit_uuid) DO UPDATE SET
+    status_id = excluded.status_id,
+    message = excluded.message,
+    updated_at = excluded.updated_at;
+`, statusInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, statusInfo).Run()
+		// This is purely defensive and is not expected in practice - the unitUUID
+		// is expected to be validated earlier in the atomic txn workflow.
+		if jujudb.IsErrConstraintForeignKey(err) {
+			return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
+		}
+		err = st.saveStatusData(ctx, tx, "unit_agent_status_data", unitUUID, status.Data)
+		return errors.Trace(err)
+	})
+	return errors.Annotatef(err, "saving unit agent status for unit %q", unitUUID)
+}
+
+// SaveUnitWorkloadStatus saves the given unit workload status, overwriting any current status data.
+// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+func (st *ApplicationState) SaveUnitWorkloadStatus(ctx domain.AtomicContext, unitUUID string, status application.UnitWorkloadStatusInfo) error {
+	statusInfo := unitStatusInfo{
+		UnitUUID:  unitUUID,
+		StatusID:  int(status.StatusID),
+		Message:   status.Message,
+		UpdatedAt: status.Since,
+	}
+	stmt, err := st.Prepare(`
+INSERT INTO unit_workload_status (*) VALUES ($unitStatusInfo.*)
+ON CONFLICT(unit_uuid) DO UPDATE SET
+    status_id = excluded.status_id,
+    message = excluded.message,
+    updated_at = excluded.updated_at;
+`, statusInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, statusInfo).Run()
+		// This is purely defensive and is not expected in practice - the unitUUID
+		// is expected to be validated earlier in the atomic txn workflow.
+		if jujudb.IsErrConstraintForeignKey(err) {
+			return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
+		}
+		err = st.saveStatusData(ctx, tx, "unit_workload_status_data", unitUUID, status.Data)
+		return errors.Trace(err)
+	})
+	return errors.Annotatef(err, "saving unit workload status for unit %q", unitUUID)
+}
+
 // InitialWatchStatementUnitLife returns the initial namespace query for the application unit life watcher.
 func (st *ApplicationState) InitialWatchStatementUnitLife(appName string) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
@@ -1471,14 +1640,14 @@ WHERE uuid = $applicationID.uuid
 }
 
 // getPlatform returns the application platform for the given charm ID.
-func (s *ApplicationState) getPlatform(ctx context.Context, tx *sqlair.TX, ident applicationID) (application.Platform, error) {
+func (st *ApplicationState) getPlatform(ctx context.Context, tx *sqlair.TX, ident applicationID) (application.Platform, error) {
 	query := `
 SELECT &applicationPlatform.*
 FROM application_platform
 WHERE application_uuid = $applicationID.uuid;
 `
 
-	stmt, err := s.Prepare(query, applicationPlatform{}, ident)
+	stmt, err := st.Prepare(query, applicationPlatform{}, ident)
 	if err != nil {
 		return application.Platform{}, fmt.Errorf("failed to prepare query: %w", err)
 	}
