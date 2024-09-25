@@ -11,3 +11,5 @@ out to the project lead.
 ## Index
 
  - [context.Context parameter in functions](./context-parameter-in-functions.md)
+ - [catacomb.Catacomb vs tomb.Tomb](./catacomb-vs-tomb.md)
+ - [catacomb.Catacomb vs worker.Runner](./catacomb-vs-runner.md)
