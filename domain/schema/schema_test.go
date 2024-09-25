@@ -701,7 +701,7 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 func (s *schemaSuite) assertChangeLogCount(c *gc.C, editType int, namespaceID tableNamespaceID, expectedCount int) {
 	_ = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
-SELECT COUNT(*) FROM change_log 
+SELECT COUNT(*) FROM change_log
 WHERE edit_type_id = ? AND namespace_id = ?;`[1:], editType, namespaceID)
 
 		c.Assert(err, jc.ErrorIsNil)
@@ -846,14 +846,14 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 
 	appUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
-INSERT INTO application (uuid, charm_uuid, name, life_id, password_hash_algorithm_id, password_hash) 
+INSERT INTO application (uuid, charm_uuid, name, life_id, password_hash_algorithm_id, password_hash)
 VALUES (?, ?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');`, appUUID, charmUUID)
 
 	netNodeUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, netNodeUUID)
 	unitUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
-INSERT INTO unit (uuid, life_id, name, application_uuid, net_node_uuid, charm_uuid, resolve_kind_id) 
+INSERT INTO unit (uuid, life_id, name, application_uuid, net_node_uuid, charm_uuid, resolve_kind_id)
 VALUES (?, 0, 0, ?, ?, ?, 0);`,
 		unitUUID, appUUID, netNodeUUID, charmUUID)
 }

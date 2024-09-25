@@ -869,7 +869,7 @@ func (st *State) LXDProfiles(ctx context.Context, mUUID string) ([]string, error
 	machineUUIDQuery := machineUUID{UUID: mUUID}
 	query := `
 SELECT &lxdProfile.name
-FROM   lxd_profile
+FROM   machine_lxd_profile
 WHERE  machine_uuid = $machineUUID.uuid`
 	queryStmt, err := st.Prepare(query, lxdProfile{}, machineUUIDQuery)
 	if err != nil {
@@ -909,33 +909,48 @@ func (st *State) SetLXDProfiles(ctx context.Context, mUUID string, profileNames 
 	}
 
 	checkMachineExistsStmt, err := st.Prepare(`
-SELECT true AS &machineExists.exists
+SELECT uuid AS &machineUUID.uuid
 FROM   machine
-WHERE  machine.uuid = $machineUUID.uuid`, machineUUID{}, machineExists{})
+WHERE  machine.uuid = $machineUUID.uuid`, machineUUID{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	checkProfileExistsStmt, err := st.Prepare(`
+SELECT machine_uuid AS &lxdProfile.machine_uuid
+FROM   machine_lxd_profile
+WHERE  machine_uuid = $lxdProfile.machine_uuid
+AND    name = $lxdProfile.name`, lxdProfile{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	setLXDProfileStmt, err := st.Prepare(`
-INSERT INTO lxd_profile (*)
-VALUES      ($lxdProfile.*)
-ON CONFLICT DO NOTHING`, lxdProfile{})
+INSERT INTO machine_lxd_profile (*)
+VALUES      ($lxdProfile.*)`, lxdProfile{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var exists machineExists
-		err = tx.Query(ctx, checkMachineExistsStmt, machineUUID{UUID: mUUID}).Get(&exists)
+		var machineExists machineUUID
+		err = tx.Query(ctx, checkMachineExistsStmt, machineUUID{UUID: mUUID}).Get(&machineExists)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return machineerrors.MachineNotFound
 		} else if err != nil {
 			return internalerrors.Errorf("checking if machine %q exists: %w", mUUID, err)
 		}
 
-		profilesToInsert := make([]lxdProfile, len(profileNames))
-		for i, profileName := range profileNames {
-			profilesToInsert[i] = lxdProfile{Name: profileName, MachineUUID: mUUID}
+		profilesToInsert := make([]lxdProfile, 0, len(profileNames))
+		for _, profileName := range profileNames {
+			// Check if the profile already exists.
+			var profileExists lxdProfile
+			err = tx.Query(ctx, checkProfileExistsStmt, lxdProfile{Name: profileName, MachineUUID: mUUID}).Get(&profileExists)
+			if errors.Is(err, sqlair.ErrNoRows) {
+				profilesToInsert = append(profilesToInsert, lxdProfile{Name: profileName, MachineUUID: mUUID})
+			} else if err != nil {
+				return internalerrors.Errorf("checking if profile %q exists for machine %q: %w", profileName, mUUID, err)
+			}
 		}
 
 		if err := tx.Query(ctx, setLXDProfileStmt, profilesToInsert).Run(); err != nil {

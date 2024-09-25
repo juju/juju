@@ -26,18 +26,6 @@ CREATE TABLE instance_tag (
     REFERENCES machine (uuid)
 );
 
-CREATE TABLE machine_lxd_profile (
-    machine_uuid TEXT NOT NULL,
-    lxd_profile_uuid TEXT NOT NULL,
-    -- TODO(nvinuesa): lxd_profile_uuid should be a foreign key to the 
-    -- charm_lxd_profile uuid and therefore the CONSTRAINT should be added when 
-    -- that table is implemented.
-    PRIMARY KEY (machine_uuid, lxd_profile_uuid),
-    CONSTRAINT fk_machine_machine_uuid
-    FOREIGN KEY (machine_uuid)
-    REFERENCES machine (uuid)
-);
-
 CREATE TABLE machine_cloud_instance_status_value (
     id INT PRIMARY KEY,
     status TEXT NOT NULL

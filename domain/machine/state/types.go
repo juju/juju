@@ -242,9 +242,3 @@ type lxdProfile struct {
 	MachineUUID string `db:"machine_uuid"`
 	Name        string `db:"name"`
 }
-
-// machineExists is used to record if a row in the machine table exists by
-// selecting true into it.
-type machineExists struct {
-	Exists bool `db:"exists"`
-}

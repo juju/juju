@@ -155,9 +155,9 @@ CREATE TABLE machine_removals (
     REFERENCES machine (uuid)
 );
 
--- lxd_profile table keeps track of the lxd profiles (previously charm-profiles)
+-- machine_lxd_profile table keeps track of the lxd profiles (previously charm-profiles)
 -- for a machine.
-CREATE TABLE lxd_profile (
+CREATE TABLE machine_lxd_profile (
     machine_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
     PRIMARY KEY (machine_uuid, name),
