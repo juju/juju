@@ -77,13 +77,6 @@ func (s *SecretService) SaveSecretConsumer(ctx context.Context, uri *secrets.URI
 	})
 }
 
-// GetURIByConsumerLabel looks up the secret URI using the label previously registered by the specified unit,
-// returning an error satisfying [secreterrors.SecretNotFound] if there's no corresponding URI.
-// If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound] is returned.
-func (s *SecretService) GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*secrets.URI, error) {
-	return s.secretState.GetURIByConsumerLabel(ctx, label, unitName)
-}
-
 // GetConsumedRevision returns the secret revision number for the specified consumer, possibly updating
 // the label associated with the secret for the consumer.
 func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.URI, unitName string, refresh, peek bool, labelToUpdate *string) (int, error) {

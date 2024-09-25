@@ -1084,23 +1084,18 @@ func (st State) ListSecrets(ctx context.Context,
 }
 
 // ListAllSecrets returns all secrets in the database.
-func (st State) ListAllSecrets(ctx context.Context) ([]*coresecrets.SecretMetadata, [][]*domainsecret.SecretRevisionMetadata, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
+func (st State) ListAllSecrets(ctx domain.AtomicContext) ([]*coresecrets.SecretMetadata, [][]*domainsecret.SecretRevision, error) {
 	var (
 		secrets        []*coresecrets.SecretMetadata
-		revisionResult [][]*domainsecret.SecretRevisionMetadata
+		revisionResult [][]*domainsecret.SecretRevision
 	)
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		secrets, err = st.listSecretsAnyOwner(ctx, tx, nil)
 		if err != nil {
 			return errors.Annotate(err, "querying secrets")
 		}
-		revisionResult = make([][]*domainsecret.SecretRevisionMetadata, len(secrets))
+		revisionResult = make([][]*domainsecret.SecretRevision, len(secrets))
 		for i, secret := range secrets {
 			revisionResult[i], err = st.listSecretRevisionsWithData(ctx, tx, secret.URI)
 			if err != nil {
@@ -1727,14 +1722,9 @@ WHERE  mso.label = $M.label
 // [secreterrors.SecretNotFound] if there's no corresponding URI.
 // If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound]
 // is returned.
-func (st State) GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*coresecrets.URI, error) {
+func (st State) GetURIByConsumerLabel(ctx domain.AtomicContext, label string, unitName string) (*coresecrets.URI, error) {
 	if label == "" {
 		return nil, errors.NotValidf("empty secret label")
-	}
-
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	query := `
@@ -1757,7 +1747,7 @@ AND    suc.unit_uuid = $secretUnitConsumer.unit_uuid
 	}
 
 	var dbConsumers []secretUnitConsumer
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		result := unit{}
 		err = tx.Query(ctx, selectUnitUUIDStmt, unit{Name: unitName}).Get(&result)
 		if err != nil {
@@ -1874,7 +1864,7 @@ WHERE  secret_id = $secretRevision.secret_id
 
 func (st State) listSecretRevisionsWithData(
 	ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI,
-) ([]*domainsecret.SecretRevisionMetadata, error) {
+) ([]*domainsecret.SecretRevision, error) {
 	query := `
 SELECT (sr.*) AS (&secretRevision.*),
        (svr.*) AS (&secretValueRef.*),
@@ -1904,7 +1894,6 @@ GROUP BY sr.secret_id, sr.revision, sc.name
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Annotatef(err, "retrieving secret revisions for %q", uri)
 	}
-	st.logger.Criticalf("dbSecretRevisions %#v, dbSecretData: %#v", dbSecretRevisions, dbSecretData)
 
 	return dbSecretRevisions.toSecretRevisions(dbSecretValueRefs, dbSecretData, dbSecretRevisionsExpire)
 }
@@ -2227,13 +2216,8 @@ ON CONFLICT DO NOTHING`
 	return errors.Trace(err)
 }
 
-// AllSecretConsumers loads all local secret consumers keyed by secret id.
-func (st State) AllSecretConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+// ListAllSecretConsumers loads all local secret consumers keyed by secret id.
+func (st State) ListAllSecretConsumers(ctx domain.AtomicContext) (map[string][]domainsecret.ConsumerInfo, error) {
 	query := `
 SELECT suc.secret_id AS &secretUnitConsumerInfo.secret_id,
        suc.label AS &secretUnitConsumerInfo.label,
@@ -2250,7 +2234,7 @@ FROM   secret_unit_consumer suc
 	}
 
 	var dbSecretConsumers secretUnitConsumerInfos
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, queryStmt).GetAll(&dbSecretConsumers)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotate(err, "querying secret consumers")
@@ -2379,13 +2363,8 @@ ON CONFLICT(secret_id, unit_name) DO UPDATE SET
 	return errors.Trace(err)
 }
 
-// AllSecretRemoteConsumers loads all secret remote consumers keyed by secret id.
-func (st State) AllSecretRemoteConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+// ListAllSecretRemoteConsumers loads all secret remote consumers keyed by secret id.
+func (st State) ListAllSecretRemoteConsumers(ctx domain.AtomicContext) (map[string][]domainsecret.ConsumerInfo, error) {
 	query := `
 SELECT suc.secret_id AS &secretUnitConsumerInfo.secret_id,
        suc.current_revision AS &secretUnitConsumerInfo.current_revision,
@@ -2399,7 +2378,7 @@ FROM   secret_remote_unit_consumer suc
 	}
 
 	var dbSecretConsumers secretUnitConsumerInfos
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, queryStmt).GetAll(&dbSecretConsumers)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotate(err, "querying secret remote consumers")
@@ -2462,14 +2441,9 @@ ON CONFLICT(secret_id) DO UPDATE SET
 	return errors.Trace(err)
 }
 
-// AllRemoteSecrets returns consumer info for secrets stored in
+// ListAllRemoteSecrets returns consumer info for secrets stored in
 // an external model.
-func (st State) AllRemoteSecrets(ctx context.Context) ([]domainsecret.RemoteSecretInfo, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+func (st State) ListAllRemoteSecrets(ctx domain.AtomicContext) ([]domainsecret.RemoteSecretInfo, error) {
 	q := `
 SELECT suc.secret_id AS &secretUnitConsumerInfo.secret_id,
        suc.source_model_uuid AS &secretUnitConsumerInfo.source_model_uuid,
@@ -2487,7 +2461,7 @@ FROM   secret_unit_consumer suc
 		return nil, errors.Trace(err)
 	}
 	var dbSecretConsumers secretUnitConsumerInfos
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).GetAll(&dbSecretConsumers)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// No secrets found.
@@ -2872,13 +2846,8 @@ AND    subject_type_id != $M.remote_application_type`
 	return accessors.toSecretGrants(accessScopes)
 }
 
-// AllSecretGrants returns access details for all local secrets, keyed on secret id.
-func (st State) AllSecretGrants(ctx context.Context) (map[string][]domainsecret.GrantParams, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+// ListAllSecretGrants returns access details for all local secrets, keyed on secret id.
+func (st State) ListAllSecretGrants(ctx domain.AtomicContext) (map[string][]domainsecret.GrantParams, error) {
 	query := `
 SELECT (sp.*) AS (&secretAccessor.*),
        (sp.*) AS (&secretAccessScope.*)
@@ -2894,7 +2863,7 @@ FROM   v_secret_permission sp
 		accessors    secretAccessors
 		accessScopes secretAccessScopes
 	)
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, selectStmt).GetAll(&accessors, &accessScopes)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil

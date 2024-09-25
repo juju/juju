@@ -133,14 +133,14 @@ type SecretMetadata struct {
 	Owner secrets.Owner
 }
 
-// SecretRevisionMetadata holds metadata about a secret revision.
-type SecretRevisionMetadata struct {
+// SecretRevision holds metadata and data about a secret revision.
+type SecretRevision struct {
 	secrets.SecretRevisionMetadata
 	Data secrets.SecretData
 }
 
 // Validate checks that the metadata is valid.
-func (md SecretRevisionMetadata) Validate() error {
+func (md SecretRevision) Validate() error {
 	if md.Data == nil && md.ValueRef == nil {
 		return errors.New("data or value reference must be set")
 	}

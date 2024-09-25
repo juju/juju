@@ -501,6 +501,23 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 	return err
 }
 
+// updateCharmSecretOwnerLabel updates the owner label for the specified secret.
+func (s *SecretService) updateCharmSecretOwnerLabel(ctx domain.AtomicContext, uri *secrets.URI, label string, isLeader bool, accessor SecretAccessor) error {
+	if err := s.canManage(ctx, isLeader, uri, accessor); err != nil {
+		return errors.Trace(err)
+	}
+	err := s.secretState.UpdateSecret(ctx, uri, domainsecret.UpsertSecretParams{
+		Label: &label,
+	})
+	if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
+		return errors.Errorf("secret with label %q is already being used", label)
+	}
+	if err != nil {
+		return errors.Annotatef(err, "cannot update charm secret label for %q", uri.ID)
+	}
+	return nil
+}
+
 // GetSecretsForOwners returns the secrets owned by the specified apps and/or units.
 func (s *SecretService) GetSecretsForOwners(ctx domain.AtomicContext, owners ...CharmSecretOwner) ([]*secrets.URI, error) {
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
@@ -674,69 +691,64 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 	if label != "" && uri != nil {
 		labelToUpdate = &label
 	}
+	err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		// For local secrets, check those which may be owned by the caller.
+		if uri == nil || uri.IsLocal(modelUUID) {
+			var md *domainsecret.SecretMetadata
 
-	// For local secrets, check those which may be owned by the caller.
-	if uri == nil || uri.IsLocal(modelUUID) {
-		var md *domainsecret.SecretMetadata
-		err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 			md, err = s.getAppOwnedOrUnitOwnedSecretMetadata(ctx, uri, unitName, label)
 			if err != nil && !errors.Is(err, secreterrors.SecretNotFound) {
 				return errors.Trace(err)
 			}
-			return nil
-		})
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
 
-		if md != nil {
-			// If the label has is to be changed by the secret owner, update the secret metadata.
-			// TODO(wallyworld) - the label staying the same should be asserted in a txn.
-			if labelToUpdate != nil && *labelToUpdate != md.Label {
-				isOwner, err := checkUnitOwner(unitName, md.Owner, isLeader)
-				if err != nil {
-					return nil, nil, errors.Trace(err)
-				}
-				if isOwner {
-					// TODO(secrets) - this should be updated when the consumed revision is looked up
-					// but if the secret is a cross model secret, we get the content from the other
-					// model and don't do the update. The logic should be reworked so local lookups
-					// can ge done in a single txn.
-					// Update the label.
-					err := s.UpdateCharmSecret(ctx, uri, UpdateCharmSecretParams{
-						LeaderToken: token,
-						Label:       &label,
-						Accessor: SecretAccessor{
-							Kind: UnitAccessor,
-							ID:   unitName,
-						},
-					})
+			if md != nil {
+				// If the label has is to be changed by the secret owner, update the secret metadata.
+				// TODO(wallyworld) - the label staying the same should be asserted in a txn.
+				if labelToUpdate != nil && *labelToUpdate != md.Label {
+					isOwner, err := checkUnitOwner(unitName, md.Owner, isLeader)
 					if err != nil {
-						return nil, nil, errors.Trace(err)
+						return errors.Trace(err)
+					}
+					if isOwner {
+						// TODO(secrets) - this should be updated when the consumed revision is looked up
+						// but if the secret is a cross model secret, we get the content from the other
+						// model and don't do the update. The logic should be reworked so local lookups
+						// can ge done in a single txn.
+						// Update the label.
+						err := s.updateCharmSecretOwnerLabel(
+							ctx, uri, *labelToUpdate, isLeader,
+							SecretAccessor{Kind: UnitAccessor, ID: unitName},
+						)
+						if err != nil {
+							return errors.Trace(err)
+						}
 					}
 				}
+				// 1. secrets can be accessed by the owner;
+				// 2. application owned secrets can be accessed by all the units of the application using owner label or URI.
+				uri = md.URI
+				// We don't update the consumer label in this case since the label comes
+				// from the owner metadata and we don't want to violate uniqueness checks.
+				// 1. owners use owner label;
+				// 2. the leader and peer units use the owner label for application-owned secrets.
+				// So, no need to update the consumer label.
+				labelToUpdate = nil
 			}
-			// 1. secrets can be accessed by the owner;
-			// 2. application owned secrets can be accessed by all the units of the application using owner label or URI.
-			uri = md.URI
-			// We don't update the consumer label in this case since the label comes
-			// from the owner metadata and we don't want to violate uniqueness checks.
-			// 1. owners use owner label;
-			// 2. the leader and peer units use the owner label for application-owned secrets.
-			// So, no need to update the consumer label.
-			labelToUpdate = nil
 		}
-	}
-
-	if uri == nil {
-		var err error
-		uri, err = s.secretState.GetURIByConsumerLabel(ctx, label, unitName)
-		if errors.Is(err, secreterrors.SecretNotFound) {
-			return nil, nil, errors.NotFoundf("secret URI for consumer label %q", label)
+		if uri == nil {
+			var err error
+			uri, err = s.secretState.GetURIByConsumerLabel(ctx, label, unitName)
+			if errors.Is(err, secreterrors.SecretNotFound) {
+				return errors.NotFoundf("secret URI for consumer label %q", label)
+			}
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
+		return nil
+	})
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 	return uri, labelToUpdate, nil
 }

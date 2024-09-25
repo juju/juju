@@ -148,3 +148,66 @@ func changeSecretBackend(
 		return st.ChangeSecretBackend(ctx, revisionID, valueRef, data)
 	})
 }
+
+func listAllSecrets(ctx context.Context, st *State) ([]*coresecrets.SecretMetadata, [][]*domainsecret.SecretRevision, error) {
+	var (
+		mds  []*coresecrets.SecretMetadata
+		revs [][]*domainsecret.SecretRevision
+	)
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		mds, revs, err = st.ListAllSecrets(ctx)
+		return err
+	})
+	return mds, revs, err
+}
+
+func listAllRemoteSecrets(ctx context.Context, st *State) ([]domainsecret.RemoteSecretInfo, error) {
+	var infos []domainsecret.RemoteSecretInfo
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		infos, err = st.ListAllRemoteSecrets(ctx)
+		return err
+	})
+	return infos, err
+}
+
+func listAllSecretGrants(ctx context.Context, st *State) (map[string][]domainsecret.GrantParams, error) {
+	var grants map[string][]domainsecret.GrantParams
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		grants, err = st.ListAllSecretGrants(ctx)
+		return err
+	})
+	return grants, err
+}
+
+func listAllSecretConsumers(ctx context.Context, st *State) (map[string][]domainsecret.ConsumerInfo, error) {
+	var consumers map[string][]domainsecret.ConsumerInfo
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		consumers, err = st.ListAllSecretConsumers(ctx)
+		return err
+	})
+	return consumers, err
+}
+
+func listAllSecretRemoteConsumers(ctx context.Context, st *State) (map[string][]domainsecret.ConsumerInfo, error) {
+	var consumers map[string][]domainsecret.ConsumerInfo
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		consumers, err = st.ListAllSecretRemoteConsumers(ctx)
+		return err
+	})
+	return consumers, err
+}
+
+func getURIByConsumerLabel(ctx context.Context, st *State, label string, unitName string) (*coresecrets.URI, error) {
+	var uri *coresecrets.URI
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		uri, err = st.GetURIByConsumerLabel(ctx, label, unitName)
+		return err
+	})
+	return uri, err
+}

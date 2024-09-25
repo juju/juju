@@ -33,6 +33,7 @@ type AtomicState interface {
 	SaveSecretConsumer(ctx domain.AtomicContext, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
 	GetSecretRemoteConsumer(ctx domain.AtomicContext, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
 	SaveSecretRemoteConsumer(ctx domain.AtomicContext, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
+	GetURIByConsumerLabel(ctx domain.AtomicContext, label string, unitName string) (*secrets.URI, error)
 
 	GetSecretAccess(ctx domain.AtomicContext, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
 	GrantAccess(ctx domain.AtomicContext, uri *secrets.URI, params domainsecret.GrantParams) error
@@ -49,6 +50,13 @@ type AtomicState interface {
 	ChangeSecretBackend(
 		ctx domain.AtomicContext, revisionID uuid.UUID, valueRef *secrets.ValueRef, data secrets.SecretData,
 	) error
+
+	// Methods for loading secrets to be exported.
+	ListAllSecrets(ctx domain.AtomicContext) ([]*secrets.SecretMetadata, [][]*domainsecret.SecretRevision, error)
+	ListAllRemoteSecrets(ctx domain.AtomicContext) ([]domainsecret.RemoteSecretInfo, error)
+	ListAllSecretGrants(ctx domain.AtomicContext) (map[string][]domainsecret.GrantParams, error)
+	ListAllSecretConsumers(ctx domain.AtomicContext) (map[string][]domainsecret.ConsumerInfo, error)
+	ListAllSecretRemoteConsumers(ctx domain.AtomicContext) (map[string][]domainsecret.ConsumerInfo, error)
 }
 
 // State describes retrieval and persistence methods needed for
@@ -72,9 +80,7 @@ type State interface {
 	ListSecrets(ctx context.Context, uri *secrets.URI,
 		revision *int, labels domainsecret.Labels,
 	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
-	ListAllSecrets(ctx context.Context) ([]*secrets.SecretMetadata, [][]*domainsecret.SecretRevisionMetadata, error)
 	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
-	GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*secrets.URI, error)
 	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error
 	GetSecretAccessScope(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (*domainsecret.AccessScope, error)
 	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]domainsecret.GrantParams, error)
@@ -129,12 +135,6 @@ type State interface {
 	GetSecretsRevisionExpiryChanges(
 		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
 	) ([]domainsecret.ExpiryInfo, error)
-
-	// Methods for loading secrets to be exported.
-	AllSecretGrants(ctx context.Context) (map[string][]domainsecret.GrantParams, error)
-	AllSecretConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error)
-	AllSecretRemoteConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error)
-	AllRemoteSecrets(ctx context.Context) ([]domainsecret.RemoteSecretInfo, error)
 }
 
 // SecretBackendReferenceMutator describes methods for interacting with the secret backend state.

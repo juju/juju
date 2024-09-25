@@ -38,7 +38,7 @@ func (s *ModelSecretBackendService) GetModelSecretBackend(ctx context.Context) (
 		return err
 	})
 	if err != nil {
-		return "", fmt.Errorf("cannot get model secret backend detail for %q: %w", s.modelID, err)
+		return "", fmt.Errorf("getting model secret backend detail for %q: %w", s.modelID, err)
 	}
 	backendName := modelSecretBackend.SecretBackendName
 	switch modelSecretBackend.ModelType {
@@ -68,7 +68,7 @@ func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, b
 	return s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		modelSecretBackend, err := s.st.GetModelSecretBackendDetails(ctx, s.modelID)
 		if err != nil {
-			return fmt.Errorf("cannot get model secret backend detail for %q: %w", s.modelID, err)
+			return fmt.Errorf("getting model secret backend detail for %q: %w", s.modelID, err)
 		}
 		if backendName == provider.Auto {
 			switch modelSecretBackend.ModelType {
@@ -78,14 +78,14 @@ func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, b
 				backendName = kubernetes.BackendName
 			default:
 				// Should never happen.
-				return fmt.Errorf("cannot set model secret backend for unsupported model type %q for model %q",
+				return fmt.Errorf("setting model secret backend for unsupported model type %q for model %q",
 					modelSecretBackend.ModelType, s.modelID,
 				)
 			}
 		}
 		err = s.st.SetModelSecretBackend(ctx, s.modelID, backendName)
 		if err != nil {
-			return fmt.Errorf("cannot set model secret backend for %q: %w", s.modelID, err)
+			return fmt.Errorf("setting model secret backend for %q: %w", s.modelID, err)
 		}
 		return nil
 	})

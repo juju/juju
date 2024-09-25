@@ -395,13 +395,13 @@ func (rows secretRevisions) toCoreSecretRevisions(
 
 func (rows secretRevisions) toSecretRevisions(
 	valueRefs secretValueRefs, dataItems []secretContent, revExpire secretRevisionsExpire,
-) ([]*domainsecret.SecretRevisionMetadata, error) {
+) ([]*domainsecret.SecretRevision, error) {
 	if n := len(rows); n != len(valueRefs) || n != len(revExpire) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch composing secret revision results")
 	}
 
-	var result []*domainsecret.SecretRevisionMetadata
+	var result []*domainsecret.SecretRevision
 	revisionIDs := set.NewStrings()
 	for i, row := range rows {
 		if revisionIDs.Contains(row.ID) {
@@ -409,7 +409,7 @@ func (rows secretRevisions) toSecretRevisions(
 		}
 		revisionIDs.Add(row.ID)
 
-		md := &domainsecret.SecretRevisionMetadata{
+		md := &domainsecret.SecretRevision{
 			SecretRevisionMetadata: coresecrets.SecretRevisionMetadata{
 				Revision:    row.Revision,
 				ValueRef:    nil,
@@ -437,6 +437,9 @@ func (rows secretRevisions) toSecretRevisions(
 			return nil, errors.Errorf("missing data for secret revision %q", row.ID)
 		}
 		md.Data = data.toSecretData()
+		if err := md.Validate(); err != nil {
+			return nil, errors.Annotatef(err, "invalid secret revision %q", row.ID)
+		}
 		result = append(result, md)
 	}
 	return result, nil

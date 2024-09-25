@@ -509,7 +509,7 @@ func (s *stateSuite) TestListAllSecretsNone(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
 	ctx := context.Background()
-	secrets, revisions, err := st.ListAllSecrets(ctx)
+	secrets, revisions, err := listAllSecrets(ctx, st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(secrets), gc.Equals, 0)
 	c.Assert(len(revisions), gc.Equals, 0)
@@ -547,7 +547,7 @@ func (s *stateSuite) TestListAllSecrets(c *gc.C) {
 	err = st.CreateUserSecret(ctx, 1, uri[1], sp[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	secrets, revisions, err := st.ListAllSecrets(ctx)
+	secrets, revisions, err := listAllSecrets(ctx, st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(secrets), gc.Equals, 2)
 	c.Assert(len(revisions), gc.Equals, 2)
@@ -1594,7 +1594,7 @@ func (s *stateSuite) TestAllSecretConsumers(c *gc.C) {
 	err = saveSecretConsumer(ctx, st, uri, "mysql/1", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	got, err := st.AllSecretConsumers(ctx)
+	got, err := listAllSecretConsumers(ctx, st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, map[string][]domainsecret.ConsumerInfo{
 		uri.ID: {{
@@ -1852,7 +1852,7 @@ func (s *stateSuite) TestAllRemoteSecrets(c *gc.C) {
 	err = saveSecretConsumer(ctx, st, uri, "mysql/1", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	got, err := st.AllRemoteSecrets(ctx)
+	got, err := listAllRemoteSecrets(ctx, st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, []domainsecret.RemoteSecretInfo{{
 		URI:             uri,
@@ -1987,12 +1987,12 @@ func (s *stateSuite) TestGetURIByConsumerLabel(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	got, err := st.GetURIByConsumerLabel(ctx, "my label", "mysql/0")
+	got, err := getURIByConsumerLabel(ctx, st, "my label", "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got.ID, gc.Equals, uri.ID)
 	c.Assert(got.SourceUUID, gc.Equals, uri.SourceUUID)
 
-	_, err = st.GetURIByConsumerLabel(ctx, "another label", "mysql/0")
+	_, err = getURIByConsumerLabel(ctx, st, "another label", "mysql/0")
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
 
 }
@@ -2002,7 +2002,7 @@ func (s *stateSuite) TestGetURIByConsumerLabelUnitNotExists(c *gc.C) {
 
 	s.setupUnits(c, "mysql")
 
-	_, err := st.GetURIByConsumerLabel(context.Background(), "my label", "mysql/2")
+	_, err := getURIByConsumerLabel(context.Background(), st, "my label", "mysql/2")
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -2628,7 +2628,7 @@ func (s *stateSuite) TestAllSecretRemoteConsumers(c *gc.C) {
 	err = saveSecretRemoteConsumer(ctx, st, uri, "remote-app/1", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	got, err := st.AllSecretRemoteConsumers(ctx)
+	got, err := listAllSecretRemoteConsumers(ctx, st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, map[string][]domainsecret.ConsumerInfo{
 		uri.ID: {{
@@ -3324,7 +3324,7 @@ func (s *stateSuite) TestAllSecretGrants(c *gc.C) {
 	err = grantAccess(ctx, st, uri, p2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	g, err := st.AllSecretGrants(ctx)
+	g, err := listAllSecretGrants(ctx, st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(g, jc.DeepEquals, map[string][]domainsecret.GrantParams{
 		uri.ID: {{

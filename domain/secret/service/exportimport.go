@@ -12,17 +12,49 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/secret"
+	domainsecret "github.com/juju/juju/domain/secret"
 )
 
 // GetSecretsForExport returns a result containing all the information needed to
 // export secrets to a model description.
 func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport, error) {
-	secrets, secretRevisions, err := s.secretState.ListAllSecrets(ctx)
-	if err != nil {
-		return nil, errors.Annotate(err, "loading secrets for export")
-	}
+	var (
+		secrets            []*coresecrets.SecretMetadata
+		secretRevisions    [][]*domainsecret.SecretRevision
+		remoteSecrets      []domainsecret.RemoteSecretInfo
+		allGrants          map[string][]domainsecret.GrantParams
+		allConsumers       map[string][]domainsecret.ConsumerInfo
+		allRemoteConsumers map[string][]domainsecret.ConsumerInfo
+	)
 
-	remoteSecrets, err := s.secretState.AllRemoteSecrets(ctx)
+	err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		secrets, secretRevisions, err = s.secretState.ListAllSecrets(ctx)
+		if err != nil {
+			return errors.Annotate(err, "loading secret metadata and revisions for export")
+		}
+
+		remoteSecrets, err = s.secretState.ListAllRemoteSecrets(ctx)
+		if err != nil {
+			return errors.Annotate(err, "loading remote secrets for export")
+		}
+
+		allGrants, err = s.secretState.ListAllSecretGrants(ctx)
+		if err != nil {
+			return errors.Annotate(err, "loading secret grants for export")
+		}
+
+		allConsumers, err = s.secretState.ListAllSecretConsumers(ctx)
+		if err != nil {
+			return errors.Annotate(err, "loading secret consumers for export")
+		}
+
+		allRemoteConsumers, err = s.secretState.ListAllSecretRemoteConsumers(ctx)
+		if err != nil {
+			return errors.Annotate(err, "loading secret remote consumers for export")
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, errors.Annotate(err, "loading secrets for export")
 	}
@@ -67,10 +99,6 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport,
 		}
 	}
 
-	allGrants, err := s.secretState.AllSecretGrants(ctx)
-	if err != nil {
-		return nil, errors.Annotate(err, "loading secret grants for export")
-	}
 	for id, grants := range allGrants {
 		secretAccess := make([]SecretAccess, len(grants))
 		for i, grant := range grants {
@@ -90,10 +118,6 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport,
 		allSecrets.Access[id] = secretAccess
 	}
 
-	allConsumers, err := s.secretState.AllSecretConsumers(ctx)
-	if err != nil {
-		return nil, errors.Annotate(err, "loading secret consumers for export")
-	}
 	for id, consumers := range allConsumers {
 		secretConsumers := make([]ConsumerInfo, len(consumers))
 		for i, consumer := range consumers {
@@ -112,10 +136,6 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport,
 		allSecrets.Consumers[id] = secretConsumers
 	}
 
-	allRemoteConsumers, err := s.secretState.AllSecretRemoteConsumers(ctx)
-	if err != nil {
-		return nil, errors.Annotate(err, "loading secret remote consumers for export")
-	}
 	for id, consumers := range allRemoteConsumers {
 		secretConsumers := make([]ConsumerInfo, len(consumers))
 		for i, consumer := range consumers {
