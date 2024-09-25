@@ -302,6 +302,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		agentConfig.SetOpenTelemetryInsecure(args.ControllerConfig.OpenTelemetryInsecure())
 		agentConfig.SetOpenTelemetryStackTraces(args.ControllerConfig.OpenTelemetryStackTraces())
 		agentConfig.SetOpenTelemetrySampleRatio(args.ControllerConfig.OpenTelemetrySampleRatio())
+		agentConfig.SetOpenTelemetryTailSamplingThreshold(args.ControllerConfig.OpenTelemetryTailSamplingThreshold())
 		agentConfig.SetObjectStoreType(args.ControllerConfig.ObjectStoreType())
 
 		return nil

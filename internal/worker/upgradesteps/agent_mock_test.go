@@ -1102,6 +1102,44 @@ func (c *MockConfigOpenTelemetryStackTracesCall) DoAndReturn(f func() bool) *Moc
 	return c
 }
 
+// OpenTelemetryTailSamplingThreshold mocks base method.
+func (m *MockConfig) OpenTelemetryTailSamplingThreshold() time.Duration {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OpenTelemetryTailSamplingThreshold")
+	ret0, _ := ret[0].(time.Duration)
+	return ret0
+}
+
+// OpenTelemetryTailSamplingThreshold indicates an expected call of OpenTelemetryTailSamplingThreshold.
+func (mr *MockConfigMockRecorder) OpenTelemetryTailSamplingThreshold() *MockConfigOpenTelemetryTailSamplingThresholdCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenTelemetryTailSamplingThreshold", reflect.TypeOf((*MockConfig)(nil).OpenTelemetryTailSamplingThreshold))
+	return &MockConfigOpenTelemetryTailSamplingThresholdCall{Call: call}
+}
+
+// MockConfigOpenTelemetryTailSamplingThresholdCall wrap *gomock.Call
+type MockConfigOpenTelemetryTailSamplingThresholdCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockConfigOpenTelemetryTailSamplingThresholdCall) Return(arg0 time.Duration) *MockConfigOpenTelemetryTailSamplingThresholdCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockConfigOpenTelemetryTailSamplingThresholdCall) Do(f func() time.Duration) *MockConfigOpenTelemetryTailSamplingThresholdCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockConfigOpenTelemetryTailSamplingThresholdCall) DoAndReturn(f func() time.Duration) *MockConfigOpenTelemetryTailSamplingThresholdCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // QueryTracingEnabled mocks base method.
 func (m *MockConfig) QueryTracingEnabled() bool {
 	m.ctrl.T.Helper()
@@ -2461,6 +2499,44 @@ func (c *MockConfigSetterOpenTelemetryStackTracesCall) DoAndReturn(f func() bool
 	return c
 }
 
+// OpenTelemetryTailSamplingThreshold mocks base method.
+func (m *MockConfigSetter) OpenTelemetryTailSamplingThreshold() time.Duration {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OpenTelemetryTailSamplingThreshold")
+	ret0, _ := ret[0].(time.Duration)
+	return ret0
+}
+
+// OpenTelemetryTailSamplingThreshold indicates an expected call of OpenTelemetryTailSamplingThreshold.
+func (mr *MockConfigSetterMockRecorder) OpenTelemetryTailSamplingThreshold() *MockConfigSetterOpenTelemetryTailSamplingThresholdCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenTelemetryTailSamplingThreshold", reflect.TypeOf((*MockConfigSetter)(nil).OpenTelemetryTailSamplingThreshold))
+	return &MockConfigSetterOpenTelemetryTailSamplingThresholdCall{Call: call}
+}
+
+// MockConfigSetterOpenTelemetryTailSamplingThresholdCall wrap *gomock.Call
+type MockConfigSetterOpenTelemetryTailSamplingThresholdCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockConfigSetterOpenTelemetryTailSamplingThresholdCall) Return(arg0 time.Duration) *MockConfigSetterOpenTelemetryTailSamplingThresholdCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockConfigSetterOpenTelemetryTailSamplingThresholdCall) Do(f func() time.Duration) *MockConfigSetterOpenTelemetryTailSamplingThresholdCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockConfigSetterOpenTelemetryTailSamplingThresholdCall) DoAndReturn(f func() time.Duration) *MockConfigSetterOpenTelemetryTailSamplingThresholdCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // QueryTracingEnabled mocks base method.
 func (m *MockConfigSetter) QueryTracingEnabled() bool {
 	m.ctrl.T.Helper()
@@ -3003,6 +3079,42 @@ func (c *MockConfigSetterSetOpenTelemetryStackTracesCall) Do(f func(bool)) *Mock
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockConfigSetterSetOpenTelemetryStackTracesCall) DoAndReturn(f func(bool)) *MockConfigSetterSetOpenTelemetryStackTracesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetOpenTelemetryTailSamplingThreshold mocks base method.
+func (m *MockConfigSetter) SetOpenTelemetryTailSamplingThreshold(arg0 time.Duration) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetOpenTelemetryTailSamplingThreshold", arg0)
+}
+
+// SetOpenTelemetryTailSamplingThreshold indicates an expected call of SetOpenTelemetryTailSamplingThreshold.
+func (mr *MockConfigSetterMockRecorder) SetOpenTelemetryTailSamplingThreshold(arg0 any) *MockConfigSetterSetOpenTelemetryTailSamplingThresholdCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetOpenTelemetryTailSamplingThreshold", reflect.TypeOf((*MockConfigSetter)(nil).SetOpenTelemetryTailSamplingThreshold), arg0)
+	return &MockConfigSetterSetOpenTelemetryTailSamplingThresholdCall{Call: call}
+}
+
+// MockConfigSetterSetOpenTelemetryTailSamplingThresholdCall wrap *gomock.Call
+type MockConfigSetterSetOpenTelemetryTailSamplingThresholdCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockConfigSetterSetOpenTelemetryTailSamplingThresholdCall) Return() *MockConfigSetterSetOpenTelemetryTailSamplingThresholdCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockConfigSetterSetOpenTelemetryTailSamplingThresholdCall) Do(f func(time.Duration)) *MockConfigSetterSetOpenTelemetryTailSamplingThresholdCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockConfigSetterSetOpenTelemetryTailSamplingThresholdCall) DoAndReturn(f func(time.Duration)) *MockConfigSetterSetOpenTelemetryTailSamplingThresholdCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

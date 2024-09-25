@@ -18,6 +18,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/version"
 )
@@ -116,7 +117,13 @@ type ClientTracerProvider interface {
 }
 
 // NewClient returns a new tracing client.
-func NewClient(ctx context.Context, namespace coretrace.TaggedTracerNamespace, endpoint string, insecureSkipVerify bool, sampleRatio float64) (Client, ClientTracerProvider, ClientTracer, error) {
+func NewClient(
+	ctx context.Context,
+	namespace coretrace.TaggedTracerNamespace,
+	endpoint string, insecureSkipVerify bool,
+	sampleRatio float64, tailSamplingThreshold time.Duration,
+	logger logger.Logger,
+) (Client, ClientTracerProvider, ClientTracer, error) {
 	options := []otlptracegrpc.Option{
 		otlptracegrpc.WithEndpoint(endpoint),
 		otlptracegrpc.WithCompressor("gzip"),
@@ -140,8 +147,9 @@ func NewClient(ctx context.Context, namespace coretrace.TaggedTracerNamespace, e
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.TraceIDRatioBased(sampleRatio)),
 		sdktrace.WithSpanProcessor(&tailSamplingProcessor{
-			bsp:          bsp,
-			maxThreshold: 15 * time.Millisecond,
+			bsp:       bsp,
+			logger:    logger,
+			threshold: tailSamplingThreshold,
 		}),
 		sdktrace.WithResource(newResource(serviceName, namespace.Namespace)),
 	)
@@ -183,7 +191,9 @@ func newResource(serviceName, serviceID string) *resource.Resource {
 type tailSamplingProcessor struct {
 	bsp sdktrace.SpanProcessor
 
-	maxThreshold time.Duration
+	logger logger.Logger
+
+	threshold time.Duration
 }
 
 // OnStart is called when a span is started. It is called synchronously and
@@ -204,7 +214,7 @@ func (p *tailSamplingProcessor) OnEnd(s sdktrace.ReadOnlySpan) {
 
 	// Span duration is the time it took for the span to complete.
 	spanDuration := s.EndTime().Sub(s.StartTime())
-	if spanDuration >= p.maxThreshold {
+	if spanDuration >= p.threshold {
 		p.bsp.OnEnd(s)
 		return
 	}
@@ -212,6 +222,12 @@ func (p *tailSamplingProcessor) OnEnd(s sdktrace.ReadOnlySpan) {
 	// If the span duration is less than the threshold, we want to drop it.
 	// This is to prevent the exporter from being overwhelmed with spans that
 	// are not useful for debugging.
+
+	if !p.logger.IsLevelEnabled(logger.TRACE) {
+		return
+	}
+
+	p.logger.Tracef("Dropping span %s due to duration %s less than threshold %s", s.SpanContext().SpanID().String(), spanDuration, p.threshold)
 }
 
 // Shutdown is called when the SDK shuts down. Any cleanup or release of

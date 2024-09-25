@@ -518,6 +518,7 @@ func (cfg *InstanceConfig) AgentConfig(
 		configParams.OpenTelemetryInsecure = cfg.ControllerConfig.OpenTelemetryInsecure()
 		configParams.OpenTelemetryStackTraces = cfg.ControllerConfig.OpenTelemetryStackTraces()
 		configParams.OpenTelemetrySampleRatio = cfg.ControllerConfig.OpenTelemetrySampleRatio()
+		configParams.OpenTelemetryTailSamplingThreshold = cfg.ControllerConfig.OpenTelemetryTailSamplingThreshold()
 		configParams.ObjectStoreType = cfg.ControllerConfig.ObjectStoreType()
 	}
 	if cfg.Bootstrap == nil {
