@@ -4,6 +4,7 @@
 package state
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -44,13 +45,13 @@ type dbModel struct {
 	CloudType string `db:"cloud_type"`
 
 	// CloudRegion is the region that the model will use in the cloud.
-	CloudRegion string `db:"cloud_region_name"`
+	CloudRegion sql.NullString `db:"cloud_region_name"`
 
 	// CredentialName is the name of the model cloud credential.
-	CredentialName string `db:"cloud_credential_name"`
+	CredentialName sql.NullString `db:"cloud_credential_name"`
 
 	// CredentialCloudName is the cloud name that the model cloud credential applies to.
-	CredentialCloudName string `db:"cloud_credential_cloud_name"`
+	CredentialCloudName sql.NullString `db:"cloud_credential_cloud_name"`
 
 	// CredentialOwnerName is the owner of the model cloud credential.
 	CredentialOwnerName string `db:"cloud_credential_owner_name"`
@@ -78,6 +79,22 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 			return coremodel.Model{}, errors.Trace(err)
 		}
 	}
+
+	var cloudRegion string
+	if m.CloudRegion.Valid {
+		cloudRegion = m.CloudRegion.String
+	}
+
+	var credentialName string
+	if m.CredentialName.Valid {
+		credentialName = m.CredentialName.String
+	}
+
+	var credentialCloudName string
+	if m.CredentialCloudName.Valid {
+		credentialCloudName = m.CredentialCloudName.String
+	}
+
 	return coremodel.Model{
 		Name:         m.Name,
 		Life:         corelife.Value(m.Life),
@@ -86,10 +103,10 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 		AgentVersion: agentVersion,
 		Cloud:        m.CloudName,
 		CloudType:    m.CloudType,
-		CloudRegion:  m.CloudRegion,
+		CloudRegion:  cloudRegion,
 		Credential: credential.Key{
-			Name:  m.CredentialName,
-			Cloud: m.CredentialCloudName,
+			Name:  credentialName,
+			Cloud: credentialCloudName,
 			Owner: credOwnerName,
 		},
 		Owner:     user.UUID(m.OwnerUUID),
@@ -97,9 +114,24 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 	}, nil
 }
 
-// dbModelUUID represents the controller model uuid from the controller table.
+type dbNames struct {
+	Name      string `db:"name"`
+	OwnerName string `db:"owner_name"`
+}
+
+// dbUUID represents a UUID.
+type dbUUID struct {
+	UUID string `db:"uuid"`
+}
+
+// dbModelUUID represents the model uuid from the model table.
 type dbModelUUID struct {
 	ModelUUID string `db:"model_uuid"`
+}
+
+// dbModelType represents the model type from the model table.
+type dbModelType struct {
+	Type string `db:"model_type"`
 }
 
 // dbModelSummary stores the information from the model table for a model
@@ -235,4 +267,63 @@ func (info *dbModelUserInfo) toModelUserInfo() (coremodel.ModelUserInfo, error) 
 		LastModelLogin: info.LastModelLogin,
 		Access:         permission.Access(info.AccessType),
 	}, nil
+}
+
+type dbReadOnlyModel struct {
+	UUID               string         `db:"uuid"`
+	ControllerUUID     string         `db:"controller_uuid"`
+	Name               string         `db:"name"`
+	Type               string         `db:"type"`
+	TargetAgentVersion sql.NullString `db:"target_agent_version"`
+	Cloud              string         `db:"cloud"`
+	CloudType          string         `db:"cloud_type"`
+	CloudRegion        string         `db:"cloud_region"`
+	CredentialOwner    string         `db:"credential_owner"`
+	CredentialName     string         `db:"credential_name"`
+}
+
+type dbCloudType struct {
+	Type string `db:"type"`
+}
+
+type dbName struct {
+	Name string `db:"name"`
+}
+
+type dbModelActivated struct {
+	Activated bool `db:"activated"`
+}
+
+type dbModelNamespace struct {
+	UUID      string         `db:"uuid"`
+	Namespace sql.NullString `db:"namespace"`
+}
+
+type dbCloudCredential struct {
+	Name                string         `db:"cloud_name"`
+	CredentialName      sql.NullString `db:"cloud_credential_name"`
+	CredentialOwnerName sql.NullString `db:"cloud_credential_owner_name"`
+	CredentialCloudName string         `db:"cloud_credential_cloud_name"`
+}
+
+type dbCloudOwner struct {
+	Name      string `db:"name"`
+	OwnerName string `db:"owner_name"`
+}
+
+type dbUpdateCredentialResult struct {
+	CloudUUID           string `db:"cloud_uuid"`
+	CloudCredentialUUID string `db:"cloud_credential_uuid"`
+}
+
+type dbUpdateCredentialSelect struct {
+	CloudName           string `db:"cloud_name"`
+	OwnerName           string `db:"owner_name"`
+	CloudCredentialName string `db:"cloud_credential_name"`
+}
+
+type dbUpdateCredential struct {
+	UUID                string `db:"uuid"`
+	CloudUUID           string `db:"cloud_uuid"`
+	CloudCredentialUUID string `db:"cloud_credential_uuid"`
 }

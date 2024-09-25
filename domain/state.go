@@ -5,7 +5,6 @@ package domain
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"sync"
 
@@ -14,6 +13,15 @@ import (
 
 	"github.com/juju/juju/core/database"
 )
+
+// TxnRunner is an interface that provides a method for executing a closure
+// within the scope of a transaction.
+type TxnRunner interface {
+	// Txn manages the application of a SQLair transaction within which the
+	// input function is executed. See https://github.com/canonical/sqlair.
+	// The input context can be used by the caller to cancel this process.
+	Txn(context.Context, func(context.Context, *sqlair.TX) error) error
+}
 
 // StateBase defines a base struct for requesting a database. This will cache
 // the database for the lifetime of the struct.
@@ -43,7 +51,7 @@ func NewStateBase(getDB database.TxnRunnerFactory) *StateBase {
 }
 
 // DB returns the database for a given namespace.
-func (st *StateBase) DB() (database.TxnRunner, error) {
+func (st *StateBase) DB() (TxnRunner, error) {
 	// Check if the database has already been retrieved.
 	// We optimistically check if the database is not nil, before checking
 	// if the getDB function is nil. This reduces the branching logic for the
@@ -202,13 +210,6 @@ type txnRunner struct {
 // The input context can be used by the caller to cancel this process.
 func (r *txnRunner) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
 	return CoerceError(r.runner.Txn(ctx, fn))
-}
-
-// StdTxn manages the application of a standard library transaction within
-// which the input function is executed.
-// The input context can be used by the caller to cancel this process.
-func (r *txnRunner) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return CoerceError(r.runner.StdTxn(ctx, fn))
 }
 
 // AtomicContext is a typed context that provides access to the database transaction

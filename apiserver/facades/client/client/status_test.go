@@ -5,10 +5,10 @@ package client_test
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -510,13 +510,13 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 
 	// Double-write model information to dqlite.
 	// Add the model to the model database.
-	err = s.ModelTxnRunner(c, model2.UUID()).StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.ModelTxnRunner(c, model2.UUID()).Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return modelstate.CreateReadOnlyModel(ctx, domainmodel.ReadOnlyModelCreationArgs{
 			UUID:         coremodel.UUID(model2.UUID()),
 			Name:         model2.Name(),
 			Cloud:        "dummy",
 			AgentVersion: version.Current,
-		}, tx)
+		}, preparer{}, tx)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -985,4 +985,10 @@ func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmhub(c *gc.C) {
 	appStatus, ok = status.Applications["charmhubby"]
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "ch:amd64/jammy/charmhubby-42")
+}
+
+type preparer struct{}
+
+func (p preparer) Prepare(query string, args ...any) (*sqlair.Statement, error) {
+	return sqlair.Prepare(query, args...)
 }

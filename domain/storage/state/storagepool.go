@@ -10,7 +10,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -37,7 +36,7 @@ func (st StoragePoolState) CreateStoragePool(ctx context.Context, pool domainsto
 
 // CreateStoragePools creates the specified storage pools.
 // It is exported for us in the storage/bootstrap package.
-func CreateStoragePools(ctx context.Context, db coredatabase.TxnRunner, pools []domainstorage.StoragePoolDetails) error {
+func CreateStoragePools(ctx context.Context, db domain.TxnRunner, pools []domainstorage.StoragePoolDetails) error {
 	selectUUIDStmt, err := sqlair.Prepare("SELECT &StoragePool.uuid FROM storage_pool WHERE name = $StoragePool.name", StoragePool{})
 	if err != nil {
 		return errors.Trace(err)
@@ -364,7 +363,7 @@ func (st StoragePoolState) GetStoragePoolByName(ctx context.Context, name string
 // GetStoragePoolByName returns the storage pool with the specified name, returning an error
 // satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
 // Exported for use by other domains that need to load storage pools.
-func GetStoragePoolByName(ctx context.Context, db coredatabase.TxnRunner, name string) (domainstorage.StoragePoolDetails, error) {
+func GetStoragePoolByName(ctx context.Context, db domain.TxnRunner, name string) (domainstorage.StoragePoolDetails, error) {
 	storagePoolsLoader, err := storagePoolsLoader(domainstorage.Names{name}, nil)
 	if err != nil {
 		return domainstorage.StoragePoolDetails{}, errors.Trace(err)

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -323,9 +324,10 @@ func (m *stateSuite) TestCreateModelWithExisting(c *gc.C) {
 	runner, err := m.TxnRunnerFactory()()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return createModel(
 			ctx,
+			preparer{},
 			tx,
 			m.uuid,
 			coremodel.IAAS,
