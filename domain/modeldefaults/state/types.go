@@ -3,7 +3,7 @@
 
 package state
 
-// modelCloudType represents 
+// modelCloudType represents the cloud type of the models cloud.
 type modelCloudType struct {
 	CloudType string `db:"cloud_type"`
 }
