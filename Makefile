@@ -367,7 +367,7 @@ simplestreams: juju juju-metadata ${SIMPLESTREAMS_TARGETS}
 	@echo "\nRun export JUJU_METADATA_SOURCE=\"${JUJU_METADATA_SOURCE}\" if not defined in your env"
 
 .PHONY: build
-build: rebuild-schema go-build
+build: rebuild-schema rebuild-client-schema go-build
 ## build: builds all the targets including rebuilding a new schema.
 
 .PHONY: go-agent-build
@@ -501,6 +501,18 @@ ifdef SCHEMA_PATH
 else
 	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades \
 		./apiserver/facades/schema.json
+endif
+
+.PHONY: rebuild-client-schema
+rebuild-client-schema:
+## rebuild-client-schema: Rebuild the schema for clients with the latest facades
+	@echo "Generating client facade schema..."
+# GOOS and GOARCH environment variables are cleared in case the user is trying to cross architecture compilation.
+ifdef SCHEMA_PATH
+	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades -facade-group=client "$(SCHEMA_PATH)"
+else
+	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades -facade-group=client \
+		./apiserver/facades/client-schema.json
 endif
 
 .PHONY: install-snap-dependencies
