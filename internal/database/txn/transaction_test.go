@@ -219,7 +219,7 @@ func (s *transactionRunnerSuite) TestRetryForNonRetryableError(c *gc.C) {
 	runner := txn.NewRetryingTxnRunner()
 
 	var count int
-	err := runner.Retry(context.Background(), func() error {
+	err := runner.Retry(context.Background(), func(context.Context) error {
 		count++
 		return errors.Errorf("fail")
 	})
@@ -233,7 +233,7 @@ func (s *transactionRunnerSuite) TestRetryWithACancelledContext(c *gc.C) {
 	runner := txn.NewRetryingTxnRunner()
 
 	var count int
-	err := runner.Retry(ctx, func() error {
+	err := runner.Retry(ctx, func(context.Context) error {
 		defer cancel()
 
 		count++
@@ -247,7 +247,7 @@ func (s *transactionRunnerSuite) TestRetryForRetryableError(c *gc.C) {
 	runner := txn.NewRetryingTxnRunner()
 
 	var count int
-	err := runner.Retry(context.Background(), func() error {
+	err := runner.Retry(context.Background(), func(context.Context) error {
 		count++
 		return sqlite3.ErrBusy
 	})

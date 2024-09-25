@@ -314,6 +314,44 @@ func (c *MockStateRunAtomicCall) DoAndReturn(f func(context.Context, func(domain
 	return c
 }
 
+// RunAtomicWithPrecheck mocks base method.
+func (m *MockState) RunAtomicWithPrecheck(arg0 context.Context, arg1 func(context.Context) error, arg2 func(domain.AtomicContext) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunAtomicWithPrecheck", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RunAtomicWithPrecheck indicates an expected call of RunAtomicWithPrecheck.
+func (mr *MockStateMockRecorder) RunAtomicWithPrecheck(arg0, arg1, arg2 any) *MockStateRunAtomicWithPrecheckCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunAtomicWithPrecheck", reflect.TypeOf((*MockState)(nil).RunAtomicWithPrecheck), arg0, arg1, arg2)
+	return &MockStateRunAtomicWithPrecheckCall{Call: call}
+}
+
+// MockStateRunAtomicWithPrecheckCall wrap *gomock.Call
+type MockStateRunAtomicWithPrecheckCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateRunAtomicWithPrecheckCall) Return(arg0 error) *MockStateRunAtomicWithPrecheckCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateRunAtomicWithPrecheckCall) Do(f func(context.Context, func(context.Context) error, func(domain.AtomicContext) error) error) *MockStateRunAtomicWithPrecheckCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateRunAtomicWithPrecheckCall) DoAndReturn(f func(context.Context, func(context.Context) error, func(domain.AtomicContext) error) error) *MockStateRunAtomicWithPrecheckCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // UpdateUnitPorts mocks base method.
 func (m *MockState) UpdateUnitPorts(arg0 domain.AtomicContext, arg1 string, arg2, arg3 network.GroupedPortRanges) error {
 	m.ctrl.T.Helper()

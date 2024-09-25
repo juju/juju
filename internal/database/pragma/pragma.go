@@ -45,7 +45,7 @@ var (
 // SetPragma sets the given pragma to the given value.
 func SetPragma[T any](ctx context.Context, db *sql.DB, pragma Pragma, value T) error {
 	query := fmt.Sprintf("PRAGMA %s = %v", pragma, value)
-	err := runner.Retry(ctx, func() error {
+	err := runner.Retry(ctx, func(context.Context) error {
 		_, err := db.ExecContext(ctx, query)
 		return errors.Trace(err)
 	})

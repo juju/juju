@@ -736,7 +736,7 @@ func (w *dbWorker) deleteDatabase(namespace string) error {
 
 	// Now attempt to delete the database and all of it's contents.
 	// This can be replaced with DROP DB once it's supported by dqlite.
-	if err := internaldatabase.Retry(ctx, func() error {
+	if err := internaldatabase.Retry(ctx, func(ctx context.Context) error {
 		return internaldatabase.StdTxn(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
 			return deleteDBContents(ctx, tx, w.cfg.Logger)
 		})

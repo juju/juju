@@ -18,6 +18,11 @@ type TxnRunner interface {
 	// The input context can be used by the caller to cancel this process.
 	Txn(context.Context, func(context.Context, *sqlair.TX) error) error
 
+	// TxnWithPrecheck runs a transaction with a precheck function that is
+	// executed before the transaction is started. If the precheck function
+	// returns an error, the transaction is not started.
+	TxnWithPrecheck(context.Context, func(context.Context) error, func(context.Context, *sqlair.TX) error) error
+
 	// StdTxn manages the application of a standard library transaction within
 	// which the input function is executed.
 	// The input context can be used by the caller to cancel this process.

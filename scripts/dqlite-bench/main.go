@@ -170,8 +170,8 @@ func SlotPerDBBasedTransactionRunner(slots int) func(*sql.DB) TxRunner {
 		return TxRunner(func(c context.Context, fn func(context.Context, *sql.Tx) error) error {
 			slotCh <- nil
 			defer func() { <-slotCh }()
-			err := txnRunner.Retry(c, func() error {
-				return txnRunner.StdTxn(c, db, fn)
+			err := txnRunner.Retry(c, func(ctx context.Context) error {
+				return txnRunner.StdTxn(ctx, db, fn)
 			})
 			return err
 		})
@@ -187,8 +187,8 @@ func SlotAllDBBasedTransactionRunner(slots int) func(*sql.DB) TxRunner {
 		return TxRunner(func(c context.Context, fn func(context.Context, *sql.Tx) error) error {
 			slotCh <- nil
 			defer func() { <-slotCh }()
-			err := txnRunner.Retry(c, func() error {
-				return txnRunner.StdTxn(c, db, fn)
+			err := txnRunner.Retry(c, func(ctx context.Context) error {
+				return txnRunner.StdTxn(ctx, db, fn)
 			})
 			return err
 		})
@@ -216,8 +216,8 @@ func RetryableTransactionRunner(db *sql.DB) TxRunner {
 	txnRunner := txn.NewRetryingTxnRunner()
 
 	return TxRunner(func(c context.Context, fn func(context.Context, *sql.Tx) error) error {
-		return txnRunner.Retry(c, func() error {
-			return txnRunner.StdTxn(c, db, fn)
+		return txnRunner.Retry(c, func(ctx context.Context) error {
+			return txnRunner.StdTxn(ctx, db, fn)
 		})
 	})
 }

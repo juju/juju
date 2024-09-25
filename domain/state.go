@@ -141,6 +141,42 @@ func (st *StateBase) RunAtomic(ctx context.Context, fn func(AtomicContext) error
 	})
 }
 
+// RunAtomicWithPrecheck executes the closure function within the scope of a
+// transaction. The precheck function is executed before the transaction is
+// started. If the precheck function returns an error, the transaction is not
+// started. The closure is passed a AtomicContext that can be passed on to state
+// functions, so that they can perform work within that same transaction. The
+// closure will be retried according to the transaction retry semantics, if the
+// transaction fails due to transient errors. The closure should only be used to
+// perform state changes and must not be used to execute queries outside of the
+// state scope. This includes performing goroutines or other async operations.
+func (st *StateBase) RunAtomicWithPrecheck(ctx context.Context, precheck func(context.Context) error, fn func(AtomicContext) error) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Annotate(err, "getting database")
+	}
+
+	return db.TxnWithPrecheck(ctx, precheck, func(ctx context.Context, tx *sqlair.TX) error {
+		// The atomicContext is created with the transaction and passed to the
+		// closure function. This ensures that the transaction is always
+		// available to the closure. Once the transaction is complete, the
+		// transaction is removed from the atomicContext. This is to prevent the
+		// transaction from being used outside of the transaction scope. This
+		// will prevent any references to the sqlair.TX from being held outside
+		// of the transaction scope.
+		txCtx := st.atomicPool.Get().(*atomicContext)
+		txCtx.ctx = ctx
+		txCtx.tx = tx
+
+		defer func() {
+			txCtx.close()
+			st.atomicPool.Put(txCtx)
+		}()
+
+		return fn(txCtx)
+	})
+}
+
 // AtomicStateBase is an interface that provides a method for executing a
 // closure within the scope of a transaction.
 type AtomicStateBase interface {
@@ -153,6 +189,17 @@ type AtomicStateBase interface {
 	// to execute queries outside of the state scope. This includes performing
 	// goroutines or other async operations.
 	RunAtomic(ctx context.Context, fn func(AtomicContext) error) error
+
+	// RunAtomicWithPrecheck executes the closure function within the scope of a
+	// transaction. The precheck function is executed before the transaction is
+	// started. If the precheck function returns an error, the transaction is not
+	// started. The closure is passed a AtomicContext that can be passed on to state
+	// functions, so that they can perform work within that same transaction. The
+	// closure will be retried according to the transaction retry semantics, if the
+	// transaction fails due to transient errors. The closure should only be used to
+	// perform state changes and must not be used to execute queries outside of the
+	// state scope. This includes performing goroutines or other async operations.
+	RunAtomicWithPrecheck(ctx context.Context, precheck func(context.Context) error, fn func(AtomicContext) error) error
 }
 
 // Run executes the closure function using the provided AtomicContext as the
@@ -202,6 +249,13 @@ type txnRunner struct {
 // The input context can be used by the caller to cancel this process.
 func (r *txnRunner) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
 	return CoerceError(r.runner.Txn(ctx, fn))
+}
+
+// TxnWithPrecheck runs a transaction with a precheck function that is
+// executed before the transaction is started. If the precheck function
+// returns an error, the transaction is not started.
+func (r *txnRunner) TxnWithPrecheck(ctx context.Context, precheck func(context.Context) error, fn func(context.Context, *sqlair.TX) error) error {
+	return CoerceError(r.runner.TxnWithPrecheck(ctx, precheck, fn))
 }
 
 // StdTxn manages the application of a standard library transaction within

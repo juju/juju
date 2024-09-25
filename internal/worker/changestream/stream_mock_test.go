@@ -260,6 +260,44 @@ func (c *MockWatchableDBWorkerTxnCall) DoAndReturn(f func(context.Context, func(
 	return c
 }
 
+// TxnWithPrecheck mocks base method.
+func (m *MockWatchableDBWorker) TxnWithPrecheck(arg0 context.Context, arg1 func(context.Context) error, arg2 func(context.Context, *sqlair.TX) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TxnWithPrecheck", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// TxnWithPrecheck indicates an expected call of TxnWithPrecheck.
+func (mr *MockWatchableDBWorkerMockRecorder) TxnWithPrecheck(arg0, arg1, arg2 any) *MockWatchableDBWorkerTxnWithPrecheckCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TxnWithPrecheck", reflect.TypeOf((*MockWatchableDBWorker)(nil).TxnWithPrecheck), arg0, arg1, arg2)
+	return &MockWatchableDBWorkerTxnWithPrecheckCall{Call: call}
+}
+
+// MockWatchableDBWorkerTxnWithPrecheckCall wrap *gomock.Call
+type MockWatchableDBWorkerTxnWithPrecheckCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockWatchableDBWorkerTxnWithPrecheckCall) Return(arg0 error) *MockWatchableDBWorkerTxnWithPrecheckCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockWatchableDBWorkerTxnWithPrecheckCall) Do(f func(context.Context, func(context.Context) error, func(context.Context, *sqlair.TX) error) error) *MockWatchableDBWorkerTxnWithPrecheckCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockWatchableDBWorkerTxnWithPrecheckCall) DoAndReturn(f func(context.Context, func(context.Context) error, func(context.Context, *sqlair.TX) error) error) *MockWatchableDBWorkerTxnWithPrecheckCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Wait mocks base method.
 func (m *MockWatchableDBWorker) Wait() error {
 	m.ctrl.T.Helper()

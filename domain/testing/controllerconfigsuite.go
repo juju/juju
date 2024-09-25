@@ -39,6 +39,10 @@ func (noopTxnRunner) Txn(context.Context, func(context.Context, *sqlair.TX) erro
 	return errors.NotImplemented
 }
 
+func (noopTxnRunner) TxnWithPrecheck(context.Context, func(context.Context) error, func(context.Context, *sqlair.TX) error) error {
+	return errors.NotImplemented
+}
+
 func (noopTxnRunner) StdTxn(context.Context, func(context.Context, *sql.Tx) error) error {
 	return errors.NotImplemented
 }

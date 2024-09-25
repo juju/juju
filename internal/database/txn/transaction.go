@@ -34,7 +34,7 @@ const (
 )
 
 // RetryStrategy defines a function for retrying a transaction.
-type RetryStrategy func(context.Context, func() error) error
+type RetryStrategy func(context.Context, func(context.Context) error) error
 
 // Option defines a function for setting options on a TransactionRunner.
 type Option func(*option)
@@ -170,7 +170,47 @@ func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(cont
 		}
 
 		if err := fn(ctx, tx); err != nil {
-			if rErr := t.retryStrategy(ctx, tx.Rollback); rErr != nil {
+			if rErr := t.retryStrategy(ctx, func(context.Context) error {
+				return tx.Rollback()
+			}); rErr != nil {
+				t.logger.Warningf("failed to rollback transaction: %v", rErr)
+			}
+			return errors.Trace(err)
+		}
+
+		return errors.Trace(t.commit(ctx, tx))
+	})
+}
+
+// TxnWithPrecheck runs a transaction with a precheck function that is executed
+// before the transaction is started. If the precheck function returns an error,
+// the transaction is not started. TxnWithPrecheck executes the input function
+// against the tracked database, using the sqlair package. The sqlair package
+// provides a mapping library for SQL queries and statements. Retry semantics
+// are applied automatically based on transient failures. This is the function
+// that almost all downstream database consumers should use.
+//
+// This should not be used directly, instead the TxnRunner should be used to
+// handle transactions.
+func (t *RetryingTxnRunner) TxnWithPrecheck(ctx context.Context, db *sqlair.DB, precheck func(context.Context) error, fn func(context.Context, *sqlair.TX) error) error {
+	return t.run(ctx, func(ctx context.Context) error {
+		// This is as close as we can get the precheck to the actual
+		// transaction. Anything closer, would interfere with the transaction
+		// itself.
+		if err := precheck(ctx); err != nil {
+			return errors.Trace(err)
+		}
+
+		// Begin the transaction.
+		tx, err := db.Begin(ctx, nil)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := fn(ctx, tx); err != nil {
+			if rErr := t.retryStrategy(ctx, func(context.Context) error {
+				return tx.Rollback()
+			}); rErr != nil {
 				t.logger.Warningf("failed to rollback transaction: %v", rErr)
 			}
 			return errors.Trace(err)
@@ -196,7 +236,9 @@ func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(cont
 		}
 
 		if err := fn(ctx, tx); err != nil {
-			if rErr := t.retryStrategy(ctx, tx.Rollback); rErr != nil {
+			if rErr := t.retryStrategy(ctx, func(context.Context) error {
+				return tx.Rollback()
+			}); rErr != nil {
 				t.logger.Warningf("failed to rollback transaction: %v", rErr)
 			}
 			return errors.Trace(err)
@@ -230,7 +272,7 @@ func (t *RetryingTxnRunner) commit(ctx context.Context, tx txn) (err error) {
 // Retry defines a generic retry function for applying a function that
 // interacts with the database. It will retry in cases of transient known
 // database errors.
-func (t *RetryingTxnRunner) Retry(ctx context.Context, fn func() error) error {
+func (t *RetryingTxnRunner) Retry(ctx context.Context, fn func(context.Context) error) error {
 	return t.retryStrategy(ctx, fn)
 }
 
@@ -303,12 +345,12 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 // defaultRetryStrategy returns a function that can be used to apply a default
 // retry strategy to its input operation. It will retry in cases of transient
 // known database errors.
-func defaultRetryStrategy(clock clock.Clock, log logger.Logger) func(context.Context, func() error) error {
-	return func(ctx context.Context, fn func() error) error {
+func defaultRetryStrategy(clock clock.Clock, log logger.Logger) func(context.Context, func(context.Context) error) error {
+	return func(ctx context.Context, fn func(context.Context) error) error {
 		metrics := MetricsFromContext(ctx)
 		err := retry.Call(retry.CallArgs{
 			Func: func() error {
-				err := fn()
+				err := fn(ctx)
 
 				// Record the success if there is no error.
 				if err == nil {

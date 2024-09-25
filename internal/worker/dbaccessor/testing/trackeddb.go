@@ -50,6 +50,14 @@ func (t *testTrackedDB) Txn(ctx context.Context, fn func(context.Context, *sqlai
 	return db.Txn(ctx, fn)
 }
 
+func (t *testTrackedDB) TxnWithPrecheck(ctx context.Context, precheck func(context.Context) error, fn func(context.Context, *sqlair.TX) error) error {
+	db, err := t.txnRunnerFactory()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return db.TxnWithPrecheck(ctx, precheck, fn)
+}
+
 func (t *testTrackedDB) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
 	db, err := t.txnRunnerFactory()
 	if err != nil {

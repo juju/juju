@@ -656,6 +656,44 @@ func (c *MockApplicationStateRunAtomicCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// RunAtomicWithPrecheck mocks base method.
+func (m *MockApplicationState) RunAtomicWithPrecheck(arg0 context.Context, arg1 func(context.Context) error, arg2 func(domain.AtomicContext) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunAtomicWithPrecheck", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RunAtomicWithPrecheck indicates an expected call of RunAtomicWithPrecheck.
+func (mr *MockApplicationStateMockRecorder) RunAtomicWithPrecheck(arg0, arg1, arg2 any) *MockApplicationStateRunAtomicWithPrecheckCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunAtomicWithPrecheck", reflect.TypeOf((*MockApplicationState)(nil).RunAtomicWithPrecheck), arg0, arg1, arg2)
+	return &MockApplicationStateRunAtomicWithPrecheckCall{Call: call}
+}
+
+// MockApplicationStateRunAtomicWithPrecheckCall wrap *gomock.Call
+type MockApplicationStateRunAtomicWithPrecheckCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationStateRunAtomicWithPrecheckCall) Return(arg0 error) *MockApplicationStateRunAtomicWithPrecheckCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationStateRunAtomicWithPrecheckCall) Do(f func(context.Context, func(context.Context) error, func(domain.AtomicContext) error) error) *MockApplicationStateRunAtomicWithPrecheckCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationStateRunAtomicWithPrecheckCall) DoAndReturn(f func(context.Context, func(context.Context) error, func(domain.AtomicContext) error) error) *MockApplicationStateRunAtomicWithPrecheckCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetApplicationLife mocks base method.
 func (m *MockApplicationState) SetApplicationLife(arg0 domain.AtomicContext, arg1 application.ID, arg2 life.Life) error {
 	m.ctrl.T.Helper()

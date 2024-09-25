@@ -296,6 +296,10 @@ func (r *txnRunner) Txn(ctx context.Context, f func(context.Context, *sqlair.TX)
 	return errors.Trace(database.Txn(ctx, sqlair.NewDB(r.db), f))
 }
 
+func (r *txnRunner) TxnWithPrecheck(ctx context.Context, precheck func(context.Context) error, f func(context.Context, *sqlair.TX) error) error {
+	return errors.Trace(database.TxnWithPrecheck(ctx, sqlair.NewDB(r.db), precheck, f))
+}
+
 func (r *txnRunner) StdTxn(ctx context.Context, f func(context.Context, *sql.Tx) error) error {
 	return errors.Trace(database.StdTxn(ctx, r.db, f))
 }
