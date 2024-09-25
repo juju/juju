@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v8"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -640,6 +641,7 @@ func (s *Suite) expectImportModel(c *gc.C) {
 			controller, scope, s.controllerConfigService, s.domainServicesGetter, cloudSchemaSource,
 			func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
 			loggertesting.WrapCheckLog(c),
+			clock.WallClock,
 		).ImportModel(ctx, bytes)
 	})
 }

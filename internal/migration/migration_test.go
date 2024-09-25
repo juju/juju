@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/url"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -76,6 +77,7 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 		controller, scope, s.controllerConfigService, s.domainServicesGetter, configSchemaSource,
 		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
 		loggertesting.WrapCheckLog(c),
+		clock.WallClock,
 	)
 	model, st, err := importer.ImportModel(context.Background(), bytes)
 	c.Check(st, gc.IsNil)
@@ -153,6 +155,7 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 		controller, scope, s.controllerConfigService, s.domainServicesGetter, configSchemaSource,
 		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
 		loggertesting.WrapCheckLog(c),
+		clock.WallClock,
 	)
 	gotM, gotSt, err := importer.ImportModel(context.Background(), bytes)
 	c.Assert(err, jc.ErrorIsNil)

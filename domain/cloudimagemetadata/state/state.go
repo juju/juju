@@ -26,8 +26,6 @@ import (
 )
 
 const (
-	// CustomSource defines a metadata as "custom" meaning it won't expires
-	CustomSource = "custom"
 	// ExpirationDelay is the maximum time a metadata can live in the cache before being removed.
 	ExpirationDelay = 5 * time.Minute
 )
@@ -356,7 +354,7 @@ func (s *State) tryCleanUpExpiredMetadata(ctx context.Context) error {
 		ExpiresAt: s.clock.Now().Add(-ExpirationDelay),
 	}
 	customSource := inputMetadata{
-		Source: CustomSource,
+		Source: cloudimagemetadata.CustomSource,
 	}
 
 	deleteMetadataStmt, err := sqlair.Prepare(`

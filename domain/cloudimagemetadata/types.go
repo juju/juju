@@ -5,6 +5,13 @@ package cloudimagemetadata
 
 import "time"
 
+// CustomSource represents a source type indicating user-defined metadata for cloud images.
+// This is used to differentiate "cached" metadata from simple stream or other metadata source
+// from user-defined metadata.
+//
+// Custom metadata doesn't expire and are migrated with any model moved from the controller.
+const CustomSource = "custom"
+
 // MetadataAttributes contains cloud image metadata attributes.
 type MetadataAttributes struct {
 	// Stream contains reference to a particular stream,

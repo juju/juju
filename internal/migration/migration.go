@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
@@ -56,6 +57,8 @@ type ModelExporter struct {
 
 	scope  modelmigration.Scope
 	logger corelogger.Logger
+
+	clock clock.Clock
 }
 
 // NewModelExporter returns a new ModelExporter that encapsulates the
@@ -66,11 +69,13 @@ func NewModelExporter(
 	scope modelmigration.Scope,
 	storageRegistryGetter storageRegistryGetter,
 	logger corelogger.Logger,
+	clock clock.Clock,
 ) *ModelExporter {
 	return &ModelExporter{
 		legacyStateExporter: legacyStateExporter, scope: scope,
 		storageRegistryGetter: storageRegistryGetter,
 		logger:                logger,
+		clock:                 clock,
 	}
 }
 
@@ -104,7 +109,7 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 		return nil, errors.Trace(err)
 	}
 	coordinator := modelmigration.NewCoordinator(e.logger)
-	migrations.ExportOperations(coordinator, registry, e.logger)
+	migrations.ExportOperations(coordinator, registry, e.logger, e.clock)
 	if err := coordinator.Perform(ctx, e.scope, model); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -135,6 +140,7 @@ type ModelImporter struct {
 
 	scope  modelmigration.ScopeForModel
 	logger corelogger.Logger
+	clock  clock.Clock
 }
 
 // NewModelImporter returns a new ModelImporter that encapsulates the
@@ -148,6 +154,7 @@ func NewModelImporter(
 	configSchemaSourceProvider ConfigSchemaSourceProvider,
 	storageRegistryGetter storageRegistryGetter,
 	logger corelogger.Logger,
+	clock clock.Clock,
 ) *ModelImporter {
 	return &ModelImporter{
 		legacyStateImporter:        stateImporter,
@@ -157,6 +164,7 @@ func NewModelImporter(
 		configSchemaSourceProvider: configSchemaSourceProvider,
 		storageRegistryGetter:      storageRegistryGetter,
 		logger:                     logger,
+		clock:                      clock,
 	}
 }
 
@@ -191,7 +199,7 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 		return nil, nil, errors.Trace(err)
 	}
 	coordinator := modelmigration.NewCoordinator(i.logger)
-	migrations.ImportOperations(coordinator, i.logger, modelDefaultsProvider, registry)
+	migrations.ImportOperations(coordinator, i.logger, modelDefaultsProvider, registry, i.clock)
 	if err := coordinator.Perform(ctx, i.scope(modelUUID), model); err != nil {
 		return nil, nil, errors.Trace(err)
 	}

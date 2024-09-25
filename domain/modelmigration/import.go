@@ -4,11 +4,14 @@
 package modelmigration
 
 import (
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	access "github.com/juju/juju/domain/access/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
+	cloudimagemetadata "github.com/juju/juju/domain/cloudimagemetadata/modelmigration"
 	credential "github.com/juju/juju/domain/credential/modelmigration"
 	externalcontroller "github.com/juju/juju/domain/externalcontroller/modelmigration"
 	keymanager "github.com/juju/juju/domain/keymanager/modelmigration"
@@ -37,6 +40,7 @@ func ImportOperations(
 	logger logger.Logger,
 	modelDefaultsProvider modelconfigservice.ModelDefaultsProvider,
 	registry internalstorage.ProviderRegistry,
+	clock clock.Clock,
 ) {
 	// Note: All the import operations are registered here.
 	// Order is important!
@@ -54,4 +58,5 @@ func ImportOperations(
 	// TODO(storage) - we need to break out storage pools and import BEFORE applications.
 	storage.RegisterImport(coordinator, registry, logger.Child("storage"))
 	secret.RegisterImport(coordinator, logger.Child("secret"))
+	cloudimagemetadata.RegisterImport(coordinator, logger.Child("cloudimagemetadata"), clock)
 }
