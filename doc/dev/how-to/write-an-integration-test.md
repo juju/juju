@@ -1,16 +1,22 @@
-> See also: [Integration testing](/doc/dev/references/testing/integration-testing/index.md)
-
 This document demonstrates how to write an integration test for `juju`.
 
-First, navigate to https://github.com/juju/juju/tree/develop/tests/suites.
+First, navigate to https://github.com/juju/juju/tree/main/tests/suites.
 
-In this directory, create a subdirectory named after the integration test suite you want to use. Let's call ours
-`example_integration_test_suite`.
+In this directory, create a subdirectory named after the integration test suite
+you want to use. Let's call ours `example_integration_test_suite`.
 
-In your test suite directory, create a file called `task.sh`. This file typically includes a skip block, a line where
-you set verbosity, a block where you check dependencies, then a bootstrapping block, a test-listing block, and a
-tear-down block. An example is given below. Note: The various blocks are created using
-multiple [test includes](/doc/dev/references/testing/integration-testing/test-includes.md) (e.g., `destroy-controller`).
+In your test suite directory, create a file called `task.sh`. This file
+includes the various setup and teardown functions that are required for your
+integration test.
+
+ - Allows for skipping tests
+ - Set log verbosity
+ - Ensure that dependencies are installed
+ - Ensuring that a controller exists, otherwise bootstrap one
+ - Run the tests
+ - Destroy the controller
+
+An example is given below:
 
 ```bash
 test_examples() {
@@ -36,10 +42,12 @@ test_examples() {
 }
 ```
 
-Also in your test suite directory, create a `<test name>.sh` file for every integration test you want to write. For
-example, we'll create one called `example_integration_test`, with contents as below. This file consists of a series of
-subtests (below, `run_example1` and `run_example2`) and a main function (below, `test_example`), which is the entrypoint
-to your integration test and which contains some standard logic and also runs the subtests.
+Also in your test suite directory, create a `<test name>.sh` file for every
+integration test you want to write. For example, we'll create one called
+`example_integration_test`, with contents as below. This file consists of a
+series of subtests (below, `run_example1` and `run_example2`) and a main
+function (below, `test_example`), which is the entrypoint to your integration
+test and which contains some standard logic and also runs the subtests.
 
 ```bash
 run_example1() {
@@ -85,12 +93,13 @@ test_example() {
 }
 ```
 
-When you are done with your test file, navigate to [test folder](/tests), open the `main.sh`
-file (which is the entrypoint to your integration testing overall) and add your test suite name to the
-[`TEST_NAMES` variable](https://github.com/juju/juju/blob/main/tests/main.sh#L42).
+When you are done with your test file, navigate to [test folder](/tests), open
+the `main.sh` file (which is the entrypoint to your integration testing overall)
+and add your test suite name to the [`TEST_NAMES`
+variable](https://github.com/juju/juju/blob/main/tests/main.sh#L42).
 
-Finally, run your integration test, following the instructions in the [test folder](/tests) .
-Essentially, what you need to do is as below:
+Finally, run your integration test, following the instructions in the [test
+folder](/tests) . Essentially, what you need to do is as below:
 
 ```bash
 ./main.sh [<suite_name> [<test_name>]]
