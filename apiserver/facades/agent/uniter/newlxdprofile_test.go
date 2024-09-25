@@ -17,6 +17,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	machine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -34,6 +35,7 @@ type newLxdProfileSuite struct {
 	machine *MockLXDProfileMachineV2
 	unit    *MockLXDProfileUnitV2
 
+	machineService   *MockMachineService
 	modelInfoService *MockModelInfoService
 }
 
@@ -46,7 +48,7 @@ func (s *newLxdProfileSuite) SetUpTest(c *gc.C) {
 
 func (s *newLxdProfileSuite) TestWatchInstanceData(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectUnitAndMachine()
+	s.expectUnitAndMachine(1)
 	s.expectWatchInstanceData()
 
 	args := params.Entities{
@@ -71,8 +73,13 @@ func (s *newLxdProfileSuite) TestWatchInstanceData(c *gc.C) {
 
 func (s *newLxdProfileSuite) TestLXDProfileName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectUnitAndMachine()
+	s.expectUnitAndMachine(2)
 	s.expectOneLXDProfileName()
+
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machineTag1.Id())).
+		Return("uuid0", nil)
+	s.machineService.EXPECT().LXDProfiles(gomock.Any(), "uuid0").
+		Return([]string{"juju-model-mysql-1"}, nil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -83,7 +90,7 @@ func (s *newLxdProfileSuite) TestLXDProfileName(c *gc.C) {
 	}
 
 	api := s.newAPI(c)
-	results, err := api.LXDProfileName(args)
+	results, err := api.LXDProfileName(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -145,7 +152,7 @@ func (s *newLxdProfileSuite) TestCanApplyLXDProfileIAASLXDNotManual(c *gc.C) {
 	// provider type: lxd
 	// manual: false
 	defer s.setupMocks(c).Finish()
-	s.expectUnitAndMachine()
+	s.expectUnitAndMachine(1)
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
 		Type:      model.IAAS,
 		CloudType: "lxd",
@@ -160,7 +167,7 @@ func (s *newLxdProfileSuite) TestCanApplyLXDProfileIAASLXDManual(c *gc.C) {
 	// provider type: lxd
 	// manual: true
 	defer s.setupMocks(c).Finish()
-	s.expectUnitAndMachine()
+	s.expectUnitAndMachine(1)
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
 		Type:      model.IAAS,
 		CloudType: "lxd",
@@ -188,7 +195,7 @@ func (s *newLxdProfileSuite) TestCanApplyLXDProfileIAASMAASNotManualLXD(c *gc.C)
 	// manual: false
 	// container: LXD
 	defer s.setupMocks(c).Finish()
-	s.expectUnitAndMachine()
+	s.expectUnitAndMachine(1)
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
 		Type:      model.IAAS,
 		CloudType: "maas",
@@ -228,6 +235,7 @@ func (s *newLxdProfileSuite) newAPI(c *gc.C) *uniter.LXDProfileAPIv2 {
 	}
 	api := uniter.NewLXDProfileAPIv2(
 		s.backend,
+		s.machineService,
 		resources,
 		authorizer,
 		unitAuthFunc,
@@ -244,18 +252,18 @@ func (s *newLxdProfileSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.machine = NewMockLXDProfileMachineV2(ctrl)
 	s.unit = NewMockLXDProfileUnitV2(ctrl)
 	s.modelInfoService = NewMockModelInfoService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 	return ctrl
 }
 
-func (s *newLxdProfileSuite) expectUnitAndMachine() {
+func (s *newLxdProfileSuite) expectUnitAndMachine(times int) {
 	s.backend.EXPECT().Unit(s.unitTag1.Id()).Return(s.unit, nil)
-	s.unit.EXPECT().AssignedMachineId().Return(s.machineTag1.Id(), nil)
+	s.unit.EXPECT().AssignedMachineId().Return(s.machineTag1.Id(), nil).Times(times)
 
 	s.backend.EXPECT().Machine(s.machineTag1.Id()).Return(s.machine, nil)
 }
 
 func (s *newLxdProfileSuite) expectOneLXDProfileName() {
-	s.machine.EXPECT().CharmProfiles().Return([]string{"default", "juju-model-mysql-1"}, nil)
 	s.unit.EXPECT().ApplicationName().Return("mysql")
 }
 

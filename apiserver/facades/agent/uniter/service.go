@@ -98,4 +98,7 @@ type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	// It returns an errors.MachineNotFound if the machine does not exist.
 	GetMachineUUID(ctx context.Context, machineName coremachine.Name) (string, error)
+
+	// LXDProfiles returns the names of the LXD profiles on the machine.
+	LXDProfiles(ctx context.Context, mUUID string) ([]string, error)
 }

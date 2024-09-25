@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -53,8 +54,9 @@ type LXDProfileCharmV2 interface {
 }
 
 type LXDProfileAPIv2 struct {
-	backend   LXDProfileBackendV2
-	resources facade.Resources
+	backend        LXDProfileBackendV2
+	machineService MachineService
+	resources      facade.Resources
 
 	logger     corelogger.Logger
 	accessUnit common.GetAuthFunc
@@ -66,6 +68,7 @@ type LXDProfileAPIv2 struct {
 // GetAuthFuncs can used to determine current permissions.
 func NewLXDProfileAPIv2(
 	backend LXDProfileBackendV2,
+	machineService MachineService,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	accessUnit common.GetAuthFunc,
@@ -75,6 +78,7 @@ func NewLXDProfileAPIv2(
 	logger.Tracef("LXDProfileAPIv2 called with %s", authorizer.GetAuthTag())
 	return &LXDProfileAPIv2{
 		backend:          backend,
+		machineService:   machineService,
 		resources:        resources,
 		accessUnit:       accessUnit,
 		logger:           logger,
@@ -125,6 +129,7 @@ func (c *lxdProfileCharmV2) LXDProfile() lxdprofile.Profile {
 // NewExternalLXDProfileAPIv2 can be used for API registration.
 func NewExternalLXDProfileAPIv2(
 	st *state.State,
+	machineService MachineService,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	accessUnit common.GetAuthFunc,
@@ -133,6 +138,7 @@ func NewExternalLXDProfileAPIv2(
 ) *LXDProfileAPIv2 {
 	return NewLXDProfileAPIv2(
 		LXDProfileStateV2{st},
+		machineService,
 		resources,
 		authorizer,
 		accessUnit,
@@ -191,7 +197,7 @@ func (u *LXDProfileAPIv2) watchOneInstanceData(machine LXDProfileMachineV2) (str
 
 // LXDProfileName returns the name of the lxd profile applied to the unit's
 // machine for the current charm version.
-func (u *LXDProfileAPIv2) LXDProfileName(args params.Entities) (params.StringResults, error) {
+func (u *LXDProfileAPIv2) LXDProfileName(ctx context.Context, args params.Entities) (params.StringResults, error) {
 	u.logger.Tracef("Starting LXDProfileName with %+v", args)
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
@@ -211,12 +217,23 @@ func (u *LXDProfileAPIv2) LXDProfileName(args params.Entities) (params.StringRes
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		unit, machine, err := u.getLXDProfileUnitMachineV2(tag)
+		unit, _, err := u.getLXDProfileUnitMachineV2(tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		name, err := u.getOneLXDProfileName(unit, machine)
+
+		machineTagID, err := unit.AssignedMachineId()
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		machineUUID, err := u.machineService.GetMachineUUID(ctx, coremachine.Name(machineTagID))
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		name, err := u.getOneLXDProfileName(ctx, unit, machineUUID)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -228,9 +245,10 @@ func (u *LXDProfileAPIv2) LXDProfileName(args params.Entities) (params.StringRes
 	return result, nil
 }
 
-func (u *LXDProfileAPIv2) getOneLXDProfileName(unit LXDProfileUnitV2, machine LXDProfileMachineV2) (string, error) {
-	profileNames, err := machine.CharmProfiles()
+func (u *LXDProfileAPIv2) getOneLXDProfileName(ctx context.Context, unit LXDProfileUnitV2, machineUUID string) (string, error) {
+	profileNames, err := u.machineService.LXDProfiles(ctx, machineUUID)
 	if err != nil {
+		u.logger.Errorf("unable to retrieve LXD profiles for machine %q: %v", machineUUID, err)
 		return "", err
 	}
 	appName := unit.ApplicationName()

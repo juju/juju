@@ -710,3 +710,42 @@ func (s *serviceSuite) TestGetMachineUUIDNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Check(uuid, gc.Equals, "")
 }
+
+func (s *serviceSuite) TestLXDProfilesSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().LXDProfiles(gomock.Any(), "666").Return([]string{"profile1", "profile2"}, nil)
+
+	profiles, err := NewService(s.state).LXDProfiles(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(profiles, gc.DeepEquals, []string{"profile1", "profile2"})
+}
+
+func (s *serviceSuite) TestLXDProfilesError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().LXDProfiles(gomock.Any(), "666").Return(nil, rErr)
+
+	_, err := NewService(s.state).LXDProfiles(context.Background(), "666")
+	c.Check(err, jc.ErrorIs, rErr)
+}
+
+func (s *serviceSuite) TestSetLXDProfilesSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().SetLXDProfiles(gomock.Any(), "666", []string{"profile1", "profile2"}).Return(nil)
+
+	err := NewService(s.state).SetLXDProfiles(context.Background(), "666", []string{"profile1", "profile2"})
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetLXDProfilesError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().SetLXDProfiles(gomock.Any(), "666", []string{"profile1", "profile2"}).Return(rErr)
+
+	err := NewService(s.state).SetLXDProfiles(context.Background(), "666", []string{"profile1", "profile2"})
+	c.Check(err, jc.ErrorIs, rErr)
+}

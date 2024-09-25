@@ -36,7 +36,6 @@ type Machine interface {
 	InstanceId() (instance.Id, error)
 	ContainerType() instance.ContainerType
 	IsManual() (bool, error)
-	CharmProfiles() ([]string, error)
 	SetCharmProfiles([]string) error
 	SetModificationStatus(status.StatusInfo) error
 	Units() ([]Unit, error)

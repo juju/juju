@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutatorWatcher,InstanceMutaterState,Machine,Unit,Application,Charm
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutatorWatcher,InstanceMutaterState,Machine,Unit,Application,Charm,MachineService
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity,Lifer
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/state NotifyWatcher,StringsWatcher
 
@@ -29,6 +29,7 @@ func TestPackage(t *testing.T) {
 func NewTestAPI(
 	c *gc.C,
 	st InstanceMutaterState,
+	machineService MachineService,
 	mutatorWatcher InstanceMutatorWatcher,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -40,13 +41,14 @@ func NewTestAPI(
 	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
 
 	return &InstanceMutaterAPI{
-		LifeGetter:  common.NewLifeGetter(st, getAuthFunc),
-		st:          st,
-		watcher:     mutatorWatcher,
-		resources:   resources,
-		authorizer:  authorizer,
-		getAuthFunc: getAuthFunc,
-		logger:      loggertesting.WrapCheckLog(c),
+		LifeGetter:     common.NewLifeGetter(st, getAuthFunc),
+		st:             st,
+		machineService: machineService,
+		watcher:        mutatorWatcher,
+		resources:      resources,
+		authorizer:     authorizer,
+		getAuthFunc:    getAuthFunc,
+		logger:         loggertesting.WrapCheckLog(c),
 	}, nil
 }
 

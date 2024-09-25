@@ -779,6 +779,45 @@ func (c *MockStateIsMachineRebootRequiredCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// LXDProfiles mocks base method.
+func (m *MockState) LXDProfiles(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LXDProfiles", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LXDProfiles indicates an expected call of LXDProfiles.
+func (mr *MockStateMockRecorder) LXDProfiles(arg0, arg1 any) *MockStateLXDProfilesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfiles", reflect.TypeOf((*MockState)(nil).LXDProfiles), arg0, arg1)
+	return &MockStateLXDProfilesCall{Call: call}
+}
+
+// MockStateLXDProfilesCall wrap *gomock.Call
+type MockStateLXDProfilesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateLXDProfilesCall) Return(arg0 []string, arg1 error) *MockStateLXDProfilesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateLXDProfilesCall) Do(f func(context.Context, string) ([]string, error)) *MockStateLXDProfilesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateLXDProfilesCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockStateLXDProfilesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MarkMachineForRemoval mocks base method.
 func (m *MockState) MarkMachineForRemoval(arg0 context.Context, arg1 machine.Name) error {
 	m.ctrl.T.Helper()
@@ -927,6 +966,44 @@ func (c *MockStateSetKeepInstanceCall) Do(f func(context.Context, machine.Name, 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateSetKeepInstanceCall) DoAndReturn(f func(context.Context, machine.Name, bool) error) *MockStateSetKeepInstanceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetLXDProfiles mocks base method.
+func (m *MockState) SetLXDProfiles(arg0 context.Context, arg1 string, arg2 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetLXDProfiles", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetLXDProfiles indicates an expected call of SetLXDProfiles.
+func (mr *MockStateMockRecorder) SetLXDProfiles(arg0, arg1, arg2 any) *MockStateSetLXDProfilesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLXDProfiles", reflect.TypeOf((*MockState)(nil).SetLXDProfiles), arg0, arg1, arg2)
+	return &MockStateSetLXDProfilesCall{Call: call}
+}
+
+// MockStateSetLXDProfilesCall wrap *gomock.Call
+type MockStateSetLXDProfilesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetLXDProfilesCall) Return(arg0 error) *MockStateSetLXDProfilesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetLXDProfilesCall) Do(f func(context.Context, string, []string) error) *MockStateSetLXDProfilesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetLXDProfilesCall) DoAndReturn(f func(context.Context, string, []string) error) *MockStateSetLXDProfilesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

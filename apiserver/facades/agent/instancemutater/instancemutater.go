@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -31,15 +32,33 @@ type InstanceMutaterV2 interface {
 	WatchLXDProfileVerificationNeeded(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error)
 }
 
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	// It returns a MachineNotFound if the machine does not exist.
+	GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error)
+
+	// LXDProfiles returns the names of the LXD profiles on the machine.
+	LXDProfiles(ctx context.Context, mUUID string) ([]string, error)
+
+	// SetLXDProfiles adds the list of LXD profile names to the lxd_profile table
+	// for the given machine.
+	// [machineerrors.MachineNotFound] will be returned if the machine does not
+	// exist.
+	SetLXDProfiles(ctx context.Context, mUUID string, profileNames []string) error
+}
+
 type InstanceMutaterAPI struct {
 	*common.LifeGetter
 
-	st          InstanceMutaterState
-	watcher     InstanceMutatorWatcher
-	resources   facade.Resources
-	authorizer  facade.Authorizer
-	getAuthFunc common.GetAuthFunc
-	logger      logger.Logger
+	machineService MachineService
+	st             InstanceMutaterState
+	watcher        InstanceMutatorWatcher
+	resources      facade.Resources
+	authorizer     facade.Authorizer
+	getAuthFunc    common.GetAuthFunc
+	logger         logger.Logger
 }
 
 // InstanceMutatorWatcher instances return a lxd profile watcher for a machine.
@@ -54,6 +73,7 @@ type instanceMutatorWatcher struct {
 // NewInstanceMutaterAPI creates a new API server endpoint for managing
 // charm profiles on juju lxd machines and containers.
 func NewInstanceMutaterAPI(st InstanceMutaterState,
+	machineService MachineService,
 	watcher InstanceMutatorWatcher,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -96,7 +116,7 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(ctx context.Context, arg param
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
-	lxdProfileInfo, err := api.machineLXDProfileInfo(m)
+	lxdProfileInfo, err := api.machineLXDProfileInfo(ctx, m)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(errors.Annotatef(err, "%s", tag))
 	}
@@ -163,7 +183,7 @@ func (api *InstanceMutaterAPI) SetCharmProfiles(ctx context.Context, args params
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, a := range args.Args {
-		err := api.setOneMachineCharmProfiles(a.Entity.Tag, a.Profiles, canAccess)
+		err := api.setOneMachineCharmProfiles(ctx, a.Entity.Tag, a.Profiles, canAccess)
 		results[i].Error = apiservererrors.ServerError(err)
 	}
 	return params.ErrorResults{Results: results}, nil
@@ -320,7 +340,7 @@ type lxdProfileInfo struct {
 	ProfileUnits    []params.ProfileInfoResult
 }
 
-func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo, error) {
+func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Machine) (lxdProfileInfo, error) {
 	var empty lxdProfileInfo
 
 	instId, err := m.InstanceId()
@@ -332,7 +352,11 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo,
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	machineProfiles, err := m.CharmProfiles()
+	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(m.Id()))
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+	machineProfiles, err := api.machineService.LXDProfiles(ctx, machineUUID)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
@@ -384,11 +408,22 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo,
 	}, nil
 }
 
-func (api *InstanceMutaterAPI) setOneMachineCharmProfiles(machineTag string, profiles []string, canAccess common.AuthFunc) error {
+func (api *InstanceMutaterAPI) setOneMachineCharmProfiles(ctx context.Context, machineTag string, profiles []string, canAccess common.AuthFunc) error {
 	mTag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(mTag.Id()))
+	if err != nil {
+		api.logger.Errorf("getting machine uuid: %w", err)
+		return errors.Trace(err)
+	}
+	if err := api.machineService.SetLXDProfiles(ctx, machineUUID, profiles); err != nil {
+		api.logger.Errorf("setting lxd profile: %w", err)
+		return errors.Trace(err)
+	}
+	// TODO(nvinuesa): Remove this double write once we clean up instance data.
 	machine, err := api.getMachine(canAccess, mTag)
 	if err != nil {
 		return errors.Trace(err)
