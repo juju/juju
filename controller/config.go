@@ -279,6 +279,10 @@ const (
 	// OpenTelemetrySampleRatio returns the sample ratio for open telemetry.
 	OpenTelemetrySampleRatio = "open-telemetry-sample-ratio"
 
+	// OpenTelemetryTailSamplingThreshold returns the tail sampling threshold
+	// for open telemetry as a duration.
+	OpenTelemetryTailSamplingThreshold = "open-telemetry-tail-sampling-threshold"
+
 	// ObjectStoreType is the type of object store to use for storing blobs.
 	// This isn't currently allowed to be changed dynamically, that will come
 	// when we support multiple object store types (not including state).
@@ -450,6 +454,10 @@ const (
 	// By default we only want to trace 10% of the requests.
 	DefaultOpenTelemetrySampleRatio = 0.1
 
+	// DefaultOpenTelemetryTailSamplingThreshold is the default value for the
+	// tail sampling threshold for open telemetry.
+	DefaultOpenTelemetryTailSamplingThreshold = 1 * time.Microsecond
+
 	// JujudControllerSnapSource is the default value for the jujud controller
 	// snap source, which is the snapstore.
 	// TODO(jujud-controller-snap): change this to "snapstore" once it is implemented.
@@ -515,6 +523,7 @@ var (
 		OpenTelemetryInsecure,
 		OpenTelemetryStackTraces,
 		OpenTelemetrySampleRatio,
+		OpenTelemetryTailSamplingThreshold,
 		ObjectStoreType,
 		ObjectStoreS3Endpoint,
 		ObjectStoreS3StaticKey,
@@ -570,6 +579,7 @@ var (
 		OpenTelemetryInsecure,
 		OpenTelemetryStackTraces,
 		OpenTelemetrySampleRatio,
+		OpenTelemetryTailSamplingThreshold,
 		PruneTxnQueryCount,
 		PruneTxnSleepTime,
 		PublicDNSAddress,
@@ -1094,6 +1104,12 @@ func (c Config) OpenTelemetrySampleRatio() float64 {
 	return DefaultOpenTelemetrySampleRatio
 }
 
+// OpenTelemetryTailSamplingThreshold returns the tail sampling threshold
+// for open telemetry tracing spans.
+func (c Config) OpenTelemetryTailSamplingThreshold() time.Duration {
+	return c.durationOrDefault(OpenTelemetryTailSamplingThreshold, DefaultOpenTelemetryTailSamplingThreshold)
+}
+
 // ObjectStoreType returns the type of object store to use for storing blobs.
 func (c Config) ObjectStoreType() objectstore.BackendType {
 	return objectstore.BackendType(c.asString(ObjectStoreType))
@@ -1370,6 +1386,14 @@ func Validate(c Config) error {
 	} else if err == nil {
 		if v < 0 || v > 1 {
 			return errors.Errorf("%s value %f must be a ratio between 0 and 1", OpenTelemetrySampleRatio, v)
+		}
+	}
+
+	if v, err := parseDuration(c, OpenTelemetryTailSamplingThreshold); err != nil && !errors.Is(err, errors.NotFound) {
+		return errors.Trace(err)
+	} else if err == nil {
+		if v < 0 {
+			return errors.Errorf("%s value %q must be a positive duration", OpenTelemetryTailSamplingThreshold, v)
 		}
 	}
 

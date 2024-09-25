@@ -147,15 +147,16 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
 				result := response.(*params.ControllerConfigResult)
 				*result = params.ControllerConfigResult{
 					Config: map[string]interface{}{
-						"mongo-memory-profile":              "default",
-						"juju-db-snap-channel":              controller.DefaultJujuDBSnapChannel,
-						"query-tracing-enabled":             controller.DefaultQueryTracingEnabled,
-						"query-tracing-threshold":           controller.DefaultQueryTracingThreshold,
-						controller.OpenTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
-						controller.OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
-						controller.OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
-						controller.OpenTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
-						controller.ObjectStoreType:          objectstore.FileBackend.String(),
+						"mongo-memory-profile":                        "default",
+						"juju-db-snap-channel":                        controller.DefaultJujuDBSnapChannel,
+						"query-tracing-enabled":                       controller.DefaultQueryTracingEnabled,
+						"query-tracing-threshold":                     controller.DefaultQueryTracingThreshold,
+						controller.OpenTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
+						controller.OpenTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,
+						controller.OpenTelemetryStackTraces:           controller.DefaultOpenTelemetryStackTraces,
+						controller.OpenTelemetrySampleRatio:           controller.DefaultOpenTelemetrySampleRatio,
+						controller.OpenTelemetryTailSamplingThreshold: controller.DefaultOpenTelemetryTailSamplingThreshold,
+						controller.ObjectStoreType:                    objectstore.FileBackend.String(),
 					},
 				}
 			default:
@@ -241,15 +242,16 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 				result := response.(*params.ControllerConfigResult)
 				*result = params.ControllerConfigResult{
 					Config: map[string]interface{}{
-						"mongo-memory-profile":              "default",
-						"juju-db-snap-channel":              controller.DefaultJujuDBSnapChannel,
-						"query-tracing-enabled":             controller.DefaultQueryTracingEnabled,
-						"query-tracing-threshold":           controller.DefaultQueryTracingThreshold,
-						controller.OpenTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
-						controller.OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
-						controller.OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
-						controller.OpenTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
-						controller.ObjectStoreType:          objectstore.FileBackend.String(),
+						"mongo-memory-profile":                        "default",
+						"juju-db-snap-channel":                        controller.DefaultJujuDBSnapChannel,
+						"query-tracing-enabled":                       controller.DefaultQueryTracingEnabled,
+						"query-tracing-threshold":                     controller.DefaultQueryTracingThreshold,
+						controller.OpenTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
+						controller.OpenTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,
+						controller.OpenTelemetryStackTraces:           controller.DefaultOpenTelemetryStackTraces,
+						controller.OpenTelemetrySampleRatio:           controller.DefaultOpenTelemetrySampleRatio,
+						controller.OpenTelemetryTailSamplingThreshold: controller.DefaultOpenTelemetryTailSamplingThreshold,
+						controller.ObjectStoreType:                    objectstore.FileBackend.String(),
 					},
 				}
 			default:
@@ -402,6 +404,9 @@ type mockConfig struct {
 	openTelemetrySampleRatio    float64
 	openTelemetrySampleRatioSet bool
 
+	openTelemetryTailSamplingThreshold    time.Duration
+	openTelemetryTailSamplingThresholdSet bool
+
 	objectStoreType    objectstore.BackendType
 	objectStoreTypeSet bool
 }
@@ -521,6 +526,18 @@ func (mc *mockConfig) OpenTelemetrySampleRatio() float64 {
 func (mc *mockConfig) SetOpenTelemetrySampleRatio(ratio float64) {
 	mc.openTelemetrySampleRatio = ratio
 	mc.openTelemetrySampleRatioSet = true
+}
+
+func (mc *mockConfig) OpenTelemetryTailSamplingThreshold() time.Duration {
+	if mc.openTelemetryTailSamplingThreshold == 0 {
+		return controller.DefaultOpenTelemetryTailSamplingThreshold
+	}
+	return mc.openTelemetryTailSamplingThreshold
+}
+
+func (mc *mockConfig) SetOpenTelemetryTailSamplingThreshold(dur time.Duration) {
+	mc.openTelemetryTailSamplingThreshold = dur
+	mc.openTelemetryTailSamplingThresholdSet = true
 }
 
 func (mc *mockConfig) ObjectStoreType() objectstore.BackendType {

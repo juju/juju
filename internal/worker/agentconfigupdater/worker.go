@@ -23,19 +23,20 @@ import (
 // WorkerConfig contains the information necessary to run
 // the agent config updater worker.
 type WorkerConfig struct {
-	Agent                    coreagent.Agent
-	Hub                      *pubsub.StructuredHub
-	MongoProfile             mongo.MemoryProfile
-	JujuDBSnapChannel        string
-	QueryTracingEnabled      bool
-	QueryTracingThreshold    time.Duration
-	OpenTelemetryEnabled     bool
-	OpenTelemetryEndpoint    string
-	OpenTelemetryInsecure    bool
-	OpenTelemetryStackTraces bool
-	OpenTelemetrySampleRatio float64
-	ObjectStoreType          objectstore.BackendType
-	Logger                   logger.Logger
+	Agent                              coreagent.Agent
+	Hub                                *pubsub.StructuredHub
+	MongoProfile                       mongo.MemoryProfile
+	JujuDBSnapChannel                  string
+	QueryTracingEnabled                bool
+	QueryTracingThreshold              time.Duration
+	OpenTelemetryEnabled               bool
+	OpenTelemetryEndpoint              string
+	OpenTelemetryInsecure              bool
+	OpenTelemetryStackTraces           bool
+	OpenTelemetrySampleRatio           float64
+	OpenTelemetryTailSamplingThreshold time.Duration
+	ObjectStoreType                    objectstore.BackendType
+	Logger                             logger.Logger
 }
 
 // Validate ensures that the required values are set in the structure.
@@ -55,17 +56,18 @@ func (c *WorkerConfig) Validate() error {
 type agentConfigUpdater struct {
 	config WorkerConfig
 
-	tomb                     tomb.Tomb
-	mongoProfile             mongo.MemoryProfile
-	jujuDBSnapChannel        string
-	queryTracingEnabled      bool
-	queryTracingThreshold    time.Duration
-	openTelemetryEnabled     bool
-	openTelemetryEndpoint    string
-	openTelemetryInsecure    bool
-	openTelemetryStackTraces bool
-	openTelemetrySampleRatio float64
-	objectStoreType          objectstore.BackendType
+	tomb                               tomb.Tomb
+	mongoProfile                       mongo.MemoryProfile
+	jujuDBSnapChannel                  string
+	queryTracingEnabled                bool
+	queryTracingThreshold              time.Duration
+	openTelemetryEnabled               bool
+	openTelemetryEndpoint              string
+	openTelemetryInsecure              bool
+	openTelemetryStackTraces           bool
+	openTelemetrySampleRatio           float64
+	openTelemetryTailSamplingThreshold time.Duration
+	objectStoreType                    objectstore.BackendType
 }
 
 // NewWorker creates a new agent config updater worker.
@@ -76,17 +78,18 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 
 	started := make(chan struct{})
 	w := &agentConfigUpdater{
-		config:                   config,
-		mongoProfile:             config.MongoProfile,
-		jujuDBSnapChannel:        config.JujuDBSnapChannel,
-		queryTracingEnabled:      config.QueryTracingEnabled,
-		queryTracingThreshold:    config.QueryTracingThreshold,
-		openTelemetryEnabled:     config.OpenTelemetryEnabled,
-		openTelemetryEndpoint:    config.OpenTelemetryEndpoint,
-		openTelemetryInsecure:    config.OpenTelemetryInsecure,
-		openTelemetryStackTraces: config.OpenTelemetryStackTraces,
-		openTelemetrySampleRatio: config.OpenTelemetrySampleRatio,
-		objectStoreType:          config.ObjectStoreType,
+		config:                             config,
+		mongoProfile:                       config.MongoProfile,
+		jujuDBSnapChannel:                  config.JujuDBSnapChannel,
+		queryTracingEnabled:                config.QueryTracingEnabled,
+		queryTracingThreshold:              config.QueryTracingThreshold,
+		openTelemetryEnabled:               config.OpenTelemetryEnabled,
+		openTelemetryEndpoint:              config.OpenTelemetryEndpoint,
+		openTelemetryInsecure:              config.OpenTelemetryInsecure,
+		openTelemetryStackTraces:           config.OpenTelemetryStackTraces,
+		openTelemetrySampleRatio:           config.OpenTelemetrySampleRatio,
+		openTelemetryTailSamplingThreshold: config.OpenTelemetryTailSamplingThreshold,
+		objectStoreType:                    config.ObjectStoreType,
 	}
 	w.tomb.Go(func() error {
 		return w.loop(started)
@@ -147,6 +150,9 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 	openTelemetrySampleRatio := data.Config.OpenTelemetrySampleRatio()
 	openTelemetrySampleRatioChanged := openTelemetrySampleRatio != w.openTelemetrySampleRatio
 
+	openTelemetryTailSamplingThreshold := data.Config.OpenTelemetryTailSamplingThreshold()
+	openTelemetryTailSamplingThresholdChanged := openTelemetryTailSamplingThreshold != w.openTelemetryTailSamplingThreshold
+
 	objectStoreType := data.Config.ObjectStoreType()
 	objectStoreTypeChanged := objectStoreType != w.objectStoreType
 
@@ -159,6 +165,7 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 		openTelemetryInsecureChanged ||
 		openTelemetryStackTracesChanged ||
 		openTelemetrySampleRatioChanged ||
+		openTelemetryTailSamplingThresholdChanged ||
 		objectStoreTypeChanged
 
 	// If any changes are detected, we need to update the agent config.
@@ -203,6 +210,10 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 		if openTelemetrySampleRatioChanged {
 			w.config.Logger.Debugf("setting agent config open telemetry sample ratio: %v => %v", w.openTelemetrySampleRatio, openTelemetrySampleRatio)
 			setter.SetOpenTelemetrySampleRatio(openTelemetrySampleRatio)
+		}
+		if openTelemetryTailSamplingThresholdChanged {
+			w.config.Logger.Debugf("setting agent config open telemetry tail sampling threshold: %v => %v", w.openTelemetryTailSamplingThreshold, openTelemetryTailSamplingThreshold)
+			setter.SetOpenTelemetryTailSamplingThreshold(openTelemetryTailSamplingThreshold)
 		}
 		if objectStoreTypeChanged {
 			w.config.Logger.Debugf("setting agent config object store type: %v => %v", w.objectStoreType, objectStoreType)

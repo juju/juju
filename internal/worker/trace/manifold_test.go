@@ -5,6 +5,7 @@ package trace
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -54,7 +55,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		AgentName: "agent",
 		Clock:     s.clock,
 		Logger:    s.logger,
-		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, float64, logger.Logger, NewClientFunc) (TrackedTracer, error) {
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
 			return nil, nil
 		},
 		Kind: coretrace.KindController,
@@ -102,4 +103,5 @@ func (s *manifoldSuite) expectOpenTelemetry() {
 	s.config.EXPECT().OpenTelemetryInsecure().Return(false)
 	s.config.EXPECT().OpenTelemetryStackTraces().Return(true)
 	s.config.EXPECT().OpenTelemetrySampleRatio().Return(0.5)
+	s.config.EXPECT().OpenTelemetryTailSamplingThreshold().Return(time.Second)
 }
