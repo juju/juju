@@ -414,9 +414,3 @@ VALUES ($machineUUID.uuid, $machineStatusWithData.key, $machineStatusWithData.da
 		return nil
 	})
 }
-
-// InitialWatchInstanceStatement returns the table and the initial watch statement
-// for the machine cloud instances.
-func (st *State) InitialWatchInstanceStatement() (string, string) {
-	return "machine_cloud_instance", "SELECT machine_uuid FROM machine_cloud_instance"
-}

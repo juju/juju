@@ -6,6 +6,7 @@ package uniter_test
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	machine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/watcher/registry"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -48,8 +50,16 @@ func (s *newLxdProfileSuite) SetUpTest(c *gc.C) {
 
 func (s *newLxdProfileSuite) TestWatchInstanceData(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectUnitAndMachine(1)
-	s.expectWatchInstanceData()
+
+	watcher := &mockNotifyWatcher{
+		changes: make(chan struct{}, 1),
+	}
+	watcher.changes <- struct{}{}
+	s.machineService.EXPECT().WatchLXDProfiles(gomock.Any(), "uuid0").Return(watcher, nil)
+
+	s.backend.EXPECT().Unit(s.unitTag1.Id()).Return(s.unit, nil)
+	s.unit.EXPECT().AssignedMachineId().Return(s.machineTag1.Id(), nil).Times(1)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machineTag1.Id())).Return("uuid0", nil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -60,12 +70,12 @@ func (s *newLxdProfileSuite) TestWatchInstanceData(c *gc.C) {
 	}
 
 	api := s.newAPI(c)
-	results, err := api.WatchInstanceData(args)
+	results, err := api.WatchInstanceData(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
-			{NotifyWatcherId: "1", Error: nil},
+			{NotifyWatcherId: "w-1", Error: nil},
 			{NotifyWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
@@ -221,7 +231,6 @@ func (s *newLxdProfileSuite) testCanApplyLXDProfile(c *gc.C, result bool) {
 }
 
 func (s *newLxdProfileSuite) newAPI(c *gc.C) *uniter.LXDProfileAPIv2 {
-	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.unitTag1,
 	}
@@ -233,10 +242,12 @@ func (s *newLxdProfileSuite) newAPI(c *gc.C) *uniter.LXDProfileAPIv2 {
 			return false
 		}, nil
 	}
+	watcherRegistry, err := registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
 	api := uniter.NewLXDProfileAPIv2(
 		s.backend,
 		s.machineService,
-		resources,
+		watcherRegistry,
 		authorizer,
 		unitAuthFunc,
 		loggertesting.WrapCheckLog(c),
@@ -280,13 +291,4 @@ func (s *newLxdProfileSuite) expectManual(manual bool) {
 
 func (s *newLxdProfileSuite) expectContainerType(cType instance.ContainerType) {
 	s.machine.EXPECT().ContainerType().Return(cType)
-}
-
-func (s *newLxdProfileSuite) expectWatchInstanceData() {
-	watcher := &mockNotifyWatcher{
-		changes: make(chan struct{}, 1),
-	}
-	watcher.changes <- struct{}{}
-
-	s.machine.EXPECT().WatchInstanceData().Return(watcher)
 }

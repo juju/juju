@@ -58,3 +58,40 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForMachineLxdProfile generates the triggers for the
+// machine_lxd_profile table.
+func ChangeLogTriggersForMachineLxdProfile(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for MachineLxdProfile
+INSERT INTO change_log_namespace VALUES (%[2]d, 'machine_lxd_profile', 'MachineLxdProfile changes based on %[1]s');
+
+-- insert trigger for MachineLxdProfile
+CREATE TRIGGER trg_log_machine_lxd_profile_insert
+AFTER INSERT ON machine_lxd_profile FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+END;
+
+-- update trigger for MachineLxdProfile
+CREATE TRIGGER trg_log_machine_lxd_profile_update
+AFTER UPDATE ON machine_lxd_profile FOR EACH ROW
+WHEN 
+	NEW.machine_uuid != OLD.machine_uuid OR
+	NEW.name != OLD.name OR
+	NEW.array_index != OLD.array_index 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;
+-- delete trigger for MachineLxdProfile
+CREATE TRIGGER trg_log_machine_lxd_profile_delete
+AFTER DELETE ON machine_lxd_profile FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;`, columnName, namespaceID))
+	}
+}
+
