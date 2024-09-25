@@ -49,7 +49,7 @@ func (s *exportSuite) TestRegisterExport(c *gc.C) {
 
 	s.coordinator.EXPECT().Add(gomock.Any())
 
-	RegisterExport(s.coordinator, loggertesting.WrapCheckLog(c))
+	RegisterExport(s.coordinator, loggertesting.WrapCheckLog(c), clock.WallClock)
 }
 
 // TestExport verifies the export of cloud image metadata to the model. It creates some metadata with different values

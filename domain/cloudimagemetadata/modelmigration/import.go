@@ -25,10 +25,10 @@ type Coordinator interface {
 
 // RegisterImport register's a new model migration importer into the supplied
 // coordinator.
-func RegisterImport(coordinator Coordinator, logger logger.Logger) {
+func RegisterImport(coordinator Coordinator, logger logger.Logger, clock clock.Clock) {
 	coordinator.Add(&importOperation{
 		logger: logger,
-		clock:  clock.WallClock,
+		clock:  clock,
 	})
 }
 

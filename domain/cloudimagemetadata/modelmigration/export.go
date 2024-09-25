@@ -18,9 +18,9 @@ import (
 )
 
 // RegisterExport registers the export operations with the given coordinator.
-func RegisterExport(coordinator Coordinator, logger logger.Logger) {
+func RegisterExport(coordinator Coordinator, logger logger.Logger, clock clock.Clock) {
 	coordinator.Add(&exportOperation{
-		clock:  clock.WallClock,
+		clock:  clock,
 		logger: logger,
 	})
 }

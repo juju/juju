@@ -50,7 +50,7 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 
 	s.coordinator.EXPECT().Add(gomock.Any())
 
-	RegisterImport(s.coordinator, loggertesting.WrapCheckLog(c))
+	RegisterImport(s.coordinator, loggertesting.WrapCheckLog(c), clock.WallClock)
 }
 
 // TestImport tests the import operation by verifying the SaveMetadata call with transformed metadata against the service.

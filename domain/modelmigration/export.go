@@ -4,6 +4,8 @@
 package modelmigration
 
 import (
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/logger"
 	access "github.com/juju/juju/domain/access/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
@@ -27,6 +29,7 @@ func ExportOperations(
 	coordinator Coordinator,
 	registry internalstorage.ProviderRegistry,
 	logger logger.Logger,
+	clock clock.Clock,
 ) {
 	modelconfig.RegisterExport(coordinator)
 	access.RegisterExport(coordinator, logger.Child("access"))
@@ -39,5 +42,5 @@ func ExportOperations(
 	storage.RegisterExport(coordinator, registry, logger.Child("storage"))
 	secret.RegisterExport(coordinator, logger.Child("secret"))
 	application.RegisterExport(coordinator, logger.Child("application"))
-	cloudimagemetadata.RegisterExport(coordinator, logger.Child("cloudimagemetadata"))
+	cloudimagemetadata.RegisterExport(coordinator, logger.Child("cloudimagemetadata"), clock)
 }

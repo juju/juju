@@ -942,6 +942,7 @@ func (ctx *facadeContext) ModelExporter(modelUUID model.UUID, backend facade.Leg
 		ctx.migrationScope(modelUUID),
 		storageRegistryGetter(ctx),
 		ctx.Logger(),
+		ctx.r.clock,
 	)
 }
 
@@ -956,6 +957,7 @@ func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
 		environs.ProviderConfigSchemaSource,
 		storageRegistryGetter(ctx),
 		ctx.Logger(),
+		ctx.r.clock,
 	)
 }
 
