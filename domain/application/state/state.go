@@ -737,6 +737,12 @@ WHERE uuid = $charmID.uuid;
 		return nil, -1, fmt.Errorf("failed to get charm lxd profile: %w", err)
 	}
 
+	// TODO - figure out why this is happening
+	// Sometimes we get an empty slice, sometimes a nil slice.
+	// Cater for both cases.
+	if len(profile.LXDProfile) == 0 {
+		profile.LXDProfile = nil
+	}
 	return profile.LXDProfile, profile.Revision, nil
 }
 

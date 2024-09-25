@@ -99,7 +99,7 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 		loggertesting.WrapCheckLog(c),
 	)
 	u := applicationservice.AddUnitArg{
-		UnitName: ptr("mariadb/0"),
+		UnitName: "mariadb/0",
 	}
 	_, err := appService.CreateApplication(ctx, "mariadb", &stubCharm{}, corecharm.Origin{
 		Source: corecharm.Local,

@@ -39,7 +39,7 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	unitArg := application.UpsertUnitArg{UnitName: ptr("app/0")}
+	unitArg := application.UpsertUnitArg{UnitName: "app/0"}
 
 	ctx := context.Background()
 	_, err := appState.CreateApplication(ctx, "app", appArg, unitArg)

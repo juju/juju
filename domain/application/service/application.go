@@ -31,7 +31,9 @@ import (
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/linklayerdevice"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
@@ -287,7 +289,10 @@ func (s *ApplicationService) CreateApplication(
 
 	unitArgs := make([]application.UpsertUnitArg, len(units))
 	for i, u := range units {
-		unitArgs[i] = makeUpsertUnitArgs(u)
+		unitArgs[i], err = makeUpsertUnitArgs(u)
+		if err != nil {
+			return "", errors.Annotatef(err, "composing unit %q", name)
+		}
 	}
 
 	id, err := s.st.CreateApplication(ctx, name, appArg, unitArgs...)
@@ -297,7 +302,7 @@ func (s *ApplicationService) CreateApplication(
 	return id, nil
 }
 
-func makeUpsertUnitArgs(in AddUnitArg) application.UpsertUnitArg {
+func makeUpsertUnitArgs(in AddUnitArg) (application.UpsertUnitArg, error) {
 	result := application.UpsertUnitArg{
 		UnitName:     in.UnitName,
 		PasswordHash: in.PasswordHash,
@@ -311,18 +316,28 @@ func makeUpsertUnitArgs(in AddUnitArg) application.UpsertUnitArg {
 			// TODO(units) - handle the in.CloudContainer.Address space ID
 			// For k8s we'll initially create a /32 subnet off the container address
 			// and add that to the default space.
-			result.CloudContainer.Address = &application.Address{
+			result.CloudContainer.Address = &application.ContainerAddress{
+				// For cloud containers, the device is a placeholder without
+				// a MAC address and once inserted, not updated. It just exists
+				// to tie the address to the net node corresponding to the
+				// cloud container.
+				Device: application.ContainerDevice{
+					Name:              fmt.Sprintf("placeholder for %q cloud container", in.UnitName),
+					DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
+					VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
+				},
 				Value:       in.CloudContainer.Address.Value,
-				AddressType: string(in.CloudContainer.Address.AddressType()),
-				Scope:       string(in.CloudContainer.Address.Scope),
-				Origin:      string(network.OriginProvider),
+				AddressType: ipaddress.MarshallAddressType(in.CloudContainer.Address.AddressType()),
+				Scope:       ipaddress.MarshallScope(in.CloudContainer.Address.Scope),
+				Origin:      ipaddress.MarshallOrigin(network.OriginProvider),
+				ConfigType:  ipaddress.MarshallConfigType(network.ConfigDHCP),
 			}
 			if in.CloudContainer.AddressOrigin != nil {
-				result.CloudContainer.Address.Origin = string(*in.CloudContainer.AddressOrigin)
+				result.CloudContainer.Address.Origin = ipaddress.MarshallOrigin(*in.CloudContainer.AddressOrigin)
 			}
 		}
 	}
-	return result
+	return result, nil
 }
 
 // AddUnits adds the specified units to the application, returning an error
@@ -519,7 +534,7 @@ func (s *ApplicationService) RegisterCAASUnit(ctx context.Context, appName strin
 	}
 
 	p := AddUnitArg{
-		UnitName:     &args.UnitName,
+		UnitName:     args.UnitName,
 		PasswordHash: args.PasswordHash,
 		CloudContainer: &CloudContainerParams{
 			ProviderId: args.ProviderId,
@@ -532,10 +547,12 @@ func (s *ApplicationService) RegisterCAASUnit(ctx context.Context, appName strin
 		origin := network.OriginProvider
 		p.CloudContainer.AddressOrigin = &origin
 	}
-	// We need to do a bunch of business logic in the one transaction so pass in a closure that is
-	// given the transaction to use.
-	unitArg := makeUpsertUnitArgs(p)
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+
+	unitArg, err := makeUpsertUnitArgs(p)
+	if err != nil {
+		return errors.Annotatef(err, "composing unit %q", args.UnitName)
+	}
+	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		appID, err := s.st.GetApplicationID(ctx, appName)
 		if err != nil {
 			return errors.Trace(err)
@@ -561,7 +578,7 @@ func (s *ApplicationService) insertCAASUnit(
 	}
 	if orderedID >= appScale.Scale ||
 		(appScale.Scaling && orderedID >= appScale.ScaleTarget) {
-		return fmt.Errorf("unrequired unit %s is not assigned%w", *args.UnitName, errors.Hide(applicationerrors.UnitNotAssigned))
+		return fmt.Errorf("unrequired unit %s is not assigned%w", args.UnitName, errors.Hide(applicationerrors.UnitNotAssigned))
 	}
 	return s.st.InsertUnit(ctx, appID, args)
 }

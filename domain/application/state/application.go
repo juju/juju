@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -399,17 +398,13 @@ func (st *ApplicationState) getUnit(ctx context.Context, tx *sqlair.TX, unitName
 func (st *ApplicationState) InsertUnit(
 	ctx domain.AtomicContext, appID coreapplication.ID, args application.UpsertUnitArg,
 ) error {
-	// Should not happen, defensive check.
-	if args.UnitName == nil {
-		return errors.New("unit name must be provided inserting a unit")
-	}
 	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := st.getUnit(ctx, tx, *args.UnitName)
+		_, err := st.getUnit(ctx, tx, args.UnitName)
 		if err == nil {
-			return fmt.Errorf("unit %q already exists%w", *args.UnitName, errors.Hide(applicationerrors.UnitAlreadyExists))
+			return fmt.Errorf("unit %q already exists%w", args.UnitName, errors.Hide(applicationerrors.UnitAlreadyExists))
 		}
 		if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
-			return errors.Annotatef(err, "looking up unit %q", *args.UnitName)
+			return errors.Annotatef(err, "looking up unit %q", args.UnitName)
 		}
 		return st.insertUnit(ctx, tx, appID, args)
 	})
@@ -450,23 +445,17 @@ func (st *ApplicationState) insertUnit(
 		return errors.Trace(err)
 	}
 
-	// TODO - we are mirroring what's in mongo, hence the unit name is known.
-	// In future we'll need to use a sequence to get a new unit id.
-	if args.UnitName == nil {
-		return fmt.Errorf("must pass unit name when adding a new unit for application %q", appID)
-	}
-	unitName := *args.UnitName
-	createParams.Name = unitName
+	createParams.Name = args.UnitName
 
 	if err := tx.Query(ctx, createNodeStmt, createParams).Run(); err != nil {
-		return errors.Annotatef(err, "creating net node row for unit %q", unitName)
+		return errors.Annotatef(err, "creating net node row for unit %q", args.UnitName)
 	}
 	if err := tx.Query(ctx, createUnitStmt, createParams).Run(); err != nil {
-		return errors.Annotatef(err, "creating unit row for unit %q", unitName)
+		return errors.Annotatef(err, "creating unit row for unit %q", args.UnitName)
 	}
 	if args.CloudContainer != nil {
-		if err := st.upsertUnitCloudContainer(ctx, tx, unitName, nodeUUID.String(), args.CloudContainer); err != nil {
-			return errors.Annotatef(err, "creating cloud container row for unit %q", unitName)
+		if err := st.upsertUnitCloudContainer(ctx, tx, args.UnitName, nodeUUID.String(), args.CloudContainer); err != nil {
+			return errors.Annotatef(err, "creating cloud container row for unit %q", args.UnitName)
 		}
 	}
 	return nil
@@ -478,7 +467,7 @@ func (st *ApplicationState) UpdateUnit(
 	ctx domain.AtomicContext, appID coreapplication.ID, args application.UpsertUnitArg,
 ) error {
 	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		toUpdate, err := st.getUnit(ctx, tx, *args.UnitName)
+		toUpdate, err := st.getUnit(ctx, tx, args.UnitName)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -510,7 +499,7 @@ WHERE uuid = $unitDetails.uuid
 		}
 		return nil
 	})
-	return errors.Annotatef(err, "updating unit %q for application %q", *args.UnitName, appID)
+	return errors.Annotatef(err, "updating unit %q for application %q", args.UnitName, appID)
 }
 
 func (st *ApplicationState) upsertUnitCloudContainer(
@@ -553,16 +542,6 @@ WHERE net_node_uuid = $cloudContainer.net_node_uuid
 	if newProviderId != "" {
 		newContainerInfo.ProviderID = newProviderId
 	}
-	// if cc.Address != nil {
-	//   TODO(units) - handle addresses
-	// }
-	// if cc.Ports != nil {
-	//   TODO(units) - handle ports
-	// }
-	// Currently, we only update container attributes but that might change.
-	if reflect.DeepEqual(newContainerInfo, existingContainerInfo) {
-		return nil
-	}
 
 	upsertCloudContainer := `
 INSERT INTO cloud_container (*) VALUES ($cloudContainer.*)
@@ -575,8 +554,163 @@ ON CONFLICT(net_node_uuid) DO UPDATE
 		return errors.Trace(err)
 	}
 
-	err = tx.Query(ctx, upsertStmt, newContainerInfo).Run()
-	return errors.Annotatef(err, "updating cloud container for unit %q", unitName)
+	if err := tx.Query(ctx, upsertStmt, newContainerInfo).Run(); err != nil {
+		return errors.Annotatef(err, "updating cloud container for unit %q", unitName)
+	}
+
+	if cc.Address != nil {
+		if err := st.upsertCloudContainerAddress(ctx, tx, unitName, netNodeID, *cc.Address); err != nil {
+			return errors.Annotatef(err, "updating cloud container address for unit %q", unitName)
+		}
+	}
+	if cc.Ports != nil {
+		if err := st.upsertCloudContainerPorts(ctx, tx, netNodeID, *cc.Ports); err != nil {
+			return errors.Annotatef(err, "updating cloud container ports for unit %q", unitName)
+		}
+	}
+	return nil
+}
+
+func (st *ApplicationState) upsertCloudContainerAddress(
+	ctx context.Context, tx *sqlair.TX, unitName, netNodeID string, address application.ContainerAddress,
+) error {
+	// First ensure the address link layer device is upserted.
+	// For cloud containers, the device is a placeholder without
+	// a MAC address. It just exits to tie the address to the
+	// net node corresponding to the cloud container.
+	cloudContainerDeviceInfo := cloudContainerDevice{
+		Name:              address.Device.Name,
+		NetNodeID:         netNodeID,
+		DeviceTypeID:      int(address.Device.DeviceTypeID),
+		VirtualPortTypeID: int(address.Device.VirtualPortTypeID),
+	}
+
+	selectCloudContainerDeviceStmt, err := st.Prepare(`
+SELECT &cloudContainerDevice.uuid
+FROM link_layer_device
+WHERE net_node_uuid = $cloudContainerDevice.net_node_uuid
+`, cloudContainerDeviceInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	insertCloudContainerDeviceStmt, err := st.Prepare(`
+INSERT INTO link_layer_device (*) VALUES ($cloudContainerDevice.*)
+`, cloudContainerDeviceInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// See if the link layer device exists, if not insert it.
+	err = tx.Query(ctx, selectCloudContainerDeviceStmt, cloudContainerDeviceInfo).Get(&cloudContainerDeviceInfo)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Annotatef(err, "querying cloud container link layer device for unit %q", unitName)
+	}
+	if errors.Is(err, sqlair.ErrNoRows) {
+		deviceUUID, err := uuid.NewUUID()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		cloudContainerDeviceInfo.UUID = deviceUUID.String()
+		if err := tx.Query(ctx, insertCloudContainerDeviceStmt, cloudContainerDeviceInfo).Run(); err != nil {
+			return errors.Annotatef(err, "inserting cloud container device for unit %q", unitName)
+		}
+	}
+	deviceUUID := cloudContainerDeviceInfo.UUID
+
+	// Now process the address details.
+	ipAddr := ipAddress{
+		Value:        address.Value,
+		ConfigTypeID: int(address.ConfigType),
+		TypeID:       int(address.AddressType),
+		OriginID:     int(address.Origin),
+		ScopeID:      int(address.Scope),
+		DeviceID:     deviceUUID,
+	}
+
+	selectAddressUUIDStmt, err := st.Prepare(`
+SELECT &ipAddress.uuid
+FROM ip_address
+WHERE device_uuid = $ipAddress.device_uuid;
+`, ipAddr)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	upsertAddressStmt, err := sqlair.Prepare(`
+INSERT INTO ip_address (*)
+VALUES ($ipAddress.*)
+ON CONFLICT(uuid) DO UPDATE SET
+    address_value = excluded.address_value,
+    type_id = excluded.type_id,
+    scope_id = excluded.scope_id,
+    origin_id = excluded.origin_id,
+    config_type_id = excluded.config_type_id
+`, ipAddr)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Container addresses are never deleted unless the container itself is deleted.
+	// First see if there's an existing address recorded.
+	err = tx.Query(ctx, selectAddressUUIDStmt, ipAddr).Get(&ipAddr)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return fmt.Errorf("querying existing cloud container address for device %q: %w", deviceUUID, err)
+	}
+
+	// Create a UUID for new addresses.
+	if errors.Is(err, sqlair.ErrNoRows) {
+		addrUUID, err := uuid.NewUUID()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ipAddr.AddressUUID = addrUUID.String()
+	}
+
+	// Update the address values.
+	if err = tx.Query(ctx, upsertAddressStmt, ipAddr).Run(); err != nil {
+		return fmt.Errorf("updating cloud container address attributes for device %q: %w", deviceUUID, err)
+	}
+	return nil
+}
+
+type ports []string
+
+func (st *ApplicationState) upsertCloudContainerPorts(ctx context.Context, tx *sqlair.TX, cloudContainerID string, portValues []string) error {
+	ccPort := cloudContainerPort{
+		CloudContainerUUID: cloudContainerID,
+	}
+	deleteStmt, err := st.Prepare(`
+DELETE FROM cloud_container_port
+WHERE port NOT IN ($ports[:])
+AND cloud_container_uuid = $cloudContainerPort.cloud_container_uuid;
+`, ports{}, ccPort)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	upsertStmt, err := sqlair.Prepare(`
+INSERT INTO cloud_container_port (*)
+VALUES ($cloudContainerPort.*)
+ON CONFLICT(cloud_container_uuid, port)
+DO NOTHING
+`, ccPort)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := tx.Query(ctx, deleteStmt, ports(portValues), ccPort).Run(); err != nil {
+		return fmt.Errorf("removing cloud container ports for %q: %w", cloudContainerID, err)
+	}
+
+	for _, port := range portValues {
+		ccPort.Port = port
+		if err := tx.Query(ctx, upsertStmt, ccPort).Run(); err != nil {
+			return fmt.Errorf("updating cloud container ports for %q: %w", cloudContainerID, err)
+		}
+	}
+
+	return nil
 }
 
 // DeleteUnit deletes the specified unit.
@@ -630,7 +764,7 @@ func (st *ApplicationState) deleteUnit(ctx context.Context, tx *sqlair.TX, unitN
 
 	unit := coreUnit{Name: unitName}
 
-	queryUnit := `SELECT &coreUnit.uuid FROM unit WHERE name = $coreUnit.name`
+	queryUnit := `SELECT &coreUnit.* FROM unit WHERE name = $coreUnit.name`
 	queryUnitStmt, err := st.Prepare(queryUnit, unit)
 	if err != nil {
 		return errors.Trace(err)
@@ -643,8 +777,9 @@ func (st *ApplicationState) deleteUnit(ctx context.Context, tx *sqlair.TX, unitN
 	}
 
 	deleteNode := `
-DELETE FROM net_node WHERE uuid IN
-(SELECT net_node_uuid FROM unit WHERE name = $coreUnit.name)
+DELETE FROM net_node WHERE uuid = (
+    SELECT net_node_uuid FROM unit WHERE name = $coreUnit.name
+)
 `
 	deleteNodeStmt, err := st.Prepare(deleteNode, unit)
 	if err != nil {
@@ -660,7 +795,7 @@ DELETE FROM net_node WHERE uuid IN
 		return errors.Annotatef(err, "looking up UUID for unit %q", unitName)
 	}
 
-	if err := st.deleteCloudContainer(ctx, tx, unit.ID); err != nil {
+	if err := st.deleteCloudContainer(ctx, tx, unit.NetNodeID); err != nil {
 		return errors.Annotatef(err, "deleting cloud container for unit %q", unitName)
 	}
 
@@ -683,17 +818,72 @@ DELETE FROM net_node WHERE uuid IN
 	return nil
 }
 
-func (st *ApplicationState) deleteCloudContainer(ctx context.Context, tx *sqlair.TX, unitID string) error {
-	unit := coreUnit{ID: unitID}
+func (st *ApplicationState) deleteCloudContainer(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
+	cloudContainer := cloudContainer{NetNodeID: netNodeID}
 
-	deleteCloudContainer := `DELETE FROM cloud_container WHERE net_node_uuid = $coreUnit.uuid`
-	deleteCloudContainerStmt, err := st.Prepare(deleteCloudContainer, unit)
+	if err := st.deleteCloudContainerPorts(ctx, tx, netNodeID); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := st.deleteCloudContainerAddresses(ctx, tx, netNodeID); err != nil {
+		return errors.Trace(err)
+	}
+
+	deleteCloudContainerStmt, err := st.Prepare(`
+DELETE FROM cloud_container
+WHERE net_node_uuid = $cloudContainer.net_node_uuid`, cloudContainer)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := tx.Query(ctx, deleteCloudContainerStmt, unit).Run(); err != nil {
+	if err := tx.Query(ctx, deleteCloudContainerStmt, cloudContainer).Run(); err != nil {
 		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (st *ApplicationState) deleteCloudContainerAddresses(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
+	unit := coreUnit{
+		NetNodeID: netNodeID,
+	}
+	deleteAddressStmt, err := st.Prepare(`
+DELETE FROM ip_address
+WHERE device_uuid IN (
+    SELECT device_uuid FROM link_layer_device lld
+    WHERE lld.net_node_uuid = $coreUnit.net_node_uuid
+)
+`, unit)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	deleteDeviceStmt, err := st.Prepare(`
+DELETE FROM link_layer_device
+WHERE net_node_uuid = $coreUnit.net_node_uuid`, unit)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := tx.Query(ctx, deleteAddressStmt, unit).Run(); err != nil {
+		return fmt.Errorf("removing cloud container addresses for %q: %w", netNodeID, err)
+	}
+	if err := tx.Query(ctx, deleteDeviceStmt, unit).Run(); err != nil {
+		return fmt.Errorf("removing cloud container link layer devices for %q: %w", netNodeID, err)
+	}
+	return nil
+}
+
+func (st *ApplicationState) deleteCloudContainerPorts(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
+	unit := coreUnit{
+		NetNodeID: netNodeID,
+	}
+	deleteStmt, err := st.Prepare(`
+DELETE FROM cloud_container_port
+WHERE cloud_container_uuid = $coreUnit.net_node_uuid
+`, unit)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := tx.Query(ctx, deleteStmt, unit).Run(); err != nil {
+		return fmt.Errorf("removing cloud container ports for %q: %w", netNodeID, err)
 	}
 	return nil
 }
@@ -703,9 +893,10 @@ func (st *ApplicationState) deletePorts(ctx context.Context, tx *sqlair.TX, unit
 
 	deletePortRange := `
 DELETE FROM port_range
-WHERE unit_endpoint_uuid IN
-(SELECT uuid FROM unit_endpoint ue
-WHERE ue.unit_uuid = $coreUnit.uuid)
+WHERE unit_endpoint_uuid IN (
+    SELECT uuid FROM unit_endpoint ue
+    WHERE ue.unit_uuid = $coreUnit.uuid
+)
 `
 	deletePortRangeStmt, err := st.Prepare(deletePortRange, unit)
 	if err != nil {

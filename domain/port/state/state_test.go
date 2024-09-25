@@ -65,7 +65,7 @@ func (s *stateSuite) createUnit(c *gc.C, netNodeUUID, appName string) (string, s
 	c.Assert(err == nil || errors.Is(err, applicationerrors.ApplicationAlreadyExists), jc.IsTrue)
 
 	unitName := fmt.Sprintf("%s/%d", appName, s.unitCount)
-	err = applicationSt.AddUnits(context.Background(), appName, application.UpsertUnitArg{UnitName: &unitName})
+	err = applicationSt.AddUnits(context.Background(), appName, application.UpsertUnitArg{UnitName: unitName})
 	c.Assert(err, jc.ErrorIsNil)
 	s.unitCount++
 

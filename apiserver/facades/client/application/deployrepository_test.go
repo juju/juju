@@ -1195,7 +1195,7 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 	}, applicationservice.AddApplicationArgs{
 		ReferenceName: "testme",
 		Storage:       nil,
-	}, applicationservice.AddUnitArg{UnitName: ptr("metadata-name/0")})
+	}, applicationservice.AddUnitArg{UnitName: "metadata-name/0"})
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI(c)
 
 	obtainedInfo, resources, errs := deployFromRepositoryAPI.DeployFromRepository(context.Background(), arg)
@@ -1244,10 +1244,6 @@ func (m addApplicationArgsMatcher) Matches(x interface{}) bool {
 	m.c.Assert(oA.Placement, gc.DeepEquals, eA.Placement)
 	m.c.Assert(oA.Resources, gc.DeepEquals, eA.Resources)
 	return true
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
 
 func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAPI(c *gc.C) {
@@ -1339,7 +1335,7 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 	}, applicationservice.AddApplicationArgs{
 		ReferenceName: "testme",
 		Storage:       nil,
-	}, applicationservice.AddUnitArg{UnitName: ptr("metadata-name/0")})
+	}, applicationservice.AddUnitArg{UnitName: "metadata-name/0"})
 
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI(c)
 

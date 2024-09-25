@@ -21,6 +21,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/schema/testing"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secretservice "github.com/juju/juju/domain/secret/service"
@@ -210,7 +211,7 @@ func (s *serviceSuite) TestEnsureApplicationDeadNotFound(c *gc.C) {
 
 func (s *serviceSuite) TestGetUnitLife(c *gc.C) {
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", u)
 
@@ -224,7 +225,7 @@ func (s *serviceSuite) TestGetUnitLife(c *gc.C) {
 
 func (s *serviceSuite) TestDestroyUnit(c *gc.C) {
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", u)
 
@@ -249,7 +250,7 @@ func (s *serviceSuite) TestEnsureUnitDead(c *gc.C) {
 	defer ctrl.Finish()
 
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", u)
 
@@ -289,7 +290,7 @@ func (s *serviceSuite) TestDeleteUnit(c *gc.C) {
 	defer ctrl.Finish()
 
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", u)
 	s.createSecrets(c, "foo", "foo/666")
@@ -341,7 +342,7 @@ func (s *serviceSuite) TestRemoveUnit(c *gc.C) {
 	defer ctrl.Finish()
 
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", u)
 
@@ -375,7 +376,7 @@ func (s *serviceSuite) TestRemoveUnitStillAlive(c *gc.C) {
 	defer ctrl.Finish()
 
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", u)
 
@@ -397,42 +398,83 @@ func (s *serviceSuite) TestRemoveUnitNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *serviceSuite) assertCAASUnit(c *gc.C, name, passwordHash string) {
+func (s *serviceSuite) assertCAASUnit(c *gc.C, name, passwordHash, addressValue string, ports []string) {
 	var (
-		gotPasswordHash string
+		gotPasswordHash  string
+		gotAddress       string
+		gotAddressType   ipaddress.AddressType
+		gotAddressScope  ipaddress.Scope
+		gotAddressOrigin ipaddress.Origin
+		gotPorts         []string
 	)
+
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT password_hash FROM unit WHERE name = ?", name).Scan(&gotPasswordHash)
 		if err != nil {
 			return err
 		}
-		return nil
+		err = tx.QueryRowContext(ctx, `
+SELECT address_value, type_id, scope_id, origin_id FROM ip_address ipa
+JOIN link_layer_device lld ON lld.uuid = ipa.device_uuid
+JOIN unit u ON u.net_node_uuid = lld.net_node_uuid WHERE u.name = ?
+`, name).
+			Scan(&gotAddress, &gotAddressType, &gotAddressScope, &gotAddressOrigin)
+		if err != nil {
+			return err
+		}
+		rows, err := tx.QueryContext(ctx, `
+SELECT port FROM cloud_container_port ccp
+JOIN cloud_container cc ON cc.net_node_uuid = ccp.cloud_container_uuid
+JOIN unit u ON u.net_node_uuid = cc.net_node_uuid WHERE u.name = ?
+`, name)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var port string
+			err = rows.Scan(&port)
+			if err != nil {
+				return err
+			}
+			gotPorts = append(gotPorts, port)
+		}
+		return rows.Err()
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotPasswordHash, gc.Equals, passwordHash)
+	c.Assert(gotAddress, gc.Equals, addressValue)
+	c.Assert(gotAddressType, gc.Equals, ipaddress.AddressTypeIPv4)
+	c.Assert(gotAddressScope, gc.Equals, ipaddress.ScopeMachineLocal)
+	c.Assert(gotAddressOrigin, gc.Equals, ipaddress.OriginProvider)
+	c.Assert(gotPorts, jc.DeepEquals, ports)
 }
 
 func (s *serviceSuite) TestReplaceCAASUnit(c *gc.C) {
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/1"),
+		UnitName: "foo/1",
 	}
 	s.createApplication(c, "foo", u)
 
+	address := "10.6.6.6"
+	ports := []string{"666"}
 	args := service.RegisterCAASUnitParams{
 		UnitName:     "foo/1",
 		PasswordHash: ptr("passwordhash"),
 		ProviderId:   ptr("provider-id"),
+		Address:      ptr(address),
+		Ports:        ptr(ports),
 		OrderedScale: true,
 		OrderedId:    1,
 	}
 	err := s.svc.RegisterCAASUnit(context.Background(), "foo", args)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCAASUnit(c, "foo/1", "passwordhash")
+	s.assertCAASUnit(c, "foo/1", "passwordhash", address, ports)
 }
 
 func (s *serviceSuite) TestReplaceDeadCAASUnit(c *gc.C) {
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/1"),
+		UnitName: "foo/1",
 	}
 	s.createApplication(c, "foo", u)
 
@@ -462,16 +504,20 @@ func (s *serviceSuite) TestNewCAASUnit(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	address := "10.6.6.6"
+	ports := []string{"666"}
 	args := service.RegisterCAASUnitParams{
 		UnitName:     "foo/1",
 		PasswordHash: ptr("passwordhash"),
 		ProviderId:   ptr("provider-id"),
+		Address:      &address,
+		Ports:        &ports,
 		OrderedScale: true,
 		OrderedId:    1,
 	}
 	err = s.svc.RegisterCAASUnit(context.Background(), "foo", args)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCAASUnit(c, "foo/1", "passwordhash")
+	s.assertCAASUnit(c, "foo/1", "passwordhash", address, ports)
 }
 
 func (s *serviceSuite) TestRegisterCAASUnitExceedsScale(c *gc.C) {
@@ -510,7 +556,7 @@ func (s *serviceSuite) TestRegisterCAASUnitExceedsScaleTarget(c *gc.C) {
 
 func (s *serviceSuite) TestSetScalingState(c *gc.C) {
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/1"),
+		UnitName: "foo/1",
 	}
 	appID := s.createApplication(c, "foo", u)
 
@@ -536,7 +582,7 @@ func (s *serviceSuite) TestSetScalingState(c *gc.C) {
 
 func (s *serviceSuite) TestSetScalingStateAlreadyScaling(c *gc.C) {
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/1"),
+		UnitName: "foo/1",
 	}
 	appID := s.createApplication(c, "foo", u)
 
@@ -568,7 +614,7 @@ func (s *serviceSuite) TestSetScalingStateAlreadyScaling(c *gc.C) {
 
 func (s *serviceSuite) TestSetScalingStateDying(c *gc.C) {
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/1"),
+		UnitName: "foo/1",
 	}
 	appID := s.createApplication(c, "foo", u)
 
@@ -607,7 +653,7 @@ func (s *serviceSuite) TestSetScalingStateInconsistent(c *gc.C) {
 
 func (s *serviceSuite) TestGetScalingState(c *gc.C) {
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/1"),
+		UnitName: "foo/1",
 	}
 	appID := s.createApplication(c, "foo", u)
 
@@ -660,7 +706,7 @@ func (s *serviceSuite) TestGetScale(c *gc.C) {
 
 func (s *serviceSuite) TestChangeScale(c *gc.C) {
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/1"),
+		UnitName: "foo/1",
 	}
 	appID := s.createApplication(c, "foo", u)
 
@@ -682,7 +728,7 @@ func (s *serviceSuite) TestChangeScale(c *gc.C) {
 
 func (s *serviceSuite) TestChangeScaleInvalid(c *gc.C) {
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/1"),
+		UnitName: "foo/1",
 	}
 	s.createApplication(c, "foo", u)
 
@@ -692,10 +738,10 @@ func (s *serviceSuite) TestChangeScaleInvalid(c *gc.C) {
 
 func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanScale(c *gc.C) {
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/0"),
+		UnitName: "foo/0",
 	}
 	u2 := service.AddUnitArg{
-		UnitName: ptr("foo/1"),
+		UnitName: "foo/1",
 	}
 	s.createApplication(c, "foo", u, u2)
 
@@ -715,7 +761,7 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanScale(c *gc.C) {
 
 func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanScale(c *gc.C) {
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/0"),
+		UnitName: "foo/0",
 	}
 	s.createApplication(c, "foo", u)
 
@@ -735,13 +781,13 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanScale(c *gc.C) {
 
 func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanDesired(c *gc.C) {
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/0"),
+		UnitName: "foo/0",
 	}
 	u2 := service.AddUnitArg{
-		UnitName: ptr("foo/1"),
+		UnitName: "foo/1",
 	}
 	u3 := service.AddUnitArg{
-		UnitName: ptr("foo/2"),
+		UnitName: "foo/2",
 	}
 	s.createApplication(c, "foo", u, u2, u3)
 
@@ -764,13 +810,13 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanDesired(c *gc.C) {
 
 func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanDesired(c *gc.C) {
 	u := service.AddUnitArg{
-		UnitName: ptr("foo/0"),
+		UnitName: "foo/0",
 	}
 	u2 := service.AddUnitArg{
-		UnitName: ptr("foo/1"),
+		UnitName: "foo/1",
 	}
 	u3 := service.AddUnitArg{
-		UnitName: ptr("foo/2"),
+		UnitName: "foo/2",
 	}
 	s.createApplication(c, "foo", u, u2, u3)
 

@@ -125,19 +125,19 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	var unitID1, unitID2 string
 	setup := func(c *gc.C) {
 		u1 := service.AddUnitArg{
-			UnitName: ptr("foo/666"),
+			UnitName: "foo/666",
 		}
 		u2 := service.AddUnitArg{
-			UnitName: ptr("foo/667"),
+			UnitName: "foo/667",
 		}
 		u3 := service.AddUnitArg{
-			UnitName: ptr("bar/666"),
+			UnitName: "bar/666",
 		}
 		u4 := service.AddUnitArg{
-			UnitName: ptr("bar/667"),
+			UnitName: "bar/667",
 		}
 		u5 := service.AddUnitArg{
-			UnitName: ptr("bar/668"),
+			UnitName: "bar/668",
 		}
 
 		ctx := context.Background()
@@ -301,13 +301,13 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *gc.C) {
 	var unitID1, unitID2 string
 	setup := func(c *gc.C) {
 		u1 := service.AddUnitArg{
-			UnitName: ptr("foo/666"),
+			UnitName: "foo/666",
 		}
 		u2 := service.AddUnitArg{
-			UnitName: ptr("foo/667"),
+			UnitName: "foo/667",
 		}
 		u3 := service.AddUnitArg{
-			UnitName: ptr("bar/666"),
+			UnitName: "bar/666",
 		}
 		s.createApplication(c, &svc.Service, "foo", u1, u2)
 		s.createApplication(c, &svc.Service, "bar", u3)

@@ -75,7 +75,7 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 		applicationservice.AddApplicationArgs{
 			ReferenceName: appName,
 		},
-		applicationservice.AddUnitArg{UnitName: &unitName},
+		applicationservice.AddUnitArg{UnitName: unitName},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -5,6 +5,8 @@ package application
 
 import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/ipaddress"
+	"github.com/juju/juju/domain/linklayerdevice"
 )
 
 // AddApplicationArg contains parameters for saving an application to state.
@@ -54,7 +56,17 @@ type ScaleState struct {
 // CloudService contains parameters for an application's cloud service.
 type CloudService struct {
 	ProviderId string
-	Address    *Address
+	Address    *ServiceAddress
+}
+
+// ServiceAddress contains parameters for a cloud service address.
+// This may be from a load balancer, or cluster service etc.
+type ServiceAddress struct {
+	Value       string
+	AddressType ipaddress.AddressType
+	Scope       ipaddress.Scope
+	Origin      ipaddress.Origin
+	ConfigType  ipaddress.ConfigType
 }
 
 // Origin contains parameters for an application's origin.
@@ -65,21 +77,34 @@ type Origin struct {
 // CloudContainer contains parameters for a unit's cloud container.
 type CloudContainer struct {
 	ProviderId *string
-	Address    *Address
+	Address    *ContainerAddress
 	Ports      *[]string
 }
 
-// Address contains parameters for a cloud container address.
-type Address struct {
+// ContainerDevice is the placeholder link layer device
+// used to tie the cloud container IP address to the container.
+type ContainerDevice struct {
+	Name              string
+	DeviceTypeID      linklayerdevice.DeviceType
+	VirtualPortTypeID linklayerdevice.VirtualPortType
+}
+
+// ContainerAddress contains parameters for a cloud container address.
+// Device is an attribute of address rather than cloud container
+// since it's a placeholder used to tie the address to the
+// cloud container and is only needed if the address exists.
+type ContainerAddress struct {
+	Device      ContainerDevice
 	Value       string
-	AddressType string
-	Scope       string
-	Origin      string
+	AddressType ipaddress.AddressType
+	Scope       ipaddress.Scope
+	Origin      ipaddress.Origin
+	ConfigType  ipaddress.ConfigType
 }
 
 // UpsertUnitArg contains parameters for adding a unit to state.
 type UpsertUnitArg struct {
-	UnitName       *string
+	UnitName       string
 	PasswordHash   *string
 	CloudContainer *CloudContainer
 }

@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
-	model "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -48,7 +48,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	id := applicationtesting.GenApplicationUUID(c)
 
 	u := application.UpsertUnitArg{
-		UnitName: ptr("ubuntu/666"),
+		UnitName: "ubuntu/666",
 	}
 	ch := domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
@@ -80,7 +80,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	}).AnyTimes()
 
 	a := AddUnitArg{
-		UnitName: ptr("ubuntu/666"),
+		UnitName: "ubuntu/666",
 	}
 	_, err := s.service.CreateApplication(context.Background(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
@@ -217,7 +217,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 	id := applicationtesting.GenApplicationUUID(c)
 
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "ubuntu/666",
 	}
 	ch := domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
@@ -271,7 +271,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").Return(pool, nil)
 
 	a := AddUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "ubuntu/666",
 	}
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.Local,
@@ -289,7 +289,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 	id := applicationtesting.GenApplicationUUID(c)
 
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "ubuntu/666",
 	}
 	ch := domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
@@ -343,7 +343,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil)
 
 	a := AddUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "ubuntu/666",
 	}
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
@@ -364,7 +364,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	id := applicationtesting.GenApplicationUUID(c)
 
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "ubuntu/666",
 	}
 	ch := domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
@@ -418,7 +418,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "rootfs").Return(pool, nil)
 
 	a := AddUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "ubuntu/666",
 	}
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
@@ -436,7 +436,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 	id := applicationtesting.GenApplicationUUID(c)
 
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "ubuntu/666",
 	}
 	ch := domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
@@ -490,7 +490,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil)
 
 	a := AddUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "ubuntu/666",
 	}
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
@@ -521,7 +521,7 @@ func (s *applicationServiceSuite) TestCreateWithSharedStorageMissingDirectives(c
 	}).AnyTimes()
 
 	a := AddUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "ubuntu/666",
 	}
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
@@ -549,7 +549,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageValidates(c *gc.C) {
 	}).AnyTimes()
 
 	a := AddUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "ubuntu/666",
 	}
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
@@ -566,12 +566,12 @@ func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	u := application.UpsertUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "ubuntu/666",
 	}
 	s.state.EXPECT().AddUnits(gomock.Any(), "666", u).Return(nil)
 
 	a := AddUnitArg{
-		UnitName: ptr("foo/666"),
+		UnitName: "ubuntu/666",
 	}
 	err := s.service.AddUnits(context.Background(), "666", a)
 	c.Assert(err, jc.ErrorIsNil)
