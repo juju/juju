@@ -13,19 +13,19 @@ const (
 )
 
 type Collector struct {
-	iterationCount prometheus.Counter
+	iterationCount *prometheus.CounterVec
 }
 
 func NewMetricsCollector() *Collector {
 	// TODO (jam): we could use a CounterVec and do something like counts per model, but for now, we just
 	//  want to know the total count
 	return &Collector{
-		iterationCount: prometheus.NewCounter(prometheus.CounterOpts{
+		iterationCount: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: metricsNamespace,
 			Subsystem: subsystemNamespace,
 			Name:      "iteration_count",
 			Help:      "Count the number of iterations that this perf worker has completed",
-		}),
+		}, []string{"model_uuid"}),
 	}
 }
 

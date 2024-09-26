@@ -124,7 +124,7 @@ func (w *perfWorker) run() error {
 func (w *perfWorker) runStep(step int) error {
 	// TODO (jam): we could add metrics for the time for each of these calls to complete,
 	//  it might be interesting if one of them is particularly more expensive/slow than the others
-	w.metrics.iterationCount.Inc()
+	w.metrics.iterationCount.WithLabelValues(string(w.modelUUID)).Inc()
 	switch step % 6 {
 	case 1:
 		// Controller access.
