@@ -4,6 +4,8 @@
 package application
 
 import (
+	"time"
+
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/linklayerdevice"
@@ -107,4 +109,32 @@ type UpsertUnitArg struct {
 	UnitName       string
 	PasswordHash   *string
 	CloudContainer *CloudContainer
+}
+
+// StatusInfo holds details about the status of an entity.
+type StatusInfo struct {
+	Message string
+	Data    map[string]string
+	Since   time.Time
+}
+
+// CloudContainerStatusStatusInfo holds a cloud container status
+// and associated information.
+type CloudContainerStatusStatusInfo struct {
+	StatusID CloudContainerStatusType
+	StatusInfo
+}
+
+// UnitAgentStatusInfo holds a unit agent status
+// and associated information.
+type UnitAgentStatusInfo struct {
+	StatusID UnitAgentStatusType
+	StatusInfo
+}
+
+// UnitWorkloadStatusInfo holds a unit workload status
+// and associated information.
+type UnitWorkloadStatusInfo struct {
+	StatusID UnitWorkloadStatusType
+	StatusInfo
 }
