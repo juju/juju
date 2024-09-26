@@ -271,7 +271,7 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedContext(c *gc.C) {
 	claimer := &stubClaimer{
 		BlockUntilLeadershipReleasedFn: func(ctx context.Context, sid string) error {
 			c.Check(sid, gc.Equals, StubAppNm)
-			c.Check(cancel, gc.Equals, ctx.Done())
+			c.Check(ctx.Err(), gc.Equals, context.Canceled)
 			return coreleadership.ErrBlockCancelled
 		},
 	}

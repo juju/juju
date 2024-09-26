@@ -275,10 +275,9 @@ func newBlockTest(c *gc.C, manager *lease.Manager, key corelease.Key) *blockTest
 	}
 	started := make(chan struct{})
 	go func() {
-		close(started)
 		select {
 		case <-bt.abort:
-		case bt.done <- claimer.WaitUntilExpired(ctx, key.Lease, nil):
+		case bt.done <- claimer.WaitUntilExpired(ctx, key.Lease, started):
 		case <-time.After(testing.LongWait):
 			c.Errorf("block not aborted or expired after %v", testing.LongWait)
 		}
