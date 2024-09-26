@@ -10,13 +10,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/servicefactory"
-	"github.com/juju/juju/internal/worker/common"
 )
 
 // ManifoldConfig holds the information necessary to run a performance test
@@ -25,9 +23,13 @@ type ManifoldConfig struct {
 	AgentName          string
 	ServiceFactoryName string
 
-	Clock                clock.Clock
-	Logger               logger.Logger
-	PrometheusRegisterer prometheus.Registerer
+	Clock          clock.Clock
+	Logger         logger.Logger
+	MetricsStepper MetricStep
+}
+
+type MetricStep interface {
+	RecordPerfStep()
 }
 
 // Validate validates the manifold configuration.
@@ -44,8 +46,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if config.PrometheusRegisterer == nil {
-		return errors.NotValidf("nil PrometheusRegisterer")
+	if config.MetricsStepper == nil {
+		return errors.NotValidf("nil MetricsStepper")
 	}
 	return nil
 }
@@ -79,17 +81,5 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	if err := getter.Get(config.ServiceFactoryName, &serviceFactory); err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	metricsCollector := NewMetricsCollector()
-	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
-		return nil, err
-	}
-	w, err := newPerfWorker(currentModelUUID, serviceFactory, config.Clock, config.Logger, metricsCollector)
-	if err != nil {
-		config.PrometheusRegisterer.Unregister(metricsCollector)
-		return nil, errors.Trace(err)
-	}
-	return common.NewCleanupWorker(w, func() {
-		config.PrometheusRegisterer.Unregister(metricsCollector)
-	}), nil
+	return newPerfWorker(currentModelUUID, serviceFactory, config.Clock, config.Logger, config.MetricsStepper)
 }
