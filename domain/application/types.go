@@ -111,29 +111,30 @@ type UpsertUnitArg struct {
 	CloudContainer *CloudContainer
 }
 
+// StatusInfo holds details about the status of an entity.
+type StatusInfo struct {
+	Message string
+	Data    map[string]string
+	Since   time.Time
+}
+
 // CloudContainerStatusStatusInfo holds a cloud container status
 // and associated information.
 type CloudContainerStatusStatusInfo struct {
 	StatusID CloudContainerStatusType
-	Message  string
-	Data     map[string]string
-	Since    time.Time
+	StatusInfo
 }
 
 // UnitAgentStatusInfo holds a unit agent status
 // and associated information.
 type UnitAgentStatusInfo struct {
 	StatusID UnitAgentStatusType
-	Message  string
-	Data     map[string]string
-	Since    time.Time
+	StatusInfo
 }
 
 // UnitWorkloadStatusInfo holds a unit workload status
 // and associated information.
 type UnitWorkloadStatusInfo struct {
 	StatusID UnitWorkloadStatusType
-	Message  string
-	Data     map[string]string
-	Since    time.Time
+	StatusInfo
 }

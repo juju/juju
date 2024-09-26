@@ -741,13 +741,13 @@ DO NOTHING
 // indicate the application could be safely deleted.
 // It will fail if the unit is not Dead.
 func (st *ApplicationState) DeleteUnit(ctx domain.AtomicContext, unitName string) (bool, error) {
-	unit := coreUnit{Name: unitName}
+	unit := minimalUnit{Name: unitName}
 	peerCountQuery := `
 SELECT a.life_id as &unitCount.app_life_id, u.life_id AS &unitCount.unit_life_id, count(peer.uuid) AS &unitCount.count
 FROM unit u
 JOIN application a ON a.uuid = u.application_uuid
 LEFT JOIN unit peer ON u.application_uuid = peer.application_uuid AND peer.uuid != u.uuid
-WHERE u.name = $coreUnit.name
+WHERE u.name = $minimalUnit.name
 `
 	peerCountStmt, err := st.Prepare(peerCountQuery, unit, unitCount{})
 	if err != nil {
@@ -784,15 +784,15 @@ WHERE u.name = $coreUnit.name
 
 func (st *ApplicationState) deleteUnit(ctx context.Context, tx *sqlair.TX, unitName string) error {
 
-	unit := coreUnit{Name: unitName}
+	unit := minimalUnit{Name: unitName}
 
-	queryUnit := `SELECT &coreUnit.* FROM unit WHERE name = $coreUnit.name`
+	queryUnit := `SELECT &minimalUnit.* FROM unit WHERE name = $minimalUnit.name`
 	queryUnitStmt, err := st.Prepare(queryUnit, unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	deleteUnit := `DELETE FROM unit WHERE name = $coreUnit.name`
+	deleteUnit := `DELETE FROM unit WHERE name = $minimalUnit.name`
 	deleteUnitStmt, err := st.Prepare(deleteUnit, unit)
 	if err != nil {
 		return errors.Trace(err)
@@ -800,7 +800,7 @@ func (st *ApplicationState) deleteUnit(ctx context.Context, tx *sqlair.TX, unitN
 
 	deleteNode := `
 DELETE FROM net_node WHERE uuid = (
-    SELECT net_node_uuid FROM unit WHERE name = $coreUnit.name
+    SELECT net_node_uuid FROM unit WHERE name = $minimalUnit.name
 )
 `
 	deleteNodeStmt, err := st.Prepare(deleteNode, unit)
@@ -865,14 +865,14 @@ WHERE net_node_uuid = $cloudContainer.net_node_uuid`, cloudContainer)
 }
 
 func (st *ApplicationState) deleteCloudContainerAddresses(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
-	unit := coreUnit{
+	unit := minimalUnit{
 		NetNodeID: netNodeID,
 	}
 	deleteAddressStmt, err := st.Prepare(`
 DELETE FROM ip_address
 WHERE device_uuid IN (
     SELECT device_uuid FROM link_layer_device lld
-    WHERE lld.net_node_uuid = $coreUnit.net_node_uuid
+    WHERE lld.net_node_uuid = $minimalUnit.net_node_uuid
 )
 `, unit)
 	if err != nil {
@@ -880,7 +880,7 @@ WHERE device_uuid IN (
 	}
 	deleteDeviceStmt, err := st.Prepare(`
 DELETE FROM link_layer_device
-WHERE net_node_uuid = $coreUnit.net_node_uuid`, unit)
+WHERE net_node_uuid = $minimalUnit.net_node_uuid`, unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -894,12 +894,12 @@ WHERE net_node_uuid = $coreUnit.net_node_uuid`, unit)
 }
 
 func (st *ApplicationState) deleteCloudContainerPorts(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
-	unit := coreUnit{
+	unit := minimalUnit{
 		NetNodeID: netNodeID,
 	}
 	deleteStmt, err := st.Prepare(`
 DELETE FROM cloud_container_port
-WHERE cloud_container_uuid = $coreUnit.net_node_uuid
+WHERE cloud_container_uuid = $minimalUnit.net_node_uuid
 `, unit)
 	if err != nil {
 		return errors.Trace(err)
@@ -911,13 +911,13 @@ WHERE cloud_container_uuid = $coreUnit.net_node_uuid
 }
 
 func (st *ApplicationState) deletePorts(ctx context.Context, tx *sqlair.TX, unitID string) error {
-	unit := coreUnit{ID: unitID}
+	unit := minimalUnit{ID: unitID}
 
 	deletePortRange := `
 DELETE FROM port_range
 WHERE unit_endpoint_uuid IN (
     SELECT uuid FROM unit_endpoint ue
-    WHERE ue.unit_uuid = $coreUnit.uuid
+    WHERE ue.unit_uuid = $minimalUnit.uuid
 )
 `
 	deletePortRangeStmt, err := st.Prepare(deletePortRange, unit)
@@ -929,7 +929,7 @@ WHERE unit_endpoint_uuid IN (
 		return errors.Annotate(err, "cannot delete port range records")
 	}
 
-	deleteEndpoint := `DELETE FROM unit_endpoint WHERE unit_uuid = $coreUnit.uuid`
+	deleteEndpoint := `DELETE FROM unit_endpoint WHERE unit_uuid = $minimalUnit.uuid`
 	deleteEndpointStmt, err := st.Prepare(deleteEndpoint, unit)
 	if err != nil {
 		return errors.Annotate(err, "cannot delete endpoint records")
@@ -942,7 +942,7 @@ WHERE unit_endpoint_uuid IN (
 }
 
 func (st *ApplicationState) deleteSimpleUnitReferences(ctx context.Context, tx *sqlair.TX, unitID string) error {
-	unit := coreUnit{ID: unitID}
+	unit := minimalUnit{ID: unitID}
 
 	for _, table := range []string{
 		"unit_agent",
@@ -956,7 +956,7 @@ func (st *ApplicationState) deleteSimpleUnitReferences(ctx context.Context, tx *
 		"cloud_container_status_data",
 		"cloud_container_status",
 	} {
-		deleteUnitReference := fmt.Sprintf(`DELETE FROM %s WHERE unit_uuid = $coreUnit.uuid`, table)
+		deleteUnitReference := fmt.Sprintf(`DELETE FROM %s WHERE unit_uuid = $minimalUnit.uuid`, table)
 		deleteUnitReferenceStmt, err := st.Prepare(deleteUnitReference, unit)
 		if err != nil {
 			return errors.Trace(err)
@@ -1039,11 +1039,11 @@ func (st *ApplicationState) GetApplicationID(ctx domain.AtomicContext, name stri
 // GetUnitLife looks up the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit is not found.
 func (st *ApplicationState) GetUnitLife(ctx domain.AtomicContext, unitName string) (life.Life, error) {
-	unit := coreUnit{Name: unitName}
+	unit := minimalUnit{Name: unitName}
 	queryUnit := `
-SELECT &coreUnit.life_id
+SELECT &minimalUnit.life_id
 FROM unit
-WHERE name = $coreUnit.name
+WHERE name = $minimalUnit.name
 `
 	queryUnitStmt, err := st.Prepare(queryUnit, unit)
 	if err != nil {
@@ -1066,11 +1066,11 @@ WHERE name = $coreUnit.name
 // SetUnitLife sets the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit is not found.
 func (st *ApplicationState) SetUnitLife(ctx domain.AtomicContext, unitName string, l life.Life) error {
-	unit := coreUnit{Name: unitName, LifeID: l}
+	unit := minimalUnit{Name: unitName, LifeID: l}
 	query := `
-SELECT &coreUnit.uuid
+SELECT &minimalUnit.uuid
 FROM unit
-WHERE name = $coreUnit.name
+WHERE name = $minimalUnit.name
 `
 	stmt, err := st.Prepare(query, unit)
 	if err != nil {
@@ -1079,10 +1079,10 @@ WHERE name = $coreUnit.name
 
 	updateLifeQuery := `
 UPDATE unit
-SET life_id = $coreUnit.life_id
-WHERE name = $coreUnit.name
+SET life_id = $minimalUnit.life_id
+WHERE name = $minimalUnit.name
 -- we ensure the life can never go backwards.
-AND life_id < $coreUnit.life_id
+AND life_id < $minimalUnit.life_id
 `
 
 	updateLifeStmt, err := st.Prepare(updateLifeQuery, unit)
@@ -1273,7 +1273,7 @@ type statusKeys []string
 // saveStatusData saves the status key value data for the specified unit in the specified table.
 // It's called from each different SaveStatus method which previously has confirmed the unit UUID exists.
 func (st *ApplicationState) saveStatusData(ctx context.Context, tx *sqlair.TX, table, unitUUID string, data map[string]string) error {
-	unit := coreUnit{ID: unitUUID}
+	unit := minimalUnit{ID: unitUUID}
 	var keys statusKeys
 	for k := range data {
 		keys = append(keys, k)
@@ -1282,7 +1282,7 @@ func (st *ApplicationState) saveStatusData(ctx context.Context, tx *sqlair.TX, t
 	deleteStmt, err := st.Prepare(fmt.Sprintf(`
 DELETE FROM %s
 WHERE key NOT IN ($statusKeys[:])
-AND unit_uuid = $coreUnit.uuid;
+AND unit_uuid = $minimalUnit.uuid;
 `, table), keys, unit)
 	if err != nil {
 		return errors.Trace(err)
@@ -1299,7 +1299,7 @@ ON CONFLICT(unit_uuid, key) DO UPDATE SET
 		return errors.Trace(err)
 	}
 
-	if err := tx.Query(ctx, deleteStmt, keys, coreUnit{}).Run(); err != nil {
+	if err := tx.Query(ctx, deleteStmt, keys, minimalUnit{}).Run(); err != nil {
 		return fmt.Errorf("removing %q status data for %q: %w", table, unitUUID, err)
 	}
 

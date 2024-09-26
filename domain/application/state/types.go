@@ -74,7 +74,7 @@ type unitDetails struct {
 	PasswordHashAlgorithmID int       `db:"password_hash_algorithm_id"`
 }
 
-type coreUnit struct {
+type minimalUnit struct {
 	ID        string    `db:"uuid"`
 	NetNodeID string    `db:"net_node_uuid"`
 	Name      string    `db:"name"`

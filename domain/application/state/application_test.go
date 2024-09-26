@@ -616,25 +616,31 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		if err := s.state.SaveUnitAgentStatus(ctx, unitUUID, application.UnitAgentStatusInfo{
 			StatusID: application.UnitAgentStatusExecuting,
-			Message:  "test",
-			Data:     map[string]string{"foo": "bar"},
-			Since:    time.Now(),
+			StatusInfo: application.StatusInfo{
+				Message: "test",
+				Data:    map[string]string{"foo": "bar"},
+				Since:   time.Now(),
+			},
 		}); err != nil {
 			return err
 		}
 		if err := s.state.SaveUnitWorkloadStatus(ctx, unitUUID, application.UnitWorkloadStatusInfo{
 			StatusID: application.UnitWorkloadStatusActive,
-			Message:  "test",
-			Data:     map[string]string{"foo": "bar"},
-			Since:    time.Now(),
+			StatusInfo: application.StatusInfo{
+				Message: "test",
+				Data:    map[string]string{"foo": "bar"},
+				Since:   time.Now(),
+			},
 		}); err != nil {
 			return err
 		}
 		if err := s.state.SaveCloudContainerStatus(ctx, unitUUID, application.CloudContainerStatusStatusInfo{
 			StatusID: application.CloudContainerStatusBlocked,
-			Message:  "test",
-			Data:     map[string]string{"foo": "bar"},
-			Since:    time.Now(),
+			StatusInfo: application.StatusInfo{
+				Message: "test",
+				Data:    map[string]string{"foo": "bar"},
+				Since:   time.Now(),
+			},
 		}); err != nil {
 			return err
 		}
@@ -863,12 +869,13 @@ func (s *applicationStateSuite) TestSaveCloudContainerStatus(c *gc.C) {
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
 
-	now := time.Now()
 	status := application.CloudContainerStatusStatusInfo{
 		StatusID: application.CloudContainerStatusRunning,
-		Message:  "it's running",
-		Data:     map[string]string{"foo": "bar"},
-		Since:    now,
+		StatusInfo: application.StatusInfo{
+			Message: "it's running",
+			Data:    map[string]string{"foo": "bar"},
+			Since:   time.Now(),
+		},
 	}
 
 	var unitUUID string
@@ -891,12 +898,13 @@ func (s *applicationStateSuite) TestSaveUnitAgentStatus(c *gc.C) {
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
 
-	now := time.Now()
 	status := application.UnitAgentStatusInfo{
 		StatusID: application.UnitAgentStatusExecuting,
-		Message:  "it's executing",
-		Data:     map[string]string{"foo": "bar"},
-		Since:    now,
+		StatusInfo: application.StatusInfo{
+			Message: "it's executing",
+			Data:    map[string]string{"foo": "bar"},
+			Since:   time.Now(),
+		},
 	}
 
 	var unitUUID string
@@ -919,12 +927,13 @@ func (s *applicationStateSuite) TestSaveUnitWorkloadStatus(c *gc.C) {
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
 
-	now := time.Now()
 	status := application.UnitWorkloadStatusInfo{
 		StatusID: application.UnitWorkloadStatusTerminated,
-		Message:  "it's terminated",
-		Data:     map[string]string{"foo": "bar"},
-		Since:    now,
+		StatusInfo: application.StatusInfo{
+			Message: "it's terminated",
+			Data:    map[string]string{"foo": "bar"},
+			Since:   time.Now(),
+		},
 	}
 
 	var unitUUID string
