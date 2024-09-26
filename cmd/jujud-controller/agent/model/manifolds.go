@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
@@ -127,6 +128,10 @@ type ManifoldsConfig struct {
 
 	// ServiceFactory is used to access the service factory.
 	ServiceFactory servicefactory.ServiceFactory
+
+	// PrometheusRegisterer is a prometheus.Registerer that may be used
+	// by workers to register Prometheus metric collectors.
+	PrometheusRegisterer prometheus.Registerer
 }
 
 // commonManifolds returns a set of interdependent dependency manifolds that will
@@ -157,10 +162,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		perfWorkerName: perf.Manifold(perf.ManifoldConfig{
-			AgentName:          agentName,
-			Clock:              config.Clock,
-			Logger:             config.LoggingContext.GetLogger("juju.worker.perf"),
-			ServiceFactoryName: serviceFactoryName,
+			AgentName:            agentName,
+			Clock:                config.Clock,
+			Logger:               config.LoggingContext.GetLogger("juju.worker.perf"),
+			ServiceFactoryName:   serviceFactoryName,
+			PrometheusRegisterer: config.PrometheusRegisterer,
 		}),
 
 		// The provider service factory is used to access the provider service.

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
@@ -64,6 +65,9 @@ type ManifoldConfig struct {
 	ModelMetrics ModelMetrics
 	// Logger is the logger for the worker.
 	Logger logger.Logger
+	// PrometheusRegisterer is a prometheus.Registerer that may be used
+	// by workers to register Prometheus metric collectors.
+	PrometheusRegisterer prometheus.Registerer
 }
 
 // Validate validates the manifold configuration.
@@ -97,6 +101,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if config.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	if config.GetProviderServiceFactoryGetter == nil {
 		return errors.NotValidf("nil GetProviderServiceFactoryGetter")
@@ -178,6 +185,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		ServiceFactoryGetter:         serviceFactoryGetter,
 		ProviderServiceFactoryGetter: providerServiceFactoryGetter,
 		GetControllerConfig:          config.GetControllerConfig,
+		PrometheusRegisterer:         config.PrometheusRegisterer,
 	})
 	if err != nil {
 		_ = stTracker.Done()
