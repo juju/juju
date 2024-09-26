@@ -6,7 +6,10 @@ package migration
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/juju/collections/set"
+	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
@@ -18,6 +21,7 @@ import (
 	"github.com/juju/juju/core/status"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs/config"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/state"
@@ -67,6 +71,20 @@ func SourcePrecheck(
 	controllerCtx := newPrecheckTarget(controllerBackend, controllerPresence, upgradeService, applicationService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Annotate(err, "controller")
+	}
+	return nil
+}
+
+// ImportPrecheck checks the data being imported to make sure preconditions for
+// importing are met.
+func ImportPrecheck(
+	ctx context.Context,
+	model description.Model,
+) error {
+
+	err := checkForCharmsWithNoManifest(model)
+	if err != nil {
+		return internalerrors.Errorf("checking model for charms without manifest.yaml: %w", err)
 	}
 	return nil
 }
@@ -502,4 +520,21 @@ func versionToMajMin(ver version.Number) version.Number {
 	ver.Build = 0
 	ver.Tag = ""
 	return ver
+}
+
+// checkForCharmsWithNoManifest checks the model for applications that use charms
+// with no bases listed in the manifest.
+func checkForCharmsWithNoManifest(model description.Model) error {
+	result := set.NewStrings()
+	for _, app := range model.Applications() {
+		if len(app.CharmManifest().Bases()) == 0 {
+			result.Add(app.Name())
+		}
+	}
+	if !result.IsEmpty() {
+		return internalerrors.Errorf("all charms now require a manifest.yaml file, this model hosts charm(s) with no manifest.yaml file: %s",
+			strings.Join(result.SortedValues(), ", "),
+		)
+	}
+	return nil
 }
