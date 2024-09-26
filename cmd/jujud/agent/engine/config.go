@@ -39,6 +39,7 @@ func DependencyEngineConfig(metrics dependency.Metrics) dependency.EngineConfig 
 const (
 	dependencyMetricsNamespace   = "juju"
 	dependencySubsystemNamespace = "dependency_engine"
+	perfSubsystemNamespace       = "perf"
 )
 
 const (
@@ -64,6 +65,7 @@ var metricsModelWorkerStartNames = []string{
 type Collector struct {
 	workerStarts      *prometheus.GaugeVec
 	modelWorkerStarts *prometheus.GaugeVec
+	perfWorkerSteps   *prometheus.CounterVec
 }
 
 // NewMetrics creates a new collector for a model.
@@ -81,6 +83,12 @@ func NewMetrics() *Collector {
 			Name:      "worker_starts_for_model",
 			Help:      "Current number of worker starts in the dependency engine by model",
 		}, metricsModelWorkerStartNames),
+		perfWorkerSteps: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: dependencyMetricsNamespace,
+			Subsystem: perfSubsystemNamespace,
+			Name:      "iteration_count",
+			Help:      "Current number of iterations of the perf worker steps",
+		}, metricsModelWorkerStartNames),
 	}
 }
 
@@ -88,6 +96,7 @@ func NewMetrics() *Collector {
 // ensures that we correctly tidy up after the removal of a model.
 type MetricSink interface {
 	dependency.Metrics
+	RecordPerfStep()
 	Unregister() bool
 }
 
@@ -103,12 +112,14 @@ func (c *Collector) ForModel(model names.ModelTag) MetricSink {
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	c.workerStarts.Describe(ch)
 	c.modelWorkerStarts.Describe(ch)
+	c.perfWorkerSteps.Describe(ch)
 }
 
 // Collect is part of the prometheus.Collector interface.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.workerStarts.Collect(ch)
 	c.modelWorkerStarts.Collect(ch)
+	c.perfWorkerSteps.Collect(ch)
 }
 
 type modelCollector struct {
@@ -121,6 +132,11 @@ type modelCollector struct {
 func (c *modelCollector) RecordStart(worker string) {
 	c.collector.workerStarts.WithLabelValues(worker).Inc()
 	c.collector.modelWorkerStarts.WithLabelValues(c.modelUUID).Inc()
+}
+
+// RecordPerfStep tracks that a perf worker has ticked over another step in its process
+func (c *modelCollector) RecordPerfStep() {
+	c.collector.perfWorkerSteps.WithLabelValues(c.modelUUID).Inc()
 }
 
 // Unregister removes any associated model worker starts from the sink if
