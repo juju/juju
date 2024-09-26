@@ -31,6 +31,11 @@ func (s *isErrRetryableSuite) TestIsErrRetryable(c *gc.C) {
 			expected: false,
 		},
 		{
+			name:     "precheck failure",
+			err:      txn.ErrPrecheckFailure,
+			expected: false,
+		},
+		{
 			name:     "driver error busy error",
 			err:      &driver.Error{Code: driver.ErrBusy},
 			expected: true,

@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
+	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
@@ -30,7 +31,11 @@ type txn interface {
 }
 
 const (
-	DefaultTimeout = time.Second * 30
+	// DefaultTxnTimeout is the default timeout for a transaction.
+	DefaultTxnTimeout = time.Second * 30
+
+	// DefaultPrecheckTimeout is the default timeout for a precheck function.
+	DefaultPrecheckTimeout = time.Second * 10
 )
 
 // RetryStrategy defines a function for retrying a transaction.
@@ -39,12 +44,24 @@ type RetryStrategy func(context.Context, func(context.Context) error) error
 // Option defines a function for setting options on a TransactionRunner.
 type Option func(*option)
 
-// WithTimeout defines a timeout for the transaction. This is useful for
+// WithTxnTimeout defines a timeout for the transaction. This is useful for
 // defining a timeout for a transaction that is expected to take longer than
 // the default timeout.
-func WithTimeout(timeout time.Duration) Option {
+func WithTxnTimeout(timeout time.Duration) Option {
 	return func(o *option) {
-		o.timeout = timeout
+		o.txnTimeout = timeout
+	}
+}
+
+// WithPrecheckTimeout defines a timeout for the prechecking before a
+// transaction. The precheck is executed before the database transaction, yet
+// is included in the transaction timeout. In real terms, if the precheck
+// takes 10 seconds and the transaction takes 30 seconds, then the total time
+// for the database transaction then becomes 20 seconds, as the precheck has
+// taken the first 10 seconds. Otherwise we prevent fairness in the system.
+func WithPrecheckTimeout(timeout time.Duration) Option {
+	return func(o *option) {
+		o.precheckTimeout = timeout
 	}
 }
 
@@ -77,19 +94,21 @@ func WithSemaphore(sem Semaphore) Option {
 }
 
 type option struct {
-	timeout       time.Duration
-	logger        logger.Logger
-	retryStrategy RetryStrategy
-	semaphore     Semaphore
+	txnTimeout      time.Duration
+	precheckTimeout time.Duration
+	logger          logger.Logger
+	retryStrategy   RetryStrategy
+	semaphore       Semaphore
 }
 
 func newOptions() *option {
 	logger := internallogger.GetLogger("juju.database")
 	return &option{
-		timeout:       DefaultTimeout,
-		logger:        logger,
-		retryStrategy: defaultRetryStrategy(clock.WallClock, logger),
-		semaphore:     semaphore.NewWeighted(int64(runtime.GOMAXPROCS(0))),
+		txnTimeout:      DefaultTxnTimeout,
+		precheckTimeout: DefaultPrecheckTimeout,
+		logger:          logger,
+		retryStrategy:   defaultRetryStrategy(clock.WallClock, logger),
+		semaphore:       semaphore.NewWeighted(int64(runtime.GOMAXPROCS(0))),
 	}
 }
 
@@ -105,13 +124,14 @@ type Semaphore interface {
 // should take longer than the default timeout.
 // Transient errors are retried based on the defined retry strategy.
 type RetryingTxnRunner struct {
-	timeout       time.Duration
-	logger        logger.Logger
-	retryStrategy RetryStrategy
-	semaphore     Semaphore
-	tracePool     sync.Pool
-	loggerPool    sync.Pool
-	txnID         uint64
+	txnTimeout      time.Duration
+	precheckTimeout time.Duration
+	logger          logger.Logger
+	retryStrategy   RetryStrategy
+	semaphore       Semaphore
+	tracePool       sync.Pool
+	loggerPool      sync.Pool
+	txnID           uint64
 }
 
 // NewRetryingTxnRunner returns a new RetryingTxnRunner.
@@ -130,7 +150,9 @@ func NewRetryingTxnRunner(opts ...Option) *RetryingTxnRunner {
 	}
 
 	return &RetryingTxnRunner{
-		timeout:       o.timeout,
+		txnTimeout:      o.txnTimeout,
+		precheckTimeout: o.precheckTimeout,
+
 		logger:        o.logger,
 		retryStrategy: o.retryStrategy,
 		semaphore:     o.semaphore,
@@ -163,23 +185,14 @@ func NewRetryingTxnRunner(opts ...Option) *RetryingTxnRunner {
 // This should not be used directly, instead the TxnRunner should be used to
 // handle transactions.
 func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(context.Context, *sqlair.TX) error) error {
-	return t.run(ctx, func(ctx context.Context) error {
-		tx, err := db.Begin(ctx, nil)
-		if err != nil {
-			return errors.Trace(err)
+	return t.runTxn(ctx, db, func(ctx context.Context) error {
+		// It's cheaper to check the context error here before we start the
+		// transaction.
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
-
-		if err := fn(ctx, tx); err != nil {
-			if rErr := t.retryStrategy(ctx, func(context.Context) error {
-				return tx.Rollback()
-			}); rErr != nil {
-				t.logger.Warningf("failed to rollback transaction: %v", rErr)
-			}
-			return errors.Trace(err)
-		}
-
-		return errors.Trace(t.commit(ctx, tx))
-	})
+		return nil
+	}, fn)
 }
 
 // TxnWithPrecheck runs a transaction with a precheck function that is executed
@@ -193,12 +206,27 @@ func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(cont
 // This should not be used directly, instead the TxnRunner should be used to
 // handle transactions.
 func (t *RetryingTxnRunner) TxnWithPrecheck(ctx context.Context, db *sqlair.DB, precheck func(context.Context) error, fn func(context.Context, *sqlair.TX) error) error {
+	return t.runTxn(ctx, db, func(ctx context.Context) error {
+		// It's cheaper to check the context error here before we start the
+		// transaction.
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		ctx, cancel := context.WithTimeout(ctx, t.precheckTimeout)
+		defer cancel()
+
+		return precheck(ctx)
+	}, fn)
+}
+
+func (t *RetryingTxnRunner) runTxn(ctx context.Context, db *sqlair.DB, precheck func(context.Context) error, fn func(context.Context, *sqlair.TX) error) error {
 	return t.run(ctx, func(ctx context.Context) error {
 		// This is as close as we can get the precheck to the actual
 		// transaction. Anything closer, would interfere with the transaction
 		// itself.
 		if err := precheck(ctx); err != nil {
-			return errors.Trace(err)
+			return internalerrors.Join(err, ErrPrecheckFailure)
 		}
 
 		// Begin the transaction.
@@ -284,7 +312,7 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 		span.End()
 	}()
 
-	ctx, cancel := context.WithTimeout(ctx, t.timeout)
+	ctx, cancel := context.WithTimeout(ctx, t.txnTimeout)
 	defer cancel()
 
 	if err := t.semaphore.Acquire(ctx, 1); err != nil {
