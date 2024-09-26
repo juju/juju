@@ -84,7 +84,14 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport,
 
 	for i, md := range secrets {
 		for _, rev := range secretRevisions[i] {
-			allSecrets.Revisions[md.URI.ID] = append(allSecrets.Revisions[md.URI.ID], &rev.SecretRevisionMetadata)
+			allSecrets.Revisions[md.URI.ID] = append(allSecrets.Revisions[md.URI.ID],
+				&coresecrets.SecretRevisionMetadata{
+					Revision:   rev.Revision,
+					ValueRef:   rev.ValueRef,
+					CreateTime: rev.CreateTime,
+					ExpireTime: rev.ExpireTime,
+				},
+			)
 			if rev.ValueRef != nil {
 				continue
 			}
@@ -169,14 +176,17 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 	}
 	modelID := coremodel.UUID(modelUUID)
 
-	for _, md := range modelSecrets.Secrets {
-		revisions := modelSecrets.Revisions[md.URI.ID]
-		content := modelSecrets.Content[md.URI.ID]
-		if err := s.importSecretRevisions(ctx, modelID, md, revisions, content); err != nil {
-			return errors.Annotatef(err, "saving secret %q", md.URI.ID)
-		}
+	refOperations := []referenceEnsurer{}
+	err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		for _, md := range modelSecrets.Secrets {
+			revisions := modelSecrets.Revisions[md.URI.ID]
+			content := modelSecrets.Content[md.URI.ID]
+			ops, err := s.importSecretRevisions(ctx, modelID, md, revisions, content)
+			if err != nil {
+				return errors.Annotatef(err, "saving secret %q", md.URI.ID)
+			}
+			refOperations = append(refOperations, ops...)
 
-		err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 			if err := s.importSecretConsumers(ctx, md.URI, modelSecrets.Consumers[md.URI.ID]); err != nil {
 				return errors.Annotatef(err, "saving secret consumer data for %q", md.URI.ID)
 			}
@@ -188,14 +198,33 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 			if err := s.importSecretAccesses(ctx, md.URI, modelSecrets.Access[md.URI.ID]); err != nil {
 				return errors.Annotatef(err, "saving secret access data for %q", md.URI.ID)
 			}
-			return nil
-		})
-		if err != nil {
-			return errors.Annotatef(err, "importing secret %q", md.URI.ID)
 		}
+		return nil
+	})
+	if err != nil {
+		return errors.Annotatef(err, "importing secrets")
+	}
+	var rollBacks []func() error
+	defer func() {
+		for _, rollBack := range rollBacks {
+			if err := rollBack(); err != nil {
+				// TODO: we need a way to clear those records inserted into the controller database.
+				// #52 in risk register spreadsheet.
+				s.logger.Warningf("failed to roll back secret reference count: %v", err)
+			}
+		}
+	}()
+	for _, op := range refOperations {
+		rollBack, err := op()
+		if err != nil {
+			return errors.Annotate(err, "ensuring secret reference count")
+		}
+		rollBacks = append(rollBacks, rollBack)
 	}
 	return nil
 }
+
+type referenceEnsurer func() (func() error, error)
 
 func (s *SecretService) importSecretConsumers(ctx domain.AtomicContext, uri *coresecrets.URI, consumers []ConsumerInfo) error {
 	for _, sc := range consumers {
@@ -243,10 +272,11 @@ func (s *SecretService) importSecretAccesses(ctx domain.AtomicContext, uri *core
 }
 
 func (s *SecretService) importSecretRevisions(
-	ctx context.Context, modelID coremodel.UUID, md *coresecrets.SecretMetadata,
+	ctx domain.AtomicContext, modelID coremodel.UUID, md *coresecrets.SecretMetadata,
 	revisions []*coresecrets.SecretRevisionMetadata,
 	content map[int]coresecrets.SecretData,
-) error {
+) ([]referenceEnsurer, error) {
+	var ops []referenceEnsurer
 	for i, rev := range revisions {
 		params := secret.UpsertSecretParams{
 			ValueRef: rev.ValueRef,
@@ -259,7 +289,7 @@ func (s *SecretService) importSecretRevisions(
 				params.Data = data
 			} else {
 				// Should never happen.
-				return errors.Errorf("missing content for secret %s/%d", md.URI.ID, rev.Revision)
+				return ops, errors.Errorf("missing content for secret %s/%d", md.URI.ID, rev.Revision)
 			}
 		}
 		// The expiry time of the most recent revision
@@ -268,40 +298,36 @@ func (s *SecretService) importSecretRevisions(
 			params.ExpireTime = md.LatestExpireTime
 		}
 		if i == 0 {
-			if err := s.createImportedSecret(ctx, modelID, md, params); err != nil {
-				return errors.Annotatef(err, "cannot import secret %q", md.URI.ID)
+			ensureRef, err := s.createImportedSecret(ctx, modelID, md, params)
+			if err != nil {
+				return ops, errors.Annotatef(err, "cannot import secret %q", md.URI.ID)
+			}
+			if ensureRef != nil {
+				ops = append(ops, ensureRef)
 			}
 			continue
 		}
 		revisionID, err := s.uuidGenerator()
 		if err != nil {
-			return errors.Trace(err)
+			return ops, errors.Trace(err)
 		}
 		params.RevisionID = ptr(revisionID.String())
 
-		rollBack := func() error { return nil }
-		if params.ValueRef != nil || len(params.Data) != 0 {
-			rollBack, err = s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, params.ValueRef, modelID, revisionID.String())
-			if err != nil {
-				return errors.Trace(err)
-			}
+		if err = s.secretState.UpdateSecret(ctx, md.URI, params); err != nil {
+			return ops, errors.Annotatef(err, "cannot import secret %q revision %d", md.URI.ID, rev.Revision)
 		}
-		err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-			return s.secretState.UpdateSecret(ctx, md.URI, params)
-		})
-		if err != nil {
-			if err := rollBack(); err != nil {
-				s.logger.Warningf("failed to roll back secret reference count: %v", err)
-			}
-			return errors.Annotatef(err, "cannot import secret %q revision %d", md.URI.ID, rev.Revision)
+		if params.ValueRef != nil || len(params.Data) != 0 {
+			ops = append(ops, func() (func() error, error) {
+				return s.secretBackendReferenceMutator.AddSecretBackendReference(ctx.Context(), params.ValueRef, modelID, revisionID.String())
+			})
 		}
 	}
-	return nil
+	return ops, nil
 }
 
 func (s *SecretService) createImportedSecret(
-	ctx context.Context, modelID coremodel.UUID, md *coresecrets.SecretMetadata, params secret.UpsertSecretParams,
-) (errOut error) {
+	ctx domain.AtomicContext, modelID coremodel.UUID, md *coresecrets.SecretMetadata, params secret.UpsertSecretParams,
+) (referenceEnsurer, error) {
 	params.NextRotateTime = md.NextRotateTime
 	if md.RotatePolicy != "" && md.RotatePolicy != coresecrets.RotateNever {
 		policy := secret.MarshallRotatePolicy(&md.RotatePolicy)
@@ -319,21 +345,10 @@ func (s *SecretService) createImportedSecret(
 
 	revisionID, err := s.uuidGenerator()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	params.RevisionID = ptr(revisionID.String())
 
-	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, params.ValueRef, modelID, revisionID.String())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer func() {
-		if errOut != nil {
-			if err := rollBack(); err != nil {
-				s.logger.Warningf("failed to roll back secret reference count: %v", err)
-			}
-		}
-	}()
 	switch md.Owner.Kind {
 	case coresecrets.ModelOwner:
 		err = s.secretState.CreateUserSecret(ctx, md.Version, md.URI, params)
@@ -343,9 +358,14 @@ func (s *SecretService) createImportedSecret(
 		err = s.secretState.CreateCharmUnitSecret(ctx, md.Version, md.URI, md.Owner.ID, params)
 	default:
 		// Should never happen.
-		return errors.Errorf("cannot import secret %q with owner kind %q", md.URI.ID, md.Owner.Kind)
+		return nil, errors.Errorf("cannot import secret %q with owner kind %q", md.URI.ID, md.Owner.Kind)
 	}
-	return err
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot import secret %q", md.URI.ID)
+	}
+	return func() (func() error, error) {
+		return s.secretBackendReferenceMutator.AddSecretBackendReference(ctx.Context(), params.ValueRef, modelID, revisionID.String())
+	}, nil
 }
 
 func (s *SecretService) importRemoteSecrets(ctx context.Context, remoteSecrets []RemoteSecret) error {

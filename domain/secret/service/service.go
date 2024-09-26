@@ -245,7 +245,9 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}
 	}()
 
-	if err = s.secretState.CreateUserSecret(ctx, params.Version, uri, p); err != nil {
+	if err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return s.secretState.CreateUserSecret(ctx, params.Version, uri, p)
+	}); err != nil {
 		return errors.Annotatef(err, "cannot create user secret %q", uri.ID)
 	}
 	return nil
@@ -315,9 +317,13 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 			}
 			return errors.Trace(err)
 		}
-		err = s.secretState.CreateCharmApplicationSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
+		err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+			return s.secretState.CreateCharmApplicationSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
+		})
 	} else {
-		err = s.secretState.CreateCharmUnitSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
+		err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+			return s.secretState.CreateCharmUnitSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
+		})
 	}
 	if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
 		return errors.Errorf("secret with label %q is already being used", *params.Label)
@@ -702,8 +708,6 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 			}
 
 			if md != nil {
-				// If the label has is to be changed by the secret owner, update the secret metadata.
-				// TODO(wallyworld) - the label staying the same should be asserted in a txn.
 				if labelToUpdate != nil && *labelToUpdate != md.Label {
 					isOwner, err := checkUnitOwner(unitName, md.Owner, isLeader)
 					if err != nil {

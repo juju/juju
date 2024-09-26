@@ -20,6 +20,24 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
+func createUserSecret(ctx context.Context, st *State, version int, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams) error {
+	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.CreateUserSecret(ctx, version, uri, secret)
+	})
+}
+
+func createCharmApplicationSecret(ctx context.Context, st *State, version int, uri *coresecrets.URI, appName string, secret domainsecret.UpsertSecretParams) error {
+	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.CreateCharmApplicationSecret(ctx, version, uri, appName, secret)
+	})
+}
+
+func createCharmUnitSecret(ctx context.Context, st *State, version int, uri *coresecrets.URI, unitName string, secret domainsecret.UpsertSecretParams) error {
+	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.CreateCharmUnitSecret(ctx, version, uri, unitName, secret)
+	})
+}
+
 func updateSecret(ctx context.Context, st *State, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams,
 ) error {
 	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {

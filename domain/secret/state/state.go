@@ -81,14 +81,9 @@ func (st State) getModelUUID(ctx context.Context, tx *sqlair.TX) (string, error)
 // [secreterrors.SecretAlreadyExists] if a user secret with the same
 // label already exists.
 func (st State) CreateUserSecret(
-	ctx context.Context, version int, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams,
+	ctx domain.AtomicContext, version int, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams,
 ) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.createSecret(ctx, tx, version, uri, secret, st.checkUserSecretLabelExists); err != nil {
 			return errors.Annotatef(err, "inserting secret records for secret %q", uri)
 		}
@@ -112,7 +107,6 @@ func (st State) CreateUserSecret(
 		}
 		return nil
 	})
-	return errors.Trace(err)
 }
 
 // checkSecretUserLabelExists returns an error if a user
@@ -145,22 +139,17 @@ WHERE  label = $secretOwner.label`
 // It also returns an error satisfying [applicationerrors.ApplicationNotFound]
 // ifthe application does not exist.
 func (st State) CreateCharmApplicationSecret(
-	ctx context.Context, version int, uri *coresecrets.URI, appName string, secret domainsecret.UpsertSecretParams,
+	ctx domain.AtomicContext, version int, uri *coresecrets.URI, appName string, secret domainsecret.UpsertSecretParams,
 ) error {
 	if secret.AutoPrune != nil && *secret.AutoPrune {
 		return secreterrors.AutoPruneNotSupported
-	}
-
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
 	}
 
 	label := ""
 	if secret.Label != nil {
 		label = *secret.Label
 	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		dbSecretOwner := secretApplicationOwner{SecretID: uri.ID, Label: label}
 		result := sqlair.M{}
 
@@ -196,7 +185,6 @@ func (st State) CreateCharmApplicationSecret(
 		}
 		return nil
 	})
-	return errors.Trace(err)
 }
 
 // checkApplicationSecretLabelExists returns function which checks if
@@ -246,22 +234,17 @@ FROM (
 // It also returns an error satisfying [applicationerrors.UnitNotFound] if
 // the unit does not exist.
 func (st State) CreateCharmUnitSecret(
-	ctx context.Context, version int, uri *coresecrets.URI, unitName string, secret domainsecret.UpsertSecretParams,
+	ctx domain.AtomicContext, version int, uri *coresecrets.URI, unitName string, secret domainsecret.UpsertSecretParams,
 ) error {
 	if secret.AutoPrune != nil && *secret.AutoPrune {
 		return secreterrors.AutoPruneNotSupported
-	}
-
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
 	}
 
 	label := ""
 	if secret.Label != nil {
 		label = *secret.Label
 	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		dbSecretOwner := secretUnitOwner{SecretID: uri.ID, Label: label}
 
 		selectUnitUUID := `SELECT &unit.uuid FROM unit WHERE name=$unit.name`
@@ -295,7 +278,6 @@ func (st State) CreateCharmUnitSecret(
 		}
 		return nil
 	})
-	return errors.Trace(err)
 }
 
 // UpdateSecret creates a secret with the specified parameters, returning an
@@ -505,6 +487,7 @@ GROUP BY sm.secret_id`
 		return errors.Trace(err)
 	}
 
+	// TODO: do not use coresecrets.SecretMetadata to remove core package dependency.
 	existingResult, err := dbSecrets.toCoreSecretMetadata(dbsecretOwners)
 	if err != nil {
 		return errors.Trace(err)
@@ -1298,6 +1281,7 @@ FROM   secret_metadata sm
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Trace(err)
 	}
+	// TODO： change to not return coresecrets.SecretMetadata to remove core package dependency from state package.
 	return dbSecrets.toCoreSecretMetadata(dbsecretOwners)
 }
 
@@ -1539,6 +1523,7 @@ FROM   secret_metadata sm
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Trace(err)
 	}
+	// TODO： change to not return coresecrets.SecretMetadata to remove core package dependency from state package.
 	return dbSecrets.toCoreSecretMetadata(dbsecretOwners)
 }
 
@@ -2210,7 +2195,6 @@ ON CONFLICT DO NOTHING`
 		if err := st.markObsoleteRevisions(ctx, tx, uri); err != nil {
 			return errors.Annotatef(err, "marking obsolete revisions for secret %q", uri)
 		}
-
 		return nil
 	})
 	return errors.Trace(err)

@@ -22,6 +22,16 @@ import (
 type AtomicState interface {
 	domain.AtomicStateBase
 
+	CreateUserSecret(
+		ctx domain.AtomicContext, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams,
+	) error
+	CreateCharmApplicationSecret(
+		ctx domain.AtomicContext, version int, uri *secrets.URI, appName string, secret domainsecret.UpsertSecretParams,
+	) error
+	CreateCharmUnitSecret(
+		ctx domain.AtomicContext, version int, uri *secrets.URI, unitName string, secret domainsecret.UpsertSecretParams,
+	) error
+
 	ListExternalSecretRevisions(ctx domain.AtomicContext, uri *secrets.URI, revisions ...int) ([]secrets.ValueRef, error)
 	DeleteSecret(ctx domain.AtomicContext, uri *secrets.URI, revs []int) ([]string, error)
 	UpdateSecret(ctx domain.AtomicContext, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
@@ -65,15 +75,6 @@ type State interface {
 	AtomicState
 
 	GetModelUUID(ctx context.Context) (string, error)
-	CreateUserSecret(
-		ctx context.Context, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams,
-	) error
-	CreateCharmApplicationSecret(
-		ctx context.Context, version int, uri *secrets.URI, appName string, secret domainsecret.UpsertSecretParams,
-	) error
-	CreateCharmUnitSecret(
-		ctx context.Context, version int, uri *secrets.URI, unitName string, secret domainsecret.UpsertSecretParams,
-	) error
 	DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string, error)
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetLatestRevision(ctx context.Context, uri *secrets.URI) (int, error)

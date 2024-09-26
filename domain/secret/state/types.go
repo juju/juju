@@ -410,12 +410,8 @@ func (rows secretRevisions) toSecretRevisions(
 		revisionIDs.Add(row.ID)
 
 		md := &domainsecret.SecretRevision{
-			SecretRevisionMetadata: coresecrets.SecretRevisionMetadata{
-				Revision:    row.Revision,
-				ValueRef:    nil,
-				CreateTime:  row.CreateTime,
-				BackendName: nil,
-			},
+			Revision:   row.Revision,
+			CreateTime: row.CreateTime,
 		}
 		if tm := revExpire[i].ExpireTime; !tm.IsZero() {
 			md.ExpireTime = &tm

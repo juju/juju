@@ -135,8 +135,11 @@ type SecretMetadata struct {
 
 // SecretRevision holds metadata and data about a secret revision.
 type SecretRevision struct {
-	secrets.SecretRevisionMetadata
-	Data secrets.SecretData
+	Revision   int
+	ValueRef   *secrets.ValueRef
+	Data       secrets.SecretData
+	CreateTime time.Time
+	ExpireTime *time.Time
 }
 
 // Validate checks that the metadata is valid.

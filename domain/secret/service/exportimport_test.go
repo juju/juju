@@ -20,27 +20,23 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectRunAtomic(ctrl, true)
-
 	uri := coresecrets.NewURI()
 	secrets := []*coresecrets.SecretMetadata{{
 		URI:                    uri,
 		LatestRevisionChecksum: "checksum-1234",
 	}}
 	revisions := [][]*domainsecret.SecretRevision{{{
-		SecretRevisionMetadata: coresecrets.SecretRevisionMetadata{Revision: 1},
-		Data:                   coresecrets.SecretData{"foo": "bar"},
+		Revision: 1,
+		Data:     coresecrets.SecretData{"foo": "bar"},
 	}, {
-		SecretRevisionMetadata: coresecrets.SecretRevisionMetadata{
-			Revision: 2,
-			ValueRef: &coresecrets.ValueRef{
-				BackendID:  "backend-id",
-				RevisionID: "revision-id",
-			},
+		Revision: 2,
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "revision-id",
 		},
 	}, {
-		SecretRevisionMetadata: coresecrets.SecretRevisionMetadata{Revision: 3},
-		Data:                   coresecrets.SecretData{"baz": "qux"},
+		Revision: 3,
+		Data:     coresecrets.SecretData{"baz": "qux"},
 	}}}
 
 	s.state.EXPECT().ListAllSecrets(gomock.Any()).Return(
@@ -147,8 +143,6 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-
-	s.expectRunAtomic(ctrl, true)
 
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
