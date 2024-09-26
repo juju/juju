@@ -4,7 +4,6 @@
 package stateenvirons
 
 import (
-	stdcontext "context"
 	"sync"
 
 	"github.com/juju/errors"
@@ -13,7 +12,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -96,19 +94,6 @@ func (p *environStatePolicy) getDeployChecker() (deployChecker, error) {
 	return p.checker, err
 }
 
-// ConfigValidator implements state.Policy.
-func (p *environStatePolicy) ConfigValidator() (config.Validator, error) {
-	model, err := p.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cloud, err := p.cloudService.Cloud(stdcontext.Background(), model.CloudName())
-	if err != nil {
-		return nil, errors.Annotate(err, "getting cloud")
-	}
-	return environProvider(cloud.Type)
-}
-
 // ConstraintsValidator implements state.Policy.
 func (p *environStatePolicy) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
 	checker, err := p.getDeployChecker()
@@ -174,8 +159,4 @@ func NewStorageProviderRegistryForModel(
 // the provided registry with the common storage providers.
 func NewStorageProviderRegistry(reg storage.ProviderRegistry) storage.ProviderRegistry {
 	return storage.ChainedProviderRegistry{reg, provider.CommonStorageProviders()}
-}
-
-func environProvider(cloudType string) (environs.EnvironProvider, error) {
-	return environs.Provider(cloudType)
 }

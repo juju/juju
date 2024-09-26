@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -311,10 +310,6 @@ func (noopStoragePoolGetter) GetStoragePoolByName(_ context.Context, name string
 }
 
 type statePolicy struct{}
-
-func (statePolicy) ConfigValidator() (config.Validator, error) {
-	return nil, errors.NotImplementedf("ConfigValidator")
-}
 
 func (statePolicy) ConstraintsValidator(envcontext.ProviderCallContext) (constraints.Validator, error) {
 	return nil, errors.NotImplementedf("ConstraintsValidator")

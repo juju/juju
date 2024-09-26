@@ -93,10 +93,6 @@ func (s *internalStateSuite) TearDownTest(c *gc.C) {
 
 type internalStatePolicy struct{}
 
-func (internalStatePolicy) ConfigValidator() (config.Validator, error) {
-	return nil, errors.NotImplementedf("ConfigValidator")
-}
-
 func (internalStatePolicy) ConstraintsValidator(envcontext.ProviderCallContext) (constraints.Validator, error) {
 	return nil, errors.NotImplementedf("ConstraintsValidator")
 }
