@@ -53,7 +53,7 @@ func (mock *mockBackend) Claim(lease, holder string, duration time.Duration) err
 }
 
 // WaitUntilExpired is part of the lease.Claimer interface.
-func (mock *mockBackend) WaitUntilExpired(ctx context.Context, leaseId string) error {
+func (mock *mockBackend) WaitUntilExpired(ctx context.Context, leaseId string, started chan<- struct{}) error {
 	mock.stub.AddCall("WaitUntilExpired", leaseId)
 	select {
 	case <-ctx.Done():

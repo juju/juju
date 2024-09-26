@@ -32,11 +32,12 @@ type Claimer interface {
 	// error, no reasonable inferences may be made.
 	Claim(leaseName, holderName string, duration time.Duration) error
 
-	// WaitUntilExpired returns nil when the named lease is no longer held. If it
-	// returns any error, no reasonable inferences may be made. If the supplied
-	// cancel channel is non-nil, it can be used to cancel the request; in this
-	// case, the method will return ErrWaitCancelled.
-	WaitUntilExpired(ctx context.Context, leaseName string) error
+	// WaitUntilExpired returns nil when the named lease is no longer held. If
+	// it returns any error, no reasonable inferences may be made. The supplied
+	// context can be used to cancel the request; in this case, the method will
+	// return ErrWaitCancelled.
+	// The started channel when non-nil is closed when the wait begins.
+	WaitUntilExpired(ctx context.Context, leaseName string, started chan<- struct{}) error
 }
 
 // Revoker exposes lease revocation capabilities.

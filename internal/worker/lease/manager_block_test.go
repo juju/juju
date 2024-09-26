@@ -278,7 +278,7 @@ func newBlockTest(c *gc.C, manager *lease.Manager, key corelease.Key) *blockTest
 		close(started)
 		select {
 		case <-bt.abort:
-		case bt.done <- claimer.WaitUntilExpired(ctx, key.Lease):
+		case bt.done <- claimer.WaitUntilExpired(ctx, key.Lease, nil):
 		case <-time.After(testing.LongWait):
 			c.Errorf("block not aborted or expired after %v", testing.LongWait)
 		}
