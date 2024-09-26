@@ -4,6 +4,7 @@
 package lease_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -161,7 +162,7 @@ func (s *ValidationSuite) TestToken_HolderName(c *gc.C) {
 func (s *ValidationSuite) TestWaitUntilExpired_LeaseName(c *gc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
-		err := getClaimer(c, manager).WaitUntilExpired("INVALID", nil)
+		err := getClaimer(c, manager).WaitUntilExpired(context.Background(), "INVALID")
 		c.Check(err, gc.ErrorMatches, `cannot wait for lease "INVALID" expiry: name not valid`)
 		c.Check(err, jc.ErrorIs, errors.NotValid)
 	})

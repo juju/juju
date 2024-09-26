@@ -59,8 +59,8 @@ func (m leadershipClaimer) ClaimLeadership(ctx context.Context, applicationName,
 }
 
 // BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
-func (m leadershipClaimer) BlockUntilLeadershipReleased(ctx context.Context, applicationName string, cancel <-chan struct{}) error {
-	err := m.claimer.WaitUntilExpired(applicationName, cancel)
+func (m leadershipClaimer) BlockUntilLeadershipReleased(ctx context.Context, applicationName string) error {
+	err := m.claimer.WaitUntilExpired(ctx, applicationName)
 	if errors.Cause(err) == lease.ErrWaitCancelled {
 		return leadership.ErrBlockCancelled
 	}

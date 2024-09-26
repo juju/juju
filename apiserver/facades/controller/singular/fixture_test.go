@@ -4,6 +4,7 @@
 package singular_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/names/v5"
@@ -52,10 +53,10 @@ func (mock *mockBackend) Claim(lease, holder string, duration time.Duration) err
 }
 
 // WaitUntilExpired is part of the lease.Claimer interface.
-func (mock *mockBackend) WaitUntilExpired(leaseId string, cancel <-chan struct{}) error {
+func (mock *mockBackend) WaitUntilExpired(ctx context.Context, leaseId string) error {
 	mock.stub.AddCall("WaitUntilExpired", leaseId)
 	select {
-	case <-cancel:
+	case <-ctx.Done():
 		return lease.ErrWaitCancelled
 	default:
 	}

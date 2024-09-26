@@ -71,7 +71,7 @@ func (b *boundManager) Revoke(leaseName, holderName string) error {
 }
 
 // WaitUntilExpired is part of the lease.Claimer interface.
-func (b *boundManager) WaitUntilExpired(leaseName string, cancel <-chan struct{}) error {
+func (b *boundManager) WaitUntilExpired(ctx context.Context, leaseName string) error {
 	key := b.leaseKey(leaseName)
 	if err := b.secretary.CheckLease(key); err != nil {
 		return errors.Annotatef(err, "cannot wait for lease %q expiry", leaseName)
@@ -81,7 +81,7 @@ func (b *boundManager) WaitUntilExpired(leaseName string, cancel <-chan struct{}
 		leaseKey: key,
 		unblock:  make(chan struct{}),
 		stop:     b.manager.tomb.Dying(),
-		cancel:   cancel,
+		cancel:   ctx.Done(),
 	}.invoke(b.manager.blocks)
 }
 
