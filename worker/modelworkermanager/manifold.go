@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -29,16 +30,17 @@ type Logger interface {
 // ManifoldConfig holds the information necessary to run a model worker manager
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName      string
-	AuthorityName  string
-	StateName      string
-	MuxName        string
-	SyslogName     string
-	Clock          clock.Clock
-	NewWorker      func(Config) (worker.Worker, error)
-	NewModelWorker NewModelWorkerFunc
-	ModelMetrics   ModelMetrics
-	Logger         Logger
+	AgentName            string
+	AuthorityName        string
+	StateName            string
+	MuxName              string
+	SyslogName           string
+	Clock                clock.Clock
+	NewWorker            func(Config) (worker.Worker, error)
+	NewModelWorker       NewModelWorkerFunc
+	ModelMetrics         ModelMetrics
+	Logger               Logger
+	PrometheusRegisterer prometheus.Registerer
 }
 
 // Validate validates the manifold configuration.
@@ -69,6 +71,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if config.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	return nil
 }
@@ -139,9 +144,10 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 			StatePool: statePool,
 			SysLogger: sysLogger,
 		},
-		NewModelWorker: config.NewModelWorker,
-		ErrorDelay:     jworker.RestartDelay,
-		StateTracker:   stTracker,
+		NewModelWorker:       config.NewModelWorker,
+		ErrorDelay:           jworker.RestartDelay,
+		StateTracker:         stTracker,
+		PrometheusRegisterer: config.PrometheusRegisterer,
 	})
 	if err != nil {
 		_ = stTracker.Done()

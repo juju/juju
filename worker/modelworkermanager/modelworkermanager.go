@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
@@ -69,15 +70,16 @@ type ModelMetrics interface {
 // NewModelConfig holds the information required by the NewModelWorkerFunc
 // to start the workers for the specified model
 type NewModelConfig struct {
-	Authority        pki.Authority
-	ModelName        string // Use a fully qualified name "<namespace>-<name>"
-	ModelUUID        string
-	ModelType        state.ModelType
-	ModelLogger      ModelLogger
-	ModelMetrics     engine.MetricSink
-	Mux              *apiserverhttp.Mux
-	ControllerConfig controller.Config
-	StateTracker     workerstate.StateTracker
+	Authority            pki.Authority
+	ModelName            string // Use a fully qualified name "<namespace>-<name>"
+	ModelUUID            string
+	ModelType            state.ModelType
+	ModelLogger          ModelLogger
+	ModelMetrics         engine.MetricSink
+	Mux                  *apiserverhttp.Mux
+	ControllerConfig     controller.Config
+	StateTracker         workerstate.StateTracker
+	PrometheusRegisterer prometheus.Registerer
 }
 
 // NewModelWorkerFunc should return a worker responsible for running
@@ -88,17 +90,18 @@ type NewModelWorkerFunc func(config NewModelConfig) (worker.Worker, error)
 // Config holds the dependencies and configuration necessary to run
 // a model worker manager.
 type Config struct {
-	Authority      pki.Authority
-	Clock          clock.Clock
-	Logger         Logger
-	MachineID      string
-	ModelWatcher   ModelWatcher
-	ModelMetrics   ModelMetrics
-	Mux            *apiserverhttp.Mux
-	Controller     Controller
-	NewModelWorker NewModelWorkerFunc
-	ErrorDelay     time.Duration
-	StateTracker   workerstate.StateTracker
+	Authority            pki.Authority
+	Clock                clock.Clock
+	Logger               Logger
+	MachineID            string
+	ModelWatcher         ModelWatcher
+	ModelMetrics         ModelMetrics
+	Mux                  *apiserverhttp.Mux
+	Controller           Controller
+	NewModelWorker       NewModelWorkerFunc
+	ErrorDelay           time.Duration
+	StateTracker         workerstate.StateTracker
+	PrometheusRegisterer prometheus.Registerer
 }
 
 // Validate returns an error if config cannot be expected to drive
@@ -133,6 +136,9 @@ func (config Config) Validate() error {
 	}
 	if config.StateTracker == nil {
 		return errors.NotValidf("nil StateTracker")
+	}
+	if config.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	return nil
 }
@@ -217,14 +223,15 @@ func (m *modelWorkerManager) loop() error {
 		}
 
 		cfg := NewModelConfig{
-			Authority:        m.config.Authority,
-			ModelName:        fmt.Sprintf("%s-%s", model.Owner().Id(), model.Name()),
-			ModelUUID:        modelUUID,
-			ModelType:        model.Type(),
-			ModelMetrics:     m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
-			Mux:              m.config.Mux,
-			ControllerConfig: controllerConfig,
-			StateTracker:     m.config.StateTracker,
+			Authority:            m.config.Authority,
+			ModelName:            fmt.Sprintf("%s-%s", model.Owner().Id(), model.Name()),
+			ModelUUID:            modelUUID,
+			ModelType:            model.Type(),
+			ModelMetrics:         m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
+			Mux:                  m.config.Mux,
+			ControllerConfig:     controllerConfig,
+			StateTracker:         m.config.StateTracker,
+			PrometheusRegisterer: m.config.PrometheusRegisterer,
 		}
 		return errors.Trace(m.ensure(cfg))
 	}
