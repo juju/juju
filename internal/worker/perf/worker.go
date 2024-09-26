@@ -23,6 +23,7 @@ type perfWorker struct {
 	runner   *worker.Runner
 	clock    clock.Clock
 	logger   logger.Logger
+	metrics  *Collector
 
 	id int64
 
@@ -30,11 +31,12 @@ type perfWorker struct {
 	service   servicefactory.ServiceFactory
 }
 
-func newPerfWorker(modelUUID model.UUID, service servicefactory.ServiceFactory, clock clock.Clock, logger logger.Logger) (*perfWorker, error) {
+func newPerfWorker(modelUUID model.UUID, service servicefactory.ServiceFactory, clock clock.Clock, logger logger.Logger, metrics *Collector) (*perfWorker, error) {
 	w := &perfWorker{
 		modelUUID: modelUUID,
 		clock:     clock,
 		logger:    logger,
+		metrics:   metrics,
 		service:   service,
 		runner: worker.NewRunner(worker.RunnerParams{
 			Clock: clock,
@@ -121,6 +123,9 @@ func (w *perfWorker) run() error {
 }
 
 func (w *perfWorker) runStep(ctx context.Context, step int) error {
+	// TODO (jam): we could add metrics for the time for each of these calls to complete,
+	//  it might be interesting if one of them is particularly more expensive/slow than the others
+	w.metrics.iterationCount.Inc()
 	switch step % 6 {
 	case 1:
 		// Controller access.

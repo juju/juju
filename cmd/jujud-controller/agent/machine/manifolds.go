@@ -714,6 +714,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                          internallogger.GetLogger("juju.workers.modelworkermanager"),
 			GetProviderServiceFactoryGetter: modelworkermanager.GetProviderServiceFactoryGetter,
 			GetControllerConfig:             modelworkermanager.GetControllerConfig,
+			PrometheusRegisterer:            config.PrometheusRegisterer,
 		})),
 
 		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{

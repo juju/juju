@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
+	"github.com/prometheus/client_golang/prometheus"
 
 	agentengine "github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -92,6 +93,7 @@ type NewModelConfig struct {
 	ControllerConfig             controller.Config
 	ProviderServiceFactoryGetter ProviderServiceFactoryGetter
 	ServiceFactory               servicefactory.ServiceFactory
+	PrometheusRegisterer         prometheus.Registerer
 }
 
 // NewModelWorkerFunc should return a worker responsible for running
@@ -115,6 +117,7 @@ type Config struct {
 	ProviderServiceFactoryGetter ProviderServiceFactoryGetter
 	ServiceFactoryGetter         servicefactory.ServiceFactoryGetter
 	GetControllerConfig          GetControllerConfigFunc
+	PrometheusRegisterer         prometheus.Registerer
 }
 
 // Validate returns an error if config cannot be expected to drive
@@ -155,6 +158,9 @@ func (config Config) Validate() error {
 	}
 	if config.GetControllerConfig == nil {
 		return errors.NotValidf("nil GetControllerConfig")
+	}
+	if config.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	return nil
 }
@@ -255,12 +261,13 @@ func (m *modelWorkerManager) modelChanged(modelUUID string) error {
 	}
 
 	cfg := NewModelConfig{
-		Authority:    m.config.Authority,
-		ModelName:    model.Name(),
-		ModelOwner:   model.Owner().Id(),
-		ModelUUID:    modelUUID,
-		ModelType:    model.Type(),
-		ModelMetrics: m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
+		Authority:            m.config.Authority,
+		ModelName:            model.Name(),
+		ModelOwner:           model.Owner().Id(),
+		ModelUUID:            modelUUID,
+		ModelType:            model.Type(),
+		ModelMetrics:         m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
+		PrometheusRegisterer: m.config.PrometheusRegisterer,
 	}
 	return errors.Trace(m.ensure(cfg))
 }
