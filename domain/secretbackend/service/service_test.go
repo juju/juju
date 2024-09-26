@@ -1491,7 +1491,7 @@ func (s *serviceSuite) TestGetModelSecretBackendFailedModelNotFound(c *gc.C) {
 	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{}, modelerrors.NotFound)
 
 	_, err := svc.GetModelSecretBackend(context.Background())
-	c.Assert(err, gc.ErrorMatches, `cannot get model secret backend detail for "`+modelUUID.String()+`": model not found`)
+	c.Assert(err, gc.ErrorMatches, `getting model secret backend detail for "`+modelUUID.String()+`": model not found`)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -1627,7 +1627,7 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedUnkownModelType(c *gc.C) {
 	}, nil)
 
 	err := svc.SetModelSecretBackend(context.Background(), "auto")
-	c.Assert(err, gc.ErrorMatches, `cannot set model secret backend for unsupported model type "bad-type" for model "`+modelUUID.String()+`"`)
+	c.Assert(err, gc.ErrorMatches, `setting model secret backend for unsupported model type "bad-type" for model "`+modelUUID.String()+`"`)
 }
 
 func (s *serviceSuite) TestSetModelSecretBackendFailedModelNotFound(c *gc.C) {
@@ -1644,7 +1644,7 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedModelNotFound(c *gc.C) {
 	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{}, modelerrors.NotFound)
 
 	err := svc.SetModelSecretBackend(context.Background(), "auto")
-	c.Assert(err, gc.ErrorMatches, `cannot get model secret backend detail for "`+modelUUID.String()+`": model not found`)
+	c.Assert(err, gc.ErrorMatches, `getting model secret backend detail for "`+modelUUID.String()+`": model not found`)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -1665,7 +1665,7 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedSecretBackendNotFound(c *g
 	s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "backend-name").Return(secretbackenderrors.NotFound)
 
 	err := svc.SetModelSecretBackend(context.Background(), "backend-name")
-	c.Assert(err, gc.ErrorMatches, `cannot set model secret backend for "`+modelUUID.String()+`": secret backend not found`)
+	c.Assert(err, gc.ErrorMatches, `setting model secret backend for "`+modelUUID.String()+`": secret backend not found`)
 	c.Assert(err, jc.ErrorIs, secretbackenderrors.NotFound)
 }
 
