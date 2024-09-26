@@ -67,7 +67,7 @@ type Claimer interface {
 	// BlockUntilLeadershipReleased blocks until the named application is known
 	// to have no leader, in which case it returns no error; or until the
 	// manager is stopped, in which case it will fail.
-	BlockUntilLeadershipReleased(ctx context.Context, applicationId string, cancel <-chan struct{}) (err error)
+	BlockUntilLeadershipReleased(ctx context.Context, applicationId string) (err error)
 }
 
 // Revoker exposes leadership revocation capabilities.

@@ -4,6 +4,7 @@
 package lease_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -254,17 +255,19 @@ type blockTest struct {
 	manager *lease.Manager
 	done    chan error
 	abort   <-chan time.Time
-	cancel  chan struct{}
+	cancel  func()
 }
 
 // newBlockTest starts a test goroutine blocking until the manager confirms
 // expiry of the named lease.
 func newBlockTest(c *gc.C, manager *lease.Manager, key corelease.Key) *blockTest {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	bt := &blockTest{
 		manager: manager,
 		done:    make(chan error),
 		abort:   time.After(time.Second),
-		cancel:  make(chan struct{}),
+		cancel:  cancel,
 	}
 	claimer, err := bt.manager.Claimer(key.Namespace, key.ModelUUID)
 	if err != nil {
@@ -275,7 +278,7 @@ func newBlockTest(c *gc.C, manager *lease.Manager, key corelease.Key) *blockTest
 		close(started)
 		select {
 		case <-bt.abort:
-		case bt.done <- claimer.WaitUntilExpired(key.Lease, bt.cancel):
+		case bt.done <- claimer.WaitUntilExpired(ctx, key.Lease):
 		case <-time.After(testing.LongWait):
 			c.Errorf("block not aborted or expired after %v", testing.LongWait)
 		}
@@ -289,7 +292,7 @@ func newBlockTest(c *gc.C, manager *lease.Manager, key corelease.Key) *blockTest
 }
 
 func (bt *blockTest) cancelWait() {
-	close(bt.cancel)
+	bt.cancel()
 }
 
 func (bt *blockTest) assertBlocked(c *gc.C) {

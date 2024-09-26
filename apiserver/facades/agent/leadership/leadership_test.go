@@ -36,7 +36,7 @@ const (
 
 type stubClaimer struct {
 	ClaimLeadershipFn              func(ctx context.Context, sid, uid string, duration time.Duration) error
-	BlockUntilLeadershipReleasedFn func(ctx context.Context, serviceId string, cancel <-chan struct{}) error
+	BlockUntilLeadershipReleasedFn func(ctx context.Context, serviceId string) error
 }
 
 func (m *stubClaimer) ClaimLeadership(ctx context.Context, sid, uid string, duration time.Duration) error {
@@ -46,9 +46,9 @@ func (m *stubClaimer) ClaimLeadership(ctx context.Context, sid, uid string, dura
 	return nil
 }
 
-func (m *stubClaimer) BlockUntilLeadershipReleased(ctx context.Context, serviceId string, cancel <-chan struct{}) error {
+func (m *stubClaimer) BlockUntilLeadershipReleased(ctx context.Context, serviceId string) error {
 	if m.BlockUntilLeadershipReleasedFn != nil {
-		return m.BlockUntilLeadershipReleasedFn(ctx, serviceId, cancel)
+		return m.BlockUntilLeadershipReleasedFn(ctx, serviceId)
 	}
 	return nil
 }
@@ -249,7 +249,7 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *gc.C) {
 
 func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 	claimer := &stubClaimer{
-		BlockUntilLeadershipReleasedFn: func(ctx context.Context, sid string, cancel <-chan struct{}) error {
+		BlockUntilLeadershipReleasedFn: func(ctx context.Context, sid string) error {
 			c.Check(sid, gc.Equals, StubAppNm)
 			return nil
 		},
@@ -269,7 +269,7 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedContext(c *gc.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	claimer := &stubClaimer{
-		BlockUntilLeadershipReleasedFn: func(ctx context.Context, sid string, cancel <-chan struct{}) error {
+		BlockUntilLeadershipReleasedFn: func(ctx context.Context, sid string) error {
 			c.Check(sid, gc.Equals, StubAppNm)
 			c.Check(cancel, gc.Equals, ctx.Done())
 			return coreleadership.ErrBlockCancelled

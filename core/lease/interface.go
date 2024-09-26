@@ -4,6 +4,7 @@
 package lease
 
 import (
+	"context"
 	"time"
 )
 
@@ -35,7 +36,7 @@ type Claimer interface {
 	// returns any error, no reasonable inferences may be made. If the supplied
 	// cancel channel is non-nil, it can be used to cancel the request; in this
 	// case, the method will return ErrWaitCancelled.
-	WaitUntilExpired(leaseName string, cancel <-chan struct{}) error
+	WaitUntilExpired(ctx context.Context, leaseName string) error
 }
 
 // Revoker exposes lease revocation capabilities.
