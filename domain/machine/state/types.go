@@ -241,4 +241,5 @@ type createMachineArgs struct {
 type lxdProfile struct {
 	MachineUUID string `db:"machine_uuid"`
 	Name        string `db:"name"`
+	Index       int    `db:"array_index"`
 }
