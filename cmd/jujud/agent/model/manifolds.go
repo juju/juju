@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -134,6 +135,10 @@ type ManifoldsConfig struct {
 	// worker.
 	NewMigrationMaster func(migrationmaster.Config) (worker.Worker, error)
 
+	// PrometheusRegisterer is a prometheus.Registerer that may be used
+	// by workers to register Prometheus metric collectors.
+	PrometheusRegisterer prometheus.Registerer
+
 	StateTracker workerstate.StateTracker
 }
 
@@ -228,10 +233,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		},
 
 		perfWorkerName: perf.Manifold(perf.ManifoldConfig{
-			AgentName: agentName,
-			Clock:     config.Clock,
-			Logger:    config.LoggingContext.GetLogger("juju.worker.perf"),
-			StateName: stateName,
+			AgentName:            agentName,
+			Clock:                config.Clock,
+			Logger:               config.LoggingContext.GetLogger("juju.worker.perf"),
+			StateName:            stateName,
+			PrometheusRegisterer: config.PrometheusRegisterer,
 		}),
 
 		// The migration workers collaborate to run migrations;

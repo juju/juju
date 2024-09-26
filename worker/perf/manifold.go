@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/common"
@@ -20,8 +21,9 @@ type ManifoldConfig struct {
 	AgentName string
 	StateName string
 
-	Clock  clock.Clock
-	Logger Logger
+	Clock                clock.Clock
+	PrometheusRegisterer prometheus.Registerer
+	Logger               Logger
 }
 
 // Validate validates the manifold configuration.
@@ -34,6 +36,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
+	}
+	if config.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -89,13 +94,19 @@ func (config ManifoldConfig) start(getter dependency.Context) (worker.Worker, er
 		return nil, errors.Trace(err)
 	}
 
-	w, err := newPerfWorker(currentModelUUID, systemState, pooledState.State, config.Clock, config.Logger)
+	metricsCollector := NewMetricsCollector()
+	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
+		return nil, err
+	}
+	w, err := newPerfWorker(currentModelUUID, systemState, pooledState.State, config.Clock, config.Logger, metricsCollector)
 	if err != nil {
+		config.PrometheusRegisterer.Unregister(metricsCollector)
 		_ = pooledState.Release()
 		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	return common.NewCleanupWorker(w, func() {
+		config.PrometheusRegisterer.Unregister(metricsCollector)
 		_ = pooledState.Release()
 		_ = stTracker.Done()
 	}), nil

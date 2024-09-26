@@ -189,15 +189,17 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	watcher := newMockModelWatcher()
 	controller := newMockController()
 	config := modelworkermanager.Config{
-		Authority:      s.authority,
-		Clock:          clock.WallClock,
-		Logger:         loggo.GetLogger("test"),
-		MachineID:      "1",
-		ModelWatcher:   watcher,
-		Controller:     controller,
-		NewModelWorker: s.startModelWorker,
-		ModelMetrics:   dummyModelMetrics{},
-		ErrorDelay:     time.Millisecond,
+		Authority:            s.authority,
+		Clock:                clock.WallClock,
+		Logger:               loggo.GetLogger("test"),
+		MachineID:            "1",
+		ModelWatcher:         watcher,
+		Controller:           controller,
+		NewModelWorker:       s.startModelWorker,
+		ModelMetrics:         dummyModelMetrics{},
+		ErrorDelay:           time.Millisecond,
+		StateTracker:         nil,
+		PrometheusRegisterer: nil,
 	}
 	w, err := modelworkermanager.New(config)
 	c.Assert(err, jc.ErrorIsNil)
