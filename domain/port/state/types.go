@@ -109,19 +109,25 @@ type endpoint struct {
 	Endpoint string `db:"endpoint"`
 }
 
-// endpointName represents a network endpoint's name.
-type endpointName struct {
-	Endpoint string `db:"endpoint"`
+func (e endpoint) decode() port.Endpoint {
+	return port.Endpoint{
+		UUID:     e.UUID,
+		Endpoint: e.Endpoint,
+	}
 }
-
-// endpoints represents a list of network endpoints.
-type endpoints []string
 
 // unitEndpoint represents a unit's endpoint and its UUID.
 type unitEndpoint struct {
 	UUID     string `db:"uuid"`
 	Endpoint string `db:"endpoint"`
 	UnitUUID string `db:"unit_uuid"`
+}
+
+func (u unitEndpoint) decode() port.Endpoint {
+	return port.Endpoint{
+		UUID:     u.UUID,
+		Endpoint: u.Endpoint,
+	}
 }
 
 // unitUUID represents a unit's UUID.

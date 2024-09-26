@@ -9,6 +9,17 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
+// Endpoint represents a unit's network endpoint.
+type Endpoint struct {
+	UUID     string
+	Endpoint string
+}
+
+type PortRangeUUID struct {
+	UUID      string
+	PortRange network.PortRange
+}
+
 // UnitPortRange represents a range of ports for a given protocol for a
 // given unit.
 type UnitEndpointPortRange struct {
@@ -44,6 +55,11 @@ func (prs UnitEndpointPortRanges) ByUnitByEndpoint() map[string]network.GroupedP
 			byUnitByEndpoint[unitUUID] = network.GroupedPortRanges{}
 		}
 		byUnitByEndpoint[unitUUID][endpoint] = append(byUnitByEndpoint[unitUUID][endpoint], unitEnpointPortRange.PortRange)
+	}
+	for _, grp := range byUnitByEndpoint {
+		for _, portRanges := range grp {
+			network.SortPortRanges(portRanges)
+		}
 	}
 	return byUnitByEndpoint
 }
