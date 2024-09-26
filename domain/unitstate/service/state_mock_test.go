@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	domain "github.com/juju/juju/domain"
+	unitstate "github.com/juju/juju/domain/unitstate"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -74,6 +75,45 @@ func (c *MockStateEnsureUnitStateRecordCall) Do(f func(domain.AtomicContext, str
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateEnsureUnitStateRecordCall) DoAndReturn(f func(domain.AtomicContext, string) error) *MockStateEnsureUnitStateRecordCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitState mocks base method.
+func (m *MockState) GetUnitState(arg0 context.Context, arg1 string) (unitstate.RetrievedUnitState, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitState", arg0, arg1)
+	ret0, _ := ret[0].(unitstate.RetrievedUnitState)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitState indicates an expected call of GetUnitState.
+func (mr *MockStateMockRecorder) GetUnitState(arg0, arg1 any) *MockStateGetUnitStateCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitState", reflect.TypeOf((*MockState)(nil).GetUnitState), arg0, arg1)
+	return &MockStateGetUnitStateCall{Call: call}
+}
+
+// MockStateGetUnitStateCall wrap *gomock.Call
+type MockStateGetUnitStateCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitStateCall) Return(arg0 unitstate.RetrievedUnitState, arg1 error) *MockStateGetUnitStateCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitStateCall) Do(f func(context.Context, string) (unitstate.RetrievedUnitState, error)) *MockStateGetUnitStateCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitStateCall) DoAndReturn(f func(context.Context, string) (unitstate.RetrievedUnitState, error)) *MockStateGetUnitStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

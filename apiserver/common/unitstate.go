@@ -51,8 +51,13 @@ func (s UnitStateState) Unit(name string) (UnitStateUnit, error) {
 // UnitStateService describes the ability to retrieve and persist
 // remote state for informing hook reconciliation.
 type UnitStateService interface {
-	// SetState persists the input agent state.
-	SetState(context.Context, unitstate.AgentState) error
+	// GetUnitUUIDForName returns the UUID corresponding to the input unit name.
+	GetUnitUUIDForName(ctx context.Context, name string) (string, error)
+	// SetState persists the input unit state.
+	SetState(context.Context, unitstate.UnitState) error
+	// GetState returns the internal state of the unit. The return data will be
+	// empty if no hook has been run for this unit.
+	GetState(ctx context.Context, uuid string) (unitstate.RetrievedUnitState, error)
 }
 
 type UnitStateAPI struct {
@@ -123,23 +128,25 @@ func (u *UnitStateAPI) State(ctx context.Context, args params.Entities) (params.
 			res[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-
-		unit, err := u.getUnit(unitTag)
-		if err != nil {
-			res[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		unitState, err := unit.State()
+		unitUUID, err := u.unitStateService.GetUnitUUIDForName(ctx, unitTag.Id())
 		if err != nil {
 			res[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		res[i].CharmState, _ = unitState.CharmState()
-		res[i].UniterState, _ = unitState.UniterState()
-		res[i].RelationState, _ = unitState.RelationState()
-		res[i].StorageState, _ = unitState.StorageState()
-		res[i].SecretState, _ = unitState.SecretState()
+		unitState, err := u.unitStateService.GetState(ctx, unitUUID)
+		if err != nil {
+			res[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		res[i] = params.UnitStateResult{
+			CharmState:    unitState.CharmState,
+			UniterState:   unitState.UniterState,
+			RelationState: unitState.RelationState,
+			StorageState:  unitState.StorageState,
+			SecretState:   unitState.SecretState,
+		}
 	}
 
 	return params.UnitStateResults{Results: res}, nil
@@ -209,7 +216,7 @@ func (u *UnitStateAPI) SetState(ctx context.Context, args params.SetUnitStateArg
 			res[i].Error = apiservererrors.ServerError(err)
 		}
 
-		if err := u.unitStateService.SetState(ctx, unitstate.AgentState{
+		if err := u.unitStateService.SetState(ctx, unitstate.UnitState{
 			Name:          unitTag.Id(),
 			CharmState:    arg.CharmState,
 			UniterState:   arg.UniterState,

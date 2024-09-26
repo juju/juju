@@ -2676,7 +2676,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		// The full state is set in the call to SetState (apiserver/common).
 		// Integrate this into a transaction with other setters and delete the
 		// block above once we are also reading the state from Dqlite.
-		if err := u.unitStateService.SetState(ctx, unitstate.AgentState{
+		if err := u.unitStateService.SetState(ctx, unitstate.UnitState{
 			Name:       unitTag.Id(),
 			CharmState: changes.SetUnitState.CharmState,
 		}); err != nil {

@@ -5,14 +5,14 @@ package state
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/unitstate"
 	uniterrors "github.com/juju/juju/domain/unitstate/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // State implements persistence for unit state.
@@ -36,7 +36,7 @@ func (st *State) GetUnitUUIDForName(ctx domain.AtomicContext, name string) (stri
 	q := "SELECT &unitUUID.uuid FROM unit WHERE name = $unitName.name"
 	stmt, err := st.Prepare(q, uName, uuid)
 	if err != nil {
-		return "", fmt.Errorf("preparing UUID query: %w", err)
+		return "", errors.Errorf("preparing UUID query: %w", err)
 	}
 
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -59,13 +59,13 @@ func (st *State) EnsureUnitStateRecord(ctx domain.AtomicContext, uuid string) er
 	q := "SELECT unit_uuid AS &unitUUID.uuid FROM unit_state WHERE unit_uuid = $unitUUID.uuid"
 	rowStmt, err := st.Prepare(q, id)
 	if err != nil {
-		return fmt.Errorf("preparing state row query: %w", err)
+		return errors.Errorf("preparing state row query: %w", err)
 	}
 
 	q = "INSERT INTO unit_state(unit_uuid) values ($unitUUID.uuid)"
 	insertStmt, err := st.Prepare(q, id)
 	if err != nil {
-		return fmt.Errorf("preparing state insert query: %w", err)
+		return errors.Errorf("preparing state insert query: %w", err)
 	}
 
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -74,12 +74,12 @@ func (st *State) EnsureUnitStateRecord(ctx domain.AtomicContext, uuid string) er
 			return nil
 		}
 		if !errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("checking for state row: %w", err)
+			return errors.Errorf("checking for state row: %w", err)
 		}
 
 		err = tx.Query(ctx, insertStmt, id).Run()
 		if err != nil {
-			return fmt.Errorf("adding state row: %w", err)
+			return errors.Errorf("adding state row: %w", err)
 		}
 		return nil
 	})
@@ -91,12 +91,12 @@ func (st *State) EnsureUnitStateRecord(ctx domain.AtomicContext, uuid string) er
 // state against the input unit UUID.
 func (st *State) UpdateUnitStateUniter(ctx domain.AtomicContext, uuid, state string) error {
 	id := unitUUID{UUID: uuid}
-	uSt := unitState{State: state}
+	uSt := unitState{UniterState: state}
 
-	q := "UPDATE unit_state SET uniter_state = $unitState.state WHERE unit_uuid = $unitUUID.uuid"
+	q := "UPDATE unit_state SET uniter_state = $unitState.uniter_state WHERE unit_uuid = $unitUUID.uuid"
 	stmt, err := st.Prepare(q, id, uSt)
 	if err != nil {
-		return fmt.Errorf("preparing uniter state update query: %w", err)
+		return errors.Errorf("preparing uniter state update query: %w", err)
 	}
 
 	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -108,12 +108,12 @@ func (st *State) UpdateUnitStateUniter(ctx domain.AtomicContext, uuid, state str
 // state against the input unit UUID.
 func (st *State) UpdateUnitStateStorage(ctx domain.AtomicContext, uuid, state string) error {
 	id := unitUUID{UUID: uuid}
-	uSt := unitState{State: state}
+	uSt := unitState{StorageState: state}
 
-	q := "UPDATE unit_state SET storage_state = $unitState.state WHERE unit_uuid = $unitUUID.uuid"
+	q := "UPDATE unit_state SET storage_state = $unitState.storage_state WHERE unit_uuid = $unitUUID.uuid"
 	stmt, err := st.Prepare(q, id, uSt)
 	if err != nil {
-		return fmt.Errorf("preparing storage state update query: %w", err)
+		return errors.Errorf("preparing storage state update query: %w", err)
 	}
 
 	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -125,12 +125,12 @@ func (st *State) UpdateUnitStateStorage(ctx domain.AtomicContext, uuid, state st
 // state against the input unit UUID.
 func (st *State) UpdateUnitStateSecret(ctx domain.AtomicContext, uuid, state string) error {
 	id := unitUUID{UUID: uuid}
-	uSt := unitState{State: state}
+	uSt := unitState{SecretState: state}
 
-	q := "UPDATE unit_state SET secret_state = $unitState.state WHERE unit_uuid = $unitUUID.uuid"
+	q := "UPDATE unit_state SET secret_state = $unitState.secret_state WHERE unit_uuid = $unitUUID.uuid"
 	stmt, err := st.Prepare(q, id, uSt)
 	if err != nil {
-		return fmt.Errorf("preparing secret state update query: %w", err)
+		return errors.Errorf("preparing secret state update query: %w", err)
 	}
 
 	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -146,24 +146,24 @@ func (st *State) SetUnitStateCharm(ctx domain.AtomicContext, uuid string, state 
 	q := "DELETE from unit_state_charm WHERE unit_uuid = $unitUUID.uuid"
 	dStmt, err := st.Prepare(q, id)
 	if err != nil {
-		return fmt.Errorf("preparing charm state delete query: %w", err)
+		return errors.Errorf("preparing charm state delete query: %w", err)
 	}
 
-	keyVals := makeUnitStateKeyVals(uuid, state)
+	keyVals := makeUnitCharmStateKeyVals(uuid, state)
 
-	q = "INSERT INTO unit_state_charm(*) VALUES ($unitStateKeyVal.*)"
+	q = "INSERT INTO unit_state_charm(*) VALUES ($unitCharmStateKeyVal.*)"
 	iStmt, err := st.Prepare(q, keyVals[0])
 	if err != nil {
-		return fmt.Errorf("preparing charm state insert query: %w", err)
+		return errors.Errorf("preparing charm state insert query: %w", err)
 	}
 
 	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, dStmt, id).Run(); err != nil {
-			return fmt.Errorf("deleting unit charm state: %w", err)
+			return errors.Errorf("deleting unit charm state: %w", err)
 		}
 
 		if err := tx.Query(ctx, iStmt, keyVals).Run(); err != nil {
-			return fmt.Errorf("setting unit charm state: %w", err)
+			return errors.Errorf("setting unit charm state: %w", err)
 		}
 		return nil
 	})
@@ -177,25 +177,113 @@ func (st *State) SetUnitStateRelation(ctx domain.AtomicContext, uuid string, sta
 	q := "DELETE from unit_state_relation WHERE unit_uuid = $unitUUID.uuid"
 	dStmt, err := st.Prepare(q, id)
 	if err != nil {
-		return fmt.Errorf("preparing relation state delete query: %w", err)
+		return errors.Errorf("preparing relation state delete query: %w", err)
 	}
 
-	keyVals := makeUnitStateKeyVals(uuid, state)
+	keyVals := makeUnitRelationStateKeyVals(uuid, state)
 
-	q = "INSERT INTO unit_state_relation(*) VALUES ($unitStateKeyVal.*)"
+	q = "INSERT INTO unit_state_relation(*) VALUES ($unitRelationStateKeyVal.*)"
 	iStmt, err := st.Prepare(q, keyVals[0])
 	if err != nil {
-		return fmt.Errorf("preparing relation state insert query: %w", err)
+		return errors.Errorf("preparing relation state insert query: %w", err)
 	}
 
 	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, dStmt, id).Run(); err != nil {
-			return fmt.Errorf("deleting unit relation state: %w", err)
+			return errors.Errorf("deleting unit relation state: %w", err)
 		}
 
 		if err := tx.Query(ctx, iStmt, keyVals).Run(); err != nil {
-			return fmt.Errorf("setting unit relation state: %w", err)
+			return errors.Errorf("setting unit relation state: %w", err)
 		}
 		return nil
 	})
+}
+
+// GetUnitState returns the full unit state. The state may be
+// empty.
+// If no unit with the uuid exists, a [errors.UnitNotFound] error is returned.
+func (st *State) GetUnitState(ctx context.Context, uuid string) (unitstate.RetrievedUnitState, error) {
+	db, err := st.DB()
+	if err != nil {
+		return unitstate.RetrievedUnitState{}, errors.Errorf("getting db: %w", err)
+	}
+
+	id := unitUUID{UUID: uuid}
+	var count count
+	q := "SELECT COUNT(uuid) AS &count.count FROM unit WHERE uuid = $unitUUID.uuid"
+	unitNameStmt, err := st.Prepare(q, count, id)
+	if err != nil {
+		return unitstate.RetrievedUnitState{}, errors.Errorf("preparing select unit name statement: %w", err)
+	}
+
+	var state unitState
+	q = "SELECT &unitState.* FROM unit_state WHERE unit_uuid = $unitUUID.uuid"
+	unitStateStmt, err := st.Prepare(q, state, id)
+	if err != nil {
+		return unitstate.RetrievedUnitState{}, errors.Errorf("preparing select unit state statement: %w", err)
+	}
+
+	var charmKVs []unitCharmStateKeyVal
+	q = `
+SELECT &unitCharmStateKeyVal.*
+FROM unit_state_charm
+WHERE unit_uuid = $unitUUID.uuid`
+	charmStateStmt, err := st.Prepare(q, unitCharmStateKeyVal{}, id)
+	if err != nil {
+		return unitstate.RetrievedUnitState{}, errors.Errorf("preparing select unit charm state statement: %w", err)
+	}
+
+	var relationKVs []unitRelationStateKeyVal
+	q = `
+SELECT &unitRelationStateKeyVal.*
+FROM unit_state_relation
+WHERE unit_uuid = $unitUUID.uuid`
+	relationStateStmt, err := st.Prepare(q, unitRelationStateKeyVal{}, id)
+	if err != nil {
+		return unitstate.RetrievedUnitState{}, errors.Errorf("preparing select unit relation state statement: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, unitNameStmt, id).Get(&count)
+		if count.Count < 1 {
+			return uniterrors.UnitNotFound
+		} else if err != nil {
+			return errors.Errorf("getting unit name: %w", err)
+		}
+
+		err = tx.Query(ctx, unitStateStmt, id).Get(&state)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting unit state: %w", err)
+		}
+
+		err = tx.Query(ctx, charmStateStmt, id).GetAll(&charmKVs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting unit charm state: %w", err)
+		}
+
+		err = tx.Query(ctx, relationStateStmt, id).GetAll(&relationKVs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting unit relation state: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return unitstate.RetrievedUnitState{}, err
+	}
+
+	unitState := unitstate.RetrievedUnitState{
+		UniterState:  state.UniterState,
+		StorageState: state.StorageState,
+		SecretState:  state.SecretState,
+	}
+	if len(charmKVs) > 0 {
+		unitState.CharmState = makeMapFromCharmUnitStateKeyVals(charmKVs)
+	}
+	if len(relationKVs) > 0 {
+		unitState.RelationState = makeMapFromRelationUnitStateKeyVals(relationKVs)
+	}
+
+	return unitState, nil
 }
