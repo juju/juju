@@ -191,10 +191,6 @@ func (s *schemaSuite) TestControllerTables(c *gc.C) {
 		// macaroon bakery
 		"bakery_config",
 		"macaroon_root_key",
-
-		// cloud image metadata
-		"architecture",
-		"cloud_image_metadata",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
@@ -471,6 +467,9 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"protocol",
 		"port_range",
 		"unit_endpoint",
+
+		// cloud image metadata
+		"cloud_image_metadata",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
