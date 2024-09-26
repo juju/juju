@@ -62,7 +62,7 @@ type EnvironProvider interface {
 }
 
 // ModelConfigProvider represents an interface that a [EnvironProvider] can
-// implement to provide opinions and defaults into a models config.
+// implement to provide opinions and defaults into a model's config.
 type ModelConfigProvider interface {
 	// ConfigDefaults returns the default values for the
 	// provider specific config attributes.
@@ -73,9 +73,8 @@ type ModelConfigProvider interface {
 	ConfigSchema() schema.Fields
 
 	// ModelConfigDefaults provides a set of default model config attributes
-	// that
-	// should be set on a models config if they have not been specified by the
-	// user.
+	// that should be set on a models config if they have not been specified by
+	// the user.
 	ModelConfigDefaults(context.Context) (map[string]any, error)
 }
 
