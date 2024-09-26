@@ -505,7 +505,7 @@ endif
 
 .PHONY: rebuild-client-schema
 rebuild-client-schema:
-## rebuild-client-schema: Rebuild the schema for clients with the latest facades
+## rebuild-client-schema: Rebuild the schema with the client facade-group only. Output used by python-libjuju.
 	@echo "Generating client facade schema..."
 # GOOS and GOARCH environment variables are cleared in case the user is trying to cross architecture compilation.
 ifdef SCHEMA_PATH
