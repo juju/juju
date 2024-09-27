@@ -284,6 +284,10 @@ func (m *NodeManager) WithAddressOption(ip string) app.Option {
 	return app.WithAddress(net.JoinHostPort(ip, strconv.Itoa(m.port)))
 }
 
+func (m *NodeManager) WithAbstractDomainSocketNameOption(name string) app.Option {
+	return app.WithAddress("@" + name)
+}
+
 // WithTLSOption returns a Dqlite application Option for TLS encryption
 // of traffic between clients and clustered application nodes.
 func (m *NodeManager) WithTLSOption() (app.Option, error) {

@@ -6,15 +6,18 @@ package dbaccessor
 import (
 	"context"
 	"database/sql"
-	"net"
+	"fmt"
+	"hash/fnv"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
-	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -24,6 +27,7 @@ import (
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/database/pragma"
+	"github.com/juju/juju/internal/database/txn"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 )
 
@@ -85,6 +89,8 @@ type NodeManager interface {
 	// WithAddressOption returns a Dqlite application Option
 	// for specifying the local address:port to use.
 	WithAddressOption(string) app.Option
+
+	WithAbstractDomainSocketNameOption(string) app.Option
 
 	// WithTLSOption returns a Dqlite application Option for TLS encryption
 	// of traffic between clients and clustered application nodes.
@@ -197,13 +203,14 @@ type dbWorker struct {
 	cfg      WorkerConfig
 	catacomb catacomb.Catacomb
 
-	mu       sync.RWMutex
-	dbApp    DBApp
-	dbRunner *worker.Runner
+	mu         sync.RWMutex
+	dbApps     []DBApp
+	txnRunners []*txn.RetryingTxnRunner
+	dbRunner   *worker.Runner
 
-	// dbReady is used to signal that we can
+	// dbsReady is used to signal that we can
 	// begin processing GetDB requests.
-	dbReady chan struct{}
+	dbsReady chan struct{}
 
 	// dbRequests is used to synchronise GetDB
 	// requests into this worker's event loop.
@@ -243,7 +250,7 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 			RestartDelay: time.Second * 10,
 			Logger:       cfg.Logger,
 		}),
-		dbReady:    make(chan struct{}),
+		dbsReady:   make(chan struct{}),
 		dbRequests: make(chan dbRequest),
 	}
 
@@ -366,41 +373,7 @@ func (w *dbWorker) Wait() error {
 
 // Report provides information for the engine report.
 func (w *dbWorker) Report() map[string]any {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-
-	// We need to guard against attempting to report when setting up or dying,
-	// so we don't end up panicking with missing information.
-	result := w.dbRunner.Report()
-
-	if w.dbApp == nil {
-		result["leader"] = ""
-		result["leader-id"] = uint64(0)
-		result["leader-role"] = ""
-		return result
-	}
-
-	ctx, cancel := w.scopedContext()
-	defer cancel()
-
-	var (
-		leader     string
-		leaderRole string
-		leaderID   uint64
-	)
-	if client, err := w.dbApp.Client(ctx); err == nil {
-		if nodeInfo, err := client.Leader(ctx); err == nil {
-			leaderID = nodeInfo.ID
-			leader = nodeInfo.Address
-			leaderRole = nodeInfo.Role.String()
-		}
-	}
-
-	result["leader-id"] = leaderID
-	result["leader"] = leader
-	result["leader-role"] = leaderRole
-
-	return result
+	return map[string]any{}
 }
 
 // GetDB returns a transaction runner for the dqlite-backed
@@ -408,7 +381,7 @@ func (w *dbWorker) Report() map[string]any {
 func (w *dbWorker) GetDB(namespace string) (database.TxnRunner, error) {
 	// Ensure Dqlite is initialised.
 	select {
-	case <-w.dbReady:
+	case <-w.dbsReady:
 	case <-w.catacomb.Dying():
 		return nil, database.ErrDBAccessorDying
 	}
@@ -488,7 +461,7 @@ func (w *dbWorker) workerFromCache(namespace string) (database.TxnRunner, error)
 func (w *dbWorker) DeleteDB(namespace string) error {
 	// Ensure Dqlite is initialised.
 	select {
-	case <-w.dbReady:
+	case <-w.dbsReady:
 	case <-w.catacomb.Dying():
 		return database.ErrDBAccessorDying
 	}
@@ -520,7 +493,7 @@ func (w *dbWorker) startExistingDqliteNode() error {
 	if mgr.IsLoopbackPreferred() {
 		w.cfg.Logger.Infof("Dqlite node is configured to bind to the loopback address")
 
-		return errors.Trace(w.initialiseDqlite())
+		return errors.Trace(w.initialiseDqlites())
 	}
 
 	w.cfg.Logger.Infof("Dqlite node is configured to bind to a cloud-local address")
@@ -546,17 +519,17 @@ func (w *dbWorker) startExistingDqliteNode() error {
 		options = append(options, withTLS)
 	}
 
-	return errors.Trace(w.initialiseDqlite(options...))
+	return errors.Trace(w.initialiseDqlites(options...))
 }
 
 // initialiseDqlite starts the local Dqlite app node,
 // opens and caches the controller database worker,
 // then updates the Dqlite info for this node.
-func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
+func (w *dbWorker) initialiseDqlites(options ...app.Option) error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	if err := w.startDqliteNode(ctx, options...); err != nil {
+	if err := w.startDqliteNodes(ctx, options...); err != nil {
 		if errors.Is(err, errNotReady) {
 			return nil
 		}
@@ -574,66 +547,94 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 	// Once initialised, set the details for the node.
 	// This is a no-op if the details are unchanged.
 	// We do this before serving any other requests.
-	addr, _, err := net.SplitHostPort(w.dbApp.Address())
-	if err != nil {
-		return errors.Trace(err)
-	}
+	addr := w.dbApps[0].Address()
+	// addr, _, err := net.SplitHostPort(w.dbApps[0].Address())
+	// if err != nil {
+	// 	return errors.Trace(err)
+	// }
 
-	if err := w.nodeService().UpdateDqliteNode(ctx, w.cfg.ControllerID, w.dbApp.ID(), addr); err != nil {
+	if err := w.nodeService().UpdateDqliteNode(ctx, w.cfg.ControllerID, w.dbApps[0].ID(), addr); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Begin handling external requests.
-	close(w.dbReady)
+	close(w.dbsReady)
 	return nil
 }
 
-func (w *dbWorker) startDqliteNode(ctx context.Context, options ...app.Option) error {
+func (w *dbWorker) startDqliteNodes(ctx context.Context, options ...app.Option) (err error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.dbApp != nil {
+	if len(w.dbApps) > 0 {
 		return nil
 	}
 
+	defer func() {
+		if err != nil {
+			w.dbApps = nil
+			w.txnRunners = nil
+		}
+	}()
+
 	mgr := w.cfg.NodeManager
 
-	dataDir, err := mgr.EnsureDataDir()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	w.dbApps = make([]DBApp, 3)
+	w.txnRunners = make([]*txn.RetryingTxnRunner, 3)
 
-	dqliteOptions := append(options,
-		mgr.WithLogFuncOption(),
-		mgr.WithTracingOption(),
-	)
-	if w.dbApp, err = w.cfg.NewApp(dataDir, dqliteOptions...); err != nil {
-		return errors.Trace(err)
-	}
+	for i := 0; i < 3; i++ {
+		dataDir, err := mgr.EnsureDataDir()
+		if err != nil {
+			return errors.Trace(err)
+		}
 
-	ctx, cCancel := context.WithTimeout(ctx, time.Minute)
-	defer cCancel()
+		// HACK!
+		nodeDataDir := filepath.Join(dataDir, fmt.Sprintf("node-%d", i))
+		if err := os.MkdirAll(nodeDataDir, 0700); err != nil {
+			return errors.Annotatef(err, "creating directory for Dqlite data")
+		}
 
-	if err := w.dbApp.Ready(ctx); err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			// We don't know whether we were cancelled by tomb or by timeout.
-			// Request API server details in case we need to invoke a backstop
-			// scenario. If we are shutting down, this won't matter.
-			if err := w.dbApp.Close(); err != nil {
-				return errors.Trace(err)
+		dqliteOptions := append(options,
+			mgr.WithAbstractDomainSocketNameOption(fmt.Sprintf("node-%d", i)),
+			mgr.WithLogFuncOption(),
+			mgr.WithTracingOption(),
+		)
+		if w.dbApps[i], err = w.cfg.NewApp(nodeDataDir, dqliteOptions...); err != nil {
+			return errors.Trace(err)
+		}
+
+		loggo.GetLogger("*****").Criticalf("new app: %d", i)
+
+		ctx, cCancel := context.WithTimeout(ctx, time.Minute)
+		defer cCancel()
+
+		if err := w.dbApps[i].Ready(ctx); err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				// We don't know whether we were cancelled by tomb or by timeout.
+				// Request API server details in case we need to invoke a backstop
+				// scenario. If we are shutting down, this won't matter.
+				if err := w.dbApps[i].Close(); err != nil {
+					return errors.Trace(err)
+				}
+				w.dbApps[i] = nil
+				return errNotReady
 			}
-			w.dbApp = nil
-			return errNotReady
+			return errors.Annotatef(err, "ensuring Dqlite is ready to process changes")
 		}
-		return errors.Annotatef(err, "ensuring Dqlite is ready to process changes")
-	}
 
-	w.cfg.Logger.Infof("serving Dqlite application (ID: %v)", w.dbApp.ID())
+		loggo.GetLogger("*****").Criticalf("app ready: %d", i)
 
-	if c, err := w.dbApp.Client(ctx); err == nil {
-		if info, err := c.Cluster(ctx); err == nil {
-			w.cfg.Logger.Infof("current cluster: %#v", info)
+		w.cfg.Logger.Infof("serving Dqlite application (ID: %v)", w.dbApps[i].ID())
+
+		if c, err := w.dbApps[i].Client(ctx); err == nil {
+			if info, err := c.Cluster(ctx); err == nil {
+				w.cfg.Logger.Infof("current cluster: %#v", info)
+			}
 		}
+
+		loggo.GetLogger("*****").Criticalf("new client: %d", i)
+
+		w.txnRunners[i] = txn.NewRetryingTxnRunner()
 	}
 
 	return nil
@@ -658,7 +659,7 @@ func (w *dbWorker) openDatabase(namespace string) error {
 	err := w.dbRunner.StartWorker(namespace, func() (worker.Worker, error) {
 		w.mu.RLock()
 		defer w.mu.RUnlock()
-		if w.dbApp == nil {
+		if len(w.dbApps) == 0 {
 			// If the dbApp is nil, then we're either shutting down or
 			// rebinding the address. In either case, we don't want to
 			// start a new worker. We'll return ErrTryAgain to indicate
@@ -675,8 +676,24 @@ func (w *dbWorker) openDatabase(namespace string) error {
 		ctx, cancel := w.scopedContext()
 		defer cancel()
 
+		app := w.dbApps[0]
+		runner := w.txnRunners[0]
+		if namespace != database.ControllerNS {
+			h, err := hash(namespace)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			app = w.dbApps[h%3]
+			runner = w.txnRunners[h%3]
+
+			loggo.GetLogger("*****").Criticalf("namespace: %q, hash: %d, index: %d", namespace, h, h%3)
+		}
+
+		loggo.GetLogger("*****").Criticalf("open namespace %q", namespace)
+
 		return w.cfg.NewDBWorker(ctx,
-			w.dbApp, namespace,
+			app, runner, namespace,
 			WithClock(w.cfg.Clock),
 			WithLogger(w.cfg.Logger),
 			WithMetricsCollector(w.cfg.MetricsCollector),
@@ -686,6 +703,14 @@ func (w *dbWorker) openDatabase(namespace string) error {
 		return nil
 	}
 	return errors.Trace(err)
+}
+
+func hash(namespace string) (int, error) {
+	h := fnv.New32a()
+	if _, err := h.Write([]byte(namespace)); err != nil {
+		return -1, errors.Annotate(err, "hashing namespace")
+	}
+	return int(h.Sum32()), nil
 }
 
 type killableWorker interface {
@@ -721,8 +746,18 @@ func (w *dbWorker) deleteDatabase(namespace string) error {
 		return errors.Annotatef(err, "waiting for worker to die")
 	}
 
+	app := w.dbApps[0]
+	if namespace != database.ControllerNS {
+		h, err := hash(namespace)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		app = w.dbApps[h%3]
+	}
+
 	// Open the database directly as we can't use the worker to do it for us.
-	db, err := w.dbApp.Open(ctx, namespace)
+	db, err := app.Open(ctx, namespace)
 	if err != nil {
 		return errors.Annotatef(err, "opening database for deletion")
 	}
@@ -752,197 +787,7 @@ func (w *dbWorker) deleteDatabase(namespace string) error {
 // The input argument determines whether the inability to read the config
 // should be considered an error condition.
 func (w *dbWorker) handleClusterConfigChange(noConfigIsFatal bool) error {
-	log := w.cfg.Logger
-
-	clusterConf, err := w.cfg.ClusterConfig.DBBindAddresses()
-	if err != nil {
-		if noConfigIsFatal {
-			return errors.Trace(err)
-		}
-
-		// If we do not consider the inability to read cluster configuration
-		// fatal, it means we were checking it explicitly just in case it was
-		// written when we couldn't be notified.
-		// Having checked, we can rely hereafter on the charm notifying us.
-		log.Infof("unable to read cluster config at start-up; will await changes: %v", err)
-		return nil
-	}
-	log.Infof("read cluster config: %+v", clusterConf)
-
-	mgr := w.cfg.NodeManager
-	extant, err := mgr.IsExistingNode()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	ctx, cancel := w.scopedContext()
-	defer cancel()
-
-	// If we prefer the loopback address, we shouldn't need to do anything.
-	// We double-check that we are bound to the loopback address. if not,
-	// we bounce the worker and try and resolve that in the next go around.
-	if mgr.IsLoopbackPreferred() {
-		if extant {
-			isLoopbackBound, err := mgr.IsLoopbackBound(ctx)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			// Everything is fine, we're bound to the loopback address and
-			// can return early.
-			if isLoopbackBound {
-				return nil
-			}
-
-			// This should never happen, but we want to be conservative.
-			w.cfg.Logger.Warningf("existing Dqlite node is not bound to loopback, but should be; restarting worker")
-		}
-
-		// We don't have a Dqlite node, but somehow we got here, we should just
-		// bounce the worker and try again.
-		return dependency.ErrBounce
-	}
-
-	// If we are an existing node, we need to check whether we must rebind for
-	// entry into HA, or whether we must invoke a backstop due to having no
-	// more cluster counterparts.
-	if extant {
-		asBootstrapped, err := mgr.IsLoopbackBound(ctx)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		serverCount := len(clusterConf)
-
-		// If we are as-bootstrapped, check if we are entering HA and need to
-		// change our binding from the loopback IP to a local-cloud address.
-		if asBootstrapped {
-			if serverCount == 1 {
-				// This bootstrapped node is still the only one around.
-				// We don't need to do anything.
-				return nil
-			}
-
-			addr, ok := clusterConf[w.cfg.ControllerID]
-			if !ok {
-				log.Infof("address for this Dqlite node to bind to not found")
-				return nil
-			}
-
-			if err := w.rebindAddress(ctx, addr); err != nil {
-				return errors.Trace(err)
-			}
-
-			log.Infof("successfully reconfigured Dqlite; restarting worker")
-			return dependency.ErrBounce
-		}
-
-		// If we are an existing, previously clustered node,
-		// and the node is running, we have nothing to do.
-		w.mu.RLock()
-		running := w.dbApp != nil
-		w.mu.RUnlock()
-		if running {
-			return nil
-		}
-
-		// Make absolutely sure. We only reconfigure the cluster if the details
-		// indicate exactly one controller machine, and that machine is us.
-		if _, ok := clusterConf[w.cfg.ControllerID]; ok && serverCount == 1 {
-			log.Warningf("reconfiguring Dqlite cluster with this node as the only member")
-			if err := w.cfg.NodeManager.SetClusterToLocalNode(ctx); err != nil {
-				return errors.Annotatef(err, "reconfiguring Dqlite cluster")
-			}
-
-			log.Infof("successfully reconfigured Dqlite; restarting worker")
-			return dependency.ErrBounce
-		}
-
-		// Otherwise there is no deterministic course of action.
-		// We don't want to throw an error here, because it can result in churn
-		// when entering HA. Just try again to start.
-		log.Infof("unable to reconcile current controller and Dqlite cluster status; reattempting node start-up")
-		return errors.Trace(w.startExistingDqliteNode())
-	}
-
-	// Otherwise this is a node added by enabling HA,
-	// and we need to join to an existing cluster.
-	return errors.Trace(w.joinNodeToCluster(clusterConf))
-}
-
-// rebindAddress stops the current node, reconfigures the cluster so that
-// it is a single server bound to the input local-cloud address.
-// It should be called only for a cluster constituted by a single node
-// bound to the loopback IP address.
-func (w *dbWorker) rebindAddress(ctx context.Context, addr string) error {
-	// We only rebind the address when going into HA from a single node.
-	// Therefore, we do not have to worry about handing over responsibilities.
-	// Passing false ensures we come back up in the shortest time possible.
-	w.shutdownDqlite(ctx, false)
-
-	mgr := w.cfg.NodeManager
-	servers, err := mgr.ClusterServers(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// This should be implied by an earlier check of
-	// NodeManager.IsLoopbackBound, but we want to guard very
-	// conservatively against breaking established clusters.
-	if len(servers) != 1 {
-		w.cfg.Logger.Debugf("not a singular server; skipping address rebind")
-		return nil
-	}
-
-	// We need to preserve the port from the existing address.
-	_, port, err := net.SplitHostPort(servers[0].Address)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	servers[0].Address = net.JoinHostPort(addr, port)
-
-	w.cfg.Logger.Infof("rebinding Dqlite node to %s", addr)
-	if err := mgr.SetClusterServers(ctx, servers); err != nil {
-		return errors.Trace(err)
-	}
-
-	return errors.Trace(mgr.SetNodeInfo(servers[0]))
-}
-
-// joinNodeToCluster uses the input cluster config to determine a bind address
-// for this node, and one or more addresses of other nodes to cluster with.
-// It then uses these to initialise Dqlite.
-// If either bind or cluster addresses can not be determined,
-// we just return nil and keep waiting for further server detail messages.
-func (w *dbWorker) joinNodeToCluster(clusterConf map[string]string) error {
-	localAddr, ok := clusterConf[w.cfg.ControllerID]
-	if !ok {
-		w.cfg.Logger.Infof("address for this Dqlite node to bind to not found")
-		return nil
-	}
-
-	// Then get addresses for any of the other servers,
-	// so we can join the cluster.
-	var clusterAddrs []string
-	for id, addr := range clusterConf {
-		if id != w.cfg.ControllerID && addr != "" {
-			clusterAddrs = append(clusterAddrs, addr)
-		}
-	}
-	if len(clusterAddrs) == 0 {
-		w.cfg.Logger.Infof("no addresses available for this Dqlite node to join cluster")
-		return nil
-	}
-
-	w.cfg.Logger.Infof("joining Dqlite cluster")
-	mgr := w.cfg.NodeManager
-
-	withTLS, err := mgr.WithTLSOption()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return errors.Trace(w.initialiseDqlite(
-		mgr.WithAddressOption(localAddr), mgr.WithClusterOption(clusterAddrs), withTLS))
+	return nil
 }
 
 // shutdownDqlite shuts down the local Dqlite node, making a best-effort
@@ -956,27 +801,32 @@ func (w *dbWorker) shutdownDqlite(ctx context.Context, handover bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.dbApp == nil {
+	if len(w.dbApps) == 0 {
 		return
 	}
 
-	if handover {
-		// Set a bound on the time that we allow for hand off.
-		ctx, cancel := context.WithTimeout(ctx, nodeShutdownTimeout)
-		defer cancel()
-
-		if err := w.dbApp.Handover(ctx); err != nil {
-			w.cfg.Logger.Errorf("handing off Dqlite responsibilities: %v", err)
+	for _, app := range w.dbApps {
+		if app == nil {
+			continue
 		}
-	} else {
-		w.cfg.Logger.Infof("skipping Dqlite handover")
+		if handover {
+			// Set a bound on the time that we allow for hand off.
+			ctx, cancel := context.WithTimeout(ctx, nodeShutdownTimeout)
+			defer cancel()
+
+			if err := app.Handover(ctx); err != nil {
+				w.cfg.Logger.Errorf("handing off Dqlite responsibilities: %v", err)
+			}
+		} else {
+			w.cfg.Logger.Infof("skipping Dqlite handover")
+		}
+
+		if err := app.Close(); err != nil {
+			w.cfg.Logger.Errorf("closing Dqlite application: %v", err)
+		}
 	}
 
-	if err := w.dbApp.Close(); err != nil {
-		w.cfg.Logger.Errorf("closing Dqlite application: %v", err)
-	}
-
-	w.dbApp = nil
+	w.dbApps = nil
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.

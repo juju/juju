@@ -93,6 +93,7 @@ type trackedDBWorker struct {
 	logger       logger.Logger
 	metrics      *Collector
 	dbTxnMetrics txn.Metrics
+	txnRunner    *txn.RetryingTxnRunner
 
 	pingDBFunc func(context.Context, *sql.DB) error
 
@@ -101,19 +102,22 @@ type trackedDBWorker struct {
 
 // NewTrackedDBWorker creates a new TrackedDBWorker
 func NewTrackedDBWorker(
-	ctx context.Context, dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption,
+	ctx context.Context, dbApp DBApp, txnRunner *txn.RetryingTxnRunner, namespace string, opts ...TrackedDBWorkerOption,
 ) (TrackedDB, error) {
-	return newTrackedDBWorker(ctx, nil, dbApp, namespace, opts...)
+	return newTrackedDBWorker(ctx, nil, dbApp, txnRunner, namespace, opts...)
 }
 
 func newTrackedDBWorker(
 	ctx context.Context, internalStates chan string,
-	dbApp DBApp, namespace string,
+	dbApp DBApp,
+	txnRunner *txn.RetryingTxnRunner,
+	namespace string,
 	opts ...TrackedDBWorkerOption,
 ) (TrackedDB, error) {
 	w := &trackedDBWorker{
 		internalStates: internalStates,
 		dbApp:          dbApp,
+		txnRunner:      txnRunner,
 		namespace:      namespace,
 		clock:          clock.WallClock,
 		pingDBFunc:     defaultPingDBFunc,
@@ -129,7 +133,7 @@ func newTrackedDBWorker(
 
 	db, err := w.dbApp.Open(ctx, w.namespace)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "opening database for namespace %q", w.namespace)
 	}
 
 	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
@@ -193,7 +197,7 @@ func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql
 		// now have the correct reason for the death of the transaction. Either
 		// the tomb died or the context was cancelled.
 		ctx = corecontext.WithSourceableError(w.tomb.Context(ctx), w)
-		return errors.Trace(database.Txn(ctx, db, fn))
+		return errors.Trace(w.txnRunner.Txn(ctx, db, fn))
 	})
 }
 
@@ -209,7 +213,7 @@ func (w *trackedDBWorker) StdTxn(ctx context.Context, fn func(context.Context, *
 		// now have the correct reason for the death of the transaction. Either
 		// the tomb died or the context was cancelled.
 		ctx = corecontext.WithSourceableError(w.tomb.Context(ctx), w)
-		return errors.Trace(database.StdTxn(ctx, db.PlainDB(), fn))
+		return errors.Trace(w.txnRunner.StdTxn(ctx, db.PlainDB(), fn))
 	})
 }
 
@@ -228,7 +232,7 @@ func (w *trackedDBWorker) run(ctx context.Context, fn func(*sqlair.DB) error) er
 	ctx = txn.WithMetrics(ctx, w.dbTxnMetrics)
 
 	// Retry the so long as the tomb and the context are valid.
-	return database.Retry(ctx, func() (err error) {
+	return w.txnRunner.Retry(ctx, func() (err error) {
 		begin := w.clock.Now()
 		w.metrics.TxnRetries.WithLabelValues(w.namespace).Inc()
 		w.metrics.DBRequests.WithLabelValues(w.namespace).Inc()
@@ -384,7 +388,7 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, e
 		// Record the total ping.
 		pingStart := w.clock.Now()
 		var pingAttempts uint32 = 0
-		err := database.Retry(ctx, func() error {
+		err := w.txnRunner.Retry(ctx, func() error {
 			if w.logger.IsLevelEnabled(logger.TRACE) {
 				w.logger.Tracef("pinging database %q", w.namespace)
 			}

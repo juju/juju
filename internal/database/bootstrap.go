@@ -6,6 +6,10 @@ package database
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"hash/fnv"
+	"os"
+	"path/filepath"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
@@ -38,6 +42,8 @@ type BootstrapNodeManager interface {
 	// source to return a local-cloud address to which to bind Dqlite,
 	// provided that a unique one can be determined.
 	WithPreferredCloudLocalAddressOption(network.ConfigSource) (app.Option, error)
+
+	WithAbstractDomainSocketNameOption(string) app.Option
 
 	// WithTLSOption returns a Dqlite application Option for TLS encryption
 	// of traffic between clients and clustered application nodes.
@@ -77,43 +83,46 @@ func BootstrapDqlite(
 		return errors.Trace(err)
 	}
 
-	options := []app.Option{mgr.WithLogFuncOption()}
-	if mgr.IsLoopbackPreferred() {
-		options = append(options, mgr.WithLoopbackAddressOption())
-	} else {
-		addrOpt, err := mgr.WithPreferredCloudLocalAddressOption(network.DefaultConfigSource())
+	apps := make([]*app.App, 3)
+	for i := 0; i < 3; i++ {
+		// HACK!
+		name := fmt.Sprintf("node-%d", i)
+		nodeDataDir := filepath.Join(dir, name)
+		if err := os.MkdirAll(nodeDataDir, 0700); err != nil {
+			return errors.Annotatef(err, "creating directory for Dqlite data")
+		}
+
+		options := []app.Option{mgr.WithLogFuncOption(), mgr.WithAbstractDomainSocketNameOption(name)}
+
+		dqlite, err := app.New(nodeDataDir, options...)
 		if err != nil {
-			return errors.Annotate(err, "generating bind address option")
+			return errors.Annotate(err, "creating Dqlite app")
+		}
+		defer func() {
+			if err := dqlite.Close(); err != nil {
+				logger.Errorf("closing Dqlite: %v", err)
+			}
+		}()
+
+		if err := dqlite.Ready(ctx); err != nil {
+			return errors.Annotatef(err, "waiting for Dqlite readiness")
 		}
 
-		tlsOpt, err := mgr.WithTLSOption()
-		if err != nil {
-			return errors.Annotate(err, "generating TLS option")
-		}
-
-		options = append(options, addrOpt, tlsOpt)
+		apps[i] = dqlite
 	}
 
-	dqlite, err := app.New(dir, options...)
-	if err != nil {
-		return errors.Annotate(err, "creating Dqlite app")
-	}
-	defer func() {
-		if err := dqlite.Close(); err != nil {
-			logger.Errorf("closing Dqlite: %v", err)
-		}
-	}()
-
-	if err := dqlite.Ready(ctx); err != nil {
-		return errors.Annotatef(err, "waiting for Dqlite readiness")
-	}
-
-	controller, err := runMigration(ctx, dqlite, coredatabase.ControllerNS, schema.ControllerDDL(), controllerBootstrapInit, logger)
+	controller, err := runMigration(ctx, apps[0], coredatabase.ControllerNS, schema.ControllerDDL(), controllerBootstrapInit, logger)
 	if err != nil {
 		return errors.Annotate(err, "running controller migration")
 	}
 
-	model, err := runMigration(ctx, dqlite, uuid.String(), schema.ModelDDL(), emptyInit, logger)
+	h, err := hash(uuid.String())
+	if err != nil {
+		return errors.Annotate(err, "hashing UUID")
+	}
+	modelApp := apps[h%3]
+
+	model, err := runMigration(ctx, modelApp, uuid.String(), schema.ModelDDL(), emptyInit, logger)
 	if err != nil {
 		return errors.Annotate(err, "running model migration")
 	}
@@ -125,6 +134,14 @@ func BootstrapDqlite(
 	}
 
 	return nil
+}
+
+func hash(namespace string) (int, error) {
+	h := fnv.New32a()
+	if _, err := h.Write([]byte(namespace)); err != nil {
+		return -1, errors.Annotate(err, "hashing namespace")
+	}
+	return int(h.Sum32()), nil
 }
 
 func runMigration(ctx context.Context, dqlite *app.App, namespace string, schema Schema, init bootstrapInit, logger logger.Logger) (coredatabase.TxnRunner, error) {
