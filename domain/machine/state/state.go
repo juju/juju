@@ -866,20 +866,18 @@ func (st *State) LXDProfiles(ctx context.Context, mUUID string) ([]string, error
 		return nil, errors.Trace(err)
 	}
 
-	machineUUIDQuery := machineUUID{UUID: mUUID}
-	query := `
+	queryStmt, err := st.Prepare(`
 SELECT   &lxdProfile.name
 FROM     machine_lxd_profile
-WHERE    machine_uuid = $machineUUID.uuid
-ORDER BY array_index ASC`
-	queryStmt, err := st.Prepare(query, lxdProfile{}, machineUUIDQuery)
+WHERE    machine_uuid = $lxdProfile.machine_uuid
+ORDER BY array_index ASC`, lxdProfile{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var result []lxdProfile
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, queryStmt, machineUUIDQuery).GetAll(&result)
+		err := tx.Query(ctx, queryStmt, lxdProfile{MachineUUID: mUUID}).GetAll(&result)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return internalerrors.Errorf("retrieving lxd profiles for machine %q: %w", mUUID, err)
 		}
@@ -898,6 +896,8 @@ ORDER BY array_index ASC`
 // SetLXDProfiles sets the list of LXD profile names to the lxd_profile table
 // for the given machine. This method will overwrite the list of profiles for
 // the given machine without any checks.
+// [machineerrors.MachineNotFound] will be returned if the machine does not
+// exist.
 func (st *State) SetLXDProfiles(ctx context.Context, mUUID string, profileNames []string) error {
 	if len(profileNames) == 0 {
 		return nil
@@ -908,10 +908,20 @@ func (st *State) SetLXDProfiles(ctx context.Context, mUUID string, profileNames 
 		return internalerrors.Errorf("cannot get database to set lxd profiles %v for machine %q: %w", profileNames, mUUID, err)
 	}
 
+	queryMachineUUID := machineUUID{UUID: mUUID}
 	checkMachineExistsStmt, err := st.Prepare(`
 SELECT uuid AS &machineUUID.uuid
 FROM   machine
-WHERE  machine.uuid = $machineUUID.uuid`, machineUUID{})
+WHERE  machine.uuid = $machineUUID.uuid`, queryMachineUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	queryLXDProfile := lxdProfile{MachineUUID: mUUID}
+	retrievePreviousProfilesStmt, err := st.Prepare(`
+SELECT   name AS &lxdProfile.name
+FROM     machine_lxd_profile
+WHERE    machine_uuid = $lxdProfile.machine_uuid
+ORDER BY array_index ASC`, queryLXDProfile)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -932,13 +942,38 @@ VALUES      ($lxdProfile.*)`, lxdProfile{})
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		queryMachineUUID := machineUUID{UUID: mUUID}
 		var machineExists machineUUID
 		err = tx.Query(ctx, checkMachineExistsStmt, queryMachineUUID).Get(&machineExists)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return machineerrors.MachineNotFound
 		} else if err != nil {
 			return internalerrors.Errorf("checking if machine %q exists: %w", mUUID, err)
+		}
+
+		// Retrieve the existing profiles to check if the input is the exactly
+		// the same as the existing ones and in that case no insert is needed.
+		var existingProfiles []lxdProfile
+		err = tx.Query(ctx, retrievePreviousProfilesStmt, queryLXDProfile).GetAll(&existingProfiles)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.Errorf("retrieving previous profiles for machine %q: %w", mUUID, err)
+		}
+		// Compare the input with the existing profiles.
+		somethingToInsert := len(existingProfiles) != len(profileNames)
+		// Only compare the order of the profiles if the input size is the same
+		// as the existing profiles.
+		if !somethingToInsert {
+			for i, profile := range existingProfiles {
+				if profileNames[i] != profile.Name {
+					somethingToInsert = true
+					fmt.Printf("breaking, profile: %v\n", profile)
+					break
+				}
+			}
+		}
+		// No error to return and nothing to insert.
+		if !somethingToInsert {
+			fmt.Printf("existing profiles: %v\n", existingProfiles)
+			return nil
 		}
 
 		// Make sure to clean up any existing profiles on the given machine.
