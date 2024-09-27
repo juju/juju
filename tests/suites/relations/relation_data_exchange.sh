@@ -8,8 +8,10 @@ run_relation_data_exchange() {
 	ensure "${model_name}" "${file}"
 
 	echo "Deploy 2 dummy-sink instances and one dummy-source instance"
-	juju deploy ./testcharms/charms/dummy-sink -n 2
-	juju deploy ./testcharms/charms/dummy-source
+	# shellcheck disable=SC2046
+	juju deploy $(pack_charm ./testcharms/charms/dummy-sink) -n 2
+	# shellcheck disable=SC2046
+	juju deploy $(pack_charm ./testcharms/charms/dummy-source)
 
 	echo "Establish relation"
 	juju relate dummy-sink dummy-source
