@@ -126,7 +126,7 @@ func (w *perfWorker) runStep(ctx context.Context, step int) error {
 	// TODO (jam): we could add metrics for the time for each of these calls to complete,
 	//  it might be interesting if one of them is particularly more expensive/slow than the others
 	w.metrics.RecordPerfStep()
-	switch step % 6 {
+	switch step % 7 {
 	case 1:
 		// Controller access.
 		access := w.service.Access()
@@ -214,7 +214,7 @@ func (w *stepWorker) run() error {
 		case <-timer.Chan():
 			w.logger.Debugf("%s: Step %d: starting", w.modelUUID, w.id)
 
-			for i := 0; i < 20; i++ {
+			for i := 0; i < 21; i++ {
 				if err := w.step(ctx, i); err != nil {
 					w.logger.Errorf("Failed to run step %d: %v", w.id, err)
 					continue
