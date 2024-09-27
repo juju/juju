@@ -2170,11 +2170,11 @@ ON CONFLICT DO NOTHING`
 			// This will normally be done by the watcher but it may not have fired yet.
 			err = tx.Query(ctx, insertRemoteSecretStmt, secretRef).Run()
 			if err != nil {
-				return errors.Annotatef(err, "inserting remote secret reference for %q", uri)
+				return errors.Annotatef(err, "inserting remote secret revision for %q", uri)
 			}
 			err = tx.Query(ctx, insertRemoteSecretReferenceStmt, remoteRef).Run()
 			if err != nil {
-				return errors.Annotatef(err, "inserting remote secret revision for %q", uri)
+				return errors.Annotatef(err, "inserting remote secret reference for %q", uri)
 			}
 		}
 

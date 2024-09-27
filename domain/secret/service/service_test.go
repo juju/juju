@@ -115,18 +115,6 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) expectRunAtomic(ctrl *gomock.Controller, anyTimes bool) {
-	if anyTimes {
-		s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-			return f(NewMockAtomicContext(ctrl))
-		}).AnyTimes()
-	} else {
-		s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-			return f(NewMockAtomicContext(ctrl))
-		})
-	}
-}
-
 type successfulToken struct{}
 
 func (t successfulToken) Check() error {
