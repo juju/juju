@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/port"
 )
 
@@ -77,7 +78,7 @@ type unitEndpointPortRange struct {
 
 func (p unitEndpointPortRange) decodeToUnitEndpointPortRange() port.UnitEndpointPortRange {
 	return port.UnitEndpointPortRange{
-		UnitUUID:  p.UnitUUID,
+		UnitUUID:  unit.UUID(p.UnitUUID),
 		Endpoint:  p.Endpoint,
 		PortRange: p.decodeToPortRange(),
 	}
@@ -111,7 +112,7 @@ type endpoint struct {
 
 func (e endpoint) decode() port.Endpoint {
 	return port.Endpoint{
-		UUID:     e.UUID,
+		UUID:     port.UUID(e.UUID),
 		Endpoint: e.Endpoint,
 	}
 }
@@ -125,7 +126,7 @@ type unitEndpoint struct {
 
 func (u unitEndpoint) decode() port.Endpoint {
 	return port.Endpoint{
-		UUID:     u.UUID,
+		UUID:     port.UUID(u.UUID),
 		Endpoint: u.Endpoint,
 	}
 }

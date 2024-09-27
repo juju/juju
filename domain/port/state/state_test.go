@@ -12,7 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
@@ -23,18 +25,17 @@ import (
 	"github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
 	testing.ModelSuite
 
-	unitUUID  string
+	unitUUID  coreunit.UUID
 	unitCount int
 
-	appUUID string
+	appUUID coreapplication.ID
 
-	epsUUIDMap map[string]string
+	epsUUIDMap map[string]port.UUID
 }
 
 var _ = gc.Suite(&stateSuite{})
@@ -53,12 +54,12 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.unitUUID, s.appUUID = s.createUnit(c, netNodeUUID, appName)
-	s.epsUUIDMap = map[string]string{}
+	s.epsUUIDMap = map[string]port.UUID{}
 }
 
 // createUnit creates a new unit in state and returns its UUID. The unit is assigned
 // to the net node with uuid `netNodeUUID`.
-func (s *stateSuite) createUnit(c *gc.C, netNodeUUID, appName string) (string, string) {
+func (s *stateSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.UUID, coreapplication.ID) {
 	applicationSt := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
 	_, err := applicationSt.CreateApplication(context.Background(), appName, application.AddApplicationArg{
 		Charm: charm.Charm{
@@ -75,8 +76,8 @@ func (s *stateSuite) createUnit(c *gc.C, netNodeUUID, appName string) (string, s
 	s.unitCount++
 
 	var (
-		unitUUID string
-		appUUID  string
+		unitUUID coreunit.UUID
+		appUUID  coreapplication.ID
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&unitUUID)
@@ -118,7 +119,7 @@ func (s *stateSuite) initialiseOpenPort(c *gc.C, st *State) {
 			s.epsUUIDMap[ep.Endpoint] = ep.UUID
 		}
 
-		err = st.AddOpenedPorts(ctx, network.GroupedPortRanges{
+		err = st.AddOpenedPorts(ctx, map[port.UUID][]network.PortRange{
 			s.epsUUIDMap["endpoint"]: {
 				{Protocol: "tcp", FromPort: 80, ToPort: 80},
 				{Protocol: "udp", FromPort: 1000, ToPort: 1500},
@@ -166,14 +167,14 @@ func (s *stateSuite) TestGetUnitOpenedPorts(c *gc.C) {
 	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
 }
 
-func (s *stateSuite) TestGetUnitOpenedPortsUUIDBlankDB(c *gc.C) {
+func (s *stateSuite) TestGetUnitOpenedPortsWithUUIDsBlankDB(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 
-	var groupedPortRanges map[string][]port.PortRangeUUID
+	var groupedPortRanges map[string][]port.PortRangeWithUUID
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
-		groupedPortRanges, err = st.GetUnitOpenedPortsUUID(ctx, s.unitUUID)
+		groupedPortRanges, err = st.GetUnitOpenedPortsWithUUIDs(ctx, s.unitUUID)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -181,22 +182,22 @@ func (s *stateSuite) TestGetUnitOpenedPortsUUIDBlankDB(c *gc.C) {
 
 	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
-		groupedPortRanges, err = st.GetUnitOpenedPortsUUID(ctx, "non-existent")
+		groupedPortRanges, err = st.GetUnitOpenedPortsWithUUIDs(ctx, "non-existent")
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(groupedPortRanges, gc.HasLen, 0)
 }
 
-func (s *stateSuite) TestGetUnitOpenedPortsUUID(c *gc.C) {
+func (s *stateSuite) TestGetUnitOpenedPortsWithUUIDs(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	var groupedPortRanges map[string][]port.PortRangeUUID
+	var groupedPortRanges map[string][]port.PortRangeWithUUID
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
-		groupedPortRanges, err = st.GetUnitOpenedPortsUUID(ctx, s.unitUUID)
+		groupedPortRanges, err = st.GetUnitOpenedPortsWithUUIDs(ctx, s.unitUUID)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -205,14 +206,14 @@ func (s *stateSuite) TestGetUnitOpenedPortsUUID(c *gc.C) {
 	c.Check(groupedPortRanges["endpoint"], gc.HasLen, 2)
 
 	c.Check(groupedPortRanges["endpoint"][0].PortRange, jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
-	c.Check(uuid.IsValidUUIDString(groupedPortRanges["endpoint"][0].UUID), jc.IsTrue)
+	c.Check(groupedPortRanges["endpoint"][0].UUID.Validate(), jc.ErrorIsNil)
 
 	c.Check(groupedPortRanges["endpoint"][1].PortRange, jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
-	c.Check(uuid.IsValidUUIDString(groupedPortRanges["endpoint"][1].UUID), jc.IsTrue)
+	c.Check(groupedPortRanges["endpoint"][1].UUID.Validate(), jc.ErrorIsNil)
 
 	c.Check(groupedPortRanges["misc"], gc.HasLen, 1)
 	c.Check(groupedPortRanges["misc"][0].PortRange, jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
-	c.Check(uuid.IsValidUUIDString(groupedPortRanges["misc"][0].UUID), jc.IsTrue)
+	c.Check(groupedPortRanges["misc"][0].UUID.Validate(), jc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestGetMachineOpenedPortsBlankDB(c *gc.C) {
@@ -249,7 +250,7 @@ func (s *stateSuite) TestGetMachineOpenedPorts(c *gc.C) {
 	c.Check(unit0PortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
 }
 
-func (s *stateSuite) createUnit1(c *gc.C, st *State, netNodeUUID, appName string) (string, string) {
+func (s *stateSuite) createUnit1(c *gc.C, st *State, netNodeUUID, appName string) (coreunit.UUID, coreapplication.ID) {
 	ctx := context.Background()
 	unit1UUID, app1UUID := s.createUnit(c, netNodeUUID, appName)
 
@@ -258,7 +259,7 @@ func (s *stateSuite) createUnit1(c *gc.C, st *State, netNodeUUID, appName string
 		if err != nil {
 			return err
 		}
-		return st.AddOpenedPorts(ctx, network.GroupedPortRanges{
+		return st.AddOpenedPorts(ctx, map[port.UUID][]network.PortRange{
 			eps[0].UUID: {
 				{Protocol: "tcp", FromPort: 443, ToPort: 443},
 				{Protocol: "udp", FromPort: 2000, ToPort: 2500},
@@ -490,7 +491,7 @@ func (s *stateSuite) TestGetColocatedOpenedPortsDedupes(c *gc.C) {
 		if err != nil {
 			return err
 		}
-		return st.AddOpenedPorts(ctx, network.GroupedPortRanges{
+		return st.AddOpenedPorts(ctx, map[port.UUID][]network.PortRange{
 			eps[0].UUID: {
 				{Protocol: "tcp", FromPort: 8080, ToPort: 8080},
 			},
@@ -519,7 +520,7 @@ func (s *stateSuite) TestAddOpenedPorts(c *gc.C) {
 	s.initialiseOpenPort(c, st)
 
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.AddOpenedPorts(ctx, network.GroupedPortRanges{
+		return st.AddOpenedPorts(ctx, map[port.UUID][]network.PortRange{
 			s.epsUUIDMap["endpoint"]: {
 				{Protocol: "tcp", FromPort: 1000, ToPort: 1500},
 			},
@@ -545,7 +546,7 @@ func (s *stateSuite) TestAddOpenedPortsICMP(c *gc.C) {
 	s.initialiseOpenPort(c, st)
 
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.AddOpenedPorts(ctx, network.GroupedPortRanges{
+		return st.AddOpenedPorts(ctx, map[port.UUID][]network.PortRange{
 			s.epsUUIDMap["endpoint"]: {
 				{Protocol: "icmp"},
 			},
@@ -571,7 +572,7 @@ func (s *stateSuite) TestAddOpenedPortsAdjacentRange(c *gc.C) {
 	s.initialiseOpenPort(c, st)
 
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.AddOpenedPorts(ctx, network.GroupedPortRanges{
+		return st.AddOpenedPorts(ctx, map[port.UUID][]network.PortRange{
 			s.epsUUIDMap["endpoint"]: {
 				{Protocol: "udp", FromPort: 1501, ToPort: 2000},
 			},
@@ -597,7 +598,7 @@ func (s *stateSuite) TestAddOpenedPortsAcrossEndpoints(c *gc.C) {
 	s.initialiseOpenPort(c, st)
 
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.AddOpenedPorts(ctx, network.GroupedPortRanges{
+		return st.AddOpenedPorts(ctx, map[port.UUID][]network.PortRange{
 			s.epsUUIDMap["endpoint"]:       {{Protocol: "udp", FromPort: 2500, ToPort: 3000}},
 			s.epsUUIDMap["other-endpoint"]: {{Protocol: "udp", FromPort: 2000, ToPort: 2100}},
 		})
@@ -626,17 +627,17 @@ func (s *stateSuite) TestRemoveOpenedPorts(c *gc.C) {
 	s.initialiseOpenPort(c, st)
 
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		ports, err := st.GetUnitOpenedPortsUUID(ctx, s.unitUUID)
+		ports, err := st.GetUnitOpenedPortsWithUUIDs(ctx, s.unitUUID)
 		if err != nil {
 			return err
 		}
-		var uuid string
+		var uuid port.UUID
 		for _, portRange := range ports["endpoint"] {
 			if portRange.PortRange == network.MustParsePortRange("80/tcp") {
 				uuid = portRange.UUID
 			}
 		}
-		return st.RemoveOpenedPorts(ctx, []string{uuid})
+		return st.RemoveOpenedPorts(ctx, []port.UUID{uuid})
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -668,7 +669,7 @@ func (s *stateSuite) TestGetEndpoints(c *gc.C) {
 	c.Check(endpointNames, jc.DeepEquals, []string{"endpoint", "misc", "other-endpoint"})
 
 	for _, ep := range endpoints {
-		c.Check(uuid.IsValidUUIDString(ep.UUID), jc.IsTrue)
+		c.Check(ep.UUID.Validate(), jc.ErrorIsNil)
 	}
 }
 
@@ -695,7 +696,7 @@ func (s *stateSuite) TestGetEndpointsAfterAddEndpoints(c *gc.C) {
 	c.Check(endpointNames, jc.DeepEquals, []string{"endpoint", "misc", "other-endpoint", "other-other-endpoint"})
 
 	for _, ep := range endpoints {
-		c.Check(uuid.IsValidUUIDString(ep.UUID), jc.IsTrue)
+		c.Check(ep.UUID.Validate(), jc.ErrorIsNil)
 	}
 }
 
