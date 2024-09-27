@@ -100,7 +100,7 @@ func (s *stateSuite) TestCreateMachineWithParentSuccess(c *gc.C) {
 		machineName string
 	)
 	parentStmt := `
-SELECT  name 
+SELECT  name
 FROM    machine
         LEFT JOIN machine_parent AS parent
 	ON        parent.machine_uuid = machine.uuid
@@ -768,4 +768,128 @@ WHERE  name = $1`
 func (s *stateSuite) TestSetKeepInstanceNotFound(c *gc.C) {
 	err := s.state.SetKeepInstance(context.Background(), "666", true)
 	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestSetLXDProfiles(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.SetLXDProfiles(context.Background(), "deadbeef", []string{"profile1", "profile2"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the profile names are in the machine_lxd_profile table.
+	db := s.DB()
+	rows, err := db.Query("SELECT name FROM machine_lxd_profile WHERE machine_uuid = 'deadbeef'")
+	defer rows.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	var profiles []string
+	for rows.Next() {
+		var profile string
+		err := rows.Scan(&profile)
+		c.Assert(err, jc.ErrorIsNil)
+		profiles = append(profiles, profile)
+	}
+	c.Check(profiles, gc.DeepEquals, []string{"profile1", "profile2"})
+}
+
+func (s *stateSuite) TestSetLXDProfilesPartial(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Insert a single lxd profile.
+	db := s.DB()
+	_, err = db.Exec(`INSERT INTO machine_lxd_profile VALUES
+("deadbeef", "profile1", 0)`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetLXDProfiles(context.Background(), "deadbeef", []string{"profile1", "profile2"})
+	// This shouldn't fail, but add the missing profile to the table.
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the profile names are in the machine_lxd_profile table.
+	rows, err := db.Query("SELECT name FROM machine_lxd_profile WHERE machine_uuid = 'deadbeef'")
+	defer rows.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	var profiles []string
+	for rows.Next() {
+		var profile string
+		err := rows.Scan(&profile)
+		c.Assert(err, jc.ErrorIsNil)
+		profiles = append(profiles, profile)
+	}
+	c.Check(profiles, gc.DeepEquals, []string{"profile1", "profile2"})
+}
+
+func (s *stateSuite) TestSetLXDProfilesOverwriteAll(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Insert 3 lxd profiles.
+	db := s.DB()
+	_, err = db.Exec(`INSERT INTO machine_lxd_profile VALUES
+("deadbeef", "profile1", 0), ("deadbeef", "profile2", 1), ("deadbeef", "profile3", 2)`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetLXDProfiles(context.Background(), "deadbeef", []string{"profile1", "profile4"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the profile names are in the machine_lxd_profile table.
+	rows, err := db.Query("SELECT name FROM machine_lxd_profile WHERE machine_uuid = 'deadbeef'")
+	defer rows.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	var profiles []string
+	for rows.Next() {
+		var profile string
+		err := rows.Scan(&profile)
+		c.Assert(err, jc.ErrorIsNil)
+		profiles = append(profiles, profile)
+	}
+	c.Check(profiles, gc.DeepEquals, []string{"profile1", "profile4"})
+}
+
+func (s *stateSuite) TestSetLXDProfilesSameOrder(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.SetLXDProfiles(context.Background(), "deadbeef", []string{"profile3", "profile1", "profile2"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	profiles, err := s.state.LXDProfiles(context.Background(), "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(profiles, gc.DeepEquals, []string{"profile3", "profile1", "profile2"})
+}
+
+func (s *stateSuite) TestSetLXDProfilesNotFound(c *gc.C) {
+	err := s.state.SetLXDProfiles(context.Background(), "666", []string{"profile1", "profile2"})
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestSetLXDProfilesEmpty(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.SetLXDProfiles(context.Background(), "deadbeef", []string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	profiles, err := s.state.LXDProfiles(context.Background(), "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(profiles, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestLXDProfiles(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Insert 2 lxd profiles.
+	db := s.DB()
+	_, err = db.Exec(`INSERT INTO machine_lxd_profile VALUES
+("deadbeef", "profile1", 0), ("deadbeef", "profile2", 1)`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	profiles, err := s.state.LXDProfiles(context.Background(), "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(profiles, gc.DeepEquals, []string{"profile1", "profile2"})
+}
+
+func (s *stateSuite) TestLXDProfilesNoErrorEmpty(c *gc.C) {
+	profiles, err := s.state.LXDProfiles(context.Background(), "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(profiles, gc.HasLen, 0)
 }

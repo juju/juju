@@ -235,3 +235,11 @@ type createMachineArgs struct {
 	netNodeUUID string
 	parentName  machine.Name
 }
+
+// lxdProfile represents the struct to be used for the sqlair statements on the
+// lxd_profile table.
+type lxdProfile struct {
+	MachineUUID string `db:"machine_uuid"`
+	Name        string `db:"name"`
+	Index       int    `db:"array_index"`
+}

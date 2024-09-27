@@ -19,6 +19,7 @@ import (
 	blockdevice "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // State describes retrieval and persistence methods for storage.
@@ -130,7 +131,7 @@ VALUES ($machineParent.machine_uuid, $machineParent.parent_uuid)
 		inputParentMachineUUID := machineUUID{}
 		parentQuery := `
 SELECT parent_uuid AS &machineParent.parent_uuid
-FROM   machine_parent 
+FROM   machine_parent
 WHERE  machine_uuid = $machineUUID.uuid`
 		parentQueryStmt, err = st.Prepare(parentQuery, outputMachineParent, inputParentMachineUUID)
 		if err != nil {
@@ -785,8 +786,8 @@ func (st *State) ShouldKeepInstance(ctx context.Context, mName machine.Name) (bo
 	machineNameParam := machineName{Name: mName}
 	result := keepInstance{}
 	query := `
-SELECT &keepInstance.keep_instance 
-FROM   machine 
+SELECT &keepInstance.keep_instance
+FROM   machine
 WHERE  name = $machineName.name`
 	queryStmt, err := st.Prepare(query, machineNameParam, result)
 	if err != nil {
@@ -824,7 +825,7 @@ func (st *State) SetKeepInstance(ctx context.Context, mName machine.Name, keep b
 	machineNameParam := machineName{Name: mName}
 	machineExistsQuery := `
 SELECT uuid AS &machineUUID.uuid
-FROM   machine 
+FROM   machine
 WHERE  name = $machineName.name`
 	machineExistsStmt, err := st.Prepare(machineExistsQuery, machineUUID, machineNameParam)
 	if err != nil {
@@ -834,8 +835,8 @@ WHERE  name = $machineName.name`
 	// Prepare query for updating machine keep instance.
 	keepInstanceParam := keepInstance{KeepInstance: keep}
 	keepInstanceQuery := `
-UPDATE machine 
-SET    keep_instance = $keepInstance.keep_instance 
+UPDATE machine
+SET    keep_instance = $keepInstance.keep_instance
 WHERE  name = $machineName.name`
 	keepInstanceStmt, err := st.Prepare(keepInstanceQuery, keepInstanceParam, machineNameParam)
 	if err != nil {
@@ -853,6 +854,146 @@ WHERE  name = $machineName.name`
 		err = tx.Query(ctx, keepInstanceStmt, keepInstanceParam, machineNameParam).Run()
 		if err != nil {
 			return fmt.Errorf("setting keep instance for machine %q: %w", mName, err)
+		}
+		return nil
+	})
+}
+
+// LXDProfiles returns the names of the LXD profiles on the machine.
+func (st *State) LXDProfiles(ctx context.Context, mUUID string) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	queryStmt, err := st.Prepare(`
+SELECT   &lxdProfile.name
+FROM     machine_lxd_profile
+WHERE    machine_uuid = $lxdProfile.machine_uuid
+ORDER BY array_index ASC`, lxdProfile{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var result []lxdProfile
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt, lxdProfile{MachineUUID: mUUID}).GetAll(&result)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.Errorf("retrieving lxd profiles for machine %q: %w", mUUID, err)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	lxdProfiles := make([]string, len(result))
+	for i, lxdProfile := range result {
+		lxdProfiles[i] = lxdProfile.Name
+	}
+	return lxdProfiles, nil
+}
+
+// SetLXDProfiles sets the list of LXD profile names to the lxd_profile table
+// for the given machine. This method will overwrite the list of profiles for
+// the given machine without any checks.
+// [machineerrors.MachineNotFound] will be returned if the machine does not
+// exist.
+func (st *State) SetLXDProfiles(ctx context.Context, mUUID string, profileNames []string) error {
+	if len(profileNames) == 0 {
+		return nil
+	}
+
+	db, err := st.DB()
+	if err != nil {
+		return internalerrors.Errorf("cannot get database to set lxd profiles %v for machine %q: %w", profileNames, mUUID, err)
+	}
+
+	queryMachineUUID := machineUUID{UUID: mUUID}
+	checkMachineExistsStmt, err := st.Prepare(`
+SELECT uuid AS &machineUUID.uuid
+FROM   machine
+WHERE  machine.uuid = $machineUUID.uuid`, queryMachineUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	queryLXDProfile := lxdProfile{MachineUUID: mUUID}
+	retrievePreviousProfilesStmt, err := st.Prepare(`
+SELECT   name AS &lxdProfile.name
+FROM     machine_lxd_profile
+WHERE    machine_uuid = $lxdProfile.machine_uuid
+ORDER BY array_index ASC`, queryLXDProfile)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	removePreviousProfilesStmt, err := st.Prepare(
+		`DELETE FROM machine_lxd_profile WHERE machine_uuid = $machineUUID.uuid`,
+		machineUUID{},
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	setLXDProfileStmt, err := st.Prepare(`
+INSERT INTO machine_lxd_profile (*)
+VALUES      ($lxdProfile.*)`, lxdProfile{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var machineExists machineUUID
+		err = tx.Query(ctx, checkMachineExistsStmt, queryMachineUUID).Get(&machineExists)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		} else if err != nil {
+			return internalerrors.Errorf("checking if machine %q exists: %w", mUUID, err)
+		}
+
+		// Retrieve the existing profiles to check if the input is the exactly
+		// the same as the existing ones and in that case no insert is needed.
+		var existingProfiles []lxdProfile
+		err = tx.Query(ctx, retrievePreviousProfilesStmt, queryLXDProfile).GetAll(&existingProfiles)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.Errorf("retrieving previous profiles for machine %q: %w", mUUID, err)
+		}
+		// Compare the input with the existing profiles.
+		somethingToInsert := len(existingProfiles) != len(profileNames)
+		// Only compare the order of the profiles if the input size is the same
+		// as the existing profiles.
+		if !somethingToInsert {
+			for i, profile := range existingProfiles {
+				if profileNames[i] != profile.Name {
+					somethingToInsert = true
+					fmt.Printf("breaking, profile: %v\n", profile)
+					break
+				}
+			}
+		}
+		// No error to return and nothing to insert.
+		if !somethingToInsert {
+			fmt.Printf("existing profiles: %v\n", existingProfiles)
+			return nil
+		}
+
+		// Make sure to clean up any existing profiles on the given machine.
+		if err := tx.Query(ctx, removePreviousProfilesStmt, queryMachineUUID).Run(); err != nil {
+			return internalerrors.Errorf("remove previous profiles for machine %q: %w", mUUID, err)
+		}
+
+		profilesToInsert := make([]lxdProfile, 0, len(profileNames))
+		// Insert the profiles in the order they are provided.
+		for index, profileName := range profileNames {
+			profilesToInsert = append(profilesToInsert,
+				lxdProfile{
+					Name:        profileName,
+					MachineUUID: mUUID,
+					Index:       index,
+				},
+			)
+		}
+		if err := tx.Query(ctx, setLXDProfileStmt, profilesToInsert).Run(); err != nil {
+			return internalerrors.Errorf("setting lxd profiles %v for machine %q: %w", profileNames, mUUID, err)
 		}
 		return nil
 	})
