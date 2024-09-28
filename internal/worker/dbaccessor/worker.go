@@ -579,10 +579,10 @@ func (w *dbWorker) startDqliteNodes(ctx context.Context, options ...app.Option) 
 
 	mgr := w.cfg.NodeManager
 
-	w.dbApps = make([]DBApp, 3)
-	w.txnRunners = make([]*txn.RetryingTxnRunner, 3)
+	w.dbApps = make([]DBApp, internaldatabase.NumOfNodes)
+	w.txnRunners = make([]*txn.RetryingTxnRunner, internaldatabase.NumOfNodes)
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < internaldatabase.NumOfNodes; i++ {
 		dataDir, err := mgr.EnsureDataDir()
 		if err != nil {
 			return errors.Trace(err)
@@ -684,10 +684,10 @@ func (w *dbWorker) openDatabase(namespace string) error {
 				return nil, errors.Trace(err)
 			}
 
-			app = w.dbApps[h%3]
-			runner = w.txnRunners[h%3]
+			app = w.dbApps[h%internaldatabase.NumOfNodes]
+			runner = w.txnRunners[h%internaldatabase.NumOfNodes]
 
-			loggo.GetLogger("*****").Criticalf("namespace: %q, hash: %d, index: %d", namespace, h, h%3)
+			loggo.GetLogger("*****").Criticalf("namespace: %q, hash: %d, index: %d", namespace, h, h%internaldatabase.NumOfNodes)
 		}
 
 		loggo.GetLogger("*****").Criticalf("open namespace %q", namespace)
@@ -753,7 +753,7 @@ func (w *dbWorker) deleteDatabase(namespace string) error {
 			return errors.Trace(err)
 		}
 
-		app = w.dbApps[h%3]
+		app = w.dbApps[h%internaldatabase.NumOfNodes]
 	}
 
 	// Open the database directly as we can't use the worker to do it for us.

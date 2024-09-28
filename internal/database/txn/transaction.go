@@ -6,7 +6,6 @@ package txn
 import (
 	"context"
 	"database/sql"
-	"runtime"
 	"sync"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	"golang.org/x/sync/semaphore"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
@@ -88,7 +86,7 @@ func newOptions() *option {
 		timeout:       DefaultTimeout,
 		logger:        logger,
 		retryStrategy: defaultRetryStrategy(clock.WallClock, logger),
-		semaphore:     semaphore.NewWeighted(int64(runtime.GOMAXPROCS(0))),
+		semaphore:     noopSemaphore{},
 	}
 }
 

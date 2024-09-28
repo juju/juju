@@ -23,6 +23,10 @@ import (
 	"github.com/juju/juju/internal/database/pragma"
 )
 
+const (
+	NumOfNodes = 3
+)
+
 // BootstrapNodeManager is an interface for managing the bootstrap of a Dqlite
 // node.
 type BootstrapNodeManager interface {
@@ -83,8 +87,8 @@ func BootstrapDqlite(
 		return errors.Trace(err)
 	}
 
-	apps := make([]*app.App, 3)
-	for i := 0; i < 3; i++ {
+	apps := make([]*app.App, NumOfNodes)
+	for i := 0; i < NumOfNodes; i++ {
 		// HACK!
 		name := fmt.Sprintf("node-%d", i)
 		nodeDataDir := filepath.Join(dir, name)
@@ -120,7 +124,7 @@ func BootstrapDqlite(
 	if err != nil {
 		return errors.Annotate(err, "hashing UUID")
 	}
-	modelApp := apps[h%3]
+	modelApp := apps[h%NumOfNodes]
 
 	model, err := runMigration(ctx, modelApp, uuid.String(), schema.ModelDDL(), emptyInit, logger)
 	if err != nil {

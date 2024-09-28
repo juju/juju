@@ -136,6 +136,9 @@ func newTrackedDBWorker(
 		return nil, errors.Annotatef(err, "opening database for namespace %q", w.namespace)
 	}
 
+	db.SetMaxIdleConns(2)
+	db.SetMaxOpenConns(2)
+
 	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
 		return nil, errors.Annotate(err, "setting foreign keys pragma")
 	}
