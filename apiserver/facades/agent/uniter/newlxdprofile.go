@@ -246,7 +246,7 @@ func (u *LXDProfileAPIv2) LXDProfileName(ctx context.Context, args params.Entiti
 }
 
 func (u *LXDProfileAPIv2) getOneLXDProfileName(ctx context.Context, unit LXDProfileUnitV2, machineUUID string) (string, error) {
-	profileNames, err := u.machineService.LXDProfiles(ctx, machineUUID)
+	profileNames, err := u.machineService.AppliedLXDProfileNames(ctx, machineUUID)
 	if err != nil {
 		u.logger.Errorf("unable to retrieve LXD profiles for machine %q: %v", machineUUID, err)
 		return "", err

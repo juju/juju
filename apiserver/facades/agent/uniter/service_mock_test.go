@@ -188,6 +188,21 @@ func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
 }
 
+// AppliedLXDProfileNames mocks base method.
+func (m *MockMachineService) AppliedLXDProfileNames(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AppliedLXDProfileNames", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AppliedLXDProfileNames indicates an expected call of AppliedLXDProfileNames.
+func (mr *MockMachineServiceMockRecorder) AppliedLXDProfileNames(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppliedLXDProfileNames", reflect.TypeOf((*MockMachineService)(nil).AppliedLXDProfileNames), arg0, arg1)
+}
+
 // ClearMachineReboot mocks base method.
 func (m *MockMachineService) ClearMachineReboot(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -230,21 +245,6 @@ func (m *MockMachineService) IsMachineRebootRequired(arg0 context.Context, arg1 
 func (mr *MockMachineServiceMockRecorder) IsMachineRebootRequired(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMachineRebootRequired", reflect.TypeOf((*MockMachineService)(nil).IsMachineRebootRequired), arg0, arg1)
-}
-
-// LXDProfiles mocks base method.
-func (m *MockMachineService) LXDProfiles(arg0 context.Context, arg1 string) ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LXDProfiles", arg0, arg1)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// LXDProfiles indicates an expected call of LXDProfiles.
-func (mr *MockMachineServiceMockRecorder) LXDProfiles(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfiles", reflect.TypeOf((*MockMachineService)(nil).LXDProfiles), arg0, arg1)
 }
 
 // RequireMachineReboot mocks base method.

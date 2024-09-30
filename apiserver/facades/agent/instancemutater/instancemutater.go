@@ -39,14 +39,13 @@ type MachineService interface {
 	// It returns a MachineNotFound if the machine does not exist.
 	GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error)
 
-	// LXDProfiles returns the names of the LXD profiles on the machine.
-	LXDProfiles(ctx context.Context, mUUID string) ([]string, error)
+	// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
+	AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error)
 
-	// SetLXDProfiles adds the list of LXD profile names to the lxd_profile table
-	// for the given machine.
-	// [machineerrors.MachineNotFound] will be returned if the machine does not
-	// exist.
-	SetLXDProfiles(ctx context.Context, mUUID string, profileNames []string) error
+	// SetAppliedLXDProfileNames sets the list of LXD profile names to the
+	// lxd_profile table for the given machine. This method will overwrite the list
+	// of profiles for the given machine without any checks.
+	SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error
 }
 
 type InstanceMutaterAPI struct {
@@ -356,7 +355,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Mach
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	machineProfiles, err := api.machineService.LXDProfiles(ctx, machineUUID)
+	machineProfiles, err := api.machineService.AppliedLXDProfileNames(ctx, machineUUID)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
@@ -419,7 +418,7 @@ func (api *InstanceMutaterAPI) setOneMachineCharmProfiles(ctx context.Context, m
 		api.logger.Errorf("getting machine uuid: %w", err)
 		return errors.Trace(err)
 	}
-	if err := api.machineService.SetLXDProfiles(ctx, machineUUID, profiles); err != nil {
+	if err := api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, profiles); err != nil {
 		api.logger.Errorf("setting lxd profile: %w", err)
 		return errors.Trace(err)
 	}

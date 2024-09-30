@@ -761,7 +761,7 @@ func (api *ProvisionerAPI) SetInstanceInfo(ctx context.Context, args params.Inst
 		); err != nil {
 			return errors.Annotatef(err, "setting machine cloud instance for machine uuid %q", machineUUID)
 		}
-		if err := api.machineService.SetLXDProfiles(ctx, machineUUID, arg.CharmProfiles); err != nil {
+		if err := api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, arg.CharmProfiles); err != nil {
 			return errors.Annotatef(err, "setting lxd profiles for machine uuid %q", machineUUID)
 		}
 
@@ -1441,7 +1441,7 @@ func (api *ProvisionerAPI) setOneMachineCharmProfiles(ctx context.Context, machi
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := api.machineService.SetLXDProfiles(ctx, machineUUID, profiles); err != nil {
+	if err := api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, profiles); err != nil {
 		return errors.Trace(err)
 	}
 	machine, err := api.getMachine(canAccess, mTag)

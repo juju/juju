@@ -1416,6 +1416,45 @@ func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
 }
 
+// AppliedLXDProfileNames mocks base method.
+func (m *MockMachineService) AppliedLXDProfileNames(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AppliedLXDProfileNames", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AppliedLXDProfileNames indicates an expected call of AppliedLXDProfileNames.
+func (mr *MockMachineServiceMockRecorder) AppliedLXDProfileNames(arg0, arg1 any) *MockMachineServiceAppliedLXDProfileNamesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppliedLXDProfileNames", reflect.TypeOf((*MockMachineService)(nil).AppliedLXDProfileNames), arg0, arg1)
+	return &MockMachineServiceAppliedLXDProfileNamesCall{Call: call}
+}
+
+// MockMachineServiceAppliedLXDProfileNamesCall wrap *gomock.Call
+type MockMachineServiceAppliedLXDProfileNamesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceAppliedLXDProfileNamesCall) Return(arg0 []string, arg1 error) *MockMachineServiceAppliedLXDProfileNamesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceAppliedLXDProfileNamesCall) Do(f func(context.Context, string) ([]string, error)) *MockMachineServiceAppliedLXDProfileNamesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceAppliedLXDProfileNamesCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockMachineServiceAppliedLXDProfileNamesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMachineUUID mocks base method.
 func (m *MockMachineService) GetMachineUUID(arg0 context.Context, arg1 machine.Name) (string, error) {
 	m.ctrl.T.Helper()
@@ -1455,79 +1494,40 @@ func (c *MockMachineServiceGetMachineUUIDCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
-// LXDProfiles mocks base method.
-func (m *MockMachineService) LXDProfiles(arg0 context.Context, arg1 string) ([]string, error) {
+// SetAppliedLXDProfileNames mocks base method.
+func (m *MockMachineService) SetAppliedLXDProfileNames(arg0 context.Context, arg1 string, arg2 []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LXDProfiles", arg0, arg1)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// LXDProfiles indicates an expected call of LXDProfiles.
-func (mr *MockMachineServiceMockRecorder) LXDProfiles(arg0, arg1 any) *MockMachineServiceLXDProfilesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfiles", reflect.TypeOf((*MockMachineService)(nil).LXDProfiles), arg0, arg1)
-	return &MockMachineServiceLXDProfilesCall{Call: call}
-}
-
-// MockMachineServiceLXDProfilesCall wrap *gomock.Call
-type MockMachineServiceLXDProfilesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceLXDProfilesCall) Return(arg0 []string, arg1 error) *MockMachineServiceLXDProfilesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceLXDProfilesCall) Do(f func(context.Context, string) ([]string, error)) *MockMachineServiceLXDProfilesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceLXDProfilesCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockMachineServiceLXDProfilesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SetLXDProfiles mocks base method.
-func (m *MockMachineService) SetLXDProfiles(arg0 context.Context, arg1 string, arg2 []string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetLXDProfiles", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetAppliedLXDProfileNames", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SetLXDProfiles indicates an expected call of SetLXDProfiles.
-func (mr *MockMachineServiceMockRecorder) SetLXDProfiles(arg0, arg1, arg2 any) *MockMachineServiceSetLXDProfilesCall {
+// SetAppliedLXDProfileNames indicates an expected call of SetAppliedLXDProfileNames.
+func (mr *MockMachineServiceMockRecorder) SetAppliedLXDProfileNames(arg0, arg1, arg2 any) *MockMachineServiceSetAppliedLXDProfileNamesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLXDProfiles", reflect.TypeOf((*MockMachineService)(nil).SetLXDProfiles), arg0, arg1, arg2)
-	return &MockMachineServiceSetLXDProfilesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAppliedLXDProfileNames", reflect.TypeOf((*MockMachineService)(nil).SetAppliedLXDProfileNames), arg0, arg1, arg2)
+	return &MockMachineServiceSetAppliedLXDProfileNamesCall{Call: call}
 }
 
-// MockMachineServiceSetLXDProfilesCall wrap *gomock.Call
-type MockMachineServiceSetLXDProfilesCall struct {
+// MockMachineServiceSetAppliedLXDProfileNamesCall wrap *gomock.Call
+type MockMachineServiceSetAppliedLXDProfileNamesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceSetLXDProfilesCall) Return(arg0 error) *MockMachineServiceSetLXDProfilesCall {
+func (c *MockMachineServiceSetAppliedLXDProfileNamesCall) Return(arg0 error) *MockMachineServiceSetAppliedLXDProfileNamesCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceSetLXDProfilesCall) Do(f func(context.Context, string, []string) error) *MockMachineServiceSetLXDProfilesCall {
+func (c *MockMachineServiceSetAppliedLXDProfileNamesCall) Do(f func(context.Context, string, []string) error) *MockMachineServiceSetAppliedLXDProfileNamesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceSetLXDProfilesCall) DoAndReturn(f func(context.Context, string, []string) error) *MockMachineServiceSetLXDProfilesCall {
+func (c *MockMachineServiceSetAppliedLXDProfileNamesCall) DoAndReturn(f func(context.Context, string, []string) error) *MockMachineServiceSetAppliedLXDProfileNamesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

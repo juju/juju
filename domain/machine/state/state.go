@@ -859,8 +859,8 @@ WHERE  name = $machineName.name`
 	})
 }
 
-// LXDProfiles returns the names of the LXD profiles on the machine.
-func (st *State) LXDProfiles(ctx context.Context, mUUID string) ([]string, error) {
+// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
+func (st *State) AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -893,12 +893,12 @@ ORDER BY array_index ASC`, lxdProfile{})
 	return lxdProfiles, nil
 }
 
-// SetLXDProfiles sets the list of LXD profile names to the lxd_profile table
-// for the given machine. This method will overwrite the list of profiles for
-// the given machine without any checks.
+// SetAppliedLXDProfileNames sets the list of LXD profile names to the
+// lxd_profile table for the given machine. This method will overwrite the list
+// of profiles for the given machine without any checks.
 // [machineerrors.MachineNotFound] will be returned if the machine does not
 // exist.
-func (st *State) SetLXDProfiles(ctx context.Context, mUUID string, profileNames []string) error {
+func (st *State) SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error {
 	if len(profileNames) == 0 {
 		return nil
 	}

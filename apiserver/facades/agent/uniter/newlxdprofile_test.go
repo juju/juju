@@ -78,7 +78,7 @@ func (s *newLxdProfileSuite) TestLXDProfileName(c *gc.C) {
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machineTag1.Id())).
 		Return("uuid0", nil)
-	s.machineService.EXPECT().LXDProfiles(gomock.Any(), "uuid0").
+	s.machineService.EXPECT().AppliedLXDProfileNames(gomock.Any(), "uuid0").
 		Return([]string{"juju-model-mysql-1"}, nil)
 
 	args := params.Entities{

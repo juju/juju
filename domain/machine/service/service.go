@@ -140,15 +140,13 @@ type State interface {
 	// It returns a MachineNotFound if the machine does not exist.
 	GetMachineUUID(context.Context, coremachine.Name) (string, error)
 
-	// LXDProfiles returns the names of the LXD profiles on the machine.
-	LXDProfiles(ctx context.Context, mUUID string) ([]string, error)
+	// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
+	AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error)
 
-	// SetLXDProfiles sets the list of LXD profile names to the lxd_profile table
-	// for the given machine. This method will overwrite the list of profiles for
-	// the given machine without any checks.
-	// [machineerrors.MachineNotFound] will be returned if the machine does not
-	// exist.
-	SetLXDProfiles(ctx context.Context, mUUID string, profileNames []string) error
+	// SetAppliedLXDProfileNames sets the list of LXD profile names to the
+	// lxd_profile table for the given machine. This method will overwrite the list
+	// of profiles for the given machine without any checks.
+	SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error
 }
 
 // Provider represents an underlying cloud provider.
@@ -405,8 +403,8 @@ func (s *Service) GetMachineUUID(ctx context.Context, name coremachine.Name) (st
 }
 
 // LXDProfiles returns the names of the LXD profiles on the machine.
-func (s *Service) LXDProfiles(ctx context.Context, mUUID string) ([]string, error) {
-	profiles, err := s.st.LXDProfiles(ctx, mUUID)
+func (s *Service) AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error) {
+	profiles, err := s.st.AppliedLXDProfileNames(ctx, mUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -418,8 +416,8 @@ func (s *Service) LXDProfiles(ctx context.Context, mUUID string) ([]string, erro
 // the given machine without any checks.
 // [machineerrors.MachineNotFound] will be returned if the machine does not
 // exist.
-func (s *Service) SetLXDProfiles(ctx context.Context, mUUID string, profileNames []string) error {
-	return errors.Trace(s.st.SetLXDProfiles(ctx, mUUID, profileNames))
+func (s *Service) SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error {
+	return errors.Trace(s.st.SetAppliedLXDProfileNames(ctx, mUUID, profileNames))
 }
 
 // ProviderService provides the API for working with machines using the

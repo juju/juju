@@ -714,9 +714,9 @@ func (s *serviceSuite) TestGetMachineUUIDNotFound(c *gc.C) {
 func (s *serviceSuite) TestLXDProfilesSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().LXDProfiles(gomock.Any(), "666").Return([]string{"profile1", "profile2"}, nil)
+	s.state.EXPECT().AppliedLXDProfileNames(gomock.Any(), "666").Return([]string{"profile1", "profile2"}, nil)
 
-	profiles, err := NewService(s.state).LXDProfiles(context.Background(), "666")
+	profiles, err := NewService(s.state).AppliedLXDProfileNames(context.Background(), "666")
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(profiles, gc.DeepEquals, []string{"profile1", "profile2"})
 }
@@ -725,18 +725,18 @@ func (s *serviceSuite) TestLXDProfilesError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().LXDProfiles(gomock.Any(), "666").Return(nil, rErr)
+	s.state.EXPECT().AppliedLXDProfileNames(gomock.Any(), "666").Return(nil, rErr)
 
-	_, err := NewService(s.state).LXDProfiles(context.Background(), "666")
+	_, err := NewService(s.state).AppliedLXDProfileNames(context.Background(), "666")
 	c.Check(err, jc.ErrorIs, rErr)
 }
 
 func (s *serviceSuite) TestSetLXDProfilesSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().SetLXDProfiles(gomock.Any(), "666", []string{"profile1", "profile2"}).Return(nil)
+	s.state.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), "666", []string{"profile1", "profile2"}).Return(nil)
 
-	err := NewService(s.state).SetLXDProfiles(context.Background(), "666", []string{"profile1", "profile2"})
+	err := NewService(s.state).SetAppliedLXDProfileNames(context.Background(), "666", []string{"profile1", "profile2"})
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -744,8 +744,8 @@ func (s *serviceSuite) TestSetLXDProfilesError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().SetLXDProfiles(gomock.Any(), "666", []string{"profile1", "profile2"}).Return(rErr)
+	s.state.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), "666", []string{"profile1", "profile2"}).Return(rErr)
 
-	err := NewService(s.state).SetLXDProfiles(context.Background(), "666", []string{"profile1", "profile2"})
+	err := NewService(s.state).SetAppliedLXDProfileNames(context.Background(), "666", []string{"profile1", "profile2"})
 	c.Check(err, jc.ErrorIs, rErr)
 }
