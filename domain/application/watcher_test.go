@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
@@ -24,6 +25,8 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage/provider"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type watcherSuite struct {
@@ -31,6 +34,20 @@ type watcherSuite struct {
 }
 
 var _ = gc.Suite(&watcherSuite{})
+
+func (s *watcherSuite) SetUpTest(c *gc.C) {
+	s.ModelSuite.SetUpTest(c)
+
+	modelUUID := uuid.MustNewUUID()
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud, cloud_type)
+			VALUES (?, ?, ?, "test", "iaas", "test-model", "ec2")
+		`, modelUUID.String(), coretesting.ControllerTag.Id(), jujuversion.Current.String())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
 
 func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
@@ -122,7 +139,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	s.createApplication(c, &svc.Service, "foo")
 	s.createApplication(c, &svc.Service, "bar")
 
-	var unitID1, unitID2 string
+	var unitID1, unitID2, unitID3 string
 	setup := func(c *gc.C) {
 		u1 := service.AddUnitArg{
 			UnitName: "foo/666",
@@ -151,6 +168,9 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 				return errors.Trace(err)
 			}
 			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/667").Scan(&unitID2); err != nil {
+				return errors.Trace(err)
+			}
+			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "bar/667").Scan(&unitID3); err != nil {
 				return errors.Trace(err)
 			}
 			return nil
@@ -207,6 +227,12 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	harness.AddTest(func(c *gc.C) {
 		// Removing dead unit, no change.
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_agent_status WHERE unit_uuid=?", unitID1); err != nil {
+				return errors.Trace(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_status WHERE unit_uuid=?", unitID1); err != nil {
+				return errors.Trace(err)
+			}
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit WHERE name=?", "foo/666"); err != nil {
 				return errors.Trace(err)
 			}
@@ -243,6 +269,12 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	harness.AddTest(func(c *gc.C) {
 		// Removing non dead unit - change.
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_agent_status WHERE unit_uuid=?", unitID2); err != nil {
+				return errors.Trace(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_status WHERE unit_uuid=?", unitID2); err != nil {
+				return errors.Trace(err)
+			}
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit WHERE name=?", "foo/667"); err != nil {
 				return errors.Trace(err)
 			}
@@ -269,6 +301,12 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	harness.AddTest(func(c *gc.C) {
 		// Deleting different app unit with no app units remaining - no change.
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_agent_status WHERE unit_uuid=?", unitID3); err != nil {
+				return errors.Trace(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_status WHERE unit_uuid=?", unitID3); err != nil {
+				return errors.Trace(err)
+			}
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit WHERE name=?", "bar/667"); err != nil {
 				return errors.Trace(err)
 			}

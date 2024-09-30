@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
@@ -15,7 +16,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application/service"
@@ -56,12 +56,13 @@ var _ = gc.Suite(&importSuite{})
 func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
+	since := time.Now().UTC()
 	appArgs := description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("prometheus"),
 		CharmURL: "ch:prometheus-1",
 	}
 	app := model.AddApplication(appArgs)
-	app.AddUnit(description.UnitArgs{
+	u := app.AddUnit(description.UnitArgs{
 		Tag:          names.NewUnitTag("prometheus/0"),
 		PasswordHash: "passwordhash",
 		CloudContainer: &description.CloudContainerArgs{
@@ -75,6 +76,18 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 			},
 			Ports: []string{"6666"},
 		},
+	})
+	u.SetAgentStatus(description.StatusArgs{
+		Value:   "idle",
+		Message: "agent status",
+		Data:    map[string]any{"foo": "bar"},
+		Updated: since,
+	})
+	u.SetWorkloadStatus(description.StatusArgs{
+		Value:   "waiting",
+		Message: "workload status",
+		Data:    map[string]any{"foo": "bar"},
+		Updated: since,
 	})
 	app.SetCharmMetadata(description.CharmMetadataArgs{
 		Name: "prometheus",
@@ -98,7 +111,7 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rev := 1
-	s.importService.EXPECT().CreateApplication(
+	s.importService.EXPECT().ImportApplication(
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
@@ -121,11 +134,11 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 		service.AddApplicationArgs{
 			ReferenceName: "prometheus",
 		},
-		[]service.AddUnitArg{{
+		[]service.ImportUnitArg{{
 			UnitName:     "prometheus/0",
 			PasswordHash: ptr("passwordhash"),
 			CloudContainer: ptr(service.CloudContainerParams{
-				ProviderId: ptr("provider-id"),
+				ProviderId: "provider-id",
 				Address: ptr(network.SpaceAddress{
 					MachineAddress: network.MachineAddress{
 						Value: "10.6.6.6",
@@ -137,10 +150,22 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 				AddressOrigin: ptr(network.OriginProvider),
 				Ports:         ptr([]string{"6666"}),
 			}),
+			AgentStatus: service.StatusParams{
+				Status:  "idle",
+				Message: "agent status",
+				Data:    map[string]any{"foo": "bar"},
+				Since:   ptr(since),
+			},
+			WorkloadStatus: service.StatusParams{
+				Status:  "waiting",
+				Message: "workload status",
+				Data:    map[string]any{"foo": "bar"},
+				Since:   ptr(since),
+			},
 		}},
-	).DoAndReturn(func(_ context.Context, _ string, ch internalcharm.Charm, _ corecharm.Origin, _ service.AddApplicationArgs, _ ...service.AddUnitArg) (application.ID, error) {
+	).DoAndReturn(func(_ context.Context, _ string, ch internalcharm.Charm, _ corecharm.Origin, _ service.AddApplicationArgs, _ ...service.ImportUnitArg) error {
 		c.Assert(ch.Meta().Name, gc.Equals, "prometheus")
-		return "", nil
+		return nil
 	})
 
 	importOp := importOperation{

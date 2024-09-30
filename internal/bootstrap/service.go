@@ -16,6 +16,8 @@ import (
 // ApplicationService instances create an application.
 type ApplicationService interface {
 	CreateApplication(context.Context, string, charm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg) (coreapplication.ID, error)
+	UpdateCAASUnit(ctx context.Context, unitName string, params applicationservice.UpdateCAASUnitParams) error
+	SetUnitPassword(ctx context.Context, unitName string, passwordHash string) error
 }
 
 // ModelConfigService provides access to the model configuration.

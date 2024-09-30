@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
 	coresecrets "github.com/juju/juju/core/secrets"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
@@ -28,6 +29,7 @@ import (
 	secretstate "github.com/juju/juju/domain/secret/state"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage/provider"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -68,6 +70,16 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 		},
 		loggertesting.WrapCheckLog(c),
 	)
+
+	modelUUID := uuid.MustNewUUID()
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud, cloud_type)
+			VALUES (?, ?, ?, "test", "iaas", "test-model", "ec2")
+		`, modelUUID.String(), coretesting.ControllerTag.Id(), jujuversion.Current.String())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) createApplication(c *gc.C, name string, units ...service.AddUnitArg) coreapplication.ID {
@@ -460,8 +472,8 @@ func (s *serviceSuite) TestReplaceCAASUnit(c *gc.C) {
 	ports := []string{"666"}
 	args := service.RegisterCAASUnitParams{
 		UnitName:     "foo/1",
-		PasswordHash: ptr("passwordhash"),
-		ProviderId:   ptr("provider-id"),
+		PasswordHash: "passwordhash",
+		ProviderId:   "provider-id",
 		Address:      ptr(address),
 		Ports:        ptr(ports),
 		OrderedScale: true,
@@ -486,8 +498,8 @@ func (s *serviceSuite) TestReplaceDeadCAASUnit(c *gc.C) {
 
 	args := service.RegisterCAASUnitParams{
 		UnitName:     "foo/1",
-		PasswordHash: ptr("passwordhash"),
-		ProviderId:   ptr("provider-id"),
+		PasswordHash: "passwordhash",
+		ProviderId:   "provider-id",
 		OrderedScale: true,
 		OrderedId:    1,
 	}
@@ -508,8 +520,8 @@ func (s *serviceSuite) TestNewCAASUnit(c *gc.C) {
 	ports := []string{"666"}
 	args := service.RegisterCAASUnitParams{
 		UnitName:     "foo/1",
-		PasswordHash: ptr("passwordhash"),
-		ProviderId:   ptr("provider-id"),
+		PasswordHash: "passwordhash",
+		ProviderId:   "provider-id",
 		Address:      &address,
 		Ports:        &ports,
 		OrderedScale: true,
@@ -525,8 +537,8 @@ func (s *serviceSuite) TestRegisterCAASUnitExceedsScale(c *gc.C) {
 
 	args := service.RegisterCAASUnitParams{
 		UnitName:     "foo/1",
-		PasswordHash: ptr("passwordhash"),
-		ProviderId:   ptr("provider-id"),
+		PasswordHash: "passwordhash",
+		ProviderId:   "provider-id",
 		OrderedScale: true,
 		OrderedId:    666,
 	}
@@ -545,8 +557,8 @@ func (s *serviceSuite) TestRegisterCAASUnitExceedsScaleTarget(c *gc.C) {
 
 	args := service.RegisterCAASUnitParams{
 		UnitName:     "foo/1",
-		PasswordHash: ptr("passwordhash"),
-		ProviderId:   ptr("provider-id"),
+		PasswordHash: "passwordhash",
+		ProviderId:   "provider-id",
 		OrderedScale: true,
 		OrderedId:    2,
 	}

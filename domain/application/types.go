@@ -15,6 +15,7 @@ import (
 type AddApplicationArg struct {
 	Charm    domaincharm.Charm
 	Origin   domaincharm.CharmOrigin
+	Scale    int
 	Platform Platform
 	Channel  *Channel
 }
@@ -76,9 +77,21 @@ type Origin struct {
 	Revision int
 }
 
+const (
+	// HashAlgorithmSHA256 is the sha256 hash algorithm.
+	// Currently it's the only one.
+	HashAlgorithmSHA256 = 0
+)
+
+// PasswordInfo contains password parameters.
+type PasswordInfo struct {
+	PasswordHash  string
+	HashAlgorithm int
+}
+
 // CloudContainer contains parameters for a unit's cloud container.
 type CloudContainer struct {
-	ProviderId *string
+	ProviderId string
 	Address    *ContainerAddress
 	Ports      *[]string
 }
@@ -104,11 +117,25 @@ type ContainerAddress struct {
 	ConfigType  ipaddress.ConfigType
 }
 
-// UpsertUnitArg contains parameters for adding a unit to state.
-type UpsertUnitArg struct {
+// AddUnitArg contains parameters for adding a unit to state.
+type AddUnitArg struct {
+	UnitName string
+	UnitStatusArg
+}
+
+// InsertUnitArg is used to insert a fully populated unit.
+// Used by import and when registering a CAAS unit.
+type InsertUnitArg struct {
 	UnitName       string
-	PasswordHash   *string
 	CloudContainer *CloudContainer
+	Password       *PasswordInfo
+	UnitStatusArg
+}
+
+// UnitStatusArg contains parameters for updating a unit status in state.
+type UnitStatusArg struct {
+	AgentStatus    UnitAgentStatusInfo
+	WorkloadStatus UnitWorkloadStatusInfo
 }
 
 // StatusInfo holds details about the status of an entity.
