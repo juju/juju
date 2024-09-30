@@ -1581,20 +1581,31 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
-	data := map[string]string{"foo": "bar"}
-	value := coresecrets.NewSecretValue(data)
-	expiry := time.Now()
-	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil).Times(2)
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
 		uri.ID: {Description: "a secret", LatestRevision: 666, Owner: names.NewApplicationTag("mariadb")},
 	}, nil, nil)
+
+	data := map[string]string{"foo": "bar"}
+	value := coresecrets.NewSecretValue(data)
 	err := hookContext.UpdateSecret(uri, &jujuc.SecretUpdateArgs{
-		Value:        value,
-		RotatePolicy: ptr(coresecrets.RotateDaily),
-		ExpireTime:   ptr(expiry),
-		Description:  ptr("my secret"),
-		Label:        ptr("foo"),
+		Value:        value,                        // will be overwritten by the new value.
+		RotatePolicy: ptr(coresecrets.RotateDaily), // will be kept.
+		Description:  ptr("my secret"),             // will be overwritten by the new value.
+		Label:        ptr("label1"),                // will be overwritten by the new value.
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// update again, nerge with existing.
+	newData := map[string]string{"bar": "baz"}
+	newValue := coresecrets.NewSecretValue(newData)
+	expiry := time.Now()
+	err = hookContext.UpdateSecret(uri, &jujuc.SecretUpdateArgs{
+		ExpireTime:  ptr(expiry),          // will be merged.
+		Value:       newValue,             // will be the new value.
+		Description: ptr("my new secret"), // will be the new value.
+		Label:       ptr("label2"),        // will be the new value.
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hookContext.PendingSecretUpdates(), jc.DeepEquals, map[string]uniter.SecretUpdateArg{
@@ -1602,11 +1613,11 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 			CurrentRevision: 666,
 			SecretUpsertArg: uniter.SecretUpsertArg{
 				URI:          uri,
-				Value:        value,
+				Value:        newValue,
 				RotatePolicy: ptr(coresecrets.RotateDaily),
 				ExpireTime:   ptr(expiry),
-				Description:  ptr("my secret"),
-				Label:        ptr("foo"),
+				Description:  ptr("my new secret"),
+				Label:        ptr("label2"),
 			},
 		}})
 }
