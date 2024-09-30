@@ -51,6 +51,7 @@ type ApplicationService interface {
 	GetUnitLife(ctx context.Context, name string) (life.Value, error)
 	DestroyUnit(ctx context.Context, name string) error
 	RemoveUnit(ctx context.Context, unitName string, leadershipRevoker leadership.Revoker) error
+	UpdateCAASUnit(ctx context.Context, unitName string, params service.UpdateCAASUnitParams) error
 }
 
 // MachineService defines the methods that the facade assumes from the Machine

@@ -16,6 +16,9 @@ const (
 	// application being created already exists.
 	ApplicationAlreadyExists = errors.ConstError("application already exists")
 
+	// ApplicationNotAlive describes an error that occurs when trying to update an application that is not alive.
+	ApplicationNotAlive = errors.ConstError("application is not alive")
+
 	// ApplicationHasUnits describes an error that occurs when the application
 	// being deleted still has associated units.
 	ApplicationHasUnits = errors.ConstError("application has units")
@@ -61,6 +64,7 @@ const (
 
 	// UnitIsAlive describes an error that occurs when trying to remove a unit that is still alive.
 	UnitIsAlive = errors.ConstError("unit is alive")
+
 	// InvalidApplicationState describes an error where the application state is invalid.
 	// There are missing required fields.
 	InvalidApplicationState = errors.ConstError("invalid application state")
