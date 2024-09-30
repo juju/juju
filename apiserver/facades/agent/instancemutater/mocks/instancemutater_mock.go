@@ -672,45 +672,6 @@ func (c *MockMachineIdCall) DoAndReturn(f func() string) *MockMachineIdCall {
 	return c
 }
 
-// InstanceId mocks base method.
-func (m *MockMachine) InstanceId() (instance.Id, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InstanceId")
-	ret0, _ := ret[0].(instance.Id)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// InstanceId indicates an expected call of InstanceId.
-func (mr *MockMachineMockRecorder) InstanceId() *MockMachineInstanceIdCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceId", reflect.TypeOf((*MockMachine)(nil).InstanceId))
-	return &MockMachineInstanceIdCall{Call: call}
-}
-
-// MockMachineInstanceIdCall wrap *gomock.Call
-type MockMachineInstanceIdCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineInstanceIdCall) Return(arg0 instance.Id, arg1 error) *MockMachineInstanceIdCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineInstanceIdCall) Do(f func() (instance.Id, error)) *MockMachineInstanceIdCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineInstanceIdCall) DoAndReturn(f func() (instance.Id, error)) *MockMachineInstanceIdCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // IsManual mocks base method.
 func (m *MockMachine) IsManual() (bool, error) {
 	m.ctrl.T.Helper()
@@ -1490,6 +1451,45 @@ func (c *MockMachineServiceGetMachineUUIDCall) Do(f func(context.Context, machin
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineServiceGetMachineUUIDCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockMachineServiceGetMachineUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InstanceID mocks base method.
+func (m *MockMachineService) InstanceID(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InstanceID", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InstanceID indicates an expected call of InstanceID.
+func (mr *MockMachineServiceMockRecorder) InstanceID(arg0, arg1 any) *MockMachineServiceInstanceIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceID", reflect.TypeOf((*MockMachineService)(nil).InstanceID), arg0, arg1)
+	return &MockMachineServiceInstanceIDCall{Call: call}
+}
+
+// MockMachineServiceInstanceIDCall wrap *gomock.Call
+type MockMachineServiceInstanceIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceInstanceIDCall) Return(arg0 string, arg1 error) *MockMachineServiceInstanceIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceInstanceIDCall) Do(f func(context.Context, string) (string, error)) *MockMachineServiceInstanceIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceInstanceIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockMachineServiceInstanceIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

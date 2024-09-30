@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -53,6 +54,7 @@ type WorkerConfig struct {
 	ApplicationService      ApplicationService
 	ControllerModel         coremodel.Model
 	ModelConfigService      ModelConfigService
+	MachineService          MachineService
 	KeyManagerService       KeyManagerService
 	FlagService             FlagService
 	NetworkService          NetworkService
@@ -95,6 +97,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.ModelConfigService == nil {
 		return errors.NotValidf("nil ModelConfigService")
+	}
+	if c.MachineService == nil {
+		return errors.NotValidf("nil MachineService")
 	}
 	if c.KeyManagerService == nil {
 		return errors.NotValidf("nil KeyManagerService")
@@ -219,6 +224,19 @@ func (w *bootstrapWorker) loop() error {
 
 	if err := w.seedControllerCharm(ctx, dataDir, bootstrapParams); err != nil {
 		return errors.Trace(err)
+	}
+
+	// Set machine cloud instance data for the bootstrap machine.
+	bootstrapMachineUUID, err := w.cfg.MachineService.GetMachineUUID(ctx, machine.Name(agent.BootstrapControllerId))
+	if err != nil {
+		w.logger.Errorf("unable to retrieve machine UUID for bootstrap machine %q: %w", agent.BootstrapControllerId, err)
+	} else if err := w.cfg.MachineService.SetMachineCloudInstance(
+		ctx,
+		bootstrapMachineUUID,
+		bootstrapParams.BootstrapMachineInstanceId,
+		bootstrapParams.BootstrapMachineHardwareCharacteristics,
+	); err != nil {
+		w.logger.Errorf("unable to set machine cloud instance data for bootstrap machine %q: %w", bootstrapMachineUUID, err)
 	}
 
 	// Retrieve controller addresses needed to set the API host ports.

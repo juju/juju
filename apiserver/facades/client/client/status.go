@@ -20,12 +20,15 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -533,7 +536,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 
 	return params.FullStatus{
 		Model:               modelStatus,
-		Machines:            context.processMachines(ctx),
+		Machines:            context.processMachines(ctx, c.machineService),
 		Applications:        context.processApplications(ctx),
 		RemoteApplications:  context.processRemoteApplications(),
 		Offers:              context.processOffers(),
@@ -1030,7 +1033,7 @@ func fetchRelations(st Backend) (map[string][]*state.Relation, map[int]*state.Re
 	return out, outById, nil
 }
 
-func (c *statusContext) processMachines(ctx context.Context) map[string]params.MachineStatus {
+func (c *statusContext) processMachines(ctx context.Context, machineService MachineService) map[string]params.MachineStatus {
 	machinesMap := make(map[string]params.MachineStatus)
 	aCache := make(map[string]params.MachineStatus)
 	for id, machines := range c.machines {
@@ -1041,7 +1044,7 @@ func (c *statusContext) processMachines(ctx context.Context) map[string]params.M
 
 		// Element 0 is assumed to be the top-level machine.
 		tlMachine := machines[0]
-		hostStatus := c.makeMachineStatus(ctx, tlMachine, c.allAppsUnitsCharmBindings)
+		hostStatus := c.makeMachineStatus(ctx, tlMachine, machineService, c.allAppsUnitsCharmBindings)
 		machinesMap[id] = hostStatus
 		aCache[id] = hostStatus
 
@@ -1053,7 +1056,7 @@ func (c *statusContext) processMachines(ctx context.Context) map[string]params.M
 				continue
 			}
 
-			aStatus := c.makeMachineStatus(ctx, machine, c.allAppsUnitsCharmBindings)
+			aStatus := c.makeMachineStatus(ctx, machine, machineService, c.allAppsUnitsCharmBindings)
 			parent.Containers[machine.Id()] = aStatus
 			aCache[machine.Id()] = aStatus
 		}
@@ -1064,6 +1067,7 @@ func (c *statusContext) processMachines(ctx context.Context) map[string]params.M
 func (c *statusContext) makeMachineStatus(
 	ctx context.Context,
 	machine *state.Machine,
+	machineService MachineService,
 	appStatusInfo applicationStatusInfo,
 ) (status params.MachineStatus) {
 	machineID := machine.Id()
@@ -1098,10 +1102,18 @@ func (c *statusContext) makeMachineStatus(
 	sModInfo, err := c.status.MachineModification(machineID)
 	populateStatusFromStatusInfoAndErr(&status.ModificationStatus, sModInfo, err)
 
-	instid, displayName := c.allInstances.InstanceNames(machineID)
+	var instid string
+	machineUUID, err := machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
+	if err != nil {
+		logger.Debugf("error retrieving uuid for machine: %q, %w", machineID, err)
+	} else {
+		instid, err = machineService.InstanceID(ctx, machineUUID)
+		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
+			logger.Debugf("error retrieving instance ID for machine: %q, %w", machineID, err)
+		}
+	}
 	if instid != "" {
-		status.InstanceId = instid
-		status.DisplayName = displayName
+		status.InstanceId = instance.Id(instid)
 		addr, err := machine.PublicAddress()
 		if err != nil {
 			// Usually this indicates that no addresses have been set on the

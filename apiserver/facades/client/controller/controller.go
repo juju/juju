@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -74,6 +75,20 @@ type ControllerAccessService interface {
 	// LastModelLogin gets the time the specified user last connected to the
 	// model.
 	LastModelLogin(context.Context, user.Name, coremodel.UUID) (time.Time, error)
+}
+
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// EnsureDeadMachine sets the provided machine's life status to Dead.
+	// No error is returned if the provided machine doesn't exist, just nothing
+	// gets updated.
+	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	// It returns a MachineNotFound if the machine does not exist.
+	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
+	// InstanceID returns the cloud specific instance id for this machine.
+	InstanceID(ctx context.Context, mUUID string) (string, error)
 }
 
 // ModelService provides access to information about running Juju agents.
@@ -157,6 +172,7 @@ func NewControllerAPI(
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
 	accessService ControllerAccessService,
+	machineService MachineService,
 	modelService ModelService,
 	applicationServiceGetter func(coremodel.UUID) ApplicationService,
 	modelConfigServiceGetter func(coremodel.UUID) common.ModelConfigService,
@@ -185,6 +201,7 @@ func NewControllerAPI(
 		),
 		ModelStatusAPI: common.NewModelStatusAPI(
 			common.NewModelManagerBackend(environs.ProviderConfigSchemaSource(cloudService), model, pool),
+			machineService,
 			authorizer,
 			apiUser,
 		),

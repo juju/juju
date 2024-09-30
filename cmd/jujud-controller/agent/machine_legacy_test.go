@@ -778,12 +778,6 @@ func (s *MachineLegacySuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.
 			c.Assert(ok, jc.IsTrue)
 			err := m.Refresh()
 			c.Assert(err, jc.ErrorIsNil)
-			if instId, err := m.InstanceId(); err == nil {
-				c.Logf("unit provisioned with instance %s", instId)
-				return m, instId
-			} else {
-				c.Check(err, jc.ErrorIs, errors.NotProvisioned)
-			}
 		}
 	}
 }

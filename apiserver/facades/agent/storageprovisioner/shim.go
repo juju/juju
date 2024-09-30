@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 )
 
@@ -21,7 +20,6 @@ import (
 type Backend interface {
 	state.EntityFinder
 
-	MachineInstanceId(names.MachineTag) (instance.Id, error)
 	WatchMachine(names.MachineTag) (state.NotifyWatcher, error)
 	WatchApplications() state.StringsWatcher
 }
@@ -94,14 +92,6 @@ func NewStateBackends(st *state.State) (Backend, StorageBackend, error) {
 		return nil, nil, err
 	}
 	return stateShim{State: st, Model: m}, sb, nil
-}
-
-func (s stateShim) MachineInstanceId(tag names.MachineTag) (instance.Id, error) {
-	m, err := s.Machine(tag.Id())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return m.InstanceId()
 }
 
 func (s stateShim) WatchMachine(tag names.MachineTag) (state.NotifyWatcher, error) {

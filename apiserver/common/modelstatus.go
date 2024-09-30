@@ -19,9 +19,10 @@ import (
 
 // ModelStatusAPI implements the ModelStatus() API.
 type ModelStatusAPI struct {
-	authorizer facade.Authorizer
-	apiUser    names.UserTag
-	backend    ModelManagerBackend
+	authorizer     facade.Authorizer
+	apiUser        names.UserTag
+	backend        ModelManagerBackend
+	machineService MachineService
 }
 
 // ModelApplicationInfo returns information about applications.
@@ -33,11 +34,12 @@ func ModelApplicationInfo(applications []Application) ([]params.ModelApplication
 }
 
 // NewModelStatusAPI creates an implementation providing the ModelStatus() API.
-func NewModelStatusAPI(backend ModelManagerBackend, authorizer facade.Authorizer, apiUser names.UserTag) *ModelStatusAPI {
+func NewModelStatusAPI(backend ModelManagerBackend, machineService MachineService, authorizer facade.Authorizer, apiUser names.UserTag) *ModelStatusAPI {
 	return &ModelStatusAPI{
-		authorizer: authorizer,
-		apiUser:    apiUser,
-		backend:    backend,
+		authorizer:     authorizer,
+		apiUser:        apiUser,
+		backend:        backend,
+		machineService: machineService,
 	}
 }
 
@@ -105,7 +107,7 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		unitCount += app.UnitCount()
 	}
 
-	modelMachines, err := ModelMachineInfo(st)
+	modelMachines, err := ModelMachineInfo(ctx, st, c.machineService)
 	if err != nil {
 		return status, errors.Trace(err)
 	}

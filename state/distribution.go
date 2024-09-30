@@ -5,41 +5,7 @@ package state
 
 import (
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
-
-	"github.com/juju/juju/core/instance"
 )
-
-// ApplicationInstances returns the instance IDs of provisioned
-// machines that are assigned units of the specified application.
-func ApplicationInstances(st *State, application string) ([]instance.Id, error) {
-	units, err := allUnits(st, application)
-	if err != nil {
-		return nil, err
-	}
-	instanceIds := make([]instance.Id, 0, len(units))
-	for _, unit := range units {
-		machineId, err := unit.AssignedMachineId()
-		if errors.Is(err, errors.NotAssigned) {
-			continue
-		} else if err != nil {
-			return nil, err
-		}
-		machine, err := st.Machine(machineId)
-		if err != nil {
-			return nil, err
-		}
-		instanceId, err := machine.InstanceId()
-		if err == nil {
-			instanceIds = append(instanceIds, instanceId)
-		} else if errors.Is(err, errors.NotProvisioned) {
-			continue
-		} else {
-			return nil, err
-		}
-	}
-	return instanceIds, nil
-}
 
 // ApplicationMachines returns the machine IDs of machines which have
 // the specified application listed as a principal.

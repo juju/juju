@@ -1250,16 +1250,6 @@ func (sb *storageBackend) SetVolumeAttachmentInfo(hostTag names.Tag, volumeTag n
 	if _, err := v.Info(); err != nil {
 		return errors.Trace(err)
 	}
-	// Also ensure the machine is provisioned.
-	if _, ok := hostTag.(names.MachineTag); ok {
-		m, err := sb.machine(hostTag.Id())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if _, err := m.InstanceId(); err != nil {
-			return errors.Trace(err)
-		}
-	}
 	return sb.setVolumeAttachmentInfo(hostTag, volumeTag, info)
 }
 
@@ -1270,14 +1260,6 @@ func (sb *storageBackend) SetVolumeAttachmentPlanBlockInfo(hostTag names.Tag, vo
 		return errors.Trace(err)
 	}
 	if _, err := v.Info(); err != nil {
-		return errors.Trace(err)
-	}
-	// Also ensure the machine is provisioned.
-	m, err := sb.machine(hostTag.Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if _, err := m.InstanceId(); err != nil {
 		return errors.Trace(err)
 	}
 	return sb.setVolumePlanBlockInfo(hostTag, volumeTag, &info)
@@ -1327,14 +1309,6 @@ func (sb *storageBackend) CreateVolumeAttachmentPlan(hostTag names.Tag, volumeTa
 		return errors.Trace(err)
 	}
 	if _, err := v.Info(); err != nil {
-		return errors.Trace(err)
-	}
-	// Also ensure the machine is provisioned.
-	m, err := sb.machine(hostTag.Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if _, err := m.InstanceId(); err != nil {
 		return errors.Trace(err)
 	}
 	return sb.createVolumePlan(hostTag, volumeTag, &info)

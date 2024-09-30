@@ -87,6 +87,7 @@ func NewStateFirewallerAPI(
 	controllerConfigService ControllerConfigService,
 	modelConfigService ModelConfigService,
 	applicationService ApplicationService,
+	machineService MachineService,
 	logger corelogger.Logger,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
@@ -132,6 +133,7 @@ func NewStateFirewallerAPI(
 	// InstanceId() is supported for machines.
 	instanceIdGetter := common.NewInstanceIdGetter(
 		st,
+		machineService,
 		accessMachine,
 	)
 

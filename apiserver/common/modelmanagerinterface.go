@@ -13,6 +13,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
@@ -109,6 +110,20 @@ type CloudService interface {
 	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
 	// WatchCloud returns a watcher that observes changes to the specified cloud.
 	WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error)
+}
+
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// EnsureDeadMachine sets the provided machine's life status to Dead.
+	// No error is returned if the provided machine doesn't exist, just nothing
+	// gets updated.
+	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	// It returns a MachineNotFound if the machine does not exist.
+	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
+	// InstanceID returns the cloud specific instance id for this machine.
+	InstanceID(ctx context.Context, mUUID string) (string, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)

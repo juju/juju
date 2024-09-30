@@ -88,6 +88,7 @@ func (s *RemoteFirewallerSuite) setupAPI(c *gc.C) {
 		s.controllerConfigService,
 		s.modelConfigService,
 		s.applicationService,
+		nil,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -223,6 +224,7 @@ func (s *FirewallerSuite) setupAPI(c *gc.C) {
 		s.controllerConfigService,
 		s.modelConfigService,
 		s.applicationService,
+		nil,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)

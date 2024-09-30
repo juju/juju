@@ -16,10 +16,11 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner/internal/filesystemwatcher"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/container"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -43,6 +44,7 @@ type StorageProvisionerAPIv4 struct {
 	registry                 storage.ProviderRegistry
 	storagePoolGetter        StoragePoolGetter
 	modelConfigService       ModelConfigService
+	machineService           MachineService
 	getScopeAuthFunc         common.GetAuthFunc
 	getStorageEntityAuthFunc common.GetAuthFunc
 	getMachineAuthFunc       common.GetAuthFunc
@@ -221,7 +223,7 @@ func NewStorageProvisionerAPIv4(
 	return &StorageProvisionerAPIv4{
 		LifeGetter:       common.NewLifeGetter(st, getLifeAuthFunc),
 		DeadEnsurer:      common.NewDeadEnsurer(st, getStorageEntityAuthFunc, machineService),
-		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
+		InstanceIdGetter: common.NewInstanceIdGetter(st, machineService, getMachineAuthFunc),
 		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc),
 
 		watcherRegistry: watcherRegistry,
@@ -233,6 +235,7 @@ func NewStorageProvisionerAPIv4(
 		registry:                 registry,
 		storagePoolGetter:        storagePoolGetter,
 		modelConfigService:       modelConfigService,
+		machineService:           machineService,
 		getScopeAuthFunc:         getScopeAuthFunc,
 		getStorageEntityAuthFunc: getStorageEntityAuthFunc,
 		getAttachmentAuthFunc:    getAttachmentAuthFunc,
@@ -795,13 +798,14 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 			}
 			// Volumes can be attached to units (caas models) or machines.
 			// We only care about instance id for machine attachments.
-			var instanceId instance.Id
+			var instanceId string
 			if machineTag, ok := volumeAttachment.Host().(names.MachineTag); ok {
-				instanceId, err = s.st.MachineInstanceId(machineTag)
-				if errors.Is(err, errors.NotProvisioned) {
-					// Leave the attachment until later.
-					instanceId = ""
-				} else if err != nil {
+				machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
+				if err != nil {
+					return params.VolumeParams{}, err
+				}
+				instanceId, err = s.machineService.InstanceID(ctx, machineUUID)
+				if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 					return params.VolumeParams{}, err
 				}
 			}
@@ -809,7 +813,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 				VolumeTag:  tag.String(),
 				MachineTag: volumeAttachment.Host().String(),
 				VolumeId:   "",
-				InstanceId: string(instanceId),
+				InstanceId: instanceId,
 				Provider:   volumeParams.Provider,
 				ReadOnly:   volumeAttachmentParams.ReadOnly,
 			}
@@ -1015,13 +1019,14 @@ func (s *StorageProvisionerAPIv4) VolumeAttachmentParams(
 		}
 		// Volumes can be attached to units (caas models) or machines.
 		// We only care about instance id for machine attachments.
-		var instanceId instance.Id
+		var instanceId string
 		if machineTag, ok := volumeAttachment.Host().(names.MachineTag); ok {
-			instanceId, err = s.st.MachineInstanceId(machineTag)
-			if errors.Is(err, errors.NotProvisioned) {
-				// The worker must watch for machine provisioning events.
-				instanceId = ""
-			} else if err != nil {
+			machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
+			if err != nil {
+				return params.VolumeAttachmentParams{}, err
+			}
+			instanceId, err = s.machineService.InstanceID(ctx, machineUUID)
+			if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 				return params.VolumeAttachmentParams{}, err
 			}
 		}
@@ -1061,7 +1066,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachmentParams(
 			VolumeTag:  volumeAttachment.Volume().String(),
 			MachineTag: volumeAttachment.Host().String(),
 			VolumeId:   volumeId,
-			InstanceId: string(instanceId),
+			InstanceId: instanceId,
 			Provider:   string(providerType),
 			ReadOnly:   readOnly,
 		}, nil
@@ -1100,13 +1105,14 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachmentParams(
 		hostTag := filesystemAttachment.Host()
 		// Filesystems can be attached to units (caas models) or machines.
 		// We only care about instance id for machine attachments.
-		var instanceId instance.Id
+		var instanceId string
 		if machineTag, ok := filesystemAttachment.Host().(names.MachineTag); ok {
-			instanceId, err = s.st.MachineInstanceId(machineTag)
-			if errors.Is(err, errors.NotProvisioned) {
-				// The worker must watch for machine provisioning events.
-				instanceId = ""
-			} else if err != nil {
+			machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
+			if err != nil {
+				return params.FilesystemAttachmentParams{}, err
+			}
+			instanceId, err = s.machineService.InstanceID(ctx, machineUUID)
+			if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 				return params.FilesystemAttachmentParams{}, errors.Trace(err)
 			}
 		}
@@ -1149,7 +1155,7 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachmentParams(
 			FilesystemTag: filesystemAttachment.Filesystem().String(),
 			MachineTag:    hostTag.String(),
 			FilesystemId:  filesystemId,
-			InstanceId:    string(instanceId),
+			InstanceId:    instanceId,
 			Provider:      string(providerType),
 			// TODO(axw) dealias MountPoint. We now have
 			// Path, MountPoint and Location in different
@@ -1398,6 +1404,14 @@ func (s *StorageProvisionerAPIv4) CreateVolumeAttachmentPlans(ctx context.Contex
 		if !canAccess(machineTag, volumeTag) {
 			return apiservererrors.ErrPerm
 		}
+		// Check that the machine is provisioned.
+		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if _, err := s.machineService.InstanceID(ctx, machineUUID); err != nil {
+			return errors.Trace(err)
+		}
 		err = s.sb.CreateVolumeAttachmentPlan(machineTag, volumeTag, planInfo)
 		if err != nil {
 			return errors.Trace(err)
@@ -1426,6 +1440,14 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(ctx context.C
 		}
 		if !canAccess(machineTag, volumeTag) {
 			return apiservererrors.ErrPerm
+		}
+		// Check that the machine is provisioned.
+		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if _, err := s.machineService.InstanceID(ctx, machineUUID); err != nil {
+			return errors.Trace(err)
 		}
 		err = s.sb.SetVolumeAttachmentPlanBlockInfo(machineTag, volumeTag, blockInfo)
 		if err != nil {
@@ -1461,6 +1483,18 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentInfo(
 		if !canAccess(machineTag, volumeTag) {
 			return apiservererrors.ErrPerm
 		}
+		// Check that the machine is provisioned.
+		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, err = s.machineService.InstanceID(ctx, machineUUID)
+		if errors.Is(err, machineerrors.NotProvisioned) {
+			return apiservererrors.ServerError(errors.NotProvisionedf("machine %s", machineTag.Id()))
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
 		err = s.sb.SetVolumeAttachmentInfo(machineTag, volumeTag, volumeAttachmentInfo)
 		if errors.Is(err, errors.NotFound) {
 			return apiservererrors.ErrPerm
@@ -1494,6 +1528,18 @@ func (s *StorageProvisionerAPIv4) SetFilesystemAttachmentInfo(
 		}
 		if !canAccess(machineTag, filesystemTag) {
 			return apiservererrors.ErrPerm
+		}
+		// Check that the machine is provisioned before setting attachment info.
+		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, err = s.machineService.InstanceID(ctx, machineUUID)
+		if errors.Is(err, machineerrors.NotProvisioned) {
+			return apiservererrors.ServerError(errors.NotProvisionedf("machine %s", machineTag.Id()))
+		}
+		if err != nil {
+			return errors.Trace(err)
 		}
 		err = s.sb.SetFilesystemAttachmentInfo(machineTag, filesystemTag, filesystemAttachmentInfo)
 		if errors.Is(err, errors.NotFound) {

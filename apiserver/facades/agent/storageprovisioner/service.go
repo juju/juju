@@ -34,6 +34,11 @@ type MachineService interface {
 	// No error is returned if the provided machine doesn't exist, just nothing
 	// gets updated.
 	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	// It returns a MachineNotFound if the machine does not exist.
+	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
+	// InstanceID returns the cloud specific instance id for this machine.
+	InstanceID(ctx context.Context, mUUID string) (string, error)
 }
 
 // BlockDeviceService instances can fetch and watch block devices on a machine.

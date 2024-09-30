@@ -53,11 +53,12 @@ func NewTestAPI(
 }
 
 // NewTestLxdProfileWatcher is used by the lxd profile tests.
-func NewTestLxdProfileWatcher(c *gc.C, machine Machine, backend InstanceMutaterState) *machineLXDProfileWatcher {
+func NewTestLxdProfileWatcher(c *gc.C, machine Machine, backend InstanceMutaterState, machineService MachineService) *machineLXDProfileWatcher {
 	w, err := newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
-		backend: backend,
-		machine: machine,
-		logger:  loggertesting.WrapCheckLog(c),
+		backend:        backend,
+		machine:        machine,
+		logger:         loggertesting.WrapCheckLog(c),
+		machineService: machineService,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return w

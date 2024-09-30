@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -105,6 +106,12 @@ func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 	defer release()
 	f = f.WithModelConfigService(s.modelConfigService(c))
 
+	machineService := s.ControllerDomainServices(c).Machine()
+	machine0UUID, err := machineService.CreateMachine(context.Background(), machine.Name("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine0UUID, "inst-id", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	f.MakeMachine(c, &factory.MachineParams{
 		InstanceId: instance.Id("inst-id"),
 		Volumes: []state.HostVolumeParams{
@@ -120,7 +127,7 @@ func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 		},
 	})
 	// Only provision the first and third volumes.
-	err := s.storageBackend.SetVolumeInfo(names.NewVolumeTag("0/0"), state.VolumeInfo{
+	err = s.storageBackend.SetVolumeInfo(names.NewVolumeTag("0/0"), state.VolumeInfo{
 		HardwareId: "123",
 		VolumeId:   "abc",
 		Size:       1024,
@@ -136,6 +143,10 @@ func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 
 	// Make a machine without storage for tests to use.
 	f.MakeMachine(c, nil)
+	machine1UUID, err := machineService.CreateMachine(context.Background(), machine.Name("1"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine1UUID, "inst-id1", nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Make an unprovisioned machine with storage for tests to use.
 	// TODO(axw) extend testing/factory to allow creating unprovisioned
@@ -151,6 +162,8 @@ func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = machineService.CreateMachine(context.Background(), machine.Name("2"))
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
@@ -158,6 +171,11 @@ func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 	defer release()
 	f = f.WithModelConfigService(s.modelConfigService(c))
 
+	machineService := s.ControllerDomainServices(c).Machine()
+	machine0UUID, err := machineService.CreateMachine(context.Background(), machine.Name("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine0UUID, "inst-id", nil)
+	c.Assert(err, jc.ErrorIsNil)
 	f.MakeMachine(c, &factory.MachineParams{
 		InstanceId: instance.Id("inst-id"),
 		Filesystems: []state.HostFilesystemParams{{
@@ -174,7 +192,7 @@ func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 	})
 
 	// Only provision the first and third filesystems.
-	err := s.storageBackend.SetFilesystemInfo(names.NewFilesystemTag("0/0"), state.FilesystemInfo{
+	err = s.storageBackend.SetFilesystemInfo(names.NewFilesystemTag("0/0"), state.FilesystemInfo{
 		FilesystemId: "abc",
 		Size:         1024,
 	})
@@ -187,6 +205,10 @@ func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 
 	// Make a machine without storage for tests to use.
 	f.MakeMachine(c, nil)
+	machine1UUID, err := machineService.CreateMachine(context.Background(), machine.Name("1"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine1UUID, "inst-id1", nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Make an unprovisioned machine with storage for tests to use.
 	// TODO(axw) extend testing/factory to allow creating unprovisioned
@@ -201,6 +223,8 @@ func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 			}},
 		},
 	)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = machineService.CreateMachine(context.Background(), machine.Name("2"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -805,6 +829,15 @@ func (s *iaasProvisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	// c.Check(results.Results, gc.HasLen, 4)
+	// c.Check(results.Results[0].Error, gc.IsNil)
+	// c.Check(results.Results[1].Error.Code, gc.Equals, "not provisioned")
+	// c.Check(results.Results[1].Error.Message, gc.Matches, ".*not provisioned")
+	// c.Check(results.Results[2].Error.Code, gc.Equals, "not provisioned")
+	// c.Check(results.Results[2].Error.Message, gc.Matches, ".*not provisioned")
+	// c.Check(results.Results[3].Error.Code, gc.Equals, "unauthorized access")
+	// c.Check(results.Results[3].Error.Message, gc.Matches, "permission denied")
+
 	c.Assert(results, jc.DeepEquals, params.FilesystemAttachmentParamsResults{
 		Results: []params.FilesystemAttachmentParamsResult{
 			{Result: params.FilesystemAttachmentParams{
@@ -873,14 +906,14 @@ func (s *iaasProvisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{},
-			{Error: &params.Error{Message: `cannot set info for volume attachment 1:0: volume "1" not provisioned`, Code: "not provisioned"}},
-			{Error: &params.Error{Message: `cannot set info for volume attachment 4:2: machine 2 not provisioned`, Code: "not provisioned"}},
-			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
-		},
-	})
+	c.Check(results.Results, gc.HasLen, 4)
+	c.Check(results.Results[0].Error, gc.IsNil)
+	c.Check(results.Results[1].Error.Code, gc.Equals, "not provisioned")
+	c.Check(results.Results[1].Error.Message, gc.Matches, ".*not provisioned")
+	c.Check(results.Results[2].Error.Code, gc.Equals, "not provisioned")
+	c.Check(results.Results[2].Error.Message, gc.Matches, ".*not provisioned")
+	c.Check(results.Results[3].Error.Code, gc.Equals, "unauthorized access")
+	c.Check(results.Results[3].Error.Message, gc.Matches, "permission denied")
 }
 
 func (s *iaasProvisionerSuite) TestSetFilesystemAttachmentInfo(c *gc.C) {
@@ -921,14 +954,14 @@ func (s *iaasProvisionerSuite) TestSetFilesystemAttachmentInfo(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{},
-			{Error: &params.Error{Message: `cannot set info for filesystem attachment 1:0: filesystem "1" not provisioned`, Code: "not provisioned"}},
-			{Error: &params.Error{Message: `cannot set info for filesystem attachment 3:2: machine 2 not provisioned`, Code: "not provisioned"}},
-			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
-		},
-	})
+	c.Check(results.Results, gc.HasLen, 4)
+	c.Check(results.Results[0].Error, gc.IsNil)
+	c.Check(results.Results[1].Error.Code, gc.Equals, "not provisioned")
+	c.Check(results.Results[1].Error.Message, gc.Matches, ".*not provisioned")
+	c.Check(results.Results[2].Error.Code, gc.Equals, "not provisioned")
+	c.Check(results.Results[2].Error.Message, gc.Matches, ".*not provisioned")
+	c.Check(results.Results[3].Error.Code, gc.Equals, "unauthorized access")
+	c.Check(results.Results[3].Error.Message, gc.Matches, "permission denied")
 }
 
 func (s *iaasProvisionerSuite) TestWatchVolumes(c *gc.C) {

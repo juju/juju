@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
@@ -205,7 +206,7 @@ func (s *commonMachineSuite) primeAgentWithMachine(c *gc.C, m *state.Machine, ve
 }
 
 func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers version.Binary) (
-	machine *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools,
+	machineState *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools,
 ) {
 	m, err := s.ControllerModel(c).State().Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
@@ -213,10 +214,16 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 	// Add a machine and ensure it is provisioned.
 	inst, md := jujutesting.AssertStartInstance(c, s.Environ, envcontext.WithoutCredentialInvalidator(context.Background()), s.ControllerModel(c).ControllerUUID(), machineId)
 	c.Assert(m.SetProvisioned(inst.Id(), "", agent.BootstrapNonce, md), jc.ErrorIsNil)
+	// Double write to machine domain.
+	machineService := s.ControllerDomainServices(c).Machine()
+	machineUUID, err := machineService.CreateMachine(context.Background(), machine.Name(m.Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machineUUID, inst.Id(), nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Add an address for the tests in case the initiateMongoServer
 	// codepath is exercised.
-	s.setFakeMachineAddresses(c, m)
+	s.setFakeMachineAddresses(c, m, inst.Id())
 
 	// Set up the new machine.
 	err = m.SetAgentVersion(vers)
@@ -312,7 +319,7 @@ func (s *commonMachineSuite) newBufferedLogWriter() *logsender.BufferedLogWriter
 	return logger
 }
 
-func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
+func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine, instanceId instance.Id) {
 	controllerConfig := coretesting.FakeControllerConfig()
 
 	addrs := network.NewSpaceAddresses("0.1.2.3")
@@ -320,9 +327,8 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 	c.Assert(err, jc.ErrorIsNil)
 	// Set the addresses in the environ instance as well so that if the instance poller
 	// runs it won't overwrite them.
-	instId, err := machine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
-	insts, err := s.Environ.Instances(envcontext.WithoutCredentialInvalidator(context.Background()), []instance.Id{instId})
+	insts, err := s.Environ.Instances(envcontext.WithoutCredentialInvalidator(context.Background()), []instance.Id{instanceId})
 	c.Assert(err, jc.ErrorIsNil)
 	dummy.SetInstanceAddresses(insts[0], network.NewMachineAddresses([]string{"0.1.2.3"}).AsProviderAddresses())
 }

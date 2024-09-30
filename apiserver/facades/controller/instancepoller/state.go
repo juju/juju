@@ -6,7 +6,6 @@ package instancepoller
 import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -17,7 +16,6 @@ type StateMachine interface {
 	state.Entity
 	networkingcommon.LinkLayerMachine
 
-	InstanceId() (instance.Id, error)
 	ProviderAddresses() network.SpaceAddresses
 	SetProviderAddresses(controller.Config, ...network.SpaceAddress) error
 	InstanceStatus() (status.StatusInfo, error)

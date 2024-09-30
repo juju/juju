@@ -16,11 +16,13 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	agent "github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
+	machine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
@@ -69,6 +71,7 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 	s.expectAgentConfig()
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
+	s.expectSetMachineCloudInstance()
 	s.expectSetAPIHostPorts()
 	s.expectStateServingInfo()
 	s.expectReloadSpaces()
@@ -318,6 +321,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		UserService:             s.userService,
 		ApplicationService:      s.applicationService,
 		ModelConfigService:      s.modelConfigService,
+		MachineService:          s.machineService,
 		ControllerModel:         s.controllerModel,
 		KeyManagerService:       s.keyManagerService,
 		ControllerConfigService: s.controllerConfigService,
@@ -399,6 +403,11 @@ func (s *workerSuite) expectStateServingInfo() {
 	}, true)
 }
 
+func (s *workerSuite) expectSetMachineCloudInstance() {
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(agent.BootstrapControllerId)).Return("deadbeef", nil)
+	s.machineService.EXPECT().SetMachineCloudInstance(gomock.Any(), "deadbeef", instance.Id("i-deadbeef"), nil)
+}
+
 func (s *workerSuite) expectReloadSpaces() {
 	s.networkService.EXPECT().ReloadSpaces(gomock.Any())
 }
@@ -429,6 +438,7 @@ func (s *workerSuite) ensureBootstrapParams(c *gc.C) {
 	args := instancecfg.StateInitializationParams{
 		ControllerModelConfig:       cfg,
 		BootstrapMachineConstraints: constraints.MustParse("mem=1G"),
+		BootstrapMachineInstanceId:  instance.Id("i-deadbeef"),
 		ControllerCharmPath:         "obscura",
 		ControllerCharmChannel:      charm.MakePermissiveChannel("", "stable", ""),
 	}

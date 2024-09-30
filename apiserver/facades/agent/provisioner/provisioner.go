@@ -216,7 +216,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		return environs.GetEnviron(ctx, configGetter, environs.New)
 	}
 
-	api.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)
+	api.InstanceIdGetter = common.NewInstanceIdGetter(st, domainServices.Machine(), getAuthFunc)
 	api.toolsFinder = common.NewToolsFinder(domainServices.ControllerConfig(), st, urlGetter, newEnviron, ctx.ControllerObjectStore())
 	api.ToolsGetter = common.NewToolsGetter(st, domainServices.Agent(), st, urlGetter, api.toolsFinder, getAuthOwner)
 	return api, nil
@@ -440,10 +440,18 @@ func (api *ProvisionerAPI) MachinesWithTransientErrors(ctx context.Context) (par
 		if !canAccessFunc(machine.Tag()) {
 			continue
 		}
-		if _, provisionedErr := machine.InstanceId(); provisionedErr == nil {
+		machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(machine.Id()))
+		if err != nil {
+			return results, err
+		}
+		_, err = api.machineService.InstanceID(ctx, machineUUID)
+		if err == nil {
 			// Machine may have been provisioned but machiner hasn't set the
 			// status to Started yet.
 			continue
+		}
+		if !errors.Is(err, machineerrors.NotProvisioned) {
+			return results, err
 		}
 		var result params.StatusResult
 		statusInfo, err := machine.InstanceStatus()
@@ -548,9 +556,9 @@ func (api *ProvisionerAPI) DistributionGroup(ctx context.Context, args params.En
 			// instances with services in common with the machine
 			// being provisioned.
 			if machine.IsManager() {
-				result.Results[i].Result, err = controllerInstances(api.st)
+				result.Results[i].Result, err = api.controllerInstances(ctx, api.st)
 			} else {
-				result.Results[i].Result, err = commonServiceInstances(api.st, machine)
+				result.Results[i].Result, err = api.commonServiceInstances(ctx, api.st, machine)
 			}
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -559,7 +567,7 @@ func (api *ProvisionerAPI) DistributionGroup(ctx context.Context, args params.En
 }
 
 // controllerInstances returns all environ manager instances.
-func controllerInstances(st *state.State) ([]instance.Id, error) {
+func (api *ProvisionerAPI) controllerInstances(ctx context.Context, st *state.State) ([]instance.Id, error) {
 	controllerIds, err := st.ControllerIds()
 	if err != nil {
 		return nil, err
@@ -570,10 +578,14 @@ func controllerInstances(st *state.State) ([]instance.Id, error) {
 		if err != nil {
 			return nil, err
 		}
-		instanceId, err := machine.InstanceId()
+		machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(machine.Id()))
+		if err != nil {
+			return nil, err
+		}
+		instanceId, err := api.machineService.InstanceID(ctx, machineUUID)
 		if err == nil {
-			instances = append(instances, instanceId)
-		} else if !errors.Is(err, errors.NotProvisioned) {
+			instances = append(instances, instance.Id(instanceId))
+		} else if !errors.Is(err, machineerrors.NotProvisioned) {
 			return nil, err
 		}
 	}
@@ -582,7 +594,7 @@ func controllerInstances(st *state.State) ([]instance.Id, error) {
 
 // commonServiceInstances returns instances with
 // services in common with the specified machine.
-func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, error) {
+func (api *ProvisionerAPI) commonServiceInstances(ctx context.Context, st *state.State, m *state.Machine) ([]instance.Id, error) {
 	units, err := m.Units()
 	if err != nil {
 		return nil, err
@@ -592,12 +604,21 @@ func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, e
 		if !unit.IsPrincipal() {
 			continue
 		}
-		instanceIds, err := state.ApplicationInstances(st, unit.ApplicationName())
+		machineIDs, err := state.ApplicationMachines(st, unit.ApplicationName())
 		if err != nil {
 			return nil, err
 		}
-		for _, instanceId := range instanceIds {
-			instanceIdSet.Add(string(instanceId))
+		for _, machineID := range machineIDs {
+			machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
+			if err != nil {
+				return nil, err
+			}
+			instanceId, err := api.machineService.InstanceID(ctx, machineUUID)
+			if err == nil {
+				instanceIdSet.Add(instanceId)
+			} else if !errors.Is(err, machineerrors.NotProvisioned) {
+				return nil, err
+			}
 		}
 	}
 	instanceIds := make([]instance.Id, instanceIdSet.Size())
@@ -883,6 +904,7 @@ type perContainerHandler interface {
 		ctx context.Context,
 		env environs.Environ, callContext envcontext.ProviderCallContext,
 		policy BridgePolicy, idx int, host, guest Machine,
+		hostInstanceID, guestInstanceID instance.Id,
 		allSubnets network.SubnetInfos,
 	) error
 
@@ -902,8 +924,12 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		// Overall error
 		return errors.Trace(err)
 	}
-	_, err = hostMachine.InstanceId()
-	if errors.Is(err, errors.NotProvisioned) {
+	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(hostMachine.Id()))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	hostInstanceID, err := api.machineService.InstanceID(ctx, machineUUID)
+	if errors.Is(err, machineerrors.NotProvisioned) {
 		return errors.NotProvisionedf("cannot prepare container %s config: host machine %q",
 			handler.ConfigType(), hostMachine)
 	} else if err != nil {
@@ -959,11 +985,21 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 			continue
 		}
 
+		machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(hostMachine.Id()))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		guestInstanceID, err := api.machineService.InstanceID(ctx, machineUUID)
+		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
+			return errors.Trace(err)
+		}
 		if err := handler.ProcessOneContainer(
 			ctx,
 			env, callCtx, policy, i,
 			NewMachine(hostMachine),
 			NewMachine(guest),
+			instance.Id(hostInstanceID),
+			instance.Id(guestInstanceID),
 			allSubnets,
 		); err != nil {
 			handler.SetError(i, err)
@@ -993,20 +1029,15 @@ func (h *prepareOrGetHandler) ConfigType() string {
 func (h *prepareOrGetHandler) ProcessOneContainer(
 	ctx context.Context,
 	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy,
-	idx int, host, guest Machine, _ network.SubnetInfos,
+	idx int, host, guest Machine, hostInstanceID, guestInstanceID instance.Id, _ network.SubnetInfos,
 ) error {
-	instanceId, err := guest.InstanceId()
 	if h.maintain {
-		if err == nil {
+		if guestInstanceID != "" {
 			// Since we want to configure and create NICs on the
 			// container before it starts, it must also be not
 			// provisioned yet.
-			return errors.Errorf("container %q already provisioned as %q", guest.Id(), instanceId)
+			return errors.Errorf("container %q already provisioned as %q", guest.Id(), guestInstanceID)
 		}
-	}
-	// The only error we allow is NotProvisioned
-	if err != nil && !errors.Is(err, errors.NotProvisioned) {
-		return errors.Trace(err)
 	}
 
 	// We do not ask the provider to allocate addresses for manually provisioned
@@ -1025,18 +1056,12 @@ func (h *prepareOrGetHandler) ProcessOneContainer(
 		return errors.Trace(err)
 	}
 
-	hostInstanceId, err := host.InstanceId()
-	if err != nil {
-		// This should have already been checked in the processEachContainer helper.
-		return errors.Trace(err)
-	}
-
 	allocatedInfo := preparedInfo
 	if askProviderForAddress {
 		// supportContainerAddresses already checks that we can cast to an environ.Networking
 		networking := env.(environs.Networking)
 		allocatedInfo, err = networking.AllocateContainerAddresses(
-			callContext, hostInstanceId, guest.MachineTag(), preparedInfo)
+			callContext, hostInstanceID, guest.MachineTag(), preparedInfo)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1104,7 +1129,7 @@ type hostChangesHandler struct {
 func (h *hostChangesHandler) ProcessOneContainer(
 	ctx context.Context,
 	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy,
-	idx int, host, guest Machine, allSubnets network.SubnetInfos,
+	idx int, host, guest Machine, _, _ instance.Id, allSubnets network.SubnetInfos,
 ) error {
 	bridges, reconfigureDelay, err := policy.FindMissingBridgesForContainer(host, guest, allSubnets)
 	if err != nil {
@@ -1159,7 +1184,7 @@ type containerProfileHandler struct {
 // Implements perContainerHandler.ProcessOneContainer
 func (h *containerProfileHandler) ProcessOneContainer(
 	ctx context.Context,
-	_ environs.Environ, _ envcontext.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine, _ network.SubnetInfos,
+	_ environs.Environ, _ envcontext.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine, _, _ instance.Id, _ network.SubnetInfos,
 ) error {
 	units, err := guest.Units()
 	if err != nil {

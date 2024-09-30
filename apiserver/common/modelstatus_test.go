@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/machine"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
@@ -36,12 +38,18 @@ import (
 type modelStatusSuite struct {
 	statetesting.StateSuite
 
-	modelStatusAPI *common.ModelStatusAPI
 	resources      *common.Resources
 	authorizer     apiservertesting.FakeAuthorizer
+	machineService *MockMachineService
 }
 
 var _ = gc.Suite(&modelStatusSuite{})
+
+func (s *modelStatusSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.machineService = NewMockMachineService(ctrl)
+	return ctrl
+}
 
 func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 	// Initial config needs to be set before the StateSuite SetUpTest.
@@ -61,16 +69,12 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
-	s.modelStatusAPI = common.NewModelStatusAPI(
-		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
-		s.authorizer,
-		s.authorizer.GetAuthTag().(names.UserTag),
-	)
-
 	loggo.GetLogger("juju.apiserver.controller").SetLogLevel(loggo.TRACE)
 }
 
 func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Set up the user making the call.
 	user := names.NewUserTag("username")
 	anAuthoriser := apiservertesting.FakeAuthorizer{
@@ -79,6 +83,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 
 	api := common.NewModelStatusAPI(
 		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
+		s.machineService,
 		anAuthoriser,
 		anAuthoriser.GetAuthTag().(names.UserTag),
 	)
@@ -93,6 +98,8 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 }
 
 func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Set up the user making the call.
 	owner := names.NewUserTag("owner")
 	anAuthoriser := apiservertesting.FakeAuthorizer{
@@ -102,6 +109,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	defer st.Close()
 	api := common.NewModelStatusAPI(
 		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
+		s.machineService,
 		anAuthoriser,
 		anAuthoriser.GetAuthTag().(names.UserTag),
 	)
@@ -116,6 +124,8 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 }
 
 func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	ownerTag := names.NewUserTag("owner")
 	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:  "dummytoo",
@@ -131,7 +141,6 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Jobs:            []state.MachineJob{state.JobManageModel},
 		Characteristics: &instance.HardwareCharacteristics{CpuCores: &eight},
 		InstanceId:      "id-4",
-		DisplayName:     "snowflake",
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{
 				Pool: "modelscoped",
@@ -157,6 +166,12 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, nil),
 	})
+	modelStatusAPI := common.NewModelStatusAPI(
+		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
+		s.machineService,
+		s.authorizer,
+		s.authorizer.GetAuthTag().(names.UserTag),
+	)
 
 	otherFactory := factory.NewFactory(otherSt, s.StatePool, testing.FakeControllerConfig()).
 		WithModelConfigService(&stubModelConfigService{cfg: testing.ModelConfig(c)})
@@ -172,10 +187,21 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 	controllerModelTag := s.Model.ModelTag().String()
 	hostedModelTag := otherModel.ModelTag().String()
 
+	// controller model
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("deadbeef0", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef0").Return("id-4", nil)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef1").Return("id-5", nil)
+	// hosted model
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("deadbeef0", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef0").Return("id-8", nil)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef1").Return("id-9", nil)
+
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},
 	}
-	results, err := s.modelStatusAPI.ModelStatus(context.Background(), req)
+	results, err := modelStatusAPI.ModelStatus(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -193,7 +219,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 			Life:               life.Alive,
 			Type:               string(state.ModelTypeIAAS),
 			Machines: []params.ModelMachineInfo{
-				{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", DisplayName: "snowflake", Status: "pending", WantsVote: true},
+				{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", Status: "pending", WantsVote: true},
 				{Id: "1", Hardware: stdHw, InstanceId: "id-5", Status: "pending"},
 			},
 			Applications: []params.ModelApplicationInfo{
@@ -227,6 +253,8 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 }
 
 func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	ownerTag := names.NewUserTag("owner")
 	otherSt := s.Factory.MakeCAASModel(c, &factory.ModelParams{
 		Owner: ownerTag,
@@ -254,7 +282,13 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},
 	}
-	results, err := s.modelStatusAPI.ModelStatus(context.Background(), req)
+	modelStatusAPI := common.NewModelStatusAPI(
+		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
+		s.machineService,
+		s.authorizer,
+		s.authorizer.GetAuthTag().(names.UserTag),
+	)
+	results, err := modelStatusAPI.ModelStatus(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{
@@ -283,6 +317,8 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 }
 
 func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	req := params.Entities{
 		Entities: []params.Entity{
 			{Tag: "fail.me"},
@@ -301,7 +337,13 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 			},
 		},
 	}
-	result, err := s.modelStatusAPI.ModelStatus(context.Background(), req)
+	modelStatusAPI := common.NewModelStatusAPI(
+		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
+		s.machineService,
+		s.authorizer,
+		s.authorizer.GetAuthTag().(names.UserTag),
+	)
+	result, err := modelStatusAPI.ModelStatus(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, expected)
 }

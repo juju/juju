@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
@@ -460,6 +461,12 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 
 	add(taggedUser{tag: userTag})
 
+	machineService := s.ControllerDomainServices(c).Machine()
+	machineUUID, err := machineService.CreateMachine(context.Background(), machine.Name("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machineUUID, instance.Id("i-machine-0"), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	// We are still double writing machines and their provisioning info.
 	m, err := st.AddMachine(modelConfigService, state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
@@ -558,6 +565,12 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		setDefaultPassword(c, wu)
 		add(wu)
 
+		machineService := s.ControllerDomainServices(c).Machine()
+		machineUUID, err := machineService.CreateMachine(context.Background(), machine.Name(fmt.Sprintf("%d", i+1)))
+		c.Assert(err, jc.ErrorIsNil)
+		err = machineService.SetMachineCloudInstance(context.Background(), machineUUID, instance.Id(fmt.Sprintf("i-machine-%d", i+1)), nil)
+		c.Assert(err, jc.ErrorIsNil)
+		// We are still double writing machines and their provisioning info.
 		m, err := st.AddMachine(modelConfigService, state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Tag(), gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))

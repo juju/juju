@@ -6,7 +6,6 @@ package provisioner
 import (
 	"context"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -72,7 +71,7 @@ func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(
 	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 
 	// ProviderCallContext is not required by this logical path and can be nil
-	err := ctx.ProcessOneContainer(context.Background(), s.environ, callCtx, s.policy, 0, s.host, s.container, nil)
+	err := ctx.ProcessOneContainer(context.Background(), s.environ, callCtx, s.policy, 0, s.host, s.container, instance.Id(""), instance.Id(""), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Config, gc.HasLen, 1)
 
@@ -86,7 +85,7 @@ func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainer
 	s.expectNetworkingEnviron()
 
 	cExp := s.container.EXPECT()
-	cExp.InstanceId().Return(instance.UnknownId, errors.NotProvisionedf("idk-lol"))
+	// cExp.InstanceId().Return(instance.UnknownId, errors.NotProvisionedf("idk-lol"))
 
 	s.policy.EXPECT().PopulateContainerLinkLayerDevices(s.host, s.container, false).Return(
 		network.InterfaceInfos{
@@ -102,7 +101,7 @@ func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainer
 	// Crucial behavioural trait. Set false to test failure, whereupon the
 	// PopulateContainerLinkLayerDevices expectation will not be satisfied.
 	hExp.IsManual().Return(true, nil)
-	hExp.InstanceId().Return(instance.Id("manual:10.0.0.66"), nil)
+	// hExp.InstanceId().Return(instance.Id("manual:10.0.0.66"), nil)
 }
 
 // expectNetworkingEnviron stubs an environ that supports container networking.
@@ -116,7 +115,6 @@ func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	exp := s.container.EXPECT()
-	exp.InstanceId().Return(instance.Id("juju-8ebd6c-0"), nil)
 	exp.Id().Return("0/lxd/0")
 
 	res := params.MachineNetworkConfigResults{
@@ -131,7 +129,7 @@ func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *gc.C) {
 
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(context.Background(), s.environ, callCtx, nil, 0, s.host, s.container, nil)
+	err := ctx.ProcessOneContainer(context.Background(), s.environ, callCtx, nil, 0, s.host, s.container, instance.Id(""), instance.Id("juju-8ebd6c-0"), nil)
 	c.Assert(err, gc.ErrorMatches, `container "0/lxd/0" already provisioned as "juju-8ebd6c-0"`)
 }
 
@@ -167,7 +165,7 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *gc.C) {
 
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(context.Background(), s.environ, callCtx, nil, 0, s.host, s.container, nil)
+	err := ctx.ProcessOneContainer(context.Background(), s.environ, callCtx, nil, 0, s.host, s.container, instance.Id(""), instance.Id(""), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
 	c.Assert(res.Results[0].Error, gc.IsNil)
@@ -207,7 +205,7 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *gc.C) {
 
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(context.Background(), s.environ, callCtx, nil, 0, s.host, s.container, nil)
+	err := ctx.ProcessOneContainer(context.Background(), s.environ, callCtx, nil, 0, s.host, s.container, instance.Id(""), instance.Id(""), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
 	c.Assert(res.Results[0].Error, gc.IsNil)

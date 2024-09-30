@@ -6,10 +6,12 @@ package common
 import (
 	"context"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -17,30 +19,18 @@ import (
 // InstanceIdGetter implements a common InstanceId method for use by
 // various facades.
 type InstanceIdGetter struct {
-	st         state.EntityFinder
-	getCanRead GetAuthFunc
+	machineService MachineService
+	getCanRead     GetAuthFunc
 }
 
 // NewInstanceIdGetter returns a new InstanceIdGetter. The GetAuthFunc
 // will be used on each invocation of InstanceId to determine current
 // permissions.
-func NewInstanceIdGetter(st state.EntityFinder, getCanRead GetAuthFunc) *InstanceIdGetter {
+func NewInstanceIdGetter(st state.EntityFinder, machineService MachineService, getCanRead GetAuthFunc) *InstanceIdGetter {
 	return &InstanceIdGetter{
-		st:         st,
-		getCanRead: getCanRead,
+		machineService: machineService,
+		getCanRead:     getCanRead,
 	}
-}
-
-func (ig *InstanceIdGetter) getInstanceId(tag names.Tag) (instance.Id, error) {
-	entity0, err := ig.st.FindEntity(tag)
-	if err != nil {
-		return "", err
-	}
-	entity, ok := entity0.(state.InstanceIdGetter)
-	if !ok {
-		return "", apiservererrors.NotSupportedError(tag, "instance id")
-	}
-	return entity.InstanceId()
 }
 
 // InstanceId returns the provider specific instance id for each given
@@ -59,15 +49,27 @@ func (ig *InstanceIdGetter) InstanceId(ctx context.Context, args params.Entities
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = apiservererrors.ErrPerm
 		if canRead(tag) {
-			var instanceId instance.Id
-			instanceId, err = ig.getInstanceId(tag)
-			if err == nil {
-				result.Results[i].Result = string(instanceId)
+			machineUUID, err := ig.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+			if errors.Is(err, machineerrors.MachineNotFound) {
+				result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("machine %s", tag.Id()))
+				continue
+			} else if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
 			}
+			instanceId, err := ig.machineService.InstanceID(ctx, machineUUID)
+			if errors.Is(err, machineerrors.NotProvisioned) {
+				result.Results[i].Error = apiservererrors.ServerError(errors.NotProvisionedf("machine %s", tag.Id()))
+				continue
+			} else if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			result.Results[i].Result = instanceId
+		} else {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }

@@ -1352,16 +1352,6 @@ func (sb *storageBackend) SetFilesystemAttachmentInfo(
 	if _, err := f.Info(); err != nil {
 		return errors.Trace(err)
 	}
-	// Also ensure the machine is provisioned.
-	if _, ok := hostTag.(names.MachineTag); ok {
-		m, err := sb.machine(hostTag.Id())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if _, err := m.InstanceId(); err != nil {
-			return errors.Trace(err)
-		}
-	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		fsa, err := sb.FilesystemAttachment(hostTag, filesystemTag)
 		if err != nil {

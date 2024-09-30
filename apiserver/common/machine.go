@@ -4,15 +4,18 @@
 package common
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -66,8 +69,6 @@ type ControllerNode interface {
 
 type Machine interface {
 	Id() string
-	InstanceId() (instance.Id, error)
-	InstanceNames() (instance.Id, string, error)
 	Status() (status.StatusInfo, error)
 	ContainerType() instance.ContainerType
 	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
@@ -105,7 +106,7 @@ func destroyMachines(st stateInterface, store objectstore.ObjectStore, force boo
 
 // ModelMachineInfo returns information about machine hardware for
 // alive top level machines (not containers).
-func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachineInfo, _ error) {
+func ModelMachineInfo(ctx context.Context, st ModelManagerBackend, machineService MachineService) (machineInfo []params.ModelMachineInfo, _ error) {
 	machines, err := st.AllMachines()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -161,12 +162,15 @@ func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachine
 				mInfo.HAPrimary = &isPrimary
 			}
 		}
-		instId, displayName, err := m.InstanceNames()
+		machineUUID, err := machineService.GetMachineUUID(ctx, machine.Name(m.Id()))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		instId, err := machineService.InstanceID(ctx, machineUUID)
 		switch {
 		case err == nil:
-			mInfo.InstanceId = string(instId)
-			mInfo.DisplayName = displayName
-		case errors.Is(err, errors.NotProvisioned):
+			mInfo.InstanceId = instId
+		case errors.Is(err, machineerrors.NotProvisioned):
 			// ok, but no instance ID to get.
 		default:
 			return nil, errors.Trace(err)

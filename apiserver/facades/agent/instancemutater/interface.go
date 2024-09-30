@@ -33,7 +33,6 @@ type InstanceMutaterState interface {
 // Machine represents point of use methods from the state Machine object.
 type Machine interface {
 	Id() string
-	InstanceId() (instance.Id, error)
 	ContainerType() instance.ContainerType
 	IsManual() (bool, error)
 	SetCharmProfiles([]string) error

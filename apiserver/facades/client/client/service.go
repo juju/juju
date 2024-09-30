@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/blockdevice"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 )
@@ -29,4 +30,14 @@ type NetworkService interface {
 type ModelInfoService interface {
 	// GetModelInfo returns information about the current model.
 	GetModelInfo(context.Context) (model.ReadOnlyModel, error)
+}
+
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	// It returns a MachineNotFound if the machine does not exist.
+	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
+	// InstanceID returns the cloud specific instance id for this machine.
+	InstanceID(ctx context.Context, mUUID string) (string, error)
 }

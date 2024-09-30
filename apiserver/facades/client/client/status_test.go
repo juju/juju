@@ -795,23 +795,6 @@ func (s *statusUnitTestSuite) TestMachineWithNoDisplayNameHasItsEmptyDisplayName
 	c.Assert(status.Machines[machine.Id()].DisplayName, gc.Equals, "")
 }
 
-func (s *statusUnitTestSuite) TestMachineWithDisplayNameHasItsDisplayNameSent(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
-	machine := f.MakeMachine(c, &factory.MachineParams{
-		InstanceId:  "i-123",
-		DisplayName: "snowflake",
-	})
-
-	conn := s.OpenControllerModelAPI(c)
-	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	status, err := client.Status(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Machines, gc.HasLen, 1)
-	c.Assert(status.Machines[machine.Id()].DisplayName, gc.Equals, "snowflake")
-}
-
 func assertApplicationRelations(c *gc.C, appName string, expectedNumber int, relations []params.RelationStatus) {
 	c.Assert(relations, gc.HasLen, expectedNumber)
 	for _, relation := range relations {

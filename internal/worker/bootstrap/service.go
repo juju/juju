@@ -10,6 +10,8 @@ import (
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/user"
@@ -56,6 +58,22 @@ type KeyManagerService interface {
 type ModelConfigService interface {
 	// ModelConfig returns the current config for the model.
 	ModelConfig(context.Context) (*config.Config, error)
+}
+
+// MachineService provides access to the machine domain. Used here to set
+// the machine cloud instance data.
+type MachineService interface {
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	// It returns a MachineNotFound if the machine does not exist.
+	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
+	// SetMachineCloudInstance sets an entry in the machine cloud instance table
+	// along with the instance tags and the link to a lxd profile if any.
+	SetMachineCloudInstance(
+		ctx context.Context,
+		machineUUID string,
+		instanceID instance.Id,
+		hardwareCharacteristics *instance.HardwareCharacteristics,
+	) error
 }
 
 // ModelService provides a means for interacting with the underlying models of

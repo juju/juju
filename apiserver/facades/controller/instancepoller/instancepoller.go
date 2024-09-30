@@ -29,6 +29,7 @@ type InstancePollerAPI struct {
 
 	st                      StateInterface
 	networkService          NetworkService
+	machineService          MachineService
 	accessMachine           common.GetAuthFunc
 	controllerConfigService ControllerConfigService
 	clock                   clock.Clock
@@ -40,6 +41,7 @@ type InstancePollerAPI struct {
 func NewInstancePollerAPI(
 	st *state.State,
 	networkService NetworkService,
+	machineService MachineService,
 	m *state.Model,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -69,6 +71,7 @@ func NewInstancePollerAPI(
 	// InstanceId() is supported for machines.
 	instanceIdGetter := common.NewInstanceIdGetter(
 		sti,
+		machineService,
 		accessMachine,
 	)
 	// Status() is supported for machines.
@@ -83,6 +86,7 @@ func NewInstancePollerAPI(
 		InstanceIdGetter:        instanceIdGetter,
 		StatusGetter:            statusGetter,
 		networkService:          networkService,
+		machineService:          machineService,
 		st:                      sti,
 		accessMachine:           accessMachine,
 		controllerConfigService: controllerConfigService,

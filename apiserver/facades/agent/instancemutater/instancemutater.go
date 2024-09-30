@@ -39,6 +39,9 @@ type MachineService interface {
 	// It returns a MachineNotFound if the machine does not exist.
 	GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error)
 
+	// InstanceID returns the cloud specific instance id for this machine.
+	InstanceID(ctx context.Context, mUUID string) (string, error)
+
 	// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
 	AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error)
 
@@ -66,7 +69,8 @@ type InstanceMutatorWatcher interface {
 }
 
 type instanceMutatorWatcher struct {
-	st InstanceMutaterState
+	st             InstanceMutaterState
+	machineService MachineService
 }
 
 // NewInstanceMutaterAPI creates a new API server endpoint for managing
@@ -317,9 +321,10 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 //     has been provisioned.
 func (w *instanceMutatorWatcher) WatchLXDProfileVerificationForMachine(machine Machine, logger logger.Logger) (state.NotifyWatcher, error) {
 	return newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
-		machine: machine,
-		backend: w.st,
-		logger:  logger,
+		machine:        machine,
+		backend:        w.st,
+		machineService: w.machineService,
+		logger:         logger,
 	})
 }
 
@@ -342,16 +347,16 @@ type lxdProfileInfo struct {
 func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Machine) (lxdProfileInfo, error) {
 	var empty lxdProfileInfo
 
-	instId, err := m.InstanceId()
+	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(m.Id()))
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+	instId, err := api.machineService.InstanceID(ctx, machineUUID)
 	if err != nil {
 		return empty, errors.Trace(errors.Annotate(err, "attempting to get instanceId"))
 	}
 
 	units, err := m.Units()
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(m.Id()))
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
@@ -400,7 +405,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Mach
 		return empty, errors.Trace(err)
 	}
 	return lxdProfileInfo{
-		InstanceId:      instId,
+		InstanceId:      instance.Id(instId),
 		ModelName:       modelName,
 		MachineProfiles: machineProfiles,
 		ProfileUnits:    changeResults,

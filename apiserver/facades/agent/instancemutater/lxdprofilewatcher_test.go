@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater/mocks"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 )
@@ -30,6 +30,7 @@ type lxdProfileWatcherSuite struct {
 	appWatcher      *mocks.MockStringsWatcher
 	unitsWatcher    *mocks.MockStringsWatcher
 	instanceWatcher *mocks.MockNotifyWatcher
+	machineService  *mocks.MockMachineService
 
 	charmChanges    chan []string
 	appChanges      chan []string
@@ -55,6 +56,7 @@ func (s *lxdProfileWatcherSuite) setup(c *gc.C) *gomock.Controller {
 	s.appWatcher = mocks.NewMockStringsWatcher(ctrl)
 	s.unitsWatcher = mocks.NewMockStringsWatcher(ctrl)
 	s.instanceWatcher = mocks.NewMockNotifyWatcher(ctrl)
+	s.machineService = mocks.NewMockMachineService(ctrl)
 
 	s.charmChanges = make(chan []string, 1)
 	s.appChanges = make(chan []string, 1)
@@ -368,8 +370,9 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherMachineProvisioned(
 	defer s.setup(c).Finish()
 
 	s.setupScenarioWithProfile()
-	s.machine0.EXPECT().InstanceId().Return(instance.Id("0"), nil)
-	s.state.EXPECT().Machine("0").Return(s.machine0, nil)
+	s.machine0.EXPECT().Id().Return("0")
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid0").Return("0", nil)
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
 	s.instanceChanges <- struct{}{}
@@ -413,7 +416,7 @@ func (s *lxdProfileWatcherSuite) assertStartLxdProfileWatcher(c *gc.C) worker.Wo
 
 	s.machine0.EXPECT().Id().AnyTimes().Return("0")
 
-	w := instancemutater.NewTestLxdProfileWatcher(c, s.machine0, s.state)
+	w := instancemutater.NewTestLxdProfileWatcher(c, s.machine0, s.state, s.machineService)
 	wc := testing.NewNotifyWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange()
