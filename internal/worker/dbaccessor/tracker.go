@@ -132,6 +132,18 @@ func newTrackedDBWorker(
 		return nil, errors.Trace(err)
 	}
 
+	// Set the maximum number of idle and open connections to 2 (default is 0).
+	// Not setting these values can lead to a large number of open connections
+	// being created and not closed, which can lead to unbonded connections
+	// being left open.
+	//
+	// TODO (stickupkid): We will want to move this to runtime.GOMAXPROCS(0)
+	// when we have a better understanding of the impact of this change.
+	db.SetMaxIdleConns(2)
+	db.SetMaxOpenConns(2)
+
+	// Ensure that foreign keys are enabled, as we rely on them for
+	// referential integrity.
 	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
 		return nil, errors.Annotate(err, "setting foreign keys pragma")
 	}
