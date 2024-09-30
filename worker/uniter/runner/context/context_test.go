@@ -1637,7 +1637,7 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 				ExpireTime:   ptr(expiry),
 				Description:  ptr("my new secret"),
 				Label:        ptr("label2"),
-				Checksum:     "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+				Checksum:     "b3aa50894a7e14268a5ab22be352ece5e937f2f2037367e1d7b43a6574969493",
 			},
 		}})
 }
@@ -1676,7 +1676,6 @@ func (s *mockHookContextSuite) TestSecretUpdateSameContent(c *gc.C) {
 				ExpireTime:   ptr(expiry),
 				Description:  ptr("my secret"),
 				Label:        ptr("foo"),
-				Checksum:     "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 			},
 		}})
 }
