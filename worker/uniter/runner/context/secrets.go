@@ -78,7 +78,27 @@ func (s *secretsChangeRecorder) update(arg uniter.SecretUpdateArg) {
 		s.pendingCreates[arg.URI.ID] = c
 		return
 	}
-	s.pendingUpdates[arg.URI.ID] = arg
+	previous, ok := s.pendingUpdates[arg.URI.ID]
+	if !ok {
+		s.pendingUpdates[arg.URI.ID] = arg
+		return
+	}
+	if arg.Label != nil {
+		previous.Label = arg.Label
+	}
+	if arg.Description != nil {
+		previous.Description = arg.Description
+	}
+	if arg.Value != nil && !arg.Value.IsEmpty() {
+		previous.Value = arg.Value
+	}
+	if arg.RotatePolicy != nil {
+		previous.RotatePolicy = arg.RotatePolicy
+	}
+	if arg.ExpireTime != nil {
+		previous.ExpireTime = arg.ExpireTime
+	}
+	s.pendingUpdates[arg.URI.ID] = previous
 }
 
 func (s *secretsChangeRecorder) remove(uri *secrets.URI, revision *int) {
