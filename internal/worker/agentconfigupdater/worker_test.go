@@ -71,15 +71,16 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 	s.initialConfigMsg = controllermsg.ConfigChangedMessage{
 		Config: controller.Config{
-			controller.MongoMemoryProfile:       controller.DefaultMongoMemoryProfile,
-			controller.JujuDBSnapChannel:        controller.DefaultJujuDBSnapChannel,
-			controller.QueryTracingEnabled:      controller.DefaultQueryTracingEnabled,
-			controller.QueryTracingThreshold:    controller.DefaultQueryTracingThreshold,
-			controller.OpenTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
-			controller.OpenTelemetryEndpoint:    "",
-			controller.OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
-			controller.OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
-			controller.OpenTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
+			controller.MongoMemoryProfile:                 controller.DefaultMongoMemoryProfile,
+			controller.JujuDBSnapChannel:                  controller.DefaultJujuDBSnapChannel,
+			controller.QueryTracingEnabled:                controller.DefaultQueryTracingEnabled,
+			controller.QueryTracingThreshold:              controller.DefaultQueryTracingThreshold,
+			controller.OpenTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
+			controller.OpenTelemetryEndpoint:              "",
+			controller.OpenTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,
+			controller.OpenTelemetryStackTraces:           controller.DefaultOpenTelemetryStackTraces,
+			controller.OpenTelemetrySampleRatio:           controller.DefaultOpenTelemetrySampleRatio,
+			controller.OpenTelemetryTailSamplingThreshold: controller.DefaultOpenTelemetryTailSamplingThreshold,
 		},
 	}
 }
@@ -437,7 +438,8 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *gc.C) {
 
 	workertest.CheckAlive(c, w)
 
-	newConfig.Config[controller.OpenTelemetryTailSamplingThreshold] = time.Second
+	d := time.Second
+	newConfig.Config[controller.OpenTelemetryTailSamplingThreshold] = d.String()
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
