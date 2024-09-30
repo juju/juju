@@ -36,7 +36,7 @@ type dbModel struct {
 	ModelType string `db:"model_type"`
 
 	// AgentVersion is the target version for agents running under this model.
-	AgentVersion string `db:"target_version"`
+	AgentVersion string `db:"target_agent_version"`
 
 	// CloudName is the name of the cloud to associate with the model.
 	CloudName string `db:"cloud_name"`
@@ -114,8 +114,30 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 	}, nil
 }
 
+// dbInitialModel represents initial the model state written to the model table on
+// model creation.
+type dbInitialModel struct {
+	// UUID is the universally unique identifier of the model.
+	UUID string `db:"uuid"`
+
+	// CloudUUID is the unique identifier for the cloud the model is on.
+	CloudUUID string `db:"cloud_uuid"`
+
+	// ModelType is the type of model.
+	ModelType string `db:"model_type"`
+
+	// LifeID the ID of the current state of the model.
+	LifeID int `db:"life_id"`
+
+	// Name is the human friendly name of the model.
+	Name string `db:"name"`
+
+	// OwnerUUID is the uuid of the user that owns this model in the Juju controller.
+	OwnerUUID string `db:"owner_uuid"`
+}
+
 type dbNames struct {
-	Name      string `db:"name"`
+	ModelName string `db:"name"`
 	OwnerName string `db:"owner_name"`
 }
 
@@ -127,6 +149,13 @@ type dbUUID struct {
 // dbModelUUID represents the model uuid from the model table.
 type dbModelUUID struct {
 	ModelUUID string `db:"model_uuid"`
+}
+
+type dbModelNameAndOwner struct {
+	// Name is the model name.
+	Name string `db:"name"`
+	// OwnerUUID is the UUID of the model owner.
+	OwnerUUID string `db:"owner_uuid"`
 }
 
 // dbModelType represents the model type from the model table.
@@ -238,6 +267,11 @@ type dbUserName struct {
 	Name string `db:"name"`
 }
 
+// dbUserUUID represents a user uuid.
+type dbUserUUID struct {
+	UUID string `db:"uuid"`
+}
+
 // dbModelUserInfo represents information about a user on a particular model.
 type dbModelUserInfo struct {
 	// Name is the username of the user.
@@ -295,7 +329,7 @@ type dbModelActivated struct {
 }
 
 type dbModelNamespace struct {
-	UUID      string         `db:"uuid"`
+	UUID      string         `db:"model_uuid"`
 	Namespace sql.NullString `db:"namespace"`
 }
 
@@ -311,19 +345,67 @@ type dbCloudOwner struct {
 	OwnerName string `db:"owner_name"`
 }
 
+type dbCloudRegionUUID struct {
+	CloudRegionUUID string `db:"uuid"`
+}
+
 type dbUpdateCredentialResult struct {
 	CloudUUID           string `db:"cloud_uuid"`
 	CloudCredentialUUID string `db:"cloud_credential_uuid"`
 }
 
-type dbUpdateCredentialSelect struct {
+type dbCredKey struct {
 	CloudName           string `db:"cloud_name"`
 	OwnerName           string `db:"owner_name"`
 	CloudCredentialName string `db:"cloud_credential_name"`
 }
 
 type dbUpdateCredential struct {
-	UUID                string `db:"uuid"`
-	CloudUUID           string `db:"cloud_uuid"`
+	// UUID is the model uuid.
+	UUID string `db:"uuid"`
+	// CloudUUID is the cloud uuid.
+	CloudUUID string `db:"cloud_uuid"`
+	// CloudCredentialUUID is the cloud credential uuid.
 	CloudCredentialUUID string `db:"cloud_credential_uuid"`
+}
+
+// dbPermission represents a permission in the system.
+type dbPermission struct {
+	// UUID is the unique identifier for the permission.
+	UUID string `db:"uuid"`
+
+	// GrantOn is the unique identifier of the permission target.
+	// A name or UUID depending on the ObjectType.
+	GrantOn string `db:"grant_on"`
+
+	// GrantTo is the unique identifier of the user the permission
+	// is granted to.
+	GrantTo string `db:"grant_to"`
+
+	// AccessType is a string version of core permission AccessType.
+	AccessType string `db:"access_type"`
+
+	// ObjectType is a string version of core permission ObjectType.
+	ObjectType string `db:"object_type"`
+}
+
+// dbModelAgent represents a row from the controller model_agent table.
+type dbModelAgent struct {
+	// UUID is the models unique identifier.
+	UUID string `db:"model_uuid"`
+	// PreviousVersion describes the agent version that was in use before the
+	// current TargetVersion.
+	PreviousVersion string `db:"previous_version"`
+	// TargetVersion describes the desired agent version that should be
+	// being run in this model. It should not be considered "the" version that
+	// is being run for every agent as each agent needs to upgrade to this
+	// version.
+	TargetVersion string `db:"target_version"`
+}
+
+type dbModelSecretBackend struct {
+	// ModelUUID is the models unique identifier.
+	ModelUUID string `db:"model_uuid"`
+	// SecretBackendUUID is the secret backends unique identifier.
+	SecretBackendUUID string `db:"secret_backend_uuid"`
 }

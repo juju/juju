@@ -120,14 +120,14 @@ type authType struct {
 type Credentials []Credential
 
 // ToCloudCredentials converts the given credentials to a slice of cloud credentials.
-func (rows Credentials) ToCloudCredentials(authTypes []authType, clouds []dbCloudName, keyValues []CredentialAttribute) ([]credential.CloudCredentialResult, error) {
-	if n := len(rows); n != len(authTypes) || n != len(keyValues) || n != len(clouds) {
+func (rows Credentials) ToCloudCredentials(cloudName string, authTypes []authType, keyValues []CredentialAttribute) ([]credential.CloudCredentialResult, error) {
+	if n := len(rows); n != len(authTypes) || n != len(keyValues) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch")
 	}
 
 	var result []credential.CloudCredentialResult
-	recordResult := func(row *Credential, authType, cloudName string, attrs credentialAttrs) {
+	recordResult := func(row *Credential, authType string, attrs credentialAttrs) {
 		result = append(result, credential.CloudCredentialResult{
 			CloudCredentialInfo: credential.CloudCredentialInfo{
 				AuthType:      authType,
@@ -142,17 +142,16 @@ func (rows Credentials) ToCloudCredentials(authTypes []authType, clouds []dbClou
 	}
 
 	var (
-		current             *Credential
-		authType, cloudName string
-		attrs               = make(credentialAttrs)
+		current  *Credential
+		authType string
+		attrs    = make(credentialAttrs)
 	)
 	for i, row := range rows {
 		if current != nil && row.ID != current.ID {
-			recordResult(current, authType, cloudName, attrs)
+			recordResult(current, authType, attrs)
 			attrs = make(credentialAttrs)
 		}
 		authType = authTypes[i].Type
-		cloudName = clouds[i].Name
 		if keyValues[i].Key != "" {
 			attrs[keyValues[i].Key] = keyValues[i].Value
 		}
@@ -160,7 +159,27 @@ func (rows Credentials) ToCloudCredentials(authTypes []authType, clouds []dbClou
 		current = &rowCopy
 	}
 	if current != nil {
-		recordResult(current, authType, cloudName, attrs)
+		recordResult(current, authType, attrs)
 	}
 	return result, nil
+}
+
+type credentialKey struct {
+	CredentialName string `db:"name"`
+	CloudName      string `db:"cloud_name"`
+	OwnerName      string `db:"owner_name"`
+}
+
+type modelNameAndUUID struct {
+	Name string `db:"name"`
+	UUID string `db:"uuid"`
+}
+
+type ownerName struct {
+	Name string `db:"name"`
+}
+
+type ownerAndCloudName struct {
+	OwnerName string `db:"owner_name"`
+	CloudName string `db:"cloud_name"`
 }

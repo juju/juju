@@ -33,7 +33,7 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 	s.controllerUUID = uuid.MustNewUUID()
 }
 
-func (s *modelSuite) TestCreateModel(c *gc.C) {
+func (s *modelSuite) TestCreateAndReadModel(c *gc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 

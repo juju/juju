@@ -296,8 +296,8 @@ func (m *stateSuite) TestCreateModelAgentWithNoModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	testUUID := modeltesting.GenModelUUID(c)
-	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return createModelAgent(context.Background(), tx, testUUID, version.Current)
+	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return createModelAgent(context.Background(), preparer{}, tx, testUUID, version.Current)
 	})
 
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
@@ -310,8 +310,8 @@ func (m *stateSuite) TestCreateModelAgentAlreadyExists(c *gc.C) {
 	runner, err := m.TxnRunnerFactory()()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return createModelAgent(context.Background(), tx, m.uuid, version.Current)
+	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return createModelAgent(context.Background(), preparer{}, tx, m.uuid, version.Current)
 	})
 
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
@@ -618,7 +618,7 @@ func (m *stateSuite) TestCreateModelWithInvalidCloud(c *gc.C) {
 			SecretBackend: juju.BackendName,
 		},
 	)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)
 }
 
 func (m *stateSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
@@ -759,29 +759,21 @@ func (m *stateSuite) TestDeleteModel(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	runner, err := m.TxnRunnerFactory()()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(
-			context.Background(),
-			"SELECT uuid FROM model WHERE uuid = ?",
-			m.uuid,
-		)
-		var val string
-		err := row.Scan(&val)
-		c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	db := m.DB()
+	row := db.QueryRowContext(
+		context.Background(),
+		"SELECT uuid FROM model WHERE uuid = ?",
+		m.uuid,
+	)
+	var val string
+	err = row.Scan(&val)
+	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 
 	modelUUIDS, err := modelSt.ListModelIDs(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(modelUUIDS, gc.HasLen, 0)
 
-	db := m.DB()
-
-	row := db.QueryRow(`
+	row = db.QueryRow(`
 SELECT model_uuid
 FROM model_authorized_keys
 WHERE model_uuid = ?
@@ -799,7 +791,7 @@ func (m *stateSuite) TestDeleteModelNotFound(c *gc.C) {
 }
 
 // TestListModelIDs is testing that once we have created several models calling
-// list returns all of the models created.
+// list returns all the models created.
 func (m *stateSuite) TestListModelIDs(c *gc.C) {
 	uuid1 := modeltesting.GenModelUUID(c)
 	modelSt := NewState(m.TxnRunnerFactory())
@@ -869,9 +861,9 @@ func (m *stateSuite) TestRegisterModelNamespaceNotFound(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 
 	var namespace string
-	err := m.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := m.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		namespace, err = registerModelNamespace(ctx, tx, modelUUID)
+		namespace, err = registerModelNamespace(ctx, preparer{}, tx, modelUUID)
 		return err
 	})
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
@@ -972,6 +964,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 			Name:        "my-test-model",
 			UUID:        m.uuid,
 			Cloud:       "my-cloud",
+			CloudType:   "ec2",
 			CloudRegion: "my-region",
 			ModelType:   coremodel.IAAS,
 			Owner:       m.userUUID,
@@ -981,12 +974,14 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
-			Life: life.Alive,
+			Life:         life.Alive,
+			AgentVersion: version.Current,
 		},
 		{
 			Name:        "owned1",
 			UUID:        uuid1,
 			Cloud:       "my-cloud",
+			CloudType:   "ec2",
 			CloudRegion: "my-region",
 			ModelType:   coremodel.IAAS,
 			Owner:       m.userUUID,
@@ -996,12 +991,14 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
-			Life: life.Alive,
+			Life:         life.Alive,
+			AgentVersion: version.Current,
 		},
 		{
 			Name:        "owned2",
 			UUID:        uuid2,
 			Cloud:       "my-cloud",
+			CloudType:   "ec2",
 			CloudRegion: "my-region",
 			ModelType:   coremodel.IAAS,
 			Owner:       m.userUUID,
@@ -1011,7 +1008,8 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
-			Life: life.Alive,
+			Life:         life.Alive,
+			AgentVersion: version.Current,
 		},
 	})
 }
@@ -1037,6 +1035,7 @@ func (m *stateSuite) TestAllModels(c *gc.C) {
 			Name:        "my-test-model",
 			UUID:        m.uuid,
 			Cloud:       "my-cloud",
+			CloudType:   "ec2",
 			CloudRegion: "my-region",
 			ModelType:   coremodel.IAAS,
 			Owner:       m.userUUID,
@@ -1046,7 +1045,8 @@ func (m *stateSuite) TestAllModels(c *gc.C) {
 				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
-			Life: life.Alive,
+			Life:         life.Alive,
+			AgentVersion: version.Current,
 		},
 	})
 }
@@ -1107,6 +1107,7 @@ func (m *stateSuite) TestGetModelByName(c *gc.C) {
 		ModelType:    coremodel.IAAS,
 		AgentVersion: version.Current,
 		Cloud:        "my-cloud",
+		CloudType:    "ec2",
 		CloudRegion:  "my-region",
 		Credential: corecredential.Key{
 			Cloud: "my-cloud",

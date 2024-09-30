@@ -302,7 +302,7 @@ func (st *State) SpaceExists(ctx context.Context, spaceName string) (bool, error
 		if err := tx.Query(ctx, stmt, dbSpace{Space: spaceName}).Get(&dbSpace{}); errors.Is(err, sql.ErrNoRows) {
 			return nil
 		} else if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "checking space %q exists", spaceName)
 		}
 		exists = true
 		return nil

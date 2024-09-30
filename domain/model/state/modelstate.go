@@ -65,7 +65,7 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 
 	modelStmt, err := s.Prepare(`DELETE FROM model WHERE uuid = $dbUUID.uuid;`, mUUID)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "preparing delete model statement")
 	}
 
 	// Once we get to this point, the model is hosed. We don't expect the
@@ -78,9 +78,9 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, modelTriggerStmt).Run(); errors.Is(err, sql.ErrNoRows) {
+		if err := tx.Query(ctx, modelTriggerStmt).Run(); errors.Is(err, sqlair.ErrNoRows) {
 			return modelerrors.NotFound
-		} else if !internaldatabase.IsErrError(err) {
+		} else if err != nil && !internaldatabase.IsErrError(err) {
 			return fmt.Errorf("deleting model trigger %q: %w", uuid, err)
 		}
 
@@ -115,14 +115,13 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 	}
 
 	m := dbReadOnlyModel{}
-	stmt, err := s.Prepare(`SELECT (&dbReadOnlyModel.*) FROM model`, m)
+	stmt, err := s.Prepare(`SELECT &dbReadOnlyModel.* FROM model`, m)
 	if err != nil {
-		return coremodel.ReadOnlyModel{}, errors.Trace(err)
+		return coremodel.ReadOnlyModel{}, errors.Annotatef(err, "preparing select read only model statement")
 	}
 
-	var result dbReadOnlyModel
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt).Get(&result); errors.Is(err, sql.ErrNoRows) {
+		if err := tx.Query(ctx, stmt).Get(&m); errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("getting model read only information %w", modelerrors.NotFound)
 		} else if err != nil {
 			return fmt.Errorf("getting model read only information: %w", err)
@@ -134,16 +133,16 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 	}
 
 	model := coremodel.ReadOnlyModel{
-		UUID:           coremodel.UUID(result.UUID),
-		Name:           result.Name,
-		Type:           coremodel.ModelType(result.Type),
-		Cloud:          result.Cloud,
-		CloudType:      result.CloudType,
-		CloudRegion:    result.CloudRegion,
-		CredentialName: result.CredentialName,
+		UUID:           coremodel.UUID(m.UUID),
+		Name:           m.Name,
+		Type:           coremodel.ModelType(m.Type),
+		Cloud:          m.Cloud,
+		CloudType:      m.CloudType,
+		CloudRegion:    m.CloudRegion,
+		CredentialName: m.CredentialName,
 	}
 
-	if owner := result.CredentialOwner; owner != "" {
+	if owner := m.CredentialOwner; owner != "" {
 		model.CredentialOwner, err = user.NewName(owner)
 		if err != nil {
 			return coremodel.ReadOnlyModel{}, errors.Trace(err)
@@ -153,8 +152,8 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 	}
 
 	var agentVersion string
-	if result.TargetAgentVersion.Valid {
-		agentVersion = result.TargetAgentVersion.String
+	if m.TargetAgentVersion.Valid {
+		agentVersion = m.TargetAgentVersion.String
 	}
 
 	model.AgentVersion, err = version.Parse(agentVersion)
@@ -162,9 +161,9 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 		return coremodel.ReadOnlyModel{}, fmt.Errorf("parsing model agent version %q: %w", agentVersion, err)
 	}
 
-	model.ControllerUUID, err = uuid.UUIDFromString(result.ControllerUUID)
+	model.ControllerUUID, err = uuid.UUIDFromString(m.ControllerUUID)
 	if err != nil {
-		return coremodel.ReadOnlyModel{}, fmt.Errorf("parsing controller uuid %q: %w", result.ControllerUUID, err)
+		return coremodel.ReadOnlyModel{}, fmt.Errorf("parsing controller uuid %q: %w", m.ControllerUUID, err)
 	}
 	return model, nil
 }

@@ -2,7 +2,7 @@ CREATE TABLE model_agent (
     model_uuid TEXT NOT NULL PRIMARY KEY,
 
     -- previous_version describes the agent version that was in use before the
-    -- the current target_version.
+    -- current target_version.
     previous_version TEXT NOT NULL,
 
     -- target_version describes the desired agent version that should be

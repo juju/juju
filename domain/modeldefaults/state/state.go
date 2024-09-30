@@ -146,21 +146,20 @@ func (s *State) ModelMetadataDefaults(
 	}
 
 	mUUID := modelUUID{UUID: uuid.String()}
-
+	var result modelMetadata
 	stmt, err := s.Prepare(`
 SELECT (m.name, ct.type) AS (&modelMetadata.*)
 FROM model m
 JOIN cloud c ON m.cloud_uuid = c.uuid
 JOIN cloud_type ct ON c.cloud_type_id = ct.id
-WHERE m.uuid = modelUUID.uuid
-`, modelMetadata{}, mUUID)
+WHERE m.uuid = $modelUUID.uuid
+`, result, mUUID)
+	if err != nil {
+		return nil, errors.Annotatef(err, "preparing select model metadata statement")
+	}
 
-	var (
-		modelName string
-		cloudType string
-	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, mUUID).Get(&modelName, &cloudType); errors.Is(err, sql.ErrNoRows) {
+		if err := tx.Query(ctx, stmt, mUUID).Get(&result); errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
 		} else if err != nil {
 			return fmt.Errorf(
@@ -176,9 +175,9 @@ WHERE m.uuid = modelUUID.uuid
 	}
 
 	return map[string]string{
-		config.NameKey: modelName,
+		config.NameKey: result.Name,
 		config.UUIDKey: uuid.String(),
-		config.TypeKey: cloudType,
+		config.TypeKey: result.CloudType,
 	}, nil
 }
 
@@ -204,13 +203,13 @@ INNER JOIN cloud
 ON cloud.cloud_type_id = cloud_type.id
 INNER JOIN model m
 ON m.cloud_uuid = cloud.uuid
-WHERE m.uuid = modelUUID.uuid
+WHERE m.uuid = $modelUUID.uuid
 `, cloudType{}, mUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var cloudType string
+	var cloudType cloudType
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, cloudTypeStmt, mUUID).Get(&cloudType); errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
@@ -223,7 +222,7 @@ WHERE m.uuid = modelUUID.uuid
 		return nil, errors.Trace(err)
 	}
 
-	provider, err := environs.Provider(cloudType)
+	provider, err := environs.Provider(cloudType.Type)
 	if errors.Is(err, errors.NotFound) {
 		return nil, fmt.Errorf(
 			"model %q cloud type %q provider a schema source %w",
@@ -232,7 +231,7 @@ WHERE m.uuid = modelUUID.uuid
 			errors.NotFound,
 		)
 	} else if err != nil {
-		return nil, fmt.Errorf("getting provider for model %q cloud type %q: %w", uuid, cloudType, err)
+		return nil, fmt.Errorf("getting provider for model %q cloud type %q: %w", uuid, cloudType.Type, err)
 	}
 
 	if cs, implements := provider.(config.ConfigSchemaSource); implements {
@@ -241,7 +240,7 @@ WHERE m.uuid = modelUUID.uuid
 	return nil, fmt.Errorf(
 		"schema source for model %q with cloud type %q %w",
 		uuid,
-		cloudType,
+		cloudType.Type,
 		errors.NotFound,
 	)
 }

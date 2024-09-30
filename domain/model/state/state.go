@@ -25,6 +25,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	jujudb "github.com/juju/juju/internal/database"
+	internalerrors "github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
@@ -84,7 +85,7 @@ WHERE c.name = $dbName.name
 
 		var cloudType dbCloudType
 
-		if err := tx.Query(ctx, stmt, n).Get(&cloudType); errors.Is(err, sql.ErrNoRows) {
+		if err := tx.Query(ctx, stmt, n).Get(&cloudType); errors.Is(err, sqlair.ErrNoRows) {
 			return "", fmt.Errorf("%w for name %q", clouderrors.NotFound, name)
 		} else if err != nil {
 			return "", fmt.Errorf("determining type for cloud %q: %w", name, err)
@@ -217,36 +218,23 @@ func (s *State) GetModelByName(
 	}
 
 	dbNames := dbNames{
-		Name:      modelName,
+		ModelName: modelName,
 		OwnerName: username.Name(),
 	}
 
+	var model dbModel
 	stmt, err := s.Prepare(`
-SELECT (uuid,
-       name,
-       ma.target_version           AS agent_version,
-       cloud_name,
-       cloud_region_name,
-       model_type,
-       owner_uuid,
-	   owner_name,
-       cloud_credential_cloud_name,
-       cloud_credential_owner_name,
-       cloud_credential_name,
-       life) AS (&dbModel.*)
+SELECT &dbModel.*
 FROM v_model
-INNER JOIN model_agent ma ON v_model.uuid = ma.model_uuid
-WHERE name = &dbNames.name
-AND owner_name = &dbNames.owner_name
-`, dbModel{}, dbNames)
+WHERE name = $dbNames.name
+AND owner_name = $dbNames.owner_name
+`, model, dbNames)
 	if err != nil {
 		return coremodel.Model{}, errors.Annotate(err, "preparing select model statement")
 	}
 
-	var result dbModel
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt).Get(&result); errors.Is(err, sql.ErrNoRows) {
+		if err := tx.Query(ctx, stmt, dbNames).Get(&model); errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf(
 				"%w for user %q and name %q",
 				modelerrors.NotFound,
@@ -267,7 +255,7 @@ AND owner_name = &dbNames.owner_name
 		return coremodel.Model{}, errors.Trace(err)
 	}
 
-	return result.toCoreModel()
+	return model.toCoreModel()
 }
 
 // GetModelType returns the model type for the provided model uuid. If the model
@@ -349,7 +337,7 @@ WHERE uuid = $dbUUID.uuid
 	}
 
 	var modelType dbModelType
-	if err := tx.Query(ctx, stmt, mUUID).Get(&modelType); errors.Is(err, sql.ErrNoRows) {
+	if err := tx.Query(ctx, stmt, mUUID).Get(&modelType); errors.Is(err, sqlair.ErrNoRows) {
 		return "", fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
 	} else if err != nil {
 		return "", fmt.Errorf("getting model type for uuid %q: %w", uuid, err)
@@ -366,20 +354,8 @@ func GetModel(
 	uuid coremodel.UUID,
 ) (coremodel.Model, error) {
 	q := `
-SELECT (name,
-       ma.target_version,
-       cloud_name,
-       cloud_type,
-       cloud_region_name,
-       model_type,
-       owner_uuid,
-	   owner_name,
-       cloud_credential_cloud_name,
-       cloud_credential_owner_name,
-       cloud_credential_name,
-       life) AS (&dbModel.*)
+SELECT &dbModel.*
 FROM v_model
-INNER JOIN model_agent ma ON v_model.uuid = ma.model_uuid
 WHERE uuid = $dbModel.uuid
 `
 	model := dbModel{UUID: uuid.String()}
@@ -409,16 +385,25 @@ WHERE uuid = $dbModel.uuid
 // returned.
 func createModelAgent(
 	ctx context.Context,
-	tx *sql.Tx,
+	preparer domain.Preparer,
+	tx *sqlair.TX,
 	modelUUID coremodel.UUID,
 	agentVersion version.Number,
 ) error {
-	stmt := `
-INSERT INTO model_agent (model_uuid, previous_version, target_version)
-    VALUES (?, ?, ?)
-`
+	modelAgent := dbModelAgent{
+		UUID:            modelUUID.String(),
+		PreviousVersion: agentVersion.String(),
+		TargetVersion:   agentVersion.String(),
+	}
+	stmt, err := preparer.Prepare(`
+INSERT INTO model_agent (*) VALUES ($dbModelAgent.*)
+`, modelAgent)
+	if err != nil {
+		return errors.Annotatef(err, "preparing insert model agent statement")
+	}
 
-	res, err := tx.ExecContext(ctx, stmt, modelUUID, agentVersion.String(), agentVersion.String())
+	var outcome sqlair.Outcome
+	err = tx.Query(ctx, stmt, modelAgent).Get(&outcome)
 	if jujudb.IsErrConstraintPrimaryKey(err) {
 		return fmt.Errorf(
 			"%w for uuid %q while setting model agent version",
@@ -434,7 +419,7 @@ INSERT INTO model_agent (model_uuid, previous_version, target_version)
 		return fmt.Errorf("creating model %q agent information: %w", modelUUID, err)
 	}
 
-	if num, err := res.RowsAffected(); err != nil {
+	if num, err := outcome.Result().RowsAffected(); err != nil {
 		return errors.Trace(err)
 	} else if num != 1 {
 		return fmt.Errorf("creating model agent record, expected 1 row to be inserted got %d", num)
@@ -449,18 +434,23 @@ INSERT INTO model_agent (model_uuid, previous_version, target_version)
 // satisfying [modelerrors.SecretBackendAlreadySet].
 func setModelSecretBackend(
 	ctx context.Context,
-	tx *sql.Tx,
+	preparer domain.Preparer,
+	tx *sqlair.TX,
 	modelID coremodel.UUID,
 	backend string,
 ) error {
-	backendFindStmt := `
-SELECT uuid from secret_backend WHERE name = ?
-`
 
-	var backendUUID string
-	err := tx.QueryRowContext(ctx, backendFindStmt, backend).Scan(&backendUUID)
+	backendName := dbName{Name: backend}
+	var backendUUID dbUUID
+	backendFindStmt, err := preparer.Prepare(`
+SELECT &dbUUID.uuid from secret_backend WHERE name = $dbName.name
+`, backendName, backendUUID)
+	if err != nil {
+		return errors.Annotatef(err, "preparing select backend statement")
+	}
 
-	if errors.Is(err, sql.ErrNoRows) {
+	err = tx.Query(ctx, backendFindStmt, backendName).Get(&backendUUID)
+	if errors.Is(err, sqlair.ErrNoRows) {
 		return fmt.Errorf(
 			"setting model %q secret backend to %q: %w",
 			modelID, backend, secretbackenderrors.NotFound,
@@ -472,11 +462,20 @@ SELECT uuid from secret_backend WHERE name = ?
 		)
 	}
 
-	stmt := `
-INSERT INTO model_secret_backend (model_uuid, secret_backend_uuid) VALUES (?, ?)
-`
+	modelSecretBackend := dbModelSecretBackend{
+		ModelUUID:         modelID.String(),
+		SecretBackendUUID: backendUUID.UUID,
+	}
 
-	res, err := tx.ExecContext(ctx, stmt, modelID, backendUUID)
+	stmt, err := preparer.Prepare(`
+INSERT INTO model_secret_backend (*) VALUES ($dbModelSecretBackend.*) 
+`, modelSecretBackend)
+	if err != nil {
+		return errors.Annotatef(err, "preparing insert model secret backend statement")
+	}
+
+	var outcome sqlair.Outcome
+	err = tx.Query(ctx, stmt, modelSecretBackend).Get(&outcome)
 	if jujudb.IsErrConstraintPrimaryKey(err) {
 		return fmt.Errorf(
 			"model for id %q %w", modelID, modelerrors.SecretBackendAlreadySet,
@@ -495,7 +494,7 @@ INSERT INTO model_secret_backend (model_uuid, secret_backend_uuid) VALUES (?, ?)
 		)
 	}
 
-	if num, err := res.RowsAffected(); err != nil {
+	if num, err := outcome.Result().RowsAffected(); err != nil {
 		return errors.Trace(err)
 	} else if num != 1 {
 		return fmt.Errorf("creating model secret backend record, expected 1 row to be inserted got %d", num)
@@ -523,7 +522,7 @@ func createModel(
 	ctx context.Context,
 	preparer domain.Preparer,
 	tx *sqlair.TX,
-	modelID coremodel.UUID,
+	modelUUID coremodel.UUID,
 	modelType coremodel.ModelType,
 	input model.ModelCreationArgs,
 ) error {
@@ -535,21 +534,24 @@ func createModel(
 	}
 
 	var cloudUUID dbUUID
-	if err := tx.Query(ctx, cloudStmt, cloudName).Get(&cloudUUID); errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("%w cloud %q", clouderrors.NotFound, input.Cloud)
+	if err := tx.Query(ctx, cloudStmt, cloudName).Get(&cloudUUID); errors.Is(err, sqlair.ErrNoRows) {
+		return fmt.Errorf("%w: %q", clouderrors.NotFound, input.Cloud)
 	} else if err != nil {
 		return fmt.Errorf("getting cloud %q uuid: %w", input.Cloud, err)
 	}
 
-	userStmt := `
-		SELECT uuid
+	ownerUUID := dbUserUUID{UUID: input.Owner.String()}
+	userStmt, err := preparer.Prepare(`
+		SELECT &dbUserUUID.uuid
 		FROM user
-		WHERE uuid = ?
+		WHERE uuid = $dbUserUUID.uuid
 		AND removed = false
-		`
-	var userUUID string
-	err = tx.QueryRowContext(ctx, userStmt, input.Owner).Scan(&userUUID)
-	if errors.Is(err, sql.ErrNoRows) {
+	`, ownerUUID)
+	if err != nil {
+		return errors.Annotatef(err, "preparing check user exists statement")
+	}
+	err = tx.Query(ctx, userStmt, ownerUUID).Get(&ownerUUID)
+	if errors.Is(err, sqlair.ErrNoRows) {
 		return fmt.Errorf("%w for model owner %q", accesserrors.UserNotFound, input.Owner)
 	} else if err != nil {
 		return fmt.Errorf("getting user uuid for setting model %q owner: %w", input.Name, err)
@@ -557,47 +559,63 @@ func createModel(
 
 	// If a model with this name/owner was previously created, clean it up
 	// before creating the new model.
-	if err := cleanupBrokenModel(ctx, tx, input.Name, input.Owner); err != nil {
+	if err := cleanupBrokenModel(ctx, preparer, tx, input.Name, input.Owner); err != nil {
 		return fmt.Errorf("deleting broken model with name %q and owner %q: %w", input.Name, input.Owner, err)
 	}
 
-	stmt := `
+	model := dbInitialModel{
+		UUID:      modelUUID.String(),
+		CloudUUID: cloudUUID.UUID,
+		ModelType: modelType.String(),
+		LifeID:    int(life.Alive),
+		Name:      input.Name,
+		OwnerUUID: input.Owner.String(),
+	}
+
+	stmt, err := preparer.Prepare(`
 		INSERT INTO model (uuid,
 		            cloud_uuid,
 		            model_type_id,
-					life_id,
+		            life_id,
 		            name,
 		            owner_uuid)
-		SELECT ?, ?, model_type.id, ?, ?, ?
+		SELECT  $dbInitialModel.uuid, 
+				$dbInitialModel.cloud_uuid, 
+				model_type.id, 
+				$dbInitialModel.life_id, 
+				$dbInitialModel.name,
+				$dbInitialModel.owner_uuid
 		FROM model_type
-		WHERE model_type.type = ?
-		`
+		WHERE model_type.type = $dbInitialModel.model_type
+		`, model)
+	if err != nil {
+		return errors.Annotatef(err, "preparing insert initial model statement")
+	}
 
-	res, err := tx.ExecContext(ctx, stmt,
-		modelID, cloudUUID, life.Alive, input.Name, input.Owner, modelType,
-	)
+	var outcome sqlair.Outcome
+	err = tx.Query(ctx, stmt, model).Get(&outcome)
 	if jujudb.IsErrConstraintPrimaryKey(err) {
-		return fmt.Errorf("%w for id %q", modelerrors.AlreadyExists, modelID)
+		return fmt.Errorf("%w for id %q", modelerrors.AlreadyExists, modelUUID)
 	} else if jujudb.IsErrConstraintUnique(err) {
 		return fmt.Errorf("%w for name %q and owner %q", modelerrors.AlreadyExists, input.Name, input.Owner)
 	} else if err != nil {
-		return fmt.Errorf("setting model %q information: %w", modelID, err)
+		return fmt.Errorf("setting model %q information: %w", modelUUID, err)
 	}
 
-	if num, err := res.RowsAffected(); err != nil {
+	if num, err := outcome.Result().RowsAffected(); err != nil {
 		return errors.Trace(err)
 	} else if num != 1 {
 		return fmt.Errorf("creating model metadata, expected 1 row to be inserted, got %d", num)
 	}
 
-	if err := setCloudRegion(ctx, modelID, input.Cloud, input.CloudRegion, tx); err != nil {
-		return fmt.Errorf("setting cloud region for model %q: %w", modelID, err)
+	if err := setCloudRegion(ctx, preparer, tx, modelUUID, input.Cloud, input.CloudRegion); err != nil {
+		return fmt.Errorf("setting cloud region for model %q: %w", modelUUID, err)
 	}
 
 	if !input.Credential.IsZero() {
-		err := updateCredential(ctx, preparer, tx, modelID, input.Credential)
+		err := updateCredential(ctx, preparer, tx, modelUUID, input.Credential)
 		if err != nil {
-			return fmt.Errorf("setting cloud credential for model %q: %w", modelID, err)
+			return fmt.Errorf("setting cloud credential for model %q: %w", modelUUID, err)
 		}
 	}
 
@@ -655,7 +673,7 @@ func (s *State) Delete(
 		}
 
 		for _, stmt := range stmts {
-			if err := tx.Query(ctx, stmt, mUUID).Run(); errors.Is(err, sql.ErrNoRows) {
+			if err := tx.Query(ctx, stmt, mUUID).Run(); errors.Is(err, sqlair.ErrNoRows) {
 				continue
 			} else if err != nil {
 				return errors.Trace(err)
@@ -663,7 +681,7 @@ func (s *State) Delete(
 		}
 
 		var outcome sqlair.Outcome
-		if err := tx.Query(ctx, mStmt).Get(&outcome); errors.Is(err, sql.ErrNoRows) {
+		if err := tx.Query(ctx, mStmt, mUUID).Get(&outcome); errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
 		} else if err != nil {
 			return fmt.Errorf("deleting model %q: %w", uuid, err)
@@ -735,7 +753,7 @@ WHERE uuid = $dbUUID.uuid
 		}
 
 		var activated dbModelActivated
-		if err := tx.Query(ctx, existsStmt, mUUID).Get(&activated); errors.Is(err, sql.ErrNoRows) {
+		if err := tx.Query(ctx, existsStmt, mUUID).Get(&activated); errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("%w for id %q", modelerrors.NotFound, uuid)
 		} else if err != nil {
 			return fmt.Errorf("determining activated status for model with id %q: %w", uuid, err)
@@ -775,7 +793,7 @@ func (s *State) GetModelTypes(ctx context.Context) ([]coremodel.ModelType, error
 
 	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var result []dbModelType
-		if err := tx.Query(ctx, stmt).GetAll(&result); errors.Is(err, sql.ErrNoRows) {
+		if err := tx.Query(ctx, stmt).GetAll(&result); errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
 			return errors.Trace(err)
@@ -808,7 +826,7 @@ func (s *State) ListAllModels(ctx context.Context) ([]coremodel.Model, error) {
 	rval := []coremodel.Model{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var result []dbModel
-		if err := tx.Query(ctx, modelStmt).GetAll(&result); errors.Is(err, sql.ErrNoRows) {
+		if err := tx.Query(ctx, modelStmt).GetAll(&result); errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
 			return errors.Trace(err)
@@ -841,7 +859,7 @@ func (s *State) ListModelIDs(ctx context.Context) ([]coremodel.UUID, error) {
 		return nil, errors.Trace(err)
 	}
 
-	stmt, err := s.Prepare(`SELECT &dbUUID.* FROM v_model;`, dbUUID{})
+	stmt, err := s.Prepare(`SELECT &dbUUID.uuid FROM v_model;`, dbUUID{})
 	if err != nil {
 		return nil, errors.Annotate(err, "preparing select model UUID statement")
 	}
@@ -849,7 +867,7 @@ func (s *State) ListModelIDs(ctx context.Context) ([]coremodel.UUID, error) {
 	var models []coremodel.UUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var result []dbUUID
-		if err := tx.Query(ctx, stmt).GetAll(&models); errors.Is(err, sql.ErrNoRows) {
+		if err := tx.Query(ctx, stmt).GetAll(&result); errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
 			return fmt.Errorf("getting all model UUIDs: %w", err)
@@ -886,11 +904,14 @@ OR uuid IN (SELECT grant_on
             WHERE grant_to = $dbUUID.uuid
             AND access_type_id IN (0, 1, 3))
 `, dbModel{}, uUUID)
+	if err != nil {
+		return nil, errors.Annotatef(err, "preparing select model statement")
+	}
 
 	rval := []coremodel.Model{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var result []dbModel
-		if err := tx.Query(ctx, modelStmt, uUUID).GetAll(&result); errors.Is(err, sql.ErrNoRows) {
+		if err := tx.Query(ctx, modelStmt, uUUID).GetAll(&result); errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
 			return errors.Trace(err)
@@ -1124,7 +1145,7 @@ func (s *State) ModelCloudNameAndCredential(
 	}
 
 	stmt, err := s.Prepare(`
-SELECT *dbCloudCredential.*
+SELECT &dbCloudCredential.*
 FROM v_model
 WHERE name = $dbCloudOwner.name
 AND owner_name = $dbCloudOwner.owner_name
@@ -1140,7 +1161,7 @@ AND owner_name = $dbCloudOwner.owner_name
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var result dbCloudCredential
-		if err := tx.Query(ctx, stmt, args).Get(&result); errors.Is(err, sql.ErrNoRows) {
+		if err := tx.Query(ctx, stmt, args).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("%w for name %q and owner %q", modelerrors.NotFound, modelName, modelOwnerName)
 		} else if err != nil {
 			return fmt.Errorf("getting cloud name and credential for model %q with owner %q: %w", modelName, modelOwnerName, err)
@@ -1183,27 +1204,28 @@ func (s *State) NamespaceForModel(ctx context.Context, id coremodel.UUID) (strin
 	mUUID := dbUUID{UUID: id.String()}
 
 	stmt, err := s.Prepare(`
-SELECT (m.uuid, mn.namespace) AS (&dbModelNamespace.*)
+SELECT m.uuid AS &dbModelNamespace.model_uuid,
+       mn.namespace AS &dbModelNamespace.namespace
 FROM model m
 LEFT JOIN model_namespace mn ON m.uuid = mn.model_uuid
-WHERE m.uuid = &dbUUID.uuid
+WHERE m.uuid = $dbUUID.uuid
 `, dbModelNamespace{}, mUUID)
 	if err != nil {
 		return "", errors.Annotate(err, "preparing select model namespace statement")
 	}
 
 	var namespace sql.NullString
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var result dbModelNamespace
-		if err := tx.Query(ctx, stmt, mUUID).Get(&result); errors.Is(err, sql.ErrNoRows) {
+		if err := tx.Query(ctx, stmt, mUUID).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("%w for id %q", modelerrors.NotFound, id)
 		} else if err != nil {
 			return fmt.Errorf("getting database namespace for model %q: %w", id, err)
 		}
-
 		namespace = result.Namespace
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		return "", errors.Trace(err)
 	}
 
@@ -1223,20 +1245,39 @@ WHERE m.uuid = &dbUUID.uuid
 // provided uuid an error satisfying [modelerrors.NotFound] is returned.
 func registerModelNamespace(
 	ctx context.Context,
-	tx *sql.Tx,
+	preparer domain.Preparer,
+	tx *sqlair.TX,
 	uuid coremodel.UUID,
 ) (string, error) {
-	q := "INSERT INTO namespace_list (namespace) VALUES (?)"
+	modelNamespace := dbModelNamespace{
+		UUID: uuid.String(),
+		Namespace: sql.NullString{
+			String: uuid.String(),
+			Valid:  true,
+		},
+	}
+	insertNamespaceStmt, err := preparer.Prepare(`
+INSERT INTO namespace_list (namespace) VALUES ($dbModelNamespace.namespace)
+	`, modelNamespace)
+	if err != nil {
+		return "", errors.Annotatef(err, "preparing insert namespace statement")
+	}
 
-	_, err := tx.ExecContext(ctx, q, uuid.String())
+	err = tx.Query(ctx, insertNamespaceStmt, modelNamespace).Run()
 	if jujudb.IsErrConstraintPrimaryKey(err) {
 		return "", fmt.Errorf("database namespace already registered for model %q", uuid)
 	} else if err != nil {
 		return "", fmt.Errorf("registering database namespace for model %q: %w", uuid, err)
 	}
 
-	q = "INSERT INTO model_namespace (namespace, model_uuid) VALUES (?, ?)"
-	_, err = tx.ExecContext(ctx, q, uuid.String(), uuid.String())
+	insertModelNamespaceStmt, err := preparer.Prepare(`
+INSERT INTO model_namespace (*) VALUES ($dbModelNamespace.*)
+	`, modelNamespace)
+	if err != nil {
+		return "", errors.Annotatef(err, "preparing insert model namespace statement")
+	}
+
+	err = tx.Query(ctx, insertModelNamespaceStmt, modelNamespace).Run()
 	if jujudb.IsErrConstraintUnique(err) {
 		return "", fmt.Errorf("model %q already has a database namespace registered", uuid)
 	} else if jujudb.IsErrConstraintForeignKey(err) {
@@ -1254,20 +1295,29 @@ func registerModelNamespace(
 // if the model is not activated.
 func cleanupBrokenModel(
 	ctx context.Context,
-	tx *sql.Tx,
+	preparer domain.Preparer,
+	tx *sqlair.TX,
 	modelName string, modelOwner user.UUID,
 ) error {
+	var uuid = dbUUID{}
+	nameAndOwner := dbModelNameAndOwner{
+		Name:      modelName,
+		OwnerUUID: modelOwner.String(),
+	}
 	// Find the UUID for the broken model
-	findBrokenModelStmt := `
-SELECT uuid FROM model
-WHERE name = ?
-AND owner_uuid = ?
+	findBrokenModelStmt, err := preparer.Prepare(`
+SELECT &dbUUID.uuid FROM model
+WHERE name = $dbModelNameAndOwner.name
+AND owner_uuid = $dbModelNameAndOwner.owner_uuid
 AND activated = false
-`
-	var modelID string
-	err := tx.QueryRowContext(ctx, findBrokenModelStmt, modelName, modelOwner).Scan(&modelID)
-	if errors.Is(err, sql.ErrNoRows) {
-		// Model doesn't exist so nothing to cleanup
+`, uuid, nameAndOwner)
+	if err != nil {
+		return errors.Annotatef(err, "preparing select model uuid statement")
+	}
+
+	err = tx.Query(ctx, findBrokenModelStmt, nameAndOwner).Get(&uuid)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		// Model doesn't exist so nothing to cleanup.
 		return nil
 	}
 	if err != nil {
@@ -1277,62 +1327,77 @@ AND activated = false
 	}
 
 	// Delete model namespace
-	deleteBadStateModelNamespace := `
+	deleteBadStateModelNamespace, err := preparer.Prepare(`
 DELETE FROM model_namespace
-WHERE model_uuid = ?
-`
-	_, err = tx.ExecContext(ctx, deleteBadStateModelNamespace, modelID)
+WHERE model_uuid = $dbUUID.uuid
+`, uuid)
+	if err != nil {
+		return errors.Annotatef(err, "preparing delete model namespace statement")
+	}
+	err = tx.Query(ctx, deleteBadStateModelNamespace, uuid).Run()
 	if err != nil {
 		return fmt.Errorf("cleaning up bad model namespace for model with UUID %q: %w",
-			modelID, err,
+			uuid.UUID, err,
 		)
 	}
 
 	// Delete model agent entry
-	deleteBrokenModelAgent := `
+	deleteBrokenModelAgent, err := preparer.Prepare(`
 DELETE FROM model_agent
-WHERE model_uuid = ?
-`
-	_, err = tx.ExecContext(ctx, deleteBrokenModelAgent, modelID)
+WHERE model_uuid = $dbUUID.uuid
+`, uuid)
+	if err != nil {
+		return errors.Annotatef(err, "preparing delete model agent statement")
+	}
+	err = tx.Query(ctx, deleteBrokenModelAgent, uuid).Run()
 	if err != nil {
 		return fmt.Errorf("cleaning up model agent entry for model with UUID %q: %w",
-			modelID, err,
+			uuid.UUID, err,
 		)
 	}
 
 	// Delete model secret backend
-	deleteBrokenModelSecretBackend := `
+	deleteBrokenModelSecretBackend, err := preparer.Prepare(`
 DELETE FROM model_secret_backend
-WHERE model_uuid = ?
-`
-	_, err = tx.ExecContext(ctx, deleteBrokenModelSecretBackend, modelID)
+WHERE model_uuid = $dbUUID.uuid
+`, uuid)
+	if err != nil {
+		return errors.Annotatef(err, "preparing delete secret backend statement")
+	}
+	err = tx.Query(ctx, deleteBrokenModelSecretBackend, uuid).Run()
 	if err != nil {
 		return fmt.Errorf("cleaning up model secret backend for model with UUID %q: %w",
-			modelID, err,
+			uuid.UUID, err,
 		)
 	}
 
 	// Delete model last login
-	deleteBrokenModelLastLogin := `
+	deleteBrokenModelLastLogin, err := sqlair.Prepare(`
 DELETE FROM model_last_login
-WHERE model_uuid = ?
-`
-	_, err = tx.ExecContext(ctx, deleteBrokenModelLastLogin, modelID)
+WHERE model_uuid = $dbUUID.uuid
+`, uuid)
+	if err != nil {
+		return errors.Annotatef(err, "preparing delete model last login statement")
+	}
+	err = tx.Query(ctx, deleteBrokenModelLastLogin, uuid).Run()
 	if err != nil {
 		return fmt.Errorf("cleaning up model last login for model with UUID %q: %w",
-			modelID, err,
+			uuid.UUID, err,
 		)
 	}
 
 	// Finally, delete the model from the model table.
-	deleteBadStateModel := `
+	deleteBadStateModel, err := preparer.Prepare(`
 DELETE FROM model
-WHERE uuid = ?
-`
-	_, err = tx.ExecContext(ctx, deleteBadStateModel, modelID)
+WHERE uuid = $dbUUID.uuid
+`, uuid)
+	if err != nil {
+		return errors.Annotatef(err, "preparing model statement")
+	}
+	err = tx.Query(ctx, deleteBadStateModel, uuid).Run()
 	if err != nil {
 		return fmt.Errorf("cleaning up bad model state for model with UUID %q: %w",
-			modelID, err,
+			uuid.UUID, err,
 		)
 	}
 
@@ -1346,28 +1411,34 @@ WHERE uuid = ?
 // errors.NotFound will be returned.
 func setCloudRegion(
 	ctx context.Context,
+	preparer domain.Preparer,
+	tx *sqlair.TX,
 	uuid coremodel.UUID,
 	name, region string,
-	tx *sql.Tx,
 ) error {
+	modelUUID := dbUUID{UUID: uuid.String()}
 	// If the cloud region is not provided we will attempt to set the default
 	// cloud region for the model from the controller model.
-	var cloudRegionUUID string
+	var cloudRegionUUID dbCloudRegionUUID
 	if region == "" {
 		// Ensure that the controller cloud name is the same as the model cloud
 		// name.
-		stmt := `
-SELECT m.cloud_region_uuid, c.name
-FROM
-model m
-JOIN cloud c
-ON m.cloud_uuid = c.uuid
-WHERE m.name = 'controller'
-AND c.name = ?`
+		cloudName := dbName{
+			Name: name,
+		}
 
-		var controllerRegionUUID *string
-		var n string
-		if err := tx.QueryRowContext(ctx, stmt, name).Scan(&controllerRegionUUID, &n); errors.Is(err, sql.ErrNoRows) {
+		stmt, err := preparer.Prepare(`
+SELECT m.cloud_region_uuid AS &dbCloudRegionUUID.uuid
+FROM   model m
+JOIN   cloud c ON m.cloud_uuid = c.uuid
+WHERE  m.name = 'controller'
+AND    c.name = $dbName.name
+`, cloudName, cloudRegionUUID)
+		if err != nil {
+			return errors.Annotatef(err, "preparing select controller cloud region statement")
+		}
+
+		if err := tx.Query(ctx, stmt, cloudName).Get(&cloudRegionUUID); errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
 			return fmt.Errorf("getting controller cloud region uuid: %w", err)
@@ -1375,47 +1446,55 @@ AND c.name = ?`
 
 		// If the region is empty, we will not set a cloud region for the model
 		// and will skip it.
-		if controllerRegionUUID == nil || *controllerRegionUUID == "" {
+		if cloudRegionUUID.CloudRegionUUID == "" {
 			return nil
 		}
-		cloudRegionUUID = *controllerRegionUUID
-
 	} else {
-		stmt := `
-SELECT cr.uuid
+		cloudRegionName := dbName{
+			Name: region,
+		}
+		stmt, err := preparer.Prepare(`
+SELECT cr.uuid AS &dbCloudRegionUUID.uuid
 FROM cloud_region cr
 INNER JOIN cloud c
 ON c.uuid = cr.cloud_uuid
 INNER JOIN model m
 ON m.cloud_uuid = c.uuid
-WHERE m.uuid = ?
-AND cr.name = ?
-`
+WHERE m.uuid = $dbUUID.uuid
+AND cr.name = $dbName.name
+`, cloudRegionName, modelUUID, cloudRegionUUID)
+		if err != nil {
+			return errors.Annotatef(err, "preparing select cloud region statement")
+		}
 
-		if err := tx.QueryRowContext(ctx, stmt, uuid, region).Scan(&cloudRegionUUID); errors.Is(err, sql.ErrNoRows) {
+		if err := tx.Query(ctx, stmt, modelUUID, cloudRegionName).Get(&cloudRegionUUID); errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("%w cloud region %q for model uuid %q", errors.NotFound, region, uuid)
 		} else if err != nil {
 			return fmt.Errorf("getting cloud region %q uuid for model %q: %w", region, uuid, err)
 		}
 	}
 
-	modelMetadataStmt := `
+	modelMetadataStmt, err := preparer.Prepare(`
 UPDATE model
-SET cloud_region_uuid = ?
-WHERE uuid = ?
+SET cloud_region_uuid = $dbCloudRegionUUID.uuid
+WHERE uuid = $dbUUID.uuid
 AND cloud_region_uuid IS NULL
-`
+`, modelUUID, cloudRegionUUID)
+	if err != nil {
+		return errors.Annotatef(err, "preparing update cloud region statement")
+	}
 
-	res, err := tx.ExecContext(ctx, modelMetadataStmt, cloudRegionUUID, uuid)
+	var outcome sqlair.Outcome
+	err = tx.Query(ctx, modelMetadataStmt, cloudRegionUUID, modelUUID).Get(&outcome)
 	if err != nil {
 		return fmt.Errorf(
 			"setting cloud region uuid %q for model uuid %q: %w",
-			cloudRegionUUID,
+			cloudRegionUUID.CloudRegionUUID,
 			uuid,
 			err,
 		)
 	}
-	if num, err := res.RowsAffected(); err != nil {
+	if num, err := outcome.Result().RowsAffected(); err != nil {
 		return errors.Trace(err)
 	} else if num != 1 {
 		return fmt.Errorf(
@@ -1436,24 +1515,15 @@ func unregisterModelNamespace(
 	tx *sqlair.TX,
 	uuid coremodel.UUID,
 ) error {
-	mUUID := dbModelUUID{ModelUUID: uuid.String()}
+	mUUID := dbUUID{UUID: uuid.String()}
 
-	stmt, err := preparer.Prepare("DELETE from model_namespace WHERE model_uuid = $dbModelUUID.model_uuid", mUUID)
+	stmt, err := preparer.Prepare("DELETE from model_namespace WHERE model_uuid = $dbUUID.uuid", mUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	var outcome sqlair.Outcome
-	if err := tx.Query(ctx, stmt, mUUID).Get(&outcome); errors.Is(err, sql.ErrNoRows) {
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("un-registering model %q database namespace: %w", uuid, err)
-	}
-
-	if affected, err := outcome.Result().RowsAffected(); err != nil {
+	if err := tx.Query(ctx, stmt, mUUID).Run(); err != nil {
 		return errors.Trace(err)
-	} else if affected != 1 {
-		return fmt.Errorf("expected 1 row to be deleted, got %d", affected)
 	}
 
 	return nil
@@ -1491,40 +1561,32 @@ func updateCredential(
 	uuid coremodel.UUID,
 	key credential.Key,
 ) error {
-	selectArgs := dbUpdateCredentialSelect{
+	selectArgs := dbCredKey{
 		CloudName:           key.Cloud,
 		OwnerName:           key.Owner.Name(),
 		CloudCredentialName: key.Name,
 	}
 
 	cloudCredUUIDStmt, err := preparer.Prepare(`
-SELECT (cc.uuid AS cloud_credential_uuid, c.uuid AS cloud_uuid) AS (&dbUpdateCredentialResult.*)
+SELECT cc.uuid AS &dbUpdateCredentialResult.cloud_credential_uuid,
+       c.uuid AS &dbUpdateCredentialResult.cloud_uuid
 FROM cloud_credential cc
 INNER JOIN cloud c
 ON c.uuid = cc.cloud_uuid
 INNER JOIN user u
 ON cc.owner_uuid = u.uuid
-WHERE c.name = $dbUpdateCredentialSelect.cloud_name
-AND u.name = $dbUpdateCredentialSelect.owner_name
+WHERE c.name = $dbCredKey.cloud_name
+AND u.name = $dbCredKey.owner_name
 AND u.removed = false
-AND cc.name = $dbUpdateCredentialSelect.cloud_credential_name
+AND cc.name = $dbCredKey.cloud_credential_name
 `, selectArgs, dbUpdateCredentialResult{})
 	if err != nil {
-		return errors.Errorf("preparing select cloud credential statement: %w", err)
-	}
-
-	stmt, err := preparer.Prepare(`
-UPDATE model
-SET cloud_credential_uuid = $dbUpdateCredential.cloud_credential_uuid
-WHERE uuid= $dbUpdateCredential.uuid
-AND cloud_uuid = $dbUpdateCredential.cloud_uuid
-`, dbUpdateCredential{})
-	if err != nil {
-		return errors.Errorf("preparing update model cloud credential statement: %w", err)
+		return internalerrors.Errorf("preparing select cloud credential statement: %w", err)
 	}
 
 	var result dbUpdateCredentialResult
-	if err := tx.Query(ctx, cloudCredUUIDStmt, selectArgs).Get(&result); errors.Is(err, sql.ErrNoRows) {
+	err = tx.Query(ctx, cloudCredUUIDStmt, selectArgs).Get(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
 		return fmt.Errorf(
 			"%w cloud credential %q%w",
 			errors.NotFound, key, errors.Hide(err),
@@ -1542,8 +1604,18 @@ AND cloud_uuid = $dbUpdateCredential.cloud_uuid
 		CloudUUID:           result.CloudUUID,
 	}
 
+	updateCloudCredStmt, err := preparer.Prepare(`
+UPDATE model
+SET cloud_credential_uuid = $dbUpdateCredential.cloud_credential_uuid
+WHERE uuid= $dbUpdateCredential.uuid
+AND cloud_uuid = $dbUpdateCredential.cloud_uuid
+`, updateArgs)
+	if err != nil {
+		return internalerrors.Errorf("preparing update model cloud credential statement: %w", err)
+	}
+
 	var outcome sqlair.Outcome
-	if err := tx.Query(ctx, stmt, updateArgs).Get(&outcome); err != nil {
+	if err := tx.Query(ctx, updateCloudCredStmt, updateArgs).Get(&outcome); err != nil {
 		return fmt.Errorf(
 			"setting cloud credential %q for model %q: %w",
 			key, uuid, err)
@@ -1563,7 +1635,8 @@ AND cloud_uuid = $dbUpdateCredential.cloud_uuid
 // [usererrors.PermissionAlreadyExists] error is returned.
 func addAdminPermissions(
 	ctx context.Context,
-	tx *sql.Tx,
+	preparer domain.Preparer,
+	tx *sqlair.TX,
 	modelUUID coremodel.UUID,
 	ownerUUID user.UUID,
 ) error {
@@ -1572,25 +1645,35 @@ func addAdminPermissions(
 		return err
 	}
 
-	permStmt := `
+	adminPermission := dbPermission{
+		UUID:       permUUID.String(),
+		GrantOn:    modelUUID.String(),
+		GrantTo:    ownerUUID.String(),
+		AccessType: permission.AdminAccess.String(),
+		ObjectType: permission.Model.String(),
+	}
+
+	permStmt, err := preparer.Prepare(`
 INSERT INTO permission (uuid, access_type_id, object_type_id, grant_to, grant_on)
-SELECT ?, at.id, ot.id, ?, ?
+SELECT $dbPermission.uuid, at.id, ot.id, $dbPermission.grant_to, $dbPermission.grant_on
 FROM   permission_access_type at,
        permission_object_type ot
-WHERE  at.type = ?
-AND    ot.type = ?
-`
-	res, err := tx.ExecContext(ctx, permStmt,
-		permUUID.String(), ownerUUID, modelUUID, permission.AdminAccess, permission.Model,
-	)
+WHERE  at.type = $dbPermission.access_type
+AND    ot.type = $dbPermission.object_type
+`, adminPermission)
+	if err != nil {
+		return errors.Annotatef(err, "preparing add admin permission statement")
+	}
 
+	var outcome sqlair.Outcome
+	err = tx.Query(ctx, permStmt, adminPermission).Get(&outcome)
 	if jujudb.IsErrConstraintUnique(err) {
 		return fmt.Errorf("%w for model %q and owner %q", accesserrors.PermissionAlreadyExists, modelUUID, ownerUUID)
 	} else if err != nil {
 		return fmt.Errorf("setting permission for model %q: %w", modelUUID, err)
 	}
 
-	if num, err := res.RowsAffected(); err != nil {
+	if num, err := outcome.Result().RowsAffected(); err != nil {
 		return errors.Trace(err)
 	} else if num != 1 {
 		return fmt.Errorf("creating model permission metadata, expected 1 row to be inserted, got %d", num)
