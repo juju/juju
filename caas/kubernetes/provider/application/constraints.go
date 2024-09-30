@@ -6,6 +6,7 @@ package application
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -84,6 +85,10 @@ func ApplyConstraints(pod *core.PodSpec, appName string, cons constraints.Value,
 		if err := processPodAffinity(pod, affinityLabels); err != nil {
 			return errors.Annotatef(err, "configuring pod affinity for %s", appName)
 		}
+		if err := processTopologySpreadConstraints(pod, affinityLabels, appName); err != nil {
+			return errors.Annotatef(err, "configuring topology spread constraints for %s", appName)
+		}
+
 	}
 	if cons.Zones != nil {
 		zones := *cons.Zones
@@ -110,10 +115,11 @@ func ApplyConstraints(pod *core.PodSpec, appName string, cons constraints.Value,
 }
 
 const (
-	podPrefix      = "pod."
-	antiPodPrefix  = "anti-pod."
-	topologyKeyTag = "topology-key"
-	nodePrefix     = "node."
+	podPrefix         = "pod."
+	antiPodPrefix     = "anti-pod."
+	topologyKeyTag    = "topology-key"
+	nodePrefix        = "node."
+	topologySpreadKey = "topology-spread."
 )
 
 func processNodeAffinity(pod *core.PodSpec, affinityLabels map[string]string) error {
@@ -126,7 +132,7 @@ func processNodeAffinity(pod *core.PodSpec, affinityLabels map[string]string) er
 			}
 			key = key[1:]
 		}
-		if strings.HasPrefix(key, podPrefix) || strings.HasPrefix(key, antiPodPrefix) {
+		if strings.HasPrefix(key, podPrefix) || strings.HasPrefix(key, antiPodPrefix) || strings.HasPrefix(key, topologySpreadKey) {
 			continue
 		}
 		key = strings.TrimPrefix(keyVal, nodePrefix)
@@ -263,6 +269,147 @@ func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) err
 			RequiredDuringSchedulingIgnoredDuringExecution: []core.PodAffinityTerm{antiAffinityTerm},
 		}
 	}
+	return nil
+}
+
+const (
+	topologySpreadMaxSkew         = "maxSkew"
+	topologySpreadMinDomains      = "minDomains"
+	topologySpreadNodeTaintPolicy = "nodeTaintsPolicy"
+	topologySpreadMatchLabels     = "matchLabelKeys"
+)
+
+func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[string]string, appName string) error {
+	topologySpreadTags := make(map[string]string)
+
+	for key, value := range affinityLabels {
+		if !strings.HasPrefix(key, topologySpreadKey) {
+			continue
+		}
+		val, present := affinityLabels[topologySpreadKey+topologyKeyTag]
+		if !present {
+			return errors.Errorf("topology-key not set for topology spread constraints: %v", affinityLabels)
+		}
+		topologySpreadTags[topologyKeyTag] = val
+
+		key = strings.TrimPrefix(key, topologySpreadKey)
+		if key != topologyKeyTag && key != topologySpreadMaxSkew && key != topologySpreadNodeTaintPolicy && key != topologySpreadMatchLabels && key != topologySpreadMinDomains {
+			return errors.Errorf("invalid topology spread constraint key %q", key)
+		}
+		if key == topologySpreadMaxSkew {
+			val, err := strconv.Atoi(value)
+			if err != nil {
+				return errors.Errorf("invalid value %q for topology spread max skew", value)
+			}
+			if val < 1 {
+				return errors.Errorf("invalid value, maxSkew must be greater or equal to 1")
+			}
+		}
+		topologySpreadTags[key] = value
+	}
+	if len(topologySpreadTags) == 0 {
+		return nil
+	}
+
+	var appNameLabel string = "app.kubernetes.io/name"
+
+	updateTopologyTerm := func(topologyTerms *core.TopologySpreadConstraint, tags map[string]string) {
+		// Sort for stable ordering.
+		var keys []string
+		for k := range tags {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		var (
+			labelSelector    v1.LabelSelector
+			topologyKey      string = "kubernetes.io/zone"
+			maxSkew          int    = 1
+			minDomains       int    = 3
+			nodeTaintsPolicy *core.NodeInclusionPolicy
+		)
+		for _, tag := range keys {
+			if tag == topologyKeyTag {
+				topologyKey = tags[tag]
+				continue
+			}
+			if tag == topologySpreadMaxSkew || tag == topologySpreadMinDomains {
+				val, err := strconv.Atoi(tags[tag])
+				if err != nil {
+					continue
+				}
+				if tag == topologySpreadMaxSkew {
+					maxSkew = val
+				} else {
+					minDomains = val
+				}
+				continue
+			}
+			if tag == topologySpreadNodeTaintPolicy {
+				taintPolicy, err := strconv.ParseBool(tags[tag])
+				if err != nil {
+					taintPolicy = true
+				}
+				if taintPolicy {
+					honorPolicy := core.NodeInclusionPolicy("Honor")
+					nodeTaintsPolicy = &honorPolicy
+				} else {
+					ignorePolicy := core.NodeInclusionPolicy("Ignore")
+					nodeTaintsPolicy = &ignorePolicy
+				}
+				continue
+			}
+
+			if tag == appNameLabel {
+				// Nothing to do, we will add this tag anyways
+				continue
+			}
+
+			allValues := strings.Split(tags[tag], "|")
+			for i, v := range allValues {
+				allValues[i] = strings.Trim(v, " ")
+			}
+			op := v1.LabelSelectorOpIn
+			if strings.HasPrefix(tag, "^") {
+				tag = tag[1:]
+				op = v1.LabelSelectorOpNotIn
+			}
+			labelSelector.MatchExpressions = append(labelSelector.MatchExpressions, v1.LabelSelectorRequirement{
+				Key:      tag,
+				Operator: op,
+				Values:   allValues,
+			})
+		}
+		if topologyKey != "" {
+			topologyTerms.TopologyKey = topologyKey
+		}
+		topologyTerms.WhenUnsatisfiable = core.DoNotSchedule
+		topologyTerms.MaxSkew = int32(maxSkew)
+		minimumDomains := int32(minDomains)
+		topologyTerms.MinDomains = &minimumDomains
+
+		honorPolicy := core.NodeInclusionPolicy("Honor")
+		if nodeTaintsPolicy != nil {
+			topologyTerms.NodeTaintsPolicy = nodeTaintsPolicy
+		} else {
+			topologyTerms.NodeTaintsPolicy = &honorPolicy
+		}
+		topologyTerms.NodeAffinityPolicy = &honorPolicy
+		topologyTerms.LabelSelector = &labelSelector
+	}
+
+	var topologyTerm core.TopologySpreadConstraint
+	updateTopologyTerm(&topologyTerm, topologySpreadTags)
+
+	topologyTerm.LabelSelector.MatchExpressions = append(topologyTerm.LabelSelector.MatchExpressions, v1.LabelSelectorRequirement{
+		Key:      appNameLabel,
+		Operator: v1.LabelSelectorOpIn,
+		Values:   []string{appName},
+	})
+
+	if pod.TopologySpreadConstraints == nil {
+		pod.TopologySpreadConstraints = make([]core.TopologySpreadConstraint, 0)
+	}
+	pod.TopologySpreadConstraints = append(pod.TopologySpreadConstraints, topologyTerm)
 	return nil
 }
 
