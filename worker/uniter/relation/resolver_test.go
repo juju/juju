@@ -136,7 +136,7 @@ func assertNumCalls(c *gc.C, numCalls *int32, expected int32) {
 	c.Assert(v, gc.Equals, expected)
 }
 
-func (s *relationResolverSuite) newRelationStateTracer(c *gc.C, apiCaller base.APICaller, unitTag names.UnitTag) relation.RelationStateTracker {
+func (s *relationResolverSuite) newRelationStateTracker(c *gc.C, apiCaller base.APICaller, unitTag names.UnitTag) relation.RelationStateTracker {
 	abort := make(chan struct{})
 	st := uniter.NewState(apiCaller, unitTag)
 	u, err := st.Unit(unitTag)
@@ -166,7 +166,7 @@ func (s *relationResolverSuite) setupRelations(c *gc.C) relation.RelationStateTr
 		uniterAPICall("State", unitEntity, unitStateResults, nil),
 		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 	)
-	r := s.newRelationStateTracer(c, apiCaller, unitTag)
+	r := s.newRelationStateTracker(c, apiCaller, unitTag)
 	assertNumCalls(c, &numCalls, 4)
 	return r
 }
@@ -231,7 +231,7 @@ func (s *relationResolverSuite) assertNewRelationsWithExistingRelations(c *gc.C,
 		)
 	}
 	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
-	r := s.newRelationStateTracer(c, apiCaller, unitTag)
+	r := s.newRelationStateTracker(c, apiCaller, unitTag)
 	assertNumCalls(c, &numCalls, int32(len(apiCalls)))
 
 	info := r.GetInfo()
@@ -268,7 +268,7 @@ func (s *relationResolverSuite) TestNextOpNothing(c *gc.C) {
 		uniterAPICall("State", unitEntity, unitStateResults, nil),
 		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 	)
-	r := s.newRelationStateTracer(c, apiCaller, unitTag)
+	r := s.newRelationStateTracker(c, apiCaller, unitTag)
 	assertNumCalls(c, &numCalls, 4)
 
 	localState := resolver.LocalState{
@@ -393,7 +393,7 @@ func (s *relationResolverSuite) assertHookRelationJoined(c *gc.C, numCalls *int3
 	unitTag := names.NewUnitTag("wordpress/0")
 
 	apiCaller := mockAPICaller(c, numCalls, apiCalls...)
-	r := s.newRelationStateTracer(c, apiCaller, unitTag)
+	r := s.newRelationStateTracker(c, apiCaller, unitTag)
 	assertNumCalls(c, numCalls, 4)
 
 	localState := resolver.LocalState{
@@ -839,7 +839,7 @@ func (s *relationResolverSuite) TestImplicitRelationNoHooks(c *gc.C) {
 
 	var numCalls int32
 	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
-	r := s.newRelationStateTracer(c, apiCaller, unitTag)
+	r := s.newRelationStateTracker(c, apiCaller, unitTag)
 
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -979,7 +979,7 @@ func (s *relationResolverSuite) TestSubSubPrincipalRelationDyingDestroysUnit(c *
 	//apiCalls = append(apiCalls, uniterAPICall("State", nrpeUnitEntity, unitStateResults, nil))
 	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
 
-	r := s.newRelationStateTracer(c, apiCaller, nrpeUnitTag)
+	r := s.newRelationStateTracker(c, apiCaller, nrpeUnitTag)
 	assertNumCalls(c, &numCalls, callsBeforeDestroy)
 
 	// So now we have a relations object with two relations, one to
@@ -1035,7 +1035,7 @@ func (s *relationResolverSuite) TestSubSubOtherRelationDyingNotDestroyed(c *gc.C
 
 	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
 
-	r := s.newRelationStateTracer(c, apiCaller, nrpeUnitTag)
+	r := s.newRelationStateTracker(c, apiCaller, nrpeUnitTag)
 
 	// TODO: Fix this test...
 	// This test intermittently makes either 16 or 17
@@ -1154,7 +1154,7 @@ func (s *relationResolverSuite) TestPrincipalDyingDestroysSubordinates(c *gc.C) 
 	//apiCalls = append(apiCalls, uniterAPICall("State", nrpeUnitEntity, unitStateResults, nil))
 	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
 
-	r := s.newRelationStateTracer(c, apiCaller, nrpeUnitTag)
+	r := s.newRelationStateTracker(c, apiCaller, nrpeUnitTag)
 	assertNumCalls(c, &numCalls, callsBeforeDestroy)
 
 	// So now we have a relation between a principal (wordpress) and a
@@ -1359,7 +1359,8 @@ func (s *mockRelationResolverSuite) TestHookRelationJoined(c *gc.C) {
 	s.expectIsKnown(1)
 	s.expectIsImplicitFalse(1)
 	s.expectStateUnknown(1)
-	s.expectIsPeerRelationFalse(1)
+
+	s.mockRelStTracker.EXPECT().IsPeerRelation(1).Return(false, nil).Times(2)
 
 	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
@@ -1402,7 +1403,8 @@ func (s *mockRelationResolverSuite) TestHookRelationChangedApplication(c *gc.C) 
 	s.expectIsKnown(1)
 	s.expectIsImplicitFalse(1)
 	s.expectState(relationState)
-	s.expectIsPeerRelationFalse(1)
+
+	s.mockRelStTracker.EXPECT().IsPeerRelation(1).Return(false, nil).Times(2)
 
 	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
@@ -1441,6 +1443,8 @@ func (s *mockRelationResolverSuite) TestHookRelationChangedSuspended(c *gc.C) {
 	s.expectState(relationState)
 	s.expectLocalUnitAndApplicationLife()
 
+	s.mockRelStTracker.EXPECT().IsPeerRelation(1).Return(false, nil)
+
 	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1478,6 +1482,8 @@ func (s *mockRelationResolverSuite) TestHookRelationDeparted(c *gc.C) {
 	s.expectState(relationState)
 	s.expectLocalUnitAndApplicationLife()
 
+	s.mockRelStTracker.EXPECT().IsPeerRelation(1).Return(false, nil)
+
 	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1495,22 +1501,35 @@ func (s *mockRelationResolverSuite) TestHookRelationBroken(c *gc.C) {
 			1: {
 				Life: life.Dying,
 			},
+			2: {
+				Life: life.Dying,
+			},
 		},
 	}
-	relationState := relation.State{
+
+	defer s.setupMocks(c).Finish()
+
+	s.expectSyncScopes(remoteState)
+
+	relationState1 := relation.State{
 		RelationId:         1,
 		Members:            map[string]int64{},
 		ApplicationMembers: map[string]int64{},
 		ChangedPending:     "",
 	}
-	defer s.setupMocks(c).Finish()
-	s.expectSyncScopes(remoteState)
 	s.expectIsKnown(1)
 	s.expectIsImplicitFalse(1)
-	s.expectState(relationState)
-	s.expectIsPeerRelationFalse(1)
+	s.expectState(relationState1)
 	s.expectStateFound(1)
 	s.expectRemoteApplication(1, "")
+	s.mockRelStTracker.EXPECT().IsPeerRelation(1).Return(false, nil).Times(2)
+
+	// The `Relations` map in the remote state snapshot (as with all Go maps)
+	// has random iteration order. This will sometimes be called
+	// (relation ID 2 first) and sometimes not (ID 1 first). The test here is
+	// that in all cases, the next operation is for ID 1 (non-peer) - it is
+	// always enqueued ahead of ID 2, which is a peer relation.
+	s.mockRelStTracker.EXPECT().IsPeerRelation(2).Return(true, nil).MaxTimes(1)
 
 	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
@@ -1543,9 +1562,10 @@ func (s *mockRelationResolverSuite) TestHookRelationBrokenWhenSuspended(c *gc.C)
 	s.expectIsKnown(1)
 	s.expectIsImplicitFalse(1)
 	s.expectState(relationState)
-	s.expectIsPeerRelationFalse(1)
 	s.expectStateFound(1)
 	s.expectRemoteApplication(1, "")
+
+	s.mockRelStTracker.EXPECT().IsPeerRelation(1).Return(false, nil).Times(2)
 
 	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
@@ -1577,8 +1597,9 @@ func (s *mockRelationResolverSuite) TestHookRelationBrokenOnlyOnce(c *gc.C) {
 	s.expectIsKnown(1)
 	s.expectIsImplicitFalse(1)
 	s.expectState(relationState)
-	s.expectIsPeerRelationFalse(1)
 	s.expectStateFoundFalse(1)
+
+	s.mockRelStTracker.EXPECT().IsPeerRelation(1).Return(false, nil).Times(2)
 
 	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
 	_, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
@@ -1605,6 +1626,8 @@ func (s *mockRelationResolverSuite) TestImplicitRelationNoHooks(c *gc.C) {
 	s.expectSyncScopes(remoteState)
 	s.expectIsKnown(1)
 	s.expectIsImplicit(1)
+
+	s.mockRelStTracker.EXPECT().IsPeerRelation(1).Return(false, nil)
 
 	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
 	_, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
@@ -1643,12 +1666,13 @@ func (s *mockRelationResolverSuite) TestPrincipalDyingDestroysSubordinates(c *gc
 	s.expectIsKnown(1)
 	s.expectIsImplicitFalse(1)
 	s.expectState(relationState)
-	s.expectIsPeerRelationFalse(1)
 	s.expectHasContainerScope(1)
 	s.expectStateFound(1)
 	s.expectRemoteApplication(1, "")
 	destroyer := mocks.NewMockSubordinateDestroyer(ctrl)
 	destroyer.EXPECT().DestroyAllSubordinates().Return(nil)
+
+	s.mockRelStTracker.EXPECT().IsPeerRelation(1).Return(false, nil).Times(2)
 
 	relationsResolver := s.newRelationResolver(s.mockRelStTracker, destroyer)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
@@ -1690,17 +1714,12 @@ func (s *mockRelationResolverSuite) expectIsImplicitFalse(id int) {
 
 func (s *mockRelationResolverSuite) expectStateUnknown(id int) {
 	exp := s.mockRelStTracker.EXPECT()
-	exp.State(id).Return(nil, errors.Errorf("unknown relation: %d", id))
+	exp.State(id).Return(nil, errors.NotFoundf("relation: %d", id))
 }
 
 func (s *mockRelationResolverSuite) expectState(st relation.State) {
 	exp := s.mockRelStTracker.EXPECT()
 	exp.State(st.RelationId).Return(&st, nil)
-}
-
-func (s *mockRelationResolverSuite) expectIsPeerRelationFalse(id int) {
-	exp := s.mockRelStTracker.EXPECT()
-	exp.IsPeerRelation(id).Return(false, nil)
 }
 
 func (s *mockRelationResolverSuite) expectLocalUnitAndApplicationLife() {
