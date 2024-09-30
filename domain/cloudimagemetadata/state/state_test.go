@@ -21,7 +21,7 @@ import (
 )
 
 type stateSuite struct {
-	schematesting.ControllerSuite
+	schematesting.ModelSuite
 
 	state *State
 }
@@ -29,7 +29,7 @@ type stateSuite struct {
 var _ = gc.Suite(&stateSuite{})
 
 func (s *stateSuite) SetUpTest(c *gc.C) {
-	s.ControllerSuite.SetUpTest(c)
+	s.ModelSuite.SetUpTest(c)
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
