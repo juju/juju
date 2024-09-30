@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/servicefactory"
 )
 
@@ -24,6 +25,7 @@ type perfWorker struct {
 	clock    clock.Clock
 	logger   logger.Logger
 	metrics  MetricStep
+	tracer   trace.Tracer
 
 	id int64
 
@@ -31,13 +33,14 @@ type perfWorker struct {
 	service   servicefactory.ServiceFactory
 }
 
-func newPerfWorker(modelUUID model.UUID, service servicefactory.ServiceFactory, clock clock.Clock, logger logger.Logger, metrics MetricStep) (*perfWorker, error) {
+func newPerfWorker(modelUUID model.UUID, service servicefactory.ServiceFactory, tracer trace.Tracer, clock clock.Clock, logger logger.Logger, metrics MetricStep) (*perfWorker, error) {
 	w := &perfWorker{
 		modelUUID: modelUUID,
 		clock:     clock,
 		logger:    logger,
 		metrics:   metrics,
 		service:   service,
+		tracer:    tracer,
 		runner: worker.NewRunner(worker.RunnerParams{
 			Clock: clock,
 			IsFatal: func(err error) bool {
@@ -107,7 +110,7 @@ func (w *perfWorker) run() error {
 			w.logger.Infof("%s: Creating worker step %s", w.modelUUID, name)
 
 			if err := w.runner.StartWorker(name, func() (worker.Worker, error) {
-				return newStepWorker(w.modelUUID, w.id, w.clock, w.logger, w.runStep), nil
+				return newStepWorker(w.modelUUID, w.id, w.clock, w.logger, w.tracer, w.runStep), nil
 			}); err != nil {
 				return err
 			}
@@ -123,46 +126,65 @@ func (w *perfWorker) run() error {
 }
 
 func (w *perfWorker) runStep(ctx context.Context, step int) error {
+	ctx, span := trace.Start(ctx, "runStep", trace.WithAttributes(
+		trace.IntAttr("step.number", step),
+		trace.IntAttr("step.index", step%2),
+	))
+	defer span.End()
+
 	// TODO (jam): we could add metrics for the time for each of these calls to complete,
 	//  it might be interesting if one of them is particularly more expensive/slow than the others
 	w.metrics.RecordPerfStep()
-	switch step % 6 {
-	case 1:
-		// Controller access.
-		access := w.service.Access()
-		_, err := access.GetAllUsers(ctx, true)
-		return err
-	case 2:
-		// Controller access.
-		modelDefaults := w.service.ModelDefaults()
-		_, err := modelDefaults.ModelDefaults(ctx, w.modelUUID)
-		return err
-	case 3:
-		// Controller access.
-		model := w.service.Model()
-		_, err := model.Model(ctx, w.modelUUID)
-		return err
-	case 4:
-		// Model access.
-		agent := w.service.Agent()
-		_, err := agent.GetModelAgentVersion(ctx)
-		return err
-	case 5:
+	switch step % 2 {
+	case 0:
 		// Model access.
 		modelInfo := w.service.ModelInfo()
 		_, err := modelInfo.GetModelInfo(ctx)
 		return err
-	case 6:
+	default:
 		// Model access.
 		machine := w.service.Machine()
 		_, err := machine.AllMachineNames(ctx)
 		return err
-	default:
-		// Controller access.
-		controllerConfig := w.service.ControllerConfig()
-		_, err := controllerConfig.ControllerConfig(ctx)
-		return err
+
+		/*
+			case 1:
+				// Controller access.
+				access := w.service.Access()
+				_, err := access.GetAllUsers(ctx, true)
+				return err
+			case 2:
+				// Controller access.
+				modelDefaults := w.service.ModelDefaults()
+				_, err := modelDefaults.ModelDefaults(ctx, w.modelUUID)
+				return err
+			case 3:
+				// Controller access.
+				model := w.service.Model()
+				_, err := model.Model(ctx, w.modelUUID)
+				return err
+			case 4:
+				// Model access.
+				agent := w.service.Agent()
+				_, err := agent.GetModelAgentVersion(ctx)
+				return err
+			case 5:
+				// Model access.
+				modelInfo := w.service.ModelInfo()
+				_, err := modelInfo.GetModelInfo(ctx)
+				return err
+			case 6:
+				// Model access.
+				machine := w.service.Machine()
+				_, err := machine.AllMachineNames(ctx)
+				return err
+			default:
+				// Controller access.
+				controllerConfig := w.service.ControllerConfig()
+				_, err := controllerConfig.ControllerConfig(ctx)
+				return err*/
 	}
+	return nil
 }
 
 type stepWorker struct {
@@ -173,16 +195,18 @@ type stepWorker struct {
 	id     int64
 	clock  clock.Clock
 	logger logger.Logger
+	tracer trace.Tracer
 
 	step func(context.Context, int) error
 }
 
-func newStepWorker(modelUUID model.UUID, id int64, clock clock.Clock, logger logger.Logger, fn func(context.Context, int) error) *stepWorker {
+func newStepWorker(modelUUID model.UUID, id int64, clock clock.Clock, logger logger.Logger, tracer trace.Tracer, fn func(context.Context, int) error) *stepWorker {
 	w := &stepWorker{
 		modelUUID: modelUUID,
 		id:        id,
 		clock:     clock,
 		logger:    logger,
+		tracer:    tracer,
 		step:      fn,
 	}
 	w.tomb.Go(w.run)
@@ -214,14 +238,19 @@ func (w *stepWorker) run() error {
 		case <-timer.Chan():
 			w.logger.Debugf("%s: Step %d: starting", w.modelUUID, w.id)
 
-			for i := 0; i < 20; i++ {
-				if err := w.step(ctx, i); err != nil {
-					w.logger.Errorf("Failed to run step %d: %v", w.id, err)
-					continue
-				}
-			}
+			func() {
+				ctx, span := w.tracer.Start(trace.WithTracer(ctx, w.tracer), "run")
+				defer span.End()
 
-			w.logger.Debugf("%s: Step %d: finished", w.modelUUID, w.id)
+				for i := 0; i < 20; i++ {
+					if err := w.step(ctx, i); err != nil {
+						w.logger.Errorf("Failed to run step %d: %v", w.id, err)
+						continue
+					}
+				}
+
+				w.logger.Debugf("%s: Step %d: finished", w.modelUUID, w.id)
+			}()
 
 			timer.Reset(time.Second)
 		}

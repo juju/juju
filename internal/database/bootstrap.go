@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	NumOfNodes = 3
+	NumOfNodes = 24
 )
 
 // BootstrapNodeManager is an interface for managing the bootstrap of a Dqlite
@@ -87,10 +87,13 @@ func BootstrapDqlite(
 		return errors.Trace(err)
 	}
 
-	apps := make([]*app.App, NumOfNodes)
-	for i := 0; i < NumOfNodes; i++ {
+	apps := make([]*app.App, NumOfNodes+1)
+	for i := 0; i < NumOfNodes+1; i++ {
 		// HACK!
-		name := fmt.Sprintf("node-%d", i)
+		name := "node-controller"
+		if i > 0 {
+			name = fmt.Sprintf("node-%d", i)
+		}
 		nodeDataDir := filepath.Join(dir, name)
 		if err := os.MkdirAll(nodeDataDir, 0700); err != nil {
 			return errors.Annotatef(err, "creating directory for Dqlite data")
@@ -124,7 +127,7 @@ func BootstrapDqlite(
 	if err != nil {
 		return errors.Annotate(err, "hashing UUID")
 	}
-	modelApp := apps[h%NumOfNodes]
+	modelApp := apps[(h%NumOfNodes)+1]
 
 	model, err := runMigration(ctx, modelApp, uuid.String(), schema.ModelDDL(), emptyInit, logger)
 	if err != nil {

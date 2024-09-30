@@ -208,8 +208,8 @@ ifeq ($(DEBUG_JUJU), 1)
     LINK_FLAGS =  "$(link_flags_version)"
 	CGO_LINK_FLAGS = "-linkmode 'external' -extldflags '-static' $(link_flags_version)"
 else
-    LINK_FLAGS = "-s -w -extldflags '-static' $(link_flags_version)"
-	CGO_LINK_FLAGS = "-s -w -linkmode 'external' -extldflags '-static' $(link_flags_version)"
+    LINK_FLAGS = "-extldflags '-static' $(link_flags_version)"
+	CGO_LINK_FLAGS = "-linkmode 'external' -extldflags '-static' $(link_flags_version)"
 endif
 
 define DEPENDENCIES

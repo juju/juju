@@ -1010,6 +1010,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		NewContainerBrokerFunc:       newCAASBroker,
 		NewMigrationMaster:           migrationmaster.NewWorker,
 		ServiceFactory:               cfg.ServiceFactory,
+		Tracer:                       cfg.Tracer,
 		ProviderServiceFactoryGetter: cfg.ProviderServiceFactoryGetter,
 		ModelMetricSink:              cfg.ModelMetrics,
 	}

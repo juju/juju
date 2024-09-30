@@ -59,25 +59,10 @@ func WithRetryStrategy(retryStrategy RetryStrategy) Option {
 	}
 }
 
-// WithSemaphore defines a semaphore for limiting the number of transactions
-// that can be executed at any given time.
-//
-// If nil is passed, then no semaphore is used.
-func WithSemaphore(sem Semaphore) Option {
-	return func(o *option) {
-		if sem == nil {
-			o.semaphore = noopSemaphore{}
-			return
-		}
-		o.semaphore = sem
-	}
-}
-
 type option struct {
 	timeout       time.Duration
 	logger        logger.Logger
 	retryStrategy RetryStrategy
-	semaphore     Semaphore
 }
 
 func newOptions() *option {
@@ -86,7 +71,6 @@ func newOptions() *option {
 		timeout:       DefaultTimeout,
 		logger:        logger,
 		retryStrategy: defaultRetryStrategy(clock.WallClock, logger),
-		semaphore:     noopSemaphore{},
 	}
 }
 
@@ -105,7 +89,6 @@ type RetryingTxnRunner struct {
 	timeout       time.Duration
 	logger        logger.Logger
 	retryStrategy RetryStrategy
-	semaphore     Semaphore
 	tracePool     sync.Pool
 }
 
@@ -128,7 +111,6 @@ func NewRetryingTxnRunner(opts ...Option) *RetryingTxnRunner {
 		timeout:       o.timeout,
 		logger:        o.logger,
 		retryStrategy: o.retryStrategy,
-		semaphore:     o.semaphore,
 
 		tracePool: sync.Pool{
 			New: func() any {
@@ -151,6 +133,9 @@ func NewRetryingTxnRunner(opts ...Option) *RetryingTxnRunner {
 // handle transactions.
 func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(context.Context, *sqlair.TX) error) error {
 	return t.run(ctx, func(ctx context.Context) error {
+		ctx, span := trace.Start(ctx, traceName("Txn"))
+		defer span.End()
+
 		tx, err := db.Begin(ctx, nil)
 		if err != nil {
 			return errors.Trace(err)
@@ -177,6 +162,9 @@ func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(cont
 // handle transactions.
 func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(context.Context, *sql.Tx) error) error {
 	return t.run(ctx, func(ctx context.Context) error {
+		ctx, span := trace.Start(ctx, traceName("StdTxn"))
+		defer span.End()
+
 		tx, err := db.BeginTx(ctx, nil)
 		if err != nil {
 			return errors.Trace(err)
@@ -227,20 +215,6 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 
 	ctx, cancel := context.WithTimeout(ctx, t.timeout)
 	defer cancel()
-
-	if err := t.semaphore.Acquire(ctx, 1); err != nil {
-		return errors.Trace(err)
-	}
-	defer t.semaphore.Release(1)
-
-	// If the context is already done then return early. This is because the
-	// semaphore.Acquire call above will only cancel and return if it's waiting.
-	// Otherwise it will just allow the function to continue. So check here
-	// early before we start the function.
-	// https://pkg.go.dev/golang.org/x/sync/semaphore#Weighted.Acquire
-	if err := ctx.Err(); err != nil {
-		return errors.Trace(err)
-	}
 
 	// This is the last generic place that we can place a trace for the
 	// dqlite library. Ideally we would push this into the dqlite only code,
@@ -311,14 +285,6 @@ func defaultRetryStrategy(clock clock.Clock, log logger.Logger) func(context.Con
 		return err
 	}
 }
-
-type noopSemaphore struct{}
-
-func (s noopSemaphore) Acquire(context.Context, int64) error {
-	return nil
-}
-
-func (s noopSemaphore) Release(int64) {}
 
 const (
 	// rootTraceName is used to define the root trace name for all transaction

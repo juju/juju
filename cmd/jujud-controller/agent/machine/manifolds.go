@@ -707,6 +707,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName:                       stateName,
 			LogSinkName:                     logSinkName,
 			ServiceFactoryName:              serviceFactoryName,
+			TraceName:                       traceName,
 			ProviderServiceFactoriesName:    providerServiceFactoryName,
 			NewWorker:                       modelworkermanager.New,
 			NewModelWorker:                  config.NewModelWorker,

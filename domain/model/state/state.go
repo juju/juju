@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -185,6 +186,9 @@ func Create(
 // If the model does not exist then an error satisfying [modelerrors.NotFound]
 // will be returned.
 func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error) {
+	ctx, span := trace.Start(ctx, "GetModel")
+	defer span.End()
+
 	db, err := s.DB()
 	if err != nil {
 		return coremodel.Model{}, errors.Trace(err)
@@ -192,6 +196,9 @@ func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (coremodel.Mo
 
 	var model coremodel.Model
 	return model, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		ctx, span := trace.Start(ctx, "GetModelTxn")
+		defer span.End()
+
 		var err error
 		model, err = GetModel(ctx, tx, uuid)
 		return err
@@ -407,6 +414,9 @@ func GetModel(
 	tx *sqlair.TX,
 	uuid coremodel.UUID,
 ) (coremodel.Model, error) {
+	ctx, span := trace.Start(ctx, "GetModelFunc")
+	defer span.End()
+
 	q := `
 SELECT (name,
        ma.target_version,

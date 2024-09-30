@@ -102,22 +102,21 @@ type trackedDBWorker struct {
 
 // NewTrackedDBWorker creates a new TrackedDBWorker
 func NewTrackedDBWorker(
-	ctx context.Context, dbApp DBApp, txnRunner *txn.RetryingTxnRunner, namespace string, opts ...TrackedDBWorkerOption,
+	ctx context.Context, dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption,
 ) (TrackedDB, error) {
-	return newTrackedDBWorker(ctx, nil, dbApp, txnRunner, namespace, opts...)
+	return newTrackedDBWorker(ctx, nil, dbApp, namespace, opts...)
 }
 
 func newTrackedDBWorker(
 	ctx context.Context, internalStates chan string,
 	dbApp DBApp,
-	txnRunner *txn.RetryingTxnRunner,
 	namespace string,
 	opts ...TrackedDBWorkerOption,
 ) (TrackedDB, error) {
 	w := &trackedDBWorker{
 		internalStates: internalStates,
 		dbApp:          dbApp,
-		txnRunner:      txnRunner,
+		txnRunner:      txn.NewRetryingTxnRunner(),
 		namespace:      namespace,
 		clock:          clock.WallClock,
 		pingDBFunc:     defaultPingDBFunc,
@@ -136,8 +135,8 @@ func newTrackedDBWorker(
 		return nil, errors.Annotatef(err, "opening database for namespace %q", w.namespace)
 	}
 
-	db.SetMaxIdleConns(2)
-	db.SetMaxOpenConns(2)
+	db.SetMaxIdleConns(24)
+	db.SetMaxOpenConns(24)
 
 	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
 		return nil, errors.Annotate(err, "setting foreign keys pragma")

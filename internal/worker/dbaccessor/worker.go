@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/database/pragma"
-	"github.com/juju/juju/internal/database/txn"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 )
 
@@ -203,10 +202,9 @@ type dbWorker struct {
 	cfg      WorkerConfig
 	catacomb catacomb.Catacomb
 
-	mu         sync.RWMutex
-	dbApps     []DBApp
-	txnRunners []*txn.RetryingTxnRunner
-	dbRunner   *worker.Runner
+	mu       sync.RWMutex
+	dbApps   []DBApp
+	dbRunner *worker.Runner
 
 	// dbsReady is used to signal that we can
 	// begin processing GetDB requests.
@@ -573,29 +571,31 @@ func (w *dbWorker) startDqliteNodes(ctx context.Context, options ...app.Option) 
 	defer func() {
 		if err != nil {
 			w.dbApps = nil
-			w.txnRunners = nil
 		}
 	}()
 
 	mgr := w.cfg.NodeManager
 
-	w.dbApps = make([]DBApp, internaldatabase.NumOfNodes)
-	w.txnRunners = make([]*txn.RetryingTxnRunner, internaldatabase.NumOfNodes)
+	w.dbApps = make([]DBApp, internaldatabase.NumOfNodes+1)
 
-	for i := 0; i < internaldatabase.NumOfNodes; i++ {
+	for i := 0; i < internaldatabase.NumOfNodes+1; i++ {
 		dataDir, err := mgr.EnsureDataDir()
 		if err != nil {
 			return errors.Trace(err)
 		}
 
 		// HACK!
-		nodeDataDir := filepath.Join(dataDir, fmt.Sprintf("node-%d", i))
+		name := "node-controller"
+		if i > 0 {
+			name = fmt.Sprintf("node-%d", i)
+		}
+		nodeDataDir := filepath.Join(dataDir, name)
 		if err := os.MkdirAll(nodeDataDir, 0700); err != nil {
 			return errors.Annotatef(err, "creating directory for Dqlite data")
 		}
 
 		dqliteOptions := append(options,
-			mgr.WithAbstractDomainSocketNameOption(fmt.Sprintf("node-%d", i)),
+			mgr.WithAbstractDomainSocketNameOption(name),
 			mgr.WithLogFuncOption(),
 			mgr.WithTracingOption(),
 		)
@@ -603,7 +603,7 @@ func (w *dbWorker) startDqliteNodes(ctx context.Context, options ...app.Option) 
 			return errors.Trace(err)
 		}
 
-		loggo.GetLogger("*****").Criticalf("new app: %d", i)
+		loggo.GetLogger("*****").Criticalf("new app: %v", name)
 
 		ctx, cCancel := context.WithTimeout(ctx, time.Minute)
 		defer cCancel()
@@ -622,7 +622,7 @@ func (w *dbWorker) startDqliteNodes(ctx context.Context, options ...app.Option) 
 			return errors.Annotatef(err, "ensuring Dqlite is ready to process changes")
 		}
 
-		loggo.GetLogger("*****").Criticalf("app ready: %d", i)
+		loggo.GetLogger("*****").Criticalf("app ready: %v", name)
 
 		w.cfg.Logger.Infof("serving Dqlite application (ID: %v)", w.dbApps[i].ID())
 
@@ -632,9 +632,7 @@ func (w *dbWorker) startDqliteNodes(ctx context.Context, options ...app.Option) 
 			}
 		}
 
-		loggo.GetLogger("*****").Criticalf("new client: %d", i)
-
-		w.txnRunners[i] = txn.NewRetryingTxnRunner()
+		loggo.GetLogger("*****").Criticalf("new client: %v", name)
 	}
 
 	return nil
@@ -677,23 +675,21 @@ func (w *dbWorker) openDatabase(namespace string) error {
 		defer cancel()
 
 		app := w.dbApps[0]
-		runner := w.txnRunners[0]
 		if namespace != database.ControllerNS {
 			h, err := hash(namespace)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			app = w.dbApps[h%internaldatabase.NumOfNodes]
-			runner = w.txnRunners[h%internaldatabase.NumOfNodes]
+			app = w.dbApps[(h%internaldatabase.NumOfNodes)+1]
 
-			loggo.GetLogger("*****").Criticalf("namespace: %q, hash: %d, index: %d", namespace, h, h%internaldatabase.NumOfNodes)
+			loggo.GetLogger("*****").Criticalf("namespace: %q, hash: %d, index: %d", namespace, h, (h%internaldatabase.NumOfNodes)+1)
 		}
 
 		loggo.GetLogger("*****").Criticalf("open namespace %q", namespace)
 
 		return w.cfg.NewDBWorker(ctx,
-			app, runner, namespace,
+			app, namespace,
 			WithClock(w.cfg.Clock),
 			WithLogger(w.cfg.Logger),
 			WithMetricsCollector(w.cfg.MetricsCollector),
@@ -753,7 +749,7 @@ func (w *dbWorker) deleteDatabase(namespace string) error {
 			return errors.Trace(err)
 		}
 
-		app = w.dbApps[h%internaldatabase.NumOfNodes]
+		app = w.dbApps[(h%internaldatabase.NumOfNodes)+1]
 	}
 
 	// Open the database directly as we can't use the worker to do it for us.

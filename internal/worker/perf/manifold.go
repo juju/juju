@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/servicefactory"
 )
 
@@ -21,6 +22,7 @@ import (
 // plan.
 type ManifoldConfig struct {
 	AgentName          string
+	TraceName          string
 	ServiceFactoryName string
 
 	Clock          clock.Clock
@@ -36,6 +38,9 @@ type MetricStep interface {
 func (config ManifoldConfig) Validate() error {
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
+	}
+	if config.TraceName == "" {
+		return errors.NotValidf("empty TraceName")
 	}
 	if config.ServiceFactoryName == "" {
 		return errors.NotValidf("empty ServiceFactoryName")
@@ -58,6 +63,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
+			config.TraceName,
 			config.ServiceFactoryName,
 		},
 		Start: config.start,
@@ -67,6 +73,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // start is a method on ManifoldConfig because it's more readable than a closure.
 func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var tracer trace.Tracer
+	if err := getter.Get(config.TraceName, &tracer); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -81,5 +92,5 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	if err := getter.Get(config.ServiceFactoryName, &serviceFactory); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newPerfWorker(currentModelUUID, serviceFactory, config.Clock, config.Logger, config.MetricsStepper)
+	return newPerfWorker(currentModelUUID, serviceFactory, tracer, config.Clock, config.Logger, config.MetricsStepper)
 }

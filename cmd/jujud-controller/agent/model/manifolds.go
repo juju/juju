@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/servicefactory"
@@ -128,6 +129,8 @@ type ManifoldsConfig struct {
 	// ServiceFactory is used to access the service factory.
 	ServiceFactory servicefactory.ServiceFactory
 
+	Tracer trace.Tracer
+
 	// ModelMetricSink is a per-model tracker of metrics in a model
 	ModelMetricSink engine.MetricSink
 }
@@ -161,6 +164,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		perfWorkerName: perf.Manifold(perf.ManifoldConfig{
 			AgentName:          agentName,
+			TraceName:          traceName,
 			Clock:              config.Clock,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.perf"),
 			ServiceFactoryName: serviceFactoryName,
@@ -181,6 +185,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		serviceFactoryName: dependency.Manifold{
 			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
 				return engine.NewValueWorker(config.ServiceFactory)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
+
+		traceName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(config.Tracer)
 			},
 			Output: engine.ValueWorkerOutput,
 		},
@@ -730,4 +741,5 @@ const (
 	validCredentialFlagName = "valid-credential-flag"
 
 	perfWorkerName = "perf-worker"
+	traceName      = "trace"
 )

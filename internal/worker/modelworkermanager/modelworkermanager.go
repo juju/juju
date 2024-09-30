@@ -22,8 +22,10 @@ import (
 	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/servicefactory"
+	workertrace "github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/state"
 )
 
@@ -93,6 +95,7 @@ type NewModelConfig struct {
 	ControllerConfig             controller.Config
 	ProviderServiceFactoryGetter ProviderServiceFactoryGetter
 	ServiceFactory               servicefactory.ServiceFactory
+	Tracer                       trace.Tracer
 	PrometheusRegisterer         prometheus.Registerer
 }
 
@@ -118,6 +121,7 @@ type Config struct {
 	ServiceFactoryGetter         servicefactory.ServiceFactoryGetter
 	GetControllerConfig          GetControllerConfigFunc
 	PrometheusRegisterer         prometheus.Registerer
+	TracerGetter                 workertrace.TracerGetter
 }
 
 // Validate returns an error if config cannot be expected to drive
@@ -297,6 +301,12 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 		// handle the case where the controller config changes between model
 		// worker restarts.
 		ctx := m.catacomb.Context(context.Background())
+
+		tracer, err := m.config.TracerGetter.GetTracer(ctx, trace.Namespace("model-worker", modelUUID))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cfg.Tracer = tracer
 
 		controllerConfigService := cfg.ServiceFactory.ControllerConfig()
 		controllerConfig, err := m.config.GetControllerConfig(ctx, controllerConfigService)

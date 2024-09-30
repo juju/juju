@@ -21,6 +21,7 @@ import (
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/common"
 	workerstate "github.com/juju/juju/internal/worker/state"
+	"github.com/juju/juju/internal/worker/trace"
 )
 
 // GetProviderServiceFactoryGetterFunc returns a ProviderServiceFactoryGetter
@@ -46,6 +47,9 @@ type ManifoldConfig struct {
 	ProviderServiceFactoriesName string
 	// LogSinkName is the name of the corelogger.ModelLogger dependency.
 	LogSinkName string
+
+	// TraceName is the name of the trace.TracerGetter dependency.
+	TraceName string
 
 	// GetProviderServiceFactoryGetter is used to get the provider service
 	// factory getter from the dependency engine. This makes testing a lot
@@ -83,6 +87,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ServiceFactoryName == "" {
 		return errors.NotValidf("empty ServiceFactoryName")
+	}
+	if config.TraceName == "" {
+		return errors.NotValidf("empty TraceName")
 	}
 	if config.ProviderServiceFactoriesName == "" {
 		return errors.NotValidf("empty ProviderServiceFactoriesName")
@@ -124,6 +131,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LogSinkName,
 			config.ServiceFactoryName,
 			config.ProviderServiceFactoriesName,
+			config.TraceName,
 		},
 		Start: config.start,
 	}
@@ -136,6 +144,11 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	}
 	var agent agent.Agent
 	if err := getter.Get(config.AgentName, &agent); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var tracerGetter trace.TracerGetter
+	if err := getter.Get(config.TraceName, &tracerGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -186,6 +199,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		ProviderServiceFactoryGetter: providerServiceFactoryGetter,
 		GetControllerConfig:          config.GetControllerConfig,
 		PrometheusRegisterer:         config.PrometheusRegisterer,
+		TracerGetter:                 tracerGetter,
 	})
 	if err != nil {
 		_ = stTracker.Done()

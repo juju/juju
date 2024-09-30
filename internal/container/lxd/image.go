@@ -186,6 +186,7 @@ func (s *Server) CopyRemoteImage(
 	req := &lxd.ImageCopyArgs{
 		AutoUpdate: true,
 		Aliases:    newAliases,
+		Type:       sourced.Image.Type,
 	}
 	progress := func(op api.Operation) {
 		if op.Metadata == nil {

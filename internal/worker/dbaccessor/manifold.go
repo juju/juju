@@ -18,13 +18,12 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/app"
-	"github.com/juju/juju/internal/database/txn"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 )
 
 // NewDBWorkerFunc creates a tracked db worker.
-type NewDBWorkerFunc func(context.Context, DBApp, *txn.RetryingTxnRunner, string, ...TrackedDBWorkerOption) (TrackedDB, error)
+type NewDBWorkerFunc func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 
 // NewNodeManagerFunc creates a NodeManager
 type NewNodeManagerFunc func(agent.Config, logger.Logger, coredatabase.SlowQueryLogger) NodeManager
