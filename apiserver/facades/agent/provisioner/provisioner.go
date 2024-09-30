@@ -761,6 +761,9 @@ func (api *ProvisionerAPI) SetInstanceInfo(ctx context.Context, args params.Inst
 		); err != nil {
 			return errors.Annotatef(err, "setting machine cloud instance for machine uuid %q", machineUUID)
 		}
+		if err := api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, arg.CharmProfiles); err != nil {
+			return errors.Annotatef(err, "setting lxd profiles for machine uuid %q", machineUUID)
+		}
 
 		return nil
 	}
@@ -1424,14 +1427,21 @@ func (api *ProvisionerAPI) SetCharmProfiles(ctx context.Context, args params.Set
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, a := range args.Args {
-		results[i].Error = apiservererrors.ServerError(api.setOneMachineCharmProfiles(a.Entity.Tag, a.Profiles, canAccess))
+		results[i].Error = apiservererrors.ServerError(api.setOneMachineCharmProfiles(ctx, a.Entity.Tag, a.Profiles, canAccess))
 	}
 	return params.ErrorResults{Results: results}, nil
 }
 
-func (api *ProvisionerAPI) setOneMachineCharmProfiles(machineTag string, profiles []string, canAccess common.AuthFunc) error {
+func (api *ProvisionerAPI) setOneMachineCharmProfiles(ctx context.Context, machineTag string, profiles []string, canAccess common.AuthFunc) error {
 	mTag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
+		return errors.Trace(err)
+	}
+	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(mTag.Id()))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, profiles); err != nil {
 		return errors.Trace(err)
 	}
 	machine, err := api.getMachine(canAccess, mTag)

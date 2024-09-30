@@ -770,10 +770,10 @@ func (s *stateSuite) TestSetKeepInstanceNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-func (s *stateSuite) TestSetLXDProfiles(c *gc.C) {
+func (s *stateSuite) TestSetAppliedLXDProfileNames(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.state.SetLXDProfiles(context.Background(), "deadbeef", []string{"profile1", "profile2"})
+	err = s.state.SetAppliedLXDProfileNames(context.Background(), "deadbeef", []string{"profile1", "profile2"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the profile names are in the machine_lxd_profile table.
@@ -801,7 +801,7 @@ func (s *stateSuite) TestSetLXDProfilesPartial(c *gc.C) {
 ("deadbeef", "profile1", 0)`)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.SetLXDProfiles(context.Background(), "deadbeef", []string{"profile1", "profile2"})
+	err = s.state.SetAppliedLXDProfileNames(context.Background(), "deadbeef", []string{"profile1", "profile2"})
 	// This shouldn't fail, but add the missing profile to the table.
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -829,7 +829,7 @@ func (s *stateSuite) TestSetLXDProfilesOverwriteAll(c *gc.C) {
 ("deadbeef", "profile1", 0), ("deadbeef", "profile2", 1), ("deadbeef", "profile3", 2)`)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.SetLXDProfiles(context.Background(), "deadbeef", []string{"profile1", "profile4"})
+	err = s.state.SetAppliedLXDProfileNames(context.Background(), "deadbeef", []string{"profile1", "profile4"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the profile names are in the machine_lxd_profile table.
@@ -849,31 +849,31 @@ func (s *stateSuite) TestSetLXDProfilesOverwriteAll(c *gc.C) {
 func (s *stateSuite) TestSetLXDProfilesSameOrder(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.state.SetLXDProfiles(context.Background(), "deadbeef", []string{"profile3", "profile1", "profile2"})
+	err = s.state.SetAppliedLXDProfileNames(context.Background(), "deadbeef", []string{"profile3", "profile1", "profile2"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	profiles, err := s.state.LXDProfiles(context.Background(), "deadbeef")
+	profiles, err := s.state.AppliedLXDProfileNames(context.Background(), "deadbeef")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(profiles, gc.DeepEquals, []string{"profile3", "profile1", "profile2"})
 }
 
 func (s *stateSuite) TestSetLXDProfilesNotFound(c *gc.C) {
-	err := s.state.SetLXDProfiles(context.Background(), "666", []string{"profile1", "profile2"})
+	err := s.state.SetAppliedLXDProfileNames(context.Background(), "666", []string{"profile1", "profile2"})
 	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 func (s *stateSuite) TestSetLXDProfilesEmpty(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.state.SetLXDProfiles(context.Background(), "deadbeef", []string{})
+	err = s.state.SetAppliedLXDProfileNames(context.Background(), "deadbeef", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	profiles, err := s.state.LXDProfiles(context.Background(), "deadbeef")
+	profiles, err := s.state.AppliedLXDProfileNames(context.Background(), "deadbeef")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(profiles, gc.HasLen, 0)
 }
 
-func (s *stateSuite) TestLXDProfiles(c *gc.C) {
+func (s *stateSuite) TestAppliedLXDProfileNames(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -883,13 +883,13 @@ func (s *stateSuite) TestLXDProfiles(c *gc.C) {
 ("deadbeef", "profile1", 0), ("deadbeef", "profile2", 1)`)
 	c.Assert(err, jc.ErrorIsNil)
 
-	profiles, err := s.state.LXDProfiles(context.Background(), "deadbeef")
+	profiles, err := s.state.AppliedLXDProfileNames(context.Background(), "deadbeef")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(profiles, gc.DeepEquals, []string{"profile1", "profile2"})
 }
 
 func (s *stateSuite) TestLXDProfilesNoErrorEmpty(c *gc.C) {
-	profiles, err := s.state.LXDProfiles(context.Background(), "deadbeef")
+	profiles, err := s.state.AppliedLXDProfileNames(context.Background(), "deadbeef")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(profiles, gc.HasLen, 0)
 }

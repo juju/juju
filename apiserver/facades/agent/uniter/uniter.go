@@ -2751,7 +2751,7 @@ func (u *UniterAPI) WatchInstanceData(ctx context.Context, args params.Entities)
 
 // LXDProfileName is a shim to call the LXDProfileAPIv2 version of this method.
 func (u *UniterAPI) LXDProfileName(ctx context.Context, args params.Entities) (params.StringResults, error) {
-	return u.lxdProfileAPI.LXDProfileName(args)
+	return u.lxdProfileAPI.LXDProfileName(ctx, args)
 }
 
 // LXDProfileRequired is a shim to call the LXDProfileAPIv2 version of this method.

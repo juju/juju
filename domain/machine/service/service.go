@@ -139,6 +139,14 @@ type State interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	// It returns a MachineNotFound if the machine does not exist.
 	GetMachineUUID(context.Context, coremachine.Name) (string, error)
+
+	// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
+	AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error)
+
+	// SetAppliedLXDProfileNames sets the list of LXD profile names to the
+	// lxd_profile table for the given machine. This method will overwrite the list
+	// of profiles for the given machine without any checks.
+	SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error
 }
 
 // Provider represents an underlying cloud provider.
@@ -392,6 +400,24 @@ func (s *Service) GetAllMachineRemovals(ctx context.Context) ([]string, error) {
 // It returns a MachineNotFound if the machine does not exist.
 func (s *Service) GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error) {
 	return s.st.GetMachineUUID(ctx, name)
+}
+
+// LXDProfiles returns the names of the LXD profiles on the machine.
+func (s *Service) AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error) {
+	profiles, err := s.st.AppliedLXDProfileNames(ctx, mUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return profiles, nil
+}
+
+// SetLXDProfiles sets the list of LXD profile names to the lxd_profile table
+// for the given machine. This method will overwrite the list of profiles for
+// the given machine without any checks.
+// [machineerrors.MachineNotFound] will be returned if the machine does not
+// exist.
+func (s *Service) SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error {
+	return errors.Trace(s.st.SetAppliedLXDProfileNames(ctx, mUUID, profileNames))
 }
 
 // ProviderService provides the API for working with machines using the
