@@ -234,7 +234,7 @@ func (s *applyConstraintsSuite) TestTopologySpreadConstraintsConfig(c *gc.C) {
 	var minDomains int32 = 3
 	var honorPolicy corev1.NodeInclusionPolicy = corev1.NodeInclusionPolicy("Honor")
 	c.Assert(pod.TopologySpreadConstraints, jc.DeepEquals, []corev1.TopologySpreadConstraint{
-		corev1.TopologySpreadConstraint{
+		{
 			TopologyKey:        "foo",
 			WhenUnsatisfiable:  corev1.DoNotSchedule,
 			NodeTaintsPolicy:   &honorPolicy,
@@ -263,7 +263,7 @@ func (s *applyConstraintsSuite) TestTopologySpreadConstraintsWithCustomMaxSkewMi
 	var minDomains int32 = 4
 	var honorPolicy corev1.NodeInclusionPolicy = corev1.NodeInclusionPolicy("Honor")
 	c.Assert(pod.TopologySpreadConstraints, jc.DeepEquals, []corev1.TopologySpreadConstraint{
-		corev1.TopologySpreadConstraint{
+		{
 			TopologyKey:        "foo",
 			WhenUnsatisfiable:  corev1.DoNotSchedule,
 			NodeTaintsPolicy:   &honorPolicy,
