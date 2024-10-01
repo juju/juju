@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -25,8 +24,7 @@ type Backend interface {
 
 type stateShim struct {
 	*state.State
-	model                    *state.Model
-	configSchemaSourceGetter config.ConfigSchemaSourceGetter
+	model *state.Model
 }
 
 func (st stateShim) ModelTag() names.ModelTag {
@@ -39,10 +37,9 @@ func (st stateShim) ModelTag() names.ModelTag {
 }
 
 // NewStateBackend creates a backend for the facade to use.
-func NewStateBackend(m *state.Model, configSchemaSourceGetter config.ConfigSchemaSourceGetter) Backend {
+func NewStateBackend(m *state.Model) Backend {
 	return stateShim{
-		State:                    m.State(),
-		model:                    m,
-		configSchemaSourceGetter: configSchemaSourceGetter,
+		State: m.State(),
+		model: m,
 	}
 }
