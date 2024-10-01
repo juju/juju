@@ -114,13 +114,6 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.En
 			)
 		}
 
-		if err != nil {
-			return params.NotifyWatchResults{}, fmt.Errorf(
-				"converting machine %q authorised keys watcher to notify watcher: %w",
-				machineId, err,
-			)
-		}
-
 		results[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher[struct{}](
 			ctx, api.watcherRegistry, keysWatcher,
 		)
