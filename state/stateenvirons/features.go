@@ -30,11 +30,7 @@ func SupportedFeatures(model Model, newEnviron environs.NewEnvironFunc) (assumes
 	}
 
 	agentVersion, _ := modelConf.AgentVersion()
-	fs.Add(assumes.Feature{
-		Name:        "juju",
-		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
-		Version:     &agentVersion,
-	})
+	fs.Add(assumes.JujuFeature(agentVersion))
 
 	// Access the environment associated with the model and query any
 	// substrate-specific features that might be available.

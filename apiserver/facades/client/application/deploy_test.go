@@ -518,7 +518,8 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 			NumUnits:        1,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, gc.ErrorMatches, "(?m).*Charm feature requirements cannot be met.*")
+	c.Assert(err, gc.ErrorMatches, `(?s)Charm cannot be deployed because:
+  - charm requires Juju version >= 42.0.0.*`)
 }
 
 func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C) {
