@@ -465,7 +465,7 @@ func (s *State) GetPublicKeysForUser(
 	stmt, err := s.Prepare(`
 SELECT &publicKey.*
 FROM user_public_ssh_key AS upsk
-JOIN model_authorized_keys AS m ON upsk.user_public_ssh_key_id = m.user_public_ssh_key_id
+JOIN model_authorized_keys AS m ON upsk.id = m.user_public_ssh_key_id
 WHERE user_uuid = $userUUIDValue.user_uuid
 AND model_uuid = $modelUUIDValue.model_uuid
 `, userUUIDVal, publicKey{}, modelUUIDVal)

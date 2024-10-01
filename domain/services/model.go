@@ -159,7 +159,7 @@ func (s *ModelFactory) KeyManagerWithImporter(
 	return keymanagerservice.NewImporterService(
 		s.modelUUID,
 		importer,
-		keymanagerstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		keymanagerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }
 
@@ -175,7 +175,7 @@ func (s *ModelFactory) KeyUpdater() *keyupdaterservice.WatchableService {
 		),
 		controllerState,
 		keyupdaterstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		domain.NewWatcherFactory(s.modelDB, s.logger.Child("keyupdater")),
+		domain.NewWatcherFactory(s.controllerDB, s.logger.Child("keyupdater")),
 	)
 }
 
