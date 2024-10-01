@@ -16,8 +16,8 @@ check_num_secret_revisions() {
 	while true; do
 		echo "Checking secret revisions for $secret_short_uri: attempt $attempt"
 		check_contains "$(juju --show-log show-secret "$secret_uri" --revisions |
-		    yq ".${secret_short_uri}.revisions | length")" "$expected_num_revisions" &&
-		    break # if the command succeeds, break the loop
+			yq ".${secret_short_uri}.revisions | length")" "$expected_num_revisions" &&
+			break # if the command succeeds, break the loop
 
 		if [[ $attempt -ge $max_retries ]]; then
 			echo "Checking secret revisions failed after $max_retries retries"
