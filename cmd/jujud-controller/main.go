@@ -25,7 +25,6 @@ import (
 	"github.com/juju/utils/v3/exec"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/agent/addons"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud-controller/agent"
@@ -267,7 +266,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		agentConf,
 		bufferedLogger,
-		addons.DefaultIntrospectionSocketName,
 		upgrades.PreUpgradeSteps,
 		"",
 	)
@@ -345,7 +343,6 @@ func jujuControllerMain(args []string, ctx *cmd.Context) (code int, err error) {
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		agentConf,
 		bufferedLogger,
-		addons.DefaultIntrospectionSocketName,
 		upgrades.PreUpgradeSteps,
 		"",
 	)
