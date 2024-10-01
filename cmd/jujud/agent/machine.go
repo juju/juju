@@ -344,10 +344,9 @@ type MachineAgent struct {
 	// longer any immediately pending agent upgrades.
 	initialUpgradeCheckComplete gate.Lock
 
-	loopDeviceManager          looputil.LoopDeviceManager
-	newIntrospectionSocketName func(names.Tag) string
-	prometheusRegistry         *prometheus.Registry
-	preUpgradeSteps            upgrades.PreUpgradeStepsFunc
+	loopDeviceManager  looputil.LoopDeviceManager
+	prometheusRegistry *prometheus.Registry
+	preUpgradeSteps    upgrades.PreUpgradeStepsFunc
 
 	isCaasAgent bool
 	cmdRunner   CommandRunner

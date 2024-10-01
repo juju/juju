@@ -154,7 +154,7 @@ run_user_secrets() {
 
 	# revision 2 should be pruned.
 	# revision 3 is the latest revision, so it should not be pruned.
-  check_num_secret_revisions "$secret_uri" "$secret_short_uri" 1
+	check_num_secret_revisions "$secret_uri" "$secret_short_uri" 1
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
 	juju --show-log revoke-secret $secret_uri hello-kubecon
