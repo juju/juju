@@ -1392,6 +1392,7 @@ func (context *statusContext) processApplication(application *state.Application)
 		Charm:        applicationCharm.URL(),
 		CharmVersion: applicationCharm.Version(),
 		CharmProfile: charmProfileName,
+		CharmRev:     applicationCharm.Revision(),
 		CharmChannel: channel,
 		Base: params.Base{
 			Name:    base.OS,
