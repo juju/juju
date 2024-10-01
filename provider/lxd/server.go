@@ -106,7 +106,8 @@ type CloudSpec struct {
 type ServerFactory interface {
 	// LocalServer creates a new lxd server and augments and wraps the lxd
 	// server, by ensuring sane defaults exist with network, storage.
-	LocalServer() (Server, error)
+	// The LXD project must be specified.
+	LocalServer(project string) (Server, error)
 
 	// LocalServerAddress returns the local servers address from the factory.
 	LocalServerAddress() (string, error)
@@ -114,13 +115,27 @@ type ServerFactory interface {
 	// RemoteServer creates a new server that connects to a remote lxd server.
 	// If the cloudSpec endpoint is nil or empty, it will assume that you want
 	// to connection to a local server and will instead use that one.
+	// The LXD project must be specified.
 	RemoteServer(CloudSpec) (Server, error)
 
 	// InsecureRemoteServer creates a new server that connect to a remote lxd
 	// server in a insecure manner.
 	// If the cloudSpec endpoint is nil or empty, it will assume that you want
 	// to connection to a local server and will instead use that one.
+	// The LXD project must be specified.
 	InsecureRemoteServer(CloudSpec) (Server, error)
+
+	// LocalRestrictedServer creates a new restricted server, which can only
+	// perform a restricted subset of operations, such as getting information
+	// about the LXD cluster as a whole. These operations do not require one to
+	// specify a LXD project.
+	LocalRestrictedServer() (RestrictedServer, error)
+
+	// RemoteRestrictedServer creates a new restricted server, which can only
+	// perform a restricted subset of operations, such as getting information
+	// about the LXD cluster as a whole. These operations do not require one to
+	// specify a LXD project.
+	RemoteRestrictedServer(CloudSpec) (RestrictedServer, error)
 }
 
 // InterfaceAddress groups methods that is required to find addresses
@@ -145,14 +160,16 @@ func (interfaceAddress) InterfaceAddress(interfaceName string) (string, error) {
 type NewHTTPClientFunc func() *http.Client
 
 type serverFactory struct {
-	newLocalServerFunc  func() (Server, error)
-	newRemoteServerFunc func(lxd.ServerSpec) (Server, error)
-	localServer         Server
-	localServerAddress  string
-	interfaceAddress    InterfaceAddress
-	clock               clock.Clock
-	mutex               sync.Mutex
-	newHTTPClientFunc   NewHTTPClientFunc
+	newLocalServerFunc    func() (Server, error)
+	newRemoteServerFunc   func(lxd.ServerSpec) (Server, error)
+	localRestrictedServer RestrictedServer
+	// localServers are indexed by project
+	localServers       map[string]Server
+	localServerAddress string
+	interfaceAddress   InterfaceAddress
+	clock              clock.Clock
+	mutex              sync.Mutex
+	newHTTPClientFunc  NewHTTPClientFunc
 }
 
 // NewServerFactory creates a new ServerFactory with sane defaults.
@@ -172,17 +189,18 @@ func NewServerFactory(newHttpFn NewHTTPClientFunc) ServerFactory {
 	}
 }
 
-func (s *serverFactory) LocalServer() (Server, error) {
+func (s *serverFactory) LocalRestrictedServer() (RestrictedServer, error) {
+	// TODO: is this mutex locking correct?
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	// We have an instantiated localServer, that we can reuse over and over.
-	if s.localServer != nil {
-		return s.localServer, nil
+	if s.localRestrictedServer != nil {
+		return s.localRestrictedServer, nil
 	}
 
 	// initialize a new local server
-	svr, err := s.initLocalServer()
+	svr, err := s.initLocalRestrictedServer()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -190,20 +208,67 @@ func (s *serverFactory) LocalServer() (Server, error) {
 	// bootstrap a new local server, this ensures that all connections to and
 	// from the local server are connected and setup correctly.
 	var hostName string
-	svr, hostName, err = s.bootstrapLocalServer(svr)
+	svr, hostName, err = s.bootstrapLocalServer(svr, s.initLocalRestrictedServer)
 	if err == nil {
-		s.localServer = svr
+		s.localRestrictedServer = svr
 		s.localServerAddress = hostName
 	}
 	return svr, errors.Trace(err)
 }
 
-func (s *serverFactory) LocalServerAddress() (string, error) {
+func (s *serverFactory) LocalServer(project string) (Server, error) {
+	// For an unrestricted remote server, the LXD project must be specified.
+	if project == "" {
+		return nil, errors.NotValidf("lxd.LocalServer with unspecified LXD project")
+	}
+
+	// TODO: is this mutex locking correct?
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if s.localServer == nil {
-		return "", errors.NotAssignedf("local server")
+	// We have an instantiated localServer, that we can reuse over and over.
+	if s.localServers == nil {
+		s.localServers = map[string]Server{}
+	}
+	if svr, ok := s.localServers[project]; ok {
+		return svr, nil
+	}
+
+	// initialize a new local server
+	svr, err := s.initLocalServer(project)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// bootstrap a new local server, this ensures that all connections to and
+	// from the local server are connected and setup correctly.
+	svr, _, err = s.bootstrapLocalServer(svr, func() (Server, error) {
+		return s.initLocalServer(project)
+	})
+
+	// If the server is not a simple simple stream server, don't check the
+	// API version, but do report for other scenarios
+	if err := s.validateServer(svr); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Cache server for later
+	s.localServers[project] = svr
+
+	return svr, errors.Trace(err)
+}
+
+func (s *serverFactory) LocalServerAddress() (string, error) {
+	// TODO: is this mutex locking correct?
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.localServerAddress == "" {
+		// Bootstrap a local restricted server to get the address
+		_, err := s.LocalRestrictedServer()
+		if err != nil {
+			return "", fmt.Errorf("creating local server: %w", err)
+		}
 	}
 
 	return s.localServerAddress, nil
@@ -211,9 +276,35 @@ func (s *serverFactory) LocalServerAddress() (string, error) {
 
 func (s *serverFactory) RemoteServer(spec CloudSpec) (Server, error) {
 	if spec.Endpoint == "" {
-		return s.LocalServer()
+		return s.LocalServer(spec.Project)
 	}
 
+	// For an unrestricted remote server, the LXD project must be specified.
+	if spec.Project == "" {
+		return nil, errors.NotValidf("lxd.RemoteServer with unspecified LXD project")
+	}
+
+	svr, err := s.createRemoteServer(spec)
+	if err != nil {
+		return nil, err
+	}
+
+	svr.UseProject(spec.Project)
+	// Validate the server
+	return svr, errors.Trace(s.bootstrapRemoteServer(svr))
+}
+
+func (s *serverFactory) RemoteRestrictedServer(spec CloudSpec) (RestrictedServer, error) {
+	if spec.Endpoint == "" {
+		return s.LocalRestrictedServer()
+	}
+
+	// We don't need to validate the restricted server
+	return s.createRemoteServer(spec)
+}
+
+// createRemoteServer is the internal implementation of RemoteServer.
+func (s *serverFactory) createRemoteServer(spec CloudSpec) (Server, error) {
 	cred := spec.Credential
 	if cred == nil {
 		return nil, errors.NotFoundf("credentials")
@@ -228,21 +319,17 @@ func (s *serverFactory) RemoteServer(spec CloudSpec) (Server, error) {
 		WithProxy(proxy.DefaultConfig.GetProxy).
 		WithHTTPClient(s.newHTTPClientFunc())
 
-	svr, err := s.newRemoteServerFunc(serverSpec)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if spec.Project != "" {
-		svr.UseProject(spec.Project)
-	}
-
-	return svr, errors.Trace(s.bootstrapRemoteServer(svr))
+	return s.newRemoteServerFunc(serverSpec)
 }
 
 func (s *serverFactory) InsecureRemoteServer(spec CloudSpec) (Server, error) {
 	if spec.Endpoint == "" {
-		return s.LocalServer()
+		return s.LocalServer(spec.Project)
+	}
+
+	// For an unrestricted remote server, the LXD project must be specified.
+	if spec.Project == "" {
+		return nil, errors.NotValidf("lxd.InsecureRemoteServer with unspecified LXD project")
 	}
 
 	cred := spec.Credential
@@ -261,18 +348,31 @@ func (s *serverFactory) InsecureRemoteServer(spec CloudSpec) (Server, error) {
 		WithHTTPClient(s.newHTTPClientFunc())
 
 	svr, err := s.newRemoteServerFunc(serverSpec)
-	if spec.Project != "" {
-		svr.UseProject(spec.Project)
-	}
-
 	return svr, errors.Trace(err)
 }
 
-func (s *serverFactory) initLocalServer() (Server, error) {
+func (s *serverFactory) initLocalRestrictedServer() (Server, error) {
 	svr, err := s.newLocalServerFunc()
 	if err != nil {
 		return nil, errors.Trace(hoistLocalConnectErr(err))
 	}
+
+	// We don't need to check storage or network config
+
+	// LXD itself reports the host:ports that it listens on.
+	// Cross-check the address we have with the values reported by LXD.
+	if err := svr.EnableHTTPSListener(); err != nil {
+		return nil, errors.Annotate(err, "enabling HTTPS listener")
+	}
+	return svr, nil
+}
+
+func (s *serverFactory) initLocalServer(project string) (Server, error) {
+	svr, err := s.newLocalServerFunc()
+	if err != nil {
+		return nil, errors.Trace(hoistLocalConnectErr(err))
+	}
+	svr.UseProject(project)
 
 	defaultProfile, profileETag, err := svr.GetProfile("default")
 	if err != nil {
@@ -290,7 +390,10 @@ func (s *serverFactory) initLocalServer() (Server, error) {
 	return svr, nil
 }
 
-func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error) {
+func (s *serverFactory) bootstrapLocalServer(
+	svr Server,
+	newServer func() (Server, error),
+) (Server, string, error) {
 	// select the server bridge name, so that we can then try and select
 	// the hostAddress from the current interfaceAddress
 	bridgeName := svr.LocalBridgeName()
@@ -330,7 +433,7 @@ func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error)
 			// Requesting a NewLocalServer forces a new connection, so that when
 			// we GetConnectionInfo it gets the required addresses.
 			// Note: this modifies the outer svr server.
-			if svr, err = s.initLocalServer(); err != nil {
+			if svr, err = newServer(); err != nil {
 				return errors.Trace(err)
 			}
 
@@ -344,12 +447,6 @@ func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error)
 			"LXD is not listening on address %s (reported addresses: %s)",
 			hostAddress, connInfoAddresses,
 		)
-	}
-
-	// If the server is not a simple simple stream server, don't check the
-	// API version, but do report for other scenarios
-	if err := s.validateServer(svr); err != nil {
-		return nil, "", errors.Trace(err)
 	}
 
 	return svr, hostAddress, nil
