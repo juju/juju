@@ -209,6 +209,12 @@ func (t *RetryingTxnRunner) Retry(ctx context.Context, fn func() error) error {
 
 // run will execute the input function if there is a semaphore slot available.
 func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) error) (err error) {
+	// If the context is already done then return early to prevent doing any
+	// work.
+	if err := ctx.Err(); err != nil {
+		return errors.Trace(err)
+	}
+
 	ctx, span := trace.Start(ctx, traceName("run"))
 	defer func() {
 		span.RecordError(err)
