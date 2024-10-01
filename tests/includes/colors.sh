@@ -1,11 +1,7 @@
 supports_colors() {
-	if [[ -z ${TERM} ]] || [[ ${TERM} == "" ]] || [[ ${TERM} == "dumb" ]]; then
-		echo "NO"
-		return
-	fi
 	if which tput >/dev/null 2>&1; then
 		# shellcheck disable=SC2046
-		if [[ $(tput colors) -gt 1 ]]; then
+		if [[ $(tput colors 2> /dev/null || echo 0) -gt 1 ]]; then
 			echo "YES"
 			return
 		fi
