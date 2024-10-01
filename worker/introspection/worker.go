@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/pubsub/agent"
 	"github.com/juju/juju/worker/introspection/pprof"
 )
@@ -98,7 +99,7 @@ func (c *Config) Validate() error {
 // socketListener is a worker and constructed with NewWorker.
 type socketListener struct {
 	tomb               tomb.Tomb
-	listener           *net.UnixListener
+	listener           net.Listener
 	depEngine          DepEngineReporter
 	statePool          Reporter
 	pubsub             Reporter
@@ -122,17 +123,14 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.NotSupportedf("os %q", runtime.GOOS)
 	}
 
-	path := "@" + config.SocketName
-	addr, err := net.ResolveUnixAddr("unix", path)
-	if err != nil {
-		return nil, errors.Annotate(err, "unable to resolve unix socket")
-	}
-
-	l, err := net.ListenUnix("unix", addr)
+	l, err := sockets.Listen(sockets.Socket{
+		Network: "unix",
+		Address: config.SocketName,
+	})
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to listen on unix socket")
 	}
-	logger.Debugf("introspection worker listening on %q", path)
+	logger.Debugf("introspection worker listening on %q", config.SocketName)
 
 	w := &socketListener{
 		listener:           l,

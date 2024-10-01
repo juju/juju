@@ -4,7 +4,9 @@
 package context_test
 
 import (
+	"encoding/hex"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/juju/charm/v8/hooks"
@@ -191,6 +193,21 @@ func (s *ContextFactorySuite) TestNewActionContextLeadershipContext(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		return ctx
 	})
+}
+
+func (s *ContextFactorySuite) TestHookContextID(c *gc.C) {
+	hi := hook.Info{
+		Kind: hooks.Install,
+	}
+	ctx, err := s.factory.HookContext(hi)
+	c.Assert(err, jc.ErrorIsNil)
+
+	v := strings.Split(ctx.Id(), "-")
+	c.Assert(v, gc.HasLen, 3)
+
+	randomComponent, err := hex.DecodeString(v[2])
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(randomComponent, gc.HasLen, 16)
 }
 
 func (s *ContextFactorySuite) TestRelationHookContext(c *gc.C) {

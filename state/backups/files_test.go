@@ -17,6 +17,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
@@ -60,6 +61,12 @@ func (s *filesSuite) createFiles(c *gc.C, paths backups.Paths, root, machineID s
 		c.Assert(err, jc.ErrorIsNil)
 		file.Close()
 	}
+	socket := func(dirname, name string) {
+		path := filepath.Join(dirname, name)
+		l, err := sockets.Listen(sockets.Socket{Network: "unix", Address: path})
+		c.Assert(err, jc.ErrorIsNil)
+		l.Close()
+	}
 
 	dirname := mkdir(paths.DataDir)
 	touch(dirname, "system-identity")
@@ -71,10 +78,12 @@ func (s *filesSuite) createFiles(c *gc.C, paths backups.Paths, root, machineID s
 	} else {
 		touch(dirname, "shared-secret")
 	}
-	mkdir(filepath.Join(paths.DataDir, "tools"))
+	dirname = mkdir(filepath.Join(paths.DataDir, "tools"))
+	touch(dirname, "a-tool")
 
-	dirname = mkdir(filepath.Join(paths.DataDir, "agents"))
-	touch(dirname, "machine-"+machineID+".conf")
+	dirname = mkdir(filepath.Join(paths.DataDir, "agents", "machine-"+machineID))
+	touch(dirname, "agent.conf")
+	socket(dirname, "introspection.socket")
 
 	dirname = mkdir("/home/ubuntu/.ssh")
 	touch(dirname, "authorized_keys")
@@ -125,17 +134,23 @@ func (s *filesSuite) TestGetFilesToBackUp(c *gc.C) {
 
 	expected := []string{
 		filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"),
-		filepath.Join(s.root, "/var/lib/juju/agents/machine-0.conf"),
-		filepath.Join(s.root, "/var/lib/juju/agents/machine-1.conf"),
+		filepath.Join(s.root, "/var/lib/juju/agents/machine-0/agent.conf"),
+		filepath.Join(s.root, "/var/lib/juju/agents/machine-1/agent.conf"),
 		filepath.Join(s.root, "/var/lib/juju/nonce.txt"),
 		filepath.Join(s.root, "/var/lib/juju/server.pem"),
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
 		filepath.Join(s.root, "/var/lib/juju/system-identity"),
-		filepath.Join(s.root, "/var/lib/juju/tools"),
-		filepath.Join(s.root, "/var/lib/juju/init/juju-db"),
+		filepath.Join(s.root, "/var/lib/juju/tools/a-tool"),
+		filepath.Join(s.root, "/var/lib/juju/init/juju-db/juju-db.service"),
 	}
 	c.Check(files, jc.SameContents, expected)
 	s.checkSameStrings(c, files, expected)
+
+	// Check the introspection sockets are not Tar'd up.
+	_, err = os.Stat(filepath.Join(s.root, "/var/lib/juju/agents/machine-0/introspection.socket"))
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = os.Stat(filepath.Join(s.root, "/var/lib/juju/agents/machine-1/introspection.socket"))
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *filesSuite) TestDirectoriesCleaned(c *gc.C) {
@@ -249,15 +264,13 @@ func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
-		filepath.Join(s.root, "/var/lib/juju/agents/machine-0.conf"),
+		filepath.Join(s.root, "/var/lib/juju/agents/machine-0/agent.conf"),
 		filepath.Join(s.root, "/var/lib/juju/server.pem"),
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
 		filepath.Join(s.root, "/var/lib/juju/system-identity"),
-		filepath.Join(s.root, "/var/lib/juju/tools"),
-		filepath.Join(s.root, "/var/lib/juju/init/juju-db"),
+		filepath.Join(s.root, "/var/lib/juju/tools/a-tool"),
+		filepath.Join(s.root, "/var/lib/juju/init/juju-db/juju-db.service"),
 	}
-	// This got re-created.
-	expected = append(expected, filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"))
 	c.Check(files, jc.SameContents, expected)
 	s.checkSameStrings(c, files, expected)
 }
@@ -274,13 +287,13 @@ func (s *filesSuite) TestGetFilesToBackUpSnap(c *gc.C) {
 
 	expected := []string{
 		filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"),
-		filepath.Join(s.root, "/var/lib/juju/agents/machine-0.conf"),
+		filepath.Join(s.root, "/var/lib/juju/agents/machine-0/agent.conf"),
 		filepath.Join(s.root, "/var/lib/juju/nonce.txt"),
 		filepath.Join(s.root, "/var/lib/juju/server.pem"),
 		filepath.Join(s.root, "/var/snap/juju-db/common/shared-secret"),
 		filepath.Join(s.root, "/var/lib/juju/system-identity"),
-		filepath.Join(s.root, "/var/lib/juju/tools"),
-		filepath.Join(s.root, "/var/lib/juju/init/juju-db"),
+		filepath.Join(s.root, "/var/lib/juju/tools/a-tool"),
+		filepath.Join(s.root, "/var/lib/juju/init/juju-db/juju-db.service"),
 	}
 	c.Check(files, jc.SameContents, expected)
 	s.checkSameStrings(c, files, expected)

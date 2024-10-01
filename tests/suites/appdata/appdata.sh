@@ -5,8 +5,8 @@ run_appdata_basic() {
 
 	ensure "appdata-basic" "${file}"
 
-	juju deploy juju-qa-appdata-source
-	juju deploy -n 2 juju-qa-appdata-sink
+	juju deploy juju-qa-appdata-source --series bionic
+	juju deploy -n 2 juju-qa-appdata-sink --series bionic
 	juju relate appdata-source appdata-sink
 
 	wait_for "blocked" "$(workload_status appdata-source 0).current"

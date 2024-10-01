@@ -270,7 +270,6 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 func MachineAgentFactoryFn(
 	agentConfWriter agentconf.AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
-	newIntrospectionSocketName func(names.Tag) string,
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	rootDir string,
 ) machineAgentFactoryFnType {
@@ -286,7 +285,6 @@ func MachineAgentFactoryFn(
 				Logger:        logger,
 			}),
 			looputil.NewLoopDeviceManager(),
-			newIntrospectionSocketName,
 			preUpgradeSteps,
 			rootDir,
 			isCaasAgent,
@@ -301,7 +299,6 @@ func NewMachineAgent(
 	bufferedLogger *logsender.BufferedLogWriter,
 	runner *worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
-	newIntrospectionSocketName func(names.Tag) string,
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	rootDir string,
 	isCaasAgent bool,
@@ -321,7 +318,6 @@ func NewMachineAgent(
 		rootDir:                     rootDir,
 		initialUpgradeCheckComplete: gate.NewLock(),
 		loopDeviceManager:           loopDeviceManager,
-		newIntrospectionSocketName:  newIntrospectionSocketName,
 		prometheusRegistry:          prometheusRegistry,
 		mongoTxnCollector:           mongometrics.NewTxnCollector(),
 		mongoDialCollector:          mongometrics.NewDialCollector(),
@@ -558,9 +554,10 @@ func (a *MachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion version.Number,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
+		agentConfig := a.CurrentConfig()
 		engineConfigFunc := engine.DependencyEngineConfig
 		metrics := engine.NewMetrics()
-		controllerMetricsSink := metrics.ForModel(a.CurrentConfig().Model())
+		controllerMetricsSink := metrics.ForModel(agentConfig.Model())
 		engine, err := dependency.NewEngine(engineConfigFunc(controllerMetricsSink))
 		if err != nil {
 			return nil, err
@@ -648,12 +645,11 @@ func (a *MachineAgent) makeEngineCreator(
 			return nil, err
 		}
 		if err := addons.StartIntrospection(addons.IntrospectionConfig{
-			AgentTag:           a.CurrentConfig().Tag(),
+			AgentDir:           agentConfig.Dir(),
 			Engine:             engine,
 			StatePoolReporter:  &statePoolReporter,
 			PubSubReporter:     pubsubReporter,
 			MachineLock:        a.machineLock,
-			NewSocketName:      a.newIntrospectionSocketName,
 			PrometheusGatherer: a.prometheusRegistry,
 			PresenceRecorder:   presenceRecorder,
 			WorkerFunc:         introspection.NewWorker,
