@@ -47,6 +47,7 @@ type ModelConfigServiceGetter func(coremodel.UUID) (ModelConfigService, error)
 // ModelConfigService describes the set of functions needed for working with a
 // model's config.
 type ModelConfigService interface {
+	// ModelConfig returns the currently set config on this model.
 	ModelConfig(context.Context) (*config.Config, error)
 
 	// SetModelConfig sets the models config.

@@ -183,7 +183,7 @@ func (s *Service) providerDefaults(
 }
 
 // ModelDefaults will return the default config values to be used for a model
-// and it's config. If no model for uuid is found then a error satisfying
+// and its config. If no model for uuid is found then a error satisfying
 // [github.com/juju/juju/domain/model/errors.NotFound] will be returned.
 //
 // The order in which to provide defaults is a tricky problem to coerce into one
