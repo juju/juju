@@ -512,7 +512,7 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 		case jujuproxy.TunnelProxier:
 			logger.Debugf("tunnel proxy in use at %s on port %s", p.Host(), p.Port())
 			addrs = []string{
-				fmt.Sprintf("%s:%s", p.Host(), p.Port()),
+				net.JoinHostPort(p.Host(), p.Port()),
 			}
 		default:
 			info.Proxier.Stop()
