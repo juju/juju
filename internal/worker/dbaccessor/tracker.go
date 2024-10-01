@@ -132,13 +132,23 @@ func newTrackedDBWorker(
 		return nil, errors.Trace(err)
 	}
 
-	// Set the maximum number of idle and open connections to 2 (default is 0).
-	// Not setting these values can lead to a large number of open connections
-	// being created and not closed, which can lead to unbonded connections
-	// being left open.
+	// Set the maximum number of idle and open connections to be the same and
+	// set to 2 (default is 0 for MaxOpenConns). From testing, it's better to
+	// have both set to the same value, and not setting these values can lead to
+	// a large number of open connections being created and not closed, which
+	// can lead to unbonded connections.
 	//
-	// TODO (stickupkid): We will want to move this to runtime.GOMAXPROCS(0)
-	// when we have a better understanding of the impact of this change.
+	// If and when we change this number, be aware that a database will have 2
+	// connections per database, per dqlite App. So if we have 100 databases
+	// then that is 200 connections per dqlite App. Changing that number to
+	// match runtime.GOMAXPROCS will then be len(database) * runtime.GOMAXPROCS
+	// per dqlite App. This can lead to a lot of open connections, so be
+	// careful.
+	// If we ever move to sharding model databases across dqlite Apps,
+	// then this number can be increased, as the number of connections per
+	// dqlite App will be less because the number of databases per dqlite App
+	// will be less. Testing will need to be done to determine the best number
+	// for this.
 	db.SetMaxIdleConns(2)
 	db.SetMaxOpenConns(2)
 
