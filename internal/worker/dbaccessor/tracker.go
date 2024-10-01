@@ -136,7 +136,7 @@ func newTrackedDBWorker(
 	// set to 2 (default is 0 for MaxOpenConns). From testing, it's better to
 	// have both set to the same value, and not setting these values can lead to
 	// a large number of open connections being created and not closed, which
-	// can lead to unbonded connections.
+	// can lead to unbounded connections.
 	//
 	// If and when we change this number, be aware that a database will have 2
 	// connections per database, per dqlite App. So if we have 100 databases
