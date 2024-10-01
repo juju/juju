@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/canonical/sqlair"
@@ -80,10 +79,10 @@ func CreateModel(
 		args.AgentVersion = agentVersion
 
 		activator := state.GetActivator()
-		return controller.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			modelTypeState := modelTypeStateFunc(
 				func(ctx context.Context, cloudName string) (string, error) {
-					return state.CloudType()(ctx, tx, cloudName)
+					return state.CloudType()(ctx, preparer{}, tx, cloudName)
 				})
 			modelType, err := service.ModelTypeForCloud(ctx, modelTypeState, args.Cloud)
 			if err != nil {
@@ -103,11 +102,11 @@ func CreateModel(
 				)
 			}
 
-			if err := state.Create(ctx, tx, modelID, modelType, args); err != nil {
+			if err := state.Create(ctx, preparer{}, tx, modelID, modelType, args); err != nil {
 				return fmt.Errorf("create bootstrap model %q with uuid %q: %w", args.Name, modelID, err)
 			}
 
-			if err := activator(ctx, tx, modelID); err != nil {
+			if err := activator(ctx, preparer{}, tx, modelID); err != nil {
 				return fmt.Errorf("activating bootstrap model %q with uuid %q: %w", args.Name, modelID, err)
 			}
 			return nil
@@ -149,8 +148,14 @@ func CreateReadOnlyModel(
 			CredentialName:  m.Credential.Name,
 		}
 
-		return modelDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			return state.CreateReadOnlyModel(ctx, args, tx)
+		return modelDB.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			return state.CreateReadOnlyModel(ctx, args, preparer{}, tx)
 		})
 	}
+}
+
+type preparer struct{}
+
+func (p preparer) Prepare(query string, typeSamples ...any) (*sqlair.Statement, error) {
+	return sqlair.Prepare(query, typeSamples...)
 }
