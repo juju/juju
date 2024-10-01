@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"runtime"
 	"strings"
 	"time"
@@ -64,8 +65,9 @@ func (s *suite) TestStartStop(c *gc.C) {
 		c.Skip("introspection worker not supported on non-linux")
 	}
 
+	socketName := path.Join(c.MkDir(), "introspection-test")
 	w, err := introspection.NewWorker(introspection.Config{
-		SocketName:         "introspection-test",
+		SocketName:         socketName,
 		PrometheusGatherer: prometheus.NewRegistry(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -105,7 +107,7 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *introspectionSuite) startWorker(c *gc.C) {
-	s.name = fmt.Sprintf("introspection-test-%d", os.Getpid())
+	s.name = path.Join(c.MkDir(), fmt.Sprintf("introspection-test-%d", os.Getpid()))
 	w, err := introspection.NewWorker(introspection.Config{
 		SocketName:         s.name,
 		DepEngine:          s.reporter,
@@ -124,7 +126,7 @@ func (s *introspectionSuite) startWorker(c *gc.C) {
 }
 
 func (s *introspectionSuite) call(c *gc.C, path string) *http.Response {
-	client := unixSocketHTTPClient("@" + s.name)
+	client := unixSocketHTTPClient(s.name)
 	c.Assert(strings.HasPrefix(path, "/"), jc.IsTrue)
 	targetURL, err := url.Parse("http://unix.socket" + path)
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,7 +137,7 @@ func (s *introspectionSuite) call(c *gc.C, path string) *http.Response {
 }
 
 func (s *introspectionSuite) post(c *gc.C, path string, values url.Values) *http.Response {
-	client := unixSocketHTTPClient("@" + s.name)
+	client := unixSocketHTTPClient(s.name)
 	c.Assert(strings.HasPrefix(path, "/"), jc.IsTrue)
 	targetURL, err := url.Parse("http://unix.socket" + path)
 	c.Assert(err, jc.ErrorIsNil)
