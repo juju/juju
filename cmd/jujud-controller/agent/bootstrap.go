@@ -341,8 +341,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	}
 	args.ControllerModelConfig = controllerModelCfg
 
-	configSchemaSource := environs.ProviderConfigSchemaSource(cloudGetter{cloud: &args.ControllerCloud})
-
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var controller *state.Controller
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
@@ -373,7 +371,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			BootstrapDqlite:           c.DqliteInitializer,
 			Provider:                  environs.Provider,
 			Logger:                    internallogger.GetLogger("juju.agent.bootstrap"),
-			ConfigSchemaSourceGetter:  configSchemaSource,
 		})
 		if err != nil {
 			return errors.Trace(err)
