@@ -24,36 +24,40 @@ import (
 	"github.com/juju/juju/internal/logger"
 )
 
-type stateSuite struct {
+type baseSuite struct {
 	testing.ModelSuite
-
-	unitUUID  string
 	unitCount int
+}
+
+type stateSuite struct {
+	baseSuite
+
+	unitUUID string
 
 	appUUID string
 }
 
 var _ = gc.Suite(&stateSuite{})
 
-const (
-	mUUID       = "machine-uuid"
-	netNodeUUID = "net-node-uuid"
-	appName     = "app-name"
+var (
+	machineUUIDs = []string{"machine-0-uuid", "machine-1-uuid"}
+	netNodeUUIDs = []string{"net-node-0-uuid", "net-node-1-uuid"}
+	appNames     = []string{"app-0-name", "app-1-name"}
 )
 
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.machine"))
-	err := machineSt.CreateMachine(context.Background(), "m", netNodeUUID, mUUID)
+	err := machineSt.CreateMachine(context.Background(), "m", netNodeUUIDs[0], machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.unitUUID, s.appUUID = s.createUnit(c, netNodeUUID, appName)
+	s.unitUUID, s.appUUID = s.createUnit(c, netNodeUUIDs[0], appNames[0])
 }
 
 // createUnit creates a new unit in state and returns its UUID. The unit is assigned
 // to the net node with uuid `netNodeUUID`.
-func (s *stateSuite) createUnit(c *gc.C, netNodeUUID, appName string) (string, string) {
+func (s *baseSuite) createUnit(c *gc.C, netNodeUUID, appName string) (string, string) {
 	applicationSt := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
 	_, err := applicationSt.CreateApplication(context.Background(), appName, application.AddApplicationArg{
 		Charm: charm.Charm{
@@ -148,7 +152,7 @@ func (s *stateSuite) TestGetMachineOpenedPortsBlankDB(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 
-	machineGroupedPortRanges, err := st.GetMachineOpenedPorts(ctx, mUUID)
+	machineGroupedPortRanges, err := st.GetMachineOpenedPorts(ctx, machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(machineGroupedPortRanges, gc.HasLen, 0)
 
@@ -162,7 +166,7 @@ func (s *stateSuite) TestGetMachineOpenedPorts(c *gc.C) {
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	machineGroupedPortRanges, err := st.GetMachineOpenedPorts(ctx, mUUID)
+	machineGroupedPortRanges, err := st.GetMachineOpenedPorts(ctx, machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(machineGroupedPortRanges, gc.HasLen, 1)
 
@@ -183,7 +187,7 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnits(c *gc.C) {
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID, _ := s.createUnit(c, netNodeUUID, appName)
+	unit1UUID, _ := s.createUnit(c, netNodeUUIDs[0], appNames[0])
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
 			"endpoint": {
@@ -194,7 +198,7 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnits(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	machineGroupedPortRanges, err := st.GetMachineOpenedPorts(ctx, mUUID)
+	machineGroupedPortRanges, err := st.GetMachineOpenedPorts(ctx, machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(machineGroupedPortRanges, gc.HasLen, 2)
 
@@ -224,10 +228,10 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnitsDifferentMachines(c 
 	s.initialiseOpenPort(c, st)
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.machine"))
-	err := machineSt.CreateMachine(context.Background(), "m2", "net-node-uuid-2", "machine-uuid-2")
+	err := machineSt.CreateMachine(context.Background(), "m1", netNodeUUIDs[1], machineUUIDs[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit1UUID, _ := s.createUnit(c, "net-node-uuid-2", appName)
+	unit1UUID, _ := s.createUnit(c, netNodeUUIDs[1], appNames[0])
 	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
 			"endpoint": {
@@ -238,7 +242,7 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnitsDifferentMachines(c 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	machineGroupedPortRanges, err := st.GetMachineOpenedPorts(ctx, mUUID)
+	machineGroupedPortRanges, err := st.GetMachineOpenedPorts(ctx, machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(machineGroupedPortRanges, gc.HasLen, 1)
 
@@ -253,7 +257,7 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnitsDifferentMachines(c 
 	c.Check(unit0PortRanges["misc"], gc.HasLen, 1)
 	c.Check(unit0PortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
 
-	machineGroupedPortRanges, err = st.GetMachineOpenedPorts(ctx, "machine-uuid-2")
+	machineGroupedPortRanges, err = st.GetMachineOpenedPorts(ctx, machineUUIDs[1])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(machineGroupedPortRanges, gc.HasLen, 1)
 
@@ -298,7 +302,7 @@ func (s *stateSuite) TestGetApplicationOpenedPortsAcrossTwoUnits(c *gc.C) {
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID, _ := s.createUnit(c, "net-node-uuid-2", appName)
+	unit1UUID, _ := s.createUnit(c, netNodeUUIDs[1], appNames[0])
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
 			"endpoint": {
@@ -329,7 +333,7 @@ func (s *stateSuite) TestGetApplicationOpenedPortsAcrossTwoUnitsDifferentApplica
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID, app2UUID := s.createUnit(c, "net-node-uuid-2", "app-name-2")
+	unit1UUID, app1UUID := s.createUnit(c, netNodeUUIDs[1], "app-name-1")
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
 			"endpoint": {
@@ -357,7 +361,7 @@ func (s *stateSuite) TestGetApplicationOpenedPortsAcrossTwoUnitsDifferentApplica
 		{Endpoint: "endpoint", UnitUUID: unit1UUID, PortRange: network.PortRange{Protocol: "udp", FromPort: 2000, ToPort: 2500}},
 	}
 
-	unitEndpointPortRanges, err = st.GetApplicationOpenedPorts(ctx, app2UUID)
+	unitEndpointPortRanges, err = st.GetApplicationOpenedPorts(ctx, app1UUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(unitEndpointPortRanges, gc.HasLen, 2)
 	c.Check(unitEndpointPortRanges, jc.DeepEquals, expect)
@@ -386,7 +390,7 @@ func (s *stateSuite) TestGetColocatedOpenedPortsMultipleUnits(c *gc.C) {
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID, _ := s.createUnit(c, netNodeUUID, appName)
+	unit1UUID, _ := s.createUnit(c, netNodeUUIDs[0], appNames[0])
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
 			"endpoint": {
@@ -417,7 +421,7 @@ func (s *stateSuite) TestGetColocatedOpenedPortsMultipleUnitsOnNetNodes(c *gc.C)
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID, _ := s.createUnit(c, "net-node-uuid-2", appName)
+	unit1UUID, _ := s.createUnit(c, netNodeUUIDs[1], appNames[0])
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
 			"endpoint": {
@@ -700,7 +704,7 @@ func (s *stateSuite) TestUpdateUnitPortRangesOpenAlreadyOpenAcrossUnits(c *gc.C)
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
-	unit1UUID, _ := s.createUnit(c, netNodeUUID, appName)
+	unit1UUID, _ := s.createUnit(c, netNodeUUIDs[0], appNames[0])
 
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{"endpoint": {{Protocol: "udp", FromPort: 1000, ToPort: 1500}}}, network.GroupedPortRanges{})
@@ -712,7 +716,7 @@ func (s *stateSuite) TestUpdateUnitPortRangesOpenAlreadyOpenAcrossUnits(c *gc.C)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	machineGroupedPortRanges, err := st.GetMachineOpenedPorts(ctx, mUUID)
+	machineGroupedPortRanges, err := st.GetMachineOpenedPorts(ctx, machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(machineGroupedPortRanges, gc.HasLen, 2)
 

@@ -50,6 +50,7 @@ const (
 	tableCharm
 	tableUnit
 	tableApplicationScale
+	tablePortRange
 )
 
 // ModelDDL is used to create model databases.
@@ -107,6 +108,7 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForCharm("uuid", tableCharm),
 		triggers.ChangeLogTriggersForUnit("uuid", tableUnit),
 		triggers.ChangeLogTriggersForApplicationScale("application_uuid", tableApplicationScale),
+		triggers.ChangeLogTriggersForPortRange("unit_endpoint_uuid", tablePortRange),
 	)
 
 	// Generic triggers.

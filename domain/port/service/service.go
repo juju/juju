@@ -26,9 +26,9 @@ type AtomicState interface {
 	// net-node.
 	GetColocatedOpenedPorts(ctx domain.AtomicContext, unitUUID string) ([]network.PortRange, error)
 
-	// GetOpenedEndpointPorts returns the opened ports for a given endpoint of a
+	// GetEndpointOpenedPorts returns the opened ports for a given endpoint of a
 	// given unit.
-	GetOpenedEndpointPorts(ctx domain.AtomicContext, unitUUID, endpoint string) ([]network.PortRange, error)
+	GetEndpointOpenedPorts(ctx domain.AtomicContext, unitUUID, endpoint string) ([]network.PortRange, error)
 
 	// GetEndpoints returns all endpoints for a given unit.
 	GetEndpoints(ctx domain.AtomicContext, unitUUID string) ([]string, error)
@@ -41,6 +41,7 @@ type AtomicState interface {
 // State describes the methods that a state implementation must provide to
 // manage opened ports for units.
 type State interface {
+	WatcherState
 	AtomicState
 
 	// GetUnitOpenedPorts returns the opened ports for a given unit uuid,
@@ -62,8 +63,7 @@ type Service struct {
 	st State
 }
 
-// NewService returns a new Service providing an API to manage the opened ports
-// for units.
+// NewService returns a new Service for managing opened ports for units.
 func NewService(st State) *Service {
 	return &Service{
 		st: st,
@@ -186,7 +186,7 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID string, openPort
 		wildcardOpen, _ := openPorts[WildcardEndpoint]
 		wildcardClose, _ := closePorts[WildcardEndpoint]
 
-		wildcardOpened, err := s.st.GetOpenedEndpointPorts(ctx, unitUUID, WildcardEndpoint)
+		wildcardOpened, err := s.st.GetEndpointOpenedPorts(ctx, unitUUID, WildcardEndpoint)
 		if err != nil {
 			return errors.Errorf("failed to get opened ports for wildcard endpoint: %w", err)
 		}
