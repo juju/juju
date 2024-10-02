@@ -259,10 +259,10 @@ func (s *MigrationSuite) TestLatestMigration(c *gc.C) {
 	c.Assert(mig1.Id(), gc.Equals, mig2.Id())
 }
 
-func (s *MigrationSuite) TestLatestMigrationNotExist(c *gc.C) {
+func (s *MigrationSuite) TestLatestMigrationIgnoresModelNotFound(c *gc.C) {
 	mig, err := s.State.LatestMigration()
 	c.Check(mig, gc.IsNil)
-	c.Check(errors.IsNotFound(err), jc.IsTrue)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *MigrationSuite) TestGetsLatestAttempt(c *gc.C) {
@@ -298,6 +298,8 @@ func (s *MigrationSuite) TestLatestMigrationWithPrevious(c *gc.C) {
 		migration.LOGTRANSFER,
 		migration.REAP,
 		migration.DONE,
+		// Check that it is idempotent on DONE.
+		migration.DONE,
 	}
 	for i := 0; i < 10; i++ {
 		mig, err := s.State2.CreateMigration(s.stdSpec)
@@ -311,6 +313,7 @@ func (s *MigrationSuite) TestLatestMigrationWithPrevious(c *gc.C) {
 	// Previous migration shouldn't be reported.
 	_, err := s.State2.LatestMigration()
 	c.Check(errors.IsNotFound(err), jc.IsTrue)
+	c.Check(err, gc.ErrorMatches, "migration not found")
 
 	// Start a new migration attempt, which should be reported.
 	migNext, err := s.State2.CreateMigration(s.stdSpec)

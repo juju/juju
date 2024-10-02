@@ -849,10 +849,10 @@ func (st *State) LatestMigration() (ModelMigration, error) {
 	// away from a model and then migrated back.
 	if phase == migration.DONE {
 		model, err := st.Model()
-		if err != nil {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
-		if model.MigrationMode() == MigrationModeNone {
+		if model != nil && model.MigrationMode() == MigrationModeNone {
 			return nil, errors.NotFoundf("migration")
 		}
 	}
