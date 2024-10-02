@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/internal/auth"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/services"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
