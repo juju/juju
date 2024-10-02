@@ -80,7 +80,7 @@ func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
 	assertNoRelations(c, mysql)
 
 	// Check that a relation can't be added to a Dying application.
-	_, err = wordpress.AddUnit(state.AddUnitParams{})
+	_, err = wordpress.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -114,7 +114,7 @@ func (s *RelationSuite) TestRetrieveSuccess(c *gc.C) {
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	mysqlUnit, err := mysql.AddUnit(state.AddUnitParams{})
+	mysqlUnit, err := mysql.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
@@ -122,7 +122,7 @@ func (s *RelationSuite) TestRetrieveSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlru, err := expect.Unit(mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlru.EnterScope(nil)
+	err = mysqlru.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	rel, err := s.State.EndpointsRelation(wordpressEP, mysqlEP)
@@ -392,7 +392,7 @@ func (s *RelationSuite) assertDestroyCrossModelRelation(c *gc.C, appStatus *stat
 	c.Assert(err, jc.ErrorIsNil)
 
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	mysqlUnit, err := mysql.AddUnit(state.AddUnitParams{})
+	mysqlUnit, err := mysql.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
@@ -401,13 +401,13 @@ func (s *RelationSuite) assertDestroyCrossModelRelation(c *gc.C, appStatus *stat
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlru, err := rel.Unit(mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlru.EnterScope(nil)
+	err = mysqlru.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, mysqlru, true)
 
 	wpru, err := rel.RemoteUnit("remote-wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = wpru.EnterScope(nil)
+	err = wpru.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpru, true)
 
@@ -464,7 +464,7 @@ func (s *RelationSuite) TestForceDestroyCrossModelRelationOfferSide(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	mysqlUnit, err := mysql.AddUnit(state.AddUnitParams{})
+	mysqlUnit, err := mysql.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
@@ -473,13 +473,13 @@ func (s *RelationSuite) TestForceDestroyCrossModelRelationOfferSide(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlru, err := rel.Unit(mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlru.EnterScope(nil)
+	err = mysqlru.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, mysqlru, true)
 
 	wpru, err := rel.RemoteUnit("remote-wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = wpru.EnterScope(nil)
+	err = wpru.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpru, true)
 
@@ -712,14 +712,14 @@ func (s *RelationSuite) TestWatchLifeSuspendedStatus(c *gc.C) {
 	rel := s.setupRelationStatus(c)
 	mysql, err := s.State.Application("mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	u, err := mysql.AddUnit(state.AddUnitParams{})
+	u, err := mysql.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	m := s.Factory.MakeMachine(c, &factory.MachineParams{})
-	err = u.AssignToMachine(m)
+	err = u.AssignToMachine(state.StubModelConfigService(c), m)
 	c.Assert(err, jc.ErrorIsNil)
 	relUnit, err := rel.Unit(u)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := rel.WatchLifeSuspendedStatus()
@@ -1045,14 +1045,14 @@ func (s *RelationSuite) TestDestroyForceSchedulesCleanupForStuckUnits(c *gc.C) {
 	// dying. If the destroy is forced, we shouldn't wait indefinitely
 	// for that unit to leave scope.
 	addRelationUnit := func(c *gc.C, app *state.Application) *state.RelationUnit {
-		unit, err := app.AddUnit(state.AddUnitParams{})
+		unit, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		machine := s.Factory.MakeMachine(c, &factory.MachineParams{})
-		err = unit.AssignToMachine(machine)
+		err = unit.AssignToMachine(state.StubModelConfigService(c), machine)
 		c.Assert(err, jc.ErrorIsNil)
 		relUnit, err := rel.Unit(unit)
 		c.Assert(err, jc.ErrorIsNil)
-		err = relUnit.EnterScope(nil)
+		err = relUnit.EnterScope(state.StubModelConfigService(c), nil)
 		c.Assert(err, jc.ErrorIsNil)
 		return relUnit
 	}
@@ -1108,19 +1108,19 @@ func (s *RelationSuite) TestDestroyForceStuckRemoteUnits(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	unit, err := wordpress.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{})
-	err = unit.AssignToMachine(machine)
+	err = unit.AssignToMachine(state.StubModelConfigService(c), machine)
 	c.Assert(err, jc.ErrorIsNil)
 	localRelUnit, err := rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = localRelUnit.EnterScope(nil)
+	err = localRelUnit.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	remoteRelUnit, err := rel.RemoteUnit("mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = remoteRelUnit.EnterScope(nil)
+	err = remoteRelUnit.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	opErrs, err := rel.DestroyWithForce(true, time.Minute)

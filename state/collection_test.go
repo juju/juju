@@ -35,7 +35,8 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 	s.Factory.MakeMachine(c, nil)
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
-	f1 := factory.NewFactory(st1, s.StatePool, testing.FakeControllerConfig())
+	f1 := factory.NewFactory(st1, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 	otherM0 := f1.MakeMachine(c, &factory.MachineParams{Base: state.UbuntuBase("22.04")})
 
 	// Ensure that the first machine in each model have overlapping ids

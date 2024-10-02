@@ -63,7 +63,8 @@ func (s *StateWithWallClockSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.Model = model
 
-	s.Factory = factory.NewFactory(s.State, s.StatePool, s.ControllerInheritedConfig)
+	s.Factory = factory.NewFactory(s.State, s.StatePool, s.ControllerInheritedConfig).
+		WithModelConfigService(&stubModelConfigService{cfg: coretesting.ModelConfig(c)})
 }
 
 func (s *StateWithWallClockSuite) TearDownTest(c *gc.C) {

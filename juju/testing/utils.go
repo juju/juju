@@ -147,8 +147,13 @@ func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
 // It returns the addresses that will be returned by the State.Addresses
 // and State.APIAddresses methods, which will not bear any relation to
 // the be the addresses used by the controllers.
-func AddControllerMachine(c *gc.C, st *state.State, controllerConfig controller.Config) *state.Machine {
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+func AddControllerMachine(
+	c *gc.C,
+	st *state.State,
+	modelConfigService state.ModelConfigService,
+	controllerConfig controller.Config,
+) *state.Machine {
+	machine, err := st.AddMachine(modelConfigService, state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)

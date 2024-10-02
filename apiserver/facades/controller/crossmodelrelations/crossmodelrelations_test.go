@@ -224,7 +224,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 	} else {
 		ru1.CheckCalls(c, []testing.StubCall{
 			{"InScope", []interface{}{}},
-			{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
+			{"EnterScope", []interface{}{s.modelConfigService, map[string]interface{}{"foo": "bar"}}},
 		})
 		if lifeValue == life.Alive {
 			rel.CheckCalls(c, []testing.StubCall{
@@ -764,7 +764,7 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemo
 	s.st.CheckCalls(c, expected)
 	ru1.CheckCalls(c, []testing.StubCall{
 		{"InScope", []interface{}{}},
-		{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
+		{"EnterScope", []interface{}{s.modelConfigService, map[string]interface{}{"foo": "bar"}}},
 	})
 	ru2.CheckCalls(c, []testing.StubCall{
 		{"LeaveScope", []interface{}{}},
@@ -836,7 +836,7 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemo
 	s.st.CheckCalls(c, expected)
 	ru1.CheckCalls(c, []testing.StubCall{
 		{"InScope", []interface{}{}},
-		{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
+		{"EnterScope", []interface{}{s.modelConfigService, map[string]interface{}{"foo": "bar"}}},
 	})
 	ru2.CheckCalls(c, []testing.StubCall{
 		{"LeaveScope", []interface{}{}},

@@ -60,25 +60,25 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 	actionlessSURL, _ := s.actionlessApplication.CharmURL()
 	c.Assert(actionlessSURL, gc.NotNil)
 
-	s.unit, err = s.application.AddUnit(state.AddUnitParams{})
+	s.unit, err = s.application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
 
 	err = s.unit.SetCharmURL(*sURL)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.unit2, err = s.application.AddUnit(state.AddUnitParams{})
+	s.unit2, err = s.application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit2.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
 
 	err = s.unit2.SetCharmURL(*sURL)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.charmlessUnit, err = s.application.AddUnit(state.AddUnitParams{})
+	s.charmlessUnit, err = s.application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.charmlessUnit.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
 
-	s.actionlessUnit, err = s.actionlessApplication.AddUnit(state.AddUnitParams{})
+	s.actionlessUnit, err = s.actionlessApplication.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.actionlessUnit.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
 
@@ -564,7 +564,7 @@ func makeUnits(c *gc.C, s *ActionSuite, units map[string]*state.Unit, schemas ma
 
 		// Add a unit
 		var err error
-		u, err := app.AddUnit(state.AddUnitParams{})
+		u, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(u.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
 		err = u.SetCharmURL(*sURL)
@@ -866,7 +866,7 @@ func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 
 	// preamble
 	app := s.AddTestingApplication(c, "dummy3", s.charm)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.State.Unit(unit.Name())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1071,7 +1071,7 @@ func (s *ActionSuite) TestMakeIdFilter(c *gc.C) {
 
 func (s *ActionSuite) TestWatchActionNotifications(c *gc.C) {
 	app := s.AddTestingApplication(c, "dummy2", s.charm)
-	u, err := app.AddUnit(state.AddUnitParams{})
+	u, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := u.WatchPendingActionNotifications()

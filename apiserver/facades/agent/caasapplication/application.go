@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
@@ -50,6 +51,7 @@ type Facade struct {
 	ctrlSt                  ControllerState
 	controllerConfigService ControllerConfigService
 	applicationService      ApplicationService
+	modelConfigService      common.ModelConfigService
 	state                   State
 	model                   Model
 	clock                   clock.Clock
@@ -65,6 +67,7 @@ func NewFacade(
 	st State,
 	controllerConfigService ControllerConfigService,
 	applicationService ApplicationService,
+	modelConfigService common.ModelConfigService,
 	broker Broker,
 	clock clock.Clock,
 	logger logger.Logger,
@@ -83,6 +86,7 @@ func NewFacade(
 		state:                   st,
 		controllerConfigService: controllerConfigService,
 		applicationService:      applicationService,
+		modelConfigService:      modelConfigService,
 		model:                   model,
 		clock:                   clock,
 		broker:                  broker,
@@ -201,7 +205,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	if err != nil {
 		return errResp(err)
 	}
-	_, err = application.UpsertCAASUnit(upsert)
+	_, err = application.UpsertCAASUnit(f.modelConfigService, upsert)
 	if err != nil {
 		return errResp(err)
 	}

@@ -36,7 +36,7 @@ func (s *ApplicationMachinesSuite) SetUpTest(c *gc.C) {
 	s.machines = make([]*state.Machine, 5)
 	for i := range s.machines {
 		var err error
-		s.machines[i], err = s.State.AddOneMachine(state.MachineTemplate{
+		s.machines[i], err = s.State.AddOneMachine(state.StubModelConfigService(c), state.MachineTemplate{
 			Base: state.UbuntuBase("12.10"),
 			Jobs: []state.MachineJob{state.JobHostUnits},
 		})
@@ -44,15 +44,15 @@ func (s *ApplicationMachinesSuite) SetUpTest(c *gc.C) {
 	}
 
 	for _, i := range []int{0, 1, 4} {
-		unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
+		unit, err := s.wordpress.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.AssignToMachine(s.machines[i])
+		err = unit.AssignToMachine(state.StubModelConfigService(c), s.machines[i])
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	for _, i := range []int{2, 3} {
-		unit, err := s.mysql.AddUnit(state.AddUnitParams{})
+		unit, err := s.mysql.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.AssignToMachine(s.machines[i])
+		err = unit.AssignToMachine(state.StubModelConfigService(c), s.machines[i])
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }

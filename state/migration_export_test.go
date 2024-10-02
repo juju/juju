@@ -106,11 +106,11 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 		"data": makeStorageCons(pool, 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, storage)
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine := s.Factory.MakeMachine(c, nil)
-	err = unit.AssignToMachine(machine)
+	err = unit.AssignToMachine(state.StubModelConfigService(c), machine)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -293,7 +293,8 @@ func (s *MigrationExportSuite) TestApplicationsWithRootDiskSourceConstraint(c *g
 }
 
 func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.State, cons constraints.Value) {
-	f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
+	f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 
 	dbModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -335,7 +336,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	c.Assert(err, jc.ErrorIsNil)
 
 	if dbModel.Type() == state.ModelTypeCAAS {
-		_, err = application.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")})
+		_, err = application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{ProviderId: strPtr("provider-id1")})
 		c.Assert(err, jc.ErrorIsNil)
 		err = application.SetOperatorStatus(status.StatusInfo{Status: status.Running})
 		c.Assert(err, jc.ErrorIsNil)
@@ -573,7 +574,8 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 }
 
 func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {
-	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig())
+	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 
 	dbModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -686,7 +688,8 @@ func (s *MigrationExportSuite) TestOfferConnections(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestUnits(c *gc.C) {
-	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig())
+	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
@@ -697,7 +700,8 @@ func (s *MigrationExportSuite) TestCAASUnits(c *gc.C) {
 	caasSt := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
-	f := factory.NewFactory(caasSt, s.StatePool, testing.FakeControllerConfig())
+	f := factory.NewFactory(caasSt, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
@@ -840,7 +844,7 @@ func (s *MigrationExportSuite) TestUnitOpenPortRanges(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Machine: machine,
 	})
-	c.Assert(unit.AssignToMachine(machine), jc.ErrorIsNil)
+	c.Assert(unit.AssignToMachine(state.StubModelConfigService(c), machine), jc.ErrorIsNil)
 
 	state.MustOpenUnitPortRange(c, s.State, machine, unit.Name(), allEndpoints, network.MustParsePortRange("1234-2345/tcp"))
 
@@ -928,7 +932,7 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	wordpressSettings := map[string]interface{}{
 		"name": "wordpress/0",
 	}
-	err = ru.EnterScope(wordpressSettings)
+	err = ru.EnterScope(state.StubModelConfigService(c), wordpressSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ru, err = rel.Unit(mysql_0)
@@ -936,7 +940,7 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	mysqlSettings := map[string]interface{}{
 		"name": "mysql/0",
 	}
-	err = ru.EnterScope(mysqlSettings)
+	err = ru.EnterScope(state.StubModelConfigService(c), mysqlSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpressAppSettings := map[string]interface{}{
@@ -1005,7 +1009,7 @@ func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		pru, err := rel.Unit(unit)
 		c.Assert(err, jc.ErrorIsNil)
-		err = pru.EnterScope(nil)
+		err = pru.EnterScope(state.StubModelConfigService(c), nil)
 		c.Assert(err, jc.ErrorIsNil)
 		// Need to reload the doc to get the subordinates.
 		err = unit.Refresh()
@@ -1016,7 +1020,7 @@ func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		sub, err := rel.Unit(loggingUnit)
 		c.Assert(err, jc.ErrorIsNil)
-		err = sub.EnterScope(nil)
+		err = sub.EnterScope(state.StubModelConfigService(c), nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -1110,7 +1114,7 @@ func (s *MigrationExportSuite) TestInstanceDataSkipped(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestMissingInstanceDataIgnored(c *gc.C) {
-	_, err := s.State.AddOneMachine(state.MachineTemplate{
+	_, err := s.State.AddOneMachine(state.StubModelConfigService(c), state.MachineTemplate{
 		Base: state.UbuntuBase("18.04"),
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
@@ -1143,7 +1147,7 @@ func (s *MigrationBaseSuite) TestMachineAgentBinariesSkipped(c *gc.C) {
 }
 
 func (s *MigrationBaseSuite) TestMissingMachineAgentBinariesIgnored(c *gc.C) {
-	_, err := s.State.AddOneMachine(state.MachineTemplate{
+	_, err := s.State.AddOneMachine(state.StubModelConfigService(c), state.MachineTemplate{
 		Base: state.UbuntuBase("18.04"),
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
@@ -1163,7 +1167,7 @@ func (s *MigrationBaseSuite) TestUnitAgentBinariesSkipped(c *gc.C) {
 	dummyCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "dummy", Charm: dummyCharm})
 
-	_, err := application.AddUnit(state.AddUnitParams{})
+	_, err := application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.ExportPartial(state.ExportConfig{
@@ -1180,7 +1184,7 @@ func (s *MigrationBaseSuite) TestMissingUnitAgentBinariesIgnored(c *gc.C) {
 	dummyCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "dummy", Charm: dummyCharm})
 
-	_, err := application.AddUnit(state.AddUnitParams{})
+	_, err := application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.ExportPartial(state.ExportConfig{
@@ -2070,7 +2074,7 @@ func (s *MigrationExportSuite) TestRelationWithNoStatus(c *gc.C) {
 	wordpressSettings := map[string]interface{}{
 		"name": "wordpress/0",
 	}
-	err = ru.EnterScope(wordpressSettings)
+	err = ru.EnterScope(state.StubModelConfigService(c), wordpressSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ru, err = rel.Unit(mysql0)
@@ -2078,7 +2082,7 @@ func (s *MigrationExportSuite) TestRelationWithNoStatus(c *gc.C) {
 	mysqlSettings := map[string]interface{}{
 		"name": "mysql/0",
 	}
-	err = ru.EnterScope(mysqlSettings)
+	err = ru.EnterScope(state.StubModelConfigService(c), mysqlSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	state.RemoveRelationStatus(c, rel)
@@ -2123,14 +2127,14 @@ func (s *MigrationExportSuite) TestRemoteRelationSettingsForUnitsInCMR(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpressSettings := map[string]interface{}{"name": "wordpress/0"}
-	err = localRU.EnterScope(wordpressSettings)
+	err = localRU.EnterScope(state.StubModelConfigService(c), wordpressSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	remoteRU, err := rel.RemoteUnit("gravy-rainbow/0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	gravySettings := map[string]interface{}{"name": "gravy-rainbow/0"}
-	err = remoteRU.EnterScope(gravySettings)
+	err = remoteRU.EnterScope(state.StubModelConfigService(c), gravySettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))

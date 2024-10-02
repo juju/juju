@@ -42,6 +42,7 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	s.machine2 = f.MakeMachine(c, &factory.MachineParams{
 		Base: state.UbuntuBase("12.10"),
@@ -120,6 +121,7 @@ func (s *uniterGoalStateSuite) TestPeerUnitsNoRelation(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	f.MakeUnit(c, &factory.UnitParams{
 		Application: s.mysql,
@@ -179,6 +181,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesDeadUnitsExcluded(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	newMysqlUnit := f.MakeUnit(c, &factory.UnitParams{
 		Application: s.mysql,
@@ -230,12 +233,16 @@ func (s *uniterGoalStateSuite) TestGoalStatesDeadUnitsExcluded(c *gc.C) {
 // is useful because several tests go through a unit's lifecycle step by step,
 // asserting the behaviour of a given method in each state, and the unit quick-
 // remove change caused many of these to fail.
-func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
+func preventUnitDestroyRemove(
+	c *gc.C,
+	modelConfigService uniter.ModelConfigService,
+	u *state.Unit,
+) {
 	// To have a non-allocating status, a unit needs to
 	// be assigned to a machine.
 	_, err := u.AssignedMachineId()
 	if errors.Is(err, errors.NotAssigned) {
-		err = u.AssignToNewMachine()
+		err = u.AssignToNewMachine(modelConfigService)
 	}
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
@@ -252,6 +259,7 @@ func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
 func (s *uniterGoalStateSuite) TestGoalStatesSingleRelationDyingUnits(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	mysqlUnit := f.MakeUnit(c, &factory.UnitParams{
 		Application: s.mysql,
@@ -279,7 +287,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelationDyingUnits(c *gc.C) {
 			},
 		},
 	})
-	preventUnitDestroyRemove(c, mysqlUnit)
+	preventUnitDestroyRemove(c, s.modelConfigService(c), mysqlUnit)
 	err = mysqlUnit.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -373,6 +381,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// Add another wordpress unit on machine 1.
 	f.MakeUnit(c, &factory.UnitParams{
@@ -455,7 +464,7 @@ func (s *uniterGoalStateSuite) addRelationEnterScope(c *gc.C, unit1 *state.Unit,
 	relationUnit, err := relation.Unit(unit1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = relationUnit.EnterScope(nil)
+	err = relationUnit.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relationUnit, true)
 	return err

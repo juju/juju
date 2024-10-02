@@ -29,7 +29,7 @@ func (s *watcherSuite) TestEntityWatcherEventsNonExistent(c *gc.C) {
 }
 
 func (s *watcherSuite) TestEntityWatcherFirstEvent(c *gc.C) {
-	m, err := s.State.AddMachine(state.UbuntuBase("18.04"), state.JobHostUnits)
+	m, err := s.State.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("18.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	// Send the Machine creation event before we start our watcher
 	w := m.Watch()
@@ -66,7 +66,7 @@ loop:
 
 func (s *watcherSuite) TestLegacyActionNotificationWatcher(c *gc.C) {
 	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	unit, err := dummy.AddUnit(state.AddUnitParams{})
+	unit, err := dummy.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := state.NewActionNotificationWatcher(s.State, true, unit)

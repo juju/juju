@@ -62,7 +62,7 @@ func (s *CleanupSuite) TestCleanupDyingApplicationUnits(c *gc.C) {
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
-		unit, err := mysql.AddUnit(state.AddUnitParams{})
+		unit, err := mysql.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -172,7 +172,9 @@ func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 	// Create a non-empty hosted model.
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
-	factory.NewFactory(otherSt, s.StatePool, jujutesting.FakeControllerConfig()).MakeApplication(c, nil)
+	factory.NewFactory(otherSt, s.StatePool, jujutesting.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c)).
+		MakeApplication(c, nil)
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -209,16 +211,16 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 func (s *CleanupSuite) testCleanupModelMachines(c *gc.C, force bool) {
 	// Create a controller machine, and manual and non-manual
 	// workload machine, the latter with a container workload machine.
-	stateMachine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	stateMachine, err := s.State.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	modelMachine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	modelMachine, err := s.State.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+	container, err := s.State.AddMachineInsideMachine(state.StubModelConfigService(c), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}, modelMachine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	manualMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+	manualMachine, err := s.State.AddOneMachine(state.StubModelConfigService(c), state.MachineTemplate{
 		Base:       state.UbuntuBase("12.10"),
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "inst-ance",
@@ -228,11 +230,11 @@ func (s *CleanupSuite) testCleanupModelMachines(c *gc.C, force bool) {
 
 	// Create a relation with a unit in scope and assigned to the hosted machine.
 	pr := newPeerRelation(c, s.State, s.objectStore)
-	err = pr.u0.AssignToMachine(modelMachine)
+	err = pr.u0.AssignToMachine(state.StubModelConfigService(c), modelMachine)
 	c.Assert(err, jc.ErrorIsNil)
 	preventPeerUnitsDestroyRemove(c, pr)
 
-	err = pr.ru0.EnterScope(nil)
+	err = pr.ru0.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
@@ -274,7 +276,7 @@ func (s *CleanupSuite) TestCleanupModelApplications(c *gc.C) {
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
-		unit, err := mysql.AddUnit(state.AddUnitParams{})
+		unit, err := mysql.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -331,7 +333,7 @@ func (s *CleanupSuite) TestCleanupModelOffers(c *gc.C) {
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
-		unit, err := mysql.AddUnit(state.AddUnitParams{})
+		unit, err := mysql.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -346,7 +348,7 @@ func (s *CleanupSuite) TestCleanupModelOffers(c *gc.C) {
 	// Prevent short circuit of offer removal.
 	ru, err := rel.Unit(units[0])
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	offers := state.NewApplicationOffers(s.State)
@@ -400,7 +402,7 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	pr := newPeerRelation(c, s.State, s.objectStore)
 	preventPeerUnitsDestroyRemove(c, pr)
 	rel := pr.ru0.Relation()
-	err := pr.ru0.EnterScope(map[string]interface{}{"some": "settings"})
+	err := pr.ru0.EnterScope(state.StubModelConfigService(c), map[string]interface{}{"some": "settings"})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
@@ -429,7 +431,7 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestDestroyControllerMachineErrors(c *gc.C) {
-	manager, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	manager, err := s.State.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(manager.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -447,7 +449,7 @@ func (s *CleanupSuite) TestDestroyControllerMachineHAWithControllerCharm(c *gc.C
 	cons := constraints.Value{
 		Mem: newUint64(100),
 	}
-	changes, _, err := s.State.EnableHA(3, cons, state.UbuntuBase("12.04"), nil)
+	changes, _, err := s.State.EnableHA(state.StubModelConfigService(c), 3, cons, state.UbuntuBase("12.04"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 
@@ -470,11 +472,11 @@ func (s *CleanupSuite) TestDestroyControllerMachineHAWithControllerCharm(c *gc.C
 			node.SetHasVote(true)
 		}
 
-		u, err := app.AddUnit(state.AddUnitParams{})
+		u, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = u.SetCharmURL(ch.URL())
 		c.Assert(err, jc.ErrorIsNil)
-		err = u.AssignToMachine(m)
+		err = u.AssignToMachine(state.StubModelConfigService(c), m)
 		c.Assert(err, jc.ErrorIsNil)
 
 		machines = append(machines, m)
@@ -497,17 +499,17 @@ const dontWait = time.Duration(0)
 
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	// Create a machine.
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a relation with a unit in scope and assigned to the machine.
 	pr := newPeerRelation(c, s.State, s.objectStore)
-	err = pr.u0.AssignToMachine(machine)
+	err = pr.u0.AssignToMachine(state.StubModelConfigService(c), machine)
 	c.Assert(err, jc.ErrorIsNil)
 	preventPeerUnitsDestroyRemove(c, pr)
-	err = pr.ru0.EnterScope(nil)
+	err = pr.ru0.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
@@ -529,13 +531,13 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	machine, err := s.State.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	err = node.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
-	changes, _, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
+	changes, _, err := s.State.EnableHA(state.StubModelConfigService(c), 3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes.Added, gc.HasLen, 2)
 	c.Check(changes.Removed, gc.HasLen, 0)
@@ -579,7 +581,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
@@ -591,9 +593,9 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 		"data": makeStorageCons("loop", 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
-	u, err := application.AddUnit(state.AddUnitParams{})
+	u, err := application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.AssignToMachine(machine)
+	err = u.AssignToMachine(state.StubModelConfigService(c), machine)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check no cleanups
@@ -633,11 +635,11 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	// Create a machine with a container.
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+	container, err := s.State.AddMachineInsideMachine(state.StubModelConfigService(c), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}, machine.Id(), instance.LXD)
@@ -686,7 +688,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestForceDestroyMachineSchedulesRemove(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -716,7 +718,7 @@ func (s *CleanupSuite) TestForceDestroyMachineSchedulesRemove(c *gc.C) {
 func (s *CleanupSuite) TestRemoveApplicationRemovesAllCleanUps(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy", ch)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(app.Refresh(), jc.ErrorIsNil)
 	c.Assert(app.UnitCount(), gc.Equals, 1)
@@ -724,7 +726,7 @@ func (s *CleanupSuite) TestRemoveApplicationRemovesAllCleanUps(c *gc.C) {
 
 	// app `dummyfoo` and its units should not be impacted after app `dummy` was destroyed.
 	appfoo := s.AddTestingApplication(c, "dummyfoo", ch)
-	unitfoo, err := appfoo.AddUnit(state.AddUnitParams{})
+	unitfoo, err := appfoo.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appfoo.Refresh(), jc.ErrorIsNil)
 	c.Assert(appfoo.UnitCount(), gc.Equals, 1)
@@ -754,7 +756,7 @@ func (s *CleanupSuite) TestRemoveApplicationRemovesAllCleanUps(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestForceDestroyMachineRemovesLinkLayerDevices(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
@@ -796,7 +798,7 @@ func (s *CleanupSuite) TestCleanupDyingUnit(c *gc.C) {
 	// Create active unit, in a relation.
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	preventProReqUnitsDestroyRemove(c, prr)
-	err := prr.pru0.EnterScope(nil)
+	err := prr.pru0.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy provider unit 0; check it's Dying, and a cleanup has been scheduled.
@@ -833,7 +835,7 @@ func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 	// Create active unit, in a relation.
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	preventProReqUnitsDestroyRemove(c, prr)
-	err := prr.pru0.EnterScope(nil)
+	err := prr.pru0.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy provider unit 0; check it's Dying, and a cleanup has been scheduled.
@@ -861,7 +863,7 @@ func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	// Create a application with a unit.
 	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	unit, err := dummy.AddUnit(state.AddUnitParams{})
+	unit, err := dummy.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check no cleanups
@@ -915,7 +917,7 @@ func (s *CleanupSuite) TestCleanupWithCompletedActions(c *gc.C) {
 	} {
 		// Create a application with a unit.
 		dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-		unit, err := dummy.AddUnit(state.AddUnitParams{})
+		unit, err := dummy.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertDoesNotNeedCleanup(c)
 
@@ -948,7 +950,7 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 		"data": makeStorageCons("loop", 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
-	u, err := application.AddUnit(state.AddUnitParams{})
+	u, err := application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check no cleanups
@@ -981,7 +983,7 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 		"allecto": makeStorageCons("modelscoped-block", 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
-	u, err := application.AddUnit(state.AddUnitParams{})
+	u, err := application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check no cleanups
@@ -1020,9 +1022,9 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 		"data": makeStorageCons("modelscoped", 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AssignUnit(unit, state.AssignNew)
+	err = s.State.AssignUnit(state.StubModelConfigService(c), unit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1116,8 +1118,8 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 	storCons := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	application := state.AddTestingApplicationWithStorage(c, st, s.objectStore, "storage-filesystem", ch, storCons)
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	application := state.AddTestingApplicationWithStorage(c, st, s.objectStore, "storage-filesystem", ch, storCons, nil)
+	unit, err := application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application.Refresh(), jc.ErrorIsNil)
 
@@ -1206,7 +1208,7 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 }
 
 func (s *CleanupSuite) TestCleanupVolumeAttachments(c *gc.C) {
-	_, err := s.State.AddOneMachine(state.MachineTemplate{
+	_, err := s.State.AddOneMachine(state.StubModelConfigService(c), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
@@ -1226,7 +1228,7 @@ func (s *CleanupSuite) TestCleanupVolumeAttachments(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupFilesystemAttachments(c *gc.C) {
-	_, err := s.State.AddOneMachine(state.MachineTemplate{
+	_, err := s.State.AddOneMachine(state.StubModelConfigService(c), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.HostFilesystemParams{{
@@ -1315,9 +1317,9 @@ func (s *CleanupSuite) TestCleanupIDSanity(c *gc.C) {
 func (s *CleanupSuite) TestDyingUnitWithForceSchedulesForceFallback(c *gc.C) {
 	ch := s.AddTestingCharm(c, "mysql")
 	application := s.AddTestingApplication(c, "mysql", ch)
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AssignUnit(unit, state.AssignNew)
+	err = s.State.AssignUnit(state.StubModelConfigService(c), unit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = unit.SetAgentStatus(status.StatusInfo{
@@ -1360,7 +1362,7 @@ func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
 	prr.allEnterScope(c)
 	for _, principal := range []*state.Unit{prr.pu0, prr.pu1} {
-		err := s.State.AssignUnit(principal, state.AssignNew)
+		err := s.State.AssignUnit(state.StubModelConfigService(c), principal, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	for _, unit := range []*state.Unit{prr.pu0, prr.pu1, prr.ru0, prr.ru1} {
@@ -1421,7 +1423,7 @@ func (s *CleanupSuite) TestForceDestroyUnitLeavesRelations(c *gc.C) {
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	prr.allEnterScope(c)
 	for _, unit := range []*state.Unit{prr.pu0, prr.pu1, prr.ru0, prr.ru1} {
-		err := s.State.AssignUnit(unit, state.AssignNew)
+		err := s.State.AssignUnit(state.StubModelConfigService(c), unit, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 		err = unit.SetAgentStatus(status.StatusInfo{
 			Status: status.Idle,
@@ -1461,12 +1463,12 @@ func (s *CleanupSuite) TestForceDestroyUnitRemovesStorageAttachments(c *gc.C) {
 		"data": makeStorageCons("loop", 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
-	u, err := application.AddUnit(state.AddUnitParams{})
+	u, err := application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.AssignToMachine(machine)
+	err = u.AssignToMachine(state.StubModelConfigService(c), machine)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetAgentStatus(status.StatusInfo{
 		Status: status.Idle,
@@ -1529,7 +1531,7 @@ func (s *CleanupSuite) TestForceDestroyApplicationRemovesUnitsThatAreAlreadyDyin
 	// then you try to force-remove it, it should get cleaned up
 	// correctly.
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	unit, err := mysql.AddUnit(state.AddUnitParams{})
+	unit, err := mysql.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 	s.assertDoesNotNeedCleanup(c)

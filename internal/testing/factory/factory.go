@@ -52,6 +52,7 @@ type Factory struct {
 	pool               *state.StatePool
 	st                 *state.State
 	applicationService *applicationservice.WatchableService
+	modelConfigService state.ModelConfigService
 	controllerConfig   controller.Config
 }
 
@@ -68,6 +69,12 @@ func NewFactory(st *state.State, pool *state.StatePool, controllerConfig control
 // WithApplicationService configures the factory to use the specified application service.
 func (f *Factory) WithApplicationService(s *applicationservice.WatchableService) *Factory {
 	f.applicationService = s
+	return f
+}
+
+// WithModelConfigService configures the factory to use the specified model config service.
+func (f *Factory) WithModelConfigService(s state.ModelConfigService) *Factory {
+	f.modelConfigService = s
 	return f
 }
 
@@ -212,6 +219,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 	}
 
 	m, err := factory.st.AddMachineInsideMachine(
+		factory.modelConfigService,
 		machineTemplate,
 		parentId,
 		instance.LXD,
@@ -273,7 +281,7 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 	if params.Characteristics != nil {
 		machineTemplate.HardwareCharacteristics = *params.Characteristics
 	}
-	machine, err := factory.st.AddOneMachine(machineTemplate)
+	machine, err := factory.st.AddOneMachine(factory.modelConfigService, machineTemplate)
 	c.Assert(err, jc.ErrorIsNil)
 	if setProvisioned {
 		err = machine.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
@@ -443,18 +451,22 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 
 	appConfig, err := coreconfig.NewConfig(params.ApplicationConfig, params.ApplicationConfigFields, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	application, err := factory.st.AddApplication(state.AddApplicationArgs{
-		Name:              params.Name,
-		Charm:             params.Charm,
-		CharmOrigin:       params.CharmOrigin,
-		CharmConfig:       params.CharmConfig,
-		ApplicationConfig: appConfig,
-		Storage:           params.Storage,
-		Constraints:       params.Constraints,
-		Resources:         resourceMap,
-		EndpointBindings:  params.EndpointBindings,
-		Placement:         params.Placement,
-	}, objectStore)
+	application, err := factory.st.AddApplication(
+		factory.modelConfigService,
+		state.AddApplicationArgs{
+			Name:              params.Name,
+			Charm:             params.Charm,
+			CharmOrigin:       params.CharmOrigin,
+			CharmConfig:       params.CharmConfig,
+			ApplicationConfig: appConfig,
+			Storage:           params.Storage,
+			Constraints:       params.Constraints,
+			Resources:         resourceMap,
+			EndpointBindings:  params.EndpointBindings,
+			Placement:         params.Placement,
+		},
+		objectStore,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
@@ -608,7 +620,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		params.Password, err = password.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	unit, err := params.Application.AddUnit(state.AddUnitParams{})
+	unit, err := params.Application.AddUnit(factory.modelConfigService, state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	if factory.applicationService != nil {
 		err = factory.applicationService.AddUnits(context.Background(), params.Application.Name(), applicationservice.AddUnitArg{
@@ -618,7 +630,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	}
 
 	if params.Machine != nil {
-		err = unit.AssignToMachine(params.Machine)
+		err = unit.AssignToMachine(factory.modelConfigService, params.Machine)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

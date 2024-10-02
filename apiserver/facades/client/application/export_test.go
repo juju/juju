@@ -13,8 +13,8 @@ var (
 	ValidateSecretConfig    = validateSecretConfig
 )
 
-func GetState(st *state.State) Backend {
-	return stateShim{State: st}
+func GetState(st *state.State, modelConfigService ModelConfigService) Backend {
+	return stateShim{State: st, modelConfigService: modelConfigService}
 }
 
 func GetModel(m *state.Model) Model {

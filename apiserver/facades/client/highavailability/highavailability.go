@@ -68,6 +68,7 @@ type HighAvailabilityAPI struct {
 	applicationService      ApplicationService
 	controllerConfigService ControllerConfigService
 	networkService          NetworkService
+	modelConfigService      common.ModelConfigService
 	authorizer              facade.Authorizer
 	logger                  corelogger.Logger
 }
@@ -159,7 +160,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	}
 
 	// Might be nicer to pass the spec itself to this method.
-	changes, addedUnits, err := st.EnableHA(spec.NumControllers, spec.Constraints, referenceMachine.Base(), spec.Placement)
+	changes, addedUnits, err := st.EnableHA(api.modelConfigService, spec.NumControllers, spec.Constraints, referenceMachine.Base(), spec.Placement)
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}

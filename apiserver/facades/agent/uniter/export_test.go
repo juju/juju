@@ -71,7 +71,7 @@ type patcher interface {
 }
 
 func PatchGetStorageStateError(patcher patcher, err error) {
-	patcher.PatchValue(&getStorageState, func(st *state.State) (storageAccess, error) { return nil, err })
+	patcher.PatchValue(&getStorageState, func(*state.State, ModelConfigService) (storageAccess, error) { return nil, err })
 }
 
 func (n *NetworkInfoIAAS) MachineNetworkInfos() (map[string][]NetInfoAddress, error) {

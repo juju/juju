@@ -372,7 +372,8 @@ func setupMockOpenedPortRanges(c *gc.C, mID string) (*gomock.Controller, *mocks.
 
 func (s *MigrationImportSuite) TestCharmhubApplicationCharmOriginNormalised(c *gc.C) {
 	platform := &state.Platform{Architecture: arch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
-	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig())
+	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 
 	testCharm := f.MakeCharm(c, &factory.CharmParams{Revision: "8", URL: "ch:mysql-8"})
 	wrongRev := 4
@@ -407,7 +408,8 @@ func (s *MigrationImportSuite) TestCharmhubApplicationCharmOriginNormalised(c *g
 
 func (s *MigrationImportSuite) TestLocalApplicationCharmOriginNormalised(c *gc.C) {
 	platform := &state.Platform{Architecture: arch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
-	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig())
+	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 
 	testCharm := f.MakeCharm(c, &factory.CharmParams{Revision: "8", URL: "local:mysql-8"})
 	wrongRev := 4
@@ -495,7 +497,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the subordinate unit is created.
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	tools, err := unit.AgentTools()
@@ -511,7 +513,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		ru, err := relation.Unit(u)
 		c.Assert(err, jc.ErrorIsNil)
-		err = ru.EnterScope(nil)
+		err = ru.EnterScope(state.StubModelConfigService(c), nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -542,7 +544,8 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 
 func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig())
+	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 	exported, pwd := f.MakeUnitReturningPassword(c, &factory.UnitParams{
 		Constraints: cons,
 	})
@@ -554,7 +557,8 @@ func (s *MigrationImportSuite) TestCAASUnits(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	f := factory.NewFactory(caasSt, s.StatePool, testing.FakeControllerConfig())
+	f := factory.NewFactory(caasSt, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 	app := f.MakeApplication(c, &factory.ApplicationParams{Constraints: cons})
 	exported, pwd := f.MakeUnitReturningPassword(c, &factory.UnitParams{
 		Application: app,
@@ -564,7 +568,8 @@ func (s *MigrationImportSuite) TestCAASUnits(c *gc.C) {
 
 func (s *MigrationImportSuite) TestUnitsWithVirtConstraint(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G virt-type=lxd")
-	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig())
+	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 	exported, pwd := f.MakeUnitReturningPassword(c, &factory.UnitParams{
 		Constraints: cons,
 	})
@@ -572,7 +577,8 @@ func (s *MigrationImportSuite) TestUnitsWithVirtConstraint(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestUnitWithoutAnyPersistedState(c *gc.C) {
-	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig())
+	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 
 	// Export unit without any controller-persisted state
 	exported := f.MakeUnit(c, &factory.UnitParams{
@@ -776,7 +782,7 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	relSettings := map[string]interface{}{
 		"name": "wordpress/0",
 	}
-	err = ru.EnterScope(relSettings)
+	err = ru.EnterScope(state.StubModelConfigService(c), relSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c, s.State)
@@ -830,14 +836,14 @@ func (s *MigrationImportSuite) TestCMRRemoteRelationScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpressSettings := map[string]interface{}{"name": "wordpress/0"}
-	err = localRU.EnterScope(wordpressSettings)
+	err = localRU.EnterScope(state.StubModelConfigService(c), wordpressSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	remoteRU, err := rel.RemoteUnit("gravy-rainbow/0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	gravySettings := map[string]interface{}{"name": "gravy-rainbow/0"}
-	err = remoteRU.EnterScope(gravySettings)
+	err = remoteRU.EnterScope(state.StubModelConfigService(c), gravySettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c, s.State)
@@ -872,7 +878,7 @@ func (s *MigrationImportSuite) assertRelationsMissingStatus(c *gc.C, hasUnits bo
 		relSettings := map[string]interface{}{
 			"name": "wordpress/0",
 		}
-		err = ru.EnterScope(relSettings)
+		err = ru.EnterScope(state.StubModelConfigService(c), relSettings)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -1616,7 +1622,7 @@ func (s *MigrationImportSuite) TestStorageInstanceConstraints(c *gc.C) {
 func (s *MigrationImportSuite) TestStorageInstanceConstraintsFallback(c *gc.C) {
 	_, u, storageTag0 := s.makeUnitWithStorage(c)
 
-	sb, err := state.NewStorageBackend(s.State)
+	sb, err := state.NewStorageConfigBackend(s.State, state.StubModelConfigService(c))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = sb.AddStorageForUnit(u.UnitTag(), "allecto", state.StorageConstraints{
 		Count: 3,
@@ -1908,7 +1914,7 @@ func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		pru, err := rel.Unit(unit)
 		c.Assert(err, jc.ErrorIsNil)
-		err = pru.EnterScope(nil)
+		err = pru.EnterScope(state.StubModelConfigService(c), nil)
 		c.Assert(err, jc.ErrorIsNil)
 		// Need to reload the doc to get the subordinates.
 		err = unit.Refresh()
@@ -1919,7 +1925,7 @@ func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		sub, err := rel.Unit(loggingUnit)
 		c.Assert(err, jc.ErrorIsNil)
-		err = sub.EnterScope(nil)
+		err = sub.EnterScope(state.StubModelConfigService(c), nil)
 		c.Assert(err, jc.ErrorIsNil)
 		return rel.String()
 	}
@@ -2056,7 +2062,8 @@ func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C)
 func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C) {
 	st := s.State
 	// Add a application with charm settings, app config, and leadership settings.
-	f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
+	f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 
 	// Add a application with charm settings, app config, and leadership settings.
 	testCharm := f.MakeCharmV2(c, &factory.CharmParams{
@@ -2097,7 +2104,8 @@ func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C
 func (s *MigrationImportSuite) TestApplicationFillInCharmOriginID(c *gc.C) {
 	st := s.State
 	// Add a application with charm settings, app config, and leadership settings.
-	f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
+	f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 
 	// Add a application with charm settings, app config, and leadership settings.
 	testCharm := f.MakeCharmV2(c, &factory.CharmParams{

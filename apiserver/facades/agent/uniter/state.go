@@ -49,12 +49,15 @@ type storageFilesystemInterface interface {
 	WatchFilesystemAttachment(names.Tag, names.FilesystemTag) state.NotifyWatcher
 }
 
-var getStorageState = func(st *state.State) (storageAccess, error) {
+var getStorageState = func(
+	st *state.State,
+	modelConfigService ModelConfigService,
+) (storageAccess, error) {
 	m, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
-	sb, err := state.NewStorageBackend(st)
+	sb, err := state.NewStorageConfigBackend(st, modelConfigService)
 	if err != nil {
 		return nil, err
 	}

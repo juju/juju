@@ -134,6 +134,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	s.wpCharm = f.MakeCharm(c, &factory.CharmParams{
 		Name: "wordpress-extra-bindings",
@@ -189,7 +190,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int) *state.Machine {
-	machine, err := s.st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.st.AddMachine(s.modelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -303,7 +304,7 @@ func (s *uniterNetworkInfoSuite) addRelationAndAssertInScope(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	wpRelUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = wpRelUnit.EnterScope(nil)
+	err = wpRelUnit.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpRelUnit, true)
 }
@@ -488,7 +489,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 	rel := s.addRelation(c, "mysql", "wordpress")
 	mysqlRelUnit, err := rel.Unit(s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlRelUnit.EnterScope(nil)
+	err = mysqlRelUnit.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, mysqlRelUnit, true)
 
@@ -534,7 +535,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressNonDefaultBin
 	rel := s.addRelation(c, "mysql", "wordpress-remote")
 	mysqlRelUnit, err := rel.Unit(s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlRelUnit.EnterScope(nil)
+	err = mysqlRelUnit.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, mysqlRelUnit, true)
 
@@ -588,6 +589,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBindin
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// Recreate mysql app without endpoint binding.
 	s.mysql = f.MakeApplication(c, &factory.ApplicationParams{
@@ -603,7 +605,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBindin
 	rel := s.addRelation(c, "mysql-default", "wordpress-remote")
 	mysqlRelUnit, err := rel.Unit(s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlRelUnit.EnterScope(nil)
+	err = mysqlRelUnit.EnterScope(s.modelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, mysqlRelUnit, true)
 

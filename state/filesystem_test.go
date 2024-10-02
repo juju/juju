@@ -14,6 +14,7 @@ import (
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 )
@@ -45,7 +46,7 @@ func (s *FilesystemStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("invalid-pool", 1024, 1),
 	}
-	_, err := s.st.AddApplication(state.AddApplicationArgs{
+	_, err := s.st.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 		Name: "storage-filesystem", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -62,7 +63,7 @@ func (s *FilesystemStateSuite) TestAddApplicationNoPoolNoDefault(c *gc.C) {
 	if s.series == "focal" {
 		expected = "kubernetes"
 	}
-	s.testAddApplicationDefaultPool(c, expected, 0)
+	s.testAddApplicationDefaultPool(c, nil, expected, 0)
 }
 
 func (s *FilesystemStateSuite) TestAddApplicationNoPoolNoDefaultWithUnits(c *gc.C) {
@@ -72,38 +73,46 @@ func (s *FilesystemStateSuite) TestAddApplicationNoPoolNoDefaultWithUnits(c *gc.
 	if s.series == "focal" {
 		expected = "kubernetes"
 	}
-	s.testAddApplicationDefaultPool(c, expected, 1)
+	s.testAddApplicationDefaultPool(c, nil, expected, 1)
 }
 
 func (s *FilesystemIAASModelSuite) TestAddApplicationNoPoolDefaultFilesystem(c *gc.C) {
 	// no pool specified, default filesystem configured: use default
 	// filesystem.
-	m, err := s.st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = m.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{
-		"storage-default-filesystem-source": "machinescoped",
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.testAddApplicationDefaultPool(c, "machinescoped", 0)
+	s.testAddApplicationDefaultPool(c,
+		map[string]any{
+			"storage-default-filesystem-source": "machinescoped",
+		},
+		"machinescoped", 0,
+	)
 }
 
 func (s *FilesystemIAASModelSuite) TestAddApplicationNoPoolDefaultBlock(c *gc.C) {
 	// no pool specified, default block configured: use default
 	// block with managed fs on top.
-	m, err := s.st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = m.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{
-		"storage-default-block-source": "modelscoped-block",
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.testAddApplicationDefaultPool(c, "modelscoped-block", 0)
+	s.testAddApplicationDefaultPool(c,
+		map[string]any{
+			"storage-default-block-source": "modelscoped-block",
+		},
+		"modelscoped-block", 0,
+	)
 }
 
-func (s *FilesystemStateSuite) testAddApplicationDefaultPool(c *gc.C, expectedPool string, numUnits int) {
+func (s *FilesystemStateSuite) testAddApplicationDefaultPool(
+	c *gc.C,
+	customModelConfig map[string]any,
+	expectedPool string,
+	numUnits int,
+) {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
+
+	baseConfig := coretesting.ModelConfig(c)
+	newConfig, err := baseConfig.Apply(customModelConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	modelConfigService := state.ModelConfigServiceWithCustom(newConfig)
 
 	args := state.AddApplicationArgs{
 		Name:  "storage-filesystem",
@@ -115,7 +124,7 @@ func (s *FilesystemStateSuite) testAddApplicationDefaultPool(c *gc.C, expectedPo
 		Storage:  storage,
 		NumUnits: numUnits,
 	}
-	app, err := s.st.AddApplication(args, state.NewObjectStore(c, s.st.ModelUUID()))
+	app, err := s.st.AddApplication(modelConfigService, args, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -193,7 +202,7 @@ func (s *FilesystemStateSuite) maybeAssignUnit(c *gc.C, u *state.Unit) names.Tag
 	if m.Type() == state.ModelTypeCAAS {
 		return u.UnitTag()
 	}
-	err = s.st.AssignUnit(u, state.AssignNew)
+	err = s.st.AssignUnit(state.StubModelConfigService(c), u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -280,8 +289,8 @@ func (s *FilesystemStateSuite) addUnitWithFilesystemUnprovisioned(c *gc.C, pool 
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
-	app := s.AddTestingApplicationWithStorage(c, "storage-filesystem", ch, storage)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplicationWithStorage(c, "storage-filesystem", ch, storage, nil)
+	unit, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	hostTag := s.maybeAssignUnit(c, unit)
 
@@ -341,7 +350,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystemUnprovisioned(c *gc.C, pool 
 
 func (s *FilesystemIAASModelSuite) TestWatchFilesystemAttachment(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "rootfs")
-	err := s.st.AssignUnit(u, state.AssignNew)
+	err := s.st.AssignUnit(state.StubModelConfigService(c), u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -410,7 +419,7 @@ func (s *FilesystemStateSuite) TestFilesystemInfo(c *gc.C) {
 
 func (s *FilesystemIAASModelSuite) TestVolumeBackedFilesystemScope(c *gc.C) {
 	_, unit, storageTag := s.setupSingleStorage(c, "filesystem", "modelscoped-block")
-	err := s.st.AssignUnit(unit, state.AssignNew)
+	err := s.st.AssignUnit(state.StubModelConfigService(c), unit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	filesystem := s.storageInstanceFilesystem(c, storageTag)
@@ -423,9 +432,9 @@ func (s *FilesystemIAASModelSuite) TestVolumeBackedFilesystemScope(c *gc.C) {
 func (s *FilesystemIAASModelSuite) TestWatchModelFilesystems(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "filesystem")
 	addUnit := func() *state.Unit {
-		u, err := app.AddUnit(state.AddUnitParams{})
+		u, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.st.AssignUnit(u, state.AssignNew)
+		err = s.st.AssignUnit(state.StubModelConfigService(c), u, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 		return u
 	}
@@ -467,9 +476,9 @@ func (s *FilesystemIAASModelSuite) TestWatchModelFilesystems(c *gc.C) {
 func (s *FilesystemIAASModelSuite) TestWatchModelFilesystemAttachments(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "filesystem")
 	addUnit := func() *state.Unit {
-		u, err := app.AddUnit(state.AddUnitParams{})
+		u, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.st.AssignUnit(u, state.AssignNew)
+		err = s.st.AssignUnit(state.StubModelConfigService(c), u, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 		return u
 	}
@@ -511,9 +520,9 @@ func (s *FilesystemIAASModelSuite) TestWatchModelFilesystemAttachments(c *gc.C) 
 func (s *FilesystemIAASModelSuite) TestWatchMachineFilesystems(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "filesystem")
 	addUnit := func() *state.Unit {
-		u, err := app.AddUnit(state.AddUnitParams{})
+		u, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.st.AssignUnit(u, state.AssignNew)
+		err = s.st.AssignUnit(state.StubModelConfigService(c), u, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 		return u
 	}
@@ -562,14 +571,14 @@ func (s *FilesystemIAASModelSuite) TestWatchMachineFilesystemAttachments(c *gc.C
 	app := s.setupMixedScopeStorageApplication(c, "filesystem", "machinescoped", "modelscoped")
 	addUnit := func(to *state.Machine) (u *state.Unit, m *state.Machine) {
 		var err error
-		u, err = app.AddUnit(state.AddUnitParams{})
+		u, err = app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		if to != nil {
-			err = u.AssignToMachine(to)
+			err = u.AssignToMachine(state.StubModelConfigService(c), to)
 			c.Assert(err, jc.ErrorIsNil)
 			return u, to
 		}
-		err = s.st.AssignUnit(u, state.AssignNew)
+		err = s.st.AssignUnit(state.StubModelConfigService(c), u, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 		m = unitMachine(c, s.st, u)
 		return u, m
@@ -616,7 +625,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 		"data":  {Count: 1, Size: 1024, Pool: "kubernetes"},
 		"cache": {Count: 1, Size: 1024, Pool: "rootfs"},
 	}
-	app, err := s.st.AddApplication(state.AddApplicationArgs{
+	app, err := s.st.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 		Name: "mariadb", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -628,7 +637,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 
 	addUnit := func(app *state.Application) *state.Unit {
 		var err error
-		u, err := app.AddUnit(state.AddUnitParams{})
+		u, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		return u
 	}
@@ -642,7 +651,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 	wc.AssertChange("mariadb/0/0") // initial
 	wc.AssertNoChange()
 
-	app2, err := s.st.AddApplication(state.AddApplicationArgs{
+	app2, err := s.st.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 		Name: "another", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -688,7 +697,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 		"data":  {Count: 1, Size: 1024, Pool: "kubernetes"},
 		"cache": {Count: 1, Size: 1024, Pool: "rootfs"},
 	}
-	app, err := s.st.AddApplication(state.AddApplicationArgs{
+	app, err := s.st.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 		Name: "mariadb", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -700,7 +709,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 
 	addUnit := func(app *state.Application) *state.Unit {
 		var err error
-		u, err := app.AddUnit(state.AddUnitParams{})
+		u, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		return u
 	}
@@ -715,7 +724,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 	wc.AssertChange("mariadb/0:mariadb/0/0") // initial
 	wc.AssertNoChange()
 
-	app2, err := s.st.AddApplication(state.AddApplicationArgs{
+	app2, err := s.st.AddApplication(state.StubModelConfigService(c), state.AddApplicationArgs{
 		Name: "another", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1292,7 +1301,7 @@ func (s *FilesystemIAASModelSuite) TestEnsureMachineDeadAddFilesystemConcurrentl
 	_, machine := s.setupFilesystemAttachment(c, "rootfs")
 	addFilesystem := func() {
 		_, u, _ := s.setupSingleStorage(c, "filesystem", "rootfs")
-		err := u.AssignToMachine(machine)
+		err := u.AssignToMachine(state.StubModelConfigService(c), machine)
 		c.Assert(err, jc.ErrorIsNil)
 		s.obliterateUnit(c, u.UnitTag())
 	}
@@ -1356,8 +1365,8 @@ func (s *FilesystemStateSuite) testFilesystemAttachmentParams(
 		"data": makeStorageCons("rootfs", 1024, 1),
 	}
 
-	app := s.AddTestingApplicationWithStorage(c, "storage-filesystem", ch, storage)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplicationWithStorage(c, "storage-filesystem", ch, storage, nil)
+	unit, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	hostTag := s.maybeAssignUnit(c, unit)
 
@@ -1388,7 +1397,7 @@ func (s *FilesystemIAASModelSuite) TestFilesystemAttachmentParamsLocationAutoAnd
 }
 
 func (s *FilesystemStateSuite) testFilesystemAttachmentParamsConcurrent(c *gc.C, locBefore, locAfter, expectErr string) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	storage := map[string]state.StorageConstraints{
@@ -1403,10 +1412,10 @@ func (s *FilesystemStateSuite) testFilesystemAttachmentParamsConcurrent(c *gc.C,
 			CountMax: 1,
 			Location: location,
 		}, rev)
-		app := s.AddTestingApplicationWithStorage(c, applicationname, ch, storage)
-		unit, err := app.AddUnit(state.AddUnitParams{})
+		app := s.AddTestingApplicationWithStorage(c, applicationname, ch, storage, nil)
+		unit, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		return unit.AssignToMachine(machine)
+		return unit.AssignToMachine(state.StubModelConfigService(c), machine)
 	}
 
 	defer state.SetBeforeHooks(c, s.st, func() {
@@ -1434,7 +1443,7 @@ func (s *FilesystemIAASModelSuite) TestFilesystemAttachmentParamsConcurrentRemov
 		Location: "/not/in/srv",
 	})
 	app := s.AddTestingApplication(c, "storage-filesystem", ch)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.st, func() {
@@ -1446,7 +1455,7 @@ func (s *FilesystemIAASModelSuite) TestFilesystemAttachmentParamsConcurrentRemov
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err = unit.AssignToMachine(machine)
+	err = unit.AssignToMachine(state.StubModelConfigService(c), machine)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1459,10 +1468,10 @@ func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsLocationStorageDir(
 		Location: "/var/lib/juju/storage",
 	}, s.series)
 	app := s.AddTestingApplication(c, "storage-filesystem", ch)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	if s.series != "focal" {
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.State.AssignUnit(unit, state.AssignNew)
+		err = s.State.AssignUnit(state.StubModelConfigService(c), unit, state.AssignNew)
 	}
 	c.Assert(err, gc.ErrorMatches, `.*`+
 		`getting filesystem mount point for storage data: `+
@@ -1483,9 +1492,9 @@ func (s *FilesystemIAASModelSuite) TestFilesystemAttachmentLocationConflict(c *g
 	})
 	app := s.AddTestingApplication(c, "storage-filesystem", ch)
 
-	u, err := app.AddUnit(state.AddUnitParams{})
+	u, err := app.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.AssignToMachine(machine)
+	err = u.AssignToMachine(state.StubModelConfigService(c), machine)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot assign unit "storage-filesystem/0" to machine 0: `+
 			`validating filesystem mount points: `+
@@ -1598,7 +1607,7 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBackedEmptyVolumeI
 }
 
 func (s *FilesystemStateSuite) setupFilesystemAttachment(c *gc.C, pool string) (state.Filesystem, *state.Machine) {
-	machine, err := s.st.AddOneMachine(state.MachineTemplate{
+	machine, err := s.st.AddOneMachine(state.StubModelConfigService(c), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.HostFilesystemParams{{
@@ -1619,7 +1628,7 @@ func (s *FilesystemStateSuite) setupFilesystemAttachment(c *gc.C, pool string) (
 	return s.filesystem(c, attachments[0].Filesystem()), machine
 }
 
-func removeFilesystemStorageInstance(c *gc.C, sb *state.StorageBackend, filesystemTag names.FilesystemTag) {
+func removeFilesystemStorageInstance(c *gc.C, sb *state.StorageConfigBackend, filesystemTag names.FilesystemTag) {
 	filesystem, err := sb.Filesystem(filesystemTag)
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag, err := filesystem.Storage()

@@ -683,7 +683,8 @@ func (s *MigrationSuite) TestWatchMigrationStatusMultiModel(c *gc.C) {
 
 func (s *MigrationSuite) TestMinionReports(c *gc.C) {
 	// Create some machines and units to report with.
-	factory2 := factory.NewFactory(s.State2, s.StatePool, testing.FakeControllerConfig())
+	factory2 := factory.NewFactory(s.State2, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 	m0 := factory2.MakeMachine(c, nil)
 	u0 := factory2.MakeUnit(c, &factory.UnitParams{Machine: m0})
 	m1 := factory2.MakeMachine(c, nil)
@@ -708,19 +709,20 @@ func (s *MigrationSuite) TestMinionReportsCAAS(c *gc.C) {
 	// Create some machines and units to report with.
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
-	factory2 := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
+	factory2 := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 	ch := factory2.MakeCharmV2(c, &factory.CharmParams{
 		Name:   "snappass-test",
 		Series: "quantal",
 	})
 	a0 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a0", Charm: ch})
-	u1a0, err := a0.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id0")})
+	u1a0, err := a0.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{ProviderId: strPtr("provider-id0")})
 	c.Assert(err, jc.ErrorIsNil)
 	a1 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a1", Charm: ch})
-	u1a1, err := a1.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")})
+	u1a1, err := a1.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{ProviderId: strPtr("provider-id1")})
 	c.Assert(err, jc.ErrorIsNil)
 	a2 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a2", Charm: ch})
-	u1a2, err := a2.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id2")})
+	u1a2, err := a2.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{ProviderId: strPtr("provider-id2")})
 	c.Assert(err, jc.ErrorIsNil)
 
 	mig, err := st.CreateMigration(s.stdSpec)

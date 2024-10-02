@@ -106,7 +106,7 @@ func newUniterAPIWithServices(
 		return nil, errors.Trace(err)
 	}
 
-	storageAccessor, err := getStorageState(st)
+	storageAccessor, err := getStorageState(st, modelConfigService)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -109,8 +109,12 @@ type HostFilesystemParams struct {
 // AddMachineInsideNewMachine creates a new machine within a container
 // of the given type inside another new machine. The two given templates
 // specify the form of the child and parent respectively.
-func (st *State) AddMachineInsideNewMachine(template, parentTemplate MachineTemplate, containerType instance.ContainerType) (*Machine, error) {
-	mdoc, ops, err := st.addMachineInsideNewMachineOps(template, parentTemplate, containerType)
+func (st *State) AddMachineInsideNewMachine(
+	modelConfigService ModelConfigService,
+	template, parentTemplate MachineTemplate,
+	containerType instance.ContainerType,
+) (*Machine, error) {
+	mdoc, ops, err := st.addMachineInsideNewMachineOps(modelConfigService, template, parentTemplate, containerType)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot add a new machine")
 	}
@@ -119,8 +123,13 @@ func (st *State) AddMachineInsideNewMachine(template, parentTemplate MachineTemp
 
 // AddMachineInsideMachine adds a machine inside a container of the
 // given type on the existing machine with id=parentId.
-func (st *State) AddMachineInsideMachine(template MachineTemplate, parentId string, containerType instance.ContainerType) (*Machine, error) {
-	mdoc, ops, err := st.addMachineInsideMachineOps(template, parentId, containerType)
+func (st *State) AddMachineInsideMachine(
+	modelConfigService ModelConfigService,
+	template MachineTemplate,
+	parentId string,
+	containerType instance.ContainerType,
+) (*Machine, error) {
+	mdoc, ops, err := st.addMachineInsideMachineOps(modelConfigService, template, parentId, containerType)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot add a new machine")
 	}
@@ -129,8 +138,11 @@ func (st *State) AddMachineInsideMachine(template MachineTemplate, parentId stri
 
 // AddMachine adds a machine with the given series and jobs.
 // It is deprecated and around for testing purposes only.
-func (st *State) AddMachine(base Base, jobs ...MachineJob) (*Machine, error) {
-	ms, err := st.AddMachines(MachineTemplate{
+func (st *State) AddMachine(
+	modelConfigService ModelConfigService,
+	base Base, jobs ...MachineJob,
+) (*Machine, error) {
+	ms, err := st.AddMachines(modelConfigService, MachineTemplate{
 		Base: base,
 		Jobs: jobs,
 	})
@@ -142,8 +154,11 @@ func (st *State) AddMachine(base Base, jobs ...MachineJob) (*Machine, error) {
 
 // AddOneMachine machine adds a new machine configured according to the
 // given template.
-func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
-	ms, err := st.AddMachines(template)
+func (st *State) AddOneMachine(
+	modelConfigService ModelConfigService,
+	template MachineTemplate,
+) (*Machine, error) {
+	ms, err := st.AddMachines(modelConfigService, template)
 	if err != nil {
 		return nil, err
 	}
@@ -152,13 +167,16 @@ func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
 
 // AddMachines adds new machines configured according to the
 // given templates.
-func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err error) {
+func (st *State) AddMachines(
+	modelConfigService ModelConfigService,
+	templates ...MachineTemplate,
+) (_ []*Machine, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add a new machine")
 	var ms []*Machine
 	var ops []txn.Op
 	var controllerIds []string
 	for _, template := range templates {
-		mdoc, addOps, err := st.addMachineOps(template)
+		mdoc, addOps, err := st.addMachineOps(modelConfigService, template)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -258,7 +276,10 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowController boo
 // addMachineOps returns operations to add a new top level machine
 // based on the given template. It also returns the machine document
 // that will be inserted.
-func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineOps(
+	modelConfigService ModelConfigService,
+	template MachineTemplate,
+) (*machineDoc, []txn.Op, error) {
 	template, err := st.effectiveMachineTemplate(template, st.IsController())
 	if err != nil {
 		return nil, nil, err
@@ -268,7 +289,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 		return nil, nil, err
 	}
 	mdoc := st.machineDocForTemplate(template, strconv.Itoa(seq))
-	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template)
+	prereqOps, machineOp, err := st.insertNewMachineOps(modelConfigService, mdoc, template)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -326,7 +347,12 @@ func (m *Machine) supportsContainerType(ctype instance.ContainerType) bool {
 
 // addMachineInsideMachineOps returns operations to add a machine inside
 // a container of the given type on an existing machine.
-func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId string, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineInsideMachineOps(
+	modelConfigService ModelConfigService,
+	template MachineTemplate,
+	parentId string,
+	containerType instance.ContainerType,
+) (*machineDoc, []txn.Op, error) {
 	if template.InstanceId != "" {
 		return nil, nil, errors.New("cannot specify instance id for a new container")
 	}
@@ -354,7 +380,7 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	}
 	mdoc := st.machineDocForTemplate(template, newId)
 	mdoc.ContainerType = string(containerType)
-	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template)
+	prereqOps, machineOp, err := st.insertNewMachineOps(modelConfigService, mdoc, template)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -382,7 +408,11 @@ func (st *State) newContainerId(parentId string, containerType instance.Containe
 // machine within a container of the given type inside another
 // new machine. The two given templates specify the form
 // of the child and parent respectively.
-func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineTemplate, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineInsideNewMachineOps(
+	modelConfigService ModelConfigService,
+	template, parentTemplate MachineTemplate,
+	containerType instance.ContainerType,
+) (*machineDoc, []txn.Op, error) {
 	if template.InstanceId != "" || parentTemplate.InstanceId != "" {
 		return nil, nil, errors.New("cannot specify instance id for a new container")
 	}
@@ -409,11 +439,11 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	}
 	mdoc := st.machineDocForTemplate(template, newId)
 	mdoc.ContainerType = string(containerType)
-	parentPrereqOps, parentOp, err := st.insertNewMachineOps(parentDoc, parentTemplate)
+	parentPrereqOps, parentOp, err := st.insertNewMachineOps(modelConfigService, parentDoc, parentTemplate)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template)
+	prereqOps, machineOp, err := st.insertNewMachineOps(modelConfigService, mdoc, template)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -459,7 +489,11 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 // insertNewMachineOps returns operations to insert the given machine document
 // into the database, based on the given template. Only the constraints are
 // taken from the template.
-func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate) (prereqOps []txn.Op, machineOp txn.Op, err error) {
+func (st *State) insertNewMachineOps(
+	modelConfigService ModelConfigService,
+	mdoc *machineDoc,
+	template MachineTemplate,
+) (prereqOps []txn.Op, machineOp txn.Op, err error) {
 	now := st.clock().Now()
 	machineStatusDoc := statusDoc{
 		Status:    status.Pending,
@@ -485,7 +519,7 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		template.Constraints,
 	)
 
-	sb, err := NewStorageBackend(st)
+	sb, err := NewStorageConfigBackend(st, modelConfigService)
 	if err != nil {
 		return nil, txn.Op{}, errors.Trace(err)
 	}

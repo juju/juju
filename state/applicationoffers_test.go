@@ -819,7 +819,7 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 
 	mysql, err := s.State.Application("mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	mysqlUnit, err := mysql.AddUnit(state.AddUnitParams{})
+	mysqlUnit, err := mysql.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
@@ -828,13 +828,13 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlru, err := rel.Unit(mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlru.EnterScope(nil)
+	err = mysqlru.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, mysqlru, true)
 
 	wpru, err := rel.RemoteUnit("remote-wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = wpru.EnterScope(nil)
+	err = wpru.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpru, true)
 

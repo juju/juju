@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -98,7 +99,8 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.Model = model
 
-	s.Factory = factory.NewFactory(s.State, s.StatePool, s.ControllerConfig)
+	s.Factory = factory.NewFactory(s.State, s.StatePool, s.ControllerConfig).
+		WithModelConfigService(&stubModelConfigService{cfg: testing.ModelConfig(c)})
 
 	s.ConfigSchemaSourceGetter = func(c *gc.C) config.ConfigSchemaSourceGetter {
 		return state.NoopConfigSchemaSource
@@ -171,4 +173,12 @@ func (s *StateSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
 			c.Fatal("no sync event sent, is the watcher dead?")
 		}
 	}
+}
+
+type stubModelConfigService struct {
+	cfg *config.Config
+}
+
+func (s *stubModelConfigService) ModelConfig(context.Context) (*config.Config, error) {
+	return s.cfg, nil
 }

@@ -62,15 +62,16 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	// For now, test with the controller model, but
 	// we may add a different hosted model later.
 	s.hosted = s.ControllerModel(c).State()
+	modelConfigService := s.ControllerDomainServices(c).Config()
 
 	// Create a machine to work with
 	var err error
 	// The first machine created is the only one allowed to
 	// JobManageModel
-	s.apiMachine, err = s.hosted.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits,
+	s.apiMachine, err = s.hosted.AddMachine(modelConfigService, state.UbuntuBase("12.10"), state.JobHostUnits,
 		state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	s.rawMachine, err = s.hosted.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.rawMachine, err = s.hosted.AddMachine(modelConfigService, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as the machine agent
@@ -144,8 +145,10 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	modelConfigService := s.ControllerDomainServices(c).Config()
 	f, release := s.NewFactory(c, s.hosted.ModelUUID())
 	defer release()
+	f = f.WithModelConfigService(modelConfigService)
 
 	app := f.MakeApplication(c, nil)
 	authorizer := apiservertesting.FakeAuthorizer{
@@ -191,12 +194,14 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	modelConfigService := s.ControllerDomainServices(c).Config()
 	f, release := s.NewFactory(c, s.hosted.ModelUUID())
 	defer release()
+	f = f.WithModelConfigService(modelConfigService)
 
 	app := f.MakeApplication(c, nil)
 	providerId := "provider-id1"
-	unit, err := app.AddUnit(state.AddUnitParams{ProviderId: &providerId})
+	unit, err := app.AddUnit(modelConfigService, state.AddUnitParams{ProviderId: &providerId})
 	c.Assert(err, jc.ErrorIsNil)
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: unit.Tag(),

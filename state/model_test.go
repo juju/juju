@@ -316,7 +316,7 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(entity.Tag(), gc.Equals, modelTag)
 
 	// Ensure the model is functional by adding a machine
-	_, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = st.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -545,7 +545,9 @@ func (s *ModelSuite) TestDestroyControllerNonEmptyModelWithForceFails(c *gc.C) {
 func (s *ModelSuite) assertDestroyControllerNonEmptyModelFails(c *gc.C, force *bool) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	factory.NewFactory(st2, s.StatePool, testing.FakeControllerConfig()).MakeApplication(c, nil)
+	factory.NewFactory(st2, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c)).
+		MakeApplication(c, nil)
 
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -582,7 +584,9 @@ func (s *ModelSuite) TestDestroyControllerWithEmptyModel(c *gc.C) {
 func (s *ModelSuite) TestDestroyControllerAndHostedModels(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	factory.NewFactory(st2, s.StatePool, testing.FakeControllerConfig()).MakeApplication(c, nil)
+	factory.NewFactory(st2, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c)).
+		MakeApplication(c, nil)
 
 	controllerModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -637,7 +641,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	// add some machines and applications
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = otherSt.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = otherSt.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
 
@@ -650,7 +654,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 			Channel: "12.10/stable",
 		}},
 	}
-	_, err = otherSt.AddApplication(args, state.NewObjectStore(c, otherSt.ModelUUID()))
+	_, err = otherSt.AddApplication(state.StubModelConfigService(c), args, state.NewObjectStore(c, otherSt.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()
@@ -690,7 +694,8 @@ func (s *ModelSuite) assertDestroyControllerAndHostedModelsWithPersistentStorage
 
 	// Add a unit with persistent storage, which will prevent Destroy
 	// from succeeding on account of DestroyStorage being nil.
-	otherFactory := factory.NewFactory(otherSt, s.StatePool, testing.FakeControllerConfig())
+	otherFactory := factory.NewFactory(otherSt, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 	otherFactory.MakeUnit(c, &factory.UnitParams{
 		Application: otherFactory.MakeApplication(c, &factory.ApplicationParams{
 			Charm: otherFactory.MakeCharm(c, &factory.CharmParams{
@@ -754,7 +759,9 @@ func (s *ModelSuite) TestDestroyControllerRemoveEmptyAddNonEmptyModel(c *gc.C) {
 		// the controller from being destroyed.
 		st3 := s.Factory.MakeModel(c, nil)
 		defer st3.Close()
-		factory.NewFactory(st3, s.StatePool, testing.FakeControllerConfig()).MakeApplication(c, nil)
+		factory.NewFactory(st3, s.StatePool, testing.FakeControllerConfig()).
+			WithModelConfigService(state.StubModelConfigService(c)).
+			MakeApplication(c, nil)
 	}).Check()
 
 	model, err := s.State.Model()
@@ -768,7 +775,9 @@ func (s *ModelSuite) TestDestroyControllerNonEmptyModelRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		st := s.Factory.MakeModel(c, nil)
 		defer st.Close()
-		factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig()).MakeApplication(c, nil)
+		factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig()).
+			WithModelConfigService(state.StubModelConfigService(c)).
+			MakeApplication(c, nil)
 	}).Check()
 
 	model, err := s.State.Model()
@@ -935,7 +944,9 @@ func (s *ModelSuite) TestDestroyModelAddApplicationConcurrently(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, st, func() {
-		factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig()).MakeApplication(c, nil)
+		factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig()).
+			WithModelConfigService(state.StubModelConfigService(c)).
+			MakeApplication(c, nil)
 	}).Check()
 
 	c.Assert(m.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
@@ -950,7 +961,9 @@ func (s *ModelSuite) TestDestroyModelAddMachineConcurrently(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, st, func() {
-		factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig()).MakeMachine(c, nil)
+		factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig()).
+			WithModelConfigService(state.StubModelConfigService(c)).
+			MakeMachine(c, nil)
 	}).Check()
 
 	c.Assert(m.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
@@ -1080,7 +1093,9 @@ func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.St
 	// Add a application to prevent the model from transitioning directly to Dead.
 	// Add the application before getting the Model, otherwise we'll have to run
 	// the transaction twice, and hit the hook point too early.
-	app := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig()).MakeApplication(c, nil)
+	app := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c)).
+		MakeApplication(c, nil)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1116,7 +1131,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 	// add some machines and applications
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = st.AddMachine(state.StubModelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
 
@@ -1129,7 +1144,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 			Channel: "12.10/stable",
 		}},
 	}
-	_, err = st.AddApplication(args, state.NewObjectStore(c, st.ModelUUID()))
+	_, err = st.AddApplication(state.StubModelConfigService(c), args, state.NewObjectStore(c, st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertModel := func(life state.Life, expectedMachines, expectedApplications int) {
@@ -1165,7 +1180,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	machine, err := st.AddOneMachine(state.MachineTemplate{
+	machine, err := st.AddOneMachine(state.StubModelConfigService(c), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.HostFilesystemParams{{
@@ -1216,7 +1231,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	machine, err := st.AddOneMachine(state.MachineTemplate{
+	machine, err := st.AddOneMachine(state.StubModelConfigService(c), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
@@ -1261,7 +1276,9 @@ func (s *ModelSuite) TestProcessDyingControllerModelWithHostedModelsNoOp(c *gc.C
 	// Add a non-empty model to the controller.
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig()).MakeApplication(c, nil)
+	factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c)).
+		MakeApplication(c, nil)
 
 	controllerModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1423,20 +1440,21 @@ func (s *ModelSuite) TestDestroyForceWorksWhenRemoteRelationScopesAreStuck(c *gc
 	rel, err := ms.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	unit, err := wordpress.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	f := factory.NewFactory(ms, s.StatePool, testing.FakeControllerConfig())
+	f := factory.NewFactory(ms, s.StatePool, testing.FakeControllerConfig()).
+		WithModelConfigService(state.StubModelConfigService(c))
 	machine := f.MakeMachine(c, nil)
-	err = unit.AssignToMachine(machine)
+	err = unit.AssignToMachine(state.StubModelConfigService(c), machine)
 	c.Assert(err, jc.ErrorIsNil)
 	localRelUnit, err := rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = localRelUnit.EnterScope(nil)
+	err = localRelUnit.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	remoteRelUnit, err := rel.RemoteUnit("mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = remoteRelUnit.EnterScope(nil)
+	err = remoteRelUnit.EnterScope(state.StubModelConfigService(c), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Refetch the remoteapp to ensure that its relationcount is

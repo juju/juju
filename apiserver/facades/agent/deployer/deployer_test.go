@@ -99,20 +99,22 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	st := s.ControllerModel(c).State()
+	modelConfigService := s.ControllerDomainServices(c).Config()
 	var err error
 
 	// The two known machines now contain the following units:
 	// machine 0 (not authorized): mysql/1 (principal1)
 	// machine 1 (authorized): mysql/0 (principal0), logging/0 (subordinate0)
 
-	s.machine0, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
+	s.machine0, err = st.AddMachine(modelConfigService, state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.machine1, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine1, err = st.AddMachine(modelConfigService, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(modelConfigService)
 	s.service0 = f.MakeApplication(c, nil)
 
 	f.MakeApplication(c, &factory.ApplicationParams{
@@ -124,19 +126,19 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	rel, err := st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.principal0, err = s.service0.AddUnit(state.AddUnitParams{})
+	s.principal0, err = s.service0.AddUnit(modelConfigService, state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.principal0.AssignToMachine(s.machine1)
+	err = s.principal0.AssignToMachine(modelConfigService, s.machine1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.principal1, err = s.service0.AddUnit(state.AddUnitParams{})
+	s.principal1, err = s.service0.AddUnit(modelConfigService, state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.principal1.AssignToMachine(s.machine0)
+	err = s.principal1.AssignToMachine(modelConfigService, s.machine0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	relUnit0, err := rel.Unit(s.principal0)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit0.EnterScope(nil)
+	err = relUnit0.EnterScope(modelConfigService, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.subordinate0, err = st.Unit("logging/0")
 	c.Assert(err, jc.ErrorIsNil)

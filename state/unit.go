@@ -1693,7 +1693,11 @@ var (
 )
 
 // assignToMachine is the internal version of AssignToMachine.
-func (u *Unit) assignToMachine(m MachineRef, unused bool) (err error) {
+func (u *Unit) assignToMachine(
+	modelConfigService ModelConfigService,
+	m MachineRef,
+	unused bool,
+) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		u, m := u, m // don't change outer vars
 		if attempt > 0 {
@@ -1707,7 +1711,7 @@ func (u *Unit) assignToMachine(m MachineRef, unused bool) (err error) {
 				return nil, errors.Trace(err)
 			}
 		}
-		return u.assignToMachineOps(m, unused)
+		return u.assignToMachineOps(modelConfigService, m, unused)
 	}
 	if err := u.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
@@ -1723,7 +1727,11 @@ func (u *Unit) assignToMachine(m MachineRef, unused bool) (err error) {
 // - unitNotAliveErr when the unit is not alive.
 // - alreadyAssignedErr when the unit has already been assigned
 // - inUseErr when the machine already has a unit assigned (if unused is true)
-func (u *Unit) assignToMachineOps(m MachineRef, unused bool) ([]txn.Op, error) {
+func (u *Unit) assignToMachineOps(
+	modelConfigService ModelConfigService,
+	m MachineRef,
+	unused bool,
+) ([]txn.Op, error) {
 	if u.Life() != Alive {
 		return nil, unitNotAliveErr
 	}
@@ -1740,7 +1748,7 @@ func (u *Unit) assignToMachineOps(m MachineRef, unused bool) ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	sb, err := NewStorageBackend(u.st)
+	sb, err := NewStorageConfigBackend(u.st, modelConfigService)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1843,8 +1851,12 @@ func validateUnitMachineAssignment(
 
 // validateDynamicMachineStorageParams validates that the provided machine
 // storage parameters are compatible with the specified machine.
-func validateDynamicMachineStorageParams(m *Machine, params *storageParams) error {
-	sb, err := NewStorageBackend(m.st)
+func validateDynamicMachineStorageParams(
+	modelConfigService ModelConfigService,
+	m *Machine,
+	params *storageParams,
+) error {
+	sb, err := NewStorageConfigBackend(m.st, modelConfigService)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1852,7 +1864,7 @@ func validateDynamicMachineStorageParams(m *Machine, params *storageParams) erro
 	if err != nil {
 		return err
 	}
-	if err := validateDynamicMachineStoragePools(sb, m, pools); err != nil {
+	if err := validateDynamicMachineStoragePools(sb.storageBackend, m, pools); err != nil {
 		return err
 	}
 	// Validate the volume/filesystem attachments for the machine.
@@ -1886,7 +1898,7 @@ func validateDynamicMachineStorageParams(m *Machine, params *storageParams) erro
 
 // storagePools returns the names of storage pools in each of the
 // volume, filesystem and attachments in the machine storage parameters.
-func storagePools(sb *storageBackend, params *storageParams) (set.Strings, error) {
+func storagePools(sb *storageConfigBackend, params *storageParams) (set.Strings, error) {
 	pools := make(set.Strings)
 	for _, v := range params.volumes {
 		v, err := sb.volumeParamsWithDefaults(v.Volume)
@@ -1981,26 +1993,33 @@ func assignContextf(err *error, unitName string, target string) {
 }
 
 // AssignToMachine assigns this unit to a given machine.
-func (u *Unit) AssignToMachine(m *Machine) (err error) {
+func (u *Unit) AssignToMachine(
+	modelConfigService ModelConfigService,
+	m *Machine,
+) (err error) {
 	defer assignContextf(&err, u.Name(), fmt.Sprintf("machine %s", m))
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
-	return u.assignToMachine(m, false)
+	return u.assignToMachine(modelConfigService, m, false)
 }
 
 // AssignToMachine assigns this unit to a given machine.
-func (u *Unit) AssignToMachineRef(m MachineRef) (err error) {
+func (u *Unit) AssignToMachineRef(
+	modelConfigService ModelConfigService,
+	m MachineRef,
+) (err error) {
 	defer assignContextf(&err, u.Name(), fmt.Sprintf("machine %s", m))
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
-	return u.assignToMachine(m, false)
+	return u.assignToMachine(modelConfigService, m, false)
 }
 
 // assignToNewMachineOps returns txn.Ops to assign the unit to a machine
 // created according to the supplied params, with the supplied constraints.
 func (u *Unit) assignToNewMachineOps(
+	modelConfigService ModelConfigService,
 	template MachineTemplate,
 	parentId string,
 	containerType instance.ContainerType,
@@ -2023,7 +2042,7 @@ func (u *Unit) assignToNewMachineOps(
 	)
 	switch {
 	case parentId == "" && containerType == "":
-		mdoc, ops, err = u.st.addMachineOps(template)
+		mdoc, ops, err = u.st.addMachineOps(modelConfigService, template)
 	case parentId == "":
 		if containerType == "" {
 			return nil, nil, errors.New("assignToNewMachine called without container type (should never happen)")
@@ -2032,9 +2051,9 @@ func (u *Unit) assignToNewMachineOps(
 		// regardless of its child.
 		parentParams := template
 		parentParams.Jobs = []MachineJob{JobHostUnits}
-		mdoc, ops, err = u.st.addMachineInsideNewMachineOps(template, parentParams, containerType)
+		mdoc, ops, err = u.st.addMachineInsideNewMachineOps(modelConfigService, template, parentParams, containerType)
 	default:
-		mdoc, ops, err = u.st.addMachineInsideMachineOps(template, parentId, containerType)
+		mdoc, ops, err = u.st.addMachineInsideMachineOps(modelConfigService, template, parentId, containerType)
 	}
 	if err != nil {
 		return nil, nil, err
@@ -2117,15 +2136,20 @@ func (u *Unit) Constraints() (*constraints.Value, error) {
 // AssignToNewMachine assigns the unit to a new machine, with constraints
 // determined according to the application and model constraints at the
 // time of unit creation.
-func (u *Unit) AssignToNewMachine() (err error) {
+func (u *Unit) AssignToNewMachine(
+	modelConfigService ModelConfigService,
+) (err error) {
 	defer assignContextf(&err, u.Name(), "new machine")
-	return u.assignToNewMachine("")
+	return u.assignToNewMachine(modelConfigService, "")
 }
 
 // assignToNewMachine assigns the unit to a new machine with the
 // optional placement directive, with constraints determined according
 // to the application and model constraints at the time of unit creation.
-func (u *Unit) assignToNewMachine(placement string) error {
+func (u *Unit) assignToNewMachine(
+	modelConfigService ModelConfigService,
+	placement string,
+) error {
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
@@ -2166,7 +2190,7 @@ func (u *Unit) assignToNewMachine(placement string) error {
 		// machine doc that will be added with those operations
 		// (which includes the machine id).
 		var ops []txn.Op
-		m, ops, err = u.assignToNewMachineOps(template, "", containerType)
+		m, ops, err = u.assignToNewMachineOps(modelConfigService, template, "", containerType)
 		return ops, err
 	}
 	if err := u.st.db().Run(buildTxn); err != nil {

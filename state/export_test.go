@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -29,12 +30,14 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/utils"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
@@ -63,9 +66,10 @@ var (
 )
 
 type (
-	CharmDoc       charmDoc
-	ApplicationDoc = applicationDoc
-	StorageBackend = storageBackend
+	CharmDoc             charmDoc
+	ApplicationDoc       = applicationDoc
+	StorageBackend       = storageBackend
+	StorageConfigBackend = storageConfigBackend
 )
 
 var (
@@ -236,7 +240,11 @@ func AddTestingApplicationWithNumUnits(c *gc.C, st *State, objectStore objectsto
 	})
 }
 
-func AddTestingApplicationWithStorage(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
+func AddTestingApplicationWithStorage(
+	c *gc.C, st *State, objectStore objectstore.ObjectStore,
+	name string, ch *Charm, storage map[string]StorageConstraints,
+	customModelConfig map[string]any,
+) *Application {
 	curl := charm.MustParseURL(ch.URL())
 	var source string
 	switch curl.Schema {
@@ -253,11 +261,12 @@ func AddTestingApplicationWithStorage(c *gc.C, st *State, objectStore objectstor
 		},
 	}
 	return addTestingApplication(c, objectStore, addTestingApplicationParams{
-		st:      st,
-		name:    name,
-		ch:      ch,
-		origin:  origin,
-		storage: storage,
+		st:                st,
+		name:              name,
+		ch:                ch,
+		origin:            origin,
+		storage:           storage,
+		customModelConfig: customModelConfig,
 	})
 }
 
@@ -288,6 +297,8 @@ type addTestingApplicationParams struct {
 	storage  map[string]StorageConstraints
 	devices  map[string]DeviceConstraints
 	numUnits int
+
+	customModelConfig map[string]any
 }
 
 func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params addTestingApplicationParams) *Application {
@@ -316,15 +327,23 @@ func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params 
 			},
 		}
 	}
-	app, err := params.st.AddApplication(AddApplicationArgs{
-		Name:             params.name,
-		Charm:            params.ch,
-		CharmOrigin:      origin,
-		EndpointBindings: params.bindings,
-		Storage:          params.storage,
-		Devices:          params.devices,
-		NumUnits:         params.numUnits,
-	}, objectStore)
+
+	modelConfig, err := testing.ModelConfig(c).Apply(params.customModelConfig)
+	c.Assert(err, jc.ErrorIsNil)
+
+	app, err := params.st.AddApplication(
+		ModelConfigServiceWithCustom(modelConfig),
+		AddApplicationArgs{
+			Name:             params.name,
+			Charm:            params.ch,
+			CharmOrigin:      origin,
+			EndpointBindings: params.bindings,
+			Storage:          params.storage,
+			Devices:          params.devices,
+			NumUnits:         params.numUnits,
+		},
+		objectStore,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 }
@@ -906,15 +925,15 @@ func RemoveRelation(c *gc.C, rel *Relation, force bool) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func AddVolumeOps(st *State, params VolumeParams, machineId string) ([]txn.Op, names.VolumeTag, error) {
-	sb, err := NewStorageBackend(st)
+func AddVolumeOps(c *gc.C, st *State, params VolumeParams, machineId string) ([]txn.Op, names.VolumeTag, error) {
+	sb, err := NewStorageConfigBackend(st, StubModelConfigService(c))
 	if err != nil {
 		return nil, names.VolumeTag{}, err
 	}
 	return sb.addVolumeOps(params, machineId)
 }
 
-func ModelBackendFromStorageBackend(sb *StorageBackend) modelBackend {
+func ModelBackendFromStorageBackend(sb *StorageConfigBackend) modelBackend {
 	return sb.mb
 }
 
@@ -1057,4 +1076,20 @@ func NewObjectStore(c *gc.C, namespace string) objectstore.ObjectStore {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return store
+}
+
+type stubModelConfigService struct {
+	cfg *config.Config
+}
+
+func StubModelConfigService(c *gc.C) ModelConfigService {
+	return &stubModelConfigService{cfg: testing.ModelConfig(c)}
+}
+
+func ModelConfigServiceWithCustom(cfg *config.Config) ModelConfigService {
+	return &stubModelConfigService{cfg: cfg}
+}
+
+func (s *stubModelConfigService) ModelConfig(context.Context) (*config.Config, error) {
+	return s.cfg, nil
 }

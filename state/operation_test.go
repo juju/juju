@@ -79,7 +79,7 @@ func (s *OperationSuite) TestOperationStatus(c *gc.C) {
 
 	charm := s.AddTestingCharm(c, "dummy")
 	application := s.AddTestingApplication(c, "dummy", charm)
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	operationID, err := s.Model.EnqueueOperation("an operation", 1)
@@ -100,7 +100,7 @@ func (s *OperationSuite) TestOperationStatus(c *gc.C) {
 func (s *OperationSuite) TestRefresh(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	application := s.AddTestingApplication(c, "dummy", charm)
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	operationID, err := s.Model.EnqueueOperation("an operation", 1)
@@ -125,7 +125,7 @@ func (s *OperationSuite) setupOperations(c *gc.C) names.Tag {
 
 	charm := s.AddTestingCharm(c, "dummy")
 	application := s.AddTestingApplication(c, "dummy", charm)
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	operationID, err := s.Model.EnqueueOperation("an operation", 1)
@@ -151,7 +151,7 @@ func (s *OperationSuite) setupOperations(c *gc.C) names.Tag {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit2, err := application.AddUnit(state.AddUnitParams{})
+	unit2, err := application.AddUnit(state.StubModelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	operationID3, err := s.Model.EnqueueOperation("yet another operation", 1)
 	c.Assert(err, jc.ErrorIsNil)

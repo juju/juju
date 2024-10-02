@@ -34,13 +34,14 @@ type ExternalControllerService interface {
 // API provides access to the remote relations API facade.
 type API struct {
 	ControllerConfigAPI
-	st            RemoteRelationsState
-	ecService     ExternalControllerService
-	secretSerivce SecretService
-	resources     facade.Resources
-	authorizer    facade.Authorizer
-	logger        corelogger.Logger
-	modelID       model.UUID
+	st                 RemoteRelationsState
+	ecService          ExternalControllerService
+	secretService      SecretService
+	modelConfigService common.ModelConfigService
+	resources          facade.Resources
+	authorizer         facade.Authorizer
+	logger             corelogger.Logger
+	modelID            model.UUID
 }
 
 // NewRemoteRelationsAPI returns a new server-side API facade.
@@ -49,6 +50,7 @@ func NewRemoteRelationsAPI(
 	st RemoteRelationsState,
 	ecService ExternalControllerService,
 	secretService SecretService,
+	modelConfigService common.ModelConfigService,
 	controllerCfgAPI ControllerConfigAPI,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -60,7 +62,8 @@ func NewRemoteRelationsAPI(
 	return &API{
 		st:                  st,
 		ecService:           ecService,
-		secretSerivce:       secretService,
+		secretService:       secretService,
+		modelConfigService:  modelConfigService,
 		ControllerConfigAPI: controllerCfgAPI,
 		resources:           resources,
 		authorizer:          authorizer,
@@ -388,7 +391,7 @@ func (api *API) ConsumeRemoteRelationChanges(ctx context.Context, changes params
 			continue
 		}
 		api.logger.Debugf("ConsumeRemoteRelationChanges: rel tag %v; app tag: %v", relationTag, applicationTag)
-		if err := commoncrossmodel.PublishRelationChange(ctx, api.authorizer, api.st, api.modelID, relationTag, applicationTag, change); err != nil {
+		if err := commoncrossmodel.PublishRelationChange(ctx, api.authorizer, api.st, api.modelConfigService, api.modelID, relationTag, applicationTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -482,6 +485,6 @@ func (api *API) consumeOneRemoteSecretChange(ctx context.Context, arg params.Sec
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = api.secretSerivce.UpdateRemoteSecretRevision(ctx, uri, arg.LatestRevision)
+	err = api.secretService.UpdateRemoteSecretRevision(ctx, uri, arg.LatestRevision)
 	return errors.Trace(err)
 }

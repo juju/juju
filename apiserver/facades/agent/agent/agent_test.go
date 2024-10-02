@@ -51,18 +51,19 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	st := s.ControllerModel(c).State()
+	modelConfigService := s.ControllerDomainServices(c).Config()
 	var err error
-	s.machine0, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	s.machine0, err = st.AddMachine(modelConfigService, state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.machine1, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine1, err = st.AddMachine(modelConfigService, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	template := state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
-	s.container, err = st.AddMachineInsideMachine(template, s.machine1.Id(), instance.LXD)
+	s.container, err = st.AddMachineInsideMachine(modelConfigService, template, s.machine1.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.resources = common.NewResources()

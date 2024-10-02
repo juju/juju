@@ -6,6 +6,7 @@ package applicationscaler
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
 )
@@ -18,7 +19,10 @@ import (
 // newAPI provides the required signature for facade registration.
 func newAPI(ctx facade.ModelContext) (*Facade, error) {
 	st := ctx.State()
-	return NewFacade(backendShim{st: st}, ctx.Resources(), ctx.Auth())
+	return NewFacade(backendShim{
+		st:                 st,
+		modelConfigService: ctx.DomainServices().Config(),
+	}, ctx.Resources(), ctx.Auth())
 }
 
 // backendShim wraps a *State to implement Backend without pulling in direct
@@ -29,7 +33,8 @@ func newAPI(ctx facade.ModelContext) (*Facade, error) {
 // ...so long as it stays simple, and the full functionality remains tested
 // elsewhere.
 type backendShim struct {
-	st *state.State
+	st                 *state.State
+	modelConfigService common.ModelConfigService
 }
 
 // WatchScaledServices is part of the Backend interface.
@@ -43,5 +48,5 @@ func (shim backendShim) RescaleService(name string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return service.EnsureMinUnits()
+	return service.EnsureMinUnits(shim.modelConfigService)
 }

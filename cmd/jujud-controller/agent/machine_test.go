@@ -538,9 +538,10 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 	ignoreAddressCh := s.setupIgnoreAddresses(c, true)
 
 	st := s.ControllerModel(c).State()
-	parent, err := st.AddMachine(state.UbuntuBase("20.04"), state.JobHostUnits)
+	parent, err := st.AddMachine(s.modelConfigService(c), state.UbuntuBase("20.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := st.AddMachineInsideMachine(
+		s.modelConfigService(c),
 		state.MachineTemplate{
 			Base: state.UbuntuBase("22.04"),
 			Jobs: []state.MachineJob{state.JobHostUnits},

@@ -100,6 +100,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 func (s *caasProvisionerSuite) setupFilesystems(c *gc.C) {
 	f, release := s.NewFactory(c, s.st.ModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	ch := f.MakeCharm(c, &factory.CharmParams{
 		Name:   "storage-filesystem",
@@ -159,6 +160,7 @@ func (s *caasProvisionerSuite) setupFilesystems(c *gc.C) {
 func (s *caasProvisionerSuite) TestWatchApplications(c *gc.C) {
 	f, release := s.NewFactory(c, s.st.ModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	ch := f.MakeCharm(c, &factory.CharmParams{
 		Name:   "storage-filesystem",
