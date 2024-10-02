@@ -1827,9 +1827,3 @@ func (*fakeProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *con
 func init() {
 	environs.RegisterProvider("fake", &fakeProvider{})
 }
-
-type stubUpgrader struct{}
-
-func (stubUpgrader) IsUpgrading() (bool, error) {
-	return false, nil
-}
