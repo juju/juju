@@ -56,6 +56,10 @@ type DomainServicesSuite struct {
 	// CloudName is the name of the cloud made during the setup of this suite.
 	CloudName string
 
+	// CloudType represents the type of the cloud made during the setup of this
+	// suite.
+	CloudType string
+
 	CredentialKey credential.Key
 
 	// ControllerModelUUID is the unique id for the controller model. If not set
@@ -128,9 +132,10 @@ func (s *DomainServicesSuite) SeedCloudAndCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.CloudName = "dummy"
+	s.CloudType = "dummy"
 	err = cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
 		Name:      s.CloudName,
-		Type:      "dummy",
+		Type:      s.CloudType,
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.AccessKeyAuthType, cloud.UserPassAuthType},
 		Regions: []cloud.Region{
 			{
@@ -184,7 +189,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 	fn = modelconfigbootstrap.SetModelConfig(
 		s.ControllerModelUUID,
 		nil,
-		modeldefaultsbootstrap.ModelDefaultsProvider(nil, nil),
+		modeldefaultsbootstrap.ModelDefaultsProvider(nil, nil, s.CloudType),
 	)
 	err = fn(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -207,7 +212,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 	fn = modelconfigbootstrap.SetModelConfig(
 		s.DefaultModelUUID,
 		nil,
-		modeldefaultsbootstrap.ModelDefaultsProvider(nil, nil),
+		modeldefaultsbootstrap.ModelDefaultsProvider(nil, nil, s.CloudType),
 	)
 	err = fn(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.DefaultModelUUID.String()))
 	c.Assert(err, jc.ErrorIsNil)

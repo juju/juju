@@ -237,7 +237,9 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 
 	controllerModelDefaults := modeldefaultsbootstrap.ModelDefaultsProvider(
 		stateParams.ControllerInheritedConfig,
-		stateParams.RegionInheritedConfig[stateParams.ControllerCloudRegion])
+		stateParams.RegionInheritedConfig[stateParams.ControllerCloudRegion],
+		stateParams.ControllerCloud.Type,
+	)
 
 	isCAAS := cloud.CloudIsCAAS(stateParams.ControllerCloud)
 	modelType := state.ModelTypeIAAS

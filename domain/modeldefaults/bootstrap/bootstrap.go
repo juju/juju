@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/domain/modeldefaults/service"
 	"github.com/juju/juju/domain/modeldefaults/state"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/errors"
 )
 
 // ModelDefaultsProvider is a bootstrap helper that wraps the raw config values
@@ -18,6 +19,7 @@ import (
 func ModelDefaultsProvider(
 	controllerConfig map[string]any,
 	cloudRegionConfig map[string]any,
+	cloudType string,
 ) service.ModelDefaultsProviderFunc {
 	return func(ctx context.Context) (modeldefaults.Defaults, error) {
 		defaults := modeldefaults.Defaults{}
@@ -27,6 +29,21 @@ func ModelDefaultsProvider(
 				Source: config.JujuDefaultSource,
 				Value:  v,
 			}
+		}
+
+		providerDefaults, err := service.ProviderDefaults(
+			context.Background(),
+			cloudType,
+			service.ProviderModelConfigGetter(),
+		)
+		if err != nil {
+			return nil, errors.Errorf(
+				"getting provider defaults for bootstrap: %w", err,
+			)
+		}
+
+		for k, v := range providerDefaults {
+			defaults[k] = v
 		}
 
 		for k, v := range controllerConfig {

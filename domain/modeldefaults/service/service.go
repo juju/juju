@@ -108,48 +108,39 @@ func ProviderModelConfigGetter() ModelConfigProviderFunc {
 	}
 }
 
-// providerDefaults is responsible for wrangling and bring together all of the
-// model config attributes and their defaults for a provider of a model. There
-// are typically two types of defaults a provider has. The first is the defaults
-// for the keys the provider extends model config with. These are generally
-// provider specific keys and only make sense in the context of the provider.
-// The second is defaults the provider can suggest for controller wide
-// attributes. Most commonly this is providing a default for the storage to use
-// in a model.
-func (s *Service) providerDefaults(
+// ProviderDefaults is responsible for wrangling and bringing together the model
+// defaults that should be applied to model from a given provider. There are
+// typically two types of defaults a provider has. The first is the defaults for
+// the keys the provider extends model config with. These are generally provider
+// specific keys and only make sense in the context of the provider. The second
+// is defaults the provider can suggest for controller wide attributes. Most
+// commonly this is providing a default for the storage to use in a model.
+func ProviderDefaults(
 	ctx context.Context,
-	uuid coremodel.UUID,
+	cloudType string,
+	providerGetter ModelConfigProviderFunc,
 ) (modeldefaults.Defaults, error) {
-	modelCloudType, err := s.st.ModelCloudType(ctx, uuid)
-	if err != nil {
-		return nil, errors.Errorf(
-			"getting model %q cloud type to extract provider model config defaults: %w",
-			uuid, err,
-		)
-	}
-
-	configProvider, err := s.modelConfigProviderGetter(modelCloudType)
+	configProvider, err := providerGetter(cloudType)
 	if errors.Is(err, coreerrors.NotFound) {
 		return nil, errors.Errorf(
-			"getting model %q config provider for cloud %q does not exist",
-			uuid, modelCloudType,
+			"getting model config provider, provider for cloud type %q does not exist",
+			cloudType,
 		)
 	} else if errors.Is(err, coreerrors.NotSupported) {
-		// The provider doesn't have anything to contribute to the models
-		//defaults.
+		// The provider doesn't have anything to contribute.
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Errorf(
-			"getting model %q config provider for cloud %q: %w",
-			uuid, modelCloudType, err,
+			"getting model config provider for cloud type %q: %w",
+			cloudType, err,
 		)
 	}
 
 	modelDefaults, err := configProvider.ModelConfigDefaults(ctx)
 	if err != nil {
 		return nil, errors.Errorf(
-			"getting model %q defaults for provider %q: %w",
-			uuid, modelCloudType, err,
+			"getting model defaults for provider of cloud type %q: %w",
+			cloudType, err,
 		)
 	}
 
@@ -157,8 +148,8 @@ func (s *Service) providerDefaults(
 	coercedAttrs, err := fields.Coerce(map[string]any{}, nil)
 	if err != nil {
 		return modeldefaults.Defaults{}, errors.Errorf(
-			"coercing model %q config provider for cloud %q default schema attributes: %w",
-			uuid, modelCloudType, err,
+			"coercing model config provider for cloud type %q default schema attributes: %w",
+			cloudType, err,
 		)
 	}
 
@@ -180,6 +171,36 @@ func (s *Service) providerDefaults(
 	}
 
 	return rval, nil
+}
+
+// providerDefaults is responsible for wrangling and bringing together all of
+// the model config attributes and their defaults for a provider of a model.
+// There are typically two types of defaults a provider has. The first is the
+// defaults for the keys the provider extends model config with. These are
+// generally provider specific keys and only make sense in the context of the
+// provider. The second is defaults the provider can suggest for controller wide
+// attributes. Most commonly this is providing a default for the storage to use
+// in a model.
+func (s *Service) providerDefaults(
+	ctx context.Context,
+	uuid coremodel.UUID,
+) (modeldefaults.Defaults, error) {
+	modelCloudType, err := s.st.ModelCloudType(ctx, uuid)
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting model %q cloud type to extract provider model config defaults: %w",
+			uuid, err,
+		)
+	}
+
+	defaults, err := ProviderDefaults(ctx, modelCloudType, s.modelConfigProviderGetter)
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting model %q provider defaults: %w", uuid, err,
+		)
+	}
+
+	return defaults, nil
 }
 
 // ModelDefaults will return the default config values to be used for a model

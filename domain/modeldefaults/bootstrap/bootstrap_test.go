@@ -26,6 +26,7 @@ func (_ *bootstrapSuite) TestBootstrapModelDefaults(c *gc.C) {
 			"foo":    "region",
 			"region": "some value",
 		},
+		"dummy",
 	)
 
 	defaults, err := provider.ModelDefaults(context.Background())
