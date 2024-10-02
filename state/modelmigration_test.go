@@ -259,10 +259,10 @@ func (s *MigrationSuite) TestLatestMigration(c *gc.C) {
 	c.Assert(mig1.Id(), gc.Equals, mig2.Id())
 }
 
-func (s *MigrationSuite) TestLatestMigrationNotExist(c *gc.C) {
+func (s *MigrationSuite) TestLatestMigrationIgnoresModelNotFound(c *gc.C) {
 	mig, err := s.State.LatestMigration()
 	c.Check(mig, gc.IsNil)
-	c.Check(errors.IsNotFound(err), jc.IsTrue)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *MigrationSuite) TestGetsLatestAttempt(c *gc.C) {
