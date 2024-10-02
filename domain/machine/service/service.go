@@ -57,10 +57,6 @@ type State interface {
 	// If there's no machine, it returns an empty slice.
 	AllMachineNames(context.Context) ([]coremachine.Name, error)
 
-	// InitialWatchInstanceStatement returns the table and the initial watch statement
-	// for the machine cloud instances.
-	InitialWatchInstanceStatement() (string, string)
-
 	// InstanceID returns the cloud specific instance id for this machine.
 	// If the machine is not provisioned, it returns a
 	// [machineerrors.NotProvisionedError]

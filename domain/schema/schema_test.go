@@ -663,6 +663,10 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_machine_update",
 		"trg_log_machine_delete",
 
+		"trg_log_machine_lxd_profile_insert",
+		"trg_log_machine_lxd_profile_update",
+		"trg_log_machine_lxd_profile_delete",
+
 		"trg_log_machine_cloud_instance_insert",
 		"trg_log_machine_cloud_instance_update",
 		"trg_log_machine_cloud_instance_delete",

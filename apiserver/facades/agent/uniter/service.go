@@ -101,4 +101,8 @@ type MachineService interface {
 
 	// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
 	AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error)
+
+	// WatchMachineCloudInstances returns a StringsWatcher that is subscribed to
+	// the changes in the machine_cloud_instance table in the model.
+	WatchLXDProfiles(ctx context.Context, machineUUID string) (watcher.NotifyWatcher, error)
 }

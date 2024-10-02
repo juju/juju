@@ -85,14 +85,6 @@ func (s *watcherSuite) TestWatchModelMachines(c *gc.C) {
 }
 
 func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *gc.C) {
-	watcher, err := s.svc.WatchMachineCloudInstances(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-
-	watcherC := watchertest.NewStringsWatcherC(c, watcher)
-	// Initial event.
-	watcherC.AssertOneChange()
-	s.AssertChangeStreamIdle(c)
-
 	// Create a machineUUID and set its cloud instance.
 	machineUUID, err := s.svc.CreateMachine(context.Background(), "machine-1")
 	c.Assert(err, gc.IsNil)
@@ -102,22 +94,20 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *gc.C) {
 		CpuCores: uintptr(4),
 		CpuPower: uintptr(75),
 	}
-	err = s.svc.SetMachineCloudInstance(context.Background(), machineUUID, "42", hc)
-	c.Assert(err, gc.IsNil)
+	watcher, err := s.svc.WatchMachineCloudInstances(context.Background(), machineUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	// Assert the change.
-	watcherC.AssertChange(machineUUID)
+	// Should notify when the machine cloud instance is set.
+	harness.AddTest(func(c *gc.C) {
+		err = s.svc.SetMachineCloudInstance(context.Background(), machineUUID, "42", hc)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.Check(watchertest.SliceAssert(struct{}{}))
+	})
 }
 
 func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *gc.C) {
-	watcher, err := s.svc.WatchMachineCloudInstances(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-
-	watcherC := watchertest.NewStringsWatcherC(c, watcher)
-	// Initial event.
-	watcherC.AssertOneChange()
-	s.AssertChangeStreamIdle(c)
-
 	// Create a machineUUID and set its cloud instance.
 	machineUUID, err := s.svc.CreateMachine(context.Background(), "machine-1")
 	c.Assert(err, gc.IsNil)
@@ -129,12 +119,56 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *gc.C) {
 	}
 	err = s.svc.SetMachineCloudInstance(context.Background(), machineUUID, "42", hc)
 	c.Assert(err, gc.IsNil)
-	// Delete the cloud instance.
-	err = s.svc.DeleteMachineCloudInstance(context.Background(), machineUUID)
-	c.Assert(err, gc.IsNil)
 
-	// Assert the changes.
-	watcherC.AssertChange(machineUUID)
+	watcher, err := s.svc.WatchMachineCloudInstances(context.Background(), machineUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Should notify when the machine cloud instance is deleted.
+	harness.AddTest(func(c *gc.C) {
+		err = s.svc.DeleteMachineCloudInstance(context.Background(), machineUUID)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.Check(watchertest.SliceAssert(struct{}{}))
+	})
+}
+
+func (s *watcherSuite) TestWatchLXDProfiles(c *gc.C) {
+	machineUUIDm0, err := s.svc.CreateMachine(context.Background(), "machine-1")
+	c.Assert(err, jc.ErrorIsNil)
+	machineUUIDm1, err := s.svc.CreateMachine(context.Background(), "machine-2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	watcher, err := s.svc.WatchLXDProfiles(context.Background(), machineUUIDm0)
+	c.Assert(err, jc.ErrorIsNil)
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Should notify when a new profile is added.
+	harness.AddTest(func(c *gc.C) {
+		err := s.svc.SetAppliedLXDProfileNames(context.Background(), machineUUIDm0, []string{"profile-0"})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.Check(watchertest.SliceAssert(struct{}{}))
+	})
+
+	// Should notify when profiles are overwritten.
+	harness.AddTest(func(c *gc.C) {
+		err := s.svc.SetAppliedLXDProfileNames(context.Background(), machineUUIDm0, []string{"profile-0", "profile-1", "profile-2"})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.Check(watchertest.SliceAssert(struct{}{}))
+	})
+
+	// Nothing to notify when the lxd profiles are set on the other (non
+	// watched) machine.
+	harness.AddTest(func(c *gc.C) {
+		err := s.svc.SetAppliedLXDProfileNames(context.Background(), machineUUIDm1, []string{"profile-0"})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c)
 }
 
 // TestWatchMachineForReboot tests the functionality of watching machines for reboot.

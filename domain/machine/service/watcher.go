@@ -81,14 +81,31 @@ func (s *WatchableService) WatchModelMachines() (watcher.StringsWatcher, error) 
 	)
 }
 
-// WatchMachineCloudInstances returns a StringsWatcher that is subscribed to
-// the changes in the machine_cloud_instance table in the model.
-func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context) (watcher.StringsWatcher, error) {
-	table, stmt := s.st.InitialWatchInstanceStatement()
-	return s.watcherFactory.NewNamespaceWatcher(
-		table,
+// WatchMachineCloudInstances returns a NotifyWatcher that is subscribed to
+// the changes in the machine_cloud_instance table in the model, for the given
+// machine UUID.
+func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machineUUID string) (watcher.NotifyWatcher, error) {
+	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
+		"machine_cloud_instance",
 		changestream.All,
-		eventsource.InitialNamespaceChanges(stmt),
+		eventsource.FilterEvents(func(event changestream.ChangeEvent) bool {
+			return event.Changed() == machineUUID
+		}),
+	)
+}
+
+// WatchLXDProfiles returns a NotifyWatcher that is subscribed to the changes in
+// the machine_cloud_instance table in the model, for the given machine UUID.
+// Note: Sometime in the future, this watcher could react to logical changes
+// fired from `SetAppliedLXDProfileNames()` instead of the `machine_lxd_profile`
+// table, which could become noisy.
+func (s *WatchableService) WatchLXDProfiles(ctx context.Context, machineUUID string) (watcher.NotifyWatcher, error) {
+	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
+		"machine_lxd_profile",
+		changestream.All,
+		eventsource.FilterEvents(func(event changestream.ChangeEvent) bool {
+			return event.Changed() == machineUUID
+		}),
 	)
 }
 
@@ -104,15 +121,10 @@ func (s *WatchableService) WatchMachineReboot(ctx context.Context, uuid string) 
 	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
 		"machine_requires_reboot",
 		changestream.Create|changestream.Delete,
-		func(ctx context.Context, runner database.TxnRunner, events []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
-			filteredEvents := make([]changestream.ChangeEvent, 0, len(events))
-			for _, event := range events {
-				if machines.Contains(event.Changed()) {
-					filteredEvents = append(filteredEvents, event)
-				}
-			}
-			return filteredEvents, nil
-		})
+		eventsource.FilterEvents(func(event changestream.ChangeEvent) bool {
+			return machines.Contains(event.Changed())
+		}),
+	)
 }
 
 func (s *WatchableService) machineToCareForReboot(ctx context.Context, uuid string) ([]string, error) {
