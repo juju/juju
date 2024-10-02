@@ -11,7 +11,7 @@ check_dependencies() {
 	if [[ "$missing" ]]; then
 		echo "Missing dependencies: $missing" >&2
 		echo ""
-		exit 1
+		return 1
 	fi
 }
 
@@ -28,7 +28,7 @@ check_juju_dependencies() {
 	if [[ "$missing" ]]; then
 		echo "Missing juju commands: $missing" >&2
 		echo ""
-		exit 1
+		return 1
 	fi
 }
 
@@ -44,7 +44,7 @@ check_not_contains() {
 	chk=$(echo "${input}" | grep "${value}" || true)
 	if [[ -n ${chk} ]]; then
 		printf "Unexpected \"${value}\" found\n\n%s\n" "${input}" >&2
-		exit 1
+		return 1
 	else
 		echo "Success: \"${value}\" not found" >&2
 	fi
@@ -62,7 +62,7 @@ check_contains() {
 	chk=$(echo "${input}" | grep "${value}" || true)
 	if [[ -z ${chk} ]]; then
 		printf "Expected \"%s\" not found\n\n%s\n" "${value}" "${input}" >&2
-		exit 1
+		return 1
 	else
 		echo "Success: \"${value}\" found" >&2
 	fi
@@ -81,7 +81,7 @@ check_gt() {
 		printf "Success: \"%s\" > \"%s\"\n" "${input}" "${value}" >&2
 	else
 		printf "Expected \"%s\" > \"%s\"\n" "${input}" "${value}" >&2
-		exit 1
+		return 1
 	fi
 }
 
@@ -98,7 +98,7 @@ check_ge() {
 		printf "Success: \"%s\" >= \"%s\"\n" "${input}" "${value}" >&2
 	else
 		printf "Expected \"%s\" >= \"%s\"\n" "${input}" "${value}" >&2
-		exit 1
+		return 1
 	fi
 }
 
@@ -124,6 +124,6 @@ check() {
 		# shellcheck disable=SC2059
 		printf "$(red \"Received\"): ${got}\n" >&2
 		echo "" >&2
-		exit 1
+		return 1
 	fi
 }

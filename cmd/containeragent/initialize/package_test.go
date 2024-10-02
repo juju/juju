@@ -80,6 +80,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"environs/tags",
 		"feature",
 		"juju/osenv",
+		"juju/sockets",
 		"logfwd",
 		"logfwd/syslog",
 		"mongo",

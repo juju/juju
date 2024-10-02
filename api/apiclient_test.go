@@ -685,16 +685,27 @@ func (s *apiclientSuite) TestOpenWithNoCACert(c *gc.C) {
 	info := s.APIInfo(c)
 	info.CACert = ""
 
+	// Unfortunately I have not better way to check that there is no retry.
+	// The idea is that if we don't have any retry, we should have a total dial time lesser than
+	// the retryDelay. It may break if the dial doesn't fail fast enough, but 200ms is quite long
+	// for this test, so it shouldn't be flaky.
+	dialTime := time.Now()
+	retryDelay := 200 * time.Millisecond
+
 	// This test used to use a long timeout so that we can check that the retry
 	// logic doesn't retry, but that got all messed up with dualstack IPs.
 	// The api server was only listening on IPv4, but localhost resolved to both
 	// IPv4 and IPv6. The IPv4 didn't retry, but the IPv6 one did, because it was
 	// retrying the dial. The parallel try doesn't have a fatal error type yet.
 	_, err := api.Open(info, api.DialOpts{
-		Timeout:    2 * time.Second,
-		RetryDelay: 200 * time.Millisecond,
+		Timeout:    10 * retryDelay,
+		RetryDelay: retryDelay,
 	})
+	endDialTime := time.Now()
+
 	c.Assert(err, gc.ErrorMatches, `unable to connect to API:.*x509: certificate signed by unknown authority`)
+	c.Assert(endDialTime.Sub(dialTime), jc.DurationLessThan, retryDelay)
+
 }
 
 func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {
