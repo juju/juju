@@ -108,8 +108,12 @@ func (s *State) SaveMetadata(ctx context.Context, metadata []cloudimagemetadata.
 		return errors.Trace(err)
 	}
 
+	return InsertMetadata(ctx, db, metadata, s.clock.Now())
+}
+
+// InsertMetadata inserts or updates metadata for cloud images in the database.
+func InsertMetadata(ctx context.Context, db database.TxnRunner, metadata []cloudimagemetadata.Metadata, createdAt time.Time) error {
 	// Prepare inputs
-	createdAt := s.clock.Now()
 	values := make([]inputMetadata, 0, len(metadata))
 	for _, m := range metadata {
 		// Convert architecture name to a db id
