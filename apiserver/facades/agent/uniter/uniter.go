@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
@@ -68,6 +69,7 @@ type UniterAPI struct {
 	controllerConfigService ControllerConfigService
 	modelConfigService      ModelConfigService
 	modelInfoService        ModelInfoService
+	machineService          MachineService
 	secretService           SecretService
 	networkService          NetworkService
 	applicationService      ApplicationService
@@ -332,13 +334,27 @@ func (u *UniterAPI) PrivateAddress(ctx context.Context, args params.Entities) (p
 
 // TODO(ericsnow) Factor out the common code amongst the many methods here.
 
-var getZone = func(st *state.State, tag names.Tag) (string, error) {
+var getZone = func(ctx context.Context, st *state.State, machineService MachineService, tag names.Tag) (string, error) {
 	unit, err := st.Unit(tag.Id())
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	zone, err := unit.AvailabilityZone()
-	return zone, errors.Trace(err)
+	machineID, err := unit.AssignedMachineId()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	machineUUID, err := machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	hc, err := machineService.HardwareCharacteristics(ctx, machineUUID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if hc.AvailabilityZone == nil {
+		return "", errors.Trace(err)
+	}
+	return *hc.AvailabilityZone, errors.Trace(err)
 }
 
 // AvailabilityZone returns the availability zone for each given unit, if applicable.
@@ -367,7 +383,7 @@ func (u *UniterAPI) AvailabilityZone(ctx context.Context, args params.Entities) 
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var zone string
-			zone, err = getZone(u.st, tag)
+			zone, err = getZone(ctx, u.st, u.machineService, tag)
 			if err == nil {
 				results.Results[i].Result = zone
 			}

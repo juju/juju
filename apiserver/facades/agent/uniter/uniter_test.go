@@ -514,7 +514,7 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 }
 
 func (s *uniterSuite) TestAvailabilityZone(c *gc.C) {
-	s.PatchValue(uniter.GetZone, func(st *state.State, tag names.Tag) (string, error) {
+	s.PatchValue(uniter.GetZone, func(ctx context.Context, st *state.State, machineService uniter.MachineService, tag names.Tag) (string, error) {
 		return "a_zone", nil
 	})
 

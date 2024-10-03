@@ -77,6 +77,10 @@ type MachineService interface {
 	// lxd_profile table for the given machine. This method will overwrite the list
 	// of profiles for the given machine without any checks.
 	SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error
+
+	// HardwareCharacteristics returns the hardware characteristics of the
+	// of the specified machine.
+	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
 }
 
 // StoragePoolGetter instances get a storage pool by name.

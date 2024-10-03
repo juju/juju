@@ -32,10 +32,21 @@ func (st *State) HardwareCharacteristics(
 		return nil, errors.Trace(err)
 	}
 	retrieveHardwareCharacteristics := `
-SELECT &instanceData.*
-FROM   machine_cloud_instance
-WHERE  machine_uuid = $instanceData.machine_uuid`
-	machineUUIDQuery := instanceData{
+SELECT    (machine_cloud_instance.machine_uuid,
+           machine_cloud_instance.instance_id,
+           machine_cloud_instance.arch,
+           machine_cloud_instance.mem,
+           machine_cloud_instance.root_disk,
+           machine_cloud_instance.root_disk_source,
+           machine_cloud_instance.cpu_cores,
+           machine_cloud_instance.cpu_power,
+           machine_cloud_instance.virt_type) AS (&instanceDataResult.*),
+           availability_zone.name AS &instanceDataResult.availability_zone
+FROM      machine_cloud_instance
+LEFT JOIN availability_zone
+ON        machine_cloud_instance.availability_zone_uuid = availability_zone.uuid
+WHERE     machine_uuid = $instanceDataResult.machine_uuid`
+	machineUUIDQuery := instanceDataResult{
 		MachineUUID: machineUUID,
 	}
 	retrieveHardwareCharacteristicsStmt, err := st.Prepare(retrieveHardwareCharacteristics, machineUUIDQuery)
@@ -43,7 +54,7 @@ WHERE  machine_uuid = $instanceData.machine_uuid`
 		return nil, errors.Annotate(err, "preparing retrieve hardware characteristics statement")
 	}
 
-	var row instanceData
+	var row instanceDataResult
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Trace(tx.Query(ctx, retrieveHardwareCharacteristicsStmt, machineUUIDQuery).Get(&row))
 	}); err != nil {
@@ -114,7 +125,7 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 			instanceData.CPUCores = hardwareCharacteristics.CpuCores
 			instanceData.CPUPower = hardwareCharacteristics.CpuPower
 			instanceData.VirtType = hardwareCharacteristics.VirtType
-			if hardwareCharacteristics.AvailabilityZone != nil {
+			if hardwareCharacteristics.AvailabilityZone != nil && *hardwareCharacteristics.AvailabilityZone != "" {
 				azUUID := availabilityZoneName{}
 				if err := tx.Query(ctx, retrieveAZUUIDStmt, azName).Get(&azUUID); err != nil {
 					if errors.Is(err, sql.ErrNoRows) {

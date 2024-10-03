@@ -23,7 +23,7 @@ import (
 func (st *State) AllSubnetsQuery(ctx context.Context, db database.TxnRunner) ([]string, error) {
 	var subnets []Subnet
 	stmt, err := st.Prepare(`
-SELECT &Subnet.uuid 
+SELECT &Subnet.uuid
 FROM   subnet`, Subnet{})
 	if err != nil {
 		return nil, errors.Annotate(err, "preparing select subnet statement")
@@ -103,7 +103,7 @@ func (st *State) addSubnet(ctx context.Context, tx *sqlair.TX, subnetInfo networ
 	}
 
 	insertSubnetStmt, err := st.Prepare(`
-INSERT INTO subnet (*) 
+INSERT INTO subnet (*)
 VALUES ($Subnet.*)`, subnet)
 	if err != nil {
 		return errors.Trace(err)
@@ -444,8 +444,8 @@ DELETE FROM subnet WHERE uuid = $Subnet.uuid;`, subnet)
 		return errors.Annotate(err, "preparing delete subnet statement")
 	}
 	selectProviderNetworkStmt, err := st.Prepare(`
-SELECT &ProviderNetworkSubnet.provider_network_uuid 
-FROM   provider_network_subnet 
+SELECT &ProviderNetworkSubnet.provider_network_uuid
+FROM   provider_network_subnet
 WHERE  subnet_uuid = $Subnet.uuid;`, subnet, providerNetworkSubnet)
 	if err != nil {
 		return errors.Annotate(err, "preparing select provider network statement")
