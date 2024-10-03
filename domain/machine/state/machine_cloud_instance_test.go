@@ -47,6 +47,7 @@ func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *gc
 		context.Background(),
 		machineUUID,
 		instance.Id("123"),
+		"",
 		&instance.HardwareCharacteristics{
 			Arch:           strptr("arm64"),
 			Mem:            uintptr(1024),
@@ -91,6 +92,7 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 		context.Background(),
 		machineUUID,
 		instance.Id("1"),
+		"one",
 		&instance.HardwareCharacteristics{
 			Arch:             strptr("arm64"),
 			Mem:              uintptr(1024),
@@ -110,6 +112,7 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 	err = row.Scan(
 		&instanceData.MachineUUID,
 		&instanceData.InstanceID,
+		&instanceData.DisplayName,
 		&instanceData.Arch,
 		&instanceData.Mem,
 		&instanceData.RootDisk,
@@ -122,6 +125,7 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instanceData.MachineUUID, gc.Equals, machineUUID)
 	c.Check(instanceData.InstanceID, gc.Equals, "1")
+	c.Check(instanceData.DisplayName, gc.Equals, "one")
 	c.Check(*instanceData.Arch, gc.Equals, "arm64")
 	c.Check(*instanceData.Mem, gc.Equals, uint64(1024))
 	c.Check(*instanceData.RootDisk, gc.Equals, uint64(256))
@@ -163,6 +167,7 @@ func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *gc.C) {
 		context.Background(),
 		machineUUID,
 		instance.Id("1"),
+		"one",
 		&instance.HardwareCharacteristics{
 			Arch: strptr("arm64"),
 		},
@@ -174,6 +179,7 @@ func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *gc.C) {
 		context.Background(),
 		machineUUID,
 		instance.Id("1"),
+		"one",
 		&instance.HardwareCharacteristics{
 			Arch: strptr("amd64"),
 		},
@@ -256,6 +262,23 @@ func (s *stateSuite) TestInstanceIdError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.state.InstanceID(context.Background(), "666")
+	c.Check(err, jc.ErrorIs, machineerrors.NotProvisioned)
+}
+
+func (s *stateSuite) TestInstanceNameSuccess(c *gc.C) {
+	machineUUID := s.ensureInstance(c, "666")
+
+	instanceID, displayName, err := s.state.InstanceIDAndName(context.Background(), machineUUID)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(instanceID, gc.Equals, "123")
+	c.Assert(displayName, gc.Equals, "one-two-three")
+}
+
+func (s *stateSuite) TestInstanceNameError(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, _, err = s.state.InstanceIDAndName(context.Background(), "666")
 	c.Check(err, jc.ErrorIs, machineerrors.NotProvisioned)
 }
 
@@ -415,6 +438,7 @@ func (s *stateSuite) ensureInstance(c *gc.C, mName machine.Name) string {
 		context.Background(),
 		machineUUID,
 		instance.Id("123"),
+		"one-two-three",
 		&instance.HardwareCharacteristics{
 			Arch:             strptr("arm64"),
 			Mem:              uintptr(1024),

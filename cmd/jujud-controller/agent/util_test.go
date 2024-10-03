@@ -218,7 +218,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 	machineService := s.ControllerDomainServices(c).Machine()
 	machineUUID, err := machineService.CreateMachine(context.Background(), machine.Name(m.Id()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(context.Background(), machineUUID, inst.Id(), nil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machineUUID, inst.Id(), "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add an address for the tests in case the initiateMongoServer

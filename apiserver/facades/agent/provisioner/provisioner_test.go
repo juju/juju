@@ -85,7 +85,6 @@ func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainer
 	s.expectNetworkingEnviron()
 
 	cExp := s.container.EXPECT()
-	// cExp.InstanceId().Return(instance.UnknownId, errors.NotProvisionedf("idk-lol"))
 
 	s.policy.EXPECT().PopulateContainerLinkLayerDevices(s.host, s.container, false).Return(
 		network.InterfaceInfos{
@@ -101,7 +100,6 @@ func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainer
 	// Crucial behavioural trait. Set false to test failure, whereupon the
 	// PopulateContainerLinkLayerDevices expectation will not be satisfied.
 	hExp.IsManual().Return(true, nil)
-	// hExp.InstanceId().Return(instance.Id("manual:10.0.0.66"), nil)
 }
 
 // expectNetworkingEnviron stubs an environ that supports container networking.

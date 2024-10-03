@@ -1745,11 +1745,9 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 }
 
 // SetConstraints sets the exact constraints to apply when provisioning an
-// instance for the machine. It will fail if the machine is Dead, or if it
-// is already provisioned.
+// instance for the machine. It will fail if the machine is Dead.
 func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 	op := m.UpdateOperation()
-	// Only set the constraints if the machine is not provisioned.
 	op.Constraints = &cons
 	return m.st.ApplyOperation(op)
 }

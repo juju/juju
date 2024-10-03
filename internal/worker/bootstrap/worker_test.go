@@ -405,7 +405,7 @@ func (s *workerSuite) expectStateServingInfo() {
 
 func (s *workerSuite) expectSetMachineCloudInstance() {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(agent.BootstrapControllerId)).Return("deadbeef", nil)
-	s.machineService.EXPECT().SetMachineCloudInstance(gomock.Any(), "deadbeef", instance.Id("i-deadbeef"), nil)
+	s.machineService.EXPECT().SetMachineCloudInstance(gomock.Any(), "deadbeef", instance.Id("i-deadbeef"), "", nil)
 }
 
 func (s *workerSuite) expectReloadSpaces() {

@@ -56,6 +56,9 @@ type MachineService interface {
 	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
 	// InstanceID returns the cloud specific instance id for this machine.
 	InstanceID(ctx context.Context, mUUID string) (string, error)
+	// InstanceIDAndName returns the cloud specific instance ID and display name for
+	// this machine.
+	InstanceIDAndName(ctx context.Context, machineUUID string) (string, string, error)
 }
 
 // ApplicationService provides access to the application service.

@@ -366,6 +366,7 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *gc.C) {
 		gomock.Any(),
 		"machine-666-uuid",
 		instance.Id("inst-666"),
+		"",
 		nil,
 	)
 

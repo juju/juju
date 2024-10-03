@@ -79,6 +79,7 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *gc.C) {
 		context.Background(),
 		"deadbeef",
 		instance.Id("instance-0"),
+		"",
 		&instance.HardwareCharacteristics{
 			Arch: &arch,
 		},
@@ -90,6 +91,7 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *gc.C) {
 		context.Background(),
 		"deadbeef-2",
 		instance.Id("instance-1"),
+		"",
 		&instance.HardwareCharacteristics{
 			Arch: &arch,
 		},

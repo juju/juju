@@ -31,6 +31,7 @@ AFTER UPDATE ON machine_cloud_instance FOR EACH ROW
 WHEN 
 	NEW.machine_uuid != OLD.machine_uuid OR
 	NEW.instance_id != OLD.instance_id OR
+	NEW.display_name != OLD.display_name OR
 	(NEW.arch != OLD.arch OR (NEW.arch IS NOT NULL AND OLD.arch IS NULL) OR (NEW.arch IS NULL AND OLD.arch IS NOT NULL)) OR
 	(NEW.mem != OLD.mem OR (NEW.mem IS NOT NULL AND OLD.mem IS NULL) OR (NEW.mem IS NULL AND OLD.mem IS NOT NULL)) OR
 	(NEW.root_disk != OLD.root_disk OR (NEW.root_disk IS NOT NULL AND OLD.root_disk IS NULL) OR (NEW.root_disk IS NULL AND OLD.root_disk IS NOT NULL)) OR

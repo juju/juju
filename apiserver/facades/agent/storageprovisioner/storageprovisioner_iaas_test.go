@@ -109,7 +109,7 @@ func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 	machineService := s.ControllerDomainServices(c).Machine()
 	machine0UUID, err := machineService.CreateMachine(context.Background(), machine.Name("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(context.Background(), machine0UUID, "inst-id", nil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine0UUID, "inst-id", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f.MakeMachine(c, &factory.MachineParams{
@@ -145,7 +145,7 @@ func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 	f.MakeMachine(c, nil)
 	machine1UUID, err := machineService.CreateMachine(context.Background(), machine.Name("1"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(context.Background(), machine1UUID, "inst-id1", nil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine1UUID, "inst-id1", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make an unprovisioned machine with storage for tests to use.
@@ -174,7 +174,7 @@ func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 	machineService := s.ControllerDomainServices(c).Machine()
 	machine0UUID, err := machineService.CreateMachine(context.Background(), machine.Name("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(context.Background(), machine0UUID, "inst-id", nil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine0UUID, "inst-id", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	f.MakeMachine(c, &factory.MachineParams{
 		InstanceId: instance.Id("inst-id"),
@@ -207,7 +207,7 @@ func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 	f.MakeMachine(c, nil)
 	machine1UUID, err := machineService.CreateMachine(context.Background(), machine.Name("1"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(context.Background(), machine1UUID, "inst-id1", nil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine1UUID, "inst-id1", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make an unprovisioned machine with storage for tests to use.
@@ -829,14 +829,6 @@ func (s *iaasProvisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	// c.Check(results.Results, gc.HasLen, 4)
-	// c.Check(results.Results[0].Error, gc.IsNil)
-	// c.Check(results.Results[1].Error.Code, gc.Equals, "not provisioned")
-	// c.Check(results.Results[1].Error.Message, gc.Matches, ".*not provisioned")
-	// c.Check(results.Results[2].Error.Code, gc.Equals, "not provisioned")
-	// c.Check(results.Results[2].Error.Message, gc.Matches, ".*not provisioned")
-	// c.Check(results.Results[3].Error.Code, gc.Equals, "unauthorized access")
-	// c.Check(results.Results[3].Error.Message, gc.Matches, "permission denied")
 
 	c.Assert(results, jc.DeepEquals, params.FilesystemAttachmentParamsResults{
 		Results: []params.FilesystemAttachmentParamsResult{

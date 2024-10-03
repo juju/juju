@@ -132,7 +132,6 @@ func NewStateFirewallerAPI(
 	)
 	// InstanceId() is supported for machines.
 	instanceIdGetter := common.NewInstanceIdGetter(
-		st,
 		machineService,
 		accessMachine,
 	)

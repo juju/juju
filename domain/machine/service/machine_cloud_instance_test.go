@@ -55,10 +55,11 @@ func (s *serviceSuite) TestSetMachineCloudInstance(c *gc.C) {
 		gomock.Any(),
 		"42",
 		instance.Id("instance-42"),
+		"42",
 		hc,
 	).Return(nil)
 
-	err := NewService(s.state).SetMachineCloudInstance(context.Background(), "42", "instance-42", hc)
+	err := NewService(s.state).SetMachineCloudInstance(context.Background(), "42", "instance-42", "42", hc)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -75,10 +76,11 @@ func (s *serviceSuite) TestSetMachineCloudInstanceFails(c *gc.C) {
 		gomock.Any(),
 		"42",
 		instance.Id("instance-42"),
+		"42",
 		hc,
 	).Return(errors.New("boom"))
 
-	err := NewService(s.state).SetMachineCloudInstance(context.Background(), "42", "instance-42", hc)
+	err := NewService(s.state).SetMachineCloudInstance(context.Background(), "42", "instance-42", "42", hc)
 	c.Assert(err, gc.ErrorMatches, "setting machine cloud instance for machine \"42\": boom")
 }
 

@@ -464,7 +464,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	machineService := s.ControllerDomainServices(c).Machine()
 	machineUUID, err := machineService.CreateMachine(context.Background(), machine.Name("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(context.Background(), machineUUID, instance.Id("i-machine-0"), nil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machineUUID, instance.Id("i-machine-0"), "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// We are still double writing machines and their provisioning info.
 	m, err := st.AddMachine(modelConfigService, state.UbuntuBase("12.10"), state.JobManageModel)
@@ -568,7 +568,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		machineService := s.ControllerDomainServices(c).Machine()
 		machineUUID, err := machineService.CreateMachine(context.Background(), machine.Name(fmt.Sprintf("%d", i+1)))
 		c.Assert(err, jc.ErrorIsNil)
-		err = machineService.SetMachineCloudInstance(context.Background(), machineUUID, instance.Id(fmt.Sprintf("i-machine-%d", i+1)), nil)
+		err = machineService.SetMachineCloudInstance(context.Background(), machineUUID, instance.Id(fmt.Sprintf("i-machine-%d", i+1)), "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		// We are still double writing machines and their provisioning info.
 		m, err := st.AddMachine(modelConfigService, state.UbuntuBase("12.10"), state.JobHostUnits)

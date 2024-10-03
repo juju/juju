@@ -166,10 +166,11 @@ func ModelMachineInfo(ctx context.Context, st ModelManagerBackend, machineServic
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		instId, err := machineService.InstanceID(ctx, machineUUID)
+		instanceID, displayName, err := machineService.InstanceIDAndName(ctx, machineUUID)
 		switch {
 		case err == nil:
-			mInfo.InstanceId = instId
+			mInfo.InstanceId = instanceID
+			mInfo.DisplayName = displayName
 		case errors.Is(err, machineerrors.NotProvisioned):
 			// ok, but no instance ID to get.
 		default:

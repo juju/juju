@@ -141,6 +141,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Jobs:            []state.MachineJob{state.JobManageModel},
 		Characteristics: &instance.HardwareCharacteristics{CpuCores: &eight},
 		InstanceId:      "id-4",
+		DisplayName:     "snowflake",
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{
 				Pool: "modelscoped",
@@ -189,14 +190,14 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 
 	// controller model
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("deadbeef0", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef0").Return("id-4", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef0").Return("id-4", "snowflake", nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef1").Return("id-5", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("id-5", "", nil)
 	// hosted model
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("deadbeef0", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef0").Return("id-8", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef0").Return("id-8", "", nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef1").Return("id-9", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("id-9", "", nil)
 
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},
@@ -219,7 +220,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 			Life:               life.Alive,
 			Type:               string(state.ModelTypeIAAS),
 			Machines: []params.ModelMachineInfo{
-				{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", Status: "pending", WantsVote: true},
+				{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", DisplayName: "snowflake", Status: "pending", WantsVote: true},
 				{Id: "1", Hardware: stdHw, InstanceId: "id-5", Status: "pending"},
 			},
 			Applications: []params.ModelApplicationInfo{

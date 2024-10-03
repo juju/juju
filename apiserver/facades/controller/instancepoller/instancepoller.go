@@ -70,7 +70,6 @@ func NewInstancePollerAPI(
 	)
 	// InstanceId() is supported for machines.
 	instanceIdGetter := common.NewInstanceIdGetter(
-		sti,
 		machineService,
 		accessMachine,
 	)

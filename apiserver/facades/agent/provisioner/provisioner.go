@@ -216,7 +216,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		return environs.GetEnviron(ctx, configGetter, environs.New)
 	}
 
-	api.InstanceIdGetter = common.NewInstanceIdGetter(st, domainServices.Machine(), getAuthFunc)
+	api.InstanceIdGetter = common.NewInstanceIdGetter(domainServices.Machine(), getAuthFunc)
 	api.toolsFinder = common.NewToolsFinder(domainServices.ControllerConfig(), st, urlGetter, newEnviron, ctx.ControllerObjectStore())
 	api.ToolsGetter = common.NewToolsGetter(st, domainServices.Agent(), st, urlGetter, api.toolsFinder, getAuthOwner)
 	return api, nil
@@ -239,6 +239,18 @@ func (api *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.Machi
 	// The authorization function guarantees that the tag represents a
 	// machine.
 	return entity.(*state.Machine), nil
+}
+
+// getInstanceID returns the instance ID for the given machine.
+func (api *ProvisionerAPI) getInstanceID(ctx context.Context, machineID string) (string, error) {
+	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return "", apiservererrors.ServerError(err)
+	}
+	if err != nil {
+		return "", err
+	}
+	return api.machineService.InstanceID(ctx, machineUUID)
 }
 
 func (api *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (params.StringsWatchResult, error) {
@@ -440,18 +452,14 @@ func (api *ProvisionerAPI) MachinesWithTransientErrors(ctx context.Context) (par
 		if !canAccessFunc(machine.Tag()) {
 			continue
 		}
-		machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(machine.Id()))
-		if err != nil {
+		_, err = api.getInstanceID(ctx, machine.Tag().Id())
+		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 			return results, err
 		}
-		_, err = api.machineService.InstanceID(ctx, machineUUID)
 		if err == nil {
 			// Machine may have been provisioned but machiner hasn't set the
 			// status to Started yet.
 			continue
-		}
-		if !errors.Is(err, machineerrors.NotProvisioned) {
-			return results, err
 		}
 		var result params.StatusResult
 		statusInfo, err := machine.InstanceStatus()
@@ -578,16 +586,14 @@ func (api *ProvisionerAPI) controllerInstances(ctx context.Context, st *state.St
 		if err != nil {
 			return nil, err
 		}
-		machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(machine.Id()))
-		if err != nil {
+		instanceId, err := api.getInstanceID(ctx, machine.Id())
+		if errors.Is(err, machineerrors.NotProvisioned) {
+			continue
+		}
+		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 			return nil, err
 		}
-		instanceId, err := api.machineService.InstanceID(ctx, machineUUID)
-		if err == nil {
-			instances = append(instances, instance.Id(instanceId))
-		} else if !errors.Is(err, machineerrors.NotProvisioned) {
-			return nil, err
-		}
+		instances = append(instances, instance.Id(instanceId))
 	}
 	return instances, nil
 }
@@ -609,16 +615,14 @@ func (api *ProvisionerAPI) commonServiceInstances(ctx context.Context, st *state
 			return nil, err
 		}
 		for _, machineID := range machineIDs {
-			machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
-			if err != nil {
+			instanceId, err := api.getInstanceID(ctx, machineID)
+			if errors.Is(err, machineerrors.NotProvisioned) {
+				continue
+			}
+			if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 				return nil, err
 			}
-			instanceId, err := api.machineService.InstanceID(ctx, machineUUID)
-			if err == nil {
-				instanceIdSet.Add(instanceId)
-			} else if !errors.Is(err, machineerrors.NotProvisioned) {
-				return nil, err
-			}
+			instanceIdSet.Add(instanceId)
 		}
 	}
 	instanceIds := make([]instance.Id, instanceIdSet.Size())
@@ -784,6 +788,7 @@ func (api *ProvisionerAPI) SetInstanceInfo(ctx context.Context, args params.Inst
 			ctx,
 			machineUUID,
 			arg.InstanceId,
+			arg.DisplayName,
 			arg.Characteristics,
 		); err != nil {
 			return errors.Annotatef(err, "setting machine cloud instance for machine uuid %q", machineUUID)
@@ -924,15 +929,13 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		// Overall error
 		return errors.Trace(err)
 	}
-	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(hostMachine.Id()))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	hostInstanceID, err := api.machineService.InstanceID(ctx, machineUUID)
+
+	hostInstanceID, err := api.getInstanceID(ctx, hostMachine.Id())
 	if errors.Is(err, machineerrors.NotProvisioned) {
 		return errors.NotProvisionedf("cannot prepare container %s config: host machine %q",
 			handler.ConfigType(), hostMachine)
-	} else if err != nil {
+	}
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -984,12 +987,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 			handler.SetError(i, err)
 			continue
 		}
-
-		machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(hostMachine.Id()))
-		if err != nil {
-			return errors.Trace(err)
-		}
-		guestInstanceID, err := api.machineService.InstanceID(ctx, machineUUID)
+		guestInstanceID, err := api.getInstanceID(ctx, hostMachine.Id())
 		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 			return errors.Trace(err)
 		}

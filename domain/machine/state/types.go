@@ -17,6 +17,7 @@ import (
 type instanceData struct {
 	MachineUUID          string  `db:"machine_uuid"`
 	InstanceID           string  `db:"instance_id"`
+	DisplayName          string  `db:"display_name"`
 	Arch                 *string `db:"arch"`
 	Mem                  *uint64 `db:"mem"`
 	RootDisk             *uint64 `db:"root_disk"`
@@ -87,6 +88,13 @@ type machineLife struct {
 // the sqlair statements in the machine domain.
 type instanceID struct {
 	ID string `db:"instance_id"`
+}
+
+// instanceIDAndDisplayName represents the struct to be used for the display_name and ID
+// column within the sqlair statements in the machine domain.
+type instanceIDAndDisplayName struct {
+	ID   string `db:"instance_id"`
+	Name string `db:"display_name"`
 }
 
 // machineStatusData represents the struct to be used for the status and status

@@ -22,6 +22,8 @@ import (
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -793,6 +795,28 @@ func (s *statusUnitTestSuite) TestMachineWithNoDisplayNameHasItsEmptyDisplayName
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Machines, gc.HasLen, 1)
 	c.Assert(status.Machines[machine.Id()].DisplayName, gc.Equals, "")
+}
+
+func (s *statusUnitTestSuite) TestMachineWithDisplayNameHasItsDisplayNameSent(c *gc.C) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
+	machine := f.MakeMachine(c, &factory.MachineParams{
+		InstanceId:  "i-123",
+		DisplayName: "snowflake",
+	})
+	machineService := s.ControllerDomainServices(c).Machine()
+	machineUUID, err := machineService.CreateMachine(context.Background(), coremachine.Name("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machineUUID, instance.Id("i-123"), "snowflake", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	conn := s.OpenControllerModelAPI(c)
+	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
+	status, err := client.Status(context.Background(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Machines, gc.HasLen, 1)
+	c.Assert(status.Machines[machine.Id()].DisplayName, gc.Equals, "snowflake")
 }
 
 func assertApplicationRelations(c *gc.C, appName string, expectedNumber int, relations []params.RelationStatus) {

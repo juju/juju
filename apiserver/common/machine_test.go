@@ -128,15 +128,16 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 		},
 	}
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-1").Return("123", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-1").Return("123", "one-two-three", nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("uuid-2", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-2").Return("456", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-2").Return("456", "four-five-six", nil)
 	info, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
 		{
-			Id:         "1",
-			InstanceId: "123",
+			Id:          "1",
+			InstanceId:  "123",
+			DisplayName: "one-two-three",
 			Hardware: &params.MachineHardware{
 				Arch:     &amd64,
 				Mem:      &gig,
@@ -144,8 +145,9 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 				CpuPower: &one,
 			},
 		}, {
-			Id:         "2",
-			InstanceId: "456",
+			Id:          "2",
+			InstanceId:  "456",
+			DisplayName: "four-five-six",
 		},
 	})
 }
@@ -161,9 +163,10 @@ func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 				status: status.Down,
 			},
 			"2": {
-				id:     "2",
-				instId: "456",
-				status: status.Allocating,
+				id:          "2",
+				instId:      "456",
+				displayName: "four-five-six",
+				status:      status.Allocating,
 			},
 		},
 		controllerNodes: map[string]*mockControllerNode{
@@ -180,9 +183,9 @@ func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 		},
 	}
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-1").Return("123", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-1").Return("123", "", nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("uuid-2", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-2").Return("456", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-2").Return("456", "four-five-six", nil)
 	info, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
@@ -194,11 +197,12 @@ func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 			WantsVote:  true,
 		},
 		{
-			Id:         "2",
-			InstanceId: "456",
-			Status:     "allocating",
-			HasVote:    false,
-			WantsVote:  true,
+			Id:          "2",
+			InstanceId:  "456",
+			DisplayName: "four-five-six",
+			Status:      "allocating",
+			HasVote:     false,
+			WantsVote:   true,
 		},
 	})
 }
@@ -209,9 +213,10 @@ func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *gc.C) {
 	st := mockState{
 		machines: map[string]*fakeMachine{
 			"1": {
-				id:     "1",
-				instId: "123",
-				status: status.Down,
+				id:          "1",
+				instId:      "123",
+				displayName: "",
+				status:      status.Down,
 			},
 		},
 		controllerNodes: map[string]*mockControllerNode{
@@ -223,16 +228,17 @@ func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *gc.C) {
 		},
 	}
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-1").Return("123", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-1").Return("123", "", nil)
 	info, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
 		{
-			Id:         "1",
-			InstanceId: "123",
-			Status:     "down",
-			HasVote:    true,
-			WantsVote:  true,
+			Id:          "1",
+			InstanceId:  "123",
+			DisplayName: "",
+			Status:      "down",
+			HasVote:     true,
+			WantsVote:   true,
 		},
 	})
 }
@@ -243,9 +249,10 @@ func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
 	st := mockState{
 		machines: map[string]*fakeMachine{
 			"1": {
-				id:     "1",
-				instId: "123",
-				status: status.Down,
+				id:          "1",
+				instId:      "123",
+				displayName: "snowflake",
+				status:      status.Down,
 			},
 		},
 		controllerNodes: map[string]*mockControllerNode{
@@ -257,16 +264,17 @@ func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
 		},
 	}
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-1").Return("123", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-1").Return("123", "snowflake", nil)
 	info, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
 		{
-			Id:         "1",
-			InstanceId: "123",
-			Status:     "down",
-			HasVote:    true,
-			WantsVote:  true,
+			Id:          "1",
+			InstanceId:  "123",
+			DisplayName: "snowflake",
+			Status:      "down",
+			HasVote:     true,
+			WantsVote:   true,
 		},
 	})
 }
@@ -277,9 +285,10 @@ func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *gc.C) {
 	st := mockState{
 		machines: map[string]*fakeMachine{
 			"1": {
-				id:     "1",
-				instId: "123",
-				status: status.Down,
+				id:          "1",
+				instId:      "123",
+				displayName: "snowflake",
+				status:      status.Down,
 			},
 		},
 		controllerNodes: map[string]*mockControllerNode{
@@ -299,18 +308,19 @@ func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *gc.C) {
 		},
 	}
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-1").Return("123", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-1").Return("123", "snowflake", nil)
 	info, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
 	c.Assert(err, jc.ErrorIsNil)
 	_true := true
 	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
 		{
-			Id:         "1",
-			InstanceId: "123",
-			Status:     "down",
-			HasVote:    true,
-			WantsVote:  true,
-			HAPrimary:  &_true,
+			Id:          "1",
+			InstanceId:  "123",
+			DisplayName: "snowflake",
+			Status:      "down",
+			HasVote:     true,
+			WantsVote:   true,
+			HAPrimary:   &_true,
 		},
 	})
 }
