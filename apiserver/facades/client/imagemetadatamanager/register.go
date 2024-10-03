@@ -54,7 +54,7 @@ func makeAPI(ctx context.Context, modelctx facade.ModelContext) (*API, error) {
 		return stateenvirons.GetNewEnvironFunc(environs.New)(model, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
 	}
 	return newAPI(
-		getState(st),
+		domainServices.CloudImageMetadata(),
 		domainServices.Config(),
 		domainServices.ModelInfo(),
 		newEnviron,

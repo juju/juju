@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
@@ -116,4 +117,15 @@ type ApplicationService interface {
 
 	// GetCharmLXDProfile returns the LXD profile for the charm using the charm ID.
 	GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (internalcharm.LXDProfile, charm.Revision, error)
+}
+
+// CloudImageMetadataService manages cloud image metadata for provisionning
+type CloudImageMetadataService interface {
+
+	// SaveMetadata saves the provided cloud image metadata to the storage and returns an error if the operation fails.
+	SaveMetadata(ctx context.Context, metadata []cloudimagemetadata.Metadata) error
+
+	// FindMetadata searches for cloud image metadata based on the given filter criteria in a specific context.
+	// It returns a set of image metadata grouped by region
+	FindMetadata(ctx context.Context, criteria cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error)
 }

@@ -62,6 +62,7 @@ type ProvisionerAPI struct {
 	networkService              NetworkService
 	st                          *state.State
 	controllerConfigService     ControllerConfigService
+	cloudImageMetadataService   CloudImageMetadataService
 	agentProvisionerService     AgentProvisionerService
 	keyUpdaterService           KeyUpdaterService
 	modelConfigService          ModelConfigService
@@ -192,6 +193,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		st:                          st,
 		controllerConfigService:     domainServices.ControllerConfig(),
 		agentProvisionerService:     domainServices.AgentProvisioner(),
+		cloudImageMetadataService:   domainServices.CloudImageMetadata(),
 		keyUpdaterService:           domainServices.KeyUpdater(),
 		modelConfigService:          domainServices.Config(),
 		modelInfoService:            modelInfoService,
