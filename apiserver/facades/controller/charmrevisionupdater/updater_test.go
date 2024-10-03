@@ -29,7 +29,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	statemocks "github.com/juju/juju/state/mocks"
 )
 
 type updaterSuite struct {
@@ -39,7 +38,7 @@ type updaterSuite struct {
 	objectStore        *mocks.MockObjectStore
 	cloudService       *commonmocks.MockCloudService
 	modelConfigService *mocks.MockModelConfigService
-	resources          *statemocks.MockResources
+	resources          *mocks.MockResources
 	client             *mocks.MockCharmhubRefreshClient
 
 	clock clock.Clock
@@ -346,7 +345,7 @@ func (s *updaterSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *updaterSuite) setupMocksNoResources(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.model = mocks.NewMockModel(ctrl)
-	s.resources = statemocks.NewMockResources(ctrl)
+	s.resources = mocks.NewMockResources(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "dummy").Return(&cloud.Cloud{Type: "cloud"}, nil).AnyTimes()
 

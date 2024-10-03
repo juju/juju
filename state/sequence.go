@@ -232,25 +232,3 @@ func (su *dbSeqUpdater) set(expected, next int) (bool, error) {
 	}
 	return true, nil
 }
-
-func (su *dbSeqUpdater) ensure(next int) error {
-	curVal, err := su.read()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	var ok bool
-	if curVal == 0 {
-		ok, err = su.create(next)
-	} else {
-		// Sequences should never go backwards.
-		if next <= curVal {
-			return nil
-		}
-		ok, err = su.set(curVal, next)
-	}
-	if !ok {
-		return errors.New("unexpected contention while updating sequence")
-	}
-	return errors.Trace(err)
-}
