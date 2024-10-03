@@ -86,9 +86,8 @@ type Unit interface {
 // removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
-	configSchemaSourceGetter config.ConfigSchemaSourceGetter
-	model                    *state.Model
-	session                  MongoSession
+	model   *state.Model
+	session MongoSession
 }
 
 func (s *stateShim) Application(name string) (Application, error) {

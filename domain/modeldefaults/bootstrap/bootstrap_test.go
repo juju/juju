@@ -10,13 +10,14 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/modeldefaults/state"
+	_ "github.com/juju/juju/internal/provider/dummy"
 )
 
 type bootstrapSuite struct{}
 
 var _ = gc.Suite(&bootstrapSuite{})
 
-func (_ *bootstrapSuite) TestBootstrapModelDefaults(c *gc.C) {
+func (*bootstrapSuite) TestBootstrapModelDefaults(c *gc.C) {
 	provider := ModelDefaultsProvider(
 		map[string]any{
 			"foo":        "controller",
@@ -26,6 +27,7 @@ func (_ *bootstrapSuite) TestBootstrapModelDefaults(c *gc.C) {
 			"foo":    "region",
 			"region": "some value",
 		},
+		"dummy",
 	)
 
 	defaults, err := provider.ModelDefaults(context.Background())

@@ -239,9 +239,6 @@ func (st *State) modelSetupOps(controllerUUID string, providerConfigSchemaGetter
 			return nil, modelStatusDoc, errors.Trace(err)
 		}
 	}
-	if err := checkModelConfig(args.Config); err != nil {
-		return nil, modelStatusDoc, errors.Trace(err)
-	}
 
 	controllerModelUUID := st.controllerModelTag.Id()
 	modelUUID := args.Config.UUID()

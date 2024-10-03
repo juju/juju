@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	cmdutil "github.com/juju/juju/cmd/jujud-controller/util"
@@ -164,20 +163,6 @@ var (
 	environsNewIAAS = environs.New
 	environsNewCAAS = caas.New
 )
-
-// cloudGetter serves a fixed cloud as a CloudService instance.
-// It is needed by the state policy to create an environ when validating the
-// ops needed to set up the initial controller model.
-type cloudGetter struct {
-	cloud *jujucloud.Cloud
-}
-
-func (c cloudGetter) Cloud(_ stdcontext.Context, name string) (*jujucloud.Cloud, error) {
-	if c.cloud == nil {
-		return nil, errors.NotFoundf("cloud %q", name)
-	}
-	return c.cloud, nil
-}
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
@@ -341,8 +326,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	}
 	args.ControllerModelConfig = controllerModelCfg
 
-	configSchemaSource := environs.ProviderConfigSchemaSource(cloudGetter{cloud: &args.ControllerCloud})
-
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var controller *state.Controller
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
@@ -373,7 +356,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			BootstrapDqlite:           c.DqliteInitializer,
 			Provider:                  environs.Provider,
 			Logger:                    internallogger.GetLogger("juju.agent.bootstrap"),
-			ConfigSchemaSourceGetter:  configSchemaSource,
 		})
 		if err != nil {
 			return errors.Trace(err)

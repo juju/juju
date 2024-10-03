@@ -11,6 +11,7 @@ import (
 	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -99,6 +100,15 @@ func (p kubernetesEnvironProvider) ConfigSchema() schema.Fields {
 // provider specific config attributes.
 func (p kubernetesEnvironProvider) ConfigDefaults() schema.Defaults {
 	return providerConfigDefaults
+}
+
+// ModelConfigDefaults provides a set of default model config attributes that
+// should be set on a models config if they have not been specified by the user.
+func (p kubernetesEnvironProvider) ModelConfigDefaults(_ context.Context) (map[string]any, error) {
+	return map[string]any{
+		config.StorageDefaultBlockSourceKey:      constants.StorageProviderType,
+		config.StorageDefaultFilesystemSourceKey: constants.StorageProviderType,
+	}, nil
 }
 
 func validateConfig(ctx context.Context, cfg, old *config.Config) (*brokerConfig, error) {

@@ -175,8 +175,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 				c.Assert(t, gc.Equals, "dummy")
 				return &envProvider, nil
 			},
-			Logger:                   loggertesting.WrapCheckLog(c),
-			ConfigSchemaSourceGetter: state.NoopConfigSchemaSource,
+			Logger: loggertesting.WrapCheckLog(c),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -299,7 +298,6 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
 			BootstrapDqlite:           bootstrapDqliteWithDummyCloudType,
 			Logger:                    loggertesting.WrapCheckLog(c),
-			ConfigSchemaSourceGetter:  state.NoopConfigSchemaSource,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -367,8 +365,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			Provider: func(t string) (environs.EnvironProvider, error) {
 				return &fakeProvider{}, nil
 			},
-			Logger:                   loggertesting.WrapCheckLog(c),
-			ConfigSchemaSourceGetter: state.NoopConfigSchemaSource,
+			Logger: loggertesting.WrapCheckLog(c),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -387,7 +384,6 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
 			BootstrapDqlite:           database.BootstrapDqlite,
 			Logger:                    loggertesting.WrapCheckLog(c),
-			ConfigSchemaSourceGetter:  state.NoopConfigSchemaSource,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

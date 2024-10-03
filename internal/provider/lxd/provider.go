@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	stdcontext "context"
 	"net/http"
 	"os"
@@ -185,6 +186,14 @@ func (p *environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint stri
 		return errors.Annotatef(err, "no lxd server running at %s", lxdEndpoint)
 	}
 	return nil
+}
+
+// ModelConfigDefaults provides a set of default model config attributes that
+// should be set on a models config if they have not been specified by the user.
+func (p *environProvider) ModelConfigDefaults(_ context.Context) (map[string]any, error) {
+	return map[string]any{
+		config.StorageDefaultFilesystemSourceKey: lxdStorageProviderType,
+	}, nil
 }
 
 // PrepareConfig implements environs.EnvironProvider.

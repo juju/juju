@@ -99,6 +99,7 @@ func (s *ControllerServices) Model() *modelservice.Service {
 // ModelDefaults returns the model defaults service.
 func (s *ControllerServices) ModelDefaults() *modeldefaultsservice.Service {
 	return modeldefaultsservice.NewService(
+		modeldefaultsservice.ProviderModelConfigGetter(),
 		modeldefaultsstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }

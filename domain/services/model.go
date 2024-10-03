@@ -92,6 +92,7 @@ func (s *ModelFactory) AgentProvisioner() *agentprovisionerservice.Service {
 // Config returns the model's configuration service.
 func (s *ModelFactory) Config() *modelconfigservice.WatchableService {
 	defaultsProvider := modeldefaultsservice.NewService(
+		modeldefaultsservice.ProviderModelConfigGetter(),
 		modeldefaultsstate.NewState(
 			changestream.NewTxnRunnerFactory(s.controllerDB),
 		)).ModelDefaultsProvider(s.modelUUID)

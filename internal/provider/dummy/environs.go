@@ -109,23 +109,13 @@ type environ struct {
 var _ environs.Environ = (*environ)(nil)
 var _ environs.Networking = (*environ)(nil)
 
-// discardOperations discards all Operations written to it.
-var discardOperations = make(chan Operation)
-
 func init() {
 	environs.RegisterProvider("dummy", &dummy)
-
-	// Prime the first ops channel, so that naive clients can use
-	// the testing environment by simply importing it.
-	go func() {
-		for range discardOperations {
-		}
-	}()
 }
 
 // dummy is the dummy environmentProvider singleton.
 var dummy = environProvider{
-	ops:                    discardOperations,
+	ops:                    nil,
 	state:                  make(map[string]*environState),
 	supportsSpaces:         true,
 	supportsSpaceDiscovery: false,
@@ -168,9 +158,6 @@ func SetSupportsSpaceDiscovery(supports bool) bool {
 func Listen(c chan<- Operation) {
 	dummy.mu.Lock()
 	defer dummy.mu.Unlock()
-	if c == nil {
-		c = discardOperations
-	}
 	dummy.ops = c
 	for _, st := range dummy.state {
 		st.mu.Lock()
@@ -334,6 +321,12 @@ func (p *environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint stri
 	return errors.NotImplementedf("Ping")
 }
 
+// ModelConfigDefaults provides a set of default model config attributes that
+// should be set on a models config if they have not been specified by the user.
+func (p *environProvider) ModelConfigDefaults(_ context.Context) (map[string]any, error) {
+	return nil, nil
+}
+
 // PrepareConfig is specified in the EnvironProvider interface.
 func (p *environProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	if _, err := dummy.newConfig(ctx, args.Config); err != nil {
@@ -426,7 +419,9 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.Pr
 		controller:   true,
 	}
 	estate.insts[i.id] = i
-	estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Args: args}
+	if estate.ops != nil {
+		estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Args: args}
+	}
 
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) (err error) {
 		icfg.Bootstrap.BootstrapMachineInstanceId = BootstrapInstanceId
@@ -453,7 +448,9 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.Pr
 		if icfg.Bootstrap.ControllerCloudCredential != nil && icfg.Bootstrap.ControllerCloudCredentialName != "" {
 			cloudCredentials[cloudCredentialTag] = *icfg.Bootstrap.ControllerCloudCredential
 		}
-		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: icfg}
+		if estate.ops != nil {
+			estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: icfg}
+		}
 		return nil
 	}
 
@@ -527,11 +524,13 @@ func (e *environ) Destroy(envcontext.ProviderCallContext) (res error) {
 		name := estate.name
 		delete(dummy.state, e.modelUUID)
 		estate.mu.Unlock()
-		ops <- OpDestroy{
-			Env:         name,
-			Cloud:       e.cloud.Name,
-			CloudRegion: e.cloud.Region,
-			Error:       res,
+		if ops != nil {
+			ops <- OpDestroy{
+				Env:         name,
+				Cloud:       e.cloud.Name,
+				CloudRegion: e.cloud.Region,
+				Error:       res,
+			}
 		}
 	}()
 	if err := e.checkBroken("Destroy"); err != nil {

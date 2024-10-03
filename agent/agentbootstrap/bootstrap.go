@@ -114,8 +114,6 @@ type AgentBootstrapArgs struct {
 	BootstrapDqlite           DqliteInitializerFunc
 	Provider                  ProviderFunc
 	Logger                    logger.Logger
-
-	ConfigSchemaSourceGetter config.ConfigSchemaSourceGetter
 }
 
 func (a *AgentBootstrapArgs) validate() error {
@@ -172,8 +170,6 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 		sharedSecret:              args.SharedSecret,
 		stateInitializationParams: args.StateInitializationParams,
 		storageProviderRegistry:   args.StorageProviderRegistry,
-
-		configSchemaSourceGetter: args.ConfigSchemaSourceGetter,
 	}, nil
 }
 
@@ -241,7 +237,9 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 
 	controllerModelDefaults := modeldefaultsbootstrap.ModelDefaultsProvider(
 		stateParams.ControllerInheritedConfig,
-		stateParams.RegionInheritedConfig[stateParams.ControllerCloudRegion])
+		stateParams.RegionInheritedConfig[stateParams.ControllerCloudRegion],
+		stateParams.ControllerCloud.Type,
+	)
 
 	isCAAS := cloud.CloudIsCAAS(stateParams.ControllerCloud)
 	modelType := state.ModelTypeIAAS
