@@ -21,6 +21,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/model-triggers.gen.go -package=triggers -tables=model
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/model-authorized-keys-triggers.gen.go -package=triggers -tables=model_authorized_keys
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/user-authentication-triggers.gen.go -package=triggers -tables=user_authentication
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/model-agent-triggers.gen.go -package=triggers -tables=model_agent
 
 //go:embed controller/sql/*.sql
 var controllerSchemaDir embed.FS
@@ -42,6 +43,7 @@ const (
 	tableModelMetadata
 	tableModelAuthorizedKeys
 	tableUserAuthentication
+	tableModelAgent
 )
 
 // ControllerDDL is used to create the controller database schema at bootstrap.
@@ -92,6 +94,7 @@ func ControllerDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForModel("uuid", tableModelMetadata),
 		triggers.ChangeLogTriggersForModelAuthorizedKeys("model_uuid", tableModelAuthorizedKeys),
 		triggers.ChangeLogTriggersForUserAuthentication("user_uuid", tableUserAuthentication),
+		triggers.ChangeLogTriggersForModelAgent("model_uuid", tableModelAgent),
 	)
 
 	// Generic triggers.
