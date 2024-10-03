@@ -5,7 +5,6 @@ package caasapplication
 
 import (
 	"github.com/juju/names/v5"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/caas"
@@ -32,7 +31,6 @@ type ControllerState interface {
 // Model provides the subset of CAAS model state required
 // by the CAAS application facade.
 type Model interface {
-	AgentVersion() (version.Number, error)
 	ControllerTag() names.ControllerTag
 	Tag() names.Tag
 }

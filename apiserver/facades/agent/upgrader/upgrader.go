@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -17,7 +16,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -41,11 +39,12 @@ type UpgraderAPI struct {
 	*common.ToolsGetter
 	*common.ToolsSetter
 
-	st         *state.State
-	m          *state.Model
-	resources  facade.Resources
-	authorizer facade.Authorizer
-	logger     corelogger.Logger
+	st                *state.State
+	m                 *state.Model
+	resources         facade.Resources
+	authorizer        facade.Authorizer
+	logger            corelogger.Logger
+	modelAgentService ModelAgentService
 }
 
 // NewUpgraderAPI creates a new server-side UpgraderAPI facade.
@@ -78,13 +77,14 @@ func NewUpgraderAPI(
 	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
 	toolsFinder := common.NewToolsFinder(controllerConfigGetter, st, urlGetter, newEnviron, controllerStore)
 	return &UpgraderAPI{
-		ToolsGetter: common.NewToolsGetter(st, modelAgentService, st, urlGetter, toolsFinder, getCanReadWrite),
-		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),
-		st:          st,
-		m:           model,
-		resources:   resources,
-		authorizer:  authorizer,
-		logger:      logger,
+		ToolsGetter:       common.NewToolsGetter(st, modelAgentService, st, urlGetter, toolsFinder, getCanReadWrite),
+		ToolsSetter:       common.NewToolsSetter(st, getCanReadWrite),
+		st:                st,
+		m:                 model,
+		resources:         resources,
+		authorizer:        authorizer,
+		logger:            logger,
+		modelAgentService: modelAgentService,
 	}, nil
 }
 
@@ -118,19 +118,6 @@ func (u *UpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities)
 	return result, nil
 }
 
-func (u *UpgraderAPI) getGlobalAgentVersion(ctx context.Context) (version.Number, *config.Config, error) {
-	// Get the Agent Version requested in the Model Config
-	cfg, err := u.m.ModelConfig(ctx)
-	if err != nil {
-		return version.Number{}, nil, err
-	}
-	agentVersion, ok := cfg.AgentVersion()
-	if !ok {
-		return version.Number{}, nil, errors.New("agent version not set in model config")
-	}
-	return agentVersion, cfg, nil
-}
-
 type hasIsManager interface {
 	IsManager() bool
 }
@@ -153,7 +140,7 @@ func (u *UpgraderAPI) DesiredVersion(ctx context.Context, args params.Entities) 
 	if len(args.Entities) == 0 {
 		return params.VersionResults{}, nil
 	}
-	agentVersion, _, err := u.getGlobalAgentVersion(ctx)
+	agentVersion, err := u.modelAgentService.GetModelAgentVersion(ctx)
 	if err != nil {
 		return params.VersionResults{}, apiservererrors.ServerError(err)
 	}

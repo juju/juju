@@ -4,6 +4,8 @@
 package caasapplication_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -34,7 +36,6 @@ type mockState struct {
 func newMockState() *mockState {
 	st := &mockState{
 		model: mockModel{
-			agentVersion:  version.MustParse("1.9.99"),
 			controllerTag: names.NewControllerTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
 			tag:           names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
 		},
@@ -91,7 +92,6 @@ func (st *mockState) APIHostPortsForAgents(_ controller.Config) ([]network.Space
 type mockModel struct {
 	testing.Stub
 	containers    []state.CloudContainer
-	agentVersion  version.Number
 	controllerTag names.ControllerTag
 	tag           names.Tag
 }
@@ -104,14 +104,6 @@ func (st *mockModel) Config() (*config.Config, error) {
 func (st *mockModel) Containers(providerIds ...string) ([]state.CloudContainer, error) {
 	st.MethodCall(st, "Containers", providerIds)
 	return st.containers, st.NextErr()
-}
-
-func (st *mockModel) AgentVersion() (version.Number, error) {
-	st.MethodCall(st, "AgentVersion")
-	if err := st.NextErr(); err != nil {
-		return version.Zero, err
-	}
-	return st.agentVersion, nil
 }
 
 func (st *mockModel) ControllerTag() names.ControllerTag {
@@ -179,6 +171,20 @@ func (u *mockUnit) SetPassword(password string) error {
 func (u *mockUnit) ApplicationName() string {
 	u.MethodCall(u, "ApplicationName")
 	return "gitlab"
+}
+
+type mockModelAgent struct {
+	testing.Stub
+
+	agentVersion version.Number
+}
+
+func (m *mockModelAgent) GetModelAgentVersion(ctx context.Context) (version.Number, error) {
+	m.MethodCall(m, "GetModelAgentVersion")
+	if err := m.NextErr(); err != nil {
+		return version.Zero, err
+	}
+	return m.agentVersion, nil
 }
 
 type mockBroker struct {

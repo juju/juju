@@ -13,6 +13,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/common"
@@ -44,6 +45,12 @@ type ApplicationService interface {
 	GetUnitLife(ctx context.Context, unitName string) (life.Value, error)
 }
 
+// ModelAgentService provides access to the Juju agent version for the model.
+type ModelAgentService interface {
+	// GetModelAgentVersion returns the agent version for the current model.
+	GetModelAgentVersion(ctx context.Context) (version.Number, error)
+}
+
 // Facade defines the API methods on the CAASApplication facade.
 type Facade struct {
 	auth                    facade.Authorizer
@@ -52,6 +59,7 @@ type Facade struct {
 	controllerConfigService ControllerConfigService
 	applicationService      ApplicationService
 	modelConfigService      common.ModelConfigService
+	modelAgentService       ModelAgentService
 	state                   State
 	model                   Model
 	clock                   clock.Clock
@@ -68,6 +76,7 @@ func NewFacade(
 	controllerConfigService ControllerConfigService,
 	applicationService ApplicationService,
 	modelConfigService common.ModelConfigService,
+	modelAgentService ModelAgentService,
 	broker Broker,
 	clock clock.Clock,
 	logger logger.Logger,
@@ -87,6 +96,7 @@ func NewFacade(
 		controllerConfigService: controllerConfigService,
 		applicationService:      applicationService,
 		modelConfigService:      modelConfigService,
+		modelAgentService:       modelAgentService,
 		model:                   model,
 		clock:                   clock,
 		broker:                  broker,
@@ -228,8 +238,13 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		}
 	}
 
+	// Skip checking okay on CACerts result, it will always be there
+	// Method has a comment to remove the boolean return value.
 	caCert, _ := controllerConfig.CACert()
-	version, _ := f.model.AgentVersion()
+	version, err := f.modelAgentService.GetModelAgentVersion(ctx)
+	if err != nil {
+		return errResp(err)
+	}
 	dataDir := paths.DataDir(paths.OSUnixLike)
 	logDir := path.Join(paths.LogDir(paths.OSUnixLike), "juju")
 	conf, err := agent.NewAgentConfig(
@@ -296,7 +311,10 @@ func (f *Facade) UnitTerminating(ctx context.Context, args params.Entity) (param
 		return params.CAASUnitTerminationResult{WillRestart: false}, nil
 	}
 
-	appName, _ := names.UnitApplication(unitTag.Id())
+	appName, err := names.UnitApplication(unitTag.Id())
+	if err != nil {
+		return errResp(err)
+	}
 	willRestart, err := f.applicationService.CAASUnitTerminating(ctx, appName, unitTag.Number(), f.broker)
 	if err != nil {
 		return errResp(err)
