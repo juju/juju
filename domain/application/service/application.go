@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	coresecrets "github.com/juju/juju/core/secrets"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
@@ -78,6 +79,10 @@ type AtomicApplicationState interface {
 
 	// SetDesiredApplicationScale updates the desired scale of the specified application.
 	SetDesiredApplicationScale(ctx domain.AtomicContext, appID coreapplication.ID, scale int) error
+
+	// GetUnitUUID returns the UUID for the named unit, returning an error
+	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	GetUnitUUID(ctx domain.AtomicContext, unitName string) (coreunit.UUID, error)
 
 	// GetUnitLife looks up the life of the specified unit, returning an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit is not found.
@@ -351,6 +356,18 @@ func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ..
 	}
 	err := s.st.AddUnits(ctx, name, args...)
 	return errors.Annotatef(err, "adding units to application %q", name)
+}
+
+// GetUnitUUID returns the UUID for the named unit, returning an error
+// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+func (s *ApplicationService) GetUnitUUID(ctx context.Context, unitName string) (coreunit.UUID, error) {
+	var result coreunit.UUID
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		result, err = s.st.GetUnitUUID(ctx, unitName)
+		return errors.Annotatef(err, "getting unit UUID for %q", unitName)
+	})
+	return result, errors.Trace(err)
 }
 
 // GetUnitLife looks up the life of the specified unit, returning an error

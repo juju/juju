@@ -18,11 +18,15 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/model"
+	unittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -577,15 +581,78 @@ func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *applicationServiceSuite) TestGetUnitUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := unittesting.GenUnitUUID(c)
+	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, "foo/666").Return(uuid, nil)
+
+	u, err := s.service.GetUnitUUID(context.Background(), "foo/666")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(u, gc.Equals, uuid)
+}
+
+func (s *applicationServiceSuite) TestGetunitUUIDErrors(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, "foo/666").Return("", applicationerrors.UnitNotFound)
+
+	_, err := s.service.GetUnitUUID(context.Background(), "foo/666")
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 func (s *applicationServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).Return(nil)
+	providerId := ptr("provider-id")
+	passwordHash := ptr("passwordhash")
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationID(domaintesting.IsAtomicContextChecker, "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetUnitLife(domaintesting.IsAtomicContextChecker, "foo/666").Return(0, applicationerrors.UnitNotFound)
+	s.state.EXPECT().GetApplicationScaleState(domaintesting.IsAtomicContextChecker, appUUID).Return(application.ScaleState{
+		Scale: 2,
+	}, nil)
+	s.state.EXPECT().InsertUnit(domaintesting.IsAtomicContextChecker, appUUID, application.UpsertUnitArg{
+		UnitName:     "foo/666",
+		PasswordHash: passwordHash,
+		CloudContainer: &application.CloudContainer{
+			ProviderId: providerId,
+		},
+	})
 
 	p := RegisterCAASUnitParams{
 		UnitName:     "foo/666",
-		PasswordHash: ptr("passwordhash"),
-		ProviderId:   ptr("provider-id"),
+		PasswordHash: passwordHash,
+		ProviderId:   providerId,
+		OrderedScale: true,
+		OrderedId:    1,
+	}
+	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestRegisterCAASUnitFoundAndAlive(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	providerId := ptr("provider-id")
+	passwordHash := ptr("passwordhash")
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationID(domaintesting.IsAtomicContextChecker, "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetUnitLife(domaintesting.IsAtomicContextChecker, "foo/666").Return(life.Alive, nil)
+	s.state.EXPECT().UpdateUnit(domaintesting.IsAtomicContextChecker, appUUID, application.UpsertUnitArg{
+		UnitName:     "foo/666",
+		PasswordHash: passwordHash,
+		CloudContainer: &application.CloudContainer{
+			ProviderId: providerId,
+		},
+	})
+
+	p := RegisterCAASUnitParams{
+		UnitName:     "foo/666",
+		PasswordHash: passwordHash,
+		ProviderId:   providerId,
 		OrderedScale: true,
 		OrderedId:    1,
 	}
@@ -698,6 +765,10 @@ func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 		Secrets:         NotImplementedSecretService{},
 	}
 	s.service = NewApplicationService(s.state, params, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(ctx domain.AtomicContext) error) error {
+		return fn(domaintesting.NewAtomicContext(ctx))
+	}).AnyTimes()
 
 	return ctrl
 }

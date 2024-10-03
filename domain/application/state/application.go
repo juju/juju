@@ -378,7 +378,7 @@ func (st *ApplicationState) AddUnits(ctx context.Context, applicationName string
 
 // GetUnitUUID returns the UUID for the named unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *ApplicationState) GetUnitUUID(ctx domain.AtomicContext, unitName string) (string, error) {
+func (st *ApplicationState) GetUnitUUID(ctx domain.AtomicContext, unitName string) (coreunit.UUID, error) {
 	unit := unitDetails{Name: unitName}
 	getUnitStmt, err := st.Prepare(`SELECT &unitDetails.uuid FROM unit WHERE name = $unitDetails.name`, unit)
 	if err != nil {
@@ -394,7 +394,7 @@ func (st *ApplicationState) GetUnitUUID(ctx domain.AtomicContext, unitName strin
 		}
 		return nil
 	})
-	return unit.UnitID, errors.Trace(err)
+	return coreunit.UUID(unit.UnitID), errors.Trace(err)
 }
 
 func (st *ApplicationState) getUnit(ctx context.Context, tx *sqlair.TX, unitName string) (*unitDetails, error) {
@@ -1272,8 +1272,8 @@ type statusKeys []string
 
 // saveStatusData saves the status key value data for the specified unit in the specified table.
 // It's called from each different SaveStatus method which previously has confirmed the unit UUID exists.
-func (st *ApplicationState) saveStatusData(ctx context.Context, tx *sqlair.TX, table, unitUUID string, data map[string]string) error {
-	unit := minimalUnit{ID: unitUUID}
+func (st *ApplicationState) saveStatusData(ctx context.Context, tx *sqlair.TX, table string, unitUUID coreunit.UUID, data map[string]string) error {
+	unit := minimalUnit{ID: unitUUID.String()}
 	var keys statusKeys
 	for k := range data {
 		keys = append(keys, k)
@@ -1288,7 +1288,7 @@ AND unit_uuid = $minimalUnit.uuid;
 		return errors.Trace(err)
 	}
 
-	statusData := unitStatusData{UnitUUID: unitUUID}
+	statusData := unitStatusData{UnitUUID: unitUUID.String()}
 	upsertStmt, err := sqlair.Prepare(fmt.Sprintf(`
 INSERT INTO %s (*)
 VALUES ($unitStatusData.*)
@@ -1315,9 +1315,9 @@ ON CONFLICT(unit_uuid, key) DO UPDATE SET
 
 // SaveCloudContainerStatus saves the given cloud container status, overwriting any current status data.
 // If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *ApplicationState) SaveCloudContainerStatus(ctx domain.AtomicContext, unitUUID string, status application.CloudContainerStatusStatusInfo) error {
+func (st *ApplicationState) SaveCloudContainerStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.CloudContainerStatusStatusInfo) error {
 	statusInfo := unitStatusInfo{
-		UnitUUID:  unitUUID,
+		UnitUUID:  unitUUID.String(),
 		StatusID:  int(status.StatusID),
 		Message:   status.Message,
 		UpdatedAt: status.Since,
@@ -1347,9 +1347,9 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 
 // SaveUnitAgentStatus saves the given unit agent status, overwriting any current status data.
 // If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *ApplicationState) SaveUnitAgentStatus(ctx domain.AtomicContext, unitUUID string, status application.UnitAgentStatusInfo) error {
+func (st *ApplicationState) SaveUnitAgentStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitAgentStatusInfo) error {
 	statusInfo := unitStatusInfo{
-		UnitUUID:  unitUUID,
+		UnitUUID:  unitUUID.String(),
 		StatusID:  int(status.StatusID),
 		Message:   status.Message,
 		UpdatedAt: status.Since,
@@ -1379,9 +1379,9 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 
 // SaveUnitWorkloadStatus saves the given unit workload status, overwriting any current status data.
 // If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *ApplicationState) SaveUnitWorkloadStatus(ctx domain.AtomicContext, unitUUID string, status application.UnitWorkloadStatusInfo) error {
+func (st *ApplicationState) SaveUnitWorkloadStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitWorkloadStatusInfo) error {
 	statusInfo := unitStatusInfo{
-		UnitUUID:  unitUUID,
+		UnitUUID:  unitUUID.String(),
 		StatusID:  int(status.StatusID),
 		Message:   status.Message,
 		UpdatedAt: status.Since,
