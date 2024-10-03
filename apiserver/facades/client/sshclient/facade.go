@@ -278,7 +278,7 @@ func (facade *Facade) ModelCredentialForSSH(ctx stdcontext.Context) (params.Clou
 }
 
 func (facade *Facade) getExecSecretToken(ctx stdcontext.Context, cloudSpec environscloudspec.CloudSpec, model Model) (string, error) {
-	cfg, err := model.Config()
+	cfg, err := facade.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

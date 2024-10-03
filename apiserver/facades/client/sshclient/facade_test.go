@@ -611,7 +611,7 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C) {
 		s.backend.EXPECT().Model().Return(s.model, nil),
 		s.model.EXPECT().Type().Return(state.ModelTypeCAAS),
 		s.backend.EXPECT().CloudSpec(gomock.Any()).Return(cloudSpec, nil),
-		s.model.EXPECT().Config().Return(nil, nil),
+		s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(nil, nil),
 		s.broker.EXPECT().GetSecretToken(gomock.Any(), k8sprovider.ExecRBACResourceName).Return("token", nil),
 	)
 
