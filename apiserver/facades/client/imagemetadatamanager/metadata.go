@@ -10,33 +10,33 @@ import (
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 // API is the concrete implementation of the API endpoint for cloud image
 // metadata manipulations.
 type API struct {
-	metadata   metadataAccess
 	newEnviron func() (environs.Environ, error)
 
 	modelConfigService ModelConfigService
 	modelInfoService   ModelInfoService
+	metadataService    MetadataService
 }
 
 // newAPI is responsible for constructing a new [API]
 func newAPI(
-	st metadataAccess,
+	metadataService MetadataService,
 	modelConfigService ModelConfigService,
 	modelInfoService ModelInfoService,
 	newEnviron func() (environs.Environ, error),
 ) *API {
 	return &API{
-		metadata:           st,
 		newEnviron:         newEnviron,
 		modelConfigService: modelConfigService,
 		modelInfoService:   modelInfoService,
+		metadataService:    metadataService,
 	}
 }
 
@@ -44,7 +44,7 @@ func newAPI(
 // given filter.
 // Returned list contains metadata ordered by priority.
 func (api *API) List(ctx context.Context, filter params.ImageMetadataFilter) (params.ListCloudImageMetadataResult, error) {
-	found, err := api.metadata.FindMetadata(cloudimagemetadata.MetadataFilter{
+	found, err := api.metadataService.FindMetadata(ctx, cloudimagemetadata.MetadataFilter{
 		Region:          filter.Region,
 		Versions:        filter.Versions,
 		Arches:          filter.Arches,
@@ -88,7 +88,7 @@ func (api *API) Save(ctx context.Context, metadata params.MetadataSaveParams) (p
 		}
 	}
 
-	all, err := Save(ctx, api.modelConfigService, api.metadata, metadata)
+	all, err := Save(ctx, api.modelConfigService, api.metadataService, metadata)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -100,7 +100,7 @@ func (api *API) Save(ctx context.Context, metadata params.MetadataSaveParams) (p
 func (api *API) Delete(ctx context.Context, images params.MetadataImageIds) (params.ErrorResults, error) {
 	all := make([]params.ErrorResult, len(images.Ids))
 	for i, imageId := range images.Ids {
-		err := api.metadata.DeleteMetadata(imageId)
+		err := api.metadataService.DeleteMetadataWithImageID(ctx, imageId)
 		all[i] = params.ErrorResult{apiservererrors.ServerError(err)}
 	}
 	return params.ErrorResults{Results: all}, nil
@@ -108,7 +108,7 @@ func (api *API) Delete(ctx context.Context, images params.MetadataImageIds) (par
 
 func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetadata {
 	result := params.CloudImageMetadata{
-		ImageId:         p.ImageId,
+		ImageId:         p.ImageID,
 		Stream:          p.Stream,
 		Region:          p.Region,
 		Version:         p.Version,

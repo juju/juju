@@ -13,6 +13,7 @@ import (
 	blockcommandservice "github.com/juju/juju/domain/blockcommand/service"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
+	cloudimagemetadataservice "github.com/juju/juju/domain/cloudimagemetadata/service"
 	controllerservice "github.com/juju/juju/domain/controller/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
@@ -122,6 +123,8 @@ type ModelDomainServices interface {
 	// state. This is used to reconcile with local state to determine which
 	// hooks to run, and is saved upon hook completion.
 	UnitState() *unitstateservice.Service
+	// CloudImageMetadata returns the service for persisting and retrieving cloud image metadata for a specific model
+	CloudImageMetadata() *cloudimagemetadataservice.Service
 	// Port returns the service for managing opened port ranges for units.
 	Port() *portservice.WatchableService
 	// Stub returns the stub service. A special service that collects temporary

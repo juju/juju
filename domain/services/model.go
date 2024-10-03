@@ -4,6 +4,8 @@
 package services
 
 import (
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -20,6 +22,8 @@ import (
 	blockcommandstate "github.com/juju/juju/domain/blockcommand/state"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
+	cloudimagemetadataservice "github.com/juju/juju/domain/cloudimagemetadata/service"
+	cloudimagemetadatastate "github.com/juju/juju/domain/cloudimagemetadata/state"
 	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	keyupdaterservice "github.com/juju/juju/domain/keyupdater/service"
@@ -62,6 +66,7 @@ type ModelFactory struct {
 	modelDB         changestream.WatchableDBFactory
 	providerFactory providertracker.ProviderFactory
 	objectstore     objectstore.ModelObjectStoreGetter
+	clock           clock.Clock
 }
 
 // NewModelFactory returns a new registry which uses the provided modelDB
@@ -73,6 +78,7 @@ func NewModelFactory(
 	providerFactory providertracker.ProviderFactory,
 	objectStore objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
+	clock clock.Clock,
 ) *ModelFactory {
 	return &ModelFactory{
 		logger:          logger,
@@ -81,6 +87,7 @@ func NewModelFactory(
 		modelDB:         modelDB,
 		providerFactory: providerFactory,
 		objectstore:     objectStore,
+		clock:           clock,
 	}
 }
 
@@ -275,6 +282,13 @@ func (s *ModelFactory) Proxy() *proxy.Service {
 func (s *ModelFactory) UnitState() *unitstateservice.Service {
 	return unitstateservice.NewService(
 		unitstatestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+	)
+}
+
+// CloudImageMetadata returns the service for persisting and retrieving cloud image metadata for the current model.
+func (s *ModelFactory) CloudImageMetadata() *cloudimagemetadataservice.Service {
+	return cloudimagemetadataservice.NewService(
+		cloudimagemetadatastate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, s.logger.Child("cloudimagemetadata")),
 	)
 }
 

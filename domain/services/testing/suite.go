@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"io"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -240,6 +241,7 @@ func (s *DomainServicesSuite) DomainServicesGetter(c *gc.C, objectStore coreobje
 				return objectStore, nil
 			}),
 			loggertesting.WrapCheckLog(c),
+			clock.WallClock,
 		)
 	}
 }

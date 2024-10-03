@@ -9,16 +9,16 @@ import (
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 // ImageMetadataSaver is an interface for manipulating images metadata.
 type ImageMetadataSaver interface {
 	// SaveMetadata persists collection of given images metadata.
-	SaveMetadata([]cloudimagemetadata.Metadata) error
+	SaveMetadata(context.Context, []cloudimagemetadata.Metadata) error
 }
 
 // Save stores given cloud image metadata using given persistence interface.
@@ -38,7 +38,7 @@ func Save(
 	}
 	for i, one := range metadata.Metadata {
 		md := ParseMetadataListFromParams(one, modelCfg)
-		err := saver.SaveMetadata(md)
+		err := saver.SaveMetadata(ctx, md)
 		all[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
 	}
 	return all, nil
@@ -61,7 +61,7 @@ func ParseMetadataListFromParams(p params.CloudImageMetadataList, cfg *config.Co
 				Source:          metadata.Source,
 			},
 			Priority: metadata.Priority,
-			ImageId:  metadata.ImageId,
+			ImageID:  metadata.ImageId,
 		}
 		if metadata.Source == "custom" && metadata.Priority == 0 {
 			results[i].Priority = simplestreams.CUSTOM_CLOUD_DATA
