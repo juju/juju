@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -48,8 +50,8 @@ func (s *ModelState) Create(ctx context.Context, args model.ReadOnlyModelCreatio
 		return errors.Trace(err)
 	}
 
-	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return errors.Trace(CreateReadOnlyModel(ctx, args, tx))
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Trace(CreateReadOnlyModel(ctx, args, s, tx))
 	})
 }
 
@@ -60,32 +62,37 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 		return errors.Trace(err)
 	}
 
-	modelStmt := `DELETE FROM model WHERE uuid = ?;`
+	mUUID := dbUUID{UUID: uuid.String()}
+
+	modelStmt, err := s.Prepare(`DELETE FROM model WHERE uuid = $dbUUID.uuid;`, mUUID)
+	if err != nil {
+		return errors.Annotatef(err, "preparing delete model statement")
+	}
 
 	// Once we get to this point, the model is hosed. We don't expect the
 	// model to be in use. The model migration will reinforce the schema once
 	// the migration is tried again. Failure to do that will result in the
 	// model being deleted unexpected scenarios.
-	modelTriggerStmt := `DROP TRIGGER IF EXISTS trg_model_immutable_delete;`
+	modelTriggerStmt, err := s.Prepare(`DROP TRIGGER IF EXISTS trg_model_immutable_delete;`)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, modelTriggerStmt)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return modelerrors.NotFound
-			} else if !internaldatabase.IsErrError(err) {
-				return fmt.Errorf("deleting model trigger %q: %w", uuid, err)
-			}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, modelTriggerStmt).Run(); errors.Is(err, sqlair.ErrNoRows) {
+			return modelerrors.NotFound
+		} else if err != nil && !internaldatabase.IsErrError(err) {
+			return fmt.Errorf("deleting model trigger %q: %w", uuid, err)
 		}
 
-		result, err := tx.ExecContext(ctx, modelStmt, uuid)
-		if err != nil {
+		var outcome sqlair.Outcome
+		if err := tx.Query(ctx, modelStmt, mUUID).Get(&outcome); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return modelerrors.NotFound
 			}
 			return fmt.Errorf("deleting model %q: %w", uuid, err)
 		}
-		if affected, err := result.RowsAffected(); err != nil {
+		if affected, err := outcome.Result().RowsAffected(); err != nil {
 			return fmt.Errorf("deleting model %q: %w", uuid, err)
 		} else if affected == 0 {
 			return modelerrors.NotFound
@@ -108,53 +115,36 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 		return coremodel.ReadOnlyModel{}, errors.Trace(err)
 	}
 
-	stmt := `
-SELECT uuid,
-       target_agent_version,
-       controller_uuid,
-       name, 
-       type, 
-       cloud, 
-       cloud_type, 
-       cloud_region, 
-       credential_owner, 
-       credential_name
-FROM model
-`
+	m := dbReadOnlyModel{}
+	stmt, err := s.Prepare(`SELECT &dbReadOnlyModel.* FROM model`, m)
+	if err != nil {
+		return coremodel.ReadOnlyModel{}, errors.Annotatef(err, "preparing select read only model statement")
+	}
 
-	var (
-		rawControllerUUID string
-		model             coremodel.ReadOnlyModel
-		agentVersion      string
-		credOwnerName     string
-	)
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, stmt)
-		if err := row.Scan(
-			&model.UUID,
-			&agentVersion,
-			&rawControllerUUID,
-			&model.Name,
-			&model.Type,
-			&model.Cloud,
-			&model.CloudType,
-			&model.CloudRegion,
-			&credOwnerName,
-			&model.CredentialName,
-		); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return fmt.Errorf("getting model read only information %w", modelerrors.NotFound)
-			}
-			return fmt.Errorf("scanning model: %w", err)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt).Get(&m); errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("getting model read only information %w", modelerrors.NotFound)
+		} else if err != nil {
+			return fmt.Errorf("getting model read only information: %w", err)
 		}
-		return row.Err()
+		return nil
 	})
 	if err != nil {
 		return coremodel.ReadOnlyModel{}, errors.Trace(err)
 	}
 
-	if credOwnerName != "" {
-		model.CredentialOwner, err = user.NewName(credOwnerName)
+	model := coremodel.ReadOnlyModel{
+		UUID:           coremodel.UUID(m.UUID),
+		Name:           m.Name,
+		Type:           coremodel.ModelType(m.Type),
+		Cloud:          m.Cloud,
+		CloudType:      m.CloudType,
+		CloudRegion:    m.CloudRegion,
+		CredentialName: m.CredentialName,
+	}
+
+	if owner := m.CredentialOwner; owner != "" {
+		model.CredentialOwner, err = user.NewName(owner)
 		if err != nil {
 			return coremodel.ReadOnlyModel{}, errors.Trace(err)
 		}
@@ -162,27 +152,26 @@ FROM model
 		s.logger.Infof("model %s: cloud credential owner name is empty", model.Name)
 	}
 
+	var agentVersion string
+	if m.TargetAgentVersion.Valid {
+		agentVersion = m.TargetAgentVersion.String
+	}
+
 	model.AgentVersion, err = version.Parse(agentVersion)
 	if err != nil {
 		return coremodel.ReadOnlyModel{}, fmt.Errorf("parsing model agent version %q: %w", agentVersion, err)
 	}
 
-	model.ControllerUUID, err = uuid.UUIDFromString(rawControllerUUID)
+	model.ControllerUUID, err = uuid.UUIDFromString(m.ControllerUUID)
 	if err != nil {
-		return coremodel.ReadOnlyModel{}, fmt.Errorf("parsing controller uuid %q: %w", rawControllerUUID, err)
+		return coremodel.ReadOnlyModel{}, fmt.Errorf("parsing controller uuid %q: %w", m.ControllerUUID, err)
 	}
 	return model, nil
 }
 
 // CreateReadOnlyModel is responsible for creating a new model within the model
 // database.
-func CreateReadOnlyModel(ctx context.Context, args model.ReadOnlyModelCreationArgs, tx *sql.Tx) error {
-	stmt := `
-INSERT INTO model (uuid, controller_uuid, name, type, target_agent_version, cloud, cloud_type, cloud_region, credential_owner, credential_name)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	ON CONFLICT (uuid) DO NOTHING;
-`
-
+func CreateReadOnlyModel(ctx context.Context, args model.ReadOnlyModelCreationArgs, preparer domain.Preparer, tx *sqlair.TX) error {
 	// This is some defensive programming. The zero value of agent version is
 	// still valid but should really be considered null for the purposes of
 	// allowing the DDL to assert constraints.
@@ -192,34 +181,49 @@ INSERT INTO model (uuid, controller_uuid, name, type, target_agent_version, clou
 		agentVersion.Valid = true
 	}
 
-	result, err := tx.ExecContext(ctx, stmt,
-		args.UUID,
-		args.ControllerUUID.String(),
-		args.Name,
-		args.Type,
-		agentVersion,
-		args.Cloud,
-		args.CloudType,
-		args.CloudRegion,
-		args.CredentialOwner.Name(),
-		args.CredentialName,
-	)
+	uuid := dbUUID{UUID: args.UUID.String()}
+	checkExistsStmt, err := preparer.Prepare(`
+SELECT &dbUUID.uuid
+FROM model
+	`, uuid)
 	if err != nil {
-		// If the model already exists, return an error that the model already
-		// exists.
-		if internaldatabase.IsErrConstraintUnique(err) {
-			return fmt.Errorf("model %q already exists: %w%w", args.UUID, modelerrors.AlreadyExists, errors.Hide(err))
-		}
-		// If the model already exists and we try and update it, the trigger
-		// should catch it and return an error.
-		if internaldatabase.IsErrConstraintTrigger(err) {
-			return fmt.Errorf("can not update model: %w%w", modelerrors.AlreadyExists, errors.Hide(err))
-		}
+		return errors.Annotatef(err, "preparing check model exists statement")
+	}
+
+	err = tx.Query(ctx, checkExistsStmt).Get(&uuid)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return internalerrors.Errorf("checking if model already exists: %w", err)
+	} else if err == nil {
+		return internalerrors.Errorf("read only model already exists in model database: %w", modelerrors.AlreadyExists)
+	}
+
+	m := dbReadOnlyModel{
+		UUID:               args.UUID.String(),
+		ControllerUUID:     args.ControllerUUID.String(),
+		Name:               args.Name,
+		Type:               args.Type.String(),
+		TargetAgentVersion: agentVersion,
+		Cloud:              args.Cloud,
+		CloudType:          args.CloudType,
+		CloudRegion:        args.CloudRegion,
+		CredentialOwner:    args.CredentialOwner.Name(),
+		CredentialName:     args.CredentialName,
+	}
+
+	insertStmt, err := preparer.Prepare(`
+INSERT INTO model (*) VALUES ($dbReadOnlyModel.*)
+`, dbReadOnlyModel{})
+	if err != nil {
+		return errors.Annotatef(err, "preparing insert model statement")
+	}
+
+	var outcome sqlair.Outcome
+	if err := tx.Query(ctx, insertStmt, m).Get(&outcome); err != nil {
 		return fmt.Errorf("creating model %q: %w", args.UUID, err)
 	}
 
 	// Double check that it was actually created.
-	affected, err := result.RowsAffected()
+	affected, err := outcome.Result().RowsAffected()
 	if err != nil {
 		return fmt.Errorf("creating model %q: %w", args.UUID, err)
 	}
