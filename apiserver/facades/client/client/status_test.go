@@ -1130,6 +1130,7 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 	}
 	c.Assert(appStatus, jc.DeepEquals, params.ApplicationStatus{
 		Charm:           *curl,
+		CharmRev:        curl.Revision,
 		Base:            params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 		WorkloadVersion: workloadVersion,
 		Relations:       map[string][]string{},
