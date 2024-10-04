@@ -6,9 +6,11 @@ package dashboard
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 
 	"github.com/juju/cmd/v4"
@@ -223,7 +225,7 @@ func tunnelSSHRunner(
 		args = append(args, "-m", tunnel.Model, tunnel.Entity)
 	}
 	args = append(args, "-N", "-L",
-		fmt.Sprintf("%d:%s:%s", localPort, tunnel.Host, tunnel.Port))
+		fmt.Sprintf("%d:%s", localPort, net.JoinHostPort(tunnel.Host, tunnel.Port)))
 
 	return func(ctx context.Context, callBack urlCallBack) error {
 		f := &gnuflag.FlagSet{}
@@ -237,7 +239,11 @@ func tunnelSSHRunner(
 			return errors.Trace(err)
 		}
 
-		callBack(fmt.Sprintf("http://localhost:%d", localPort))
+		u := url.URL{
+			Scheme: "http",
+			Host:   net.JoinHostPort("localhost", strconv.Itoa(localPort)),
+		}
+		callBack(u.String())
 
 		// TODO(wallyworld) - extract the core ssh machinery and use directly.
 		defCtx, err := cmd.DefaultContext()
@@ -256,7 +262,11 @@ func tunnelProxyRunner(ctx context.Context, p proxy.TunnelProxier) connectionRun
 		}
 		defer p.Stop()
 
-		callBack(fmt.Sprintf("http://%s:%s", p.Host(), p.Port()))
+		u := url.URL{
+			Scheme: "http",
+			Host:   net.JoinHostPort(p.Host(), p.Port()),
+		}
+		callBack(u.String())
 		select {
 		case <-ctx.Done():
 		}

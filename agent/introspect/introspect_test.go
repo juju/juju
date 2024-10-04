@@ -20,7 +20,6 @@ import (
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
-	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -53,11 +52,7 @@ func (*IntrospectCommandSuite) assertInitError(c *gc.C, expect string, args ...s
 }
 
 func (*IntrospectCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, &introspect.IntrospectCommand{
-		IntrospectionSocketName: func(tag names.Tag) string {
-			return filepath.Join(config.DataDir, "jujud-"+tag.String())
-		},
-	}, args...)
+	return cmdtesting.RunCommand(c, &introspect.IntrospectCommand{}, args...)
 }
 
 func (s *IntrospectCommandSuite) TestAutoDetectMachineAgent(c *gc.C) {
@@ -66,7 +61,7 @@ func (s *IntrospectCommandSuite) TestAutoDetectMachineAgent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.run(c, "query")
-	c.Assert(err, gc.ErrorMatches, ".*jujud-machine-1024.*")
+	c.Assert(err, gc.ErrorMatches, ".*machine-1024.*")
 }
 
 func (s *IntrospectCommandSuite) TestAutoDetectMachineAgentFails(c *gc.C) {
@@ -80,11 +75,14 @@ func (s *IntrospectCommandSuite) TestAutoDetectMachineAgentFails(c *gc.C) {
 
 func (s *IntrospectCommandSuite) TestAgentSpecified(c *gc.C) {
 	_, err := s.run(c, "query", "--agent=unit-foo-0")
-	c.Assert(err, gc.ErrorMatches, ".*jujud-unit-foo-0.*")
+	c.Assert(err, gc.ErrorMatches, ".*unit-foo-0.*")
 }
 
 func (s *IntrospectCommandSuite) TestQuery(c *gc.C) {
-	listener, err := net.Listen("unix", "@"+filepath.Join(config.DataDir, "jujud-machine-0"))
+	agentDir := filepath.Join(config.DataDir, "agents", "machine-0")
+	err := os.MkdirAll(agentDir, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	listener, err := net.Listen("unix", filepath.Join(agentDir, "introspection.socket"))
 	c.Assert(err, jc.ErrorIsNil)
 	defer listener.Close()
 
@@ -98,7 +96,10 @@ func (s *IntrospectCommandSuite) TestQuery(c *gc.C) {
 }
 
 func (s *IntrospectCommandSuite) TestQueryFails(c *gc.C) {
-	listener, err := net.Listen("unix", "@"+filepath.Join(config.DataDir, "jujud-machine-0"))
+	agentDir := filepath.Join(config.DataDir, "agents", "machine-0")
+	err := os.MkdirAll(agentDir, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	listener, err := net.Listen("unix", filepath.Join(agentDir, "introspection.socket"))
 	c.Assert(err, jc.ErrorIsNil)
 	defer listener.Close()
 
@@ -118,7 +119,10 @@ func (s *IntrospectCommandSuite) TestQueryFails(c *gc.C) {
 }
 
 func (s *IntrospectCommandSuite) TestGetToPostEndpoint(c *gc.C) {
-	listener, err := net.Listen("unix", "@"+filepath.Join(config.DataDir, "jujud-machine-0"))
+	agentDir := filepath.Join(config.DataDir, "agents", "machine-0")
+	err := os.MkdirAll(agentDir, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	listener, err := net.Listen("unix", filepath.Join(agentDir, "introspection.socket"))
 	c.Assert(err, jc.ErrorIsNil)
 	defer listener.Close()
 
@@ -133,7 +137,10 @@ func (s *IntrospectCommandSuite) TestGetToPostEndpoint(c *gc.C) {
 }
 
 func (s *IntrospectCommandSuite) TestPost(c *gc.C) {
-	listener, err := net.Listen("unix", "@"+filepath.Join(config.DataDir, "jujud-machine-0"))
+	agentDir := filepath.Join(config.DataDir, "agents", "machine-0")
+	err := os.MkdirAll(agentDir, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	listener, err := net.Listen("unix", filepath.Join(agentDir, "introspection.socket"))
 	c.Assert(err, jc.ErrorIsNil)
 	defer listener.Close()
 
@@ -151,8 +158,11 @@ single="value"
 }
 
 func (s *IntrospectCommandSuite) TestListen(c *gc.C) {
-	socketName := filepath.Join(config.DataDir, "jujud-machine-0")
-	listener, err := net.Listen("unix", "@"+socketName)
+	agentDir := filepath.Join(config.DataDir, "agents", "machine-0")
+	err := os.MkdirAll(agentDir, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	socketName := filepath.Join(agentDir, "introspection.socket")
+	listener, err := net.Listen("unix", socketName)
 	c.Assert(err, jc.ErrorIsNil)
 	defer listener.Close()
 
@@ -162,7 +172,7 @@ func (s *IntrospectCommandSuite) TestListen(c *gc.C) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	cmd := exec.CommandContext(ctx, os.Args[0], "-run-listen="+socketName)
+	cmd := exec.CommandContext(ctx, os.Args[0], "-run-listen="+config.DataDir)
 	stderr, err := cmd.StderrPipe()
 	c.Assert(err, jc.ErrorIsNil)
 	defer stderr.Close()
@@ -172,7 +182,7 @@ func (s *IntrospectCommandSuite) TestListen(c *gc.C) {
 	scanner := bufio.NewScanner(stderr)
 	c.Assert(scanner.Scan(), jc.IsTrue)
 	line := scanner.Text()
-	c.Assert(line, gc.Matches, "Exposing @.* introspection socket on 127.0.0.1:.*")
+	c.Assert(line, gc.Matches, "Exposing .* introspection socket on 127.0.0.1:.*")
 
 	fields := strings.Fields(line)
 	addr := fields[len(fields)-1]
@@ -217,16 +227,12 @@ func newServer(l net.Listener) *http.Server {
 	return srv
 }
 
-var flagListen = flag.String("run-listen", "", "Name of the Unix socket to connect the introspect command to using --listen=:0")
+var flagListen = flag.String("run-listen", "", "DataDir of the Unix socket to connect the introspect command to using --listen=:0")
 
 func TestRunListen(t *stdtesting.T) {
 	if *flagListen != "" {
-		introspectCommand := &introspect.IntrospectCommand{
-			IntrospectionSocketName: func(names.Tag) string {
-				return *flagListen
-			},
-		}
-		args := append(flag.Args(), "--listen=127.0.0.1:0", "--agent=machine-0")
+		introspectCommand := &introspect.IntrospectCommand{}
+		args := append(flag.Args(), "--data-dir="+*flagListen, "--listen=127.0.0.1:0", "--agent=machine-0")
 		if err := cmdtesting.InitCommand(introspectCommand, args); err != nil {
 			t.Fatal(err)
 		}

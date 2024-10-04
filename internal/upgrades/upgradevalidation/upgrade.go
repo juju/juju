@@ -9,23 +9,28 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
 
-// ValidatorsForControllerUpgrade returns a list of validators for controller
-// upgrade.
+// ValidatorsForControllerModelUpgrade returns a list of validators for the
+// controller model in a controller upgrade.
 // Note: the target version can never be lower than the current version.
-func ValidatorsForControllerUpgrade(
-	isControllerModel bool, targetVersion version.Number, cloudspec environscloudspec.CloudSpec,
+func ValidatorsForControllerModelUpgrade(
+	targetVersion version.Number, cloudspec environscloudspec.CloudSpec,
 ) []Validator {
-	if isControllerModel {
-		validators := []Validator{
-			getCheckTargetVersionForControllerModel(targetVersion),
-			checkMongoStatusForControllerUpgrade,
-			checkMongoVersionForControllerModel,
-			checkForDeprecatedUbuntuSeriesForModel,
-			getCheckForLXDVersion(cloudspec),
-		}
-		return validators
+	validators := []Validator{
+		getCheckTargetVersionForControllerModel(targetVersion),
+		checkMongoStatusForControllerUpgrade,
+		checkMongoVersionForControllerModel,
+		checkForDeprecatedUbuntuSeriesForModel,
+		getCheckForLXDVersion(cloudspec),
 	}
+	return validators
+}
 
+// ModelValidatorsForControllerModelUpgrade returns a list of validators for
+// non-controller models in a controller upgrade.
+// Note: the target version can never be lower than the current version.
+func ModelValidatorsForControllerModelUpgrade(
+	targetVersion version.Number, cloudspec environscloudspec.CloudSpec,
+) []Validator {
 	validators := []Validator{
 		getCheckTargetVersionForModel(targetVersion, UpgradeControllerAllowed),
 		checkModelMigrationModeForControllerUpgrade,

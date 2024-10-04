@@ -563,8 +563,9 @@ github.com/juju/replicaset/v3 v3.0.1 h1:+w2z277yeiRTI1JQ+8sNgKIraUT1uQb+X9WmmlOu
 github.com/juju/replicaset/v3 v3.0.1/go.mod h1:2V11mLgGEaTOcQ4XBw6DbZn9mO6u5w7da1CflXCZ8gE=
 github.com/juju/retry v0.0.0-20151029024821-62c620325291/go.mod h1:OohPQGsr4pnxwD5YljhQ+TZnuVRYpa5irjugL1Yuif4=
 github.com/juju/retry v0.0.0-20180821225755-9058e192b216/go.mod h1:OohPQGsr4pnxwD5YljhQ+TZnuVRYpa5irjugL1Yuif4=
-github.com/juju/retry v1.0.0 h1:Tb1hFdDSPGLH/BGdYQOF7utQ9lA0ouVJX2imqgJK6tk=
 github.com/juju/retry v1.0.0/go.mod h1:SssN1eYeK3A2qjnFGTiVMbdzGJ2BfluaJblJXvuvgqA=
+github.com/juju/retry v1.0.1 h1:EVwOPq273wO1o0BCU7Ay7XE/bNb+bTNYsCK6y+BboAk=
+github.com/juju/retry v1.0.1/go.mod h1:SssN1eYeK3A2qjnFGTiVMbdzGJ2BfluaJblJXvuvgqA=
 github.com/juju/schema v1.0.0/go.mod h1:Y+ThzXpUJ0E7NYYocAbuvJ7vTivXfrof/IfRPq/0abI=
 github.com/juju/schema v1.2.0 h1:+XywM0pYzuhGebQiK1aR4Bj7Q7nLV5MihcOgq6dLLxs=
 github.com/juju/schema v1.2.0/go.mod h1:VdljuJLc45loM79LYm4yKKmPJwK1bPKRekvMVlfywU0=

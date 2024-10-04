@@ -3,15 +3,33 @@ run_secrets_vault() {
 
 	prepare_vault
 
-	model_name='model-secrets-vault'
 	juju add-secret-backend myvault vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
+
+	model_name='model-secrets-vault-charm-owned'
 	add_model "$model_name"
 	juju --show-log model-secret-backend myvault -m "$model_name"
 
 	check_secrets
-	run_user_secrets "$model_name"
+	destroy_model "$model_name"
 
-	destroy_model "model-secrets-vault"
+	model_name='model-secrets-vault-model-owned'
+	add_model "$model_name"
+	juju --show-log model-config secret-backend=myvault -m "$model_name"
+	run_user_secrets "$model_name"
+	destroy_model "$model_name"
+
+	# test remove-secret-backend with force.
+	model_name='model-remove-secret-backend-with-force'
+	add_model "$model_name"
+	juju --show-log model-config secret-backend=myvault -m "$model_name"
+	# add a secret to the vault backend to make sure the backend is in-use.
+	juju add-secret foo token=1
+	check_contains "$(juju show-secret-backend myvault | yq -r .myvault.secrets)" 1
+	check_contains "$(juju list-secret-backends --format yaml | yq -r .myvault.secrets)" 1
+	check_contains "$(juju remove-secret-backend myvault 2>&1)" 'backend "myvault" still contains secret content'
+	juju remove-secret-backend myvault --force
+	destroy_model "$model_name"
+
 	destroy_model "model-vault-provider"
 }
 

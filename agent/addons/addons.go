@@ -4,11 +4,11 @@
 package addons
 
 import (
+	"path"
 	"runtime"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -26,17 +26,14 @@ type MetricSink interface {
 	Unregister() bool
 }
 
-// DefaultIntrospectionSocketName returns the socket name to use for the
-// abstract domain socket that the introspection worker serves requests
-// over.
-func DefaultIntrospectionSocketName(entityTag names.Tag) string {
-	return "jujud-" + entityTag.String()
-}
+// IntrospectionSocketName is the name of the socket file inside
+// the agent's directory used for introspection calls.
+const IntrospectionSocketName = "introspection.socket"
 
 // IntrospectionConfig defines the various components that the introspection
 // worker reports on or needs to start up.
 type IntrospectionConfig struct {
-	AgentTag           names.Tag
+	AgentDir           string
 	Engine             *dependency.Engine
 	StatePoolReporter  introspection.Reporter
 	PubSubReporter     introspection.Reporter
@@ -48,8 +45,7 @@ type IntrospectionConfig struct {
 	CentralHub         introspection.StructuredHub
 	Logger             logger.Logger
 
-	NewSocketName func(names.Tag) string
-	WorkerFunc    func(config introspection.Config) (worker.Worker, error)
+	WorkerFunc func(config introspection.Config) (worker.Worker, error)
 }
 
 // StartIntrospection creates the introspection worker. It cannot and should
@@ -64,7 +60,7 @@ func StartIntrospection(cfg IntrospectionConfig) error {
 		return nil
 	}
 
-	socketName := cfg.NewSocketName(cfg.AgentTag)
+	socketName := path.Join(cfg.AgentDir, IntrospectionSocketName)
 	w, err := cfg.WorkerFunc(introspection.Config{
 		SocketName:         socketName,
 		DepEngine:          cfg.Engine,

@@ -300,10 +300,9 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 		return nil, err
 	}
 	if err := addons.StartIntrospection(addons.IntrospectionConfig{
-		AgentTag:           c.CurrentConfig().Tag(),
+		AgentDir:           agentConfig.Dir(),
 		Engine:             eng,
 		MachineLock:        c.machineLock,
-		NewSocketName:      addons.DefaultIntrospectionSocketName,
 		PrometheusGatherer: c.prometheusRegistry,
 		WorkerFunc:         introspection.NewWorker,
 		Clock:              c.clk,

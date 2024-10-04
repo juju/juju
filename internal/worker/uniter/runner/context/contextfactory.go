@@ -5,9 +5,9 @@ package context
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
-	"math/rand"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -97,9 +97,6 @@ type contextFactory struct {
 	// Callback to get relation state snapshot.
 	getRelationInfos RelationsFunc
 	relationCaches   map[int]*RelationCache
-
-	// For generating "unique" context ids.
-	rand *rand.Rand
 }
 
 // FactoryConfig contains configuration values
@@ -169,7 +166,6 @@ func NewContextFactory(ctx context.Context, config FactoryConfig) (ContextFactor
 		machineTag:           machineTag,
 		getRelationInfos:     config.GetRelationInfos,
 		relationCaches:       map[int]*RelationCache{},
-		rand:                 rand.New(rand.NewSource(time.Now().Unix())),
 		clock:                config.Clock,
 		zone:                 zone,
 		principal:            principal,
@@ -180,8 +176,14 @@ func NewContextFactory(ctx context.Context, config FactoryConfig) (ContextFactor
 
 // newId returns a probably-unique identifier for a new context, containing the
 // supplied string.
-func (f *contextFactory) newId(name string) string {
-	return fmt.Sprintf("%s-%s-%d", f.unit.Name(), name, f.rand.Int63())
+func (f *contextFactory) newId(name string) (string, error) {
+	randomData := [16]byte{}
+	_, err := rand.Read(randomData[:])
+	if err != nil {
+		return "", fmt.Errorf("cannot generate id for hook context: %w", err)
+	}
+	randomComponent := hex.EncodeToString(randomData[:])
+	return fmt.Sprintf("%s-%s-%s", f.unit.Name(), name, randomComponent), nil
 }
 
 // coreContext creates a new context with all unspecialised fields filled in.
@@ -236,7 +238,10 @@ func (f *contextFactory) ActionContext(stdCtx context.Context, actionData *Actio
 		return nil, errors.Trace(err)
 	}
 	ctx.actionData = actionData
-	ctx.id = f.newId(actionData.Name)
+	ctx.id, err = f.newId(actionData.Name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return ctx, nil
 }
 
@@ -310,7 +315,10 @@ func (f *contextFactory) HookContext(stdCtx context.Context, hookInfo hook.Info)
 			ctx.secretLabel = md.Label
 		}
 	}
-	ctx.id = f.newId(hookName)
+	ctx.id, err = f.newId(hookName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	ctx.hookName = hookName
 	return ctx, nil
 }
@@ -328,7 +336,10 @@ func (f *contextFactory) CommandContext(stdCtx context.Context, commandInfo Comm
 	}
 	ctx.relationId = relationId
 	ctx.remoteUnitName = remoteUnitName
-	ctx.id = f.newId("run-commands")
+	ctx.id, err = f.newId("run-commands")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return ctx, nil
 }
 

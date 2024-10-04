@@ -10,6 +10,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/kr/pretty"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
 	"github.com/juju/juju/agent/config"
 	jujucmd "github.com/juju/juju/cmd"
@@ -35,16 +37,11 @@ type IntrospectCommand struct {
 	verbose bool
 	post    bool
 	form    url.Values
-
-	// IntrospectionSocketName returns the socket name
-	// for a given tag. If IntrospectionSocketName is nil,
-	// agent.DefaultIntrospectionSocketName is used.
-	IntrospectionSocketName func(names.Tag) string
 }
 
 // New initializes IntrospectCommand.
-func New(sockNameGetter func(names.Tag) string) cmd.Command {
-	return &IntrospectCommand{IntrospectionSocketName: sockNameGetter}
+func New() cmd.Command {
+	return &IntrospectCommand{}
 }
 
 const introspectCommandDoc = `
@@ -127,11 +124,7 @@ func (c *IntrospectCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	getSocketName := c.IntrospectionSocketName
-	if getSocketName == nil {
-		getSocketName = addons.DefaultIntrospectionSocketName
-	}
-	socketName := "@" + getSocketName(tag)
+	socketName := path.Join(agent.Dir(c.dataDir, tag), addons.IntrospectionSocketName)
 	if c.listen != "" {
 		listener, err := net.Listen("tcp", c.listen)
 		if err != nil {

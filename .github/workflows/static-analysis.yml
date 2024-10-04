@@ -38,7 +38,7 @@ jobs:
           libsqlite3-dev \
           sqlite3
         go install golang.org/x/vuln/cmd/govulncheck@latest
-        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.60.3
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.61.0
         sudo curl -sSfL https://github.com/mvdan/sh/releases/download/v3.7.0/shfmt_v3.7.0_linux_$(go env GOARCH) -o /usr/bin/shfmt
         sudo chmod +x /usr/bin/shfmt
         

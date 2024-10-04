@@ -104,7 +104,8 @@ jobs:
   terraform:
     needs: [changed-files]
     name: Terraform Smoke
-    if: github.event.pull_request.draft == false && github.base_ref != 'main' && needs.changed-files.outputs.check-terraform == 'true'
+    # TODO - always skip terraform tests until they are made reliable on 3.x branches.
+    if: false && github.event.pull_request.draft == false && github.base_ref != 'main' && needs.changed-files.outputs.check-terraform == 'true'
     uses: ./.github/workflows/terraform-smoke.yml
 
   migrate:

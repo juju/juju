@@ -161,8 +161,7 @@ func (c *showTaskCommand) Run(ctx *cmd.Context) error {
 
 	var result actionapi.ActionResult
 	if shouldWatch {
-		tick := c.clock.NewTimer(resultPollTime)
-		result, err = GetActionResult(ctx, api, c.requestedId, tick, wait)
+		result, err = GetActionResult(ctx, api, c.requestedId, c.clock, wait)
 	} else {
 		result, err = fetchResult(ctx, api, c.requestedId)
 	}

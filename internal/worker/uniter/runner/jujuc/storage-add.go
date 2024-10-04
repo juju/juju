@@ -24,21 +24,32 @@ func NewStorageAddCommand(ctx Context) (cmd.Command, error) {
 	return &StorageAddCommand{ctx: ctx}, nil
 }
 
-var StorageAddDoc = `
+func (s *StorageAddCommand) Info() *cmd.Info {
+	var doc = `
 Storage add adds storage instances to unit using provided storage directives.
 A storage directive consists of a storage name as per charm specification
 and optional storage COUNT.
 
 COUNT is a positive integer indicating how many instances
 of the storage to create. If unspecified, COUNT defaults to 1.
-`[1:]
 
-func (s *StorageAddCommand) Info() *cmd.Info {
+Further details:
+
+storage-add adds storage volumes to the unit.
+storage-add takes the name of the storage volume (as defined in the
+charm metadata), and optionally the number of storage instances to add.
+By default, it will add a single storage instance of the name.
+`
+
+	var examples = `
+    storage-add database-storage=1
+`
 	return jujucmd.Info(&cmd.Info{
-		Name:    "storage-add",
-		Args:    "<charm storage name>[=count] ...",
-		Purpose: "Add storage instances.",
-		Doc:     StorageAddDoc,
+		Name:     "storage-add",
+		Args:     "<charm storage name>[=count] ...",
+		Purpose:  "Add storage instances.",
+		Doc:      doc,
+		Examples: examples,
 	})
 }
 

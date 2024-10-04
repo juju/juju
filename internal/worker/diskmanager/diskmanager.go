@@ -65,7 +65,7 @@ func doWork(ctx context.Context, listf ListBlockDevicesFunc, b BlockDeviceSetter
 		logger.Tracef("no changes to block devices detected")
 		return nil
 	}
-	logger.Infof("block devices changed: %#v", blockDevices)
+	logger.Tracef("block devices changed: %#v", blockDevices)
 	if err := b.SetMachineBlockDevices(ctx, blockDevices); err != nil {
 		return err
 	}

@@ -244,8 +244,35 @@ func (c *configCommand) getConfig(client controllerAPI, ctx *cmd.Context) error 
 		c.configBase.KeysToGet[0], controllerName)
 }
 
+// filterOutReadOnly removes in-situ read-only attributes from the provided configuration attributes map.
+func (c *configCommand) filterOutReadOnly(attrs config.Attrs) error {
+	extraValues := set.NewStrings()
+	for k := range attrs {
+		if !controller.AllowedUpdateConfigAttributes.Contains(k) {
+			extraValues.Add(k)
+			delete(attrs, k)
+		}
+	}
+
+	// No readonly
+	if extraValues.Size() == 0 {
+		return nil
+	}
+	if !c.ignoreReadOnlyFields {
+		return errors.Errorf("invalid or read-only controller config values cannot be updated: %v", extraValues.SortedValues())
+	}
+
+	logger.Warningf("invalid or read-only controller config values ignored: %v", extraValues.SortedValues())
+	return nil
+}
+
 // setConfig sets config values from the provided config.Attrs.
 func (c *configCommand) setConfig(ctx context.Context, client controllerAPI, attrs config.Attrs) error {
+	err := c.filterOutReadOnly(attrs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	store := c.ClientStore()
 	controllerName, err := store.CurrentController()
 	if err != nil {
@@ -255,6 +282,10 @@ func (c *configCommand) setConfig(ctx context.Context, client controllerAPI, att
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Despite its name, NewConfig has a desired side effect:
+	// It replaces all complex string values from `attrs` by their object counter part.
+	// ex: [value1,value2] will be replaced by a slice []string{"value1", "value2"}
 	_, err = controller.NewConfig(ctrl.ControllerUUID, ctrl.CACert, attrs)
 	if err != nil {
 		return errors.Trace(err)
@@ -266,28 +297,16 @@ func (c *configCommand) setConfig(ctx context.Context, client controllerAPI, att
 		return errors.Trace(err)
 	}
 
-	extraValues := set.NewStrings()
 	values := make(map[string]interface{})
 	for k := range attrs {
-		if controller.AllowedUpdateConfigAttributes.Contains(k) {
-			if field, ok := fields[k]; ok {
-				v, err := field.Coerce(attrs[k], []string{k})
-				if err != nil {
-					return errors.Trace(err)
-				}
-				values[k] = v
-			} else {
-				values[k] = attrs[k]
+		if field, ok := fields[k]; ok {
+			v, err := field.Coerce(attrs[k], []string{k})
+			if err != nil {
+				return err
 			}
+			values[k] = v
 		} else {
-			extraValues.Add(k)
-		}
-	}
-	if extraValues.Size() > 0 {
-		if c.ignoreReadOnlyFields {
-			logger.Warningf("invalid or read-only controller config values ignored: %v", extraValues.SortedValues())
-		} else {
-			return errors.Errorf("invalid or read-only controller config values cannot be updated: %v", extraValues.SortedValues())
+			values[k] = attrs[k]
 		}
 	}
 

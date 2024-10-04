@@ -94,13 +94,13 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	server.EXPECT().ServerVersion().Return("5.2")
 
 	targetVersion := version.MustParse("3.666.2")
-	validators := upgradevalidation.ValidatorsForControllerUpgrade(true, targetVersion, cloudSpec.CloudSpec)
+	validators := upgradevalidation.ValidatorsForControllerModelUpgrade(targetVersion, cloudSpec.CloudSpec)
 	checker := upgradevalidation.NewModelUpgradeCheck(ctrlModelTag.Id(), statePool, ctrlState, ctrlModel, validators...)
 	blockers, err := checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blockers, gc.IsNil)
 
-	validators = upgradevalidation.ValidatorsForControllerUpgrade(false, targetVersion, cloudSpec.CloudSpec)
+	validators = upgradevalidation.ModelValidatorsForControllerModelUpgrade(targetVersion, cloudSpec.CloudSpec)
 	checker = upgradevalidation.NewModelUpgradeCheck(model1ModelTag.Id(), statePool, state1, model1, validators...)
 	blockers, err = checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)

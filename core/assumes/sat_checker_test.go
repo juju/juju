@@ -31,13 +31,9 @@ assumes:
 `)
 
 	expErr := `
-Charm feature requirements cannot be met:
+Charm cannot be deployed because:
   - charm requires feature "storage" (version >= 2.19.43) but model currently supports version 2.19.42
-
-Feature descriptions:
-  - "storage": create and manipulate storage primitives
-
-For additional information please see: https://juju.is/docs/olm/supported-features`[1:]
+`[1:]
 
 	err := fs.Satisfies(exprTree)
 	c.Assert(err, jc.Satisfies, IsRequirementsNotSatisfiedError, gc.Commentf("expected to get a RequirementsNotSatisfied error"))
@@ -58,19 +54,14 @@ assumes:
 `)
 
 	expErr := `
-Charm feature requirements cannot be met:
+Charm cannot be deployed because:
   - charm requires at least one of the following:
-    - charm requires feature "k8s-api" (version >= 42.0.0) but model currently supports version 1.18.0
+    - charm requires Kubernetes version >= 42.0.0, model is running on version 1.18.0
     - charm requires feature "random-feature-a" but model does not support it
   - charm requires all of the following:
     - charm requires feature "block-storage" but model does not support it
-    - charm requires feature "juju" (version >= 3.0.0) but model currently supports version 2.19.42
-
-Feature descriptions:
-  - "juju": version of Juju running on the controller
-  - "k8s-api": access to the kubernetes API
-
-For additional information please see: https://juju.is/docs/olm/supported-features`[1:]
+    - charm requires Juju version >= 3.0.0, model has version 2.19.42
+`[1:]
 
 	err := fs.Satisfies(exprTree)
 	c.Assert(err, jc.Satisfies, IsRequirementsNotSatisfiedError, gc.Commentf("expected to get a RequirementsNotSatisfied error"))
@@ -99,22 +90,17 @@ assumes:
 `)
 
 	expErr := `
-Charm feature requirements cannot be met:
+Charm cannot be deployed because:
   - charm requires feature "storage" (version >= 42.0.0) but model currently supports version 2.19.42
   - charm requires all of the following:
-    - charm requires feature "juju" (version >= 3.0.0) but model currently supports version 2.19.42
+    - charm requires Juju version >= 3.0.0, model has version 2.19.42
     - charm requires at least one of the following:
       - charm requires feature "random-feature-b" but model does not support it
       - charm requires feature "random-feature-c" but model does not support it
   - charm requires at least one of the following:
     - charm requires feature "random-feature-d" but model does not support it
     - charm requires feature "random-feature-e" but model does not support it
-
-Feature descriptions:
-  - "juju": version of Juju running on the controller
-  - "storage": create and manipulate storage primitives
-
-For additional information please see: https://juju.is/docs/olm/supported-features`[1:]
+`[1:]
 
 	err := fs.Satisfies(exprTree)
 	c.Assert(err, jc.Satisfies, IsRequirementsNotSatisfiedError, gc.Commentf("expected to get a RequirementsNotSatisfied error"))

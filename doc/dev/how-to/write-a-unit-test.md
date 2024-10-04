@@ -1,4 +1,4 @@
-> See also: [Unit testing](/doc/dev/references/testing/unit-testing/index.md)
+> See also: [Unit testing](/doc/dev/reference/testing/unit-testing/index.md)
 
 This document demonstrates how to write a unit test for Juju.
 
@@ -81,7 +81,7 @@ gc "gopkg.in/check.v1"
 
 ## Add a unit test suite
 
-> See also: [Unit test suite](/doc/dev/references/testing/unit-testing/unit-test-suite.md)
+> See also: [Unit test suite](/doc/dev/reference/testing/unit-testing/unit-test-suite.md)
 
 Also in `magic1_test.go`, add a unit test suite.
 
@@ -98,7 +98,7 @@ var _ = gc.Suite(&magicSuite{})
 
 # Write the test
 
-> See also: [Checker](/doc/dev/references/testing/unit-testing/checker.md)
+> See also: [Checker](/doc/dev/reference/testing/unit-testing/checker.md)
 
 In `magic1_test.go`, below the test suite, start adding your unit test functions.
 
@@ -113,7 +113,8 @@ return a + b
 }
 ```
 
-Then, in your `magic1_test.go` file you can write a test for it as follows (where `gc.Equals` is a [Checker](/doc/dev/references/testing/unit-testing/checker.md)):
+Then, in your `magic1_test.go` file you can write a test for it as follows (where `gc.Equals` is
+a [Checker](/doc/dev/reference/testing/unit-testing/checker.md)):
 
 ```go
 // GIVEN a equals 5 AND b equals 3

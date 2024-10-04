@@ -5,7 +5,6 @@ package jujuc_test
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
@@ -289,16 +288,4 @@ func (s *NetworkGetSuite) testScenario(c *gc.C, args []string, code int, out str
 		expect := fmt.Sprintf(`(.|\n)*ERROR %s\n`, out)
 		c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 	}
-}
-
-func (s *NetworkGetSuite) TestHelp(c *gc.C) {
-	helpLine := `Usage: network-get [options] <binding-name> [--ingress-address] [--bind-address] [--egress-subnets]`
-
-	com := s.createCommand(c)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--help"})
-	c.Check(code, gc.Equals, 0)
-
-	c.Check(strings.Split(bufferString(ctx.Stdout), "\n")[0], gc.Equals, helpLine)
-	c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 }

@@ -34,7 +34,7 @@ func NewJujuRebootCommand(ctx Context) (cmd.Command, error) {
 	return &JujuRebootCommand{ctx: ctx}, nil
 }
 
-var rebootDoc = `
+const rebootDoc = `
 juju-reboot causes the host machine to reboot, after stopping all containers
 hosted on the machine.
 
@@ -52,13 +52,22 @@ in all situations.
 juju-reboot is not supported when running actions.
 `
 
+const rebootExamples = `
+    # immediately reboot
+    juju-reboot --now
+
+    # Reboot after current hook exits
+    juju-reboot
+`
+
 func (c *JujuRebootCommand) Info() *cmd.Info {
 
 	return jujucmd.Info(&cmd.Info{
-		Name:    "juju-reboot",
-		Args:    "",
-		Purpose: "Reboot the host machine.",
-		Doc:     rebootDoc,
+		Name:     "juju-reboot",
+		Args:     "",
+		Purpose:  "Reboot the host machine.",
+		Doc:      rebootDoc,
+		Examples: rebootExamples,
 	})
 }
 

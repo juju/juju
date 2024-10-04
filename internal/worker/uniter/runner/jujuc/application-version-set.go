@@ -33,11 +33,15 @@ version of the deployed software. (It shouldn't be confused with the
 charm revision.) The version set will be displayed in "juju status"
 output for the application.
 `
+	examples := `
+    application-version-set 1.1.10
+`
 	return jujucmd.Info(&cmd.Info{
-		Name:    "application-version-set",
-		Args:    "<new-version>",
-		Purpose: "Specify which version of the application is deployed.",
-		Doc:     doc,
+		Name:     "application-version-set",
+		Args:     "<new-version>",
+		Purpose:  "Specify which version of the application is deployed.",
+		Doc:      doc,
+		Examples: examples,
 	})
 }
 

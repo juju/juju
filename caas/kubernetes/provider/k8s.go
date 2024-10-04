@@ -1062,13 +1062,7 @@ func (k *kubernetesClient) SupportedFeatures() (assumes.FeatureSet, error) {
 		return fs, errors.Annotatef(err, "querying kubernetes API version")
 	}
 
-	fs.Add(
-		assumes.Feature{
-			Name:        "k8s-api",
-			Description: assumes.UserFriendlyFeatureDescriptions["k8s-api"],
-			Version:     k8sAPIVersion,
-		},
-	)
+	fs.Add(assumes.K8sAPIFeature(*k8sAPIVersion))
 	return fs, nil
 }
 

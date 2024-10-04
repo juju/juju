@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/packaging"
-	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/service/snap"
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -60,7 +59,8 @@ func makeEnsureServerParams(dataDir, configDir string) mongo.EnsureServerParams 
 		PrivateKey:   testInfo.PrivateKey,
 		SharedSecret: testInfo.SharedSecret,
 
-		DataDir:           dataDir,
+		MongoDataDir:      dataDir,
+		JujuDataDir:       dataDir,
 		ConfigDir:         configDir,
 		JujuDBSnapChannel: "latest",
 
@@ -103,13 +103,25 @@ func (s *MongoSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *MongoSuite) expectInstallMongoSnap() {
 	mExp := s.mongoSnapService.EXPECT()
-	mExp.Name().Return("not-juju-db")
-	mExp.Install().Return(nil)
+	mExp.IsLocal().Return(false)
 	mExp.ConfigOverride().Return(nil)
-	mExp.Start().Return(nil).AnyTimes()
+	mExp.Start().Return(nil)
 	mExp.Running().Return(true, nil).AnyTimes()
 
-	s.PatchValue(mongo.NewSnapService, func(mainSnap, serviceName string, conf common.Conf, snapPath, configDir, channel string, confinementPolicy snap.ConfinementPolicy, backgroundServices []snap.BackgroundService, prerequisites []snap.Installable) (mongo.MongoSnapService, error) {
+	s.PatchValue(mongo.NewSnapService, func(config snap.ServiceConfig) (mongo.MongoSnapService, error) {
+		return s.mongoSnapService, nil
+	})
+}
+
+func (s *MongoSuite) expectInstallLocalMongoSnap() {
+	mExp := s.mongoSnapService.EXPECT()
+	mExp.IsLocal().Return(true)
+	mExp.Install().Return(nil)
+	mExp.ConfigOverride().Return(nil)
+	mExp.Start().Return(nil)
+	mExp.Running().Return(true, nil).AnyTimes()
+
+	s.PatchValue(mongo.NewSnapService, func(config snap.ServiceConfig) (mongo.MongoSnapService, error) {
 		return s.mongoSnapService, nil
 	})
 }
@@ -218,6 +230,24 @@ func (s *MongoSuite) TestEnsureServerInstalledSetsSysctlValues(c *gc.C) {
 	c.Assert(string(contents), gc.Equals, "new value")
 }
 
+func (s *MongoSuite) TestEnsureServerInstalledLocalSnap(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectInstallLocalMongoSnap()
+
+	dataDir := c.MkDir()
+	configDir := c.MkDir()
+
+	testing.PatchExecutableAsEchoArgs(c, s, "snap")
+
+	s.PatchValue(mongo.InstallMongo, func(packaging.Dependency, base.Base) error {
+		c.Fatalf("unexpected call to InstallMongo")
+		return nil
+	})
+
+	err := mongo.EnsureServerInstalled(context.Background(), makeEnsureServerParams(dataDir, configDir))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *MongoSuite) TestEnsureServerInstalledError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -232,7 +262,7 @@ func (s *MongoSuite) TestEnsureServerInstalledError(c *gc.C) {
 	})
 
 	err := mongo.EnsureServerInstalled(context.Background(), makeEnsureServerParams(dataDir, configDir))
-	c.Assert(errors.Cause(err), gc.Equals, failure)
+	c.Assert(errors.Cause(err), gc.Equals, failure, gc.Commentf("unexpected error: %v", err))
 }
 
 func (s *MongoSuite) assertEnsureServerIPv6(c *gc.C, ipv6 bool) string {

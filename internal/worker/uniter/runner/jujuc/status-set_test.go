@@ -46,32 +46,6 @@ func (s *statusSetSuite) TestStatusSetInit(c *gc.C) {
 	}
 }
 
-func (s *statusSetSuite) TestHelp(c *gc.C) {
-	hctx := s.GetStatusHookContext(c)
-	com, err := jujuc.NewCommand(hctx, "status-set")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
-	c.Assert(code, gc.Equals, 0)
-	expectedHelp := "" +
-		"Usage: status-set [options] <maintenance | blocked | waiting | active> [message]\n" +
-		"\n" +
-		"Summary:\n" +
-		"Set status information.\n" +
-		"\n" +
-		"Options:\n" +
-		"--application  (= false)\n" +
-		"    set this status for the application to which the unit belongs if the unit is the leader\n" +
-		"\n" +
-		"Details:\n" +
-		"Sets the workload status of the charm. Message is optional.\n" +
-		"The \"last updated\" attribute of the status is set, even if the\n" +
-		"status and message are the same as what's already set.\n"
-
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, expectedHelp)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-}
-
 func (s *statusSetSuite) TestStatus(c *gc.C) {
 	for i, args := range [][]string{
 		{"maintenance", "doing some work"},

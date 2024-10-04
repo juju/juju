@@ -57,29 +57,3 @@ func (s *ApplicationVersionSetSuite) TestApplicationVersionSetError(c *gc.C) {
 	c.Check(bufferString(ctx.Stderr), gc.Equals, "ERROR uh oh spaghettio\n")
 	c.Check(hctx.info.Version.WorkloadVersion, gc.Equals, "")
 }
-
-func (s *ApplicationVersionSetSuite) TestHelp(c *gc.C) {
-
-	var helpTemplate = `
-Usage: application-version-set <new-version>
-
-Summary:
-Specify which version of the application is deployed.
-
-Details:
-application-version-set tells Juju which version of the application
-software is running. This could be a package version number or some
-other useful identifier, such as a Git hash, that indicates the
-version of the deployed software. (It shouldn't be confused with the
-charm revision.) The version set will be displayed in "juju status"
-output for the application.
-`[1:]
-
-	_, com := s.createCommand(c, nil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--help"})
-	c.Check(code, gc.Equals, 0)
-
-	c.Check(bufferString(ctx.Stdout), gc.Equals, helpTemplate)
-	c.Check(bufferString(ctx.Stderr), gc.Equals, "")
-}

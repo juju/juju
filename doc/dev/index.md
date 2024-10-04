@@ -22,7 +22,7 @@ on [GitHub](https://github.com/juju/juju/tree/3.6/doc). <!-- TODO: This link and
 |                   |                                                                                            |
 |-------------------|--------------------------------------------------------------------------------------------|
 |                   | [How-to guides](how-to) </br> Step-by-step guides covering key operations and common tasks |
-|                   | [References](references) </br> Technical information - specifications, APIs, architecture  |
+|                   | [Reference](reference) </br> Technical information - specifications, APIs, architecture    |
 
 ## Project and community
 

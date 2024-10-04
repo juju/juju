@@ -125,6 +125,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"internal/worker/introspection",
 		"internal/worker/introspection/pprof",
 		"juju/osenv",
+		"juju/sockets",
 		"rpc",
 		"rpc/jsoncodec",
 		"rpc/params",

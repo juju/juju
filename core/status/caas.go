@@ -70,9 +70,10 @@ func ApplicationDisplayStatus(applicationStatus, operatorStatus StatusInfo) Stat
 		return operatorStatus
 	}
 
-	// Check if the application status has been set to a higher severity status
-	// than the operator status (e.g. set to maintenance by the charm)
-	if statusSeverities[appStatus] > statusSeverities[opStatus] {
+	// Check if the application status has been set to an equivalent or higher
+	// severity status than the operator status (e.g. set to waiting by the
+	// charm)
+	if statusSeverities[appStatus] >= statusSeverities[opStatus] {
 		return applicationStatus
 	}
 

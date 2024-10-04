@@ -734,7 +734,8 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 		},
 		loggertesting.WrapCheckLog(c),
 	)
-	c.Assert(err, gc.ErrorMatches, "(?m).*Charm feature requirements cannot be met.*")
+	c.Assert(err, gc.ErrorMatches, `(?s)Charm cannot be deployed because:
+  - charm requires Juju version >= 42.0.0.*`)
 }
 
 func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C) {

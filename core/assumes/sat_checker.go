@@ -9,10 +9,6 @@ import (
 	chassumes "github.com/juju/juju/internal/charm/assumes"
 )
 
-// A link to a web page with additional information about features,
-// the Juju versions that support them etc.
-const featureDocsURL = "https://juju.is/docs/olm/supported-features"
-
 // satisfyExpr checks whether the feature set contents satisfy the provided
 // "assumes" expression. The function can process either feature or composite
 // expressions.
@@ -38,11 +34,9 @@ func satisfyExpr(fs FeatureSet, expr chassumes.Expression, exprTreeDepth int) er
 func satisfyFeatureExpr(fs FeatureSet, expr chassumes.FeatureExpression) error {
 	supported, defined := fs.Get(expr.Name)
 	if !defined {
+		errStr := featureMissingErr(expr.Name)
 		featDescr := UserFriendlyFeatureDescriptions[expr.Name]
-		return featureError(
-			expr.Name, featDescr,
-			"charm requires feature %q but model does not support it", expr.Name,
-		)
+		return featureError(expr.Name, featDescr, errStr)
 	}
 
 	// If the "assumes" feature expression does not specify a version or the
@@ -65,17 +59,16 @@ func satisfyFeatureExpr(fs FeatureSet, expr chassumes.FeatureExpression) error {
 		return nil
 	}
 
+	// Version mismatch. Get the nice error message.
+	errStr := featureVersionMismatchErr(expr.Name, string(expr.Constraint), expr.Version.String(), supported.Version.String())
+
 	var featDescr = supported.Description
 	if featDescr == "" {
 		// The feature set should always have a feature description.
 		// Try the fallback descriptions if it is missing.
 		featDescr = UserFriendlyFeatureDescriptions[featDescr]
 	}
-	return featureError(
-		expr.Name, featDescr,
-		"charm requires feature %q (version %s %s) but model currently supports version %s",
-		expr.Name, expr.Constraint, expr.Version, supported.Version,
-	)
+	return featureError(expr.Name, featDescr, errStr)
 }
 
 // satisfyCompositeExpr checks whether the feature set contents satisfy the
@@ -109,7 +102,7 @@ func satisfyCompositeExpr(fs FeatureSet, expr chassumes.CompositeExpression, exp
 	// below which introduces yet another indentation level and instead
 	// emit a top-level descriptive message.
 	if exprTreeDepth == 0 {
-		return requirementsNotSatisfied("Charm feature requirements cannot be met:", errList)
+		return requirementsNotSatisfied("Charm cannot be deployed because:", errList)
 	}
 
 	switch expr.Type() {

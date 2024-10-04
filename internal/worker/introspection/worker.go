@@ -24,6 +24,7 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/pubsub/agent"
 	"github.com/juju/juju/internal/worker/introspection/pprof"
+	"github.com/juju/juju/juju/sockets"
 )
 
 var logger = internallogger.GetLogger("juju.worker.introspection")
@@ -91,7 +92,7 @@ func (c *Config) Validate() error {
 // socketListener is a worker and constructed with NewWorker.
 type socketListener struct {
 	tomb               tomb.Tomb
-	listener           *net.UnixListener
+	listener           net.Listener
 	depEngine          DepEngineReporter
 	statePool          Reporter
 	pubsub             Reporter
@@ -113,18 +114,15 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if runtime.GOOS != "linux" {
 		return nil, errors.NotSupportedf("os %q", runtime.GOOS)
 	}
+	l, err := sockets.Listen(sockets.Socket{
 
-	path := "@" + config.SocketName
-	addr, err := net.ResolveUnixAddr("unix", path)
-	if err != nil {
-		return nil, errors.Annotate(err, "unable to resolve unix socket")
-	}
-
-	l, err := net.ListenUnix("unix", addr)
+		Network: "unix",
+		Address: config.SocketName,
+	})
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to listen on unix socket")
 	}
-	logger.Debugf("introspection worker listening on %q", path)
+	logger.Debugf("introspection worker listening on %q", config.SocketName)
 
 	w := &socketListener{
 		listener:           l,

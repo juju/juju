@@ -58,7 +58,7 @@ func InstallFakeEnsureMongo(suite patchingSuite, dataDir string) *FakeEnsureMong
 	suite.PatchValue(&cmdutil.NewEnsureMongoParams, func(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
 		params, err := ensureParams(agentConfig)
 		if err == nil {
-			params.DataDir = dataDir
+			params.MongoDataDir = dataDir
 		}
 		return params, err
 	})
@@ -70,7 +70,7 @@ func InstallFakeEnsureMongo(suite patchingSuite, dataDir string) *FakeEnsureMong
 type FakeEnsureMongo struct {
 	EnsureCount    int
 	InitiateCount  int
-	DataDir        string
+	MongoDataDir   string
 	OplogSize      int
 	Info           controller.StateServingInfo
 	InitiateParams peergrouper.InitiateMongoParams
@@ -87,7 +87,7 @@ func (f *FakeEnsureMongo) CurrentConfig(*mgo.Session) (*replicaset.Config, error
 
 func (f *FakeEnsureMongo) EnsureMongo(_ context.Context, args mongo.EnsureServerParams) error {
 	f.EnsureCount++
-	f.DataDir, f.OplogSize = args.DataDir, args.OplogSize
+	f.MongoDataDir, f.OplogSize = args.MongoDataDir, args.OplogSize
 	f.Info = controller.StateServingInfo{
 		APIPort:        args.APIPort,
 		StatePort:      args.StatePort,

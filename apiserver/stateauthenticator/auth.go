@@ -266,7 +266,7 @@ func LoginRequest(req *http.Request) (params.LoginRequest, error) {
 	parts := strings.Fields(authHeader)
 	if len(parts) != 2 || parts[0] != "Basic" {
 		// Invalid header format or no header provided.
-		return params.LoginRequest{}, errors.NotValidf("request format")
+		return params.LoginRequest{}, errors.NotFoundf("request format")
 	}
 
 	// Challenge is a base64-encoded "tag:pass" string.

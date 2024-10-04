@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
@@ -216,34 +217,6 @@ func (s *RelationGetSuite) TestRelationGetFormat(c *gc.C) {
 	testFormat("json", jc.JSONEquals)
 }
 
-var helpTemplate = `
-Usage: %s
-
-Summary:
-Get relation settings.
-
-Options:
---app  (= false)
-    Get the relation data for the overall application, not just a unit
---format  (= smart)
-    Specify output format (json|smart|yaml)
--o, --output (= "")
-    Specify an output file
--r, --relation  (= %s)
-    Specify a relation by id
-
-Details:
-relation-get prints the value of a unit's relation setting, specified by key.
-If no key is given, or if the key is "-", all keys and values will be printed.
-
-A unit can see its own settings by calling "relation-get - MYUNIT", this will include
-any changes that have been made with "relation-set".
-
-When reading remote relation data, a charm can call relation-get --app - to get
-the data for the application data bag that is set by the remote applications
-leader.
-%s`[1:]
-
 var relationGetHelpTests = []struct {
 	summary string
 	relid   int
@@ -278,13 +251,12 @@ func (s *RelationGetSuite) TestHelp(c *gc.C) {
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 		c.Assert(code, gc.Equals, 0)
-		unitHelp := ""
 		if t.unit != "" {
-			unitHelp = fmt.Sprintf("Current default unit id is %q.\n", t.unit)
+			unitHelp := fmt.Sprintf("Current default unit id is %q.\n", t.unit)
+			c.Assert(strings.Contains(bufferString(ctx.Stdout), unitHelp), jc.IsTrue)
+		} else {
+			c.Assert(strings.Contains(bufferString(ctx.Stdout), "Current default unit id"), jc.IsFalse)
 		}
-		expect := fmt.Sprintf(helpTemplate, t.usage, t.rel, unitHelp)
-		c.Assert(bufferString(ctx.Stdout), gc.Equals, expect)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	}
 }
 

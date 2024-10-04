@@ -10,7 +10,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/errors"
@@ -143,24 +145,10 @@ func hasHooksFolderOrDispatchFile(name string) (bool, error) {
 		return false, err
 	}
 	defer zipr.Close()
-	count := 0
 	// zip file spec 4.4.17.1 says that separators are always "/" even on Windows.
-	hooksPath := "hooks/"
 	dispatchPath := "dispatch"
 	for _, f := range zipr.File {
-		if strings.Contains(f.Name, hooksPath) {
-			count++
-		}
-		if count > 1 {
-			// 1 is the magic number here.
-			// Charm zip archive is expected to contain several files and folders.
-			// All properly built charms will have a non-empty "hooks" folders OR
-			// a dispatch file.
-			// File names in the archive will be of the form "hooks/" - for hooks folder; and
-			// "hooks/*" for the actual charm hooks implementations.
-			// For example, install hook may have a file with a name "hooks/install".
-			// Once we know that there are, at least, 2 files that have names that start with "hooks/", we
-			// know for sure that the charm has a non-empty hooks folder.
+		if isHook(f) {
 			return true, nil
 		}
 		if strings.Contains(f.Name, dispatchPath) {
@@ -168,6 +156,25 @@ func hasHooksFolderOrDispatchFile(name string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// isHook verifies whether the given file inside a zip archive is a valid hook
+// file.
+func isHook(f *zip.File) bool {
+	// Hook files must be in the top level of the 'hooks' directory
+	if filepath.Dir(f.Name) != "hooks" {
+		return false
+	}
+	// Valid file modes are regular files or symlinks. All others (directories,
+	// sockets, devices, etc.) are considered invalid file modes.
+	switch mode := f.Mode(); {
+	case mode.IsRegular():
+		return true
+	case mode&fs.ModeSymlink != 0:
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *LocalCharmClient) validateCharmVersion(ch charm.Charm, agentVersion version.Number) error {

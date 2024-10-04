@@ -37,6 +37,7 @@ import (
 )
 
 var errNoNameSpecified = errors.New("no name specified")
+var errNotLogged = errors.New("not logged")
 
 type modelMigratedError string
 
@@ -221,9 +222,9 @@ func processAccountDetails(accountDetails *jujuclient.AccountDetails) *jujuclien
 	}
 	// If there are no account details or there's no logged-in
 	// user or the user is external, then trigger macaroon authentication
-	// by using an empty AccountDetails.
+	// by using a nil AccountDetails.
 	if accountDetails == nil || accountDetails.User == "" {
-		accountDetails = &jujuclient.AccountDetails{}
+		accountDetails = nil
 	} else {
 		u := names.NewUserTag(accountDetails.User)
 		if !u.IsLocal() {
@@ -590,6 +591,10 @@ func newAPIConnectionParams(
 	}
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.BakeryClient = bakery
+
+	if accountDetails == nil {
+		return juju.NewAPIConnectionParams{}, errors.Annotatef(errNotLogged, "controller %q", controllerName)
+	}
 
 	if accountDetails.Type == jujuclient.OAuth2DeviceFlowAccountDetailsType {
 		dialOpts.LoginProvider = api.NewSessionTokenLoginProvider(

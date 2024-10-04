@@ -24,7 +24,6 @@ import (
 	"github.com/juju/utils/v4/exec"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/agent/addons"
 	"github.com/juju/juju/agent/config"
 	"github.com/juju/juju/agent/introspect"
 	jujucmd "github.com/juju/juju/cmd"
@@ -267,7 +266,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		agentConf,
 		bufferedLogger,
 		dbaccessor.NewTrackedDBWorker,
-		addons.DefaultIntrospectionSocketName,
 		func(mt state.ModelType) upgrades.PreUpgradeStepsFunc {
 			if mt == state.ModelTypeCAAS {
 				return upgrades.PreUpgradeStepsCAAS
@@ -283,7 +281,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		agentConf,
 		bufferedLogger,
 		dbaccessor.NewTrackedDBWorker,
-		addons.DefaultIntrospectionSocketName,
 		"",
 	)
 

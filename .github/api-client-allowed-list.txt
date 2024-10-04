@@ -42,7 +42,9 @@ gopkg.in/yaml.v2
 hash
 internal
 io
+iter
 log
+maps
 math
 mime
 net
@@ -60,6 +62,7 @@ syscall
 text
 time
 unicode
+unique
 unsafe
 vendor/golang.org/x
 iter
