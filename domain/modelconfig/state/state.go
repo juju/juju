@@ -107,25 +107,21 @@ func (st *State) ModelConfig(ctx context.Context) (map[string]string, error) {
 		return config, errors.Trace(err)
 	}
 
-	return config, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		stmt := `SELECT key, value FROM model_config`
-		rows, err := tx.QueryContext(ctx, stmt)
-		if err != nil {
-			return fmt.Errorf("getting model config values: %w", err)
-		}
-		defer rows.Close()
+	stmt, err := st.Prepare(`SELECT &dbKeyValue.* FROM model_config`, dbKeyValue{})
+	if err != nil {
+		return config, errors.Trace(err)
+	}
 
-		var (
-			key,
-			val string
-		)
-		for rows.Next() {
-			if err := rows.Scan(&key, &val); err != nil {
-				return errors.Trace(err)
-			}
-			config[key] = val
+	return config, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var result []dbKeyValue
+		if err := tx.Query(ctx, stmt).GetAll(&result); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Trace(err)
 		}
-		return rows.Err()
+
+		for _, kv := range result {
+			config[kv.Key] = kv.Value
+		}
+		return nil
 	})
 }
 
@@ -296,12 +292,14 @@ func (st *State) SpaceExists(ctx context.Context, spaceName string) (bool, error
 		return false, errors.Trace(err)
 	}
 
+	stmt, err := st.Prepare(`SELECT &dbSpace.* FROM space WHERE name = $dbSpace.name`, dbSpace{})
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
 	var exists bool
-	return exists, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		stmt := `SELECT 1 FROM space WHERE name=?`
-		var res int
-		row := tx.QueryRowContext(ctx, stmt, spaceName)
-		if err := row.Scan(&res); errors.Is(err, sql.ErrNoRows) {
+	return exists, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, dbSpace{Space: spaceName}).Get(&dbSpace{}); errors.Is(err, sql.ErrNoRows) {
 			return nil
 		} else if err != nil {
 			return errors.Annotatef(err, "checking space %q exists", spaceName)
