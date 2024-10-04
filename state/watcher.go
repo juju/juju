@@ -1956,11 +1956,6 @@ func (w *unitsWatcher) loop(coll, id string) error {
 	}
 }
 
-// WatchInstanceData returns a watcher for observing changes to a machine's instance data.
-func (m *Machine) WatchInstanceData() NotifyWatcher {
-	return newEntityWatcher(m.st, instanceDataC, m.doc.DocID)
-}
-
 // WatchControllerInfo returns a StringsWatcher for the controllers collection
 func (st *State) WatchControllerInfo() StringsWatcher {
 	return newCollectionWatcher(st, colWCfg{col: controllerNodesC})

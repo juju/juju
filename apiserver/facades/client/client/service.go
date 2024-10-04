@@ -46,4 +46,6 @@ type MachineService interface {
 	// HardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
 	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
+	// LXDProfiles returns the names of the LXD profiles on the machine.
+	AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error)
 }

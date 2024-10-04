@@ -1470,18 +1470,14 @@ func (api *ProvisionerAPI) setOneMachineCharmProfiles(ctx context.Context, machi
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if !canAccess(mTag) {
+		return apiservererrors.ErrPerm
+	}
 	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(mTag.Id()))
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, profiles); err != nil {
-		return errors.Trace(err)
-	}
-	machine, err := api.getMachine(canAccess, mTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return machine.SetCharmProfiles(profiles)
+	return errors.Trace(api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, profiles))
 }
 
 // ModelUUID returns the model UUID that the current connection is for.

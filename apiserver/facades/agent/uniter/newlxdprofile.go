@@ -31,10 +31,8 @@ type LXDProfileBackendV2 interface {
 // LXDProfileMachineV2 describes machine-receiver state methods
 // for executing a lxd profile upgrade.
 type LXDProfileMachineV2 interface {
-	CharmProfiles() ([]string, error)
 	ContainerType() instance.ContainerType
 	IsManual() (bool, error)
-	WatchInstanceData() state.NotifyWatcher
 }
 
 // LXDProfileUnitV2 describes unit-receiver state methods

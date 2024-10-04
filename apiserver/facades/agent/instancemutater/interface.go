@@ -35,11 +35,9 @@ type Machine interface {
 	Id() string
 	ContainerType() instance.ContainerType
 	IsManual() (bool, error)
-	SetCharmProfiles([]string) error
 	SetModificationStatus(status.StatusInfo) error
 	Units() ([]Unit, error)
 	WatchContainers(instance.ContainerType) state.StringsWatcher
-	WatchInstanceData() state.NotifyWatcher
 }
 
 // Unit represents a point of use methods from the state Unit object.

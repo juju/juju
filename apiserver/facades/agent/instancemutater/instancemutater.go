@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -48,6 +49,10 @@ type MachineService interface {
 	// lxd_profile table for the given machine. This method will overwrite the list
 	// of profiles for the given machine without any checks.
 	SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error
+
+	// WatchLXDProfiles returns a NotifyWatcher that is subscribed to the changes in
+	// the machine_cloud_instance table in the model, for the given machine UUID.
+	WatchLXDProfiles(ctx context.Context, machineUUID string) (watcher.NotifyWatcher, error)
 }
 
 type InstanceMutaterAPI struct {
@@ -416,22 +421,16 @@ func (api *InstanceMutaterAPI) setOneMachineCharmProfiles(ctx context.Context, m
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if !canAccess(mTag) {
+		return apiservererrors.ErrPerm
+	}
 
 	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(mTag.Id()))
 	if err != nil {
 		api.logger.Errorf("getting machine uuid: %w", err)
 		return errors.Trace(err)
 	}
-	if err := api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, profiles); err != nil {
-		api.logger.Errorf("setting lxd profile: %w", err)
-		return errors.Trace(err)
-	}
-	// TODO(nvinuesa): Remove this double write once we clean up instance data.
-	machine, err := api.getMachine(canAccess, mTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return machine.SetCharmProfiles(profiles)
+	return errors.Trace(api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, profiles))
 }
 
 func (api *InstanceMutaterAPI) setOneModificationStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {

@@ -399,7 +399,9 @@ func (s *lxdProfileWatcherSuite) setupWatchers(c *gc.C) {
 	s.state.EXPECT().WatchCharms().Return(s.charmsWatcher)
 	s.state.EXPECT().WatchApplicationCharms().Return(s.appWatcher)
 	s.state.EXPECT().WatchUnits().Return(s.unitsWatcher)
-	s.machine0.EXPECT().WatchInstanceData().Return(s.instanceWatcher)
+
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
+	s.machineService.EXPECT().WatchLXDProfiles(gomock.Any(), "uuid0").Return(s.instanceWatcher, nil)
 
 	s.charmsWatcher.EXPECT().Changes().AnyTimes().Return(s.charmChanges)
 	s.charmsWatcher.EXPECT().Wait().Return(nil)

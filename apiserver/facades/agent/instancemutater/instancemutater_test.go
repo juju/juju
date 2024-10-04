@@ -466,8 +466,6 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfiles(c *gc.C) 
 
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
-	s.expectMachine(s.machineTag, s.machine)
-	s.expectSetProfiles(profiles, nil)
 	facade := s.facadeAPIForScenario(c)
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
@@ -493,8 +491,6 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfilesWithError(
 
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
-	s.expectMachine(s.machineTag, s.machine)
-	s.expectSetProfiles(profiles, nil)
 	facade := s.facadeAPIForScenario(c)
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil).Times(2)
@@ -523,10 +519,6 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfilesWithError(
 			},
 		},
 	})
-}
-
-func (s *InstanceMutaterAPISetCharmProfilesSuite) expectSetProfiles(profiles []string, err error) {
-	s.machine.EXPECT().SetCharmProfiles(profiles).Return(err)
 }
 
 type InstanceMutaterAPISetModificationStatusSuite struct {

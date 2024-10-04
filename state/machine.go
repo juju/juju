@@ -374,58 +374,6 @@ func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
 }
 
-// CharmProfiles returns the names of any LXD profiles used by the machine,
-// which were defined in the charm deployed to that machine.
-func (m *Machine) CharmProfiles() ([]string, error) {
-	instData, err := getInstanceData(m.st, m.Id())
-	if errors.Is(err, errors.NotFound) {
-		err = errors.NotProvisionedf("machine %v", m.Id())
-	}
-	if err != nil {
-		return nil, err
-	}
-	return instData.CharmProfiles, nil
-}
-
-// SetCharmProfiles sets the names of the charm profiles used on a machine
-// in its instanceData.
-func (m *Machine) SetCharmProfiles(profiles []string) error {
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := m.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-
-		// Exit early if the Machine profiles doesn't need to change.
-		currentProfiles, err := m.CharmProfiles()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		currentProfileSet := set.NewStrings(currentProfiles...)
-		newProfileSet := set.NewStrings(profiles...)
-		if currentProfileSet.Size() == newProfileSet.Size() &&
-			currentProfileSet.Intersection(newProfileSet).Size() == currentProfileSet.Size() {
-			return nil, jujutxn.ErrNoOperations
-		}
-
-		assertion := bson.M{"charm-profiles": currentProfiles}
-		if currentProfiles == nil {
-			assertion = bson.M{"charm-profiles": bson.D{{"$exists", false}}}
-		}
-		ops := []txn.Op{{
-			C:      instanceDataC,
-			Id:     m.doc.DocID,
-			Assert: assertion,
-			Update: bson.D{{"$set", bson.D{{"charm-profiles", profiles}}}},
-		}}
-
-		return ops, nil
-	}
-	err := m.st.db().Run(buildTxn)
-	return errors.Annotatef(err, "cannot update profiles for %q to %s", m, strings.Join(profiles, ", "))
-}
-
 // IsManager returns true if the machine has JobManageModel.
 func (m *Machine) IsManager() bool {
 	return isController(&m.doc)
@@ -1361,10 +1309,7 @@ func (m *Machine) SetInstanceInfo(
 		}
 	}
 
-	if err := m.SetProvisioned(id, displayName, nonce, characteristics); err != nil {
-		return errors.Trace(err)
-	}
-	return m.SetCharmProfiles(charmProfiles)
+	return errors.Trace(m.SetProvisioned(id, displayName, nonce, characteristics))
 }
 
 // Addresses returns any hostnames and ips associated with a machine,

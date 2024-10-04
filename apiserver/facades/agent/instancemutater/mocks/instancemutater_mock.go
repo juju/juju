@@ -20,6 +20,7 @@ import (
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
 	machine "github.com/juju/juju/core/machine"
 	status "github.com/juju/juju/core/status"
+	watcher "github.com/juju/juju/core/watcher"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
@@ -711,44 +712,6 @@ func (c *MockMachineIsManualCall) DoAndReturn(f func() (bool, error)) *MockMachi
 	return c
 }
 
-// SetCharmProfiles mocks base method.
-func (m *MockMachine) SetCharmProfiles(arg0 []string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetCharmProfiles", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetCharmProfiles indicates an expected call of SetCharmProfiles.
-func (mr *MockMachineMockRecorder) SetCharmProfiles(arg0 any) *MockMachineSetCharmProfilesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmProfiles", reflect.TypeOf((*MockMachine)(nil).SetCharmProfiles), arg0)
-	return &MockMachineSetCharmProfilesCall{Call: call}
-}
-
-// MockMachineSetCharmProfilesCall wrap *gomock.Call
-type MockMachineSetCharmProfilesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineSetCharmProfilesCall) Return(arg0 error) *MockMachineSetCharmProfilesCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineSetCharmProfilesCall) Do(f func([]string) error) *MockMachineSetCharmProfilesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineSetCharmProfilesCall) DoAndReturn(f func([]string) error) *MockMachineSetCharmProfilesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetModificationStatus mocks base method.
 func (m *MockMachine) SetModificationStatus(arg0 status.StatusInfo) error {
 	m.ctrl.T.Helper()
@@ -860,44 +823,6 @@ func (c *MockMachineWatchContainersCall) Do(f func(instance.ContainerType) state
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineWatchContainersCall) DoAndReturn(f func(instance.ContainerType) state.StringsWatcher) *MockMachineWatchContainersCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// WatchInstanceData mocks base method.
-func (m *MockMachine) WatchInstanceData() state.NotifyWatcher {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchInstanceData")
-	ret0, _ := ret[0].(state.NotifyWatcher)
-	return ret0
-}
-
-// WatchInstanceData indicates an expected call of WatchInstanceData.
-func (mr *MockMachineMockRecorder) WatchInstanceData() *MockMachineWatchInstanceDataCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchInstanceData", reflect.TypeOf((*MockMachine)(nil).WatchInstanceData))
-	return &MockMachineWatchInstanceDataCall{Call: call}
-}
-
-// MockMachineWatchInstanceDataCall wrap *gomock.Call
-type MockMachineWatchInstanceDataCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineWatchInstanceDataCall) Return(arg0 state.NotifyWatcher) *MockMachineWatchInstanceDataCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineWatchInstanceDataCall) Do(f func() state.NotifyWatcher) *MockMachineWatchInstanceDataCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineWatchInstanceDataCall) DoAndReturn(f func() state.NotifyWatcher) *MockMachineWatchInstanceDataCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1528,6 +1453,45 @@ func (c *MockMachineServiceSetAppliedLXDProfileNamesCall) Do(f func(context.Cont
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineServiceSetAppliedLXDProfileNamesCall) DoAndReturn(f func(context.Context, string, []string) error) *MockMachineServiceSetAppliedLXDProfileNamesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchLXDProfiles mocks base method.
+func (m *MockMachineService) WatchLXDProfiles(arg0 context.Context, arg1 string) (watcher.Watcher[struct{}], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchLXDProfiles", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchLXDProfiles indicates an expected call of WatchLXDProfiles.
+func (mr *MockMachineServiceMockRecorder) WatchLXDProfiles(arg0, arg1 any) *MockMachineServiceWatchLXDProfilesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfiles", reflect.TypeOf((*MockMachineService)(nil).WatchLXDProfiles), arg0, arg1)
+	return &MockMachineServiceWatchLXDProfilesCall{Call: call}
+}
+
+// MockMachineServiceWatchLXDProfilesCall wrap *gomock.Call
+type MockMachineServiceWatchLXDProfilesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceWatchLXDProfilesCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockMachineServiceWatchLXDProfilesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceWatchLXDProfilesCall) Do(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockMachineServiceWatchLXDProfilesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceWatchLXDProfilesCall) DoAndReturn(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockMachineServiceWatchLXDProfilesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
