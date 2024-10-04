@@ -203,15 +203,13 @@ func ProviderDefaults(
 
 	for k, v := range coercedAttrs.(map[string]interface{}) {
 		rval[k] = modeldefaults.DefaultAttributeValue{
-			Source: config.JujuDefaultSource,
-			Value:  v,
+			Default: v,
 		}
 	}
 
 	for k, v := range modelDefaults {
 		rval[k] = modeldefaults.DefaultAttributeValue{
-			Source: config.JujuDefaultSource,
-			Value:  v,
+			Default: v,
 		}
 	}
 
@@ -344,19 +342,13 @@ func (s *Service) ModelDefaults(
 
 	result := modeldefaults.Defaults{}
 	for k, v := range defaults {
-		val := modeldefaults.DefaultAttributeValue{}
-		if v.Default != nil {
-			val.Value = v.Default
-			val.Source = config.JujuDefaultSource
-		}
-		if v.Controller != nil {
-			val.Value = v.Controller
-			val.Source = config.JujuControllerSource
+		val := modeldefaults.DefaultAttributeValue{
+			Default:    v.Default,
+			Controller: v.Controller,
 		}
 		for _, r := range v.Regions {
 			if r.Name == cloudRegion {
-				val.Value = r.Value
-				val.Source = config.JujuRegionSource
+				val.Region = r.Value
 				break
 			}
 		}
@@ -391,7 +383,7 @@ func (s *Service) cloudDefaults(
 	}
 	for k, v := range providerDefaults {
 		defaults[k] = modeldefaults.AttributeDefaultValues{
-			Default: v.Value,
+			Default: v.Default,
 		}
 	}
 

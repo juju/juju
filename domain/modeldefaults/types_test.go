@@ -21,7 +21,7 @@ var _ = gc.Suite(&typesSuite{})
 func (s *typesSuite) TestZeroDefaultsValue(c *gc.C) {
 	val := DefaultAttributeValue{}
 
-	has, source := val.Has("someval")
+	has, source := val.ValueSource("someval")
 	c.Check(has, jc.IsFalse)
 	c.Check(source, gc.Equals, "")
 
@@ -30,73 +30,65 @@ func (s *typesSuite) TestZeroDefaultsValue(c *gc.C) {
 	c.Check(applied, gc.Equals, "teststring")
 }
 
-// TestHasSupportForNil is testing for nil values to Has() we always return
+// TestValueSourceSupportForNil is testing for nil values to ValueSource() we always return
 // false and no source information as per the contract of the function.
-func (s *typesSuite) TestHasSupportForNil(c *gc.C) {
+func (s *typesSuite) TestValueSourceSupportForNil(c *gc.C) {
 	val := DefaultAttributeValue{
-		Source: "testsource",
-		Value:  "someval",
+		Region: "someval",
 	}
 
-	has, source := val.Has(nil)
+	has, source := val.ValueSource(nil)
 	c.Check(has, jc.IsFalse)
 	c.Check(source, gc.Equals, "")
 
-	val = DefaultAttributeValue{
-		Source: "testsource",
-		Value:  nil,
-	}
+	val = DefaultAttributeValue{}
 
-	has, source = val.Has("myval")
+	has, source = val.ValueSource("myval")
 	c.Check(has, jc.IsFalse)
 	c.Check(source, gc.Equals, "")
 }
 
-// TestHasSupport is testing Has for DefaultAttributeValue and that we can ask
+// TestValueSourceSupport is testing ValueSource for DefaultAttributeValue and that we can ask
 // the question correctly. We are only checking basic comparison here as that is
 // all Has supports.
-func (s *typesSuite) TestHasSupport(c *gc.C) {
+func (s *typesSuite) TestValueSourceSupport(c *gc.C) {
 	val := DefaultAttributeValue{
-		Source: "testsource",
-		Value:  "someval",
+		Region: "someval",
 	}
 
-	has, source := val.Has("someval")
+	has, source := val.ValueSource("someval")
 	c.Check(has, jc.IsTrue)
-	c.Check(source, gc.Equals, "testsource")
+	c.Check(source, gc.Equals, "region")
 
 	i := int32(10)
 	val = DefaultAttributeValue{
-		Source: "testsource",
-		Value:  &i,
+		Region: &i,
 	}
 
-	has, source = val.Has(&i)
+	has, source = val.ValueSource(&i)
 	c.Check(has, jc.IsTrue)
-	c.Check(source, gc.Equals, "testsource")
+	c.Check(source, gc.Equals, "region")
 
 	val = DefaultAttributeValue{
-		Source: "testsource",
-		Value: []any{
+		Region: []any{
 			"one",
 			"two",
 			"three",
 		},
 	}
 
-	has, source = val.Has([]any{
+	has, source = val.ValueSource([]any{
 		"one", "two", "three",
 	})
 	c.Check(has, jc.IsTrue)
-	c.Check(source, gc.Equals, "testsource")
+	c.Check(source, gc.Equals, "region")
 
 	structVal := struct{ name string }{"test"}
 	val = DefaultAttributeValue{
-		Source: "testsource",
-		Value:  &structVal,
+		Region: &structVal,
 	}
 
-	has, source = val.Has(&struct{ name string }{"test"})
+	has, source = val.ValueSource(&struct{ name string }{"test"})
 	c.Check(has, jc.IsFalse)
 	c.Check(source, gc.Equals, "")
 }
@@ -122,9 +114,8 @@ func (t *testApplyStrategy) Apply(d, s any) any {
 func (s *typesSuite) TestApplyStrategy(c *gc.C) {
 	strategy := &testApplyStrategy{}
 	val := DefaultAttributeValue{
-		Source:   "source",
-		Strategy: strategy,
-		Value:    "someval",
+		Strategy:   strategy,
+		Controller: "someval",
 	}
 
 	out := val.ApplyStrategy("someval1")
