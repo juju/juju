@@ -633,7 +633,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		if err := s.state.SaveCloudContainerStatus(ctx, unitUUID, application.CloudContainerStatusStatusInfo{
+		if err := s.state.SetCloudContainerStatus(ctx, unitUUID, application.CloudContainerStatusStatusInfo{
 			StatusID: application.CloudContainerStatusBlocked,
 			StatusInfo: application.StatusInfo{
 				Message: "test",
@@ -936,7 +936,7 @@ SELECT key, data FROM %s_status_data WHERE unit_uuid = ?
 	c.Assert(gotData, jc.DeepEquals, data)
 }
 
-func (s *applicationStateSuite) TestSaveCloudContainerStatus(c *gc.C) {
+func (s *applicationStateSuite) TestSetCloudContainerStatus(c *gc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
@@ -957,14 +957,14 @@ func (s *applicationStateSuite) TestSaveCloudContainerStatus(c *gc.C) {
 	unitUUID := unitUUIDs[0]
 
 	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SaveCloudContainerStatus(ctx, unitUUID, status)
+		return s.state.SetCloudContainerStatus(ctx, unitUUID, status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
 		c, "cloud_container", unitUUID, int(status.StatusID), status.Message, status.Since, status.Data)
 }
 
-func (s *applicationStateSuite) TestSaveUnitAgentStatus(c *gc.C) {
+func (s *applicationStateSuite) TestSetUnitAgentStatus(c *gc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
@@ -985,14 +985,14 @@ func (s *applicationStateSuite) TestSaveUnitAgentStatus(c *gc.C) {
 	unitUUID := unitUUIDs[0]
 
 	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SaveUnitAgentStatus(ctx, unitUUID, status)
+		return s.state.SetUnitAgentStatus(ctx, unitUUID, status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
 		c, "unit_agent", unitUUID, int(status.StatusID), status.Message, status.Since, status.Data)
 }
 
-func (s *applicationStateSuite) TestSaveUnitWorkloadStatus(c *gc.C) {
+func (s *applicationStateSuite) TestSetUnitWorkloadStatus(c *gc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
@@ -1013,7 +1013,7 @@ func (s *applicationStateSuite) TestSaveUnitWorkloadStatus(c *gc.C) {
 	unitUUID := unitUUIDs[0]
 
 	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SaveUnitWorkloadStatus(ctx, unitUUID, status)
+		return s.state.SetUnitWorkloadStatus(ctx, unitUUID, status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(

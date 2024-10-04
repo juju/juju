@@ -56,7 +56,7 @@ var _ = gc.Suite(&importSuite{})
 func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
-	since := time.Now().UTC()
+	updatedAt := time.Now().UTC()
 	appArgs := description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("prometheus"),
 		CharmURL: "ch:prometheus-1",
@@ -81,13 +81,13 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 		Value:   "idle",
 		Message: "agent status",
 		Data:    map[string]any{"foo": "bar"},
-		Updated: since,
+		Updated: updatedAt,
 	})
 	u.SetWorkloadStatus(description.StatusArgs{
 		Value:   "waiting",
 		Message: "workload status",
 		Data:    map[string]any{"foo": "bar"},
-		Updated: since,
+		Updated: updatedAt,
 	})
 	app.SetCharmMetadata(description.CharmMetadataArgs{
 		Name: "prometheus",
@@ -154,13 +154,13 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 				Status:  "idle",
 				Message: "agent status",
 				Data:    map[string]any{"foo": "bar"},
-				Since:   ptr(since),
+				Since:   ptr(updatedAt),
 			},
 			WorkloadStatus: service.StatusParams{
 				Status:  "waiting",
 				Message: "workload status",
 				Data:    map[string]any{"foo": "bar"},
-				Since:   ptr(since),
+				Since:   ptr(updatedAt),
 			},
 		}},
 	).DoAndReturn(func(_ context.Context, _ string, ch internalcharm.Charm, _ corecharm.Origin, _ service.AddApplicationArgs, _ ...service.ImportUnitArg) error {
