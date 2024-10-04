@@ -109,6 +109,11 @@ type endpoint struct {
 	Endpoint string `db:"endpoint"`
 }
 
+// endpointUUID represents an endpoint's UUID.
+type endpointUUID struct {
+	UUID string `db:"uuid"`
+}
+
 // endpointName represents a network endpoint's name.
 type endpointName struct {
 	Endpoint string `db:"endpoint"`
