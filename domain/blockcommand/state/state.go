@@ -14,6 +14,7 @@ import (
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State represents database interactions dealing with command block.
@@ -38,12 +39,18 @@ func (s *State) SetBlock(ctx context.Context, t blockcommand.BlockType, message 
 		return err
 	}
 
+	uuid, err := uuid.NewUUID()
+	if err != nil {
+		return errors.Errorf("generating UUID: %w", err)
+	}
+
 	bcType, err := encodeBlockType(t)
 	if err != nil {
 		return err
 	}
 
 	bc := blockCommand{
+		UUID:      uuid.String(),
 		BlockType: bcType,
 		Message:   message,
 	}
@@ -149,6 +156,7 @@ func (s *State) GetBlocks(ctx context.Context) ([]blockcommand.Block, error) {
 		}
 
 		results = append(results, blockcommand.Block{
+			UUID:    b.UUID,
 			Type:    bt,
 			Message: b.Message,
 		})
