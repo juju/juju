@@ -242,8 +242,7 @@ type SafeModeMachineAgent struct {
 
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc
 
-	loopDeviceManager          looputil.LoopDeviceManager
-	newIntrospectionSocketName func(names.Tag) string
+	loopDeviceManager looputil.LoopDeviceManager
 
 	isCaasAgent bool
 }

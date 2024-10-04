@@ -552,7 +552,6 @@ var (
 		AuditLogMaxBackups,
 		AuditLogMaxSize,
 		CAASImageRepo,
-		ControllerName,
 		ControllerResourceDownloadLimit,
 		Features,
 		JujuHASpace,
