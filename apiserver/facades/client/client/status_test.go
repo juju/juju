@@ -1124,13 +1124,15 @@ func (s *CAASStatusSuite) TestStatusCloudContainerSet(c *gc.C) {
 
 func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.ApplicationStatus, status, info string) {
 	curl, _ := s.app.CharmURL()
+	parsedCurl, err := charm.ParseURL(*curl)
+	c.Assert(err, jc.ErrorIsNil)
 	workloadVersion := ""
 	if info != "installing agent" && info != "blocked" {
 		workloadVersion = "gitlab/latest"
 	}
 	c.Assert(appStatus, jc.DeepEquals, params.ApplicationStatus{
 		Charm:           *curl,
-		CharmRev:        curl.Revision,
+		CharmRev:        parsedCurl.Revision,
 		Base:            params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 		WorkloadVersion: workloadVersion,
 		Relations:       map[string][]string{},
