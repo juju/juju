@@ -36,6 +36,8 @@ import (
 	modelmigrationstate "github.com/juju/juju/domain/modelmigration/state"
 	networkservice "github.com/juju/juju/domain/network/service"
 	networkstate "github.com/juju/juju/domain/network/state"
+	portservice "github.com/juju/juju/domain/port/service"
+	portstate "github.com/juju/juju/domain/port/state"
 	proxy "github.com/juju/juju/domain/proxy/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretstate "github.com/juju/juju/domain/secret/state"
@@ -270,5 +272,13 @@ func (s *ModelFactory) Proxy() *proxy.Service {
 func (s *ModelFactory) UnitState() *unitstateservice.Service {
 	return unitstateservice.NewService(
 		unitstatestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+	)
+}
+
+// Port returns the service for managing opened port ranges for units.
+func (s *ModelFactory) Port() *portservice.WatchableService {
+	return portservice.NewWatchableService(
+		portstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		domain.NewWatcherFactory(s.modelDB, s.logger.Child("port")),
 	)
 }

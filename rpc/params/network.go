@@ -451,13 +451,6 @@ type EntityPortRange struct {
 	Endpoint string `json:"endpoint"`
 }
 
-// EntitiesPortRanges holds the parameters for making an OpenPorts or
-// ClosePorts on some entities.
-// TODO(juju3) - remove
-type EntitiesPortRanges struct {
-	Entities []EntityPortRange `json:"entities"`
-}
-
 // Address represents the location of a machine, including metadata
 // about what kind of location the address describes.
 // See also the address types in core/network that this type can be

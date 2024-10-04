@@ -76,6 +76,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 		domainServices.Credential(),
 		applicationService,
 		domainServices.UnitState(),
+		domainServices.Port(),
 	)
 	c.Assert(err, gc.ErrorMatches, "kaboom")
 }

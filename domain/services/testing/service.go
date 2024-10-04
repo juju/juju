@@ -28,6 +28,7 @@ import (
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	networkservice "github.com/juju/juju/domain/network/service"
+	portservice "github.com/juju/juju/domain/port/service"
 	proxyservice "github.com/juju/juju/domain/proxy/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -236,5 +237,9 @@ func (s *TestingDomainServices) Proxy() *proxyservice.Service {
 }
 
 func (s *TestingDomainServices) UnitState() *unitstateservice.Service {
+	return nil
+}
+
+func (s *TestingDomainServices) Port() *portservice.WatchableService {
 	return nil
 }

@@ -19,9 +19,11 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/featureflag"
+	"github.com/juju/juju/internal/services"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/juju/testing"
@@ -31,8 +33,9 @@ import (
 
 type uniterNetworkInfoSuite struct {
 	uniterSuiteBase
-	mysqlCharm *state.Charm
-	st         *state.State
+	domainServices services.DomainServices
+	mysqlCharm     *state.Charm
+	st             *state.State
 }
 
 var _ = gc.Suite(&uniterNetworkInfoSuite{})
@@ -45,18 +48,18 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	s.ApiServerSuite.SeedCAASCloud(c)
 
-	domainServices := s.ControllerDomainServices(c)
-	cloudService := domainServices.Cloud()
+	s.domainServices = s.ControllerDomainServices(c)
+	cloudService := s.domainServices.Cloud()
 	err := cloudService.UpdateCloud(context.Background(), testing.DefaultCloud)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
-	domainServices.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialId, cred)
+	s.domainServices.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialId, cred)
 
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	s.st = s.ControllerModel(c).State()
-	networkService := domainServices.Network()
+	networkService := s.domainServices.Network()
 
 	spacePublic := network.SpaceInfo{
 		Name: "public",
@@ -769,6 +772,20 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
 	c.Assert(unitPortRanges.ByEndpoint()["monitoring-port"], jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}}, gc.Commentf("unit ports where not opened for the requested endpoint"))
+
+	unitUUID, err := s.domainServices.Application(service.ApplicationServiceParams{}).GetUnitUUID(context.Background(), s.wordpressUnit.Tag().Id())
+	c.Assert(err, jc.ErrorIsNil)
+	grp, err := s.domainServices.Port().GetUnitOpenedPorts(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(grp, jc.DeepEquals, network.GroupedPortRanges{
+		"monitoring-port": {
+			{Protocol: "tcp", FromPort: 80, ToPort: 81},
+			// NOTE: Opening and closing the same port range at the same time
+			// leads to different behaviour between DQLite and Mongo
+			// TODO (jack-w-shaw): evaluate if this is worth fixing
+			{Protocol: "tcp", FromPort: 7337, ToPort: 7337},
+		},
+	}, gc.Commentf("unit ports where not opened for the requested endpoint"))
 
 	unitState, err := s.wordpressUnit.State()
 	c.Assert(err, jc.ErrorIsNil)

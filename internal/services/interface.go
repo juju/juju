@@ -29,6 +29,7 @@ import (
 	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
+	portservice "github.com/juju/juju/domain/port/service"
 	proxyservice "github.com/juju/juju/domain/proxy/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -119,6 +120,8 @@ type ModelDomainServices interface {
 	// state. This is used to reconcile with local state to determine which
 	// hooks to run, and is saved upon hook completion.
 	UnitState() *unitstateservice.Service
+	// Port returns the service for managing opened port ranges for units.
+	Port() *portservice.WatchableService
 }
 
 // DomainServices provides access to the services required by the apiserver.
