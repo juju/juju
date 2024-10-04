@@ -16,6 +16,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
@@ -595,7 +596,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	}
 	s.createApplication(c, "foo", life.Alive, u1, u2)
 	var (
-		unitUUID    string
+		unitUUID    coreunit.UUID
 		netNodeUUID string
 		deviceUUID  string
 	)
@@ -794,7 +795,7 @@ func (s *applicationStateSuite) TestGetUnitUUID(c *gc.C) {
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
 
-	var unitUUID string
+	var unitUUID coreunit.UUID
 	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		var err error
 		unitUUID, err = s.state.GetUnitUUID(ctx, u1.UnitName)
@@ -802,7 +803,7 @@ func (s *applicationStateSuite) TestGetUnitUUID(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var gotUUID string
+	var gotUUID coreunit.UUID
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", u1.UnitName).
 			Scan(&gotUUID); err != nil {
@@ -823,7 +824,7 @@ func (s *applicationStateSuite) TestGetUnitUUIDNotFound(c *gc.C) {
 }
 
 func (s *applicationStateSuite) assertUnitStatus(
-	c *gc.C, statusType, unitUUID string, statusID int, message string, since time.Time, data map[string]string,
+	c *gc.C, statusType, unitUUID coreunit.UUID, statusID int, message string, since time.Time, data map[string]string,
 ) {
 	var (
 		gotStatusID int
@@ -878,7 +879,7 @@ func (s *applicationStateSuite) TestSaveCloudContainerStatus(c *gc.C) {
 		},
 	}
 
-	var unitUUID string
+	var unitUUID coreunit.UUID
 	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		var err error
 		unitUUID, err = s.state.GetUnitUUID(ctx, u1.UnitName)
@@ -907,7 +908,7 @@ func (s *applicationStateSuite) TestSaveUnitAgentStatus(c *gc.C) {
 		},
 	}
 
-	var unitUUID string
+	var unitUUID coreunit.UUID
 	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		var err error
 		unitUUID, err = s.state.GetUnitUUID(ctx, u1.UnitName)
@@ -936,7 +937,7 @@ func (s *applicationStateSuite) TestSaveUnitWorkloadStatus(c *gc.C) {
 		},
 	}
 
-	var unitUUID string
+	var unitUUID coreunit.UUID
 	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		var err error
 		unitUUID, err = s.state.GetUnitUUID(ctx, u1.UnitName)
