@@ -10,7 +10,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	domain "github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/port"
 	domaintesting "github.com/juju/juju/domain/testing"
@@ -24,9 +26,9 @@ type serviceSuite struct {
 var _ = gc.Suite(&serviceSuite{})
 
 const (
-	unitUUID    = "unit-uuid"
-	machineUUID = "machine-uuid"
-	appUUID     = "app-uuid"
+	unitUUID    coreunit.UUID      = "unit-uuid"
+	machineUUID string             = "machine-uuid"
+	appUUID     coreapplication.ID = "app-uuid"
 )
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -65,7 +67,7 @@ func (s *serviceSuite) TestGetUnitOpenedPorts(c *gc.C) {
 func (s *serviceSuite) TestGetMachineOpenedPorts(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	grp := map[string]network.GroupedPortRanges{
+	grp := map[coreunit.UUID]network.GroupedPortRanges{
 		"unit-uuid-1": {
 			"ep1": {
 				network.MustParsePortRange("80/tcp"),
@@ -99,7 +101,7 @@ func (s *serviceSuite) TestGetApplicationOpenedPorts(c *gc.C) {
 		{Endpoint: "ep3", UnitUUID: "unit-uuid-2", PortRange: network.MustParsePortRange("8080/tcp")},
 	}
 
-	expected := map[string]network.GroupedPortRanges{
+	expected := map[coreunit.UUID]network.GroupedPortRanges{
 		"unit-uuid-1": {
 			"ep1": {
 				network.MustParsePortRange("80/tcp"),

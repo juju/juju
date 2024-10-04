@@ -11,6 +11,7 @@ import (
 	"github.com/juju/collections/transform"
 	jujuerrors "github.com/juju/errors"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -62,13 +63,13 @@ WHERE unit_endpoint.uuid IN ($endpoints[:])
 
 // FilterEndpointsForApplication returns the subset of provided endpoint uuids
 // that are associated with the provided application.
-func (st *State) FilterEndpointsForApplication(ctx context.Context, app string, eps []string) (set.Strings, error) {
+func (st *State) FilterEndpointsForApplication(ctx context.Context, app coreapplication.ID, eps []string) (set.Strings, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
 	}
 
-	applicationUUID := applicationUUID{UUID: app}
+	applicationUUID := applicationUUID{UUID: app.String()}
 	endpointUUIDs := endpoints(eps)
 
 	query, err := st.Prepare(`

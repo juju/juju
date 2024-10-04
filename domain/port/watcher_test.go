@@ -11,9 +11,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
@@ -36,9 +38,9 @@ type watcherSuite struct {
 
 	unitCount int
 
-	unitUUIDs [3]string
+	unitUUIDs [3]coreunit.UUID
 
-	appUUIDs [2]string
+	appUUIDs [2]coreapplication.ID
 }
 
 var _ = gc.Suite(&watcherSuite{})
@@ -82,7 +84,7 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 
 // createUnit creates a new unit in state and returns its UUID. The unit is assigned
 // to the net node with uuid `netNodeUUID`.
-func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) (string, string) {
+func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.UUID, coreapplication.ID) {
 	applicationSt := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
 	_, err := applicationSt.CreateApplication(context.Background(), appName, application.AddApplicationArg{
 		Charm: charm.Charm{
@@ -99,8 +101,8 @@ func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) (string,
 	s.unitCount++
 
 	var (
-		unitUUID string
-		appUUID  string
+		unitUUID coreunit.UUID
+		appUUID  coreapplication.ID
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&unitUUID)

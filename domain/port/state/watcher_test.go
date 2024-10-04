@@ -11,7 +11,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/internal/logger"
@@ -20,9 +22,9 @@ import (
 type watcherSuite struct {
 	baseSuite
 
-	unitUUIDs [3]string
+	unitUUIDs [3]coreunit.UUID
 
-	appUUIDs [2]string
+	appUUIDs [2]coreapplication.ID
 }
 
 var _ = gc.Suite(&watcherSuite{})

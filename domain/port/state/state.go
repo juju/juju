@@ -11,8 +11,10 @@ import (
 	"github.com/juju/collections/transform"
 	jujuerrors "github.com/juju/errors"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/internal/errors"
@@ -33,13 +35,13 @@ func NewState(factory database.TxnRunnerFactory) *State {
 
 // GetUnitOpenedPorts returns the opened ports for a given unit uuid,
 // grouped by endpoint.
-func (st *State) GetUnitOpenedPorts(ctx context.Context, unit string) (network.GroupedPortRanges, error) {
+func (st *State) GetUnitOpenedPorts(ctx context.Context, unit coreunit.UUID) (network.GroupedPortRanges, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
 	}
 
-	unitUUID := unitUUID{UUID: unit}
+	unitUUID := unitUUID{UUID: unit.String()}
 
 	query, err := st.Prepare(`
 SELECT &endpointPortRange.*
@@ -85,7 +87,9 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 //
 // NOTE: In the ddl machines and units both share 1-to-1 relations with net_nodes.
 // So to join units to machines we go via their net_nodes.
-func (st *State) GetMachineOpenedPorts(ctx context.Context, machine string) (map[string]network.GroupedPortRanges, error) {
+//
+// TODO: Once we have a core static machine uuid type, use it here.
+func (st *State) GetMachineOpenedPorts(ctx context.Context, machine string) (map[coreunit.UUID]network.GroupedPortRanges, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
@@ -118,19 +122,22 @@ WHERE machine.uuid = $machineUUID.machine_uuid
 		return nil, errors.Errorf("getting opened ports for machine %q: %w", machine, err)
 	}
 
-	return groupPortRangesByUnitByEndpoint(results), nil
+	decoded := port.UnitEndpointPortRanges(transform.Slice(results, func(p unitEndpointPortRange) port.UnitEndpointPortRange {
+		return p.decodeToUnitEndpointPortRange()
+	}))
+	return decoded.ByUnitByEndpoint(), nil
 }
 
 // GetApplicationOpenedPorts returns the opened ports for all the units of the
 // given application. We return opened ports paired with the unit UUIDs, grouped
 // by endpoint. This is because some consumers do not care about the unit.
-func (st *State) GetApplicationOpenedPorts(ctx context.Context, application string) (port.UnitEndpointPortRanges, error) {
+func (st *State) GetApplicationOpenedPorts(ctx context.Context, application coreapplication.ID) (port.UnitEndpointPortRanges, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
 	}
 
-	applicationUUID := applicationUUID{UUID: application}
+	applicationUUID := applicationUUID{UUID: application.String()}
 
 	query, err := st.Prepare(`
 SELECT &unitEndpointPortRange.*
@@ -163,33 +170,10 @@ WHERE unit.application_uuid = $applicationUUID.application_uuid
 	return ret, nil
 }
 
-func groupPortRangesByUnitByEndpoint(portRanges []unitEndpointPortRange) map[string]network.GroupedPortRanges {
-	groupedPortRanges := map[string]network.GroupedPortRanges{}
-	for _, portRange := range portRanges {
-		unitUUID := portRange.UnitUUID
-		endpoint := portRange.Endpoint
-		if _, ok := groupedPortRanges[unitUUID]; !ok {
-			groupedPortRanges[unitUUID] = network.GroupedPortRanges{}
-		}
-		if _, ok := groupedPortRanges[unitUUID][endpoint]; !ok {
-			groupedPortRanges[unitUUID][endpoint] = []network.PortRange{}
-		}
-		groupedPortRanges[unitUUID][endpoint] = append(groupedPortRanges[unitUUID][endpoint], portRange.decodeToPortRange())
-	}
-
-	for _, grp := range groupedPortRanges {
-		for _, portRanges := range grp {
-			network.SortPortRanges(portRanges)
-		}
-	}
-
-	return groupedPortRanges
-}
-
 // GetColocatedOpenedPorts returns all the open ports for all units co-located with
 // the given unit. Units are considered co-located if they share the same net-node.
-func (st *State) GetColocatedOpenedPorts(ctx domain.AtomicContext, unit string) ([]network.PortRange, error) {
-	unitUUID := unitUUID{UUID: unit}
+func (st *State) GetColocatedOpenedPorts(ctx domain.AtomicContext, unit coreunit.UUID) ([]network.PortRange, error) {
+	unitUUID := unitUUID{UUID: unit.String()}
 
 	getOpenedPorts, err := st.Prepare(`
 SELECT &portRange.*
@@ -223,8 +207,8 @@ WHERE u2.uuid = $unitUUID.unit_uuid
 
 // GetEndpointOpenedPorts returns the opened ports for a given endpoint of a
 // given unit.
-func (st *State) GetEndpointOpenedPorts(ctx domain.AtomicContext, unit string, endpoint string) ([]network.PortRange, error) {
-	unitUUID := unitUUID{UUID: unit}
+func (st *State) GetEndpointOpenedPorts(ctx domain.AtomicContext, unit coreunit.UUID, endpoint string) ([]network.PortRange, error) {
+	unitUUID := unitUUID{UUID: unit.String()}
 	endpointName := endpointName{Endpoint: endpoint}
 
 	query, err := st.Prepare(`
@@ -263,7 +247,7 @@ AND unit_endpoint.endpoint = $endpointName.endpoint
 // The service layer must ensure that opened and closed ports for the same
 // endpoints must not conflict.
 func (st *State) UpdateUnitPorts(
-	ctx domain.AtomicContext, unit string, openPorts, closePorts network.GroupedPortRanges,
+	ctx domain.AtomicContext, unit coreunit.UUID, openPorts, closePorts network.GroupedPortRanges,
 ) error {
 	endpointsUnderActionSet := set.NewStrings()
 	for endpoint := range openPorts {
@@ -274,7 +258,7 @@ func (st *State) UpdateUnitPorts(
 	}
 	endpointsUnderAction := endpoints(endpointsUnderActionSet.Values())
 
-	unitUUID := unitUUID{UUID: unit}
+	unitUUID := unitUUID{UUID: unit.String()}
 
 	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		endpoints, err := st.ensureEndpoints(ctx, tx, unitUUID, endpointsUnderAction)
@@ -534,8 +518,8 @@ WHERE uuid IN ($portRangeUUIDs[:])
 //
 // Once it has been implemented, we should check the charm_relation table to get a
 // complete list of endpoints instead.
-func (st *State) GetEndpoints(ctx domain.AtomicContext, unit string) ([]string, error) {
-	unitUUID := unitUUID{UUID: unit}
+func (st *State) GetEndpoints(ctx domain.AtomicContext, unit coreunit.UUID) ([]string, error) {
+	unitUUID := unitUUID{UUID: unit.String()}
 
 	getEndpoints, err := st.Prepare(`
 SELECT &endpointName.*

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher"
@@ -64,7 +65,7 @@ type WatcherState interface {
 
 	// FilterEndpointsForApplication returns the subset of provided endpoint uuids
 	// that are associated with the provided application.
-	FilterEndpointsForApplication(ctx context.Context, app string, eps []string) (set.Strings, error)
+	FilterEndpointsForApplication(ctx context.Context, app coreapplication.ID, eps []string) (set.Strings, error)
 }
 
 // WatchOpenedPorts returns a strings watcher for opened ports. This watcher
@@ -82,7 +83,7 @@ func (s *WatchableService) WatchOpenedPorts(ctx context.Context) (watcher.String
 // WatchOpenedPortsForApplication returns a notify watcher for opened ports. This
 // watcher emits events for changes to the opened ports table that are associated
 // with the given application
-func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, applicationUUID string) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, applicationUUID coreapplication.ID) (watcher.NotifyWatcher, error) {
 	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
 		s.st.WatchOpenedPortsTable(),
 		changestream.Create|changestream.Delete,
@@ -122,7 +123,7 @@ func (s *WatchableService) endpointToMachineMapper(
 // filterForApplication returns an eventsource.Mapper that filters events emitted
 // by port range changes to only include events for port range changes corresponding
 // to the given application
-func (s *WatchableService) filterForApplication(applicationUUID string) eventsource.Mapper {
+func (s *WatchableService) filterForApplication(applicationUUID coreapplication.ID) eventsource.Mapper {
 	return func(
 		ctx context.Context, db database.TxnRunner, events []changestream.ChangeEvent,
 	) ([]changestream.ChangeEvent, error) {

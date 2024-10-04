@@ -7,7 +7,9 @@ import (
 	"context"
 	"fmt"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/internal/errors"
@@ -24,18 +26,18 @@ type AtomicState interface {
 	// GetColocatedOpenedPorts returns all the open ports for all units co-located
 	// with the given unit. Units are considered co-located if they share the same
 	// net-node.
-	GetColocatedOpenedPorts(ctx domain.AtomicContext, unitUUID string) ([]network.PortRange, error)
+	GetColocatedOpenedPorts(ctx domain.AtomicContext, unitUUID coreunit.UUID) ([]network.PortRange, error)
 
 	// GetEndpointOpenedPorts returns the opened ports for a given endpoint of a
 	// given unit.
-	GetEndpointOpenedPorts(ctx domain.AtomicContext, unitUUID, endpoint string) ([]network.PortRange, error)
+	GetEndpointOpenedPorts(ctx domain.AtomicContext, unitUUID coreunit.UUID, endpoint string) ([]network.PortRange, error)
 
 	// GetEndpoints returns all endpoints for a given unit.
-	GetEndpoints(ctx domain.AtomicContext, unitUUID string) ([]string, error)
+	GetEndpoints(ctx domain.AtomicContext, unitUUID coreunit.UUID) ([]string, error)
 
 	// UpdateUnitPorts opens and closes ports for the endpoints of a given unit.
 	// The opened and closed ports for the same endpoints must not conflict.
-	UpdateUnitPorts(ctx domain.AtomicContext, unitUUID string, openPorts, closePorts network.GroupedPortRanges) error
+	UpdateUnitPorts(ctx domain.AtomicContext, unitUUID coreunit.UUID, openPorts, closePorts network.GroupedPortRanges) error
 }
 
 // State describes the methods that a state implementation must provide to
@@ -46,16 +48,16 @@ type State interface {
 
 	// GetUnitOpenedPorts returns the opened ports for a given unit uuid,
 	// grouped by endpoint.
-	GetUnitOpenedPorts(ctx context.Context, unitUUID string) (network.GroupedPortRanges, error)
+	GetUnitOpenedPorts(ctx context.Context, unitUUID coreunit.UUID) (network.GroupedPortRanges, error)
 
 	// GetMachineOpenedPorts returns the opened ports for all the units on the
 	// given machine. Opened ports are grouped first by unit and then by endpoint.
-	GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error)
+	GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[coreunit.UUID]network.GroupedPortRanges, error)
 
 	// GetApplicationOpenedPorts returns the opened ports for all the units of the
 	// given application. We return opened ports paired with the unit UUIDs, grouped
 	// by endpoint.
-	GetApplicationOpenedPorts(ctx context.Context, applicationUUID string) (port.UnitEndpointPortRanges, error)
+	GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.ID) (port.UnitEndpointPortRanges, error)
 }
 
 // Service provides the API for managing the opened ports for units.
@@ -72,19 +74,21 @@ func NewService(st State) *Service {
 
 // GetUnitOpenedPorts returns the opened ports for a given unit uuid, grouped by
 // endpoint.
-func (s *Service) GetUnitOpenedPorts(ctx context.Context, unitUUID string) (network.GroupedPortRanges, error) {
+func (s *Service) GetUnitOpenedPorts(ctx context.Context, unitUUID coreunit.UUID) (network.GroupedPortRanges, error) {
 	return s.st.GetUnitOpenedPorts(ctx, unitUUID)
 }
 
 // GetMachineOpenedPorts returns the opened ports for all the units on the machine.
 // Opened ports are grouped first by unit and then by endpoint.
-func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error) {
+//
+// TODO: Once we have a core static machine uuid type, use it here.
+func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[coreunit.UUID]network.GroupedPortRanges, error) {
 	return s.st.GetMachineOpenedPorts(ctx, machineUUID)
 }
 
 // GetApplicationOpenedPorts returns the opened ports for all the units of the
 // application. Opened ports are grouped first by unit and then by endpoint.
-func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID string) (map[string]network.GroupedPortRanges, error) {
+func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.ID) (map[coreunit.UUID]network.GroupedPortRanges, error) {
 	openedPorts, err := s.st.GetApplicationOpenedPorts(ctx, applicationUUID)
 	if err != nil {
 		return nil, errors.Errorf("failed to get opened ports for application %s: %w", applicationUUID, err)
@@ -99,7 +103,7 @@ func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID
 // we guarantee that each port range is of unit length. This is useful for
 // down-stream consumers such as k8s, which can only reason with unit-length
 // port ranges.
-func (s *Service) GetApplicationOpenedPortsByEndpoint(ctx context.Context, applicationUUID string) (network.GroupedPortRanges, error) {
+func (s *Service) GetApplicationOpenedPortsByEndpoint(ctx context.Context, applicationUUID coreapplication.ID) (network.GroupedPortRanges, error) {
 	openedPorts, err := s.st.GetApplicationOpenedPorts(ctx, applicationUUID)
 	if err != nil {
 		return nil, errors.Errorf("failed to get opened ports for application %s: %w", applicationUUID, err)
@@ -146,7 +150,7 @@ func atomisePortRange(portRange network.PortRange) []network.PortRange {
 // On the other hand, if we close a specific endpoint's port range that is open
 // on the wildcard endpoint, we will close it on the wildcard endpoint and open
 // it on all other endpoints except the targeted endpoint.
-func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID string, openPorts, closePorts network.GroupedPortRanges) error {
+func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, openPorts, closePorts network.GroupedPortRanges) error {
 	if len(openPorts.UniquePortRanges())+len(closePorts.UniquePortRanges()) == 0 {
 		return nil
 	}
