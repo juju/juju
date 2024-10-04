@@ -220,10 +220,6 @@ func (addr *Address) String() string {
 	)
 }
 
-func (addr *Address) globalKey() string {
-	return ipAddressGlobalKey(addr.doc.MachineID, addr.doc.DeviceName, addr.doc.Value)
-}
-
 func ipAddressGlobalKey(machineID, deviceName, address string) string {
 	deviceGlobalKey := linkLayerDeviceGlobalKey(machineID, deviceName)
 	if deviceGlobalKey == "" || address == "" {

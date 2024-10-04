@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/state/mocks"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -46,7 +45,7 @@ type upgraderSuite struct {
 	store      objectstore.ObjectStore
 
 	controllerConfigGetter *MockControllerConfigGetter
-	isUpgrader             *mocks.MockUpgrader
+	isUpgrader             *MockUpgrader
 }
 
 var _ = gc.Suite(&upgraderSuite{})
@@ -622,7 +621,7 @@ func (s *upgraderSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
-	s.isUpgrader = mocks.NewMockUpgrader(ctrl)
+	s.isUpgrader = NewMockUpgrader(ctrl)
 	s.isUpgrader.EXPECT().IsUpgrading().Return(false, nil).AnyTimes()
 
 	return ctrl

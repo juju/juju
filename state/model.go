@@ -1423,17 +1423,6 @@ func HostedModelCountOp(amount int) txn.Op {
 	}
 }
 
-func hostedModelCount(st *State) (int, error) {
-	var doc hostedModelCountDoc
-	controllers, closer := st.db().GetCollection(controllersC)
-	defer closer()
-
-	if err := controllers.Find(bson.D{{"_id", hostedModelCountKey}}).One(&doc); err != nil {
-		return 0, errors.Trace(err)
-	}
-	return doc.RefCount, nil
-}
-
 // createUniqueOwnerModelNameOp returns the operation needed to create
 // a usermodelnameC document with the given owner and model name.
 func createUniqueOwnerModelNameOp(owner names.UserTag, modelName string) txn.Op {
