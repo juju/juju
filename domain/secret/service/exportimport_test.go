@@ -190,7 +190,9 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 		CurrentRevision: 666,
 	})
 
-	s.state.EXPECT().CreateCharmApplicationSecret(gomock.Any(), 0, uri, "mysql", domainsecret.UpsertSecretParams{
+	s.state.EXPECT().GetApplicationUUID(gomock.Any(), "mysql").Return("app-uuid", nil)
+	s.state.EXPECT().CheckApplicationSecretLabelExists(gomock.Any(), "app-uuid", secrets[0].Label).Return(nil)
+	s.state.EXPECT().CreateCharmApplicationSecret(gomock.Any(), 0, uri, "app-uuid", domainsecret.UpsertSecretParams{
 		RotatePolicy:   ptr(domainsecret.RotateHourly),
 		ExpireTime:     nil,
 		NextRotateTime: ptr(rotateTime),

@@ -10,6 +10,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/secret"
 )
 
@@ -243,7 +244,10 @@ func (s *SecretService) importSecretRevisions(
 				return errors.Trace(err)
 			}
 		}
-		if err := s.secretState.UpdateSecret(ctx, md.URI, params); err != nil {
+		err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+			return s.updateSecret(ctx, md.URI, params)
+		})
+		if err != nil {
 			if err := rollBack(); err != nil {
 				s.logger.Warningf("failed to roll back secret reference count: %v", err)
 			}
@@ -288,15 +292,10 @@ func (s *SecretService) createImportedSecret(
 			}
 		}
 	}()
-	switch md.Owner.Kind {
-	case coresecrets.ModelOwner:
-		err = s.secretState.CreateUserSecret(ctx, md.Version, md.URI, params)
-	case coresecrets.ApplicationOwner:
-		err = s.secretState.CreateCharmApplicationSecret(ctx, md.Version, md.URI, md.Owner.ID, params)
-	case coresecrets.UnitOwner:
-		err = s.secretState.CreateCharmUnitSecret(ctx, md.Version, md.URI, md.Owner.ID, params)
-	default:
-		// Should never happen.
+
+	if err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return s.createSecret(ctx, md.Version, md.URI, md.Owner, params)
+	}); err != nil {
 		return errors.Errorf("cannot import secret %q with owner kind %q", md.URI.ID, md.Owner.Kind)
 	}
 	return err

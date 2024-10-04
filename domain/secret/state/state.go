@@ -77,19 +77,63 @@ func (st State) getModelUUID(ctx context.Context, tx *sqlair.TX) (string, error)
 	return result["uuid"].(string), nil
 }
 
+// GetApplicationUUID returns the UUID of the application with the given name, returning an error satisfying
+// [applicationerrors.ApplicationNotFound] if the application does not exist.
+func (st State) GetApplicationUUID(ctx domain.AtomicContext, appName string) (string, error) {
+	app := application{Name: appName}
+
+	selectApplicationUUID := `SELECT &application.uuid FROM application WHERE name=$application.name`
+	selectApplicationUUIDStmt, err := st.Prepare(selectApplicationUUID, app)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, selectApplicationUUIDStmt, app).Get(&app)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return applicationerrors.ApplicationNotFound
+			} else {
+				return errors.Annotatef(err, "looking up application UUID for %q", appName)
+			}
+		}
+		return nil
+	})
+	return app.UUID, errors.Trace(err)
+}
+
+// GetUnitUUID returns the UUID of the unit with the given name, returning an error satisfying
+// [applicationerrors.UnitNotFound] if the unit does not exist.
+func (st State) GetUnitUUID(ctx domain.AtomicContext, unitName string) (string, error) {
+	u := unit{Name: unitName}
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		selectUnitUUID := `SELECT &unit.uuid FROM unit WHERE name=$unit.name`
+		selectUnitUUIDStmt, err := st.Prepare(selectUnitUUID, u)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		err = tx.Query(ctx, selectUnitUUIDStmt, u).Get(&u)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
+			} else {
+				return errors.Annotatef(err, "looking up unit UUID for %q", unitName)
+			}
+		}
+		return nil
+	})
+	return u.UUID, errors.Trace(err)
+}
+
 // CreateUserSecret creates a user secret, returning an error satisfying
 // [secreterrors.SecretAlreadyExists] if a user secret with the same
 // label already exists.
 func (st State) CreateUserSecret(
-	ctx context.Context, version int, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams,
+	ctx domain.AtomicContext, version int, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams,
 ) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.createSecret(ctx, tx, version, uri, secret, st.checkUserSecretLabelExists); err != nil {
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.createSecret(ctx, tx, version, uri, secret); err != nil {
 			return errors.Annotatef(err, "inserting secret records for secret %q", uri)
 		}
 
@@ -115,9 +159,12 @@ func (st State) CreateUserSecret(
 	return errors.Trace(err)
 }
 
-// checkSecretUserLabelExists returns an error if a user
+// CheckUserSecretLabelExists returns an error if a user
 // secret with the given label already exists.
-func (st State) checkUserSecretLabelExists(ctx context.Context, tx *sqlair.TX, label string) error {
+func (st State) CheckUserSecretLabelExists(ctx domain.AtomicContext, label string) error {
+	if label == "" {
+		return nil
+	}
 	dbSecretOwner := secretOwner{Label: label}
 
 	checkLabelExistsSQL := `
@@ -129,14 +176,16 @@ WHERE  label = $secretOwner.label`
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = tx.Query(ctx, checkExistsStmt, dbSecretOwner).Get(&dbSecretOwner)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Trace(err)
-	}
-	if err == nil {
+	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, checkExistsStmt, dbSecretOwner).Get(&dbSecretOwner)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return fmt.Errorf("secret with label %q already exists%w", label, errors.Hide(secreterrors.SecretLabelAlreadyExists))
-	}
-	return nil
+	})
 }
 
 // CreateCharmApplicationSecret creates a secret onwed by the specified
@@ -145,43 +194,24 @@ WHERE  label = $secretOwner.label`
 // It also returns an error satisfying [applicationerrors.ApplicationNotFound]
 // ifthe application does not exist.
 func (st State) CreateCharmApplicationSecret(
-	ctx context.Context, version int, uri *coresecrets.URI, appName string, secret domainsecret.UpsertSecretParams,
+	ctx domain.AtomicContext, version int, uri *coresecrets.URI, appUUID string, secret domainsecret.UpsertSecretParams,
 ) error {
 	if secret.AutoPrune != nil && *secret.AutoPrune {
 		return secreterrors.AutoPruneNotSupported
-	}
-
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
 	}
 
 	label := ""
 	if secret.Label != nil {
 		label = *secret.Label
 	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		dbSecretOwner := secretApplicationOwner{SecretID: uri.ID, Label: label}
-		result := sqlair.M{}
-
-		selectApplicationUUID := `SELECT &M.uuid FROM application WHERE name=$M.name`
-		selectApplicationUUIDStmt, err := st.Prepare(selectApplicationUUID, result)
-		if err != nil {
-			return errors.Trace(err)
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		dbSecretOwner := secretApplicationOwner{
+			SecretID:        uri.ID,
+			Label:           label,
+			ApplicationUUID: appUUID,
 		}
 
-		err = tx.Query(ctx, selectApplicationUUIDStmt, sqlair.M{"name": appName}).Get(&result)
-		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return applicationerrors.ApplicationNotFound
-			} else {
-				return errors.Annotatef(err, "looking up application UUID for %q", appName)
-			}
-		}
-		dbSecretOwner.ApplicationUUID = result["uuid"].(string)
-
-		checkExists := st.checkApplicationSecretLabelExists(dbSecretOwner.ApplicationUUID)
-		if err := st.createSecret(ctx, tx, version, uri, secret, checkExists); err != nil {
+		if err := st.createSecret(ctx, tx, version, uri, secret); err != nil {
 			return errors.Annotatef(err, "inserting secret records for secret %q", uri)
 		}
 
@@ -199,16 +229,15 @@ func (st State) CreateCharmApplicationSecret(
 	return errors.Trace(err)
 }
 
-// checkApplicationSecretLabelExists returns function which checks if
+// CheckApplicationSecretLabelExists returns function which checks if
 // a charm application secret with the given label already exists.
-func (st State) checkApplicationSecretLabelExists(app_uuid string) checkExistsFunc {
-	return func(ctx context.Context, tx *sqlair.TX, label string) error {
-		if label == "" {
-			return nil
-		}
+func (st State) CheckApplicationSecretLabelExists(ctx domain.AtomicContext, appUUID string, label string) error {
+	if label == "" {
+		return nil
+	}
 
-		// TODO(secrets) - we check using 2 queries, but should do in DDL
-		checkLabelExistsSQL := `
+	// TODO(secrets) - we check using 2 queries, but should do in DDL
+	checkLabelExistsSQL := `
 SELECT secret_id AS &secretApplicationOwner.secret_id
 FROM (
     SELECT secret_id
@@ -218,26 +247,27 @@ FROM (
     UNION
     SELECT secret_id
     FROM   secret_unit_owner
-           JOIN unit u ON u.uuid = unit_uuid
+       JOIN unit u ON u.uuid = unit_uuid
     WHERE  label = $secretApplicationOwner.label
     AND    u.application_uuid = $secretApplicationOwner.application_uuid
 )`
 
-		checkExistsStmt, err := st.Prepare(checkLabelExistsSQL, secretApplicationOwner{})
+	checkExistsStmt, err := st.Prepare(checkLabelExistsSQL, secretApplicationOwner{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	dbSecretOwner := secretApplicationOwner{Label: label, ApplicationUUID: appUUID}
+	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, checkExistsStmt, dbSecretOwner).Get(&dbSecretOwner)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
 		if err != nil {
 			return errors.Trace(err)
 		}
-		dbSecretOwner := secretApplicationOwner{Label: label, ApplicationUUID: app_uuid}
-		err = tx.Query(ctx, checkExistsStmt, dbSecretOwner).Get(&dbSecretOwner)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Trace(err)
-		}
-		if err == nil {
-			return fmt.Errorf(
-				"secret with label %q already exists%w", label, errors.Hide(secreterrors.SecretLabelAlreadyExists))
-		}
-		return nil
-	}
+		return fmt.Errorf(
+			"secret with label %q already exists%w", label, errors.Hide(secreterrors.SecretLabelAlreadyExists))
+	})
 }
 
 // CreateCharmUnitSecret creates a secret onwed by the specified unit,
@@ -246,43 +276,23 @@ FROM (
 // It also returns an error satisfying [applicationerrors.UnitNotFound] if
 // the unit does not exist.
 func (st State) CreateCharmUnitSecret(
-	ctx context.Context, version int, uri *coresecrets.URI, unitName string, secret domainsecret.UpsertSecretParams,
+	ctx domain.AtomicContext, version int, uri *coresecrets.URI, unitUUID string, secret domainsecret.UpsertSecretParams,
 ) error {
 	if secret.AutoPrune != nil && *secret.AutoPrune {
 		return secreterrors.AutoPruneNotSupported
-	}
-
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
 	}
 
 	label := ""
 	if secret.Label != nil {
 		label = *secret.Label
 	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		dbSecretOwner := secretUnitOwner{SecretID: uri.ID, Label: label}
-
-		selectUnitUUID := `SELECT &unit.uuid FROM unit WHERE name=$unit.name`
-		selectUnitUUIDStmt, err := st.Prepare(selectUnitUUID, unit{})
-		if err != nil {
-			return errors.Trace(err)
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		dbSecretOwner := secretUnitOwner{
+			SecretID: uri.ID,
+			Label:    label,
+			UnitUUID: unitUUID,
 		}
-
-		result := unit{}
-		err = tx.Query(ctx, selectUnitUUIDStmt, unit{Name: unitName}).Get(&result)
-		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
-			} else {
-				return errors.Annotatef(err, "looking up unit UUID for %q", unitName)
-			}
-		}
-		dbSecretOwner.UnitUUID = result.UUID
-
-		checkExists := st.checkUnitSecretLabelExists(dbSecretOwner.UnitUUID)
-		if err := st.createSecret(ctx, tx, version, uri, secret, checkExists); err != nil {
+		if err := st.createSecret(ctx, tx, version, uri, secret); err != nil {
 			return errors.Annotatef(err, "inserting secret records for secret %q", uri)
 		}
 
@@ -303,19 +313,14 @@ func (st State) CreateCharmUnitSecret(
 // It also returns an error satisfying [secreterrors.SecretLabelAlreadyExists]
 // if the secret owner already has a secret with the same label.
 func (st State) UpdateSecret(
-	ctx context.Context, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams,
+	ctx domain.AtomicContext, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams,
 ) error {
 	if !secret.HasUpdate() {
 		return errors.New("must specify a new value or metadata to update a secret")
 	}
 
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = st.updateSecret(ctx, tx, uri, secret)
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.updateSecret(ctx, tx, uri, secret)
 		if err != nil {
 			return errors.Annotatef(err, "updating secret records for secret %q", uri)
 		}
@@ -324,16 +329,15 @@ func (st State) UpdateSecret(
 	return errors.Trace(err)
 }
 
-// checkUnitSecretLabelExists returns function which checks if a
+// CheckUnitSecretLabelExists returns function which checks if a
 // charm unit secret with the given label already exists.
-func (st State) checkUnitSecretLabelExists(unit_uuid string) checkExistsFunc {
-	return func(ctx context.Context, tx *sqlair.TX, label string) error {
-		if label == "" {
-			return nil
-		}
+func (st State) CheckUnitSecretLabelExists(ctx domain.AtomicContext, unitUUID string, label string) error {
+	if label == "" {
+		return nil
+	}
 
-		// TODO(secrets) - we check using 2 queries, but should do in DDL
-		checkLabelExistsSQL := `
+	// TODO(secrets) - we check using 2 queries, but should do in DDL
+	checkLabelExistsSQL := `
 SELECT secret_id AS &secretUnitOwner.secret_id
 FROM (
     SELECT secret_id
@@ -350,42 +354,35 @@ FROM (
     AND peer.uuid != u.uuid
 )`
 
-		checkExistsStmt, err := st.Prepare(checkLabelExistsSQL, secretUnitOwner{})
+	checkExistsStmt, err := st.Prepare(checkLabelExistsSQL, secretUnitOwner{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	dbSecretOwner := secretUnitOwner{Label: label, UnitUUID: unitUUID}
+	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, checkExistsStmt, dbSecretOwner).Get(&dbSecretOwner)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
 		if err != nil {
 			return errors.Trace(err)
 		}
-		dbSecretOwner := secretUnitOwner{Label: label, UnitUUID: unit_uuid}
-		err = tx.Query(ctx, checkExistsStmt, dbSecretOwner).Get(&dbSecretOwner)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Trace(err)
-		}
-		if err == nil {
-			return fmt.Errorf(
-				"secret with label %q already exists%w", label, errors.Hide(secreterrors.SecretLabelAlreadyExists))
-		}
-		return nil
-	}
+		return fmt.Errorf(
+			"secret with label %q already exists%w", label, errors.Hide(secreterrors.SecretLabelAlreadyExists))
+	})
 }
-
-type checkExistsFunc = func(ctx context.Context, tx *sqlair.TX, label string) error
 
 // createSecret creates the records needed to store secret data,
 // excluding secret owner records.
 func (st State) createSecret(
 	ctx context.Context, tx *sqlair.TX, version int, uri *coresecrets.URI,
 	secret domainsecret.UpsertSecretParams,
-	checkExists checkExistsFunc,
 ) error {
 	if len(secret.Data) == 0 && secret.ValueRef == nil {
 		return errors.Errorf("cannot create a secret %q without content", uri)
 	}
 	if secret.RevisionID == nil {
 		return errors.Errorf("revision ID must be provided")
-	}
-	if secret.Label != nil && *secret.Label != "" {
-		if err := checkExists(ctx, tx, *secret.Label); err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	insertQuery := `
@@ -449,6 +446,53 @@ VALUES ($secretID.id)`
 		}
 	}
 	return nil
+}
+
+// GetSecretOwner returns the owner of the secret with the given URI, returning an error satisfying
+// [secreterrors.SecretNotFound] if the secret does not exist.
+func (st State) GetSecretOwner(ctx domain.AtomicContext, uri *coresecrets.URI) (coresecrets.Owner, error) {
+	input := secretID{ID: uri.ID}
+	stmt, err := st.Prepare(`
+SELECT
+       (so.owner_kind,
+        so.owner_id) AS (&secretOwner.*)
+FROM   secret_metadata sm
+       LEFT JOIN (
+          SELECT $ownerKind.model_owner_kind AS owner_kind, '' AS owner_id,  secret_id
+          FROM   secret_model_owner so
+          UNION
+          SELECT $ownerKind.application_owner_kind AS owner_kind, application.uuid AS owner_id,  secret_id
+          FROM   secret_application_owner so
+          JOIN   application
+          WHERE  application.uuid = so.application_uuid
+          UNION
+          SELECT $ownerKind.unit_owner_kind AS owner_kind, unit_uuid AS owner_id,  secret_id
+          FROM   secret_unit_owner so
+          JOIN   unit
+          WHERE  unit.uuid = so.unit_uuid
+       ) so ON so.secret_id = sm.secret_id
+WHERE  sm.secret_id = $secretID.id
+`, secretID{}, secretOwner{}, ownerKindParam)
+	if err != nil {
+		return coresecrets.Owner{}, errors.Trace(err)
+	}
+
+	var result []secretOwner
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, input, ownerKindParam).GetAll(&result)
+		if errors.Is(err, sqlair.ErrNoRows) || len(result) == 0 {
+			return fmt.Errorf("secret %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return coresecrets.Owner{}, errors.Trace(err)
+	}
+	owner := result[0]
+	return coresecrets.Owner{
+		ID:   owner.OwnerID,
+		Kind: coresecrets.OwnerKind(owner.OwnerKind),
+	}, nil
 }
 
 // createSecret creates the records needed to store secret data,
@@ -516,34 +560,6 @@ GROUP BY sm.secret_id`
 	}
 	existing := existingResult[0]
 	latestRevisionUUID := dbSecrets[0].LatestRevisionUUID
-
-	// Check to be sure a duplicate label won't be used.
-	var checkExists checkExistsFunc
-	switch kind := existing.Owner.Kind; kind {
-	case coresecrets.ModelOwner:
-		checkExists = st.checkUserSecretLabelExists
-	case coresecrets.ApplicationOwner:
-		if secret.AutoPrune != nil && *secret.AutoPrune {
-			return secreterrors.AutoPruneNotSupported
-		}
-		// Query selects the app uuid as owner id.
-		checkExists = st.checkApplicationSecretLabelExists(existing.Owner.ID)
-	case coresecrets.UnitOwner:
-		if secret.AutoPrune != nil && *secret.AutoPrune {
-			return secreterrors.AutoPruneNotSupported
-		}
-		// Query selects the unit uuid as owner id.
-		checkExists = st.checkUnitSecretLabelExists(existing.Owner.ID)
-	default:
-		// Should never happen.
-		return errors.Errorf("unexpected secret owner kind %q", kind)
-	}
-
-	if secret.Label != nil && *secret.Label != "" {
-		if err := checkExists(ctx, tx, *secret.Label); err != nil {
-			return errors.Trace(err)
-		}
-	}
 
 	now := time.Now().UTC()
 	dbSecret := secretMetadata{
