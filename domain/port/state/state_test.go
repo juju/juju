@@ -8,10 +8,13 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/juju/collections/transform"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
@@ -27,18 +30,20 @@ import (
 type stateSuite struct {
 	testing.ModelSuite
 
-	unitUUID  string
+	unitUUID  coreunit.UUID
 	unitCount int
 
-	appUUID string
+	appUUID coreapplication.ID
+
+	epsUUIDMap map[string]port.UUID
 }
 
 var _ = gc.Suite(&stateSuite{})
 
 const (
-	mUUID       = "machine-uuid"
-	netNodeUUID = "net-node-uuid"
-	appName     = "app-name"
+	mUUID       = "machine-uuid-0"
+	netNodeUUID = "net-node-uuid-0"
+	appName     = "app-name-0"
 )
 
 func (s *stateSuite) SetUpTest(c *gc.C) {
@@ -49,11 +54,12 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.unitUUID, s.appUUID = s.createUnit(c, netNodeUUID, appName)
+	s.epsUUIDMap = map[string]port.UUID{}
 }
 
 // createUnit creates a new unit in state and returns its UUID. The unit is assigned
 // to the net node with uuid `netNodeUUID`.
-func (s *stateSuite) createUnit(c *gc.C, netNodeUUID, appName string) (string, string) {
+func (s *stateSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.UUID, coreapplication.ID) {
 	applicationSt := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
 	_, err := applicationSt.CreateApplication(context.Background(), appName, application.AddApplicationArg{
 		Charm: charm.Charm{
@@ -70,8 +76,8 @@ func (s *stateSuite) createUnit(c *gc.C, netNodeUUID, appName string) (string, s
 	s.unitCount++
 
 	var (
-		unitUUID string
-		appUUID  string
+		unitUUID coreunit.UUID
+		appUUID  coreapplication.ID
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&unitUUID)
@@ -85,7 +91,9 @@ func (s *stateSuite) createUnit(c *gc.C, netNodeUUID, appName string) (string, s
 		}
 
 		_, err = tx.ExecContext(ctx, "INSERT INTO net_node VALUES (?) ON CONFLICT DO NOTHING", netNodeUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return err
+		}
 
 		_, err = tx.ExecContext(ctx, "UPDATE unit SET net_node_uuid = ? WHERE name = ?", netNodeUUID, unitName)
 		if err != nil {
@@ -101,15 +109,30 @@ func (s *stateSuite) createUnit(c *gc.C, netNodeUUID, appName string) (string, s
 func (s *stateSuite) initialiseOpenPort(c *gc.C, st *State) {
 	ctx := context.Background()
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
-			"endpoint": {
+		var err error
+		eps, err := st.AddEndpoints(ctx, s.unitUUID, []string{"endpoint", "misc", "other-endpoint"})
+		if err != nil {
+			return err
+		}
+
+		for _, ep := range eps {
+			s.epsUUIDMap[ep.Endpoint] = ep.UUID
+		}
+
+		err = st.AddOpenedPorts(ctx, map[port.UUID][]network.PortRange{
+			s.epsUUIDMap["endpoint"]: {
 				{Protocol: "tcp", FromPort: 80, ToPort: 80},
 				{Protocol: "udp", FromPort: 1000, ToPort: 1500},
 			},
-			"misc": {
+			s.epsUUIDMap["misc"]: {
 				{Protocol: "tcp", FromPort: 8080, ToPort: 8080},
 			},
-		}, network.GroupedPortRanges{})
+		})
+		if err != nil {
+			return err
+		}
+
+		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -142,6 +165,55 @@ func (s *stateSuite) TestGetUnitOpenedPorts(c *gc.C) {
 
 	c.Check(groupedPortRanges["misc"], gc.HasLen, 1)
 	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
+}
+
+func (s *stateSuite) TestGetUnitOpenedPortsWithUUIDsBlankDB(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	var groupedPortRanges map[string][]port.PortRangeWithUUID
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		groupedPortRanges, err = st.GetUnitOpenedPortsWithUUIDs(ctx, s.unitUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(groupedPortRanges, gc.HasLen, 0)
+
+	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		groupedPortRanges, err = st.GetUnitOpenedPortsWithUUIDs(ctx, "non-existent")
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(groupedPortRanges, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestGetUnitOpenedPortsWithUUIDs(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	s.initialiseOpenPort(c, st)
+
+	var groupedPortRanges map[string][]port.PortRangeWithUUID
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		groupedPortRanges, err = st.GetUnitOpenedPortsWithUUIDs(ctx, s.unitUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(groupedPortRanges, gc.HasLen, 2)
+
+	c.Check(groupedPortRanges["endpoint"], gc.HasLen, 2)
+
+	c.Check(groupedPortRanges["endpoint"][0].PortRange, jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
+	c.Check(groupedPortRanges["endpoint"][0].UUID.Validate(), jc.ErrorIsNil)
+
+	c.Check(groupedPortRanges["endpoint"][1].PortRange, jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
+	c.Check(groupedPortRanges["endpoint"][1].UUID.Validate(), jc.ErrorIsNil)
+
+	c.Check(groupedPortRanges["misc"], gc.HasLen, 1)
+	c.Check(groupedPortRanges["misc"][0].PortRange, jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
+	c.Check(groupedPortRanges["misc"][0].UUID.Validate(), jc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestGetMachineOpenedPortsBlankDB(c *gc.C) {
@@ -178,21 +250,33 @@ func (s *stateSuite) TestGetMachineOpenedPorts(c *gc.C) {
 	c.Check(unit0PortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
 }
 
+func (s *stateSuite) createUnit1(c *gc.C, st *State, netNodeUUID, appName string) (coreunit.UUID, coreapplication.ID) {
+	ctx := context.Background()
+	unit1UUID, app1UUID := s.createUnit(c, netNodeUUID, appName)
+
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		eps, err := st.AddEndpoints(ctx, unit1UUID, []string{"endpoint"})
+		if err != nil {
+			return err
+		}
+		return st.AddOpenedPorts(ctx, map[port.UUID][]network.PortRange{
+			eps[0].UUID: {
+				{Protocol: "tcp", FromPort: 443, ToPort: 443},
+				{Protocol: "udp", FromPort: 2000, ToPort: 2500},
+			},
+		})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	return unit1UUID, app1UUID
+}
+
 func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnits(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID, _ := s.createUnit(c, netNodeUUID, appName)
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
-			"endpoint": {
-				{Protocol: "tcp", FromPort: 443, ToPort: 443},
-				{Protocol: "udp", FromPort: 2000, ToPort: 2500},
-			},
-		}, network.GroupedPortRanges{})
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	unit1UUID, _ := s.createUnit1(c, st, netNodeUUID, appName)
 
 	machineGroupedPortRanges, err := st.GetMachineOpenedPorts(ctx, mUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -224,19 +308,10 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnitsDifferentMachines(c 
 	s.initialiseOpenPort(c, st)
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.machine"))
-	err := machineSt.CreateMachine(context.Background(), "m2", "net-node-uuid-2", "machine-uuid-2")
+	err := machineSt.CreateMachine(context.Background(), "m2", "net-node-uuid-1", "machine-uuid-1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit1UUID, _ := s.createUnit(c, "net-node-uuid-2", appName)
-	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
-			"endpoint": {
-				{Protocol: "tcp", FromPort: 443, ToPort: 443},
-				{Protocol: "udp", FromPort: 2000, ToPort: 2500},
-			},
-		}, network.GroupedPortRanges{})
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	unit1UUID, _ := s.createUnit1(c, st, "net-node-uuid-1", appName)
 
 	machineGroupedPortRanges, err := st.GetMachineOpenedPorts(ctx, mUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -253,7 +328,7 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnitsDifferentMachines(c 
 	c.Check(unit0PortRanges["misc"], gc.HasLen, 1)
 	c.Check(unit0PortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
 
-	machineGroupedPortRanges, err = st.GetMachineOpenedPorts(ctx, "machine-uuid-2")
+	machineGroupedPortRanges, err = st.GetMachineOpenedPorts(ctx, "machine-uuid-1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(machineGroupedPortRanges, gc.HasLen, 1)
 
@@ -298,16 +373,7 @@ func (s *stateSuite) TestGetApplicationOpenedPortsAcrossTwoUnits(c *gc.C) {
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID, _ := s.createUnit(c, "net-node-uuid-2", appName)
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
-			"endpoint": {
-				{Protocol: "tcp", FromPort: 443, ToPort: 443},
-				{Protocol: "udp", FromPort: 2000, ToPort: 2500},
-			},
-		}, network.GroupedPortRanges{})
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	unit1UUID, _ := s.createUnit1(c, st, "net-node-uuid-1", appName)
 
 	expect := port.UnitEndpointPortRanges{
 		{Endpoint: "endpoint", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80}},
@@ -329,16 +395,7 @@ func (s *stateSuite) TestGetApplicationOpenedPortsAcrossTwoUnitsDifferentApplica
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID, app2UUID := s.createUnit(c, "net-node-uuid-2", "app-name-2")
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
-			"endpoint": {
-				{Protocol: "tcp", FromPort: 443, ToPort: 443},
-				{Protocol: "udp", FromPort: 2000, ToPort: 2500},
-			},
-		}, network.GroupedPortRanges{})
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	unit1UUID, app1UUID := s.createUnit1(c, st, "net-node-uuid-1", "app-name-1")
 
 	expect := port.UnitEndpointPortRanges{
 		{Endpoint: "endpoint", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80}},
@@ -357,7 +414,7 @@ func (s *stateSuite) TestGetApplicationOpenedPortsAcrossTwoUnitsDifferentApplica
 		{Endpoint: "endpoint", UnitUUID: unit1UUID, PortRange: network.PortRange{Protocol: "udp", FromPort: 2000, ToPort: 2500}},
 	}
 
-	unitEndpointPortRanges, err = st.GetApplicationOpenedPorts(ctx, app2UUID)
+	unitEndpointPortRanges, err = st.GetApplicationOpenedPorts(ctx, app1UUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(unitEndpointPortRanges, gc.HasLen, 2)
 	c.Check(unitEndpointPortRanges, jc.DeepEquals, expect)
@@ -386,19 +443,10 @@ func (s *stateSuite) TestGetColocatedOpenedPortsMultipleUnits(c *gc.C) {
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID, _ := s.createUnit(c, netNodeUUID, appName)
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
-			"endpoint": {
-				{Protocol: "tcp", FromPort: 443, ToPort: 443},
-				{Protocol: "udp", FromPort: 2000, ToPort: 2500},
-			},
-		}, network.GroupedPortRanges{})
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	_, _ = s.createUnit1(c, st, netNodeUUID, appName)
 
 	var opendPorts []network.PortRange
-	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
 		opendPorts, err = st.GetColocatedOpenedPorts(ctx, s.unitUUID)
 		return err
@@ -417,19 +465,10 @@ func (s *stateSuite) TestGetColocatedOpenedPortsMultipleUnitsOnNetNodes(c *gc.C)
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID, _ := s.createUnit(c, "net-node-uuid-2", appName)
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
-			"endpoint": {
-				{Protocol: "tcp", FromPort: 443, ToPort: 443},
-				{Protocol: "udp", FromPort: 2000, ToPort: 2500},
-			},
-		}, network.GroupedPortRanges{})
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	_, _ = s.createUnit1(c, st, "net-node-uuid-1", appName)
 
 	var opendPorts []network.PortRange
-	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
 		opendPorts, err = st.GetColocatedOpenedPorts(ctx, s.unitUUID)
 		return err
@@ -441,49 +480,51 @@ func (s *stateSuite) TestGetColocatedOpenedPortsMultipleUnitsOnNetNodes(c *gc.C)
 	c.Check(opendPorts[2], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
 }
 
-func (s *stateSuite) TestGetEndpointOpenedPorts(c *gc.C) {
+func (s *stateSuite) TestGetColocatedOpenedPortsDedupes(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
+	unit1UUID, _ := s.createUnit1(c, st, netNodeUUID, appName)
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		portRanges, err := st.GetEndpointOpenedPorts(ctx, s.unitUUID, "endpoint")
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(portRanges, gc.HasLen, 2)
-		c.Check(portRanges[0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
-		c.Check(portRanges[1], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
-
-		portRanges, err = st.GetEndpointOpenedPorts(ctx, s.unitUUID, "misc")
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(portRanges, gc.HasLen, 1)
-		c.Check(portRanges[0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
-
-		return nil
+		eps, err := st.AddEndpoints(ctx, unit1UUID, []string{"misc"})
+		if err != nil {
+			return err
+		}
+		return st.AddOpenedPorts(ctx, map[port.UUID][]network.PortRange{
+			eps[0].UUID: {
+				{Protocol: "tcp", FromPort: 8080, ToPort: 8080},
+			},
+		})
 	})
 	c.Assert(err, jc.ErrorIsNil)
-}
 
-func (s *stateSuite) TestGetEndpointOpenedPortsNonExistentEndpoint(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
-	s.initialiseOpenPort(c, st)
-
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		portRanges, err := st.GetEndpointOpenedPorts(ctx, s.unitUUID, "other-endpoint")
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(portRanges, gc.HasLen, 0)
-		return nil
+	var opendPorts []network.PortRange
+	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		opendPorts, err = st.GetColocatedOpenedPorts(ctx, s.unitUUID)
+		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(opendPorts, gc.HasLen, 5)
+	c.Check(opendPorts[0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
+	c.Check(opendPorts[1], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 443, ToPort: 443})
+	c.Check(opendPorts[2], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
+	c.Check(opendPorts[3], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
+	c.Check(opendPorts[4], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 2000, ToPort: 2500})
 }
 
-func (s *stateSuite) TestUpdateUnitPortsOpenPort(c *gc.C) {
+func (s *stateSuite) TestAddOpenedPorts(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{"endpoint": {{Protocol: "tcp", FromPort: 1000, ToPort: 1500}}}, network.GroupedPortRanges{})
+		return st.AddOpenedPorts(ctx, map[port.UUID][]network.PortRange{
+			s.epsUUIDMap["endpoint"]: {
+				{Protocol: "tcp", FromPort: 1000, ToPort: 1500},
+			},
+		})
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -499,43 +540,43 @@ func (s *stateSuite) TestUpdateUnitPortsOpenPort(c *gc.C) {
 	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
 }
 
-func (s *stateSuite) TestUpdateUnitPortsClosePort(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
-	s.initialiseOpenPort(c, st)
-
-	groupedPortRanges, err := st.GetUnitOpenedPorts(ctx, s.unitUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(groupedPortRanges, gc.HasLen, 2)
-	c.Check(groupedPortRanges["endpoint"], gc.HasLen, 2)
-	c.Check(groupedPortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
-	c.Check(groupedPortRanges["endpoint"][1], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
-
-	c.Check(groupedPortRanges["misc"], gc.HasLen, 1)
-	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
-
-	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{}, network.GroupedPortRanges{"endpoint": {{Protocol: "tcp", FromPort: 80, ToPort: 80}}})
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	groupedPortRanges, err = st.GetUnitOpenedPorts(ctx, s.unitUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(groupedPortRanges, gc.HasLen, 2)
-	c.Check(groupedPortRanges["endpoint"], gc.HasLen, 1)
-	c.Check(groupedPortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
-
-	c.Check(groupedPortRanges["misc"], gc.HasLen, 1)
-	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
-}
-
-func (s *stateSuite) TestUpdateUnitPortsOpenPortRangeAdjacent(c *gc.C) {
+func (s *stateSuite) TestAddOpenedPortsICMP(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{"endpoint": {{Protocol: "udp", FromPort: 1501, ToPort: 2000}}}, network.GroupedPortRanges{})
+		return st.AddOpenedPorts(ctx, map[port.UUID][]network.PortRange{
+			s.epsUUIDMap["endpoint"]: {
+				{Protocol: "icmp"},
+			},
+		})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	groupedPortRanges, err := st.GetUnitOpenedPorts(ctx, s.unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(groupedPortRanges, gc.HasLen, 2)
+	c.Check(groupedPortRanges["endpoint"], gc.HasLen, 3)
+	c.Check(groupedPortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "icmp"})
+	c.Check(groupedPortRanges["endpoint"][1], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
+	c.Check(groupedPortRanges["endpoint"][2], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
+
+	c.Check(groupedPortRanges["misc"], gc.HasLen, 1)
+	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
+}
+
+func (s *stateSuite) TestAddOpenedPortsAdjacentRange(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	s.initialiseOpenPort(c, st)
+
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.AddOpenedPorts(ctx, map[port.UUID][]network.PortRange{
+			s.epsUUIDMap["endpoint"]: {
+				{Protocol: "udp", FromPort: 1501, ToPort: 2000},
+			},
+		})
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -551,96 +592,16 @@ func (s *stateSuite) TestUpdateUnitPortsOpenPortRangeAdjacent(c *gc.C) {
 	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
 }
 
-func (s *stateSuite) TestUpdateUnitPortsClosePortRange(c *gc.C) {
+func (s *stateSuite) TestAddOpenedPortsAcrossEndpoints(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{}, network.GroupedPortRanges{"endpoint": {{Protocol: "udp", FromPort: 1000, ToPort: 1500}}})
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	groupedPortRanges, err := st.GetUnitOpenedPorts(ctx, s.unitUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(groupedPortRanges, gc.HasLen, 2)
-	c.Check(groupedPortRanges["endpoint"], gc.HasLen, 1)
-	c.Check(groupedPortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
-
-	c.Check(groupedPortRanges["misc"], gc.HasLen, 1)
-	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
-}
-
-func (s *stateSuite) TestUpdateUnitPortsClosePortEndpoint(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
-	s.initialiseOpenPort(c, st)
-
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{}, network.GroupedPortRanges{
-			"endpoint": {
-				{Protocol: "tcp", FromPort: 80, ToPort: 80},
-				{Protocol: "udp", FromPort: 1000, ToPort: 1500},
-			},
+		return st.AddOpenedPorts(ctx, map[port.UUID][]network.PortRange{
+			s.epsUUIDMap["endpoint"]:       {{Protocol: "udp", FromPort: 2500, ToPort: 3000}},
+			s.epsUUIDMap["other-endpoint"]: {{Protocol: "udp", FromPort: 2000, ToPort: 2100}},
 		})
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	groupedPortRanges, err := st.GetUnitOpenedPorts(ctx, s.unitUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(groupedPortRanges, gc.HasLen, 1)
-
-	c.Check(groupedPortRanges["misc"], gc.HasLen, 1)
-	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
-}
-
-func (s *stateSuite) TestUpdateUnitPortsOpenCloseICMP(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
-	s.initialiseOpenPort(c, st)
-
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{"endpoint": {{Protocol: "icmp"}}}, network.GroupedPortRanges{})
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	groupedPortRanges, err := st.GetUnitOpenedPorts(ctx, s.unitUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(groupedPortRanges, gc.HasLen, 2)
-	c.Check(groupedPortRanges["endpoint"], gc.HasLen, 3)
-	c.Check(groupedPortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "icmp"})
-	c.Check(groupedPortRanges["endpoint"][1], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
-	c.Check(groupedPortRanges["endpoint"][2], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
-
-	c.Check(groupedPortRanges["misc"], gc.HasLen, 1)
-	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
-
-	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{}, network.GroupedPortRanges{"endpoint": {{Protocol: "icmp"}}})
-	})
-	c.Check(err, jc.ErrorIsNil)
-
-	groupedPortRanges, err = st.GetUnitOpenedPorts(ctx, s.unitUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(groupedPortRanges, gc.HasLen, 2)
-	c.Check(groupedPortRanges["endpoint"], gc.HasLen, 2)
-	c.Check(groupedPortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
-	c.Check(groupedPortRanges["endpoint"][1], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
-
-	c.Check(groupedPortRanges["misc"], gc.HasLen, 1)
-	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
-}
-
-func (s *stateSuite) TestUpdateUnitPortsOpenPortRangeMixedEndpoints(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
-	s.initialiseOpenPort(c, st)
-
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
-			"endpoint":       {{Protocol: "udp", FromPort: 2500, ToPort: 3000}},
-			"other-endpoint": {{Protocol: "udp", FromPort: 2000, ToPort: 2100}},
-		}, network.GroupedPortRanges{})
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -660,166 +621,32 @@ func (s *stateSuite) TestUpdateUnitPortsOpenPortRangeMixedEndpoints(c *gc.C) {
 	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
 }
 
-func (s *stateSuite) TestUpdateUnitPortsClosePortRangeMixedEndpoints(c *gc.C) {
+func (s *stateSuite) TestRemoveOpenedPorts(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
-			"other-endpoint": {
-				{Protocol: "udp", FromPort: 2000, ToPort: 2500},
-				{Protocol: "udp", FromPort: 3000, ToPort: 3000},
-			},
-		}, network.GroupedPortRanges{})
+		ports, err := st.GetUnitOpenedPortsWithUUIDs(ctx, s.unitUUID)
 		if err != nil {
 			return err
 		}
-		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{}, network.GroupedPortRanges{
-			"endpoint":       {{Protocol: "udp", FromPort: 1000, ToPort: 1500}},
-			"other-endpoint": {{Protocol: "udp", FromPort: 2000, ToPort: 2500}},
-		})
+		var uuid port.UUID
+		for _, portRange := range ports["endpoint"] {
+			if portRange.PortRange == network.MustParsePortRange("80/tcp") {
+				uuid = portRange.UUID
+			}
+		}
+		return st.RemoveOpenedPorts(ctx, []port.UUID{uuid})
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	groupedPortRanges, err := st.GetUnitOpenedPorts(ctx, s.unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(groupedPortRanges, gc.HasLen, 3)
+	c.Check(groupedPortRanges, gc.HasLen, 2)
 
 	c.Check(groupedPortRanges["endpoint"], gc.HasLen, 1)
-	c.Check(groupedPortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
-
-	c.Check(groupedPortRanges["other-endpoint"], gc.HasLen, 1)
-	c.Check(groupedPortRanges["other-endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 3000, ToPort: 3000})
-
-	c.Check(groupedPortRanges["misc"], gc.HasLen, 1)
-	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
-}
-
-func (s *stateSuite) TestUpdateUnitPortRangesOpenAlreadyOpenAcrossUnits(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
-	s.initialiseOpenPort(c, st)
-	unit1UUID, _ := s.createUnit(c, netNodeUUID, appName)
-
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{"endpoint": {{Protocol: "udp", FromPort: 1000, ToPort: 1500}}}, network.GroupedPortRanges{})
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{"endpoint": {{Protocol: "udp", FromPort: 1000, ToPort: 1500}}}, network.GroupedPortRanges{})
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	machineGroupedPortRanges, err := st.GetMachineOpenedPorts(ctx, mUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(machineGroupedPortRanges, gc.HasLen, 2)
-
-	unit0PortRanges, ok := machineGroupedPortRanges[s.unitUUID]
-	c.Assert(ok, jc.IsTrue)
-	c.Check(unit0PortRanges["endpoint"], gc.HasLen, 2)
-	c.Check(unit0PortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
-	c.Check(unit0PortRanges["endpoint"][1], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
-
-	unit1PortRanges, ok := machineGroupedPortRanges[unit1UUID]
-	c.Assert(ok, jc.IsTrue)
-	c.Check(unit1PortRanges, gc.HasLen, 1)
-
-	c.Check(unit1PortRanges["endpoint"], gc.HasLen, 1)
-	c.Check(unit1PortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
-}
-
-func (s *stateSuite) TestUpdateUnitPortsMatchingRangeAcrossEndpoints(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
-	s.initialiseOpenPort(c, st)
-
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{"other-endpoint": {{Protocol: "udp", FromPort: 1000, ToPort: 1500}}}, network.GroupedPortRanges{})
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	groupedPortRanges, err := st.GetUnitOpenedPorts(ctx, s.unitUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(groupedPortRanges, gc.HasLen, 3)
-
-	c.Check(groupedPortRanges["endpoint"], gc.HasLen, 2)
-	c.Check(groupedPortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
-	c.Check(groupedPortRanges["endpoint"][1], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
-
-	c.Check(groupedPortRanges["other-endpoint"], gc.HasLen, 1)
-	c.Check(groupedPortRanges["other-endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
-
-	c.Check(groupedPortRanges["misc"], gc.HasLen, 1)
-	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
-}
-
-func (s *stateSuite) TestUpdateUnitPortRangesCloseAlreadyClosed(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
-	s.initialiseOpenPort(c, st)
-
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{}, network.GroupedPortRanges{
-			"endpoint": {{Protocol: "tcp", FromPort: 7000, ToPort: 7000}},
-		})
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	groupedPortRanges, err := st.GetUnitOpenedPorts(ctx, s.unitUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(groupedPortRanges, gc.HasLen, 2)
-
-	c.Check(groupedPortRanges["endpoint"], gc.HasLen, 2)
-	c.Check(groupedPortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
-	c.Check(groupedPortRanges["endpoint"][1], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
-
-	c.Check(groupedPortRanges["misc"], gc.HasLen, 1)
-	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
-}
-
-func (s *stateSuite) TestUpdateUnitPortRangeClosePortRangeWrongEndpoint(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
-	s.initialiseOpenPort(c, st)
-
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{}, network.GroupedPortRanges{
-			"misc": {{Protocol: "tcp", FromPort: 80, ToPort: 80}},
-		})
-	})
-	c.Check(err, jc.ErrorIsNil)
-
-	groupedPortRanges, err := st.GetUnitOpenedPorts(ctx, s.unitUUID)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(groupedPortRanges, gc.HasLen, 2)
-
-	c.Check(groupedPortRanges["endpoint"], gc.HasLen, 2)
-	c.Check(groupedPortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
-	c.Check(groupedPortRanges["endpoint"][1], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
-
-	c.Check(groupedPortRanges["misc"], gc.HasLen, 1)
-	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
-}
-
-func (s *stateSuite) TestUpdateUnitPortsOpenPortRangeAlreadyOpened(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
-	s.initialiseOpenPort(c, st)
-
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{"endpoint": {{Protocol: "tcp", FromPort: 80, ToPort: 80}}}, network.GroupedPortRanges{})
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	groupedPortRanges, err := st.GetUnitOpenedPorts(ctx, s.unitUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(groupedPortRanges, gc.HasLen, 2)
-
-	c.Check(groupedPortRanges["endpoint"], gc.HasLen, 2)
-	c.Check(groupedPortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
-	c.Check(groupedPortRanges["endpoint"][1], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
+	c.Check(groupedPortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
 
 	c.Check(groupedPortRanges["misc"], gc.HasLen, 1)
 	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
@@ -830,33 +657,57 @@ func (s *stateSuite) TestGetEndpoints(c *gc.C) {
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	var endpoints []string
+	var endpoints []port.Endpoint
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
 		endpoints, err = st.GetEndpoints(ctx, s.unitUUID)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(endpoints, jc.DeepEquals, []string{"endpoint", "misc"})
+
+	endpointNames := transform.Slice(endpoints, func(ep port.Endpoint) string { return ep.Endpoint })
+	c.Check(endpointNames, jc.DeepEquals, []string{"endpoint", "misc", "other-endpoint"})
+
+	for _, ep := range endpoints {
+		c.Check(ep.UUID.Validate(), jc.ErrorIsNil)
+	}
 }
 
-func (s *stateSuite) TestGetEndpointsWithEmptyEndpoint(c *gc.C) {
+func (s *stateSuite) TestGetEndpointsAfterAddEndpoints(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, s.unitUUID,
-			network.GroupedPortRanges{"other-endpoint": {}},
-			network.GroupedPortRanges{"misc": {{Protocol: "tcp", FromPort: 8080, ToPort: 8080}}},
-		)
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		endpoints, err := st.GetEndpoints(ctx, s.unitUUID)
-		c.Check(endpoints, jc.DeepEquals, []string{"endpoint", "misc", "other-endpoint"})
+		_, err := st.AddEndpoints(ctx, s.unitUUID, []string{"other-other-endpoint"})
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
+	var endpoints []port.Endpoint
+	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		endpoints, err = st.GetEndpoints(ctx, s.unitUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	endpointNames := transform.Slice(endpoints, func(ep port.Endpoint) string { return ep.Endpoint })
+	c.Check(endpointNames, jc.DeepEquals, []string{"endpoint", "misc", "other-endpoint", "other-other-endpoint"})
+
+	for _, ep := range endpoints {
+		c.Check(ep.UUID.Validate(), jc.ErrorIsNil)
+	}
+}
+
+func (s *stateSuite) TestAddEndpointsConflict(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	s.initialiseOpenPort(c, st)
+
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		_, err := st.AddEndpoints(ctx, s.unitUUID, []string{"endpoint"})
+		return err
+	})
+	c.Assert(err, jc.ErrorIs, ErrUnitEndpointConflict)
 }
