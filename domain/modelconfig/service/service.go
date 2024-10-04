@@ -125,13 +125,13 @@ func (s *Service) ModelConfigValues(
 	if len(allAttrs) == 0 {
 		allAttrs = map[string]any{}
 		for k, v := range defaults {
-			allAttrs[k] = v.Value
+			allAttrs[k] = v.Value()
 		}
 	}
 
 	result := make(config.ConfigValues, len(allAttrs))
 	for attr, val := range allAttrs {
-		isDefault, source := defaults[attr].Has(val)
+		isDefault, source := defaults[attr].ValueSource(val)
 		if !isDefault {
 			source = config.JujuModelConfigSource
 		}
@@ -193,7 +193,7 @@ func (s *Service) reconcileRemovedAttributes(
 	}
 
 	for _, attr := range hasAttrs {
-		if val := defaults[attr].Value; val != nil {
+		if val := defaults[attr].Value(); val != nil {
 			updates[attr] = val
 		}
 	}

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/domain/modeldefaults/service"
 	"github.com/juju/juju/domain/modeldefaults/state"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -26,8 +25,7 @@ func ModelDefaultsProvider(
 
 		for k, v := range state.ConfigDefaults(ctx) {
 			defaults[k] = modeldefaults.DefaultAttributeValue{
-				Source: config.JujuDefaultSource,
-				Value:  v,
+				Default: v,
 			}
 		}
 
@@ -48,15 +46,13 @@ func ModelDefaultsProvider(
 
 		for k, v := range controllerConfig {
 			defaults[k] = modeldefaults.DefaultAttributeValue{
-				Source: config.JujuControllerSource,
-				Value:  v,
+				Controller: v,
 			}
 		}
 
 		for k, v := range cloudRegionConfig {
 			defaults[k] = modeldefaults.DefaultAttributeValue{
-				Source: config.JujuRegionSource,
-				Value:  v,
+				Region: v,
 			}
 		}
 

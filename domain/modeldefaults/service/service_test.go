@@ -19,7 +19,6 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 )
 
 type serviceSuite struct {
@@ -118,29 +117,22 @@ func (s *serviceSuite) TestModelDefaults(c *gc.C) {
 	defaults, err := svc.ModelDefaults(context.Background(), s.modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(defaults["provider-default"].Value, gc.Equals, "val")
-	c.Check(defaults["provider-default"].Source, gc.Equals, config.JujuDefaultSource)
+	c.Check(defaults["provider-default"].Default, gc.Equals, "val")
 
-	c.Check(defaults["provider-config-field"].Value, gc.Equals, int64(666))
-	c.Check(defaults["provider-config-field"].Source, gc.Equals, config.JujuDefaultSource)
+	c.Check(defaults["provider-config-field"].Default, gc.Equals, int64(666))
 
 	// This provider field doesn't have a default so it shouldn't be set
-	c.Check(defaults["provider-config-field-no-default"].Value, gc.Equals, nil)
+	c.Check(defaults["provider-config-field-no-default"].Default, gc.Equals, nil)
 
-	c.Check(defaults["juju-default"].Value, gc.Equals, "val")
-	c.Check(defaults["juju-default"].Source, gc.Equals, config.JujuDefaultSource)
+	c.Check(defaults["juju-default"].Default, gc.Equals, "val")
 
-	c.Check(defaults["cloud-default"].Value, gc.Equals, "val")
-	c.Check(defaults["cloud-default"].Source, gc.Equals, config.JujuControllerSource)
+	c.Check(defaults["cloud-default"].Controller, gc.Equals, "val")
 
-	c.Check(defaults["cloud-region-default"].Value, gc.Equals, "val")
-	c.Check(defaults["cloud-region-default"].Source, gc.Equals, config.JujuRegionSource)
+	c.Check(defaults["cloud-region-default"].Region, gc.Equals, "val")
 
-	c.Check(defaults["override"].Value, gc.Equals, "val2")
-	c.Check(defaults["override"].Source, gc.Equals, config.JujuRegionSource)
+	c.Check(defaults["override"].Region, gc.Equals, "val2")
 
-	c.Check(defaults["uuid"].Value, gc.Equals, s.modelUUID.String())
-	c.Check(defaults["uuid"].Source, gc.Equals, config.JujuControllerSource)
+	c.Check(defaults["uuid"].Controller, gc.Equals, s.modelUUID.String())
 }
 
 // TestModelDefaultsModelNotFound is asserting of all the possible funcs that
@@ -233,20 +225,15 @@ func (s *serviceSuite) TestModelDefaultsProviderNotSupported(c *gc.C) {
 	defaults, err := svc.ModelDefaults(context.Background(), s.modelUUID)
 	c.Check(err, jc.ErrorIsNil)
 
-	c.Check(defaults["juju-default"].Value, gc.Equals, "val")
-	c.Check(defaults["juju-default"].Source, gc.Equals, config.JujuDefaultSource)
+	c.Check(defaults["juju-default"].Default, gc.Equals, "val")
 
-	c.Check(defaults["cloud-default"].Value, gc.Equals, "val")
-	c.Check(defaults["cloud-default"].Source, gc.Equals, config.JujuControllerSource)
+	c.Check(defaults["cloud-default"].Controller, gc.Equals, "val")
 
-	c.Check(defaults["cloud-region-default"].Value, gc.Equals, "val")
-	c.Check(defaults["cloud-region-default"].Source, gc.Equals, config.JujuRegionSource)
+	c.Check(defaults["cloud-region-default"].Region, gc.Equals, "val")
 
-	c.Check(defaults["override"].Value, gc.Equals, "val2")
-	c.Check(defaults["override"].Source, gc.Equals, config.JujuRegionSource)
+	c.Check(defaults["override"].Region, gc.Equals, "val2")
 
-	c.Check(defaults["uuid"].Value, gc.Equals, s.modelUUID.String())
-	c.Check(defaults["uuid"].Source, gc.Equals, config.JujuControllerSource)
+	c.Check(defaults["uuid"].Controller, gc.Equals, s.modelUUID.String())
 }
 
 // TestModelDefaultsForNonExistentModel is here to establish that when we ask

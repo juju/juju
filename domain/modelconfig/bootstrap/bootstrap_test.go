@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/domain/model/state/testing"
 	"github.com/juju/juju/domain/modeldefaults"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -118,8 +117,7 @@ func (s *bootstrapSuite) TestSetModelConfig(c *gc.C) {
 	var defaults ModelDefaultsProviderFunc = func(_ context.Context) (modeldefaults.Defaults, error) {
 		return modeldefaults.Defaults{
 			"foo": modeldefaults.DefaultAttributeValue{
-				Source: config.JujuControllerSource,
-				Value:  "bar",
+				Controller: "bar",
 			},
 		}, nil
 	}

@@ -5,6 +5,8 @@ package modeldefaults
 
 import (
 	"reflect"
+
+	"github.com/juju/juju/environs/config"
 )
 
 // ModelDefaultAttributes represents a set of default values for
@@ -56,16 +58,29 @@ type ApplyStrategy interface {
 // opinions in one place and for the consuming side (model config) to use the
 // default sources opinion.
 type DefaultAttributeValue struct {
-	// Source describes the source of the default value.
-	Source string
+	// These attributes are set according to what
+	// defaults have been defined for an attribute.
+	Default    any
+	Controller any
+	Region     any
 
 	// Strategy is the ApplyStrategy that should be used when deciding how to
 	// integrate this default value. If Strategy is the zero value then consult
 	// [DefaultAttributeValue.ApplyStrategy] for expected behaviour.
 	Strategy ApplyStrategy
+}
 
-	// Value is the default value.
-	Value any
+// Value returns the most relevant default value.
+// eg if region is set, prefer the region value.
+func (d DefaultAttributeValue) Value() any {
+	val := d.Region
+	if val == nil {
+		val = d.Controller
+	}
+	if val == nil {
+		val = d.Default
+	}
+	return val
 }
 
 // Defaults represents a set of default values for a given attribute. Defaults
@@ -92,14 +107,15 @@ type PreferSetApplyStrategy struct{}
 // has no ApplyStrategy set then by default we pass the decision to
 // [PreferSetApplyStrategy].
 func (d DefaultAttributeValue) ApplyStrategy(setVal any) any {
+	val := d.Value()
 	if d.Strategy == nil {
 		strategy := PreferSetApplyStrategy{}
-		return strategy.Apply(d.Value, setVal)
+		return strategy.Apply(val, setVal)
 	}
-	return d.Strategy.Apply(d.Value, setVal)
+	return d.Strategy.Apply(val, setVal)
 }
 
-// Has reports if the current [DefaultAttributeValue.Value] is equal to the
+// ValueSource reports if the current [DefaultAttributeValue.Value] is equal to the
 // value passed in. The source of the default value is also returned when the
 // values are equal. If the current value of [DefaultAttributeValue.Value] or
 // val is nil then false and empty string for source is returned.
@@ -112,23 +128,34 @@ func (d DefaultAttributeValue) ApplyStrategy(setVal any) any {
 //
 // This is carry over logic from legacy Juju. Over time we can look at removing
 // the use of any for more concrete types.
-func (d DefaultAttributeValue) Has(val any) (bool, string) {
-	setVal := d.Value
-	if setVal == nil || val == nil {
-		return false, ""
+func (d DefaultAttributeValue) ValueSource(val any) (bool, string) {
+	if valuesEqual(val, d.Default) {
+		return true, config.JujuDefaultSource
+	}
+
+	if valuesEqual(val, d.Controller) {
+		return true, config.JujuControllerSource
+	}
+
+	if valuesEqual(val, d.Region) {
+		return true, config.JujuRegionSource
+	}
+	return false, ""
+}
+
+func valuesEqual(val1, val2 any) bool {
+	if val1 == nil || val2 == nil {
+		return false
 	}
 
 	equal := false
-	switch setVal.(type) {
+	switch val2.(type) {
 	case []any:
-		equal = reflect.DeepEqual(setVal, val)
+		equal = reflect.DeepEqual(val1, val2)
 	default:
-		equal = setVal == val
+		equal = val1 == val2
 	}
-	if equal {
-		return true, d.Source
-	}
-	return false, ""
+	return equal
 }
 
 // Apply implements [ApplyStrategy] interface for [PreferDefaultApplyStrategy]
