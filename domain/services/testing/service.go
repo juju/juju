@@ -10,6 +10,7 @@ import (
 	annotationservice "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
+	blockcommandservice "github.com/juju/juju/domain/blockcommand/service"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
 	controllerservice "github.com/juju/juju/domain/controller/service"
@@ -246,5 +247,9 @@ func (s *TestingDomainServices) Port() *portservice.WatchableService {
 }
 
 func (s *TestingDomainServices) Stub() *stubservice.StubService {
+	return nil
+}
+
+func (s *TestingDomainServices) BlockCommand() *blockcommandservice.Service {
 	return nil
 }
