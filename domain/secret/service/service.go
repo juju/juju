@@ -245,7 +245,9 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}
 	}()
 
-	if err = s.secretState.CreateUserSecret(ctx, params.Version, uri, p); err != nil {
+	if err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return s.createSecret(ctx, params.Version, uri, secrets.Owner{Kind: secrets.ModelOwner}, p)
+	}); err != nil {
 		return errors.Annotatef(err, "cannot create user secret %q", uri.ID)
 	}
 	return nil
@@ -315,14 +317,15 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 			}
 			return errors.Trace(err)
 		}
-		err = s.secretState.CreateCharmApplicationSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
-	} else {
-		err = s.secretState.CreateCharmUnitSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
 	}
-	if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
-		return errors.Errorf("secret with label %q is already being used", *params.Label)
-	}
-	if err != nil {
+
+	if err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		owner := secrets.Owner{
+			ID:   params.CharmOwner.ID,
+			Kind: secrets.OwnerKind(params.CharmOwner.Kind),
+		}
+		return s.createSecret(ctx, params.Version, uri, owner, p)
+	}); err != nil {
 		return errors.Annotatef(err, "cannot create charm secret %q", uri.ID)
 	}
 	return nil
@@ -410,7 +413,10 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}()
 	}
 
-	if err := s.secretState.UpdateSecret(ctx, uri, p); err != nil {
+	err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return s.updateSecret(ctx, uri, p)
+	})
+	if err != nil {
 		return errors.Annotatef(err, "cannot update user secret %q", uri.ID)
 	}
 	return nil
@@ -478,15 +484,88 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 			}
 		}()
 	}
-
-	err := s.secretState.UpdateSecret(ctx, uri, p)
-	if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
-		return errors.Errorf("secret with label %q is already being used", *params.Label)
-	}
+	err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return s.updateSecret(ctx, uri, p)
+	})
 	if err != nil {
 		return errors.Annotatef(err, "cannot update charm secret %q", uri.ID)
 	}
 	return nil
+}
+
+func (s *SecretService) createSecret(
+	ctx domain.AtomicContext, version int, uri *secrets.URI, owner secrets.Owner, params domainsecret.UpsertSecretParams,
+) (err error) {
+	defer func() {
+		if err != nil {
+			if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
+				err = fmt.Errorf("secret with label %q is already being used: %w", *params.Label, secreterrors.SecretLabelAlreadyExists)
+			}
+		}
+	}()
+	switch kind := owner.Kind; kind {
+	case secrets.ApplicationOwner:
+		appUUID, err := s.secretState.GetApplicationUUID(ctx, owner.ID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if params.Label != nil && *params.Label != "" {
+			if err := s.secretState.CheckApplicationSecretLabelExists(ctx, appUUID, *params.Label); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		return s.secretState.CreateCharmApplicationSecret(ctx, version, uri, appUUID, params)
+	case secrets.UnitOwner:
+		unitUUID, err := s.secretState.GetUnitUUID(ctx, owner.ID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if params.Label != nil && *params.Label != "" {
+			if err := s.secretState.CheckUnitSecretLabelExists(ctx, unitUUID, *params.Label); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		return s.secretState.CreateCharmUnitSecret(ctx, version, uri, unitUUID, params)
+	case secrets.ModelOwner:
+		if params.Label != nil && *params.Label != "" {
+			if err := s.secretState.CheckUserSecretLabelExists(ctx, *params.Label); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		return s.secretState.CreateUserSecret(ctx, version, uri, params)
+	default:
+		// Should never happen.
+		return errors.Errorf("unexpected secret owner kind %q for secret %q", kind, uri.ID)
+	}
+}
+
+func (s *SecretService) updateSecret(ctx domain.AtomicContext, uri *secrets.URI, params domainsecret.UpsertSecretParams) error {
+	if params.Label != nil && *params.Label != "" {
+		// Check to be sure a duplicate label won't be used.
+		owner, err := s.secretState.GetSecretOwner(ctx, uri)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		switch kind := owner.Kind; kind {
+		case secrets.ApplicationOwner:
+			err = s.secretState.CheckApplicationSecretLabelExists(ctx, owner.ID, *params.Label)
+		case secrets.UnitOwner:
+			err = s.secretState.CheckUnitSecretLabelExists(ctx, owner.ID, *params.Label)
+		case secrets.ModelOwner:
+			err = s.secretState.CheckUserSecretLabelExists(ctx, *params.Label)
+		default:
+			// Should never happen.
+			return errors.Errorf("unexpected secret owner kind %q for secret %q", kind, uri.ID)
+		}
+		if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
+			return fmt.Errorf("secret with label %q is already being used: %w", *params.Label, secreterrors.SecretLabelAlreadyExists)
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	err := s.secretState.UpdateSecret(ctx, uri, params)
+	return errors.Trace(err)
 }
 
 // GetSecretsForOwners returns the secrets owned by the specified apps and/or units.

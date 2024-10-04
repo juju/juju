@@ -27,6 +27,24 @@ type AtomicState interface {
 	GetSecretsForOwners(
 		ctx domain.AtomicContext, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) ([]*secrets.URI, error)
+
+	GetApplicationUUID(ctx domain.AtomicContext, appName string) (string, error)
+	GetUnitUUID(ctx domain.AtomicContext, unitName string) (string, error)
+	GetSecretOwner(ctx domain.AtomicContext, uri *secrets.URI) (secrets.Owner, error)
+
+	CheckUserSecretLabelExists(ctx domain.AtomicContext, label string) error
+	CheckApplicationSecretLabelExists(ctx domain.AtomicContext, appUUID string, label string) error
+	CheckUnitSecretLabelExists(ctx domain.AtomicContext, unitUUID string, label string) error
+	CreateUserSecret(
+		ctx domain.AtomicContext, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams,
+	) error
+	CreateCharmApplicationSecret(
+		ctx domain.AtomicContext, version int, uri *secrets.URI, appUUID string, secret domainsecret.UpsertSecretParams,
+	) error
+	CreateCharmUnitSecret(
+		ctx domain.AtomicContext, version int, uri *secrets.URI, unitUUID string, secret domainsecret.UpsertSecretParams,
+	) error
+	UpdateSecret(ctx domain.AtomicContext, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
 }
 
 // State describes retrieval and persistence methods needed for
@@ -35,16 +53,6 @@ type State interface {
 	AtomicState
 
 	GetModelUUID(ctx context.Context) (string, error)
-	CreateUserSecret(
-		ctx context.Context, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams,
-	) error
-	CreateCharmApplicationSecret(
-		ctx context.Context, version int, uri *secrets.URI, appName string, secret domainsecret.UpsertSecretParams,
-	) error
-	CreateCharmUnitSecret(
-		ctx context.Context, version int, uri *secrets.URI, unitName string, secret domainsecret.UpsertSecretParams,
-	) error
-	UpdateSecret(ctx context.Context, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
 	DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string, error)
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetLatestRevision(ctx context.Context, uri *secrets.URI) (int, error)

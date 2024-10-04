@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/life"
 	coresecrets "github.com/juju/juju/core/secrets"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
@@ -134,8 +135,11 @@ func (s *serviceSuite) createSecrets(c *gc.C, appName, unitName string) (appSecr
 		Data:       coresecrets.SecretData{"foo": "bar"},
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 	}
-	err := s.secretState.CreateCharmApplicationSecret(ctx, 1, appSecretURI, appName, sp)
-	c.Assert(err, jc.ErrorIsNil)
+	_ = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		err := s.secretState.CreateCharmApplicationSecret(ctx, 1, appSecretURI, appName, sp)
+		c.Assert(err, jc.ErrorIsNil)
+		return nil
+	})
 	if unitName == "" {
 		return appSecretURI, unitSecretURI
 	}
@@ -145,8 +149,11 @@ func (s *serviceSuite) createSecrets(c *gc.C, appName, unitName string) (appSecr
 		Data:       coresecrets.SecretData{"foo": "bar"},
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 	}
-	err = s.secretState.CreateCharmUnitSecret(ctx, 1, unitSecretURI, unitName, sp2)
-	c.Assert(err, jc.ErrorIsNil)
+	_ = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		err := s.secretState.CreateCharmUnitSecret(ctx, 1, unitSecretURI, unitName, sp2)
+		c.Assert(err, jc.ErrorIsNil)
+		return nil
+	})
 	return appSecretURI, unitSecretURI
 }
 

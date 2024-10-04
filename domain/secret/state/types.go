@@ -37,6 +37,11 @@ type unit struct {
 	Name string `db:"name"`
 }
 
+type application struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
+}
+
 type secretRef struct {
 	ID         string `db:"secret_id"`
 	SourceUUID string `db:"source_uuid"`
