@@ -1190,8 +1190,13 @@ func (c *statusContext) makeMachineStatus(
 	constraints := c.allConstraints.Machine(machineID)
 	status.Constraints = constraints.String()
 
-	hc := c.allInstances.HardwareCharacteristics(machineID)
-	if hc != nil {
+	hc, err := machineService.HardwareCharacteristics(ctx, machineUUID)
+	if errors.Is(err, machineerrors.NotProvisioned) {
+		logger.Debugf("can't retrieve hardware characteristics of machine %q: not provisioned", machineUUID)
+	}
+	if err != nil {
+		logger.Debugf("error fetching hardware characteristics: %v", err)
+	} else if hc != nil {
 		status.Hardware = hc.String()
 	}
 	status.Containers = make(map[string]params.MachineStatus)

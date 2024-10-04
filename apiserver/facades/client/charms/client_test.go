@@ -26,6 +26,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -103,6 +104,7 @@ type charmsMockSuite struct {
 
 	modelConfigService *MockModelConfigService
 	applicationService *MockApplicationService
+	machineService     *MockMachineService
 }
 
 var _ = gc.Suite(&charmsMockSuite{})
@@ -504,6 +506,7 @@ func (s *charmsMockSuite) api(c *gc.C) *charms.API {
 		s.state,
 		s.modelConfigService,
 		s.applicationService,
+		s.machineService,
 		names.NewModelTag("deadbeef-abcd-4fd2-967d-db9663db7bea"),
 		s.repoFactory,
 		loggertesting.WrapCheckLog(c),
@@ -533,6 +536,7 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 
 	return ctrl
 }
@@ -617,19 +621,22 @@ func (s *charmsMockSuite) expectMachineConstraints(cons constraints.Value) {
 }
 
 func (s *charmsMockSuite) expectHardwareCharacteristics() {
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("winnie-poo")).Return("deadbeef", nil)
 	arch := arch.DefaultArchitecture
-	s.machine.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef").Return(&instance.HardwareCharacteristics{
 		Arch: &arch,
 	}, nil)
 }
 
 func (s *charmsMockSuite) expectEmptyHardwareCharacteristics() {
-	s.machine.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{}, nil)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("winnie-poo")).Return("deadbeef", nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef").Return(&instance.HardwareCharacteristics{}, nil)
 }
 
 func (s *charmsMockSuite) expectHardwareCharacteristics2() {
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("piglet")).Return("deadbeef", nil)
 	arch := "arm64"
-	s.machine2.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef").Return(&instance.HardwareCharacteristics{
 		Arch: &arch,
 	}, nil)
 }

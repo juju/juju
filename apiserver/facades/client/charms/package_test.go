@@ -15,4 +15,4 @@ func TestAll(t *stdtesting.T) {
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state_mock.go github.com/juju/juju/apiserver/facades/client/charms/interfaces BackendState,Application,Machine,Unit,Downloader
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/repository.go github.com/juju/juju/core/charm Repository,RepositoryFactory,CharmArchive
-//go:generate go run go.uber.org/mock/mockgen -typed -package charms_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/charms ModelConfigService,ApplicationService
+//go:generate go run go.uber.org/mock/mockgen -typed -package charms_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/charms ModelConfigService,ApplicationService,MachineService

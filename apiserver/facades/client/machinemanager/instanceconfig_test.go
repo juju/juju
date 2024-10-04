@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
-	"github.com/juju/juju/core/instance"
+	instance "github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
@@ -35,6 +35,7 @@ type machineConfigSuite struct {
 	controllerConfigService *MockControllerConfigService
 	keyUpdaterService       *MockKeyUpdaterService
 	modelConfigService      *MockModelConfigService
+	machineService          *MockMachineService
 	bootstrapEnviron        *MockBootstrapEnviron
 }
 
@@ -51,6 +52,7 @@ func (s *machineConfigSuite) setup(c *gc.C) *gomock.Controller {
 	s.store = NewMockObjectStore(ctrl)
 	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 	s.bootstrapEnviron = NewMockBootstrapEnviron(ctrl)
 
 	return ctrl
@@ -74,8 +76,9 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	machine0 := NewMockMachine(ctrl)
 	machine0.EXPECT().Base().Return(state.Base{OS: "ubuntu", Channel: "20.04/stable"}).AnyTimes()
 	machine0.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil)
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
-	machine0.EXPECT().HardwareCharacteristics().Return(&hc, nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef").Return(&hc, nil)
 	machine0.EXPECT().SetPassword(gomock.Any()).Return(nil)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
@@ -105,6 +108,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 		ObjectStore:             s.store,
 		KeyUpdaterService:       s.keyUpdaterService,
 		ModelConfigService:      s.modelConfigService,
+		MachineService:          s.machineService,
 	}
 
 	modelID := modeltesting.GenModelUUID(c)

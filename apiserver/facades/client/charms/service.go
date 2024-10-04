@@ -7,6 +7,8 @@ import (
 	"context"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/environs/config"
 )
@@ -25,4 +27,14 @@ type ApplicationService interface {
 	// If there are any non-blocking issues with the charm metadata, actions,
 	// config or manifest, a set of warnings will be returned.
 	SetCharm(ctx context.Context, args charm.SetCharmArgs) (corecharm.ID, []string, error)
+}
+
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
+	// HardwareCharacteristics returns the hardware characteristics of the
+	// specified machine.
+	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
 }

@@ -22,7 +22,7 @@ func (s *stateSuite) TestGetHardwareCharacteristicsWithNoData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.state.HardwareCharacteristics(context.Background(), machineUUID.String())
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.NotProvisioned)
 }
 
 func (s *stateSuite) TestGetHardwareCharacteristics(c *gc.C) {

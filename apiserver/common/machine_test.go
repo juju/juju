@@ -114,15 +114,17 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 	one := uint64(1)
 	amd64 := "amd64"
 	gig := uint64(1024)
+	hw := &instance.HardwareCharacteristics{
+		Arch:     &amd64,
+		Mem:      &gig,
+		CpuCores: &one,
+		CpuPower: &one,
+	}
 	st := mockState{
 		machines: map[string]*fakeMachine{
 			"1": {id: "1", life: state.Alive, containerType: instance.NONE,
-				hw: &instance.HardwareCharacteristics{
-					Arch:     &amd64,
-					Mem:      &gig,
-					CpuCores: &one,
-					CpuPower: &one,
-				}},
+				hw: hw,
+			},
 			"2": {id: "2", life: state.Alive, containerType: instance.LXD},
 			"3": {life: state.Dying},
 		},
@@ -131,6 +133,8 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-1").Return("123", "one-two-three", nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("uuid-2", nil)
 	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-2").Return("456", "four-five-six", nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "uuid-1").Return(hw, nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "uuid-2").Return(&instance.HardwareCharacteristics{}, nil)
 	info, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
@@ -186,6 +190,8 @@ func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-1").Return("123", "", nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("uuid-2", nil)
 	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-2").Return("456", "four-five-six", nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "uuid-1").Return(&instance.HardwareCharacteristics{}, nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "uuid-2").Return(&instance.HardwareCharacteristics{}, nil)
 	info, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
@@ -229,6 +235,7 @@ func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *gc.C) {
 	}
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
 	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-1").Return("123", "", nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "uuid-1").Return(&instance.HardwareCharacteristics{}, nil)
 	info, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
@@ -265,6 +272,7 @@ func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
 	}
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
 	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-1").Return("123", "snowflake", nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "uuid-1").Return(&instance.HardwareCharacteristics{}, nil)
 	info, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
@@ -309,6 +317,7 @@ func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *gc.C) {
 	}
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
 	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-1").Return("123", "snowflake", nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "uuid-1").Return(&instance.HardwareCharacteristics{}, nil)
 	info, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
 	c.Assert(err, jc.ErrorIsNil)
 	_true := true

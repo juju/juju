@@ -257,11 +257,6 @@ func (s *BootstrapSuite) TestInitializeModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 
-	stateHw, err := machines[0].HardwareCharacteristics()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateHw, gc.NotNil)
-	c.Assert(stateHw, gc.DeepEquals, s.bootstrapParams.BootstrapMachineHardwareCharacteristics)
-
 	cons, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)

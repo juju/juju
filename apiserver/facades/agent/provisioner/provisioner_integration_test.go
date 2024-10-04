@@ -1364,7 +1364,8 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	machineService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Machine()
-	machineService.CreateMachine(context.Background(), coremachine.Name(volumesMachine.Id()))
+	_, err = machineService.CreateMachine(context.Background(), coremachine.Name(volumesMachine.Id()))
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.InstancesInfo{Machines: []params.InstanceInfo{{
 		Tag:        s.machines[0].Tag().String(),
@@ -1421,9 +1422,11 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(s.machines[1].Refresh(), gc.IsNil)
 	c.Assert(s.machines[2].Refresh(), gc.IsNil)
 
+	machine1UUID, err := machineService.GetMachineUUID(context.Background(), coremachine.Name(s.machines[1].Id()))
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(s.machines[1].CheckProvisioned("fake_nonce"), jc.IsTrue)
 	c.Check(s.machines[2].CheckProvisioned("fake"), jc.IsTrue)
-	gotHardware, err := s.machines[1].HardwareCharacteristics()
+	gotHardware, err := machineService.HardwareCharacteristics(context.Background(), machine1UUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotHardware, gc.DeepEquals, &hwChars)
 

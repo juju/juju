@@ -283,29 +283,6 @@ type instanceData struct {
 	CharmProfiles []string `bson:"charm-profiles,omitempty"`
 }
 
-func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
-	return &instance.HardwareCharacteristics{
-		Arch:             instData.Arch,
-		Mem:              instData.Mem,
-		RootDisk:         instData.RootDisk,
-		RootDiskSource:   instData.RootDiskSource,
-		CpuCores:         instData.CpuCores,
-		CpuPower:         instData.CpuPower,
-		Tags:             instData.Tags,
-		AvailabilityZone: instData.AvailZone,
-		VirtType:         instData.VirtType,
-	}
-}
-
-// TODO(wallyworld): move this method to a service.
-func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
-	instData, err := getInstanceData(m.st, m.Id())
-	if err != nil {
-		return nil, err
-	}
-	return hardwareCharacteristics(instData), nil
-}
-
 func getInstanceData(st *State, id string) (instanceData, error) {
 	instanceDataCollection, closer := st.db().GetCollection(instanceDataC)
 	defer closer()
@@ -356,16 +333,6 @@ func (m *Model) AllInstanceData() (*ModelInstanceData, error) {
 // keyed on machine ID.
 type ModelInstanceData struct {
 	data map[string]instanceData
-}
-
-// HardwareCharacteristics returns the hardware characteristics of the
-// machine. If it isn't found in the map, a nil is returned.
-func (d *ModelInstanceData) HardwareCharacteristics(machineID string) *instance.HardwareCharacteristics {
-	instData, found := d.data[machineID]
-	if !found {
-		return nil
-	}
-	return hardwareCharacteristics(instData)
 }
 
 // CharmProfiles returns the names of the profiles that are defined for

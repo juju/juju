@@ -7,7 +7,6 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
 )
@@ -39,7 +38,6 @@ type Application interface {
 // details on the methods, see the methods on state.Machine with
 // the same names.
 type Machine interface {
-	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
 	Constraints() (constraints.Value, error)
 }
 

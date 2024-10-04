@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/modelmigration"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/internal/errors"
@@ -76,6 +77,9 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Errorf("retrieving instance ID for machine %q: %w", machineName, err)
 		}
 		instanceID, err := e.service.InstanceID(ctx, machineUUID)
+		if errors.Is(err, machineerrors.NotProvisioned) {
+			continue
+		}
 		if err != nil {
 			return errors.Errorf("retrieving instance ID for machine %q: %w", machineName, err)
 		}
@@ -83,6 +87,9 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			InstanceId: instanceID,
 		}
 		hardwareCharacteristics, err := e.service.HardwareCharacteristics(ctx, machineUUID)
+		if errors.Is(err, machineerrors.NotProvisioned) {
+			continue
+		}
 		if err != nil {
 			return errors.Errorf("retrieving hardware characteristics for machine %q: %w", machineName, err)
 		}

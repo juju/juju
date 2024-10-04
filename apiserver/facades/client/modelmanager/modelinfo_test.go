@@ -378,6 +378,8 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	cores := uint64(1)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{CpuCores: &cores}, nil)
 
 	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
 	_true := true
@@ -435,6 +437,7 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
 	c.Assert(info.Users, gc.HasLen, 1)
@@ -538,6 +541,7 @@ func (s *modelInfoSuite) TestRunningMigration(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	results, err := api.ModelInfo(context.Background(), params.Entities{
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
@@ -566,6 +570,7 @@ func (s *modelInfoSuite) TestFailedMigration(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	results, err := api.ModelInfo(context.Background(), params.Entities{
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
@@ -587,6 +592,7 @@ func (s *modelInfoSuite) TestNoMigration(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	results, err := api.ModelInfo(context.Background(), params.Entities{
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
@@ -604,6 +610,7 @@ func (s *modelInfoSuite) TestAliveModelGetsAllInfo(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }
@@ -638,6 +645,7 @@ func (s *modelInfoSuite) TestDeadModelGetsAllInfo(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dead, life.Dead)
 }
@@ -651,6 +659,7 @@ func (s *modelInfoSuite) TestDeadModelWithConfigFailure(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelConfigError,
@@ -669,6 +678,7 @@ func (s *modelInfoSuite) TestDeadModelWithStatusFailure(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelStatusError,
@@ -686,6 +696,7 @@ func (s *modelInfoSuite) TestDeadModelWithUsersFailure(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelUsersError,
@@ -704,6 +715,7 @@ func (s *modelInfoSuite) TestDyingModelWithConfigFailure(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelConfigError,
@@ -722,6 +734,7 @@ func (s *modelInfoSuite) TestDyingModelWithStatusFailure(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelStatusError,
@@ -739,6 +752,7 @@ func (s *modelInfoSuite) TestDyingModelWithUsersFailure(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelUsersError,
@@ -758,6 +772,7 @@ func (s *modelInfoSuite) TestImportingModelGetsAllInfo(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }
@@ -772,6 +787,7 @@ func (s *modelInfoSuite) TestImportingModelWithConfigFailure(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelConfigError,
@@ -796,6 +812,7 @@ func (s *modelInfoSuite) TestImportingModelWithStatusFailure(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 	s.assertSuccessWithMissingData(c, api, testData)
 }
 
@@ -808,6 +825,7 @@ func (s *modelInfoSuite) TestImportingModelWithUsersFailure(c *gc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef2").Return("inst-deadbeef2", "", nil)
+	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelUsersError,

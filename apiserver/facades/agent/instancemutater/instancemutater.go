@@ -36,7 +36,6 @@ type InstanceMutaterV2 interface {
 // service.
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
-	// It returns a MachineNotFound if the machine does not exist.
 	GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error)
 
 	// InstanceID returns the cloud specific instance id for this machine.
