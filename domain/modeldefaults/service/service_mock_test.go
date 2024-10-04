@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	cloud "github.com/juju/juju/core/cloud"
 	model "github.com/juju/juju/core/model"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -38,6 +39,123 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
+}
+
+// CloudAllRegionDefaults mocks base method.
+func (m *MockState) CloudAllRegionDefaults(arg0 context.Context, arg1 cloud.UUID) (map[string]map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloudAllRegionDefaults", arg0, arg1)
+	ret0, _ := ret[0].(map[string]map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CloudAllRegionDefaults indicates an expected call of CloudAllRegionDefaults.
+func (mr *MockStateMockRecorder) CloudAllRegionDefaults(arg0, arg1 any) *MockStateCloudAllRegionDefaultsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudAllRegionDefaults", reflect.TypeOf((*MockState)(nil).CloudAllRegionDefaults), arg0, arg1)
+	return &MockStateCloudAllRegionDefaultsCall{Call: call}
+}
+
+// MockStateCloudAllRegionDefaultsCall wrap *gomock.Call
+type MockStateCloudAllRegionDefaultsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateCloudAllRegionDefaultsCall) Return(arg0 map[string]map[string]string, arg1 error) *MockStateCloudAllRegionDefaultsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateCloudAllRegionDefaultsCall) Do(f func(context.Context, cloud.UUID) (map[string]map[string]string, error)) *MockStateCloudAllRegionDefaultsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateCloudAllRegionDefaultsCall) DoAndReturn(f func(context.Context, cloud.UUID) (map[string]map[string]string, error)) *MockStateCloudAllRegionDefaultsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CloudDefaults mocks base method.
+func (m *MockState) CloudDefaults(arg0 context.Context, arg1 cloud.UUID) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloudDefaults", arg0, arg1)
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CloudDefaults indicates an expected call of CloudDefaults.
+func (mr *MockStateMockRecorder) CloudDefaults(arg0, arg1 any) *MockStateCloudDefaultsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudDefaults", reflect.TypeOf((*MockState)(nil).CloudDefaults), arg0, arg1)
+	return &MockStateCloudDefaultsCall{Call: call}
+}
+
+// MockStateCloudDefaultsCall wrap *gomock.Call
+type MockStateCloudDefaultsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateCloudDefaultsCall) Return(arg0 map[string]string, arg1 error) *MockStateCloudDefaultsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateCloudDefaultsCall) Do(f func(context.Context, cloud.UUID) (map[string]string, error)) *MockStateCloudDefaultsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateCloudDefaultsCall) DoAndReturn(f func(context.Context, cloud.UUID) (map[string]string, error)) *MockStateCloudDefaultsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CloudType mocks base method.
+func (m *MockState) CloudType(arg0 context.Context, arg1 cloud.UUID) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloudType", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CloudType indicates an expected call of CloudType.
+func (mr *MockStateMockRecorder) CloudType(arg0, arg1 any) *MockStateCloudTypeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudType", reflect.TypeOf((*MockState)(nil).CloudType), arg0, arg1)
+	return &MockStateCloudTypeCall{Call: call}
+}
+
+// MockStateCloudTypeCall wrap *gomock.Call
+type MockStateCloudTypeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateCloudTypeCall) Return(arg0 string, arg1 error) *MockStateCloudTypeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateCloudTypeCall) Do(f func(context.Context, cloud.UUID) (string, error)) *MockStateCloudTypeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateCloudTypeCall) DoAndReturn(f func(context.Context, cloud.UUID) (string, error)) *MockStateCloudTypeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // ConfigDefaults mocks base method.
@@ -78,119 +196,157 @@ func (c *MockStateConfigDefaultsCall) DoAndReturn(f func(context.Context) map[st
 	return c
 }
 
-// ModelCloudDefaults mocks base method.
-func (m *MockState) ModelCloudDefaults(arg0 context.Context, arg1 model.UUID) (map[string]string, error) {
+// DeleteCloudDefaults mocks base method.
+func (m *MockState) DeleteCloudDefaults(arg0 context.Context, arg1 cloud.UUID, arg2 []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelCloudDefaults", arg0, arg1)
-	ret0, _ := ret[0].(map[string]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "DeleteCloudDefaults", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-// ModelCloudDefaults indicates an expected call of ModelCloudDefaults.
-func (mr *MockStateMockRecorder) ModelCloudDefaults(arg0, arg1 any) *MockStateModelCloudDefaultsCall {
+// DeleteCloudDefaults indicates an expected call of DeleteCloudDefaults.
+func (mr *MockStateMockRecorder) DeleteCloudDefaults(arg0, arg1, arg2 any) *MockStateDeleteCloudDefaultsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelCloudDefaults", reflect.TypeOf((*MockState)(nil).ModelCloudDefaults), arg0, arg1)
-	return &MockStateModelCloudDefaultsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCloudDefaults", reflect.TypeOf((*MockState)(nil).DeleteCloudDefaults), arg0, arg1, arg2)
+	return &MockStateDeleteCloudDefaultsCall{Call: call}
 }
 
-// MockStateModelCloudDefaultsCall wrap *gomock.Call
-type MockStateModelCloudDefaultsCall struct {
+// MockStateDeleteCloudDefaultsCall wrap *gomock.Call
+type MockStateDeleteCloudDefaultsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateModelCloudDefaultsCall) Return(arg0 map[string]string, arg1 error) *MockStateModelCloudDefaultsCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStateDeleteCloudDefaultsCall) Return(arg0 error) *MockStateDeleteCloudDefaultsCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateModelCloudDefaultsCall) Do(f func(context.Context, model.UUID) (map[string]string, error)) *MockStateModelCloudDefaultsCall {
+func (c *MockStateDeleteCloudDefaultsCall) Do(f func(context.Context, cloud.UUID, []string) error) *MockStateDeleteCloudDefaultsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateModelCloudDefaultsCall) DoAndReturn(f func(context.Context, model.UUID) (map[string]string, error)) *MockStateModelCloudDefaultsCall {
+func (c *MockStateDeleteCloudDefaultsCall) DoAndReturn(f func(context.Context, cloud.UUID, []string) error) *MockStateDeleteCloudDefaultsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// ModelCloudRegionDefaults mocks base method.
-func (m *MockState) ModelCloudRegionDefaults(arg0 context.Context, arg1 model.UUID) (map[string]string, error) {
+// DeleteCloudRegionDefaults mocks base method.
+func (m *MockState) DeleteCloudRegionDefaults(arg0 context.Context, arg1 cloud.UUID, arg2 string, arg3 []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelCloudRegionDefaults", arg0, arg1)
-	ret0, _ := ret[0].(map[string]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "DeleteCloudRegionDefaults", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-// ModelCloudRegionDefaults indicates an expected call of ModelCloudRegionDefaults.
-func (mr *MockStateMockRecorder) ModelCloudRegionDefaults(arg0, arg1 any) *MockStateModelCloudRegionDefaultsCall {
+// DeleteCloudRegionDefaults indicates an expected call of DeleteCloudRegionDefaults.
+func (mr *MockStateMockRecorder) DeleteCloudRegionDefaults(arg0, arg1, arg2, arg3 any) *MockStateDeleteCloudRegionDefaultsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelCloudRegionDefaults", reflect.TypeOf((*MockState)(nil).ModelCloudRegionDefaults), arg0, arg1)
-	return &MockStateModelCloudRegionDefaultsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCloudRegionDefaults", reflect.TypeOf((*MockState)(nil).DeleteCloudRegionDefaults), arg0, arg1, arg2, arg3)
+	return &MockStateDeleteCloudRegionDefaultsCall{Call: call}
 }
 
-// MockStateModelCloudRegionDefaultsCall wrap *gomock.Call
-type MockStateModelCloudRegionDefaultsCall struct {
+// MockStateDeleteCloudRegionDefaultsCall wrap *gomock.Call
+type MockStateDeleteCloudRegionDefaultsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateModelCloudRegionDefaultsCall) Return(arg0 map[string]string, arg1 error) *MockStateModelCloudRegionDefaultsCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStateDeleteCloudRegionDefaultsCall) Return(arg0 error) *MockStateDeleteCloudRegionDefaultsCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateModelCloudRegionDefaultsCall) Do(f func(context.Context, model.UUID) (map[string]string, error)) *MockStateModelCloudRegionDefaultsCall {
+func (c *MockStateDeleteCloudRegionDefaultsCall) Do(f func(context.Context, cloud.UUID, string, []string) error) *MockStateDeleteCloudRegionDefaultsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateModelCloudRegionDefaultsCall) DoAndReturn(f func(context.Context, model.UUID) (map[string]string, error)) *MockStateModelCloudRegionDefaultsCall {
+func (c *MockStateDeleteCloudRegionDefaultsCall) DoAndReturn(f func(context.Context, cloud.UUID, string, []string) error) *MockStateDeleteCloudRegionDefaultsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// ModelCloudType mocks base method.
-func (m *MockState) ModelCloudType(arg0 context.Context, arg1 model.UUID) (string, error) {
+// GetCloudUUID mocks base method.
+func (m *MockState) GetCloudUUID(arg0 context.Context, arg1 string) (cloud.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelCloudType", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "GetCloudUUID", arg0, arg1)
+	ret0, _ := ret[0].(cloud.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ModelCloudType indicates an expected call of ModelCloudType.
-func (mr *MockStateMockRecorder) ModelCloudType(arg0, arg1 any) *MockStateModelCloudTypeCall {
+// GetCloudUUID indicates an expected call of GetCloudUUID.
+func (mr *MockStateMockRecorder) GetCloudUUID(arg0, arg1 any) *MockStateGetCloudUUIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelCloudType", reflect.TypeOf((*MockState)(nil).ModelCloudType), arg0, arg1)
-	return &MockStateModelCloudTypeCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCloudUUID", reflect.TypeOf((*MockState)(nil).GetCloudUUID), arg0, arg1)
+	return &MockStateGetCloudUUIDCall{Call: call}
 }
 
-// MockStateModelCloudTypeCall wrap *gomock.Call
-type MockStateModelCloudTypeCall struct {
+// MockStateGetCloudUUIDCall wrap *gomock.Call
+type MockStateGetCloudUUIDCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateModelCloudTypeCall) Return(arg0 string, arg1 error) *MockStateModelCloudTypeCall {
+func (c *MockStateGetCloudUUIDCall) Return(arg0 cloud.UUID, arg1 error) *MockStateGetCloudUUIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateModelCloudTypeCall) Do(f func(context.Context, model.UUID) (string, error)) *MockStateModelCloudTypeCall {
+func (c *MockStateGetCloudUUIDCall) Do(f func(context.Context, string) (cloud.UUID, error)) *MockStateGetCloudUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateModelCloudTypeCall) DoAndReturn(f func(context.Context, model.UUID) (string, error)) *MockStateModelCloudTypeCall {
+func (c *MockStateGetCloudUUIDCall) DoAndReturn(f func(context.Context, string) (cloud.UUID, error)) *MockStateGetCloudUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetModelCloudDetails mocks base method.
+func (m *MockState) GetModelCloudDetails(arg0 context.Context, arg1 model.UUID) (cloud.UUID, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelCloudDetails", arg0, arg1)
+	ret0, _ := ret[0].(cloud.UUID)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetModelCloudDetails indicates an expected call of GetModelCloudDetails.
+func (mr *MockStateMockRecorder) GetModelCloudDetails(arg0, arg1 any) *MockStateGetModelCloudDetailsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelCloudDetails", reflect.TypeOf((*MockState)(nil).GetModelCloudDetails), arg0, arg1)
+	return &MockStateGetModelCloudDetailsCall{Call: call}
+}
+
+// MockStateGetModelCloudDetailsCall wrap *gomock.Call
+type MockStateGetModelCloudDetailsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetModelCloudDetailsCall) Return(arg0 cloud.UUID, arg1 string, arg2 error) *MockStateGetModelCloudDetailsCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetModelCloudDetailsCall) Do(f func(context.Context, model.UUID) (cloud.UUID, string, error)) *MockStateGetModelCloudDetailsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetModelCloudDetailsCall) DoAndReturn(f func(context.Context, model.UUID) (cloud.UUID, string, error)) *MockStateGetModelCloudDetailsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -230,6 +386,82 @@ func (c *MockStateModelMetadataDefaultsCall) Do(f func(context.Context, model.UU
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateModelMetadataDefaultsCall) DoAndReturn(f func(context.Context, model.UUID) (map[string]string, error)) *MockStateModelMetadataDefaultsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UpdateCloudDefaults mocks base method.
+func (m *MockState) UpdateCloudDefaults(arg0 context.Context, arg1 cloud.UUID, arg2 map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateCloudDefaults", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateCloudDefaults indicates an expected call of UpdateCloudDefaults.
+func (mr *MockStateMockRecorder) UpdateCloudDefaults(arg0, arg1, arg2 any) *MockStateUpdateCloudDefaultsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCloudDefaults", reflect.TypeOf((*MockState)(nil).UpdateCloudDefaults), arg0, arg1, arg2)
+	return &MockStateUpdateCloudDefaultsCall{Call: call}
+}
+
+// MockStateUpdateCloudDefaultsCall wrap *gomock.Call
+type MockStateUpdateCloudDefaultsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateUpdateCloudDefaultsCall) Return(arg0 error) *MockStateUpdateCloudDefaultsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateUpdateCloudDefaultsCall) Do(f func(context.Context, cloud.UUID, map[string]string) error) *MockStateUpdateCloudDefaultsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateUpdateCloudDefaultsCall) DoAndReturn(f func(context.Context, cloud.UUID, map[string]string) error) *MockStateUpdateCloudDefaultsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UpdateCloudRegionDefaults mocks base method.
+func (m *MockState) UpdateCloudRegionDefaults(arg0 context.Context, arg1 cloud.UUID, arg2 string, arg3 map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateCloudRegionDefaults", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateCloudRegionDefaults indicates an expected call of UpdateCloudRegionDefaults.
+func (mr *MockStateMockRecorder) UpdateCloudRegionDefaults(arg0, arg1, arg2, arg3 any) *MockStateUpdateCloudRegionDefaultsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCloudRegionDefaults", reflect.TypeOf((*MockState)(nil).UpdateCloudRegionDefaults), arg0, arg1, arg2, arg3)
+	return &MockStateUpdateCloudRegionDefaultsCall{Call: call}
+}
+
+// MockStateUpdateCloudRegionDefaultsCall wrap *gomock.Call
+type MockStateUpdateCloudRegionDefaultsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateUpdateCloudRegionDefaultsCall) Return(arg0 error) *MockStateUpdateCloudRegionDefaultsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateUpdateCloudRegionDefaultsCall) Do(f func(context.Context, cloud.UUID, string, map[string]string) error) *MockStateUpdateCloudRegionDefaultsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateUpdateCloudRegionDefaultsCall) DoAndReturn(f func(context.Context, cloud.UUID, string, map[string]string) error) *MockStateUpdateCloudRegionDefaultsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

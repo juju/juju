@@ -7,13 +7,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -28,7 +26,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
@@ -87,20 +84,6 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	}
 	s.st = &mockState{
 		controllerUUID: coretesting.ControllerTag.Id(),
-		cfgDefaults: config.ModelDefaultAttributes{
-			"attr": config.AttributeDefaultValues{
-				Default:    "",
-				Controller: "val",
-				Regions: []config.RegionDefaultValue{{
-					Name:  "dummy",
-					Value: "val++"}}},
-			"attr2": config.AttributeDefaultValues{
-				Controller: "val3",
-				Default:    "val2",
-				Regions: []config.RegionDefaultValue{{
-					Name:  "left",
-					Value: "spam"}}},
-		},
 	}
 
 	s.controllerUserInfo = []coremodel.ModelUserInfo{{
@@ -1084,7 +1067,6 @@ type mockState struct {
 	controllerModel *mockModel
 	machines        []common.Machine
 	controllerNodes []common.ControllerNode
-	cfgDefaults     config.ModelDefaultAttributes
 	migration       *mockMigration
 	modelConfig     *config.Config
 }
@@ -1103,11 +1085,6 @@ func (st *mockState) ModelUUID() string {
 func (st *mockState) Name() string {
 	st.MethodCall(st, "Name")
 	return "test-model"
-}
-
-func (st *mockState) ControllerModelUUID() string {
-	st.MethodCall(st, "ControllerModelUUID")
-	return st.controllerModel.tag.Id()
 }
 
 func (st *mockState) ControllerModelTag() names.ModelTag {
@@ -1143,11 +1120,6 @@ func (st *mockState) GetModel(modelUUID string) (common.Model, func() bool, erro
 	return st.model, func() bool { return true }, st.NextErr()
 }
 
-func (st *mockState) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
-	st.MethodCall(st, "ModelUUIDsForUser", user)
-	return nil, st.NextErr()
-}
-
 func (st *mockState) AllApplications() ([]common.Application, error) {
 	st.MethodCall(st, "AllApplications")
 	return nil, st.NextErr()
@@ -1163,36 +1135,10 @@ func (st *mockState) AllFilesystems() ([]state.Filesystem, error) {
 	return nil, st.NextErr()
 }
 
-func (st *mockState) IsControllerAdmin(user names.UserTag) (bool, error) {
-	st.MethodCall(st, "IsControllerAdmin", user)
-	if st.controllerModel == nil {
-		return user.Id() == "admin", st.NextErr()
-	}
-	if st.controllerModel.users == nil {
-		return user.Id() == "admin", st.NextErr()
-	}
-
-	for _, u := range st.controllerModel.users {
-		if user.Name() == u.userName && u.access == permission.AdminAccess {
-			nextErr := st.NextErr()
-			if user.Name() != "admin" {
-				panic(user.Name())
-			}
-			return true, nextErr
-		}
-	}
-	return false, st.NextErr()
-}
-
 func (st *mockState) NewModel(args state.ModelArgs) (common.Model, common.ModelManagerBackend, error) {
 	st.MethodCall(st, "NewModel", args)
 	st.model.tag = names.NewModelTag(args.Config.UUID())
 	return st.model, st, st.NextErr()
-}
-
-func (st *mockState) ControllerModel() (common.Model, error) {
-	st.MethodCall(st, "ControllerModel")
-	return st.controllerModel, st.NextErr()
 }
 
 func (st *mockState) ControllerTag() names.ControllerTag {
@@ -1208,11 +1154,6 @@ func (st *mockState) ComposeNewModelConfig(_ config.ConfigSchemaSourceGetter, mo
 	}
 	attr["something"] = "value"
 	return attr, st.NextErr()
-}
-
-func (st *mockState) ControllerUUID() string {
-	st.MethodCall(st, "ControllerUUID")
-	return st.controllerUUID
 }
 
 func (st *mockState) IsController() bool {
@@ -1240,61 +1181,8 @@ func (st *mockState) AllMachines() ([]common.Machine, error) {
 	return st.machines, st.NextErr()
 }
 
-func (st *mockState) SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) error {
-	return errors.NotImplementedf("SetModelAgentVersion")
-}
-
-func (st *mockState) AbortCurrentUpgrade() error {
-	return errors.NotImplementedf("AbortCurrentUpgrade")
-}
-
 func (st *mockState) Close() error {
 	st.MethodCall(st, "Close")
-	return st.NextErr()
-}
-
-func (st *mockState) ModelConfigDefaultValues(cloud string) (config.ModelDefaultAttributes, error) {
-	st.MethodCall(st, "ModelConfigDefaultValues", cloud)
-	return st.cfgDefaults, nil
-}
-
-func (st *mockState) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, rspec *environscloudspec.CloudRegionSpec) error {
-	st.MethodCall(st, "UpdateModelConfigDefaultValues", update, remove, rspec)
-	for k, v := range update {
-		if rspec != nil {
-			adv := st.cfgDefaults[k]
-			adv.Regions = append(adv.Regions, config.RegionDefaultValue{
-				Name:  rspec.Region,
-				Value: v})
-
-		} else {
-			st.cfgDefaults[k] = config.AttributeDefaultValues{Controller: v}
-		}
-	}
-	for _, n := range remove {
-		if rspec != nil {
-			for i, r := range st.cfgDefaults[n].Regions {
-				if r.Name == rspec.Region {
-					adv := st.cfgDefaults[n]
-					adv.Regions = append(adv.Regions[:i], adv.Regions[i+1:]...)
-					st.cfgDefaults[n] = adv
-				}
-			}
-		} else {
-			if len(st.cfgDefaults[n].Regions) == 0 {
-				delete(st.cfgDefaults, n)
-			} else {
-
-				st.cfgDefaults[n] = config.AttributeDefaultValues{
-					Regions: st.cfgDefaults[n].Regions}
-			}
-		}
-	}
-	return nil
-}
-
-func (st *mockState) SaveProviderSubnets(subnets []network.SubnetInfo, spaceID string) error {
-	st.MethodCall(st, "SaveProviderSubnets", subnets, spaceID)
 	return st.NextErr()
 }
 
@@ -1326,47 +1214,9 @@ func (st *mockState) HAPrimaryMachine() (names.MachineTag, error) {
 	return names.MachineTag{}, nil
 }
 
-func (st *mockState) DefaultEndpointBindingSpace() (string, error) {
-	st.MethodCall(st, "DefaultEndpointBindingSpace")
-	return "alpha", nil
-}
-
 func (st *mockState) ConstraintsBySpaceName(spaceName string) ([]*state.Constraints, error) {
 	st.MethodCall(st, "ConstraintsBySpaceName", spaceName)
 	return nil, st.NextErr()
-}
-
-func (st *mockState) ListModelSecrets(all bool) (map[string]set.Strings, error) {
-	return map[string]set.Strings{
-		"backend-id": set.NewStrings("a", "b"),
-	}, nil
-}
-
-func (st *mockState) GetSecretBackendByID(id string) (*secrets.SecretBackend, error) {
-	if id != "backend-id" {
-		return nil, errors.NotFoundf("backend %q", id)
-	}
-	return &secrets.SecretBackend{
-		ID:          "backend-id",
-		Name:        "myvault",
-		BackendType: "vault",
-		Config: map[string]interface{}{
-			"endpoint": "http://vault",
-			"token":    "secret",
-		},
-	}, nil
-}
-
-func (st *mockState) ListSecretBackends() ([]*secrets.SecretBackend, error) {
-	return []*secrets.SecretBackend{{
-		ID:          "backend-id",
-		Name:        "myvault",
-		BackendType: "vault",
-		Config: map[string]interface{}{
-			"endpoint": "http://vault",
-			"token":    "secret",
-		},
-	}}, nil
 }
 
 func (st *mockState) InvalidateModelCredential(reason string) error {

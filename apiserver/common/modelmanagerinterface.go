@@ -47,12 +47,6 @@ type ModelManagerBackend interface {
 	ControllerModelTag() names.ModelTag
 	IsController() bool
 	ControllerNodes() ([]ControllerNode, error)
-	ModelConfigDefaultValues(cloudName string) (config.ModelDefaultAttributes, error)
-	UpdateModelConfigDefaultValues(
-		update map[string]any,
-		remove []string,
-		regionSpec *environscloudspec.CloudRegionSpec,
-	) error
 	Unit(name string) (*state.Unit, error)
 	Name() string
 	ModelTag() names.ModelTag

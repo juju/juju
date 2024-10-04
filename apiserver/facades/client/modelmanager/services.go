@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/domain/model"
+	"github.com/juju/juju/domain/modeldefaults"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/environs/config"
@@ -125,6 +126,18 @@ type ModelDefaultsService interface {
 	ModelDefaultsProvider(
 		uuid coremodel.UUID,
 	) modeldefaultsservice.ModelDefaultsProviderFunc
+
+	// CloudDefaults returns the default attribute details for a specified cloud.
+	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+	CloudDefaults(ctx context.Context, cloudName string) (modeldefaults.ModelDefaultAttributes, error)
+
+	// UpdateModelConfigDefaultValues saves the specified default attribute details for a cloud or region.
+	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+	UpdateModelConfigDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudRegion modeldefaults.CloudRegion) error
+
+	// RemoveModelConfigDefaultValues deletes the specified default attribute details for a cloud or region.
+	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+	RemoveModelConfigDefaultValues(ctx context.Context, removeAttrs []string, cloudRegion modeldefaults.CloudRegion) error
 }
 
 // ModelInfoService defines a interface for interacting with the underlying

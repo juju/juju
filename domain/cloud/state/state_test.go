@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	modelstatetesting "github.com/juju/juju/domain/model/state/testing"
+	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
 	"github.com/juju/juju/internal/changestream/testing"
 	jujudb "github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -298,263 +299,6 @@ func (s *stateSuite) TestCloudWithEmptyNameFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *stateSuite) TestUpdateCloudDefaults(c *gc.C) {
-	cld := testCloud
-
-	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), cld)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.UpdateCloudDefaults(context.Background(), cld.Name, map[string]string{
-		"foo":        "bar",
-		"wallyworld": "peachy",
-	}, []string{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	defaults, err := st.CloudDefaults(context.Background(), cld.Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(defaults, jc.DeepEquals, map[string]string{
-		"foo":        "bar",
-		"wallyworld": "peachy",
-	})
-}
-
-func (s *stateSuite) TestComplexUpdateCloudDefaults(c *gc.C) {
-	cld := testCloud
-
-	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), cld)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.UpdateCloudDefaults(context.Background(), cld.Name, map[string]string{
-		"foo":        "bar",
-		"wallyworld": "peachy",
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	defaults, err := st.CloudDefaults(context.Background(), cld.Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(defaults, jc.DeepEquals, map[string]string{
-		"foo":        "bar",
-		"wallyworld": "peachy",
-	})
-
-	err = st.UpdateCloudDefaults(context.Background(), cld.Name, map[string]string{
-		"wallyworld": "peachy1",
-		"foo2":       "bar2",
-	}, []string{"foo"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	defaults, err = st.CloudDefaults(context.Background(), cld.Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(defaults, jc.DeepEquals, map[string]string{
-		"wallyworld": "peachy1",
-		"foo2":       "bar2",
-	})
-}
-
-func (s *stateSuite) TestCloudDefaultsUpdateForNonExistentCloud(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	err := st.UpdateCloudDefaults(context.Background(), "noexist", map[string]string{
-		"wallyworld": "peachy",
-	}, nil)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-}
-
-func (s *stateSuite) TestCloudRegionDefaults(c *gc.C) {
-	cld := testCloud
-
-	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), cld)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.UpdateCloudRegionDefaults(
-		context.Background(),
-		cld.Name,
-		cld.Regions[0].Name,
-		map[string]string{
-			"foo":        "bar",
-			"wallyworld": "peachy",
-		},
-		nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.UpdateCloudRegionDefaults(
-		context.Background(),
-		cld.Name,
-		cld.Regions[1].Name,
-		map[string]string{
-			"foo":        "bar1",
-			"wallyworld": "peachy2",
-		},
-		nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	regionDefaults, err := st.CloudAllRegionDefaults(context.Background(), cld.Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(regionDefaults, jc.DeepEquals, map[string]map[string]string{
-		cld.Regions[0].Name: {
-			"foo":        "bar",
-			"wallyworld": "peachy",
-		},
-		cld.Regions[1].Name: {
-			"foo":        "bar1",
-			"wallyworld": "peachy2",
-		},
-	})
-}
-
-func (s *stateSuite) TestCloudRegionDefaultsComplex(c *gc.C) {
-	cld := testCloud
-
-	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), cld)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.UpdateCloudRegionDefaults(
-		context.Background(),
-		cld.Name,
-		cld.Regions[0].Name,
-		map[string]string{
-			"foo":        "bar",
-			"wallyworld": "peachy",
-		},
-		nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.UpdateCloudRegionDefaults(
-		context.Background(),
-		cld.Name,
-		cld.Regions[1].Name,
-		map[string]string{
-			"foo":        "bar1",
-			"wallyworld": "peachy2",
-		},
-		nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	regionDefaults, err := st.CloudAllRegionDefaults(context.Background(), cld.Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(regionDefaults, jc.DeepEquals, map[string]map[string]string{
-		cld.Regions[0].Name: {
-			"foo":        "bar",
-			"wallyworld": "peachy",
-		},
-		cld.Regions[1].Name: {
-			"foo":        "bar1",
-			"wallyworld": "peachy2",
-		},
-	})
-
-	err = st.UpdateCloudRegionDefaults(
-		context.Background(),
-		cld.Name,
-		cld.Regions[1].Name,
-		map[string]string{
-			"wallyworld": "peachy3",
-		},
-		[]string{"foo"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.UpdateCloudRegionDefaults(
-		context.Background(),
-		cld.Name,
-		cld.Regions[0].Name,
-		map[string]string{
-			"one":   "two",
-			"three": "four",
-			"five":  "six",
-		},
-		nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	regionDefaults, err = st.CloudAllRegionDefaults(context.Background(), cld.Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(regionDefaults, jc.DeepEquals, map[string]map[string]string{
-		cld.Regions[0].Name: {
-			"foo":        "bar",
-			"wallyworld": "peachy",
-			"one":        "two",
-			"three":      "four",
-			"five":       "six",
-		},
-		cld.Regions[1].Name: {
-			"wallyworld": "peachy3",
-		},
-	})
-}
-
-func (s *stateSuite) TestCloudRegionDefaultsNoExist(c *gc.C) {
-	cld := testCloud
-
-	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), cld)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.UpdateCloudRegionDefaults(context.Background(), cld.Name, "noexistregion", map[string]string{
-		"foo": "bar",
-	}, nil)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-
-	defaults, err := st.CloudAllRegionDefaults(context.Background(), cld.Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(defaults), gc.Equals, 0)
-}
-
-func (s *stateSuite) TestCloudDefaultsRemoval(c *gc.C) {
-	cld := testCloud
-
-	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), cld)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.UpdateCloudDefaults(context.Background(), cld.Name, map[string]string{
-		"foo":        "bar",
-		"wallyworld": "peachy",
-	}, []string{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.UpdateCloudDefaults(context.Background(), cld.Name, nil, []string{"foo"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	defaults, err := st.CloudDefaults(context.Background(), cld.Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(defaults, jc.DeepEquals, map[string]string{
-		"wallyworld": "peachy",
-	})
-
-	err = st.UpdateCloudDefaults(context.Background(), cld.Name, nil, []string{"noexist"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	defaults, err = st.CloudDefaults(context.Background(), cld.Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(defaults, jc.DeepEquals, map[string]string{
-		"wallyworld": "peachy",
-	})
-}
-
-func (s *stateSuite) TestEmptyCloudDefaults(c *gc.C) {
-	cld := testCloud
-
-	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), cld)
-	c.Assert(err, jc.ErrorIsNil)
-
-	defaults, err := st.CloudDefaults(context.Background(), cld.Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(defaults), gc.Equals, 0)
-}
-
-// TestNotFoundCloudDefaults is testing what happens if we request a cloud
-// defaults for a cloud that doesn't exist. It should result in a
-// [clouderrors.NotFound] error.
-func (s *stateSuite) TestNotFoundCloudDefaults(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	defaults, err := st.CloudDefaults(context.Background(), "notfound")
-	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)
-	c.Assert(len(defaults), gc.Equals, 0)
-}
-
 func (s *stateSuite) TestCreateCloudInvalidAuthType(c *gc.C) {
 	cld := testCloud
 	cld.AuthTypes = []cloud.AuthType{"myauth"}
@@ -772,8 +516,9 @@ func (s *stateSuite) TestNullCloudType(c *gc.C) {
 // TestSetCloudDefaults is testing the happy path for [SetCloudDefaults]
 func (s *stateSuite) TestSetCloudDefaults(c *gc.C) {
 	cld := testCloud
+	cloudUUID := corecloud.UUID(uuid.MustNewUUID().String())
 	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), cld)
+	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -783,7 +528,8 @@ func (s *stateSuite) TestSetCloudDefaults(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 
-	defaults, err := st.CloudDefaults(context.Background(), cld.Name)
+	defaultsSt := modeldefaultsstate.NewState(s.TxnRunnerFactory())
+	defaults, err := defaultsSt.CloudDefaults(context.Background(), cloudUUID)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(defaults, jc.DeepEquals, map[string]string{
 		"clouddefault": "one",
@@ -794,8 +540,6 @@ func (s *stateSuite) TestSetCloudDefaults(c *gc.C) {
 // defaults for a cloud that doesn't exist we get back an error that satisfies
 // [clouderrors.NotFound].
 func (s *stateSuite) TestSetCloudDefaultsNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return SetCloudDefaults(ctx, tx, "noexist", map[string]string{
 			"clouddefault": "one",
@@ -803,8 +547,9 @@ func (s *stateSuite) TestSetCloudDefaultsNotFound(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
 
+	st := modeldefaultsstate.NewState(s.TxnRunnerFactory())
 	defaults, err := st.CloudDefaults(context.Background(), "noexist")
-	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(len(defaults), gc.Equals, 0)
 }
 
@@ -812,8 +557,9 @@ func (s *stateSuite) TestSetCloudDefaultsNotFound(c *gc.C) {
 // SetCloudDefaults overrides the previously set values for cloud defaults.
 func (s *stateSuite) TestSetCloudDefaultsOverrides(c *gc.C) {
 	cld := testCloud
+	cloudUUID := corecloud.UUID(uuid.MustNewUUID().String())
 	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), cld)
+	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -823,7 +569,8 @@ func (s *stateSuite) TestSetCloudDefaultsOverrides(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 
-	defaults, err := st.CloudDefaults(context.Background(), cld.Name)
+	defaultsSt := modeldefaultsstate.NewState(s.TxnRunnerFactory())
+	defaults, err := defaultsSt.CloudDefaults(context.Background(), cloudUUID)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(defaults, jc.DeepEquals, map[string]string{
 		"clouddefault": "one",
@@ -836,7 +583,7 @@ func (s *stateSuite) TestSetCloudDefaultsOverrides(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 
-	defaults, err = st.CloudDefaults(context.Background(), cld.Name)
+	defaults, err = defaultsSt.CloudDefaults(context.Background(), cloudUUID)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(defaults, jc.DeepEquals, map[string]string{
 		"clouddefaultnew": "two",
@@ -849,7 +596,8 @@ func (s *stateSuite) TestSetCloudDefaultsOverrides(c *gc.C) {
 func (s *stateSuite) TestSetCloudDefaultsDelete(c *gc.C) {
 	cld := testCloud
 	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), cld)
+	cloudUUID := corecloud.UUID(uuid.MustNewUUID().String())
+	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -859,7 +607,8 @@ func (s *stateSuite) TestSetCloudDefaultsDelete(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 
-	defaults, err := st.CloudDefaults(context.Background(), cld.Name)
+	defaultsSt := modeldefaultsstate.NewState(s.TxnRunnerFactory())
+	defaults, err := defaultsSt.CloudDefaults(context.Background(), cloudUUID)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(defaults, jc.DeepEquals, map[string]string{
 		"clouddefault": "one",
@@ -870,7 +619,7 @@ func (s *stateSuite) TestSetCloudDefaultsDelete(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 
-	defaults, err = st.CloudDefaults(context.Background(), cld.Name)
+	defaults, err = defaultsSt.CloudDefaults(context.Background(), cloudUUID)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(len(defaults), gc.Equals, 0)
 }
