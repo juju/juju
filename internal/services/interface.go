@@ -10,6 +10,7 @@ import (
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
+	blockcommandservice "github.com/juju/juju/domain/blockcommand/service"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
 	controllerservice "github.com/juju/juju/domain/controller/service"
@@ -130,6 +131,8 @@ type ModelDomainServices interface {
 	// Deprecated: Stub service contains only temporary methods and should be removed
 	// as soon as possible.
 	Stub() *stubservice.StubService
+	// BlockCommand returns the service for blocking commands.
+	BlockCommand() *blockcommandservice.Service
 }
 
 // DomainServices provides access to the services required by the apiserver.

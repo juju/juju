@@ -4,6 +4,7 @@
 package state
 
 type blockCommand struct {
+	UUID      string `db:"uuid"`
 	BlockType int8   `db:"block_command_type_id"`
 	Message   string `db:"message"`
 }

@@ -77,8 +77,8 @@ func (s *stateSuite) TestGetBlocks(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocks, gc.HasLen, 2)
-	c.Check(blocks, gc.DeepEquals, []blockcommand.Block{
-		{Type: blockcommand.DestroyBlock, Message: ""},
-		{Type: blockcommand.ChangeBlock, Message: "change me"},
-	})
+	c.Check(blocks[0].Type, gc.Equals, blockcommand.DestroyBlock)
+	c.Check(blocks[0].Message, gc.Equals, "")
+	c.Check(blocks[1].Type, gc.Equals, blockcommand.ChangeBlock)
+	c.Check(blocks[1].Message, gc.Equals, "change me")
 }

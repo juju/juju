@@ -26,6 +26,7 @@ const (
 	ChangeBlock BlockType = 3
 )
 
+// Validate checks if the block type is valid.
 func (t BlockType) Validate() error {
 	switch t {
 	case DestroyBlock, RemoveBlock, ChangeBlock:
@@ -34,8 +35,21 @@ func (t BlockType) Validate() error {
 	return errors.Errorf("invalid block type %d", t)
 }
 
+func (t BlockType) String() string {
+	switch t {
+	case DestroyBlock:
+		return "destroy"
+	case RemoveBlock:
+		return "remove"
+	case ChangeBlock:
+		return "change"
+	}
+	return "unknown"
+}
+
 // Block represents a command block.
 type Block struct {
+	UUID    string
 	Type    BlockType
 	Message string
 }
