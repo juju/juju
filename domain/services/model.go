@@ -16,6 +16,8 @@ import (
 	annotationState "github.com/juju/juju/domain/annotation/state"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
+	blockcommandservice "github.com/juju/juju/domain/blockcommand/service"
+	blockcommandstate "github.com/juju/juju/domain/blockcommand/state"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
 	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
@@ -280,5 +282,13 @@ func (s *ModelFactory) Port() *portservice.WatchableService {
 	return portservice.NewWatchableService(
 		portstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		domain.NewWatcherFactory(s.modelDB, s.logger.Child("port")),
+	)
+}
+
+// BlockCommand returns the service for blocking commands.
+func (s *ModelFactory) BlockCommand() *blockcommandservice.Service {
+	return blockcommandservice.NewService(
+		blockcommandstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.logger.Child("blockcommand"),
 	)
 }
