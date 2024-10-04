@@ -7,6 +7,37 @@ import (
 	"reflect"
 )
 
+// ModelDefaultAttributes represents a set of default values for
+// a given attribute. The values contain the schema default value,
+// any controller default value, and values set for cloud regions.
+type ModelDefaultAttributes map[string]AttributeDefaultValues
+
+// AttributeDefaultValues represents all the default values at each level for a given
+// setting.
+type AttributeDefaultValues struct {
+	// Default and Controller represent the values as set at those levels.
+	Default    any
+	Controller any
+	// Regions is a slice of Region representing the values as set in each
+	// region.
+	Regions []RegionDefaultValue
+}
+
+type CloudRegion struct {
+	// Cloud is the name of the cloud.
+	Cloud string
+	// Region is the name of the cloud region.
+	Region string
+}
+
+// RegionDefaultValue holds the region information for each region in DefaultSetting.
+type RegionDefaultValue struct {
+	// Name represents the region name for this specific setting.
+	Name string
+	// Value is the value of the setting this represents in the named region.
+	Value any
+}
+
 // ApplyStrategy describes a strategy for how default values should be
 // applied to model config.
 type ApplyStrategy interface {

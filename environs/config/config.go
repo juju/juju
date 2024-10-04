@@ -6,6 +6,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net"
 	"net/url"
 	"os"
@@ -447,12 +448,7 @@ const (
 //
 // The attrs map can not be nil, otherwise a panic is raised.
 func New(withDefaults Defaulting, attrs map[string]any) (*Config, error) {
-	initSchema.Do(func() {
-		allFields = fields()
-		defaultsWhenParsing = allDefaults()
-		withDefaultsChecker = schema.FieldMap(allFields, defaultsWhenParsing)
-		noDefaultsChecker = schema.FieldMap(allFields, alwaysOptional)
-	})
+	initSchema.Do(initSchemas)
 	checker := noDefaultsChecker
 	if withDefaults {
 		checker = withDefaultsChecker
@@ -673,6 +669,31 @@ func CoerceForStorage(attrs map[string]any) map[string]any {
 		coercedAttrs[attrName] = attrValue
 	}
 	return coercedAttrs
+}
+
+func initSchemas() {
+	allFields = fields()
+	defaultsWhenParsing = allDefaults()
+	withDefaultsChecker = schema.FieldMap(allFields, defaultsWhenParsing)
+	noDefaultsChecker = schema.FieldMap(allFields, alwaysOptional)
+
+	coerceOptional := schema.Defaults{}
+	maps.Copy(coerceOptional, alwaysOptional)
+	coerceOptional[UUIDKey] = schema.Omit
+	coerceOptional[NameKey] = schema.Omit
+	coerceOptional[TypeKey] = schema.Omit
+	coerceChecker = schema.FieldMap(allFields, coerceOptional)
+}
+
+// Coerce transforms the attributes from strings to their typed values.
+func Coerce(attrs map[string]string) (map[string]any, error) {
+	initSchema.Do(initSchemas)
+
+	result, err := coerceChecker.Coerce(attrs, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return result.(map[string]any), nil
 }
 
 // Validate ensures that config is a valid configuration.  If old is not nil,
@@ -1867,6 +1888,7 @@ var (
 	defaultsWhenParsing schema.Defaults
 	withDefaultsChecker schema.Checker
 	noDefaultsChecker   schema.Checker
+	coerceChecker       schema.Checker
 )
 
 // ValidateUnknownAttrs checks the unknown attributes of the config against

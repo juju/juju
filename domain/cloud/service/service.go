@@ -45,13 +45,6 @@ type Service struct {
 	st State
 }
 
-// NewService returns a new service reference wrapping the input state.
-func NewService(st State) *Service {
-	return &Service{
-		st: st,
-	}
-}
-
 // CreateCloud creates the input cloud entity and provides Admin
 // permissions for the owner.
 func (s *Service) CreateCloud(ctx context.Context, owner user.Name, cloud cloud.Cloud) error {

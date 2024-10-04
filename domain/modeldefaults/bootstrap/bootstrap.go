@@ -31,7 +31,7 @@ func ModelDefaultsProvider(
 			}
 		}
 
-		providerDefaults, err := service.ProviderDefaults(
+		providerDefaults, _, err := service.ProviderDefaults(
 			context.Background(),
 			cloudType,
 			service.ProviderModelConfigGetter(),

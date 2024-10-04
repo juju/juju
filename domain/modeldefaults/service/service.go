@@ -6,11 +6,14 @@ package service
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/schema"
 
+	"github.com/juju/juju/core/cloud"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	_ "github.com/juju/juju/domain/model/errors"
+	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -39,26 +42,68 @@ type ModelConfigProviderFunc func(string) (environs.ModelConfigProvider, error)
 
 // State is the model config state required by this service.
 type State interface {
+	// GetModelCloudDetails returns the cloud UUID and region for the given model.
+	// If the model is not found, an error specifying [modelerrors,NotFound] is returned.
+	GetModelCloudDetails(context.Context, coremodel.UUID) (cloud.UUID, string, error)
+
+	// GetCloudUUID returns the cloud UUID and region for the given cloud name.
+	// If the cloud is not found, an error specifying [clouderrors.NotFound] is returned.
+	GetCloudUUID(context.Context, string) (cloud.UUID, error)
+
+	// UpdateCloudDefaults is responsible for updating default config values for a
+	// cloud. This function will allow the addition and updating of attributes.
+	// If the cloud doesn't exist, an error satisfying [clouderrors.NotFound]
+	// is returned.
+	UpdateCloudDefaults(ctx context.Context, cloudUID cloud.UUID, attrs map[string]string) error
+
+	// DeleteCloudDefaults deletes the specified cloud default
+	// config values if they exist.
+	DeleteCloudDefaults(ctx context.Context, cloudUID cloud.UUID, attrs []string) error
+
+	// UpdateCloudRegionDefaults is responsible for updating default config values
+	// for a cloud region. This function will allow the addition and updating of
+	// attributes. If the cloud is not found an error satisfying [clouderrors.NotFound]
+	// is returned. If the region is not found, am error satisfying [errors.NotFound]
+	// is returned.
+	UpdateCloudRegionDefaults(ctx context.Context, cloudUID cloud.UUID, regionName string, attrs map[string]string) error
+
+	// DeleteCloudRegionDefaults deletes the specified default config
+	// keys for the given cloud region.
+	// It returns an error satisfying [errors.NotFound] if the
+	// region doesn't exist.
+	DeleteCloudRegionDefaults(ctx context.Context, cloudUID cloud.UUID, regionName string, attrs []string) error
+
 	// ConfigDefaults returns the default configuration values set in Juju.
 	ConfigDefaults(context.Context) map[string]any
 
-	// ModelCloud returns the cloud type used by the model identified by the
-	// model uuid. If no model exists for the given uuid then an error
-	// [modelerrors.NotFound] is returned.
-	ModelCloudType(context.Context, coremodel.UUID) (string, error)
+	// CloudDefaults returns the defaults associated with the given cloud. If
+	// no defaults are found then an empty map will be returned with a nil error.
+	CloudDefaults(context.Context, cloud.UUID) (map[string]string, error)
 
-	// ModelCloudDefaults returns the defaults associated with the model's cloud.
-	ModelCloudDefaults(context.Context, coremodel.UUID) (map[string]string, error)
-
-	// ModelCloudRegionDefaults returns the defaults associated with the models
-	// set cloud region.
-	ModelCloudRegionDefaults(context.Context, coremodel.UUID) (map[string]string, error)
+	// CloudAllRegionDefaults returns the defaults associated with all of the
+	// regions for the specified cloud. The result is a map of region name
+	// key values, keyed on the name of the region.
+	// If no defaults are found then an empty map will be returned with nil error.
+	// CloudAllRegionDefaults returns all the default settings for a cloud and it's
+	// regions. Note this will not include the defaults set on the cloud itself but
+	// just that of its regions. Empty map values are returned when no region
+	// defaults are found.
+	CloudAllRegionDefaults(
+		ctx context.Context,
+		cloudUUID cloud.UUID,
+	) (map[string]map[string]string, error)
 
 	// ModelMetadataDefaults is responsible for providing metadata defaults for a
-	// models config. These include things like the models name and uuid.
+	// model's config. These include things like the model's name and uuid.
 	// If no model exists for the provided uuid then a [modelerrors.NotFound] error
 	// is returned.
+	// Deprecated: this is only to support legacy callers.
 	ModelMetadataDefaults(context.Context, coremodel.UUID) (map[string]string, error)
+
+	// CloudType returns the cloud type uof the cloud.
+	// If no cloud exists for the given uuid then an error
+	// satisfying [clouderrors.NotFound] is returned.
+	CloudType(context.Context, cloud.UUID) (string, error)
 }
 
 // Service defines a service for interacting with the underlying default
@@ -119,18 +164,18 @@ func ProviderDefaults(
 	ctx context.Context,
 	cloudType string,
 	providerGetter ModelConfigProviderFunc,
-) (modeldefaults.Defaults, error) {
+) (modeldefaults.Defaults, schema.Checker, error) {
 	configProvider, err := providerGetter(cloudType)
 	if errors.Is(err, coreerrors.NotFound) {
-		return nil, errors.Errorf(
+		return nil, nil, errors.Errorf(
 			"getting model config provider, provider for cloud type %q does not exist",
 			cloudType,
 		)
 	} else if errors.Is(err, coreerrors.NotSupported) {
 		// The provider doesn't have anything to contribute.
-		return nil, nil
+		return nil, nil, nil
 	} else if err != nil {
-		return nil, errors.Errorf(
+		return nil, nil, errors.Errorf(
 			"getting model config provider for cloud type %q: %w",
 			cloudType, err,
 		)
@@ -138,7 +183,7 @@ func ProviderDefaults(
 
 	modelDefaults, err := configProvider.ModelConfigDefaults(ctx)
 	if err != nil {
-		return nil, errors.Errorf(
+		return nil, nil, errors.Errorf(
 			"getting model defaults for provider of cloud type %q: %w",
 			cloudType, err,
 		)
@@ -147,7 +192,7 @@ func ProviderDefaults(
 	fields := schema.FieldMap(configProvider.ConfigSchema(), configProvider.ConfigDefaults())
 	coercedAttrs, err := fields.Coerce(map[string]any{}, nil)
 	if err != nil {
-		return modeldefaults.Defaults{}, errors.Errorf(
+		return nil, nil, errors.Errorf(
 			"coercing model config provider for cloud type %q default schema attributes: %w",
 			cloudType, err,
 		)
@@ -170,11 +215,11 @@ func ProviderDefaults(
 		}
 	}
 
-	return rval, nil
+	return rval, fields, nil
 }
 
 // providerDefaults is responsible for wrangling and bringing together all of
-// the model config attributes and their defaults for a provider of a model.
+// the config attributes and their defaults for a cloud provider.
 // There are typically two types of defaults a provider has. The first is the
 // defaults for the keys the provider extends model config with. These are
 // generally provider specific keys and only make sense in the context of the
@@ -183,24 +228,66 @@ func ProviderDefaults(
 // in a model.
 func (s *Service) providerDefaults(
 	ctx context.Context,
-	uuid coremodel.UUID,
-) (modeldefaults.Defaults, error) {
-	modelCloudType, err := s.st.ModelCloudType(ctx, uuid)
+	cloudUUID cloud.UUID,
+) (modeldefaults.Defaults, schema.Checker, error) {
+	modelCloudType, err := s.st.CloudType(ctx, cloudUUID)
 	if err != nil {
-		return nil, errors.Errorf(
-			"getting model %q cloud type to extract provider model config defaults: %w",
-			uuid, err,
+		return nil, nil, errors.Errorf(
+			"getting %q cloud type to extract provider model config defaults: %w",
+			cloudUUID, err,
 		)
 	}
 
-	defaults, err := ProviderDefaults(ctx, modelCloudType, s.modelConfigProviderGetter)
+	defaults, checker, err := ProviderDefaults(ctx, modelCloudType, s.modelConfigProviderGetter)
 	if err != nil {
-		return nil, errors.Errorf(
-			"getting model %q provider defaults: %w", uuid, err,
+		return nil, nil, errors.Errorf(
+			"getting cloud %q provider defaults: %w", cloudUUID, err,
 		)
 	}
 
-	return defaults, nil
+	return defaults, checker, nil
+}
+
+// CloudDefaults returns the default attribute details for a specified cloud.
+// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+func (s *Service) CloudDefaults(ctx context.Context, cloudName string) (modeldefaults.ModelDefaultAttributes, error) {
+	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
+	if err != nil {
+		return nil, errors.Errorf("getting cloud UUID for cloud %q: %w", cloudName, err)
+	}
+	return s.cloudDefaults(ctx, cloudUUID)
+}
+
+// UpdateModelConfigDefaultValues saves the specified default attribute details for a cloud or region.
+// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+func (s *Service) UpdateModelConfigDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudRegion modeldefaults.CloudRegion) error {
+	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudRegion.Cloud)
+	if err != nil {
+		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudRegion.Cloud, err)
+	}
+
+	strAttrs, err := modelconfigservice.CoerceConfigForStorage(updateAttrs)
+	if err != nil {
+		return errors.Errorf("coercing cloud %q default values for storage: %w", cloudRegion.Cloud, err)
+	}
+	if cloudRegion.Region == "" {
+		return s.st.UpdateCloudDefaults(ctx, cloudUUID, strAttrs)
+	}
+	return s.st.UpdateCloudRegionDefaults(ctx, cloudUUID, cloudRegion.Region, strAttrs)
+}
+
+// RemoveModelConfigDefaultValues deletes the specified default attribute details for a cloud or region.
+// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+func (s *Service) RemoveModelConfigDefaultValues(ctx context.Context, removeAttrs []string, cloudRegion modeldefaults.CloudRegion) error {
+	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudRegion.Cloud)
+	if err != nil {
+		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudRegion.Cloud, err)
+	}
+
+	if cloudRegion.Region == "" {
+		return s.st.DeleteCloudDefaults(ctx, cloudUUID, removeAttrs)
+	}
+	return s.st.DeleteCloudRegionDefaults(ctx, cloudUUID, cloudRegion.Region, removeAttrs)
 }
 
 // ModelDefaults will return the default config values to be used for a model
@@ -227,47 +314,13 @@ func (s *Service) ModelDefaults(
 	if err := uuid.Validate(); err != nil {
 		return modeldefaults.Defaults{}, errors.Errorf("model uuid: %w", err)
 	}
-
-	defaults := modeldefaults.Defaults{}
-
-	jujuDefaults := s.st.ConfigDefaults(ctx)
-	for k, v := range jujuDefaults {
-		defaults[k] = modeldefaults.DefaultAttributeValue{
-			Source: config.JujuDefaultSource,
-			Value:  v,
-		}
-	}
-
-	providerDefaults, err := s.providerDefaults(ctx, uuid)
+	cloudUUID, cloudRegion, err := s.st.GetModelCloudDetails(ctx, uuid)
 	if err != nil {
-		return nil, err
+		return modeldefaults.Defaults{}, errors.Errorf("getting cloud UUID for model %q: %w", uuid, err)
 	}
-	for k, v := range providerDefaults {
-		defaults[k] = v
-	}
-
-	cloudDefaults, err := s.st.ModelCloudDefaults(ctx, uuid)
+	defaults, err := s.cloudDefaults(ctx, cloudUUID)
 	if err != nil {
-		return modeldefaults.Defaults{}, errors.Errorf("getting model %q cloud defaults: %w", uuid, err)
-	}
-
-	for k, v := range cloudDefaults {
-		defaults[k] = modeldefaults.DefaultAttributeValue{
-			Source: config.JujuControllerSource,
-			Value:  v,
-		}
-	}
-
-	cloudRegionDefaults, err := s.st.ModelCloudRegionDefaults(ctx, uuid)
-	if err != nil {
-		return modeldefaults.Defaults{}, errors.Errorf("getting model %q cloud region defaults: %w", uuid, err)
-	}
-
-	for k, v := range cloudRegionDefaults {
-		defaults[k] = modeldefaults.DefaultAttributeValue{
-			Source: config.JujuRegionSource,
-			Value:  v,
-		}
+		return modeldefaults.Defaults{}, errors.Errorf("getting cloud defaults for model %q with cloud %q: %w", uuid, cloudUUID, err)
 	}
 
 	// TODO (tlm): We want to remove this eventually. Due to legacy reasons
@@ -284,14 +337,138 @@ func (s *Service) ModelDefaults(
 	}
 
 	for k, v := range metadataDefaults {
-		defaults[k] = modeldefaults.DefaultAttributeValue{
-			Source:   config.JujuControllerSource,
-			Strategy: &modeldefaults.PreferDefaultApplyStrategy{},
-			Value:    v,
+		val := defaults[k]
+		val.Controller = v
+		defaults[k] = val
+	}
+
+	result := modeldefaults.Defaults{}
+	for k, v := range defaults {
+		val := modeldefaults.DefaultAttributeValue{}
+		if v.Default != nil {
+			val.Value = v.Default
+			val.Source = config.JujuDefaultSource
+		}
+		if v.Controller != nil {
+			val.Value = v.Controller
+			val.Source = config.JujuControllerSource
+		}
+		for _, r := range v.Regions {
+			if r.Name == cloudRegion {
+				val.Value = r.Value
+				val.Source = config.JujuRegionSource
+				break
+			}
+		}
+		result[k] = val
+	}
+	return result, nil
+}
+
+// cloudDefaults will return the default config values which have been
+// specified for a cloud and its regions. The string values fron the
+// database are coerced into the types specified by the cloud's config schema.
+func (s *Service) cloudDefaults(
+	ctx context.Context,
+	cloudUUID cloud.UUID,
+) (modeldefaults.ModelDefaultAttributes, error) {
+	if err := cloudUUID.Validate(); err != nil {
+		return modeldefaults.ModelDefaultAttributes{}, errors.Errorf("cloud uuid: %w", err)
+	}
+
+	defaults := modeldefaults.ModelDefaultAttributes{}
+
+	jujuDefaults := s.st.ConfigDefaults(ctx)
+	for k, v := range jujuDefaults {
+		defaults[k] = modeldefaults.AttributeDefaultValues{
+			Default: v,
+		}
+	}
+
+	providerDefaults, providerConfigChecker, err := s.providerDefaults(ctx, cloudUUID)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range providerDefaults {
+		defaults[k] = modeldefaults.AttributeDefaultValues{
+			Default: v.Value,
+		}
+	}
+
+	// Process the cloud defaults.
+	dbCloudDefaults, err := s.st.CloudDefaults(ctx, cloudUUID)
+	if err != nil {
+		return modeldefaults.ModelDefaultAttributes{}, errors.Errorf("getting model %q cloud defaults: %w", cloudUUID, err)
+	}
+	coercedCloudDefaults, err := coerceConfig(dbCloudDefaults, providerConfigChecker)
+	if err != nil {
+		return modeldefaults.ModelDefaultAttributes{}, err
+	}
+	for k := range dbCloudDefaults {
+		val := defaults[k]
+		val.Controller = coercedCloudDefaults[k]
+		defaults[k] = val
+	}
+
+	// Process the cloud region defaults.
+	dbCloudRegionDefaults, err := s.st.CloudAllRegionDefaults(ctx, cloudUUID)
+	if err != nil {
+		return modeldefaults.ModelDefaultAttributes{}, errors.Errorf("getting model %q cloud region defaults: %w", cloudUUID, err)
+	}
+
+	cloudRegionDefaults := make(map[string]map[string]any)
+	// Coerce the cloud region config defaults if a cloud config schema has been found.
+	for regionName, regionAttr := range dbCloudRegionDefaults {
+		coercedAttrs, err := coerceConfig(regionAttr, providerConfigChecker)
+		if err != nil {
+			return modeldefaults.ModelDefaultAttributes{}, err
+		}
+		cloudRegionDefaults[regionName] = coercedAttrs
+	}
+
+	// Transform the region defaults keys on region name into
+	// a slice of region default values.
+	for regionName, regionAttr := range cloudRegionDefaults {
+		dbRegionAttr := dbCloudRegionDefaults[regionName]
+		for k := range dbRegionAttr {
+			val := defaults[k]
+			val.Regions = append(val.Regions, modeldefaults.RegionDefaultValue{
+				Name:  regionName,
+				Value: regionAttr[k],
+			})
+			defaults[k] = val
 		}
 	}
 
 	return defaults, nil
+}
+
+// coerceConfig takes the config strings as stored in the database and uses the provider
+// and Juju schemas to coerce them to their actual types.
+func coerceConfig(strConfig map[string]string, providerConfigChecker schema.Checker) (map[string]any, error) {
+	var providerCfg map[string]any
+	if providerConfigChecker != nil {
+		coercedProviderCfg, err := providerConfigChecker.Coerce(strConfig, nil)
+		if err != nil {
+			return nil, errors.Errorf("coercing config for cloud provider: %w", err)
+		}
+		providerCfg = coercedProviderCfg.(map[string]any)
+	}
+
+	resultCfg := transform.Map(strConfig, func(k, v string) (string, any) { return k, v })
+
+	jujuCfg, err := config.Coerce(strConfig)
+	if err != nil {
+		return nil, errors.Errorf("creating Juju config: %w", err)
+	}
+
+	for k, v := range providerCfg {
+		resultCfg[k] = v
+	}
+	for k, v := range jujuCfg {
+		resultCfg[k] = v
+	}
+	return resultCfg, nil
 }
 
 // ModelDefaultsProvider provides a [ModelDefaultsProviderFunc] scoped to the
