@@ -23,3 +23,8 @@ type dbKeyValue struct {
 
 // dbKeys represents a slice of keys from the model_config table.
 type dbKeys []string
+
+// dbSpace represents the name column from the space table.
+type dbSpace struct {
+	Space string `db:"name"`
+}

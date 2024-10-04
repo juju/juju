@@ -386,20 +386,59 @@ AND    cloud_credential.cloud_uuid = (
 	return errors.Trace(err)
 }
 
-// CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
-// keyed by credential name.
+// CloudCredentialsForOwner returns the owner's cloud credentials for a given
+// cloud, keyed by credential name.
 func (st *State) CloudCredentialsForOwner(ctx context.Context, owner user.Name, cloudName string) (map[string]credential.CloudCredentialResult, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var creds []credential.CloudCredentialResult
+	var (
+		dbRows      Credentials
+		dbAuthTypes []authType
+		keyValues   []CredentialAttribute
+	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		creds, err = LoadCloudCredentials(ctx, st, tx, "", cloudName, owner)
-		return errors.Trace(err)
+		credQuery := `
+SELECT cc.* AS &Credential.*,
+       auth_type.type AS &authType.type,
+       (cc_attr.key, cc_attr.value) AS (&CredentialAttribute.*)
+FROM   cloud_credential cc
+       JOIN auth_type ON cc.auth_type_id = auth_type.id
+       JOIN cloud ON cc.cloud_uuid = cloud.uuid
+	   JOIN user on cc.owner_uuid = user.uuid
+       LEFT JOIN cloud_credential_attributes cc_attr ON cc_attr.cloud_credential_uuid = cc.uuid
+WHERE  user.removed = false
+AND    user.name = $ownerAndCloudName.owner_name
+AND    cloud.name = $ownerAndCloudName.cloud_name
+`
+		names := ownerAndCloudName{
+			OwnerName: owner.Name(),
+			CloudName: cloudName,
+		}
+		credStmt, err := st.Prepare(
+			credQuery,
+			names,
+			Credential{},
+			authType{},
+			CredentialAttribute{},
+		)
+		if err != nil {
+			return errors.Annotatef(err, "preparing select credentials for owner statement")
+		}
+
+		err = tx.Query(ctx, credStmt, names).GetAll(&dbRows, &dbAuthTypes, &keyValues)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotate(err, "loading cloud credentials")
+		}
+		return nil
 	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	creds, err := dbRows.ToCloudCredentials(cloudName, dbAuthTypes, keyValues)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -417,18 +456,58 @@ func (st *State) CloudCredential(ctx context.Context, key corecredential.Key) (c
 		return credential.CloudCredentialResult{}, errors.Trace(err)
 	}
 
-	var creds []credential.CloudCredentialResult
+	var (
+		dbRows      Credentials
+		dbAuthTypes []authType
+		keyValues   []CredentialAttribute
+	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		creds, err = LoadCloudCredentials(ctx, st, tx, key.Name, key.Cloud, key.Owner)
-		return errors.Trace(err)
+		credQuery := `
+SELECT cc.* AS &Credential.*,
+       auth_type.type AS &authType.type,
+       (cc_attr.key, cc_attr.value) AS (&CredentialAttribute.*)
+FROM   cloud_credential cc
+       JOIN auth_type ON cc.auth_type_id = auth_type.id
+       JOIN cloud ON cc.cloud_uuid = cloud.uuid
+	   JOIN user on cc.owner_uuid = user.uuid
+       LEFT JOIN cloud_credential_attributes cc_attr ON cc_attr.cloud_credential_uuid = cc.uuid
+WHERE  user.removed = false
+AND    cloud.name = $credentialKey.cloud_name
+AND    user.name = $credentialKey.owner_name
+AND    cc.name = $credentialKey.name
+`
+		credKey := credentialKey{
+			CredentialName: key.Name,
+			CloudName:      key.Cloud,
+			OwnerName:      key.Owner.Name(),
+		}
+		credStmt, err := st.Prepare(
+			credQuery,
+			credKey,
+			Credential{},
+			authType{},
+			CredentialAttribute{},
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		err = tx.Query(ctx, credStmt, credKey).GetAll(&dbRows, &dbAuthTypes, &keyValues)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotate(err, "loading cloud credentials")
+		}
+		return nil
 	})
-	if len(creds) == 0 {
+	if err != nil {
+		return credential.CloudCredentialResult{}, errors.Trace(err)
+	}
+	if len(dbRows) == 0 {
 		return credential.CloudCredentialResult{}, fmt.Errorf(
 			"%w: credential %q for cloud %q owned by %q",
 			credentialerrors.CredentialNotFound, key.Name, key.Cloud, key.Owner,
 		)
 	}
+	creds, err := dbRows.ToCloudCredentials(key.Cloud, dbAuthTypes, keyValues)
 	if err != nil {
 		return credential.CloudCredentialResult{}, errors.Trace(err)
 	}
@@ -436,65 +515,6 @@ func (st *State) CloudCredential(ctx context.Context, key corecredential.Key) (c
 		return credential.CloudCredentialResult{}, errors.Errorf("expected 1 credential, got %d", len(creds))
 	}
 	return creds[0], errors.Trace(err)
-}
-
-type credentialAttrs map[string]string
-
-// LoadCloudCredentials loads cloud credentials from the database.
-func LoadCloudCredentials(ctx context.Context, st domain.Preparer, tx *sqlair.TX, name, cloudName string, owner user.Name) ([]credential.CloudCredentialResult, error) {
-	credQuery := `
-SELECT (cc.uuid, cc.name,
-       cc.revoked, cc.invalid, 
-       cc.invalid_reason, 
-       cc.owner_uuid) AS (&Credential.*),
-       auth_type.type AS &authType.type,
-       cloud.name AS &dbCloudName.name,
-       (cc_attr.key, cc_attr.value) AS (&CredentialAttribute.*)
-FROM   cloud_credential cc
-       JOIN auth_type ON cc.auth_type_id = auth_type.id
-       JOIN cloud ON cc.cloud_uuid = cloud.uuid
-	   JOIN user on cc.owner_uuid = user.uuid
-       LEFT JOIN cloud_credential_attributes cc_attr ON cc_attr.cloud_credential_uuid = cc.uuid
-`
-
-	condition, args := database.SqlairClauseAnd(map[string]any{
-		"cc.name":      name,
-		"cloud.name":   cloudName,
-		"user.name":    owner.Name(),
-		"user.removed": false,
-	})
-	types := []any{
-		Credential{},
-		authType{},
-		dbCloudName{},
-		CredentialAttribute{},
-	}
-	var queryArgs []any
-	if len(args) > 0 {
-		credQuery = credQuery + "WHERE " + condition
-		types = append(types, sqlair.M{})
-		queryArgs = []any{args}
-	}
-
-	credStmt, err := st.Prepare(credQuery, types...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var (
-		dbRows      Credentials
-		dbAuthTypes []authType
-		dbclouds    []dbCloudName
-		keyValues   []CredentialAttribute
-	)
-	err = tx.Query(ctx, credStmt, queryArgs...).GetAll(&dbRows, &dbAuthTypes, &dbclouds, &keyValues)
-	if err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, errors.Annotate(err, "loading cloud credentials")
-	}
-	return dbRows.ToCloudCredentials(dbAuthTypes, dbclouds, keyValues)
 }
 
 // GetCloudCredential is responsible for returning a cloud credential identified
@@ -583,9 +603,56 @@ func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner user.Nam
 		return nil, errors.Trace(err)
 	}
 
-	result := make(map[corecredential.Key]credential.CloudCredentialResult)
+	var (
+		dbRows       Credentials
+		dbAuthTypes  []authType
+		dbCloudNames []dbCloudName
+		keyValues    []CredentialAttribute
+	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		infos, err := LoadCloudCredentials(ctx, st, tx, "", "", owner)
+		credQuery := `
+SELECT cc.* AS &Credential.*,
+       auth_type.type AS &authType.type,
+       cloud.name AS &dbCloudName.name,
+       (cc_attr.key, cc_attr.value) AS (&CredentialAttribute.*)
+FROM   cloud_credential cc
+       JOIN auth_type ON cc.auth_type_id = auth_type.id
+       JOIN cloud ON cc.cloud_uuid = cloud.uuid
+	   JOIN user on cc.owner_uuid = user.uuid
+       LEFT JOIN cloud_credential_attributes cc_attr ON cc_attr.cloud_credential_uuid = cc.uuid
+WHERE  user.removed = false
+AND    user.name = $ownerName.name
+`
+		ownerName := ownerName{
+			Name: owner.Name(),
+		}
+		credStmt, err := st.Prepare(
+			credQuery,
+			ownerName,
+			dbCloudName{},
+			Credential{},
+			authType{},
+			CredentialAttribute{},
+		)
+		if err != nil {
+			return errors.Annotatef(err, "preparing select all credentials for owner statement")
+		}
+
+		err = tx.Query(ctx, credStmt, ownerName).GetAll(&dbRows, &dbCloudNames, &dbAuthTypes, &keyValues)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotate(err, "loading cloud credentials")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make(map[corecredential.Key]credential.CloudCredentialResult)
+	for _, cloudName := range dbCloudNames {
+		infos, err := dbRows.ToCloudCredentials(cloudName.Name, dbAuthTypes, keyValues)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		for _, info := range infos {
 			result[corecredential.Key{
 				Cloud: info.CloudName,
@@ -593,10 +660,6 @@ func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner user.Nam
 				Name:  info.Label,
 			}] = info
 		}
-		return errors.Trace(err)
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 	if len(result) == 0 {
 		return nil, fmt.Errorf("cloud credentials for %q %w", owner, errors.NotFound)
@@ -675,33 +738,29 @@ func (st *State) ModelsUsingCloudCredential(ctx context.Context, key corecredent
 		return nil, errors.Trace(err)
 	}
 
-	query := `
-SELECT m.uuid AS &M.model_uuid, m.name AS &M.name
-FROM   v_model m
-`
-
-	types := []any{
-		sqlair.M{},
+	credKey := credentialKey{
+		CredentialName: key.Name,
+		CloudName:      key.Cloud,
+		OwnerName:      key.Owner.Name(),
 	}
-	condition, args := database.SqlairClauseAnd(map[string]any{
-		"m.cloud_credential_name": key.Name,
-		"m.cloud_name":            key.Cloud,
-		"m.owner_name":            key.Owner.Name(),
-	})
-	query = query + "WHERE " + condition
 
-	stmt, err := st.Prepare(query, types...)
+	query := `
+SELECT m.* AS &modelNameAndUUID.*
+FROM   v_model m
+WHERE  m.cloud_credential_name = $credentialKey.name
+AND    m.cloud_name = $credentialKey.cloud_name
+AND    m.owner_name = $credentialKey.owner_name
+`
+	stmt, err := st.Prepare(query, credKey, modelNameAndUUID{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var info []sqlair.M
 	result := make(map[coremodel.UUID]string)
+	var modelNameAndUUIDs []modelNameAndUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, args).GetAll(&info)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		} else if err != nil {
+		err := tx.Query(ctx, stmt, credKey).GetAll(&modelNameAndUUIDs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return err
 		}
 		return nil
@@ -709,10 +768,8 @@ FROM   v_model m
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for _, m := range info {
-		name, _ := m["name"].(string)
-		uuid, _ := m["model_uuid"].(string)
-		result[coremodel.UUID(uuid)] = name
+	for _, m := range modelNameAndUUIDs {
+		result[coremodel.UUID(m.UUID)] = m.Name
 	}
 	return result, nil
 }
