@@ -1118,7 +1118,7 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 		return nil
 	}
 
-	unitUpdateParams := make(map[string]applicationservice.UpdateCAASUnitParams)
+	unitUpdateParams := make(map[string]applicationservice.UpdateCAASUnitParams, len(unitUpdates))
 	unitUpdate := state.UpdateUnitsOperation{}
 	processedFilesystemIds := set.NewStrings()
 	for _, unitParams := range unitUpdates {
@@ -1140,6 +1140,7 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 			}
 		}
 	}
+	// Sort for tests.
 	for _, unitName := range slices.Sorted(maps.Keys(unitUpdateParams)) {
 		err = a.applicationService.UpdateCAASUnit(ctx, unitName, unitUpdateParams[unitName])
 		// We ignore any updates for dying applications.

@@ -998,7 +998,7 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), "foo/666").Return(unitUUID, nil)
 
 	now := time.Now()
-	s.state.EXPECT().SaveUnitAgentStatus(gomock.Any(), unitUUID, application.UnitAgentStatusInfo{
+	s.state.EXPECT().SetUnitAgentStatus(gomock.Any(), unitUUID, application.UnitAgentStatusInfo{
 		StatusID: application.UnitAgentStatusIdle,
 		StatusInfo: application.StatusInfo{
 			Message: "agent status",
@@ -1006,7 +1006,7 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 			Since:   now,
 		},
 	})
-	s.state.EXPECT().SaveUnitWorkloadStatus(gomock.Any(), unitUUID, application.UnitWorkloadStatusInfo{
+	s.state.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, application.UnitWorkloadStatusInfo{
 		StatusID: application.UnitWorkloadStatusWaiting,
 		StatusInfo: application.StatusInfo{
 			Message: "workload status",
@@ -1014,7 +1014,7 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 			Since:   now,
 		},
 	})
-	s.state.EXPECT().SaveCloudContainerStatus(gomock.Any(), unitUUID, application.CloudContainerStatusStatusInfo{
+	s.state.EXPECT().SetCloudContainerStatus(gomock.Any(), unitUUID, application.CloudContainerStatusStatusInfo{
 		StatusID: application.CloudContainerStatusRunning,
 		StatusInfo: application.StatusInfo{
 			Message: "container status",

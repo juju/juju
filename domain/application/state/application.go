@@ -574,14 +574,14 @@ func (st *ApplicationState) insertUnit(
 
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, createNodeStmt, createParams).Run(); err != nil {
-			return errors.Annotatef(err, "creating net node row for unit %q", args.UnitName)
+			return errors.Annotatef(err, "creating net node for unit %q", args.UnitName)
 		}
 		if err := tx.Query(ctx, createUnitStmt, createParams).Run(); err != nil {
-			return errors.Annotatef(err, "creating unit row for unit %q", args.UnitName)
+			return errors.Annotatef(err, "creating unit for unit %q", args.UnitName)
 		}
 		if args.CloudContainer != nil {
 			if err := st.upsertUnitCloudContainer(ctx, tx, args.UnitName, nodeUUID.String(), args.CloudContainer); err != nil {
-				return errors.Annotatef(err, "creating cloud container row for unit %q", args.UnitName)
+				return errors.Annotatef(err, "creating cloud container for unit %q", args.UnitName)
 			}
 		}
 		return nil
@@ -589,10 +589,10 @@ func (st *ApplicationState) insertUnit(
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if err := st.SaveUnitAgentStatus(ctx, unitUUID.String(), args.AgentStatus); err != nil {
+	if err := st.SetUnitAgentStatus(ctx, unitUUID.String(), args.AgentStatus); err != nil {
 		return "", errors.Annotatef(err, "saving agent status for unit %q", args.UnitName)
 	}
-	if err := st.SaveUnitWorkloadStatus(ctx, unitUUID.String(), args.WorkloadStatus); err != nil {
+	if err := st.SetUnitWorkloadStatus(ctx, unitUUID.String(), args.WorkloadStatus); err != nil {
 		return "", errors.Annotatef(err, "saving workload status for unit %q", args.UnitName)
 	}
 	return unitUUID.String(), nil
@@ -1398,9 +1398,9 @@ ON CONFLICT(unit_uuid, key) DO UPDATE SET
 	return nil
 }
 
-// SaveCloudContainerStatus saves the given cloud container status, overwriting any current status data.
+// SetCloudContainerStatus saves the given cloud container status, overwriting any current status data.
 // If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *ApplicationState) SaveCloudContainerStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.CloudContainerStatusStatusInfo) error {
+func (st *ApplicationState) SetCloudContainerStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.CloudContainerStatusStatusInfo) error {
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID.String(),
 		StatusID:  int(status.StatusID),
@@ -1430,9 +1430,9 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	return errors.Annotatef(err, "saving cloud container status for unit %q", unitUUID)
 }
 
-// SaveUnitAgentStatus saves the given unit agent status, overwriting any current status data.
+// SetUnitAgentStatus saves the given unit agent status, overwriting any current status data.
 // If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *ApplicationState) SaveUnitAgentStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitAgentStatusInfo) error {
+func (st *ApplicationState) SetUnitAgentStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitAgentStatusInfo) error {
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID.String(),
 		StatusID:  int(status.StatusID),
@@ -1462,9 +1462,9 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	return errors.Annotatef(err, "saving unit agent status for unit %q", unitUUID)
 }
 
-// SaveUnitWorkloadStatus saves the given unit workload status, overwriting any current status data.
+// SetUnitWorkloadStatus saves the given unit workload status, overwriting any current status data.
 // If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *ApplicationState) SaveUnitWorkloadStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitWorkloadStatusInfo) error {
+func (st *ApplicationState) SetUnitWorkloadStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitWorkloadStatusInfo) error {
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID.String(),
 		StatusID:  int(status.StatusID),

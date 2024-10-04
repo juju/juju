@@ -83,17 +83,17 @@ type AtomicApplicationState interface {
 	// SetUnitPassword updates the password for the specified unit UUID.
 	SetUnitPassword(ctx domain.AtomicContext, unitUUID string, passwordInfo application.PasswordInfo) error
 
-	// SaveCloudContainerStatus saves the given cloud container status, overwriting any current status data.
+	// SetCloudContainerStatus saves the given cloud container status, overwriting any current status data.
 	// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	SaveCloudContainerStatus(ctx domain.AtomicContext, unitUUID string, status application.CloudContainerStatusStatusInfo) error
+	SetCloudContainerStatus(ctx domain.AtomicContext, unitUUID string, status application.CloudContainerStatusStatusInfo) error
 
-	// SaveUnitAgentStatus saves the given unit agent status, overwriting any current status data.
+	// SetUnitAgentStatus saves the given unit agent status, overwriting any current status data.
 	// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	SaveUnitAgentStatus(ctx domain.AtomicContext, unitUUID string, status application.UnitAgentStatusInfo) error
+	SetUnitAgentStatus(ctx domain.AtomicContext, unitUUID string, status application.UnitAgentStatusInfo) error
 
-	// SaveUnitWorkloadStatus saves the given unit workload status, overwriting any current status data.
+	// SetUnitWorkloadStatus saves the given unit workload status, overwriting any current status data.
 	// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	SaveUnitWorkloadStatus(ctx domain.AtomicContext, unitUUID string, status application.UnitWorkloadStatusInfo) error
+	SetUnitWorkloadStatus(ctx domain.AtomicContext, unitUUID string, status application.UnitWorkloadStatusInfo) error
 
 	// GetApplicationLife looks up the life of the specified application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application is not found.
@@ -287,7 +287,7 @@ func (s *ApplicationService) CreateApplication(
 
 	var appID coreapplication.ID
 	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err = s.st.CreateApplication(ctx, name, *appArg)
+		appID, err = s.st.CreateApplication(ctx, name, appArg)
 		if err != nil {
 			return errors.Annotatef(err, "creating application %q", name)
 		}
@@ -304,24 +304,24 @@ func (s *ApplicationService) makeCreateApplicationArgs(
 	args AddApplicationArgs,
 ) (coremodel.ModelType, application.AddApplicationArg, error) {
 	if !isValidApplicationName(name) {
-		return "", nil, applicationerrors.ApplicationNameNotValid
+		return "", application.AddApplicationArg{}, applicationerrors.ApplicationNameNotValid
 	}
 
 	// Validate that we have a valid charm and name.
 	meta := charm.Meta()
 	if meta == nil {
-		return "", nil, applicationerrors.CharmMetadataNotValid
+		return "", application.AddApplicationArg{}, applicationerrors.CharmMetadataNotValid
 	}
 
 	if !isValidCharmName(meta.Name) {
-		return "", nil, applicationerrors.CharmNameNotValid
+		return "", application.AddApplicationArg{}, applicationerrors.CharmNameNotValid
 	} else if !isValidReferenceName(args.ReferenceName) {
-		return "", nil, fmt.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
+		return "", application.AddApplicationArg{}, fmt.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
 	}
 
 	// Validate the origin of the charm.
 	if err := origin.Validate(); err != nil {
-		return "", nil, fmt.Errorf("%w: %v", applicationerrors.CharmOriginNotValid, err)
+		return "", application.AddApplicationArg{}, fmt.Errorf("%w: %v", applicationerrors.CharmOriginNotValid, err)
 	}
 
 	// TODO (stickupkid): These should be done either in the application
@@ -329,7 +329,7 @@ func (s *ApplicationService) makeCreateApplicationArgs(
 	//TODO(storage) - insert storage directive for app
 	modelType, err := s.st.GetModelType(ctx)
 	if err != nil {
-		return "", nil, errors.Annotatef(err, "getting model type")
+		return "", application.AddApplicationArg{}, errors.Annotatef(err, "getting model type")
 	}
 
 	cons := make(map[string]storage.Directive)
@@ -337,25 +337,25 @@ func (s *ApplicationService) makeCreateApplicationArgs(
 		cons[n] = sc
 	}
 	if err := s.addDefaultStorageDirectives(ctx, coremodel.ModelType(modelType), cons, meta); err != nil {
-		return "", nil, errors.Annotate(err, "adding default storage directives")
+		return "", application.AddApplicationArg{}, errors.Annotate(err, "adding default storage directives")
 	}
 	if err := s.validateStorageDirectives(ctx, coremodel.ModelType(modelType), cons, charm); err != nil {
-		return "", nil, errors.Annotate(err, "invalid storage directives")
+		return "", application.AddApplicationArg{}, errors.Annotate(err, "invalid storage directives")
 	}
 
 	// When encoding the charm, this will also validate the charm metadata,
 	// when parsing it.
 	ch, _, err := encodeCharm(charm)
 	if err != nil {
-		return "", nil, fmt.Errorf("encode charm: %w", err)
+		return "", application.AddApplicationArg{}, fmt.Errorf("encode charm: %w", err)
 	}
 
 	originArg, channelArg, platformArg, err := encodeCharmOrigin(origin, args.ReferenceName)
 	if err != nil {
-		return "", nil, fmt.Errorf("encode charm origin: %w", err)
+		return "", application.AddApplicationArg{}, fmt.Errorf("encode charm origin: %w", err)
 	}
 
-	return modelType, &application.AddApplicationArg{
+	return modelType, application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platformArg,
 		Origin:   originArg,
@@ -408,34 +408,40 @@ func (s *ApplicationService) ImportApplication(
 		return errors.Annotatef(err, "creating application args")
 	}
 	appArg.Scale = len(units)
+
+	unitArgs := make([]application.InsertUnitArg, len(units))
+	for i, u := range units {
+		arg := application.InsertUnitArg{
+			UnitName: u.UnitName,
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: application.UnitAgentStatusInfo{
+					StatusID:   application.MarshallUnitAgentStatus(u.AgentStatus.Status),
+					StatusInfo: s.makeUnitStatus(u.AgentStatus),
+				},
+				WorkloadStatus: application.UnitWorkloadStatusInfo{
+					StatusID:   application.MarshallUnitWorkloadStatus(u.WorkloadStatus.Status),
+					StatusInfo: s.makeUnitStatus(u.WorkloadStatus),
+				},
+			},
+		}
+		if u.CloudContainer != nil {
+			arg.CloudContainer = makeCloudContainerArg(u.UnitName, *u.CloudContainer)
+		}
+		if u.PasswordHash != nil {
+			arg.Password = &application.PasswordInfo{
+				PasswordHash:  *u.PasswordHash,
+				HashAlgorithm: application.HashAlgorithmSHA256,
+			}
+		}
+		unitArgs[i] = arg
+	}
+
 	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := s.st.CreateApplication(ctx, appName, *appArg)
+		appID, err := s.st.CreateApplication(ctx, appName, appArg)
 		if err != nil {
 			return errors.Annotatef(err, "creating application %q", appName)
 		}
-		for _, u := range units {
-			arg := application.InsertUnitArg{
-				UnitName: u.UnitName,
-				UnitStatusArg: application.UnitStatusArg{
-					AgentStatus: application.UnitAgentStatusInfo{
-						StatusID:   application.MarshallUnitAgentStatus(u.AgentStatus.Status),
-						StatusInfo: s.makeUnitStatus(u.AgentStatus),
-					},
-					WorkloadStatus: application.UnitWorkloadStatusInfo{
-						StatusID:   application.MarshallUnitWorkloadStatus(u.WorkloadStatus.Status),
-						StatusInfo: s.makeUnitStatus(u.WorkloadStatus),
-					},
-				},
-			}
-			if u.CloudContainer != nil {
-				arg.CloudContainer = makeCloudContainerArg(u.UnitName, *u.CloudContainer)
-			}
-			if u.PasswordHash != nil {
-				arg.Password = &application.PasswordInfo{
-					PasswordHash:  *u.PasswordHash,
-					HashAlgorithm: application.HashAlgorithmSHA256,
-				}
-			}
+		for _, arg := range unitArgs {
 			if err := s.st.InsertUnit(ctx, appID, arg); err != nil {
 				return errors.Annotatef(err, "inserting unit %q", arg.UnitName)
 			}
@@ -778,7 +784,7 @@ func (s *ApplicationService) insertCAASUnit(
 	return s.st.InsertUnit(ctx, appID, arg)
 }
 
-// UpdateCAASUnit updates the specified CAAS unit, returning as error
+// UpdateCAASUnit updates the specified CAAS unit, returning an error
 // satisfying applicationerrors.ApplicationNotAlive if the unit's
 // application is not alive.
 func (s *ApplicationService) UpdateCAASUnit(ctx context.Context, unitName string, params UpdateCAASUnitParams) error {
@@ -824,7 +830,7 @@ func (s *ApplicationService) UpdateCAASUnit(ctx context.Context, unitName string
 			return now
 		}
 		if params.AgentStatus != nil {
-			if err := s.st.SaveUnitAgentStatus(ctx, unitUUID, application.UnitAgentStatusInfo{
+			if err := s.st.SetUnitAgentStatus(ctx, unitUUID, application.UnitAgentStatusInfo{
 				StatusID: application.MarshallUnitAgentStatus(params.AgentStatus.Status),
 				StatusInfo: application.StatusInfo{
 					Message: params.AgentStatus.Message,
@@ -837,7 +843,7 @@ func (s *ApplicationService) UpdateCAASUnit(ctx context.Context, unitName string
 			}
 		}
 		if params.WorkloadStatus != nil {
-			if err := s.st.SaveUnitWorkloadStatus(ctx, unitUUID, application.UnitWorkloadStatusInfo{
+			if err := s.st.SetUnitWorkloadStatus(ctx, unitUUID, application.UnitWorkloadStatusInfo{
 				StatusID: application.MarshallUnitWorkloadStatus(params.WorkloadStatus.Status),
 				StatusInfo: application.StatusInfo{
 					Message: params.WorkloadStatus.Message,
@@ -850,7 +856,7 @@ func (s *ApplicationService) UpdateCAASUnit(ctx context.Context, unitName string
 			}
 		}
 		if params.CloudContainerStatus != nil {
-			if err := s.st.SaveCloudContainerStatus(ctx, unitUUID, application.CloudContainerStatusStatusInfo{
+			if err := s.st.SetCloudContainerStatus(ctx, unitUUID, application.CloudContainerStatusStatusInfo{
 				StatusID: application.MarshallCloudContainerStatus(params.CloudContainerStatus.Status),
 				StatusInfo: application.StatusInfo{
 					Message: params.CloudContainerStatus.Message,
