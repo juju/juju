@@ -433,6 +433,7 @@ func Merge(values ...Value) (Value, error) {
 // as Parse, but panics on failure.
 func MustParse(args ...string) Value {
 	v, err := Parse(args...)
+
 	if err != nil {
 		panic(err)
 	}

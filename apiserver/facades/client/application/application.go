@@ -49,6 +49,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/storage"
@@ -110,6 +111,7 @@ type APIBase struct {
 }
 
 type CaasBrokerInterface interface {
+	ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error)
 	ValidateStorageClass(ctx context.Context, config map[string]interface{}) error
 	Version() (*version.Number, error)
 }
@@ -456,6 +458,7 @@ type caasDeployParams struct {
 	config          map[string]string
 	placement       []*instance.Placement
 	storage         map[string]storage.Directive
+	constraints     constraints.Value
 }
 
 // precheck, checks the deploy config based on caas specific
@@ -467,6 +470,14 @@ func (c caasDeployParams) precheck(
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
 ) error {
+	constraintsValidator, err := caasBroker.ConstraintsValidator(
+		envcontext.WithoutCredentialInvalidator(ctx))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := constraintsValidator.Validate(c.constraints); err != nil {
+		return errors.Trace(err)
+	}
 	if len(c.attachStorage) > 0 {
 		return errors.Errorf(
 			"AttachStorage may not be specified for container models",
@@ -566,6 +577,7 @@ func (api *APIBase) deployApplication(
 			config:          args.Config,
 			placement:       args.Placement,
 			storage:         args.Storage,
+			constraints:     args.Constraints,
 		}
 		if err := caas.precheck(ctx, api.modelConfigService, api.storagePoolGetter, api.registry, api.caasBroker); err != nil {
 			return errors.Trace(err)
