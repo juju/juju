@@ -21,6 +21,9 @@ type State interface {
 	// RemoveBlock disables block of specified type for the current model.
 	RemoveBlock(ctx context.Context, t blockcommand.BlockType) error
 
+	// RemoveAllBlocks removes all the blocks for the current model.
+	RemoveAllBlocks(ctx context.Context) error
+
 	// GetBlocks returns all the blocks for the current model.
 	GetBlocks(ctx context.Context) ([]blockcommand.Block, error)
 
@@ -73,6 +76,11 @@ func (s *Service) SwitchBlockOn(ctx context.Context, t blockcommand.BlockType, m
 	return nil
 }
 
+// GetBlocks returns all the blocks for the current model.
+func (s *Service) GetBlocks(ctx context.Context) ([]blockcommand.Block, error) {
+	return s.st.GetBlocks(ctx)
+}
+
 // SwitchBlockOff disables block of specified type for the current model.
 // Returns an error [errors.NotFound] if the block does not exist.
 func (s *Service) SwitchBlockOff(ctx context.Context, t blockcommand.BlockType) error {
@@ -83,7 +91,7 @@ func (s *Service) SwitchBlockOff(ctx context.Context, t blockcommand.BlockType) 
 	return s.st.RemoveBlock(ctx, t)
 }
 
-// GetBlocks returns all the blocks for the current model.
-func (s *Service) GetBlocks(ctx context.Context) ([]blockcommand.Block, error) {
-	return s.st.GetBlocks(ctx)
+// RemoveAllBlocks removes all the blocks for the current model.
+func (s *Service) RemoveAllBlocks(ctx context.Context) error {
+	return s.st.RemoveAllBlocks(ctx)
 }

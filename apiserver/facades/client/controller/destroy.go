@@ -33,7 +33,7 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 		return errors.Trace(err)
 	}
 
-	model, err := c.state.Model()
+	stModel, err := c.state.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -42,18 +42,20 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 	// models but set the controller to dying to prevent new
 	// models sneaking in. If we are not destroying hosted models,
 	// this will fail if any hosted models are found.
-	backend := common.NewModelManagerBackend(environs.ProviderConfigSchemaSource(c.cloudService), model, c.statePool)
+	backend := common.NewModelManagerBackend(environs.ProviderConfigSchemaSource(c.cloudService), stModel, c.statePool)
 	return errors.Trace(common.DestroyController(
 		ctx,
 		backend,
 		c.blockCommandService,
-		c.blockCommandServiceGetter,
+		func(u model.UUID) common.BlockCommandService {
+			return c.blockCommandServiceGetter(u)
+		},
 		args.DestroyModels, args.DestroyStorage,
 		args.Force, args.MaxWait, args.ModelTimeout,
 	))
 }
 
-func ensureNotBlocked(ctx context.Context, st Backend, blockCommandServiceGetter func(model.UUID) common.BlockCommandService, logger corelogger.Logger) error {
+func ensureNotBlocked(ctx context.Context, st Backend, blockCommandServiceGetter func(model.UUID) BlockCommandService, logger corelogger.Logger) error {
 	// If there are blocks let the user know.
 	uuids, err := st.AllModelUUIDs()
 	if err != nil {

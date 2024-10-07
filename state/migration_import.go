@@ -249,24 +249,6 @@ func (i *importer) modelExtras() error {
 		}
 	}
 
-	blockType := map[string]BlockType{
-		"destroy-model": DestroyBlock,
-		"remove-object": RemoveBlock,
-		"all-changes":   ChangeBlock,
-	}
-
-	for blockName, message := range i.model.Blocks() {
-		block, ok := blockType[blockName]
-		if !ok {
-			return errors.Errorf("unknown block type: %q", blockName)
-		}
-		// We should check that each switch block can be assigned.
-		err := i.st.SwitchBlockOn(block, message)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	if err := i.importStatusHistory(modelGlobalKey, i.model.StatusHistory()); err != nil {
 		return errors.Trace(err)
 	}

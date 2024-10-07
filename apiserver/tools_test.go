@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -379,7 +380,7 @@ func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 	vers := v.String()
 
 	// Block all changes.
-	err := s.ControllerModel(c).State().SwitchBlockOn(state.ChangeBlock, "TestUpload")
+	err := s.ControllerDomainServices(c).BlockCommand().SwitchBlockOn(context.Background(), blockcommand.ChangeBlock, "TestUpload")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now try uploading them.

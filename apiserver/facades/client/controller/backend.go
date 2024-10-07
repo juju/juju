@@ -16,8 +16,6 @@ type Backend interface {
 	MongoVersion() (string, error)
 	ControllerModelUUID() string
 	AllModelUUIDs() ([]string, error)
-	AllBlocksForController() ([]state.Block, error)
-	RemoveAllBlocksForController() error
 	ModelExists(uuid string) (bool, error)
 }
 
