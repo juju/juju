@@ -9,6 +9,10 @@ type blockCommand struct {
 	Message   string `db:"message"`
 }
 
+type blockCommandMessage struct {
+	Message string `db:"message"`
+}
+
 type blockType struct {
 	ID int8 `db:"id"`
 }

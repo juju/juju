@@ -68,6 +68,7 @@ func newHighAvailabilityAPI(ctx facade.ModelContext) (*HighAvailabilityAPI, erro
 		controllerConfigService: domainServices.ControllerConfig(),
 		networkService:          domainServices.Network(),
 		modelConfigService:      domainServices.Config(),
+		blockCommandService:     domainServices.BlockCommand(),
 		authorizer:              authorizer,
 		logger:                  ctx.Logger().Child("highavailability"),
 	}, nil

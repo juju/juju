@@ -79,6 +79,17 @@ func (s *serviceSuite) TestGetBlocks(c *gc.C) {
 	})
 }
 
+func (s *serviceSuite) TestGetBlockMessage(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().GetBlockMessage(gomock.Any(), blockcommand.RemoveBlock).Return("foo", nil)
+
+	message, err := s.service(c).GetBlockSwitchedOn(context.Background(), blockcommand.RemoveBlock)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(message, gc.Equals, "foo")
+}
+
 func (s *serviceSuite) service(c *gc.C) *Service {
 	return NewService(s.state, loggertesting.WrapCheckLog(c))
 }

@@ -24,6 +24,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
+	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/environs/config"
@@ -40,6 +41,7 @@ type modelconfigSuite struct {
 	authorizer                    apiservertesting.FakeAuthorizer
 	mockModelSecretBackendService *mocks.MockModelSecretBackendService
 	mockModelConfigService        *mocks.MockModelConfigService
+	mockBlockCommandService       *mocks.MockBlockCommandService
 }
 
 var _ = gc.Suite(&modelconfigSuite{})
@@ -74,6 +76,7 @@ func (s *modelconfigSuite) getAPI(c *gc.C) (*modelconfig.ModelConfigAPI, *gomock
 	ctrl := gomock.NewController(c)
 	s.mockModelSecretBackendService = mocks.NewMockModelSecretBackendService(ctrl)
 	s.mockModelConfigService = mocks.NewMockModelConfigService(ctrl)
+	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
 
 	s.mockModelConfigService.EXPECT().ModelConfigValues(gomock.Any()).Return(
 		config.ConfigValues{
@@ -85,13 +88,14 @@ func (s *modelconfigSuite) getAPI(c *gc.C) (*modelconfig.ModelConfigAPI, *gomock
 	).AnyTimes()
 
 	modelID := modeltesting.GenModelUUID(c)
-	api, err := modelconfig.NewModelConfigAPI(modelID, s.backend, s.mockModelSecretBackendService, s.mockModelConfigService, &s.authorizer)
+	api, err := modelconfig.NewModelConfigAPI(modelID, s.backend, s.mockModelSecretBackendService, s.mockModelConfigService, &s.authorizer, s.mockBlockCommandService)
 	c.Assert(err, jc.ErrorIsNil)
 	return api, ctrl
 }
 
 func (s *modelconfigSuite) TestAdminModelGet(c *gc.C) {
-	api, _ := s.getAPI(c)
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
 
 	result, err := api.ModelGet(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -104,7 +108,9 @@ func (s *modelconfigSuite) TestAdminModelGet(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestUserModelGet(c *gc.C) {
-	api, _ := s.getAPI(c)
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:         names.NewUserTag("bruce@local"),
 		HasWriteTag: names.NewUserTag("bruce@local"),
@@ -121,7 +127,11 @@ func (s *modelconfigSuite) TestUserModelGet(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestAdminModelSet(c *gc.C) {
-	api, _ := s.getAPI(c)
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+
 	params := params.ModelSet{
 		Config: map[string]interface{}{
 			"some-key":  "value",
@@ -141,11 +151,6 @@ func (s *modelconfigSuite) TestAdminModelSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) blockAllChanges(msg string) {
-	s.backend.msg = msg
-	s.backend.b = state.ChangeBlock
-}
-
 func (s *modelconfigSuite) assertBlocked(c *gc.C, err error, msg string) {
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
 	c.Assert(errors.Cause(err), jc.DeepEquals, &params.Error{
@@ -155,13 +160,17 @@ func (s *modelconfigSuite) assertBlocked(c *gc.C, err error, msg string) {
 }
 
 func (s *modelconfigSuite) assertModelSetBlocked(c *gc.C, args map[string]interface{}, msg string) {
-	api, _ := s.getAPI(c)
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return(msg, nil)
+
 	err := api.ModelSet(context.Background(), params.ModelSet{Config: args})
 	s.assertBlocked(c, err, msg)
 }
 
 func (s *modelconfigSuite) TestBlockChangesModelSet(c *gc.C) {
-	s.blockAllChanges("TestBlockChangesModelSet")
+	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockChangesModelSet", nil)
 	args := map[string]interface{}{"some-key": "value"}
 	s.assertModelSetBlocked(c, args, "TestBlockChangesModelSet")
 }
@@ -213,7 +222,9 @@ func (s *modelconfigSuite) TestUserCanSetLogNoTrace(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestUserReadAccess(c *gc.C) {
-	api, _ := s.getAPI(c)
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
 	apiUser := names.NewUserTag("read")
 	s.authorizer.Tag = apiUser
 
@@ -252,7 +263,10 @@ func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
-	api, _ := s.getAPI(c)
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
 	s.mockModelConfigService.EXPECT().UpdateModelConfig(
 		gomock.Any(),
@@ -267,8 +281,10 @@ func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestBlockModelUnset(c *gc.C) {
-	api, _ := s.getAPI(c)
-	s.blockAllChanges("TestBlockModelUnset")
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockModelUnset", nil)
 
 	args := params.ModelUnset{Keys: []string{"abc"}}
 	err := api.ModelUnset(context.Background(), args)
@@ -276,7 +292,11 @@ func (s *modelconfigSuite) TestBlockModelUnset(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
-	api, _ := s.getAPI(c)
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+
 	// It's okay to unset a non-existent attribute.
 	s.mockModelConfigService.EXPECT().UpdateModelConfig(
 		gomock.Any(),
@@ -290,7 +310,11 @@ func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestClientSetModelConstraints(c *gc.C) {
-	api, _ := s.getAPI(c)
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -303,7 +327,11 @@ func (s *modelconfigSuite) TestClientSetModelConstraints(c *gc.C) {
 }
 
 func (s *modelconfigSuite) assertSetModelConstraintsBlocked(c *gc.C, msg string) {
-	api, _ := s.getAPI(c)
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockChangesClientSetModelConstraints", nil)
+
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -315,12 +343,13 @@ func (s *modelconfigSuite) assertSetModelConstraintsBlocked(c *gc.C, msg string)
 }
 
 func (s *modelconfigSuite) TestBlockChangesClientSetModelConstraints(c *gc.C) {
-	s.blockAllChanges("TestBlockChangesClientSetModelConstraints")
 	s.assertSetModelConstraintsBlocked(c, "TestBlockChangesClientSetModelConstraints")
 }
 
 func (s *modelconfigSuite) TestClientGetModelConstraints(c *gc.C) {
-	api, _ := s.getAPI(c)
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -335,6 +364,7 @@ type modelSecretBackendSuite struct {
 
 	authorizer                    *facademocks.MockAuthorizer
 	mockModelSecretBackendService *mocks.MockModelSecretBackendService
+	mockBlockCommandService       *mocks.MockBlockCommandService
 	modelID                       coremodel.UUID
 }
 
@@ -346,8 +376,9 @@ func (s *modelSecretBackendSuite) setup(c *gc.C) (*modelconfig.ModelConfigAPI, *
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.authorizer.EXPECT().AuthClient().Return(true)
 	s.mockModelSecretBackendService = mocks.NewMockModelSecretBackendService(ctrl)
+	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
 	s.modelID = modeltesting.GenModelUUID(c)
-	api, err := modelconfig.NewModelConfigAPI(s.modelID, nil, s.mockModelSecretBackendService, nil, s.authorizer)
+	api, err := modelconfig.NewModelConfigAPI(s.modelID, nil, s.mockModelSecretBackendService, nil, s.authorizer, s.mockBlockCommandService)
 	c.Assert(err, jc.ErrorIsNil)
 	return api, ctrl
 }
@@ -465,8 +496,6 @@ func (s *modelSecretBackendSuite) TestSetModelSecretBackend(c *gc.C) {
 type mockBackend struct {
 	cfg           config.ConfigValues
 	old           *config.Config
-	b             state.BlockType
-	msg           string
 	cons          constraints.Value
 	secretBackend *coresecrets.SecretBackend
 }
@@ -504,14 +533,6 @@ func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []
 	return nil
 }
 
-func (m *mockBackend) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
-	if m.b == t {
-		return &mockBlock{t: t, m: m.msg}, true, nil
-	} else {
-		return nil, false, nil
-	}
-}
-
 func (m *mockBackend) ModelTag() names.ModelTag {
 	return names.NewModelTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
 }
@@ -530,19 +551,3 @@ func (m *mockBackend) GetSecretBackend(name string) (*coresecrets.SecretBackend,
 	}
 	return m.secretBackend, nil
 }
-
-type mockBlock struct {
-	state.Block
-	t state.BlockType
-	m string
-}
-
-func (m mockBlock) Id() string { return "" }
-
-func (m mockBlock) Tag() (names.Tag, error) { return names.NewModelTag("mocktesting"), nil }
-
-func (m mockBlock) Type() state.BlockType { return m.t }
-
-func (m mockBlock) Message() string { return m.m }
-
-func (m mockBlock) ModelUUID() string { return "" }

@@ -345,9 +345,21 @@ func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st
 }
 
 // handleUpload uploads the tools data from the reader to env storage as the specified version.
-func (h *toolsUploadHandler) handleUpload(ctx context.Context, r io.Reader, toolsVersions []version.Binary, serverRoot string, st *state.State, store objectstore.ObjectStore) (*tools.Tools, error) {
+func (h *toolsUploadHandler) handleUpload(
+	ctx context.Context,
+	r io.Reader,
+	toolsVersions []version.Binary,
+	serverRoot string,
+	st *state.State,
+	store objectstore.ObjectStore,
+) (*tools.Tools, error) {
+	serviceFactory, err := h.ctxt.domainServicesForRequest(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Check if changes are allowed and the command may proceed.
-	blockChecker := common.NewBlockChecker(st)
+	blockChecker := common.NewBlockChecker(serviceFactory.BlockCommand())
 	if err := blockChecker.ChangeAllowed(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -40,6 +40,45 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// GetBlockMessage mocks base method.
+func (m *MockState) GetBlockMessage(arg0 context.Context, arg1 blockcommand.BlockType) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlockMessage", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockMessage indicates an expected call of GetBlockMessage.
+func (mr *MockStateMockRecorder) GetBlockMessage(arg0, arg1 any) *MockStateGetBlockMessageCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockMessage", reflect.TypeOf((*MockState)(nil).GetBlockMessage), arg0, arg1)
+	return &MockStateGetBlockMessageCall{Call: call}
+}
+
+// MockStateGetBlockMessageCall wrap *gomock.Call
+type MockStateGetBlockMessageCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetBlockMessageCall) Return(arg0 string, arg1 error) *MockStateGetBlockMessageCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetBlockMessageCall) Do(f func(context.Context, blockcommand.BlockType) (string, error)) *MockStateGetBlockMessageCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetBlockMessageCall) DoAndReturn(f func(context.Context, blockcommand.BlockType) (string, error)) *MockStateGetBlockMessageCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetBlocks mocks base method.
 func (m *MockState) GetBlocks(arg0 context.Context) ([]blockcommand.Block, error) {
 	m.ctrl.T.Helper()

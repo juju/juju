@@ -20,6 +20,7 @@ import (
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
+	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/domain/model"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -34,6 +35,7 @@ type ModelDomainServices interface {
 	ModelInfo() ModelInfoService
 	Config() ModelConfigService
 	Network() NetworkService
+	BlockCommand() BlockCommandService
 }
 
 // DomainServicesGetter is a factory for creating model services.
@@ -231,6 +233,16 @@ type Services struct {
 	ApplicationService ApplicationService
 }
 
+// BlockCommandService defines methods for interacting with block commands.
+type BlockCommandService interface {
+	// GetBlockSwitchedOn returns the optional block message if it is switched
+	// on for the given type.
+	GetBlockSwitchedOn(ctx context.Context, t blockcommand.BlockType) (string, error)
+
+	// GetBlocks returns all the blocks that are currently switched on.
+	GetBlocks(ctx context.Context) ([]blockcommand.Block, error)
+}
+
 type domainServicesGetter struct {
 	ctx facade.MultiModelContext
 }
@@ -253,4 +265,8 @@ func (s domainServices) Config() ModelConfigService {
 
 func (s domainServices) Network() NetworkService {
 	return s.domainServices.Network()
+}
+
+func (s domainServices) BlockCommand() BlockCommandService {
+	return s.domainServices.BlockCommand()
 }
