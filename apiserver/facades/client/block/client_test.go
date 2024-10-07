@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type blockSuite struct {
@@ -60,7 +59,7 @@ func (s *blockSuite) TestSwitchValidBlockOn(c *gc.C) {
 		{Type: blockcommand.DestroyBlock, Message: "for TestSwitchValidBlockOn"},
 	}, nil)
 
-	s.assertSwitchBlockOn(c, state.DestroyBlock.String(), "for TestSwitchValidBlockOn")
+	s.assertSwitchBlockOn(c, blockcommand.DestroyBlock.String(), "for TestSwitchValidBlockOn")
 }
 
 func (s *blockSuite) TestSwitchInvalidBlockOn(c *gc.C) {
@@ -87,7 +86,7 @@ func (s *blockSuite) TestSwitchBlockOff(c *gc.C) {
 	s.service.EXPECT().GetBlocks(gomock.Any()).Return(nil, nil)
 
 	off := params.BlockSwitchParams{
-		Type: state.DestroyBlock.String(),
+		Type: blockcommand.DestroyBlock.String(),
 	}
 	err := s.api.SwitchBlockOff(context.Background(), off)
 	c.Assert(err.Error, gc.IsNil)

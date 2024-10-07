@@ -122,6 +122,31 @@ func (s *State) RemoveBlock(ctx context.Context, t blockcommand.BlockType) error
 	return nil
 }
 
+// RemoveAllBlocks removes all blocks for the current model. If no blocks are
+// found, returns nil.
+func (s *State) RemoveAllBlocks(ctx context.Context) error {
+	db, err := s.DB()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := s.Prepare("DELETE FROM block_command")
+	if err != nil {
+		return errors.Errorf("preparing block command statement: %w", err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt).Run(); err != nil {
+			return errors.Errorf("deleting block command: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return errors.Errorf("executing block command: %w", err)
+	}
+
+	return nil
+}
+
 // GetBlocks returns all the blocks for the current model.
 func (s *State) GetBlocks(ctx context.Context) ([]blockcommand.Block, error) {
 	db, err := s.DB()

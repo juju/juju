@@ -1375,22 +1375,6 @@ func (st *mockState) InvalidateModelCredential(reason string) error {
 	return nil
 }
 
-type mockBlock struct {
-	state.Block
-	t state.BlockType
-	m string
-}
-
-func (m mockBlock) Id() string { return "" }
-
-func (m mockBlock) Tag() (names.Tag, error) { return names.NewModelTag("mocktesting"), nil }
-
-func (m mockBlock) Type() state.BlockType { return m.t }
-
-func (m mockBlock) Message() string { return m.m }
-
-func (m mockBlock) ModelUUID() string { return "" }
-
 type mockControllerNode struct {
 	id        string
 	hasVote   bool

@@ -131,10 +131,6 @@ func (s stateShim) ModelTag() names.ModelTag {
 	return names.NewModelTag(s.ModelUUID())
 }
 
-func (s stateShim) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
-	return s.State.GetBlockForType(t)
-}
-
 func (s stateShim) Unit(name string) (Unit, error) {
 	return s.State.Unit(name)
 }

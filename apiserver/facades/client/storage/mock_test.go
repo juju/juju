@@ -384,20 +384,6 @@ func (va *mockVolumeAttachment) Params() (state.VolumeAttachmentParams, bool) {
 	panic("not implemented for test")
 }
 
-type mockBlock struct {
-	state.Block
-	t   state.BlockType
-	msg string
-}
-
-func (b mockBlock) Type() state.BlockType {
-	return b.t
-}
-
-func (b mockBlock) Message() string {
-	return b.msg
-}
-
 type mockUnit struct {
 	assignedMachine string
 }

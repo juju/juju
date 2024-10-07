@@ -16,7 +16,6 @@ type State interface {
 	AllMachines() ([]*state.Machine, error)
 	Application(name string) (*state.Application, error)
 	FindEntity(tag names.Tag) (state.Entity, error)
-	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 	Model() (Model, error)
 	WatchActionLogs(actionId string) state.StringsWatcher
 }
@@ -54,10 +53,6 @@ func (s *stateShim) Application(name string) (*state.Application, error) {
 
 func (s *stateShim) FindEntity(tag names.Tag) (state.Entity, error) {
 	return s.st.FindEntity(tag)
-}
-
-func (s *stateShim) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
-	return s.st.GetBlockForType(t)
 }
 
 func (s *stateShim) Model() (Model, error) {

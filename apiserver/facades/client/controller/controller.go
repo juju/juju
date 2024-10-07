@@ -33,6 +33,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -40,6 +41,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	"github.com/juju/juju/domain/blockcommand"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -128,6 +130,19 @@ type ModelExporter interface {
 	ExportModel(context.Context, map[string]string, objectstore.ObjectStore) (description.Model, error)
 }
 
+// BlockCommandService defines methods for interacting with block commands.
+type BlockCommandService interface {
+	// GetBlockSwitchedOn returns the optional block message if it is switched
+	// on for the given type.
+	GetBlockSwitchedOn(ctx context.Context, t blockcommand.BlockType) (string, error)
+
+	// GetBlocks returns all the blocks that are currently in place.
+	GetBlocks(ctx context.Context) ([]blockcommand.Block, error)
+
+	// RemoveAllBlocks removes all the blocks that are currently in place.
+	RemoveAllBlocks(ctx context.Context) error
+}
+
 // ControllerAPI provides the Controller API.
 type ControllerAPI struct {
 	*common.ControllerConfigAPI
@@ -150,7 +165,7 @@ type ControllerAPI struct {
 	blockCommandService       common.BlockCommandService
 	applicationServiceGetter  func(coremodel.UUID) ApplicationService
 	modelConfigServiceGetter  func(coremodel.UUID) common.ModelConfigService
-	blockCommandServiceGetter func(coremodel.UUID) common.BlockCommandService
+	blockCommandServiceGetter func(coremodel.UUID) BlockCommandService
 	proxyService              ProxyService
 	modelExporter             func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
 	store                     objectstore.ObjectStore
@@ -185,7 +200,7 @@ func NewControllerAPI(
 	blockCommandService common.BlockCommandService,
 	applicationServiceGetter func(coremodel.UUID) ApplicationService,
 	modelConfigServiceGetter func(coremodel.UUID) common.ModelConfigService,
-	blockCommandServiceGetter func(coremodel.UUID) common.BlockCommandService,
+	blockCommandServiceGetter func(coremodel.UUID) BlockCommandService,
 	proxyService ProxyService,
 	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
 	store objectstore.ObjectStore,
@@ -510,21 +525,26 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 	if err := c.checkIsSuperUser(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
-	blocks, err := c.state.AllBlocksForController()
+
+	// If there are blocks let the user know.
+	uuids, err := c.state.AllModelUUIDs()
 	if err != nil {
 		return results, errors.Trace(err)
 	}
+	var modelBlocks map[string]set.Strings
+	for _, uuid := range uuids {
+		blockService := c.blockCommandServiceGetter(model.UUID(uuid))
 
-	modelBlocks := make(map[string][]string)
-	for _, block := range blocks {
-		uuid := block.ModelUUID()
-		types, ok := modelBlocks[uuid]
-		if !ok {
-			types = []string{block.Type().String()}
-		} else {
-			types = append(types, block.Type().String())
+		blocks, err := blockService.GetBlocks(ctx)
+		if err != nil {
+			c.logger.Debugf("Unable to get blocks for controller: %s", err)
+			return results, errors.Trace(err)
 		}
-		modelBlocks[uuid] = types
+		blockTypes := set.NewStrings()
+		for _, block := range blocks {
+			blockTypes.Add(block.Type.String())
+		}
+		modelBlocks[uuid] = blockTypes
 	}
 
 	for uuid, blocks := range modelBlocks {
@@ -537,7 +557,7 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 			UUID:     model.UUID(),
 			Name:     model.Name(),
 			OwnerTag: model.Owner().String(),
-			Blocks:   blocks,
+			Blocks:   blocks.SortedValues(),
 		})
 		ph.Release()
 	}
@@ -609,7 +629,23 @@ func (c *ControllerAPI) RemoveBlocks(ctx context.Context, args params.RemoveBloc
 	if !args.All {
 		return errors.New("not supported")
 	}
-	return errors.Trace(c.state.RemoveAllBlocksForController())
+
+	// If there are blocks let the user know.
+	uuids, err := c.state.AllModelUUIDs()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, uuid := range uuids {
+		blockService := c.blockCommandServiceGetter(model.UUID(uuid))
+
+		err := blockService.RemoveAllBlocks(ctx)
+		if err != nil {
+			c.logger.Debugf("Unable to get blocks for controller: %s", err)
+			return errors.Trace(err)
+		}
+	}
+
+	return nil
 }
 
 // WatchAllModels starts watching events for all models in the

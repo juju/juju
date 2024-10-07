@@ -118,6 +118,44 @@ func (c *MockStateGetBlocksCall) DoAndReturn(f func(context.Context) ([]blockcom
 	return c
 }
 
+// RemoveAllBlocks mocks base method.
+func (m *MockState) RemoveAllBlocks(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveAllBlocks", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveAllBlocks indicates an expected call of RemoveAllBlocks.
+func (mr *MockStateMockRecorder) RemoveAllBlocks(arg0 any) *MockStateRemoveAllBlocksCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAllBlocks", reflect.TypeOf((*MockState)(nil).RemoveAllBlocks), arg0)
+	return &MockStateRemoveAllBlocksCall{Call: call}
+}
+
+// MockStateRemoveAllBlocksCall wrap *gomock.Call
+type MockStateRemoveAllBlocksCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateRemoveAllBlocksCall) Return(arg0 error) *MockStateRemoveAllBlocksCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateRemoveAllBlocksCall) Do(f func(context.Context) error) *MockStateRemoveAllBlocksCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateRemoveAllBlocksCall) DoAndReturn(f func(context.Context) error) *MockStateRemoveAllBlocksCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RemoveBlock mocks base method.
 func (m *MockState) RemoveBlock(arg0 context.Context, arg1 blockcommand.BlockType) error {
 	m.ctrl.T.Helper()

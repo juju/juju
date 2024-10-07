@@ -101,3 +101,19 @@ func (s *stateSuite) TestGetBlockMessage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(message, gc.Equals, "destroy me")
 }
+
+func (s *stateSuite) TestRemoveAllBlocksWithNoExistingBlock(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	err := st.RemoveAllBlocks(context.Background())
+
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestRemoveAllBlocksWithExistingBlock(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	err := st.SetBlock(context.Background(), blockcommand.DestroyBlock, "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveAllBlocks(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+}
