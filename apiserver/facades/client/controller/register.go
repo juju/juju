@@ -54,7 +54,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 			Secrets:         service.NotImplementedSecretService{},
 		})
 	}
-	blockCommandServiceGetter := func(modelID model.UUID) common.BlockCommandService {
+	blockCommandServiceGetter := func(modelID model.UUID) BlockCommandService {
 		return ctx.DomainServicesForModel(modelID).BlockCommand()
 	}
 

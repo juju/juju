@@ -196,46 +196,6 @@ func (c *MockStateFindEntityCall) DoAndReturn(f func(names.Tag) (state.Entity, e
 	return c
 }
 
-// GetBlockForType mocks base method.
-func (m *MockState) GetBlockForType(arg0 state.BlockType) (state.Block, bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetBlockForType", arg0)
-	ret0, _ := ret[0].(state.Block)
-	ret1, _ := ret[1].(bool)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetBlockForType indicates an expected call of GetBlockForType.
-func (mr *MockStateMockRecorder) GetBlockForType(arg0 any) *MockStateGetBlockForTypeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockForType", reflect.TypeOf((*MockState)(nil).GetBlockForType), arg0)
-	return &MockStateGetBlockForTypeCall{Call: call}
-}
-
-// MockStateGetBlockForTypeCall wrap *gomock.Call
-type MockStateGetBlockForTypeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetBlockForTypeCall) Return(arg0 state.Block, arg1 bool, arg2 error) *MockStateGetBlockForTypeCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetBlockForTypeCall) Do(f func(state.BlockType) (state.Block, bool, error)) *MockStateGetBlockForTypeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetBlockForTypeCall) DoAndReturn(f func(state.BlockType) (state.Block, bool, error)) *MockStateGetBlockForTypeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Model mocks base method.
 func (m *MockState) Model() (Model, error) {
 	m.ctrl.T.Helper()

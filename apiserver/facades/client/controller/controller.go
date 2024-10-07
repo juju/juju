@@ -531,7 +531,7 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 	if err != nil {
 		return results, errors.Trace(err)
 	}
-	var modelBlocks map[string]set.Strings
+	modelBlocks := make(map[string]set.Strings)
 	for _, uuid := range uuids {
 		blockService := c.blockCommandServiceGetter(model.UUID(uuid))
 
@@ -542,12 +542,15 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 		}
 		blockTypes := set.NewStrings()
 		for _, block := range blocks {
-			blockTypes.Add(block.Type.String())
+			blockTypes.Add(encodeBlockType(block.Type))
 		}
 		modelBlocks[uuid] = blockTypes
 	}
 
 	for uuid, blocks := range modelBlocks {
+		if len(blocks) == 0 {
+			continue
+		}
 		model, ph, err := c.statePool.GetModel(uuid)
 		if err != nil {
 			c.logger.Debugf("unable to retrieve model %s: %v", uuid, err)
@@ -565,6 +568,19 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 	// Sort the resulting sequence by model name, then owner.
 	sort.Sort(orderedBlockInfo(results.Models))
 	return results, nil
+}
+
+func encodeBlockType(t blockcommand.BlockType) string {
+	switch t {
+	case blockcommand.DestroyBlock:
+		return "BlockDestroy"
+	case blockcommand.RemoveBlock:
+		return "BlockRemove"
+	case blockcommand.ChangeBlock:
+		return "BlockChange"
+	default:
+		return "unknown"
+	}
 }
 
 // HostedModelConfigs returns all the information that the client needs in
@@ -609,8 +625,9 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 		} else {
 			config.Config = modelConf.AllAttrs()
 		}
-		cloudSpec := c.GetCloudSpec(ctx, model.ModelTag())
+
 		if config.Error == nil {
+			cloudSpec := c.GetCloudSpec(ctx, model.ModelTag())
 			config.CloudSpec = cloudSpec.Result
 			config.Error = cloudSpec.Error
 		}
@@ -637,7 +654,6 @@ func (c *ControllerAPI) RemoveBlocks(ctx context.Context, args params.RemoveBloc
 	}
 	for _, uuid := range uuids {
 		blockService := c.blockCommandServiceGetter(model.UUID(uuid))
-
 		err := blockService.RemoveAllBlocks(ctx)
 		if err != nil {
 			c.logger.Debugf("Unable to get blocks for controller: %s", err)
