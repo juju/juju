@@ -61,6 +61,7 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 		domainServices.Credential(),
 		applicationService,
 		domainServices.UnitState(),
+		domainServices.Port(),
 	)
 }
 
@@ -78,6 +79,7 @@ func newUniterAPIWithServices(
 	credentialService CredentialService,
 	applicationService ApplicationService,
 	unitStateService UnitStateService,
+	portService PortService,
 ) (*UniterAPI, error) {
 	authorizer := context.Auth()
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
@@ -159,6 +161,7 @@ func newUniterAPIWithServices(
 		credentialService:       credentialService,
 		applicationService:      applicationService,
 		unitStateService:        unitStateService,
+		portService:             portService,
 		clock:                   aClock,
 		auth:                    authorizer,
 		resources:               resources,

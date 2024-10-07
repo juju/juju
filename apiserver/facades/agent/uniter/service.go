@@ -15,6 +15,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/environs/config"
@@ -58,6 +59,7 @@ type CredentialService interface {
 type ApplicationService interface {
 	GetApplicationLife(ctx context.Context, unitName string) (life.Value, error)
 	GetUnitLife(ctx context.Context, unitName string) (life.Value, error)
+	GetUnitUUID(ctx context.Context, unitName string) (coreunit.UUID, error)
 	EnsureUnitDead(ctx context.Context, unitName string, leadershipRevoker leadership.Revoker) error
 	DeleteUnit(ctx context.Context, unitName string) error
 	DestroyUnit(ctx context.Context, unitName string) error
@@ -68,6 +70,11 @@ type ApplicationService interface {
 type UnitStateService interface {
 	// SetState persists the input agent state.
 	SetState(context.Context, unitstate.AgentState) error
+}
+
+// PortService describes the ability to open and close port ranges for units.
+type PortService interface {
+	UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, openPorts, closePorts network.GroupedPortRanges) error
 }
 
 // NetworkService is the interface that is used to interact with the

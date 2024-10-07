@@ -32,13 +32,14 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/internal/charm"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	statewatcher "github.com/juju/juju/state/watcher"
 )
 
-// UniterAPI implements the latest version (v18) of the Uniter API.
+// UniterAPI implements the latest version (v19) of the Uniter API.
 type UniterAPI struct {
 	*StatusAPI
 	*StorageAPI
@@ -74,6 +75,7 @@ type UniterAPI struct {
 	networkService          NetworkService
 	applicationService      ApplicationService
 	unitStateService        UnitStateService
+	portService             PortService
 	store                   objectstore.ObjectStore
 
 	// A cloud spec can only be accessed for the model of the unit or
@@ -2602,6 +2604,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 			return errors.Trace(err)
 		}
 
+		openPorts := network.GroupedPortRanges{}
 		for _, r := range changes.OpenPorts {
 			// Ensure the tag in the port open request matches the root unit name
 			if r.Tag != changes.Tag {
@@ -2613,33 +2616,40 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 				return errors.NotSupportedf("protocol icmp on caas models")
 			}
 
-			// Pre-2.9 clients (using V15 or V16 of this API) do
-			// not populate the new Endpoint field; this
-			// effectively opens the port for all endpoints and
-			// emulates pre-2.9 behavior.
-			pcp.Open(r.Endpoint, network.PortRange{
+			portRange := network.PortRange{
 				FromPort: r.FromPort,
 				ToPort:   r.ToPort,
 				Protocol: r.Protocol,
-			})
+			}
+			openPorts[r.Endpoint] = append(openPorts[r.Endpoint], portRange)
+			pcp.Open(r.Endpoint, portRange)
 		}
+
+		closePorts := network.GroupedPortRanges{}
 		for _, r := range changes.ClosePorts {
 			// Ensure the tag in the port close request matches the root unit name
 			if r.Tag != changes.Tag {
 				return apiservererrors.ErrPerm
 			}
 
-			// Pre-2.9 clients (using V15 or V16 of this API) do
-			// not populate the new Endpoint field; this
-			// effectively closes the port for all endpoints and
-			// emulates pre-2.9 behavior.
-			pcp.Close(r.Endpoint, network.PortRange{
+			portRange := network.PortRange{
 				FromPort: r.FromPort,
 				ToPort:   r.ToPort,
 				Protocol: r.Protocol,
-			})
+			}
+			closePorts[r.Endpoint] = append(closePorts[r.Endpoint], portRange)
+			pcp.Close(r.Endpoint, portRange)
 		}
 		modelOps = append(modelOps, pcp.Changes())
+
+		unitUUID, err := u.applicationService.GetUnitUUID(ctx, unitTag.Id())
+		if err != nil {
+			return internalerrors.Errorf("failed to get UUID of unit %q: %w", unitTag.Id(), err)
+		}
+		err = u.portService.UpdateUnitPorts(ctx, unitUUID, openPorts, closePorts)
+		if err != nil {
+			return internalerrors.Errorf("failed to update unit ports of unit %q: %w", unitTag.Id(), err)
+		}
 	}
 
 	if changes.SetUnitState != nil {

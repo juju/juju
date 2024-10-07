@@ -39137,7 +39137,7 @@
     },
     {
         "Name": "Uniter",
-        "Description": "UniterAPI implements the latest version (v18) of the Uniter API.",
+        "Description": "UniterAPI implements the latest version (v19) of the Uniter API.",
         "Version": 19,
         "AvailableTo": [
             "controller-machine-agent",
