@@ -17,6 +17,22 @@ CREATE TABLE machine_cloud_instance (
     REFERENCES availability_zone (uuid)
 );
 
+CREATE VIEW v_hardware_characteristics AS
+SELECT
+    m.machine_uuid,
+    m.instance_id,
+    m.arch,
+    m.mem,
+    m.root_disk,
+    m.root_disk_source,
+    m.cpu_cores,
+    m.cpu_power,
+    m.virt_type,
+    az.name AS availability_zone_name,
+    az.uuid AS availability_zone_uuid
+FROM machine_cloud_instance AS m
+LEFT JOIN availability_zone AS az ON m.availability_zone_uuid = az.uuid;
+
 CREATE TABLE instance_tag (
     machine_uuid TEXT NOT NULL,
     tag TEXT NOT NULL,

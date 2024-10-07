@@ -27,6 +27,21 @@ type instanceData struct {
 	VirtType             *string `db:"virt_type"`
 }
 
+// instanceDataResult represents the struct used to retrieve rows when joining
+// the machine_cloud_instance table with the availability_zone table.
+type instanceDataResult struct {
+	MachineUUID      string  `db:"machine_uuid"`
+	InstanceID       string  `db:"instance_id"`
+	Arch             *string `db:"arch"`
+	Mem              *uint64 `db:"mem"`
+	RootDisk         *uint64 `db:"root_disk"`
+	RootDiskSource   *string `db:"root_disk_source"`
+	CPUCores         *uint64 `db:"cpu_cores"`
+	CPUPower         *uint64 `db:"cpu_power"`
+	AvailabilityZone *string `db:"availability_zone_name"`
+	VirtType         *string `db:"virt_type"`
+}
+
 // instanceTag represents the struct to be inserted into the instance_tag
 // table.
 type instanceTag struct {
@@ -48,7 +63,7 @@ func tagsFromHardwareCharacteristics(machineUUID string, hc *instance.HardwareCh
 	return res
 }
 
-func (d *instanceData) toHardwareCharacteristics() *instance.HardwareCharacteristics {
+func (d *instanceDataResult) toHardwareCharacteristics() *instance.HardwareCharacteristics {
 	return &instance.HardwareCharacteristics{
 		Arch:             d.Arch,
 		Mem:              d.Mem,
@@ -56,7 +71,7 @@ func (d *instanceData) toHardwareCharacteristics() *instance.HardwareCharacteris
 		RootDiskSource:   d.RootDiskSource,
 		CpuCores:         d.CPUCores,
 		CpuPower:         d.CPUPower,
-		AvailabilityZone: d.AvailabilityZoneUUID,
+		AvailabilityZone: d.AvailabilityZone,
 		VirtType:         d.VirtType,
 	}
 }

@@ -152,6 +152,7 @@ func newUniterAPIWithServices(
 		controllerConfigService: controllerConfigService,
 		modelConfigService:      modelConfigService,
 		modelInfoService:        modelInfoService,
+		machineService:          machineService,
 		secretService:           secretService,
 		networkService:          networkService,
 		cloudService:            cloudService,

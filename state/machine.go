@@ -1261,23 +1261,6 @@ func (m *Machine) SetModificationStatus(sInfo status.StatusInfo) (err error) {
 	})
 }
 
-// AvailabilityZone returns the provider-specific instance availability
-// zone in which the machine was provisioned.
-func (m *Machine) AvailabilityZone() (string, error) {
-	instData, err := getInstanceData(m.st, m.Id())
-	if errors.Is(err, errors.NotFound) {
-		return "", errors.Trace(errors.NotProvisionedf("machine %v", m.Id()))
-	}
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	var zone string
-	if instData.AvailZone != nil {
-		zone = *instData.AvailZone
-	}
-	return zone, nil
-}
-
 // ApplicationNames returns the names of applications
 // represented by units running on the machine.
 func (m *Machine) ApplicationNames() ([]string, error) {

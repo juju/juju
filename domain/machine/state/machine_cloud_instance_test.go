@@ -5,7 +5,9 @@ package state
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -19,6 +21,7 @@ import (
 func (s *stateSuite) TestGetHardwareCharacteristics(c *gc.C) {
 	machineUUID := s.ensureInstance(c, "42")
 
+	fmt.Printf("machineUUID: %s\n", machineUUID)
 	hc, err := s.state.HardwareCharacteristics(context.Background(), machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*hc.Arch, gc.Equals, "arm64")
@@ -27,7 +30,45 @@ func (s *stateSuite) TestGetHardwareCharacteristics(c *gc.C) {
 	c.Check(*hc.RootDiskSource, gc.Equals, "/test")
 	c.Check(*hc.CpuCores, gc.Equals, uint64(4))
 	c.Check(*hc.CpuPower, gc.Equals, uint64(75))
-	c.Check(*hc.AvailabilityZone, gc.Equals, "deadbeef-0bad-400d-8000-4b1d0d06f00d")
+	c.Check(*hc.AvailabilityZone, gc.Equals, "az-1")
+	c.Check(*hc.VirtType, gc.Equals, "virtual-machine")
+}
+
+func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *gc.C) {
+	db := s.DB()
+	// Create a reference machine.
+	err := s.state.CreateMachine(context.Background(), "42", "", "")
+	c.Assert(err, jc.ErrorIsNil)
+	var machineUUID string
+	err = db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='42'").Scan(&machineUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetMachineCloudInstance(
+		context.Background(),
+		machineUUID,
+		instance.Id("123"),
+		&instance.HardwareCharacteristics{
+			Arch:           strptr("arm64"),
+			Mem:            uintptr(1024),
+			RootDisk:       uintptr(256),
+			RootDiskSource: strptr("/test"),
+			CpuCores:       uintptr(4),
+			CpuPower:       uintptr(75),
+			Tags:           strsliceptr([]string{"tag1", "tag2"}),
+			VirtType:       strptr("virtual-machine"),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	hc, err := s.state.HardwareCharacteristics(context.Background(), machineUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(*hc.Arch, gc.Equals, "arm64")
+	c.Check(*hc.Mem, gc.Equals, uint64(1024))
+	c.Check(*hc.RootDisk, gc.Equals, uint64(256))
+	c.Check(*hc.RootDiskSource, gc.Equals, "/test")
+	c.Check(*hc.CpuCores, gc.Equals, uint64(4))
+	c.Check(*hc.CpuPower, gc.Equals, uint64(75))
+	c.Check(hc.AvailabilityZone, gc.IsNil)
 	c.Check(*hc.VirtType, gc.Equals, "virtual-machine")
 }
 
@@ -361,12 +402,10 @@ func (s *stateSuite) ensureInstance(c *gc.C, mName machine.Name) string {
 	db := s.DB()
 
 	// Create a reference machine.
-	err := s.state.CreateMachine(context.Background(), mName, "", "")
+	uuid, err := uuid.NewV7()
 	c.Assert(err, jc.ErrorIsNil)
-	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='"+string(mName)+"'")
-	c.Assert(row.Err(), jc.ErrorIsNil)
-	err = row.Scan(&machineUUID)
+	machineUUID := uuid.String()
+	err = s.state.CreateMachine(context.Background(), mName, "", machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a reference AZ.
 	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('deadbeef-0bad-400d-8000-4b1d0d06f00d', 'az-1')")

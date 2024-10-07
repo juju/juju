@@ -1350,16 +1350,6 @@ func (u *Unit) scopedAddress(scope string) (network.SpaceAddress, error) {
 	return addr, nil
 }
 
-// AvailabilityZone returns the name of the availability zone into which
-// the unit's machine instance was provisioned.
-func (u *Unit) AvailabilityZone() (string, error) {
-	m, err := u.machine()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return m.AvailabilityZone()
-}
-
 // Refresh refreshes the contents of the Unit from the underlying
 // state. It an error that satisfies errors.IsNotFound if the unit has
 // been removed.

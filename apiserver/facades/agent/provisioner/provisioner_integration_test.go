@@ -930,19 +930,38 @@ func (s *withoutControllerSuite) TestAvailabilityZone(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	// Add a subnet with the AZ so it's on dqlite.
+	s.domainServices.Network().AddSubnet(context.Background(), network.SubnetInfo{
+		CIDR:              "10.0.0.0/8",
+		AvailabilityZones: []string{"ru-north-siberia"},
+	})
+	machineService := s.domainServices.Machine()
 
 	// add machines with different availability zones: string, empty string, nil
 	azMachine, _ := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Characteristics: &hcWithAZ,
 	})
+	machine0UUID, err := machineService.CreateMachine(context.Background(), coremachine.Name(azMachine.Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine0UUID, "i-am-az-machine", &hcWithAZ)
+	c.Assert(err, jc.ErrorIsNil)
 
 	emptyAzMachine, _ := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Characteristics: &hcWithEmptyAZ,
 	})
+	machine1UUID, err := machineService.CreateMachine(context.Background(), coremachine.Name(emptyAzMachine.Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine1UUID, "i-am-empty-az-machine", &hcWithEmptyAZ)
+	c.Assert(err, jc.ErrorIsNil)
 
 	nilAzMachine, _ := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Characteristics: &hcWithNilAz,
 	})
+	machine2UUID, err := machineService.CreateMachine(context.Background(), coremachine.Name(nilAzMachine.Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine2UUID, "i-am-nil-az-machine", &hcWithNilAz)
+	c.Assert(err, jc.ErrorIsNil)
+
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: azMachine.Tag().String()},
 		{Tag: emptyAzMachine.Tag().String()},

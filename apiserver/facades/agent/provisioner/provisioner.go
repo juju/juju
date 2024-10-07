@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application/service"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
@@ -481,18 +482,23 @@ func (api *ProvisionerAPI) AvailabilityZone(ctx context.Context, args params.Ent
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		machine, err := api.getMachine(canAccess, tag)
-		if err == nil {
-			hc, err := machine.HardwareCharacteristics()
-			if err == nil {
-				if hc.AvailabilityZone != nil {
-					result.Results[i].Result = *hc.AvailabilityZone
-				} else {
-					result.Results[i].Result = ""
-				}
-			} else {
-				result.Results[i].Error = apiservererrors.ServerError(err)
-			}
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+		}
+		machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(tag.Id()))
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(machineerrors.MachineNotFound)
+			continue
+		}
+		hc, err := api.machineService.HardwareCharacteristics(ctx, machineUUID)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if hc.AvailabilityZone != nil {
+			result.Results[i].Result = *hc.AvailabilityZone
+		} else {
+			result.Results[i].Result = ""
 		}
 	}
 	return result, nil
