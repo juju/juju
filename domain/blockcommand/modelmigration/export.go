@@ -64,7 +64,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		migration[exportMigrationValue(block.Type)] = block.Message
 	}
 
-	model.SetBlockCommands(migration)
+	model.SetBlocks(migration)
 
 	return nil
 }

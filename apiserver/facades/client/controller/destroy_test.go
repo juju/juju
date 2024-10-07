@@ -94,8 +94,6 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedModelsWithBlocks(c *gc.C) {
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
-	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
-	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
 		DestroyModels: true,
@@ -131,8 +129,6 @@ func (s *destroyControllerSuite) TestDestroyControllerKillsHostedModels(c *gc.C)
 func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c *gc.C) {
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
-	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
-	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{})
 	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")

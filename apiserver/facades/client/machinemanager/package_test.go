@@ -15,6 +15,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package machinemanager -destination volume_access_mock_test.go github.com/juju/juju/apiserver/common/storagecommon VolumeAccess
 //go:generate go run go.uber.org/mock/mockgen -typed -package machinemanager -destination environ_mock_test.go github.com/juju/juju/environs Environ,InstanceTypesFetcher,BootstrapEnviron
 //go:generate go run go.uber.org/mock/mockgen -typed -package machinemanager -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
+
 func TestPackage(t *testing.T) {
 	// TODO(wallyworld) - needed until instance config tests converted to gomock
 	coretesting.MgoTestPackage(t)

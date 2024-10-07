@@ -16,12 +16,16 @@ import (
 type MultiModelContext struct {
 	ModelContext
 
-	DomainServicesForModel_ services.DomainServices
-	ObjectStoreForModel_    objectstore.ObjectStore
+	DomainServicesForModelFunc_ func(model.UUID) services.DomainServices
+	DomainServicesForModel_     services.DomainServices
+	ObjectStoreForModel_        objectstore.ObjectStore
 }
 
 // DomainServicesForModel returns the services factory for a given model uuid.
 func (c MultiModelContext) DomainServicesForModel(uuid model.UUID) services.DomainServices {
+	if c.DomainServicesForModelFunc_ != nil {
+		return c.DomainServicesForModelFunc_(uuid)
+	}
 	return c.DomainServicesForModel_
 }
 
