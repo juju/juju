@@ -39,6 +39,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -131,6 +132,11 @@ type ApplicationState interface {
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the
 	// application doesn't exist.
 	AddUnits(ctx context.Context, applicationName string, args ...application.UpsertUnitArg) error
+
+	// GetUnitNames gets in bulk the names for the specified unit UUIDs, returning
+	// an error satisfying [applicationerrors.UnitNotFound] if any units are not
+	// found.
+	GetUnitNames(ctx context.Context, unitUUID []coreunit.UUID) ([]string, error)
 
 	// UpsertCloudService updates the cloud service for the specified
 	// application, returning an error satisfying
@@ -365,9 +371,22 @@ func (s *ApplicationService) GetUnitUUID(ctx context.Context, unitName string) (
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
 		result, err = s.st.GetUnitUUID(ctx, unitName)
-		return errors.Annotatef(err, "getting unit UUID for %q", unitName)
+		return err
 	})
-	return result, errors.Trace(err)
+	if err != nil {
+		return "", internalerrors.Errorf("failed to get unit UUID for %q: %w", unitName, err)
+	}
+	return result, nil
+}
+
+// GetUnitNames gets in bulk the names for the specified unit UUIDs, returning an
+// error satisfying [applicationerrors.UnitNotFound] if any units are not found.
+func (s *ApplicationService) GetUnitNames(ctx context.Context, unitUUIDs []coreunit.UUID) ([]string, error) {
+	names, err := s.st.GetUnitNames(ctx, unitUUIDs)
+	if err != nil {
+		return nil, internalerrors.Errorf("failed to get unit names: %w", err)
+	}
+	return names, nil
 }
 
 // GetUnitLife looks up the life of the specified unit, returning an error
