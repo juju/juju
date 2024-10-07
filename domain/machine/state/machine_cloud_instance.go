@@ -32,20 +32,9 @@ func (st *State) HardwareCharacteristics(
 		return nil, errors.Trace(err)
 	}
 	retrieveHardwareCharacteristics := `
-SELECT    (machine_cloud_instance.machine_uuid,
-           machine_cloud_instance.instance_id,
-           machine_cloud_instance.arch,
-           machine_cloud_instance.mem,
-           machine_cloud_instance.root_disk,
-           machine_cloud_instance.root_disk_source,
-           machine_cloud_instance.cpu_cores,
-           machine_cloud_instance.cpu_power,
-           machine_cloud_instance.virt_type) AS (&instanceDataResult.*),
-           availability_zone.name AS &instanceDataResult.availability_zone
-FROM      machine_cloud_instance
-LEFT JOIN availability_zone
-ON        machine_cloud_instance.availability_zone_uuid = availability_zone.uuid
-WHERE     machine_uuid = $instanceDataResult.machine_uuid`
+SELECT    &instanceDataResult.*
+FROM      v_hardware_characteristics AS v
+WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
 	machineUUIDQuery := instanceDataResult{
 		MachineUUID: machineUUID,
 	}

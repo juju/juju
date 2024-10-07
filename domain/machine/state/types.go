@@ -38,7 +38,7 @@ type instanceDataResult struct {
 	RootDiskSource   *string `db:"root_disk_source"`
 	CPUCores         *uint64 `db:"cpu_cores"`
 	CPUPower         *uint64 `db:"cpu_power"`
-	AvailabilityZone *string `db:"availability_zone"`
+	AvailabilityZone *string `db:"availability_zone_name"`
 	VirtType         *string `db:"virt_type"`
 }
 

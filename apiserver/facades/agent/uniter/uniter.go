@@ -352,7 +352,7 @@ var getZone = func(ctx context.Context, st *state.State, machineService MachineS
 		return "", errors.Trace(err)
 	}
 	if hc.AvailabilityZone == nil {
-		return "", errors.Trace(err)
+		return "", nil
 	}
 	return *hc.AvailabilityZone, errors.Trace(err)
 }
