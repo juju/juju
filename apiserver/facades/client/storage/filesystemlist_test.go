@@ -54,6 +54,8 @@ func (s *filesystemSuite) expectedFilesystemDetails() params.FilesystemDetails {
 }
 
 func (s *filesystemSuite) TestListFilesystemsEmptyFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	found, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
@@ -64,6 +66,8 @@ func (s *filesystemSuite) TestListFilesystemsEmptyFilter(c *gc.C) {
 }
 
 func (s *filesystemSuite) TestListFilesystemsError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	msg := "inventing error"
 	s.storageAccessor.allFilesystems = func() ([]state.Filesystem, error) {
 		return nil, errors.New(msg)
@@ -77,6 +81,8 @@ func (s *filesystemSuite) TestListFilesystemsError(c *gc.C) {
 }
 
 func (s *filesystemSuite) TestListFilesystemsNoFilesystems(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.storageAccessor.allFilesystems = func() ([]state.Filesystem, error) {
 		return nil, nil
 	}
@@ -86,6 +92,8 @@ func (s *filesystemSuite) TestListFilesystemsNoFilesystems(c *gc.C) {
 }
 
 func (s *filesystemSuite) TestListFilesystemsFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	filters := []params.FilesystemFilter{{
 		Machines: []string{s.machineTag.String()},
 	}}
@@ -97,6 +105,8 @@ func (s *filesystemSuite) TestListFilesystemsFilter(c *gc.C) {
 }
 
 func (s *filesystemSuite) TestListFilesystemsFilterNonMatching(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	filters := []params.FilesystemFilter{{
 		Machines: []string{"machine-42"},
 	}}
@@ -108,6 +118,8 @@ func (s *filesystemSuite) TestListFilesystemsFilterNonMatching(c *gc.C) {
 }
 
 func (s *filesystemSuite) TestListFilesystemsFilesystemInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.filesystem.info = &state.FilesystemInfo{
 		Size: 123,
 	}
@@ -123,6 +135,8 @@ func (s *filesystemSuite) TestListFilesystemsFilesystemInfo(c *gc.C) {
 }
 
 func (s *filesystemSuite) TestListFilesystemsAttachmentInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.filesystemAttachment.info = &state.FilesystemAttachmentInfo{
 		MountPoint: "/tmp",
 		ReadOnly:   true,
@@ -149,6 +163,8 @@ func (s *filesystemSuite) TestListFilesystemsAttachmentInfo(c *gc.C) {
 }
 
 func (s *filesystemSuite) TestListFilesystemsVolumeBacked(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.filesystem.volume = &s.volumeTag
 	expected := s.expectedFilesystemDetails()
 	expected.VolumeTag = s.volumeTag.String()

@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/highavailability"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/domain/blockcommand"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
@@ -33,8 +33,6 @@ type clientSuite struct {
 
 	authorizer apiservertesting.FakeAuthorizer
 	haServer   *highavailability.HighAvailabilityAPI
-
-	commontesting.BlockHelper
 
 	store objectstore.ObjectStore
 }
@@ -69,6 +67,8 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	// We have to ensure the agents are alive, or EnableHA will create more to
+	// replace them.
 	_, err = st.AddMachines(
 		s.modelConfigService(c),
 		state.MachineTemplate{
@@ -83,11 +83,6 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// We have to ensure the agents are alive, or EnableHA will
-	// create more to replace them.
-	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
 	s.store = testing.NewObjectStore(c, s.ControllerModelUUID())
 }
@@ -338,15 +333,18 @@ func (s *clientSuite) TestEnableHAControllerConfigWithFileBackedObjectStore(c *g
 
 func (s *clientSuite) TestBlockMakeHA(c *gc.C) {
 	// Block all changes.
-	s.BlockAllChanges(c, "TestBlockEnableHA")
+	domainServices := s.ControllerDomainServices(c)
+	blockCommandService := domainServices.BlockCommand()
+	err := blockCommandService.SwitchBlockOn(context.Background(), blockcommand.ChangeBlock, "TestBlockEnableHA")
+	c.Assert(err, jc.ErrorIsNil)
 
 	enableHAResult, err := s.enableHA(c, 3, constraints.MustParse("mem=4G"), nil)
-	s.AssertBlocked(c, err, "TestBlockEnableHA")
+	c.Assert(err, gc.ErrorMatches, "TestBlockEnableHA")
 
-	c.Assert(enableHAResult.Maintained, gc.HasLen, 0)
-	c.Assert(enableHAResult.Added, gc.HasLen, 0)
-	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+	c.Check(enableHAResult.Maintained, gc.HasLen, 0)
+	c.Check(enableHAResult.Added, gc.HasLen, 0)
+	c.Check(enableHAResult.Removed, gc.HasLen, 0)
+	c.Check(enableHAResult.Converted, gc.HasLen, 0)
 
 	machines, err := s.ControllerModel(c).State().AllMachines()
 	c.Assert(err, jc.ErrorIsNil)

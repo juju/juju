@@ -408,7 +408,6 @@ func (u *mockUnit) AssignedMachineId() (string, error) {
 
 type mockState struct {
 	modelTag        names.ModelTag
-	getBlockForType func(t state.BlockType) (state.Block, bool, error)
 	unitName        string
 	unitErr         string
 	assignedMachine string
@@ -420,10 +419,6 @@ func (st *mockState) ControllerTag() names.ControllerTag {
 
 func (st *mockState) ModelTag() names.ModelTag {
 	return st.modelTag
-}
-
-func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
-	return st.getBlockForType(t)
 }
 
 func (st *mockState) Unit(unitName string) (storage.Unit, error) {

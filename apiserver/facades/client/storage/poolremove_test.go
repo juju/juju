@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/rpc/params"
@@ -24,10 +23,8 @@ type poolRemoveSuite struct {
 var _ = gc.Suite(&poolRemoveSuite{})
 
 func (s *poolRemoveSuite) TestRemovePool(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
-	s.storageService = storage.NewMockStorageService(ctrl)
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 	s.storageService.EXPECT().DeleteStoragePool(gomock.Any(), poolName)
 
@@ -43,10 +40,8 @@ func (s *poolRemoveSuite) TestRemovePool(c *gc.C) {
 }
 
 func (s *poolRemoveSuite) TestRemoveNotExists(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
-	s.storageService = storage.NewMockStorageService(ctrl)
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 	s.storageService.EXPECT().DeleteStoragePool(gomock.Any(), poolName).Return(storageerrors.PoolNotFoundError)
 

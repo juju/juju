@@ -31,7 +31,6 @@ import (
 type ModelManagerBackend interface {
 	APIHostPortsForAgentsGetter
 	ToolsStorageGetter
-	BlockGetter
 
 	ModelUUID() string
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)

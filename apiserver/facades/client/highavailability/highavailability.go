@@ -69,6 +69,7 @@ type HighAvailabilityAPI struct {
 	controllerConfigService ControllerConfigService
 	networkService          NetworkService
 	modelConfigService      common.ModelConfigService
+	blockCommandService     common.BlockCommandService
 	authorizer              facade.Authorizer
 	logger                  corelogger.Logger
 }
@@ -113,7 +114,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 		return params.ControllersChanges{}, errors.New("unsupported with workload models")
 	}
 	// Check if changes are allowed and the command may proceed.
-	blockChecker := common.NewBlockChecker(st)
+	blockChecker := common.NewBlockChecker(api.blockCommandService)
 	if err := blockChecker.ChangeAllowed(ctx); err != nil {
 		return params.ControllersChanges{}, errors.Trace(err)
 	}

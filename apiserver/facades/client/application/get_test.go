@@ -52,17 +52,18 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	s.ApiServerSuite.SeedCAASCloud(c)
 
+	domainServices := s.DefaultModelDomainServices(c)
+
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: jujutesting.AdminUser,
 	}
 	st := s.ControllerModel(c).State()
 	storageAccess, err := application.GetStorageState(st)
 	c.Assert(err, jc.ErrorIsNil)
-	blockChecker := common.NewBlockChecker(st)
+	blockChecker := common.NewBlockChecker(domainServices.BlockCommand())
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	domainServices := s.DefaultModelDomainServices(c)
 	envFunc := stateenvirons.GetNewEnvironFunc(environs.New)
 	env, err := envFunc(s.ControllerModel(c), domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
 	c.Assert(err, jc.ErrorIsNil)
@@ -209,13 +210,14 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		expectedAppConfig[name] = info
 	}
 
+	domainServices := s.DefaultModelDomainServices(c)
+
 	storageAccess, err := application.GetStorageState(st)
 	c.Assert(err, jc.ErrorIsNil)
-	blockChecker := common.NewBlockChecker(st)
+	blockChecker := common.NewBlockChecker(domainServices.BlockCommand())
 	mod, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	domainServices := s.DefaultModelDomainServices(c)
 	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
 		mod,
 		domainServices.Cloud(),

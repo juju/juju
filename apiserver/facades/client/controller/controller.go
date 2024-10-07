@@ -134,27 +134,29 @@ type ControllerAPI struct {
 	*common.ModelStatusAPI
 	cloudspec.CloudSpecer
 
-	state                    Backend
-	statePool                *state.StatePool
-	authorizer               facade.Authorizer
-	apiUser                  names.UserTag
-	resources                facade.Resources
-	presence                 facade.Presence
-	hub                      facade.Hub
-	cloudService             common.CloudService
-	credentialService        common.CredentialService
-	upgradeService           UpgradeService
-	controllerConfigService  ControllerConfigService
-	accessService            ControllerAccessService
-	modelService             ModelService
-	applicationServiceGetter func(coremodel.UUID) ApplicationService
-	modelConfigServiceGetter func(coremodel.UUID) common.ModelConfigService
-	proxyService             ProxyService
-	modelExporter            func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
-	store                    objectstore.ObjectStore
-	leadership               leadership.Reader
-	logger                   corelogger.Logger
-	controllerTag            names.ControllerTag
+	state                     Backend
+	statePool                 *state.StatePool
+	authorizer                facade.Authorizer
+	apiUser                   names.UserTag
+	resources                 facade.Resources
+	presence                  facade.Presence
+	hub                       facade.Hub
+	cloudService              common.CloudService
+	credentialService         common.CredentialService
+	upgradeService            UpgradeService
+	controllerConfigService   ControllerConfigService
+	accessService             ControllerAccessService
+	modelService              ModelService
+	blockCommandService       common.BlockCommandService
+	applicationServiceGetter  func(coremodel.UUID) ApplicationService
+	modelConfigServiceGetter  func(coremodel.UUID) common.ModelConfigService
+	blockCommandServiceGetter func(coremodel.UUID) common.BlockCommandService
+	proxyService              ProxyService
+	modelExporter             func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
+	store                     objectstore.ObjectStore
+	leadership                leadership.Reader
+	logger                    corelogger.Logger
+	controllerTag             names.ControllerTag
 }
 
 // LatestAPI is used for testing purposes to create the latest
@@ -180,8 +182,10 @@ func NewControllerAPI(
 	accessService ControllerAccessService,
 	machineService MachineService,
 	modelService ModelService,
+	blockCommandService common.BlockCommandService,
 	applicationServiceGetter func(coremodel.UUID) ApplicationService,
 	modelConfigServiceGetter func(coremodel.UUID) common.ModelConfigService,
+	blockCommandServiceGetter func(coremodel.UUID) common.BlockCommandService,
 	proxyService ProxyService,
 	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
 	store objectstore.ObjectStore,
@@ -219,27 +223,29 @@ func NewControllerAPI(
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
-		state:                    stateShim{State: st},
-		statePool:                pool,
-		authorizer:               authorizer,
-		apiUser:                  apiUser,
-		resources:                resources,
-		presence:                 presence,
-		hub:                      hub,
-		logger:                   logger,
-		controllerConfigService:  controllerConfigService,
-		credentialService:        credentialService,
-		upgradeService:           upgradeService,
-		cloudService:             cloudService,
-		applicationServiceGetter: applicationServiceGetter,
-		accessService:            accessService,
-		modelService:             modelService,
-		modelConfigServiceGetter: modelConfigServiceGetter,
-		proxyService:             proxyService,
-		controllerTag:            st.ControllerTag(),
-		modelExporter:            modelExporter,
-		store:                    store,
-		leadership:               leadership,
+		state:                     stateShim{State: st},
+		statePool:                 pool,
+		authorizer:                authorizer,
+		apiUser:                   apiUser,
+		resources:                 resources,
+		presence:                  presence,
+		hub:                       hub,
+		logger:                    logger,
+		controllerConfigService:   controllerConfigService,
+		credentialService:         credentialService,
+		upgradeService:            upgradeService,
+		cloudService:              cloudService,
+		applicationServiceGetter:  applicationServiceGetter,
+		accessService:             accessService,
+		modelService:              modelService,
+		blockCommandService:       blockCommandService,
+		modelConfigServiceGetter:  modelConfigServiceGetter,
+		blockCommandServiceGetter: blockCommandServiceGetter,
+		proxyService:              proxyService,
+		controllerTag:             st.ControllerTag(),
+		modelExporter:             modelExporter,
+		store:                     store,
+		leadership:                leadership,
 	}, nil
 }
 

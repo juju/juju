@@ -113,7 +113,6 @@ type backend interface {
 	ControllerTag() names.ControllerTag
 	ModelTag() names.ModelTag
 	Unit(string) (Unit, error)
-	GetBlockForType(state.BlockType) (state.Block, bool, error)
 }
 
 type blockDeviceGetter interface {

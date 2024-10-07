@@ -126,9 +126,9 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state")
 	}
-	blockChecker := common.NewBlockChecker(ctx.State())
-	stateCharm := CharmToStateCharm
 	domainServices := ctx.DomainServices()
+	blockChecker := common.NewBlockChecker(domainServices.BlockCommand())
+	stateCharm := CharmToStateCharm
 
 	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
 		m,

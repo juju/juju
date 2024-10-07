@@ -9,14 +9,18 @@ import (
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/domain/blockcommand"
+	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 )
 
-// BlockGetter defines method to get block for specific type.
-// Depending on the block type, the method will return block information
-// if it is enabled.
-type BlockGetter interface {
-	GetBlockForType(t state.BlockType) (state.Block, bool, error)
+// BlockCommandService defines methods for interacting with block commands.
+type BlockCommandService interface {
+	// GetBlockSwitchedOn returns the optional block message if it is switched
+	// on for the given type.
+	GetBlockSwitchedOn(ctx context.Context, t blockcommand.BlockType) (string, error)
+
+	// GetBlocks returns all the blocks that are currently in place.
+	GetBlocks(ctx context.Context) ([]blockcommand.Block, error)
 }
 
 // BlockCheckerInterface defines methods of BlockChecker.
@@ -31,55 +35,55 @@ type BlockCheckerInterface interface {
 
 // BlockChecker checks for current blocks if any.
 type BlockChecker struct {
-	getter BlockGetter
+	service BlockCommandService
 }
 
-func NewBlockChecker(s BlockGetter) *BlockChecker {
-	return &BlockChecker{s}
+// NewBlockChecker returns a new BlockChecker.
+func NewBlockChecker(s BlockCommandService) *BlockChecker {
+	return &BlockChecker{service: s}
 }
 
 // ChangeAllowed checks if change block is in place.
 // Change block prevents all operations that may change
 // current model in any way from running successfully.
 func (c *BlockChecker) ChangeAllowed(ctx context.Context) error {
-	return c.checkBlock(state.ChangeBlock)
+	return c.checkBlock(ctx, blockcommand.ChangeBlock)
 }
 
 // RemoveAllowed checks if remove block is in place.
 // Remove block prevents removal of machine, service, unit
 // and relation from current model.
 func (c *BlockChecker) RemoveAllowed(ctx context.Context) error {
-	if err := c.checkBlock(state.RemoveBlock); err != nil {
+	if err := c.checkBlock(ctx, blockcommand.RemoveBlock); err != nil {
 		return err
 	}
 	// Check if change block has been enabled
-	return c.checkBlock(state.ChangeBlock)
+	return c.checkBlock(ctx, blockcommand.ChangeBlock)
 }
 
 // DestroyAllowed checks if destroy block is in place.
 // Destroy block prevents destruction of current model.
 func (c *BlockChecker) DestroyAllowed(ctx context.Context) error {
-	if err := c.checkBlock(state.DestroyBlock); err != nil {
+	if err := c.checkBlock(ctx, blockcommand.DestroyBlock); err != nil {
 		return err
 	}
 	// Check if remove block has been enabled
-	if err := c.checkBlock(state.RemoveBlock); err != nil {
+	if err := c.checkBlock(ctx, blockcommand.RemoveBlock); err != nil {
 		return err
 	}
 	// Check if change block has been enabled
-	return c.checkBlock(state.ChangeBlock)
+	return c.checkBlock(ctx, blockcommand.ChangeBlock)
 }
 
 // checkBlock checks if specified operation must be blocked.
 // If it does, the method throws specific error that can be examined
 // to stop operation execution.
-func (c *BlockChecker) checkBlock(blockType state.BlockType) error {
-	aBlock, isEnabled, err := c.getter.GetBlockForType(blockType)
-	if err != nil {
+func (c *BlockChecker) checkBlock(ctx context.Context, blockType blockcommand.BlockType) error {
+	message, err := c.service.GetBlockSwitchedOn(ctx, blockType)
+	if errors.Is(err, blockcommanderrors.NotFound) {
+		return nil
+	} else if err != nil {
 		return errors.Trace(err)
 	}
-	if isEnabled {
-		return apiservererrors.OperationBlockedError(aBlock.Message())
-	}
-	return nil
+	return apiservererrors.OperationBlockedError(message)
 }

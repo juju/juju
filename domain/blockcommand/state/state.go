@@ -165,6 +165,41 @@ func (s *State) GetBlocks(ctx context.Context) ([]blockcommand.Block, error) {
 	return results, nil
 }
 
+func (s *State) GetBlockMessage(ctx context.Context, t blockcommand.BlockType) (string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", err
+	}
+
+	bcType, err := encodeBlockType(t)
+	if err != nil {
+		return "", err
+	}
+
+	bc := blockType{ID: bcType}
+
+	var message blockCommandMessage
+
+	stmt, err := s.Prepare("SELECT &blockCommandMessage.* FROM block_command WHERE block_command_type_id = $blockType.id", message, bc)
+	if err != nil {
+		return "", errors.Errorf("preparing block command statement: %w", err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, bc).Get(&message); errors.Is(err, sql.ErrNoRows) {
+			return blockcommanderrors.NotFound
+		} else if err != nil {
+			return errors.Errorf("getting block command: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return "", errors.Errorf("executing block command: %w", err)
+	}
+
+	return message.Message, nil
+}
+
 func encodeBlockType(t blockcommand.BlockType) (int8, error) {
 	switch t {
 	case blockcommand.DestroyBlock, blockcommand.RemoveBlock, blockcommand.ChangeBlock:

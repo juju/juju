@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc/params"
 )
@@ -23,10 +22,8 @@ type poolCreateSuite struct {
 var _ = gc.Suite(&poolCreateSuite{})
 
 func (s *poolCreateSuite) TestCreatePool(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
-	s.storageService = storage.NewMockStorageService(ctrl)
 	s.storageService.EXPECT().CreateStoragePool(gomock.Any(), "pname", provider.LoopProviderType, nil).Return(nil)
 
 	args := params.StoragePoolArgs{
@@ -43,10 +40,8 @@ func (s *poolCreateSuite) TestCreatePool(c *gc.C) {
 }
 
 func (s *poolCreateSuite) TestCreatePoolError(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
-	s.storageService = storage.NewMockStorageService(ctrl)
 	s.storageService.EXPECT().CreateStoragePool(gomock.Any(), "doesnt-matter", gomock.Any(), gomock.Any()).Return(errors.New("as expected"))
 
 	args := params.StoragePoolArgs{

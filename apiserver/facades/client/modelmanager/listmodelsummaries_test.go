@@ -45,10 +45,11 @@ type ListModelsWithInfoSuite struct {
 	st   *mockState
 	cred cloud.Credential
 
-	authoriser        apiservertesting.FakeAuthorizer
-	adminUser         names.UserTag
-	mockAccessService *mocks.MockAccessService
-	mockModelService  *mocks.MockModelService
+	authoriser              apiservertesting.FakeAuthorizer
+	adminUser               names.UserTag
+	mockAccessService       *mocks.MockAccessService
+	mockModelService        *mocks.MockModelService
+	mockBlockCommandService *mocks.MockBlockCommandService
 
 	api *modelmanager.ModelManagerAPI
 
@@ -57,8 +58,8 @@ type ListModelsWithInfoSuite struct {
 
 var _ = gc.Suite(&ListModelsWithInfoSuite{})
 
-func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
 
 	var err error
 	s.controllerUUID, err = uuid.UUIDFromString(coretesting.ControllerTag.Id())
@@ -76,33 +77,11 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.cred = cloud.NewEmptyCredential()
-	api, err := modelmanager.NewModelManagerAPI(
-		stdcontext.Background(),
-		s.st, nil, &mockState{},
-		s.controllerUUID,
-		modelmanager.Services{
-			DomainServicesGetter: nil,
-			CloudService: &mockCloudService{
-				clouds: map[string]cloud.Cloud{"dummy": jtesting.DefaultCloud},
-			},
-			CredentialService:    apiservertesting.ConstCredentialGetter(&s.cred),
-			ModelService:         s.mockModelService,
-			ModelDefaultsService: nil,
-			AccessService:        s.mockAccessService,
-			ObjectStore:          &mockObjectStore{},
-		},
-		state.NoopConfigSchemaSource,
-		nil, nil,
-		common.NewBlockChecker(s.st), s.authoriser, s.st.model,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	s.api = api
-}
 
-func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
 	s.mockAccessService = mocks.NewMockAccessService(ctrl)
 	s.mockModelService = mocks.NewMockModelService(ctrl)
+	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
+
 	api, err := modelmanager.NewModelManagerAPI(
 		stdcontext.Background(),
 		s.st, nil, &mockState{},
@@ -120,7 +99,7 @@ func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
 		},
 		state.NoopConfigSchemaSource,
 		nil, nil,
-		common.NewBlockChecker(s.st), s.authoriser, s.st.model,
+		common.NewBlockChecker(s.mockBlockCommandService), s.authoriser, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -158,7 +137,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		},
 		state.NoopConfigSchemaSource,
 		nil, nil,
-		common.NewBlockChecker(s.st), s.authoriser, s.st.model,
+		common.NewBlockChecker(s.mockBlockCommandService), s.authoriser, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = modelmanager
@@ -166,6 +145,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 
 func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
 	lastLoginTime := time.Now()
 	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), coreuser.AdminUserName).Return([]coremodel.UserModelSummary{{
 		UserLastConnection: &lastLoginTime,
@@ -215,9 +195,9 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 					AgentVersion:       &jujuversion.Current,
 					Status:             params.EntityStatus{},
 					Counts: []params.ModelEntityCount{
-						{params.Machines, 10},
-						{params.Cores, 42},
-						{params.Units, 10},
+						{Entity: params.Machines, Count: 10},
+						{Entity: params.Cores, Count: 42},
+						{Entity: params.Units, Count: 10},
 					},
 					Migration: nil,
 				},
@@ -228,6 +208,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 
 func (s *ListModelsWithInfoSuite) TestListModelSummariesAll(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
 	s.mockModelService.EXPECT().ListAllModelSummaries(gomock.Any()).Return([]coremodel.ModelSummary{{
 		Name:           "testmodel",
 		OwnerName:      coreuser.AdminUserName,
@@ -275,9 +256,9 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesAll(c *gc.C) {
 					AgentVersion:       &jujuversion.Current,
 					Status:             params.EntityStatus{},
 					Counts: []params.ModelEntityCount{
-						{params.Machines, 10},
-						{params.Cores, 42},
-						{params.Units, 10},
+						{Entity: params.Machines, Count: 10},
+						{Entity: params.Cores, Count: 42},
+						{Entity: params.Units, Count: 10},
 					},
 					Migration: nil,
 				},
@@ -287,6 +268,8 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesAll(c *gc.C) {
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelSummariesDenied(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("other@remote")
@@ -295,12 +278,15 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesDenied(c *gc.C) {
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelSummariesInvalidUser(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	_, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: "invalid"})
 	c.Assert(err, gc.ErrorMatches, `"invalid" is not a valid tag`)
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelSummariesDomainError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
 	errMsg := "captain error for ModelSummariesForUser"
 	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), coreuser.AdminUserName).Return(nil, errors.New(errMsg))
 	_, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
@@ -309,6 +295,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesDomainError(c *gc.C) {
 
 func (s *ListModelsWithInfoSuite) TestListModelSummariesNoModelsForUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
 	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), coreuser.AdminUserName).Return(nil, nil)
 	results, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)

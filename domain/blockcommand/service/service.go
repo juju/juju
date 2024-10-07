@@ -23,6 +23,9 @@ type State interface {
 
 	// GetBlocks returns all the blocks for the current model.
 	GetBlocks(ctx context.Context) ([]blockcommand.Block, error)
+
+	// GetBlockMessage returns the optional block message if it is switched on.
+	GetBlockMessage(ctx context.Context, t blockcommand.BlockType) (string, error)
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -37,6 +40,17 @@ func NewService(st State, logger logger.Logger) *Service {
 		st:     st,
 		logger: logger,
 	}
+}
+
+// GetBlockSwitchedOn returns the optional block message if it is switched on
+// for the given type.
+// Returns an error [errors.NotFound] if the block does not exist.
+func (s *Service) GetBlockSwitchedOn(ctx context.Context, t blockcommand.BlockType) (string, error) {
+	if err := t.Validate(); err != nil {
+		return "", err
+	}
+
+	return s.st.GetBlockMessage(ctx, t)
 }
 
 // SwitchBlockOn switches on a command block for a given type and message.

@@ -82,3 +82,22 @@ func (s *stateSuite) TestGetBlocks(c *gc.C) {
 	c.Check(blocks[1].Type, gc.Equals, blockcommand.ChangeBlock)
 	c.Check(blocks[1].Message, gc.Equals, "change me")
 }
+
+func (s *stateSuite) TestGetBlockMessageWithNoExistingBlock(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	message, err := st.GetBlockMessage(context.Background(), blockcommand.DestroyBlock)
+
+	c.Assert(err, jc.ErrorIs, blockcommanderrors.NotFound)
+	c.Assert(message, gc.Equals, "")
+}
+
+func (s *stateSuite) TestGetBlockMessage(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	err := st.SetBlock(context.Background(), blockcommand.DestroyBlock, "destroy me")
+	c.Assert(err, jc.ErrorIsNil)
+
+	message, err := st.GetBlockMessage(context.Background(), blockcommand.DestroyBlock)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(message, gc.Equals, "destroy me")
+}

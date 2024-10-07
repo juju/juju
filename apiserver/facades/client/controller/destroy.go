@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
@@ -28,7 +29,7 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 		return errors.Trace(err)
 	}
 
-	if err := ensureNotBlocked(c.state, c.logger); err != nil {
+	if err := ensureNotBlocked(ctx, c.state, c.blockCommandServiceGetter, c.logger); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -44,20 +45,32 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 	backend := common.NewModelManagerBackend(environs.ProviderConfigSchemaSource(c.cloudService), model, c.statePool)
 	return errors.Trace(common.DestroyController(
 		ctx,
-		backend, args.DestroyModels, args.DestroyStorage,
+		backend,
+		c.blockCommandService,
+		c.blockCommandServiceGetter,
+		args.DestroyModels, args.DestroyStorage,
 		args.Force, args.MaxWait, args.ModelTimeout,
 	))
 }
 
-func ensureNotBlocked(st Backend, logger corelogger.Logger) error {
+func ensureNotBlocked(ctx context.Context, st Backend, blockCommandServiceGetter func(model.UUID) common.BlockCommandService, logger corelogger.Logger) error {
 	// If there are blocks let the user know.
-	blocks, err := st.AllBlocksForController()
+	uuids, err := st.AllModelUUIDs()
 	if err != nil {
-		logger.Debugf("Unable to get blocks for controller: %s", err)
 		return errors.Trace(err)
 	}
-	if len(blocks) > 0 {
-		return apiservererrors.OperationBlockedError("found blocks in controller models")
+	for _, uuid := range uuids {
+		blockService := blockCommandServiceGetter(model.UUID(uuid))
+
+		blocks, err := blockService.GetBlocks(ctx)
+		if err != nil {
+			logger.Debugf("Unable to get blocks for controller: %s", err)
+			return errors.Trace(err)
+		}
+
+		if len(blocks) > 0 {
+			return apiservererrors.OperationBlockedError("found blocks in controller models")
+		}
 	}
 	return nil
 }

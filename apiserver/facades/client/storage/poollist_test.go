@@ -12,7 +12,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/storage"
 	apiserverstorage "github.com/juju/juju/apiserver/facades/client/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	internalstorage "github.com/juju/juju/internal/storage"
@@ -31,16 +30,15 @@ const (
 )
 
 func (s *poolSuite) TestEnsureStoragePoolFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	filter := params.StoragePoolFilter{}
 	c.Assert(filter.Providers, gc.HasLen, 0)
 	c.Assert(apiserverstorage.EnsureStoragePoolFilter(s.apiCaas, filter).Providers, jc.DeepEquals, []string{"kubernetes"})
 }
 
 func (s *poolSuite) TestList(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	s.storageService = storage.NewMockStorageService(ctrl)
+	defer s.setupMocks(c).Finish()
 
 	p, err := internalstorage.NewConfig(fmt.Sprintf("%v%v", tstName, 0), provider.LoopProviderType, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -58,10 +56,7 @@ func (s *poolSuite) TestList(c *gc.C) {
 }
 
 func (s *poolSuite) TestListManyResults(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	s.storageService = storage.NewMockStorageService(ctrl)
+	defer s.setupMocks(c).Finish()
 
 	p, err := internalstorage.NewConfig(fmt.Sprintf("%v%v", tstName, 0), provider.LoopProviderType, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -84,10 +79,8 @@ func assertPoolNames(c *gc.C, results []params.StoragePool, expected ...string) 
 }
 
 func (s *poolSuite) TestListNoPools(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
-	s.storageService = storage.NewMockStorageService(ctrl)
 	s.storageService.EXPECT().ListStoragePools(gomock.Any(), domainstorage.NilNames, domainstorage.NilProviders).
 		Return([]*internalstorage.Config{}, nil)
 

@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/blockcommand"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -125,6 +126,16 @@ type NetworkService interface {
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 
+// BlockCommandService defines methods for interacting with block commands.
+type BlockCommandService interface {
+	// GetBlockSwitchedOn returns the optional block message if it is switched
+	// on for the given type.
+	GetBlockSwitchedOn(ctx context.Context, t blockcommand.BlockType) (string, error)
+
+	// GetBlocks returns all the blocks that are currently in place.
+	GetBlocks(ctx context.Context) ([]blockcommand.Block, error)
+}
+
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
 	model                   coremodel.ReadOnlyModel
@@ -169,6 +180,7 @@ func NewMachineManagerAPI(
 	networkService NetworkService,
 	keyUpdaterService KeyUpdaterService,
 	modelConfigService ModelConfigService,
+	blockCommandService BlockCommandService,
 ) *MachineManagerAPI {
 	api := &MachineManagerAPI{
 		model:                       model,
@@ -181,7 +193,7 @@ func NewMachineManagerAPI(
 		controllerStore:             controllerStore,
 		pool:                        pool,
 		authorizer:                  auth,
-		check:                       common.NewBlockChecker(backend),
+		check:                       common.NewBlockChecker(blockCommandService),
 		credentialInvalidatorGetter: credentialInvalidatorGetter,
 		resources:                   resources,
 		leadership:                  leadership,

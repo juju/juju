@@ -9,7 +9,9 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -30,6 +32,8 @@ func MaxWait(in *time.Duration) time.Duration {
 func DestroyController(
 	ctx context.Context,
 	st ModelManagerBackend,
+	blockCommandService BlockCommandService,
+	blockCommandServiceGetter func(model.UUID) BlockCommandService,
 	destroyHostedModels bool,
 	destroyStorage *bool,
 	force *bool,
@@ -51,23 +55,16 @@ func DestroyController(
 			return errors.Trace(err)
 		}
 		for _, uuid := range uuids {
-			modelSt, release, err := st.GetBackend(uuid)
-			if err != nil {
-				if errors.Is(err, errors.NotFound) {
-					// Model is already in the process of being destroyed.
-					continue
-				}
-				return errors.Trace(err)
-			}
-			defer release()
-
-			check := NewBlockChecker(modelSt)
-			if err = check.DestroyAllowed(ctx); err != nil {
+			check := NewBlockChecker(blockCommandServiceGetter(model.UUID(uuid)))
+			if err = check.DestroyAllowed(ctx); errors.Is(err, modelerrors.NotFound) {
+				logger.Errorf("model %v not found, skipping", uuid)
+				continue
+			} else if err != nil {
 				return errors.Trace(err)
 			}
 		}
 	}
-	return destroyModel(ctx, st, state.DestroyModelParams{
+	return destroyModel(ctx, st, blockCommandService, state.DestroyModelParams{
 		DestroyHostedModels: destroyHostedModels,
 		DestroyStorage:      destroyStorage,
 		Force:               force,
@@ -81,12 +78,13 @@ func DestroyController(
 func DestroyModel(
 	ctx context.Context,
 	st ModelManagerBackend,
+	blockCommandService BlockCommandService,
 	destroyStorage *bool,
 	force *bool,
 	maxWait *time.Duration,
 	timeout *time.Duration,
 ) error {
-	return destroyModel(ctx, st, state.DestroyModelParams{
+	return destroyModel(ctx, st, blockCommandService, state.DestroyModelParams{
 		DestroyStorage: destroyStorage,
 		Force:          force,
 		MaxWait:        MaxWait(maxWait),
@@ -94,8 +92,8 @@ func DestroyModel(
 	})
 }
 
-func destroyModel(ctx context.Context, st ModelManagerBackend, args state.DestroyModelParams) error {
-	check := NewBlockChecker(st)
+func destroyModel(ctx context.Context, st ModelManagerBackend, blockCommandService BlockCommandService, args state.DestroyModelParams) error {
+	check := NewBlockChecker(blockCommandService)
 	if err := check.DestroyAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}
