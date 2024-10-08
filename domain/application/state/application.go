@@ -386,6 +386,27 @@ func (st *ApplicationState) AddUnits(ctx domain.AtomicContext, appID coreapplica
 	return nil
 }
 
+// GetUnitUUID returns the UUID for the named unit, returning an error
+// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+func (st *ApplicationState) GetUnitUUID(ctx domain.AtomicContext, unitName string) (coreunit.UUID, error) {
+	unit := unitDetails{Name: unitName}
+	getUnitStmt, err := st.Prepare(`SELECT &unitDetails.uuid FROM unit WHERE name = $unitDetails.name`, unit)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, getUnitStmt, unit).Get(&unit)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
+		}
+		if err != nil {
+			return fmt.Errorf("querying unit %q: %w", unitName, err)
+		}
+		return nil
+	})
+	return coreunit.UUID(unit.UnitUUID), errors.Trace(err)
+}
+
 // GetUnitUUIDs returns the UUIDs for the named units in bulk, returning an error
 // satisfying [applicationerrors.UnitNotFound] if any of the units don't exist.
 func (st *ApplicationState) GetUnitUUIDs(ctx context.Context, names []string) ([]coreunit.UUID, error) {
@@ -495,9 +516,9 @@ func (st *ApplicationState) getUnit(ctx domain.AtomicContext, unitName string) (
 }
 
 // SetUnitPassword updates the password for the specified unit UUID.
-func (st *ApplicationState) SetUnitPassword(ctx domain.AtomicContext, unitUUID string, password application.PasswordInfo) error {
+func (st *ApplicationState) SetUnitPassword(ctx domain.AtomicContext, unitUUID coreunit.UUID, password application.PasswordInfo) error {
 	info := unitPassword{
-		UnitID:                  unitUUID,
+		UnitID:                  unitUUID.String(),
 		PasswordHash:            password.PasswordHash,
 		PasswordHashAlgorithmID: password.HashAlgorithm,
 	}
@@ -589,10 +610,10 @@ func (st *ApplicationState) insertUnit(
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if err := st.SetUnitAgentStatus(ctx, unitUUID.String(), args.AgentStatus); err != nil {
+	if err := st.SetUnitAgentStatus(ctx, unitUUID, args.AgentStatus); err != nil {
 		return "", errors.Annotatef(err, "saving agent status for unit %q", args.UnitName)
 	}
-	if err := st.SetUnitWorkloadStatus(ctx, unitUUID.String(), args.WorkloadStatus); err != nil {
+	if err := st.SetUnitWorkloadStatus(ctx, unitUUID, args.WorkloadStatus); err != nil {
 		return "", errors.Annotatef(err, "saving workload status for unit %q", args.UnitName)
 	}
 	return unitUUID.String(), nil
