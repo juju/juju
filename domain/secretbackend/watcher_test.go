@@ -183,18 +183,13 @@ func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
 	// Wait for the initial change.
 	wc.AssertOneChange()
 
-	_ = state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		err = state.SetModelSecretBackend(ctx, modelUUID, vaultBackendName)
-		c.Assert(err, jc.ErrorIsNil)
-		return nil
-	})
+	ctx := context.Background()
+	err = state.SetModelSecretBackend(ctx, modelUUID, vaultBackendName)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	_ = state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		err = state.SetModelSecretBackend(ctx, modelUUID, internalBackendName)
-		c.Assert(err, jc.ErrorIsNil)
-		return nil
-	})
+	err = state.SetModelSecretBackend(ctx, modelUUID, internalBackendName)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Pretend that the agent restarted and the watcher is re-created.

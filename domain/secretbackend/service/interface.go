@@ -22,11 +22,7 @@ import (
 type AtomicState interface {
 	domain.AtomicStateBase
 
-	GetModelSecretBackendDetails(ctx domain.AtomicContext, modelUUID coremodel.UUID) (secretbackend.ModelSecretBackend, error)
 	GetSecretBackend(domain.AtomicContext, secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error)
-	ListSecretBackendsForModel(ctx domain.AtomicContext, modelUUID coremodel.UUID, includeEmpty bool) ([]*secretbackend.SecretBackend, error)
-
-	SetModelSecretBackend(ctx domain.AtomicContext, modelUUID coremodel.UUID, secretBackendName string) error
 }
 
 // State provides methods for working with secret backends.
@@ -39,6 +35,13 @@ type State interface {
 	ListSecretBackends(ctx context.Context) ([]*secretbackend.SecretBackend, error)
 	ListSecretBackendIDs(ctx context.Context) ([]string, error)
 	SecretBackendRotated(ctx context.Context, backendID string, next time.Time) error
+	SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, secretBackendName string) error
+
+	ListSecretBackendsForModel(ctx context.Context, modelUUID coremodel.UUID, includeEmpty bool) ([]*secretbackend.SecretBackend, error)
+	GetModelSecretBackendDetails(ctx context.Context, modelUUID coremodel.UUID) (secretbackend.ModelSecretBackend, error)
+	GetModelType(ctx context.Context, modelUUID coremodel.UUID) (coremodel.ModelType, error)
+
+	GetInternalAndActiveBackendUUIDs(ctx context.Context, modelUUID coremodel.UUID) (string, string, error)
 
 	InitialWatchStatementForSecretBackendRotationChanges() (string, string)
 	GetSecretBackendRotateChanges(ctx context.Context, backendIDs ...string) ([]watcher.SecretBackendRotateChange, error)

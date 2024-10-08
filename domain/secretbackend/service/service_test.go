@@ -145,6 +145,12 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mockSepicalSecretProvider = NewMockSecretsBackend(ctrl)
 	s.mockStringWatcher = NewMockStringsWatcher(ctrl)
 
+	mockAtomicContext := NewMockAtomicContext(ctrl)
+	mockAtomicContext.EXPECT().Context().Return(context.Background()).AnyTimes()
+	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
+		return f(mockAtomicContext)
+	}).AnyTimes()
+
 	s.clock = testclock.NewDilatedWallClock(0)
 	s.logger = loggertesting.WrapCheckLog(c)
 
@@ -193,10 +199,6 @@ func (s *serviceSuite) expectGetSecretBackendConfigForAdminDefault(
 func (s *serviceSuite) TestGetSecretBackendConfigForAdmin(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
 
 	svc := newService(
 		s.mockState, s.logger, s.clock,
@@ -259,10 +261,6 @@ func (s *serviceSuite) TestGetSecretBackendConfigForAdminFailedNotFound(c *gc.C)
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
-
 	svc := newService(
 		s.mockState, s.logger, s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
@@ -302,10 +300,6 @@ func (s *serviceSuite) TestGetSecretBackendConfigForAdminFailedNotFound(c *gc.C)
 func (s *serviceSuite) TestBackendSummaryInfoForModel(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
 
 	svc := newService(
 		s.mockState, s.logger, s.clock,
@@ -661,10 +655,6 @@ func (s *serviceSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []strin
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
-
 	svc := newService(
 		s.mockState, s.logger, s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
@@ -775,10 +765,6 @@ func (s *serviceSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []strin
 func (s *serviceSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
 
 	svc := newService(
 		s.mockState, s.logger, s.clock,
@@ -896,10 +882,6 @@ func (s *serviceSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 func (s *serviceSuite) TestDrainBackendConfigInfo(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
 
 	svc := newService(
 		s.mockState, s.logger, s.clock,
@@ -1158,10 +1140,6 @@ func (s *serviceSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	}).AnyTimes()
-
 	svc := newService(
 		s.mockState, s.logger, s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
@@ -1209,10 +1187,6 @@ func (s *serviceSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 func (s *serviceSuite) assertUpdateSecretBackend(c *gc.C, byName, skipPing bool) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
 
 	svc := newService(
 		s.mockState, s.logger, s.clock,
@@ -1324,10 +1298,6 @@ func (s *serviceSuite) TestRotateBackendToken(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
-
 	svc := newService(
 		s.mockState, s.logger, s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
@@ -1367,10 +1337,6 @@ func (s *serviceSuite) TestRotateBackendToken(c *gc.C) {
 func (s *serviceSuite) TestRotateBackendTokenRetry(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
 
 	svc := newService(
 		s.mockState, s.logger, s.clock,
@@ -1481,10 +1447,6 @@ func (s *serviceSuite) TestGetModelSecretBackendFailedModelNotFound(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
-
 	modelUUID := modeltesting.GenModelUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
@@ -1498,10 +1460,6 @@ func (s *serviceSuite) TestGetModelSecretBackendFailedModelNotFound(c *gc.C) {
 func (s *serviceSuite) TestGetModelSecretBackendCAAS(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
 
 	modelUUID := modeltesting.GenModelUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
@@ -1520,10 +1478,6 @@ func (s *serviceSuite) TestGetModelSecretBackendIAAS(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
-
 	modelUUID := modeltesting.GenModelUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
@@ -1541,10 +1495,6 @@ func (s *serviceSuite) TestGetModelSecretBackendCAASAuto(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
-
 	modelUUID := modeltesting.GenModelUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
@@ -1561,10 +1511,6 @@ func (s *serviceSuite) TestGetModelSecretBackendCAASAuto(c *gc.C) {
 func (s *serviceSuite) TestGetModelSecretBackendIAASAuto(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
 
 	modelUUID := modeltesting.GenModelUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
@@ -1615,16 +1561,10 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedUnkownModelType(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
-
 	modelUUID := modeltesting.GenModelUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
-	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
-		ModelType: "bad-type",
-	}, nil)
+	s.mockState.EXPECT().GetModelType(gomock.Any(), modelUUID).Return("bad-type", nil)
 
 	err := svc.SetModelSecretBackend(context.Background(), "auto")
 	c.Assert(err, gc.ErrorMatches, `setting model secret backend for unsupported model type "bad-type" for model "`+modelUUID.String()+`"`)
@@ -1634,14 +1574,10 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedModelNotFound(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
-
 	modelUUID := modeltesting.GenModelUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
-	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{}, modelerrors.NotFound)
+	s.mockState.EXPECT().GetModelType(gomock.Any(), modelUUID).Return("", modelerrors.NotFound)
 
 	err := svc.SetModelSecretBackend(context.Background(), "auto")
 	c.Assert(err, gc.ErrorMatches, `getting model secret backend detail for "`+modelUUID.String()+`": model not found`)
@@ -1652,57 +1588,24 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedSecretBackendNotFound(c *g
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
-
 	modelUUID := modeltesting.GenModelUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
-	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
-		ModelType: coremodel.CAAS,
-	}, nil)
-	s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "backend-name").Return(secretbackenderrors.NotFound)
+	s.mockState.EXPECT().GetModelType(gomock.Any(), modelUUID).Return(coremodel.CAAS, nil)
+	s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "kubernetes").Return(secretbackenderrors.NotFound)
 
-	err := svc.SetModelSecretBackend(context.Background(), "backend-name")
+	err := svc.SetModelSecretBackend(context.Background(), "auto")
 	c.Assert(err, gc.ErrorMatches, `setting model secret backend for "`+modelUUID.String()+`": secret backend not found`)
 	c.Assert(err, jc.ErrorIs, secretbackenderrors.NotFound)
 }
 
-func (s *serviceSuite) TestSetModelSecretBackendCAAS(c *gc.C) {
+func (s *serviceSuite) TestSetModelSecretBackend(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
 
 	modelUUID := modeltesting.GenModelUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
-	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
-		ModelType: coremodel.CAAS,
-	}, nil)
-	s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "backend-name").Return(nil)
-
-	err := svc.SetModelSecretBackend(context.Background(), "backend-name")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestSetModelSecretBackendIAAS(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
-
-	modelUUID := modeltesting.GenModelUUID(c)
-	svc := NewModelSecretBackendService(modelUUID, s.mockState)
-
-	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
-		ModelType: coremodel.IAAS,
-	}, nil)
 	s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "backend-name").Return(nil)
 
 	err := svc.SetModelSecretBackend(context.Background(), "backend-name")
@@ -1713,16 +1616,10 @@ func (s *serviceSuite) TestSetModelSecretBackendCAASAuto(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
-
 	modelUUID := modeltesting.GenModelUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
-	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
-		ModelType: coremodel.CAAS,
-	}, nil)
+	s.mockState.EXPECT().GetModelType(gomock.Any(), modelUUID).Return(coremodel.CAAS, nil)
 	s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "kubernetes").Return(nil)
 
 	err := svc.SetModelSecretBackend(context.Background(), "auto")
@@ -1733,16 +1630,10 @@ func (s *serviceSuite) TestSetModelSecretBackendIAASAuto(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
-
 	modelUUID := modeltesting.GenModelUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
-	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
-		ModelType: coremodel.IAAS,
-	}, nil)
+	s.mockState.EXPECT().GetModelType(gomock.Any(), modelUUID).Return(coremodel.IAAS, nil)
 	s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "internal").Return(nil)
 
 	err := svc.SetModelSecretBackend(context.Background(), "auto")
@@ -1791,10 +1682,6 @@ func (s *serviceSuite) assertGetSecretsToDrain(c *gc.C, backendID string, expect
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(NewMockAtomicContext(ctrl))
-	})
-
 	svc := newService(
 		s.mockState, s.logger, s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
@@ -1808,14 +1695,7 @@ func (s *serviceSuite) assertGetSecretsToDrain(c *gc.C, backendID string, expect
 	)
 
 	modelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
-	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).
-		Return(secretbackend.ModelSecretBackend{
-			SecretBackendID: backendID,
-		}, nil)
-	s.mockState.EXPECT().GetSecretBackend(gomock.Any(), secretbackend.BackendIdentifier{Name: juju.BackendName}).
-		Return(&secretbackend.SecretBackend{
-			ID: jujuBackendID,
-		}, nil)
+	s.mockState.EXPECT().GetInternalAndActiveBackendUUIDs(gomock.Any(), modelUUID).Return(jujuBackendID, backendID, nil)
 
 	revisions := []coresecrets.SecretExternalRevision{
 		{
