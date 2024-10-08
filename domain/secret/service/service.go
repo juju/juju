@@ -547,11 +547,11 @@ func (s *SecretService) updateSecret(ctx domain.AtomicContext, uri *secrets.URI,
 			return errors.Trace(err)
 		}
 		switch kind := owner.Kind; kind {
-		case secrets.ApplicationOwner:
-			err = s.secretState.CheckApplicationSecretLabelExists(ctx, owner.ID, *params.Label)
-		case secrets.UnitOwner:
-			err = s.secretState.CheckUnitSecretLabelExists(ctx, owner.ID, *params.Label)
-		case secrets.ModelOwner:
+		case domainsecret.ApplicationOwner:
+			err = s.secretState.CheckApplicationSecretLabelExists(ctx, owner.UUID, *params.Label)
+		case domainsecret.UnitOwner:
+			err = s.secretState.CheckUnitSecretLabelExists(ctx, owner.UUID, *params.Label)
+		case domainsecret.ModelOwner:
 			err = s.secretState.CheckUserSecretLabelExists(ctx, *params.Label)
 		default:
 			// Should never happen.

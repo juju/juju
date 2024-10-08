@@ -92,7 +92,7 @@ func (st State) GetApplicationUUID(ctx domain.AtomicContext, appName string) (st
 		err = tx.Query(ctx, selectApplicationUUIDStmt, app).Get(&app)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return applicationerrors.ApplicationNotFound
+				return fmt.Errorf("application %q not found%w", appName, errors.Hide(applicationerrors.ApplicationNotFound))
 			} else {
 				return errors.Annotatef(err, "looking up application UUID for %q", appName)
 			}
@@ -106,13 +106,13 @@ func (st State) GetApplicationUUID(ctx domain.AtomicContext, appName string) (st
 // [applicationerrors.UnitNotFound] if the unit does not exist.
 func (st State) GetUnitUUID(ctx domain.AtomicContext, unitName string) (string, error) {
 	u := unit{Name: unitName}
-	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		selectUnitUUID := `SELECT &unit.uuid FROM unit WHERE name=$unit.name`
-		selectUnitUUIDStmt, err := st.Prepare(selectUnitUUID, u)
-		if err != nil {
-			return errors.Trace(err)
-		}
 
+	selectUnitUUID := `SELECT &unit.uuid FROM unit WHERE name=$unit.name`
+	selectUnitUUIDStmt, err := st.Prepare(selectUnitUUID, u)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, selectUnitUUIDStmt, u).Get(&u)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
@@ -450,7 +450,7 @@ VALUES ($secretID.id)`
 
 // GetSecretOwner returns the owner of the secret with the given URI, returning an error satisfying
 // [secreterrors.SecretNotFound] if the secret does not exist.
-func (st State) GetSecretOwner(ctx domain.AtomicContext, uri *coresecrets.URI) (coresecrets.Owner, error) {
+func (st State) GetSecretOwner(ctx domain.AtomicContext, uri *coresecrets.URI) (domainsecret.Owner, error) {
 	input := secretID{ID: uri.ID}
 	stmt, err := st.Prepare(`
 SELECT
@@ -474,7 +474,7 @@ FROM   secret_metadata sm
 WHERE  sm.secret_id = $secretID.id
 `, secretID{}, secretOwner{}, ownerKindParam)
 	if err != nil {
-		return coresecrets.Owner{}, errors.Trace(err)
+		return domainsecret.Owner{}, errors.Trace(err)
 	}
 
 	var result []secretOwner
@@ -486,12 +486,12 @@ WHERE  sm.secret_id = $secretID.id
 		return errors.Trace(err)
 	})
 	if err != nil {
-		return coresecrets.Owner{}, errors.Trace(err)
+		return domainsecret.Owner{}, errors.Trace(err)
 	}
 	owner := result[0]
-	return coresecrets.Owner{
-		ID:   owner.OwnerID,
-		Kind: coresecrets.OwnerKind(owner.OwnerKind),
+	return domainsecret.Owner{
+		UUID: owner.OwnerID,
+		Kind: domainsecret.OwnerKind(owner.OwnerKind),
 	}, nil
 }
 

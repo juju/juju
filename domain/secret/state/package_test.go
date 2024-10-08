@@ -7,10 +7,11 @@ import (
 	"context"
 	"testing"
 
+	gc "gopkg.in/check.v1"
+
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
-	gc "gopkg.in/check.v1"
 )
 
 func TestPackage(t *testing.T) {
@@ -37,8 +38,8 @@ func getUnitUUID(ctx context.Context, st *State, unitName string) (string, error
 	return uuid, err
 }
 
-func getSecretOwner(ctx context.Context, st *State, uri *coresecrets.URI) (coresecrets.Owner, error) {
-	var owner coresecrets.Owner
+func getSecretOwner(ctx context.Context, st *State, uri *coresecrets.URI) (domainsecret.Owner, error) {
+	var owner domainsecret.Owner
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
 		owner, err = st.GetSecretOwner(ctx, uri)
