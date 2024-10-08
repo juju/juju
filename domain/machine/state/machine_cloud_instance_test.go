@@ -5,9 +5,7 @@ package state
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,12 +14,20 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/internal/uuid"
 )
+
+func (s *stateSuite) TestGetHardwareCharacteristicsWithNoData(c *gc.C) {
+	machineUUID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.HardwareCharacteristics(context.Background(), machineUUID.String())
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
 
 func (s *stateSuite) TestGetHardwareCharacteristics(c *gc.C) {
 	machineUUID := s.ensureInstance(c, "42")
 
-	fmt.Printf("machineUUID: %s\n", machineUUID)
 	hc, err := s.state.HardwareCharacteristics(context.Background(), machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*hc.Arch, gc.Equals, "arm64")
@@ -395,7 +401,7 @@ func (s *stateSuite) TestInstanceStatusValues(c *gc.C) {
 	// Check that the status values in the machine_cloud_instance_status_value table match
 	// the instance status values in core status.
 	rows, err := db.QueryContext(context.Background(), "SELECT id, status FROM machine_cloud_instance_status_value")
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
 	var statusValues []struct {
 		ID   int
@@ -425,7 +431,7 @@ func (s *stateSuite) ensureInstance(c *gc.C, mName machine.Name) string {
 	db := s.DB()
 
 	// Create a reference machine.
-	uuid, err := uuid.NewV7()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	machineUUID := uuid.String()
 	err = s.state.CreateMachine(context.Background(), mName, "", machineUUID)
