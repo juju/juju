@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
+	controllertesting "github.com/juju/juju/core/controller/testing"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -33,7 +34,6 @@ import (
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type modelConfigSuite struct {
@@ -111,7 +111,7 @@ func (s *modelConfigSuite) SetUpTest(c *gc.C) {
 	err = modelFn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelbootstrap.CreateReadOnlyModel(modelUUID, uuid.MustNewUUID())(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
+	err = modelbootstrap.CreateReadOnlyModel(modelUUID, controllertesting.GenControllerUUID(c))(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

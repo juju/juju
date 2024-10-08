@@ -41,51 +41,52 @@ type ResourceProvider interface {
 	AdoptResources(envcontext.ProviderCallContext, string, version.Number) error
 }
 
-// Service provides the means for supporting model migration actions between
+// ModelService provides the means for supporting model migration actions between
 // controllers and answering questions about the underlying model(s) that are
 // being migrated.
-type Service struct {
+type ModelService struct {
 	// instanceProviderGetter is a getter for getting access to the model's
 	// [InstanceProvider].
 	instanceProviderGetter func(context.Context) (InstanceProvider, error)
 
 	// resourceProviderGetter is a getter for getting access to the model's
 	// [ResourceProvider]
-	resourceProviderGettter func(context.Context) (ResourceProvider, error)
+	resourceProviderGetter func(context.Context) (ResourceProvider, error)
 
-	st State
+	state ModelState
 }
 
-// State defines the interface required for accessing the underlying state of
+// ModelState defines the interface required for accessing the underlying state of
 // the model during migration.
-type State interface {
+type ModelState interface {
+	// GetControllerUUID returns the UUID of the controller.
 	GetControllerUUID(context.Context) (string, error)
 	// GetAllInstanceIDs returns all instance IDs from the current model as
 	// juju/collections set.
 	GetAllInstanceIDs(ctx context.Context) (set.Strings, error)
 }
 
-// NewService is responsible for constructing a new [Service] to handle model migration
-// tasks.
-func NewService(
+// NewModelService is responsible for constructing a new [ModelService] to
+// handle model migration tasks.
+func NewModelService(
+	state ModelState,
 	instanceProviderGetter providertracker.ProviderGetter[InstanceProvider],
 	resourceProviderGetter providertracker.ProviderGetter[ResourceProvider],
-	st State,
-) *Service {
-	return &Service{
-		instanceProviderGetter:  instanceProviderGetter,
-		resourceProviderGettter: resourceProviderGetter,
-		st:                      st,
+) *ModelService {
+	return &ModelService{
+		state:                  state,
+		instanceProviderGetter: instanceProviderGetter,
+		resourceProviderGetter: resourceProviderGetter,
 	}
 }
 
 // AdoptResources is responsible for taking ownership of the cloud resources of
 // a model when it has been migrated into this controller.
-func (s *Service) AdoptResources(
+func (s *ModelService) AdoptResources(
 	ctx context.Context,
 	sourceControllerVersion version.Number,
 ) error {
-	provider, err := s.resourceProviderGettter(ctx)
+	provider, err := s.resourceProviderGetter(ctx)
 
 	// Provider doesn't support adopting resources and this is ok!
 	if errors.Is(err, coreerrors.NotSupported) {
@@ -97,7 +98,7 @@ func (s *Service) AdoptResources(
 		)
 	}
 
-	controllerUUID, err := s.st.GetControllerUUID(ctx)
+	controllerUUID, err := s.state.GetControllerUUID(ctx)
 	if err != nil {
 		return errors.Errorf(
 			"cannot get controller uuid while adopting model cloud resources: %w",
@@ -125,7 +126,7 @@ func (s *Service) AdoptResources(
 // into this target controller. We check the machines that exist in the model
 // against the machines reported by the models cloud and report any
 // discrepancies.
-func (s *Service) CheckMachines(
+func (s *ModelService) CheckMachines(
 	ctx context.Context,
 ) ([]modelmigration.MigrationMachineDiscrepancy, error) {
 	provider, err := s.instanceProviderGetter(ctx)
@@ -155,7 +156,7 @@ func (s *Service) CheckMachines(
 		providerInstanceIDsSet.Add(instance.Id().String())
 	}
 
-	instanceIDsSet, err := s.st.GetAllInstanceIDs(ctx)
+	instanceIDsSet, err := s.state.GetAllInstanceIDs(ctx)
 	if err != nil {
 		return nil, errors.Errorf("cannot get all instance IDs for model when checking machines: %w", err)
 	}

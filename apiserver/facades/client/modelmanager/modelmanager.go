@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -35,7 +36,6 @@ import (
 	environsContext "github.com/juju/juju/environs/envcontext"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -90,7 +90,7 @@ type ModelManagerAPI struct {
 
 	// Broker/Provider management.
 	getBroker      newCaasBrokerFunc
-	controllerUUID uuid.UUID
+	controllerUUID controller.UUID
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -100,7 +100,7 @@ func NewModelManagerAPI(
 	st StateBackend,
 	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
 	ctlrSt common.ModelManagerBackend,
-	controllerUUID uuid.UUID,
+	controllerUUID controller.UUID,
 	services Services,
 	configSchemaSource config.ConfigSchemaSourceGetter,
 	toolsFinder common.ToolsFinder,

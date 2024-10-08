@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	jujuversion "github.com/juju/juju/core/version"
@@ -21,7 +22,6 @@ import (
 	internaldatabase "github.com/juju/juju/internal/database"
 	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
 	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type modelTypeStateFunc func(context.Context, string) (string, error)
@@ -119,7 +119,7 @@ func CreateModel(
 // once created.
 func CreateReadOnlyModel(
 	id coremodel.UUID,
-	controllerUUID uuid.UUID,
+	controllerUUID controller.UUID,
 ) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controllerDB, modelDB database.TxnRunner) error {
 		if err := id.Validate(); err != nil {

@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	controllertesting "github.com/juju/juju/core/controller/testing"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -20,7 +21,6 @@ import (
 	modelstate "github.com/juju/juju/domain/model/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
@@ -102,7 +102,7 @@ func (s *stateSuite) TestGetModelId(c *gc.C) {
 	args := model.ReadOnlyModelCreationArgs{
 		UUID:            modelUUID,
 		AgentVersion:    jujuversion.Current,
-		ControllerUUID:  uuid.MustNewUUID(),
+		ControllerUUID:  controllertesting.GenControllerUUID(c),
 		Name:            "my-awesome-model",
 		Type:            coremodel.IAAS,
 		Cloud:           "aws",

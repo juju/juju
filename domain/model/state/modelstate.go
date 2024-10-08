@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -21,7 +22,6 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
 	internalerrors "github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // ModelState represents a type for interacting with the underlying model
@@ -163,7 +163,7 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 		return coremodel.ReadOnlyModel{}, fmt.Errorf("parsing model agent version %q: %w", agentVersion, err)
 	}
 
-	model.ControllerUUID, err = uuid.UUIDFromString(m.ControllerUUID)
+	model.ControllerUUID, err = controller.ParseUUID(m.ControllerUUID)
 	if err != nil {
 		return coremodel.ReadOnlyModel{}, fmt.Errorf("parsing controller uuid %q: %w", m.ControllerUUID, err)
 	}

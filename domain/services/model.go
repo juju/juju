@@ -4,6 +4,8 @@
 package services
 
 import (
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -62,6 +64,7 @@ type ModelFactory struct {
 	modelDB         changestream.WatchableDBFactory
 	providerFactory providertracker.ProviderFactory
 	objectstore     objectstore.ModelObjectStoreGetter
+	clock           clock.Clock
 }
 
 // NewModelFactory returns a new registry which uses the provided modelDB
@@ -73,6 +76,7 @@ func NewModelFactory(
 	providerFactory providertracker.ProviderFactory,
 	objectStore objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
+	clock clock.Clock,
 ) *ModelFactory {
 	return &ModelFactory{
 		logger:          logger,
@@ -81,6 +85,7 @@ func NewModelFactory(
 		modelDB:         modelDB,
 		providerFactory: providerFactory,
 		objectstore:     objectStore,
+		clock:           clock,
 	}
 }
 
@@ -227,9 +232,11 @@ func (s *ModelFactory) Secret(params secretservice.SecretServiceParams) *secrets
 // operations.
 func (s *ModelFactory) ModelMigration() *modelmigrationservice.Service {
 	return modelmigrationservice.NewService(
+		s.modelUUID,
+		modelmigrationstate.New(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		providertracker.ProviderRunner[modelmigrationservice.InstanceProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[modelmigrationservice.ResourceProvider](s.providerFactory, s.modelUUID.String()),
-		modelmigrationstate.New(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.clock,
 	)
 }
 

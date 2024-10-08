@@ -6,8 +6,8 @@ package model
 import (
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/user"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // ReadOnlyModel represents the state of a read-only model found in the
@@ -21,7 +21,7 @@ type ReadOnlyModel struct {
 	AgentVersion version.Number
 
 	// ControllerUUID represents the controller UUID.
-	ControllerUUID uuid.UUID
+	ControllerUUID controller.UUID
 
 	// Name is the name of the model.
 	Name string

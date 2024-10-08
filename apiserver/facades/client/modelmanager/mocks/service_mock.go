@@ -16,6 +16,7 @@ import (
 
 	modelmanager "github.com/juju/juju/apiserver/facades/client/modelmanager"
 	assumes "github.com/juju/juju/core/assumes"
+	controller "github.com/juju/juju/core/controller"
 	credential "github.com/juju/juju/core/credential"
 	instance "github.com/juju/juju/core/instance"
 	machine "github.com/juju/juju/core/machine"
@@ -27,7 +28,6 @@ import (
 	service "github.com/juju/juju/domain/modeldefaults/service"
 	service0 "github.com/juju/juju/domain/secretbackend/service"
 	config "github.com/juju/juju/environs/config"
-	uuid "github.com/juju/juju/internal/uuid"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -860,7 +860,7 @@ func (m *MockModelInfoService) EXPECT() *MockModelInfoServiceMockRecorder {
 }
 
 // CreateModel mocks base method.
-func (m *MockModelInfoService) CreateModel(arg0 context.Context, arg1 uuid.UUID) error {
+func (m *MockModelInfoService) CreateModel(arg0 context.Context, arg1 controller.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateModel", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -886,13 +886,13 @@ func (c *MockModelInfoServiceCreateModelCall) Return(arg0 error) *MockModelInfoS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelInfoServiceCreateModelCall) Do(f func(context.Context, uuid.UUID) error) *MockModelInfoServiceCreateModelCall {
+func (c *MockModelInfoServiceCreateModelCall) Do(f func(context.Context, controller.UUID) error) *MockModelInfoServiceCreateModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelInfoServiceCreateModelCall) DoAndReturn(f func(context.Context, uuid.UUID) error) *MockModelInfoServiceCreateModelCall {
+func (c *MockModelInfoServiceCreateModelCall) DoAndReturn(f func(context.Context, controller.UUID) error) *MockModelInfoServiceCreateModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

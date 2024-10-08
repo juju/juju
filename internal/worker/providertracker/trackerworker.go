@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/uuid"
 )
 
 const (
@@ -333,7 +333,7 @@ type providerGetter struct {
 }
 
 // ControllerUUID returns the controller UUID.
-func (g providerGetter) ControllerUUID() uuid.UUID {
+func (g providerGetter) ControllerUUID() controller.UUID {
 	return g.model.ControllerUUID
 }
 

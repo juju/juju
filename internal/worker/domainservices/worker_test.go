@@ -4,6 +4,7 @@
 package domainservices
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -71,13 +72,14 @@ func (s *workerSuite) getConfig() Config {
 		ProviderFactory:   s.providerFactory,
 		ObjectStoreGetter: s.objectStoreGetter,
 		Logger:            s.logger,
+		Clock:             s.clock,
 		NewDomainServicesGetter: func(services.ControllerDomainServices, changestream.WatchableDBGetter, logger.Logger, ModelDomainServicesFn, providertracker.ProviderFactory, objectstore.ObjectStoreGetter) services.DomainServicesGetter {
 			return s.domainServicesGetter
 		},
 		NewControllerDomainServices: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, logger.Logger) services.ControllerDomainServices {
 			return s.controllerDomainServices
 		},
-		NewModelDomainServices: func(coremodel.UUID, changestream.WatchableDBGetter, providertracker.ProviderFactory, objectstore.ModelObjectStoreGetter, logger.Logger) services.ModelDomainServices {
+		NewModelDomainServices: func(coremodel.UUID, changestream.WatchableDBGetter, providertracker.ProviderFactory, objectstore.ModelObjectStoreGetter, logger.Logger, clock.Clock) services.ModelDomainServices {
 			return s.modelDomainServices
 		},
 	}

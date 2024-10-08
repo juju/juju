@@ -6,6 +6,7 @@ package domainservices
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -33,6 +34,7 @@ type ManifoldConfig struct {
 	NewDomainServicesGetter     DomainServicesGetterFn
 	NewControllerDomainServices ControllerDomainServicesFn
 	NewModelDomainServices      ModelDomainServicesFn
+	Clock                       clock.Clock
 }
 
 // DomainServicesGetterFn is a function that returns a domain services getter.
@@ -60,6 +62,7 @@ type ModelDomainServicesFn func(
 	providertracker.ProviderFactory,
 	objectstore.ModelObjectStoreGetter,
 	logger.Logger,
+	clock.Clock,
 ) services.ModelDomainServices
 
 // Validate validates the manifold configuration.
@@ -90,6 +93,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -190,6 +196,7 @@ func NewProviderTrackerModelDomainServices(
 	providerFactory providertracker.ProviderFactory,
 	objectStore objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
+	clock clock.Clock,
 ) services.ModelDomainServices {
 	return domainservicefactory.NewModelFactory(
 		modelUUID,
@@ -198,6 +205,7 @@ func NewProviderTrackerModelDomainServices(
 		providerFactory,
 		objectStore,
 		logger,
+		clock,
 	)
 }
 
@@ -209,6 +217,7 @@ func NewModelDomainServices(
 	dbGetter changestream.WatchableDBGetter,
 	objectStore objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
+	clock clock.Clock,
 ) services.ModelDomainServices {
 	return domainservicefactory.NewModelFactory(
 		modelUUID,
@@ -217,6 +226,7 @@ func NewModelDomainServices(
 		NoopProviderFactory{},
 		objectStore,
 		logger,
+		clock,
 	)
 }
 

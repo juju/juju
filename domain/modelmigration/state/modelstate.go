@@ -14,22 +14,22 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// State represents the access method for interacting the underlying model
+// ModelState represents the access method for interacting the underlying model
 // during model migration.
-type State struct {
+type ModelState struct {
 	*domain.StateBase
 }
 
-// New creates a new [State]
-func New(modelFactory database.TxnRunnerFactory) *State {
-	return &State{
+// NewModelState creates a new model state for model migration.
+func NewModelState(modelFactory database.TxnRunnerFactory) *ModelState {
+	return &ModelState{
 		StateBase: domain.NewStateBase(modelFactory),
 	}
 }
 
 // GetControllerUUID is responsible for returning the controller's unique id
 // from state.
-func (s *State) GetControllerUUID(
+func (s *ModelState) GetControllerUUID(
 	ctx context.Context,
 ) (string, error) {
 	db, err := s.DB()
@@ -37,15 +37,12 @@ func (s *State) GetControllerUUID(
 		return "", errors.Errorf("cannot get database to retrieve controller uuid: %w", err)
 	}
 
-	stmt, err := s.Prepare(`
-SELECT (controller_uuid) AS (&ModelInfo.*)
-FROM model`, ModelInfo{})
-
+	stmt, err := s.Prepare(`SELECT &modelInfo.* FROM model`, modelInfo{})
 	if err != nil {
 		return "", errors.Errorf("preparing get controller uuid statement: %w", err)
 	}
 
-	result := ModelInfo{}
+	var result modelInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).Get(&result)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -70,16 +67,13 @@ FROM model`, ModelInfo{})
 
 // GetAllInstanceIDs returns all instance IDs from the current model as
 // juju/collections set.
-func (s *State) GetAllInstanceIDs(ctx context.Context) (set.Strings, error) {
-
+func (s *ModelState) GetAllInstanceIDs(ctx context.Context) (set.Strings, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Errorf("cannot get database to retrieve instance IDs: %w", err)
 	}
 
-	query := `
-SELECT &instanceID.instance_id
-FROM   machine_cloud_instance`
+	query := `SELECT &instanceID.instance_id FROM machine_cloud_instance`
 	queryStmt, err := s.Prepare(query, instanceID{})
 	if err != nil {
 		return nil, errors.Errorf("preparing retrieve all instance IDs statement: %w", err)

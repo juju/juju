@@ -26,6 +26,8 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/assumes"
+	"github.com/juju/juju/core/controller"
+	controllertesting "github.com/juju/juju/core/controller/testing"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
@@ -84,7 +86,7 @@ type modelManagerSuite struct {
 	authoriser           apiservertesting.FakeAuthorizer
 	api                  *modelmanager.ModelManagerAPI
 	caasApi              *modelmanager.ModelManagerAPI
-	controllerUUID       uuid.UUID
+	controllerUUID       controller.UUID
 	modelConfigService   *mocks.MockModelConfigService
 }
 
@@ -106,7 +108,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	var err error
-	s.controllerUUID, err = uuid.UUIDFromString(coretesting.ControllerTag.Id())
+	s.controllerUUID, err = controller.ParseUUID(coretesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	attrs := coretesting.FakeConfig()
@@ -997,7 +999,7 @@ type modelManagerStateSuite struct {
 
 	store objectstore.ObjectStore
 
-	controllerUUID uuid.UUID
+	controllerUUID controller.UUID
 }
 
 var _ = gc.Suite(&modelManagerStateSuite{})
@@ -1008,7 +1010,7 @@ func (s *modelManagerStateSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
-	s.controllerUUID = uuid.MustNewUUID()
+	s.controllerUUID = controllertesting.GenControllerUUID(c)
 
 	s.ControllerModelConfigAttrs = map[string]interface{}{
 		"agent-version": jujuversion.Current.String(),

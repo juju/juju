@@ -4,6 +4,7 @@
 package modelmigration
 
 import (
+	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 )
@@ -21,4 +22,16 @@ type MigrationMachineDiscrepancy struct {
 
 	// CloudInstanceId is the unique id given to an instance from the cloud.
 	CloudInstanceId instance.Id
+}
+
+// ModelMigrationInfo holds the information about a model in relation to the
+// controller.
+type ModelMigrationInfo struct {
+	// IsControllerModel is true if the model is a controller model.
+	IsControllerModel bool
+	// ControllerUUID is the UUID of the controller.
+	ControllerUUID controller.UUID
+	// MigrationActive boolean to indicate if the model is currently in a
+	// migration.
+	MigrationActive bool
 }

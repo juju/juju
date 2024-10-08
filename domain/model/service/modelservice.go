@@ -6,9 +6,9 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/controller"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/model"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // ModelState is the model state required by this service. This is the model
@@ -64,7 +64,7 @@ func (s *ModelService) GetModelInfo(ctx context.Context) (coremodel.ReadOnlyMode
 // - [modelerrors.AlreadyExists]: When the model uuid is already in use.
 func (s *ModelService) CreateModel(
 	ctx context.Context,
-	controllerUUID uuid.UUID,
+	controllerUUID controller.UUID,
 ) error {
 	m, err := s.modelGetterSt.GetModel(ctx, s.modelID)
 	if err != nil {

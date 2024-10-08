@@ -24,7 +24,7 @@ import (
 type serviceSuite struct {
 	instanceProvider *MockInstanceProvider
 	resourceProvider *MockResourceProvider
-	state            *MockState
+	state            *MockModelState
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -33,7 +33,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.instanceProvider = NewMockInstanceProvider(ctrl)
 	s.resourceProvider = NewMockResourceProvider(ctrl)
-	s.state = NewMockState(ctrl)
+	s.state = NewMockModelState(ctrl)
 	return ctrl
 }
 
@@ -67,10 +67,10 @@ func (s *serviceSuite) TestAdoptResources(c *gc.C) {
 		sourceControllerVersion,
 	).Return(nil)
 
-	err = NewService(
+	err = NewModelService(
+		s.state,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		s.state,
 	).AdoptResources(context.Background(), sourceControllerVersion)
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -93,10 +93,10 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *gc.C) {
 		nil,
 	).AnyTimes()
 
-	err = NewService(
+	err = NewModelService(
+		s.state,
 		s.instanceProviderGetter(c),
 		resourceGetter,
-		s.state,
 	).AdoptResources(context.Background(), sourceControllerVersion)
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -120,10 +120,10 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *gc.C) {
 		sourceControllerVersion,
 	).Return(coreerrors.NotImplemented)
 
-	err = NewService(
+	err = NewModelService(
+		s.state,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		s.state,
 	).AdoptResources(context.Background(), sourceControllerVersion)
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -146,10 +146,10 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *gc.C) {
 	s.state.EXPECT().GetAllInstanceIDs(context.Background()).
 		Return(set.NewStrings("instance0"), nil)
 
-	_, err := NewService(
+	_, err := NewModelService(
+		s.state,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		s.state,
 	).CheckMachines(context.Background())
 	c.Check(err, gc.ErrorMatches, "provider instance IDs.*instance1.*")
 }
@@ -170,10 +170,10 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *gc.C) {
 	s.state.EXPECT().GetAllInstanceIDs(context.Background()).
 		Return(set.NewStrings("instance0", "instance1"), nil)
 
-	_, err := NewService(
+	_, err := NewModelService(
+		s.state,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		s.state,
 	).CheckMachines(context.Background())
 	c.Check(err, gc.ErrorMatches, "instance IDs.*instance1.*")
 }
