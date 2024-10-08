@@ -375,7 +375,10 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 	} else if op.FatalError(err) {
 		return nil, err
 	}
-	return append(ops, destroyOps...), nil
+
+	ops = append(ops, destroyOps...)
+	sortRemoveOpsLast(ops)
+	return ops, nil
 }
 
 // destroyOps returns the operations necessary to destroy the relation, and
