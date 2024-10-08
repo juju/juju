@@ -21,10 +21,14 @@ func Register(registry facade.FacadeRegistry) {
 func newFacadeV3(ctx facade.ModelContext) (*InstanceMutaterAPI, error) {
 	st := &instanceMutaterStateShim{State: ctx.State()}
 
-	watcher := &instanceMutatorWatcher{st: st}
+	machineService := ctx.DomainServices().Machine()
+	watcher := &instanceMutatorWatcher{
+		st:             st,
+		machineService: machineService,
+	}
 	return NewInstanceMutaterAPI(
 		st,
-		ctx.DomainServices().Machine(),
+		machineService,
 		watcher,
 		ctx.Resources(),
 		ctx.Auth(),

@@ -17,7 +17,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/storage.go github.com/juju/juju/state/binarystorage StorageCloser
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/environs.go github.com/juju/juju/environs BootstrapEnviron
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/objectstore.go github.com/juju/juju/core/objectstore ObjectStore
-//go:generate go run go.uber.org/mock/mockgen -typed -package common_test -destination service_mock_test.go github.com/juju/juju/apiserver/common ModelAgentService,MachineRebootService,EnsureDeadMachineService,WatchableMachineService,UnitStateService
+//go:generate go run go.uber.org/mock/mockgen -typed -package common_test -destination service_mock_test.go github.com/juju/juju/apiserver/common ModelAgentService,MachineRebootService,EnsureDeadMachineService,WatchableMachineService,UnitStateService,MachineService
 
 func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)

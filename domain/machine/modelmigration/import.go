@@ -44,7 +44,7 @@ type ImportService interface {
 	CreateMachine(ctx context.Context, machineName machine.Name) (string, error)
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
-	SetMachineCloudInstance(ctx context.Context, machineUUID string, instanceID instance.Id, hardwareCharacteristics *instance.HardwareCharacteristics) error
+	SetMachineCloudInstance(ctx context.Context, machineUUID string, instanceID instance.Id, displayName string, hardwareCharacteristics *instance.HardwareCharacteristics) error
 }
 
 // Name returns the name of this operation.
@@ -85,6 +85,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 				ctx,
 				machineUUID,
 				instance.Id(cloudInstance.InstanceId()),
+				cloudInstance.DisplayName(),
 				hardwareCharacteristics,
 			); err != nil {
 				return errors.Annotatef(err, "importing machine cloud instance %q", m.Id())

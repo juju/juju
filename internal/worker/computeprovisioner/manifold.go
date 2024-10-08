@@ -27,7 +27,7 @@ import (
 type MachineService interface {
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
-	SetMachineCloudInstance(ctx context.Context, machineUUID string, instanceID instance.Id, hardwareCharacteristics *instance.HardwareCharacteristics) error
+	SetMachineCloudInstance(ctx context.Context, machineUUID string, instanceID instance.Id, displayName string, hardwareCharacteristics *instance.HardwareCharacteristics) error
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	// It returns a MachineNotFound if the machine does not exist.
 	GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error)

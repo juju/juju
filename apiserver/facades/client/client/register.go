@@ -57,6 +57,7 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 		leadershipReader:   leadershipReader,
 		networkService:     domainServices.Network(),
 		modelInfoService:   domainServices.ModelInfo(),
+		machineService:     domainServices.Machine(),
 	}
 	return client, nil
 }

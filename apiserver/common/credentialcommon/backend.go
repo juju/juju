@@ -15,11 +15,6 @@ type stateShim struct {
 	*state.State
 }
 
-// NewMachineService creates a machine service to use, based on state.State.
-func NewMachineService(p *state.State) credentialservice.MachineService {
-	return stateShim{p}
-}
-
 // AllMachines implements MachineService.AllMachines.
 func (st stateShim) AllMachines() ([]credentialservice.Machine, error) {
 	machines, err := st.State.AllMachines()

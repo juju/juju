@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -260,7 +261,6 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
 	s.expectMachine(s.machineTag, s.machine)
-	s.expectInstanceId("0")
 	s.expectUnits(state.Alive)
 	s.expectProfileExtraction()
 	s.expectName()
@@ -269,6 +269,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc
 	s.machine.EXPECT().Id().Return("0")
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
 	s.machineService.EXPECT().AppliedLXDProfileNames(gomock.Any(), "uuid0").Return([]string{"charm-app-0"}, nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid0").Return("0", nil)
 
 	results, err := facade.CharmProfilingInfo(context.Background(), params.Entity{Tag: "machine-0"})
 	c.Assert(err, gc.IsNil)
@@ -305,7 +306,6 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNo
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
 	s.expectMachine(s.machineTag, s.machine)
-	s.expectInstanceId("0")
 	s.expectUnits(state.Alive, state.Alive, state.Dead)
 	s.expectProfileExtraction()
 	s.expectProfileExtractionWithEmpty()
@@ -315,6 +315,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNo
 	s.machine.EXPECT().Id().Return("0")
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
 	s.machineService.EXPECT().AppliedLXDProfileNames(gomock.Any(), "uuid0").Return([]string{"charm-app-0"}, nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid0").Return("0", nil)
 
 	results, err := facade.CharmProfilingInfo(context.Background(), params.Entity{Tag: "machine-0"})
 	c.Assert(err, gc.IsNil)
@@ -368,24 +369,18 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithMa
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
 	s.expectMachine(s.machineTag, s.machine)
-	s.expectInstanceIdNotProvisioned()
 	facade := s.facadeAPIForScenario(c)
+	s.machine.EXPECT().Id().Return("0")
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid0").Return("", machineerrors.NotProvisioned)
 
 	results, err := facade.CharmProfilingInfo(context.Background(), params.Entity{Tag: "machine-0"})
 	c.Assert(err, gc.IsNil)
-	c.Assert(results.Error, gc.ErrorMatches, "machine-0: attempting to get instanceId: ")
+	c.Assert(results.Error, gc.ErrorMatches, "machine-0: attempting to get instanceId: machine not provisioned")
 	c.Assert(results.InstanceId, gc.Equals, instance.Id(""))
 	c.Assert(results.ModelName, gc.Equals, "")
 	c.Assert(results.ProfileChanges, gc.HasLen, 0)
 	c.Assert(results.CurrentProfiles, gc.HasLen, 0)
-}
-
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectInstanceId(id instance.Id) {
-	s.machine.EXPECT().InstanceId().Return(id, nil)
-}
-
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectInstanceIdNotProvisioned() {
-	s.machine.EXPECT().InstanceId().Return(instance.Id("0"), params.Error{Code: params.CodeNotProvisioned})
 }
 
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectUnits(lives ...state.Life) {

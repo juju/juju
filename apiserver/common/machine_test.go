@@ -4,16 +4,19 @@
 package common_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/naturalsort"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
@@ -21,9 +24,17 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type machineSuite struct{}
+type machineSuite struct {
+	machineService *MockMachineService
+}
 
 var _ = gc.Suite(&machineSuite{})
+
+func (s *machineSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.machineService = NewMockMachineService(ctrl)
+	return ctrl
+}
 
 func (s *machineSuite) TestMachineJobFromParams(c *gc.C) {
 	var tests = []struct {
@@ -98,6 +109,8 @@ func (s *machineSuite) TestForceDestroyMachines(c *gc.C) {
 }
 
 func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	one := uint64(1)
 	amd64 := "amd64"
 	gig := uint64(1024)
@@ -114,12 +127,17 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 			"3": {life: state.Dying},
 		},
 	}
-	info, err := common.ModelMachineInfo(&st)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-1").Return("123", "one-two-three", nil)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("uuid-2", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-2").Return("456", "four-five-six", nil)
+	info, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
 		{
 			Id:          "1",
-			DisplayName: "",
+			InstanceId:  "123",
+			DisplayName: "one-two-three",
 			Hardware: &params.MachineHardware{
 				Arch:     &amd64,
 				Mem:      &gig,
@@ -128,12 +146,15 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 			},
 		}, {
 			Id:          "2",
-			DisplayName: "",
+			InstanceId:  "456",
+			DisplayName: "four-five-six",
 		},
 	})
 }
 
 func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	st := mockState{
 		machines: map[string]*fakeMachine{
 			"1": {
@@ -144,7 +165,7 @@ func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 			"2": {
 				id:          "2",
 				instId:      "456",
-				displayName: "two",
+				displayName: "four-five-six",
 				status:      status.Allocating,
 			},
 		},
@@ -161,7 +182,11 @@ func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 			},
 		},
 	}
-	info, err := common.ModelMachineInfo(&st)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-1").Return("123", "", nil)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("uuid-2", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-2").Return("456", "four-five-six", nil)
+	info, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
 		{
@@ -174,7 +199,7 @@ func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 		{
 			Id:          "2",
 			InstanceId:  "456",
-			DisplayName: "two",
+			DisplayName: "four-five-six",
 			Status:      "allocating",
 			HasVote:     false,
 			WantsVote:   true,
@@ -183,6 +208,8 @@ func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 }
 
 func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	st := mockState{
 		machines: map[string]*fakeMachine{
 			"1": {
@@ -200,7 +227,9 @@ func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *gc.C) {
 			},
 		},
 	}
-	info, err := common.ModelMachineInfo(&st)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-1").Return("123", "", nil)
+	info, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
 		{
@@ -215,6 +244,8 @@ func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *gc.C) {
 }
 
 func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	st := mockState{
 		machines: map[string]*fakeMachine{
 			"1": {
@@ -232,7 +263,9 @@ func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
 			},
 		},
 	}
-	info, err := common.ModelMachineInfo(&st)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-1").Return("123", "snowflake", nil)
+	info, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
 		{
@@ -247,6 +280,8 @@ func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
 }
 
 func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	st := mockState{
 		machines: map[string]*fakeMachine{
 			"1": {
@@ -272,7 +307,9 @@ func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *gc.C) {
 			return names.NewMachineTag("1"), nil
 		},
 	}
-	info, err := common.ModelMachineInfo(&st)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-1").Return("123", "snowflake", nil)
+	info, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
 	c.Assert(err, jc.ErrorIsNil)
 	_true := true
 	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{

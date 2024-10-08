@@ -23,8 +23,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -42,6 +44,7 @@ type InstancePollerSuite struct {
 
 	controllerConfigService *MockControllerConfigService
 	networkService          *MockNetworkService
+	machineService          *MockMachineService
 
 	machineEntities     params.Entities
 	machineErrorResults params.ErrorResults
@@ -58,6 +61,7 @@ func (s *InstancePollerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 	return ctrl
 }
 
@@ -65,6 +69,7 @@ func (s *InstancePollerSuite) setupAPI(c *gc.C) (err error) {
 	s.api, err = instancepoller.NewInstancePollerAPI(
 		nil,
 		s.networkService,
+		s.machineService,
 		nil,
 		s.resources,
 		s.authoriser,
@@ -311,8 +316,11 @@ func (s *InstancePollerSuite) TestInstanceIdSuccess(c *gc.C) {
 	err := s.setupAPI(c)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceId: "i-foo"})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceId: ""})
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-1").Return("i-foo", nil)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("uuid-2", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-2").Return("", nil)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("42")).Return("", machineerrors.MachineNotFound)
 
 	result, err := s.api.InstanceId(context.Background(), s.mixedEntities)
 	c.Assert(err, jc.ErrorIsNil)
@@ -328,12 +336,6 @@ func (s *InstancePollerSuite) TestInstanceIdSuccess(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		}},
 	)
-
-	s.st.CheckFindEntityCall(c, 0, "1")
-	s.st.CheckCall(c, 1, "InstanceId")
-	s.st.CheckFindEntityCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "InstanceId")
-	s.st.CheckFindEntityCall(c, 4, "42")
 }
 
 func (s *InstancePollerSuite) TestInstanceIdFailure(c *gc.C) {
@@ -342,29 +344,20 @@ func (s *InstancePollerSuite) TestInstanceIdFailure(c *gc.C) {
 	err := s.setupAPI(c)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.st.SetErrors(
-		errors.New("pow!"),                   // m1 := FindEntity("1"); InstanceId not called
-		nil,                                  // m2 := FindEntity("2")
-		errors.New("FAIL"),                   // m2.InstanceId()
-		errors.NotProvisionedf("machine 42"), // FindEntity("3") (ensure wrapping is preserved)
-	)
-	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceId: ""})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceId: "i-bar"})
-
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("", errors.New("pow!"))
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("uuid-2", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-2").Return("i-2", errors.New("FAIL"))
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("3")).Return("uuid-3", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-3").Return("", machineerrors.NotProvisioned)
 	result, err := s.api.InstanceId(context.Background(), s.machineEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Error: apiservertesting.ServerError("pow!")},
 			{Error: apiservertesting.ServerError("FAIL")},
-			{Error: apiservertesting.NotProvisionedError("42")},
+			{Error: apiservertesting.NotProvisionedError("3")},
 		}},
 	)
-
-	s.st.CheckFindEntityCall(c, 0, "1")
-	s.st.CheckFindEntityCall(c, 1, "2")
-	s.st.CheckCall(c, 2, "InstanceId")
-	s.st.CheckFindEntityCall(c, 3, "3")
 }
 
 func (s *InstancePollerSuite) TestStatusSuccess(c *gc.C) {

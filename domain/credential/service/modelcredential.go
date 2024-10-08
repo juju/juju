@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 
@@ -13,8 +14,10 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -22,8 +25,18 @@ import (
 	"github.com/juju/juju/environs/instances"
 )
 
-// MachineService provides access to all machines.
+// MachineService defines the methods that the credential service assumes from
+// the Machine service.
 type MachineService interface {
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	// It returns a MachineNotFound if the machine does not exist.
+	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
+	// InstanceID returns the cloud specific instance id for this machine.
+	InstanceID(ctx context.Context, mUUID string) (string, error)
+}
+
+// MachineState provides access to all machines.
+type MachineState interface {
 	// AllMachines returns all machines in the model.
 	AllMachines() ([]Machine, error)
 }
@@ -35,10 +48,6 @@ type Machine interface {
 
 	// IsContainer returns true if the machine is a container.
 	IsContainer() bool
-
-	// InstanceId returns the provider specific instance id for this
-	// machine, or a NotProvisionedError, if not set.
-	InstanceId() (instance.Id, error)
 
 	// Id returns the machine id.
 	Id() string
@@ -56,6 +65,7 @@ type CredentialValidationContext struct {
 	ControllerUUID string
 
 	Config         *config.Config
+	MachineState   MachineState
 	MachineService MachineService
 
 	ModelType coremodel.ModelType
@@ -103,7 +113,7 @@ func (v defaultCredentialValidator) Validate(
 	case coremodel.CAAS:
 		return checkCAASModelCredential(ctx, openParams)
 	case coremodel.IAAS:
-		return checkIAASModelCredential(ctx, validationContext.MachineService, openParams, checkCloudInstances)
+		return checkIAASModelCredential(ctx, validationContext.MachineState, validationContext.MachineService, openParams, checkCloudInstances)
 	default:
 		return nil, errors.NotSupportedf("model type %q", validationContext.ModelType)
 	}
@@ -121,7 +131,7 @@ func checkCAASModelCredential(ctx stdcontext.Context, brokerParams environs.Open
 	return nil, nil
 }
 
-func checkIAASModelCredential(ctx stdcontext.Context, machineService MachineService, openParams environs.OpenParams, checkCloudInstances bool) ([]error, error) {
+func checkIAASModelCredential(ctx stdcontext.Context, machineState MachineState, machineService MachineService, openParams environs.OpenParams, checkCloudInstances bool) ([]error, error) {
 	env, err := newEnv(ctx, openParams)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -130,15 +140,15 @@ func checkIAASModelCredential(ctx stdcontext.Context, machineService MachineServ
 	// In the future, this check may be extended to other cloud resources,
 	// entities and operation-level authorisations such as interfaces,
 	// ability to CRUD storage, etc.
-	return checkMachineInstances(ctx, machineService, env, checkCloudInstances)
+	return checkMachineInstances(ctx, machineState, machineService, env, checkCloudInstances)
 }
 
 // checkMachineInstances compares model machines from state with
 // the ones reported by the provider using supplied credential.
 // This only makes sense for non-k8s providers.
-func checkMachineInstances(ctx stdcontext.Context, machineService MachineService, provider CloudProvider, checkCloudInstances bool) ([]error, error) {
+func checkMachineInstances(ctx stdcontext.Context, machineState MachineState, machineService MachineService, provider CloudProvider, checkCloudInstances bool) ([]error, error) {
 	// Get machines from state
-	machines, err := machineService.AllMachines()
+	machines, err := machineState.AllMachines()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -157,8 +167,12 @@ func checkMachineInstances(ctx stdcontext.Context, machineService MachineService
 		} else if manual {
 			continue
 		}
-		instanceId, err := machine.InstanceId()
-		if errors.Is(err, errors.NotProvisioned) {
+		machineUUID, err := machineService.GetMachineUUID(ctx, coremachine.Name(machine.Id()))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		instanceId, err := machineService.InstanceID(ctx, machineUUID)
+		if errors.Is(err, machineerrors.NotProvisioned) {
 			// Skip over this machine; we wouldn't expect the cloud
 			// to know about it.
 			continue
@@ -166,7 +180,7 @@ func checkMachineInstances(ctx stdcontext.Context, machineService MachineService
 			results = append(results, errors.Annotatef(err, "getting instance id for machine %s", machine.Id()))
 			continue
 		}
-		machinesByInstance[string(instanceId)] = machine.Id()
+		machinesByInstance[instanceId] = machine.Id()
 	}
 
 	// Check that we can see all machines' instances regardless of their state as perceived by the cloud, i.e.

@@ -22,6 +22,8 @@ import (
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -803,6 +805,11 @@ func (s *statusUnitTestSuite) TestMachineWithDisplayNameHasItsDisplayNameSent(c 
 		InstanceId:  "i-123",
 		DisplayName: "snowflake",
 	})
+	machineService := s.ControllerDomainServices(c).Machine()
+	machineUUID, err := machineService.CreateMachine(context.Background(), coremachine.Name("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machineUUID, instance.Id("i-123"), "snowflake", nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))

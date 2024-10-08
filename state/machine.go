@@ -378,16 +378,6 @@ func (d *ModelInstanceData) CharmProfiles(machineID string) []string {
 	return instData.CharmProfiles
 }
 
-// InstanceNames returns both the provider instance id and the user
-// friendly name. If the machine isn't found, empty strings are returned.
-func (d *ModelInstanceData) InstanceNames(machineID string) (instance.Id, string) {
-	instData, found := d.data[machineID]
-	if !found {
-		return "", ""
-	}
-	return instData.InstanceId, instData.DisplayName
-}
-
 // Tag returns a tag identifying the machine. The String method provides a
 // string representation that is safe to use as a file name. The returned name
 // will be different from other Tag values returned by any other entities
@@ -1173,27 +1163,6 @@ func (m *Machine) Refresh() error {
 	return nil
 }
 
-// InstanceId returns the provider specific instance id for this
-// machine, or a NotProvisionedError, if not set.
-func (m *Machine) InstanceId() (instance.Id, error) {
-	instId, _, err := m.InstanceNames()
-	return instId, err
-}
-
-// InstanceNames returns both the provider's instance id and a user-friendly
-// display name. The display name is intended used for human input and
-// is ignored internally.
-func (m *Machine) InstanceNames() (instance.Id, string, error) {
-	instData, err := getInstanceData(m.st, m.Id())
-	if errors.Is(err, errors.NotFound) {
-		err = errors.NotProvisionedf("machine %v", m.Id())
-	}
-	if err != nil {
-		return "", "", err
-	}
-	return instData.InstanceId, instData.DisplayName, nil
-}
-
 // InstanceStatus returns the provider specific instance status for this machine,
 // or a NotProvisionedError if instance is not yet provisioned.
 func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
@@ -1776,8 +1745,7 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 }
 
 // SetConstraints sets the exact constraints to apply when provisioning an
-// instance for the machine. It will fail if the machine is Dead, or if it
-// is already provisioned.
+// instance for the machine. It will fail if the machine is Dead.
 func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 	op := m.UpdateOperation()
 	op.Constraints = &cons
@@ -1797,11 +1765,6 @@ func (m *Machine) setConstraintsOps(cons constraints.Value) ([]txn.Op, error) {
 
 	if m.doc.Life != Alive {
 		return nil, machineNotAliveErr
-	}
-	if _, err := m.InstanceId(); err == nil {
-		return nil, fmt.Errorf("machine is already provisioned")
-	} else if !errors.Is(err, errors.NotProvisioned) {
-		return nil, err
 	}
 
 	notSetYet := bson.D{{"nonce", ""}}
@@ -1838,12 +1801,15 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 	case status.Pending:
 		// If a machine is not yet provisioned, we allow its status
 		// to be set back to pending (when a retry is to occur).
-		_, err := m.InstanceId()
-		allowPending := errors.Is(err, errors.NotProvisioned)
-		if allowPending {
-			break
-		}
-		fallthrough
+
+		// TODO(nvinuesa): we need to add back the check for provisioned and
+		// if it's not then the machine goes right to status.DOWN:
+		// _, err := m.InstanceId()
+		// allowPending := errors.Is(err, errors.NotProvisioned)
+		// if allowPending {
+		// 	break
+		// }
+		// fallthrough
 	case status.Down:
 		return errors.Errorf("cannot set status %q", statusInfo.Status)
 	default:

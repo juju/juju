@@ -19,8 +19,10 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -38,6 +40,7 @@ type firewallerSuite struct {
 	controllerConfigService *MockControllerConfigService
 	modelConfigService      *MockModelConfigService
 	networkService          *MockNetworkService
+	machineService          *MockMachineService
 	applicationService      *MockApplicationService
 }
 
@@ -54,6 +57,7 @@ func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.networkService = NewMockNetworkService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 
 	return ctrl
 }
@@ -84,6 +88,7 @@ func (s *firewallerSuite) setupAPI(c *gc.C) {
 		s.controllerConfigService,
 		s.modelConfigService,
 		s.applicationService,
+		s.machineService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -116,6 +121,14 @@ func (s *firewallerSuite) TestInstanceId(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
+
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid-i-am", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-i-am").Return("i-am", nil)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-i-am-not", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-i-am-not").Return("i-am-not", nil)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("uuid-i-will", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-i-will").Return("", machineerrors.NotProvisioned)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("42")).Return("", machineerrors.MachineNotFound)
 
 	s.testInstanceId(c, s.firewaller)
 }

@@ -70,6 +70,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		domainServices.Credential(),
 		domainServices.Upgrade(),
 		domainServices.Access(),
+		domainServices.Machine(),
 		domainServices.Model(),
 		applicationServiceGetter,
 		modelConfigServiceGetter,

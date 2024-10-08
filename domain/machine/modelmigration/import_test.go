@@ -115,6 +115,7 @@ func (s *importSuite) TestFailImportMachineWithCloudInstance(c *gc.C) {
 	})
 	cloudInstanceArgs := description.CloudInstanceArgs{
 		InstanceId:       "inst-0",
+		DisplayName:      "inst-0",
 		Architecture:     "amd64",
 		Memory:           1024,
 		RootDisk:         2048,
@@ -145,6 +146,7 @@ func (s *importSuite) TestFailImportMachineWithCloudInstance(c *gc.C) {
 		gomock.Any(),
 		expectedMachineUUID,
 		instance.Id("inst-0"),
+		"inst-0",
 		expectedHardwareCharacteristics,
 	).Return(errors.New("boom"))
 
@@ -162,6 +164,7 @@ func (s *importSuite) TestImportMachineWithCloudInstance(c *gc.C) {
 	})
 	cloudInstanceArgs := description.CloudInstanceArgs{
 		InstanceId:       "inst-0",
+		DisplayName:      "inst-0",
 		Architecture:     "amd64",
 		Memory:           1024,
 		RootDisk:         2048,
@@ -192,6 +195,7 @@ func (s *importSuite) TestImportMachineWithCloudInstance(c *gc.C) {
 		gomock.Any(),
 		expectedMachineUUID,
 		instance.Id("inst-0"),
+		"inst-0",
 		expectedHardwareCharacteristics,
 	).Return(nil)
 

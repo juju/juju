@@ -6,7 +6,6 @@ package provisioner
 import (
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/network/containerizer"
@@ -19,7 +18,6 @@ type Machine interface {
 	containerizer.Container
 
 	Units() ([]Unit, error)
-	InstanceId() (instance.Id, error)
 	IsManual() (bool, error)
 	MachineTag() names.MachineTag
 }

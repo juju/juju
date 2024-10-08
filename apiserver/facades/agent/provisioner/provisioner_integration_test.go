@@ -541,6 +541,10 @@ func (s *withoutControllerSuite) TestSetModificationStatus(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
+	st := s.ControllerModel(c).State()
+	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
+	machineService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Machine()
+
 	now := time.Now()
 	sInfo := status.StatusInfo{
 		Status:  status.Provisioning,
@@ -582,7 +586,9 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	err = s.machines[4].SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	hwChars := instance.MustParseHardware("arch=arm64", "mem=4G")
-	err = s.machines[4].SetProvisioned("i-am", "", "fake_nonce", &hwChars)
+	machine4UUID, err := machineService.GetMachineUUID(context.Background(), coremachine.Name(s.machines[4].Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine4UUID, "i-am", "", &hwChars)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.provisioner.MachinesWithTransientErrors(context.Background())
@@ -943,7 +949,7 @@ func (s *withoutControllerSuite) TestAvailabilityZone(c *gc.C) {
 	})
 	machine0UUID, err := machineService.CreateMachine(context.Background(), coremachine.Name(azMachine.Id()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(context.Background(), machine0UUID, "i-am-az-machine", &hcWithAZ)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine0UUID, "i-am-az-machine", "", &hcWithAZ)
 	c.Assert(err, jc.ErrorIsNil)
 
 	emptyAzMachine, _ := f.MakeMachineReturningPassword(c, &factory.MachineParams{
@@ -951,7 +957,7 @@ func (s *withoutControllerSuite) TestAvailabilityZone(c *gc.C) {
 	})
 	machine1UUID, err := machineService.CreateMachine(context.Background(), coremachine.Name(emptyAzMachine.Id()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(context.Background(), machine1UUID, "i-am-empty-az-machine", &hcWithEmptyAZ)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine1UUID, "i-am-empty-az-machine", "", &hcWithEmptyAZ)
 	c.Assert(err, jc.ErrorIsNil)
 
 	nilAzMachine, _ := f.MakeMachineReturningPassword(c, &factory.MachineParams{
@@ -959,7 +965,7 @@ func (s *withoutControllerSuite) TestAvailabilityZone(c *gc.C) {
 	})
 	machine2UUID, err := machineService.CreateMachine(context.Background(), coremachine.Name(nilAzMachine.Id()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(context.Background(), machine2UUID, "i-am-nil-az-machine", &hcWithNilAz)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine2UUID, "i-am-nil-az-machine", "", &hcWithNilAz)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -1014,6 +1020,10 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	defer release()
 	f = f.WithModelConfigService(s.modelConfigService(c))
 
+	st := s.ControllerModel(c).State()
+	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
+	machineService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Machine()
+
 	addUnits := func(name string, machines ...*state.Machine) (units []*state.Unit) {
 		app := f.MakeApplication(c, &factory.ApplicationParams{
 			Name:  name,
@@ -1031,7 +1041,10 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	setProvisioned := func(id string) {
 		m, err := s.ControllerModel(c).State().Machine(id)
 		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetProvisioned(instance.Id("machine-"+id+"-inst"), "", "nonce", nil)
+
+		machineUUID, err := machineService.GetMachineUUID(context.Background(), coremachine.Name(m.Id()))
+		c.Assert(err, jc.ErrorIsNil)
+		err = machineService.SetMachineCloudInstance(context.Background(), machineUUID, instance.Id("machine-"+id+"-inst"), "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -1051,8 +1064,14 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	setProvisioned("3")
 
 	// Add a few controllers, provision two of them.
-	st := s.ControllerModel(c).State()
 	_, _, err = st.EnableHA(s.modelConfigService(c), 3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	// Manually add the controller machines on the domain:
+	_, err = machineService.CreateMachine(context.Background(), coremachine.Name("5"))
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = machineService.CreateMachine(context.Background(), coremachine.Name("6"))
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = machineService.CreateMachine(context.Background(), coremachine.Name("7"))
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")
@@ -1402,12 +1421,6 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(s.machines[1].Refresh(), gc.IsNil)
 	c.Assert(s.machines[2].Refresh(), gc.IsNil)
 
-	instanceId, err := s.machines[1].InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(instanceId, gc.Equals, instance.Id("i-will"))
-	instanceId, err = s.machines[2].InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(instanceId, gc.Equals, instance.Id("i-am-too"))
 	c.Check(s.machines[1].CheckProvisioned("fake_nonce"), jc.IsTrue)
 	c.Check(s.machines[2].CheckProvisioned("fake"), jc.IsTrue)
 	gotHardware, err := s.machines[1].HardwareCharacteristics()
@@ -1438,11 +1451,19 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestInstanceId(c *gc.C) {
+	st := s.ControllerModel(c).State()
+
+	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
+	machineService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Machine()
 	// Provision 2 machines first.
-	err := s.machines[0].SetProvisioned("i-am", "", "fake_nonce", nil)
+	machine0UUID, err := machineService.GetMachineUUID(context.Background(), coremachine.Name(s.machines[0].Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine0UUID, "i-am", "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	machine1UUID, err := machineService.GetMachineUUID(context.Background(), coremachine.Name(s.machines[1].Id()))
 	c.Assert(err, jc.ErrorIsNil)
 	hwChars := instance.MustParseHardware("arch=arm64", "mem=4G")
-	err = s.machines[1].SetProvisioned("i-am-not", "", "fake_nonce", &hwChars)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine1UUID, "i-am-not", "", &hwChars)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{

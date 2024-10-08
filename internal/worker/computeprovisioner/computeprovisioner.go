@@ -231,6 +231,7 @@ func (p *environProvisioner) machineInstanceInfoSetter(machineProvisioner apipro
 			ctx,
 			machineUUID,
 			instanceID,
+			displayName,
 			hc,
 		); err != nil {
 			// TODO(nvinuesa): We deliberately hide this error

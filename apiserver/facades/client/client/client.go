@@ -30,6 +30,7 @@ type Client struct {
 	blockDeviceService BlockDeviceService
 	networkService     NetworkService
 	modelInfoService   ModelInfoService
+	machineService     MachineService
 }
 
 // TODO(wallyworld) - remove this method

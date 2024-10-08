@@ -77,6 +77,7 @@ type ModelManagerAPI struct {
 	credentialService    CredentialService
 	applicationService   ApplicationService
 	networkService       NetworkService
+	machineService       MachineService
 	configSchemaSource   config.ConfigSchemaSourceGetter
 	accessService        AccessService
 	modelExporter        func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
@@ -122,7 +123,7 @@ func NewModelManagerAPI(
 	isAdmin := err == nil
 
 	return &ModelManagerAPI{
-		ModelStatusAPI:       common.NewModelStatusAPI(st, authorizer, apiUser),
+		ModelStatusAPI:       common.NewModelStatusAPI(st, services.MachineService, authorizer, apiUser),
 		state:                st,
 		domainServicesGetter: services.DomainServicesGetter,
 		modelExporter:        modelExporter,
@@ -130,6 +131,7 @@ func NewModelManagerAPI(
 		cloudService:         services.CloudService,
 		credentialService:    services.CredentialService,
 		networkService:       services.NetworkService,
+		machineService:       services.MachineService,
 		applicationService:   services.ApplicationService,
 		configSchemaSource:   configSchemaSource,
 		store:                services.ObjectStore,
@@ -1181,7 +1183,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		}
 	}
 	if canSeeMachinesAndSecrets {
-		if info.Machines, err = common.ModelMachineInfo(st); shouldErr(err) {
+		if info.Machines, err = common.ModelMachineInfo(ctx, st, m.machineService); shouldErr(err) {
 			return params.ModelInfo{}, err
 		}
 	}

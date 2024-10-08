@@ -4,6 +4,7 @@
 package instancemutater
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/collections/set"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/state"
 )
 
@@ -21,10 +23,11 @@ type machineLXDProfileWatcher struct {
 	changes chan struct{}
 	closed  bool
 
-	initialized  chan struct{}
-	applications map[string]appInfo // unit names for each application
-	provisioned  bool
-	machine      Machine
+	initialized    chan struct{}
+	applications   map[string]appInfo // unit names for each application
+	provisioned    bool
+	machine        Machine
+	machineService MachineService
 
 	backend InstanceMutaterState
 
@@ -95,9 +98,10 @@ type appInfo struct {
 }
 
 type MachineLXDProfileWatcherConfig struct {
-	machine Machine
-	backend InstanceMutaterState
-	logger  logger.Logger
+	machine        Machine
+	backend        InstanceMutaterState
+	machineService MachineService
+	logger         logger.Logger
 }
 
 func newMachineLXDProfileWatcher(config MachineLXDProfileWatcherConfig) (*machineLXDProfileWatcher, error) {
@@ -106,12 +110,13 @@ func newMachineLXDProfileWatcher(config MachineLXDProfileWatcherConfig) (*machin
 		// This allows the config changed handler to send a value when there
 		// is a change, but if that value hasn't been consumed before the
 		// next change, the second change is discarded.
-		changes:      make(chan struct{}, 1),
-		initialized:  make(chan struct{}),
-		applications: make(map[string]appInfo),
-		machine:      config.machine,
-		backend:      config.backend,
-		logger:       config.logger,
+		changes:        make(chan struct{}, 1),
+		initialized:    make(chan struct{}),
+		applications:   make(map[string]appInfo),
+		machine:        config.machine,
+		machineService: config.machineService,
+		backend:        config.backend,
+		logger:         config.logger,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -550,11 +555,11 @@ func (w *machineLXDProfileWatcher) provisionedChange() error {
 		return nil
 	}
 
-	m, err := w.backend.Machine(w.machine.Id())
+	machineUUID, err := w.machineService.GetMachineUUID(context.TODO(), coremachine.Name(w.machine.Id()))
 	if err != nil {
 		return err
 	}
-	_, err = m.InstanceId()
+	_, err = w.machineService.InstanceID(context.TODO(), machineUUID)
 	if errors.Is(err, errors.NotProvisioned) {
 		w.logger.Debugf("machine-%s not provisioned yet", w.machine.Id())
 		return nil

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/instance"
 	domainservicestesting "github.com/juju/juju/domain/services/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing/factory"
@@ -180,13 +179,6 @@ func (s *firewallerBaseSuite) testInstanceId(
 		InstanceId(context.Context, params.Entities) (params.StringResults, error)
 	},
 ) {
-	// Provision 2 machines first.
-	err := s.machines[0].SetProvisioned("i-am", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	hwChars := instance.MustParseHardware("arch=s390x", "mem=4G")
-	err = s.machines[1].SetProvisioned("i-am-not", "", "fake_nonce", &hwChars)
-	c.Assert(err, jc.ErrorIsNil)
-
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
 		{Tag: s.machines[1].Tag().String()},

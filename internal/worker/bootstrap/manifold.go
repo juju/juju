@@ -260,6 +260,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ApplicationService:      applicationService,
 				ControllerModel:         controllerModel,
 				ModelConfigService:      controllerModelDomainServices.Config(),
+				MachineService:          controllerModelDomainServices.Machine(),
 				KeyManagerService:       controllerModelDomainServices.KeyManager(),
 				FlagService:             flagService,
 				NetworkService:          controllerModelDomainServices.Network(),

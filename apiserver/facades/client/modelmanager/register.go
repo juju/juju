@@ -104,6 +104,7 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 			ObjectStore:          ctx.ObjectStore(),
 			SecretBackendService: secretBackendService,
 			NetworkService:       domainServices.Network(),
+			MachineService:       domainServices.Machine(),
 			ApplicationService:   domainServices.Application(service.ApplicationServiceParams{}),
 		},
 		configSchemaSource,
