@@ -6,7 +6,7 @@ great.
   not GitHub. Please check that your bug has not already been reported.
 - When opening a pull request:
   - Check that all your [commits are signed](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits).
-  - Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for commit messages.
+  - Use [Conventional Commits](#conventional-commits) for commit messages.
   - Check that your patch is [targeting the correct branch](#branches) -
     if not, please rebase it.
   - Please [sign the CLA](#contributor-licence-agreement) if you haven't already.
@@ -22,6 +22,7 @@ Contents
 - [Dependency management](#dependency-management)
 - [Code formatting](#code-formatting)
 - [Workflow](#workflow)
+   - [Conventional commits](#conventional-commits)
    - [Contributor licence agreement](#contributor-licence-agreement)
 - [Community](#community)
 
@@ -305,7 +306,9 @@ Conventional commits
 --------------------
 
 Once you have written some code and have tested the changes, the next step is to
-`git commit` it. For commit messages Juju follows [conventional commits guidelines](conventional-commits.md).
+`git commit` it. For commit messages Juju follows
+[conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) -- see our
+[conventional commits guidelines](doc/conventional-commits.md) for our commit types.
 In short the commits should be of the following form:
 ```
 <type>(optional <scope>): <description>
