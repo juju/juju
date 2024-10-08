@@ -167,7 +167,7 @@ func (s *applicationOffersSuite) TestAddApplicationOfferBadEndpoints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *applicationOffersSuite) TestFaillAddApplicationOfferNonGlobalEndpoint(c *gc.C) {
+func (s *applicationOffersSuite) TestFailAddApplicationOfferNonGlobalEndpoint(c *gc.C) {
 	s.AddTestingApplication(c, "local-wordpress", s.AddTestingCharm(c, "wordpress"))
 	// logging-dir is a container scoped relation.
 	eps := map[string]string{"logging-dir": "logging-dir"}
@@ -877,15 +877,37 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	ao := state.NewApplicationOffers(s.State)
+	ao := state.NewApplicationOffersExposingOps(s.State)
 
+	// First check that if we generate the removal model operation,
+	// any removals are last in the ops list.
+	// RemoveOfferOperation is called internally by Remove further down.
+	modelOp, err := ao.RemoveOfferOperation("hosted-mysql", true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ops, err := modelOp.Build(0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var observedRemoval bool
+	for _, op := range ops {
+		if op.Remove {
+			observedRemoval = true
+			continue
+		}
+		c.Assert(observedRemoval, jc.IsFalse)
+	}
+
+	// Now run it all.
 	err = ao.Remove("hosted-mysql", true)
 	c.Assert(err, jc.ErrorIsNil)
+
 	_, err = ao.ApplicationOffer("hosted-mysql")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
 	conn, err := s.State.OfferConnections(offer.OfferUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.HasLen, 1)
+
 	offerRel, err := s.State.Relation(conn[0].RelationId())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(offerRel.Life(), gc.Equals, state.Dying)
