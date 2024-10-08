@@ -5,7 +5,7 @@ package state
 
 import (
 	"sort"
-	
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
@@ -107,7 +107,7 @@ func (st *State) ApplyOperation(op ModelOperation) error {
 	return op.Done(err)
 }
 
-// sortRemoveOpsLast re-orders a slice of transaction operations so that any
+// sortRemovalOpsLast re-orders a slice of transaction operations so that any
 // document removals occur at the end of the slice.
 // This is important for server-side transactions because of two execution
 // characteristics:
@@ -117,7 +117,7 @@ func (st *State) ApplyOperation(op ModelOperation) error {
 // on the same document to pass the assertions, then fail with "not found" upon
 // actual processing.
 // Legacy client-side transactions do not exhibit this behaviour.
-func sortRemoveOpsLast(ops []txn.Op) {
+func sortRemovalOpsLast(ops []txn.Op) {
 	sort.Slice(ops, func(i, j int) bool {
 		return !ops[i].Remove && ops[j].Remove
 	})

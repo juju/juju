@@ -377,7 +377,7 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 	}
 
 	ops = append(ops, destroyOps...)
-	sortRemoveOpsLast(ops)
+	sortRemovalOpsLast(ops)
 	return ops, nil
 }
 
