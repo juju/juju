@@ -45,12 +45,13 @@ WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
 
 	var row instanceDataResult
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(tx.Query(ctx, retrieveHardwareCharacteristicsStmt, machineUUIDQuery).Get(&row))
-	}); err != nil {
+		err := tx.Query(ctx, retrieveHardwareCharacteristicsStmt, machineUUIDQuery).Get(&row)
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.Annotatef(errors.NotFound, "machine cloud instance for machine %q", machineUUID)
+			return errors.Annotatef(errors.NotFound, "machine cloud instance for machine %q", machineUUID)
 		}
-		return nil, errors.Annotatef(err, "querying machine cloud instance for machine %q", machineUUID)
+		return errors.Annotatef(err, "querying machine cloud instance for machine %q", machineUUID)
+	}); err != nil {
+		return nil, errors.Trace(err)
 	}
 	return row.toHardwareCharacteristics(), nil
 }
