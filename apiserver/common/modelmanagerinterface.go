@@ -175,15 +175,6 @@ func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelMana
 	}, nil
 }
 
-func (st modelManagerStateShim) ModelConfigDefaultValues(cloudName string) (config.ModelDefaultAttributes, error) {
-	return st.State.ModelConfigDefaultValues(st.configSchemaSourceGetter, cloudName)
-}
-
-// UpdateModelConfigDefaultValues implements the ModelManagerBackend method.
-func (st modelManagerStateShim) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environscloudspec.CloudRegionSpec) error {
-	return st.State.UpdateModelConfigDefaultValues(update, remove, regionSpec)
-}
-
 // ControllerTag exposes Model ControllerTag for ModelManagerBackend inteface
 func (st modelManagerStateShim) ControllerTag() names.ControllerTag {
 	return st.model.ControllerTag()

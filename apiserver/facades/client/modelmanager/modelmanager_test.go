@@ -632,8 +632,7 @@ func (s *modelManagerSuite) TestModelDefaults(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestSetModelDefaults(c *gc.C) {
-	ctrl := s.setUpAPI(c)
-	defer ctrl.Finish()
+	defer s.setUpAPI(c)
 
 	defaults := map[string]interface{}{
 		"attr3": "val3",
