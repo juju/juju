@@ -580,41 +580,41 @@ func (c *MockApplicationStateGetUnitNamesCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
-// GetUnitUUID mocks base method.
-func (m *MockApplicationState) GetUnitUUID(arg0 domain.AtomicContext, arg1 string) (unit.UUID, error) {
+// GetUnitUUIDs mocks base method.
+func (m *MockApplicationState) GetUnitUUIDs(arg0 context.Context, arg1 []string) ([]unit.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitUUID", arg0, arg1)
-	ret0, _ := ret[0].(unit.UUID)
+	ret := m.ctrl.Call(m, "GetUnitUUIDs", arg0, arg1)
+	ret0, _ := ret[0].([]unit.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetUnitUUID indicates an expected call of GetUnitUUID.
-func (mr *MockApplicationStateMockRecorder) GetUnitUUID(arg0, arg1 any) *MockApplicationStateGetUnitUUIDCall {
+// GetUnitUUIDs indicates an expected call of GetUnitUUIDs.
+func (mr *MockApplicationStateMockRecorder) GetUnitUUIDs(arg0, arg1 any) *MockApplicationStateGetUnitUUIDsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitUUID", reflect.TypeOf((*MockApplicationState)(nil).GetUnitUUID), arg0, arg1)
-	return &MockApplicationStateGetUnitUUIDCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitUUIDs", reflect.TypeOf((*MockApplicationState)(nil).GetUnitUUIDs), arg0, arg1)
+	return &MockApplicationStateGetUnitUUIDsCall{Call: call}
 }
 
-// MockApplicationStateGetUnitUUIDCall wrap *gomock.Call
-type MockApplicationStateGetUnitUUIDCall struct {
+// MockApplicationStateGetUnitUUIDsCall wrap *gomock.Call
+type MockApplicationStateGetUnitUUIDsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationStateGetUnitUUIDCall) Return(arg0 unit.UUID, arg1 error) *MockApplicationStateGetUnitUUIDCall {
+func (c *MockApplicationStateGetUnitUUIDsCall) Return(arg0 []unit.UUID, arg1 error) *MockApplicationStateGetUnitUUIDsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateGetUnitUUIDCall) Do(f func(domain.AtomicContext, string) (unit.UUID, error)) *MockApplicationStateGetUnitUUIDCall {
+func (c *MockApplicationStateGetUnitUUIDsCall) Do(f func(context.Context, []string) ([]unit.UUID, error)) *MockApplicationStateGetUnitUUIDsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateGetUnitUUIDCall) DoAndReturn(f func(domain.AtomicContext, string) (unit.UUID, error)) *MockApplicationStateGetUnitUUIDCall {
+func (c *MockApplicationStateGetUnitUUIDsCall) DoAndReturn(f func(context.Context, []string) ([]unit.UUID, error)) *MockApplicationStateGetUnitUUIDsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

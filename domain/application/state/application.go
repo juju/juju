@@ -376,26 +376,48 @@ func (st *ApplicationState) AddUnits(ctx context.Context, applicationName string
 	return errors.Annotatef(err, "adding units for application %q", applicationName)
 }
 
-// GetUnitUUID returns the UUID for the named unit, returning an error
-// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *ApplicationState) GetUnitUUID(ctx domain.AtomicContext, name string) (coreunit.UUID, error) {
-	unitName := unitName{Name: name}
-	getUnitStmt, err := st.Prepare(`SELECT &unitUUID.* FROM unit WHERE name = $unitName.name`, unitUUID{}, unitName)
+// GetUnitUUIDs returns the UUIDs for the named units in bulk, returning an error
+// satisfying [applicationerrors.UnitNotFound] if any of the units don't exist.
+func (st *ApplicationState) GetUnitUUIDs(ctx context.Context, names []string) ([]coreunit.UUID, error) {
+	db, err := st.DB()
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	var unitUUID unitUUID
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, getUnitStmt, unitName).Get(&unitUUID)
+	unitNames := unitNames(names)
+
+	query, err := st.Prepare(`
+SELECT &unitNameAndUUID.*
+FROM unit
+WHERE name IN ($unitNames[:])
+`, unitNameAndUUID{}, unitNames)
+	if err != nil {
+		return nil, internalerrors.Errorf("preparing query: %w", err)
+	}
+
+	uuidsAndNames := []unitNameAndUUID{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, query, unitNames).GetAll(&uuidsAndNames)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return internalerrors.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
+			return nil
 		}
-		if err != nil {
-			return internalerrors.Errorf("querying unit %q: %w", unitName, err)
-		}
-		return nil
+		return err
 	})
-	return coreunit.UUID(unitUUID.UnitUUID), errors.Trace(err)
+	if err != nil {
+		return nil, internalerrors.Errorf("querying unit names: %w", err)
+	}
+
+	nameToUUID := make(map[string]coreunit.UUID, len(uuidsAndNames))
+	for _, u := range uuidsAndNames {
+		nameToUUID[u.Name] = coreunit.UUID(u.UnitUUID)
+	}
+
+	return transform.SliceOrErr(names, func(name string) (coreunit.UUID, error) {
+		uuid, ok := nameToUUID[name]
+		if !ok {
+			return "", internalerrors.Errorf("unit %q not found%w", name, errors.Hide(applicationerrors.UnitNotFound))
+		}
+		return uuid, nil
+	})
 }
 
 // GetUnitNames gets in bulk the names for the specified unit UUIDs, returning an error

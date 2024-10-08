@@ -79,16 +79,13 @@ type unitName struct {
 	Name string `db:"name"`
 }
 
-// unitUUID represents the name of a unit
-type unitUUID struct {
-	UnitUUID string `db:"uuid"`
-}
-
 // unitNameAndUUID store the name & uuid of a unit
 type unitNameAndUUID struct {
 	UnitUUID string `db:"uuid"`
 	Name     string `db:"name"`
 }
+
+type unitNames []string
 
 type unitUUIDs []string
 
