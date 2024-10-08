@@ -29,8 +29,20 @@ type txnRunner struct {
 // This is the function that almost all downstream database consumers
 // should use.
 func (t *txnRunner) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
-	return defaultTransactionRunner.Retry(ctx, func() error {
+	return defaultTransactionRunner.Retry(ctx, func(context.Context) error {
 		return errors.Trace(defaultTransactionRunner.Txn(ctx, t.db, fn))
+	})
+}
+
+// TxnWithPrecheck runs a transaction with a precheck function that is
+// executed before the transaction is started. If the precheck function
+// returns an error, the transaction is not started.
+// Retry semantics are applied automatically based on transient failures.
+// This is the function that almost all downstream database consumers
+// should use.
+func (t *txnRunner) TxnWithPrecheck(ctx context.Context, precheck func(context.Context) error, fn func(context.Context, *sqlair.TX) error) error {
+	return defaultTransactionRunner.Retry(ctx, func(context.Context) error {
+		return errors.Trace(defaultTransactionRunner.TxnWithPrecheck(ctx, t.db, precheck, fn))
 	})
 }
 
@@ -40,7 +52,7 @@ func (t *txnRunner) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX
 // This is the function that almost all downstream database consumers
 // should use.
 func (t *txnRunner) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return defaultTransactionRunner.Retry(ctx, func() error {
+	return defaultTransactionRunner.Retry(ctx, func(context.Context) error {
 		return errors.Trace(defaultTransactionRunner.StdTxn(ctx, t.db.PlainDB(), fn))
 	})
 }

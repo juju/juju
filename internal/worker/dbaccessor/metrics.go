@@ -16,7 +16,6 @@ const (
 
 // Collector defines a prometheus collector for the dbaccessor.
 type Collector struct {
-	DBRequests  *prometheus.GaugeVec
 	DBDuration  *prometheus.HistogramVec
 	DBErrors    *prometheus.CounterVec
 	DBSuccess   *prometheus.CounterVec
@@ -27,12 +26,6 @@ type Collector struct {
 // NewMetricsCollector returns a new Collector.
 func NewMetricsCollector() *Collector {
 	return &Collector{
-		DBRequests: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: dbaccessorMetricsNamespace,
-			Subsystem: dbaccessorSubsystemNamespace,
-			Name:      "requests_total",
-			Help:      "Number of active db requests.",
-		}, []string{"namespace"}),
 		DBDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: dbaccessorMetricsNamespace,
 			Subsystem: dbaccessorSubsystemNamespace,
@@ -55,7 +48,7 @@ func NewMetricsCollector() *Collector {
 			Namespace: dbaccessorMetricsNamespace,
 			Subsystem: dbaccessorSubsystemNamespace,
 			Name:      "txn_requests_total",
-			Help:      "Total number of txn requests including retries.",
+			Help:      "Total number of txn requests.",
 		}, []string{"namespace"}),
 		TxnRetries: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: dbaccessorMetricsNamespace,
@@ -68,7 +61,6 @@ func NewMetricsCollector() *Collector {
 
 // Describe is part of the prometheus.Collector interface.
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
-	c.DBRequests.Describe(ch)
 	c.DBDuration.Describe(ch)
 	c.DBErrors.Describe(ch)
 	c.DBSuccess.Describe(ch)
@@ -78,7 +70,6 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect is part of the prometheus.Collector interface.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
-	c.DBRequests.Collect(ch)
 	c.DBDuration.Collect(ch)
 	c.DBErrors.Collect(ch)
 	c.DBSuccess.Collect(ch)

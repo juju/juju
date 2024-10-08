@@ -10,12 +10,23 @@ import (
 	"github.com/mattn/go-sqlite3"
 
 	"github.com/juju/juju/internal/database/driver"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
+
+// ErrPrecheckFailure is returned when a precheck fails. This is a fatal error
+// from which the transaction cannot recover.
+const ErrPrecheckFailure internalerrors.ConstError = "precheck failure is fatal"
 
 // IsErrRetryable returns true if the given error might be
 // transient and the interaction can be safely retried.
 // See: https://github.com/canonical/go-dqlite/issues/220
 func IsErrRetryable(err error) bool {
+	// If the error is always a precheck fatal error, we should not retry.
+	// Exit early to avoid unnecessary checks.
+	if errors.Is(err, ErrPrecheckFailure) {
+		return false
+	}
+
 	var dErr *driver.Error
 	if errors.As(err, &dErr) && dErr.Code == driver.ErrBusy {
 		return true

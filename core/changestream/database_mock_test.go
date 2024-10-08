@@ -116,3 +116,41 @@ func (c *MockTxnRunnerTxnCall) DoAndReturn(f func(context.Context, func(context.
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// TxnWithPrecheck mocks base method.
+func (m *MockTxnRunner) TxnWithPrecheck(arg0 context.Context, arg1 func(context.Context) error, arg2 func(context.Context, *sqlair.TX) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TxnWithPrecheck", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// TxnWithPrecheck indicates an expected call of TxnWithPrecheck.
+func (mr *MockTxnRunnerMockRecorder) TxnWithPrecheck(arg0, arg1, arg2 any) *MockTxnRunnerTxnWithPrecheckCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TxnWithPrecheck", reflect.TypeOf((*MockTxnRunner)(nil).TxnWithPrecheck), arg0, arg1, arg2)
+	return &MockTxnRunnerTxnWithPrecheckCall{Call: call}
+}
+
+// MockTxnRunnerTxnWithPrecheckCall wrap *gomock.Call
+type MockTxnRunnerTxnWithPrecheckCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockTxnRunnerTxnWithPrecheckCall) Return(arg0 error) *MockTxnRunnerTxnWithPrecheckCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockTxnRunnerTxnWithPrecheckCall) Do(f func(context.Context, func(context.Context) error, func(context.Context, *sqlair.TX) error) error) *MockTxnRunnerTxnWithPrecheckCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockTxnRunnerTxnWithPrecheckCall) DoAndReturn(f func(context.Context, func(context.Context) error, func(context.Context, *sqlair.TX) error) error) *MockTxnRunnerTxnWithPrecheckCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

@@ -418,6 +418,10 @@ func (w *workerTrackedDB) Txn(ctx context.Context, fn func(context.Context, *sql
 	return w.db.Txn(ctx, fn)
 }
 
+func (w *workerTrackedDB) TxnWithPrecheck(ctx context.Context, precheck func(context.Context) error, fn func(context.Context, *sqlair.TX) error) error {
+	return w.db.TxnWithPrecheck(ctx, precheck, fn)
+}
+
 func (w *workerTrackedDB) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
 	return w.db.StdTxn(ctx, fn)
 }

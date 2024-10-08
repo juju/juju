@@ -90,6 +90,13 @@ func (w *TestWatchableDB) Txn(ctx context.Context, fn func(context.Context, *sql
 	return w.db.Txn(ctx, fn)
 }
 
+// TxnWithPrecheck runs a transaction with a precheck function that is
+// executed before the transaction is started. If the precheck function
+// returns an error, the transaction is not started.
+func (w *TestWatchableDB) TxnWithPrecheck(ctx context.Context, precheck func(context.Context) error, fn func(context.Context, *sqlair.TX) error) error {
+	return w.db.TxnWithPrecheck(ctx, precheck, fn)
+}
+
 // StdTxn manages the application of a standard library transaction within
 // which the input function is executed.
 // The input context can be used by the caller to cancel this process.

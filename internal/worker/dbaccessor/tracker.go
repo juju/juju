@@ -187,7 +187,7 @@ func (w *trackedDBWorker) ensureModelDBInitialised(ctx context.Context) error {
 // This is the function that almost all downstream database consumers
 // should use.
 func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
-	return w.run(ctx, func(db *sqlair.DB) error {
+	return w.run(ctx, func(ctx context.Context, db *sqlair.DB) error {
 		// Tie the worker tomb to the context, so that if the worker dies, we
 		// can correctly kill the transaction via the context. The context will
 		// now have the correct reason for the death of the transaction. Either
@@ -197,13 +197,35 @@ func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql
 	})
 }
 
+// TxnWithPrecheck executes the precheck function prior to the input function
+// against the tracked database, within a transaction that depends on the input
+// context.
+// The precheck should ensure that the context is valid before executing.
+// Retry semantics are applied automatically based on transient failures.
+// This is the function that almost all downstream database consumers
+// should use.
+func (w *trackedDBWorker) TxnWithPrecheck(
+	ctx context.Context,
+	precheck func(context.Context) error,
+	fn func(context.Context, *sqlair.TX) error,
+) error {
+	return w.run(ctx, func(ctx context.Context, db *sqlair.DB) error {
+		// Tie the worker tomb to the context, so that if the worker dies, we
+		// can correctly kill the transaction via the context. The context will
+		// now have the correct reason for the death of the transaction. Either
+		// the tomb died or the context was cancelled.
+		ctx = corecontext.WithSourceableError(w.tomb.Context(ctx), w)
+		return errors.Trace(database.TxnWithPrecheck(ctx, db, precheck, fn))
+	})
+}
+
 // StdTxn executes the input function against the tracked database,
 // within a transaction that depends on the input context.
 // Retry semantics are applied automatically based on transient failures.
 // This is the function that almost all downstream database consumers
 // should use.
 func (w *trackedDBWorker) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return w.run(ctx, func(db *sqlair.DB) error {
+	return w.run(ctx, func(ctx context.Context, db *sqlair.DB) error {
 		// Tie the worker tomb to the context, so that if the worker dies, we
 		// can correctly kill the transaction via the context. The context will
 		// now have the correct reason for the death of the transaction. Either
@@ -218,7 +240,7 @@ func (w *trackedDBWorker) Err() error {
 	return w.tomb.Err()
 }
 
-func (w *trackedDBWorker) run(ctx context.Context, fn func(*sqlair.DB) error) error {
+func (w *trackedDBWorker) run(ctx context.Context, fn func(context.Context, *sqlair.DB) error) error {
 	w.metrics.TxnRequests.WithLabelValues(w.namespace).Inc()
 
 	// Tie the tomb to the context for the retry semantics.
@@ -228,11 +250,15 @@ func (w *trackedDBWorker) run(ctx context.Context, fn func(*sqlair.DB) error) er
 	ctx = txn.WithMetrics(ctx, w.dbTxnMetrics)
 
 	// Retry the so long as the tomb and the context are valid.
-	return database.Retry(ctx, func() (err error) {
+	return database.Retry(ctx, func(ctx context.Context) (err error) {
 		begin := w.clock.Now()
 		w.metrics.TxnRetries.WithLabelValues(w.namespace).Inc()
-		w.metrics.DBRequests.WithLabelValues(w.namespace).Inc()
 		defer w.meterDBOpResult(begin, err)
+
+		// Don't execute the function if we know the context is already done.
+		if err := ctx.Err(); err != nil {
+			return errors.Trace(err)
+		}
 
 		// The underlying db could be swapped out if the database becomes
 		// stale.
@@ -246,19 +272,13 @@ func (w *trackedDBWorker) run(ctx context.Context, fn func(*sqlair.DB) error) er
 			return errors.NotFoundf("database")
 		}
 
-		// Don't execute the function if we know the context is already done.
-		if err := ctx.Err(); err != nil {
-			return errors.Trace(err)
-		}
-
-		return fn(db)
+		return fn(ctx, db)
 	})
 }
 
 // meterDBOpResults decrements the active DB operation count,
 // and records the result and duration of the completed operation.
 func (w *trackedDBWorker) meterDBOpResult(begin time.Time, err error) {
-	w.metrics.DBRequests.WithLabelValues(w.namespace).Dec()
 	result := "success"
 	if err != nil {
 		result = "error"
@@ -384,7 +404,7 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, e
 		// Record the total ping.
 		pingStart := w.clock.Now()
 		var pingAttempts uint32 = 0
-		err := database.Retry(ctx, func() error {
+		err := database.Retry(ctx, func(context.Context) error {
 			if w.logger.IsLevelEnabled(logger.TRACE) {
 				w.logger.Tracef("pinging database %q", w.namespace)
 			}

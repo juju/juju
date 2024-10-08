@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -92,6 +93,59 @@ func (s *transactionRunnerSuite) TestTxnWithCancelledContext(c *gc.C) {
 		return nil
 	})
 	c.Assert(err, gc.ErrorMatches, "context canceled")
+}
+
+func (s *transactionRunnerSuite) TestTxnWithPrecheckCancelledContext(c *gc.C) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	runner := txn.NewRetryingTxnRunner()
+
+	err := runner.TxnWithPrecheck(ctx, sqlair.NewDB(s.DB()), func(ctx context.Context) error {
+		c.Fatal("should not be called")
+		return nil
+	}, func(ctx context.Context, tx *sqlair.TX) error {
+		c.Fatal("should not be called")
+		return nil
+	})
+	c.Assert(err, gc.ErrorMatches, "context canceled")
+}
+
+func (s *transactionRunnerSuite) TestTxnWithPrecheckTimeout(c *gc.C) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
+	cancel()
+
+	runner := txn.NewRetryingTxnRunner()
+
+	err := runner.TxnWithPrecheck(ctx, sqlair.NewDB(s.DB()), func(ctx context.Context) error {
+		select {
+		case <-time.After(time.Millisecond * 50):
+		case <-ctx.Done():
+			return errors.Trace(ctx.Err())
+		}
+
+		c.Fatal("should not be called")
+		return nil
+	}, func(ctx context.Context, tx *sqlair.TX) error {
+		c.Fatal("should not be called")
+		return nil
+	})
+	c.Assert(err, gc.ErrorMatches, "context canceled")
+}
+
+func (s *transactionRunnerSuite) TestTxnWithPrecheckSQLErrorIsNotRetryable(c *gc.C) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	runner := txn.NewRetryingTxnRunner()
+
+	err := runner.TxnWithPrecheck(ctx, sqlair.NewDB(s.DB()), func(ctx context.Context) error {
+		return sqlite3.ErrBusy
+	}, func(ctx context.Context, tx *sqlair.TX) error {
+		c.Fatal("should not be called")
+		return nil
+	})
+	c.Assert(txn.IsErrRetryable(err), jc.IsFalse)
 }
 
 func (s *transactionRunnerSuite) TestTxnParallelCancelledContext(c *gc.C) {
@@ -219,7 +273,7 @@ func (s *transactionRunnerSuite) TestRetryForNonRetryableError(c *gc.C) {
 	runner := txn.NewRetryingTxnRunner()
 
 	var count int
-	err := runner.Retry(context.Background(), func() error {
+	err := runner.Retry(context.Background(), func(context.Context) error {
 		count++
 		return errors.Errorf("fail")
 	})
@@ -233,7 +287,7 @@ func (s *transactionRunnerSuite) TestRetryWithACancelledContext(c *gc.C) {
 	runner := txn.NewRetryingTxnRunner()
 
 	var count int
-	err := runner.Retry(ctx, func() error {
+	err := runner.Retry(ctx, func(context.Context) error {
 		defer cancel()
 
 		count++
@@ -247,7 +301,7 @@ func (s *transactionRunnerSuite) TestRetryForRetryableError(c *gc.C) {
 	runner := txn.NewRetryingTxnRunner()
 
 	var count int
-	err := runner.Retry(context.Background(), func() error {
+	err := runner.Retry(context.Background(), func(context.Context) error {
 		count++
 		return sqlite3.ErrBusy
 	})
