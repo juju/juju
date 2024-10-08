@@ -17,6 +17,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
@@ -789,37 +790,111 @@ func (s *applicationStateSuite) TestDeleteUnitLastUnit(c *gc.C) {
 	c.Assert(unitCount, gc.Equals, 0)
 }
 
-func (s *applicationStateSuite) TestGetUnitUUID(c *gc.C) {
+func (s *applicationStateSuite) TestGetUnitUUIDs(c *gc.C) {
+	u1 := application.UpsertUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.UpsertUnitArg{
+		UnitName: "foo/667",
+	}
+	s.createApplication(c, "foo", life.Alive, u1, u2)
+
+	unitUUIDs, err := s.state.GetUnitUUIDs(context.Background(), []string{u1.UnitName, u2.UnitName})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var gotUUIDs []coreunit.UUID
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, "SELECT uuid FROM unit WHERE name IN (?, ?)", u1.UnitName, u2.UnitName)
+		defer rows.Close()
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			var uuid coreunit.UUID
+			if err := rows.Scan(&uuid); err != nil {
+				return err
+			}
+			gotUUIDs = append(gotUUIDs, uuid)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotUUIDs, jc.SameContents, unitUUIDs)
+}
+
+func (s *applicationStateSuite) TestGetUnitUUIDsNotFound(c *gc.C) {
+	_, err := s.state.GetUnitUUIDs(context.Background(), []string{"foo/666"})
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *applicationStateSuite) TestGetUnitUUIDsOneNotFound(c *gc.C) {
 	u1 := application.UpsertUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
 
-	var unitUUID coreunit.UUID
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		unitUUID, err = s.state.GetUnitUUID(ctx, u1.UnitName)
-		return err
+	_, err := s.state.GetUnitUUIDs(context.Background(), []string{u1.UnitName, "foo/667"})
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *applicationStateSuite) TestGetUnitNames(c *gc.C) {
+	u1 := application.UpsertUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.UpsertUnitArg{
+		UnitName: "foo/667",
+	}
+	s.createApplication(c, "foo", life.Alive, u1, u2)
+
+	var unitUUIDs []coreunit.UUID
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, "SELECT uuid FROM unit WHERE name IN (?, ?)", u1.UnitName, u2.UnitName)
+		defer rows.Close()
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			var uuid coreunit.UUID
+			if err := rows.Scan(&uuid); err != nil {
+				return err
+			}
+			unitUUIDs = append(unitUUIDs, uuid)
+		}
+		return rows.Err()
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var gotUUID coreunit.UUID
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	unitNames, err := s.state.GetUnitNames(context.Background(), unitUUIDs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitNames, gc.HasLen, 2)
+	c.Assert(unitNames, jc.SameContents, []string{u1.UnitName, u2.UnitName})
+}
+
+func (s *applicationStateSuite) TestGetUnitNamesNotFound(c *gc.C) {
+	uuid := unittesting.GenUnitUUID(c)
+	_, err := s.state.GetUnitNames(context.Background(), []coreunit.UUID{uuid})
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *applicationStateSuite) TestGetUnitNamesOneNotFound(c *gc.C) {
+	u1 := application.UpsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u1)
+
+	var existingUUID coreunit.UUID
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", u1.UnitName).
-			Scan(&gotUUID); err != nil {
+			Scan(&existingUUID); err != nil {
 			return err
 		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotUUID, gc.Equals, unitUUID)
-}
 
-func (s *applicationStateSuite) TestGetUnitUUIDNotFound(c *gc.C) {
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.GetUnitUUID(ctx, "foo/666")
-		return err
-	})
+	missingUUID := unittesting.GenUnitUUID(c)
+
+	_, err = s.state.GetUnitNames(context.Background(), []coreunit.UUID{existingUUID, missingUUID})
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -879,13 +954,12 @@ func (s *applicationStateSuite) TestSaveCloudContainerStatus(c *gc.C) {
 		},
 	}
 
-	var unitUUID coreunit.UUID
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		unitUUID, err = s.state.GetUnitUUID(ctx, u1.UnitName)
-		if err != nil {
-			return err
-		}
+	unitUUIDs, err := s.state.GetUnitUUIDs(context.Background(), []string{u1.UnitName})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitUUIDs, gc.HasLen, 1)
+	unitUUID := unitUUIDs[0]
+
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		return s.state.SaveCloudContainerStatus(ctx, unitUUID, status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -908,13 +982,12 @@ func (s *applicationStateSuite) TestSaveUnitAgentStatus(c *gc.C) {
 		},
 	}
 
-	var unitUUID coreunit.UUID
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		unitUUID, err = s.state.GetUnitUUID(ctx, u1.UnitName)
-		if err != nil {
-			return err
-		}
+	unitUUIDs, err := s.state.GetUnitUUIDs(context.Background(), []string{u1.UnitName})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitUUIDs, gc.HasLen, 1)
+	unitUUID := unitUUIDs[0]
+
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		return s.state.SaveUnitAgentStatus(ctx, unitUUID, status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -937,13 +1010,12 @@ func (s *applicationStateSuite) TestSaveUnitWorkloadStatus(c *gc.C) {
 		},
 	}
 
-	var unitUUID coreunit.UUID
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		unitUUID, err = s.state.GetUnitUUID(ctx, u1.UnitName)
-		if err != nil {
-			return err
-		}
+	unitUUIDs, err := s.state.GetUnitUUIDs(context.Background(), []string{u1.UnitName})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitUUIDs, gc.HasLen, 1)
+	unitUUID := unitUUIDs[0]
+
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		return s.state.SaveUnitWorkloadStatus(ctx, unitUUID, status)
 	})
 	c.Assert(err, jc.ErrorIsNil)

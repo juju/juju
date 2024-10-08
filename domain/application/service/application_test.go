@@ -18,6 +18,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/model"
+	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
@@ -581,23 +582,64 @@ func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *applicationServiceSuite) TestGetUnitUUIDs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuids := []coreunit.UUID{unittesting.GenUnitUUID(c), unittesting.GenUnitUUID(c)}
+	s.state.EXPECT().GetUnitUUIDs(gomock.Any(), []string{"foo/666", "foo/667"}).Return(uuids, nil)
+
+	us, err := s.service.GetUnitUUIDs(context.Background(), []string{"foo/666", "foo/667"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(us, gc.DeepEquals, uuids)
+}
+
+func (s *applicationServiceSuite) TestGetUnitUUIDsErrors(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetUnitUUIDs(gomock.Any(), []string{"foo/666", "foo/667"}).Return(nil, applicationerrors.UnitNotFound)
+
+	_, err := s.service.GetUnitUUIDs(context.Background(), []string{"foo/666", "foo/667"})
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 func (s *applicationServiceSuite) TestGetUnitUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, "foo/666").Return(uuid, nil)
+	s.state.EXPECT().GetUnitUUIDs(gomock.Any(), []string{"foo/666"}).Return([]coreunit.UUID{uuid}, nil)
 
 	u, err := s.service.GetUnitUUID(context.Background(), "foo/666")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(u, gc.Equals, uuid)
 }
 
-func (s *applicationServiceSuite) TestGetunitUUIDErrors(c *gc.C) {
+func (s *applicationServiceSuite) TestGetUnitUUIDErrors(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, "foo/666").Return("", applicationerrors.UnitNotFound)
+	s.state.EXPECT().GetUnitUUIDs(gomock.Any(), []string{"foo/666"}).Return(nil, applicationerrors.UnitNotFound)
 
 	_, err := s.service.GetUnitUUID(context.Background(), "foo/666")
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *applicationServiceSuite) TestGetUnitNames(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuids := []coreunit.UUID{unittesting.GenUnitUUID(c), unittesting.GenUnitUUID(c)}
+	s.state.EXPECT().GetUnitNames(gomock.Any(), uuids).Return([]string{"foo/666", "foo/667"}, nil)
+
+	u, err := s.service.GetUnitNames(context.Background(), uuids)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(u, gc.DeepEquals, []string{"foo/666", "foo/667"})
+}
+
+func (s *applicationServiceSuite) TestGetUnitNamesErrors(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuids := []coreunit.UUID{unittesting.GenUnitUUID(c), unittesting.GenUnitUUID(c)}
+	s.state.EXPECT().GetUnitNames(gomock.Any(), uuids).Return(nil, applicationerrors.UnitNotFound)
+
+	_, err := s.service.GetUnitNames(context.Background(), uuids)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 

@@ -65,7 +65,7 @@ func (as applicationScale) toScaleState() application.ScaleState {
 }
 
 type unitDetails struct {
-	UnitID                  string    `db:"uuid"`
+	UnitUUID                string    `db:"uuid"`
 	NetNodeID               string    `db:"net_node_uuid"`
 	Name                    string    `db:"name"`
 	ApplicationID           string    `db:"application_uuid"`
@@ -73,6 +73,21 @@ type unitDetails struct {
 	PasswordHash            string    `db:"password_hash"`
 	PasswordHashAlgorithmID int       `db:"password_hash_algorithm_id"`
 }
+
+// unitName represents the name of a unit
+type unitName struct {
+	Name string `db:"name"`
+}
+
+// unitNameAndUUID store the name & uuid of a unit
+type unitNameAndUUID struct {
+	UnitUUID string `db:"uuid"`
+	Name     string `db:"name"`
+}
+
+type unitNames []string
+
+type unitUUIDs []string
 
 type minimalUnit struct {
 	ID        string    `db:"uuid"`
