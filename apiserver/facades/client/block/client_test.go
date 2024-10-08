@@ -59,7 +59,7 @@ func (s *blockSuite) TestSwitchValidBlockOn(c *gc.C) {
 		{Type: blockcommand.DestroyBlock, Message: "for TestSwitchValidBlockOn"},
 	}, nil)
 
-	s.assertSwitchBlockOn(c, blockcommand.DestroyBlock.String(), "for TestSwitchValidBlockOn")
+	s.assertSwitchBlockOn(c, params.BlockDestroy, "for TestSwitchValidBlockOn")
 }
 
 func (s *blockSuite) TestSwitchInvalidBlockOn(c *gc.C) {
@@ -86,7 +86,7 @@ func (s *blockSuite) TestSwitchBlockOff(c *gc.C) {
 	s.service.EXPECT().GetBlocks(gomock.Any()).Return(nil, nil)
 
 	off := params.BlockSwitchParams{
-		Type: blockcommand.DestroyBlock.String(),
+		Type: params.BlockDestroy,
 	}
 	err := s.api.SwitchBlockOff(context.Background(), off)
 	c.Assert(err.Error, gc.IsNil)
