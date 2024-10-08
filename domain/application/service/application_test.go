@@ -646,6 +646,8 @@ func (s *applicationServiceSuite) TestGetUnitNamesErrors(c *gc.C) {
 func (s *applicationServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.setupRunAtomic(c, 1)
+
 	providerId := ptr("provider-id")
 	passwordHash := ptr("passwordhash")
 
@@ -676,6 +678,8 @@ func (s *applicationServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 
 func (s *applicationServiceSuite) TestRegisterCAASUnitFoundAndAlive(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.setupRunAtomic(c, 1)
 
 	providerId := ptr("provider-id")
 	passwordHash := ptr("passwordhash")
@@ -823,10 +827,6 @@ func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 		Secrets:         NotImplementedSecretService{},
 	}
 	s.service = NewApplicationService(s.state, params, loggertesting.WrapCheckLog(c))
-
-	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(ctx domain.AtomicContext) error) error {
-		return fn(domaintesting.NewAtomicContext(ctx))
-	}).AnyTimes()
 
 	return ctrl
 }
