@@ -274,7 +274,7 @@ func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFail
 		return nil
 	}, nil)
 
-	s.state.EXPECT().GetSecretOwner(gomock.Any(), uri).Return(coresecrets.Owner{Kind: coresecrets.ModelOwner}, nil)
+	s.state.EXPECT().GetSecretOwner(gomock.Any(), uri).Return(domainsecret.Owner{Kind: domainsecret.ModelOwner}, nil)
 	s.state.EXPECT().CheckUserSecretLabelExists(gomock.Any(), "my secret").Return(nil)
 	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, params).
 		DoAndReturn(func(domain.AtomicContext, *coresecrets.URI, domainsecret.UpsertSecretParams) error {
@@ -448,7 +448,7 @@ func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *gc.C) {
 		rollbackCalled = true
 		return nil
 	}, nil)
-	s.state.EXPECT().GetSecretOwner(gomock.Any(), uri).Return(coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "unit-uuid"}, nil)
+	s.state.EXPECT().GetSecretOwner(gomock.Any(), uri).Return(domainsecret.Owner{Kind: domainsecret.UnitOwner, UUID: "unit-uuid"}, nil)
 	s.state.EXPECT().CheckUnitSecretLabelExists(gomock.Any(), "unit-uuid", "my secret").Return(nil)
 	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, p).Return(nil)
 
@@ -497,7 +497,7 @@ func (s *serviceSuite) TestUpdateCharmSecretForUnitOwned(c *gc.C) {
 		return nil
 	}, nil)
 
-	s.state.EXPECT().GetSecretOwner(gomock.Any(), uri).Return(coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "unit-uuid"}, nil)
+	s.state.EXPECT().GetSecretOwner(gomock.Any(), uri).Return(domainsecret.Owner{Kind: domainsecret.UnitOwner, UUID: "unit-uuid"}, nil)
 	s.state.EXPECT().CheckUnitSecretLabelExists(gomock.Any(), "unit-uuid", "my secret").Return(nil)
 	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, gomock.Any()).DoAndReturn(func(_ domain.AtomicContext, _ *coresecrets.URI, got domainsecret.UpsertSecretParams) error {
 		c.Assert(got.NextRotateTime, gc.NotNil)
@@ -554,7 +554,7 @@ func (s *serviceSuite) TestUpdateCharmSecretForAppOwned(c *gc.C) {
 		return nil
 	}, nil)
 
-	s.state.EXPECT().GetSecretOwner(gomock.Any(), uri).Return(coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "app-uuid"}, nil)
+	s.state.EXPECT().GetSecretOwner(gomock.Any(), uri).Return(domainsecret.Owner{Kind: domainsecret.ApplicationOwner, UUID: "app-uuid"}, nil)
 	s.state.EXPECT().CheckApplicationSecretLabelExists(gomock.Any(), "app-uuid", "my secret").Return(nil)
 	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, gomock.Any()).DoAndReturn(func(_ domain.AtomicContext, _ *coresecrets.URI, got domainsecret.UpsertSecretParams) error {
 		c.Assert(got.NextRotateTime, gc.NotNil)
@@ -1579,7 +1579,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretUpda
 		SubjectTypeID: domainsecret.SubjectUnit,
 	}).Return("manage", nil)
 
-	s.state.EXPECT().GetSecretOwner(gomock.Any(), uri).Return(coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "unit-uuid"}, nil)
+	s.state.EXPECT().GetSecretOwner(gomock.Any(), uri).Return(domainsecret.Owner{Kind: domainsecret.UnitOwner, UUID: "unit-uuid"}, nil)
 	s.state.EXPECT().CheckUnitSecretLabelExists(gomock.Any(), "unit-uuid", "foo").Return(nil)
 	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, domainsecret.UpsertSecretParams{
 		RotatePolicy: ptr(domainsecret.RotateNever),

@@ -30,7 +30,7 @@ type AtomicState interface {
 
 	GetApplicationUUID(ctx domain.AtomicContext, appName string) (string, error)
 	GetUnitUUID(ctx domain.AtomicContext, unitName string) (string, error)
-	GetSecretOwner(ctx domain.AtomicContext, uri *secrets.URI) (secrets.Owner, error)
+	GetSecretOwner(ctx domain.AtomicContext, uri *secrets.URI) (domainsecret.Owner, error)
 
 	CheckUserSecretLabelExists(ctx domain.AtomicContext, label string) error
 	CheckApplicationSecretLabelExists(ctx domain.AtomicContext, appUUID string, label string) error
