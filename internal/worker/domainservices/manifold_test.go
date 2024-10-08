@@ -6,6 +6,7 @@ package domainservices
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -179,6 +180,7 @@ func (s *manifoldSuite) TestNewModelDomainServices(c *gc.C) {
 		s.dbGetter,
 		s.modelObjectStoreGetter,
 		s.logger,
+		s.clock,
 	)
 	c.Assert(factory, gc.NotNil)
 }
@@ -215,7 +217,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewControllerDomainServices: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, logger.Logger) services.ControllerDomainServices {
 			return nil
 		},
-		NewModelDomainServices: func(u coremodel.UUID, wd changestream.WatchableDBGetter, pf providertracker.ProviderFactory, sosg objectstore.ModelObjectStoreGetter, l logger.Logger) services.ModelDomainServices {
+		NewModelDomainServices: func(u coremodel.UUID, wd changestream.WatchableDBGetter, pf providertracker.ProviderFactory, sosg objectstore.ModelObjectStoreGetter, l logger.Logger, c clock.Clock) services.ModelDomainServices {
 			return nil
 		},
 	}

@@ -6,12 +6,18 @@ package service
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/controller"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/domain/modelmigration"
+	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	"github.com/juju/juju/environs/envcontext"
 	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
@@ -51,32 +57,79 @@ type Service struct {
 
 	// resourceProviderGetter is a getter for getting access to the model's
 	// [ResourceProvider]
-	resourceProviderGettter func(context.Context) (ResourceProvider, error)
+	resourceProviderGetter func(context.Context) (ResourceProvider, error)
 
-	st State
+	modelUUID  model.UUID
+	modelState ModelState
+
+	clock clock.Clock
 }
 
-// State defines the interface required for accessing the underlying state of
+// ModelState defines the interface required for accessing the underlying state of
 // the model during migration.
-type State interface {
+type ModelState interface {
+	// GetControllerUUID returns the UUID of the controller.
 	GetControllerUUID(context.Context) (string, error)
 	// GetAllInstanceIDs returns all instance IDs from the current model as
 	// juju/collections set.
 	GetAllInstanceIDs(ctx context.Context) (set.Strings, error)
+	// ModelControllerInfo returns the information about the model in the
+	// controller.
+	ModelControllerInfo(ctx context.Context) (modelmigration.ModelControllerInfo, error)
+	// CreateMigration creates a migration record in the model state.
+	CreateMigration(ctx context.Context, initiatedBy names.UserTag, targetInfo migration.TargetInfo) error
 }
 
 // NewService is responsible for constructing a new [Service] to handle model migration
 // tasks.
 func NewService(
+	modelUUID model.UUID,
+	modelState ModelState,
 	instanceProviderGetter providertracker.ProviderGetter[InstanceProvider],
 	resourceProviderGetter providertracker.ProviderGetter[ResourceProvider],
-	st State,
+	clock clock.Clock,
 ) *Service {
 	return &Service{
-		instanceProviderGetter:  instanceProviderGetter,
-		resourceProviderGettter: resourceProviderGetter,
-		st:                      st,
+		modelUUID:              modelUUID,
+		modelState:             modelState,
+		instanceProviderGetter: instanceProviderGetter,
+		resourceProviderGetter: resourceProviderGetter,
+		clock:                  clock,
 	}
+}
+
+// CreateMigration is responsible for creating a migration record in the state
+// of the model that is being migrated.
+// Returns error.AlreadyExists if a migration record already exists for the
+// model.
+func (s *Service) CreateMigration(ctx context.Context, initiatedBy names.UserTag, targetInfo migration.TargetInfo) error {
+	if !names.IsValidUser(initiatedBy.Id()) {
+		return errors.Errorf("%w %q", modelmigrationerrors.InvalidUser, initiatedBy)
+	}
+
+	if err := targetInfo.Validate(); err != nil {
+		return errors.Errorf("invalid target info %w", err)
+	}
+
+	// Ensure that the controller UUID is valid.
+	controllerUUID, err := controller.ParseUUID(targetInfo.ControllerTag.Id())
+	if err != nil {
+		return errors.Errorf("cannot parse controller UUID: %w", err)
+	}
+
+	// Check if the migration is even feasible before attempting to create a
+	// migration record. The data here should be consistent with the data passed
+	// in. If it is not, then we should not proceed with the migration.
+	if info, err := s.modelState.ModelControllerInfo(ctx); err != nil {
+		return errors.Errorf("cannot get model info: %w", err)
+	} else if info.IsControllerModel {
+		return errors.Errorf("controller models can not be migrated")
+	} else if info.ControllerUUID == controllerUUID {
+		return errors.Errorf("nothing to migrate: model already located on target controller")
+	}
+
+	// Create the migration record in the model state.
+	return s.modelState.CreateMigration(ctx, initiatedBy, targetInfo)
 }
 
 // AdoptResources is responsible for taking ownership of the cloud resources of
@@ -85,7 +138,7 @@ func (s *Service) AdoptResources(
 	ctx context.Context,
 	sourceControllerVersion version.Number,
 ) error {
-	provider, err := s.resourceProviderGettter(ctx)
+	provider, err := s.resourceProviderGetter(ctx)
 
 	// Provider doesn't support adopting resources and this is ok!
 	if errors.Is(err, coreerrors.NotSupported) {
@@ -97,7 +150,7 @@ func (s *Service) AdoptResources(
 		)
 	}
 
-	controllerUUID, err := s.st.GetControllerUUID(ctx)
+	controllerUUID, err := s.modelState.GetControllerUUID(ctx)
 	if err != nil {
 		return errors.Errorf(
 			"cannot get controller uuid while adopting model cloud resources: %w",
@@ -155,7 +208,7 @@ func (s *Service) CheckMachines(
 		providerInstanceIDsSet.Add(string(instance.Id()))
 	}
 
-	instanceIDsSet, err := s.st.GetAllInstanceIDs(ctx)
+	instanceIDsSet, err := s.modelState.GetAllInstanceIDs(ctx)
 	if err != nil {
 		return nil, errors.Errorf("cannot get all instance IDs for model when checking machines: %w", err)
 	}

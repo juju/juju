@@ -9,6 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/controller"
+	controllertesting "github.com/juju/juju/core/controller/testing"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -19,20 +21,19 @@ import (
 	modelstate "github.com/juju/juju/domain/model/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type migrationSuite struct {
 	schematesting.ModelSuite
 
-	controllerUUID uuid.UUID
+	controllerUUID controller.UUID
 }
 
 var _ = gc.Suite(&migrationSuite{})
 
 func (s *migrationSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
-	s.controllerUUID = uuid.MustNewUUID()
+	s.controllerUUID = controllertesting.GenControllerUUID(c)
 
 	runner := s.TxnRunnerFactory()
 	state := modelstate.NewModelState(runner, loggertesting.WrapCheckLog(c))
@@ -110,4 +111,11 @@ func (s *migrationSuite) TestEmptyInstanceIDs(c *gc.C) {
 	instanceIDs, err := New(s.TxnRunnerFactory()).GetAllInstanceIDs(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instanceIDs, gc.HasLen, 0)
+}
+
+func (s *migrationSuite) TestModelControllerInfo(c *gc.C) {
+	info, err := New(s.TxnRunnerFactory()).ModelControllerInfo(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(info.ControllerUUID, gc.Equals, s.controllerUUID)
+	c.Check(info.IsControllerModel, gc.Equals, false)
 }

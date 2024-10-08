@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -14,6 +15,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/status"
@@ -24,7 +26,7 @@ import (
 type serviceSuite struct {
 	instanceProvider *MockInstanceProvider
 	resourceProvider *MockResourceProvider
-	state            *MockState
+	state            *MockModelState
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -33,7 +35,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.instanceProvider = NewMockInstanceProvider(ctrl)
 	s.resourceProvider = NewMockResourceProvider(ctrl)
-	s.state = NewMockState(ctrl)
+	s.state = NewMockModelState(ctrl)
 	return ctrl
 }
 
@@ -68,9 +70,11 @@ func (s *serviceSuite) TestAdoptResources(c *gc.C) {
 	).Return(nil)
 
 	err = NewService(
+		modeltesting.GenModelUUID(c),
+		s.state,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		s.state,
+		clock.WallClock,
 	).AdoptResources(context.Background(), sourceControllerVersion)
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -94,9 +98,11 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *gc.C) {
 	).AnyTimes()
 
 	err = NewService(
+		modeltesting.GenModelUUID(c),
+		s.state,
 		s.instanceProviderGetter(c),
 		resourceGetter,
-		s.state,
+		clock.WallClock,
 	).AdoptResources(context.Background(), sourceControllerVersion)
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -121,9 +127,11 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *gc.C) {
 	).Return(coreerrors.NotImplemented)
 
 	err = NewService(
+		modeltesting.GenModelUUID(c),
+		s.state,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		s.state,
+		clock.WallClock,
 	).AdoptResources(context.Background(), sourceControllerVersion)
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -147,9 +155,11 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *gc.C) {
 		Return(set.NewStrings("instance0"), nil)
 
 	_, err := NewService(
+		modeltesting.GenModelUUID(c),
+		s.state,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		s.state,
+		clock.WallClock,
 	).CheckMachines(context.Background())
 	c.Check(err, gc.ErrorMatches, "provider instance IDs.*instance1.*")
 }
@@ -171,9 +181,11 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *gc.C) {
 		Return(set.NewStrings("instance0", "instance1"), nil)
 
 	_, err := NewService(
+		modeltesting.GenModelUUID(c),
+		s.state,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		s.state,
+		clock.WallClock,
 	).CheckMachines(context.Background())
 	c.Check(err, gc.ErrorMatches, "instance IDs.*instance1.*")
 }

@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	controllertesting "github.com/juju/juju/core/controller/testing"
 	"github.com/juju/juju/core/credential"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/domain/model/state/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type baseSuite struct {
@@ -123,7 +123,7 @@ func (s *modelBootstrapSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
-	controllerUUID := uuid.MustNewUUID()
+	controllerUUID := controllertesting.GenControllerUUID(c)
 	modelUUID := modeltesting.GenModelUUID(c)
 
 	args := model.ModelCreationArgs{

@@ -8,12 +8,14 @@ import (
 	"database/sql"
 	"io"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	corecontroller "github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -40,7 +42,6 @@ import (
 	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/services"
 	jujutesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // DomainServicesSuite is a test suite that can be composed into tests that
@@ -166,7 +167,7 @@ func (s *DomainServicesSuite) SeedCloudAndCredential(c *gc.C) {
 func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 	ctx := context.Background()
 
-	controllerUUID, err := uuid.UUIDFromString(jujutesting.ControllerTag.Id())
+	controllerUUID, err := corecontroller.ParseUUID(jujutesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerArgs := modeldomain.ModelCreationArgs{
@@ -233,6 +234,7 @@ func (s *DomainServicesSuite) DomainServicesGetter(c *gc.C, objectStore coreobje
 				return objectStore, nil
 			}),
 			loggertesting.WrapCheckLog(c),
+			clock.WallClock,
 		)
 	}
 }

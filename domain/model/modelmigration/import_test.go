@@ -183,7 +183,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		userService:              i.userService,
 		modelService:             i.modelService,
 		controllerConfigService:  i.controllerConfigService,
-		readOnlyModelServiceFunc: func(_ coremodel.UUID) ReadOnlyModelService { return i.readOnlyModelService },
+		readOnlyModelServiceFunc: func(coremodel.UUID) ReadOnlyModelService { return i.readOnlyModelService },
 	}
 
 	coordinator := modelmigration.NewCoordinator(

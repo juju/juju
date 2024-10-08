@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/assumes"
+	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
@@ -44,7 +45,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -58,7 +58,7 @@ type modelInfoSuite struct {
 	controllerUserInfo       []coremodel.ModelUserInfo
 	modelUserInfo            []coremodel.ModelUserInfo
 	mockSecretBackendService *mocks.MockSecretBackendService
-	controllerUUID           uuid.UUID
+	controllerUUID           controller.UUID
 	mockAccessService        *mocks.MockAccessService
 	mockModelService         *mocks.MockModelService
 	mockApplicationService   *mocks.MockApplicationService
@@ -73,7 +73,7 @@ var _ = gc.Suite(&modelInfoSuite{})
 
 func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	var err error
-	s.controllerUUID, err = uuid.UUIDFromString(coretesting.ControllerTag.Id())
+	s.controllerUUID, err = controller.ParseUUID(coretesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BaseSuite.SetUpTest(c)
