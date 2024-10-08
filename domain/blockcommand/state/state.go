@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
+
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/blockcommand"
@@ -62,7 +63,7 @@ func (s *State) SetBlock(ctx context.Context, t blockcommand.BlockType, message 
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var outcome sqlair.Outcome
-		if err := tx.Query(ctx, stmt, bc).Get(&outcome); database.IsErrConstraintPrimaryKey(err) {
+		if err := tx.Query(ctx, stmt, bc).Get(&outcome); database.IsErrConstraintPrimaryKey(err) || database.IsErrConstraintUnique(err) {
 			return blockcommanderrors.AlreadyExists
 		} else if err != nil {
 			return errors.Errorf("inserting block command: %w", err)

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/rpc/params"
@@ -113,11 +112,11 @@ func (a *API) SwitchBlockOff(ctx context.Context, args params.BlockSwitchParams)
 
 func parseBlockType(str string) (blockcommand.BlockType, error) {
 	switch str {
-	case model.BlockDestroy:
+	case params.BlockDestroy:
 		return blockcommand.DestroyBlock, nil
-	case model.BlockRemove:
+	case params.BlockRemove:
 		return blockcommand.RemoveBlock, nil
-	case model.BlockChange:
+	case params.BlockChange:
 		return blockcommand.ChangeBlock, nil
 	default:
 		return -1, errors.NotValidf("unknown block type %q", str)

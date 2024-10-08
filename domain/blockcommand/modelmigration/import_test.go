@@ -6,13 +6,13 @@ package modelmigration
 import (
 	"context"
 
+	"github.com/juju/description/v8"
+	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/description/v8"
 	"github.com/juju/juju/domain/blockcommand"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type importSuite struct {

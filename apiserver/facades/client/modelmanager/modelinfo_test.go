@@ -1085,7 +1085,6 @@ type mockState struct {
 	machines        []common.Machine
 	controllerNodes []common.ControllerNode
 	cfgDefaults     config.ModelDefaultAttributes
-	blockMsg        string
 	migration       *mockMigration
 	modelConfig     *config.Config
 }
