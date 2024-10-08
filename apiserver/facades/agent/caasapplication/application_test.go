@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
@@ -90,6 +91,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 		s.ControllerDomainServices(c).ControllerConfig(),
 		s.applicationService,
 		s.ControllerDomainServices(c).Config(),
+		&mockModelAgent{agentVersion: version.MustParse("1.9.99")},
 		s.broker,
 		s.clock,
 		loggertesting.WrapCheckLog(c),

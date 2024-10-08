@@ -16,7 +16,6 @@ import (
 	sshclient "github.com/juju/juju/apiserver/facades/client/sshclient"
 	network "github.com/juju/juju/core/network"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
-	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
@@ -298,45 +297,6 @@ func NewMockModel(ctrl *gomock.Controller) *MockModel {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModel) EXPECT() *MockModelMockRecorder {
 	return m.recorder
-}
-
-// Config mocks base method.
-func (m *MockModel) Config() (*config.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Config")
-	ret0, _ := ret[0].(*config.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Config indicates an expected call of Config.
-func (mr *MockModelMockRecorder) Config() *MockModelConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockModel)(nil).Config))
-	return &MockModelConfigCall{Call: call}
-}
-
-// MockModelConfigCall wrap *gomock.Call
-type MockModelConfigCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelConfigCall) Return(arg0 *config.Config, arg1 error) *MockModelConfigCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelConfigCall) Do(f func() (*config.Config, error)) *MockModelConfigCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelConfigCall) DoAndReturn(f func() (*config.Config, error)) *MockModelConfigCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // ControllerUUID mocks base method.

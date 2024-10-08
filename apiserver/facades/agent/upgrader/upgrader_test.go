@@ -45,6 +45,7 @@ type upgraderSuite struct {
 	store      objectstore.ObjectStore
 
 	controllerConfigGetter *MockControllerConfigGetter
+	agentService           *MockModelAgentService
 	isUpgrader             *MockUpgrader
 }
 
@@ -547,8 +548,6 @@ func (s *upgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
 }
 
 func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
-	defer s.setupMocks(c).Finish()
-
 	// In order to call SetModelAgentVersion we have to first SetTools on
 	// all the existing machines
 	current := coretesting.CurrentVersion()
@@ -560,13 +559,6 @@ func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
 	newer.Patch++
 	err = s.hosted.SetModelAgentVersion(newer.Number, nil, false, s.isUpgrader)
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.hosted.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := m.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	vers, ok := cfg.AgentVersion()
-	c.Assert(ok, jc.IsTrue)
-	c.Check(vers, gc.Equals, newer.Number)
 	return newer.Number
 }
 
@@ -574,6 +566,8 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newVersion := s.bumpDesiredAgentVersion(c)
+	s.agentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(newVersion, nil)
+
 	// Grab a different Upgrader for the apiMachine
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.apiMachine.Tag(),
@@ -589,7 +583,7 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 		domainServices.Cloud(),
 		domainServices.Credential(),
 		domainServices.Config(),
-		domainServices.Agent(), s.store,
+		s.agentService, s.store,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{{Tag: s.apiMachine.Tag().String()}}}
@@ -621,6 +615,7 @@ func (s *upgraderSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
+	s.agentService = NewMockModelAgentService(ctrl)
 	s.isUpgrader = NewMockUpgrader(ctrl)
 	s.isUpgrader.EXPECT().IsUpgrading().Return(false, nil).AnyTimes()
 

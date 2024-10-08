@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/core/network"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -29,7 +28,6 @@ type Backend interface {
 // Model defines a point of use interface for the model from state.
 type Model interface {
 	ControllerUUID() string
-	Config() (*config.Config, error)
 	Type() state.ModelType
 }
 
