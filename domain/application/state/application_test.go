@@ -1297,11 +1297,11 @@ func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(unitName, gc.Equals, "foo/666")
 	s.assertUnitStatus(
-		c, "unit_agent", unitUUID,
+		c, "unit_agent", coreunit.UUID(unitUUID),
 		int(u.UnitStatusArg.AgentStatus.StatusID), u.UnitStatusArg.AgentStatus.Message,
 		u.UnitStatusArg.AgentStatus.Since, u.UnitStatusArg.AgentStatus.Data)
 	s.assertUnitStatus(
-		c, "unit_workload", unitUUID,
+		c, "unit_workload", coreunit.UUID(unitUUID),
 		int(u.UnitStatusArg.WorkloadStatus.StatusID), u.UnitStatusArg.WorkloadStatus.Message,
 		u.UnitStatusArg.WorkloadStatus.Since, u.UnitStatusArg.WorkloadStatus.Data)
 }
@@ -1839,7 +1839,7 @@ func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.L
 	return appID
 }
 
-func (s *applicationStateSuite) addUnit(c *gc.C, appID coreapplication.ID, u application.InsertUnitArg) string {
+func (s *applicationStateSuite) addUnit(c *gc.C, appID coreapplication.ID, u application.InsertUnitArg) coreunit.UUID {
 	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		return s.state.InsertUnit(ctx, appID, u)
 	})
@@ -1850,5 +1850,5 @@ func (s *applicationStateSuite) addUnit(c *gc.C, appID coreapplication.ID, u app
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return unitUUID
+	return coreunit.UUID(unitUUID)
 }

@@ -615,10 +615,10 @@ func (c *MockApplicationStateGetUnitNamesCall) DoAndReturn(f func(context.Contex
 }
 
 // GetUnitUUID mocks base method.
-func (m *MockApplicationState) GetUnitUUID(arg0 domain.AtomicContext, arg1 string) (string, error) {
+func (m *MockApplicationState) GetUnitUUID(arg0 domain.AtomicContext, arg1 string) (unit.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitUUID", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(unit.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -636,19 +636,19 @@ type MockApplicationStateGetUnitUUIDCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationStateGetUnitUUIDCall) Return(arg0 string, arg1 error) *MockApplicationStateGetUnitUUIDCall {
+func (c *MockApplicationStateGetUnitUUIDCall) Return(arg0 unit.UUID, arg1 error) *MockApplicationStateGetUnitUUIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateGetUnitUUIDCall) Do(f func(domain.AtomicContext, string) (string, error)) *MockApplicationStateGetUnitUUIDCall {
+func (c *MockApplicationStateGetUnitUUIDCall) Do(f func(domain.AtomicContext, string) (unit.UUID, error)) *MockApplicationStateGetUnitUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateGetUnitUUIDCall) DoAndReturn(f func(domain.AtomicContext, string) (string, error)) *MockApplicationStateGetUnitUUIDCall {
+func (c *MockApplicationStateGetUnitUUIDCall) DoAndReturn(f func(domain.AtomicContext, string) (unit.UUID, error)) *MockApplicationStateGetUnitUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -884,7 +884,7 @@ func (c *MockApplicationStateSetApplicationScalingStateCall) DoAndReturn(f func(
 }
 
 // SetCloudContainerStatus mocks base method.
-func (m *MockApplicationState) SetCloudContainerStatus(arg0 domain.AtomicContext, arg1 string, arg2 application0.CloudContainerStatusStatusInfo) error {
+func (m *MockApplicationState) SetCloudContainerStatus(arg0 domain.AtomicContext, arg1 unit.UUID, arg2 application0.CloudContainerStatusStatusInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetCloudContainerStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -910,13 +910,13 @@ func (c *MockApplicationStateSetCloudContainerStatusCall) Return(arg0 error) *Mo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateSetCloudContainerStatusCall) Do(f func(domain.AtomicContext, string, application0.CloudContainerStatusStatusInfo) error) *MockApplicationStateSetCloudContainerStatusCall {
+func (c *MockApplicationStateSetCloudContainerStatusCall) Do(f func(domain.AtomicContext, unit.UUID, application0.CloudContainerStatusStatusInfo) error) *MockApplicationStateSetCloudContainerStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateSetCloudContainerStatusCall) DoAndReturn(f func(domain.AtomicContext, string, application0.CloudContainerStatusStatusInfo) error) *MockApplicationStateSetCloudContainerStatusCall {
+func (c *MockApplicationStateSetCloudContainerStatusCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID, application0.CloudContainerStatusStatusInfo) error) *MockApplicationStateSetCloudContainerStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -960,7 +960,7 @@ func (c *MockApplicationStateSetDesiredApplicationScaleCall) DoAndReturn(f func(
 }
 
 // SetUnitAgentStatus mocks base method.
-func (m *MockApplicationState) SetUnitAgentStatus(arg0 domain.AtomicContext, arg1 string, arg2 application0.UnitAgentStatusInfo) error {
+func (m *MockApplicationState) SetUnitAgentStatus(arg0 domain.AtomicContext, arg1 unit.UUID, arg2 application0.UnitAgentStatusInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetUnitAgentStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -986,13 +986,13 @@ func (c *MockApplicationStateSetUnitAgentStatusCall) Return(arg0 error) *MockApp
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateSetUnitAgentStatusCall) Do(f func(domain.AtomicContext, string, application0.UnitAgentStatusInfo) error) *MockApplicationStateSetUnitAgentStatusCall {
+func (c *MockApplicationStateSetUnitAgentStatusCall) Do(f func(domain.AtomicContext, unit.UUID, application0.UnitAgentStatusInfo) error) *MockApplicationStateSetUnitAgentStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateSetUnitAgentStatusCall) DoAndReturn(f func(domain.AtomicContext, string, application0.UnitAgentStatusInfo) error) *MockApplicationStateSetUnitAgentStatusCall {
+func (c *MockApplicationStateSetUnitAgentStatusCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID, application0.UnitAgentStatusInfo) error) *MockApplicationStateSetUnitAgentStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1036,7 +1036,7 @@ func (c *MockApplicationStateSetUnitLifeCall) DoAndReturn(f func(domain.AtomicCo
 }
 
 // SetUnitPassword mocks base method.
-func (m *MockApplicationState) SetUnitPassword(arg0 domain.AtomicContext, arg1 string, arg2 application0.PasswordInfo) error {
+func (m *MockApplicationState) SetUnitPassword(arg0 domain.AtomicContext, arg1 unit.UUID, arg2 application0.PasswordInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetUnitPassword", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1062,19 +1062,19 @@ func (c *MockApplicationStateSetUnitPasswordCall) Return(arg0 error) *MockApplic
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateSetUnitPasswordCall) Do(f func(domain.AtomicContext, string, application0.PasswordInfo) error) *MockApplicationStateSetUnitPasswordCall {
+func (c *MockApplicationStateSetUnitPasswordCall) Do(f func(domain.AtomicContext, unit.UUID, application0.PasswordInfo) error) *MockApplicationStateSetUnitPasswordCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateSetUnitPasswordCall) DoAndReturn(f func(domain.AtomicContext, string, application0.PasswordInfo) error) *MockApplicationStateSetUnitPasswordCall {
+func (c *MockApplicationStateSetUnitPasswordCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID, application0.PasswordInfo) error) *MockApplicationStateSetUnitPasswordCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetUnitWorkloadStatus mocks base method.
-func (m *MockApplicationState) SetUnitWorkloadStatus(arg0 domain.AtomicContext, arg1 string, arg2 application0.UnitWorkloadStatusInfo) error {
+func (m *MockApplicationState) SetUnitWorkloadStatus(arg0 domain.AtomicContext, arg1 unit.UUID, arg2 application0.UnitWorkloadStatusInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetUnitWorkloadStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1100,13 +1100,13 @@ func (c *MockApplicationStateSetUnitWorkloadStatusCall) Return(arg0 error) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateSetUnitWorkloadStatusCall) Do(f func(domain.AtomicContext, string, application0.UnitWorkloadStatusInfo) error) *MockApplicationStateSetUnitWorkloadStatusCall {
+func (c *MockApplicationStateSetUnitWorkloadStatusCall) Do(f func(domain.AtomicContext, unit.UUID, application0.UnitWorkloadStatusInfo) error) *MockApplicationStateSetUnitWorkloadStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateSetUnitWorkloadStatusCall) DoAndReturn(f func(domain.AtomicContext, string, application0.UnitWorkloadStatusInfo) error) *MockApplicationStateSetUnitWorkloadStatusCall {
+func (c *MockApplicationStateSetUnitWorkloadStatusCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID, application0.UnitWorkloadStatusInfo) error) *MockApplicationStateSetUnitWorkloadStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -104,8 +104,8 @@ func (s *applicationServiceSuite) TestImportApplication(c *gc.C) {
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", app).Return(id, nil)
-	s.state.EXPECT().InsertUnit(gomock.Any(), id, u)
+	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "ubuntu", app).Return(id, nil)
+	s.state.EXPECT().InsertUnit(domaintesting.IsAtomicContextChecker, id, u)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -185,8 +185,8 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", app).Return(id, nil)
-	s.state.EXPECT().AddUnits(gomock.Any(), id, u)
+	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "ubuntu", app).Return(id, nil)
+	s.state.EXPECT().AddUnits(domaintesting.IsAtomicContextChecker, id, u)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -309,7 +309,7 @@ func (s *applicationServiceSuite) TestCreateApplicationError(c *gc.C) {
 	rErr := errors.New("boom")
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", gomock.Any()).Return(id, rErr)
+	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "foo", gomock.Any()).Return(id, rErr)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -383,8 +383,8 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app).Return(id, nil)
-	s.state.EXPECT().AddUnits(gomock.Any(), id, u)
+	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "foo", app).Return(id, nil)
+	s.state.EXPECT().AddUnits(domaintesting.IsAtomicContextChecker, id, u)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -473,8 +473,8 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultBlockSource: ptr("fast")}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app).Return(id, nil)
-	s.state.EXPECT().AddUnits(gomock.Any(), id, u)
+	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "foo", app).Return(id, nil)
+	s.state.EXPECT().AddUnits(domaintesting.IsAtomicContextChecker, id, u)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -566,8 +566,8 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app).Return(id, nil)
-	s.state.EXPECT().AddUnits(gomock.Any(), id, u)
+	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "foo", app).Return(id, nil)
+	s.state.EXPECT().AddUnits(domaintesting.IsAtomicContextChecker, id, u)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -656,8 +656,8 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultFilesystemSource: ptr("fast")}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app).Return(id, nil)
-	s.state.EXPECT().AddUnits(gomock.Any(), id, u)
+	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "foo", app).Return(id, nil)
+	s.state.EXPECT().AddUnits(domaintesting.IsAtomicContextChecker, id, u)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -775,8 +775,8 @@ func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 	}
 	appID := applicationtesting.GenApplicationUUID(c)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
-	s.state.EXPECT().GetApplicationID(gomock.Any(), "666").Return(appID, nil)
-	s.state.EXPECT().AddUnits(gomock.Any(), appID, u).Return(nil)
+	s.state.EXPECT().GetApplicationID(domaintesting.IsAtomicContextChecker, "666").Return(appID, nil)
+	s.state.EXPECT().AddUnits(domaintesting.IsAtomicContextChecker, appID, u).Return(nil)
 
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
@@ -849,11 +849,9 @@ func (s *applicationServiceSuite) TestGetUnitNamesErrors(c *gc.C) {
 func (s *applicationServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupRunAtomic(c, 1)
-
-	s.state.EXPECT().GetApplicationID(gomock.Any(), "foo").Return("app-id", nil)
-	s.state.EXPECT().GetUnitLife(gomock.Any(), "foo/666").Return(life.Alive, nil)
-	s.state.EXPECT().UpdateUnitContainer(gomock.Any(), "foo/666", &application.CloudContainer{
+	s.state.EXPECT().GetApplicationID(domaintesting.IsAtomicContextChecker, "foo").Return("app-id", nil)
+	s.state.EXPECT().GetUnitLife(domaintesting.IsAtomicContextChecker, "foo/666").Return(life.Alive, nil)
+	s.state.EXPECT().UpdateUnitContainer(domaintesting.IsAtomicContextChecker, "foo/666", &application.CloudContainer{
 		ProviderId: "provider-id",
 		Address: &application.ContainerAddress{
 			Device: application.ContainerDevice{
@@ -869,8 +867,9 @@ func (s *applicationServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 		},
 		Ports: ptr([]string{"666"}),
 	})
-	s.state.EXPECT().GetUnitUUID(gomock.Any(), "foo/666").Return("unit-uuid", nil)
-	s.state.EXPECT().SetUnitPassword(gomock.Any(), "unit-uuid", application.PasswordInfo{
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, "foo/666").Return(unitUUID, nil)
+	s.state.EXPECT().SetUnitPassword(domaintesting.IsAtomicContextChecker, unitUUID, application.PasswordInfo{
 		PasswordHash:  "passwordhash",
 		HashAlgorithm: 0,
 	})
@@ -881,45 +880,6 @@ func (s *applicationServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 		ProviderId:   "provider-id",
 		Address:      ptr("10.6.6.6"),
 		Ports:        ptr([]string{"666"}),
-		OrderedScale: true,
-		OrderedId:    1,
-	}
-	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *applicationServiceSuite) TestRegisterCAASUnitFoundAndAlive(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.setupRunAtomic(c, 1)
-
-	providerId := ptr("provider-id")
-	passwordHash := ptr("passwordhash")
-
-	appUUID := applicationtesting.GenApplicationUUID(c)
-	s.state.EXPECT().GetApplicationID(domaintesting.IsAtomicContextChecker, "foo").Return(appUUID, nil)
-	s.state.EXPECT().GetUnitLife(domaintesting.IsAtomicContextChecker, "foo/666").Return(life.Alive, nil)
-	s.state.EXPECT().UpdateUnitContainer(gomock.Any(), "foo/666", &application.CloudContainer{
-		ProviderId: "provider-id",
-		Address: &application.ContainerAddress{
-			Device: application.ContainerDevice{
-				Name:              `placeholder for "foo/666" cloud container`,
-				DeviceTypeID:      0,
-				VirtualPortTypeID: 0,
-			},
-			Value:       "10.6.6.6",
-			AddressType: 0,
-			Scope:       3,
-			Origin:      1,
-			ConfigType:  1,
-		},
-		Ports: ptr([]string{"666"}),
-	})
-
-	p := RegisterCAASUnitParams{
-		UnitName:     "foo/666",
-		PasswordHash: passwordHash,
-		ProviderId:   providerId,
 		OrderedScale: true,
 		OrderedId:    1,
 	}
@@ -974,12 +934,10 @@ func (s *applicationServiceSuite) TestRegisterCAASUnitMissingPasswordHash(c *gc.
 func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupRunAtomic(c, 1)
-
 	appID := applicationtesting.GenApplicationUUID(c)
-	unitUUID := "unit-uuid"
-	s.state.EXPECT().GetApplicationLife(gomock.Any(), "foo").Return(appID, life.Alive, nil)
-	s.state.EXPECT().UpdateUnitContainer(gomock.Any(), "foo/666", &application.CloudContainer{
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.state.EXPECT().GetApplicationLife(domaintesting.IsAtomicContextChecker, "foo").Return(appID, life.Alive, nil)
+	s.state.EXPECT().UpdateUnitContainer(domaintesting.IsAtomicContextChecker, "foo/666", &application.CloudContainer{
 		ProviderId: "provider-id",
 		Address: &application.ContainerAddress{
 			Device: application.ContainerDevice{
@@ -995,10 +953,10 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 		},
 		Ports: ptr([]string{"666"}),
 	})
-	s.state.EXPECT().GetUnitUUID(gomock.Any(), "foo/666").Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, "foo/666").Return(unitUUID, nil)
 
 	now := time.Now()
-	s.state.EXPECT().SetUnitAgentStatus(gomock.Any(), unitUUID, application.UnitAgentStatusInfo{
+	s.state.EXPECT().SetUnitAgentStatus(domaintesting.IsAtomicContextChecker, unitUUID, application.UnitAgentStatusInfo{
 		StatusID: application.UnitAgentStatusIdle,
 		StatusInfo: application.StatusInfo{
 			Message: "agent status",
@@ -1006,7 +964,7 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 			Since:   now,
 		},
 	})
-	s.state.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, application.UnitWorkloadStatusInfo{
+	s.state.EXPECT().SetUnitWorkloadStatus(domaintesting.IsAtomicContextChecker, unitUUID, application.UnitWorkloadStatusInfo{
 		StatusID: application.UnitWorkloadStatusWaiting,
 		StatusInfo: application.StatusInfo{
 			Message: "workload status",
@@ -1014,7 +972,7 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 			Since:   now,
 		},
 	})
-	s.state.EXPECT().SetCloudContainerStatus(gomock.Any(), unitUUID, application.CloudContainerStatusStatusInfo{
+	s.state.EXPECT().SetCloudContainerStatus(domaintesting.IsAtomicContextChecker, unitUUID, application.CloudContainerStatusStatusInfo{
 		StatusID: application.CloudContainerStatusRunning,
 		StatusInfo: application.StatusInfo{
 			Message: "container status",
@@ -1053,7 +1011,7 @@ func (s *applicationServiceSuite) TestUpdateCAASUnitNotAlive(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
-	s.state.EXPECT().GetApplicationLife(gomock.Any(), "foo").Return(id, life.Dying, nil)
+	s.state.EXPECT().GetApplicationLife(domaintesting.IsAtomicContextChecker, "foo").Return(id, life.Dying, nil)
 
 	err := s.service.UpdateCAASUnit(context.Background(), "foo/666", UpdateCAASUnitParams{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
@@ -1062,8 +1020,9 @@ func (s *applicationServiceSuite) TestUpdateCAASUnitNotAlive(c *gc.C) {
 func (s *applicationServiceSuite) TestSetUnitPassword(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetUnitUUID(gomock.Any(), "foo/666").Return("unit-id", nil)
-	s.state.EXPECT().SetUnitPassword(gomock.Any(), "unit-id", application.PasswordInfo{
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, "foo/666").Return(unitUUID, nil)
+	s.state.EXPECT().SetUnitPassword(domaintesting.IsAtomicContextChecker, unitUUID, application.PasswordInfo{
 		PasswordHash:  "password",
 		HashAlgorithm: 0,
 	})
@@ -1138,19 +1097,11 @@ func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.service = NewApplicationService(s.state, params, loggertesting.WrapCheckLog(c))
 	s.service.clock = s.clock
 
-	mockAtomicContext := NewMockAtomicContext(ctrl)
-	mockAtomicContext.EXPECT().Context().Return(context.Background()).AnyTimes()
-	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(atomicContext domain.AtomicContext) error) error {
-		return f(mockAtomicContext)
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(ctx domain.AtomicContext) error) error {
+		return fn(domaintesting.NewAtomicContext(ctx))
 	}).AnyTimes()
 
 	return ctrl
-}
-
-func (s *applicationServiceSuite) setupRunAtomic(c *gc.C, attempts int) {
-	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(ctx domain.AtomicContext) error) error {
-		return f(domaintesting.NewAtomicContext(ctx))
-	}).Times(attempts)
 }
 
 type providerApplicationServiceSuite struct {

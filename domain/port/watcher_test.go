@@ -86,19 +86,31 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 // to the net node with uuid `netNodeUUID`.
 func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.UUID, coreapplication.ID) {
 	applicationSt := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
-	_, err := applicationSt.CreateApplication(context.Background(), appName, application.AddApplicationArg{
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name: appName,
-			},
-		},
-	})
-	c.Assert(err == nil || errors.Is(err, applicationerrors.ApplicationAlreadyExists), jc.IsTrue)
-
 	unitName := fmt.Sprintf("%s/%d", appName, s.unitCount)
-	err = applicationSt.AddUnits(context.Background(), appName, application.UpsertUnitArg{UnitName: unitName})
+	err := applicationSt.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		appID, err := applicationSt.GetApplicationID(ctx, appName)
+		if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
+			return err
+		}
+		if err != nil {
+			if appID, err = applicationSt.CreateApplication(ctx, appName, application.AddApplicationArg{
+				Charm: charm.Charm{
+					Metadata: charm.Metadata{
+						Name: appName,
+					},
+				},
+			}); err != nil {
+				return err
+			}
+		}
+		err = applicationSt.AddUnits(ctx, appID, application.AddUnitArg{UnitName: unitName})
+		if err != nil {
+			return err
+		}
+		s.unitCount++
+		return nil
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.unitCount++
 
 	var (
 		unitUUID coreunit.UUID

@@ -59,7 +59,7 @@ type AtomicApplicationState interface {
 
 	// GetUnitUUID returns the UUID for the named unit, returning an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	GetUnitUUID(ctx domain.AtomicContext, unitName string) (string, error)
+	GetUnitUUID(ctx domain.AtomicContext, unitName string) (coreunit.UUID, error)
 
 	// CreateApplication creates an application, returning an error satisfying
 	// [applicationerrors.ApplicationAlreadyExists] if the application already exists.
@@ -81,19 +81,19 @@ type AtomicApplicationState interface {
 	UpdateUnitContainer(ctx domain.AtomicContext, unitName string, container *application.CloudContainer) error
 
 	// SetUnitPassword updates the password for the specified unit UUID.
-	SetUnitPassword(ctx domain.AtomicContext, unitUUID string, passwordInfo application.PasswordInfo) error
+	SetUnitPassword(ctx domain.AtomicContext, unitUUID coreunit.UUID, passwordInfo application.PasswordInfo) error
 
 	// SetCloudContainerStatus saves the given cloud container status, overwriting any current status data.
 	// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	SetCloudContainerStatus(ctx domain.AtomicContext, unitUUID string, status application.CloudContainerStatusStatusInfo) error
+	SetCloudContainerStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.CloudContainerStatusStatusInfo) error
 
 	// SetUnitAgentStatus saves the given unit agent status, overwriting any current status data.
 	// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	SetUnitAgentStatus(ctx domain.AtomicContext, unitUUID string, status application.UnitAgentStatusInfo) error
+	SetUnitAgentStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitAgentStatusInfo) error
 
 	// SetUnitWorkloadStatus saves the given unit workload status, overwriting any current status data.
 	// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	SetUnitWorkloadStatus(ctx domain.AtomicContext, unitUUID string, status application.UnitWorkloadStatusInfo) error
+	SetUnitWorkloadStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitWorkloadStatusInfo) error
 
 	// GetApplicationLife looks up the life of the specified application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application is not found.
