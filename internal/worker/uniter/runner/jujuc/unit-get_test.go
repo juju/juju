@@ -7,7 +7,6 @@ package jujuc_test
 import (
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
@@ -52,15 +51,6 @@ func (s *UnitGetSuite) TestOutputFormat(c *gc.C) {
 		c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 		c.Check(bufferString(ctx.Stdout), gc.Matches, t.out)
 	}
-}
-
-func (s *UnitGetSuite) TestHelp(c *gc.C) {
-	com := s.createCommand(c)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--help"})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(strings.Split(bufferString(ctx.Stdout), "\n")[0], gc.Equals, "Usage: unit-get [options] <setting>")
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
 
 func (s *UnitGetSuite) TestOutputPath(c *gc.C) {

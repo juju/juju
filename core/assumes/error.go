@@ -62,15 +62,6 @@ func requirementsNotSatisfied(message string, errList []error) *RequirementsNotS
 		}
 	}
 
-	if len(featNames) != 0 {
-		buf.WriteString("\nFeature descriptions:\n")
-		for _, featName := range featNames.SortedValues() {
-			buf.WriteString(fmt.Sprintf("  - %q: %s\n", featName, notSatFeatureDescrs[featName]))
-		}
-	}
-
-	buf.WriteString("\nFor additional information please see: " + featureDocsURL)
-
 	return &RequirementsNotSatisfiedError{
 		message: buf.String(),
 	}

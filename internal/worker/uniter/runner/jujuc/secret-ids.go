@@ -31,15 +31,15 @@ func (c *secretIdsCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *secretIdsCommand) Info() *cmd.Info {
 	doc := `
 Returns the secret ids for secrets owned by the application.
-
-Examples:
-
+`
+	examples := `
     secret-ids
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    "secret-ids",
-		Purpose: "Print secret IDs.",
-		Doc:     doc,
+		Name:     "secret-ids",
+		Purpose:  "Print secret IDs.",
+		Doc:      doc,
+		Examples: examples,
 	})
 }
 

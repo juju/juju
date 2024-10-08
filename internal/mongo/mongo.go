@@ -188,8 +188,11 @@ type EnsureServerParams struct {
 	// SystemIdentity is the identity of the system.
 	SystemIdentity string
 
-	// DataDir is the machine agent data directory.
-	DataDir string
+	// MongoDataDir is the machine agent mongo data directory.
+	MongoDataDir string
+
+	// JujuDataDir is the directory where juju data is stored.
+	JujuDataDir string
 
 	// ConfigDir is where mongo config goes.
 	ConfigDir string
@@ -226,8 +229,11 @@ func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweak
 	tweakSysctlForMongo(mongoKernelTweaks)
 
 	mongoDep := dependency.Mongo(args.JujuDBSnapChannel)
-	if args.DataDir == "" {
-		args.DataDir = dataPathForJujuDbSnap
+	if args.MongoDataDir == "" {
+		args.MongoDataDir = dataPathForJujuDbSnap
+	}
+	if args.JujuDataDir == "" {
+		args.JujuDataDir = dataPathForJuju
 	}
 	if args.ConfigDir == "" {
 		args.ConfigDir = systemd.EtcSystemdDir
@@ -235,7 +241,7 @@ func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweak
 
 	logger.Infof(
 		"Ensuring mongo server is running; data directory %s; port %d",
-		args.DataDir, args.StatePort,
+		args.MongoDataDir, args.StatePort,
 	)
 
 	if err := setupDataDirectory(args); err != nil {
@@ -243,7 +249,7 @@ func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweak
 	}
 
 	// TODO(wallyworld) - set up Numactl if requested in args.SetNUMAControlPolicy
-	svc, err := mongoSnapService(args.DataDir, args.ConfigDir, args.JujuDBSnapChannel)
+	svc, err := mongoSnapService(args.JujuDataDir, args.ConfigDir, args.JujuDBSnapChannel)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create mongo snap service")
 	}
@@ -266,7 +272,7 @@ func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweak
 
 	oplogSizeMB := args.OplogSize
 	if oplogSizeMB == 0 {
-		oplogSizeMB, err = defaultOplogSize(dbDir(args.DataDir))
+		oplogSizeMB, err = defaultOplogSize(dbDir(args.MongoDataDir))
 		if err != nil {
 			return errors.Annotatef(err, "unable to calculate default oplog size")
 		}
@@ -276,11 +282,11 @@ func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweak
 
 	// Update snap configuration.
 	// TODO(tsm): refactor out to service.Configure
-	err = mongoArgs.writeConfig(configPath(args.DataDir))
+	err = mongoArgs.writeConfig(configPath(args.MongoDataDir))
 	if err != nil {
 		return errors.Annotatef(err, "unable to write config")
 	}
-	if err := snap.SetSnapConfig(ServiceName, "configpath", configPath(args.DataDir)); err != nil {
+	if err := snap.SetSnapConfig(ServiceName, "configpath", configPath(args.MongoDataDir)); err != nil {
 		return errors.Annotatef(err, "unable to set snap config")
 	}
 
@@ -356,19 +362,19 @@ func ensureMongoServiceRunning(ctx context.Context, svc MongoSnapService) error 
 }
 
 func setupDataDirectory(args EnsureServerParams) error {
-	dbDir := dbDir(args.DataDir)
+	dbDir := dbDir(args.MongoDataDir)
 	if err := os.MkdirAll(dbDir, 0700); err != nil {
 		return errors.Annotate(err, "cannot create mongo database directory")
 	}
 
 	// TODO(fix): rather than copy, we should ln -s coz it could be changed later!!!
-	if err := UpdateSSLKey(args.DataDir, args.Cert, args.PrivateKey); err != nil {
+	if err := UpdateSSLKey(args.MongoDataDir, args.Cert, args.PrivateKey); err != nil {
 		return errors.Trace(err)
 	}
 
-	err := utils.AtomicWriteFile(sharedSecretPath(args.DataDir), []byte(args.SharedSecret), 0600)
+	err := utils.AtomicWriteFile(sharedSecretPath(args.MongoDataDir), []byte(args.SharedSecret), 0600)
 	if err != nil {
-		return errors.Annotatef(err, "cannot write mongod shared secret to %v", sharedSecretPath(args.DataDir))
+		return errors.Annotatef(err, "cannot write mongod shared secret to %v", sharedSecretPath(args.MongoDataDir))
 	}
 
 	if err := os.MkdirAll(logPath(dbDir), 0755); err != nil {
@@ -422,17 +428,26 @@ func logVersion(mongoPath string) {
 }
 
 func mongoSnapService(dataDir, configDir, snapChannel string) (MongoSnapService, error) {
-	snapName := JujuDbSnap
 	jujuDbLocalSnapPattern := regexp.MustCompile(`juju-db_[0-9]+\.snap`)
+	jujuDbLocalAssertsPattern := regexp.MustCompile(`juju-db_[0-9]+\.assert`)
 
 	// If we're installing a local snap, then provide an absolute path
 	// as a snap <name>. snap install <name> will then do the Right Thing (TM).
-	files, err := os.ReadDir(path.Join(dataDir, "snap"))
+	snapDir := path.Join(dataDir, "snap")
+	files, err := os.ReadDir(snapDir)
+
+	var (
+		snapPath        string
+		snapAssertsPath string
+	)
 	if err == nil {
 		for _, fullFileName := range files {
-			_, fileName := path.Split(fullFileName.Name())
+			fileName := fullFileName.Name()
 			if jujuDbLocalSnapPattern.MatchString(fileName) {
-				snapName = fullFileName.Name()
+				snapPath = path.Join(snapDir, fileName)
+			}
+			if jujuDbLocalAssertsPattern.MatchString(fileName) {
+				snapAssertsPath = path.Join(snapDir, fileName)
 			}
 		}
 	}
@@ -448,8 +463,17 @@ func mongoSnapService(dataDir, configDir, snapChannel string) (MongoSnapService,
 		Desc:  ServiceName + " snap",
 		Limit: mongoULimits,
 	}
-	svc, err := newSnapService(
-		snapName, ServiceName, conf, snap.Command, configDir, snapChannel, "", backgroundServices, []snap.Installable{})
+
+	svc, err := newSnapService(snap.ServiceConfig{
+		ServiceName:        ServiceName,
+		SnapPath:           snapPath,
+		SnapAssertsPath:    snapAssertsPath,
+		Conf:               conf,
+		SnapExecutable:     snap.Command,
+		ConfigDir:          configDir,
+		Channel:            snapChannel,
+		BackgroundServices: backgroundServices,
+	})
 	return svc, errors.Trace(err)
 }
 
@@ -458,13 +482,12 @@ var installMongo = packaging.InstallDependency
 
 func installMongod(mongoDep packaging.Dependency, hostBase base.Base, snapSvc MongoSnapService) error {
 	// Do either a local snap install or a real install from the store.
-	if snapSvc.Name() == ServiceName {
-		// Store snap.
-		return installMongo(mongoDep, hostBase)
-	} else {
+	if snapSvc.IsLocal() {
 		// Local snap.
 		return snapSvc.Install()
 	}
+	// Store snap.
+	return installMongo(mongoDep, hostBase)
 }
 
 // dbDir returns the dir where mongo storage is.
@@ -479,13 +502,14 @@ type MongoSnapService interface {
 	Running() (bool, error)
 	ConfigOverride() error
 	Name() string
+	IsLocal() bool
 	Start() error
 	Restart() error
 	Install() error
 }
 
-var newSnapService = func(mainSnap, serviceName string, conf common.Conf, snapPath, configDir, channel string, confinementPolicy snap.ConfinementPolicy, backgroundServices []snap.BackgroundService, prerequisites []snap.Installable) (MongoSnapService, error) {
-	return snap.NewService(mainSnap, serviceName, conf, snapPath, configDir, channel, confinementPolicy, backgroundServices, prerequisites)
+var newSnapService = func(config snap.ServiceConfig) (MongoSnapService, error) {
+	return snap.NewService(config)
 }
 
 // CurrentReplicasetConfig is overridden in tests.

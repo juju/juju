@@ -356,7 +356,7 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 
 	checker := upgradevalidation.NewModelUpgradeCheck(
 		modelTag.Id(), m.statePool, st, model,
-		upgradevalidation.ValidatorsForControllerUpgrade(true, targetVersion, cloudspec)...,
+		upgradevalidation.ValidatorsForControllerModelUpgrade(targetVersion, cloudspec)...,
 	)
 	blockers, err = checker.Validate()
 	if err != nil {
@@ -392,12 +392,12 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		validators := upgradevalidation.ValidatorsForControllerUpgrade(false, targetVersion, cloudspec)
+		validators := upgradevalidation.ModelValidatorsForControllerModelUpgrade(targetVersion, cloudspec)
 
 		checker := upgradevalidation.NewModelUpgradeCheck(modelUUID, m.statePool, st, model, validators...)
 		blockersForModel, err := checker.Validate()
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "validating model %q for controller upgrade", model.Name())
 		}
 		if blockersForModel == nil {
 			// all good.

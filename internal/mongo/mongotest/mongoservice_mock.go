@@ -192,6 +192,44 @@ func (c *MockMongoSnapServiceInstalledCall) DoAndReturn(f func() (bool, error)) 
 	return c
 }
 
+// IsLocal mocks base method.
+func (m *MockMongoSnapService) IsLocal() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsLocal")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsLocal indicates an expected call of IsLocal.
+func (mr *MockMongoSnapServiceMockRecorder) IsLocal() *MockMongoSnapServiceIsLocalCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLocal", reflect.TypeOf((*MockMongoSnapService)(nil).IsLocal))
+	return &MockMongoSnapServiceIsLocalCall{Call: call}
+}
+
+// MockMongoSnapServiceIsLocalCall wrap *gomock.Call
+type MockMongoSnapServiceIsLocalCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMongoSnapServiceIsLocalCall) Return(arg0 bool) *MockMongoSnapServiceIsLocalCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMongoSnapServiceIsLocalCall) Do(f func() bool) *MockMongoSnapServiceIsLocalCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMongoSnapServiceIsLocalCall) DoAndReturn(f func() bool) *MockMongoSnapServiceIsLocalCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Name mocks base method.
 func (m *MockMongoSnapService) Name() string {
 	m.ctrl.T.Helper()

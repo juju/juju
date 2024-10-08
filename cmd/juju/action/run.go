@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v4"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
@@ -44,6 +45,8 @@ type runCommand struct {
 const runDoc = `
 Run a charm action for execution on the given unit(s), with a given set of params.
 An ID is returned for use with 'juju show-operation <ID>'.
+
+All units must be of the same application.
 
 A action executed on a given unit becomes a task with an ID that can be
 used with 'juju show-task <ID>'.
@@ -124,8 +127,10 @@ func (c *runCommand) Init(args []string) (err error) {
 	if err := c.runCommandBase.Init(args); err != nil {
 		return errors.Trace(err)
 	}
+	applicationNames := set.NewStrings()
 	for _, arg := range args {
-		if names.IsValidUnit(arg) || validLeader.MatchString(arg) {
+		if s := validUnitOrLeader.FindStringSubmatch(arg); s != nil {
+			applicationNames.Add(s[1])
 			c.unitReceivers = append(c.unitReceivers, arg)
 		} else if nameRule.MatchString(arg) {
 			c.actionName = arg
@@ -139,6 +144,9 @@ func (c *runCommand) Init(args []string) (err error) {
 	}
 	if c.actionName == "" {
 		return errors.New("no action specified")
+	}
+	if len(applicationNames) > 1 {
+		return errors.New("all units must be of the same application")
 	}
 
 	// Parse CLI key-value args if they exist.

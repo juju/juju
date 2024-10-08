@@ -231,6 +231,22 @@ func (s *ConfigSuite) TestOverrideFileFromArgs(c *gc.C) {
 	})
 }
 
+func (s *ConfigSuite) TestSetReadOnlyControllerName(c *gc.C) {
+	var api fakeControllerAPI
+	context, err := s.runWithAPI(c, &api, `controller-name=new-name`)
+	c.Assert(err, gc.ErrorMatches, `invalid or read-only controller config values cannot be updated: \[controller-name\]`)
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
+	c.Assert(output, gc.Equals, "")
+}
+
+func (s *ConfigSuite) TestSetReadOnlyInvalidControllerName(c *gc.C) {
+	var api fakeControllerAPI
+	context, err := s.runWithAPI(c, &api, `controller-name=-new-name-`)
+	c.Assert(err, gc.ErrorMatches, `invalid or read-only controller config values cannot be updated: \[controller-name\]`)
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
+	c.Assert(output, gc.Equals, "")
+}
+
 func (s *ConfigSuite) TestErrorOnSetting(c *gc.C) {
 	api := fakeControllerAPI{err: errors.Errorf("kablooie")}
 	context, err := s.runWithAPI(c, &api, "juju-ha-space=value")

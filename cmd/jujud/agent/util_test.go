@@ -231,7 +231,6 @@ func NewTestMachineAgentFactory(
 			rootDir:                     rootDir,
 			initialUpgradeCheckComplete: gate.NewLock(),
 			loopDeviceManager:           &mockLoopDeviceManager{},
-			newIntrospectionSocketName:  addons.DefaultIntrospectionSocketName,
 			prometheusRegistry:          prometheusRegistry,
 			preUpgradeSteps:             preUpgradeSteps,
 			upgradeSteps:                upgradeSteps,

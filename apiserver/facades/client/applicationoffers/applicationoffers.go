@@ -90,83 +90,79 @@ func (api *OffersAPIv5) Offer(ctx context.Context, all params.AddApplicationOffe
 		return params.ErrorResults{}, errors.Errorf("expected exactly one offer, got %d", numOffers)
 	}
 
-	result := make([]params.ErrorResult, numOffers)
+	handleErr := func(err error) params.ErrorResults {
+		return params.ErrorResults{Results: []params.ErrorResult{{
+			Error: apiservererrors.ServerError(err),
+		}}}
+	}
 
 	apiUser := api.Authorizer.GetAuthTag().(names.UserTag)
-	for i, one := range all.Offers {
-		modelTag, err := names.ParseModelTag(one.ModelTag)
-		if err != nil {
-			result[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		backend, releaser, err := api.StatePool.Get(modelTag.Id())
-		if err != nil {
-			result[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		defer releaser()
 
-		modelUUID := model.UUID(modelTag.Id())
-
-		if err := api.checkAdmin(ctx, apiUser, modelUUID, backend); err != nil {
-			result[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		owner := apiUser
-		// The V4 version of the api includes the offer owner in the params.
-		if one.OwnerTag != "" {
-			var err error
-			if owner, err = names.ParseUserTag(one.OwnerTag); err != nil {
-				result[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-		}
-
-		modelDomainServices := api.modelDomainServicesGetter.DomainServicesForModel(modelUUID)
-		applicationOfferParams, err := api.makeAddOfferArgsFromParams(ctx, owner, modelDomainServices.Application(), one)
-		if err != nil {
-			result[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		offerBackend := api.GetApplicationOffers(backend)
-		if _, err = offerBackend.ApplicationOffer(applicationOfferParams.OfferName); err == nil {
-			_, err = offerBackend.UpdateOffer(applicationOfferParams)
-		} else {
-			var addedOffer *jujucrossmodel.ApplicationOffer
-			addedOffer, err = offerBackend.AddOffer(applicationOfferParams)
-			if err != nil {
-				result[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-
-			// TODO(aflynn50): New offer permissions are handled here as there
-			// is no cross model relations service yet. These should be handled
-			// there once its created.
-			offerTag := names.NewApplicationOfferTag(addedOffer.OfferUUID)
-			// Ensure the owner has admin access to the offer.
-			err = api.createOfferPermission(ctx, offerTag, permission.AdminAccess, owner)
-			if err != nil {
-				result[i].Error = apiservererrors.ServerError(errors.Annotate(err, "granting admin permission to the offer owner"))
-				continue
-			}
-			// Add in any read access permissions.
-			for _, readerName := range applicationOfferParams.HasRead {
-				readerTag := names.NewUserTag(readerName)
-				err = api.createOfferPermission(ctx, offerTag, permission.ReadAccess, readerTag)
-				if err != nil {
-					result[i].Error = apiservererrors.ServerError(errors.Annotatef(err, "granting read permission to %q", readerName))
-					break
-				}
-			}
-			if result[i].Error != nil {
-				continue
-			}
-		}
-		result[i].Error = apiservererrors.ServerError(err)
+	one := all.Offers[0]
+	modelTag, err := names.ParseModelTag(one.ModelTag)
+	if err != nil {
+		return handleErr(err), nil
 	}
-	return params.ErrorResults{Results: result}, nil
+
+	backend, releaser, err := api.StatePool.Get(modelTag.Id())
+	if err != nil {
+		return handleErr(err), nil
+	}
+	defer releaser()
+
+	modelUUID := model.UUID(modelTag.Id())
+
+	if err := api.checkAdmin(ctx, apiUser, modelUUID, backend); err != nil {
+		return handleErr(err), nil
+	}
+
+	owner := apiUser
+	// The V4 version of the api includes the offer owner in the params.
+	if one.OwnerTag != "" {
+		var err error
+		if owner, err = names.ParseUserTag(one.OwnerTag); err != nil {
+			return handleErr(err), nil
+		}
+	}
+
+	modelDomainServices := api.modelDomainServicesGetter.DomainServicesForModel(modelUUID)
+	applicationOfferParams, err := api.makeAddOfferArgsFromParams(ctx, owner, modelDomainServices.Application(), one)
+	if err != nil {
+		return handleErr(err), nil
+	}
+
+	offerBackend := api.GetApplicationOffers(backend)
+	if _, err = offerBackend.ApplicationOffer(applicationOfferParams.OfferName); err == nil {
+		_, err = offerBackend.UpdateOffer(applicationOfferParams)
+		if err != nil {
+			return handleErr(err), nil
+		}
+	} else {
+		var addedOffer *jujucrossmodel.ApplicationOffer
+		addedOffer, err = offerBackend.AddOffer(applicationOfferParams)
+		if err != nil {
+			return handleErr(err), nil
+		}
+
+		// TODO(aflynn50): New offer permissions are handled here as there
+		// is no cross model relations service yet. These should be handled
+		// there once its created.
+		offerTag := names.NewApplicationOfferTag(addedOffer.OfferUUID)
+		// Ensure the owner has admin access to the offer.
+		err = api.createOfferPermission(ctx, offerTag, permission.AdminAccess, owner)
+		if err != nil {
+			return handleErr(err), nil
+		}
+		// Add in any read access permissions.
+		for _, readerName := range applicationOfferParams.HasRead {
+			readerTag := names.NewUserTag(readerName)
+			err = api.createOfferPermission(ctx, offerTag, permission.ReadAccess, readerTag)
+			if err != nil {
+				return handleErr(err), nil
+			}
+		}
+	}
+	return handleErr(err), nil
 }
 
 func (api *OffersAPIv5) makeAddOfferArgsFromParams(ctx context.Context, user names.UserTag, applicationService ApplicationService, addOfferParams params.AddApplicationOffer) (jujucrossmodel.AddApplicationOfferArgs, error) {

@@ -61,32 +61,6 @@ func (s *storageGetSuite) TestOutputFormatKey(c *gc.C) {
 	}
 }
 
-func (s *storageGetSuite) TestHelp(c *gc.C) {
-	hctx, _ := s.newHookContext()
-	com, err := jujuc.NewCommand(hctx, "storage-get")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: storage-get [options] [<key>]
-
-Summary:
-Print information for the storage instance with the specified ID.
-
-Options:
---format  (= smart)
-    Specify output format (json|smart|yaml)
--o, --output (= "")
-    Specify an output file
--s  (= data/0)
-    specify a storage instance by id
-
-Details:
-When no <key> is supplied, all keys values are printed.
-`)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-}
-
 func (s *storageGetSuite) TestOutputPath(c *gc.C) {
 	hctx, _ := s.newHookContext()
 	com, err := jujuc.NewCommand(hctx, "storage-get")

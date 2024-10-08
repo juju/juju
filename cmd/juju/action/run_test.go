@@ -106,6 +106,14 @@ func (s *RunSuite) TestInit(c *gc.C) {
 		expectAction: "valid-action-name",
 		expectKVArgs: [][]string{},
 	}, {
+		should:      "fail with units from different applications",
+		args:        []string{validUnitId, validUnitId2, "different-application/0", "valid-action-name"},
+		expectError: "all units must be of the same application",
+	}, {
+		should:      "fail with units from different applications, one using a leader identifier",
+		args:        []string{"app1/leader", "app2/0", "valid-action-name"},
+		expectError: "all units must be of the same application",
+	}, {
 		should:      "fail with invalid action name",
 		args:        []string{validUnitId, "BadName"},
 		expectError: "invalid unit or action name \"BadName\"",

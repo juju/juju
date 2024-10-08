@@ -45,6 +45,13 @@ augmented with a comma-delimited list of endpoints that the port range
 applies to (e.g. "80/tcp (endpoint1, endpoint2)"). If a port range applies to
 all endpoints, this will be indicated by the presence of a '*' character
 (e.g. "80/tcp (*)").
+
+Opening ports is transactional (i.e. will take place on successfully exiting
+the current hook), and therefore opened-ports will not return any values for
+pending open-port operations run from within the same hook.
+`,
+		Examples: `
+    opened-ports
 `,
 	})
 }

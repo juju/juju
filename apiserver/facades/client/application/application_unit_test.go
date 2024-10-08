@@ -740,7 +740,9 @@ func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfied(c *gc.C) {
 		ConfigSettings:  map[string]string{"stringOption": "value"},
 		CharmOrigin:     createCharmOriginFromURL(curl),
 	})
-	c.Assert(err, gc.ErrorMatches, `(?m).*Charm feature requirements cannot be met.*`)
+	c.Assert(err, gc.ErrorMatches, `(?s)Charm cannot be deployed because:
+  - charm requires feature "popcorn" but model does not support it
+`)
 }
 
 func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfiedWithForce(c *gc.C) {

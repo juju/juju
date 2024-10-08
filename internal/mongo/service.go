@@ -16,6 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4"
 
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/network"
 )
 
@@ -45,6 +46,8 @@ const (
 	// FileNameDBSSLKey is the file name of db ssl key file name.
 	FileNameDBSSLKey = "server.pem"
 )
+
+var dataPathForJuju = paths.DataDir(paths.CurrentOS())
 
 // See https://docs.mongodb.com/manual/reference/ulimit/.
 var mongoULimits = map[string]string{
@@ -244,9 +247,9 @@ func generateConfig(oplogSizeMB int, args EnsureServerParams) *ConfigArgs {
 
 	mongoArgs := &ConfigArgs{
 		Clock:         clock.WallClock,
-		DataDir:       args.DataDir,
-		DBDir:         dbDir(args.DataDir),
-		LogPath:       logPath(args.DataDir),
+		DataDir:       args.MongoDataDir,
+		DBDir:         dbDir(args.MongoDataDir),
+		LogPath:       logPath(args.MongoDataDir),
 		Port:          args.StatePort,
 		OplogSizeMB:   oplogSizeMB,
 		IPv6:          supportsIPv6(),
@@ -258,8 +261,8 @@ func generateConfig(oplogSizeMB int, args EnsureServerParams) *ConfigArgs {
 		SlowMS:           1000,
 		Quiet:            true,
 		ReplicaSet:       ReplicaSetName,
-		AuthKeyFile:      sharedSecretPath(args.DataDir),
-		PEMKeyFile:       sslKeyPath(args.DataDir),
+		AuthKeyFile:      sharedSecretPath(args.MongoDataDir),
+		PEMKeyFile:       sslKeyPath(args.MongoDataDir),
 		PEMKeyPassword:   "ignored", // used as boilerplate later
 		TLSOnNormalPorts: false,
 		TLSMode:          "requireTLS",

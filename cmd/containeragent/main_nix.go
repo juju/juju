@@ -182,7 +182,7 @@ func main() {
 			return cmd.Main(&run.RunCommand{MachineLock: lock}, ctx, args[1:])
 		},
 		jujuIntrospect: func(ctx *cmd.Context, args []string) int {
-			return cmd.Main(introspect.New(nil), ctx, args[1:])
+			return cmd.Main(introspect.New(), ctx, args[1:])
 		},
 		jujuDumpLogs: func(ctx *cmd.Context, args []string) int {
 			return cmd.Main(dumplogs.NewCommand(), ctx, args[1:])

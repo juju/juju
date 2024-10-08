@@ -157,4 +157,4 @@ Read our [Code of conduct](https://ubuntu.com/community/code-of-conduct) and:
 ### Make your mark
 
 - Read our [documentation contributor guidelines](https://discourse.charmhub.io/t/documentation-guidelines-for-contributors/1245) and help improve a doc 
-- Read our [codebase contributor guidelines](CONTRIBUTING.md) and help improve the codebase
+- Read our [codebase contributor guidelines](doc/CONTRIBUTING.md) and help improve the codebase

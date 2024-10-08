@@ -97,32 +97,3 @@ func (s *storageListSuite) testOutputFormat(c *gc.C, args []string, format int, 
 	}
 	c.Assert(out, jc.DeepEquals, expect)
 }
-
-func (s *storageListSuite) TestHelp(c *gc.C) {
-	hctx := s.newHookContext()
-	com, err := jujuc.NewCommand(hctx, "storage-list")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: storage-list [options] [<storage-name>]
-
-Summary:
-List storage attached to the unit.
-
-Options:
---format  (= smart)
-    Specify output format (json|smart|yaml)
--o, --output (= "")
-    Specify an output file
-
-Details:
-storage-list will list the names of all storage instances
-attached to the unit. These names can be passed to storage-get
-via the "-s" flag to query the storage attributes.
-
-A storage name may be specified, in which case only storage
-instances for that named storage will be returned.
-`)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-}

@@ -41,16 +41,24 @@ const (
 	// leaderSnippet is a regular expression for unit ID-like syntax that is used
 	// to indicate the current leader for an application.
 	leaderSnippet = "(" + names.ApplicationSnippet + ")/leader"
+	// unitOrLeaderSnippet is a regular expression to match either a standard unit
+	// unit ID or the unit ID-like syntax for the leader of an application
+	unitOrLeaderSnippet = "(" + names.ApplicationSnippet + ")/(" + names.NumberSnippet + "|leader)"
 )
 
 var (
-	validLeader = regexp.MustCompile("^" + leaderSnippet + "$")
+	validLeader       = regexp.MustCompile("^" + leaderSnippet + "$")
+	validUnitOrLeader = regexp.MustCompile("^" + unitOrLeaderSnippet + "$")
 
 	// nameRule describes the name format of an action or keyName must match to be valid.
 	nameRule = charm.GetActionNameRule()
 
-	// resultPollTime is how often to poll the backend for results.
-	resultPollTime = 2 * time.Second
+	// resultPollMinTime is how quickly the first update triggers, we then exponentially back off until we hit resultMaxPollTime
+	resultPollMinTime = 20 * time.Millisecond
+	// resultPollMaxTime is the maximum time we will spend between updates for results
+	resultPollMaxTime = 2 * time.Second
+	// resultPollBackoffFactor is the ratio between retries
+	resultPollBackoffFactor = 1.5
 )
 
 type runCommandBase struct {
@@ -304,10 +312,7 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, runningTasks []enqueuedA
 		} else {
 			c.progressf(ctx, "Waiting for task %v...\n", result.task)
 		}
-		// tick every two seconds, to delay the loop timer.
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		tick := c.clock.NewTimer(resultPollTime)
-		actionResult, err := GetActionResult(ctx, c.api, result.task, tick, wait)
+		actionResult, err := GetActionResult(ctx, c.api, result.task, c.clock, wait)
 		if i == 0 {
 			waitForWatcher()
 			if haveLogs {
@@ -435,18 +440,14 @@ func (c *runCommandBase) formatJson(writer io.Writer, value interface{}) error {
 // GetActionResult tries to repeatedly fetch a task until it is
 // in a completed state and then it returns it.
 // It waits for a maximum of "wait" before returning with the latest action status.
-func GetActionResult(ctx context.Context, api APIClient, requestedId string, tick, wait clock.Timer) (actionapi.ActionResult, error) {
-	return timerLoop(ctx, api, requestedId, tick, wait)
-}
-
-// timerLoop loops indefinitely to query the given API, until "wait" times
-// out, using the "tick" timer to delay the API queries.  It writes the
-// result to the given output.
-func timerLoop(ctx context.Context, api APIClient, requestedId string, tick, wait clock.Timer) (actionapi.ActionResult, error) {
+func GetActionResult(ctx context.Context, api APIClient, requestedId string, clk clock.Clock, wait clock.Timer) (actionapi.ActionResult, error) {
 	var (
 		result actionapi.ActionResult
 		err    error
 	)
+	startTime := clk.Now()
+	retryTime := resultPollMinTime
+	tick := clk.NewTimer(retryTime)
 
 	// Loop over results until we get "failed" or "completed".  Wait for
 	// timer, and reset it each time.
@@ -463,6 +464,8 @@ func timerLoop(ctx context.Context, api APIClient, requestedId string, tick, wai
 		default:
 			return result, nil
 		}
+		logger.Debugf("after %s action was still %v, will wait %s more before next check",
+			clk.Now().Sub(startTime), result.Status, retryTime)
 
 		// Block until a tick happens, or the wait arrives.
 		select {
@@ -474,7 +477,15 @@ func timerLoop(ctx context.Context, api APIClient, requestedId string, tick, wai
 				return result, nil
 			}
 		case <-tick.Chan():
-			tick.Reset(resultPollTime)
+			// TODO: (jam) 2024-08-29 We could try to reconcile this with either gopkg.in/retry.v1 or
+			//  github.com/juju/retry, but neither of them do a great job of handling an exponential
+			//  backoff (with max) and a concurrent global max timeout. Maybe gopkg.in/retry.v1.StartWithCancel
+			nextRetryTime := time.Duration(float64(retryTime) * resultPollBackoffFactor)
+			if nextRetryTime > resultPollMaxTime {
+				nextRetryTime = resultPollMaxTime
+			}
+			retryTime = nextRetryTime
+			tick.Reset(retryTime)
 		}
 	}
 }

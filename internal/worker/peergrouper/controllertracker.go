@@ -214,6 +214,9 @@ func (c *controllerTracker) hasNodeChanged() (bool, error) {
 }
 
 func (c *controllerTracker) hostPendingProvisioning() (bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	status, err := c.host.Status()
 	if err != nil {
 		return false, errors.Trace(err)

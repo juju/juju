@@ -237,7 +237,6 @@ func (a *machineAgentCommand) Info() *cmd.Info {
 func MachineAgentFactoryFn(
 	agentConfWriter agentconfig.AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
-	newIntrospectionSocketName func(names.Tag) string,
 	preUpgradeSteps PreUpgradeStepsFunc,
 	upgradeSteps UpgradeStepsFunc,
 	rootDir string,
@@ -254,7 +253,6 @@ func MachineAgentFactoryFn(
 				Logger:        logger,
 			}),
 			looputil.NewLoopDeviceManager(),
-			newIntrospectionSocketName,
 			preUpgradeSteps,
 			upgradeSteps,
 			rootDir,
@@ -270,7 +268,6 @@ func NewMachineAgent(
 	bufferedLogger *logsender.BufferedLogWriter,
 	runner *worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
-	newIntrospectionSocketName func(names.Tag) string,
 	preUpgradeSteps PreUpgradeStepsFunc,
 	upgradeSteps UpgradeStepsFunc,
 	rootDir string,
@@ -291,7 +288,6 @@ func NewMachineAgent(
 		rootDir:                     rootDir,
 		initialUpgradeCheckComplete: gate.NewLock(),
 		loopDeviceManager:           loopDeviceManager,
-		newIntrospectionSocketName:  newIntrospectionSocketName,
 		prometheusRegistry:          prometheusRegistry,
 		preUpgradeSteps:             preUpgradeSteps,
 		upgradeSteps:                upgradeSteps,
@@ -361,9 +357,8 @@ type MachineAgent struct {
 	// longer any immediately pending agent upgrades.
 	initialUpgradeCheckComplete gate.Lock
 
-	loopDeviceManager          looputil.LoopDeviceManager
-	newIntrospectionSocketName func(names.Tag) string
-	prometheusRegistry         *prometheus.Registry
+	loopDeviceManager  looputil.LoopDeviceManager
+	prometheusRegistry *prometheus.Registry
 
 	// To allow for testing in legacy tests (brittle integration tests), we
 	// need to override these.
@@ -515,12 +510,11 @@ func (a *MachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion version.Number,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
+		agentConfig := a.CurrentConfig()
+		engineConfigFunc := agentengine.DependencyEngineConfig
 		metrics := agentengine.NewMetrics()
-		controllerMetricsSink := metrics.ForModel(a.CurrentConfig().Model())
-		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(
-			controllerMetricsSink,
-			internallogger.GetLogger("juju.worker.dependency"),
-		))
+		controllerMetricsSink := metrics.ForModel(agentConfig.Model())
+		engine, err := dependency.NewEngine(engineConfigFunc(controllerMetricsSink, internallogger.GetLogger("juju.worker.dependency")))
 		if err != nil {
 			return nil, err
 		}
@@ -585,18 +579,17 @@ func (a *MachineAgent) makeEngineCreator(
 		if a.isCaasAgent {
 			manifolds = caasMachineManifolds(manifoldsCfg)
 		}
-		if err := dependency.Install(eng, manifolds); err != nil {
-			if err := worker.Stop(eng); err != nil {
+		if err := dependency.Install(engine, manifolds); err != nil {
+			if err := worker.Stop(engine); err != nil {
 				logger.Errorf("while stopping engine with bad manifolds: %v", err)
 			}
 			return nil, err
 		}
 		if err := addons.StartIntrospection(addons.IntrospectionConfig{
-			AgentTag:           a.CurrentConfig().Tag(),
-			Engine:             eng,
+			AgentDir:           agentConfig.Dir(),
+			Engine:             engine,
 			StatePoolReporter:  nil,
 			MachineLock:        a.machineLock,
-			NewSocketName:      a.newIntrospectionSocketName,
 			PrometheusGatherer: a.prometheusRegistry,
 			WorkerFunc:         introspection.NewWorker,
 			Clock:              clock.WallClock,
@@ -609,13 +602,13 @@ func (a *MachineAgent) makeEngineCreator(
 			// and the agent is controlled by by the OS to only have one.
 			logger.Errorf("failed to start introspection worker: %v", err)
 		}
-		if err := addons.RegisterEngineMetrics(a.prometheusRegistry, metrics, eng, controllerMetricsSink); err != nil {
+		if err := addons.RegisterEngineMetrics(a.prometheusRegistry, metrics, engine, controllerMetricsSink); err != nil {
 			// If the dependency engine metrics fail, continue on. This is unlikely
 			// to happen in the real world, but should't stop or bring down an
 			// agent.
 			logger.Errorf("failed to start the dependency engine metrics %v", err)
 		}
-		return eng, nil
+		return engine, nil
 	}
 }
 

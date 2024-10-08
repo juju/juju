@@ -313,6 +313,7 @@ func (c *loginCommand) existingControllerLogin(ctx *cmd.Context, store jujuclien
 		}
 		return newAPIConnection(ctx, args)
 	}
+
 	return c.login(ctx, currentAccountDetails, dial)
 }
 
@@ -409,8 +410,8 @@ func (c *loginCommand) publicControllerLogin(
 
 	dial := func(d *jujuclient.AccountDetails) (api.Connection, error) {
 		// Attach an interactor which will be invoked if we attempt to
-		//login without a password and the remote controller does not
-		//support an external identity provider.
+		// login without a password and the remote controller does not
+		// support an external identity provider.
 		var tag names.Tag
 		if d.User != "" {
 			tag = names.NewUserTag(d.User)
@@ -458,13 +459,6 @@ func (c *loginCommand) publicControllerLogin(
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
-	// If we get to here, then we have a cached macaroon for the registered
-	// user. If we encounter an error after here, we need to clear it.
-	c.onRunError = func() {
-		if err := c.ClearControllerMacaroons(c.ClientStore(), controllerName); err != nil {
-			logger.Errorf("failed to clear macaroon: %v", err)
-		}
-	}
 
 	ctrlDetails.ControllerUUID = conn.ControllerTag().Id()
 	return conn, ctrlDetails, accountDetails, nil
@@ -493,10 +487,25 @@ Run "juju logout" first before attempting to log in as a different user.`,
 			accountDetails.User)
 	}
 
+	safeDial := func(accountDetails *jujuclient.AccountDetails) (result api.Connection, err error) {
+		defer func() {
+			if err != nil {
+				// If we get to here, then we have a cached macaroon for the registered
+				// user. If we encounter an error after here, we need to clear it.
+				c.onRunError = func() {
+					if err := c.ClearControllerMacaroons(c.ClientStore(), c.controllerName); err != nil {
+						logger.Errorf("failed to clear macaroon: %v", err)
+					}
+				}
+			}
+		}()
+		return dial(accountDetails)
+	}
+
 	if accountDetails != nil && accountDetails.Password != "" {
 		// We've been provided some account details that
 		// contain a password, so try that first.
-		conn, err := dial(accountDetails)
+		conn, err := safeDial(accountDetails)
 		if err == nil {
 			return conn, accountDetails, nil
 		}
@@ -506,7 +515,7 @@ Run "juju logout" first before attempting to log in as a different user.`,
 	}
 	if c.username == "" {
 		// No username specified, so try external-user login first.
-		conn, err := dial(&jujuclient.AccountDetails{})
+		conn, err := safeDial(&jujuclient.AccountDetails{})
 		if err == nil {
 			user, ok := conn.AuthTag().(names.UserTag)
 			if !ok {
@@ -542,7 +551,7 @@ Run "juju logout" first before attempting to log in as a different user.`,
 	accountDetails = &jujuclient.AccountDetails{
 		User: username,
 	}
-	conn, err := dial(accountDetails)
+	conn, err := safeDial(accountDetails)
 	if err != nil {
 		if strings.Contains(err.Error(), badCred) {
 			err = errors.New(badCred)

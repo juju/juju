@@ -177,7 +177,6 @@ func SafeModeMachineAgentFactoryFn(
 	agentConfWriter agentconfig.AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
-	newIntrospectionSocketName func(names.Tag) string,
 	rootDir string,
 ) safeModeMachineAgentFactoryFnType {
 	return func(agentTag names.Tag, isCaasAgent bool) (*SafeModeMachineAgent, error) {
@@ -193,7 +192,6 @@ func SafeModeMachineAgentFactoryFn(
 			}),
 			looputil.NewLoopDeviceManager(),
 			newDBWorkerFunc,
-			newIntrospectionSocketName,
 			rootDir,
 			isCaasAgent,
 		)
@@ -208,23 +206,21 @@ func NewSafeModeMachineAgent(
 	runner *worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
-	newIntrospectionSocketName func(names.Tag) string,
 	rootDir string,
 	isCaasAgent bool,
 ) (*SafeModeMachineAgent, error) {
 	a := &SafeModeMachineAgent{
-		agentTag:                   agentTag,
-		AgentConfigWriter:          agentConfWriter,
-		configChangedVal:           voyeur.NewValue(true),
-		bufferedLogger:             bufferedLogger,
-		workersStarted:             make(chan struct{}),
-		dead:                       make(chan struct{}),
-		runner:                     runner,
-		rootDir:                    rootDir,
-		newDBWorkerFunc:            newDBWorkerFunc,
-		loopDeviceManager:          loopDeviceManager,
-		newIntrospectionSocketName: newIntrospectionSocketName,
-		isCaasAgent:                isCaasAgent,
+		agentTag:          agentTag,
+		AgentConfigWriter: agentConfWriter,
+		configChangedVal:  voyeur.NewValue(true),
+		bufferedLogger:    bufferedLogger,
+		workersStarted:    make(chan struct{}),
+		dead:              make(chan struct{}),
+		runner:            runner,
+		rootDir:           rootDir,
+		newDBWorkerFunc:   newDBWorkerFunc,
+		loopDeviceManager: loopDeviceManager,
+		isCaasAgent:       isCaasAgent,
 	}
 	return a, nil
 }
@@ -246,8 +242,7 @@ type SafeModeMachineAgent struct {
 
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc
 
-	loopDeviceManager          looputil.LoopDeviceManager
-	newIntrospectionSocketName func(names.Tag) string
+	loopDeviceManager looputil.LoopDeviceManager
 
 	isCaasAgent bool
 }

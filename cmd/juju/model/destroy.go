@@ -374,8 +374,10 @@ func waitForModelDestroyed(
 		erroredStatuses.PrettyPrint(ctx.Stdout)
 	}
 
-	// no wait for 1st time.
-	intervalSeconds := 0 * time.Second
+	// wait a little bit for the model to be destroyed, backoff
+	// exponentially, but no longer than 2s
+	intervalSeconds := 10 * time.Millisecond
+	const maxIntervalSeconds = 2 * time.Second
 	reported := ""
 	lineLength := 0
 	const perLineLength = 80
@@ -407,7 +409,10 @@ func waitForModelDestroyed(
 				reported = msg
 				lineLength = len(msg) + 3
 			}
-			intervalSeconds = 2 * time.Second
+			intervalSeconds *= 2
+			if intervalSeconds > maxIntervalSeconds {
+				intervalSeconds = maxIntervalSeconds
+			}
 		}
 	}
 }

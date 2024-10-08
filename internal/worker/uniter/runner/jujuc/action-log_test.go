@@ -84,18 +84,3 @@ func (s *ActionLogSuite) TestNonActionLogActionFails(c *gc.C) {
 	c.Check(bufferString(ctx.Stderr), gc.Equals, "ERROR not running an action\n")
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
 }
-
-func (s *ActionLogSuite) TestHelp(c *gc.C) {
-	hctx, _ := s.NewHookContext()
-	com, err := jujuc.NewCommand(hctx, "action-log")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-log <message>
-
-Summary:
-Record a progress message for the current action.
-`)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-}

@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
 	agentconfig "github.com/juju/juju/agent/config"
+	"github.com/juju/juju/agent/engine"
 	agentengine "github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/agent/tools"
@@ -285,7 +286,6 @@ func MachineAgentFactoryFn(
 	agentConfWriter agentconfig.AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
-	newIntrospectionSocketName func(names.Tag) string,
 	preUpgradeSteps PreUpgradeStepsFunc,
 	upgradeSteps UpgradeStepsFunc,
 	rootDir string,
@@ -303,7 +303,6 @@ func MachineAgentFactoryFn(
 			}),
 			looputil.NewLoopDeviceManager(),
 			newDBWorkerFunc,
-			newIntrospectionSocketName,
 			preUpgradeSteps,
 			upgradeSteps,
 			rootDir,
@@ -320,7 +319,6 @@ func NewMachineAgent(
 	runner *worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
-	newIntrospectionSocketName func(names.Tag) string,
 	preUpgradeSteps PreUpgradeStepsFunc,
 	upgradeSteps UpgradeStepsFunc,
 	rootDir string,
@@ -342,7 +340,6 @@ func NewMachineAgent(
 		initialUpgradeCheckComplete: gate.NewLock(),
 		newDBWorkerFunc:             newDBWorkerFunc,
 		loopDeviceManager:           loopDeviceManager,
-		newIntrospectionSocketName:  newIntrospectionSocketName,
 		prometheusRegistry:          prometheusRegistry,
 		mongoTxnCollector:           mongometrics.NewTxnCollector(),
 		mongoDialCollector:          mongometrics.NewDialCollector(),
@@ -425,11 +422,10 @@ type MachineAgent struct {
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
 
-	loopDeviceManager          looputil.LoopDeviceManager
-	newIntrospectionSocketName func(names.Tag) string
-	prometheusRegistry         *prometheus.Registry
-	mongoTxnCollector          *mongometrics.TxnCollector
-	mongoDialCollector         *mongometrics.DialCollector
+	loopDeviceManager  looputil.LoopDeviceManager
+	prometheusRegistry *prometheus.Registry
+	mongoTxnCollector  *mongometrics.TxnCollector
+	mongoDialCollector *mongometrics.DialCollector
 
 	// To allow for testing in legacy tests (brittle integration tests), we
 	// need to override these.
@@ -588,9 +584,11 @@ func (a *MachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion version.Number,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
+		agentConfig := a.CurrentConfig()
+		engineConfigFunc := engine.DependencyEngineConfig
 		metrics := agentengine.NewMetrics()
-		controllerMetricsSink := metrics.ForModel(a.CurrentConfig().Model())
-		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(
+		controllerMetricsSink := metrics.ForModel(agentConfig.Model())
+		eng, err := dependency.NewEngine(engineConfigFunc(
 			controllerMetricsSink,
 			internallogger.GetLogger("juju.worker.dependency"),
 		))
@@ -688,12 +686,11 @@ func (a *MachineAgent) makeEngineCreator(
 			return nil, err
 		}
 		if err := addons.StartIntrospection(addons.IntrospectionConfig{
-			AgentTag:           a.CurrentConfig().Tag(),
+			AgentDir:           agentConfig.Dir(),
 			Engine:             eng,
 			StatePoolReporter:  &statePoolReporter,
 			PubSubReporter:     pubsubReporter,
 			MachineLock:        a.machineLock,
-			NewSocketName:      a.newIntrospectionSocketName,
 			PrometheusGatherer: a.prometheusRegistry,
 			PresenceRecorder:   presenceRecorder,
 			WorkerFunc:         introspection.NewWorker,

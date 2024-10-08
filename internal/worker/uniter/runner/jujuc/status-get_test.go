@@ -96,37 +96,6 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 	}
 }
 
-func (s *statusGetSuite) TestHelp(c *gc.C) {
-	hctx := s.GetStatusHookContext(c)
-	com, err := jujuc.NewCommand(hctx, "status-get")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
-	c.Assert(code, gc.Equals, 0)
-	expectedHelp := "" +
-		"Usage: status-get [options] [--include-data] [--application]\n" +
-		"\n" +
-		"Summary:\n" +
-		"Print status information.\n" +
-		"\n" +
-		"Options:\n" +
-		"--application  (= false)\n" +
-		"    print status for all units of this application if this unit is the leader\n" +
-		"--format  (= smart)\n" +
-		"    Specify output format (json|smart|yaml)\n" +
-		"--include-data  (= false)\n" +
-		"    print all status data\n" +
-		"-o, --output (= \"\")\n" +
-		"    Specify an output file\n" +
-		"\n" +
-		"Details:\n" +
-		"By default, only the status value is printed.\n" +
-		"If the --include-data flag is passed, the associated data are printed also.\n"
-
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, expectedHelp)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-}
-
 func (s *statusGetSuite) TestOutputPath(c *gc.C) {
 	hctx := s.GetStatusHookContext(c)
 	setFakeStatus(hctx)

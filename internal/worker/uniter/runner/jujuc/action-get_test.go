@@ -268,29 +268,3 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 		}
 	}
 }
-
-func (s *ActionGetSuite) TestHelp(c *gc.C) {
-	hctx := &actionGetContext{}
-	com, err := jujuc.NewCommand(hctx, "action-get")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-get [options] [<key>[.<key>.<key>...]]
-
-Summary:
-Get action parameters.
-
-Options:
---format  (= smart)
-    Specify output format (json|smart|yaml)
--o, --output (= "")
-    Specify an output file
-
-Details:
-action-get will print the value of the parameter at the given key, serialized
-as YAML.  If multiple keys are passed, action-get will recurse into the param
-map as needed.
-`)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-}

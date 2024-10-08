@@ -44,12 +44,23 @@ func (c *RelationIdsCommand) Info() *cmd.Info {
 	} else if !errors.Is(err, errors.NotFound) {
 		logger.Errorf("Could not retrieve hook relation: %v", err)
 	}
-	doc += "\nOnly relation ids for relations which are not broken are included."
+	doc += `
+relation-ids outputs a list of the related applications with a relation name.
+Accepts a single argument (relation-name) which, in a relation hook, defaults
+to the name of the current relation. The output is useful as input to the
+relation-list, relation-get, and relation-set commands to read or write other
+relation values.
+
+Only relation ids for relations which are not broken are included.
+`
 	return jujucmd.Info(&cmd.Info{
 		Name:    "relation-ids",
 		Args:    args,
 		Purpose: "List all relation IDs for the given endpoint.",
 		Doc:     doc,
+		Examples: `
+    relation-ids database
+`,
 	})
 }
 

@@ -40,9 +40,8 @@ is returned to the user after the completion of the Action. Keys must start
 and end with lowercase alphanumeric, and contain only lowercase alphanumeric,
 hyphens and periods.  The following special keys are reserved for internal use: 
 %s.
-
-Example usage:
-
+`, reservedText)
+	examples := `
     action-set outfile.size=10G
     action-set foo.bar=2
     action-set foo.baz.val=3
@@ -57,12 +56,13 @@ will yield:
       bar:
         zab: "4"
       baz: "1"
-`, reservedText)
+`
 	return jujucmd.Info(&cmd.Info{
-		Name:    "action-set",
-		Args:    "<key>=<value> [<key>=<value> ...]",
-		Purpose: "Set action results.",
-		Doc:     doc,
+		Name:     "action-set",
+		Args:     "<key>=<value> [<key>=<value> ...]",
+		Purpose:  "Set action results.",
+		Doc:      doc,
+		Examples: examples,
 	})
 }
 

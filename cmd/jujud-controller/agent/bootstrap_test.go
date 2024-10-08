@@ -223,7 +223,7 @@ func (s *BootstrapSuite) TestInitializeModel(c *gc.C) {
 	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.fakeEnsureMongo.DataDir, gc.Equals, s.dataDir)
+	c.Assert(s.fakeEnsureMongo.MongoDataDir, gc.Equals, s.dataDir)
 	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.OplogSize, gc.Equals, 1234)

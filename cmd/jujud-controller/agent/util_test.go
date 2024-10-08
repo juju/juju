@@ -276,7 +276,6 @@ func NewTestMachineAgentFactory(
 			initialUpgradeCheckComplete: gate.NewLock(),
 			loopDeviceManager:           &mockLoopDeviceManager{},
 			newDBWorkerFunc:             newDBWorkerFunc,
-			newIntrospectionSocketName:  addons.DefaultIntrospectionSocketName,
 			prometheusRegistry:          prometheusRegistry,
 			mongoTxnCollector:           mongometrics.NewTxnCollector(),
 			mongoDialCollector:          mongometrics.NewDialCollector(),

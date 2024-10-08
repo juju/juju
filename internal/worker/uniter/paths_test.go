@@ -42,7 +42,7 @@ func (s *PathsSuite) TestOther(c *gc.C) {
 	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
 
 	localRunSocket := sockets.Socket{Network: "unix", Address: relAgent("run.socket")}
-	localJujucSocket := sockets.Socket{Network: "unix", Address: "@" + relAgent("agent.socket")}
+	localJujucSocket := sockets.Socket{Network: "unix", Address: relAgent("agent.socket")}
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
@@ -71,7 +71,7 @@ func (s *PathsSuite) TestWorkerPaths(c *gc.C) {
 	relData := relPathFunc(dataDir)
 	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
 	localRunSocket := sockets.Socket{Network: "unix", Address: relAgent(worker + "-run.socket")}
-	localJujucSocket := sockets.Socket{Network: "unix", Address: "@" + relAgent(worker+"-agent.socket")}
+	localJujucSocket := sockets.Socket{Network: "unix", Address: relAgent(worker + "-agent.socket")}
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{

@@ -34,12 +34,21 @@ via the "-s" flag to query the storage attributes.
 
 A storage name may be specified, in which case only storage
 instances for that named storage will be returned.
+
+Further details:
+storage-list list storages instances that are attached to the unit.
+The storage instance identifiers returned from storage-list may be
+passed through to the storage-get command using the -s option.
+`
+	examples := `
+    storage-list pgdata
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    "storage-list",
-		Args:    "[<storage-name>]",
-		Purpose: "List storage attached to the unit.",
-		Doc:     doc,
+		Name:     "storage-list",
+		Args:     "[<storage-name>]",
+		Purpose:  "List storage attached to the unit.",
+		Doc:      doc,
+		Examples: examples,
 	})
 }
 

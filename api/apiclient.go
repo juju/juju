@@ -506,7 +506,7 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 		case jujuproxy.TunnelProxier:
 			logger.Debugf("tunnel proxy in use at %s on port %s", p.Host(), p.Port())
 			addrs = []string{
-				fmt.Sprintf("%s:%s", p.Host(), p.Port()),
+				net.JoinHostPort(p.Host(), p.Port()),
 			}
 		default:
 			info.Proxier.Stop()
@@ -1084,20 +1084,33 @@ func isNumericHost(host string) bool {
 // isX509Error reports whether the given websocket error
 // results from an X509 problem.
 func isX509Error(err error) bool {
-	switch errType := errors.Cause(err).(type) {
-	case *websocket.CloseError:
-		return errType.Code == websocket.CloseTLSHandshake
-	case x509.CertificateInvalidError,
-		x509.HostnameError,
-		x509.InsecureAlgorithmError,
-		x509.UnhandledCriticalExtension,
-		x509.UnknownAuthorityError,
-		x509.ConstraintViolationError,
-		x509.SystemRootsError:
-		return true
-	default:
-		return false
+	// Check early close of websocket during TLS handshake
+	var closeError *websocket.CloseError
+	if errors.As(err, &closeError) {
+		return closeError.Code == websocket.CloseTLSHandshake
 	}
+
+	// Check various tls error
+	var (
+		certificateInvalidError    x509.CertificateInvalidError
+		hostnameError              x509.HostnameError
+		insecureAlgorithmError     x509.InsecureAlgorithmError
+		unhandledCriticalExtension x509.UnhandledCriticalExtension
+		unknownAuthorityError      x509.UnknownAuthorityError
+		constraintViolationError   x509.ConstraintViolationError
+		systemRootsError           x509.SystemRootsError
+	)
+
+	if errors.As(err, &certificateInvalidError) ||
+		errors.As(err, &hostnameError) ||
+		errors.As(err, &insecureAlgorithmError) ||
+		errors.As(err, &unhandledCriticalExtension) ||
+		errors.As(err, &unknownAuthorityError) ||
+		errors.As(err, &constraintViolationError) ||
+		errors.As(err, &systemRootsError) {
+		return true
+	}
+	return false
 }
 
 // APICall places a call to the remote machine.

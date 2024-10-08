@@ -32,9 +32,8 @@ If a value has the '#base64' suffix, it is already in base64 format and no
 encoding will be performed, otherwise the value will be base64 encoded
 prior to being stored.
 To just update selected metadata like rotate policy, do not specify any secret value.
-
-Examples:
-
+`
+	examples := `
     secret-set secret:9m4e2mr0ui3e8a215n4g token=34ae35facd4
     secret-set secret:9m4e2mr0ui3e8a215n4g key#base64 AA==
     secret-set secret:9m4e2mr0ui3e8a215n4g --rotate monthly token=s3cret 
@@ -51,10 +50,11 @@ Examples:
         --file=/path/to/file
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    "secret-set",
-		Args:    "<ID> [key[#base64]=value...]",
-		Purpose: "Update an existing secret.",
-		Doc:     doc,
+		Name:     "secret-set",
+		Args:     "<ID> [key[#base64]=value...]",
+		Purpose:  "Update an existing secret.",
+		Doc:      doc,
+		Examples: examples,
 	})
 }
 
