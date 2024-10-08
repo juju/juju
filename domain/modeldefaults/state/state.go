@@ -91,10 +91,8 @@ WHERE cloud_defaults.cloud_uuid = ?
 // regions for the specified cloud. The result is a map of region name
 // key values, keyed on the name of the region.
 // If no defaults are found then an empty map will be returned with nil error.
-// CloudAllRegionDefaults returns all the default settings for a cloud and it's
-// regions. Note this will not include the defaults set on the cloud itself but
-// just that of its regions. Empty map values are returned when no region
-// defaults are found.
+// Note this will not include the defaults set on the cloud itself but
+// just that of its regions.
 func (st *State) CloudAllRegionDefaults(
 	ctx context.Context,
 	cloudUUID cloud.UUID,
@@ -139,7 +137,7 @@ WHERE cloud_region.cloud_uuid = $dbCloud.uuid
 	})
 }
 
-// CloudType returns the cloud type uof the cloud.
+// CloudType returns the cloud type of the cloud.
 // If no cloud exists for the given uuid then an error
 // satisfying [clouderrors.NotFound] is returned.
 func (s *State) CloudType(

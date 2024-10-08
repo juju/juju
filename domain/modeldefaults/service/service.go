@@ -84,10 +84,8 @@ type State interface {
 	// regions for the specified cloud. The result is a map of region name
 	// key values, keyed on the name of the region.
 	// If no defaults are found then an empty map will be returned with nil error.
-	// CloudAllRegionDefaults returns all the default settings for a cloud and it's
-	// regions. Note this will not include the defaults set on the cloud itself but
-	// just that of its regions. Empty map values are returned when no region
-	// defaults are found.
+	// Note this will not include the defaults set on the cloud itself but
+	// just that of its regions.
 	CloudAllRegionDefaults(
 		ctx context.Context,
 		cloudUUID cloud.UUID,
@@ -100,7 +98,7 @@ type State interface {
 	// Deprecated: this is only to support legacy callers.
 	ModelMetadataDefaults(context.Context, coremodel.UUID) (map[string]string, error)
 
-	// CloudType returns the cloud type uof the cloud.
+	// CloudType returns the cloud type of the cloud.
 	// If no cloud exists for the given uuid then an error
 	// satisfying [clouderrors.NotFound] is returned.
 	CloudType(context.Context, cloud.UUID) (string, error)
