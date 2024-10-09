@@ -138,6 +138,10 @@ type ReadOnlyModelCreationArgs struct {
 	// model.
 	// Optional and can be empty.
 	CredentialName string
+
+	// IsControllerModel is a boolean value that indicates if the model is the
+	// controller model.
+	IsControllerModel bool
 }
 
 // DeleteModelOptions is a struct that is used to modify the behavior of the

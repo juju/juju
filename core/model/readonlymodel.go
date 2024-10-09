@@ -43,4 +43,8 @@ type ReadOnlyModel struct {
 
 	// Credential name is the name of the credential to use for the model.
 	CredentialName string
+
+	// IsControllerModel is a boolean value that indicates if the model is the
+	// controller model.
+	IsControllerModel bool
 }

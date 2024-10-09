@@ -314,6 +314,7 @@ type dbReadOnlyModel struct {
 	CloudRegion        string         `db:"cloud_region"`
 	CredentialOwner    string         `db:"credential_owner"`
 	CredentialName     string         `db:"credential_name"`
+	IsControllerModel  bool           `db:"is_controller_model"`
 }
 
 type dbCloudType struct {
