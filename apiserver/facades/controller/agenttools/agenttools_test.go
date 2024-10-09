@@ -45,7 +45,7 @@ func (s *AgentToolsSuite) TestCheckTools(c *gc.C) {
 
 	expVer, err := version.Parse("2.5.0")
 	c.Assert(err, jc.ErrorIsNil)
-	s.modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(expVer, nil)
+	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(expVer, nil)
 	modelConfig, err := config.New(config.NoDefaults, coretesting.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil)
@@ -77,7 +77,7 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
 
 	expVer, err := version.Parse("2.5-alpha1")
 	c.Assert(err, jc.ErrorIsNil)
-	s.modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(expVer, nil)
+	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(expVer, nil)
 
 	sConfig := coretesting.FakeConfig()
 	sConfig = sConfig.Merge(coretesting.Attrs{
@@ -125,7 +125,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *gc.C) {
 
 	expVer, err := version.Parse("2.5.0")
 	c.Assert(err, jc.ErrorIsNil)
-	s.modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(expVer, nil)
+	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(expVer, nil)
 	modelConfig, err := config.New(config.NoDefaults, coretesting.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil)
@@ -157,7 +157,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *gc.C) {
 
 	expVer, err := version.Parse("2.5.0")
 	c.Assert(err, jc.ErrorIsNil)
-	s.modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(expVer, nil)
+	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(expVer, nil)
 	modelConfig, err := config.New(config.NoDefaults, coretesting.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil)
