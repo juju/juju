@@ -1,6 +1,8 @@
 #!/bin/bash -e
 [ -n "${GOPATH:-}" ] && export "PATH=${PATH}:${GOPATH}/bin"
 
+export SKIP_DESTROY="${SKIP_DESTROY:-}"
+
 # Always ignore SC2230 ('which' is non-standard. Use builtin 'command -v' instead.)
 export SHELLCHECK_OPTS="-e SC2230 -e SC2039 -e SC2028 -e SC2002 -e SC2005 -e SC2001 -e SC2263 -e SC2043"
 export BOOTSTRAP_REUSE_LOCAL="${BOOTSTRAP_REUSE_LOCAL:-}"

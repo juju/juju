@@ -22,10 +22,7 @@ run_local_deploy() {
 	# On microk8s, there's a bug where the application blocks the model teardown
 	# TODO: remove the next line once this bug is fixed.
 	juju remove-application refresher
-
-	# TODO: Ensure that we can destroy the model once cleanup and teardown is
-	# implemented. For now, allow the controller to just destroy the model.
-	# destroy_model "${model_name}"
+	destroy_model "${model_name}"
 }
 
 run_charmhub_deploy() {
@@ -45,10 +42,7 @@ run_charmhub_deploy() {
 	# On microk8s, there's a bug where the application blocks the model teardown
 	# TODO: remove the next line once this bug is fixed.
 	juju remove-application ubuntu-lite
-
-	# TODO: Ensure that we can destroy the model once cleanup and teardown is
-	# implemented. For now, allow the controller to just destroy the model.
-	# destroy_model "${model_name}"
+	destroy_model "${model_name}"
 }
 
 test_deploy() {

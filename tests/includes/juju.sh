@@ -415,6 +415,11 @@ post_add_model() {
 # destroy_model <model name> [<timeout>]
 # ```
 destroy_model() {
+	if [[ -n ${SKIP_DESTROY} ]]; then
+		echo "====> Skipping destroy model"
+		return
+	fi
+
 	local name timeout
 
 	name=${1}
@@ -448,6 +453,11 @@ destroy_model() {
 # destroy_controller <controller name>
 # ```
 destroy_controller() {
+	if [[ -n ${SKIP_DESTROY} ]]; then
+		echo "====> Skipping destroy controller"
+		return
+	fi
+
 	local name
 
 	name=${1}
