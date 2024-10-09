@@ -17,7 +17,6 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs"
 )
 
@@ -269,9 +268,7 @@ func (s *serviceSuite) TestUpdateCloudDefaults(c *gc.C) {
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
 
 	attr := map[string]any{"wallyworld": "peachy2", "lucifer": 668}
-	err = svc.UpdateModelConfigDefaultValues(context.Background(), attr, modeldefaults.CloudRegion{
-		Cloud: "test",
-	})
+	err = svc.UpdateModelConfigCloudDefaultValues(context.Background(), attr, "test")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -286,9 +283,7 @@ func (s *serviceSuite) TestRemoveCloudDefaultValues(c *gc.C) {
 
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
 
-	err = svc.RemoveModelConfigDefaultValues(context.Background(), []string{"wallyworld"}, modeldefaults.CloudRegion{
-		Cloud: "test",
-	})
+	err = svc.RemoveModelConfigCloudDefaultValues(context.Background(), []string{"wallyworld"}, "test")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -305,10 +300,7 @@ func (s *serviceSuite) TestUpdateCloudRegionDefaults(c *gc.C) {
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
 
 	attr := map[string]any{"wallyworld": "peachy2", "lucifer": 668}
-	err = svc.UpdateModelConfigDefaultValues(context.Background(), attr, modeldefaults.CloudRegion{
-		Cloud:  "test",
-		Region: "east",
-	})
+	err = svc.UpdateModelConfigRegionDefaultValues(context.Background(), attr, "test", "east")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -322,9 +314,6 @@ func (s *serviceSuite) TestRemoveCloudRegionDefaultValues(c *gc.C) {
 	s.state.EXPECT().DeleteCloudRegionDefaults(gomock.Any(), cloudUUID, "east", []string{"wallyworld"})
 
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
-	err = svc.RemoveModelConfigDefaultValues(context.Background(), []string{"wallyworld"}, modeldefaults.CloudRegion{
-		Cloud:  "test",
-		Region: "east",
-	})
+	err = svc.RemoveModelConfigRegionDefaultValues(context.Background(), []string{"wallyworld"}, "test", "east")
 	c.Assert(err, jc.ErrorIsNil)
 }

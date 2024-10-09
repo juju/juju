@@ -25,13 +25,6 @@ type AttributeDefaultValues struct {
 	Regions []RegionDefaultValue
 }
 
-type CloudRegion struct {
-	// Cloud is the name of the cloud.
-	Cloud string
-	// Region is the name of the cloud region.
-	Region string
-}
-
 // RegionDefaultValue holds the region information for each region in DefaultSetting.
 type RegionDefaultValue struct {
 	// Name represents the region name for this specific setting.
