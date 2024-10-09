@@ -19,9 +19,9 @@ import (
 )
 
 type ModelState interface {
-	// CheckMachineExists check to see if the given machine exists in the model. If
-	// the machine does not exist an error satisfying
-	// [applicationerrors.MachineNotFound] is returned.
+	// CheckApplicationExists check to see if the given machine exists in the
+	// model. If the machine does not exist an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
 	CheckApplicationExists(context.Context, string) error
 
 	// CheckMachineExists check to see if the given machine exists in the model. If
@@ -29,14 +29,14 @@ type ModelState interface {
 	// [machineerrors.MachineNotFound] is returned.
 	CheckMachineExists(context.Context, machine.Name) error
 
-	// CheckUnitExists check to see if the given unit exists in the model. If
-	// the machine does not exist an error satisfying
-	// [applicationerrors.UnitNotFound] is returned.
-	CheckUnitExists(context.Context, string) error
-
 	// GetModelUUID returns the unique uuid for the model represented by this
 	// state.
 	GetModelUUID(context.Context) (model.UUID, error)
+
+	// CheckUnitExists check to see if the given unit exists in the model. If
+	// the unit does not exist an error satisfying
+	// [applicationerrors.UnitNotFound] is returned.
+	CheckUnitExists(context.Context, string) error
 }
 
 // State provides the state methods needed by the modelagent service.
@@ -141,19 +141,6 @@ func (s *ModelService) GetMachineTargetAgentVersion(
 		return version.Zero, errors.Errorf(
 			"getting machine %q model uuid: %w", machineName, err,
 		)
-	}
-
-	return s.Service.st.GetModelTargetAgentVersion(ctx, modelUUID)
-}
-
-// GetModelAgentVersion returns the agent version for the current model.
-// The following errors can be returned:
-//   - [github.com/juju/juju/domain/model/errors.NotFound] if no model exists
-//     for the provided ID.
-func (s *ModelService) GetModelAgentVersion(ctx context.Context) (version.Number, error) {
-	modelUUID, err := s.st.GetModelUUID(ctx)
-	if err != nil {
-		return version.Zero, errors.Errorf("getting the current model's uuid: %w", err)
 	}
 
 	return s.Service.st.GetModelTargetAgentVersion(ctx, modelUUID)
