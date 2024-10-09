@@ -34,6 +34,15 @@ func (s *Service) InstanceIDAndName(ctx context.Context, machineUUID string) (st
 	return instanceID, instanceName, nil
 }
 
+// AvailabilityZone returns the availability zone for the specified machine.
+func (s *Service) AvailabilityZone(ctx context.Context, machineUUID string) (string, error) {
+	az, err := s.st.AvailabilityZone(ctx, machineUUID)
+	if errors.Is(err, errors.NotFound) {
+		return "", errors.NotProvisionedf("machine %q is not provisioned", machineUUID)
+	}
+	return az, errors.Annotatef(err, "retrieving availability zone for machine %q", machineUUID)
+}
+
 // HardwareCharacteristics returns the hardware characteristics of the
 // of the specified machine.
 func (s *Service) HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error) {

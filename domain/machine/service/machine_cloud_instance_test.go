@@ -42,6 +42,17 @@ func (s *serviceSuite) TestRetrieveHardwareCharacteristicsFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "retrieving hardware characteristics for machine \"42\": boom")
 }
 
+func (s *serviceSuite) TestRetrieveAvailabilityZone(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().AvailabilityZone(gomock.Any(), "42").
+		Return("foo", nil)
+
+	hc, err := NewService(s.state).AvailabilityZone(context.Background(), "42")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(hc, gc.DeepEquals, "foo")
+}
+
 func (s *serviceSuite) TestSetMachineCloudInstance(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

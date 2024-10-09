@@ -31,21 +31,21 @@ func (st *State) HardwareCharacteristics(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	retrieveHardwareCharacteristics := `
+	query := `
 SELECT    &instanceDataResult.*
 FROM      v_hardware_characteristics AS v
 WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
 	machineUUIDQuery := instanceDataResult{
 		MachineUUID: machineUUID,
 	}
-	retrieveHardwareCharacteristicsStmt, err := st.Prepare(retrieveHardwareCharacteristics, machineUUIDQuery)
+	stmt, err := st.Prepare(query, machineUUIDQuery)
 	if err != nil {
 		return nil, errors.Annotate(err, "preparing retrieve hardware characteristics statement")
 	}
 
 	var row instanceDataResult
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, retrieveHardwareCharacteristicsStmt, machineUUIDQuery).Get(&row)
+		err := tx.Query(ctx, stmt, machineUUIDQuery).Get(&row)
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Annotatef(errors.NotFound, "machine cloud instance for machine %q", machineUUID)
 		}
@@ -54,6 +54,46 @@ WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
 		return nil, errors.Trace(err)
 	}
 	return row.toHardwareCharacteristics(), nil
+}
+
+// AvailabilityZone returns the availability zone for the specified machine.
+// If no hardware characteristics are set for the machine, it returns
+// [errors.NotFound].
+func (st *State) AvailabilityZone(
+	ctx context.Context,
+	machineUUID string,
+) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	query := `
+SELECT    &instanceDataResult.availability_zone_name
+FROM      v_hardware_characteristics AS v
+WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
+	machineUUIDQuery := instanceDataResult{
+		MachineUUID: machineUUID,
+	}
+	stmt, err := st.Prepare(query, machineUUIDQuery)
+	if err != nil {
+		return "", errors.Annotate(err, "preparing retrieve hardware characteristics statement")
+	}
+
+	var row instanceDataResult
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, machineUUIDQuery).Get(&row)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Annotatef(errors.NotFound, "machine cloud instance for machine %q", machineUUID)
+		}
+		return errors.Annotatef(err, "querying machine cloud instance for machine %q", machineUUID)
+	}); err != nil {
+		return "", errors.Trace(err)
+	}
+	if row.AvailabilityZone == nil {
+		return "", nil
+	}
+	return *row.AvailabilityZone, nil
 }
 
 // SetMachineCloudInstance sets an entry in the machine cloud instance table

@@ -79,6 +79,22 @@ func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *gc
 	c.Check(*hc.VirtType, gc.Equals, "virtual-machine")
 }
 
+func (s *stateSuite) TestAvailabilityZoneWithNoMachine(c *gc.C) {
+	machineUUID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.AvailabilityZone(context.Background(), machineUUID.String())
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+func (s *stateSuite) TestAvailabilityZone(c *gc.C) {
+	machineUUID := s.ensureInstance(c, "42")
+
+	az, err := s.state.AvailabilityZone(context.Background(), machineUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(az, gc.Equals, "az-1")
+}
+
 func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 	db := s.DB()
 

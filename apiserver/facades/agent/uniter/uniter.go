@@ -349,14 +349,11 @@ var getZone = func(ctx context.Context, st *state.State, machineService MachineS
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	hc, err := machineService.HardwareCharacteristics(ctx, machineUUID)
+	az, err := machineService.AvailabilityZone(ctx, machineUUID)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if hc.AvailabilityZone == nil {
-		return "", nil
-	}
-	return *hc.AvailabilityZone, errors.Trace(err)
+	return az, errors.Trace(err)
 }
 
 // AvailabilityZone returns the availability zone for each given unit, if applicable.
