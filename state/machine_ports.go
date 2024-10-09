@@ -189,36 +189,6 @@ func (m *Machine) OpenedPortRanges() (MachinePortRanges, error) {
 	return getOpenedMachinePortRanges(m.st, m.Id())
 }
 
-// getOpenedPortRangesForAllMachines returns a slice of machine port ranges for
-// all machines managed by this model.
-func getOpenedPortRangesForAllMachines(st *State) ([]*machinePortRanges, error) {
-	machines, err := st.AllMachines()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var machineIDs []string
-	for _, m := range machines {
-		machineIDs = append(machineIDs, m.Id())
-	}
-	openedPorts, closer := st.db().GetCollection(openedPortsC)
-	defer closer()
-
-	docs := []machinePortRangesDoc{}
-	err = openedPorts.Find(bson.D{{"machine-id", bson.D{{"$in", machineIDs}}}}).All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	results := make([]*machinePortRanges, len(docs))
-	for i, doc := range docs {
-		results[i] = &machinePortRanges{
-			st:        st,
-			doc:       doc,
-			docExists: true,
-		}
-	}
-	return results, nil
-}
-
 // getOpenedMachinePortRanges attempts to retrieve the set of opened ports for
 // a particular machine. If the underlying document does not exist, a blank
 // machinePortRanges instance with the docExists flag set to false will be

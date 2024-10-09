@@ -886,6 +886,16 @@ func (s *stateSuite) TestUpdateUnitPortsOpenPortRangeAlreadyOpened(c *gc.C) {
 	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
 }
 
+func (s *stateSuite) TestUpdateUnitPortsNilOpenPort(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.UpdateUnitPorts(ctx, s.unitUUID, nil, nil)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *stateSuite) TestGetEndpoints(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()

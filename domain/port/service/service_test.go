@@ -178,7 +178,7 @@ func (s *serviceSuite) TestGetApplicationOpenedPortsByEndpoint(c *gc.C) {
 	c.Check(res, gc.DeepEquals, expected)
 }
 
-func (s serviceSuite) TestGetApplicationOpenedPortsByEndpointOverlap(c *gc.C) {
+func (s *serviceSuite) TestGetApplicationOpenedPortsByEndpointOverlap(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	openedPorts := port.UnitEndpointPortRanges{
@@ -443,6 +443,53 @@ func (s *serviceSuite) TestUpdateUnitPortsClosePortRangeOpenOnWildcard(c *gc.C) 
 			network.MustParsePortRange("100-200/tcp"),
 		},
 	}).Return(nil)
+
+	err := s.srv.UpdateUnitPorts(context.Background(), unitUUID, openPorts, closePorts)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestUpdateUnitPortsNilOpenPorts(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	openPorts := (network.GroupedPortRanges)(nil)
+	closePorts := network.GroupedPortRanges{
+		"ep1": {
+			network.MustParsePortRange("22/tcp"),
+		},
+	}
+	s.st.EXPECT().GetColocatedOpenedPorts(gomock.Any(), unitUUID).Return([]network.PortRange{}, nil)
+	s.st.EXPECT().GetEndpointOpenedPorts(domaintesting.IsAtomicContextChecker, unitUUID, WildcardEndpoint).Return([]network.PortRange{}, nil)
+	s.st.EXPECT().UpdateUnitPorts(domaintesting.IsAtomicContextChecker, unitUUID, openPorts, closePorts).Return(nil)
+
+	err := s.srv.UpdateUnitPorts(context.Background(), unitUUID, openPorts, closePorts)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestUpdateUnitPortsNilClosePorts(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	openPorts := network.GroupedPortRanges{
+		"ep1": {
+			network.MustParsePortRange("80/tcp"),
+			network.MustParsePortRange("443/tcp"),
+		},
+		"ep2": {
+			network.MustParsePortRange("8000-9000/udp"),
+		},
+	}
+	closePorts := (network.GroupedPortRanges)(nil)
+
+	s.st.EXPECT().GetColocatedOpenedPorts(gomock.Any(), unitUUID).Return([]network.PortRange{}, nil)
+	s.st.EXPECT().GetEndpointOpenedPorts(domaintesting.IsAtomicContextChecker, unitUUID, WildcardEndpoint).Return([]network.PortRange{}, nil)
+	s.st.EXPECT().UpdateUnitPorts(domaintesting.IsAtomicContextChecker, unitUUID, openPorts, closePorts).Return(nil)
+
+	err := s.srv.UpdateUnitPorts(context.Background(), unitUUID, openPorts, closePorts)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestUpdateUnitPortsNilPortMaps(c *gc.C) {
+	openPorts := (network.GroupedPortRanges)(nil)
+	closePorts := (network.GroupedPortRanges)(nil)
 
 	err := s.srv.UpdateUnitPorts(context.Background(), unitUUID, openPorts, closePorts)
 	c.Assert(err, jc.ErrorIsNil)
