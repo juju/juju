@@ -29,7 +29,6 @@ import (
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -1366,9 +1365,14 @@ func (m *ModelManagerAPI) modelDefaults(ctx context.Context, cloud string) param
 // SetModelDefaults writes new values for the specified default model settings.
 func (m *ModelManagerAPI) SetModelDefaults(ctx context.Context, args params.SetModelDefaults) (params.ErrorResults, error) {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Config))}
+	if !m.isAdmin {
+		return results, apiservererrors.ErrPerm
+	}
+
 	if err := m.check.ChangeAllowed(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
+
 	for i, arg := range args.Config {
 		results.Results[i].Error = apiservererrors.ServerError(
 			m.setModelDefaults(ctx, arg),
@@ -1378,13 +1382,6 @@ func (m *ModelManagerAPI) SetModelDefaults(ctx context.Context, args params.SetM
 }
 
 func (m *ModelManagerAPI) setModelDefaults(ctx context.Context, args params.ModelDefaultValues) error {
-	if !m.isAdmin {
-		return apiservererrors.ErrPerm
-	}
-
-	if err := m.check.ChangeAllowed(ctx); err != nil {
-		return errors.Trace(err)
-	}
 	// Make sure we don't allow changing agent-version.
 	if _, found := args.Config["agent-version"]; found {
 		return errors.New("agent-version cannot have a default value")
@@ -1393,12 +1390,14 @@ func (m *ModelManagerAPI) setModelDefaults(ctx context.Context, args params.Mode
 	if args.CloudTag == "" {
 		return errors.New("missing cloud name")
 	}
-
-	rspec, err := m.makeCloudRegion(args.CloudTag, args.CloudRegion)
+	cTag, err := names.ParseCloudTag(args.CloudTag)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.NewNotValid(err, fmt.Sprintf("cloud tag %q not valid", args.CloudTag))
 	}
-	return m.modelDefaultsService.UpdateModelConfigDefaultValues(ctx, args.Config, rspec)
+	if args.CloudRegion == "" {
+		return m.modelDefaultsService.UpdateModelConfigCloudDefaultValues(ctx, args.Config, cTag.Id())
+	}
+	return m.modelDefaultsService.UpdateModelConfigRegionDefaultValues(ctx, args.Config, cTag.Id(), args.CloudRegion)
 }
 
 // UnsetModelDefaults removes the specified default model settings.
@@ -1413,33 +1412,26 @@ func (m *ModelManagerAPI) UnsetModelDefaults(ctx context.Context, args params.Un
 	}
 
 	for i, arg := range args.Keys {
-		if arg.CloudTag == "" {
-			results.Results[i].Error = apiservererrors.ServerError(errors.New("missing cloud name"))
-			continue
-		}
-
-		spec, err := m.makeCloudRegion(arg.CloudTag, arg.CloudRegion)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
-			continue
-		}
 		results.Results[i].Error = apiservererrors.ServerError(
-			m.modelDefaultsService.RemoveModelConfigDefaultValues(ctx, arg.Keys, spec),
+			m.unsetModelDefaults(ctx, arg),
 		)
 	}
 	return results, nil
 }
 
-// makeCloudRegion is a helper method for methods that call UpdateModelConfigDefaultValues.
-func (m *ModelManagerAPI) makeCloudRegion(cloudTag, r string) (modeldefaults.CloudRegion, error) {
-	cTag, err := names.ParseCloudTag(cloudTag)
-	if err != nil {
-		return modeldefaults.CloudRegion{}, errors.Trace(err)
+func (m *ModelManagerAPI) unsetModelDefaults(ctx context.Context, arg params.ModelUnsetKeys) error {
+	if arg.CloudTag == "" {
+		return errors.New("missing cloud name")
 	}
-	return modeldefaults.CloudRegion{
-		Cloud:  cTag.Id(),
-		Region: r,
-	}, nil
+
+	cTag, err := names.ParseCloudTag(arg.CloudTag)
+	if err != nil {
+		return errors.NewNotValid(err, fmt.Sprintf("cloud tag %q not valid", arg.CloudTag))
+	}
+	if arg.CloudRegion == "" {
+		return m.modelDefaultsService.RemoveModelConfigCloudDefaultValues(ctx, arg.Keys, cTag.Id())
+	}
+	return m.modelDefaultsService.RemoveModelConfigRegionDefaultValues(ctx, arg.Keys, cTag.Id(), arg.CloudRegion)
 }
 
 // ChangeModelCredential changes cloud credential reference for models.

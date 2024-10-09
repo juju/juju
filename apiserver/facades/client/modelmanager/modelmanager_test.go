@@ -259,7 +259,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 			},
 			CredentialService:    apiservertesting.ConstCredentialGetter(&caasCred),
 			ModelService:         s.modelService,
-			ModelDefaultsService: nil,
+			ModelDefaultsService: s.modelDefaultService,
 			AccessService:        s.accessService,
 			ApplicationService:   s.applicationService,
 			ObjectStore:          &mockObjectStore{},
@@ -631,17 +631,30 @@ func (s *modelManagerSuite) TestModelDefaults(c *gc.C) {
 	c.Assert(results.Results[0].Config, jc.DeepEquals, expectedValues)
 }
 
-func (s *modelManagerSuite) TestSetModelDefaults(c *gc.C) {
-	defer s.setUpAPI(c)
+func (s *modelManagerSuite) TestSetModelCloudDefaults(c *gc.C) {
+	defer s.setUpAPI(c).Finish()
 
 	defaults := map[string]interface{}{
 		"attr3": "val3",
 		"attr4": "val4",
 	}
-	s.modelDefaultService.EXPECT().UpdateModelConfigDefaultValues(gomock.Any(), defaults, modeldefaults.CloudRegion{
-		Cloud:  "test",
-		Region: "east",
-	})
+	s.modelDefaultService.EXPECT().UpdateModelConfigCloudDefaultValues(gomock.Any(), defaults, "test")
+	params := params.SetModelDefaults{
+		Config: []params.ModelDefaultValues{{CloudTag: "cloud-test", Config: defaults}},
+	}
+	result, err := s.api.SetModelDefaults(stdcontext.Background(), params)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+}
+
+func (s *modelManagerSuite) TestSetModelRegionDefaults(c *gc.C) {
+	defer s.setUpAPI(c).Finish()
+
+	defaults := map[string]interface{}{
+		"attr3": "val3",
+		"attr4": "val4",
+	}
+	s.modelDefaultService.EXPECT().UpdateModelConfigRegionDefaultValues(gomock.Any(), defaults, "test", "east")
 	params := params.SetModelDefaults{
 		Config: []params.ModelDefaultValues{{CloudTag: "cloud-test", CloudRegion: "east", Config: defaults}},
 	}
@@ -670,13 +683,24 @@ func (s *modelManagerSuite) TestBlockChangesSetModelDefaults(c *gc.C) {
 	s.assertBlocked(c, err, "TestBlockChangesSetModelDefaults")
 }
 
-func (s *modelManagerSuite) TestUnsetModelDefaults(c *gc.C) {
+func (s *modelManagerSuite) TestUnsetModelCloudDefaults(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	s.modelDefaultService.EXPECT().RemoveModelConfigDefaultValues(gomock.Any(), []string{"attr"}, modeldefaults.CloudRegion{
-		Cloud:  "test",
-		Region: "east",
-	})
+	s.modelDefaultService.EXPECT().RemoveModelConfigCloudDefaultValues(gomock.Any(), []string{"attr"}, "test")
+	args := params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			CloudTag: "cloud-test",
+			Keys:     []string{"attr"},
+		}}}
+	result, err := s.api.UnsetModelDefaults(stdcontext.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+}
+
+func (s *modelManagerSuite) TestUnsetModelRegionDefaults(c *gc.C) {
+	defer s.setUpAPI(c).Finish()
+
+	s.modelDefaultService.EXPECT().RemoveModelConfigRegionDefaultValues(gomock.Any(), []string{"attr"}, "test", "east")
 	args := params.UnsetModelDefaults{
 		Keys: []params.ModelUnsetKeys{{
 			CloudTag:    "cloud-test",
@@ -720,13 +744,10 @@ func (s *modelManagerSuite) TestSetModelDefaultsAsNormalUser(c *gc.C) {
 			Config: map[string]interface{}{
 				"ftp-proxy": "http://charlie",
 			}}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{
-				Error: &params.Error{
-					Message: "permission denied",
-					Code:    "unauthorized access"}}}})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(got, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{Error: nil}},
+	})
 }
 
 func (s *modelManagerSuite) TestUnsetModelDefaultsAsNormalUser(c *gc.C) {

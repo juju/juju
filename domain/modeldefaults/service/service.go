@@ -254,36 +254,54 @@ func (s *Service) CloudDefaults(ctx context.Context, cloudName string) (modeldef
 	return s.cloudDefaults(ctx, cloudUUID)
 }
 
-// UpdateModelConfigDefaultValues saves the specified default attribute details for a cloud or region.
+// UpdateModelConfigCloudDefaultValues saves the specified default attribute details for a cloud.
 // It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
-func (s *Service) UpdateModelConfigDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudRegion modeldefaults.CloudRegion) error {
-	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudRegion.Cloud)
+func (s *Service) UpdateModelConfigCloudDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudName string) error {
+	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if err != nil {
-		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudRegion.Cloud, err)
+		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudName, err)
 	}
 
 	strAttrs, err := modelconfigservice.CoerceConfigForStorage(updateAttrs)
 	if err != nil {
-		return errors.Errorf("coercing cloud %q default values for storage: %w", cloudRegion.Cloud, err)
+		return errors.Errorf("coercing cloud %q default values for storage: %w", cloudName, err)
 	}
-	if cloudRegion.Region == "" {
-		return s.st.UpdateCloudDefaults(ctx, cloudUUID, strAttrs)
-	}
-	return s.st.UpdateCloudRegionDefaults(ctx, cloudUUID, cloudRegion.Region, strAttrs)
+	return s.st.UpdateCloudDefaults(ctx, cloudUUID, strAttrs)
 }
 
-// RemoveModelConfigDefaultValues deletes the specified default attribute details for a cloud or region.
+// UpdateModelConfigRegionDefaultValues saves the specified default attribute details for a cloud region.
 // It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
-func (s *Service) RemoveModelConfigDefaultValues(ctx context.Context, removeAttrs []string, cloudRegion modeldefaults.CloudRegion) error {
-	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudRegion.Cloud)
+func (s *Service) UpdateModelConfigRegionDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudName, regionName string) error {
+	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if err != nil {
-		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudRegion.Cloud, err)
+		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudName, err)
 	}
 
-	if cloudRegion.Region == "" {
-		return s.st.DeleteCloudDefaults(ctx, cloudUUID, removeAttrs)
+	strAttrs, err := modelconfigservice.CoerceConfigForStorage(updateAttrs)
+	if err != nil {
+		return errors.Errorf("coercing cloud %q default values for storage: %w", cloudName, err)
 	}
-	return s.st.DeleteCloudRegionDefaults(ctx, cloudUUID, cloudRegion.Region, removeAttrs)
+	return s.st.UpdateCloudRegionDefaults(ctx, cloudUUID, regionName, strAttrs)
+}
+
+// RemoveModelConfigCloudDefaultValues deletes the specified default attribute details for a cloud.
+// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+func (s *Service) RemoveModelConfigCloudDefaultValues(ctx context.Context, removeAttrs []string, cloudName string) error {
+	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
+	if err != nil {
+		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudName, err)
+	}
+	return s.st.DeleteCloudDefaults(ctx, cloudUUID, removeAttrs)
+}
+
+// RemoveModelConfigRegionDefaultValues deletes the specified default attribute details for a cloud region.
+// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+func (s *Service) RemoveModelConfigRegionDefaultValues(ctx context.Context, removeAttrs []string, cloudName, regionName string) error {
+	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
+	if err != nil {
+		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudName, err)
+	}
+	return s.st.DeleteCloudRegionDefaults(ctx, cloudUUID, regionName, removeAttrs)
 }
 
 // ModelDefaults will return the default config values to be used for a model
