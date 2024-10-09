@@ -49,6 +49,11 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 		return nil, errors.Trace(err)
 	}
 
+	controllerModelUUID, err := uuid.UUIDFromString(ctx.ModelUUID().String())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -94,6 +99,7 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 		},
 		common.NewModelManagerBackend(configSchemaSource, ctrlModel, pool),
 		controllerUUID,
+		controllerModelUUID,
 		Services{
 			DomainServicesGetter: domainServicesGetter{ctx: ctx},
 			CloudService:         domainServices.Cloud(),

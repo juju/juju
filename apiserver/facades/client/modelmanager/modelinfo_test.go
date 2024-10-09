@@ -222,6 +222,7 @@ func (s *modelInfoSuite) getAPI(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock
 		context.Background(),
 		s.st, nil, s.ctlrSt,
 		s.controllerUUID,
+		uuid.MustNewUUID(), // controllerModelUUID is not used here
 		modelmanager.Services{
 			DomainServicesGetter: nil,
 			CloudService: &mockCloudService{
@@ -261,6 +262,7 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 		context.Background(),
 		s.st, nil, s.ctlrSt,
 		s.controllerUUID,
+		uuid.MustNewUUID(), // controllerModelUUID is not used here
 		modelmanager.Services{
 			DomainServicesGetter: nil,
 			CloudService: &mockCloudService{
