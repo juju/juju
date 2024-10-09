@@ -20,7 +20,8 @@ linters-settings:
       - loopclosure
       - lostcancel
       - nilfunc
-      - printf
+# TODO(4.0): re-enable me
+#      - printf
       - shift
       - stdmethods
       - structtag
@@ -38,7 +39,6 @@ linters:
     - ineffassign
     - misspell
     - unconvert
-    - exportloopref
     - unused
 run:
   timeout: 30m

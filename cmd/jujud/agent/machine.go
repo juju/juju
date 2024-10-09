@@ -398,12 +398,11 @@ type MachineAgent struct {
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
 
-	loopDeviceManager          looputil.LoopDeviceManager
-	newIntrospectionSocketName func(names.Tag) string
-	prometheusRegistry         *prometheus.Registry
-	mongoTxnCollector          *mongometrics.TxnCollector
-	mongoDialCollector         *mongometrics.DialCollector
-	preUpgradeSteps            upgrades.PreUpgradeStepsFunc
+	loopDeviceManager  looputil.LoopDeviceManager
+	prometheusRegistry *prometheus.Registry
+	mongoTxnCollector  *mongometrics.TxnCollector
+	mongoDialCollector *mongometrics.DialCollector
+	preUpgradeSteps    upgrades.PreUpgradeStepsFunc
 
 	// Only API servers have hubs. This is temporary until the apiserver and
 	// peergrouper have manifolds.
