@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -42,11 +43,27 @@ type NetworkService interface {
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 
+// StubService is the interface used to interact with the stub service. A special
+// service which collects temporary methods required to wire together together
+// domains which are not completely implemented or wired up.
+//
+// TODO: Remove this dependency once units are properly assigned to machines via
+// net nodes.
+type StubService interface {
+	// AssignUnitsToMachines assigns the given units to the given machines but setting
+	// unit net node to the machine net node.
+	//
+	// Deprecated: AssignUnitsToMachines will become redundant once the machine and
+	// application domains have become fully implemented.
+	AssignUnitsToMachines(context.Context, map[string][]string) error
+}
+
 // API implements the functionality for assigning units to machines.
 type API struct {
 	st             assignerState
 	machineService machineService
 	networkService NetworkService
+	stubService    StubService
 	res            facade.Resources
 	statusSetter   statusSetter
 }
@@ -78,6 +95,8 @@ func (a *API) AssignUnits(ctx context.Context, args params.Entities) (params.Err
 		return result, apiservererrors.ServerError(err)
 	}
 
+	machineToUnitMap := make(map[string][]string)
+
 	// The results come back from state in an undetermined order and do not
 	// include results for units that were not found, so we have to make up for
 	// that here.
@@ -97,6 +116,12 @@ func (a *API) AssignUnits(ctx context.Context, args params.Entities) (params.Err
 		if err := a.saveMachineInfo(ctx, machineId); err != nil {
 			resultMap[r.Unit] = err
 		}
+		machineToUnitMap[machineId] = append(machineToUnitMap[machineId], r.Unit)
+	}
+
+	// Assign units to machines via net nodes.
+	if err := a.stubService.AssignUnitsToMachines(ctx, machineToUnitMap); err != nil {
+		return result, internalerrors.Errorf("failed to assign units to machines: %v", err)
 	}
 
 	result.Results = make([]params.ErrorResult, len(args.Entities))

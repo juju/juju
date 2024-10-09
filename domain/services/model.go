@@ -45,6 +45,7 @@ import (
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storagestate "github.com/juju/juju/domain/storage/state"
+	stubservice "github.com/juju/juju/domain/stub"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	unitstatestate "github.com/juju/juju/domain/unitstate/state"
 	"github.com/juju/juju/environs/config"
@@ -281,4 +282,14 @@ func (s *ModelFactory) Port() *portservice.WatchableService {
 		portstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		domain.NewWatcherFactory(s.modelDB, s.logger.Child("port")),
 	)
+}
+
+// Stub returns the stub service. A special service which collects temporary
+// methods required to wire together domains which are not completely implemented
+// or wired up.
+//
+// Deprecated: Stub service contains only temporary methods and should be removed
+// as soon as possible.
+func (s *ModelFactory) Stub() *stubservice.StubService {
+	return stubservice.NewStubService(changestream.NewTxnRunnerFactory(s.modelDB))
 }

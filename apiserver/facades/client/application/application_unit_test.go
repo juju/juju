@@ -75,6 +75,7 @@ type ApplicationSuite struct {
 	credService        *commonmocks.MockCredentialService
 	machineService     *application.MockMachineService
 	applicationService *application.MockApplicationService
+	stubService        *application.MockStubService
 	storageAccess      *mocks.MockStorageInterface
 	model              *mocks.MockModel
 	leadershipReader   *mocks.MockReader
@@ -170,6 +171,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.machineService = application.NewMockMachineService(ctrl)
 	s.applicationService = application.NewMockApplicationService(ctrl)
+	s.stubService = application.NewMockStubService(ctrl)
 
 	var fs coreassumes.FeatureSet
 	s.applicationService.EXPECT().GetSupportedFeatures(gomock.Any()).Return(fs, nil).AnyTimes()
@@ -226,6 +228,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.credService,
 		s.machineService,
 		s.applicationService,
+		s.stubService,
 		s.leadershipReader,
 		func(application.Charm) *state.Charm {
 			return nil
@@ -1998,6 +2001,9 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 		gomock.Any(), "postgresql",
 		applicationservice.AddUnitArg{UnitName: unitName},
 	)
+	s.stubService.EXPECT().AssignUnitsToMachines(gomock.Any(), map[string][]string{
+		"99": {unitName},
+	})
 
 	results, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "postgresql",
@@ -2041,6 +2047,9 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 		gomock.Any(), "postgresql",
 		applicationservice.AddUnitArg{UnitName: unitName},
 	)
+	s.stubService.EXPECT().AssignUnitsToMachines(gomock.Any(), map[string][]string{
+		"99": {unitName},
+	})
 
 	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "postgresql",

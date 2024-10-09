@@ -33,6 +33,7 @@ import (
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
+	stubservice "github.com/juju/juju/domain/stub"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	"github.com/juju/juju/internal/services"
@@ -241,5 +242,9 @@ func (s *TestingDomainServices) UnitState() *unitstateservice.Service {
 }
 
 func (s *TestingDomainServices) Port() *portservice.WatchableService {
+	return nil
+}
+
+func (s *TestingDomainServices) Stub() *stubservice.StubService {
 	return nil
 }

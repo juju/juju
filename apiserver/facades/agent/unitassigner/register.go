@@ -29,6 +29,7 @@ func newFacade(ctx facade.ModelContext) (*API, error) {
 		st:             stateShim{State: st, modelConfigService: domainServices.Config()},
 		machineService: domainServices.Machine(),
 		networkService: domainServices.Network(),
+		stubService:    domainServices.Stub(),
 		res:            ctx.Resources(),
 		statusSetter:   setter,
 	}, nil

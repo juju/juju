@@ -89,6 +89,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		domainServices.Credential(),
 		domainServices.Machine(),
 		applicationService,
+		domainServices.Stub(),
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,
@@ -245,6 +246,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		domainServices.Credential(),
 		domainServices.Machine(),
 		applicationService,
+		domainServices.Stub(),
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,

@@ -91,6 +91,7 @@ type APIBase struct {
 	machineService     MachineService
 	applicationService ApplicationService
 	networkService     NetworkService
+	stubService        StubService
 
 	resources        facade.Resources
 	leadershipReader leadership.Reader
@@ -227,6 +228,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		domainServices.Credential(),
 		domainServices.Machine(),
 		applicationService,
+		domainServices.Stub(),
 		leadershipReader,
 		stateCharm,
 		DeployApplication,
@@ -268,6 +270,7 @@ func NewAPIBase(
 	credentialService common.CredentialService,
 	machineService MachineService,
 	applicationService ApplicationService,
+	stubService StubService,
 	leadershipReader leadership.Reader,
 	stateCharm func(Charm) *state.Charm,
 	deployApplication DeployApplicationFunc,
@@ -298,6 +301,7 @@ func NewAPIBase(
 		credentialService:     credentialService,
 		machineService:        machineService,
 		applicationService:    applicationService,
+		stubService:           stubService,
 		leadershipReader:      leadershipReader,
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
