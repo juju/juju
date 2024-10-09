@@ -144,3 +144,8 @@ type machineUUID struct {
 type applicationUUID struct {
 	UUID string `db:"application_uuid"`
 }
+
+// name represents a "name" column in the database.
+type name struct {
+	Name string `db:"name"`
+}

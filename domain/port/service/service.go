@@ -58,6 +58,9 @@ type State interface {
 	// given application. We return opened ports paired with the unit UUIDs, grouped
 	// by endpoint.
 	GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.ID) (port.UnitEndpointPortRanges, error)
+
+	// SetUnitPorts sets open ports for the endpoints of a given unit.
+	SetUnitPorts(ctx context.Context, unitName string, openPorts network.GroupedPortRanges) error
 }
 
 // Service provides the API for managing the opened ports for units.
@@ -138,6 +141,10 @@ func atomisePortRange(portRange network.PortRange) []network.PortRange {
 	return ret
 }
 
+func (s *Service) SetUnitPorts(ctx context.Context, unitName string, openPorts network.GroupedPortRanges) error {
+	return s.st.SetUnitPorts(ctx, unitName, openPorts)
+}
+
 // UpdateUnitPorts opens and closes ports for the endpoints of a given unit.
 //
 // NOTE: There is a special wildcard endpoint "" that represents all endpoints.
@@ -176,8 +183,8 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 	}
 
 	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		// Verify input port ranges do no conflict with any port ranges co-located
-		// with the unit.
+		// Verify input port ranges do not conflict with any port ranges
+		// co-located with the unit.
 		colocatedOpened, err := s.st.GetColocatedOpenedPorts(ctx, unitUUID)
 		if err != nil {
 			return errors.Errorf("failed to get opened ports co-located with unit %s: %w", unitUUID, err)

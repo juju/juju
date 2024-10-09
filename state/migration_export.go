@@ -321,10 +321,6 @@ func (e *exporter) machines() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	openedPorts, err := e.loadOpenedPortRangesForMachine()
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	// We are iterating through a flat list of machines, but the migration
 	// model stores the nesting. The AllMachines method assures us that the
@@ -344,7 +340,7 @@ func (e *exporter) machines() error {
 			}
 		}
 
-		exMachine, err := e.newMachine(exParent, machine, instances, openedPorts, nil)
+		exMachine, err := e.newMachine(exParent, machine, instances, nil)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -352,36 +348,6 @@ func (e *exporter) machines() error {
 	}
 
 	return nil
-}
-
-func (e *exporter) loadOpenedPortRangesForMachine() (map[string]*machinePortRanges, error) {
-	mprs, err := getOpenedPortRangesForAllMachines(e.st)
-	if err != nil {
-		return nil, errors.Annotate(err, "opened port ranges")
-	}
-
-	openedPortsByMachine := make(map[string]*machinePortRanges)
-	for _, mpr := range mprs {
-		openedPortsByMachine[mpr.MachineID()] = mpr
-	}
-
-	e.logger.Debugf("found %d openedPorts docs", len(openedPortsByMachine))
-	return openedPortsByMachine, nil
-}
-
-func (e *exporter) loadOpenedPortRangesForApplication() (map[string]*applicationPortRanges, error) {
-	mprs, err := getOpenedApplicationPortRangesForAllApplications(e.st)
-	if err != nil {
-		return nil, errors.Annotate(err, "opened port ranges")
-	}
-
-	openedPortsByApplication := make(map[string]*applicationPortRanges)
-	for _, mpr := range mprs {
-		openedPortsByApplication[mpr.ApplicationName()] = mpr
-	}
-
-	e.logger.Debugf("found %d openedPorts docs", len(openedPortsByApplication))
-	return openedPortsByApplication, nil
 }
 
 func (e *exporter) loadMachineInstanceData() (map[string]instanceData, error) {
@@ -400,7 +366,7 @@ func (e *exporter) loadMachineInstanceData() (map[string]instanceData, error) {
 	return instances, nil
 }
 
-func (e *exporter) newMachine(exParent description.Machine, machine *Machine, instances map[string]instanceData, portsData map[string]*machinePortRanges, blockDevices map[string][]BlockDeviceInfo) (description.Machine, error) {
+func (e *exporter) newMachine(exParent description.Machine, machine *Machine, instances map[string]instanceData, blockDevices map[string][]BlockDeviceInfo) (description.Machine, error) {
 	args := description.MachineArgs{
 		Id:            machine.MachineTag(),
 		Nonce:         machine.doc.Nonce,
@@ -507,10 +473,6 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		}
 	}
 
-	for _, args := range e.openedPortRangesArgsForMachine(machine.Id(), portsData) {
-		exMachine.AddOpenedPortRange(args)
-	}
-
 	constraintsArgs, err := e.constraintsArgs(globalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -518,28 +480,6 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 	exMachine.SetConstraints(constraintsArgs)
 
 	return exMachine, nil
-}
-
-func (e *exporter) openedPortRangesArgsForMachine(machineID string, portsData map[string]*machinePortRanges) []description.OpenedPortRangeArgs {
-	if portsData[machineID] == nil {
-		return nil
-	}
-
-	var result []description.OpenedPortRangeArgs
-	for unitName, unitPorts := range portsData[machineID].ByUnit() {
-		for endpointName, portRanges := range unitPorts.ByEndpoint() {
-			for _, pr := range portRanges {
-				result = append(result, description.OpenedPortRangeArgs{
-					UnitName:     unitName,
-					EndpointName: endpointName,
-					FromPort:     pr.FromPort,
-					ToPort:       pr.ToPort,
-					Protocol:     pr.Protocol,
-				})
-			}
-		}
-	}
-	return result
 }
 
 func (e *exporter) newAddressArgsSlice(a []address) []description.AddressArgs {
@@ -636,11 +576,6 @@ func (e *exporter) applications(leaders map[string]string) error {
 		return errors.Trace(err)
 	}
 
-	openedPorts, err := e.loadOpenedPortRangesForApplication()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	for _, application := range applications {
 		applicationUnits := e.units[application.Name()]
 		resources, err := resourcesSt.ListResources(application.Name())
@@ -656,7 +591,6 @@ func (e *exporter) applications(leaders map[string]string) error {
 			resources:        resources,
 			endpoingBindings: bindings,
 			leader:           leaders[application.Name()],
-			portsData:        openedPorts,
 		}
 
 		if appOfferMap != nil {
@@ -721,7 +655,6 @@ type addApplicationContext struct {
 	payloads         map[string][]payloads.FullPayloadInfo
 	resources        resources.ApplicationResources
 	endpoingBindings map[string]bindingsMap
-	portsData        map[string]*applicationPortRanges
 
 	// CAAS
 	cloudServices   map[string]*cloudServiceDoc
@@ -889,10 +822,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		return errors.Trace(err)
 	}
 
-	for _, args := range e.openedPortRangesArgsForApplication(appName, ctx.portsData) {
-		exApplication.AddOpenedPortRange(args)
-	}
-
 	// Set Tools for application - this is only for CAAS models.
 	isSidecar, err := ctx.application.IsSidecar()
 	if err != nil {
@@ -1017,28 +946,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 
 	return nil
-}
-
-func (e *exporter) openedPortRangesArgsForApplication(appName string, portsData map[string]*applicationPortRanges) []description.OpenedPortRangeArgs {
-	if portsData[appName] == nil {
-		return nil
-	}
-
-	var result []description.OpenedPortRangeArgs
-	for unitName, unitPorts := range portsData[appName].ByUnit() {
-		for endpointName, portRanges := range unitPorts.ByEndpoint() {
-			for _, pr := range portRanges {
-				result = append(result, description.OpenedPortRangeArgs{
-					UnitName:     unitName,
-					EndpointName: endpointName,
-					FromPort:     pr.FromPort,
-					ToPort:       pr.ToPort,
-					Protocol:     pr.Protocol,
-				})
-			}
-		}
-	}
-	return result
 }
 
 func (e *exporter) unitWorkloadVersion(unit *Unit) (string, error) {

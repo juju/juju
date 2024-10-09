@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -241,6 +242,42 @@ AND unit_endpoint.endpoint = $endpointName.endpoint
 	}
 	network.SortPortRanges(decodedPortRanges)
 	return decodedPortRanges, nil
+}
+
+// SetUnitPorts sets open ports for the endpoints of a given unit.
+func (st *State) SetUnitPorts(
+	ctx context.Context, unitName string, openPorts network.GroupedPortRanges,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Errorf("getting DB: %w", err)
+	}
+
+	endpoints := make([]string, len(openPorts))
+	i := 0
+	for endpoint := range openPorts {
+		endpoints[i] = endpoint
+		i++
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		unitUUID, err := st.getUnitUUID(ctx, tx, unitName)
+		if err != nil {
+			return errors.Errorf("getting uuid of unit %q: %w", unitName, err)
+		}
+
+		endpoints, err := st.ensureEndpoints(ctx, tx, unitUUID, endpoints)
+		if err != nil {
+			return errors.Errorf("ensuring endpoints exist for unit %q: %w", unitName, err)
+		}
+
+		err = st.openPorts(ctx, tx, openPorts, nil, endpoints)
+		if err != nil {
+			return errors.Errorf("opening ports for unit %q: %w", unitName, err)
+		}
+
+		return nil
+	})
 }
 
 // UpdateUnitPorts opens and closes ports for the endpoints of a given unit.
@@ -547,4 +584,26 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 		endpoints[i] = ep.Endpoint
 	}
 	return endpoints, nil
+}
+
+func (st *State) getUnitUUID(ctx context.Context, tx *sqlair.TX, unitName string) (unitUUID, error) {
+	unit := name{Name: unitName}
+	var uuid unitUUID
+	getUnitStmt, err := st.Prepare(`
+SELECT uuid AS &unitUUID.unit_uuid 
+FROM   unit 
+WHERE  name = $name.name
+`, unit, uuid)
+	if err != nil {
+		return unitUUID{}, errors.Errorf("preparing get unit uuid statement: %w", err)
+	}
+
+	err = tx.Query(ctx, getUnitStmt, unit).Get(&uuid)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return unitUUID{}, errors.Errorf("%w: %s", applicationerrors.UnitNotFound, unitName)
+	}
+	if err != nil {
+		return unitUUID{}, errors.Errorf("querying unit %q: %w", unitName, err)
+	}
+	return uuid, nil
 }
