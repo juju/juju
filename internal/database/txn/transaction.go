@@ -6,7 +6,6 @@ package txn
 import (
 	"context"
 	"database/sql"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,7 +15,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	"golang.org/x/sync/semaphore"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
@@ -62,25 +60,10 @@ func WithRetryStrategy(retryStrategy RetryStrategy) Option {
 	}
 }
 
-// WithSemaphore defines a semaphore for limiting the number of transactions
-// that can be executed at any given time.
-//
-// If nil is passed, then no semaphore is used.
-func WithSemaphore(sem Semaphore) Option {
-	return func(o *option) {
-		if sem == nil {
-			o.semaphore = noopSemaphore{}
-			return
-		}
-		o.semaphore = sem
-	}
-}
-
 type option struct {
 	timeout       time.Duration
 	logger        logger.Logger
 	retryStrategy RetryStrategy
-	semaphore     Semaphore
 }
 
 func newOptions() *option {
@@ -89,15 +72,7 @@ func newOptions() *option {
 		timeout:       DefaultTimeout,
 		logger:        logger,
 		retryStrategy: defaultRetryStrategy(clock.WallClock, logger),
-		semaphore:     semaphore.NewWeighted(int64(runtime.GOMAXPROCS(0))),
 	}
-}
-
-// Semaphore defines a semaphore interface for limiting the number of
-// transactions that can be executed at any given time.
-type Semaphore interface {
-	Acquire(context.Context, int64) error
-	Release(int64)
 }
 
 // RetryingTxnRunner defines a generic runner for applying transactions
@@ -108,7 +83,6 @@ type RetryingTxnRunner struct {
 	timeout       time.Duration
 	logger        logger.Logger
 	retryStrategy RetryStrategy
-	semaphore     Semaphore
 	tracePool     sync.Pool
 	loggerPool    sync.Pool
 	txnID         uint64
@@ -133,7 +107,6 @@ func NewRetryingTxnRunner(opts ...Option) *RetryingTxnRunner {
 		timeout:       o.timeout,
 		logger:        o.logger,
 		retryStrategy: o.retryStrategy,
-		semaphore:     o.semaphore,
 
 		tracePool: sync.Pool{
 			New: func() any {
@@ -236,6 +209,12 @@ func (t *RetryingTxnRunner) Retry(ctx context.Context, fn func() error) error {
 
 // run will execute the input function if there is a semaphore slot available.
 func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) error) (err error) {
+	// If the context is already done then return early to prevent doing any
+	// work.
+	if err := ctx.Err(); err != nil {
+		return errors.Trace(err)
+	}
+
 	ctx, span := trace.Start(ctx, traceName("run"))
 	defer func() {
 		span.RecordError(err)
@@ -244,20 +223,6 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 
 	ctx, cancel := context.WithTimeout(ctx, t.timeout)
 	defer cancel()
-
-	if err := t.semaphore.Acquire(ctx, 1); err != nil {
-		return errors.Trace(err)
-	}
-	defer t.semaphore.Release(1)
-
-	// If the context is already done then return early. This is because the
-	// semaphore.Acquire call above will only cancel and return if it's waiting.
-	// Otherwise it will just allow the function to continue. So check here
-	// early before we start the function.
-	// https://pkg.go.dev/golang.org/x/sync/semaphore#Weighted.Acquire
-	if err := ctx.Err(); err != nil {
-		return errors.Trace(err)
-	}
 
 	// Txn ID is used to track the whole transaction, from the start to the end.
 	// This also includes the BEGIN, COMMIT and ROLLBACK.
@@ -346,21 +311,13 @@ func defaultRetryStrategy(clock clock.Clock, log logger.Logger) func(context.Con
 			Delay:       time.Millisecond,
 			MaxDelay:    time.Millisecond * 100,
 			MaxDuration: time.Second * 25,
-			BackoffFunc: retry.ExpBackoff(time.Millisecond, time.Millisecond*100, 0.8, true),
+			BackoffFunc: retry.ExpBackoff(time.Millisecond, time.Millisecond*100, 1.2, true),
 			Clock:       clock,
 			Stop:        ctx.Done(),
 		})
 		return err
 	}
 }
-
-type noopSemaphore struct{}
-
-func (s noopSemaphore) Acquire(context.Context, int64) error {
-	return nil
-}
-
-func (s noopSemaphore) Release(int64) {}
 
 const (
 	// rootTraceName is used to define the root trace name for all transaction
