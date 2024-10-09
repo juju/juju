@@ -10,6 +10,8 @@ import (
 	"github.com/juju/errors"
 
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
@@ -29,9 +31,14 @@ func NewModelSecretBackendService(modelID coremodel.UUID, st State) *ModelSecret
 // GetModelSecretBackend returns the secret backend name for the current model ID,
 // returning an error satisfying [modelerrors.NotFound] if the model provided does not exist.
 func (s *ModelSecretBackendService) GetModelSecretBackend(ctx context.Context) (string, error) {
-	modelSecretBackend, err := s.st.GetModelSecretBackendDetails(ctx, s.modelID)
+	var modelSecretBackend secretbackend.ModelSecretBackend
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		modelSecretBackend, err = s.st.GetModelSecretBackendDetails(ctx, s.modelID)
+		return err
+	})
 	if err != nil {
-		return "", fmt.Errorf("cannot get model secret backend detail for %q: %w", s.modelID, err)
+		return "", fmt.Errorf("getting model secret backend detail for %q: %w", s.modelID, err)
 	}
 	backendName := modelSecretBackend.SecretBackendName
 	switch modelSecretBackend.ModelType {
@@ -58,27 +65,28 @@ func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, b
 	if backendName == provider.Internal || backendName == kubernetes.BackendName {
 		return fmt.Errorf("secret backend name %q not valid%w", backendName, errors.Hide(secretbackenderrors.NotValid))
 	}
-
-	modelSecretBackend, err := s.st.GetModelSecretBackendDetails(ctx, s.modelID)
-	if err != nil {
-		return fmt.Errorf("cannot get model secret backend detail for %q: %w", s.modelID, err)
-	}
-	if backendName == provider.Auto {
-		switch modelSecretBackend.ModelType {
-		case coremodel.IAAS:
-			backendName = provider.Internal
-		case coremodel.CAAS:
-			backendName = kubernetes.BackendName
-		default:
-			// Should never happen.
-			return fmt.Errorf("cannot set model secret backend for unsupported model type %q for model %q",
-				modelSecretBackend.ModelType, s.modelID,
-			)
+	return s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		modelSecretBackend, err := s.st.GetModelSecretBackendDetails(ctx, s.modelID)
+		if err != nil {
+			return fmt.Errorf("getting model secret backend detail for %q: %w", s.modelID, err)
 		}
-	}
-	err = s.st.SetModelSecretBackend(ctx, s.modelID, backendName)
-	if err != nil {
-		return fmt.Errorf("cannot set model secret backend for %q: %w", s.modelID, err)
-	}
-	return errors.Trace(err)
+		if backendName == provider.Auto {
+			switch modelSecretBackend.ModelType {
+			case coremodel.IAAS:
+				backendName = provider.Internal
+			case coremodel.CAAS:
+				backendName = kubernetes.BackendName
+			default:
+				// Should never happen.
+				return fmt.Errorf("setting model secret backend for unsupported model type %q for model %q",
+					modelSecretBackend.ModelType, s.modelID,
+				)
+			}
+		}
+		err = s.st.SetModelSecretBackend(ctx, s.modelID, backendName)
+		if err != nil {
+			return fmt.Errorf("setting model secret backend for %q: %w", s.modelID, err)
+		}
+		return nil
+	})
 }

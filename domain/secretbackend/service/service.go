@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/domain"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -66,30 +67,38 @@ func newService(
 // GetSecretBackendConfigForAdmin returns the secret backend configuration for the given backend ID for an admin user,
 // returning an error satisfying [secretbackenderrors.NotFound] if the backend is not found.
 func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID coremodel.UUID) (*provider.ModelBackendConfigInfo, error) {
-	m, err := s.st.GetModelSecretBackendDetails(ctx, modelUUID)
+	var (
+		modelSecretBackend secretbackend.ModelSecretBackend
+		backends           []*secretbackend.SecretBackend
+	)
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		modelSecretBackend, err = s.st.GetModelSecretBackendDetails(ctx, modelUUID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		// We need to include builtin backends for secret draining and accessing those secrets while drain is in progress.
+		// TODO(secrets) - only use those in use by model
+		// For now, we'll return all backends on the controller.
+		backends, err = s.st.ListSecretBackendsForModel(ctx, modelUUID, true)
+		return errors.Trace(err)
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	currentBackendName := m.SecretBackendName
+	currentBackendName := modelSecretBackend.SecretBackendName
 
 	var info provider.ModelBackendConfigInfo
 	info.Configs = make(map[string]provider.ModelBackendConfig)
-
-	// We need to include builtin backends for secret draining and accessing those secrets while drain is in progress.
-	// TODO(secrets) - only use those in use by model
-	// For now, we'll return all backends on the controller.
-	backends, err := s.st.ListSecretBackendsForModel(ctx, modelUUID, true)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	for _, b := range backends {
 		if b.Name == currentBackendName {
 			info.ActiveID = b.ID
 		}
 		info.Configs[b.ID] = provider.ModelBackendConfig{
-			ControllerUUID: m.ControllerUUID,
-			ModelUUID:      m.ModelID.String(),
-			ModelName:      m.ModelName,
+			ControllerUUID: modelSecretBackend.ControllerUUID,
+			ModelUUID:      modelSecretBackend.ModelID.String(),
+			ModelName:      modelSecretBackend.ModelName,
 			BackendConfig: provider.BackendConfig{
 				BackendType: b.BackendType,
 				Config:      b.Config,
@@ -306,7 +315,12 @@ func convertConfigToString(config map[string]interface{}) map[string]string {
 // BackendSummaryInfoForModel returns a summary of the secret backends
 // which contain secrets from the specified model.
 func (s *Service) BackendSummaryInfoForModel(ctx context.Context, modelUUID coremodel.UUID) ([]*SecretBackendInfo, error) {
-	backends, err := s.st.ListSecretBackendsForModel(ctx, modelUUID, false)
+	var backends []*secretbackend.SecretBackend
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		backends, err = s.st.ListSecretBackendsForModel(ctx, modelUUID, false)
+		return errors.Trace(err)
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -324,15 +338,6 @@ func (s *Service) BackendSummaryInfoForModel(ctx context.Context, modelUUID core
 		})
 	}
 	return s.composeBackendInfoResults(backendInfos, false)
-}
-
-// ListBackendIDs returns the IDs of all the secret backends.
-func (s *Service) ListBackendIDs(ctx context.Context) ([]string, error) {
-	result, err := s.st.ListSecretBackendIDs(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return result, nil
 }
 
 // BackendSummaryInfo returns a summary of the secret backends.
@@ -355,12 +360,7 @@ func (s *Service) BackendSummaryInfo(ctx context.Context, reveal bool, names ...
 			NumSecrets: b.NumSecrets,
 		})
 	}
-
-	results, err := s.composeBackendInfoResults(backendInfos, reveal, names...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return results, nil
+	return s.composeBackendInfoResults(backendInfos, reveal, names...)
 }
 
 func (s *Service) composeBackendInfoResults(backendInfos []*SecretBackendInfo, reveal bool, names ...string) ([]*SecretBackendInfo, error) {
@@ -420,6 +420,15 @@ func validateExternalBackendName(name string) error {
 		return fmt.Errorf("%w: reserved name %q", secretbackenderrors.NotValid, name)
 	}
 	return nil
+}
+
+// ListBackendIDs returns the IDs of all the secret backends.
+func (s *Service) ListBackendIDs(ctx context.Context) ([]string, error) {
+	result, err := s.st.ListSecretBackendIDs(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return result, nil
 }
 
 // CreateSecretBackend creates a new secret backend.
@@ -494,9 +503,12 @@ func (s *Service) UpdateSecretBackend(ctx context.Context, params UpdateSecretBa
 		}
 	}
 
-	// TODO: we should get the latest existing backend, merge the config then validate inside
-	// the update operation transaction.
-	existing, err := s.st.GetSecretBackend(ctx, params.BackendIdentifier)
+	var existing *secretbackend.SecretBackend
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		existing, err = s.st.GetSecretBackend(ctx, params.BackendIdentifier)
+		return errors.Trace(err)
+	})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -556,9 +568,12 @@ func (s *Service) DeleteSecretBackend(ctx context.Context, params DeleteSecretBa
 
 // RotateBackendToken rotates the token for the given secret backend.
 func (s *Service) RotateBackendToken(ctx context.Context, backendID string) error {
-	backendInfo, err := s.st.GetSecretBackend(ctx,
-		secretbackend.BackendIdentifier{ID: backendID},
-	)
+	var backendInfo *secretbackend.SecretBackend
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		backendInfo, err = s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{ID: backendID})
+		return errors.Trace(err)
+	})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -612,11 +627,19 @@ func (s *Service) RotateBackendToken(ctx context.Context, backendID string) erro
 // GetRevisionsToDrain looks at the supplied revisions and returns any which should be
 // drained to a different backend for the specified model.
 func (s *Service) GetRevisionsToDrain(ctx context.Context, modelUUID coremodel.UUID, revs []coresecrets.SecretExternalRevision) ([]RevisionInfo, error) {
-	activeBackendDetails, err := s.st.GetModelSecretBackendDetails(ctx, modelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	jujuBackend, err := s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{Name: juju.BackendName})
+	var (
+		activeBackendDetails secretbackend.ModelSecretBackend
+		jujuBackend          *secretbackend.SecretBackend
+	)
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		activeBackendDetails, err = s.st.GetModelSecretBackendDetails(ctx, modelUUID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		jujuBackend, err = s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{Name: juju.BackendName})
+		return errors.Trace(err)
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

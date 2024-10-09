@@ -17,15 +17,17 @@ import (
 )
 
 func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	uri := coresecrets.NewURI()
 	secrets := []*coresecrets.SecretMetadata{{
 		URI:                    uri,
 		LatestRevisionChecksum: "checksum-1234",
 	}}
-	revisions := [][]*coresecrets.SecretRevisionMetadata{{{
+	revisions := [][]*domainsecret.SecretRevision{{{
 		Revision: 1,
+		Data:     coresecrets.SecretData{"foo": "bar"},
 	}, {
 		Revision: 2,
 		ValueRef: &coresecrets.ValueRef{
@@ -34,18 +36,14 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 		},
 	}, {
 		Revision: 3,
+		Data:     coresecrets.SecretData{"baz": "qux"},
 	}}}
 
-	s.state.EXPECT().ListSecrets(gomock.Any(), nil, nil, domainsecret.NilLabels).Return(
+	s.state.EXPECT().ListAllSecrets(gomock.Any()).Return(
 		secrets, revisions, nil,
 	)
-	s.state.EXPECT().GetSecretValue(gomock.Any(), uri, 1).Return(
-		coresecrets.SecretData{"foo": "bar"}, nil, nil,
-	)
-	s.state.EXPECT().GetSecretValue(gomock.Any(), uri, 3).Return(
-		coresecrets.SecretData{"foo": "bar3"}, nil, nil,
-	)
-	s.state.EXPECT().AllSecretGrants(gomock.Any()).Return(
+
+	s.state.EXPECT().ListAllSecretGrants(gomock.Any()).Return(
 		map[string][]domainsecret.GrantParams{
 			uri.ID: {{
 				ScopeTypeID:   1,
@@ -56,7 +54,7 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 			}},
 		}, nil,
 	)
-	s.state.EXPECT().AllSecretConsumers(gomock.Any()).Return(
+	s.state.EXPECT().ListAllSecretConsumers(gomock.Any()).Return(
 		map[string][]domainsecret.ConsumerInfo{
 			uri.ID: {{
 				SubjectTypeID:   0,
@@ -66,7 +64,7 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 			}},
 		}, nil,
 	)
-	s.state.EXPECT().AllSecretRemoteConsumers(gomock.Any()).Return(
+	s.state.EXPECT().ListAllSecretRemoteConsumers(gomock.Any()).Return(
 		map[string][]domainsecret.ConsumerInfo{
 			uri.ID: {{
 				SubjectTypeID:   0,
@@ -75,7 +73,7 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 			}},
 		}, nil,
 	)
-	s.state.EXPECT().AllRemoteSecrets(gomock.Any()).Return(
+	s.state.EXPECT().ListAllRemoteSecrets(gomock.Any()).Return(
 		[]domainsecret.RemoteSecretInfo{}, nil,
 	)
 
@@ -84,12 +82,22 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 	c.Assert(got, jc.DeepEquals, &SecretExport{
 		Secrets: secrets,
 		Revisions: map[string][]*coresecrets.SecretRevisionMetadata{
-			uri.ID: revisions[0],
+			uri.ID: {
+				{Revision: 1},
+				{
+					Revision: 2,
+					ValueRef: &coresecrets.ValueRef{
+						BackendID:  "backend-id",
+						RevisionID: "revision-id",
+					},
+				},
+				{Revision: 3},
+			},
 		},
 		Content: map[string]map[int]coresecrets.SecretData{
 			uri.ID: {
 				1: {"foo": "bar"},
-				3: {"foo": "bar3"},
+				3: {"baz": "qux"},
 			},
 		},
 		Consumers: map[string][]ConsumerInfo{
@@ -133,7 +141,8 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 }
 
 func (s *serviceSuite) TestImportSecrets(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()

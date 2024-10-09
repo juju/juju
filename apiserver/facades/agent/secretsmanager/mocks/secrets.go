@@ -356,45 +356,6 @@ func (c *MockSecretsConsumerGetSecretConsumerAndLatestCall) DoAndReturn(f func(c
 	return c
 }
 
-// GetURIByConsumerLabel mocks base method.
-func (m *MockSecretsConsumer) GetURIByConsumerLabel(ctx context.Context, label, unitName string) (*secrets.URI, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetURIByConsumerLabel", ctx, label, unitName)
-	ret0, _ := ret[0].(*secrets.URI)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetURIByConsumerLabel indicates an expected call of GetURIByConsumerLabel.
-func (mr *MockSecretsConsumerMockRecorder) GetURIByConsumerLabel(ctx, label, unitName any) *MockSecretsConsumerGetURIByConsumerLabelCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetURIByConsumerLabel", reflect.TypeOf((*MockSecretsConsumer)(nil).GetURIByConsumerLabel), ctx, label, unitName)
-	return &MockSecretsConsumerGetURIByConsumerLabelCall{Call: call}
-}
-
-// MockSecretsConsumerGetURIByConsumerLabelCall wrap *gomock.Call
-type MockSecretsConsumerGetURIByConsumerLabelCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSecretsConsumerGetURIByConsumerLabelCall) Return(arg0 *secrets.URI, arg1 error) *MockSecretsConsumerGetURIByConsumerLabelCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSecretsConsumerGetURIByConsumerLabelCall) Do(f func(context.Context, string, string) (*secrets.URI, error)) *MockSecretsConsumerGetURIByConsumerLabelCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretsConsumerGetURIByConsumerLabelCall) DoAndReturn(f func(context.Context, string, string) (*secrets.URI, error)) *MockSecretsConsumerGetURIByConsumerLabelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GrantSecretAccess mocks base method.
 func (m *MockSecretsConsumer) GrantSecretAccess(arg0 context.Context, arg1 *secrets.URI, arg2 service.SecretAccessParams) error {
 	m.ctrl.T.Helper()

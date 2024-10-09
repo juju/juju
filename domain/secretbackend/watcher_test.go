@@ -150,10 +150,13 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	err = state.DeleteSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID2}, false)
 	c.Assert(err, gc.IsNil)
 
-	_, err = state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID1})
-	c.Assert(err, gc.ErrorMatches, `secret backend not found: "`+backendID1+`"`)
-	_, err = state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID2})
-	c.Assert(err, gc.ErrorMatches, `secret backend not found: "`+backendID2+`"`)
+	_ = state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		_, err := state.GetSecretBackend(ctx, secretbackend.BackendIdentifier{ID: backendID1})
+		c.Assert(err, gc.ErrorMatches, `secret backend not found: "`+backendID1+`"`)
+		_, err = state.GetSecretBackend(ctx, secretbackend.BackendIdentifier{ID: backendID2})
+		c.Assert(err, gc.ErrorMatches, `secret backend not found: "`+backendID2+`"`)
+		return nil
+	})
 
 	wC.AssertNoChange()
 }
@@ -180,12 +183,18 @@ func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
 	// Wait for the initial change.
 	wc.AssertOneChange()
 
-	err = state.SetModelSecretBackend(context.Background(), modelUUID, vaultBackendName)
-	c.Assert(err, jc.ErrorIsNil)
+	_ = state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		err = state.SetModelSecretBackend(ctx, modelUUID, vaultBackendName)
+		c.Assert(err, jc.ErrorIsNil)
+		return nil
+	})
 	wc.AssertOneChange()
 
-	err = state.SetModelSecretBackend(context.Background(), modelUUID, internalBackendName)
-	c.Assert(err, jc.ErrorIsNil)
+	_ = state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		err = state.SetModelSecretBackend(ctx, modelUUID, internalBackendName)
+		c.Assert(err, jc.ErrorIsNil)
+		return nil
+	})
 	wc.AssertOneChange()
 
 	// Pretend that the agent restarted and the watcher is re-created.

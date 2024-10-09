@@ -22,11 +22,51 @@ import (
 type AtomicState interface {
 	domain.AtomicStateBase
 
+	CreateUserSecret(
+		ctx domain.AtomicContext, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams,
+	) error
+	CreateCharmApplicationSecret(
+		ctx domain.AtomicContext, version int, uri *secrets.URI, appName string, secret domainsecret.UpsertSecretParams,
+	) error
+	CreateCharmUnitSecret(
+		ctx domain.AtomicContext, version int, uri *secrets.URI, unitName string, secret domainsecret.UpsertSecretParams,
+	) error
+
 	ListExternalSecretRevisions(ctx domain.AtomicContext, uri *secrets.URI, revisions ...int) ([]secrets.ValueRef, error)
 	DeleteSecret(ctx domain.AtomicContext, uri *secrets.URI, revs []int) ([]string, error)
+	UpdateSecret(ctx domain.AtomicContext, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
 	GetSecretsForOwners(
 		ctx domain.AtomicContext, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) ([]*secrets.URI, error)
+	GetSecretValue(ctx domain.AtomicContext, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
+	GetSecretConsumer(ctx domain.AtomicContext, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
+	SaveSecretConsumer(ctx domain.AtomicContext, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
+	GetSecretRemoteConsumer(ctx domain.AtomicContext, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
+	SaveSecretRemoteConsumer(ctx domain.AtomicContext, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
+	GetURIByConsumerLabel(ctx domain.AtomicContext, label string, unitName string) (*secrets.URI, error)
+
+	GetSecretAccess(ctx domain.AtomicContext, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
+	GrantAccess(ctx domain.AtomicContext, uri *secrets.URI, params domainsecret.GrantParams) error
+	RevokeAccess(ctx domain.AtomicContext, uri *secrets.URI, params domainsecret.AccessParams) error
+
+	GetRotationExpiryInfo(ctx domain.AtomicContext, uri *secrets.URI) (*domainsecret.RotationExpiryInfo, error)
+	GetRotatePolicy(ctx domain.AtomicContext, uri *secrets.URI) (secrets.RotatePolicy, error)
+	SecretRotated(ctx domain.AtomicContext, uri *secrets.URI, next time.Time) error
+
+	ListCharmSecrets(ctx domain.AtomicContext,
+		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	) ([]*domainsecret.SecretMetadata, error)
+
+	ChangeSecretBackend(
+		ctx domain.AtomicContext, revisionID uuid.UUID, valueRef *secrets.ValueRef, data secrets.SecretData,
+	) error
+
+	// Methods for loading secrets to be exported.
+	ListAllSecrets(ctx domain.AtomicContext) ([]*secrets.SecretMetadata, [][]*domainsecret.SecretRevision, error)
+	ListAllRemoteSecrets(ctx domain.AtomicContext) ([]domainsecret.RemoteSecretInfo, error)
+	ListAllSecretGrants(ctx domain.AtomicContext) (map[string][]domainsecret.GrantParams, error)
+	ListAllSecretConsumers(ctx domain.AtomicContext) (map[string][]domainsecret.ConsumerInfo, error)
+	ListAllSecretRemoteConsumers(ctx domain.AtomicContext) (map[string][]domainsecret.ConsumerInfo, error)
 }
 
 // State describes retrieval and persistence methods needed for
@@ -35,53 +75,28 @@ type State interface {
 	AtomicState
 
 	GetModelUUID(ctx context.Context) (string, error)
-	CreateUserSecret(
-		ctx context.Context, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams,
-	) error
-	CreateCharmApplicationSecret(
-		ctx context.Context, version int, uri *secrets.URI, appName string, secret domainsecret.UpsertSecretParams,
-	) error
-	CreateCharmUnitSecret(
-		ctx context.Context, version int, uri *secrets.URI, unitName string, secret domainsecret.UpsertSecretParams,
-	) error
-	UpdateSecret(ctx context.Context, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
 	DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string, error)
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetLatestRevision(ctx context.Context, uri *secrets.URI) (int, error)
-	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
 	ListSecrets(ctx context.Context, uri *secrets.URI,
 		revision *int, labels domainsecret.Labels,
 	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
-	ListCharmSecrets(ctx context.Context,
-		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
-	GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
-	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
 	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
-	GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*secrets.URI, error)
-	GetSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
-	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
 	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error
-	GrantAccess(ctx context.Context, uri *secrets.URI, params domainsecret.GrantParams) error
-	RevokeAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) error
-	GetSecretAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
 	GetSecretAccessScope(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (*domainsecret.AccessScope, error)
 	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]domainsecret.GrantParams, error)
 	ListGrantedSecretsForBackend(
 		ctx context.Context, backendID string, accessors []domainsecret.AccessParams, role secrets.SecretRole,
 	) ([]*secrets.SecretRevisionRef, error)
+	ListCharmSecretsWithRevisions(ctx context.Context,
+		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
 	ListCharmSecretsToDrain(
 		ctx context.Context,
 		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) ([]*secrets.SecretMetadataForDrain, error)
 	ListUserSecretsToDrain(ctx context.Context) ([]*secrets.SecretMetadataForDrain, error)
-	SecretRotated(ctx context.Context, uri *secrets.URI, next time.Time) error
-	GetRotatePolicy(ctx context.Context, uri *secrets.URI) (secrets.RotatePolicy, error)
-	GetRotationExpiryInfo(ctx context.Context, uri *secrets.URI) (*domainsecret.RotationExpiryInfo, error)
 	GetSecretRevisionID(ctx context.Context, uri *secrets.URI, revision int) (string, error)
-	ChangeSecretBackend(
-		ctx context.Context, revisionID uuid.UUID, valueRef *secrets.ValueRef, data secrets.SecretData,
-	) error
 
 	// For watching obsolete secret revision changes.
 	InitialWatchStatementForObsoleteRevision(
@@ -121,12 +136,6 @@ type State interface {
 	GetSecretsRevisionExpiryChanges(
 		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
 	) ([]domainsecret.ExpiryInfo, error)
-
-	// Methods for loading secrets to be exported.
-	AllSecretGrants(ctx context.Context) (map[string][]domainsecret.GrantParams, error)
-	AllSecretConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error)
-	AllSecretRemoteConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error)
-	AllRemoteSecrets(ctx context.Context) ([]domainsecret.RemoteSecretInfo, error)
 }
 
 // SecretBackendReferenceMutator describes methods for interacting with the secret backend state.
