@@ -5,7 +5,9 @@ package bootstrap
 
 import (
 	"context"
+	"database/sql"
 
+	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -144,6 +146,20 @@ func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
 	fn = CreateReadOnlyModel(modelUUID, controllerUUID)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
+
+	m := dbReadOnlyModel{}
+	stmt, err := sqlair.Prepare(`SELECT &dbReadOnlyModel.* FROM model`, m)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.ModelTxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).Get(&m)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(m.UUID, gc.Equals, modelUUID.String())
+	c.Check(m.ControllerUUID, gc.Equals, controllerUUID.String())
+	c.Check(m.Name, gc.Equals, args.Name)
+	c.Check(m.IsControllerModel, gc.Equals, true)
 }
 
 func (s *modelBootstrapSuite) TestCreateModelWithDifferingBuildNumber(c *gc.C) {
@@ -166,4 +182,18 @@ func (s *modelBootstrapSuite) TestCreateModelWithDifferingBuildNumber(c *gc.C) {
 	fn := CreateModel(modeltesting.GenModelUUID(c), args)
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+type dbReadOnlyModel struct {
+	UUID               string         `db:"uuid"`
+	ControllerUUID     string         `db:"controller_uuid"`
+	Name               string         `db:"name"`
+	Type               string         `db:"type"`
+	TargetAgentVersion sql.NullString `db:"target_agent_version"`
+	Cloud              string         `db:"cloud"`
+	CloudType          string         `db:"cloud_type"`
+	CloudRegion        string         `db:"cloud_region"`
+	CredentialOwner    string         `db:"credential_owner"`
+	CredentialName     string         `db:"credential_name"`
+	IsControllerModel  bool           `db:"is_controller_model"`
 }

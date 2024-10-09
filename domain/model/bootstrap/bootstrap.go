@@ -137,15 +137,16 @@ func CreateReadOnlyModel(
 		}
 
 		args := model.ReadOnlyModelCreationArgs{
-			UUID:            m.UUID,
-			AgentVersion:    m.AgentVersion,
-			ControllerUUID:  controllerUUID,
-			Name:            m.Name,
-			Type:            m.ModelType,
-			Cloud:           m.Cloud,
-			CloudRegion:     m.CloudRegion,
-			CredentialOwner: m.Credential.Owner,
-			CredentialName:  m.Credential.Name,
+			UUID:              m.UUID,
+			AgentVersion:      m.AgentVersion,
+			ControllerUUID:    controllerUUID,
+			Name:              m.Name,
+			Type:              m.ModelType,
+			Cloud:             m.Cloud,
+			CloudRegion:       m.CloudRegion,
+			CredentialOwner:   m.Credential.Owner,
+			CredentialName:    m.Credential.Name,
+			IsControllerModel: true,
 		}
 
 		return modelDB.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {

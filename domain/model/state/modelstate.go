@@ -134,13 +134,14 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 	}
 
 	model := coremodel.ReadOnlyModel{
-		UUID:           coremodel.UUID(m.UUID),
-		Name:           m.Name,
-		Type:           coremodel.ModelType(m.Type),
-		Cloud:          m.Cloud,
-		CloudType:      m.CloudType,
-		CloudRegion:    m.CloudRegion,
-		CredentialName: m.CredentialName,
+		UUID:              coremodel.UUID(m.UUID),
+		Name:              m.Name,
+		Type:              coremodel.ModelType(m.Type),
+		Cloud:             m.Cloud,
+		CloudType:         m.CloudType,
+		CloudRegion:       m.CloudRegion,
+		CredentialName:    m.CredentialName,
+		IsControllerModel: m.IsControllerModel,
 	}
 
 	if owner := m.CredentialOwner; owner != "" {
@@ -208,6 +209,7 @@ FROM model
 		CloudRegion:        args.CloudRegion,
 		CredentialOwner:    args.CredentialOwner.Name(),
 		CredentialName:     args.CredentialName,
+		IsControllerModel:  args.IsControllerModel,
 	}
 
 	insertStmt, err := preparer.Prepare(`
