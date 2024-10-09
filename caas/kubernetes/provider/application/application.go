@@ -70,6 +70,12 @@ const (
 	containerReadinessProbeFailure = 1
 	// containerStartupProbeFailure is the number of failed startup probes to mark the check as unhealthy.
 	containerStartupProbeFailure = 1
+	// containerStartupProbeFailureV36 is the number of failed startup probes to mark the check as unhealthy.
+	// This is used for juju v3.6-beta3+.
+	containerStartupProbeFailureV36 = 30
+	// containerStartupProbePeriodV36 is the number of seconds between each startup probe.
+	// This is used for juju v3.6-beta3+.
+	containerStartupProbePeriodV36 = 1
 )
 
 var (
@@ -77,6 +83,7 @@ var (
 	profileDirVersion           = version.MustParse("3.5-beta1")
 	pebbleCopyOnceVersion       = version.MustParse("3.5-beta1")
 	pebbleIdentitiesVersion     = version.MustParse("3.6-beta2")
+	startupProbeVersion         = version.MustParse("3.6-beta3")
 )
 
 type app struct {
@@ -1283,6 +1290,9 @@ func (a *app) Units() ([]caas.Unit, error) {
 // ApplicationPodSpec returns a PodSpec for the application pod
 // of the specified application.
 func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec, error) {
+	agentVersionNoBuild := config.AgentVersion
+	agentVersionNoBuild.Build = 0
+
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 
 	containerNames := config.ExistingContainers
@@ -1362,6 +1372,15 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		SuccessThreshold:    containerProbeSuccess,
 		FailureThreshold:    containerStartupProbeFailure,
 	}
+	// In 3.6-beta3 we moved to using startup probes with no startup delay.
+	if agentVersionNoBuild.Compare(startupProbeVersion) >= 0 {
+		charmContainerReadinessProbe.InitialDelaySeconds = 0
+		charmContainerLivenessProbe.InitialDelaySeconds = 0
+		charmContainerStartupProbe.InitialDelaySeconds = 0
+		charmContainerStartupProbe.PeriodSeconds = containerStartupProbePeriodV36
+		charmContainerStartupProbe.FailureThreshold = containerStartupProbeFailureV36
+	}
+
 	charmContainerExtraVolumeMounts := []corev1.VolumeMount{
 		{
 			Name:      constants.CharmVolumeName,
@@ -1385,8 +1404,6 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		ReadOnly:  true,
 	})
 
-	agentVersionNoBuild := config.AgentVersion
-	agentVersionNoBuild.Build = 0
 	if agentVersionNoBuild.Compare(profileDirVersion) >= 0 {
 		charmContainerExtraVolumeMounts = append(charmContainerExtraVolumeMounts, corev1.VolumeMount{
 			Name:      constants.CharmVolumeName,
@@ -1582,6 +1599,17 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 					SubPath:   fmt.Sprintf("charm/containers/%s", v.Name),
 				},
 			},
+		}
+		if agentVersionNoBuild.Compare(startupProbeVersion) >= 0 {
+			container.LivenessProbe.InitialDelaySeconds = 0
+			container.ReadinessProbe.InitialDelaySeconds = 0
+			container.StartupProbe = &corev1.Probe{
+				ProbeHandler:     pebble.LivenessHandler(pebble.WorkloadHealthCheckPort(i)),
+				TimeoutSeconds:   containerProbeTimeout,
+				PeriodSeconds:    containerStartupProbePeriodV36,
+				SuccessThreshold: containerProbeSuccess,
+				FailureThreshold: containerStartupProbeFailureV36,
+			}
 		}
 		if requireSecurityContext {
 			container.SecurityContext = &corev1.SecurityContext{}

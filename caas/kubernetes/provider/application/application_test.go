@@ -631,7 +631,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless35(c *gc.C) {
 func (s *applicationSuite) TestEnsureStatefulRootless(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, true, "3.6-beta2", func() {
+		c, app, false, constraints.Value{}, true, true, "3.6-beta3", func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
@@ -643,7 +643,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *gc.C) {
 						"app.kubernetes.io/managed-by": "juju",
 					},
 					Annotations: map[string]string{
-						"juju.is/version": "3.6-beta2",
+						"juju.is/version": "3.6-beta3",
 						"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 					},
 				},
@@ -667,7 +667,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *gc.C) {
 						"app.kubernetes.io/managed-by": "juju",
 					},
 					Annotations: map[string]string{
-						"juju.is/version":  "3.6-beta2",
+						"juju.is/version":  "3.6-beta3",
 						"app.juju.is/uuid": "appuuid",
 					},
 				},
@@ -681,7 +681,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *gc.C) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-							Annotations: map[string]string{"juju.is/version": "3.6-beta2"},
+							Annotations: map[string]string{"juju.is/version": "3.6-beta3"},
 						},
 						Spec: podSpec,
 					},
