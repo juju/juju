@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common/charms/mocks"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -56,7 +57,10 @@ func (s *appCharmInfoSuite) TestApplicationCharmInfo(c *gc.C) {
 	charmOrigin := charm.CharmOrigin{Source: charm.CharmHubSource, Revision: 1}
 	appPlatform := charm.Platform{OSType: charm.Ubuntu, Architecture: charm.AMD64}
 
-	s.appService.EXPECT().GetCharmByApplicationName(gomock.Any(), "fuu").Return(charmBase, charmOrigin, appPlatform, nil)
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "fuu").Return(id, nil)
+	s.appService.EXPECT().GetCharmByApplicationID(gomock.Any(), id).Return(charmBase, charmOrigin, appPlatform, nil)
 
 	// Make the ApplicationCharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(internaltesting.ModelTag, s.appService, s.authorizer)
@@ -87,7 +91,10 @@ func (s *appCharmInfoSuite) TestApplicationCharmInfoMinimal(c *gc.C) {
 	charmOrigin := charm.CharmOrigin{Source: charm.CharmHubSource, Revision: 1}
 	appPlatform := charm.Platform{OSType: charm.Ubuntu, Architecture: charm.AMD64}
 
-	s.appService.EXPECT().GetCharmByApplicationName(gomock.Any(), "fuu").Return(charmBase, charmOrigin, appPlatform, nil)
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "fuu").Return(id, nil)
+	s.appService.EXPECT().GetCharmByApplicationID(gomock.Any(), id).Return(charmBase, charmOrigin, appPlatform, nil)
 
 	// Make the ApplicationCharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(internaltesting.ModelTag, s.appService, s.authorizer)

@@ -141,7 +141,7 @@ func (s *firewallerSuite) TestPermission(c *gc.C) {
 
 	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(s.modelTag, s.charmService, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(s.modelTag, s.appService, s.authorizer)
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(s.modelTag, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = caasfirewaller.NewFacade(
@@ -263,7 +263,7 @@ func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(s.modelTag, s.charmService, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(s.modelTag, s.appService, s.authorizer)
+	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(s.modelTag, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	facade, err := caasfirewaller.NewFacade(

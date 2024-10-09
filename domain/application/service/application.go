@@ -150,13 +150,14 @@ type ApplicationState interface {
 	// application; the application name is used to filter.
 	GetApplicationUnitLife(ctx context.Context, appName string, unitIDs ...string) (map[string]life.Life, error)
 
-	// GetCharmByApplicationName returns the charm and the charm origin for the
-	// specified application name.
+	// GetCharmByApplicationID returns the charm, charm origin and charm
+	// platform for the specified application ID.
+	//
 	// If the application does not exist, an error satisfying
 	// [applicationerrors.ApplicationNotFoundError] is returned.
 	// If the charm for the application does not exist, an error satisfying
 	// [applicationerrors.CharmNotFoundError] is returned.
-	GetCharmByApplicationName(context.Context, string) (domaincharm.Charm, domaincharm.CharmOrigin, application.Platform, error)
+	GetCharmByApplicationID(context.Context, coreapplication.ID) (domaincharm.Charm, domaincharm.CharmOrigin, application.Platform, error)
 
 	// GetCharmIDByApplicationName returns a charm ID by application name. It
 	// returns an error if the charm can not be found by the name. This can also
@@ -722,13 +723,35 @@ func (s *ApplicationService) UpdateApplicationCharm(ctx context.Context, name st
 	return nil
 }
 
+// GetApplicationIDByName returns a application ID by application name. It
+// returns an error if the application can not be found by the name.
+//
+// Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
+// and [applicationerrors.ApplicationNotFound] if the application is not found.
+func (s *ApplicationService) GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error) {
+	if !isValidApplicationName(name) {
+		return "", applicationerrors.ApplicationNameNotValid
+	}
+
+	var id coreapplication.ID
+	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		appID, err := s.st.GetApplicationID(ctx, name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		id = appID
+		return nil
+	})
+	return id, errors.Trace(err)
+}
+
 // GetCharmIDByApplicationName returns a charm ID by application name. It
 // returns an error if the charm can not be found by the name. This can also be
 // used as a cheap way to see if a charm exists without needing to load the
 // charm metadata.
 //
-// Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid, and
-// [applicationerrors.CharmNotFound] if the charm is not found.
+// Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
+// and [applicationerrors.CharmNotFound] if the charm is not found.
 func (s *ApplicationService) GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error) {
 	if !isValidApplicationName(name) {
 		return "", applicationerrors.ApplicationNameNotValid
@@ -737,25 +760,26 @@ func (s *ApplicationService) GetCharmIDByApplicationName(ctx context.Context, na
 	return s.st.GetCharmIDByApplicationName(ctx, name)
 }
 
-// GetCharmByApplicationName returns the charm for the specified application
-// name.
+// GetCharmByApplicationID returns the charm for the specified application
+// ID.
+//
 // If the application does not exist, an error satisfying
-// [applicationerrors.ApplicationNotFoundError] is returned.
-// If the charm for the application does not exist, an error satisfying
-// [applicationerrors.CharmNotFoundError] is returned.
-// If the application name is not valid, an error satisfying
-// [applicationerrors.ApplicationNameNotValid] is returned.
-func (s *ApplicationService) GetCharmByApplicationName(ctx context.Context, name string) (
+// [applicationerrors.ApplicationNotFoundError] is returned. If the charm for
+// the application does not exist, an error satisfying
+// [applicationerrors.CharmNotFoundError] is returned. If the application name
+// is not valid, an error satisfying [applicationerrors.ApplicationNameNotValid]
+// is returned.
+func (s *ApplicationService) GetCharmByApplicationID(ctx context.Context, id coreapplication.ID) (
 	internalcharm.Charm,
 	domaincharm.CharmOrigin,
 	application.Platform,
 	error,
 ) {
-	if !isValidApplicationName(name) {
-		return nil, domaincharm.CharmOrigin{}, application.Platform{}, applicationerrors.ApplicationNameNotValid
+	if err := id.Validate(); err != nil {
+		return nil, domaincharm.CharmOrigin{}, application.Platform{}, internalerrors.Errorf("application ID: %w%w", err, errors.Hide(applicationerrors.ApplicationIDNotValid))
 	}
 
-	charm, origin, platform, err := s.st.GetCharmByApplicationName(ctx, name)
+	charm, origin, platform, err := s.st.GetCharmByApplicationID(ctx, id)
 	if err != nil {
 		return nil, origin, platform, errors.Trace(err)
 	}
@@ -878,8 +902,9 @@ func (s *ApplicationService) CAASUnitTerminating(ctx context.Context, appName st
 	return restart, nil
 }
 
-// GetApplicationLife looks up the life of the specified application, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application is not found.
+// GetApplicationLife looks up the life of the specified application, returning
+// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+// application is not found.
 func (s *ApplicationService) GetApplicationLife(ctx context.Context, appName string) (corelife.Value, error) {
 	var result corelife.Value
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
