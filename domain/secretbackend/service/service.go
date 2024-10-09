@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/domain"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -490,12 +489,7 @@ func (s *Service) UpdateSecretBackend(ctx context.Context, params UpdateSecretBa
 		}
 	}
 
-	var existing *secretbackend.SecretBackend
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		var err error
-		existing, err = s.st.GetSecretBackend(ctx, params.BackendIdentifier)
-		return errors.Trace(err)
-	})
+	existing, err := s.st.GetSecretBackend(ctx, params.BackendIdentifier)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -555,12 +549,7 @@ func (s *Service) DeleteSecretBackend(ctx context.Context, params DeleteSecretBa
 
 // RotateBackendToken rotates the token for the given secret backend.
 func (s *Service) RotateBackendToken(ctx context.Context, backendID string) error {
-	var backendInfo *secretbackend.SecretBackend
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		var err error
-		backendInfo, err = s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{ID: backendID})
-		return errors.Trace(err)
-	})
+	backendInfo, err := s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{ID: backendID})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -622,11 +611,14 @@ func (s *Service) GetRevisionsToDrain(ctx context.Context, modelUUID coremodel.U
 	for _, r := range revs {
 		if r.ValueRef != nil {
 			if r.ValueRef.BackendID == activeBackendUUID {
+				// The secret is in the active backend, so we don't need to drain.
 				continue
 			}
 		} else {
 			// Only internal backend secrets have nil ValueRef.
 			if internalBackendUUID == activeBackendUUID {
+				// The nil valueRef means the secret is in the internal backend,
+				// and if the internal backend is already the active backend, we don't need to drain.
 				continue
 			}
 		}

@@ -1334,7 +1334,7 @@ func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
 		BackendType: "vault",
 	}, nil)
 
-	backend, err := getSecretBackend(context.Background(), s.state, secretbackend.BackendIdentifier{Name: "my-backend"})
+	backend, err := s.state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{Name: "my-backend"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(backend, jc.DeepEquals, &secretbackend.SecretBackend{
 		ID:          backendID,
@@ -1349,7 +1349,7 @@ func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
 		TokenRotateInterval: &rotateInternal,
 	})
 	c.Assert(err, gc.IsNil)
-	backend, err = getSecretBackend(context.Background(), s.state, secretbackend.BackendIdentifier{Name: "my-backend"})
+	backend, err = s.state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{Name: "my-backend"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(backend, jc.DeepEquals, &secretbackend.SecretBackend{
 		ID:                  backendID,
@@ -1368,7 +1368,7 @@ func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
 		},
 	})
 	c.Assert(err, gc.IsNil)
-	backend, err = getSecretBackend(context.Background(), s.state, secretbackend.BackendIdentifier{Name: "my-backend"})
+	backend, err = s.state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{Name: "my-backend"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(backend, jc.DeepEquals, &secretbackend.SecretBackend{
 		ID:                  backendID,
@@ -1383,7 +1383,7 @@ func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
 }
 
 func (s *stateSuite) TestGetSecretBackendByNameNotFound(c *gc.C) {
-	backend, err := getSecretBackend(context.Background(), s.state, secretbackend.BackendIdentifier{Name: "my-backend"})
+	backend, err := s.state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{Name: "my-backend"})
 	c.Assert(err, jc.ErrorIs, backenderrors.NotFound)
 	c.Assert(err, gc.ErrorMatches, `secret backend not found: "my-backend"`)
 	c.Assert(backend, gc.IsNil)
@@ -1406,7 +1406,7 @@ func (s *stateSuite) TestGetSecretBackend(c *gc.C) {
 		BackendType: "vault",
 	}, nil)
 
-	backend, err := getSecretBackend(context.Background(), s.state, secretbackend.BackendIdentifier{ID: backendID})
+	backend, err := s.state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID})
 	c.Assert(err, gc.IsNil)
 	c.Assert(backend, jc.DeepEquals, &secretbackend.SecretBackend{
 		ID:          backendID,
@@ -1421,7 +1421,7 @@ func (s *stateSuite) TestGetSecretBackend(c *gc.C) {
 		TokenRotateInterval: &rotateInternal,
 	})
 	c.Assert(err, gc.IsNil)
-	backend, err = getSecretBackend(context.Background(), s.state, secretbackend.BackendIdentifier{ID: backendID})
+	backend, err = s.state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID})
 
 	c.Assert(err, gc.IsNil)
 	c.Assert(backend, jc.DeepEquals, &secretbackend.SecretBackend{
@@ -1441,7 +1441,7 @@ func (s *stateSuite) TestGetSecretBackend(c *gc.C) {
 		},
 	})
 	c.Assert(err, gc.IsNil)
-	backend, err = getSecretBackend(context.Background(), s.state, secretbackend.BackendIdentifier{ID: backendID})
+	backend, err = s.state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID})
 	c.Assert(err, gc.IsNil)
 	c.Assert(backend, jc.DeepEquals, &secretbackend.SecretBackend{
 		ID:                  backendID,
@@ -1457,7 +1457,7 @@ func (s *stateSuite) TestGetSecretBackend(c *gc.C) {
 
 func (s *stateSuite) TestGetSecretBackendNotFound(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
-	backend, err := getSecretBackend(context.Background(), s.state, secretbackend.BackendIdentifier{ID: backendID})
+	backend, err := s.state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID})
 	c.Assert(err, jc.ErrorIs, backenderrors.NotFound)
 	c.Assert(err, gc.ErrorMatches, `secret backend not found: "`+backendID+`"`)
 	c.Assert(backend, gc.IsNil)

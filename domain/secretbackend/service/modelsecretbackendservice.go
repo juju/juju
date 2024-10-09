@@ -62,7 +62,7 @@ func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, b
 	if backendName == provider.Auto {
 		modelType, err := s.st.GetModelType(ctx, s.modelID)
 		if err != nil {
-			return fmt.Errorf("getting model secret backend detail for %q: %w", s.modelID, err)
+			return fmt.Errorf("getting model type for %q: %w", s.modelID, err)
 		}
 		switch modelType {
 		case coremodel.IAAS:

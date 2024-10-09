@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/domain"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secretbackend"
@@ -144,12 +143,6 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mockSecretProvider = NewMockSecretsBackend(ctrl)
 	s.mockSepicalSecretProvider = NewMockSecretsBackend(ctrl)
 	s.mockStringWatcher = NewMockStringsWatcher(ctrl)
-
-	mockAtomicContext := NewMockAtomicContext(ctrl)
-	mockAtomicContext.EXPECT().Context().Return(context.Background()).AnyTimes()
-	s.mockState.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, f func(domain.AtomicContext) error) error {
-		return f(mockAtomicContext)
-	}).AnyTimes()
 
 	s.clock = testclock.NewDilatedWallClock(0)
 	s.logger = loggertesting.WrapCheckLog(c)
@@ -1580,7 +1573,7 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedModelNotFound(c *gc.C) {
 	s.mockState.EXPECT().GetModelType(gomock.Any(), modelUUID).Return("", modelerrors.NotFound)
 
 	err := svc.SetModelSecretBackend(context.Background(), "auto")
-	c.Assert(err, gc.ErrorMatches, `getting model secret backend detail for "`+modelUUID.String()+`": model not found`)
+	c.Assert(err, gc.ErrorMatches, `getting model type for "`+modelUUID.String()+`": model not found`)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 

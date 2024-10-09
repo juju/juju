@@ -88,16 +88,18 @@ func (s *State) GetModelType(ctx context.Context, modelUUID coremodel.UUID) (cor
 		return "", errors.Trace(err)
 	}
 
-	msb := ModelSecretBackend{ModelID: modelUUID}
+	mDetails := modelDetails{UUID: modelUUID}
 	stmt, err := s.Prepare(`
-SELECT model_type AS &ModelSecretBackend.model_type
-FROM   v_model_secret_backend
-WHERE  uuid = $ModelSecretBackend.uuid`, msb)
+SELECT mt.type AS &modelDetails.model_type
+FROM   model m
+JOIN   model_type mt ON mt.id = model_type_id
+WHERE  m.uuid = $modelDetails.uuid
+`, modelDetails{})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, msb).Get(&msb)
+		err := tx.Query(ctx, stmt, mDetails).Get(&mDetails)
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("cannot get model type for model %q: %w", modelUUID, modelerrors.NotFound)
 		}
@@ -106,7 +108,7 @@ WHERE  uuid = $ModelSecretBackend.uuid`, msb)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return msb.ModelType, nil
+	return mDetails.Type, nil
 }
 
 // GetInternalAndActiveBackendUUIDs returns the UUIDs for the internal and active secret backends.
@@ -116,13 +118,13 @@ func (s *State) GetInternalAndActiveBackendUUIDs(ctx context.Context, modelUUID 
 		return "", "", errors.Trace(err)
 	}
 
-	msb := ModelSecretBackend{ModelID: modelUUID}
-	sb := SecretBackend{Name: juju.BackendName}
+	activeBackend := ModelSecretBackend{ModelID: modelUUID}
+	internalBackend := SecretBackend{Name: juju.BackendName}
 
 	stmtActiveBackend, err := s.Prepare(`
 SELECT secret_backend_uuid AS &ModelSecretBackend.secret_backend_uuid
 FROM   v_model_secret_backend
-WHERE  uuid = $ModelSecretBackend.uuid`, msb)
+WHERE  uuid = $ModelSecretBackend.uuid`, activeBackend)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -130,18 +132,18 @@ WHERE  uuid = $ModelSecretBackend.uuid`, msb)
 	stmtBackendUUID, err := s.Prepare(`
 SELECT uuid AS &SecretBackend.uuid
 FROM   secret_backend
-WHERE  name = $SecretBackend.name`, sb)
+WHERE  name = $SecretBackend.name`, internalBackend)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmtActiveBackend, msb).Get(&msb)
+		err := tx.Query(ctx, stmtActiveBackend, activeBackend).Get(&activeBackend)
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("cannot get active secret backend for model %q: %w", modelUUID, modelerrors.NotFound)
 		}
 
-		err = tx.Query(ctx, stmtBackendUUID, sb).Get(&sb)
+		err = tx.Query(ctx, stmtBackendUUID, internalBackend).Get(&internalBackend)
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("cannot get secret backend %q: %w", juju.BackendName, secretbackenderrors.NotFound)
 		}
@@ -150,7 +152,7 @@ WHERE  name = $SecretBackend.name`, sb)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
-	return sb.ID, msb.SecretBackendID, nil
+	return internalBackend.ID, activeBackend.SecretBackendID, nil
 }
 
 // CreateSecretBackend creates a new secret backend.
@@ -711,7 +713,7 @@ WHERE b.%s = $M.identifier`, columName)
 }
 
 // GetSecretBackend returns the secret backend for the given backend ID or Name.
-func (s *State) GetSecretBackend(ctx domain.AtomicContext, params secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error) {
+func (s *State) GetSecretBackend(ctx context.Context, params secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error) {
 	if params.ID == "" && params.Name == "" {
 		return nil, fmt.Errorf("%w: both ID and name are missing", secretbackenderrors.NotValid)
 	}
@@ -719,8 +721,13 @@ func (s *State) GetSecretBackend(ctx domain.AtomicContext, params secretbackend.
 		return nil, fmt.Errorf("%w: both ID and name are provided", secretbackenderrors.NotValid)
 	}
 
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var sb *secretbackend.SecretBackend
-	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		sb, err = s.getSecretBackend(ctx, tx, params)
 		return errors.Trace(err)

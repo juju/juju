@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination atomic_mock_test.go github.com/juju/juju/domain AtomicContext
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination state_mock_test.go github.com/juju/juju/domain/secretbackend/service State
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination watcherfactory_mock_test.go github.com/juju/juju/domain/secretbackend/service WatcherFactory
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination provider_mock_test.go github.com/juju/juju/internal/secrets/provider SecretBackendProvider,SecretsBackend

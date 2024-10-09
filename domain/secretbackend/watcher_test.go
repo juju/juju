@@ -150,13 +150,10 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	err = state.DeleteSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID2}, false)
 	c.Assert(err, gc.IsNil)
 
-	_ = state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := state.GetSecretBackend(ctx, secretbackend.BackendIdentifier{ID: backendID1})
-		c.Assert(err, gc.ErrorMatches, `secret backend not found: "`+backendID1+`"`)
-		_, err = state.GetSecretBackend(ctx, secretbackend.BackendIdentifier{ID: backendID2})
-		c.Assert(err, gc.ErrorMatches, `secret backend not found: "`+backendID2+`"`)
-		return nil
-	})
+	_, err = state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID1})
+	c.Assert(err, gc.ErrorMatches, `secret backend not found: "`+backendID1+`"`)
+	_, err = state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID2})
+	c.Assert(err, gc.ErrorMatches, `secret backend not found: "`+backendID2+`"`)
 
 	wC.AssertNoChange()
 }
