@@ -37,7 +37,7 @@ func (s *stateSuite) TestGetModelAgentVersionSuccess(c *gc.C) {
 	modelID := modelstatetesting.CreateTestModel(c, txnRunner, "test")
 	s.setAgentVersion(c, modelID, expectedVersion.String())
 
-	obtainedVersion, err := state.GetModelAgentVersion(context.Background(), modelID)
+	obtainedVersion, err := state.GetModelTargetAgentVersion(context.Background(), modelID)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(obtainedVersion, jc.DeepEquals, expectedVersion)
 }
@@ -49,7 +49,7 @@ func (s *stateSuite) TestGetModelAgentVersionModelNotFound(c *gc.C) {
 	state := modelagentstate.NewState(txnRunner)
 	modelID := modeltesting.GenModelUUID(c)
 
-	_, err := state.GetModelAgentVersion(context.Background(), modelID)
+	_, err := state.GetModelTargetAgentVersion(context.Background(), modelID)
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -61,7 +61,7 @@ func (s *stateSuite) TestGetModelAgentVersionCantParseVersion(c *gc.C) {
 	modelID := modelstatetesting.CreateTestModel(c, txnRunner, "test")
 	s.setAgentVersion(c, modelID, "invalid-version")
 
-	_, err := state.GetModelAgentVersion(context.Background(), modelID)
+	_, err := state.GetModelTargetAgentVersion(context.Background(), modelID)
 	c.Check(err, gc.ErrorMatches, `cannot parse agent version "invalid-version".*`)
 }
 

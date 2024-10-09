@@ -7,3 +7,25 @@ package state
 type dbAgentVersion struct {
 	TargetAgentVersion string `db:"target_agent_version"`
 }
+
+// applicationName represents the single column of an application that is the
+// applications name.
+type applicationName struct {
+	Name string `db:"name"`
+}
+
+// machineName represents the single column of a machine that is the machines
+// name.
+type machineName struct {
+	Name string `db:"name"`
+}
+
+// modelUUIDValue represents a model id for associating public keys with.
+type modelUUIDValue struct {
+	UUID string `db:"model_uuid"`
+}
+
+// unitName represents the single column of a unit that is the unit's name.
+type unitName struct {
+	Name string `db:"name"`
+}
