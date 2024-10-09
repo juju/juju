@@ -88,6 +88,9 @@ type State interface {
 	// data retrieved from the machine cloud instance table.
 	HardwareCharacteristics(context.Context, string) (*instance.HardwareCharacteristics, error)
 
+	// AvailabilityZone returns the availability zone for the specified machine.
+	AvailabilityZone(context.Context, string) (string, error)
+
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
 	SetMachineCloudInstance(context.Context, string, instance.Id, string, *instance.HardwareCharacteristics) error

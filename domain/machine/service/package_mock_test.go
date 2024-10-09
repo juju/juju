@@ -121,6 +121,45 @@ func (c *MockStateAppliedLXDProfileNamesCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// AvailabilityZone mocks base method.
+func (m *MockState) AvailabilityZone(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AvailabilityZone", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AvailabilityZone indicates an expected call of AvailabilityZone.
+func (mr *MockStateMockRecorder) AvailabilityZone(arg0, arg1 any) *MockStateAvailabilityZoneCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailabilityZone", reflect.TypeOf((*MockState)(nil).AvailabilityZone), arg0, arg1)
+	return &MockStateAvailabilityZoneCall{Call: call}
+}
+
+// MockStateAvailabilityZoneCall wrap *gomock.Call
+type MockStateAvailabilityZoneCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAvailabilityZoneCall) Return(arg0 string, arg1 error) *MockStateAvailabilityZoneCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAvailabilityZoneCall) Do(f func(context.Context, string) (string, error)) *MockStateAvailabilityZoneCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAvailabilityZoneCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockStateAvailabilityZoneCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ClearMachineReboot mocks base method.
 func (m *MockState) ClearMachineReboot(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()

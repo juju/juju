@@ -13,7 +13,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	instance "github.com/juju/juju/core/instance"
 	machine "github.com/juju/juju/core/machine"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
@@ -204,6 +203,21 @@ func (mr *MockMachineServiceMockRecorder) AppliedLXDProfileNames(arg0, arg1 any)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppliedLXDProfileNames", reflect.TypeOf((*MockMachineService)(nil).AppliedLXDProfileNames), arg0, arg1)
 }
 
+// AvailabilityZone mocks base method.
+func (m *MockMachineService) AvailabilityZone(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AvailabilityZone", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AvailabilityZone indicates an expected call of AvailabilityZone.
+func (mr *MockMachineServiceMockRecorder) AvailabilityZone(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailabilityZone", reflect.TypeOf((*MockMachineService)(nil).AvailabilityZone), arg0, arg1)
+}
+
 // ClearMachineReboot mocks base method.
 func (m *MockMachineService) ClearMachineReboot(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -231,21 +245,6 @@ func (m *MockMachineService) GetMachineUUID(arg0 context.Context, arg1 machine.N
 func (mr *MockMachineServiceMockRecorder) GetMachineUUID(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineUUID", reflect.TypeOf((*MockMachineService)(nil).GetMachineUUID), arg0, arg1)
-}
-
-// HardwareCharacteristics mocks base method.
-func (m *MockMachineService) HardwareCharacteristics(arg0 context.Context, arg1 string) (*instance.HardwareCharacteristics, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HardwareCharacteristics", arg0, arg1)
-	ret0, _ := ret[0].(*instance.HardwareCharacteristics)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// HardwareCharacteristics indicates an expected call of HardwareCharacteristics.
-func (mr *MockMachineServiceMockRecorder) HardwareCharacteristics(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HardwareCharacteristics", reflect.TypeOf((*MockMachineService)(nil).HardwareCharacteristics), arg0, arg1)
 }
 
 // IsMachineRebootRequired mocks base method.

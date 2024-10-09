@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
@@ -114,7 +113,7 @@ type MachineService interface {
 	// the changes in the machine_cloud_instance table in the model.
 	WatchLXDProfiles(ctx context.Context, machineUUID string) (watcher.NotifyWatcher, error)
 
-	// HardwareCharacteristics returns the hardware characteristics of the
+	// AvailabilityZone returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
+	AvailabilityZone(ctx context.Context, machineUUID string) (string, error)
 }
