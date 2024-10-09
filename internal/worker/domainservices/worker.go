@@ -89,11 +89,11 @@ func NewWorker(config Config) (worker.Worker, error) {
 		servicesGetter: config.NewDomainServicesGetter(
 			ctrlFactory,
 			config.DBGetter,
-			config.Logger,
 			config.NewModelDomainServices,
 			config.ProviderFactory,
 			config.ObjectStoreGetter,
 			config.Clock,
+			config.Logger,
 		),
 	}
 	w.tomb.Go(func() error {
@@ -169,8 +169,8 @@ func (s *domainServicesGetter) ServicesForModel(modelUUID coremodel.UUID) servic
 				modelUUID:         modelUUID,
 				objectStoreGetter: s.objectStoreGetter,
 			},
-			s.logger,
 			s.clock,
+			s.logger,
 		),
 	}
 }

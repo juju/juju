@@ -76,13 +76,13 @@ func (s *workerSuite) getConfig() Config {
 		ProviderFactory:   s.providerFactory,
 		ObjectStoreGetter: s.objectStoreGetter,
 		Logger:            s.logger,
-		NewDomainServicesGetter: func(services.ControllerDomainServices, changestream.WatchableDBGetter, logger.Logger, ModelDomainServicesFn, providertracker.ProviderFactory, objectstore.ObjectStoreGetter, clock.Clock) services.DomainServicesGetter {
+		NewDomainServicesGetter: func(services.ControllerDomainServices, changestream.WatchableDBGetter, ModelDomainServicesFn, providertracker.ProviderFactory, objectstore.ObjectStoreGetter, clock.Clock, logger.Logger) services.DomainServicesGetter {
 			return s.domainServicesGetter
 		},
 		NewControllerDomainServices: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, logger.Logger) services.ControllerDomainServices {
 			return s.controllerDomainServices
 		},
-		NewModelDomainServices: func(coremodel.UUID, changestream.WatchableDBGetter, providertracker.ProviderFactory, objectstore.ModelObjectStoreGetter, logger.Logger, clock.Clock) services.ModelDomainServices {
+		NewModelDomainServices: func(coremodel.UUID, changestream.WatchableDBGetter, providertracker.ProviderFactory, objectstore.ModelObjectStoreGetter, clock.Clock, logger.Logger) services.ModelDomainServices {
 			return s.modelDomainServices
 		},
 		Clock: s.clock,

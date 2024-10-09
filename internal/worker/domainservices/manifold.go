@@ -41,11 +41,11 @@ type ManifoldConfig struct {
 type DomainServicesGetterFn func(
 	services.ControllerDomainServices,
 	changestream.WatchableDBGetter,
-	logger.Logger,
 	ModelDomainServicesFn,
 	providertracker.ProviderFactory,
 	objectstore.ObjectStoreGetter,
 	clock.Clock,
+	logger.Logger,
 ) services.DomainServicesGetter
 
 // ControllerDomainServicesFn is a function that returns a controller service
@@ -62,8 +62,8 @@ type ModelDomainServicesFn func(
 	changestream.WatchableDBGetter,
 	providertracker.ProviderFactory,
 	objectstore.ModelObjectStoreGetter,
-	logger.Logger,
 	clock.Clock,
+	logger.Logger,
 ) services.ModelDomainServices
 
 // Validate validates the manifold configuration.
@@ -197,8 +197,8 @@ func NewProviderTrackerModelDomainServices(
 	dbGetter changestream.WatchableDBGetter,
 	providerFactory providertracker.ProviderFactory,
 	objectStore objectstore.ModelObjectStoreGetter,
-	logger logger.Logger,
 	clock clock.Clock,
+	logger logger.Logger,
 ) services.ModelDomainServices {
 	return domainservicefactory.NewModelFactory(
 		modelUUID,
@@ -236,11 +236,11 @@ func NewModelDomainServices(
 func NewDomainServicesGetter(
 	ctrlFactory services.ControllerDomainServices,
 	dbGetter changestream.WatchableDBGetter,
-	logger logger.Logger,
 	newModelDomainServices ModelDomainServicesFn,
 	providerFactory providertracker.ProviderFactory,
 	objectStoreGetter objectstore.ObjectStoreGetter,
 	clock clock.Clock,
+	logger logger.Logger,
 ) services.DomainServicesGetter {
 	return &domainServicesGetter{
 		ctrlFactory:            ctrlFactory,

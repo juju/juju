@@ -198,11 +198,11 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *gc.C) {
 	factory := NewDomainServicesGetter(
 		ctrlFactory,
 		s.dbGetter,
-		s.logger,
 		NewProviderTrackerModelDomainServices,
 		nil,
 		s.objectStoreGetter,
 		s.clock,
+		s.logger,
 	)
 	c.Assert(factory, gc.NotNil)
 
@@ -220,13 +220,13 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewWorker: func(Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewDomainServicesGetter: func(csf services.ControllerDomainServices, wd changestream.WatchableDBGetter, l logger.Logger, msff ModelDomainServicesFn, pf providertracker.ProviderFactory, osg objectstore.ObjectStoreGetter, clock clock.Clock) services.DomainServicesGetter {
+		NewDomainServicesGetter: func(csf services.ControllerDomainServices, wd changestream.WatchableDBGetter, msff ModelDomainServicesFn, pf providertracker.ProviderFactory, osg objectstore.ObjectStoreGetter, clock clock.Clock, l logger.Logger) services.DomainServicesGetter {
 			return nil
 		},
 		NewControllerDomainServices: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, logger.Logger) services.ControllerDomainServices {
 			return nil
 		},
-		NewModelDomainServices: func(u coremodel.UUID, wd changestream.WatchableDBGetter, pf providertracker.ProviderFactory, sosg objectstore.ModelObjectStoreGetter, l logger.Logger, clock clock.Clock) services.ModelDomainServices {
+		NewModelDomainServices: func(u coremodel.UUID, wd changestream.WatchableDBGetter, pf providertracker.ProviderFactory, sosg objectstore.ModelObjectStoreGetter, clock clock.Clock, l logger.Logger) services.ModelDomainServices {
 			return nil
 		},
 		Clock: s.clock,
