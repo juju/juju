@@ -66,7 +66,7 @@ type toolsFinder func(context.Context, tools.SimplestreamsFetcher, environs.Boot
 type envVersionUpdater func(*state.Model, version.Number) error
 
 func (api *AgentToolsAPI) checkToolsAvailability(ctx context.Context) (version.Number, error) {
-	currentVersion, err := api.modelAgentService.GetModelAgentVersion(ctx)
+	currentVersion, err := api.modelAgentService.GetModelTargetAgentVersion(ctx)
 	if err != nil {
 		return version.Zero, errors.Annotate(err, "getting agent version from service")
 	}

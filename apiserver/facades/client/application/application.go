@@ -2571,20 +2571,14 @@ func validateAgentVersions(
 		return errors.Trace(err)
 	}
 	if errors.Is(err, errors.NotFound) || ver.Compare(epoch) >= 0 {
-		// Check to see if the model config version is valid
-		// Arguably we could check on the per-unit level, as that is the
-		// *actual* version of the agent that is running, looking at the
-		// versioner (alias to model config), we get the intent of the move
-		// to that version.
-		// This should be enough for a pre-flight check, rather than querying
-		// potentially thousands of units (think large production stacks).
-		modelVer, modelErr := modelAgentService.GetModelAgentVersion(ctx)
-		if modelErr != nil {
-			// If we can't find the model config version, then we can't do the
-			// comparison check.
-			return errors.Trace(modelErr)
+		appAgentVer, err := modelAgentService.GetApplicationTargetAgentVersion(
+			ctx, application.Name(),
+		)
+		if err != nil {
+			return errors.Trace(err)
 		}
-		if modelVer.Compare(epoch) < 0 {
+
+		if appAgentVer.Compare(epoch) < 0 {
 			return ErrInvalidAgentVersions
 		}
 	}
