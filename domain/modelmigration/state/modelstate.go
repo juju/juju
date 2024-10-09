@@ -18,22 +18,28 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// State represents the access method for interacting the underlying model
+// ModelState represents the access method for interacting the underlying model
 // during model migration.
-type State struct {
+type ModelState struct {
 	*domain.StateBase
 }
 
-// New creates a new [State]
-func New(modelFactory database.TxnRunnerFactory) *State {
-	return &State{
+// NewModelState creates a new model state for model migration.
+func NewModelState(modelFactory database.TxnRunnerFactory) *ModelState {
+	return &ModelState{
 		StateBase: domain.NewStateBase(modelFactory),
 	}
 }
 
+// CreateMigration creates a migration record in the model state.
+func (s *ModelState) CreateMigration(ctx context.Context, initiatedBy names.UserTag, targetInfo migration.TargetInfo) error {
+
+	return nil
+}
+
 // GetControllerUUID is responsible for returning the controller's unique id
 // from state.
-func (s *State) GetControllerUUID(
+func (s *ModelState) GetControllerUUID(
 	ctx context.Context,
 ) (string, error) {
 	db, err := s.DB()
@@ -71,7 +77,7 @@ func (s *State) GetControllerUUID(
 
 // GetAllInstanceIDs returns all instance IDs from the current model as
 // juju/collections set.
-func (s *State) GetAllInstanceIDs(ctx context.Context) (set.Strings, error) {
+func (s *ModelState) GetAllInstanceIDs(ctx context.Context) (set.Strings, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Errorf("cannot get database to retrieve instance IDs: %w", err)
@@ -103,7 +109,7 @@ func (s *State) GetAllInstanceIDs(ctx context.Context) (set.Strings, error) {
 
 // ModelControllerInfo returns the information about the model in relation to the
 // controller.
-func (s *State) ModelControllerInfo(ctx context.Context) (modelmigration.ModelControllerInfo, error) {
+func (s *ModelState) ModelControllerInfo(ctx context.Context) (modelmigration.ModelControllerInfo, error) {
 	db, err := s.DB()
 	if err != nil {
 		return modelmigration.ModelControllerInfo{}, errors.Errorf("cannot get database to retrieve model controller info: %w", err)
@@ -146,9 +152,4 @@ func (s *State) ModelControllerInfo(ctx context.Context) (modelmigration.ModelCo
 		ControllerUUID:    controllerUUID,
 		IsControllerModel: result.IsControllerModel,
 	}, nil
-}
-
-// CreateMigration creates a migration record in the model state.
-func (s *State) CreateMigration(ctx context.Context, initiatedBy names.UserTag, targetInfo migration.TargetInfo) error {
-	return nil
 }

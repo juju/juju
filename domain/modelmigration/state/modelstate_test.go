@@ -23,15 +23,15 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-type migrationSuite struct {
+type modelSuite struct {
 	schematesting.ModelSuite
 
 	controllerUUID controller.UUID
 }
 
-var _ = gc.Suite(&migrationSuite{})
+var _ = gc.Suite(&modelSuite{})
 
-func (s *migrationSuite) SetUpTest(c *gc.C) {
+func (s *modelSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 	s.controllerUUID = controllertesting.GenControllerUUID(c)
 
@@ -57,15 +57,15 @@ func (s *migrationSuite) SetUpTest(c *gc.C) {
 
 // TestGetControllerUUID is asserting the happy path of getting the controller
 // uuid from the database.
-func (s *migrationSuite) TestGetControllerUUID(c *gc.C) {
-	controllerId, err := New(s.TxnRunnerFactory()).GetControllerUUID(context.Background())
+func (s *modelSuite) TestGetControllerUUID(c *gc.C) {
+	controllerId, err := NewModelState(s.TxnRunnerFactory()).GetControllerUUID(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(controllerId, gc.Equals, s.controllerUUID.String())
 }
 
 // TestGetAllInstanceIDs is asserting the happy path of getting all instance
 // IDs for the model.
-func (s *migrationSuite) TestGetAllInstanceIDs(c *gc.C) {
+func (s *modelSuite) TestGetAllInstanceIDs(c *gc.C) {
 	// Add two different instances.
 	db := s.DB()
 	machineState := machinestate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -99,7 +99,7 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	instanceIDs, err := New(s.TxnRunnerFactory()).GetAllInstanceIDs(context.Background())
+	instanceIDs, err := NewModelState(s.TxnRunnerFactory()).GetAllInstanceIDs(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instanceIDs, gc.HasLen, 2)
 	c.Check(instanceIDs.Values(), jc.SameContents, []string{"instance-0", "instance-1"})
@@ -107,14 +107,14 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *gc.C) {
 
 // TestEmptyInstanceIDs tests that no error is returned when there are no
 // instances in the model.
-func (s *migrationSuite) TestEmptyInstanceIDs(c *gc.C) {
-	instanceIDs, err := New(s.TxnRunnerFactory()).GetAllInstanceIDs(context.Background())
+func (s *modelSuite) TestEmptyInstanceIDs(c *gc.C) {
+	instanceIDs, err := NewModelState(s.TxnRunnerFactory()).GetAllInstanceIDs(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instanceIDs, gc.HasLen, 0)
 }
 
-func (s *migrationSuite) TestModelControllerInfo(c *gc.C) {
-	info, err := New(s.TxnRunnerFactory()).ModelControllerInfo(context.Background())
+func (s *modelSuite) TestModelControllerInfo(c *gc.C) {
+	info, err := NewModelState(s.TxnRunnerFactory()).ModelControllerInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(info.ControllerUUID, gc.Equals, s.controllerUUID)
 	c.Check(info.IsControllerModel, gc.Equals, false)

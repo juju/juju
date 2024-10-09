@@ -3,6 +3,8 @@
 
 package state
 
+import "github.com/juju/juju/domain/life"
+
 // modelInfo represents the model's read only information from the model table
 // in the model database.
 type modelInfo struct {
@@ -24,4 +26,16 @@ type modelControllerInfo struct {
 // the sqlair statements in the machine domain.
 type instanceID struct {
 	ID string `db:"instance_id"`
+}
+
+// modelLife represents the struct to be used for the life column within the
+// sqlair statements in the model domain.
+type modelLife struct {
+	Life life.Life `db:"life_id"`
+}
+
+// modelUUID represents the struct to be used for the uuid column within the
+// sqlair statements in the model domain.
+type modelUUID struct {
+	UUID string `db:"uuid"`
 }
