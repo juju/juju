@@ -19,6 +19,9 @@ type ModelConfigService interface {
 
 // ModelAgentService provides access to the Juju agent version for the model.
 type ModelAgentService interface {
-	// GetModelAgentVersion returns the agent version for the current model.
-	GetModelAgentVersion(ctx context.Context) (version.Number, error)
+	// GetModelTargetAgentVersion returns the target agent version for the
+	// entire model. The following errors can be returned:
+	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
+	// not exist.
+	GetModelTargetAgentVersion(ctx context.Context) (version.Number, error)
 }
