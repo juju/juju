@@ -635,7 +635,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	}, gomock.Any()).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	s.modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
+	s.modelAgentService.EXPECT().GetApplicationTargetAgentVersion(gomock.Any(), "postgresql").Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
 
 	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
 		Charm:   ch,
@@ -664,7 +664,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithOldAgentVersion(c *gc.C) {
 	app.EXPECT().AgentTools().Return(&agentTools, nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	s.modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(version.Number{Major: 2, Minor: 5, Patch: 0}, nil)
+	s.modelAgentService.EXPECT().GetApplicationTargetAgentVersion(gomock.Any(), "postgresql").Return(version.Number{Major: 2, Minor: 5, Patch: 0}, nil)
 
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
 		ApplicationName: "postgresql",
@@ -693,7 +693,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 	}, gomock.Any()).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	s.modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
+	s.modelAgentService.EXPECT().GetApplicationTargetAgentVersion(gomock.Any(), "postgresql").Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
 
 	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
 		Charm:   ch,
