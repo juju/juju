@@ -57,7 +57,7 @@ WHERE name = $applicationName.name
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).Get(&applicationName)
+		err := tx.Query(ctx, stmt, applicationName).Get(&applicationName)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"application %q does not exist", name,
@@ -103,7 +103,7 @@ WHERE name = $machineName.name
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).Get(&machineNameVal)
+		err := tx.Query(ctx, stmt, machineNameVal).Get(&machineNameVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"machine %q does not exist", name,
@@ -191,7 +191,7 @@ WHERE name = $unitName.name
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).Get(&unitNameVal)
+		err := tx.Query(ctx, stmt, unitNameVal).Get(&unitNameVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"unit %q does not exist", name,
