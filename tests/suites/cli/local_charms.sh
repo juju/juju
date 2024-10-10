@@ -1,3 +1,6 @@
+# Copyright 2024 Canonical Ltd.
+# Licensed under the AGPLv3, see LICENCE file for details.
+
 # Checks whether the cwd is used for the juju local deploy.
 run_deploy_local_charm_revision() {
 	echo
@@ -5,22 +8,23 @@ run_deploy_local_charm_revision() {
 	file="${TEST_DIR}/local-charm-deploy-git.log"
 	ensure "local-charm-deploy" "${file}"
 
+	# Get a basic charm
 	TMP=$(mktemp -d -t ci-XXXXXXXXXX)
+	cp -r "$CURRENT_DIR/../testcharms/charms/ubuntu-plus" "${TMP}"
+	cd "${TMP}/ubuntu-plus" || exit 1
 
-	cd "${TMP}" || exit 1
-	git clone --depth=1 --quiet https://git.launchpad.net/ntp-charm ntp
-	cd "${TMP}/ntp" || exit 1
-	SHA_OF_NTP=\"$(git describe --dirty --always)\"
+	# Initialise a git repo to check the commit SHA is used as the charm version.
+	git init
+	git add . && git commit -m "commit everything"
+	SHA_OF_UBUNTU_PLUS=\"$(git describe --dirty --always)\"
 
-	OUTPUT=$(juju deploy . 2>&1)
+	# Deploy from directory.
+	juju deploy .
 
-	wait_for "ntp" ".applications | keys[0]"
-	CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications.ntp."charm-version"')
+	wait_for "ubuntu-plus" ".applications | keys[0]"
+	CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications."ubuntu-plus"."charm-version"')
 
-	# If a error happens it means it could not use the git sha of the CWD.
-	check_not_contains "${OUTPUT}" "exit status 128"
-
-	if [ "${SHA_OF_NTP}" != "${CURRENT_CHARM_SHA}" ]; then
+	if [ "${SHA_OF_UBUNTU_PLUS}" != "${CURRENT_CHARM_SHA}" ]; then
 		echo "The expected sha does not equal the ntp SHA"
 		exit 1
 	fi
@@ -35,14 +39,13 @@ run_deploy_local_charm_revision_no_vcs() {
 	file="${TEST_DIR}/local-charm-deploy-no-vcs.log"
 	ensure "local-charm-deploy-no-vcs" "${file}"
 
+	# Get a basic charm, there should be no VCS info in this file.
 	TMP=$(mktemp -d -t ci-XXXXXXXXXX)
+	cp -r "$CURRENT_DIR/../testcharms/charms/ubuntu-plus" "${TMP}"
+	cd "${TMP}/ubuntu-plus" || exit 1
 
-	cd "${TMP}" || exit 1
-	git clone --depth=1 --quiet https://git.launchpad.net/ntp-charm ntp
-	cd "${TMP}/ntp" || exit 1
-	rm -rf .git
-	# make sure that no version file exists.
-	rm -f version
+	# Remove version file
+	rm version
 
 	OUTPUT=$(juju deploy --debug . 2>&1)
 
@@ -58,26 +61,22 @@ run_deploy_local_charm_revision_no_vcs_but_version_file() {
 	file="${TEST_DIR}/local-charm-deploy-version-file.log"
 	ensure "local-charm-deploy-version-file" "${file}"
 
+	# Get a basic charm, there should be no VCS info in this file.
 	TMP=$(mktemp -d -t ci-XXXXXXXXXX)
+	cp -r "$CURRENT_DIR/../testcharms/charms/ubuntu-plus" "${TMP}"
+	cd "${TMP}/ubuntu-plus" || exit 1
 
-	cd "${TMP}" || exit 1
-	git clone --depth=1 --quiet https://git.launchpad.net/ntp-charm ntp
-	cd "${TMP}/ntp" || exit 1
-	rm -rf .git
-	touch version
-	echo 123 >version
-	VERSION_OUTPUT=\""$(cat version)"\"
-
+	VERSION_OUTPUT=\""$(cat version | sed 's/.* //')"\"
 	CURRENT_DIRECTORY=$(pwd)
 
 	# this is done relative because we expect that the output will be absolute in the end.
 	OUTPUT=$(juju deploy --debug . 2>&1)
 
-	wait_for "ntp" ".applications | keys[0]"
-	CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications.ntp."charm-version"')
+	wait_for "ubuntu-plus" ".applications | keys[0]"
+	CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications."ubuntu-plus"."charm-version"')
 
 	if [ "${VERSION_OUTPUT}" != "${CURRENT_CHARM_SHA}" ]; then
-		echo "The expected sha does not equal the ntp SHA. Current sha: ${CURRENT_CHARM_SHA} expected sha: ${VERSION_OUTPUT}"
+		echo "The expected sha does not equal the ubuntu-plus SHA. Current sha: ${CURRENT_CHARM_SHA} expected sha: ${VERSION_OUTPUT}"
 		exit 1
 	fi
 
@@ -95,32 +94,40 @@ run_deploy_local_charm_revision_relative_path() {
 
 	ensure "relative-path" "${file}"
 
+	# Get a basic charm
 	TMP=$(mktemp -d -t ci-XXXXXXXXXX)
+	cp -r "$CURRENT_DIR/../testcharms/charms/ubuntu-plus" "${TMP}"
+	cd "${TMP}/ubuntu-plus" || exit 1
 
-	cd "${TMP}" || exit 1
+	# Initialise a git repo and commit everything so that commit SHA is used as the charm version.
+	git init
+	git add . && git commit -m "commit everything"
+	SHA_OF_UBUNTU_PLUS=\"$(git describe --dirty --always)\"
+
+	# Create git directory outside the charm directory
+	cd ..
 	create_local_git_folder
 	SHA_OF_TMP=\"$(git describe --dirty --always)\"
-	# create ${TMP}/ntp git folder
-	git clone --depth=1 --quiet https://git.launchpad.net/ntp-charm ntp
 
-	# state: ${TMP} is wrong git ${TMP}/ntp is correct git
-	juju deploy ./ntp 2>&1
+	# state: there is a git repo in the current directory, $TMP, but the correct
+	# git repo is in $TMP/ubuntu-plus.
+	juju deploy ./ubuntu-plus 2>&1
 
-	cd "${TMP}/ntp" || exit 1
-	SHA_OF_NTP=\"$(git describe --dirty --always)\"
+	cd "${TMP}/ubuntu-plus" || exit 1
+	SHA_OF_UBUNTU_PLUS=\"$(git describe --dirty --always)\"
 
-	wait_for "ntp" ".applications | keys[0]"
+	wait_for "ubuntu-plus" ".applications | keys[0]"
 
 	# We still expect the SHA to be the one from the place we deploy and not the CWD, which in this case has no SHA
-	CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications.ntp."charm-version"')
+	CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications."ubuntu-plus"."charm-version"')
 
 	if [ "${SHA_OF_TMP}" = "${CURRENT_CHARM_SHA}" ]; then
 		echo "The expected sha should not equal the tmp SHA. Current sha: ${CURRENT_CHARM_SHA}"
 		exit 1
 	fi
 
-	if [ "${SHA_OF_NTP}" != "${CURRENT_CHARM_SHA}" ]; then
-		echo "The expected sha does not equal the ntp SHA. Current sha: ${CURRENT_CHARM_SHA} expected sha: ${SHA_OF_NTP}"
+	if [ "${SHA_OF_UBUNTU_PLUS}" != "${CURRENT_CHARM_SHA}" ]; then
+		echo "The expected sha does not equal the ntp SHA. Current sha: ${CURRENT_CHARM_SHA} expected sha: ${SHA_OF_UBUNTU_PLUS}"
 		exit 1
 	fi
 
@@ -137,24 +144,28 @@ run_deploy_local_charm_revision_invalid_git() {
 	TMP_CHARM_GIT=$(mktemp -d -t ci-XXXXXXXXXX)
 	TMP=$(mktemp -d -t ci-XXXXXXXXXX)
 
-	cd "${TMP_CHARM_GIT}" || exit 1
-	git clone --depth=1 --quiet https://git.launchpad.net/ntp-charm ntp
+	# Get a basic charm
+	cp -r "$CURRENT_DIR/../testcharms/charms/ubuntu-plus" "${TMP_CHARM_GIT}"
+	cd "${TMP_CHARM_GIT}/ubuntu-plus" || exit 1
 
-	cd "${TMP_CHARM_GIT}/ntp" || exit 1
+	# Initialise a git repo and commit everything so that commit SHA is used as the charm version.
+	git init
+	git add . && git commit -m "commit everything"
+	SHA_OF_UBUNTU_PLUS=\"$(git describe --dirty --always)\"
+
 	WANTED_CHARM_SHA=\"$(git describe --dirty --always)\"
 
-	# We cd into a folder without git and deploy from the folder without git.
+	# We cd into a folder without git, add an unrelated repo there.
 	cd "${TMP}" || exit 1
-
 	create_local_git_folder
+	# Deploy from the correct repo
+	juju deploy "${TMP_CHARM_GIT}"/ubuntu-plus
 
-	juju deploy "${TMP_CHARM_GIT}"/ntp ntp
-
-	wait_for "ntp" ".applications | keys[0]"
+	wait_for "ubuntu-plus" ".applications | keys[0]"
 	# We still expect the SHA to be the one from the place we deploy and not the CWD, which in this case has no SHA.
-	CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications.ntp."charm-version"')
+	CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications."ubuntu-plus"."charm-version"')
 	if [ "${WANTED_CHARM_SHA}" != "${CURRENT_CHARM_SHA}" ]; then
-		echo "The expected sha does not equal the ntp SHA. Current sha: ${CURRENT_CHARM_SHA} expected sha: ${WANTED_CHARM_SHA}"
+		echo "The expected sha does not equal the ubuntu-plus SHA. Current sha: ${CURRENT_CHARM_SHA} expected sha: ${WANTED_CHARM_SHA}"
 		exit 1
 	fi
 
