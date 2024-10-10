@@ -228,13 +228,6 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid"},
 			}},
 		},
-		instanceDataC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "machineid"},
-			}, {
-				Key: []string{"model-uuid", "instanceid"},
-			}},
-		},
 		machinesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "machineid"},
@@ -496,7 +489,6 @@ const (
 	globalClockC           = "globalclock"
 	globalRefcountsC       = "globalRefcounts"
 	globalSettingsC        = "globalSettings"
-	instanceDataC          = "instanceData"
 	machinesC              = "machines"
 	machineRemovalsC       = "machineremovals"
 	minUnitsC              = "minunits"
