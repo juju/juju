@@ -94,8 +94,9 @@ func (s *stateSuite) TestCheckApplicationSecretLabelExistsAlreadyUsedByApp(c *gc
 	appUUID, err := getApplicationUUID(ctx, st, "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = checkApplicationSecretLabelExists(ctx, st, appUUID, "my label")
-	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+	exists, err := checkApplicationSecretLabelExists(ctx, st, appUUID, "my label")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.IsTrue)
 }
 
 func (s *stateSuite) TestCheckApplicationSecretLabelExistsAlreadyUsedByUnit(c *gc.C) {
@@ -117,8 +118,9 @@ func (s *stateSuite) TestCheckApplicationSecretLabelExistsAlreadyUsedByUnit(c *g
 	appUUID, err := getApplicationUUID(ctx, st, "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = checkApplicationSecretLabelExists(ctx, st, appUUID, "my label")
-	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+	exists, err := checkApplicationSecretLabelExists(ctx, st, appUUID, "my label")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.IsTrue)
 }
 
 func (s *stateSuite) TestCheckUnitSecretLabelExistsAlreadyUsedByUnit(c *gc.C) {
@@ -143,10 +145,12 @@ func (s *stateSuite) TestCheckUnitSecretLabelExistsAlreadyUsedByUnit(c *gc.C) {
 	unitUUID1, err := getUnitUUID(ctx, st, "mysql/1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = checkUnitSecretLabelExists(ctx, st, unitUUID0, "my label")
-	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
-	err = checkUnitSecretLabelExists(ctx, st, unitUUID1, "my label")
-	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+	exists, err := checkUnitSecretLabelExists(ctx, st, unitUUID0, "my label")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.IsTrue)
+	exists, err = checkUnitSecretLabelExists(ctx, st, unitUUID1, "my label")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.IsTrue)
 }
 
 func (s *stateSuite) TestCheckUnitSecretLabelExistsAlreadyUsedByApp(c *gc.C) {
@@ -172,10 +176,12 @@ func (s *stateSuite) TestCheckUnitSecretLabelExistsAlreadyUsedByApp(c *gc.C) {
 	unitUUID1, err := getUnitUUID(ctx, st, "mysql/1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = checkUnitSecretLabelExists(ctx, st, unitUUID0, "my label")
-	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
-	err = checkUnitSecretLabelExists(ctx, st, unitUUID1, "my label")
-	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+	exists, err := checkUnitSecretLabelExists(ctx, st, unitUUID0, "my label")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.IsTrue)
+	exists, err = checkUnitSecretLabelExists(ctx, st, unitUUID1, "my label")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.IsTrue)
 }
 
 func (s *stateSuite) TestCheckUserSecretLabelExists(c *gc.C) {
@@ -193,8 +199,9 @@ func (s *stateSuite) TestCheckUserSecretLabelExists(c *gc.C) {
 	err := createUserSecret(ctx, st, 1, uri, sp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = checkUserSecretLabelExists(ctx, st, "my label")
-	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+	exists, err := checkUserSecretLabelExists(ctx, st, "my label")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.IsTrue)
 }
 
 func (s *stateSuite) TestGetLatestRevisionNotFound(c *gc.C) {

@@ -25,19 +25,16 @@ var (
 	NilSecretURI         = (*secrets.URI)(nil)
 )
 
-// OwnerKind represents the kind of a secret owner entity.
-type OwnerKind string
-
 // These represent the kinds of secret owner.
 const (
-	ApplicationOwner OwnerKind = "application"
-	UnitOwner        OwnerKind = "unit"
-	ModelOwner       OwnerKind = "model"
+	ApplicationOwner = secrets.ApplicationOwner
+	UnitOwner        = secrets.UnitOwner
+	ModelOwner       = secrets.ModelOwner
 )
 
 // Owner is the owner of a secret.
 type Owner struct {
-	Kind OwnerKind
+	Kind secrets.OwnerKind
 	UUID string
 }
 

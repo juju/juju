@@ -78,7 +78,7 @@ func (s *serviceSuite) TestDeleteSecret(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestInternalDeleteSecrett(c *gc.C) {
+func (s *serviceSuite) TestInternalDeleteSecret(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 

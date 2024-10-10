@@ -48,22 +48,34 @@ func getSecretOwner(ctx context.Context, st *State, uri *coresecrets.URI) (domai
 	return owner, err
 }
 
-func checkUserSecretLabelExists(ctx context.Context, st *State, label string) error {
-	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.CheckUserSecretLabelExists(ctx, label)
+func checkUserSecretLabelExists(ctx context.Context, st *State, label string) (bool, error) {
+	var exists bool
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		exists, err = st.CheckUserSecretLabelExists(ctx, label)
+		return err
 	})
+	return exists, err
 }
 
-func checkApplicationSecretLabelExists(ctx context.Context, st *State, appUUID string, label string) error {
-	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.CheckApplicationSecretLabelExists(ctx, appUUID, label)
+func checkApplicationSecretLabelExists(ctx context.Context, st *State, appUUID string, label string) (bool, error) {
+	var exists bool
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		exists, err = st.CheckApplicationSecretLabelExists(ctx, appUUID, label)
+		return err
 	})
+	return exists, err
 }
 
-func checkUnitSecretLabelExists(ctx context.Context, st *State, unitUUID string, label string) error {
-	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.CheckUnitSecretLabelExists(ctx, unitUUID, label)
+func checkUnitSecretLabelExists(ctx context.Context, st *State, unitUUID string, label string) (bool, error) {
+	var exists bool
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		var err error
+		exists, err = st.CheckUnitSecretLabelExists(ctx, unitUUID, label)
+		return err
 	})
+	return exists, err
 }
 
 func createUserSecret(ctx context.Context, st *State, version int, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams) error {

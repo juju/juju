@@ -507,3 +507,9 @@ func (rows obsoleteRevisionRows) toRevIDs() []string {
 	}
 	return result
 }
+
+// Count is a helper struct to count the number of rows.
+type Count struct {
+	// Num is the number of rows.
+	Num int `db:"num"`
+}

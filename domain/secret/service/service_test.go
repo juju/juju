@@ -133,17 +133,21 @@ func (s *serviceSuite) TestCreateUserSecretURIs(c *gc.C) {
 }
 
 func (s *serviceSuite) TestCreateUserSecretInternal(c *gc.C) {
-	s.assertCreateUserSecret(c, true, false)
+	s.assertCreateUserSecret(c, true, false, false)
 }
 func (s *serviceSuite) TestCreateUserSecretExternalBackend(c *gc.C) {
-	s.assertCreateUserSecret(c, false, false)
+	s.assertCreateUserSecret(c, false, false, false)
 }
 
-func (s *serviceSuite) TestCreateUserSecretExternalBackendFailedAndCleanup(c *gc.C) {
-	s.assertCreateUserSecret(c, false, true)
+func (s *serviceSuite) TestCreateUserSecretExternalBackendFailedWithCleanup(c *gc.C) {
+	s.assertCreateUserSecret(c, false, true, false)
 }
 
-func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFailed bool) {
+func (s *serviceSuite) TestCreateUserSecretFailedLabelExistsWithCleanup(c *gc.C) {
+	s.assertCreateUserSecret(c, false, true, true)
+}
+
+func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFailed, labelExists bool) {
 	defer s.setupMocks(c).Finish()
 
 	params := domainsecret.UpsertSecretParams{
@@ -184,18 +188,20 @@ func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFail
 		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
 			Return("rev-id", nil)
 	}
-	if finalStepFailed && !isInternal {
+	if (finalStepFailed || labelExists) && !isInternal {
 		s.secretsBackend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)
 	}
 
-	s.state.EXPECT().CheckUserSecretLabelExists(domaintesting.IsAtomicContextChecker, "my secret").Return(nil)
-	s.state.EXPECT().CreateUserSecret(gomock.Any(), 1, uri, params).
-		DoAndReturn(func(domain.AtomicContext, int, *coresecrets.URI, domainsecret.UpsertSecretParams) error {
-			if finalStepFailed {
-				return errors.New("some error")
-			}
-			return nil
-		})
+	s.state.EXPECT().CheckUserSecretLabelExists(domaintesting.IsAtomicContextChecker, "my secret").Return(labelExists, nil)
+	if !labelExists {
+		s.state.EXPECT().CreateUserSecret(gomock.Any(), 1, uri, params).
+			DoAndReturn(func(domain.AtomicContext, int, *coresecrets.URI, domainsecret.UpsertSecretParams) error {
+				if finalStepFailed {
+					return errors.New("some error")
+				}
+				return nil
+			})
+	}
 
 	err := s.service.CreateUserSecret(context.Background(), uri, CreateUserSecretParams{
 		UpdateUserSecretParams: UpdateUserSecretParams{
@@ -207,26 +213,34 @@ func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFail
 		},
 		Version: 1,
 	})
-	if finalStepFailed {
+	if finalStepFailed || labelExists {
 		c.Assert(rollbackCalled, jc.IsTrue)
-		c.Assert(err, gc.ErrorMatches, "cannot create user secret .*some error")
+		if labelExists {
+			c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+		} else {
+			c.Assert(err, gc.ErrorMatches, "cannot create user secret .*some error")
+		}
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
 func (s *serviceSuite) TestUpdateUserSecretInternal(c *gc.C) {
-	s.assertUpdateUserSecret(c, true, false)
+	s.assertUpdateUserSecret(c, true, false, false)
 }
 func (s *serviceSuite) TestUpdateUserSecretExternalBackend(c *gc.C) {
-	s.assertUpdateUserSecret(c, false, false)
+	s.assertUpdateUserSecret(c, false, false, false)
 }
 
-func (s *serviceSuite) TestUpdateUserSecretExternalBackendFailedAndCleanup(c *gc.C) {
-	s.assertUpdateUserSecret(c, false, true)
+func (s *serviceSuite) TestUpdateUserSecretExternalBackendFailedWithCleanup(c *gc.C) {
+	s.assertUpdateUserSecret(c, false, true, false)
 }
 
-func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFailed bool) {
+func (s *serviceSuite) TestUpdateUserSecretFailedLabelExistsWithCleanup(c *gc.C) {
+	s.assertUpdateUserSecret(c, false, true, true)
+}
+
+func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFailed, labelExists bool) {
 	defer s.setupMocks(c).Finish()
 	s.secretsBackendProvider.EXPECT().Type().Return("active-type").AnyTimes()
 	s.secretsBackendProvider.EXPECT().NewBackend(ptr(backendConfigs.Configs["backend-id"])).DoAndReturn(func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
@@ -241,7 +255,7 @@ func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFail
 		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 3, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
 			Return("rev-id", nil)
 	}
-	if finalStepFailed && !isInternal {
+	if (finalStepFailed || labelExists) && !isInternal {
 		s.secretsBackend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)
 	}
 
@@ -274,14 +288,16 @@ func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFail
 	}, nil)
 
 	s.state.EXPECT().GetSecretOwner(domaintesting.IsAtomicContextChecker, uri).Return(domainsecret.Owner{Kind: domainsecret.ModelOwner}, nil)
-	s.state.EXPECT().CheckUserSecretLabelExists(domaintesting.IsAtomicContextChecker, "my secret").Return(nil)
-	s.state.EXPECT().UpdateSecret(domaintesting.IsAtomicContextChecker, uri, params).
-		DoAndReturn(func(domain.AtomicContext, *coresecrets.URI, domainsecret.UpsertSecretParams) error {
-			if finalStepFailed {
-				return errors.New("some error")
-			}
-			return nil
-		})
+	s.state.EXPECT().CheckUserSecretLabelExists(domaintesting.IsAtomicContextChecker, "my secret").Return(labelExists, nil)
+	if !labelExists {
+		s.state.EXPECT().UpdateSecret(domaintesting.IsAtomicContextChecker, uri, params).
+			DoAndReturn(func(domain.AtomicContext, *coresecrets.URI, domainsecret.UpsertSecretParams) error {
+				if finalStepFailed {
+					return errors.New("some error")
+				}
+				return nil
+			})
+	}
 
 	err := s.service.UpdateUserSecret(context.Background(), uri, UpdateUserSecretParams{
 		Accessor: SecretAccessor{
@@ -294,9 +310,13 @@ func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFail
 		Checksum:    "checksum-1234",
 		AutoPrune:   ptr(true),
 	})
-	if finalStepFailed {
+	if finalStepFailed || labelExists {
 		c.Assert(rollbackCalled, jc.IsTrue)
-		c.Assert(err, gc.ErrorMatches, "cannot update user secret .*some error")
+		if labelExists {
+			c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+		} else {
+			c.Assert(err, gc.ErrorMatches, "cannot update user secret .*some error")
+		}
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -320,7 +340,7 @@ func (s *serviceSuite) TestCreateCharmUnitSecret(c *gc.C) {
 	}
 
 	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, "mariadb/0").Return("unit-uuid", nil)
-	s.state.EXPECT().CheckUnitSecretLabelExists(domaintesting.IsAtomicContextChecker, "unit-uuid", "my secret").Return(nil)
+	s.state.EXPECT().CheckUnitSecretLabelExists(domaintesting.IsAtomicContextChecker, "unit-uuid", "my secret").Return(false, nil)
 	s.state.EXPECT().CreateCharmUnitSecret(domaintesting.IsAtomicContextChecker, 1, uri, "unit-uuid", gomock.AssignableToTypeOf(p)).
 		DoAndReturn(func(_ domain.AtomicContext, _ int, _ *coresecrets.URI, _ string, got domainsecret.UpsertSecretParams) error {
 			c.Assert(got.NextRotateTime, gc.NotNil)
@@ -362,6 +382,45 @@ func (s *serviceSuite) TestCreateCharmUnitSecret(c *gc.C) {
 	c.Assert(rollbackCalled, jc.IsFalse)
 }
 
+func (s *serviceSuite) TestCreateCharmUnitSecretFailedLabelAlreadyExists(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	exipreTime := s.clock.Now()
+	uri := coresecrets.NewURI()
+
+	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, "mariadb/0").Return("unit-uuid", nil)
+	s.state.EXPECT().CheckUnitSecretLabelExists(domaintesting.IsAtomicContextChecker, "unit-uuid", "my secret").Return(true, nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	rollbackCalled := false
+	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
+		rollbackCalled = true
+		return nil
+	}, nil)
+
+	err := s.service.CreateCharmSecret(context.Background(), uri, CreateCharmSecretParams{
+		UpdateCharmSecretParams: UpdateCharmSecretParams{
+			LeaderToken: successfulToken{},
+			Accessor: SecretAccessor{
+				Kind: UnitAccessor,
+				ID:   "mariadb/0",
+			},
+			Description:  ptr("a secret"),
+			Label:        ptr("my secret"),
+			Data:         map[string]string{"foo": "bar"},
+			Checksum:     "checksum-1234",
+			ExpireTime:   ptr(exipreTime),
+			RotatePolicy: ptr(coresecrets.RotateHourly),
+		},
+		Version: 1,
+		CharmOwner: CharmSecretOwner{
+			Kind: UnitOwner,
+			ID:   "mariadb/0",
+		},
+	})
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+	c.Assert(rollbackCalled, jc.IsTrue)
+}
+
 func (s *serviceSuite) TestCreateCharmApplicationSecret(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -380,7 +439,7 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *gc.C) {
 	}
 
 	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mariadb").Return("app-uuid", nil)
-	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, "app-uuid", "my secret").Return(nil)
+	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, "app-uuid", "my secret").Return(false, nil)
 	s.state.EXPECT().CreateCharmApplicationSecret(domaintesting.IsAtomicContextChecker, 1, uri, "app-uuid", gomock.AssignableToTypeOf(p)).
 		DoAndReturn(func(_ domain.AtomicContext, _ int, _ *coresecrets.URI, _ string, got domainsecret.UpsertSecretParams) error {
 			c.Assert(got.NextRotateTime, gc.NotNil)
@@ -422,6 +481,45 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *gc.C) {
 	c.Assert(rollbackCalled, jc.IsFalse)
 }
 
+func (s *serviceSuite) TestCreateCharmApplicationSecretFailedLabelExists(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	exipreTime := s.clock.Now()
+	uri := coresecrets.NewURI()
+
+	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mariadb").Return("app-uuid", nil)
+	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, "app-uuid", "my secret").Return(true, nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	rollbackCalled := false
+	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
+		rollbackCalled = true
+		return nil
+	}, nil)
+
+	err := s.service.CreateCharmSecret(context.Background(), uri, CreateCharmSecretParams{
+		UpdateCharmSecretParams: UpdateCharmSecretParams{
+			LeaderToken: successfulToken{},
+			Accessor: SecretAccessor{
+				Kind: UnitAccessor,
+				ID:   "mariadb/0",
+			},
+			Description:  ptr("a secret"),
+			Label:        ptr("my secret"),
+			Data:         map[string]string{"foo": "bar"},
+			Checksum:     "checksum-1234",
+			ExpireTime:   ptr(exipreTime),
+			RotatePolicy: ptr(coresecrets.RotateHourly),
+		},
+		Version: 1,
+		CharmOwner: CharmSecretOwner{
+			Kind: ApplicationOwner,
+			ID:   "mariadb",
+		},
+	})
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+	c.Assert(rollbackCalled, jc.IsTrue)
+}
+
 func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -448,7 +546,7 @@ func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *gc.C) {
 		return nil
 	}, nil)
 	s.state.EXPECT().GetSecretOwner(domaintesting.IsAtomicContextChecker, uri).Return(domainsecret.Owner{Kind: domainsecret.UnitOwner, UUID: "unit-uuid"}, nil)
-	s.state.EXPECT().CheckUnitSecretLabelExists(domaintesting.IsAtomicContextChecker, "unit-uuid", "my secret").Return(nil)
+	s.state.EXPECT().CheckUnitSecretLabelExists(domaintesting.IsAtomicContextChecker, "unit-uuid", "my secret").Return(false, nil)
 	s.state.EXPECT().UpdateSecret(domaintesting.IsAtomicContextChecker, uri, p).Return(nil)
 
 	err := s.service.UpdateCharmSecret(context.Background(), uri, UpdateCharmSecretParams{
@@ -497,7 +595,7 @@ func (s *serviceSuite) TestUpdateCharmSecretForUnitOwned(c *gc.C) {
 	}, nil)
 
 	s.state.EXPECT().GetSecretOwner(domaintesting.IsAtomicContextChecker, uri).Return(domainsecret.Owner{Kind: domainsecret.UnitOwner, UUID: "unit-uuid"}, nil)
-	s.state.EXPECT().CheckUnitSecretLabelExists(domaintesting.IsAtomicContextChecker, "unit-uuid", "my secret").Return(nil)
+	s.state.EXPECT().CheckUnitSecretLabelExists(domaintesting.IsAtomicContextChecker, "unit-uuid", "my secret").Return(false, nil)
 	s.state.EXPECT().UpdateSecret(domaintesting.IsAtomicContextChecker, uri, gomock.Any()).DoAndReturn(func(_ domain.AtomicContext, _ *coresecrets.URI, got domainsecret.UpsertSecretParams) error {
 		c.Assert(got.NextRotateTime, gc.NotNil)
 		c.Assert(*got.NextRotateTime, jc.Almost, *p.NextRotateTime)
@@ -522,6 +620,45 @@ func (s *serviceSuite) TestUpdateCharmSecretForUnitOwned(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rollbackCalled, jc.IsFalse)
+}
+
+func (s *serviceSuite) TestUpdateCharmSecretForUnitOwnedFailedLabelExists(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mariadb/0",
+	}).Return("manage", nil)
+	s.state.EXPECT().GetRotatePolicy(gomock.Any(), uri).Return(
+		coresecrets.RotateNever, // No rotate policy.
+		nil)
+
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	rollbackCalled := false
+	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
+		rollbackCalled = true
+		return nil
+	}, nil)
+
+	s.state.EXPECT().GetSecretOwner(domaintesting.IsAtomicContextChecker, uri).Return(domainsecret.Owner{Kind: domainsecret.UnitOwner, UUID: "unit-uuid"}, nil)
+	s.state.EXPECT().CheckUnitSecretLabelExists(domaintesting.IsAtomicContextChecker, "unit-uuid", "my secret").Return(true, nil)
+
+	err := s.service.UpdateCharmSecret(context.Background(), uri, UpdateCharmSecretParams{
+		LeaderToken: successfulToken{},
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mariadb/0",
+		},
+		Description:  ptr("a secret"),
+		Label:        ptr("my secret"),
+		Data:         map[string]string{"foo": "bar"},
+		Checksum:     "checksum-1234",
+		RotatePolicy: ptr(coresecrets.RotateDaily),
+	})
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+	c.Assert(rollbackCalled, jc.IsTrue)
 }
 
 func (s *serviceSuite) TestUpdateCharmSecretForAppOwned(c *gc.C) {
@@ -554,7 +691,7 @@ func (s *serviceSuite) TestUpdateCharmSecretForAppOwned(c *gc.C) {
 	}, nil)
 
 	s.state.EXPECT().GetSecretOwner(domaintesting.IsAtomicContextChecker, uri).Return(domainsecret.Owner{Kind: domainsecret.ApplicationOwner, UUID: "app-uuid"}, nil)
-	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, "app-uuid", "my secret").Return(nil)
+	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, "app-uuid", "my secret").Return(false, nil)
 	s.state.EXPECT().UpdateSecret(domaintesting.IsAtomicContextChecker, uri, gomock.Any()).DoAndReturn(func(_ domain.AtomicContext, _ *coresecrets.URI, got domainsecret.UpsertSecretParams) error {
 		c.Assert(got.NextRotateTime, gc.NotNil)
 		c.Assert(*got.NextRotateTime, jc.Almost, *p.NextRotateTime)
@@ -579,6 +716,45 @@ func (s *serviceSuite) TestUpdateCharmSecretForAppOwned(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rollbackCalled, jc.IsFalse)
+}
+
+func (s *serviceSuite) TestUpdateCharmSecretForAppOwnedFailedLabelExists(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mariadb/0",
+	}).Return("manage", nil)
+	s.state.EXPECT().GetRotatePolicy(gomock.Any(), uri).Return(
+		coresecrets.RotateNever, // No rotate policy.
+		nil)
+
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	rollbackCalled := false
+	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
+		rollbackCalled = true
+		return nil
+	}, nil)
+
+	s.state.EXPECT().GetSecretOwner(domaintesting.IsAtomicContextChecker, uri).Return(domainsecret.Owner{Kind: domainsecret.ApplicationOwner, UUID: "app-uuid"}, nil)
+	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, "app-uuid", "my secret").Return(true, nil)
+
+	err := s.service.UpdateCharmSecret(context.Background(), uri, UpdateCharmSecretParams{
+		LeaderToken: successfulToken{},
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mariadb/0",
+		},
+		Description:  ptr("a secret"),
+		Label:        ptr("my secret"),
+		Data:         map[string]string{"foo": "bar"},
+		Checksum:     "checksum-1234",
+		RotatePolicy: ptr(coresecrets.RotateDaily),
+	})
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+	c.Assert(rollbackCalled, jc.IsTrue)
 }
 
 func (s *serviceSuite) TestGetSecret(c *gc.C) {
@@ -1579,7 +1755,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretUpda
 	}).Return("manage", nil)
 
 	s.state.EXPECT().GetSecretOwner(domaintesting.IsAtomicContextChecker, uri).Return(domainsecret.Owner{Kind: domainsecret.UnitOwner, UUID: "unit-uuid"}, nil)
-	s.state.EXPECT().CheckUnitSecretLabelExists(domaintesting.IsAtomicContextChecker, "unit-uuid", "foo").Return(nil)
+	s.state.EXPECT().CheckUnitSecretLabelExists(domaintesting.IsAtomicContextChecker, "unit-uuid", "foo").Return(false, nil)
 	s.state.EXPECT().UpdateSecret(domaintesting.IsAtomicContextChecker, uri, domainsecret.UpsertSecretParams{
 		RotatePolicy: ptr(domainsecret.RotateNever),
 		Label:        ptr("foo"),

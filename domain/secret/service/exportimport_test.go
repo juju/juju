@@ -192,7 +192,7 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 	})
 
 	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return("app-uuid", nil)
-	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, "app-uuid", secrets[0].Label).Return(nil)
+	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, "app-uuid", secrets[0].Label).Return(false, nil)
 	s.state.EXPECT().CreateCharmApplicationSecret(domaintesting.IsAtomicContextChecker, 0, uri, "app-uuid", domainsecret.UpsertSecretParams{
 		RotatePolicy:   ptr(domainsecret.RotateHourly),
 		ExpireTime:     nil,
