@@ -227,7 +227,7 @@ func claimLoop(holderTag names.UnitTag, claimer coreleadership.Claimer, claimDur
 					isLeaderTime = time.Time{}
 					// Note: the 'cancel' channel does nothing
 					start := now
-					err := claimer.BlockUntilLeadershipReleased(context.Background(), leaseName, nil)
+					err := claimer.BlockUntilLeadershipReleased(context.Background(), leaseName)
 					now = time.Now()
 					sinceStart = now.Sub(agentStart).Round(time.Millisecond).Seconds()
 					reqDuration := now.Sub(start).Round(time.Millisecond)

@@ -226,7 +226,7 @@ func (t *Tracker) setMinion(ctx context.Context) error {
 		go func() {
 			defer close(t.claimLease)
 			logger.Debugf("%s waiting for %s leadership release", t.unitName, t.applicationName)
-			err := t.claimer.BlockUntilLeadershipReleased(ctx, t.applicationName, t.tomb.Dying())
+			err := t.claimer.BlockUntilLeadershipReleased(ctx, t.applicationName)
 			if err != nil {
 				logger.Debugf("%s waiting for %s leadership release gave err: %s", t.unitName, t.applicationName, err)
 			}

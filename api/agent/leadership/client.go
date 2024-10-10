@@ -38,9 +38,6 @@ func (c *client) ClaimLeadership(ctx context.Context, appId, unitId string, dura
 		return err
 	}
 
-	// TODO(fwereade): this is not a rightful panic; we don't know who'll be using
-	// this client, and/or whether or not we're running critical code in the same
-	// process.
 	if err := results.Results[0].Error; err != nil {
 		if params.IsCodeLeadershipClaimDenied(err) {
 			return leadership.ErrClaimDenied
@@ -51,12 +48,9 @@ func (c *client) ClaimLeadership(ctx context.Context, appId, unitId string, dura
 }
 
 // BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
-func (c *client) BlockUntilLeadershipReleased(ctx context.Context, appId string, cancel <-chan struct{}) error {
+func (c *client) BlockUntilLeadershipReleased(ctx context.Context, appId string) error {
 	const friendlyErrMsg = "error blocking on leadership release"
 	var result params.ErrorResult
-	// TODO(axw) make it possible to plumb a context.Context
-	// through the API/RPC client, so we can cancel or abandon
-	// requests.
 	err := c.FacadeCall(ctx, "BlockUntilLeadershipReleased", names.NewApplicationTag(appId), &result)
 	if err != nil {
 		return errors.Annotate(err, friendlyErrMsg)
