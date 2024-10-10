@@ -19,7 +19,8 @@ run_persistent_storage() {
 	# dummy-storage is going to be deployed with 1 ebs block storage unit
 	# and 1 rootfs filesystem storage unit.
 	echo "dummy-storage is going to be deployed with 1 ebs block storage unit and 1 rootfs filesystem storage unit"
-	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage --storage single-blk=ebs \
+	# shellcheck disable=SC2046
+	juju deploy -m "${model_name}" $(pack_charm ./testcharms/charms/dummy-storage) --storage single-blk=ebs \
 		--storage single-fs=rootfs
 	echo "Checking current status of app dummy-storage."
 	# wait for current application-status to be active
@@ -94,7 +95,8 @@ run_persistent_storage() {
 	echo "Check status of persistent storage single-blk/0 after remove-application: PASSED"
 
 	# Deploy charm with an existing detached storage
-	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage --attach-storage single-blk/0
+	# shellcheck disable=SC2046
+	juju deploy -m "${model_name}" $(pack_charm ./testcharms/charms/dummy-storage) --attach-storage single-blk/0
 	echo "Checking current status of app dummy-storage."
 	# wait for current application-status to be active
 	wait_for "dummy-storage" "$(active_condition "dummy-storage" 0)"

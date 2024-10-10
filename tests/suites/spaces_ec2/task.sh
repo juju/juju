@@ -10,7 +10,7 @@ test_spaces_ec2() {
 	set_verbosity
 
 	echo "==> Checking for dependencies"
-	check_dependencies juju aws
+	check_dependencies juju aws charmcraft
 
 	echo "==> Ensure subnet for alternative space exists"
 	subnet_id=$(ensure_subnet)

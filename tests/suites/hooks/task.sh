@@ -7,7 +7,7 @@ test_hooks() {
 	set_verbosity
 
 	echo "==> Checking for dependencies"
-	check_dependencies juju
+	check_dependencies juju charmcraft
 
 	file="${TEST_DIR}/test-hooks.log"
 

@@ -34,7 +34,8 @@ bases:
           - arm64
           - s390x
 parts:
-  tiny-bash:
+  # Include extra files in the packed charm
+  include:
     plugin: dump
     source: .
     prime:

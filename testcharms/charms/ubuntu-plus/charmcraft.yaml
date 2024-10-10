@@ -10,8 +10,9 @@ parts:
     plugin: dump
     source: .
     prime:
-      - README.md
+      - actions
       - hooks
-      - icon.svg
-      - lxd-profile.yaml
-      - metadata.yaml
+      - tools
+      - dispatch
+      - revision
+      - version

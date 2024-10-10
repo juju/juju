@@ -22,7 +22,8 @@ run_juju_bind() {
 	configure_multi_nic_netplan "$juju_machine_id" "$hotplug_iface"
 
 	# Deploy test charm to dual-nic machine
-	juju deploy ./testcharms/charms/space-defender --bind "defend-a=alpha defend-b=isolated" --to "${juju_machine_id}"
+	# shellcheck disable=SC2046
+	juju deploy $(pack_charm ./testcharms/charms/space-defender) --bind "defend-a=alpha defend-b=isolated" --to "${juju_machine_id}"
 	unit_index=$(get_unit_index "space-defender")
 	wait_for "space-defender" "$(idle_condition "space-defender" 0 "${unit_index}")"
 
