@@ -628,14 +628,11 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 
 	currentCh := s.expectDefaultLxdProfilerCharm(ctrl)
 	app := s.expectApplicationWithCharm(ctrl, currentCh, "postgresql")
-	app.EXPECT().AgentTools().Return(&agentTools, nil)
 	app.EXPECT().SetCharm(state.SetCharmConfig{
 		CharmOrigin:    createStateCharmOriginFromURL(curl),
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	}, gomock.Any()).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	s.modelAgentService.EXPECT().GetApplicationTargetAgentVersion(gomock.Any(), "postgresql").Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
 
 	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
 		Charm:   ch,
@@ -651,31 +648,6 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ApplicationSuite) TestLXDProfileSetCharmWithOldAgentVersion(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	ch := s.expectDefaultLxdProfilerCharm(ctrl)
-	curl := "ch:postgresql"
-	s.backend.EXPECT().Charm(curl).Return(ch, nil)
-
-	currentCh := s.expectDefaultLxdProfilerCharm(ctrl)
-	app := s.expectApplicationWithCharm(ctrl, currentCh, "postgresql")
-	app.EXPECT().AgentTools().Return(&agentTools, nil)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	s.modelAgentService.EXPECT().GetApplicationTargetAgentVersion(gomock.Any(), "postgresql").Return(version.Number{Major: 2, Minor: 5, Patch: 0}, nil)
-
-	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
-		ApplicationName: "postgresql",
-		CharmURL:        curl,
-		CharmOrigin:     createCharmOriginFromURL(curl),
-		ConfigSettings:  map[string]string{"stringOption": "value"},
-	})
-	c.Assert(err, gc.ErrorMatches, "Unable to upgrade LXDProfile charms with the current model version. "+
-		"Please run juju upgrade-model to upgrade the current model to match your controller.")
-}
-
 func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
@@ -686,14 +658,11 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 
 	currentCh := s.expectDefaultLxdProfilerCharm(ctrl)
 	app := s.expectApplicationWithCharm(ctrl, currentCh, "postgresql")
-	app.EXPECT().AgentTools().Return(&agentTools, nil)
 	app.EXPECT().SetCharm(state.SetCharmConfig{
 		CharmOrigin:    createStateCharmOriginFromURL(curl),
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	}, gomock.Any()).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	s.modelAgentService.EXPECT().GetApplicationTargetAgentVersion(gomock.Any(), "postgresql").Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
 
 	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
 		Charm:   ch,

@@ -6,7 +6,6 @@ package application
 import (
 	"context"
 	"fmt"
-	"math"
 	"net"
 	"reflect"
 
@@ -1016,30 +1015,6 @@ func (api *APIBase) setCharmWithAgentValidation(
 			return errors.Trace(err)
 		}
 		return api.applicationSetCharm(ctx, params, newCharm, origin)
-	}
-
-	// Check if the controller agent tools version is greater than the
-	// version we support for the new LXD profiles.
-	// Then check all the units, to see what their agent tools versions is
-	// so that we can ensure that everyone is aligned. If the units version
-	// is too low (i.e. less than the 2.6.0 epoch), then show an error
-	// message that the operator should upgrade to receive the latest
-	// LXD Profile changes.
-
-	// Ensure that we only check agent versions of a charm when we have a
-	// non-empty profile. So this check will only be run in the following
-	// scenarios; adding a profile, upgrading a profile. Removal of a
-	// profile, that had an existing charm, will check if there is currently
-	// an existing charm and if so, run the check.
-	// Checking that is possible, but that would require asking every unit
-	// machines what profiles they currently have and matching with the
-	// incoming update. This could be very costly when you have lots of
-	// machines.
-	if lxdprofile.NotEmpty(lxdCharmProfiler{Charm: currentCharm}) ||
-		lxdprofile.NotEmpty(lxdCharmProfiler{Charm: newCharm}) {
-		if err := validateAgentVersions(ctx, oneApplication, api.modelAgentService); err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	origin, err := StateCharmOrigin(newOrigin)
@@ -2550,39 +2525,6 @@ func getAgentToolsVersion(agentTools AgentTools) (version.Number, error) {
 		return version.Zero, err
 	}
 	return tools.Version.Number, nil
-}
-
-func validateAgentVersions(
-	ctx context.Context,
-	application Application,
-	modelAgentService ModelAgentService,
-) error {
-	// The epoch is set like this, because beta tags are less than release tags.
-	// So 2.6-beta1.1 < 2.6.0, even though the patch is greater than 0. To
-	// prevent the miss-match, we add the upper epoch limit.
-	epoch := version.Number{Major: 2, Minor: 5, Patch: math.MaxInt32}
-
-	// Locate the agent tools version to limit the amount of checking we
-	// required to do over all. We check for NotFound to also use that as a
-	// fallthrough to check the agent version as well. This should take care
-	// of places where the application.AgentTools version is not set (IAAS).
-	ver, err := getAgentToolsVersion(application)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return errors.Trace(err)
-	}
-	if errors.Is(err, errors.NotFound) || ver.Compare(epoch) >= 0 {
-		appAgentVer, err := modelAgentService.GetApplicationTargetAgentVersion(
-			ctx, application.Name(),
-		)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		if appAgentVer.Compare(epoch) < 0 {
-			return ErrInvalidAgentVersions
-		}
-	}
-	return nil
 }
 
 // UnitsInfo returns unit information for the given entities (units or
