@@ -386,12 +386,18 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	networkService := mocks.NewMockNetworkService(ctrl)
 	s.modelConfigService = mocks.NewMockModelConfigService(ctrl)
-	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService).AnyTimes()
 	modelDomainServices.EXPECT().Network().Return(networkService)
 	modelDomainServices.EXPECT().Config().Return(s.modelConfigService).AnyTimes()
 
 	// Expect calls to functions of the model services.
 	modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
+	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ReadOnlyModel{
+		AgentVersion:   jujuversion.Current,
+		ControllerUUID: s.controllerUUID,
+		Cloud:          "dummy",
+		CloudType:      "dummy",
+	}, nil)
 	s.modelConfigService.EXPECT().SetModelConfig(gomock.Any(), modelConfig)
 	networkService.EXPECT().ReloadSpaces(gomock.Any())
 }
@@ -1114,7 +1120,7 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	cfg, err := config.New(config.NoDefaults, modelConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Expect call to get the model domain services.
+	// Expect call to get the model domain services
 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
 	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(modelDomainServices).AnyTimes()
 
@@ -1122,12 +1128,19 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	networkService := mocks.NewMockNetworkService(ctrl)
 	modelConfigService := mocks.NewMockModelConfigService(ctrl)
-	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService).AnyTimes()
 	modelDomainServices.EXPECT().Network().Return(networkService)
 	modelDomainServices.EXPECT().Config().Return(modelConfigService).AnyTimes()
 
 	// Expect calls to functions of the model services.
 	modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
+	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ReadOnlyModel{
+		UUID:           modelUUID,
+		AgentVersion:   jujuversion.Current,
+		ControllerUUID: s.controllerUUID,
+		Cloud:          "dummy",
+		CloudType:      "dummy",
+	}, nil)
 	modelConfigService.EXPECT().SetModelConfig(gomock.Any(), gomock.Any())
 	modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 	networkService.EXPECT().ReloadSpaces(gomock.Any())

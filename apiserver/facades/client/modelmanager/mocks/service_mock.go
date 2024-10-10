@@ -934,6 +934,45 @@ func (c *MockModelInfoServiceDeleteModelCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetModelInfo mocks base method.
+func (m *MockModelInfoService) GetModelInfo(arg0 context.Context) (model.ReadOnlyModel, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelInfo", arg0)
+	ret0, _ := ret[0].(model.ReadOnlyModel)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelInfo indicates an expected call of GetModelInfo.
+func (mr *MockModelInfoServiceMockRecorder) GetModelInfo(arg0 any) *MockModelInfoServiceGetModelInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelInfo", reflect.TypeOf((*MockModelInfoService)(nil).GetModelInfo), arg0)
+	return &MockModelInfoServiceGetModelInfoCall{Call: call}
+}
+
+// MockModelInfoServiceGetModelInfoCall wrap *gomock.Call
+type MockModelInfoServiceGetModelInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelInfoServiceGetModelInfoCall) Return(arg0 model.ReadOnlyModel, arg1 error) *MockModelInfoServiceGetModelInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelInfoServiceGetModelInfoCall) Do(f func(context.Context) (model.ReadOnlyModel, error)) *MockModelInfoServiceGetModelInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelInfoServiceGetModelInfoCall) DoAndReturn(f func(context.Context) (model.ReadOnlyModel, error)) *MockModelInfoServiceGetModelInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockModelConfigService is a mock of ModelConfigService interface.
 type MockModelConfigService struct {
 	ctrl     *gomock.Controller

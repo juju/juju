@@ -121,6 +121,10 @@ type ModelInfoService interface {
 
 	// DeleteModel is responsible for deleting a model during model migration.
 	DeleteModel(context.Context) error
+
+	// GetModelInfo returns the readonly model information for the model in
+	// question.
+	GetModelInfo(context.Context) (coremodel.ReadOnlyModel, error)
 }
 
 // ModelExporter defines a interface for exporting models.
