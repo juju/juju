@@ -124,6 +124,9 @@ type refreshCommand struct {
 	NewRefresherFactory   func(refresher.RefresherDependencies) refresher.RefresherFactory
 
 	ApplicationName string
+
+	// Base represents the base (eg ubuntu@22.04) of the new charm to use
+	Base string
 	// Force should be ubiquitous and we should eventually deprecate both
 	// ForceUnits and ForceBase; instead just using "force"
 	Force      bool
@@ -277,9 +280,11 @@ func (c *refreshCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Force, "force", false, "Allow a charm to be refreshed which bypasses LXD profile allow list")
 	f.BoolVar(&c.ForceUnits, "force-units", false, "Refresh all units immediately, even if in error state")
 	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the charm from Charmhub")
+	// TODO(jam): 2024-10-10 we allow 'force-series' but call it 'ForceBase' internally, but should be --force-base externally
 	f.BoolVar(&c.ForceBase, "force-series", false, "Refresh even if series of deployed applications are not supported by the new charm")
 	f.StringVar(&c.SwitchURL, "switch", "", "Crossgrade to a different charm")
 	f.StringVar(&c.CharmPath, "path", "", "Refresh to a charm located at path")
+	f.StringVar(&c.Base, "base", "", "Select a different base than what is currently running.")
 	f.IntVar(&c.Revision, "revision", -1, "Explicit revision of current charm")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.Var(storageFlag{&c.Storage, nil}, "storage", "Charm storage constraints")
@@ -361,6 +366,16 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	newOrigin := oldOrigin
+	if c.Base != "" {
+		if newBase, err := corebase.ParseBaseFromString(c.Base); err != nil {
+			return errors.Trace(err)
+		} else {
+			newOrigin.Base.OS = newBase.OS
+			newOrigin.Base.Channel = newBase.Channel
+
+		}
+	}
 
 	// There is a timing window where deploy has been called and the charm
 	// is not yet downloaded. Check here to verify the origin has an ID,
@@ -427,7 +442,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	cfg := refresher.RefresherConfig{
 		ApplicationName: c.ApplicationName,
 		CharmURL:        oldURL,
-		CharmOrigin:     oldOrigin.CoreCharmOrigin(),
+		CharmOrigin:     newOrigin.CoreCharmOrigin(),
 		CharmRef:        newRef,
 		Channel:         c.Channel,
 		Force:           c.Force,
