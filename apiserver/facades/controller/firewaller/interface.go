@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -67,6 +68,13 @@ type MachineService interface {
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
 	GetUnitLife(context.Context, string) (life.Value, error)
+	GetUnitNames(context.Context, []unit.UUID) ([]string, error)
+}
+
+// PortService provides access to the port service.
+type PortService interface {
+	WatchOpenedPorts(context.Context) (watcher.StringsWatcher, error)
+	GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[unit.UUID]network.GroupedPortRanges, error)
 }
 
 // ControllerConfigAPI provides the subset of common.ControllerConfigAPI

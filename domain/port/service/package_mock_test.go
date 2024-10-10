@@ -15,6 +15,7 @@ import (
 
 	set "github.com/juju/collections/set"
 	application "github.com/juju/juju/core/application"
+	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
 	unit "github.com/juju/juju/core/unit"
 	domain "github.com/juju/juju/domain"
@@ -280,10 +281,10 @@ func (c *MockStateGetMachineOpenedPortsCall) DoAndReturn(f func(context.Context,
 }
 
 // GetMachinesForEndpoints mocks base method.
-func (m *MockState) GetMachinesForEndpoints(arg0 context.Context, arg1 []string) ([]string, error) {
+func (m *MockState) GetMachinesForEndpoints(arg0 context.Context, arg1 []string) ([]machine.Name, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMachinesForEndpoints", arg0, arg1)
-	ret0, _ := ret[0].([]string)
+	ret0, _ := ret[0].([]machine.Name)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -301,19 +302,19 @@ type MockStateGetMachinesForEndpointsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetMachinesForEndpointsCall) Return(arg0 []string, arg1 error) *MockStateGetMachinesForEndpointsCall {
+func (c *MockStateGetMachinesForEndpointsCall) Return(arg0 []machine.Name, arg1 error) *MockStateGetMachinesForEndpointsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetMachinesForEndpointsCall) Do(f func(context.Context, []string) ([]string, error)) *MockStateGetMachinesForEndpointsCall {
+func (c *MockStateGetMachinesForEndpointsCall) Do(f func(context.Context, []string) ([]machine.Name, error)) *MockStateGetMachinesForEndpointsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetMachinesForEndpointsCall) DoAndReturn(f func(context.Context, []string) ([]string, error)) *MockStateGetMachinesForEndpointsCall {
+func (c *MockStateGetMachinesForEndpointsCall) DoAndReturn(f func(context.Context, []string) ([]machine.Name, error)) *MockStateGetMachinesForEndpointsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

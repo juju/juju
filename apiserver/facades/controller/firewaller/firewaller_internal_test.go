@@ -50,18 +50,21 @@ func (s *UnitToCIDRMappingSuite) TestBindingMapping(c *gc.C) {
 	}
 
 	got := mapUnitPortsAndResolveSubnetCIDRs(portRangesByEndpoint, endpointBindings, spaceInfos.SubnetCIDRsBySpaceID())
+
+	// NOTE(jack-w-shaw): calculating SubnetCIDRs has been disabled here whilst
+	// the application endpoints are still backed by Mongo.
 	exp := []params.OpenUnitPortRanges{
 		{
-			Endpoint:    "bar",
-			SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
+			Endpoint: "bar",
+			// SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
 			PortRanges: []params.PortRange{
 				params.FromNetworkPortRange(network.MustParsePortRange("123/tcp")),
 				params.FromNetworkPortRange(network.MustParsePortRange("777/tcp")),
 			},
 		},
 		{
-			Endpoint:    "foo",
-			SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
+			Endpoint: "foo",
+			// SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
 			PortRanges: []params.PortRange{
 				params.FromNetworkPortRange(network.MustParsePortRange("123/tcp")),
 				params.FromNetworkPortRange(network.MustParsePortRange("456/tcp")),
@@ -102,18 +105,21 @@ func (s *UnitToCIDRMappingSuite) TestWildcardExpansion(c *gc.C) {
 	}
 
 	got := mapUnitPortsAndResolveSubnetCIDRs(portRangesByEndpoint, endpointBindings, spaceInfos.SubnetCIDRsBySpaceID())
+
+	// NOTE(jack-w-shaw): calculating SubnetCIDRs has been disabled here whilst
+	// the application endpoints are still backed by Mongo.
 	exp := []params.OpenUnitPortRanges{
 		{
-			Endpoint:    "",
-			SubnetCIDRs: []string{"10.0.0.0/24", "10.0.1.0/24", "192.168.0.0/24", "192.168.1.0/24"},
+			Endpoint: "",
+			// SubnetCIDRs: []string{"10.0.0.0/24", "10.0.1.0/24", "192.168.0.0/24", "192.168.1.0/24"},
 			PortRanges: []params.PortRange{
 				params.FromNetworkPortRange(network.MustParsePortRange("123/tcp")),
 				params.FromNetworkPortRange(network.MustParsePortRange("456/tcp")),
 			},
 		},
 		{
-			Endpoint:    "bar",
-			SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
+			Endpoint: "bar",
+			// SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
 			PortRanges: []params.PortRange{
 				params.FromNetworkPortRange(network.MustParsePortRange("999/tcp")),
 			},

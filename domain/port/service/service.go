@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
@@ -62,13 +63,15 @@ type State interface {
 
 // Service provides the API for managing the opened ports for units.
 type Service struct {
-	st State
+	st     State
+	logger logger.Logger
 }
 
 // NewService returns a new Service for managing opened ports for units.
-func NewService(st State) *Service {
+func NewService(st State, logger logger.Logger) *Service {
 	return &Service{
-		st: st,
+		st:     st,
+		logger: logger,
 	}
 }
 

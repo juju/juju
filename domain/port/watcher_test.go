@@ -66,6 +66,7 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 			func() (database.TxnRunner, error) { return factory() },
 		),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
+		logger.GetLogger("juju.test.port"),
 	)
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.machine"))
@@ -153,7 +154,7 @@ func (s *watcherSuite) TestWatchPortRanges(c *gc.C) {
 		}, network.GroupedPortRanges{})
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.StringSliceAssert(machineUUIDs[0]))
+		w.Check(watchertest.StringSliceAssert("0"))
 	})
 
 	// open a port on an endpoint with opened ports on a unit on machine 0
@@ -163,7 +164,7 @@ func (s *watcherSuite) TestWatchPortRanges(c *gc.C) {
 		}, network.GroupedPortRanges{})
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.StringSliceAssert(machineUUIDs[0]))
+		w.Check(watchertest.StringSliceAssert("0"))
 	})
 
 	// open a port on a new endpoint on another unit on machine 0
@@ -173,7 +174,7 @@ func (s *watcherSuite) TestWatchPortRanges(c *gc.C) {
 		}, network.GroupedPortRanges{})
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.StringSliceAssert(machineUUIDs[0]))
+		w.Check(watchertest.StringSliceAssert("0"))
 	})
 
 	// open a port on a endpoint on a unit on machine 1
@@ -183,7 +184,7 @@ func (s *watcherSuite) TestWatchPortRanges(c *gc.C) {
 		}, network.GroupedPortRanges{})
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.StringSliceAssert(machineUUIDs[1]))
+		w.Check(watchertest.StringSliceAssert("1"))
 	})
 
 	// open a port that's already open
@@ -203,7 +204,7 @@ func (s *watcherSuite) TestWatchPortRanges(c *gc.C) {
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.StringSliceAssert(machineUUIDs[0]))
+		w.Check(watchertest.StringSliceAssert("0"))
 	})
 
 	// close the final open port of an endpoint for a unit on machine 0
@@ -213,7 +214,7 @@ func (s *watcherSuite) TestWatchPortRanges(c *gc.C) {
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.StringSliceAssert(machineUUIDs[0]))
+		w.Check(watchertest.StringSliceAssert("0"))
 	})
 
 	// close a port range which isn't open
@@ -237,10 +238,10 @@ func (s *watcherSuite) TestWatchPortRanges(c *gc.C) {
 		}, network.GroupedPortRanges{})
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.StringSliceAssert(machineUUIDs[0], machineUUIDs[1]))
+		w.Check(watchertest.StringSliceAssert("0", "1"))
 	})
 
-	harness.Run(c, []string{machineUUIDs[0], machineUUIDs[1]})
+	harness.Run(c, []string{"0", "1"})
 }
 
 func (s *watcherSuite) TestWatchPortRangesForApplication(c *gc.C) {
