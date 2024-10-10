@@ -82,6 +82,42 @@ func (c *MockSpanAddEventCall) DoAndReturn(f func(string, ...trace.EventOption))
 	return c
 }
 
+// AddLink mocks base method.
+func (m *MockSpan) AddLink(arg0 trace.Link) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "AddLink", arg0)
+}
+
+// AddLink indicates an expected call of AddLink.
+func (mr *MockSpanMockRecorder) AddLink(arg0 any) *MockSpanAddLinkCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddLink", reflect.TypeOf((*MockSpan)(nil).AddLink), arg0)
+	return &MockSpanAddLinkCall{Call: call}
+}
+
+// MockSpanAddLinkCall wrap *gomock.Call
+type MockSpanAddLinkCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSpanAddLinkCall) Return() *MockSpanAddLinkCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSpanAddLinkCall) Do(f func(trace.Link)) *MockSpanAddLinkCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSpanAddLinkCall) DoAndReturn(f func(trace.Link)) *MockSpanAddLinkCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // End mocks base method.
 func (m *MockSpan) End(arg0 ...trace.SpanEndOption) {
 	m.ctrl.T.Helper()

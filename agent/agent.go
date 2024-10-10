@@ -316,6 +316,10 @@ type Config interface {
 	// telemetry collection.
 	OpenTelemetrySampleRatio() float64
 
+	// OpenTelemetryTailSamplingThreshold returns the threshold for tail-based
+	// sampling. The lower the threshold, the more spans will be sampled.
+	OpenTelemetryTailSamplingThreshold() time.Duration
+
 	// ObjectStoreType returns the type of object store to use.
 	ObjectStoreType() objectstore.BackendType
 
@@ -395,6 +399,10 @@ type configSetterOnly interface {
 	// telemetry collection.
 	SetOpenTelemetrySampleRatio(float64)
 
+	// SetOpenTelemetryTailSamplingThreshold sets the threshold for tail-based
+	// sampling. The lower the threshold, the more spans will be sampled.
+	SetOpenTelemetryTailSamplingThreshold(time.Duration)
+
 	// SetObjectStoreType sets the type of object store to use.
 	SetObjectStoreType(objectstore.BackendType)
 }
@@ -453,63 +461,65 @@ func (d *apiDetails) clone() *apiDetails {
 }
 
 type configInternal struct {
-	configFilePath           string
-	paths                    Paths
-	tag                      names.Tag
-	nonce                    string
-	controller               names.ControllerTag
-	model                    names.ModelTag
-	jobs                     []model.MachineJob
-	upgradedToVersion        version.Number
-	caCert                   string
-	apiDetails               *apiDetails
-	statePassword            string
-	oldPassword              string
-	servingInfo              *controller.StateServingInfo
-	loggingConfig            string
-	values                   map[string]string
-	mongoMemoryProfile       string
-	jujuDBSnapChannel        string
-	agentLogfileMaxSizeMB    int
-	agentLogfileMaxBackups   int
-	queryTracingEnabled      bool
-	queryTracingThreshold    time.Duration
-	openTelemetryEnabled     bool
-	openTelemetryEndpoint    string
-	openTelemetryInsecure    bool
-	openTelemetryStackTraces bool
-	openTelemetrySampleRatio float64
-	objectStoreType          objectstore.BackendType
-	dqlitePort               int
+	configFilePath                     string
+	paths                              Paths
+	tag                                names.Tag
+	nonce                              string
+	controller                         names.ControllerTag
+	model                              names.ModelTag
+	jobs                               []model.MachineJob
+	upgradedToVersion                  version.Number
+	caCert                             string
+	apiDetails                         *apiDetails
+	statePassword                      string
+	oldPassword                        string
+	servingInfo                        *controller.StateServingInfo
+	loggingConfig                      string
+	values                             map[string]string
+	mongoMemoryProfile                 string
+	jujuDBSnapChannel                  string
+	agentLogfileMaxSizeMB              int
+	agentLogfileMaxBackups             int
+	queryTracingEnabled                bool
+	queryTracingThreshold              time.Duration
+	openTelemetryEnabled               bool
+	openTelemetryEndpoint              string
+	openTelemetryInsecure              bool
+	openTelemetryStackTraces           bool
+	openTelemetrySampleRatio           float64
+	openTelemetryTailSamplingThreshold time.Duration
+	objectStoreType                    objectstore.BackendType
+	dqlitePort                         int
 }
 
 // AgentConfigParams holds the parameters required to create
 // a new AgentConfig.
 type AgentConfigParams struct {
-	Paths                    Paths
-	Jobs                     []model.MachineJob
-	UpgradedToVersion        version.Number
-	Tag                      names.Tag
-	Password                 string
-	Nonce                    string
-	Controller               names.ControllerTag
-	Model                    names.ModelTag
-	APIAddresses             []string
-	CACert                   string
-	Values                   map[string]string
-	MongoMemoryProfile       mongo.MemoryProfile
-	JujuDBSnapChannel        string
-	AgentLogfileMaxSizeMB    int
-	AgentLogfileMaxBackups   int
-	QueryTracingEnabled      bool
-	QueryTracingThreshold    time.Duration
-	OpenTelemetryEnabled     bool
-	OpenTelemetryEndpoint    string
-	OpenTelemetryInsecure    bool
-	OpenTelemetryStackTraces bool
-	OpenTelemetrySampleRatio float64
-	ObjectStoreType          objectstore.BackendType
-	DqlitePort               int
+	Paths                              Paths
+	Jobs                               []model.MachineJob
+	UpgradedToVersion                  version.Number
+	Tag                                names.Tag
+	Password                           string
+	Nonce                              string
+	Controller                         names.ControllerTag
+	Model                              names.ModelTag
+	APIAddresses                       []string
+	CACert                             string
+	Values                             map[string]string
+	MongoMemoryProfile                 mongo.MemoryProfile
+	JujuDBSnapChannel                  string
+	AgentLogfileMaxSizeMB              int
+	AgentLogfileMaxBackups             int
+	QueryTracingEnabled                bool
+	QueryTracingThreshold              time.Duration
+	OpenTelemetryEnabled               bool
+	OpenTelemetryEndpoint              string
+	OpenTelemetryInsecure              bool
+	OpenTelemetryStackTraces           bool
+	OpenTelemetrySampleRatio           float64
+	OpenTelemetryTailSamplingThreshold time.Duration
+	ObjectStoreType                    objectstore.BackendType
+	DqlitePort                         int
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -559,29 +569,30 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	// When/if this connection is successful, apicaller worker will generate
 	// a new secure password and update this agent's config.
 	config := &configInternal{
-		paths:                    NewPathsWithDefaults(configParams.Paths),
-		jobs:                     configParams.Jobs,
-		upgradedToVersion:        configParams.UpgradedToVersion,
-		tag:                      configParams.Tag,
-		nonce:                    configParams.Nonce,
-		controller:               configParams.Controller,
-		model:                    configParams.Model,
-		caCert:                   configParams.CACert,
-		oldPassword:              configParams.Password,
-		values:                   configParams.Values,
-		mongoMemoryProfile:       configParams.MongoMemoryProfile.String(),
-		jujuDBSnapChannel:        configParams.JujuDBSnapChannel,
-		agentLogfileMaxSizeMB:    configParams.AgentLogfileMaxSizeMB,
-		agentLogfileMaxBackups:   configParams.AgentLogfileMaxBackups,
-		queryTracingEnabled:      configParams.QueryTracingEnabled,
-		queryTracingThreshold:    configParams.QueryTracingThreshold,
-		openTelemetryEnabled:     configParams.OpenTelemetryEnabled,
-		openTelemetryEndpoint:    configParams.OpenTelemetryEndpoint,
-		openTelemetryInsecure:    configParams.OpenTelemetryInsecure,
-		openTelemetryStackTraces: configParams.OpenTelemetryStackTraces,
-		openTelemetrySampleRatio: configParams.OpenTelemetrySampleRatio,
-		objectStoreType:          configParams.ObjectStoreType,
-		dqlitePort:               configParams.DqlitePort,
+		paths:                              NewPathsWithDefaults(configParams.Paths),
+		jobs:                               configParams.Jobs,
+		upgradedToVersion:                  configParams.UpgradedToVersion,
+		tag:                                configParams.Tag,
+		nonce:                              configParams.Nonce,
+		controller:                         configParams.Controller,
+		model:                              configParams.Model,
+		caCert:                             configParams.CACert,
+		oldPassword:                        configParams.Password,
+		values:                             configParams.Values,
+		mongoMemoryProfile:                 configParams.MongoMemoryProfile.String(),
+		jujuDBSnapChannel:                  configParams.JujuDBSnapChannel,
+		agentLogfileMaxSizeMB:              configParams.AgentLogfileMaxSizeMB,
+		agentLogfileMaxBackups:             configParams.AgentLogfileMaxBackups,
+		queryTracingEnabled:                configParams.QueryTracingEnabled,
+		queryTracingThreshold:              configParams.QueryTracingThreshold,
+		openTelemetryEnabled:               configParams.OpenTelemetryEnabled,
+		openTelemetryEndpoint:              configParams.OpenTelemetryEndpoint,
+		openTelemetryInsecure:              configParams.OpenTelemetryInsecure,
+		openTelemetryStackTraces:           configParams.OpenTelemetryStackTraces,
+		openTelemetrySampleRatio:           configParams.OpenTelemetrySampleRatio,
+		openTelemetryTailSamplingThreshold: configParams.OpenTelemetryTailSamplingThreshold,
+		objectStoreType:                    configParams.ObjectStoreType,
+		dqlitePort:                         configParams.DqlitePort,
 	}
 	if len(configParams.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
@@ -972,6 +983,16 @@ func (c *configInternal) OpenTelemetrySampleRatio() float64 {
 // SetOpenTelemetryStackTraces implements configSetterOnly.
 func (c *configInternal) SetOpenTelemetrySampleRatio(v float64) {
 	c.openTelemetrySampleRatio = v
+}
+
+// OpenTelemetryTailSamplingThreshold implements Config.
+func (c *configInternal) OpenTelemetryTailSamplingThreshold() time.Duration {
+	return c.openTelemetryTailSamplingThreshold
+}
+
+// SetOpenTelemetryTailSamplingThreshold implements configSetterOnly.
+func (c *configInternal) SetOpenTelemetryTailSamplingThreshold(v time.Duration) {
+	c.openTelemetryTailSamplingThreshold = v
 }
 
 // ObjectStoreType implements Config.

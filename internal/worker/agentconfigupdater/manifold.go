@@ -142,6 +142,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			configOpenTelemetrySampleRatio := controllerConfig.OpenTelemetrySampleRatio()
 			openTelemetrySampleRatioChanged := agentsOpenTelemetrySampleRatio != configOpenTelemetrySampleRatio
 
+			agentsOpenTelemetryTailSamplingThreshold := currentConfig.OpenTelemetryTailSamplingThreshold()
+			configOpenTelemetryTailSamplingThreshold := controllerConfig.OpenTelemetryTailSamplingThreshold()
+			openTelemetryTailSamplingThresholdChanged := agentsOpenTelemetryTailSamplingThreshold != configOpenTelemetryTailSamplingThreshold
+
 			agentsObjectStoreType := currentConfig.ObjectStoreType()
 			configObjectStoreType := controllerConfig.ObjectStoreType()
 			objectStoreTypeChanged := agentsObjectStoreType != configObjectStoreType
@@ -200,6 +204,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					logger.Debugf("setting open telemetry sample ratio: %f => %f", agentsOpenTelemetrySampleRatio, configOpenTelemetrySampleRatio)
 					config.SetOpenTelemetrySampleRatio(configOpenTelemetrySampleRatio)
 				}
+				if openTelemetryTailSamplingThresholdChanged {
+					logger.Debugf("setting open telemetry tail sampling threshold: %f => %f", agentsOpenTelemetryTailSamplingThreshold, configOpenTelemetryTailSamplingThreshold)
+					config.SetOpenTelemetryTailSamplingThreshold(configOpenTelemetryTailSamplingThreshold)
+				}
 				if objectStoreTypeChanged {
 					logger.Debugf("setting object store type: %q => %q", agentsObjectStoreType, configObjectStoreType)
 					config.SetObjectStoreType(configObjectStoreType)
@@ -239,6 +247,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			} else if openTelemetrySampleRatioChanged {
 				logger.Infof("restarting agent for new open telemetry sample ratio")
 				return nil, jworker.ErrRestartAgent
+			} else if openTelemetryTailSamplingThresholdChanged {
+				logger.Infof("restarting agent for new open telemetry tail sampling threshold")
+				return nil, jworker.ErrRestartAgent
 			} else if objectStoreTypeChanged {
 				logger.Infof("restarting agent for new object store type")
 				return nil, jworker.ErrRestartAgent
@@ -253,19 +264,20 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			return NewWorker(WorkerConfig{
-				Agent:                    agent,
-				Hub:                      hub,
-				MongoProfile:             configMongoMemoryProfile,
-				JujuDBSnapChannel:        configJujuDBSnapChannel,
-				QueryTracingEnabled:      configQueryTracingEnabled,
-				QueryTracingThreshold:    configQueryTracingThreshold,
-				OpenTelemetryEnabled:     configOpenTelemetryEnabled,
-				OpenTelemetryEndpoint:    configOpenTelemetryEndpoint,
-				OpenTelemetryInsecure:    configOpenTelemetryInsecure,
-				OpenTelemetryStackTraces: configOpenTelemetryStackTraces,
-				OpenTelemetrySampleRatio: configOpenTelemetrySampleRatio,
-				ObjectStoreType:          configObjectStoreType,
-				Logger:                   config.Logger,
+				Agent:                              agent,
+				Hub:                                hub,
+				MongoProfile:                       configMongoMemoryProfile,
+				JujuDBSnapChannel:                  configJujuDBSnapChannel,
+				QueryTracingEnabled:                configQueryTracingEnabled,
+				QueryTracingThreshold:              configQueryTracingThreshold,
+				OpenTelemetryEnabled:               configOpenTelemetryEnabled,
+				OpenTelemetryEndpoint:              configOpenTelemetryEndpoint,
+				OpenTelemetryInsecure:              configOpenTelemetryInsecure,
+				OpenTelemetryStackTraces:           configOpenTelemetryStackTraces,
+				OpenTelemetrySampleRatio:           configOpenTelemetrySampleRatio,
+				OpenTelemetryTailSamplingThreshold: configOpenTelemetryTailSamplingThreshold,
+				ObjectStoreType:                    configObjectStoreType,
+				Logger:                             config.Logger,
 			})
 		},
 	}

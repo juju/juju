@@ -160,6 +160,10 @@ func (c *configFromEnv) OpenTelemetrySampleRatio() float64 {
 	panic("not implemented")
 }
 
+func (c *configFromEnv) OpenTelemetryTailSamplingThreshold() time.Duration {
+	panic("not implemented")
+}
+
 func (c *configFromEnv) ObjectStoreType() objectstore.BackendType {
 	panic("not implemented")
 }

@@ -483,11 +483,12 @@ func (c *nestedContext) createUnitAgentConfig(tag names.UnitTag, initialPassword
 			AgentLogfileMaxBackups: c.agentConfig.AgentLogfileMaxBackups(),
 			AgentLogfileMaxSizeMB:  c.agentConfig.AgentLogfileMaxSizeMB(),
 
-			OpenTelemetryEnabled:     c.agentConfig.OpenTelemetryEnabled(),
-			OpenTelemetryEndpoint:    c.agentConfig.OpenTelemetryEndpoint(),
-			OpenTelemetryInsecure:    c.agentConfig.OpenTelemetryInsecure(),
-			OpenTelemetryStackTraces: c.agentConfig.OpenTelemetryStackTraces(),
-			OpenTelemetrySampleRatio: c.agentConfig.OpenTelemetrySampleRatio(),
+			OpenTelemetryEnabled:               c.agentConfig.OpenTelemetryEnabled(),
+			OpenTelemetryEndpoint:              c.agentConfig.OpenTelemetryEndpoint(),
+			OpenTelemetryInsecure:              c.agentConfig.OpenTelemetryInsecure(),
+			OpenTelemetryStackTraces:           c.agentConfig.OpenTelemetryStackTraces(),
+			OpenTelemetrySampleRatio:           c.agentConfig.OpenTelemetrySampleRatio(),
+			OpenTelemetryTailSamplingThreshold: c.agentConfig.OpenTelemetryTailSamplingThreshold(),
 		})
 	if err != nil {
 		return nil, errors.Trace(err)

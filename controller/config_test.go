@@ -380,6 +380,12 @@ var newConfigTests = []struct {
 	},
 	expectError: `open-telemetry-sample-ratio: strconv.ParseFloat: parsing "invalid": invalid syntax`,
 }, {
+	about: "invalid open telemetry tracing tail sampling threshold value",
+	config: controller.Config{
+		controller.OpenTelemetryTailSamplingThreshold: "invalid",
+	},
+	expectError: `open-telemetry-tail-sampling-threshold: conversion to duration: time: invalid duration "invalid"`,
+}, {
 	about: "invalid object store type value",
 	config: controller.Config{
 		controller.ObjectStoreType: "invalid",
@@ -986,6 +992,18 @@ func (s *ConfigSuite) TestOpenTelemetrySampleRatio(c *gc.C) {
 
 	cfg[controller.OpenTelemetrySampleRatio] = 0.42
 	c.Assert(cfg.OpenTelemetrySampleRatio(), gc.Equals, 0.42)
+}
+
+func (s *ConfigSuite) TestOpenTelemetryTailSamplingThreshold(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(cfg.OpenTelemetryTailSamplingThreshold(), gc.Equals, controller.DefaultOpenTelemetryTailSamplingThreshold)
+
+	cfg[controller.OpenTelemetryTailSamplingThreshold] = "1s"
+	c.Assert(cfg.OpenTelemetryTailSamplingThreshold(), gc.Equals, time.Second)
 }
 
 func (s *ConfigSuite) TestObjectStoreType(c *gc.C) {

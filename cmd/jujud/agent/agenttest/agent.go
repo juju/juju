@@ -125,11 +125,12 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 			QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
 			QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
 
-			OpenTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
-			OpenTelemetryEndpoint:    "",
-			OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
-			OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
-			OpenTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
+			OpenTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
+			OpenTelemetryEndpoint:              "",
+			OpenTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,
+			OpenTelemetryStackTraces:           controller.DefaultOpenTelemetryStackTraces,
+			OpenTelemetrySampleRatio:           controller.DefaultOpenTelemetrySampleRatio,
+			OpenTelemetryTailSamplingThreshold: controller.DefaultOpenTelemetryTailSamplingThreshold,
 
 			ObjectStoreType: controller.DefaultObjectStoreType,
 
@@ -209,11 +210,12 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
 			QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
 
-			OpenTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
-			OpenTelemetryEndpoint:    "",
-			OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
-			OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
-			OpenTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
+			OpenTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
+			OpenTelemetryEndpoint:              "",
+			OpenTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,
+			OpenTelemetryStackTraces:           controller.DefaultOpenTelemetryStackTraces,
+			OpenTelemetrySampleRatio:           controller.DefaultOpenTelemetrySampleRatio,
+			OpenTelemetryTailSamplingThreshold: controller.DefaultOpenTelemetryTailSamplingThreshold,
 
 			ObjectStoreType: controller.DefaultObjectStoreType,
 

@@ -96,6 +96,8 @@ func (*format_2_0Suite) TestOpenTelemetry(c *gc.C) {
 	config.SetOpenTelemetryEndpoint("http://foo.bar")
 	config.SetOpenTelemetryInsecure(true)
 	config.SetOpenTelemetryStackTraces(true)
+	config.SetOpenTelemetrySampleRatio(0.5)
+	config.SetOpenTelemetryTailSamplingThreshold(time.Second)
 
 	data, err := format_2_0.marshal(config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -107,6 +109,8 @@ func (*format_2_0Suite) TestOpenTelemetry(c *gc.C) {
 	c.Check(newConfig.OpenTelemetryEndpoint(), gc.Equals, "http://foo.bar")
 	c.Check(newConfig.OpenTelemetryInsecure(), jc.IsTrue)
 	c.Check(newConfig.OpenTelemetryStackTraces(), jc.IsTrue)
+	c.Check(newConfig.OpenTelemetrySampleRatio(), gc.Equals, 0.5)
+	c.Check(newConfig.OpenTelemetryTailSamplingThreshold(), gc.Equals, time.Second)
 }
 
 func (*format_2_0Suite) TestObjectStore(c *gc.C) {
