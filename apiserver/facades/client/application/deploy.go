@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
 )
@@ -189,6 +190,8 @@ func (api *APIBase) addUnits(
 		return nil, err
 	}
 
+	machineToUnitMap := make(map[string][]string)
+
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
 		unit, err := unitAdder.AddUnit(state.AddUnitParams{
@@ -225,7 +228,14 @@ func (api *APIBase) addUnits(
 		if err := saveMachineInfo(ctx, api.machineService, id); err != nil {
 			return nil, errors.Annotatef(err, "saving assigned machine %q for unit: %q", id, unit.Name())
 		}
+		machineToUnitMap[id] = append(machineToUnitMap[id], unitName)
 	}
+
+	// Assign units to machines via net nodes.
+	if err := api.stubService.AssignUnitsToMachines(ctx, machineToUnitMap); err != nil {
+		return nil, internalerrors.Errorf("assigning units to machines: %w", err)
+	}
+
 	return units, nil
 }
 

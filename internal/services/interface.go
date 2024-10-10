@@ -34,6 +34,7 @@ import (
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
+	stubservice "github.com/juju/juju/domain/stub"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	"github.com/juju/juju/internal/storage"
@@ -122,6 +123,13 @@ type ModelDomainServices interface {
 	UnitState() *unitstateservice.Service
 	// Port returns the service for managing opened port ranges for units.
 	Port() *portservice.WatchableService
+	// Stub returns the stub service. A special service that collects temporary
+	// methods required for wiring together domains which are not completely
+	// implemented or wired up.
+	//
+	// Deprecated: Stub service contains only temporary methods and should be removed
+	// as soon as possible.
+	Stub() *stubservice.StubService
 }
 
 // DomainServices provides access to the services required by the apiserver.

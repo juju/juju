@@ -25,8 +25,15 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 		unitMachines: map[string]string{"foo/0": "1/lxd/2"},
 	}
 	f.results = []state.UnitAssignmentResult{{Unit: "foo/0"}}
-	a := &fakeMachineService{}
-	api := API{st: f, res: common.NewResources(), machineService: a, networkService: &fakeNetworkService{}}
+	machineService := &fakeMachineService{}
+	stubService := &fakeStubService{assignments: map[string][]string{}}
+	api := API{
+		st:             f,
+		res:            common.NewResources(),
+		machineService: machineService,
+		networkService: &fakeNetworkService{},
+		stubService:    stubService,
+	}
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-foo-0"}, {Tag: "unit-bar-1"}}}
 	res, err := api.AssignUnits(context.Background(), args)
 	c.Assert(f.ids, gc.DeepEquals, []string{"foo/0", "bar/1"})
@@ -35,7 +42,8 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 	c.Assert(res.Results, gc.HasLen, 2)
 	c.Assert(res.Results[0].Error, gc.IsNil)
 	c.Assert(res.Results[1].Error, gc.ErrorMatches, `unit "unit-bar-1" not found`)
-	c.Assert(a.machineNames, jc.SameContents, []machine.Name{machine.Name("1"), machine.Name("1/lxd/2")})
+	c.Assert(machineService.machineNames, jc.SameContents, []machine.Name{machine.Name("1"), machine.Name("1/lxd/2")})
+	c.Assert(stubService.assignments, jc.DeepEquals, map[string][]string{"1/lxd/2": {"foo/0"}})
 }
 
 func (testsuite) TestWatchUnitAssignment(c *gc.C) {
@@ -77,6 +85,17 @@ type fakeNetworkService struct {
 
 func (f *fakeNetworkService) GetAllSpaces(_ context.Context) (network.SpaceInfos, error) {
 	return nil, nil
+}
+
+type fakeStubService struct {
+	assignments map[string][]string
+}
+
+func (f *fakeStubService) AssignUnitsToMachines(_ context.Context, machineToUnitMap map[string][]string) error {
+	for machine, units := range machineToUnitMap {
+		f.assignments[machine] = append(f.assignments[machine], units...)
+	}
+	return nil
 }
 
 type fakeState struct {
