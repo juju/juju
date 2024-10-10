@@ -22,6 +22,7 @@ import (
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/model"
+	"github.com/juju/juju/domain/modeldefaults"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/environs/config"
@@ -110,6 +111,26 @@ type ModelDefaultsService interface {
 	ModelDefaultsProvider(
 		uuid coremodel.UUID,
 	) modeldefaultsservice.ModelDefaultsProviderFunc
+
+	// CloudDefaults returns the default attribute details for a specified cloud.
+	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+	CloudDefaults(ctx context.Context, cloudName string) (modeldefaults.ModelDefaultAttributes, error)
+
+	// UpdateModelConfigCloudDefaultValues saves the specified default attribute details for a cloud.
+	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+	UpdateModelConfigCloudDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudName string) error
+
+	// UpdateModelConfigRegionDefaultValues saves the specified default attribute details for a cloud region.
+	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+	UpdateModelConfigRegionDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudName, regionName string) error
+
+	// RemoveModelConfigCloudDefaultValues deletes the specified default attribute details for a cloud.
+	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+	RemoveModelConfigCloudDefaultValues(ctx context.Context, removeAttrs []string, cloudName string) error
+
+	// RemoveModelConfigRegionDefaultValues deletes the specified default attribute details for a cloud region.
+	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+	RemoveModelConfigRegionDefaultValues(ctx context.Context, removeAttrs []string, cloudName, regionName string) error
 }
 
 // ModelInfoService defines a interface for interacting with the underlying

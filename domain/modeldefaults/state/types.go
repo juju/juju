@@ -3,12 +3,39 @@
 
 package state
 
+// These structs represent the cloud and model config schemas in the database.
+
+type attrs []string
+
+type modelUUID struct {
+	UUID string `db:"uuid"`
+}
+
+type dbCloud struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
+}
+
+type cloudRegion struct {
+	UUID      string `db:"uuid"`
+	CloudUUID string `db:"cloud_uuid"`
+	Name      string `db:"name"`
+}
+
+type cloudDefaultValue struct {
+	UUID  string `db:"cloud_uuid"`
+	Key   string `db:"key"`
+	Value string `db:"value"`
+}
+
+type cloudRegionDefaultValue struct {
+	UUID       string `db:"region_uuid"`
+	RegionName string `db:"name"`
+	Key        string `db:"key"`
+	Value      string `db:"value"`
+}
+
 // modelCloudType represents the cloud type of the models cloud.
 type modelCloudType struct {
 	CloudType string `db:"cloud_type"`
-}
-
-// modelUUIDValue represents a model id for associating public keys with.
-type modelUUIDValue struct {
-	UUID string `db:"model_uuid"`
 }
