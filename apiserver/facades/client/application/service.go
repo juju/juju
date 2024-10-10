@@ -109,8 +109,12 @@ type ModelConfigService interface {
 
 // ModelAgentService provides access to the Juju agent version for the model.
 type ModelAgentService interface {
-	// GetModelAgentVersion returns the agent version for the current model.
-	GetModelAgentVersion(ctx context.Context) (version.Number, error)
+	// GetApplicationTargetAgentVersion reports the target agent version that should be
+	// being run on the provided machine identified by name. The following errors
+	// are possible:
+	// - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
+	// - [github.com/juju/juju/domain/model/errors.NotFound]
+	GetApplicationTargetAgentVersion(context.Context, string) (version.Number, error)
 }
 
 // StubService is the interface used to interact with the stub service. A special
