@@ -37,7 +37,7 @@ func (s *serviceSuite) TestSetStateAllAttributes(c *gc.C) {
 	exp.SetUnitStateCharm(gomock.Any(), uuid, map[string]string{"one-key": "one-value"}).Return(nil)
 	exp.SetUnitStateRelation(gomock.Any(), uuid, map[int]string{1: "one-value"}).Return(nil)
 
-	err := NewService(s.st).SetState(context.Background(), unitstate.AgentState{
+	err := NewService(s.st).SetState(context.Background(), unitstate.UnitState{
 		Name:          "unit/0",
 		CharmState:    ptr(map[string]string{"one-key": "one-value"}),
 		UniterState:   ptr("some-uniter-state-yaml"),
@@ -58,7 +58,7 @@ func (s *serviceSuite) TestSetStateSubsetAttributes(c *gc.C) {
 	exp.EnsureUnitStateRecord(gomock.Any(), uuid).Return(nil)
 	exp.UpdateUnitStateUniter(gomock.Any(), uuid, "some-uniter-state-yaml").Return(nil)
 
-	err := NewService(s.st).SetState(context.Background(), unitstate.AgentState{
+	err := NewService(s.st).SetState(context.Background(), unitstate.UnitState{
 		Name:        "unit/0",
 		UniterState: ptr("some-uniter-state-yaml"),
 	})
@@ -71,11 +71,51 @@ func (s *serviceSuite) TestSetStateUnitNotFound(c *gc.C) {
 	exp := s.st.EXPECT()
 	exp.GetUnitUUIDForName(gomock.Any(), "unit/0").Return("", errors.UnitNotFound)
 
-	err := NewService(s.st).SetState(context.Background(), unitstate.AgentState{
+	err := NewService(s.st).SetState(context.Background(), unitstate.UnitState{
 		Name:        "unit/0",
 		UniterState: ptr("some-uniter-state-yaml"),
 	})
 	c.Check(err, jc.ErrorIs, unitstateerrors.UnitNotFound)
+}
+
+func (s *serviceSuite) TestGetState(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := "some-unit-uuid"
+	s.st.EXPECT().GetUnitState(gomock.Any(), uuid)
+
+	_, err := NewService(s.st).GetState(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestGetStateUnitNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := "some-unit-uuid"
+	s.st.EXPECT().GetUnitState(gomock.Any(), uuid).Return(unitstate.RetrievedUnitState{}, unitstateerrors.UnitNotFound)
+
+	_, err := NewService(s.st).GetState(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIs, unitstateerrors.UnitNotFound)
+}
+
+func (s *serviceSuite) TestGetUnitUUIDForName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	name := "some-unit-name"
+	s.st.EXPECT().GetUnitUUIDForName(gomock.Any(), name)
+
+	_, err := NewService(s.st).GetUnitUUIDForName(context.Background(), name)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestGetUnitUUIDForNameNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	name := "some-unit-name"
+	s.st.EXPECT().GetUnitUUIDForName(gomock.Any(), name).Return("", unitstateerrors.UnitNotFound)
+
+	_, err := NewService(s.st).GetUnitUUIDForName(context.Background(), name)
+	c.Assert(err, jc.ErrorIs, unitstateerrors.UnitNotFound)
 }
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {

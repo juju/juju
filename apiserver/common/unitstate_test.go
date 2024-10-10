@@ -76,7 +76,7 @@ func (s *unitStateSuite) assertBackendApi(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *unitStateSuite) expectState() (map[string]string, string, map[int]string, string, string) {
+func (s *unitStateSuite) expectGetState(name string) (map[string]string, string, map[int]string, string, string) {
 	expCharmState := map[string]string{
 		"foo.bar":  "baz",
 		"payload$": "enc0d3d",
@@ -89,15 +89,15 @@ func (s *unitStateSuite) expectState() (map[string]string, string, map[int]strin
 	expStorageState := "storage testing"
 	expSecretState := "secret testing"
 
-	unitState := state.NewUnitState()
-	unitState.SetCharmState(expCharmState)
-	unitState.SetUniterState(expUniterState)
-	unitState.SetRelationState(expRelationState)
-	unitState.SetStorageState(expStorageState)
-	unitState.SetSecretState(expSecretState)
-
-	exp := s.mockUnit.EXPECT()
-	exp.State().Return(unitState, nil)
+	uuid := "some-unit-uuid"
+	s.unitStateService.EXPECT().GetUnitUUIDForName(gomock.Any(), name).Return(uuid, nil)
+	s.unitStateService.EXPECT().GetState(gomock.Any(), uuid).Return(unitstate.RetrievedUnitState{
+		CharmState:    expCharmState,
+		UniterState:   expUniterState,
+		RelationState: expRelationState,
+		StorageState:  expStorageState,
+		SecretState:   expSecretState,
+	}, nil)
 
 	return expCharmState, expUniterState, expRelationState, expStorageState, expSecretState
 }
@@ -137,8 +137,7 @@ func (s *unitStateSuite) expectApplyOperation() {
 
 func (s *unitStateSuite) TestState(c *gc.C) {
 	defer s.assertBackendApi(c).Finish()
-	s.expectUnit()
-	expCharmState, expUniterState, expRelationState, expStorageState, expSecretState := s.expectState()
+	expCharmState, expUniterState, expRelationState, expStorageState, expSecretState := s.expectGetState("wordpress/0")
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -182,7 +181,7 @@ func (s *unitStateSuite) TestSetStateUniterState(c *gc.C) {
 		},
 	}
 
-	expectedState := unitstate.AgentState{
+	expectedState := unitstate.UnitState{
 		Name:        "wordpress/0",
 		UniterState: &expUniterState,
 	}

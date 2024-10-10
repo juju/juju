@@ -17,31 +17,68 @@ type unitName struct {
 }
 
 // unitState contains a YAML string representing the
-// state for a unit's uniter, storage or secrets.
+// state for a unit's uniter, storage and secrets.
 type unitState struct {
-	// State is the YAML string.
-	State string `db:"state"`
+	// UniterState is the units uniter state YAML string.
+	UniterState string `db:"uniter_state"`
+	// StorageState is the units storage state YAML string.
+	StorageState string `db:"storage_state"`
+	// SecretState is the units secret state YAML string.
+	SecretState string `db:"secret_state"`
 }
 
 // unitStateVal is a type for holding a key/value pair that is
 // a constituent in unit state for charm and relation.
-type unitStateKeyVal struct {
-	UUID string `db:"unit_uuid"`
-	// TODO (manadart 2024-09-09): This should be a generic T congruent with
-	// the function below. However, at the time of writing, SQLair does not
-	// support generic argumentation.
-	Key   any    `db:"key"`
+type unitStateKeyVal[T comparable] struct {
+	UUID  string `db:"unit_uuid"`
+	Key   T      `db:"key"`
 	Value string `db:"value"`
 }
 
-func makeUnitStateKeyVals[T comparable](unitUUID string, kv map[T]string) []unitStateKeyVal {
-	keyVals := make([]unitStateKeyVal, 0, len(kv))
+type unitCharmStateKeyVal unitStateKeyVal[string]
+type unitRelationStateKeyVal unitStateKeyVal[int]
+
+func makeUnitCharmStateKeyVals(unitUUID string, kv map[string]string) []unitCharmStateKeyVal {
+	keyVals := make([]unitCharmStateKeyVal, 0, len(kv))
 	for k, v := range kv {
-		keyVals = append(keyVals, unitStateKeyVal{
+		keyVals = append(keyVals, unitCharmStateKeyVal{
 			UUID:  unitUUID,
 			Key:   k,
 			Value: v,
 		})
 	}
 	return keyVals
+}
+
+func makeUnitRelationStateKeyVals(unitUUID string, kv map[int]string) []unitRelationStateKeyVal {
+	keyVals := make([]unitRelationStateKeyVal, 0, len(kv))
+	for k, v := range kv {
+		keyVals = append(keyVals, unitRelationStateKeyVal{
+			UUID:  unitUUID,
+			Key:   k,
+			Value: v,
+		})
+	}
+	return keyVals
+}
+
+func makeMapFromCharmUnitStateKeyVals(us []unitCharmStateKeyVal) map[string]string {
+	m := map[string]string{}
+	for _, kv := range us {
+		m[kv.Key] = kv.Value
+	}
+	return m
+}
+
+func makeMapFromRelationUnitStateKeyVals(us []unitRelationStateKeyVal) map[int]string {
+	m := map[int]string{}
+	for _, kv := range us {
+		m[kv.Key] = kv.Value
+	}
+	return m
+}
+
+// count stores the count of rows in the DB.
+type count struct {
+	Count int `db:"count"`
 }

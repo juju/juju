@@ -65,10 +65,14 @@ type ApplicationService interface {
 }
 
 // UnitStateService describes the ability to retrieve and persist
-// remote state for informing hook reconciliation.
+// unit agent state for informing hook reconciliation.
 type UnitStateService interface {
-	// SetState persists the input agent state.
-	SetState(context.Context, unitstate.AgentState) error
+	// GetUnitUUIDForName returns the UUID corresponding to the input unit name.
+	GetUnitUUIDForName(ctx context.Context, name string) (string, error)
+	// SetState persists the input unit state.
+	SetState(context.Context, unitstate.UnitState) error
+	// GetState returns the full unit state. The state may be empty.
+	GetState(ctx context.Context, uuid string) (unitstate.RetrievedUnitState, error)
 }
 
 // PortService describes the ability to open and close port ranges for units.
