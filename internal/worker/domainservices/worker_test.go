@@ -4,6 +4,7 @@
 package domainservices
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -62,6 +63,10 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.NewModelDomainServices = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.Clock = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *workerSuite) getConfig() Config {
@@ -71,15 +76,16 @@ func (s *workerSuite) getConfig() Config {
 		ProviderFactory:   s.providerFactory,
 		ObjectStoreGetter: s.objectStoreGetter,
 		Logger:            s.logger,
-		NewDomainServicesGetter: func(services.ControllerDomainServices, changestream.WatchableDBGetter, logger.Logger, ModelDomainServicesFn, providertracker.ProviderFactory, objectstore.ObjectStoreGetter) services.DomainServicesGetter {
+		NewDomainServicesGetter: func(services.ControllerDomainServices, changestream.WatchableDBGetter, ModelDomainServicesFn, providertracker.ProviderFactory, objectstore.ObjectStoreGetter, clock.Clock, logger.Logger) services.DomainServicesGetter {
 			return s.domainServicesGetter
 		},
 		NewControllerDomainServices: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, logger.Logger) services.ControllerDomainServices {
 			return s.controllerDomainServices
 		},
-		NewModelDomainServices: func(coremodel.UUID, changestream.WatchableDBGetter, providertracker.ProviderFactory, objectstore.ModelObjectStoreGetter, logger.Logger) services.ModelDomainServices {
+		NewModelDomainServices: func(coremodel.UUID, changestream.WatchableDBGetter, providertracker.ProviderFactory, objectstore.ModelObjectStoreGetter, clock.Clock, logger.Logger) services.ModelDomainServices {
 			return s.modelDomainServices
 		},
+		Clock: s.clock,
 	}
 }
 

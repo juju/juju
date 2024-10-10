@@ -12,10 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 type metadataSuite struct {
@@ -27,53 +27,45 @@ var _ = gc.Suite(&metadataSuite{})
 func (s *metadataSuite) TestFindNil(c *gc.C) {
 	defer s.setupAPI(c).Finish()
 
+	s.metadataService.EXPECT().FindMetadata(gomock.Any(), cloudimagemetadata.MetadataFilter{}).Return(nil, nil)
+
 	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Result, gc.HasLen, 0)
-	s.assertCalls(c, findMetadata)
 }
 
 func (s *metadataSuite) TestFindEmpty(c *gc.C) {
 	defer s.setupAPI(c).Finish()
 
-	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
-		return map[string][]cloudimagemetadata.Metadata{}, nil
-	}
+	s.metadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).Return(map[string][]cloudimagemetadata.Metadata{}, nil)
 
 	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Result, gc.HasLen, 0)
-	s.assertCalls(c, findMetadata)
 }
 
 func (s *metadataSuite) TestFindEmptyGroups(c *gc.C) {
 	defer s.setupAPI(c).Finish()
 
-	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
-		return map[string][]cloudimagemetadata.Metadata{
-			"public": {},
-			"custom": {},
-		}, nil
-	}
+	s.metadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).Return(map[string][]cloudimagemetadata.Metadata{
+		"public": {},
+		"custom": {},
+	}, nil)
 
 	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Result, gc.HasLen, 0)
-	s.assertCalls(c, findMetadata)
 }
 
 func (s *metadataSuite) TestFindError(c *gc.C) {
 	defer s.setupAPI(c).Finish()
 
-	msg := "find error"
-	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
-		return nil, errors.New(msg)
-	}
+	expectedError := errors.New("find error")
+	s.metadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).Return(nil, expectedError)
 
 	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
-	c.Assert(err, gc.ErrorMatches, msg)
+	c.Assert(err, gc.ErrorMatches, expectedError.Error())
 	c.Assert(found.Result, gc.HasLen, 0)
-	s.assertCalls(c, findMetadata)
 }
 
 func (s *metadataSuite) TestFindOrder(c *gc.C) {
@@ -84,19 +76,16 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 	customImageId3 := "custom3"
 	publicImageId := "public1"
 
-	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
-		return map[string][]cloudimagemetadata.Metadata{
-				"public": {
-					{ImageId: publicImageId, Priority: 15},
-				},
-				"custom": {
-					{ImageId: customImageId, Priority: 87},
-					{ImageId: customImageId2, Priority: 20},
-					{ImageId: customImageId3, Priority: 56},
-				},
-			},
-			nil
-	}
+	s.metadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).Return(map[string][]cloudimagemetadata.Metadata{
+		"public": {
+			{ImageID: publicImageId, Priority: 15},
+		},
+		"custom": {
+			{ImageID: customImageId, Priority: 87},
+			{ImageID: customImageId2, Priority: 20},
+			{ImageID: customImageId3, Priority: 56},
+		},
+	}, nil)
 
 	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,7 +97,6 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 		{ImageId: customImageId2, Priority: 20},
 		{ImageId: publicImageId, Priority: 15},
 	})
-	s.assertCalls(c, findMetadata)
 }
 
 func (s *metadataSuite) TestSaveEmpty(c *gc.C) {
@@ -147,7 +135,7 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 	msg := "save error"
 
 	saveCalls := 0
-	s.state.saveMetadata = func(m []cloudimagemetadata.Metadata) error {
+	s.metadataService.EXPECT().SaveMetadata(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, m []cloudimagemetadata.Metadata) error {
 		saveCalls += 1
 		if m[0].Region != "east" {
 			c.Assert(m[0].Region, gc.Equals, "some-region")
@@ -162,7 +150,7 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 			return nil
 		}
 		return errors.New(msg)
-	}
+	}).Times(3)
 
 	errs, err := s.api.Save(context.Background(), params.MetadataSaveParams{
 		Metadata: []params.CloudImageMetadataList{{
@@ -178,7 +166,6 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 	c.Assert(errs.Results[0].Error, gc.IsNil)
 	c.Assert(errs.Results[1].Error, gc.IsNil)
 	c.Assert(errs.Results[2].Error, gc.ErrorMatches, msg)
-	s.assertCalls(c, saveMetadata, saveMetadata, saveMetadata)
 }
 
 func (s *metadataSuite) TestSaveModelCfgFailed(c *gc.C) {
@@ -221,17 +208,12 @@ func (s *metadataSuite) TestDelete(c *gc.C) {
 	idFail := "fail"
 	msg := "delete error"
 
-	s.state.deleteMetadata = func(imageId string) error {
-		if imageId == idFail {
-			return errors.New(msg)
-		}
-		return nil
-	}
+	s.metadataService.EXPECT().DeleteMetadataWithImageID(gomock.Any(), idFail).Return(errors.New(msg))
+	s.metadataService.EXPECT().DeleteMetadataWithImageID(gomock.Any(), idOk).Return(nil)
 
 	errs, err := s.api.Delete(context.Background(), params.MetadataImageIds{[]string{idOk, idFail}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, 2)
 	c.Assert(errs.Results[0].Error, gc.IsNil)
 	c.Assert(errs.Results[1].Error, gc.ErrorMatches, msg)
-	s.assertCalls(c, deleteMetadata, deleteMetadata)
 }

@@ -80,6 +80,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 		stdcontext.Background(),
 		s.st, nil, &mockState{},
 		s.controllerUUID,
+		uuid.MustNewUUID(), // controllerModelUUID is not used here
 		modelmanager.Services{
 			DomainServicesGetter: nil,
 			CloudService: &mockCloudService{
@@ -107,6 +108,7 @@ func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
 		stdcontext.Background(),
 		s.st, nil, &mockState{},
 		s.controllerUUID,
+		uuid.MustNewUUID(), // controllerModelUUID is not used here
 		modelmanager.Services{
 			DomainServicesGetter: nil,
 			CloudService: &mockCloudService{
@@ -145,6 +147,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		stdcontext.Background(),
 		s.st, nil, &mockState{},
 		s.controllerUUID,
+		uuid.MustNewUUID(), // not used here
 		modelmanager.Services{
 			DomainServicesGetter: nil,
 			CloudService: &mockCloudService{

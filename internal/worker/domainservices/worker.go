@@ -6,6 +6,7 @@ package domainservices
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
@@ -36,6 +37,9 @@ type Config struct {
 	// Logger is used to log messages.
 	Logger logger.Logger
 
+	// Clock is used to provides a main Clock
+	Clock clock.Clock
+
 	NewDomainServicesGetter     DomainServicesGetterFn
 	NewControllerDomainServices ControllerDomainServicesFn
 	NewModelDomainServices      ModelDomainServicesFn
@@ -57,6 +61,9 @@ func (config Config) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if config.NewDomainServicesGetter == nil {
 		return errors.NotValidf("nil NewDomainServicesGetter")
@@ -82,10 +89,11 @@ func NewWorker(config Config) (worker.Worker, error) {
 		servicesGetter: config.NewDomainServicesGetter(
 			ctrlFactory,
 			config.DBGetter,
-			config.Logger,
 			config.NewModelDomainServices,
 			config.ProviderFactory,
 			config.ObjectStoreGetter,
+			config.Clock,
+			config.Logger,
 		),
 	}
 	w.tomb.Go(func() error {
@@ -143,6 +151,7 @@ type domainServicesGetter struct {
 	ctrlFactory            services.ControllerDomainServices
 	dbGetter               changestream.WatchableDBGetter
 	logger                 logger.Logger
+	clock                  clock.Clock
 	newModelDomainServices ModelDomainServicesFn
 	providerFactory        providertracker.ProviderFactory
 	objectStoreGetter      objectstore.ObjectStoreGetter
@@ -160,6 +169,7 @@ func (s *domainServicesGetter) ServicesForModel(modelUUID coremodel.UUID) servic
 				modelUUID:         modelUUID,
 				objectStoreGetter: s.objectStoreGetter,
 			},
+			s.clock,
 			s.logger,
 		),
 	}

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
@@ -40,8 +39,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -57,7 +54,6 @@ import (
 	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -444,61 +440,6 @@ func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
 	data, err := os.ReadFile(filepath.Join(s.dataDir, agent.SystemIdentity))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "private-key")
-}
-
-func createImageMetadata() []*imagemetadata.ImageMetadata {
-	return []*imagemetadata.ImageMetadata{{
-		Id:         "imageId",
-		Storage:    "rootStore",
-		VirtType:   "virtType",
-		Arch:       "amd64",
-		Version:    "22.04",
-		Endpoint:   "endpoint",
-		RegionName: "region",
-	}}
-}
-
-func (s *BootstrapSuite) assertWrittenToState(c *gc.C, session *mgo.Session, metadata cloudimagemetadata.Metadata) {
-	st, closer := s.getSystemState(c)
-	defer closer()
-
-	// find all image metadata in state
-	all, err := st.CloudImageMetadataStorage.FindMetadata(cloudimagemetadata.MetadataFilter{})
-	c.Assert(err, jc.ErrorIsNil)
-	// if there was no stream, it should have defaulted to "released"
-	if metadata.Stream == "" {
-		metadata.Stream = "released"
-	}
-	if metadata.DateCreated == 0 && len(all[metadata.Source]) > 0 {
-		metadata.DateCreated = all[metadata.Source][0].DateCreated
-	}
-	c.Assert(all, gc.DeepEquals, map[string][]cloudimagemetadata.Metadata{
-		metadata.Source: {metadata},
-	})
-}
-
-func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
-	s.bootstrapParams.CustomImageMetadata = createImageMetadata()
-	s.writeBootstrapParamsFile(c)
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(cmdtesting.Context(c))
-	c.Assert(err, jc.ErrorIsNil)
-
-	// This metadata should have also been written to state...
-	expect := cloudimagemetadata.Metadata{
-		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
-			Region:          "region",
-			Arch:            "amd64",
-			Version:         "22.04",
-			RootStorageType: "rootStore",
-			VirtType:        "virtType",
-			Source:          "custom",
-		},
-		Priority: simplestreams.CUSTOM_CLOUD_DATA,
-		ImageId:  "imageId",
-	}
-	s.assertWrittenToState(c, s.Session, expect)
 }
 
 func (s *BootstrapSuite) makeTestModel(c *gc.C) {

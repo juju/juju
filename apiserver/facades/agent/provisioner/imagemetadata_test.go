@@ -7,19 +7,20 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
+	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 // useTestImageData causes the given content to be served when published metadata is requested.
@@ -87,12 +88,14 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 
 func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
 	st := s.ControllerModel(c).State()
+	domainServices := s.ControllerDomainServices(c)
+	metadataService := domainServices.CloudImageMetadata()
 	api, err := provisioner.MakeProvisionerAPI(context.Background(), facadetest.ModelContext{
 		Auth_:           s.authorizer,
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		DomainServices_: s.ControllerDomainServices(c),
+		DomainServices_: domainServices,
 		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -102,9 +105,7 @@ func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
 	// Write metadata to state.
 	metadata := s.convertCloudImageMetadata(expected[0])
 	for _, m := range metadata {
-		err := st.CloudImageMetadataStorage.SaveMetadata(
-			[]cloudimagemetadata.Metadata{m},
-		)
+		err := metadataService.SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{m})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -137,9 +138,9 @@ func (s *ImageMetadataSuite) convertCloudImageMetadata(all []params.CloudImageMe
 				Source:          one.Source,
 				Stream:          one.Stream,
 			},
-			Priority:    one.Priority,
-			ImageId:     one.ImageId,
-			DateCreated: 0,
+			Priority:     one.Priority,
+			ImageID:      one.ImageId,
+			CreationTime: time.Now(),
 		}
 	}
 	return expected

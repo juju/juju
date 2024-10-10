@@ -6,6 +6,7 @@ package domainservices
 import (
 	"testing"
 
+	"github.com/juju/clock"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -28,6 +29,7 @@ type baseSuite struct {
 	domaintesting.ControllerSuite
 
 	logger    logger.Logger
+	clock     clock.Clock
 	dbDeleter *MockDBDeleter
 	dbGetter  *MockWatchableDBGetter
 
@@ -47,6 +49,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.logger = loggertesting.WrapCheckLog(c)
+	s.clock = clock.WallClock
 	s.dbDeleter = NewMockDBDeleter(ctrl)
 	s.dbGetter = NewMockWatchableDBGetter(ctrl)
 

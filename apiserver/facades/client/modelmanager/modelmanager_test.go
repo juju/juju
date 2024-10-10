@@ -37,6 +37,7 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
+	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -82,7 +83,22 @@ type modelManagerSuite struct {
 	api                  *modelmanager.ModelManagerAPI
 	caasApi              *modelmanager.ModelManagerAPI
 	controllerUUID       uuid.UUID
+	controllerModelUUID  uuid.UUID
 	modelConfigService   *mocks.MockModelConfigService
+}
+
+// Behavior for cloud image metadata in controller. It will basically be returned from the mocked AllCloudImageMetadata
+// from controller model service
+type cloudImageMetadataExpectation struct {
+	defaults                    []cloudimagemetadata.Metadata
+	errFetchFromControllerModel error
+	errSaveToModel              error
+}
+
+// defaultExpectedCloudImageMetadata returns an instance of cloudImageMetadataExpectation with default values, meaning no
+// metadata, no error from controller. It is used for test which doesn't care of this functionality
+func defaultExpectedCloudImageMetadata() cloudImageMetadataExpectation {
+	return cloudImageMetadataExpectation{}
 }
 
 var _ = gc.Suite(&modelManagerSuite{})
@@ -103,6 +119,8 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.controllerUUID, err = uuid.UUIDFromString(coretesting.ControllerTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	s.controllerModelUUID, err = uuid.UUIDFromString(coretesting.ControllerModelTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	attrs := coretesting.FakeConfig()
@@ -235,6 +253,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) {
 		context.Background(),
 		s.st, modelExporter(s.modelExporter), s.ctlrSt,
 		s.controllerUUID,
+		s.controllerModelUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
 			CloudService:         s.cloudService,
@@ -256,6 +275,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) {
 		context.Background(),
 		s.caasSt, modelExporter(s.modelExporter), s.ctlrSt,
 		s.controllerUUID,
+		s.controllerModelUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
 			CloudService: &mockCloudService{
@@ -292,6 +312,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		context.Background(),
 		s.st, modelExporter(s.modelExporter), s.ctlrSt,
 		s.controllerUUID,
+		s.controllerModelUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
 			CloudService: &mockCloudService{
@@ -321,6 +342,7 @@ func (s *modelManagerSuite) expectCreateModel(
 	expectedCloudCredential credential.Key,
 	expectedCloudName string,
 	expectedCloudRegion string,
+	expectedCloudImageMetadata cloudImageMetadataExpectation,
 ) coremodel.UUID {
 	modelUUID := modeltesting.GenModelUUID(c)
 	userTag, err := names.ParseUserTag(modelCreateArgs.OwnerTag)
@@ -350,7 +372,9 @@ func (s *modelManagerSuite) expectCreateModel(
 	)
 
 	// Create and setup model in model database.
-	s.expectCreateModelOnModelDB(ctrl, modelCreateArgs.Config)
+	if !s.expectCreateModelOnModelDB(ctrl, modelCreateArgs.Config, expectedCloudImageMetadata) {
+		return modelUUID
+	}
 
 	modelConfig := map[string]any{}
 	for k, v := range modelCreateArgs.Config {
@@ -373,14 +397,18 @@ func (s *modelManagerSuite) expectCreateModel(
 }
 
 // expectCreateModelOnModelDB expects all the service calls to the new model's
-// own database.
+// own database. It return false if, due to input parameters, the model is not expected to be created.
 func (s *modelManagerSuite) expectCreateModelOnModelDB(
 	ctrl *gomock.Controller,
 	modelConfig map[string]any,
-) {
+	expectedCloudImageMetadata cloudImageMetadataExpectation,
+) bool {
 	// Expect call to get the model domain services.
+	controllerModelUUID := coremodel.UUID(s.controllerModelUUID.String())
+	ctrlModelDomainService := mocks.NewMockModelDomainServices(ctrl)
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(controllerModelUUID).Return(ctrlModelDomainService).AnyTimes()
 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(modelDomainServices).AnyTimes()
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Not(controllerModelUUID)).Return(modelDomainServices).AnyTimes()
 
 	// Expect calls to get various model services.
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
@@ -394,6 +422,21 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 	modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
 	s.modelConfigService.EXPECT().SetModelConfig(gomock.Any(), modelConfig)
 	networkService.EXPECT().ReloadSpaces(gomock.Any())
+
+	// Called as part of uploading default metadata from controller to model
+	ctrlMetadataService := mocks.NewMockCloudImageMetadataService(ctrl)
+	ctrlModelDomainService.EXPECT().CloudImageMetadata().Return(ctrlMetadataService)
+	ctrlMetadataService.EXPECT().AllCloudImageMetadata(gomock.Any()).Return(expectedCloudImageMetadata.defaults, expectedCloudImageMetadata.errFetchFromControllerModel)
+	if expectedCloudImageMetadata.errFetchFromControllerModel != nil {
+		return false
+	}
+
+	if len(expectedCloudImageMetadata.defaults) > 0 {
+		modelMetadataService := mocks.NewMockCloudImageMetadataService(ctrl)
+		modelDomainServices.EXPECT().CloudImageMetadata().Return(modelMetadataService)
+		modelMetadataService.EXPECT().SaveMetadata(gomock.Any(), expectedCloudImageMetadata.defaults).Return(expectedCloudImageMetadata.errSaveToModel)
+	}
+	return expectedCloudImageMetadata.errSaveToModel == nil
 }
 
 func (s *modelManagerSuite) getModelArgs(c *gc.C) state.ModelArgs {
@@ -432,7 +475,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *gc.C) {
 		CloudRegion:        "qux",
 		CloudCredentialTag: "cloudcred-dummy_admin_some-credential",
 	}
-	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
+	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux", defaultExpectedCloudImageMetadata())
 	_, err := s.api.CreateModel(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -459,7 +502,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
 		Name:     "foo",
 		OwnerTag: "user-admin",
 	}
-	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
+	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region", defaultExpectedCloudImageMetadata())
 	_, err := s.api.CreateModel(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -475,7 +518,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *gc.C) {
 		Name:     "foo",
 		OwnerTag: "user-admin",
 	}
-	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
+	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region", defaultExpectedCloudImageMetadata())
 	_, err := s.api.CreateModel(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -497,7 +540,7 @@ func (s *modelManagerSuite) TestCreateModelEmptyCredentialNonAdmin(c *gc.C) {
 		Name:     "foo",
 		OwnerTag: "user-bob",
 	}
-	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
+	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region", defaultExpectedCloudImageMetadata())
 
 	_, err := s.api.CreateModel(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -517,6 +560,107 @@ func (s *modelManagerSuite) TestCreateModelNoDefaultCredentialNonAdmin(c *gc.C) 
 	}
 	_, err := s.api.CreateModel(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "no credential specified")
+}
+
+func (s *modelManagerSuite) TestCreateModelWithCustomImageMetadata(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	s.setUpAPI(c)
+
+	expectedCloudImageMetadata := cloudImageMetadataExpectation{
+		defaults: []cloudimagemetadata.Metadata{
+
+			{
+				MetadataAttributes: cloudimagemetadata.MetadataAttributes{
+					Stream:          "dummy-stream-1",
+					Region:          "dummy-region-1",
+					Version:         "dummy-version-1",
+					Arch:            "dummy-arch-1",
+					VirtType:        "dummy-virttype-1",
+					RootStorageType: "dummy-rootstoragetype-1",
+					Source:          "dummy-source-1",
+				},
+				Priority: 41,
+				ImageID:  "ImageID-1",
+			},
+			{
+				MetadataAttributes: cloudimagemetadata.MetadataAttributes{
+					Stream:          "dummy-stream-2",
+					Region:          "dummy-region-2",
+					Version:         "dummy-version-2",
+					Arch:            "dummy-arch-2",
+					VirtType:        "dummy-virttype-2",
+					RootStorageType: "dummy-rootstoragetype-2",
+					Source:          "dummy-source-2",
+				},
+				Priority: 42,
+				ImageID:  "ImageID-2",
+			},
+		},
+	}
+
+	args := params.ModelCreateArgs{
+		Name:     "foo",
+		OwnerTag: "user-admin",
+	}
+	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region", expectedCloudImageMetadata)
+	_, err := s.api.CreateModel(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *modelManagerSuite) TestCreateModelWithCustomImageMetadataErrorLoad(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	s.setUpAPI(c)
+
+	expectedCloudImageMetadata := cloudImageMetadataExpectation{
+		errFetchFromControllerModel: errors.New("failed to fetch from controller model"),
+	}
+
+	args := params.ModelCreateArgs{
+		Name:     "foo",
+		OwnerTag: "user-admin",
+	}
+	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region", expectedCloudImageMetadata)
+	_, err := s.api.CreateModel(context.Background(), args)
+	c.Assert(err, jc.ErrorIs, expectedCloudImageMetadata.errFetchFromControllerModel)
+}
+
+func (s *modelManagerSuite) TestCreateModelWithCustomImageMetadataErrorSave(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	s.setUpAPI(c)
+
+	expectedCloudImageMetadata := cloudImageMetadataExpectation{
+		defaults:       []cloudimagemetadata.Metadata{{}}, // non empty metadata
+		errSaveToModel: errors.New("failed to fetch from controller model"),
+	}
+
+	args := params.ModelCreateArgs{
+		Name:     "foo",
+		OwnerTag: "user-admin",
+	}
+	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region", expectedCloudImageMetadata)
+	_, err := s.api.CreateModel(context.Background(), args)
+	c.Assert(err, jc.ErrorIs, expectedCloudImageMetadata.errSaveToModel)
+}
+
+func (s *modelManagerSuite) TestCreateModelWithCustomImageMetadataNoErrorEmptyMetadata(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	s.setUpAPI(c)
+
+	expectedCloudImageMetadata := cloudImageMetadataExpectation{
+		defaults: []cloudimagemetadata.Metadata{}, // empty metadata
+	}
+
+	args := params.ModelCreateArgs{
+		Name:     "foo",
+		OwnerTag: "user-admin",
+	}
+	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region", expectedCloudImageMetadata)
+	_, err := s.api.CreateModel(context.Background(), args)
+	c.Assert(err, jc.ErrorIs, expectedCloudImageMetadata.errSaveToModel)
 }
 
 // TODO (tlm): Have disabled the below test as it is almost impossible to mock
@@ -774,6 +918,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 		context.Background(),
 		s.st, modelExporter(s.modelExporter), s.ctlrSt,
 		s.controllerUUID,
+		s.controllerModelUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
 			CloudService: &mockCloudService{
@@ -983,7 +1128,8 @@ type modelManagerStateSuite struct {
 
 	store objectstore.ObjectStore
 
-	controllerUUID uuid.UUID
+	controllerUUID      uuid.UUID
+	controllerModelUUID uuid.UUID
 }
 
 var _ = gc.Suite(&modelManagerStateSuite{})
@@ -995,6 +1141,7 @@ func (s *modelManagerStateSuite) SetUpSuite(c *gc.C) {
 
 func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 	s.controllerUUID = uuid.MustNewUUID()
+	s.controllerModelUUID = uuid.MustNewUUID()
 
 	s.ControllerModelConfigAttrs = map[string]interface{}{
 		"agent-version": jujuversion.Current.String(),
@@ -1046,6 +1193,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		context.Background(),
 		mockCredentialShim{st}, nil, ctlrSt,
 		s.controllerUUID,
+		s.controllerModelUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
 			CloudService:         domainServices.Cloud(),
@@ -1115,8 +1263,11 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Expect call to get the model domain services.
+	controllerModelUUID := coremodel.UUID(s.controllerModelUUID.String())
+	ctrlModelDomainService := mocks.NewMockModelDomainServices(ctrl)
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(controllerModelUUID).Return(ctrlModelDomainService).AnyTimes()
 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(modelDomainServices).AnyTimes()
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Not(controllerModelUUID)).Return(modelDomainServices).AnyTimes()
 
 	// Expect calls to get various model services.
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
@@ -1135,6 +1286,11 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	// Called as part of getModelInfo which returns information to the user
 	// about the newly created model.
 	s.modelService.EXPECT().GetModelUsers(gomock.Any(), gomock.Any()).AnyTimes()
+
+	// Called as part of uploading default metadata from controller to model
+	ctrlMetadataService := mocks.NewMockCloudImageMetadataService(ctrl)
+	ctrlModelDomainService.EXPECT().CloudImageMetadata().Return(ctrlMetadataService)
+	ctrlMetadataService.EXPECT().AllCloudImageMetadata(gomock.Any()).Return(nil, nil)
 }
 
 func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
@@ -1149,6 +1305,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
+		s.controllerModelUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
 			CloudService:         domainServices.Cloud(),
@@ -1411,6 +1568,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
+		s.controllerModelUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
 			CloudService:         domainServices.Cloud(),
@@ -1479,6 +1637,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
+		s.controllerModelUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
 			CloudService:         domainServices.Cloud(),
@@ -1535,6 +1694,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
+		s.controllerModelUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
 			CloudService:         domainServices.Cloud(),
@@ -1639,6 +1799,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
+		s.controllerModelUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
 			CloudService:         domainServices.Cloud(),

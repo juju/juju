@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/cloudimagemetadata"
+	cloudimagemetadataerrors "github.com/juju/juju/domain/cloudimagemetadata/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs"
@@ -31,7 +33,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 // ProvisioningInfo returns the provisioning information for each given machine entity.
@@ -577,12 +578,14 @@ func (api *ProvisionerAPI) availableImageMetadata(
 		return nil, errors.Annotate(err, "could not construct image constraint")
 	}
 
-	// Look for image metadata in state.
+	// Look for image metadata in current model.
 	data, err := api.findImageMetadata(ctx, imageConstraint, env, imageStream)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	sort.Sort(metadataList(data))
+	sort.Slice(data, func(i, j int) bool {
+		return data[i].Priority < data[j].Priority
+	})
 	api.logger.Debugf("available image metadata for provisioning: %v", data)
 	return data, nil
 }
@@ -629,7 +632,7 @@ func (api *ProvisionerAPI) constructImageConstraint(
 }
 
 // findImageMetadata returns all image metadata or an error fetching them.
-// It looks for image metadata in state.
+// It looks for image metadata in the model.
 // If none are found, we fall back on original image search in simple streams.
 func (api *ProvisionerAPI) findImageMetadata(
 	ctx context.Context,
@@ -637,23 +640,23 @@ func (api *ProvisionerAPI) findImageMetadata(
 	env environs.Environ,
 	imageStream string,
 ) ([]params.CloudImageMetadata, error) {
-	// Look for image metadata in state.
-	stateMetadata, err := api.imageMetadataFromState(imageConstraint)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		// look into simple stream if for some reason can't get from controller,
+	// Look for image metadata in current model.
+	serviceMetadata, err := api.imageMetadataFromService(ctx, imageConstraint)
+	if err != nil {
+		// look into simple stream if for some reason can't get from the current model,
 		// so do not exit on error.
-		api.logger.Infof("could not get image metadata from controller: %v", err)
+		api.logger.Infof("could not get image metadata from model: %v", err)
 	}
-	api.logger.Debugf("got from controller %d metadata", len(stateMetadata))
-	// No need to look in data sources if found in state.
-	if len(stateMetadata) != 0 {
-		return stateMetadata, nil
+	api.logger.Debugf("got from model %d metadata", len(serviceMetadata))
+	// No need to look in data sources if found through service.
+	if len(serviceMetadata) != 0 {
+		return serviceMetadata, nil
 	}
 
-	// If no metadata is found in state, fall back to original simple stream search.
+	// If no metadata is found through the model service, fall back to original simple stream search.
 	// Currently, an image metadata worker picks up this metadata periodically (daily),
-	// and stores it in state. So potentially, this collection could be different
-	// to what is in state.
+	// and stores it. So potentially, this data could be different
+	// to what is cached.
 	dsMetadata, err := api.imageMetadataFromDataSources(ctx, env, imageConstraint, imageStream)
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
@@ -665,23 +668,23 @@ func (api *ProvisionerAPI) findImageMetadata(
 	return dsMetadata, nil
 }
 
-// imageMetadataFromState returns image metadata stored in state
+// imageMetadataFromService returns image metadata stored in the current model
 // that matches given criteria.
-func (api *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
+func (api *ProvisionerAPI) imageMetadataFromService(ctx context.Context, constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
 	filter := cloudimagemetadata.MetadataFilter{
 		Versions: constraint.Releases,
 		Arches:   constraint.Arches,
 		Region:   constraint.Region,
 		Stream:   constraint.Stream,
 	}
-	stored, err := api.st.CloudImageMetadataStorage.FindMetadata(filter)
+	stored, err := api.cloudImageMetadataService.FindMetadata(ctx, filter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	toParams := func(m cloudimagemetadata.Metadata) params.CloudImageMetadata {
 		return params.CloudImageMetadata{
-			ImageId:         m.ImageId,
+			ImageId:         m.ImageID,
 			Stream:          m.Stream,
 			Region:          m.Region,
 			Version:         m.Version,
@@ -728,7 +731,7 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(
 				Version:         m.Version,
 			},
 			Priority: priority,
-			ImageId:  m.Id,
+			ImageID:  m.Id,
 		}
 		// TODO (anastasiamac 2016-08-24) This is a band-aid solution.
 		// Once correct value is read from simplestreams, this needs to go.
@@ -742,7 +745,7 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(
 		return result
 	}
 
-	var metadataState []cloudimagemetadata.Metadata
+	var metadata []cloudimagemetadata.Metadata
 	for _, source := range sources {
 		api.logger.Debugf("looking in data source %v", source.Description())
 		found, info, err := imagemetadata.Fetch(ctx, fetcher, []simplestreams.DataSource{source}, constraint)
@@ -756,21 +759,21 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(
 		}
 
 		for _, m := range found {
-			metadataState = append(metadataState, toModel(m, info.Source, source.Priority()))
+			metadata = append(metadata, toModel(m, info.Source, source.Priority()))
 		}
 	}
-	if len(metadataState) > 0 {
-		if err := api.st.CloudImageMetadataStorage.SaveMetadata(metadataState); err != nil {
+	if len(metadata) > 0 {
+		if err := api.cloudImageMetadataService.SaveMetadata(ctx, metadata); err != nil {
 			// No need to react here, just take note
 			api.logger.Warningf("failed to save published image metadata: %v", err)
 		}
 	}
 
-	// Since we've fallen through to data sources search and have saved all needed images into controller,
+	// Since we've fallen through to data sources search and have saved all needed images for the model,
 	// let's try to get them from controller to avoid duplication of conversion logic here.
-	all, err := api.imageMetadataFromState(constraint)
-	if err != nil {
-		return nil, errors.Annotate(err, "could not read metadata from controller after saving it there from data sources")
+	all, err := api.imageMetadataFromService(ctx, constraint)
+	if err != nil && !errors.Is(err, cloudimagemetadataerrors.NotFound) {
+		return nil, errors.Annotate(err, "could not read metadata from model after saving it there from data sources")
 	}
 
 	if len(all) == 0 {
@@ -778,23 +781,4 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(
 	}
 
 	return all, nil
-}
-
-// metadataList is a convenience type enabling to sort
-// a collection of CloudImageMetadata in order of priority.
-type metadataList []params.CloudImageMetadata
-
-// Implements sort.Interface
-func (m metadataList) Len() int {
-	return len(m)
-}
-
-// Implements sort.Interface and sorts image metadata by priority.
-func (m metadataList) Less(i, j int) bool {
-	return m[i].Priority < m[j].Priority
-}
-
-// Implements sort.Interface
-func (m metadataList) Swap(i, j int) {
-	m[i], m[j] = m[j], m[i]
 }

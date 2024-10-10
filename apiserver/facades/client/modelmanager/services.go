@@ -21,6 +21,7 @@ import (
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
+	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/domain/model"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -35,6 +36,7 @@ type ModelDomainServices interface {
 	ModelInfo() ModelInfoService
 	Config() ModelConfigService
 	Network() NetworkService
+	CloudImageMetadata() CloudImageMetadataService
 }
 
 // DomainServicesGetter is a factory for creating model services.
@@ -171,6 +173,14 @@ type NetworkService interface {
 	ReloadSpaces(ctx context.Context) error
 }
 
+// CloudImageMetadataService provides an interface for saving metadata of cloud images.
+type CloudImageMetadataService interface {
+	// SaveMetadata saves the provided cloud image metadata in the state
+	SaveMetadata(ctx context.Context, metadata []cloudimagemetadata.Metadata) error
+	// AllCloudImageMetadata retrieves all cloud image metadata available in the state.
+	AllCloudImageMetadata(ctx context.Context) ([]cloudimagemetadata.Metadata, error)
+}
+
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
@@ -256,4 +266,8 @@ func (s domainServices) Config() ModelConfigService {
 
 func (s domainServices) Network() NetworkService {
 	return s.domainServices.Network()
+}
+
+func (s domainServices) CloudImageMetadata() CloudImageMetadataService {
+	return s.domainServices.CloudImageMetadata()
 }

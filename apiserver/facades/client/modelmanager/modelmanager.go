@@ -84,6 +84,9 @@ type ModelManagerAPI struct {
 	store                objectstore.ObjectStore
 	secretBackendService SecretBackendService
 
+	// Get access to Controller model
+	controllerModelUUID uuid.UUID
+
 	// ToolsFinder is used to find tools for a given version.
 	toolsFinder common.ToolsFinder
 
@@ -100,6 +103,7 @@ func NewModelManagerAPI(
 	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
 	ctlrSt common.ModelManagerBackend,
 	controllerUUID uuid.UUID,
+	controllerModelUUID uuid.UUID,
 	services Services,
 	configSchemaSource config.ConfigSchemaSourceGetter,
 	toolsFinder common.ToolsFinder,
@@ -147,6 +151,7 @@ func NewModelManagerAPI(
 		accessService:        services.AccessService,
 		secretBackendService: services.SecretBackendService,
 		controllerUUID:       controllerUUID,
+		controllerModelUUID:  controllerModelUUID,
 	}, nil
 }
 
@@ -312,7 +317,26 @@ func (m *ModelManagerAPI) createModelNew(
 	}
 
 	// Reload the substrate spaces for the newly created model.
-	return modelID, reloadSpaces(ctx, modelDomainServices.Network())
+	if err := reloadSpaces(ctx, modelDomainServices.Network()); err != nil {
+		return modelID, errors.Trace(err)
+	}
+
+	// Copy cloud image metadata from controller model to new model
+	controllerDomainService := m.domainServicesGetter.DomainServicesForModel(coremodel.UUID(m.controllerModelUUID.String()))
+	return modelID, errors.Annotatef(copyCloudImageMetadata(ctx, controllerDomainService, modelDomainServices),
+		"failed to copy cloud image metadata from controller model %q to model %q", m.controllerModelUUID, modelID)
+}
+
+// copyCloudImageMetadata copies all cloud image metadata from the source service to the target service.
+func copyCloudImageMetadata(ctx context.Context, source, target ModelDomainServices) error {
+	allMetadata, err := source.CloudImageMetadata().AllCloudImageMetadata(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(allMetadata) == 0 {
+		return nil // nothing to do
+	}
+	return errors.Trace(target.CloudImageMetadata().SaveMetadata(ctx, allMetadata))
 }
 
 // reloadSpaces wraps the call to ReloadSpaces and its returned errors.
