@@ -42,7 +42,7 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
-	check := common.NewBlockChecker(st)
+	check := common.NewBlockChecker(domainServices.BlockCommand())
 	auth := ctx.Auth()
 
 	return newAPIWithBacking(apiConfig{

@@ -267,6 +267,10 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"annotation_storage_filesystem",
 		"annotation_storage_volume",
 
+		// Block commands
+		"block_command",
+		"block_command_type",
+
 		// Life
 		"life",
 

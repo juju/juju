@@ -27,6 +27,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -52,6 +53,7 @@ type AddMachineManagerSuite struct {
 	machineService          *MockMachineService
 	networkService          *MockNetworkService
 	keyUpdaterService       *MockKeyUpdaterService
+	blockCommandService     *MockBlockCommandService
 }
 
 var _ = gc.Suite(&AddMachineManagerSuite{})
@@ -69,7 +71,6 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.pool = NewMockPool(ctrl)
 
 	s.st = NewMockBackend(ctrl)
-	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
 
 	s.storageAccess = NewMockStorageInterface(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
@@ -79,6 +80,9 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.store = NewMockObjectStore(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
+
+	s.blockCommandService = NewMockBlockCommandService(ctrl)
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
 
 	s.api = NewMachineManagerAPI(
 		s.model,
@@ -101,6 +105,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		s.networkService,
 		s.keyUpdaterService,
 		nil,
+		s.blockCommandService,
 	)
 
 	return ctrl
@@ -202,6 +207,7 @@ type DestroyMachineManagerSuite struct {
 	machineService          *MockMachineService
 	networkService          *MockNetworkService
 	keyUpdaterService       *MockKeyUpdaterService
+	blockCommandService     *MockBlockCommandService
 }
 
 var _ = gc.Suite(&DestroyMachineManagerSuite{})
@@ -219,8 +225,6 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = NewMockBackend(ctrl)
-	s.st.EXPECT().GetBlockForType(state.RemoveBlock).Return(nil, false, nil).AnyTimes()
-	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
@@ -235,6 +239,9 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
 	s.leadership = NewMockLeadership(ctrl)
+
+	s.blockCommandService = NewMockBlockCommandService(ctrl)
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
 
 	s.api = NewMachineManagerAPI(
 		s.model,
@@ -257,6 +264,7 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 		s.networkService,
 		s.keyUpdaterService,
 		nil,
+		s.blockCommandService,
 	)
 
 	return ctrl
@@ -730,6 +738,7 @@ type ProvisioningMachineManagerSuite struct {
 	keyUpdaterService       *MockKeyUpdaterService
 	modelConfigService      *MockModelConfigService
 	bootstrapEnviron        *MockBootstrapEnviron
+	blockCommandService     *MockBlockCommandService
 }
 
 var _ = gc.Suite(&ProvisioningMachineManagerSuite{})
@@ -765,6 +774,9 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller
 	s.bootstrapEnviron = NewMockBootstrapEnviron(ctrl)
 	s.store = NewMockObjectStore(ctrl)
 
+	s.blockCommandService = NewMockBlockCommandService(ctrl)
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
+
 	s.machineService.EXPECT().GetBootstrapEnviron(gomock.Any()).Return(s.bootstrapEnviron, nil).AnyTimes()
 
 	s.api = NewMachineManagerAPI(
@@ -788,6 +800,7 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller
 		s.networkService,
 		s.keyUpdaterService,
 		s.modelConfigService,
+		s.blockCommandService,
 	)
 	return ctrl
 }
@@ -947,8 +960,6 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
-
 	machine0 := NewMockMachine(ctrl)
 	machine0.EXPECT().Id().Return("0")
 	machine0.EXPECT().InstanceStatus().Return(status.StatusInfo{Status: "provisioning error"}, nil)
@@ -970,8 +981,6 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *gc.C) {
 func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-
-	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
 
 	machine0 := NewMockMachine(ctrl)
 	machine0.EXPECT().InstanceStatus().Return(status.StatusInfo{Status: "provisioning error"}, nil)

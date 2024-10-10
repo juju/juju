@@ -8,11 +8,13 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	blockcommand "github.com/juju/juju/domain/blockcommand"
 	jujustorage "github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -25,11 +27,12 @@ type baseStorageSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
-	api               *storage.StorageAPI
-	apiCaas           *storage.StorageAPI
-	storageAccessor   *mockStorageAccessor
-	state             *mockState
-	blockDeviceGetter *mockBlockDeviceGetter
+	api                 *storage.StorageAPI
+	apiCaas             *storage.StorageAPI
+	storageAccessor     *mockStorageAccessor
+	state               *mockState
+	blockDeviceGetter   *mockBlockDeviceGetter
+	blockCommandService *storage.MockBlockCommandService
 
 	storageTag      names.StorageTag
 	storageInstance *mockStorageInstance
@@ -48,12 +51,11 @@ type baseStorageSuite struct {
 	storageService *storage.MockStorageService
 	registry       jujustorage.StaticProviderRegistry
 	poolsInUse     []string
-
-	blocks map[state.BlockType]state.Block
 }
 
-func (s *baseStorageSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+func (s *baseStorageSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
 	s.resources = common.NewResources()
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin"), Controller: true}
 	s.stub.ResetCalls()
@@ -61,11 +63,16 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.storageAccessor = s.constructStorageAccessor()
 	s.blockDeviceGetter = &mockBlockDeviceGetter{}
 
-	s.registry = jujustorage.StaticProviderRegistry{map[jujustorage.ProviderType]jujustorage.Provider{}}
+	s.blockCommandService = storage.NewMockBlockCommandService(ctrl)
+	s.storageService = storage.NewMockStorageService(ctrl)
+
+	s.registry = jujustorage.StaticProviderRegistry{Providers: map[jujustorage.ProviderType]jujustorage.Provider{}}
 	s.poolsInUse = []string{}
 
-	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.blockDeviceGetter, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
-	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.blockDeviceGetter, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
+	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.blockDeviceGetter, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter, s.blockCommandService)
+	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.blockDeviceGetter, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter, s.blockCommandService)
+
+	return ctrl
 }
 
 func (s *baseStorageSuite) storageMetadata() (storage.StorageService, jujustorage.ProviderRegistry, error) {
@@ -93,7 +100,6 @@ const (
 	filesystemAttachmentsCall               = "filesystemAttachments"
 	allFilesystemsCall                      = "allFilesystems"
 	addStorageForUnitCall                   = "addStorageForUnit"
-	getBlockForTypeCall                     = "getBlockForType"
 	volumeAttachmentCall                    = "volumeAttachment"
 	volumeAttachmentPlanCall                = "volumeAttachmentPlan"
 	volumeAttachmentPlansCall               = "volumeAttachmentPlans"
@@ -106,15 +112,9 @@ const (
 
 func (s *baseStorageSuite) constructState() *mockState {
 	s.unitTag = names.NewUnitTag("mysql/0")
-	s.blocks = make(map[state.BlockType]state.Block)
 	return &mockState{
 		unitName:        s.unitTag.Id(),
 		assignedMachine: s.machineTag.Id(),
-		getBlockForType: func(t state.BlockType) (state.Block, bool, error) {
-			s.stub.AddCall(getBlockForTypeCall, t)
-			val, found := s.blocks[t]
-			return val, found, nil
-		},
 	}
 }
 
@@ -304,23 +304,12 @@ func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 	}
 }
 
-func (s *baseStorageSuite) addBlock(c *gc.C, t state.BlockType, msg string) {
-	s.blocks[t] = mockBlock{
-		t:   t,
-		msg: msg,
-	}
+func (s *baseStorageSuite) addBlock(c *gc.C, t blockcommand.BlockType, msg string) {
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), t).Return(msg, nil)
 }
 
 func (s *baseStorageSuite) blockAllChanges(c *gc.C, msg string) {
-	s.addBlock(c, state.ChangeBlock, msg)
-}
-
-func (s *baseStorageSuite) blockDestroyModel(c *gc.C, msg string) {
-	s.addBlock(c, state.DestroyBlock, msg)
-}
-
-func (s *baseStorageSuite) blockRemoveObject(c *gc.C, msg string) {
-	s.addBlock(c, state.RemoveBlock, msg)
+	s.addBlock(c, blockcommand.ChangeBlock, msg)
 }
 
 func (s *baseStorageSuite) assertBlocked(c *gc.C, err error, msg string) {

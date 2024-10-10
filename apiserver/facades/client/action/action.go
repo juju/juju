@@ -43,6 +43,7 @@ func newActionAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	getLeadershipReader func() (leadership.Reader, error),
+	blockCommandService common.BlockCommandService,
 ) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -63,7 +64,7 @@ func newActionAPI(
 		model:                 m,
 		resources:             resources,
 		authorizer:            authorizer,
-		check:                 common.NewBlockChecker(st),
+		check:                 common.NewBlockChecker(blockCommandService),
 		leadership:            leaders,
 		tagToActionReceiverFn: common.TagToActionReceiverFn,
 	}, nil

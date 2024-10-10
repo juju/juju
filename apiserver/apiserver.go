@@ -806,13 +806,12 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			return rst, st, entity.Tag(), nil
 		},
 		ChangeAllowedFunc: func(ctx context.Context) error {
-			st, err := httpCtxt.stateForRequestUnauthenticated(ctx)
+			serviceFactory, err := httpCtxt.domainServicesForRequest(ctx)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			defer st.Release()
 
-			blockChecker := common.NewBlockChecker(st)
+			blockChecker := common.NewBlockChecker(serviceFactory.BlockCommand())
 			if err := blockChecker.ChangeAllowed(ctx); err != nil {
 				return errors.Trace(err)
 			}

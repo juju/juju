@@ -44,9 +44,11 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		return ctx.DomainServices().Storage(registry), registry, nil
+		return domainServices.Storage(registry), registry, nil
 	}
-	storageAccessor, err := getStorageAccessor(st, ctx.DomainServices().Config())
+
+	domainServices := ctx.DomainServices()
+	storageAccessor, err := getStorageAccessor(st, domainServices.Config())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting backend")
 	}
@@ -58,6 +60,6 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 
 	return NewStorageAPI(
 		stateShim{st}, model.Type(),
-		storageAccessor, ctx.DomainServices().BlockDevice(), storageMetadata, authorizer,
-		credentialcommon.CredentialInvalidatorGetter(ctx)), nil
+		storageAccessor, domainServices.BlockDevice(), storageMetadata, authorizer,
+		credentialcommon.CredentialInvalidatorGetter(ctx), domainServices.BlockCommand()), nil
 }

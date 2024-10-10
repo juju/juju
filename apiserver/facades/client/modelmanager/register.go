@@ -110,7 +110,7 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 		configSchemaSource,
 		toolsFinder,
 		caas.New,
-		common.NewBlockChecker(backend),
+		common.NewBlockChecker(domainServices.BlockCommand()),
 		auth,
 		model,
 	)

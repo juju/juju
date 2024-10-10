@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
@@ -24,10 +23,8 @@ type poolUpdateSuite struct {
 var _ = gc.Suite(&poolUpdateSuite{})
 
 func (s *poolUpdateSuite) TestUpdatePool(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
-	s.storageService = storage.NewMockStorageService(ctrl)
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 	newAttrs := map[string]interface{}{
 		"foo1": "bar1",
@@ -48,10 +45,8 @@ func (s *poolUpdateSuite) TestUpdatePool(c *gc.C) {
 }
 
 func (s *poolUpdateSuite) TestUpdatePoolError(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
-	s.storageService = storage.NewMockStorageService(ctrl)
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 	args := params.StoragePoolArgs{
 		Pools: []params.StoragePool{{

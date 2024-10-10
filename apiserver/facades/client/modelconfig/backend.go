@@ -6,7 +6,6 @@ package modelconfig
 import (
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/state"
 )
@@ -14,7 +13,6 @@ import (
 // Backend contains the state.State methods used in this package,
 // allowing stubs to be created for testing.
 type Backend interface {
-	common.BlockGetter
 	ControllerTag() names.ControllerTag
 	ModelTag() names.ModelTag
 	Sequences() (map[string]int, error)

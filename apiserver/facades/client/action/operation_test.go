@@ -63,6 +63,8 @@ func (s *operationSuite) setupOperations(c *gc.C) {
 }
 
 func (s *operationSuite) TestListOperationsStatusFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setupOperations(c)
 	// Set up a non running operation.
 	arg := params.Actions{
@@ -112,6 +114,8 @@ func (s *operationSuite) TestListOperationsStatusFilter(c *gc.C) {
 }
 
 func (s *operationSuite) TestListOperationsNameFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setupOperations(c)
 	// Set up a second operation.
 	arg := params.Actions{
@@ -144,6 +148,8 @@ func (s *operationSuite) TestListOperationsNameFilter(c *gc.C) {
 }
 
 func (s *operationSuite) TestListOperationsAppFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setupOperations(c)
 	// Set up a second operation for a different app.
 	arg := params.Actions{
@@ -182,6 +188,8 @@ func (s *operationSuite) TestListOperationsAppFilter(c *gc.C) {
 }
 
 func (s *operationSuite) TestListOperationsUnitFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setupOperations(c)
 	// Set up an operation with a pending action.
 	arg := params.Actions{
@@ -213,6 +221,8 @@ func (s *operationSuite) TestListOperationsUnitFilter(c *gc.C) {
 }
 
 func (s *operationSuite) TestListOperationsMachineFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setupOperations(c)
 	// Set up an operation with a pending action.
 	arg := params.Actions{
@@ -247,6 +257,8 @@ func (s *operationSuite) TestListOperationsMachineFilter(c *gc.C) {
 }
 
 func (s *operationSuite) TestListOperationsAppAndUnitFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setupOperations(c)
 	// Set up an operation with a pending action.
 	arg := params.Actions{
@@ -298,6 +310,8 @@ func (s *operationSuite) TestListOperationsAppAndUnitFilter(c *gc.C) {
 }
 
 func (s *operationSuite) TestOperations(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setupOperations(c)
 	operations, err := s.action.Operations(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "operation-1"}},

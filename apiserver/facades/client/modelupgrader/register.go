@@ -8,7 +8,6 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
@@ -16,7 +15,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -74,16 +72,12 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 	}
 	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(pool, cloudService, credentialService, modelConfigServiceGetter)
 
-	configSchemaSource := environs.ProviderConfigSchemaSource(cloudService)
-
-	apiUser, _ := auth.GetAuthTag().(names.UserTag)
-	backend := common.NewUserAwareModelManagerBackend(configSchemaSource, model, pool, apiUser)
 	return NewModelUpgraderAPI(
 		systemState.ControllerTag(),
 		statePoolShim{StatePool: pool},
 		toolsFinder,
 		newEnviron,
-		common.NewBlockChecker(backend),
+		common.NewBlockChecker(domainServices.BlockCommand()),
 		auth,
 		credentialcommon.CredentialInvalidatorGetter(ctx),
 		registry.New,

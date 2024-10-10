@@ -47,6 +47,7 @@ type StorageAPI struct {
 	authorizer                  facade.Authorizer
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 	modelType                   state.ModelType
+	blockCommandService         common.BlockCommandService
 }
 
 func NewStorageAPI(
@@ -57,6 +58,7 @@ func NewStorageAPI(
 	storageMetadata storageMetadataFunc,
 	authorizer facade.Authorizer,
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
+	blockCommandService common.BlockCommandService,
 ) *StorageAPI {
 	return &StorageAPI{
 		backend:                     backend,
@@ -66,6 +68,7 @@ func NewStorageAPI(
 		storageMetadata:             storageMetadata,
 		authorizer:                  authorizer,
 		credentialInvalidatorGetter: credentialInvalidatorGetter,
+		blockCommandService:         blockCommandService,
 	}
 }
 
@@ -451,7 +454,7 @@ func (a *StorageAPI) addToUnit(ctx stdcontext.Context, args params.StoragesAddPa
 	}
 
 	// Check if changes are allowed and the operation may proceed.
-	blockChecker := common.NewBlockChecker(a.backend)
+	blockChecker := common.NewBlockChecker(a.blockCommandService)
 	if err := blockChecker.ChangeAllowed(ctx); err != nil {
 		return params.AddStorageResults{}, errors.Trace(err)
 	}
@@ -506,7 +509,7 @@ func (a *StorageAPI) remove(ctx stdcontext.Context, args params.RemoveStorage) (
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	blockChecker := common.NewBlockChecker(a.backend)
+	blockChecker := common.NewBlockChecker(a.blockCommandService)
 	if err := blockChecker.RemoveAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -540,7 +543,7 @@ func (a *StorageAPI) internalDetach(ctx stdcontext.Context, args params.StorageA
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	blockChecker := common.NewBlockChecker(a.backend)
+	blockChecker := common.NewBlockChecker(a.blockCommandService)
 	if err := blockChecker.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -606,7 +609,7 @@ func (a *StorageAPI) Attach(ctx stdcontext.Context, args params.StorageAttachmen
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	blockChecker := common.NewBlockChecker(a.backend)
+	blockChecker := common.NewBlockChecker(a.blockCommandService)
 	if err := blockChecker.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -637,7 +640,7 @@ func (a *StorageAPI) Import(ctx stdcontext.Context, args params.BulkImportStorag
 		return params.ImportStorageResults{}, errors.Trace(err)
 	}
 
-	blockChecker := common.NewBlockChecker(a.backend)
+	blockChecker := common.NewBlockChecker(a.blockCommandService)
 	if err := blockChecker.ChangeAllowed(ctx); err != nil {
 		return params.ImportStorageResults{}, errors.Trace(err)
 	}

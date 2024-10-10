@@ -33,6 +33,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -40,6 +41,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	"github.com/juju/juju/domain/blockcommand"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -128,33 +130,48 @@ type ModelExporter interface {
 	ExportModel(context.Context, map[string]string, objectstore.ObjectStore) (description.Model, error)
 }
 
+// BlockCommandService defines methods for interacting with block commands.
+type BlockCommandService interface {
+	// GetBlockSwitchedOn returns the optional block message if it is switched
+	// on for the given type.
+	GetBlockSwitchedOn(ctx context.Context, t blockcommand.BlockType) (string, error)
+
+	// GetBlocks returns all the blocks that are currently in place.
+	GetBlocks(ctx context.Context) ([]blockcommand.Block, error)
+
+	// RemoveAllBlocks removes all the blocks that are currently in place.
+	RemoveAllBlocks(ctx context.Context) error
+}
+
 // ControllerAPI provides the Controller API.
 type ControllerAPI struct {
 	*common.ControllerConfigAPI
 	*common.ModelStatusAPI
 	cloudspec.CloudSpecer
 
-	state                    Backend
-	statePool                *state.StatePool
-	authorizer               facade.Authorizer
-	apiUser                  names.UserTag
-	resources                facade.Resources
-	presence                 facade.Presence
-	hub                      facade.Hub
-	cloudService             common.CloudService
-	credentialService        common.CredentialService
-	upgradeService           UpgradeService
-	controllerConfigService  ControllerConfigService
-	accessService            ControllerAccessService
-	modelService             ModelService
-	applicationServiceGetter func(coremodel.UUID) ApplicationService
-	modelConfigServiceGetter func(coremodel.UUID) common.ModelConfigService
-	proxyService             ProxyService
-	modelExporter            func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
-	store                    objectstore.ObjectStore
-	leadership               leadership.Reader
-	logger                   corelogger.Logger
-	controllerTag            names.ControllerTag
+	state                     Backend
+	statePool                 *state.StatePool
+	authorizer                facade.Authorizer
+	apiUser                   names.UserTag
+	resources                 facade.Resources
+	presence                  facade.Presence
+	hub                       facade.Hub
+	cloudService              common.CloudService
+	credentialService         common.CredentialService
+	upgradeService            UpgradeService
+	controllerConfigService   ControllerConfigService
+	accessService             ControllerAccessService
+	modelService              ModelService
+	blockCommandService       common.BlockCommandService
+	applicationServiceGetter  func(coremodel.UUID) ApplicationService
+	modelConfigServiceGetter  func(coremodel.UUID) common.ModelConfigService
+	blockCommandServiceGetter func(coremodel.UUID) BlockCommandService
+	proxyService              ProxyService
+	modelExporter             func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
+	store                     objectstore.ObjectStore
+	leadership                leadership.Reader
+	logger                    corelogger.Logger
+	controllerTag             names.ControllerTag
 }
 
 // LatestAPI is used for testing purposes to create the latest
@@ -180,8 +197,10 @@ func NewControllerAPI(
 	accessService ControllerAccessService,
 	machineService MachineService,
 	modelService ModelService,
+	blockCommandService common.BlockCommandService,
 	applicationServiceGetter func(coremodel.UUID) ApplicationService,
 	modelConfigServiceGetter func(coremodel.UUID) common.ModelConfigService,
+	blockCommandServiceGetter func(coremodel.UUID) BlockCommandService,
 	proxyService ProxyService,
 	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
 	store objectstore.ObjectStore,
@@ -219,27 +238,29 @@ func NewControllerAPI(
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
-		state:                    stateShim{State: st},
-		statePool:                pool,
-		authorizer:               authorizer,
-		apiUser:                  apiUser,
-		resources:                resources,
-		presence:                 presence,
-		hub:                      hub,
-		logger:                   logger,
-		controllerConfigService:  controllerConfigService,
-		credentialService:        credentialService,
-		upgradeService:           upgradeService,
-		cloudService:             cloudService,
-		applicationServiceGetter: applicationServiceGetter,
-		accessService:            accessService,
-		modelService:             modelService,
-		modelConfigServiceGetter: modelConfigServiceGetter,
-		proxyService:             proxyService,
-		controllerTag:            st.ControllerTag(),
-		modelExporter:            modelExporter,
-		store:                    store,
-		leadership:               leadership,
+		state:                     stateShim{State: st},
+		statePool:                 pool,
+		authorizer:                authorizer,
+		apiUser:                   apiUser,
+		resources:                 resources,
+		presence:                  presence,
+		hub:                       hub,
+		logger:                    logger,
+		controllerConfigService:   controllerConfigService,
+		credentialService:         credentialService,
+		upgradeService:            upgradeService,
+		cloudService:              cloudService,
+		applicationServiceGetter:  applicationServiceGetter,
+		accessService:             accessService,
+		modelService:              modelService,
+		blockCommandService:       blockCommandService,
+		modelConfigServiceGetter:  modelConfigServiceGetter,
+		blockCommandServiceGetter: blockCommandServiceGetter,
+		proxyService:              proxyService,
+		controllerTag:             st.ControllerTag(),
+		modelExporter:             modelExporter,
+		store:                     store,
+		leadership:                leadership,
 	}, nil
 }
 
@@ -504,24 +525,32 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 	if err := c.checkIsSuperUser(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
-	blocks, err := c.state.AllBlocksForController()
+
+	// If there are blocks let the user know.
+	uuids, err := c.state.AllModelUUIDs()
 	if err != nil {
 		return results, errors.Trace(err)
 	}
+	modelBlocks := make(map[string]set.Strings)
+	for _, uuid := range uuids {
+		blockService := c.blockCommandServiceGetter(model.UUID(uuid))
 
-	modelBlocks := make(map[string][]string)
-	for _, block := range blocks {
-		uuid := block.ModelUUID()
-		types, ok := modelBlocks[uuid]
-		if !ok {
-			types = []string{block.Type().String()}
-		} else {
-			types = append(types, block.Type().String())
+		blocks, err := blockService.GetBlocks(ctx)
+		if err != nil {
+			c.logger.Debugf("Unable to get blocks for controller: %s", err)
+			return results, errors.Trace(err)
 		}
-		modelBlocks[uuid] = types
+		blockTypes := set.NewStrings()
+		for _, block := range blocks {
+			blockTypes.Add(encodeBlockType(block.Type))
+		}
+		modelBlocks[uuid] = blockTypes
 	}
 
 	for uuid, blocks := range modelBlocks {
+		if len(blocks) == 0 {
+			continue
+		}
 		model, ph, err := c.statePool.GetModel(uuid)
 		if err != nil {
 			c.logger.Debugf("unable to retrieve model %s: %v", uuid, err)
@@ -531,7 +560,7 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 			UUID:     model.UUID(),
 			Name:     model.Name(),
 			OwnerTag: model.Owner().String(),
-			Blocks:   blocks,
+			Blocks:   blocks.SortedValues(),
 		})
 		ph.Release()
 	}
@@ -539,6 +568,19 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 	// Sort the resulting sequence by model name, then owner.
 	sort.Sort(orderedBlockInfo(results.Models))
 	return results, nil
+}
+
+func encodeBlockType(t blockcommand.BlockType) string {
+	switch t {
+	case blockcommand.DestroyBlock:
+		return "BlockDestroy"
+	case blockcommand.RemoveBlock:
+		return "BlockRemove"
+	case blockcommand.ChangeBlock:
+		return "BlockChange"
+	default:
+		return "unknown"
+	}
 }
 
 // HostedModelConfigs returns all the information that the client needs in
@@ -583,8 +625,9 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 		} else {
 			config.Config = modelConf.AllAttrs()
 		}
-		cloudSpec := c.GetCloudSpec(ctx, model.ModelTag())
+
 		if config.Error == nil {
+			cloudSpec := c.GetCloudSpec(ctx, model.ModelTag())
 			config.CloudSpec = cloudSpec.Result
 			config.Error = cloudSpec.Error
 		}
@@ -603,7 +646,22 @@ func (c *ControllerAPI) RemoveBlocks(ctx context.Context, args params.RemoveBloc
 	if !args.All {
 		return errors.New("not supported")
 	}
-	return errors.Trace(c.state.RemoveAllBlocksForController())
+
+	// If there are blocks let the user know.
+	uuids, err := c.state.AllModelUUIDs()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, uuid := range uuids {
+		blockService := c.blockCommandServiceGetter(model.UUID(uuid))
+		err := blockService.RemoveAllBlocks(ctx)
+		if err != nil {
+			c.logger.Debugf("Unable to get blocks for controller: %s", err)
+			return errors.Trace(err)
+		}
+	}
+
+	return nil
 }
 
 // WatchAllModels starts watching events for all models in the

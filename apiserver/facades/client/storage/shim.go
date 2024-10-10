@@ -113,7 +113,6 @@ type backend interface {
 	ControllerTag() names.ControllerTag
 	ModelTag() names.ModelTag
 	Unit(string) (Unit, error)
-	GetBlockForType(state.BlockType) (state.Block, bool, error)
 }
 
 type blockDeviceGetter interface {
@@ -130,10 +129,6 @@ type stateShim struct {
 
 func (s stateShim) ModelTag() names.ModelTag {
 	return names.NewModelTag(s.ModelUUID())
-}
-
-func (s stateShim) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
-	return s.State.GetBlockForType(t)
 }
 
 func (s stateShim) Unit(name string) (Unit, error) {

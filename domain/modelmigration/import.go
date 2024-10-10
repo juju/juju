@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	access "github.com/juju/juju/domain/access/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
+	blockcommand "github.com/juju/juju/domain/blockcommand/modelmigration"
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
 	cloudimagemetadata "github.com/juju/juju/domain/cloudimagemetadata/modelmigration"
 	credential "github.com/juju/juju/domain/credential/modelmigration"
@@ -59,4 +60,9 @@ func ImportOperations(
 	storage.RegisterImport(coordinator, registry, logger.Child("storage"))
 	secret.RegisterImport(coordinator, logger.Child("secret"))
 	cloudimagemetadata.RegisterImport(coordinator, logger.Child("cloudimagemetadata"), clock)
+
+	// Block command is probably best processed last, is that will prevent
+	// any block commands from being executed before all the other operations
+	// have been completed.
+	blockcommand.RegisterImport(coordinator, logger.Child("blockcommand"))
 }

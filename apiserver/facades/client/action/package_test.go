@@ -4,29 +4,39 @@
 package action
 
 import (
+	"testing"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/leadership"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/action State,Model
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination state_mock_test.go github.com/juju/juju/state Action,ActionReceiver
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination leader_mock_test.go github.com/juju/juju/core/leadership Reader
+//go:generate go run go.uber.org/mock/mockgen -typed -package action -destination blockservices_mock_test.go github.com/juju/juju/apiserver/common BlockCommandService
+
+func TestPackage(t *testing.T) {
+	coretesting.MgoTestPackage(t)
+}
 
 type MockBaseSuite struct {
-	State          *MockState
-	Authorizer     *facademocks.MockAuthorizer
-	ActionReceiver *MockActionReceiver
-	Leadership     *MockReader
+	State               *MockState
+	Authorizer          *facademocks.MockAuthorizer
+	ActionReceiver      *MockActionReceiver
+	Leadership          *MockReader
+	BlockCommandService *MockBlockCommandService
 }
 
 func (s *MockBaseSuite) NewActionAPI(c *gc.C) *ActionAPI {
-	api, err := newActionAPI(s.State, nil, s.Authorizer, LeaderFactory(s.Leadership))
+	api, err := newActionAPI(s.State, nil, s.Authorizer, LeaderFactory(s.Leadership), s.BlockCommandService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	api.tagToActionReceiverFn = s.tagToActionReceiverFn
@@ -40,9 +50,11 @@ func (s *MockBaseSuite) tagToActionReceiverFn(
 }
 
 func NewActionAPI(
-	st *state.State, resources facade.Resources, authorizer facade.Authorizer, leadership leadership.Reader,
+	st *state.State,
+	resources facade.Resources, authorizer facade.Authorizer, leadership leadership.Reader,
+	blockCommandService common.BlockCommandService,
 ) (*ActionAPI, error) {
-	return newActionAPI(&stateShim{st: st}, resources, authorizer, LeaderFactory(leadership))
+	return newActionAPI(&stateShim{st: st}, resources, authorizer, LeaderFactory(leadership), blockCommandService)
 }
 
 type FakeLeadership struct {

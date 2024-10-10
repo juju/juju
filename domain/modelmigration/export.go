@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	access "github.com/juju/juju/domain/access/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
+	blockcommand "github.com/juju/juju/domain/blockcommand/modelmigration"
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
 	cloudimagemetadata "github.com/juju/juju/domain/cloudimagemetadata/modelmigration"
 	credential "github.com/juju/juju/domain/credential/modelmigration"
@@ -31,6 +32,7 @@ func ExportOperations(
 	logger logger.Logger,
 	clock clock.Clock,
 ) {
+	blockcommand.RegisterExport(coordinator, logger.Child("blockcommand"))
 	modelconfig.RegisterExport(coordinator)
 	access.RegisterExport(coordinator, logger.Child("access"))
 	keymanager.RegisterExport(coordinator)

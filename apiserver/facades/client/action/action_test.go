@@ -6,19 +6,18 @@ package action_test
 import (
 	"context"
 	"encoding/json"
-	"testing"
 
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/client/action"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/actions"
-	coretesting "github.com/juju/juju/internal/testing"
+	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -26,13 +25,8 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 )
 
-func TestAll(t *testing.T) {
-	coretesting.MgoTestPackage(t)
-}
-
 type baseSuite struct {
 	jujutesting.ApiServerSuite
-	commontesting.BlockHelper
 
 	action     *action.ActionAPI
 	authorizer apiservertesting.FakeAuthorizer
@@ -46,6 +40,8 @@ type baseSuite struct {
 	mysql         *state.Application
 	wordpressUnit *state.Unit
 	mysqlUnit     *state.Unit
+
+	blockCommandService *action.MockBlockCommandService
 }
 
 type actionSuite struct {
@@ -54,65 +50,9 @@ type actionSuite struct {
 
 var _ = gc.Suite(&actionSuite{})
 
-func (s *baseSuite) SetUpTest(c *gc.C) {
-	s.ApiServerSuite.SetUpTest(c)
-	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
-
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: jujutesting.AdminUser,
-	}
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
-
-	var err error
-	s.action, err = action.NewActionAPI(s.ControllerModel(c).State(), s.resources, s.authorizer, action.FakeLeadership{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
-	s.charm = f.MakeCharm(c, &factory.CharmParams{
-		Name: "wordpress",
-	})
-
-	s.dummy = f.MakeApplication(c, &factory.ApplicationParams{
-		Name: "dummy",
-		Charm: f.MakeCharm(c, &factory.CharmParams{
-			Name: "dummy",
-		}),
-	})
-	s.wordpress = f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "wordpress",
-		Charm: s.charm,
-	})
-	s.machine0 = f.MakeMachine(c, &factory.MachineParams{
-		Base: state.UbuntuBase("12.10"),
-		Jobs: []state.MachineJob{state.JobHostUnits, state.JobManageModel},
-	})
-	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{
-		Application: s.wordpress,
-		Machine:     s.machine0,
-	})
-
-	mysqlCharm := f.MakeCharm(c, &factory.CharmParams{
-		Name: "mysql",
-	})
-	s.mysql = f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "mysql",
-		Charm: mysqlCharm,
-	})
-	s.machine1 = f.MakeMachine(c, &factory.MachineParams{
-		Base: state.UbuntuBase("12.10"),
-		Jobs: []state.MachineJob{state.JobHostUnits},
-	})
-	s.mysqlUnit = f.MakeUnit(c, &factory.UnitParams{
-		Application: s.mysql,
-		Machine:     s.machine1,
-	})
-}
-
 func (s *actionSuite) TestActions(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	arg := params.Actions{
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
@@ -149,6 +89,8 @@ func (s *actionSuite) TestActions(c *gc.C) {
 }
 
 func (s *actionSuite) TestCancel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Make sure no Actions already exist on wordpress Unit.
 	actions, err := s.wordpressUnit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
@@ -184,7 +126,7 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 	}
 
 	// blocking changes should have no effect
-	s.BlockAllChanges(c, "Cancel")
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("Cancel", nil).AnyTimes()
 
 	// Cancel Some.
 	arg := params.Entities{
@@ -221,6 +163,8 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 }
 
 func (s *actionSuite) TestAbort(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Make sure no Actions already exist on wordpress Unit.
 	actions, err := s.wordpressUnit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
@@ -247,7 +191,7 @@ func (s *actionSuite) TestAbort(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// blocking changes should have no effect
-	s.BlockAllChanges(c, "Cancel")
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("Cancel", nil).AnyTimes()
 
 	// Cancel Some.
 	arg := params.Entities{
@@ -275,6 +219,10 @@ func (s *actionSuite) TestAbort(c *gc.C) {
 }
 
 func (s *actionSuite) TestApplicationsCharmsActions(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
+
 	actionSchemas := map[string]map[string]interface{}{
 		"snapshot": {
 			"type":                 "object",
@@ -363,29 +311,11 @@ func (s *actionSuite) TestApplicationsCharmsActions(c *gc.C) {
 	}
 }
 
-func assertReadyToTest(c *gc.C, receiver state.ActionReceiver) {
-	// make sure there are no actions on the receiver already.
-	actions, err := receiver.Actions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actions, gc.HasLen, 0)
-
-	// make sure there are no actions pending already.
-	actions, err = receiver.PendingActions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actions, gc.HasLen, 0)
-
-	// make sure there are no actions running already.
-	actions, err = receiver.RunningActions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actions, gc.HasLen, 0)
-
-	// make sure there are no actions completed already.
-	actions, err = receiver.CompletedActions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actions, gc.HasLen, 0)
-}
-
 func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
+
 	unit, err := s.ControllerModel(c).State().Unit("mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	assertReadyToTest(c, unit)
@@ -431,4 +361,86 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 
 	wc.AssertChange(string(expected))
 	wc.AssertNoChange()
+}
+
+func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.blockCommandService = action.NewMockBlockCommandService(ctrl)
+
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: jujutesting.AdminUser,
+	}
+	s.resources = common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+
+	var err error
+	s.action, err = action.NewActionAPI(s.ControllerModel(c).State(), s.resources, s.authorizer, action.FakeLeadership{}, s.blockCommandService)
+	c.Assert(err, jc.ErrorIsNil)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
+	s.charm = f.MakeCharm(c, &factory.CharmParams{
+		Name: "wordpress",
+	})
+
+	s.dummy = f.MakeApplication(c, &factory.ApplicationParams{
+		Name: "dummy",
+		Charm: f.MakeCharm(c, &factory.CharmParams{
+			Name: "dummy",
+		}),
+	})
+	s.wordpress = f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress",
+		Charm: s.charm,
+	})
+	s.machine0 = f.MakeMachine(c, &factory.MachineParams{
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits, state.JobManageModel},
+	})
+	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{
+		Application: s.wordpress,
+		Machine:     s.machine0,
+	})
+
+	mysqlCharm := f.MakeCharm(c, &factory.CharmParams{
+		Name: "mysql",
+	})
+	s.mysql = f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "mysql",
+		Charm: mysqlCharm,
+	})
+	s.machine1 = f.MakeMachine(c, &factory.MachineParams{
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	})
+	s.mysqlUnit = f.MakeUnit(c, &factory.UnitParams{
+		Application: s.mysql,
+		Machine:     s.machine1,
+	})
+
+	return ctrl
+}
+
+func assertReadyToTest(c *gc.C, receiver state.ActionReceiver) {
+	// make sure there are no actions on the receiver already.
+	actions, err := receiver.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 0)
+
+	// make sure there are no actions pending already.
+	actions, err = receiver.PendingActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 0)
+
+	// make sure there are no actions running already.
+	actions, err = receiver.RunningActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 0)
+
+	// make sure there are no actions completed already.
+	actions, err = receiver.CompletedActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 0)
 }
