@@ -510,8 +510,12 @@ func (s *SecretService) createSecret(
 			return errors.Trace(err)
 		}
 		if params.Label != nil && *params.Label != "" {
-			if err := s.secretState.CheckApplicationSecretLabelExists(ctx, appUUID, *params.Label); err != nil {
+			labelExists, err := s.secretState.CheckApplicationSecretLabelExists(ctx, appUUID, *params.Label)
+			if err != nil {
 				return errors.Trace(err)
+			}
+			if labelExists {
+				return fmt.Errorf("secret with label %q is already being used: %w", *params.Label, secreterrors.SecretLabelAlreadyExists)
 			}
 		}
 		return s.secretState.CreateCharmApplicationSecret(ctx, version, uri, appUUID, params)
@@ -521,15 +525,23 @@ func (s *SecretService) createSecret(
 			return errors.Trace(err)
 		}
 		if params.Label != nil && *params.Label != "" {
-			if err := s.secretState.CheckUnitSecretLabelExists(ctx, unitUUID, *params.Label); err != nil {
+			labelExists, err := s.secretState.CheckUnitSecretLabelExists(ctx, unitUUID, *params.Label)
+			if err != nil {
 				return errors.Trace(err)
+			}
+			if labelExists {
+				return fmt.Errorf("secret with label %q is already being used: %w", *params.Label, secreterrors.SecretLabelAlreadyExists)
 			}
 		}
 		return s.secretState.CreateCharmUnitSecret(ctx, version, uri, unitUUID, params)
 	case secrets.ModelOwner:
 		if params.Label != nil && *params.Label != "" {
-			if err := s.secretState.CheckUserSecretLabelExists(ctx, *params.Label); err != nil {
+			labelExists, err := s.secretState.CheckUserSecretLabelExists(ctx, *params.Label)
+			if err != nil {
 				return errors.Trace(err)
+			}
+			if labelExists {
+				return fmt.Errorf("secret with label %q is already being used: %w", *params.Label, secreterrors.SecretLabelAlreadyExists)
 			}
 		}
 		return s.secretState.CreateUserSecret(ctx, version, uri, params)
@@ -546,22 +558,23 @@ func (s *SecretService) updateSecret(ctx domain.AtomicContext, uri *secrets.URI,
 		if err != nil {
 			return errors.Trace(err)
 		}
+		var labelExists bool
 		switch kind := owner.Kind; kind {
 		case domainsecret.ApplicationOwner:
-			err = s.secretState.CheckApplicationSecretLabelExists(ctx, owner.UUID, *params.Label)
+			labelExists, err = s.secretState.CheckApplicationSecretLabelExists(ctx, owner.UUID, *params.Label)
 		case domainsecret.UnitOwner:
-			err = s.secretState.CheckUnitSecretLabelExists(ctx, owner.UUID, *params.Label)
+			labelExists, err = s.secretState.CheckUnitSecretLabelExists(ctx, owner.UUID, *params.Label)
 		case domainsecret.ModelOwner:
-			err = s.secretState.CheckUserSecretLabelExists(ctx, *params.Label)
+			labelExists, err = s.secretState.CheckUserSecretLabelExists(ctx, *params.Label)
 		default:
 			// Should never happen.
 			return errors.Errorf("unexpected secret owner kind %q for secret %q", kind, uri.ID)
 		}
-		if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
-			return fmt.Errorf("secret with label %q is already being used: %w", *params.Label, secreterrors.SecretLabelAlreadyExists)
-		}
 		if err != nil {
 			return errors.Trace(err)
+		}
+		if labelExists {
+			return fmt.Errorf("secret with label %q is already being used: %w", *params.Label, secreterrors.SecretLabelAlreadyExists)
 		}
 	}
 	err := s.secretState.UpdateSecret(ctx, uri, params)

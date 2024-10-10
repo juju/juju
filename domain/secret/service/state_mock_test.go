@@ -240,11 +240,12 @@ func (c *MockStateChangeSecretBackendCall) DoAndReturn(f func(context.Context, u
 }
 
 // CheckApplicationSecretLabelExists mocks base method.
-func (m *MockState) CheckApplicationSecretLabelExists(arg0 domain.AtomicContext, arg1, arg2 string) error {
+func (m *MockState) CheckApplicationSecretLabelExists(arg0 domain.AtomicContext, arg1, arg2 string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CheckApplicationSecretLabelExists", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CheckApplicationSecretLabelExists indicates an expected call of CheckApplicationSecretLabelExists.
@@ -260,29 +261,30 @@ type MockStateCheckApplicationSecretLabelExistsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateCheckApplicationSecretLabelExistsCall) Return(arg0 error) *MockStateCheckApplicationSecretLabelExistsCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockStateCheckApplicationSecretLabelExistsCall) Return(arg0 bool, arg1 error) *MockStateCheckApplicationSecretLabelExistsCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCheckApplicationSecretLabelExistsCall) Do(f func(domain.AtomicContext, string, string) error) *MockStateCheckApplicationSecretLabelExistsCall {
+func (c *MockStateCheckApplicationSecretLabelExistsCall) Do(f func(domain.AtomicContext, string, string) (bool, error)) *MockStateCheckApplicationSecretLabelExistsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCheckApplicationSecretLabelExistsCall) DoAndReturn(f func(domain.AtomicContext, string, string) error) *MockStateCheckApplicationSecretLabelExistsCall {
+func (c *MockStateCheckApplicationSecretLabelExistsCall) DoAndReturn(f func(domain.AtomicContext, string, string) (bool, error)) *MockStateCheckApplicationSecretLabelExistsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CheckUnitSecretLabelExists mocks base method.
-func (m *MockState) CheckUnitSecretLabelExists(arg0 domain.AtomicContext, arg1, arg2 string) error {
+func (m *MockState) CheckUnitSecretLabelExists(arg0 domain.AtomicContext, arg1, arg2 string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CheckUnitSecretLabelExists", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CheckUnitSecretLabelExists indicates an expected call of CheckUnitSecretLabelExists.
@@ -298,29 +300,30 @@ type MockStateCheckUnitSecretLabelExistsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateCheckUnitSecretLabelExistsCall) Return(arg0 error) *MockStateCheckUnitSecretLabelExistsCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockStateCheckUnitSecretLabelExistsCall) Return(arg0 bool, arg1 error) *MockStateCheckUnitSecretLabelExistsCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCheckUnitSecretLabelExistsCall) Do(f func(domain.AtomicContext, string, string) error) *MockStateCheckUnitSecretLabelExistsCall {
+func (c *MockStateCheckUnitSecretLabelExistsCall) Do(f func(domain.AtomicContext, string, string) (bool, error)) *MockStateCheckUnitSecretLabelExistsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCheckUnitSecretLabelExistsCall) DoAndReturn(f func(domain.AtomicContext, string, string) error) *MockStateCheckUnitSecretLabelExistsCall {
+func (c *MockStateCheckUnitSecretLabelExistsCall) DoAndReturn(f func(domain.AtomicContext, string, string) (bool, error)) *MockStateCheckUnitSecretLabelExistsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CheckUserSecretLabelExists mocks base method.
-func (m *MockState) CheckUserSecretLabelExists(arg0 domain.AtomicContext, arg1 string) error {
+func (m *MockState) CheckUserSecretLabelExists(arg0 domain.AtomicContext, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CheckUserSecretLabelExists", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CheckUserSecretLabelExists indicates an expected call of CheckUserSecretLabelExists.
@@ -336,19 +339,19 @@ type MockStateCheckUserSecretLabelExistsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateCheckUserSecretLabelExistsCall) Return(arg0 error) *MockStateCheckUserSecretLabelExistsCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockStateCheckUserSecretLabelExistsCall) Return(arg0 bool, arg1 error) *MockStateCheckUserSecretLabelExistsCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCheckUserSecretLabelExistsCall) Do(f func(domain.AtomicContext, string) error) *MockStateCheckUserSecretLabelExistsCall {
+func (c *MockStateCheckUserSecretLabelExistsCall) Do(f func(domain.AtomicContext, string) (bool, error)) *MockStateCheckUserSecretLabelExistsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCheckUserSecretLabelExistsCall) DoAndReturn(f func(domain.AtomicContext, string) error) *MockStateCheckUserSecretLabelExistsCall {
+func (c *MockStateCheckUserSecretLabelExistsCall) DoAndReturn(f func(domain.AtomicContext, string) (bool, error)) *MockStateCheckUserSecretLabelExistsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

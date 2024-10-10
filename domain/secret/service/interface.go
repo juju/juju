@@ -32,9 +32,9 @@ type AtomicState interface {
 	GetUnitUUID(ctx domain.AtomicContext, unitName string) (string, error)
 	GetSecretOwner(ctx domain.AtomicContext, uri *secrets.URI) (domainsecret.Owner, error)
 
-	CheckUserSecretLabelExists(ctx domain.AtomicContext, label string) error
-	CheckApplicationSecretLabelExists(ctx domain.AtomicContext, appUUID string, label string) error
-	CheckUnitSecretLabelExists(ctx domain.AtomicContext, unitUUID string, label string) error
+	CheckUserSecretLabelExists(ctx domain.AtomicContext, label string) (bool, error)
+	CheckApplicationSecretLabelExists(ctx domain.AtomicContext, appUUID string, label string) (bool, error)
+	CheckUnitSecretLabelExists(ctx domain.AtomicContext, unitUUID string, label string) (bool, error)
 	CreateUserSecret(
 		ctx domain.AtomicContext, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams,
 	) error
