@@ -1148,16 +1148,16 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		}
 		return !ignoreNotFoundError || !(errors.Is(thisErr, errors.NotFound) || errors.Is(thisErr, modelerrors.NotFound))
 	}
-	cfg, err := model.Config()
+
+	modelDomainServices := m.domainServicesGetter.DomainServicesForModel(coremodel.UUID(modelUUID))
+	modelInfoService := modelDomainServices.ModelInfo()
+	modelInfo, err := modelInfoService.GetModelInfo(ctx)
 	if shouldErr(err) {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
 	if err == nil {
-		info.ProviderType = cfg.Type()
-
-		if agentVersion, exists := cfg.AgentVersion(); exists {
-			info.AgentVersion = &agentVersion
-		}
+		info.ProviderType = modelInfo.CloudType
+		info.AgentVersion = &modelInfo.AgentVersion
 	}
 
 	status, err := model.Status()
