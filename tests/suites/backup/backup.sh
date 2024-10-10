@@ -29,6 +29,7 @@ run_basic_backup_restore() {
 	file="${TEST_DIR}/test-basic-backup-restore.log"
 
 	ensure "test-basic-backup-restore" "${file}"
+	juju add-ssh-key "$(cat ~/.ssh/id_rsa.pub)"
 
 	echo "Deploy a workload (1 machine)"
 	juju deploy jameinel-ubuntu-lite

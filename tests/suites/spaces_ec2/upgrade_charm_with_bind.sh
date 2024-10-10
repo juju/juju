@@ -4,6 +4,7 @@ run_upgrade_charm_with_bind() {
 	file="${TEST_DIR}/test-upgrade-charm-with-bind-ec2.log"
 
 	ensure "spaces-upgrade-charm-with-bind-ec2" "${file}"
+	juju add-ssh-key "$(cat ~/.ssh/id_rsa.pub)"
 
 	## Setup spaces
 	juju reload-spaces
