@@ -8,8 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"maps"
-	"slices"
 	"sort"
 	"time"
 
@@ -1140,8 +1138,7 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 			}
 		}
 	}
-	// Sort for tests.
-	for _, unitName := range slices.Sorted(maps.Keys(unitUpdateParams)) {
+	for unitName := range unitUpdateParams {
 		err = a.applicationService.UpdateCAASUnit(ctx, unitName, unitUpdateParams[unitName])
 		// We ignore any updates for dying applications.
 		if errors.Is(err, applicationerrors.ApplicationNotAlive) {

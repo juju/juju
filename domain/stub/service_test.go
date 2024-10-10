@@ -10,6 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -46,8 +48,12 @@ func (s *stubSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *stubSuite) TestAssignUnitsToMachines(c *gc.C) {
-	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, application.UpsertUnitArg{
-		UnitName: "foo/0",
+	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		appID, err := s.appState.CreateApplication(ctx, "foo", addApplicationArg)
+		if err != nil {
+			return err
+		}
+		return s.appState.AddUnits(ctx, appID, application.AddUnitArg{UnitName: "foo/0"})
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -79,8 +85,12 @@ func (s *stubSuite) TestAssignUnitsToMachines(c *gc.C) {
 }
 
 func (s *stubSuite) TestAssignUnitsToMachinesMachineNotFound(c *gc.C) {
-	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, application.UpsertUnitArg{
-		UnitName: "foo/0",
+	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		appID, err := s.appState.CreateApplication(ctx, "foo", addApplicationArg)
+		if err != nil {
+			return err
+		}
+		return s.appState.AddUnits(ctx, appID, application.AddUnitArg{UnitName: "foo/0"})
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -91,8 +101,12 @@ func (s *stubSuite) TestAssignUnitsToMachinesMachineNotFound(c *gc.C) {
 }
 
 func (s *stubSuite) TestAssignUnitsToMachinesUnitNotFound(c *gc.C) {
-	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, application.UpsertUnitArg{
-		UnitName: "foo/0",
+	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		appID, err := s.appState.CreateApplication(ctx, "foo", addApplicationArg)
+		if err != nil {
+			return err
+		}
+		return s.appState.AddUnits(ctx, appID, application.AddUnitArg{UnitName: "foo/0"})
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -111,10 +125,15 @@ func (s *stubSuite) TestAssignUnitsToMachinesUnitNotFound(c *gc.C) {
 }
 
 func (s *stubSuite) TestAssignUnitsToMachinesMultipleUnitsSameMachine(c *gc.C) {
-	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, application.UpsertUnitArg{
-		UnitName: "foo/0",
-	}, application.UpsertUnitArg{
-		UnitName: "foo/1",
+	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		appID, err := s.appState.CreateApplication(ctx, "foo", addApplicationArg)
+		if err != nil {
+			return err
+		}
+		return s.appState.AddUnits(ctx, appID,
+			application.AddUnitArg{UnitName: "foo/0"},
+			application.AddUnitArg{UnitName: "foo/1"},
+		)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -153,8 +172,14 @@ func (s *stubSuite) TestAssignUnitsToMachinesMultipleUnitsSameMachine(c *gc.C) {
 }
 
 func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) {
-	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, application.UpsertUnitArg{
-		UnitName: "foo/0",
+	var appID coreapplication.ID
+	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		appID, err = s.appState.CreateApplication(ctx, "foo", addApplicationArg)
+		if err != nil {
+			return err
+		}
+		return s.appState.AddUnits(ctx, appID, application.AddUnitArg{UnitName: "foo/0"})
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -166,9 +191,10 @@ func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.appState.AddUnits(context.Background(), "foo", application.UpsertUnitArg{
-		UnitName: "foo/1",
+	err = s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.appState.AddUnits(ctx, appID, application.AddUnitArg{UnitName: "foo/1"})
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]string{
