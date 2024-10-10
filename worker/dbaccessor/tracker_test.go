@@ -206,6 +206,14 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for DB callback")
 	}
+	// There is a race potential race here due to the fact that dpApp.Open is not atomic with the update of the actual
+	// db in the worker. So above synchronization gate against dbchange will be released while the worker loop will
+	// concurrently call several more instruction on the db (like inserting pragma), then update de worker db.
+	// Without this wait, we get two potential errors:
+	// - readTableNames above doesn't read the new db but the old one (which will be silent, since they have the same content)
+	// - CleanKill may kill the db will the loop is performing its initialization calls, causing the test randomly fails
+	//   (Reset won't be called since the loop will die in error)
+	time.Sleep(testing.ShortWait)
 
 	tables := readTableNames(c, w)
 	c.Assert(tables, SliceContains, "lease")
