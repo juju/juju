@@ -43,13 +43,13 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 	err := machineSt.CreateMachine(context.Background(), "0", netNodeUUIDs[0], machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.unitUUIDs[0], s.appUUIDs[0] = s.createUnit(c, netNodeUUIDs[0], appNames[0])
-	s.unitUUIDs[1], s.appUUIDs[1] = s.createUnit(c, netNodeUUIDs[0], appNames[1])
+	s.unitUUIDs[0], _, s.appUUIDs[0] = s.createUnit(c, netNodeUUIDs[0], appNames[0])
+	s.unitUUIDs[1], _, s.appUUIDs[1] = s.createUnit(c, netNodeUUIDs[0], appNames[1])
 
 	err = machineSt.CreateMachine(context.Background(), "1", netNodeUUIDs[1], machineUUIDs[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.unitUUIDs[2], _ = s.createUnit(c, netNodeUUIDs[1], appNames[1])
+	s.unitUUIDs[2], _, _ = s.createUnit(c, netNodeUUIDs[1], appNames[1])
 }
 
 func (s *watcherSuite) initialiseOpenPorts(c *gc.C, st *State) ([]string, map[string]string) {

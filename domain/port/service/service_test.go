@@ -158,7 +158,7 @@ func (s *serviceSuite) TestGetApplicationOpenedPortsByEndpoint(c *gc.C) {
 	c.Check(res, gc.DeepEquals, expected)
 }
 
-func (s serviceSuite) TestGetApplicationOpenedPortsByEndpointOverlap(c *gc.C) {
+func (s *serviceSuite) TestGetApplicationOpenedPortsByEndpointOverlap(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	openedPorts := port.UnitEndpointPortRanges{
@@ -185,6 +185,25 @@ func (s serviceSuite) TestGetApplicationOpenedPortsByEndpointOverlap(c *gc.C) {
 	res, err := s.srv.GetApplicationOpenedPortsByEndpoint(context.Background(), appUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.DeepEquals, expected)
+}
+
+func (s *serviceSuite) TestSetUnitPorts(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	openPorts := network.GroupedPortRanges{
+		"ep1": {
+			network.MustParsePortRange("80/tcp"),
+			network.MustParsePortRange("443/tcp"),
+		},
+		"ep2": {
+			network.MustParsePortRange("8000-9000/udp"),
+		},
+	}
+
+	s.st.EXPECT().SetUnitPorts(gomock.Any(), "unit-name", openPorts)
+
+	err := s.srv.SetUnitPorts(context.Background(), "unit-name", openPorts)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestUpdateUnitPorts(c *gc.C) {
