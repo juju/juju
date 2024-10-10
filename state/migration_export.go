@@ -284,10 +284,6 @@ func (e *exporter) machines() error {
 	}
 	e.logger.Debugf("found %d machines", len(machines))
 
-	instances, err := e.loadMachineInstanceData()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	openedPorts, err := e.loadOpenedPortRangesForMachine()
 	if err != nil {
 		return errors.Trace(err)
@@ -311,7 +307,7 @@ func (e *exporter) machines() error {
 			}
 		}
 
-		exMachine, err := e.newMachine(exParent, machine, instances, openedPorts, nil)
+		exMachine, err := e.newMachine(exParent, machine, openedPorts, nil)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -351,23 +347,7 @@ func (e *exporter) loadOpenedPortRangesForApplication() (map[string]*application
 	return openedPortsByApplication, nil
 }
 
-func (e *exporter) loadMachineInstanceData() (map[string]instanceData, error) {
-	instanceDataCollection, closer := e.st.db().GetCollection(instanceDataC)
-	defer closer()
-
-	var instData []instanceData
-	instances := make(map[string]instanceData)
-	if err := instanceDataCollection.Find(nil).All(&instData); err != nil {
-		return nil, errors.Annotate(err, "instance data")
-	}
-	e.logger.Debugf("found %d instanceData", len(instData))
-	for _, data := range instData {
-		instances[data.MachineId] = data
-	}
-	return instances, nil
-}
-
-func (e *exporter) newMachine(exParent description.Machine, machine *Machine, instances map[string]instanceData, portsData map[string]*machinePortRanges, blockDevices map[string][]BlockDeviceInfo) (description.Machine, error) {
+func (e *exporter) newMachine(exParent description.Machine, machine *Machine, portsData map[string]*machinePortRanges, blockDevices map[string][]BlockDeviceInfo) (description.Machine, error) {
 	args := description.MachineArgs{
 		Id:            machine.MachineTag(),
 		Nonce:         machine.doc.Nonce,
@@ -403,33 +383,6 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 	exMachine.SetPreferredAddresses(
 		e.newAddressArgs(machine.doc.PreferredPublicAddress),
 		e.newAddressArgs(machine.doc.PreferredPrivateAddress))
-
-	// We fully expect the machine to have tools set, and that there is
-	// some instance data.
-	if !e.cfg.SkipInstanceData {
-		instData, found := instances[machine.doc.Id]
-		if !found && !e.cfg.IgnoreIncompleteModel {
-			return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
-		}
-		if found {
-			exMachine.SetInstance(e.newCloudInstanceArgs(instData))
-			instance := exMachine.Instance()
-			instanceKey := machine.globalInstanceKey()
-			statusArgs, err := e.statusArgs(instanceKey)
-			if err != nil {
-				return nil, errors.Annotatef(err, "status for machine instance %s", machine.Id())
-			}
-			instance.SetStatus(statusArgs)
-			instance.SetStatusHistory(e.statusHistoryArgs(instanceKey))
-			// Extract the modification status from the status dataset
-			modificationInstanceKey := machine.globalModificationKey()
-			modificationStatusArgs, err := e.statusArgs(modificationInstanceKey)
-			if err != nil {
-				return nil, errors.Annotatef(err, "modification status for machine instance %s", machine.Id())
-			}
-			instance.SetModificationStatus(modificationStatusArgs)
-		}
-	}
 
 	// We don't rely on devices being there. If they aren't, we get an empty slice,
 	// which is fine to iterate over with range.
@@ -525,44 +478,6 @@ func (e *exporter) newAddressArgs(a address) description.AddressArgs {
 		Origin:  a.Origin,
 		SpaceID: a.SpaceID,
 	}
-}
-
-func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInstanceArgs {
-	inst := description.CloudInstanceArgs{
-		InstanceId:  string(data.InstanceId),
-		DisplayName: data.DisplayName,
-	}
-	if data.Arch != nil {
-		inst.Architecture = *data.Arch
-	}
-	if data.Mem != nil {
-		inst.Memory = *data.Mem
-	}
-	if data.RootDisk != nil {
-		inst.RootDisk = *data.RootDisk
-	}
-	if data.RootDiskSource != nil {
-		inst.RootDiskSource = *data.RootDiskSource
-	}
-	if data.CpuCores != nil {
-		inst.CpuCores = *data.CpuCores
-	}
-	if data.CpuPower != nil {
-		inst.CpuPower = *data.CpuPower
-	}
-	if data.Tags != nil {
-		inst.Tags = *data.Tags
-	}
-	if data.AvailZone != nil {
-		inst.AvailabilityZone = *data.AvailZone
-	}
-	if data.VirtType != nil {
-		inst.VirtType = *data.VirtType
-	}
-	if len(data.CharmProfiles) > 0 {
-		inst.CharmProfiles = data.CharmProfiles
-	}
-	return inst
 }
 
 func (e *exporter) applications(leaders map[string]string) error {

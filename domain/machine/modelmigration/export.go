@@ -78,6 +78,13 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		}
 		instanceID, err := e.service.InstanceID(ctx, machineUUID)
 		if errors.Is(err, machineerrors.NotProvisioned) {
+			// TODO(nvinuesa): Here we should remove the machine from the
+			// exported model because we should not migrate non-provisioned
+			// machines. This used to be checked in model.Description, but was
+			// removed in https://github.com/juju/description/pull/157.
+			// We should revisit this once we finish migrating machines over to
+			// dqlite (by not adding the machine to the exported model to begin
+			// with if it's not provisioned).
 			continue
 		}
 		if err != nil {

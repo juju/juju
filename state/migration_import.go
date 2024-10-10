@@ -355,9 +355,6 @@ func (i *importer) machine(m description.Machine, arch string) error {
 		cons,
 	)
 
-	// 3. create op for adding in instance data
-	prereqOps = append(prereqOps, i.machineInstanceOp(mdoc, instance, arch))
-
 	if parentId := container.ParentId(mdoc.Id); parentId != "" {
 		prereqOps = append(prereqOps,
 			// Update containers record for host machine.
@@ -460,60 +457,6 @@ func (i *importer) applicationPortsOp(a description.Application) txn.Op {
 		Id:     docID,
 		Assert: txn.DocMissing,
 		Insert: portRangeDoc,
-	}
-}
-
-// machineInstanceOp creates for txn operation for inserting a doc into
-// instance data collection. The parentArch is included to fix data from
-// older versions of juju where the architecture of a container was left
-// empty.
-func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudInstance, parentArch string) txn.Op {
-	doc := &instanceData{
-		DocID:       mdoc.DocID,
-		MachineId:   mdoc.Id,
-		InstanceId:  instance.Id(inst.InstanceId()),
-		DisplayName: inst.DisplayName(),
-		ModelUUID:   mdoc.ModelUUID,
-	}
-
-	if arch := inst.Architecture(); arch != "" {
-		doc.Arch = &arch
-	} else if parentArch != "" {
-		doc.Arch = &parentArch
-	}
-	if mem := inst.Memory(); mem != 0 {
-		doc.Mem = &mem
-	}
-	if rootDisk := inst.RootDisk(); rootDisk != 0 {
-		doc.RootDisk = &rootDisk
-	}
-	if rootDiskSource := inst.RootDiskSource(); rootDiskSource != "" {
-		doc.RootDiskSource = &rootDiskSource
-	}
-	if cores := inst.CpuCores(); cores != 0 {
-		doc.CpuCores = &cores
-	}
-	if power := inst.CpuPower(); power != 0 {
-		doc.CpuPower = &power
-	}
-	if tags := inst.Tags(); len(tags) > 0 {
-		doc.Tags = &tags
-	}
-	if az := inst.AvailabilityZone(); az != "" {
-		doc.AvailZone = &az
-	}
-	if vt := inst.VirtType(); vt != "" {
-		doc.VirtType = &vt
-	}
-	if profiles := inst.CharmProfiles(); len(profiles) > 0 {
-		doc.CharmProfiles = profiles
-	}
-
-	return txn.Op{
-		C:      instanceDataC,
-		Id:     mdoc.DocID,
-		Assert: txn.DocMissing,
-		Insert: doc,
 	}
 }
 

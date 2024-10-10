@@ -1350,8 +1350,15 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	machineService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Machine()
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=arm64", "mem=4G")
+	machine0UUID, err := machineService.GetMachineUUID(context.Background(), coremachine.Name(s.machines[0].Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine0UUID, instance.Id("i-am"), "", &hwChars)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We keep this SetInstanceInfo only for the nonce.
 	err = s.machines[0].SetInstanceInfo("i-am", "", "fake_nonce", &hwChars, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1363,7 +1370,6 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	machineService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Machine()
 	_, err = machineService.CreateMachine(context.Background(), coremachine.Name(volumesMachine.Id()))
 	c.Assert(err, jc.ErrorIsNil)
 
